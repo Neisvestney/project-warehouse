@@ -1,0 +1,9 @@
+﻿services:
+  projectwarehouse.server:
+    image: projectwarehouse.server
+    build:
+      context: .
+      dockerfile: ProjectWarehouse.Server/Dockerfile
+    ports:
+      - "4587:8080"
+
