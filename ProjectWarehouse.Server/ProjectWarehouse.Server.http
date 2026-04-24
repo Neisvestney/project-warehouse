@@ -1,6 +1,0 @@
-@ProjectWarehouse.Server_HostAddress = http://localhost:5025
-
-GET {{ProjectWarehouse.Server_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

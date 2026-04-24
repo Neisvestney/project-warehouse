@@ -1,56 +1,48 @@
-import { useEffect, useState } from 'react';
-import './App.css';
-
-interface Forecast {
-    date: string;
-    temperatureC: number;
-    temperatureF: number;
-    summary: string;
-}
+import {useRegisterSW} from "virtual:pwa-register/react";
+import {Route, Routes} from "react-router";
+import HomePage from "./pages/HomePage/HomePage.tsx";
+import ScannerPage from "./pages/ScannerPage/ScannerPage.tsx";
+import CssBaseline from "@mui/material/CssBaseline";
+import {ThemeProvider} from "@mui/material";
+import theme from "./theme.ts";
+import MainLayout from "./layouts/MainLayout/MainLayout.tsx";
+import {SnackbarProvider} from "notistack";
+import ServiceWorkerContext from "./contexts/ServiceWorkerContext.ts";
+import UpdatePrompt from "./components/UpdatePromt/UpdatePrompt.tsx";
 
 function App() {
-    const [forecasts, setForecasts] = useState<Forecast[]>();
+  const {
+    needRefresh: [needRefresh],
+    offlineReady: [offlineReady],
+    updateServiceWorker,
+  } = useRegisterSW({
+    onOfflineReady: () => {
+      console.log("onOfflineReady");
+    },
+  });
 
-    useEffect(() => {
-        populateWeatherData();
-    }, []);
-
-    const contents = forecasts === undefined
-        ? <p><em>Loading... Please refresh once the ASP.NET backend has started. See <a href="https://aka.ms/jspsintegrationreact">https://aka.ms/jspsintegrationreact</a> for more details.</em></p>
-        : <table className="table table-striped" aria-labelledby="tabelLabel">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Temp. (C)</th>
-                    <th>Temp. (F)</th>
-                    <th>Summary</th>
-                </tr>
-            </thead>
-            <tbody>
-                {forecasts.map(forecast =>
-                    <tr key={forecast.date}>
-                        <td>{forecast.date}</td>
-                        <td>{forecast.temperatureC}</td>
-                        <td>{forecast.temperatureF}</td>
-                        <td>{forecast.summary}</td>
-                    </tr>
-                )}
-            </tbody>
-        </table>;
-
-    return (
-        <div>
-            <h1 id="tabelLabel">Weather forecast</h1>
-            <p>This component demonstrates fetching data from the server.</p>
-            {contents}
-        </div>
-    );
-
-    async function populateWeatherData() {
-        const response = await fetch('weatherforecast');
-        const data = await response.json();
-        setForecasts(data);
-    }
+  return (
+    <ServiceWorkerContext.Provider value={{needRefresh, offlineReady, updateServiceWorker}}>
+      <ThemeProvider theme={theme}>
+        <SnackbarProvider>
+          <CssBaseline />
+          <UpdatePrompt />
+          {/*{needRefresh && (*/}
+          {/*  <div className="update-banner">*/}
+          {/*    <p>Доступна новая версия. Требуется обновления</p>*/}
+          {/*    <button onClick={() => updateServiceWorker()}>Обновить</button>*/}
+          {/*  </div>*/}
+          {/*)}*/}
+          <Routes>
+            <Route element={<MainLayout />}>
+              <Route path="/" element={<HomePage />} />
+            </Route>
+            <Route path="/scanner" element={<ScannerPage />} />
+          </Routes>
+        </SnackbarProvider>
+      </ThemeProvider>
+    </ServiceWorkerContext.Provider>
+  );
 }
 
 export default App;

@@ -7,6 +7,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProjectWarehouse.Server", "
 EndProject
 Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "projectwarehouse.client", "projectwarehouse.client\projectwarehouse.client.esproj", "{A36EC3F4-2C06-4AB4-ABE4-454449371A0C}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{B7C64C23-3564-4BD8-B611-AB32759AB980}"
+	ProjectSection(SolutionItems) = preProject
+		compose.yaml = compose.yaml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
