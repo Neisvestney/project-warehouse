@@ -48,7 +48,7 @@ function MainAppBar({}: AppBarProps) {
   return (
     <AppBar position="static">
       <Container maxWidth="xl">
-        <Toolbar disableGutters>
+        <Toolbar disableGutters variant={"dense"}>
           <WarehouseIcon sx={{display: {xs: "none", md: "flex"}, mr: 1}} />
           <Typography
             variant="h6"

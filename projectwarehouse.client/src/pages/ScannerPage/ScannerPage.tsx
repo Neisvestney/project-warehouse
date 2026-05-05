@@ -118,6 +118,7 @@ function ScannerPage({}: ScannerPageProps) {
                   pointerEvents: "auto",
                   flex: 1,
                   backgroundColor: theme.palette.grey[300],
+                  zIndex: 1,
                 })}
               >
                 <CardActionArea onClick={() => setScannedCodesDrawerOpen(true)}>
