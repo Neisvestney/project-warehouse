@@ -1,4 +1,21 @@
-﻿services:
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: projectwarehouse
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d projectwarehouse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
   projectwarehouse.server:
     image: projectwarehouse.server
     build:
@@ -6,4 +23,11 @@
       dockerfile: ProjectWarehouse.Server/Dockerfile
     ports:
       - "4587:8080"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=projectwarehouse;Username=postgres;Password=${POSTGRES_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
 
+volumes:
+  postgres_data:
