@@ -35,6 +35,33 @@ export const DEFAULT_READER_OPTIONS: ReaderOptions = {
   maxNumberOfSymbols: 1,
 };
 
+/** Настройки для живого сканера — допускает несколько символов за кадр */
+export const DEFAULT_SCANNER_OPTIONS: ReaderOptions = {
+  formats: ["DataMatrix", "EAN13"],
+  tryHarder: true,
+  maxNumberOfSymbols: 10,
+};
+
+/** Нормализованная позиция баркода в координатах натурального видео (пикселях) */
+export interface NormalizedBarcodePosition {
+  topLeft: {x: number; y: number};
+  topRight: {x: number; y: number};
+  bottomLeft: {x: number; y: number};
+  bottomRight: {x: number; y: number};
+  /** true — баркод попал в зону viewfinder; false — за его пределами */
+  inViewfinder: boolean;
+}
+
+function isBarcodeInViewfinder(
+  pos: Omit<NormalizedBarcodePosition, "inViewfinder">,
+  region: {x: number; y: number; w: number; h: number},
+): boolean {
+  const {x, y, w, h} = region;
+  return [pos.topLeft, pos.topRight, pos.bottomLeft, pos.bottomRight].every(
+    p => p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h,
+  );
+}
+
 const BARCODE_DETECTOR_API_FORMATS: BarcodeFormat[] = ["data_matrix", "ean_13"];
 
 /**
@@ -228,6 +255,10 @@ interface QrScanLoopParams {
     | ((barCodeTextData: string, barcodeRawData: DetectedBarcode | ReadResult) => Promise<boolean>)
     | null
   >;
+  /** Зона viewfinder в натуральных пикселях видео для классификации inside/outside; null → всё inside */
+  cropRegionRef?: React.RefObject<{x: number; y: number; w: number; h: number} | null>;
+  /** Колбэк с позициями всех найденных баркодов за кадр (натуральные координаты видео) */
+  onBarcodePosition?: React.RefObject<((positions: NormalizedBarcodePosition[]) => void) | null>;
 }
 
 /**
@@ -246,11 +277,12 @@ export const createQrScanLoop = ({
   readerOptions,
   scanIntervalRef,
   onBarcodeDetected,
+  cropRegionRef,
+  onBarcodePosition,
 }: QrScanLoopParams): (() => void) => {
   let timeoutId: number | undefined;
 
-  // const hasBarcodeDetector = typeof BarcodeDetector !== "undefined";
-  const hasBarcodeDetector = false; // TODO enable
+  const hasBarcodeDetector = typeof BarcodeDetector !== "undefined";
   const detector = hasBarcodeDetector
     ? new BarcodeDetector!({formats: BARCODE_DETECTOR_API_FORMATS})
     : null;
@@ -297,7 +329,7 @@ export const createQrScanLoop = ({
         if (frameCount === 1) {
           if (IS_DEV) console.log("[ZXing] Video not ready, readyState:", video.readyState);
         }
-        setTimeout(loop, scanIntervalRef.current ?? 100);
+        timeoutId = window.setTimeout(loop, scanIntervalRef.current ?? 100);
         return;
       }
 
@@ -307,7 +339,7 @@ export const createQrScanLoop = ({
         if (frameCount === 1) {
           if (IS_DEV) console.log("[ZXing] Video has no dimensions:", width, "x", height);
         }
-        setTimeout(loop, scanIntervalRef.current ?? 100);
+        timeoutId = window.setTimeout(loop, scanIntervalRef.current ?? 100);
         return;
       }
 
@@ -323,12 +355,10 @@ export const createQrScanLoop = ({
           );
       }
 
-      // Вычисляем crop параметры
-      const cropSize = Math.min(width, height);
-      const offsetX = (width - cropSize) / 2;
-      const offsetY = (height - cropSize) / 2;
+      // Зона viewfinder для классификации баркодов (inside/outside)
+      const region = cropRegionRef?.current ?? null;
 
-      // 1. BarcodeDetector (если доступен) - работает напрямую с video
+      // 1. BarcodeDetector (если доступен) — работает с полным кадром напрямую
       if (detector) {
         try {
           const barcodes = await detector.detect(video);
@@ -337,21 +367,38 @@ export const createQrScanLoop = ({
           }
 
           if (barcodes.length > 0) {
-            for (const barcode of barcodes) {
-              if (barcode?.rawValue) {
-                if (IS_DEV) console.log("[ZXing] BarcodeDetector found QR:", barcode.rawValue);
-                const shouldStop = await onBarcodeDetected.current?.(barcode.rawValue, barcode);
-                if (shouldStop) return;
+            const validBarcodes = barcodes.filter(b => b.rawValue);
+            if (validBarcodes.length > 0) {
+              // cornerPoints: TL, TR, BR, BL clockwise per spec
+              const positions: NormalizedBarcodePosition[] = validBarcodes.map(b => {
+                const p = b.cornerPoints;
+                const pos = {
+                  topLeft:     {x: p[0].x, y: p[0].y},
+                  topRight:    {x: p[1].x, y: p[1].y},
+                  bottomRight: {x: p[2].x, y: p[2].y},
+                  bottomLeft:  {x: p[3].x, y: p[3].y},
+                };
+                return {...pos, inViewfinder: region ? isBarcodeInViewfinder(pos, region) : true};
+              });
+              onBarcodePosition?.current?.(positions);
+
+              for (let i = 0; i < validBarcodes.length; i++) {
+                if (positions[i].inViewfinder) {
+                  if (IS_DEV) console.log("[ZXing] BarcodeDetector found QR:", validBarcodes[i].rawValue);
+                  const shouldStop = await onBarcodeDetected.current?.(validBarcodes[i].rawValue, validBarcodes[i]);
+                  if (shouldStop) return;
+                }
               }
+              return continueLoop();
             }
-            return continueLoop();
+            // BarcodeDetector detected shape but rawValue is empty → fall through to ZXing
           }
         } catch (e) {
           if (IS_DEV) console.warn("[ZXing] BarcodeDetector error:", e);
         }
       }
 
-      // 2. Fallback: zxing-wasm с preprocessing
+      // 2. Fallback: zxing-wasm с preprocessing (полный кадр)
       const shouldRunZxing = !detector || frameCount % 2 === 0;
       if (shouldRunZxing) {
         let bitmap: ImageBitmap | null = null;
@@ -359,38 +406,44 @@ export const createQrScanLoop = ({
         const tempCtx = tempCanvas.getContext("2d");
 
         if (!tempCtx) {
-          setTimeout(() => loop(), scanIntervalRef.current ?? 100);
+          timeoutId = window.setTimeout(loop, scanIntervalRef.current ?? 100);
           return;
         }
 
         try {
-          // Создаём bitmap с кроппингом (GPU-friendly)
-          bitmap = await createImageBitmap(video, offsetX, offsetY, cropSize, cropSize);
-
-          // Переносим на временный canvas для preprocessing
-          tempCanvas.width = cropSize;
-          tempCanvas.height = cropSize;
+          bitmap = await createImageBitmap(video);
+          tempCanvas.width = width;
+          tempCanvas.height = height;
           tempCtx.drawImage(bitmap, 0, 0);
-          bitmap.close(); // Освобождаем память
+          bitmap.close();
           bitmap = null;
 
-          // Применяем preprocessing (бинаризация Otsu)
-          preprocessForQr(tempCtx, cropSize, cropSize);
+          preprocessForQr(tempCtx, width, height);
 
-          // Декодируем
-          const imageData = tempCtx.getImageData(0, 0, cropSize, cropSize);
+          const imageData = tempCtx.getImageData(0, 0, width, height);
           const results = await readBarcodes(imageData, readerOptions);
           if (IS_DEV && results.length > 0) console.log("[ZXing] readBarcodes results:", results);
 
           if (results.length > 0) {
-            for (const result of results) {
-              if (result.text) {
-                if (IS_DEV) console.log("[ZXing] zxing-wasm found QR:", result.text);
-                const shouldStop = await onBarcodeDetected.current?.(result.text, result);
+            const validResults = results.filter(r => r.text);
+            const positions: NormalizedBarcodePosition[] = validResults.map(r => {
+              const pos = {
+                topLeft:     {x: r.position.topLeft.x,     y: r.position.topLeft.y},
+                topRight:    {x: r.position.topRight.x,    y: r.position.topRight.y},
+                bottomLeft:  {x: r.position.bottomLeft.x,  y: r.position.bottomLeft.y},
+                bottomRight: {x: r.position.bottomRight.x, y: r.position.bottomRight.y},
+              };
+              return {...pos, inViewfinder: region ? isBarcodeInViewfinder(pos, region) : true};
+            });
+            onBarcodePosition?.current?.(positions);
+
+            for (let i = 0; i < validResults.length; i++) {
+              if (positions[i].inViewfinder) {
+                if (IS_DEV) console.log("[ZXing] zxing-wasm found QR:", validResults[i].text);
+                const shouldStop = await onBarcodeDetected.current?.(validResults[i].text, validResults[i]);
                 if (shouldStop) return;
               }
             }
-
             return continueLoop();
           }
         } catch (e) {
@@ -398,7 +451,7 @@ export const createQrScanLoop = ({
             if (IS_DEV) console.warn("[ZXing] zxing-wasm error:", e);
           }
         } finally {
-          if (bitmap) bitmap.close(); // Cleanup на случай ошибки
+          if (bitmap) bitmap.close();
         }
       }
 
@@ -410,31 +463,45 @@ export const createQrScanLoop = ({
         const tempCtx = tempCanvas.getContext("2d");
 
         if (!tempCtx) {
-          setTimeout(() => loop(), scanIntervalRef.current ?? 100);
+          timeoutId = window.setTimeout(loop, scanIntervalRef.current ?? 100);
           return;
         }
 
         try {
-          bitmap = await createImageBitmap(video, offsetX, offsetY, cropSize, cropSize);
-          tempCanvas.width = cropSize;
-          tempCanvas.height = cropSize;
+          bitmap = await createImageBitmap(video);
+          tempCanvas.width = width;
+          tempCanvas.height = height;
           tempCtx.drawImage(bitmap, 0, 0);
           bitmap.close();
           bitmap = null;
 
-          // Сначала preprocessing, потом инверсия
-          preprocessForQr(tempCtx, cropSize, cropSize);
-          invertCanvas(tempCtx, cropSize, cropSize);
+          preprocessForQr(tempCtx, width, height);
+          invertCanvas(tempCtx, width, height);
 
-          const imageData = tempCtx.getImageData(0, 0, cropSize, cropSize);
+          const imageData = tempCtx.getImageData(0, 0, width, height);
           const results = await readBarcodes(imageData, readerOptions);
-          const text = results[0]?.text;
 
-          if (text) {
-            if (IS_DEV) console.log("[ZXing] zxing-wasm (inverted) found QR:", text);
-            const shouldStop = await onBarcodeDetected.current?.(text, results[0]);
-            if (shouldStop) return;
-            else return continueLoop();
+          if (results.length > 0) {
+            const validResults = results.filter(r => r.text);
+            const positions: NormalizedBarcodePosition[] = validResults.map(r => {
+              const pos = {
+                topLeft:     {x: r.position.topLeft.x,     y: r.position.topLeft.y},
+                topRight:    {x: r.position.topRight.x,    y: r.position.topRight.y},
+                bottomLeft:  {x: r.position.bottomLeft.x,  y: r.position.bottomLeft.y},
+                bottomRight: {x: r.position.bottomRight.x, y: r.position.bottomRight.y},
+              };
+              return {...pos, inViewfinder: region ? isBarcodeInViewfinder(pos, region) : true};
+            });
+            onBarcodePosition?.current?.(positions);
+
+            for (let i = 0; i < validResults.length; i++) {
+              if (positions[i].inViewfinder) {
+                if (IS_DEV) console.log("[ZXing] zxing-wasm (inverted) found QR:", validResults[i].text);
+                const shouldStop = await onBarcodeDetected.current?.(validResults[i].text, validResults[i]);
+                if (shouldStop) return;
+              }
+            }
+            return continueLoop();
           }
         } catch (e) {
           if (frameCount % 30 === 0) {
@@ -448,6 +515,8 @@ export const createQrScanLoop = ({
       if (IS_DEV) console.warn("[ZXing] Ошибка при попытке сканирования кадра:", e);
     }
 
+    // Ни один путь не нашёл баркод — сбрасываем позиции
+    onBarcodePosition?.current?.([]);
     continueLoop();
   };
 

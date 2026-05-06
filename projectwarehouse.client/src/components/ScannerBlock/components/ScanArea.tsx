@@ -1,6 +1,8 @@
-import {Box, CircularProgress, css, Stack, styled, Typography} from "@mui/material";
+import {CircularProgress, css, Stack, styled, Typography} from "@mui/material";
 import NoPhotographyIcon from "@mui/icons-material/NoPhotography";
 import React from "react";
+import {ScanFrameOverlay, type ViewfinderRect} from "./ScanFrameOverlay.tsx";
+import type {NormalizedBarcodePosition} from "../../../utils/qrTools.ts";
 
 type ScanMode = "loading" | "camera" | "upload";
 
@@ -14,6 +16,9 @@ interface ScanAreaProps {
   doubleTapBind: Record<string, any>;
   onWheelZoom: (e: React.WheelEvent) => void;
   zoomControls: React.ReactNode;
+  viewfinderRect: ViewfinderRect | null;
+  detectedPositions: NormalizedBarcodePosition[];
+  onResizeViewfinder: (w: number, h: number) => void;
 }
 
 /**
@@ -34,6 +39,9 @@ export const ScanArea: React.FC<ScanAreaProps> = ({
   doubleTapBind,
   onWheelZoom,
   zoomControls,
+  viewfinderRect,
+  detectedPositions,
+  onResizeViewfinder,
 }) => {
   if (mode === "upload") {
     return (
@@ -75,18 +83,15 @@ export const ScanArea: React.FC<ScanAreaProps> = ({
         </CenterMessageBox>
       )}
 
-      {/*{mode === "camera" && (*/}
-      {/*  <div>*/}
-      {/*    <div*/}
-      {/*    // className={cn(styles.scan_frame, {*/}
-      {/*    //   [styles.focusing]: isFocusing,*/}
-      {/*    // })}*/}
-      {/*    />*/}
-      {/*    <div>*/}
-      {/*      <p>наведите камеру на QR код</p>*/}
-      {/*    </div>*/}
-      {/*  </div>*/}
-      {/*)}*/}
+      {mode === "camera" && viewfinderRect !== null && (
+        <ScanFrameOverlay
+          containerRef={scanAreaRef}
+          videoRef={videoRef}
+          viewfinderRect={viewfinderRect}
+          detectedPositions={detectedPositions}
+          onResize={onResizeViewfinder}
+        />
+      )}
 
       {/* Кнопки зума (ВНЕ overlay!) */}
       {zoomControls}
