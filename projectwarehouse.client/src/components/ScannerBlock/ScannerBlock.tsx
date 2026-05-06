@@ -1,8 +1,14 @@
-import React, {type ReactNode, useCallback, useEffect, useRef, useState} from "react";
+import React, {type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState} from "react";
 import {ScanArea, ZoomControls} from "./components";
+import type {ViewfinderRect} from "./components";
 import {IS_DEV} from "../../configuration/flagsConstants.ts";
 import {useCameraFocus, useCameraStream, useCameraZoom} from "../../utils/camera";
-import {createQrScanLoop, DEFAULT_READER_OPTIONS, validateQrCode} from "../../utils/qrTools.ts";
+import {
+  createQrScanLoop,
+  DEFAULT_SCANNER_OPTIONS,
+  validateQrCode,
+  type NormalizedBarcodePosition,
+} from "../../utils/qrTools.ts";
 import type {ReadResult} from "zxing-wasm/reader";
 import {Container, css, SpeedDial, SpeedDialAction, styled} from "@mui/material";
 import SpeedDialIcon from "@mui/material/SpeedDialIcon";
@@ -33,20 +39,28 @@ function ScannerBlock({
   const [scannedLog, setScannedLog] = useState("");
   const [scanInterval, setScanInterval] = useState(100);
   const [cameraSelectDialogOpen, setCameraSelectDialogOpen] = useState(false);
+  const [viewfinderRect, setViewfinderRect] = useState<ViewfinderRect | null>(null);
+  const [detectedPositions, setDetectedPositions] = useState<NormalizedBarcodePosition[]>([]);
   const scanIntervalRef = useRef(100);
   const qrScannedHandlerRef =
     useRef<
       (barCodeTextData: string, barcodeRawData: DetectedBarcode | ReadResult) => Promise<boolean>
     >(null);
+  const cropRegionRef = useRef<{x: number; y: number; w: number; h: number} | null>(null);
+  const onBarcodePositionRef = useRef<((positions: NormalizedBarcodePosition[]) => void) | null>(null);
+  const clearPositionsTimerRef = useRef<number | undefined>(undefined);
+  const viewfinderRectRef = useRef<ViewfinderRect | null>(null);
+  const viewfinderSizeRef = useRef<{w: number; h: number} | null>(null);
+  const scanLoopCleanupRef = useRef<(() => void) | null>(null);
+  // Объявляем scanAreaRef здесь чтобы он был доступен во всех хуках ниже
+  const scanAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Синхронизируем ref с state для динамического изменения
     scanIntervalRef.current = scanInterval;
   }, [scanInterval]);
 
-  const scanAreaRef = useRef<HTMLDivElement>(null);
-
-  // Хуки камеры
+  // Хуки камеры объявляем раньше, чтобы cameraStream был доступен в следующих хуках
   const cameraStream = useCameraStream({
     restart,
     onStreamReady: handleStreamReady,
@@ -64,19 +78,125 @@ function ScannerBlock({
     zoomCapabilitiesRef: cameraZoom.zoomCapabilitiesRef,
   });
 
+  // Viewfinder фиксирован в центре — ResizeObserver держит его по центру при изменении размера
+  useLayoutEffect(() => {
+    const container = scanAreaRef.current;
+    if (!container) return;
+
+    const computeViewfinder = () => {
+      const {clientWidth: dw, clientHeight: dh} = container;
+      if (!dw || !dh) return;
+      let w: number, h: number;
+      if (viewfinderSizeRef.current) {
+        w = Math.min(viewfinderSizeRef.current.w, dw * 0.97);
+        h = Math.min(viewfinderSizeRef.current.h, dh * 0.97);
+      } else {
+        const size = Math.min(dw, dh) * 0.75;
+        w = size;
+        h = size;
+      }
+      const rect: ViewfinderRect = {x: (dw - w) / 2, y: (dh - h) / 2, w, h};
+      viewfinderRectRef.current = rect;
+      setViewfinderRect(rect);
+    };
+
+    computeViewfinder();
+    const ro = new ResizeObserver(computeViewfinder);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, []);
+
+  // Перевод viewfinder (screen px) в натуральные координаты видео для scan loop
+  const updateCropRegion = useCallback(
+    (rect: ViewfinderRect) => {
+      const video = cameraStream.videoRef.current;
+      const container = scanAreaRef.current;
+      const vw = video?.videoWidth ?? 0;
+      const vh = video?.videoHeight ?? 0;
+      const dw = container?.clientWidth ?? 0;
+      const dh = container?.clientHeight ?? 0;
+      if (!vw || !vh || !dw || !dh) {
+        cropRegionRef.current = null;
+        return;
+      }
+      const scale = Math.max(dw / vw, dh / vh);
+      const ox = (vw * scale - dw) / 2;
+      const oy = (vh * scale - dh) / 2;
+      cropRegionRef.current = {
+        x: (rect.x + ox) / scale,
+        y: (rect.y + oy) / scale,
+        w: rect.w / scale,
+        h: rect.h / scale,
+      };
+    },
+    [cameraStream.videoRef],
+  );
+
+  const handleResizeViewfinder = useCallback(
+    (newW: number, newH: number) => {
+      const container = scanAreaRef.current;
+      if (!container) return;
+      const {clientWidth: dw, clientHeight: dh} = container;
+      const MIN = 80;
+      const w = Math.max(MIN, Math.min(newW, dw * 0.97));
+      const h = Math.max(MIN, Math.min(newH, dh * 0.97));
+      viewfinderSizeRef.current = {w, h};
+      const rect: ViewfinderRect = {x: (dw - w) / 2, y: (dh - h) / 2, w, h};
+      viewfinderRectRef.current = rect;
+      setViewfinderRect(rect);
+      updateCropRegion(rect);
+    },
+    [updateCropRegion],
+  );
+
+  // Синхронизируем cropRegion когда camera становится активной (видео загружено)
+  useEffect(() => {
+    if (cameraStream.mode === "camera" && viewfinderRectRef.current) {
+      updateCropRegion(viewfinderRectRef.current);
+    }
+  }, [cameraStream.mode, updateCropRegion]);
+
+  // Обработчик позиций баркодов из scan loop
+  useEffect(() => {
+    onBarcodePositionRef.current = (positions: NormalizedBarcodePosition[]) => {
+      if (positions.length > 0) {
+        window.clearTimeout(clearPositionsTimerRef.current);
+        setDetectedPositions(positions);
+      } else {
+        clearPositionsTimerRef.current = window.setTimeout(() => {
+          setDetectedPositions([]);
+        }, 300);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(clearPositionsTimerRef.current);
+      scanLoopCleanupRef.current?.();
+    };
+  }, []);
+
   // Колбэк после старта камеры — инициализация зума/фокуса и запуск scan loop
+  // function-declaration поднимается (hoisting), поэтому передаётся в useCameraStream выше
   function handleStreamReady({track}: {track: MediaStreamTrack; video: HTMLVideoElement}) {
-    // Инициализируем capabilities зума и фокуса
     cameraZoom.initZoomCapabilities(track);
     cameraFocus.initFocusMode(track);
 
-    // Запускаем scan loop
-    createQrScanLoop({
+    // Обновляем cropRegion теперь что видео готово
+    if (viewfinderRectRef.current) {
+      updateCropRegion(viewfinderRectRef.current);
+    }
+
+    scanLoopCleanupRef.current?.();
+    scanLoopCleanupRef.current = createQrScanLoop({
       videoRef: cameraStream.videoRef,
       isScanningRef: cameraStream.isScanningRef,
-      readerOptions: DEFAULT_READER_OPTIONS,
+      readerOptions: DEFAULT_SCANNER_OPTIONS,
       scanIntervalRef,
       onBarcodeDetected: qrScannedHandlerRef,
+      cropRegionRef,
+      onBarcodePosition: onBarcodePositionRef,
     });
   }
 
@@ -161,6 +281,9 @@ function ScannerBlock({
         scanAreaRef={scanAreaRef}
         doubleTapBind={cameraFocus.doubleTapBind}
         onWheelZoom={cameraZoom.handleWheelZoom}
+        viewfinderRect={viewfinderRect}
+        detectedPositions={detectedPositions}
+        onResizeViewfinder={handleResizeViewfinder}
         zoomControls={
           <ZoomControls
             mode={cameraStream.mode}
@@ -196,13 +319,9 @@ function ScannerBlock({
             <SpeedDialAction
               sx={{pointerEvents: "auto"}}
               icon={<FlipCameraIosIcon />}
-              onClick={() => {
-                console.log("AAAAAAA");
-              }}
               slotProps={{
                 fab: {
                   onClick: () => {
-                    console.log("AAAAAAA");
                     setCameraSelectDialogOpen(true);
                   },
                 },
