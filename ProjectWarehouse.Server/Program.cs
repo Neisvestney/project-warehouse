@@ -1,9 +1,23 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Reflection;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using ProjectWarehouse.Server.Data;
+using ProjectWarehouse.Server.Domain;
+using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Models;
+using ProjectWarehouse.Server.Services;
 using Scalar.AspNetCore;
 using Serilog;
-using System.Text.Json.Serialization;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -22,14 +36,152 @@ try
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
             options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
-    builder.Services.AddOpenApi();
+    builder.Services.AddOpenApi(options =>
+    {
+        options.AddDocumentTransformer((document, _, _) =>
+        {
+            var securitySchemes = new Dictionary<string, IOpenApiSecurityScheme>
+            {
+                ["Bearer"] = new OpenApiSecurityScheme
+                {
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    In = ParameterLocation.Header,
+                    BearerFormat = "Json Web Token"
+                }
+            };
+            document.Components ??= new OpenApiComponents();
+            document.Components.SecuritySchemes = securitySchemes;
+
+            return Task.CompletedTask;
+        });
+
+        options.AddSchemaTransformer((schema, context, _) =>
+        {
+            if (context.JsonTypeInfo.Kind != JsonTypeInfoKind.Object)
+                return Task.CompletedTask;
+
+            var nullabilityCtx = new NullabilityInfoContext();
+
+            foreach (var prop in context.JsonTypeInfo.Properties)
+            {
+                if (prop.AttributeProvider is not PropertyInfo pi) continue;
+
+                var info = nullabilityCtx.Create(pi);
+                if (info.ReadState == NullabilityState.NotNull)
+                {
+                    schema.Required ??= new HashSet<string>();
+                    schema.Required.Add(prop.Name);
+                }
+            }
+
+            return Task.CompletedTask;
+        });
+    });
 
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+    builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
+        {
+            options.Password.RequiredLength = 8;
+            options.Password.RequireNonAlphanumeric = false;
+            options.User.RequireUniqueEmail = false;
+        })
+        .AddEntityFrameworkStores<ApplicationDbContext>()
+        .AddDefaultTokenProviders();
+
+    var jwtSettings = builder.Configuration.GetSection("Jwt");
+    builder.Services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.MapInboundClaims = false;
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = jwtSettings["Issuer"],
+                ValidateAudience = true,
+                ValidAudience = jwtSettings["Audience"],
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!)),
+                ClockSkew = TimeSpan.Zero,
+                NameClaimType = "name",
+            };
+
+            options.Events = new JwtBearerEvents
+            {
+                OnTokenValidated = async ctx =>
+                {
+                    var subClaim = ctx.Principal!.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+
+                    if (!Guid.TryParse(subClaim, out var userId))
+                    {
+                        ctx.Fail("Invalid sub claim.");
+                        return;
+                    }
+
+                    if (!int.TryParse(ctx.Principal.FindFirst("security_version")?.Value, out var claimedVersion))
+                    {
+                        ctx.Fail("Missing security_version claim.");
+                        return;
+                    }
+
+                    var store = ctx.HttpContext.RequestServices.GetRequiredService<SecurityVersionStore>();
+                    var currentVersion = await store.GetVersionAsync(userId);
+
+                    if (claimedVersion != currentVersion)
+                        ctx.Fail("TOKEN_OUTDATED");
+                }
+            };
+        });
+
+    builder.Services.AddAuthorization(options =>
+    {
+        foreach (var permission in Permissions.All)
+            options.AddPolicy(permission,
+                p => p.Requirements.Add(new PermissionRequirement(permission)));
+    });
+
+    builder.Services.Configure<ApiBehaviorOptions>(options =>
+    {
+        options.InvalidModelStateResponseFactory = ctx =>
+        {
+            var errors = ctx.ModelState
+                .Where(e => e.Value?.Errors.Count > 0)
+                .SelectMany(kvp => kvp.Value!.Errors.Select(err => (
+                    Field: ModelStateErrorMapper.NormalizeField(kvp.Key),
+                    Code: ModelStateErrorMapper.Resolve(err),
+                    Message: string.IsNullOrEmpty(err.ErrorMessage)
+                        ? err.Exception?.Message ?? "Validation error."
+                        : err.ErrorMessage
+                )));
+
+            var details = AppProblems.UnprocessableEntities(errors);
+            return new ObjectResult(details) { StatusCode = details.Status };
+        };
+    });
+
+    builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+    builder.Services.AddScoped<ITokenService, TokenService>();
+    builder.Services.AddScoped<IPermissionService, PermissionService>();
+    builder.Services.AddSingleton<SecurityVersionStore>();
     builder.Services.AddAutoMapper(typeof(Program).Assembly);
 
     var app = builder.Build();
+
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await db.Database.MigrateAsync();
+    }
+
+    await DbSeeder.SeedAsync(app.Services);
 
     app.UseDefaultFiles();
     app.UseStaticFiles();
@@ -37,10 +189,13 @@ try
     if (app.Environment.IsDevelopment())
     {
         app.MapOpenApi();
-        app.MapScalarApiReference();
+        app.MapScalarApiReference(options => options
+            .AddPreferredSecuritySchemes(JwtBearerDefaults.AuthenticationScheme)
+            .EnablePersistentAuthentication());
     }
 
     app.UseHttpsRedirection();
+    app.UseAuthentication();
     app.UseAuthorization();
     app.MapControllers();
     app.MapFallbackToFile("/index.html");

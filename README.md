@@ -30,30 +30,36 @@ cp .env.example .env
 docker compose up postgres -d
 ```
 
-### 3. Установить зависимости фронта
+### 3. User Secrets (первый запуск)
+
+JWT-ключ и пароль администратора хранятся в user secrets, не в репозитории:
+
+```bash
+cd ProjectWarehouse.Server
+dotnet user-secrets set "Jwt:SecretKey" "your-secret-min-32-chars-here!!"
+dotnet user-secrets set "Seed:AdminPassword" "YourAdminPassword1!"
+```
+
+`Seed:AdminUsername` по умолчанию `admin`.
+
+### 4. Установить зависимости фронта
 
 ```bash
 cd projectwarehouse.client
 npm install
 ```
 
-### 4. Запустить бэкенд
+### 5. Запустить бэкенд
 
 ```bash
 cd ProjectWarehouse.Server
 dotnet run
 ```
 
-ASP.NET автоматически поднимает Vite dev-сервер через SPA Proxy.
+Миграции применяются автоматически при старте. ASP.NET автоматически поднимает Vite dev-сервер через SPA Proxy.
 
 - API: https://localhost:7095
 - Vite dev: https://localhost:5173
-
-### 5. Применить миграции (первый запуск)
-
-```bash
-dotnet ef database update --project ProjectWarehouse.Server
-```
 
 ---
 
@@ -76,6 +82,11 @@ docker compose --env-file .env.prod up --build
 
 ```bash
 dotnet ef migrations add <MigrationName> --project ProjectWarehouse.Server
+```
+
+Применяются автоматически при следующем запуске сервера. Для ручного применения без запуска:
+
+```bash
 dotnet ef database update --project ProjectWarehouse.Server
 ```
 
