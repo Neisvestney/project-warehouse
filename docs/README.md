@@ -1,0 +1,74 @@
+# Project Warehouse — Documentation
+
+A warehouse management web app with barcode/QR scanning (PWA), user management, and a role-based permission system.
+
+## Architecture
+
+```
+projectwarehouse.client/   React 19 + TypeScript PWA (Vite)
+ProjectWarehouse.Server/   ASP.NET Core 9 REST API
+  ├── Controllers/         HTTP layer
+  ├── Services/            Business logic
+  ├── Domain/              EF Core entities
+  ├── Infrastructure/      Auth handlers, permissions, error helpers
+  ├── Models/              Request/response DTOs
+  ├── Data/                DbContext, migrations, seeder
+  └── Migrations/          EF Core migrations
+```
+
+**Backend:** ASP.NET Core 9, Entity Framework Core, PostgreSQL, ASP.NET Core Identity, JWT Bearer auth  
+**Frontend:** React 19, TypeScript 6, Vite 8, MUI v9, React Router v7, PWA (vite-plugin-pwa), zxing-wasm
+
+## Docs Index
+
+| File | Contents |
+|------|----------|
+| [api.md](api.md) | REST API endpoints, request/response shapes, models |
+| [auth.md](auth.md) | JWT auth flow, token refresh, SecurityVersion invalidation |
+| [permissions.md](permissions.md) | Permission system design, available permissions, RBAC |
+| [errors.md](errors.md) | Error response format (`AppProblemDetails`), all error codes |
+| [validation.md](validation.md) | Validation pipeline, `[JsonRequired]`, ModelState mapping |
+| [frontend.md](frontend.md) | Frontend architecture, pages, components, routing |
+
+## Local Dev Setup
+
+### Prerequisites
+
+- .NET 9 SDK
+- Node.js 20+
+- PostgreSQL (local or via Docker)
+
+### User Secrets (required before first run)
+
+```
+cd ProjectWarehouse.Server
+dotnet user-secrets set "Jwt:SecretKey" "your-secret-min-32-chars-here!!"
+dotnet user-secrets set "Seed:AdminPassword" "YourAdminPassword1!"
+```
+
+`Seed:AdminUsername` defaults to `"admin"` if not set.
+
+### Run Backend
+
+```
+cd ProjectWarehouse.Server
+dotnet run
+```
+
+API: `https://localhost:7095`  
+Scalar UI (dev only): `https://localhost:7095/scalar`
+
+### Run Frontend
+
+```
+cd projectwarehouse.client
+npm install
+npm run dev
+```
+
+Dev server: `http://localhost:5173`  
+Vite proxies `/api/*`, `/openapi/*`, `/scalar/*` → `https://localhost:7095`.
+
+### First Login
+
+Use the credentials set in `Seed:AdminPassword`. The admin user is seeded on startup with all permissions.
