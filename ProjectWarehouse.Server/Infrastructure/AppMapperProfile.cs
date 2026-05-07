@@ -1,6 +1,6 @@
 using AutoMapper;
 
-namespace ProjectWarehouse.Server.Data;
+namespace ProjectWarehouse.Server.Infrastructure;
 
 public class AppMapperProfile : Profile
 {
