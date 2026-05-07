@@ -90,6 +90,14 @@ export default defineConfig(({command}) => ({
         target: "https://localhost:7095/",
         secure: false,
       },
+      "^/openapi": {
+        target: "https://localhost:7095/",
+        secure: false,
+      },
+      "^/scalar": {
+        target: "https://localhost:7095/",
+        secure: false,
+      },
     },
     port: 5173,
     // https: {

@@ -1,6 +1,9 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
+using Scalar.AspNetCore;
 using Serilog;
+using System.Text.Json.Serialization;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -16,7 +19,9 @@ try
         .Enrich.FromLogContext()
         .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"));
 
-    builder.Services.AddControllers();
+    builder.Services.AddControllers()
+        .AddJsonOptions(options =>
+            options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
     builder.Services.AddOpenApi();
 
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -32,6 +37,7 @@ try
     if (app.Environment.IsDevelopment())
     {
         app.MapOpenApi();
+        app.MapScalarApiReference();
     }
 
     app.UseHttpsRedirection();
