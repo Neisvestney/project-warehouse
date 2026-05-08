@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -73,6 +74,41 @@ try
                     schema.Required ??= new HashSet<string>();
                     schema.Required.Add(prop.Name);
                 }
+            }
+
+            return Task.CompletedTask;
+        });
+
+        options.AddSchemaTransformer((schema, context, _) =>
+        {
+            var type = context.JsonTypeInfo.Type;
+            if (!type.IsEnum) return Task.CompletedTask;
+
+            schema.Enum = Enum.GetNames(type)
+                .Select(n => (JsonNode)JsonValue.Create(JsonNamingPolicy.CamelCase.ConvertName(n))!)
+                .ToList();
+            schema.Type = JsonSchemaType.String;
+            schema.Format = null;
+
+            return Task.CompletedTask;
+        });
+
+        options.AddDocumentTransformer((document, _, _) =>
+        {
+            var permissionValues = Permissions.All
+                .Select(p => (JsonNode)JsonValue.Create(p)!);
+
+            document.Components ??= new OpenApiComponents();
+            document.Components.Schemas ??= new Dictionary<string, IOpenApiSchema>();
+            var schemas = document.Components.Schemas!;
+            schemas["PermissionName"] = new OpenApiSchema { Type = JsonSchemaType.String, Enum = permissionValues.ToList() };
+
+            // Schema names are derived from class names by the OpenAPI generator; update these if the request types are renamed.
+            foreach (var typeName in new[] { "AssignPermissionRequest", "AssignRolePermissionRequest" })
+            {
+                if (!schemas.TryGetValue(typeName, out var raw) || raw is not OpenApiSchema typeSchema) continue;
+                if (typeSchema.Properties is not { } props || !props.ContainsKey("permission")) continue;
+                props["permission"] = new OpenApiSchemaReference("PermissionName", document);
             }
 
             return Task.CompletedTask;
