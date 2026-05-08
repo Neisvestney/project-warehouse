@@ -1,6 +1,6 @@
 import {useState} from "react";
 import {useDoubleTap} from "use-double-tap";
-import {IS_DEV} from "../../configuration/flagsConstants.ts";
+import {IS_DEV} from "@/configuration/flagsConstants.ts";
 
 // TypeScript типы для MediaStream API (focus)
 interface ExtendedCapabilities extends MediaTrackCapabilities {

@@ -1,5 +1,5 @@
 import React, {useRef} from "react";
-import type {NormalizedBarcodePosition} from "../../../utils/qrTools.ts";
+import type {NormalizedBarcodePosition} from "@/utils/qrTools.ts";
 
 export interface ViewfinderRect {
   x: number;

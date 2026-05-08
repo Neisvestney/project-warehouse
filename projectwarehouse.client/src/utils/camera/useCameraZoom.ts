@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from "react";
-import {IS_DEV} from "../../configuration/flagsConstants.ts";
+import {IS_DEV} from "@/configuration/flagsConstants.ts";
 
 // TypeScript типы для MediaStream API (zoom)
 interface ZoomCapability {

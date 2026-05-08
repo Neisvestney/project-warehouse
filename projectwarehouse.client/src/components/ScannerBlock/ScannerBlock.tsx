@@ -1,14 +1,14 @@
 import React, {type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState} from "react";
 import {ScanArea, ZoomControls} from "./components";
 import type {ViewfinderRect} from "./components";
-import {IS_DEV} from "../../configuration/flagsConstants.ts";
-import {useCameraFocus, useCameraStream, useCameraZoom} from "../../utils/camera";
+import {IS_DEV} from "@/configuration/flagsConstants.ts";
+import {useCameraFocus, useCameraStream, useCameraZoom} from "@/utils/camera";
 import {
   createQrScanLoop,
   DEFAULT_SCANNER_OPTIONS,
   validateQrCode,
   type NormalizedBarcodePosition,
-} from "../../utils/qrTools.ts";
+} from "@/utils/qrTools.ts";
 import type {ReadResult} from "zxing-wasm/reader";
 import {Container, css, SpeedDial, SpeedDialAction, styled} from "@mui/material";
 import SpeedDialIcon from "@mui/material/SpeedDialIcon";
