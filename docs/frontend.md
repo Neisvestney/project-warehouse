@@ -10,6 +10,8 @@
 | MUI (Material UI) | v9 | Component library |
 | Emotion | 11 | CSS-in-JS (MUI peer) |
 | React Router | v7 | Client-side routing |
+| TanStack React Query | v5 | Server state management |
+| @hey-api/openapi-ts | 0.97+ | OpenAPI → TypeScript codegen |
 | notistack | 3 | Toast notifications |
 | zxing-wasm | 3 | Barcode/QR decoding (WASM) |
 | vite-plugin-pwa | 1 | PWA + service worker |
@@ -59,6 +61,18 @@ src/
 │   │   └── HomePage.tsx         # Landing page with navigation cards
 │   └── ScannerPage/
 │       └── ScannerPage.tsx      # Full-screen scanner + scanned codes drawer
+│
+├── api/                         # Auto-generated — run `npm run generate-api` to refresh
+│   ├── client/                  # Bundled fetch client (from @hey-api/openapi-ts)
+│   ├── client.gen.ts            # Client singleton
+│   ├── types.gen.ts             # TypeScript types from OpenAPI schema
+│   ├── sdk.gen.ts               # Typed SDK functions for all endpoints
+│   ├── index.ts                 # Re-exports everything
+│   └── @tanstack/
+│       └── react-query.gen.ts   # queryOptions / mutationOptions factories
+│
+├── services/
+│   └── apiClient.ts             # Client config, token storage, refresh interceptor
 │
 └── utils/
     ├── camera/
@@ -141,3 +155,59 @@ This means frontend code can call `/api/auth/login` without CORS or hardcoded UR
 ## Path Alias
 
 `@` → `./src`. Import as `import foo from "@/utils/qrTools"`.
+
+## API Client
+
+TypeScript client is auto-generated from the backend's OpenAPI schema using `@hey-api/openapi-ts`.
+
+### Regenerating
+
+```bash
+# Backend must be running first
+npm run generate-api
+```
+
+Reads from `https://localhost:7095/openapi/v1.json` (dev cert TLS check is bypassed for the CLI only). Outputs to `src/api/`. Generated files are committed to git.
+
+### Runtime setup
+
+`setupApiClient()` is called once in `main.tsx` before `ReactDOM.createRoot`. It:
+- Sets `baseUrl` to `/api` (Vite proxy routes this to the backend)
+- Installs a request interceptor that proactively refreshes the JWT access token when < 30s of its lifetime remains
+- Installs a response interceptor that clears stored tokens on any 401 (revoked session, server security version bump)
+
+### Token storage (`src/services/apiClient.ts`)
+
+Three `localStorage` keys, managed by `storeTokens()` / `clearTokens()`:
+
+| Key | Value |
+|-----|-------|
+| `accessToken` | JWT bearer token |
+| `refreshToken` | Opaque refresh token |
+| `tokenExpiry` | Unix ms timestamp when the access token expires |
+
+Call `storeTokens(tokenResponse)` after a successful login (auth context handles this). Call `clearTokens()` on logout.
+
+### Using generated hooks
+
+```typescript
+import { useQuery } from '@tanstack/react-query';
+import { getApiAuthMeOptions } from '@/api/@tanstack/react-query.gen';
+
+function MyComponent() {
+  const { data, error } = useQuery(getApiAuthMeOptions());
+  // data is typed as MeResponse
+}
+```
+
+For mutations:
+
+```typescript
+import { useMutation } from '@tanstack/react-query';
+import { postApiAuthLoginMutation } from '@/api/@tanstack/react-query.gen';
+
+const login = useMutation({
+  ...postApiAuthLoginMutation(),
+  onSuccess: (data) => storeTokens(data),
+});
+```
