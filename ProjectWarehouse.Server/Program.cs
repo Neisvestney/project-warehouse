@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -111,6 +112,13 @@ try
                 props["permission"] = new OpenApiSchemaReference("PermissionName", document);
             }
 
+            return Task.CompletedTask;
+        });
+
+        options.AddOperationTransformer((operation, context, _) =>
+        {
+            if (context.Description.ActionDescriptor is ControllerActionDescriptor descriptor)
+                operation.OperationId = descriptor.ControllerName + descriptor.ActionName;
             return Task.CompletedTask;
         });
     });

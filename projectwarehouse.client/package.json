@@ -11,7 +11,8 @@
     "eslint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "eslint:fix": "eslint . --report-unused-disable-directives --max-warnings 0 --fix",
     "prettier": "prettier --check .",
-    "prettier:fix": "prettier --write ."
+    "prettier:fix": "prettier --write .",
+    "generate-api": "cross-env NODE_TLS_REJECT_UNAUTHORIZED=0 openapi-ts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -19,6 +20,7 @@
     "@fontsource/roboto": "^5.2.10",
     "@mui/icons-material": "^9.0.0",
     "@mui/material": "^9.0.0",
+    "@tanstack/react-query": "^5.100.9",
     "classnames": "^2.5.1",
     "mdi-material-ui": "^8.0.0",
     "notistack": "^3.0.2",
@@ -30,10 +32,12 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@hey-api/openapi-ts": "^0.97.1",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "cross-env": "^10.1.0",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
