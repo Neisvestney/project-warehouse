@@ -4,6 +4,6 @@ namespace ProjectWarehouse.Server.Models.Users;
 
 public class AssignPermissionRequest
 {
-    /// <summary>See GET /api/permissions for valid values.</summary>
+    /// <summary>Permission name to assign.</summary>
     [Required] public string Permission { get; init; } = null!;
 }
