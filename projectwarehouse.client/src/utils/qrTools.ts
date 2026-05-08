@@ -6,7 +6,7 @@ import type {ReaderOptions, ReadResult} from "zxing-wasm/reader";
 
 // Импортируем WASM как URL через Vite — работает и в dev, и в prod
 import zxingWasmUrl from "zxing-wasm/reader/zxing_reader.wasm?url";
-import {IS_DEV} from "../configuration/flagsConstants";
+import {IS_DEV} from "@/configuration/flagsConstants";
 import {prepareZXingModule} from "zxing-wasm";
 
 // Настраиваем локальную загрузку WASM

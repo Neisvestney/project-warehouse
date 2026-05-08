@@ -2,7 +2,7 @@ import {CircularProgress, css, Stack, styled, Typography} from "@mui/material";
 import NoPhotographyIcon from "@mui/icons-material/NoPhotography";
 import React from "react";
 import {ScanFrameOverlay, type ViewfinderRect} from "./ScanFrameOverlay.tsx";
-import type {NormalizedBarcodePosition} from "../../../utils/qrTools.ts";
+import type {NormalizedBarcodePosition} from "@/utils/qrTools.ts";
 
 type ScanMode = "loading" | "camera" | "upload";
 

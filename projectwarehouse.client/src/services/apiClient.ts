@@ -1,5 +1,5 @@
-import { client } from '../api/client.gen';
-import type { TokenResponse } from '../api/types.gen';
+import { client } from '@/api/client.gen';
+import type { TokenResponse } from '@/api/types.gen';
 
 let refreshingPromise: Promise<boolean> | null = null;
 

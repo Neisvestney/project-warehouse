@@ -1,5 +1,5 @@
 import React from "react";
-import {useInstallPrompt} from "../../utils/useInstallPrompt.ts";
+import {useInstallPrompt} from "@/utils/useInstallPrompt.ts";
 import {
   Button,
   Card,

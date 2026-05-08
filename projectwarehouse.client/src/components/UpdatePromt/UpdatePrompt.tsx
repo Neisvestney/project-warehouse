@@ -1,5 +1,5 @@
 import React, {useContext, useState} from "react";
-import ServiceWorkerContext from "../../contexts/ServiceWorkerContext.ts";
+import ServiceWorkerContext from "@/contexts/ServiceWorkerContext.ts";
 import {
   Button,
   Dialog,

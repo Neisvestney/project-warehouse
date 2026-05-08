@@ -33,7 +33,7 @@ import FlipCameraIosIcon from "@mui/icons-material/FlipCameraIos";
 import {Link, useLocation, useNavigate, useNavigationType, useSearchParams} from "react-router";
 import {useSnackbar} from "notistack";
 import type {ReadResult} from "zxing-wasm/reader";
-import ScannerBlock from "../../components/ScannerBlock/ScannerBlock.tsx";
+import ScannerBlock from "@/components/ScannerBlock/ScannerBlock.tsx";
 
 export interface ScannerPageProps {}
 
