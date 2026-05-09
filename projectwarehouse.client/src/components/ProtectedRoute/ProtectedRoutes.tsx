@@ -45,12 +45,13 @@ function processRoutes(children: React.ReactNode): React.ReactNode {
     if (!React.isValidElement(child)) return child;
 
     if (child.type === React.Fragment) {
-      return <React.Fragment>{processRoutes(child.props.children)}</React.Fragment>;
+      const fragmentProps = child.props as {children?: React.ReactNode};
+      return <React.Fragment>{processRoutes(fragmentProps.children)}</React.Fragment>;
     }
 
     const isProtectedRoute =
       child.type === ProtectedRoute ||
-      !!(child.type as Record<symbol, unknown>)[PROTECTED_ROUTE_MARKER];
+      !!(child.type as unknown as Record<symbol, unknown>)[PROTECTED_ROUTE_MARKER];
 
     if (isProtectedRoute) {
       const {
@@ -63,7 +64,8 @@ function processRoutes(children: React.ReactNode): React.ReactNode {
 
       return (
         <Route
-          {...rest}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          {...(rest as any)}
           element={
             <AuthGuard requiredPermission={requiredPermission} permissionMode={permissionMode}>
               {element}
@@ -75,9 +77,10 @@ function processRoutes(children: React.ReactNode): React.ReactNode {
       );
     }
 
-    if (child.type === Route && child.props.children) {
+    const childProps = child.props as {children?: React.ReactNode};
+    if (child.type === Route && childProps.children) {
       return React.cloneElement(child as React.ReactElement<{children?: React.ReactNode}>, {
-        children: processRoutes(child.props.children),
+        children: processRoutes(childProps.children),
       });
     }
 
