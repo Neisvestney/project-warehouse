@@ -29,7 +29,7 @@ export const checkCameraAvailability = async (): Promise<{
     }
 
     return {available: true};
-  } catch (error) {
+  } catch {
     return {
       available: false,
       error: "Не удалось проверить доступность камеры",

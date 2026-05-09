@@ -58,7 +58,7 @@ function isBarcodeInViewfinder(
 ): boolean {
   const {x, y, w, h} = region;
   return [pos.topLeft, pos.topRight, pos.bottomLeft, pos.bottomRight].every(
-    p => p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h,
+    (p) => p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h,
   );
 }
 
@@ -367,16 +367,16 @@ export const createQrScanLoop = ({
           }
 
           if (barcodes.length > 0) {
-            const validBarcodes = barcodes.filter(b => b.rawValue);
+            const validBarcodes = barcodes.filter((b) => b.rawValue);
             if (validBarcodes.length > 0) {
               // cornerPoints: TL, TR, BR, BL clockwise per spec
-              const positions: NormalizedBarcodePosition[] = validBarcodes.map(b => {
+              const positions: NormalizedBarcodePosition[] = validBarcodes.map((b) => {
                 const p = b.cornerPoints;
                 const pos = {
-                  topLeft:     {x: p[0].x, y: p[0].y},
-                  topRight:    {x: p[1].x, y: p[1].y},
+                  topLeft: {x: p[0].x, y: p[0].y},
+                  topRight: {x: p[1].x, y: p[1].y},
                   bottomRight: {x: p[2].x, y: p[2].y},
-                  bottomLeft:  {x: p[3].x, y: p[3].y},
+                  bottomLeft: {x: p[3].x, y: p[3].y},
                 };
                 return {...pos, inViewfinder: region ? isBarcodeInViewfinder(pos, region) : true};
               });
@@ -384,8 +384,12 @@ export const createQrScanLoop = ({
 
               for (let i = 0; i < validBarcodes.length; i++) {
                 if (positions[i].inViewfinder) {
-                  if (IS_DEV) console.log("[ZXing] BarcodeDetector found QR:", validBarcodes[i].rawValue);
-                  const shouldStop = await onBarcodeDetected.current?.(validBarcodes[i].rawValue, validBarcodes[i]);
+                  if (IS_DEV)
+                    console.log("[ZXing] BarcodeDetector found QR:", validBarcodes[i].rawValue);
+                  const shouldStop = await onBarcodeDetected.current?.(
+                    validBarcodes[i].rawValue,
+                    validBarcodes[i],
+                  );
                   if (shouldStop) return;
                 }
               }
@@ -425,12 +429,12 @@ export const createQrScanLoop = ({
           if (IS_DEV && results.length > 0) console.log("[ZXing] readBarcodes results:", results);
 
           if (results.length > 0) {
-            const validResults = results.filter(r => r.text);
-            const positions: NormalizedBarcodePosition[] = validResults.map(r => {
+            const validResults = results.filter((r) => r.text);
+            const positions: NormalizedBarcodePosition[] = validResults.map((r) => {
               const pos = {
-                topLeft:     {x: r.position.topLeft.x,     y: r.position.topLeft.y},
-                topRight:    {x: r.position.topRight.x,    y: r.position.topRight.y},
-                bottomLeft:  {x: r.position.bottomLeft.x,  y: r.position.bottomLeft.y},
+                topLeft: {x: r.position.topLeft.x, y: r.position.topLeft.y},
+                topRight: {x: r.position.topRight.x, y: r.position.topRight.y},
+                bottomLeft: {x: r.position.bottomLeft.x, y: r.position.bottomLeft.y},
                 bottomRight: {x: r.position.bottomRight.x, y: r.position.bottomRight.y},
               };
               return {...pos, inViewfinder: region ? isBarcodeInViewfinder(pos, region) : true};
@@ -440,7 +444,10 @@ export const createQrScanLoop = ({
             for (let i = 0; i < validResults.length; i++) {
               if (positions[i].inViewfinder) {
                 if (IS_DEV) console.log("[ZXing] zxing-wasm found QR:", validResults[i].text);
-                const shouldStop = await onBarcodeDetected.current?.(validResults[i].text, validResults[i]);
+                const shouldStop = await onBarcodeDetected.current?.(
+                  validResults[i].text,
+                  validResults[i],
+                );
                 if (shouldStop) return;
               }
             }
@@ -482,12 +489,12 @@ export const createQrScanLoop = ({
           const results = await readBarcodes(imageData, readerOptions);
 
           if (results.length > 0) {
-            const validResults = results.filter(r => r.text);
-            const positions: NormalizedBarcodePosition[] = validResults.map(r => {
+            const validResults = results.filter((r) => r.text);
+            const positions: NormalizedBarcodePosition[] = validResults.map((r) => {
               const pos = {
-                topLeft:     {x: r.position.topLeft.x,     y: r.position.topLeft.y},
-                topRight:    {x: r.position.topRight.x,    y: r.position.topRight.y},
-                bottomLeft:  {x: r.position.bottomLeft.x,  y: r.position.bottomLeft.y},
+                topLeft: {x: r.position.topLeft.x, y: r.position.topLeft.y},
+                topRight: {x: r.position.topRight.x, y: r.position.topRight.y},
+                bottomLeft: {x: r.position.bottomLeft.x, y: r.position.bottomLeft.y},
                 bottomRight: {x: r.position.bottomRight.x, y: r.position.bottomRight.y},
               };
               return {...pos, inViewfinder: region ? isBarcodeInViewfinder(pos, region) : true};
@@ -496,8 +503,12 @@ export const createQrScanLoop = ({
 
             for (let i = 0; i < validResults.length; i++) {
               if (positions[i].inViewfinder) {
-                if (IS_DEV) console.log("[ZXing] zxing-wasm (inverted) found QR:", validResults[i].text);
-                const shouldStop = await onBarcodeDetected.current?.(validResults[i].text, validResults[i]);
+                if (IS_DEV)
+                  console.log("[ZXing] zxing-wasm (inverted) found QR:", validResults[i].text);
+                const shouldStop = await onBarcodeDetected.current?.(
+                  validResults[i].text,
+                  validResults[i],
+                );
                 if (shouldStop) return;
               }
             }

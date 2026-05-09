@@ -1,21 +1,21 @@
-import { Box, Button, Typography } from '@mui/material';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import { useNavigate } from 'react-router';
+import {Box, Button, Typography} from "@mui/material";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+import {useNavigate} from "react-router";
 
 function AccessDenied() {
   const navigate = useNavigate();
   return (
     <Box
       sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '60vh',
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "60vh",
         gap: 2,
       }}
     >
-      <LockOutlinedIcon sx={{ fontSize: 64, color: 'text.secondary' }} />
+      <LockOutlinedIcon sx={{fontSize: 64, color: "text.secondary"}} />
       <Typography variant="h5" fontWeight={600}>
         Доступ запрещён
       </Typography>

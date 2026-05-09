@@ -1,1 +1,2 @@
-﻿When planning new features or code edits add docs wriing as final step
+﻿When planning new features or code edits add docs wriing as final step.  
+After you edited any of frontend code run prettier and linter: `npm run prettier:fix` and `eslint:fix` in `projectwarehouse.client` directory.

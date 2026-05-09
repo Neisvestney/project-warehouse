@@ -3,6 +3,7 @@ import NoPhotographyIcon from "@mui/icons-material/NoPhotography";
 import React from "react";
 import {ScanFrameOverlay, type ViewfinderRect} from "./ScanFrameOverlay.tsx";
 import type {NormalizedBarcodePosition} from "@/utils/qrTools.ts";
+import type {useDoubleTap} from "use-double-tap";
 
 type ScanMode = "loading" | "camera" | "upload";
 
@@ -13,12 +14,14 @@ interface ScanAreaProps {
   isFocusing: boolean;
   videoRef: React.RefObject<HTMLVideoElement | null>;
   scanAreaRef: React.RefObject<HTMLDivElement | null>;
-  doubleTapBind: Record<string, any>;
+  doubleTapBind: ReturnType<typeof useDoubleTap>;
   onWheelZoom: (e: React.WheelEvent) => void;
   zoomControls: React.ReactNode;
   viewfinderRect: ViewfinderRect | null;
   detectedPositions: NormalizedBarcodePosition[];
   onResizeViewfinder: (w: number, h: number) => void;
+  videoNaturalSize: {w: number; h: number} | null;
+  containerSize: {w: number; h: number} | null;
 }
 
 /**
@@ -42,6 +45,8 @@ export const ScanArea: React.FC<ScanAreaProps> = ({
   viewfinderRect,
   detectedPositions,
   onResizeViewfinder,
+  videoNaturalSize,
+  containerSize,
 }) => {
   if (mode === "upload") {
     return (
@@ -85,11 +90,11 @@ export const ScanArea: React.FC<ScanAreaProps> = ({
 
       {mode === "camera" && viewfinderRect !== null && (
         <ScanFrameOverlay
-          containerRef={scanAreaRef}
-          videoRef={videoRef}
           viewfinderRect={viewfinderRect}
           detectedPositions={detectedPositions}
           onResize={onResizeViewfinder}
+          videoNaturalSize={videoNaturalSize}
+          containerSize={containerSize}
         />
       )}
 

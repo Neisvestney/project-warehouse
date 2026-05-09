@@ -1,16 +1,12 @@
 import React, {useCallback, useState} from "react";
 import {
-  SnackbarContent,
   CardContent,
   css,
   Fab,
   Stack,
   styled,
   Typography,
-  Paper,
   Card,
-  IconButton,
-  CardActions,
   CardActionArea,
   Drawer,
   Box,
@@ -19,18 +15,11 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Divider,
   Container,
-  SpeedDial,
-  SpeedDialAction,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
-import SpeedDialIcon from "@mui/material/SpeedDialIcon";
-import SettingsIcon from "@mui/icons-material/Settings";
-import CloseIcon from "@mui/icons-material/Close";
-import FlipCameraIosIcon from "@mui/icons-material/FlipCameraIos";
-import {Link, useLocation, useNavigate, useNavigationType, useSearchParams} from "react-router";
+import {useLocation, useNavigate, useNavigationType, useSearchParams} from "react-router";
 import {useSnackbar} from "notistack";
 import type {ReadResult} from "zxing-wasm/reader";
 import ScannerBlock from "@/components/ScannerBlock/ScannerBlock.tsx";
@@ -47,7 +36,7 @@ function ScannerPage({}: ScannerPageProps) {
   const navigate = useNavigate();
   const navType = useNavigationType();
   const location = useLocation();
-  const {enqueueSnackbar, closeSnackbar} = useSnackbar();
+  const {enqueueSnackbar} = useSnackbar();
 
   const [scanned, setScanned] = useState<string[]>([]);
   const [latestScanned, setLatestScanned] = useState<string | null>(null);

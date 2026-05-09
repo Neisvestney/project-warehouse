@@ -202,6 +202,7 @@ export const useCameraZoom = ({
       scanArea.removeEventListener("touchmove", handleTouchMove);
       scanArea.removeEventListener("touchend", handleTouchEnd);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Пустые deps: регистрируем handlers один раз, они используют ref для актуальных значений
 
   return {

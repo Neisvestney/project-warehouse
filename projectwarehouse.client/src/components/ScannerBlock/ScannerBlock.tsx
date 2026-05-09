@@ -1,7 +1,13 @@
-import React, {type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState} from "react";
+import React, {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {ScanArea, ZoomControls} from "./components";
 import type {ViewfinderRect} from "./components";
-import {IS_DEV} from "@/configuration/flagsConstants.ts";
 import {useCameraFocus, useCameraStream, useCameraZoom} from "@/utils/camera";
 import {
   createQrScanLoop,
@@ -35,19 +41,23 @@ function ScannerBlock({
   additionalValidationAsync,
   restart,
 }: ScannerBlockProps) {
-  const [error, setError] = useState<ReactNode | string | null>(null);
-  const [scannedLog, setScannedLog] = useState("");
-  const [scanInterval, setScanInterval] = useState(100);
+  const [_error, setError] = useState<ReactNode | string | null>(null);
+  const [_scannedLog, setScannedLog] = useState("");
+  const [scanInterval] = useState(100);
   const [cameraSelectDialogOpen, setCameraSelectDialogOpen] = useState(false);
   const [viewfinderRect, setViewfinderRect] = useState<ViewfinderRect | null>(null);
   const [detectedPositions, setDetectedPositions] = useState<NormalizedBarcodePosition[]>([]);
+  const [videoNaturalSize, setVideoNaturalSize] = useState<{w: number; h: number} | null>(null);
+  const [containerSize, setContainerSize] = useState<{w: number; h: number} | null>(null);
   const scanIntervalRef = useRef(100);
   const qrScannedHandlerRef =
     useRef<
       (barCodeTextData: string, barcodeRawData: DetectedBarcode | ReadResult) => Promise<boolean>
     >(null);
   const cropRegionRef = useRef<{x: number; y: number; w: number; h: number} | null>(null);
-  const onBarcodePositionRef = useRef<((positions: NormalizedBarcodePosition[]) => void) | null>(null);
+  const onBarcodePositionRef = useRef<((positions: NormalizedBarcodePosition[]) => void) | null>(
+    null,
+  );
   const clearPositionsTimerRef = useRef<number | undefined>(undefined);
   const viewfinderRectRef = useRef<ViewfinderRect | null>(null);
   const viewfinderSizeRef = useRef<{w: number; h: number} | null>(null);
@@ -98,6 +108,7 @@ function ScannerBlock({
       const rect: ViewfinderRect = {x: (dw - w) / 2, y: (dh - h) / 2, w, h};
       viewfinderRectRef.current = rect;
       setViewfinderRect(rect);
+      setContainerSize({w: dw, h: dh});
     };
 
     computeViewfinder();
@@ -129,7 +140,8 @@ function ScannerBlock({
         h: rect.h / scale,
       };
     },
-    [cameraStream.videoRef],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [], // refs are stable — .current is accessed imperatively at call time
   );
 
   const handleResizeViewfinder = useCallback(
@@ -179,9 +191,16 @@ function ScannerBlock({
 
   // Колбэк после старта камеры — инициализация зума/фокуса и запуск scan loop
   // function-declaration поднимается (hoisting), поэтому передаётся в useCameraStream выше
-  function handleStreamReady({track}: {track: MediaStreamTrack; video: HTMLVideoElement}) {
+  function handleStreamReady({track, video}: {track: MediaStreamTrack; video: HTMLVideoElement}) {
     cameraZoom.initZoomCapabilities(track);
     cameraFocus.initFocusMode(track);
+
+    const updateVideoSize = () => setVideoNaturalSize({w: video.videoWidth, h: video.videoHeight});
+    if (video.videoWidth && video.videoHeight) {
+      updateVideoSize();
+    } else {
+      video.addEventListener("loadedmetadata", updateVideoSize, {once: true});
+    }
 
     // Обновляем cropRegion теперь что видео готово
     if (viewfinderRectRef.current) {
@@ -245,31 +264,6 @@ function ScannerBlock({
     qrScannedHandlerRef.current = handleQrScanned;
   }, [handleQrScanned]);
 
-  const scanIntervalOptions = [
-    {value: 250, label: "4 FPS (250ms)"},
-    {value: 125, label: "8 FPS (125ms)"},
-    {value: 100, label: "10 FPS (100ms)"},
-    {value: 83, label: "12 FPS (83ms)"},
-    {value: 62, label: "~16 FPS (62ms)"},
-    {value: 40, label: "25 FPS (40ms)"},
-  ];
-
-  // Добавьте UI для выбора камеры
-  const renderCameraSelector = () => {
-    if (cameraStream.availableDevices.length <= 1 || cameraStream.mode !== "camera") return null;
-
-    return (
-      <>
-        {/*<SelectLabeledInput*/}
-        {/*  label={"Выбор камеры"}*/}
-        {/*  value={cameraStream.selectedDeviceId}*/}
-        {/*  options={cameraStream.deviceOptions}*/}
-        {/*  onChange={cameraStream.setSelectedDeviceId}*/}
-        {/*/>*/}
-      </>
-    );
-  };
-
   return (
     <ScanAreaWrapper>
       <ScanArea
@@ -284,6 +278,8 @@ function ScannerBlock({
         viewfinderRect={viewfinderRect}
         detectedPositions={detectedPositions}
         onResizeViewfinder={handleResizeViewfinder}
+        videoNaturalSize={videoNaturalSize}
+        containerSize={containerSize}
         zoomControls={
           <ZoomControls
             mode={cameraStream.mode}

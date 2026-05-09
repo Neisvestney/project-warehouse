@@ -9,11 +9,11 @@ export interface ViewfinderRect {
 }
 
 interface ScanFrameOverlayProps {
-  containerRef: React.RefObject<HTMLDivElement | null>;
-  videoRef: React.RefObject<HTMLVideoElement | null>;
   viewfinderRect: ViewfinderRect;
   detectedPositions: NormalizedBarcodePosition[];
   onResize?: (newW: number, newH: number) => void;
+  videoNaturalSize: {w: number; h: number} | null;
+  containerSize: {w: number; h: number} | null;
 }
 
 const BRACKET_RATIO = 0.22;
@@ -44,18 +44,16 @@ interface DragState {
 }
 
 export const ScanFrameOverlay: React.FC<ScanFrameOverlayProps> = ({
-  containerRef,
-  videoRef,
   viewfinderRect: vf,
   detectedPositions,
   onResize,
+  videoNaturalSize,
+  containerSize,
 }) => {
-  const video = videoRef.current;
-  const container = containerRef.current;
-  const vw = video?.videoWidth ?? 0;
-  const vh = video?.videoHeight ?? 0;
-  const dw = container?.clientWidth ?? 0;
-  const dh = container?.clientHeight ?? 0;
+  const vw = videoNaturalSize?.w ?? 0;
+  const vh = videoNaturalSize?.h ?? 0;
+  const dw = containerSize?.w ?? 0;
+  const dh = containerSize?.h ?? 0;
   const hasVideoSize = vw > 0 && vh > 0 && dw > 0 && dh > 0;
 
   const dragRef = useRef<DragState | null>(null);
@@ -132,7 +130,13 @@ export const ScanFrameOverlay: React.FC<ScanFrameOverlayProps> = ({
       <svg
         width="100%"
         height="100%"
-        style={{position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible", touchAction: "none"}}
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          overflow: "visible",
+          touchAction: "none",
+        }}
       >
         {/* Угловые скобки viewfinder */}
         <path
@@ -191,6 +195,7 @@ export const ScanFrameOverlay: React.FC<ScanFrameOverlayProps> = ({
               r={HANDLE_RADIUS}
               fill="transparent"
               style={{cursor, pointerEvents: "all", touchAction: "none"}}
+              // eslint-disable-next-line react-hooks/refs
               onPointerDown={(e) => handlePointerDown(e, dxSign, dySign)}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}

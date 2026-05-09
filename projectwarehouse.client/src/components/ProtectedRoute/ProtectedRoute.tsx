@@ -1,12 +1,12 @@
-import type { ReactElement } from 'react';
-import type { RouteProps } from 'react-router';
-import type { PermissionName } from '@/api/types.gen';
-import { PROTECTED_ROUTE_MARKER } from './_protectedRouteMarker';
+import type {ReactElement} from "react";
+import type {RouteProps} from "react-router";
+import type {PermissionName} from "@/api/types.gen";
+import {PROTECTED_ROUTE_MARKER} from "./_protectedRouteMarker";
 
-export interface ProtectedRouteProps extends Omit<RouteProps, 'element'> {
+export interface ProtectedRouteProps extends Omit<RouteProps, "element"> {
   element?: ReactElement;
   requiredPermission?: PermissionName | PermissionName[];
-  permissionMode?: 'any' | 'all';
+  permissionMode?: "any" | "all";
 }
 
 // Marker component — never rendered directly.

@@ -39,8 +39,8 @@ function App() {
                 <Route path="/login" element={<LoginPage />} />
                 <ProtectedRoute element={<MainLayout />}>
                   <ProtectedRoute path="/" element={<HomePage />} />
-                  <ProtectedRoute path="/scanner" element={<ScannerPage />} />
                 </ProtectedRoute>
+                <ProtectedRoute path="/scanner" element={<ScannerPage />} />
               </ProtectedRoutes>
             </Suspense>
           </AuthProvider>

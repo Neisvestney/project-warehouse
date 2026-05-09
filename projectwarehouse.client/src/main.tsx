@@ -16,8 +16,8 @@ setupApiClient();
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: false },
-    mutations: { retry: false },
+    queries: {retry: false},
+    mutations: {retry: false},
   },
 });
 

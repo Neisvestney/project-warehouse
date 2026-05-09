@@ -1,5 +1,5 @@
-import { createContext } from 'react';
-import type { MeResponse } from '@/api/types.gen';
+import {createContext} from "react";
+import type {MeResponse} from "@/api/types.gen";
 
 export interface AuthContextValue {
   user: MeResponse | null;
