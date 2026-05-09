@@ -1,12 +1,12 @@
-import type { MeResponse } from '@/api/types.gen';
+import type {MeResponse} from "@/api/types.gen";
 
-type JwtUser = MeResponse & { roles: [] };
+type JwtUser = MeResponse & {roles: []};
 
 export function parseJwtUser(): JwtUser | null {
-  const token = localStorage.getItem('accessToken');
+  const token = localStorage.getItem("accessToken");
   if (!token) return null;
   try {
-    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
     const payload = JSON.parse(atob(b64));
     if (payload.exp && payload.exp * 1000 < Date.now()) return null;
     const perm = payload.permission;

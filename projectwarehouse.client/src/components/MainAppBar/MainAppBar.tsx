@@ -152,9 +152,7 @@ function MainAppBar({}: AppBarProps) {
           <Box sx={{flexGrow: 0}}>
             <Tooltip title={user?.username ?? ""}>
               <IconButton onClick={handleOpenUserMenu} sx={{p: 0}}>
-                <Avatar sx={{width: 32, height: 32, fontSize: 14}}>
-                  {avatarLetter}
-                </Avatar>
+                <Avatar sx={{width: 32, height: 32, fontSize: 14}}>{avatarLetter}</Avatar>
               </IconButton>
             </Tooltip>
             <Menu
