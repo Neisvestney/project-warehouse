@@ -14,7 +14,8 @@ import {
 } from "@mui/material";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
 import MenuIcon from "@mui/icons-material/Menu";
-import {Link} from "react-router";
+import {Link, useNavigate} from "react-router";
+import {useAuth} from "@/hooks/useAuth";
 
 const pages = [
   {
@@ -22,13 +23,14 @@ const pages = [
     url: "/scanner",
   },
 ];
-const settings = ["Profile", "Account", "Dashboard", "Logout"];
 
 export interface AppBarProps {}
 
 function MainAppBar({}: AppBarProps) {
   const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
+  const {user, logout} = useAuth();
+  const navigate = useNavigate();
 
   const handleOpenNavMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorElNav(event.currentTarget);
@@ -44,6 +46,14 @@ function MainAppBar({}: AppBarProps) {
   const handleCloseUserMenu = () => {
     setAnchorElUser(null);
   };
+
+  const handleLogout = async () => {
+    handleCloseUserMenu();
+    await logout();
+    navigate("/login", {replace: true});
+  };
+
+  const avatarLetter = user?.username?.[0]?.toUpperCase() ?? "?";
 
   return (
     <AppBar position="static">
@@ -140,14 +150,16 @@ function MainAppBar({}: AppBarProps) {
             ))}
           </Box>
           <Box sx={{flexGrow: 0}}>
-            {/*<Tooltip title="Open settings">*/}
-            {/*  <IconButton onClick={handleOpenUserMenu} sx={{p: 0}}>*/}
-            {/*    <Avatar alt="Remy Sharp" src="/static/images/avatar/2.jpg" />*/}
-            {/*  </IconButton>*/}
-            {/*</Tooltip>*/}
+            <Tooltip title={user?.username ?? ""}>
+              <IconButton onClick={handleOpenUserMenu} sx={{p: 0}}>
+                <Avatar sx={{width: 32, height: 32, fontSize: 14}}>
+                  {avatarLetter}
+                </Avatar>
+              </IconButton>
+            </Tooltip>
             <Menu
               sx={{mt: "45px"}}
-              id="menu-appbar"
+              id="menu-user"
               anchorEl={anchorElUser}
               anchorOrigin={{
                 vertical: "top",
@@ -161,11 +173,14 @@ function MainAppBar({}: AppBarProps) {
               open={Boolean(anchorElUser)}
               onClose={handleCloseUserMenu}
             >
-              {settings.map((setting) => (
-                <MenuItem key={setting} onClick={handleCloseUserMenu}>
-                  <Typography sx={{textAlign: "center"}}>{setting}</Typography>
-                </MenuItem>
-              ))}
+              <MenuItem disabled>
+                <Typography variant="body2" color="text.secondary">
+                  {user?.username}
+                </Typography>
+              </MenuItem>
+              <MenuItem onClick={handleLogout}>
+                <Typography sx={{textAlign: "center"}}>Выйти</Typography>
+              </MenuItem>
             </Menu>
           </Box>
         </Toolbar>
