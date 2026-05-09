@@ -36,6 +36,14 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
     return () => window.removeEventListener("auth:clear", handler);
   }, [queryClient]);
 
+  useEffect(() => {
+    const handler = () => {
+      queryClient.invalidateQueries({queryKey: ME_QUERY_KEY});
+    };
+    window.addEventListener("auth:refresh", handler);
+    return () => window.removeEventListener("auth:refresh", handler);
+  }, [queryClient]);
+
   const login = useCallback(
     async (username: string, password: string) => {
       const {data: tokens, error} = await authLogin({body: {username, password}});
