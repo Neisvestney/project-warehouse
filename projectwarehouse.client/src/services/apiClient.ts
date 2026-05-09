@@ -30,6 +30,7 @@ async function doRefreshTokens(): Promise<boolean> {
     }
 
     storeTokens(await res.json());
+    window.dispatchEvent(new Event("auth:refresh"));
     return true;
   } catch {
     clearTokens();
