@@ -1,0 +1,1 @@
+﻿When planning new features or code edits add docs wriing as final step

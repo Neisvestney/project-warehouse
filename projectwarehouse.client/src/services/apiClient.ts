@@ -47,10 +47,11 @@ export function clearTokens() {
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('tokenExpiry');
+  window.dispatchEvent(new Event('auth:clear'));
 }
 
 export function setupApiClient() {
-  client.setConfig({ baseUrl: '/api' });
+  client.setConfig({ baseUrl: '/' });
 
   // Proactively refresh the token 30s before it expires so requests never hit 401 due to expiry.
   // Concurrent calls share a single in-flight refresh promise to prevent rotation conflicts.
