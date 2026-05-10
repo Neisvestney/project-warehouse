@@ -16,9 +16,7 @@ function AccessDenied() {
       }}
     >
       <LockOutlinedIcon sx={{fontSize: 64, color: "text.secondary"}} />
-      <Typography variant="h5" fontWeight={600}>
-        Доступ запрещён
-      </Typography>
+      <Typography variant="h5">Доступ запрещён</Typography>
       <Typography variant="body2" color="text.secondary">
         У вас нет прав для просмотра этой страницы
       </Typography>
