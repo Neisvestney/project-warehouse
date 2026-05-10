@@ -82,7 +82,7 @@ public class UsersController(
         var result = await userManager.CreateAsync(user, request.Password);
         if (!result.Succeeded)
         {
-            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description));
+            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
             return Problem(AppProblems.UnprocessableEntities(errors));
         }
 
@@ -115,7 +115,7 @@ public class UsersController(
         var result = await userManager.UpdateAsync(user);
         if (!result.Succeeded)
         {
-            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description));
+            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
             return Problem(AppProblems.UnprocessableEntities(errors));
         }
         return Ok(new UserDto
@@ -142,7 +142,7 @@ public class UsersController(
         var result = await userManager.DeleteAsync(user);
         if (!result.Succeeded)
         {
-            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description));
+            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
             return Problem(AppProblems.UnprocessableEntities(errors));
         }
         versionStore.Evict(user.Id);
@@ -241,7 +241,7 @@ public class UsersController(
         var result = await userManager.AddToRoleAsync(user, role.Name!);
         if (!result.Succeeded)
         {
-            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description));
+            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
             return Problem(AppProblems.UnprocessableEntities(errors));
         }
 
@@ -267,7 +267,7 @@ public class UsersController(
         var result = await userManager.RemoveFromRoleAsync(user, role.Name!);
         if (!result.Succeeded)
         {
-            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description));
+            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
             return Problem(AppProblems.UnprocessableEntities(errors));
         }
         await versionStore.BumpAsync(user.Id);

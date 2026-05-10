@@ -22,11 +22,11 @@ public static class AppProblems
     };
 
     public static AppProblemDetails Fields(int status,
-        IEnumerable<(string Field, ErrorCode Code, string Message)> errors)
+        IEnumerable<(string Field, ErrorCode Code, string Message, IReadOnlyDictionary<string, object>? Args)> errors)
     {
         var grouped = errors
             .GroupBy(e => e.Field)
-            .ToDictionary(g => g.Key, g => g.Select(e => MakeError(e.Code, e.Message)).ToArray());
+            .ToDictionary(g => g.Key, g => g.Select(e => MakeError(e.Code, e.Message, e.Args)).ToArray());
         return new AppProblemDetails
         {
             Status = status,
@@ -56,12 +56,14 @@ public static class AppProblems
         Field(StatusCodes.Status422UnprocessableEntity, field, code, message);
 
     public static AppProblemDetails UnprocessableEntities(
-        IEnumerable<(string Field, ErrorCode Code, string Message)> errors) =>
+        IEnumerable<(string Field, ErrorCode Code, string Message, IReadOnlyDictionary<string, object>? Args)> errors) =>
         Fields(StatusCodes.Status422UnprocessableEntity, errors);
 
-    private static AppFieldError MakeError(ErrorCode code, string message) => new()
+    private static AppFieldError MakeError(ErrorCode code, string message,
+        IReadOnlyDictionary<string, object>? args = null) => new()
     {
         Code = code,
-        Detail = $"{JsonNamingPolicy.CamelCase.ConvertName(code.ToString())}: {message}"
+        Detail = $"{JsonNamingPolicy.CamelCase.ConvertName(code.ToString())}: {message}",
+        Args = args
     };
 }

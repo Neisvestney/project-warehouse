@@ -198,13 +198,18 @@ try
         {
             var errors = ctx.ModelState
                 .Where(e => e.Value?.Errors.Count > 0)
-                .SelectMany(kvp => kvp.Value!.Errors.Select(err => (
-                    Field: ModelStateErrorMapper.NormalizeField(kvp.Key),
-                    Code: ModelStateErrorMapper.Resolve(err),
-                    Message: string.IsNullOrEmpty(err.ErrorMessage)
-                        ? err.Exception?.Message ?? "Validation error."
-                        : err.ErrorMessage
-                )));
+                .SelectMany(kvp => kvp.Value!.Errors.Select(err =>
+                {
+                    var (code, args) = ModelStateErrorMapper.Resolve(err);
+                    return (
+                        Field: ModelStateErrorMapper.NormalizeField(kvp.Key),
+                        Code: code,
+                        Message: string.IsNullOrEmpty(err.ErrorMessage)
+                            ? err.Exception?.Message ?? "Validation error."
+                            : err.ErrorMessage,
+                        Args: args
+                    );
+                }));
 
             var details = AppProblems.UnprocessableEntities(errors);
             return new ObjectResult(details) { StatusCode = details.Status };
