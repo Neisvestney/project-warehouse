@@ -6,31 +6,36 @@ import {
   Card,
   CardContent,
   CircularProgress,
+  FormHelperText,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
 import {useMutation} from "@tanstack/react-query";
-import {useSnackbar} from "notistack";
 import {useAuth} from "@/hooks/useAuth";
+import {useFormErrors} from "@/hooks/useFormErrors";
 
 function LoginPage() {
   const {login, isAuthenticated} = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const {enqueueSnackbar} = useSnackbar();
 
   const from = (location.state as {from?: string} | null)?.from ?? "/";
 
   const [usernameHasValue, setUsernameHasValue] = useState(false);
   const [passwordHasValue, setPasswordHasValue] = useState(false);
 
+  const {fieldErrors, rootError, setApiError, clearFieldError, clearRootError} = useFormErrors<
+    "username" | "password"
+  >();
+
   const {mutate, isPending} = useMutation({
     mutationFn: ({username, password}: {username: string; password: string}) =>
       login(username, password),
+    meta: {suppressGlobalError: true},
     onSuccess: () => navigate(from, {replace: true}),
-    onError: () => enqueueSnackbar("Неверный логин или пароль", {variant: "error"}),
+    onError: setApiError,
   });
 
   if (isAuthenticated) {
@@ -46,8 +51,14 @@ function LoginPage() {
     mutate({username, password});
   };
 
-  const trackValue = (setter: (v: boolean) => void) => ({
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) => setter(!!e.target.value),
+  const trackValue = (setter: (v: boolean) => void, field?: "username" | "password") => ({
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+      setter(!!e.target.value);
+      if (field) {
+        clearFieldError(field);
+        clearRootError();
+      }
+    },
     onAnimationStart: (e: React.AnimationEvent<HTMLInputElement>) => {
       if (e.animationName === "mui-auto-fill") setter(true);
       if (e.animationName === "mui-auto-fill-cancel") setter(false);
@@ -75,7 +86,9 @@ function LoginPage() {
                 autoFocus
                 disabled={isPending}
                 fullWidth
-                slotProps={{htmlInput: trackValue(setUsernameHasValue)}}
+                error={!!fieldErrors.username}
+                helperText={fieldErrors.username}
+                slotProps={{htmlInput: trackValue(setUsernameHasValue, "username")}}
               />
               <TextField
                 label="Пароль"
@@ -84,8 +97,15 @@ function LoginPage() {
                 autoComplete="current-password"
                 disabled={isPending}
                 fullWidth
-                slotProps={{htmlInput: trackValue(setPasswordHasValue)}}
+                error={!!fieldErrors.password}
+                helperText={fieldErrors.password}
+                slotProps={{htmlInput: trackValue(setPasswordHasValue, "password")}}
               />
+              {rootError && (
+                <FormHelperText error sx={{mt: -1}}>
+                  {rootError}
+                </FormHelperText>
+              )}
               <Button
                 type="submit"
                 variant="contained"

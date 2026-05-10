@@ -1,5 +1,6 @@
 import {client} from "@/api/client.gen";
 import type {TokenResponse} from "@/api/types.gen";
+import {isAppProblemDetails} from "@/utils/errorUtils";
 
 let refreshingPromise: Promise<boolean> | null = null;
 
@@ -76,5 +77,15 @@ export function setupApiClient() {
   client.interceptors.response.use(async (response) => {
     if (response.status === 401) clearTokens();
     return response;
+  });
+
+  // Normalize non-AppProblemDetails HTTP errors (e.g. 502 {} body) to the status code string
+  // so extractErrorMessage can map them to a human-readable message.
+  // Network errors have no response, so they pass through as-is.
+  client.interceptors.error.use((error, response) => {
+    if (response && !isAppProblemDetails(error)) {
+      return String(response.status);
+    }
+    return error;
   });
 }
