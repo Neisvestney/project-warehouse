@@ -1,4 +1,4 @@
-import type {AppProblemDetails, ErrorCode} from "@/api/types.gen";
+import type {AppFieldError, AppProblemDetails, ErrorCode} from "@/api/types.gen";
 
 export const httpStatusMessages: Partial<Record<number, string>> = {
   400: "Некорректный запрос",
@@ -29,13 +29,25 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   roleAlreadyExists: "Роль уже существует",
   permissionAlreadyAssigned: "Право уже назначено",
   required: "Обязательное поле",
-  tooShort: "Значение слишком короткое",
-  tooLong: "Значение слишком длинное",
+  tooShort: "Значение слишком короткое (мин. {minimalLength} симв.)",
+  tooLong: "Значение слишком длинное (макс. {maximalLength} симв.)",
   invalidFormat: "Неверный формат",
   outOfRange: "Значение вне допустимого диапазона",
   invalidJson: "Неверный формат JSON",
   validationError: "Ошибка валидации",
 };
+
+function interpolateArgs(template: string, args?: AppFieldError["args"]): string {
+  if (!args) return template;
+  return template.replace(/\{(\w+)\}/g, (_, key: string) =>
+    key in args ? String(args[key]) : `{${key}}`,
+  );
+}
+
+export function resolveErrorMessage(error: AppFieldError): string {
+  const template = errorCodeMessages[error.code] ?? error.detail;
+  return interpolateArgs(template, error.args);
+}
 
 export function isAppProblemDetails(error: unknown): error is AppProblemDetails {
   return (
@@ -65,8 +77,7 @@ export function extractErrorMessage(error: unknown): string {
   if (isAppProblemDetails(error)) {
     const rootErrors = error.errors["root"];
     if (rootErrors?.length) {
-      const first = rootErrors[0];
-      return errorCodeMessages[first.code] ?? first.detail;
+      return resolveErrorMessage(rootErrors[0]);
     }
     return error.title ?? error.detail ?? "Неизвестная ошибка";
   }

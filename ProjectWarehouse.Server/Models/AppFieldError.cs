@@ -6,4 +6,5 @@ public class AppFieldError
 {
     public ErrorCode Code { get; init; }
     public string Detail { get; init; } = string.Empty;
+    public IReadOnlyDictionary<string, object>? Args { get; init; }
 }

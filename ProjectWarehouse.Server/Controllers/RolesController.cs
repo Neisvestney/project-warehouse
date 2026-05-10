@@ -59,7 +59,7 @@ public class RolesController(
         var result = await roleManager.CreateAsync(role);
         if (!result.Succeeded)
         {
-            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description));
+            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
             return Problem(AppProblems.UnprocessableEntities(errors));
         }
 
@@ -86,7 +86,7 @@ public class RolesController(
         var result = await roleManager.UpdateAsync(role);
         if (!result.Succeeded)
         {
-            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description));
+            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
             return Problem(AppProblems.UnprocessableEntities(errors));
         }
         return Ok(new RoleDto { Id = role.Id, Name = role.Name! });
@@ -110,7 +110,7 @@ public class RolesController(
         var result = await roleManager.DeleteAsync(role);
         if (!result.Succeeded)
         {
-            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description));
+            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
             return Problem(AppProblems.UnprocessableEntities(errors));
         }
         return NoContent();

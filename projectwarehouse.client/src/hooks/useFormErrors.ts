@@ -1,11 +1,10 @@
 import {useState, useCallback} from "react";
 import {useModal} from "@/hooks/useModal";
-import {isAppProblemDetails, errorCodeMessages, extractErrorMessage} from "@/utils/errorUtils";
+import {isAppProblemDetails, resolveErrorMessage, extractErrorMessage} from "@/utils/errorUtils";
+import type {AppFieldError} from "@/api/types.gen";
 
-function joinErrors(errs: {code: string; detail: string}[]): string {
-  return errs
-    .map((e) => errorCodeMessages[e.code as keyof typeof errorCodeMessages] ?? e.detail)
-    .join(", ");
+function joinErrors(errs: AppFieldError[]): string {
+  return errs.map(resolveErrorMessage).join(", ");
 }
 
 export function useFormErrors<TFields extends string>() {
