@@ -1,3 +1,6 @@
+using System.ComponentModel.DataAnnotations;
+using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -15,55 +18,56 @@ namespace ProjectWarehouse.Server.Controllers;
 [Route("api/users")]
 public class UsersController(
     UserManager<ApplicationUser> userManager,
-    RoleManager<ApplicationRole> roleManager,
     ApplicationDbContext db,
-    IPermissionService permissionService,
-    SecurityVersionStore versionStore) : AppControllerBase
+    SecurityVersionStore versionStore,
+    IMapper mapper) : AppControllerBase
 {
-    /// <summary>List all users.</summary>
+    private Task<ApplicationUser?> LoadUserWithDetailsAsync(Guid id, CancellationToken ct = default) =>
+        db.Users
+            .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+            .Include(u => u.UserPermissions)
+            .FirstOrDefaultAsync(u => u.Id == id, ct);
+
+    /// <summary>List all users (paginated).</summary>
     [HttpGet]
     [Authorize(Policy = Permissions.Users.View)]
-    [ProducesResponseType<IReadOnlyList<UserDto>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAll()
+    [ProducesResponseType<Paginated<UserDetailDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAll(
+        [FromQuery][Range(1, int.MaxValue)] int page = 1,
+        [FromQuery][Range(1, 200)] int pageSize = 20,
+        [FromQuery] string? searchString = null,
+        CancellationToken ct = default)
     {
-        var users = await userManager.Users
-            .Select(u => new UserDto
-            {
-                Id = u.Id,
-                Username = u.UserName!,
-                Email = u.Email,
-                FirstName = u.FirstName,
-                LastName = u.LastName,
-            })
-            .ToListAsync();
-        return Ok(users);
+        var paginated = await db.Users
+            .WhereMatchesSearch(u => u.SearchString, searchString)
+            .OrderBy(u => u.Id)
+            .ProjectTo<UserDetailDto>(mapper.ConfigurationProvider)
+            .ToPaginatedAsync(page, pageSize, ct);
+
+        return Ok(paginated);
     }
 
     /// <summary>Get a user by ID.</summary>
     [HttpGet("{id:guid}")]
     [Authorize(Policy = Permissions.Users.View)]
-    [ProducesResponseType<UserDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<UserDetailDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetById(Guid id)
+    public async Task<IActionResult> GetById(Guid id, CancellationToken ct = default)
     {
-        var user = await userManager.FindByIdAsync(id.ToString());
-        if (user is null)
+        var dto = await db.Users
+            .Where(u => u.Id == id)
+            .ProjectTo<UserDetailDto>(mapper.ConfigurationProvider)
+            .FirstOrDefaultAsync(ct);
+        if (dto is null)
             return NotFound(ErrorCode.UserNotFound, "User not found.");
 
-        return Ok(new UserDto
-        {
-            Id = user.Id,
-            Username = user.UserName!,
-            Email = user.Email,
-            FirstName = user.FirstName,
-            LastName = user.LastName,
-        });
+        return Ok(dto);
     }
 
     /// <summary>Create a new user.</summary>
     [HttpPost]
     [Authorize(Policy = Permissions.Users.Create)]
-    [ProducesResponseType<UserDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<UserDetailDto>(StatusCodes.Status201Created)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
     {
@@ -85,47 +89,119 @@ public class UsersController(
             var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
             return Problem(AppProblems.UnprocessableEntities(errors));
         }
+        
+        var dto = await db.Users
+            .Where(u => u.Id == user.Id)
+            .ProjectTo<UserDetailDto>(mapper.ConfigurationProvider)
+            .FirstAsync();
 
-        var dto = new UserDto
-        {
-            Id = user.Id,
-            Username = user.UserName!,
-            Email = user.Email,
-            FirstName = user.FirstName,
-            LastName = user.LastName,
-        };
         return CreatedAtAction(nameof(GetById), new { id = user.Id }, dto);
     }
 
-    /// <summary>Update a user's profile.</summary>
+    /// <summary>Update a user's profile, roles, and direct permissions atomically.</summary>
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = Permissions.Users.Edit)]
-    [ProducesResponseType<UserDto>(StatusCodes.Status200OK)]
+    [Authorize(Policy = Permissions.Users.EditProfile)]
+    [ProducesResponseType<UserDetailDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateUserRequest request)
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateUserRequest request, CancellationToken ct = default)
     {
-        var user = await userManager.FindByIdAsync(id.ToString());
+        var user = await LoadUserWithDetailsAsync(id, ct);
         if (user is null)
             return NotFound(ErrorCode.UserNotFound, "User not found.");
+
+        var currentRoleIds = user.UserRoles.Select(ur => ur.RoleId).ToHashSet();
+        var requestedRoleIds = request.RoleIds.ToHashSet();
+        var rolesChanged = !currentRoleIds.SetEquals(requestedRoleIds);
+
+        var currentPermissions = user.UserPermissions.Select(up => up.Permission).ToHashSet();
+        var requestedPermissions = request.DirectPermissions.ToHashSet();
+        var permissionsChanged = !currentPermissions.SetEquals(requestedPermissions);
+
+        // Authorization checks before any mutations
+        if ((rolesChanged || permissionsChanged) && !User.HasClaim("permission", Permissions.Users.ManageRoles))
+            return Forbidden();
+
+        // Validate unknown permission strings
+        var unknownPermissions = requestedPermissions.Except(Permissions.All).ToList();
+        if (unknownPermissions.Count > 0)
+        {
+            var errors = unknownPermissions.Select(p =>
+                ("directPermissions", ErrorCode.PermissionNotFound, $"Unknown permission: '{p}'", (IReadOnlyDictionary<string, object>?)null));
+            return Problem(AppProblems.UnprocessableEntities(errors));
+        }
+
+        // Pre-load roles to add and validate all IDs exist (before any DB writes)
+        var toAddIds = requestedRoleIds.Except(currentRoleIds).ToList();
+        var rolesToAdd = toAddIds.Count > 0
+            ? await db.Roles.Where(r => toAddIds.Contains(r.Id)).ToListAsync(ct)
+            : (List<ApplicationRole>)[];
+        if (rolesToAdd.Count != toAddIds.Count)
+            return UnprocessableEntity("roleIds", ErrorCode.RoleNotFound, "One or more role IDs do not exist.");
+
+        // Roles to remove are already in memory via the Include — no extra DB query needed
+        var toRemoveIds = currentRoleIds.Except(requestedRoleIds).ToHashSet();
+        var rolesToRemove = user.UserRoles
+            .Where(ur => toRemoveIds.Contains(ur.RoleId))
+            .Select(ur => ur.Role)
+            .ToList();
+
+        var toAddPerms = requestedPermissions.Except(currentPermissions).ToList();
+        var toRemovePerms = currentPermissions.Except(requestedPermissions).ToList();
+
+        // All mutations inside a single transaction
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
         user.Email = request.Email;
         user.FirstName = request.FirstName;
         user.LastName = request.LastName;
 
-        var result = await userManager.UpdateAsync(user);
-        if (!result.Succeeded)
+        var profileResult = await userManager.UpdateAsync(user);
+        if (!profileResult.Succeeded)
         {
-            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
+            var errors = profileResult.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
             return Problem(AppProblems.UnprocessableEntities(errors));
         }
-        return Ok(new UserDto
+
+        foreach (var role in rolesToAdd)
         {
-            Id = user.Id,
-            Username = user.UserName!,
-            Email = user.Email,
-            FirstName = user.FirstName,
-            LastName = user.LastName,
-        });
+            var result = await userManager.AddToRoleAsync(user, role.Name!);
+            if (!result.Succeeded)
+            {
+                var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
+                return Problem(AppProblems.UnprocessableEntities(errors));
+            }
+        }
+
+        foreach (var role in rolesToRemove)
+        {
+            var result = await userManager.RemoveFromRoleAsync(user, role.Name!);
+            if (!result.Succeeded)
+            {
+                var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
+                return Problem(AppProblems.UnprocessableEntities(errors));
+            }
+        }
+
+        if (toAddPerms.Count > 0)
+            db.UserPermissions.AddRange(toAddPerms.Select(p => new UserPermission { UserId = id, Permission = p }));
+
+        if (toRemovePerms.Count > 0)
+            db.UserPermissions.RemoveRange(user.UserPermissions.Where(up => toRemovePerms.Contains(up.Permission)));
+
+        if (permissionsChanged)
+            await db.SaveChangesAsync(ct);
+
+        await transaction.CommitAsync(ct);
+
+        if (rolesChanged || permissionsChanged)
+            await versionStore.BumpAsync(user.Id);
+
+        var dto = await db.Users
+            .Where(u => u.Id == id)
+            .ProjectTo<UserDetailDto>(mapper.ConfigurationProvider)
+            .FirstAsync(ct);
+        return Ok(dto);
     }
 
     /// <summary>Delete a user.</summary>
@@ -149,127 +225,25 @@ public class UsersController(
         return NoContent();
     }
 
-    /// <summary>Get a user's effective permissions (role + direct).</summary>
-    [HttpGet("{id:guid}/permissions")]
-    [Authorize(Policy = Permissions.Users.View)]
-    [ProducesResponseType<IReadOnlyList<string>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetPermissions(Guid id)
-    {
-        var user = await userManager.FindByIdAsync(id.ToString());
-        if (user is null)
-            return NotFound(ErrorCode.UserNotFound, "User not found.");
-
-        var permissions = await permissionService.GetEffectivePermissionsAsync(id);
-        return Ok(permissions);
-    }
-
-    /// <summary>Assign a direct permission to a user.</summary>
-    [HttpPost("{id:guid}/permissions")]
-    [Authorize(Policy = Permissions.Users.ManagePermissions)]
+    /// <summary>Reset another user's password (admin action, no current password required).</summary>
+    [HttpPut("{id:guid}/password")]
+    [Authorize(Policy = Permissions.Users.ResetPassword)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> AddPermission(Guid id, [FromBody] AssignPermissionRequest request)
+    public async Task<IActionResult> ChangePassword(Guid id, [FromBody] ChangePasswordRequest request)
     {
         var user = await userManager.FindByIdAsync(id.ToString());
         if (user is null)
             return NotFound(ErrorCode.UserNotFound, "User not found.");
 
-        if (!Permissions.All.Contains(request.Permission))
-            return NotFound(ErrorCode.PermissionNotFound, $"Permission '{request.Permission}' does not exist.");
-
-        var exists = await db.UserPermissions
-            .AnyAsync(up => up.UserId == id && up.Permission == request.Permission);
-        if (exists)
-            return Conflict(ErrorCode.PermissionAlreadyAssigned, "User already has this permission.");
-
-        await permissionService.AddUserPermissionAsync(id, request.Permission);
-        return NoContent();
-    }
-
-    /// <summary>Remove a direct permission from a user.</summary>
-    [HttpDelete("{id:guid}/permissions/{permission}")]
-    [Authorize(Policy = Permissions.Users.ManagePermissions)]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> RemovePermission(Guid id, string permission)
-    {
-        var user = await userManager.FindByIdAsync(id.ToString());
-        if (user is null)
-            return NotFound(ErrorCode.UserNotFound, "User not found.");
-
-        var exists = await db.UserPermissions
-            .AnyAsync(up => up.UserId == id && up.Permission == permission);
-        if (!exists)
-            return NotFound(ErrorCode.PermissionNotFound, "User does not have this permission.");
-
-        await permissionService.RemoveUserPermissionAsync(id, permission);
-        return NoContent();
-    }
-
-    /// <summary>Get the roles assigned to a user.</summary>
-    [HttpGet("{id:guid}/roles")]
-    [Authorize(Policy = Permissions.Users.View)]
-    [ProducesResponseType<IReadOnlyList<string>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetRoles(Guid id)
-    {
-        var user = await userManager.FindByIdAsync(id.ToString());
-        if (user is null)
-            return NotFound(ErrorCode.UserNotFound, "User not found.");
-
-        var roles = await userManager.GetRolesAsync(user);
-        return Ok(roles);
-    }
-
-    /// <summary>Assign a role to a user.</summary>
-    [HttpPost("{id:guid}/roles")]
-    [Authorize(Policy = Permissions.Users.ManageRoles)]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> AddRole(Guid id, [FromBody] AssignRoleRequest request)
-    {
-        var user = await userManager.FindByIdAsync(id.ToString());
-        if (user is null)
-            return NotFound(ErrorCode.UserNotFound, "User not found.");
-
-        var role = await roleManager.FindByIdAsync(request.RoleId.ToString());
-        if (role is null)
-            return NotFound(ErrorCode.RoleNotFound, "Role not found.");
-
-        var result = await userManager.AddToRoleAsync(user, role.Name!);
+        var token = await userManager.GeneratePasswordResetTokenAsync(user);
+        var result = await userManager.ResetPasswordAsync(user, token, request.NewPassword);
         if (!result.Succeeded)
         {
             var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
             return Problem(AppProblems.UnprocessableEntities(errors));
         }
 
-        await versionStore.BumpAsync(user.Id);
-        return NoContent();
-    }
-
-    /// <summary>Remove a role from a user.</summary>
-    [HttpDelete("{id:guid}/roles/{roleId:guid}")]
-    [Authorize(Policy = Permissions.Users.ManageRoles)]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> RemoveRole(Guid id, Guid roleId)
-    {
-        var user = await userManager.FindByIdAsync(id.ToString());
-        if (user is null)
-            return NotFound(ErrorCode.UserNotFound, "User not found.");
-
-        var role = await roleManager.FindByIdAsync(roleId.ToString());
-        if (role is null)
-            return NotFound(ErrorCode.RoleNotFound, "Role not found.");
-
-        var result = await userManager.RemoveFromRoleAsync(user, role.Name!);
-        if (!result.Succeeded)
-        {
-            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
-            return Problem(AppProblems.UnprocessableEntities(errors));
-        }
         await versionStore.BumpAsync(user.Id);
         return NoContent();
     }

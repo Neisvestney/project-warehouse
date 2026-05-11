@@ -14,7 +14,8 @@ namespace ProjectWarehouse.Server.Controllers;
 public class AuthController(
     UserManager<ApplicationUser> userManager,
     ITokenService tokenService,
-    IPermissionService permissionService) : AppControllerBase
+    IPermissionService permissionService,
+    SecurityVersionStore versionStore) : AppControllerBase
 {
     /// <summary>Authenticate with username and password.</summary>
     [HttpPost("login")]
@@ -54,6 +55,28 @@ public class AuthController(
     public async Task<IActionResult> Logout([FromBody] RefreshRequest request)
     {
         await tokenService.RevokeRefreshTokenAsync(request.RefreshToken);
+        return NoContent();
+    }
+
+    /// <summary>Change the current user's own password (requires current password).</summary>
+    [HttpPut("password")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> ChangeOwnPassword([FromBody] ChangeOwnPasswordRequest request)
+    {
+        var (user, error) = await GetCurrentUserAsync(userManager);
+        if (error is not null) return error;
+        var me = user!;
+
+        var result = await userManager.ChangePasswordAsync(me, request.CurrentPassword, request.NewPassword);
+        if (!result.Succeeded)
+        {
+            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
+            return Problem(AppProblems.UnprocessableEntities(errors));
+        }
+
+        await versionStore.BumpAsync(me.Id);
         return NoContent();
     }
 
