@@ -27,6 +27,7 @@
     <PackageReference Include="Serilog.Sinks.Console" Version="6.*" />
     <PackageReference Include="AutoMapper" Version="14.*" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.*" />
+    <PackageReference Include="EntityFrameworkCore.Projectables" Version="6.0.*" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.*" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.*">

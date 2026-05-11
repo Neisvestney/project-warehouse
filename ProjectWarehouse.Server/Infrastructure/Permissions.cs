@@ -13,12 +13,12 @@ public static class Permissions
 
     public static class Users
     {
-        public const string View              = "users.view";
-        public const string Create            = "users.create";
-        public const string Edit              = "users.edit";
-        public const string Delete            = "users.delete";
-        public const string ManageRoles       = "users.manage_roles";
-        public const string ManagePermissions = "users.manage_permissions";
+        public const string View          = "users.view";
+        public const string Create        = "users.create";
+        public const string EditProfile   = "users.edit_profile";
+        public const string Delete        = "users.delete";
+        public const string ManageRoles   = "users.manage_roles";
+        public const string ResetPassword = "users.reset_password";
     }
 
     public static class Roles

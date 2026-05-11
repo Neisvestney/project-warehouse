@@ -105,7 +105,7 @@ try
             schemas["PermissionName"] = new OpenApiSchema { Type = JsonSchemaType.String, Enum = permissionValues.ToList() };
 
             // Schema names are derived from class names by the OpenAPI generator; update these if the request types are renamed.
-            foreach (var typeName in new[] { "AssignPermissionRequest", "AssignRolePermissionRequest" })
+            foreach (var typeName in new[] { "AssignRolePermissionRequest" })
             {
                 if (!schemas.TryGetValue(typeName, out var raw) || raw is not OpenApiSchema typeSchema) continue;
                 if (typeSchema.Properties is not { } props || !props.ContainsKey("permission")) continue;
@@ -124,7 +124,8 @@ try
     });
 
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+            .UseProjectables());
 
     builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
         {
