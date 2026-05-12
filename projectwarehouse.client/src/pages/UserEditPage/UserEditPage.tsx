@@ -10,7 +10,10 @@ import {
   Paper,
   Stack,
   TextField,
+  Tooltip,
+  Typography,
 } from "@mui/material";
+import {getPermissionLabel} from "@/utils/permissionLabels";
 import {type Control, Controller, useController, useForm} from "react-hook-form";
 import {useQuery, useMutation, useQueryClient} from "@tanstack/react-query";
 import {
@@ -173,15 +176,27 @@ function UserEditPage() {
                       loading={permissionsQuery.isLoading}
                       filterSelectedOptions
                       disabled={mutation.isPending}
+                      getOptionLabel={getPermissionLabel}
+                      renderOption={(props, option) => (
+                        <li {...props} key={option}>
+                          <Box>
+                            <Typography variant="body2">{getPermissionLabel(option)}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {option}
+                            </Typography>
+                          </Box>
+                        </li>
+                      )}
                       renderInput={(params) => <TextField {...params} label="Прямые права" />}
                       renderValue={(tagValue, getItemProps) =>
                         tagValue.map((option, index) => (
-                          <Chip
-                            label={option}
-                            {...getItemProps({index})}
-                            key={option}
-                            size="small"
-                          />
+                          <Tooltip key={option} title={option} arrow>
+                            <Chip
+                              label={getPermissionLabel(option)}
+                              {...getItemProps({index})}
+                              size="small"
+                            />
+                          </Tooltip>
                         ))
                       }
                     />
