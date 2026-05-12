@@ -30,15 +30,20 @@ function LoginPage() {
     "username" | "password"
   >();
 
+  const [navigateStarted, setNavigateStarted] = useState(false);
+
   const {mutate, isPending} = useMutation({
     mutationFn: ({username, password}: {username: string; password: string}) =>
       login(username, password),
     meta: {suppressGlobalError: true},
-    onSuccess: () => navigate(from, {replace: true}),
+    onSuccess: () => {
+      setNavigateStarted(true);
+      navigate(from, {replace: true});
+    },
     onError: setApiError,
   });
 
-  if (isAuthenticated) {
+  if (isAuthenticated && !navigateStarted) {
     return <Navigate to="/" replace />;
   }
 

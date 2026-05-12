@@ -93,6 +93,7 @@ export function setupApiClient() {
     retryClones.delete(request);
 
     if (!refreshed || !clone) {
+      window.dispatchEvent(new CustomEvent("auth:refreshTokenInvalid"));
       clearTokens();
       return response;
     }
