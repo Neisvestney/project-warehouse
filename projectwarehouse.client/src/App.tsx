@@ -18,9 +18,15 @@ const HomePage = React.lazy(() => import("@/pages/HomePage/HomePage.tsx"));
 const ScannerPage = React.lazy(() => import("@/pages/ScannerPage/ScannerPage.tsx"));
 const LoginPage = React.lazy(() => import("@/pages/LoginPage/LoginPage.tsx"));
 const UsersPage = React.lazy(() => import("@/pages/UsersPage/UsersPage.tsx"));
-const UserViewPage = React.lazy(() => import("@/pages/UserViewPage/UserViewPage.tsx"));
-const UserEditPage = React.lazy(() => import("@/pages/UserEditPage/UserEditPage.tsx"));
-const UserCreatePage = React.lazy(() => import("@/pages/UserCreatePage/UserCreatePage.tsx"));
+const UserViewPage = React.lazy(
+  () => import("@/pages/UsersPage/pages/UserViewPage/UserViewPage.tsx"),
+);
+const UserEditPage = React.lazy(
+  () => import("@/pages/UsersPage/pages/UserEditPage/UserEditPage.tsx"),
+);
+const UserCreatePage = React.lazy(
+  () => import("@/pages/UsersPage/pages/UserCreatePage/UserCreatePage.tsx"),
+);
 
 function App() {
   const {

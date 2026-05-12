@@ -33,12 +33,13 @@ src/
 ├── components/
 │   ├── form/
 │   │   └── FormTextField.tsx    # RHF-wired TextField wrapper
-│   ├── MainAppBar/
-│   │   └── MainAppBar.tsx       # Top nav bar with logo and links
-│   ├── InstallPrompt/
-│   │   └── InstallPrompt.tsx    # PWA "Add to Home Screen" prompt
-│   ├── UpdatePromt/
-│   │   └── UpdatePrompt.tsx     # Service worker update banner
+│   ├── modals/
+│   │   ├── ConfirmModal.tsx     # Reusable confirm modal (modal system)
+│   │   └── AlertModal.tsx       # Reusable alert modal (modal system)
+│   ├── ProtectedRoute/
+│   │   ├── ProtectedRoute.tsx         # Single-permission route guard
+│   │   ├── ProtectedRoutes.tsx        # Multi-permission route group guard
+│   │   └── _protectedRouteMarker.ts   # Internal marker type
 │   ├── ScannerBlock/
 │   │   ├── ScannerBlock.tsx     # Camera scanner orchestrator
 │   │   └── components/
@@ -47,23 +48,41 @@ src/
 │   │       ├── CameraSelectDialog.tsx  # Camera device picker dialog
 │   │       ├── ZoomControls.tsx        # Zoom slider/buttons
 │   │       └── index.ts
+│   ├── MainAppBar.tsx           # Top nav bar with logo and links
+│   ├── InstallPrompt.tsx        # PWA "Add to Home Screen" prompt
+│   ├── UpdatePrompt.tsx         # Service worker update banner
 │   ├── AppBreadcrumbs.tsx       # Page breadcrumb trail
 │   ├── PageGenericHeader.tsx    # Page header: title + filters + action buttons
-│   └── ConfirmDialog.tsx        # Confirmation dialog with loading state
+│   ├── ConfirmDialog.tsx        # Confirmation dialog with loading state
+│   ├── AccessDenied.tsx         # 403 access denied placeholder
+│   └── QueryErrorHandler.tsx    # TanStack Query global error boundary
 │
 ├── configuration/
 │   └── flagsConstants.ts        # IS_DEV flag (enables console logs)
 │
 ├── contexts/
-│   ├── ServiceWorkerContext.ts  # Context: needRefresh, offlineReady, updateServiceWorker
-│   ├── SearchParamsContext.ts   # Context + useSearchParamsContext hook
-│   └── SearchParamsProvider.tsx # Batched URL search params provider
+│   ├── Auth/
+│   │   ├── AuthContext.ts       # Context: current user, login/logout
+│   │   └── AuthProvider.tsx     # Fetches /me, exposes AuthContext
+│   ├── Modal/
+│   │   ├── ModalContext.ts      # Context: open/close modals imperatively
+│   │   └── ModalProvider.tsx    # Renders active modals, wires modalService
+│   ├── SearchParams/
+│   │   ├── SearchParamsContext.ts   # Context + useSearchParamsContext hook
+│   │   └── SearchParamsProvider.tsx # Batched URL search params provider
+│   └── ServiceWorker/
+│       └── ServiceWorkerContext.ts  # Context: needRefresh, offlineReady, updateServiceWorker
 │
 ├── layouts/
 │   └── MainLayout/
 │       └── MainLayout.tsx       # Shell with MainAppBar + <Outlet />
 │
 ├── hooks/
+│   ├── useAuth.ts                            # Current user + permission helpers
+│   ├── usePermission.ts                      # Single-permission check hook
+│   ├── useModal.ts                           # Open modals via ModalContext
+│   ├── useFormErrors.ts                      # Map API error fields → RHF setError
+│   ├── useRhfApiErrors.ts                    # RHF + API error wiring shorthand
 │   ├── useDebounce.ts                        # Generic debounce: T → debounced T after delay ms
 │   ├── useSyncedWithQueryState.ts            # Sync a typed value with a URL query param
 │   ├── useDebouncedSyncedWithQueryState.ts   # Local state + debounce + URL sync in one hook
@@ -73,21 +92,29 @@ src/
 ├── pages/
 │   ├── HomePage/
 │   │   └── HomePage.tsx         # Landing page with navigation cards
+│   ├── LoginPage/
+│   │   └── LoginPage.tsx        # Login form
 │   ├── ScannerPage/
 │   │   └── ScannerPage.tsx      # Full-screen scanner + scanned codes drawer
-│   ├── UsersPage/
-│   │   └── UsersPage.tsx        # Paginated, searchable user list (requires users.view)
-│   ├── UserViewPage/
-│   │   ├── UserViewPage.tsx          # Read-only user detail (requires users.view)
-│   │   ├── ChangePasswordDialog.tsx  # Admin password reset dialog
-│   │   └── DeleteUserDialog.tsx      # Delete confirmation dialog
-│   ├── UserEditPage/
-│   │   └── UserEditPage.tsx     # Edit profile + roles + permissions (requires users.edit_profile)
-│   └── UserCreatePage/
-│       └── UserCreatePage.tsx   # Create user form (requires users.create)
+│   └── UsersPage/
+│       ├── UsersPage.tsx        # Paginated, searchable user list (requires users.view)
+│       └── pages/
+│           ├── UserCreatePage/
+│           │   └── UserCreatePage.tsx   # Create user form (requires users.create)
+│           ├── UserEditPage/
+│           │   └── UserEditPage.tsx     # Edit profile + roles + permissions (requires users.edit_profile)
+│           └── UserViewPage/
+│               ├── UserViewPage.tsx          # Read-only user detail (requires users.view)
+│               ├── ChangePasswordDialog.tsx  # Admin password reset dialog
+│               └── DeleteUserDialog.tsx      # Delete confirmation dialog
 │
 ├── api/                         # Auto-generated — run `npm run generate-api` to refresh
 │   ├── client/                  # Bundled fetch client (from @hey-api/openapi-ts)
+│   │   ├── client.gen.ts
+│   │   ├── types.gen.ts
+│   │   ├── utils.gen.ts
+│   │   └── index.ts
+│   ├── core/                    # Generated runtime internals (auth, serializers, SSE)
 │   ├── client.gen.ts            # Client singleton
 │   ├── types.gen.ts             # TypeScript types from OpenAPI schema
 │   ├── sdk.gen.ts               # Typed SDK functions for all endpoints
@@ -96,7 +123,8 @@ src/
 │       └── react-query.gen.ts   # queryOptions / mutationOptions factories
 │
 ├── services/
-│   └── apiClient.ts             # Client config, token storage, refresh interceptor
+│   ├── apiClient.ts             # Client config, token storage, refresh interceptor
+│   └── modalService.ts          # Imperative modal open/close (used outside React tree)
 │
 └── utils/
     ├── camera/
@@ -106,16 +134,20 @@ src/
     │   ├── cameraUtils.ts       # Device enumeration, constraint helpers
     │   └── index.ts
     ├── qrTools.ts               # zxing-wasm decode + Otsu binarization + BarcodeDetector fallback
+    ├── errorUtils.ts            # API error shape helpers
+    ├── parseJwt.ts              # Decode JWT payload without verification
+    ├── permissionLabels.ts      # Human-readable labels for permission enum values
     └── useInstallPrompt.ts      # Hook: beforeinstallprompt event
 ```
 
 ## Routing
 
-`BrowserRouter` in `main.tsx`. Pages are lazy-loaded via `React.lazy` + `Suspense`.
+`BrowserRouter` in `main.tsx`. Pages are lazy-loaded via `React.lazy` + `Suspense`. Access control is handled by `ProtectedRoute` / `ProtectedRoutes` components; unauthenticated users are redirected to `/login`.
 
 ```
-/                  → MainLayout > HomePage
-/scanner           → ScannerPage  (no layout wrapper — full-screen)
+/login             → LoginPage               (public)
+/scanner           → ScannerPage             (authenticated, no layout wrapper)
+/                  → MainLayout > HomePage   (authenticated)
 /users             → MainLayout > UsersPage         (users.view)
 /users/new         → MainLayout > UserCreatePage    (users.create)
 /users/:id         → MainLayout > UserViewPage      (users.view)
@@ -289,9 +321,14 @@ PWA lifecycle UI. `InstallPrompt` triggers `beforeinstallprompt`. `UpdatePrompt`
 ServiceWorkerContext.Provider
   └── ThemeProvider (MUI)
         └── SnackbarProvider (notistack)
-              ├── CssBaseline      (self-closing — global CSS reset)
-              ├── UpdatePrompt
-              └── Suspense > Routes
+              └── ModalProvider
+                    ├── QueryErrorHandler    (self-closing — global query error handler)
+                    ├── CssBaseline          (self-closing — global CSS reset)
+                    ├── UpdatePrompt
+                    └── AuthProvider
+                          └── Suspense
+                                └── ProtectedRoutes
+                                      └── Routes (lazy pages)
 ```
 
 ## PWA
