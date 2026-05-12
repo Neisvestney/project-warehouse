@@ -6,7 +6,7 @@ import {
   DialogContentText,
   DialogTitle,
 } from "@mui/material";
-import type {ConfirmOptions, ModalComponentProps} from "@/contexts/ModalContext";
+import type {ConfirmOptions, ModalComponentProps} from "@/contexts/Modal/ModalContext";
 
 type ConfirmModalProps = ModalComponentProps<boolean> & ConfirmOptions;
 

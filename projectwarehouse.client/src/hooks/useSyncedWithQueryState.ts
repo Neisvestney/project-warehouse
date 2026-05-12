@@ -1,5 +1,5 @@
 import {useCallback, useMemo} from "react";
-import {useSearchParamsContext} from "@/contexts/SearchParamsContext";
+import {useSearchParamsContext} from "@/contexts/SearchParams/SearchParamsContext";
 
 export function useSyncedWithQueryState<T>(
   key: string,

@@ -2,7 +2,7 @@ import React from "react";
 import {Container} from "@mui/material";
 import {Outlet} from "react-router";
 import MainAppBar from "@/components/MainAppBar.tsx";
-import {SearchParamsProvider} from "@/contexts/SearchParamsProvider";
+import {SearchParamsProvider} from "@/contexts/SearchParams/SearchParamsProvider";
 
 export interface MainLayoutProps {}
 

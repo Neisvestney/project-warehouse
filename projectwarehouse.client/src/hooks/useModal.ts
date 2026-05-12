@@ -1,6 +1,6 @@
 import {useContext} from "react";
-import ModalContext from "@/contexts/ModalContext";
-import type {ModalServiceAPI} from "@/contexts/ModalContext";
+import ModalContext from "@/contexts/Modal/ModalContext";
+import type {ModalServiceAPI} from "@/contexts/Modal/ModalContext";
 
 /**
  * Imperative modal API for use inside React components.
