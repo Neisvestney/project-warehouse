@@ -16,11 +16,17 @@ import WarehouseIcon from "@mui/icons-material/Warehouse";
 import MenuIcon from "@mui/icons-material/Menu";
 import {Link, useNavigate} from "react-router";
 import {useAuth} from "@/hooks/useAuth";
+import type {PermissionName} from "@/api";
 
-const pages = [
+const pages: {name: string; url: string; requiredPermission?: PermissionName}[] = [
   {
     name: "Сканер",
     url: "/scanner",
+  },
+  {
+    name: "Пользователи",
+    url: "/users",
+    requiredPermission: "users.view",
   },
 ];
 
@@ -54,6 +60,10 @@ function MainAppBar({}: AppBarProps) {
   };
 
   const avatarLetter = user?.username?.[0]?.toUpperCase() ?? "?";
+
+  const filteredPages = pages.filter(
+    (page) => !page.requiredPermission || user?.permissions.includes(page.requiredPermission),
+  );
 
   return (
     <AppBar position="static">
@@ -105,7 +115,7 @@ function MainAppBar({}: AppBarProps) {
               onClose={handleCloseNavMenu}
               sx={{display: {xs: "block", md: "none"}}}
             >
-              {pages.map((page) => (
+              {filteredPages.map((page) => (
                 <MenuItem
                   onClick={handleCloseNavMenu}
                   component={Link}
@@ -137,7 +147,7 @@ function MainAppBar({}: AppBarProps) {
             Warehouse
           </Typography>
           <Box sx={{flexGrow: 1, display: {xs: "none", md: "flex"}}}>
-            {pages.map((page) => (
+            {filteredPages.map((page) => (
               <Button
                 key={page.url}
                 onClick={handleCloseNavMenu}

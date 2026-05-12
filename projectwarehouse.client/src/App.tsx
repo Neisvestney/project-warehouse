@@ -17,6 +17,7 @@ import {QueryErrorHandler} from "@/components/QueryErrorHandler";
 const HomePage = React.lazy(() => import("@/pages/HomePage/HomePage.tsx"));
 const ScannerPage = React.lazy(() => import("@/pages/ScannerPage/ScannerPage.tsx"));
 const LoginPage = React.lazy(() => import("@/pages/LoginPage/LoginPage.tsx"));
+const UsersPage = React.lazy(() => import("@/pages/UsersPage/UsersPage.tsx"));
 
 function App() {
   const {
@@ -43,6 +44,11 @@ function App() {
                   <Route path="/login" element={<LoginPage />} />
                   <ProtectedRoute element={<MainLayout />}>
                     <ProtectedRoute path="/" element={<HomePage />} />
+                    <ProtectedRoute
+                      path="/users"
+                      element={<UsersPage />}
+                      requiredPermission="users.view"
+                    />
                   </ProtectedRoute>
                   <ProtectedRoute path="/scanner" element={<ScannerPage />} />
                 </ProtectedRoutes>

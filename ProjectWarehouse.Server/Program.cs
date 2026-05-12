@@ -38,6 +38,12 @@ try
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
             options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
+    
+    builder.Services.ConfigureHttpJsonOptions(options =>
+    {
+        options.SerializerOptions.NumberHandling = JsonNumberHandling.Strict;
+    });
+    
     builder.Services.AddOpenApi(options =>
     {
         options.AddDocumentTransformer((document, _, _) =>
