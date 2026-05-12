@@ -38,5 +38,18 @@ export function QueryErrorHandler() {
     };
   }, [queryClient, showAlert]);
 
+  useEffect(() => {
+    const handler = () => {
+      showAlert({
+        title: "Ваша сессия истекла",
+        message: "Пожалуйста, авторизуйтесь снова, чтобы продолжить работу",
+        severity: "warning",
+      });
+    };
+
+    window.addEventListener("auth:refreshTokenInvalid", handler);
+    return () => window.removeEventListener("auth:refreshTokenInvalid", handler);
+  }, [showAlert]);
+
   return null;
 }
