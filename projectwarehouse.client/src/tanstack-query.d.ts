@@ -7,6 +7,7 @@ declare module "@tanstack/react-query" {
     };
     queryMeta: {
       suppressGlobalError?: boolean;
+      suppressGlobalNotFound?: boolean;
     };
   }
 }

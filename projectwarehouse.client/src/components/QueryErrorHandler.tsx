@@ -1,7 +1,7 @@
 import {useEffect, useRef} from "react";
 import {useQueryClient} from "@tanstack/react-query";
 import {useModal} from "@/hooks/useModal";
-import {extractErrorMessage} from "@/utils/errorUtils";
+import {extractErrorMessage, isNotFoundError} from "@/utils/errorUtils";
 
 export function QueryErrorHandler() {
   const queryClient = useQueryClient();
@@ -22,6 +22,8 @@ export function QueryErrorHandler() {
       if (event.query.state.status !== "error") return;
       if (event.query.state.fetchStatus !== "idle") return;
       if (event.query.meta?.suppressGlobalError) return;
+      if (event.query.meta?.suppressGlobalNotFound && isNotFoundError(event.query.state.error))
+        return;
       showIfNew(extractErrorMessage(event.query.state.error), "Ошибка запроса");
     });
 
