@@ -76,8 +76,12 @@ src/
 │       └── ServiceWorkerContext.ts  # Context: needRefresh, offlineReady, updateServiceWorker
 │
 ├── layouts/
-│   └── MainLayout/
-│       └── MainLayout.tsx       # Shell with MainAppBar + <Outlet />
+│   ├── MainLayout/
+│   │   └── MainLayout.tsx       # Shell with MainAppBar + <Outlet />
+│   ├── SidebarLayout/
+│   │   └── SidebarLayout.tsx    # Visual layout: left sidebar (desktop) / top tabs (mobile) + children slot
+│   └── SidebarPage/
+│       └── SidebarPage.tsx      # Routing wrapper: takes SectionConfig[], builds <Routes> + nav; exports createHasAccess
 │
 ├── hooks/
 │   ├── useAuth.ts                            # Current user + permission helpers
@@ -98,17 +102,22 @@ src/
 │   │   └── LoginPage.tsx        # Login form
 │   ├── ScannerPage/
 │   │   └── ScannerPage.tsx      # Full-screen scanner + scanned codes drawer
-│   └── UsersPage/
-│       ├── UsersPage.tsx        # Paginated, searchable user list (requires users.view)
+│   ├── UsersPage/
+│   │   ├── UsersPage.tsx        # Paginated, searchable user list (requires users.view)
+│   │   └── pages/
+│   │       ├── UserCreatePage/
+│   │       │   └── UserCreatePage.tsx   # Create user form (requires users.create)
+│   │       ├── UserEditPage/
+│   │       │   └── UserEditPage.tsx     # Edit profile + roles + permissions (requires users.edit_profile)
+│   │       └── UserViewPage/
+│   │           ├── UserViewPage.tsx          # Read-only user detail (requires users.view)
+│   │           ├── ChangePasswordDialog.tsx  # Admin password reset dialog
+│   │           └── DeleteUserDialog.tsx      # Delete confirmation dialog
+│   └── SettingsPage/
+│       ├── SettingsPage.tsx     # Sections declaration only — drives routes + sidebar nav for /settings/*
 │       └── pages/
-│           ├── UserCreatePage/
-│           │   └── UserCreatePage.tsx   # Create user form (requires users.create)
-│           ├── UserEditPage/
-│           │   └── UserEditPage.tsx     # Edit profile + roles + permissions (requires users.edit_profile)
-│           └── UserViewPage/
-│               ├── UserViewPage.tsx          # Read-only user detail (requires users.view)
-│               ├── ChangePasswordDialog.tsx  # Admin password reset dialog
-│               └── DeleteUserDialog.tsx      # Delete confirmation dialog
+│           └── RolesSettingsPage/
+│               └── RolesSettingsPage.tsx   # WIP placeholder for role management
 │
 ├── api/                         # Auto-generated — run `npm run generate-api` to refresh
 │   ├── client/                  # Bundled fetch client (from @hey-api/openapi-ts)
@@ -154,6 +163,9 @@ src/
 /users/new         → MainLayout > UserCreatePage    (users.create)
 /users/:id         → MainLayout > UserViewPage      (users.view)
 /users/:id/edit    → MainLayout > UserEditPage      (users.edit_profile)
+/settings/*        → MainLayout > SettingsPage      (authenticated)
+/settings          →   redirect to /settings/roles
+/settings/roles    →   RolesSettingsPage            (WIP)
 ```
 
 ## Pages
@@ -192,7 +204,29 @@ Orchestrates the full camera scan loop:
 Scan interval is configurable (4–25 FPS equivalent).
 
 ### `MainAppBar`
-Top navigation bar. Logo/title + mobile hamburger menu with links to `/scanner` and `/users`.
+Top navigation bar. Logo/title + mobile hamburger menu with permission-filtered links. Each entry in the `pages` array supports `requiredPermission` (must match a user permission) and `showIf` (arbitrary boolean predicate, used by "Настройки" to hide when no settings sections are accessible).
+
+### `SidebarLayout`
+Generic visual layout for pages with a left-panel navigation. On desktop (md+) renders a MUI `List` sidebar with a right border; on mobile renders scrollable MUI `Tabs` at the top. Takes `navItems: SidebarNavItem[]` (leaves with `path`, or groups with `defaultPath` + `children`) and `children` (the content area). Active item detection uses `matchPath({ end: false })` so sub-routes highlight the parent item.
+
+### `SidebarPage`
+Higher-level routing wrapper built on top of `SidebarLayout`. Takes a `sections: SectionConfig[]` declaration and a `basePath` string, and automatically:
+- Builds `SidebarNavItem[]` filtered by user permissions and `showIf`
+- Creates `<Routes>` with relative paths (leaf routes, subroutes, and redirect routes for groups)
+- Groups with no `component` redirect to their first visible child at runtime
+
+**To create a new sidebar-based page**, declare a `SectionConfig[]`, call `createHasAccess(sections)` to get an AppBar visibility helper, and render `<SidebarPage sections={...} basePath="..." />`. See `SettingsPage.tsx` for the reference implementation.
+
+**`SectionConfig` fields:**
+| Field | Type | Description |
+|---|---|---|
+| `label` | `string` | Nav item label |
+| `path` | `string` | Relative path segment (e.g. `"roles"`) |
+| `component` | `ComponentType?` | Page component; absent → redirect to first visible child |
+| `requiredPermission` | `PermissionName?` | Hides item if user lacks this permission |
+| `showIf` | `() => boolean?` | Additional visibility predicate (feature flags etc.) |
+| `subroutes` | `SectionSubroute[]?` | Sub-paths (e.g. `":id"`) that highlight the parent nav item |
+| `children` | `SectionConfig[]?` | Nested nav sections (max depth 1); section becomes a group |
 
 ### `AppBreadcrumbs`
 Renders a MUI `Breadcrumbs` trail from an array of `{ name, link? }` objects. Items with a `link` render as React Router `<Link>`; the last item is plain text. Used at the top of every page.
