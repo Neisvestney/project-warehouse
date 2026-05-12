@@ -9,5 +9,7 @@ public class UpdateRoleItem
     [Required, MinLength(1)]
     public string Name { get; init; } = null!;
 
+    public int Order { get; init; }
+
     public IReadOnlyList<string> Permissions { get; init; } = [];
 }

@@ -27,6 +27,7 @@ public class RolesController(
     public async Task<IActionResult> GetAll(CancellationToken ct = default)
     {
         var roles = await db.Roles
+            .OrderBy(r => r.Order).ThenBy(r => r.Name)
             .ProjectTo<RoleWithPermissionsDto>(mapper.ConfigurationProvider)
             .ToListAsync(ct);
         return Ok(roles);
@@ -122,7 +123,7 @@ public class RolesController(
 
         foreach (var item in toCreate)
         {
-            var role = new ApplicationRole { Name = item.Name };
+            var role = new ApplicationRole { Name = item.Name, Order = item.Order };
             var result = await roleManager.CreateAsync(role);
             if (!result.Succeeded)
             {
@@ -137,9 +138,13 @@ public class RolesController(
         foreach (var item in toUpdate)
         {
             var role = existingById[item.Id!.Value];
-            if (!string.Equals(role.Name, item.Name, StringComparison.OrdinalIgnoreCase))
+            var nameChanged = role.NormalizedName != roleManager.NormalizeKey(item.Name);
+            var orderChanged = role.Order != item.Order;
+
+            if (nameChanged || orderChanged)
             {
                 role.Name = item.Name;
+                role.Order = item.Order;
                 var result = await roleManager.UpdateAsync(role);
                 if (!result.Succeeded)
                 {
@@ -192,6 +197,7 @@ public class RolesController(
             await permissionService.BumpForRoleUsersAsync(roleId);
 
         var updated = await db.Roles
+            .OrderBy(r => r.Order).ThenBy(r => r.Name)
             .ProjectTo<RoleWithPermissionsDto>(mapper.ConfigurationProvider)
             .ToListAsync(ct);
         return Ok(updated);
