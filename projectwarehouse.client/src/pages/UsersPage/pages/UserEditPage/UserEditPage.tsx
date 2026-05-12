@@ -28,8 +28,11 @@ import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {useHasPermission} from "@/hooks/usePermission";
 import {useDebounce} from "@/hooks/useDebounce";
 import {FormTextField} from "@/components/form/FormTextField";
+import {isNotFoundError} from "@/utils/errorUtils";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import PageGenericHeader from "@/components/PageGenericHeader";
+import NotFound from "@/components/NotFound";
+import QueryError from "@/components/QueryError";
 
 type EditFormValues = {
   email: string;
@@ -46,7 +49,10 @@ function UserEditPage() {
 
   const canManageRoles = useHasPermission("users.manage_roles_and_permissions");
 
-  const userQuery = useQuery(usersGetByIdOptions({path: {id: id!}}));
+  const userQuery = useQuery({
+    ...usersGetByIdOptions({path: {id: id!}}),
+    meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
+  });
   const permissionsQuery = useQuery(permissionsGetAllOptions());
 
   const [rolesInput, setRolesInput] = useState("");
@@ -111,7 +117,9 @@ function UserEditPage() {
     );
   }
 
-  if (!userQuery.data) return null;
+  if (userQuery.isError)
+    return isNotFoundError(userQuery.error) ? <NotFound /> : <QueryError error={userQuery.error} />;
+  if (!userQuery.data) return <NotFound />;
 
   const user = userQuery.data;
 

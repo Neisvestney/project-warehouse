@@ -49,6 +49,12 @@ export function resolveErrorMessage(error: AppFieldError): string {
   return interpolateArgs(template, error.args);
 }
 
+export function isNotFoundError(error: unknown): boolean {
+  if (isAppProblemDetails(error)) return error.status === 404;
+  if (typeof error === "string") return error.trim() === "404";
+  return false;
+}
+
 export function isAppProblemDetails(error: unknown): error is AppProblemDetails {
   return (
     typeof error === "object" &&

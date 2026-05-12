@@ -16,8 +16,11 @@ import LockResetIcon from "@mui/icons-material/LockReset";
 import DeleteIcon from "@mui/icons-material/Delete";
 import {useQuery} from "@tanstack/react-query";
 import {usersGetByIdOptions} from "@/api/@tanstack/react-query.gen";
+import {isNotFoundError} from "@/utils/errorUtils";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import PageGenericHeader from "@/components/PageGenericHeader";
+import NotFound from "@/components/NotFound";
+import QueryError from "@/components/QueryError";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import DeleteUserDialog from "./DeleteUserDialog";
 
@@ -26,7 +29,15 @@ function UserViewPage() {
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const {data: user, isLoading} = useQuery(usersGetByIdOptions({path: {id: id!}}));
+  const {
+    data: user,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    ...usersGetByIdOptions({path: {id: id!}}),
+    meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
+  });
 
   if (isLoading) {
     return (
@@ -36,7 +47,8 @@ function UserViewPage() {
     );
   }
 
-  if (!user) return null;
+  if (isError) return isNotFoundError(error) ? <NotFound /> : <QueryError error={error} />;
+  if (!user) return <NotFound />;
 
   return (
     <Stack spacing={2}>

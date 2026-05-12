@@ -55,6 +55,8 @@ src/
 │   ├── PageGenericHeader.tsx    # Page header: title + filters + action buttons
 │   ├── ConfirmDialog.tsx        # Confirmation dialog with loading state
 │   ├── AccessDenied.tsx         # 403 access denied placeholder
+│   ├── NotFound.tsx             # 404 not found placeholder
+│   ├── QueryError.tsx           # Generic query error placeholder (5xx, network)
 │   └── QueryErrorHandler.tsx    # TanStack Query global error boundary
 │
 ├── configuration/
@@ -134,7 +136,7 @@ src/
     │   ├── cameraUtils.ts       # Device enumeration, constraint helpers
     │   └── index.ts
     ├── qrTools.ts               # zxing-wasm decode + Otsu binarization + BarcodeDetector fallback
-    ├── errorUtils.ts            # API error shape helpers
+    ├── errorUtils.ts            # API error shape helpers: extractErrorMessage, isNotFoundError, isAppProblemDetails
     ├── parseJwt.ts              # Decode JWT payload without verification
     ├── permissionLabels.ts      # Human-readable labels for permission enum values
     └── useInstallPrompt.ts      # Hook: beforeinstallprompt event
@@ -168,8 +170,12 @@ Server-side paginated and searchable table of users. Requires `users.view` permi
 ### `UserViewPage`
 Read-only detail view for a single user. Displays username, email, first/last name, assigned roles (chips), and direct permissions (chips). Action buttons: **Редактировать** → `UserEditPage`, **Сменить пароль** → opens `ChangePasswordDialog`, **Удалить** → opens `DeleteUserDialog`. Requires `users.view`.
 
+On query error: renders `<NotFound />` for 404, `<QueryError />` for everything else. The `usersGetById` query sets `suppressGlobalError: true` and `suppressGlobalNotFound: true` so the global modal is never shown alongside these inline states.
+
 ### `UserEditPage`
 RHF form for editing a user's profile (email, first/last name) and, if the current user has `users.manage_roles`, also roles (typeahead via `rolesSearch` API) and direct permissions (multi-select from `permissionsGetAll`). Pre-populated from `usersGetById`; refetches on window focus without losing unsaved edits (`keepDirtyValues: true`). Requires `users.edit_profile`.
+
+Same error handling as `UserViewPage`: `<NotFound />` on 404, `<QueryError />` otherwise.
 
 ### `UserCreatePage`
 RHF form for creating a new user. Fields: username (required), password (required, with show/hide toggle), email, first name, last name. On success navigates to the new user's `UserViewPage`. Requires `users.create`.
@@ -214,6 +220,31 @@ Three-zone page header: title (`h5`, left), optional middle slot for search/filt
 ```
 
 Props: `title: React.ReactNode`, `children?: React.ReactNode` (middle slot), `right?: React.ReactNode`.
+
+### `AccessDenied`
+Full-page placeholder rendered when the user lacks permission. Shows a lock icon, a short message, and a "Вернуться назад" button that navigates to `/`. Used by `ProtectedRoute`.
+
+### `NotFound`
+Full-page placeholder rendered when a requested resource does not exist (HTTP 404). Shows a search-off icon, a short message, and a "Вернуться назад" button that navigates to `/`. Used inline in pages that fetch a single resource by ID.
+
+### `QueryError`
+Full-page placeholder rendered when a query fails with a non-404 error (e.g. 502, network failure). Accepts an optional `error` prop and displays the human-readable message via `extractErrorMessage`. Use alongside `NotFound` to cover all error branches.
+
+```tsx
+if (query.isError)
+  return isNotFoundError(query.error) ? <NotFound /> : <QueryError error={query.error} />;
+```
+
+Props: `error?: unknown`.
+
+### `QueryErrorHandler`
+Subscribes to the TanStack Query cache and surfaces unhandled query/mutation errors as modal alerts. Skips a query error if:
+- `meta.suppressGlobalError` is `true` — suppresses the modal for all errors on this query
+- `meta.suppressGlobalNotFound` is `true` — suppresses the modal only for 404 errors
+
+Use `suppressGlobalError: true` together with `suppressGlobalNotFound: true` when the page renders `<QueryError />` inline (to avoid showing both the inline component and the global modal).
+
+Also listens for the `auth:refreshTokenInvalid` window event and shows a session-expired warning.
 
 ### `ConfirmDialog`
 Generic confirmation dialog with a loading spinner on the confirm button. Blocks backdrop-click dismiss while `isPending`. Used for all destructive confirm flows.
