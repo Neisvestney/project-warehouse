@@ -8,4 +8,5 @@ public interface IPermissionService
     Task AddUserPermissionAsync(Guid userId, string permission);
     Task RemoveUserPermissionAsync(Guid userId, string permission);
     Task BumpForRoleUsersAsync(Guid roleId);
+    Task BumpUsersAsync(IEnumerable<Guid> userIds);
 }

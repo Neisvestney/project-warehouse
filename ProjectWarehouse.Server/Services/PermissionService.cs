@@ -75,13 +75,19 @@ public class PermissionService(
             .Select(ur => ur.UserId)
             .ToListAsync();
 
-        if (userIds.Count == 0) return;
+        await BumpUsersAsync(userIds);
+    }
+
+    public async Task BumpUsersAsync(IEnumerable<Guid> userIds)
+    {
+        var ids = userIds.ToList();
+        if (ids.Count == 0) return;
 
         await db.Users
-            .Where(u => userIds.Contains(u.Id))
+            .Where(u => ids.Contains(u.Id))
             .ExecuteUpdateAsync(s => s.SetProperty(u => u.SecurityVersion, u => u.SecurityVersion + 1));
 
-        foreach (var id in userIds)
+        foreach (var id in ids)
             versionStore.Evict(id);
     }
 }

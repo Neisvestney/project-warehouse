@@ -1,5 +1,6 @@
+using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,165 +17,183 @@ namespace ProjectWarehouse.Server.Controllers;
 public class RolesController(
     RoleManager<ApplicationRole> roleManager,
     ApplicationDbContext db,
-    IPermissionService permissionService) : AppControllerBase
+    IPermissionService permissionService,
+    IMapper mapper) : AppControllerBase
 {
-    /// <summary>List all roles.</summary>
+    /// <summary>List all roles with their permissions.</summary>
     [HttpGet]
     [Authorize(Policy = Permissions.Roles.View)]
-    [ProducesResponseType<IReadOnlyList<RoleDto>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAll()
+    [ProducesResponseType<IReadOnlyList<RoleWithPermissionsDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAll(CancellationToken ct = default)
     {
-        var roles = await roleManager.Roles
-            .Select(r => new RoleDto { Id = r.Id, Name = r.Name! })
-            .ToListAsync();
+        var roles = await db.Roles
+            .ProjectTo<RoleWithPermissionsDto>(mapper.ConfigurationProvider)
+            .ToListAsync(ct);
         return Ok(roles);
     }
 
-    /// <summary>Get a role by ID.</summary>
-    [HttpGet("{id:guid}")]
+    /// <summary>Search roles by name (id + name only, max 10 results).</summary>
+    [HttpGet("search")]
     [Authorize(Policy = Permissions.Roles.View)]
-    [ProducesResponseType<RoleDto>(StatusCodes.Status200OK)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetById(Guid id)
+    [ProducesResponseType<IReadOnlyList<RoleDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> Search([FromQuery] string? searchString = null, CancellationToken ct = default)
     {
-        var role = await roleManager.FindByIdAsync(id.ToString());
-        if (role is null)
-            return NotFound(ErrorCode.RoleNotFound, "Role not found.");
-
-        return Ok(new RoleDto { Id = role.Id, Name = role.Name! });
+        var roles = await roleManager.Roles
+            .WhereMatchesSearch(r => r.Name!, searchString)
+            .OrderBy(r => r.Name)
+            .Take(10)
+            .ProjectTo<RoleDto>(mapper.ConfigurationProvider)
+            .ToListAsync(ct);
+        return Ok(roles);
     }
 
-    /// <summary>Create a new role.</summary>
-    [HttpPost]
-    [Authorize(Policy = Permissions.Roles.Create)]
-    [ProducesResponseType<RoleDto>(StatusCodes.Status201Created)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Create([FromBody] CreateRoleRequest request)
-    {
-        var existing = await roleManager.FindByNameAsync(request.Name);
-        if (existing is not null)
-            return ConflictField("name", ErrorCode.RoleAlreadyExists, "A role with this name already exists.");
-
-        var role = new ApplicationRole { Name = request.Name };
-        var result = await roleManager.CreateAsync(role);
-        if (!result.Succeeded)
-        {
-            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
-            return Problem(AppProblems.UnprocessableEntities(errors));
-        }
-
-        return CreatedAtAction(nameof(GetById), new { id = role.Id },
-            new RoleDto { Id = role.Id, Name = role.Name! });
-    }
-
-    /// <summary>Update a role's name.</summary>
-    [HttpPut("{id:guid}")]
+    /// <summary>Atomically replace the entire roles collection.</summary>
+    [HttpPut]
     [Authorize(Policy = Permissions.Roles.Edit)]
-    [ProducesResponseType<RoleDto>(StatusCodes.Status200OK)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<IReadOnlyList<RoleWithPermissionsDto>>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateRoleRequest request)
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> UpdateAll([FromBody] List<UpdateRoleItem> request, CancellationToken ct = default)
     {
-        var role = await roleManager.FindByIdAsync(id.ToString());
-        if (role is null)
-            return NotFound(ErrorCode.RoleNotFound, "Role not found.");
-
-        if (role.NormalizedName == "ADMIN")
-            return Forbidden(ErrorCode.RoleProtected, "The Admin role cannot be modified.");
-
-        role.Name = request.Name;
-        var result = await roleManager.UpdateAsync(role);
-        if (!result.Succeeded)
+        var permErrors = new List<(string, ErrorCode, string, IReadOnlyDictionary<string, object>?)>();
+        for (var i = 0; i < request.Count; i++)
+        for (var j = 0; j < request[i].Permissions.Count; j++)
         {
-            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
+            if (!Permissions.All.Contains(request[i].Permissions[j]))
+                permErrors.Add(($"[{i}].permissions[{j}]", ErrorCode.PermissionNotFound,
+                    $"Unknown permission: '{request[i].Permissions[j]}'", null));
+        }
+        if (permErrors.Count > 0)
+            return Problem(AppProblems.UnprocessableEntities(permErrors));
+
+        var existing = await db.Roles
+            .Include(r => r.RolePermissions)
+            .ToListAsync(ct);
+        var existingById = existing.ToDictionary(r => r.Id);
+
+        var toCreate = request.Where(r => r.Id is null || r.Id == Guid.Empty).ToList();
+        var toUpdate = request.Where(r => r.Id is not null && r.Id != Guid.Empty).ToList();
+
+        var unknownIds = toUpdate.Where(r => !existingById.ContainsKey(r.Id!.Value)).ToList();
+        if (unknownIds.Count > 0)
+        {
+            var errors = unknownIds.Select(r =>
+                ("id", ErrorCode.RoleNotFound, $"Role '{r.Id}' does not exist.", (IReadOnlyDictionary<string, object>?)null));
             return Problem(AppProblems.UnprocessableEntities(errors));
         }
-        return Ok(new RoleDto { Id = role.Id, Name = role.Name! });
-    }
 
-    /// <summary>Delete a role.</summary>
-    [HttpDelete("{id:guid}")]
-    [Authorize(Policy = Permissions.Roles.Delete)]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> Delete(Guid id)
-    {
-        var role = await roleManager.FindByIdAsync(id.ToString());
-        if (role is null)
-            return NotFound(ErrorCode.RoleNotFound, "Role not found.");
+        var incomingIds = toUpdate.Select(r => r.Id!.Value).ToHashSet();
+        var toDelete = existing.Where(r => !incomingIds.Contains(r.Id)).ToList();
 
-        if (role.NormalizedName == "ADMIN")
-            return Forbidden(ErrorCode.RoleProtected, "The Admin role cannot be deleted.");
-
-        var result = await roleManager.DeleteAsync(role);
-        if (!result.Succeeded)
+        var adminRole = existing.FirstOrDefault(r => r.NormalizedName == "ADMIN");
+        if (adminRole is not null)
         {
-            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
-            return Problem(AppProblems.UnprocessableEntities(errors));
+            if (toDelete.Any(r => r.NormalizedName == "ADMIN"))
+                return Forbidden(ErrorCode.RoleProtected, "The Admin role cannot be deleted.");
+
+            var adminIncoming = toUpdate.FirstOrDefault(r => r.Id == adminRole.Id);
+            if (adminIncoming is not null)
+            {
+                if (roleManager.NormalizeKey(adminIncoming.Name) != adminRole.NormalizedName)
+                    return Forbidden(ErrorCode.RoleProtected, "The Admin role cannot be renamed.");
+
+                var removedPerms = adminRole.RolePermissions
+                    .Select(rp => rp.Permission)
+                    .Except(adminIncoming.Permissions)
+                    .Any();
+                if (removedPerms)
+                    return Forbidden(ErrorCode.RoleProtected, "Permissions cannot be removed from the Admin role.");
+            }
         }
-        return NoContent();
-    }
 
-    /// <summary>Get permissions assigned to a role.</summary>
-    [HttpGet("{id:guid}/permissions")]
-    [Authorize(Policy = Permissions.Roles.View)]
-    [ProducesResponseType<IReadOnlyList<string>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetPermissions(Guid id)
-    {
-        var role = await roleManager.FindByIdAsync(id.ToString());
-        if (role is null)
-            return NotFound(ErrorCode.RoleNotFound, "Role not found.");
+        var deleteRoleIds = toDelete.Select(r => r.Id).ToList();
+        var usersAffectedByDeletion = deleteRoleIds.Count > 0
+            ? await db.UserRoles
+                .Where(ur => deleteRoleIds.Contains(ur.RoleId))
+                .Select(ur => ur.UserId)
+                .Distinct()
+                .ToListAsync(ct)
+            : (List<Guid>)[];
 
-        var permissions = await db.RolePermissions
-            .Where(rp => rp.RoleId == id)
-            .Select(rp => rp.Permission)
-            .ToListAsync();
-        return Ok(permissions);
-    }
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
-    /// <summary>Assign a permission to a role.</summary>
-    [HttpPost("{id:guid}/permissions")]
-    [Authorize(Policy = Permissions.Roles.ManagePermissions)]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> AddPermission(Guid id, [FromBody] AssignRolePermissionRequest request)
-    {
-        var role = await roleManager.FindByIdAsync(id.ToString());
-        if (role is null)
-            return NotFound(ErrorCode.RoleNotFound, "Role not found.");
+        var bumpRoleIds = new HashSet<Guid>();
+        var createdRoles = new List<(ApplicationRole Role, List<string> Permissions)>();
 
-        if (!Permissions.All.Contains(request.Permission))
-            return NotFound(ErrorCode.PermissionNotFound, $"Permission '{request.Permission}' does not exist.");
+        foreach (var item in toCreate)
+        {
+            var role = new ApplicationRole { Name = item.Name };
+            var result = await roleManager.CreateAsync(role);
+            if (!result.Succeeded)
+            {
+                var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
+                return Problem(AppProblems.UnprocessableEntities(errors));
+            }
+            createdRoles.Add((role, item.Permissions.ToList()));
+            if (item.Permissions.Count > 0)
+                bumpRoleIds.Add(role.Id);
+        }
 
-        var exists = await db.RolePermissions
-            .AnyAsync(rp => rp.RoleId == id && rp.Permission == request.Permission);
-        if (exists)
-            return Conflict(ErrorCode.PermissionAlreadyAssigned, "Role already has this permission.");
+        foreach (var item in toUpdate)
+        {
+            var role = existingById[item.Id!.Value];
+            if (!string.Equals(role.Name, item.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                role.Name = item.Name;
+                var result = await roleManager.UpdateAsync(role);
+                if (!result.Succeeded)
+                {
+                    var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
+                    return Problem(AppProblems.UnprocessableEntities(errors));
+                }
+            }
+        }
 
-        await permissionService.AddRolePermissionAsync(id, request.Permission);
-        return NoContent();
-    }
+        foreach (var role in toDelete)
+        {
+            var result = await roleManager.DeleteAsync(role);
+            if (!result.Succeeded)
+            {
+                var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
+                return Problem(AppProblems.UnprocessableEntities(errors));
+            }
+        }
 
-    /// <summary>Remove a permission from a role.</summary>
-    [HttpDelete("{id:guid}/permissions/{permission}")]
-    [Authorize(Policy = Permissions.Roles.ManagePermissions)]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> RemovePermission(Guid id, string permission)
-    {
-        var role = await roleManager.FindByIdAsync(id.ToString());
-        if (role is null)
-            return NotFound(ErrorCode.RoleNotFound, "Role not found.");
+        foreach (var (role, permissions) in createdRoles)
+            db.RolePermissions.AddRange(permissions.Select(p => new RolePermission { RoleId = role.Id, Permission = p }));
 
-        var exists = await db.RolePermissions
-            .AnyAsync(rp => rp.RoleId == id && rp.Permission == permission);
-        if (!exists)
-            return NotFound(ErrorCode.PermissionNotFound, "Role does not have this permission.");
+        foreach (var item in toUpdate)
+        {
+            var role = existingById[item.Id!.Value];
+            var current = role.RolePermissions.Select(rp => rp.Permission).ToHashSet();
+            var requested = item.Permissions.ToHashSet();
 
-        await permissionService.RemoveRolePermissionAsync(id, permission);
-        return NoContent();
+            var toAdd = requested.Except(current).ToList();
+            var toRemove = current.Except(requested).ToList();
+
+            if (toAdd.Count > 0)
+            {
+                db.RolePermissions.AddRange(toAdd.Select(p => new RolePermission { RoleId = role.Id, Permission = p }));
+                bumpRoleIds.Add(role.Id);
+            }
+            if (toRemove.Count > 0)
+            {
+                db.RolePermissions.RemoveRange(role.RolePermissions.Where(rp => toRemove.Contains(rp.Permission)));
+                bumpRoleIds.Add(role.Id);
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+
+        await permissionService.BumpUsersAsync(usersAffectedByDeletion);
+
+        foreach (var roleId in bumpRoleIds)
+            await permissionService.BumpForRoleUsersAsync(roleId);
+
+        var updated = await db.Roles
+            .ProjectTo<RoleWithPermissionsDto>(mapper.ConfigurationProvider)
+            .ToListAsync(ct);
+        return Ok(updated);
     }
 }
