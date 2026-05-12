@@ -50,17 +50,28 @@ src/
 │   └── flagsConstants.ts        # IS_DEV flag (enables console logs)
 │
 ├── contexts/
-│   └── ServiceWorkerContext.ts  # Context: needRefresh, offlineReady, updateServiceWorker
+│   ├── ServiceWorkerContext.ts  # Context: needRefresh, offlineReady, updateServiceWorker
+│   ├── SearchParamsContext.ts   # Context + useSearchParamsContext hook
+│   └── SearchParamsProvider.tsx # Batched URL search params provider
 │
 ├── layouts/
 │   └── MainLayout/
 │       └── MainLayout.tsx       # Shell with MainAppBar + <Outlet />
 │
+├── hooks/
+│   ├── useDebounce.ts                        # Generic debounce: T → debounced T after delay ms
+│   ├── useSyncedWithQueryState.ts            # Sync a typed value with a URL query param
+│   ├── useDebouncedSyncedWithQueryState.ts   # Local state + debounce + URL sync in one hook
+│   ├── useParamsState.ts                     # Merge debounced + immediate params for API queries
+│   └── usePaginatedParams.ts                 # Pagination wrapper: page/pageSize from URL + page reset
+│
 ├── pages/
 │   ├── HomePage/
 │   │   └── HomePage.tsx         # Landing page with navigation cards
-│   └── ScannerPage/
-│       └── ScannerPage.tsx      # Full-screen scanner + scanned codes drawer
+│   ├── ScannerPage/
+│   │   └── ScannerPage.tsx      # Full-screen scanner + scanned codes drawer
+│   └── UsersPage/
+│       └── UsersPage.tsx        # Paginated, searchable user list (requires users.view)
 │
 ├── api/                         # Auto-generated — run `npm run generate-api` to refresh
 │   ├── client/                  # Bundled fetch client (from @hey-api/openapi-ts)
@@ -92,6 +103,7 @@ src/
 ```
 /           → MainLayout > HomePage
 /scanner    → ScannerPage  (no layout wrapper — full-screen)
+/users      → MainLayout > UsersPage  (requires users.view permission)
 ```
 
 ## Pages
@@ -101,6 +113,9 @@ Landing page. Shows navigation cards (scanner link), PWA offline-ready indicator
 
 ### `ScannerPage`
 Full-screen camera scanner. Uses `ScannerBlock` for capture/decode. Maintains a list of scanned barcodes in local state; opens a bottom drawer when `?scannedCodesDrawerOpen=true` is in the query string.
+
+### `UsersPage`
+Server-side paginated and searchable table of users. Requires `users.view` permission. State is stored in URL params (`?search=`, `?page=`, `?pageSize=`) using `useDebouncedSyncedWithQueryState` + `usePaginatedParams`. The search field updates instantly without lag; the URL and API call update after a 300 ms debounce.
 
 ## Key Components
 
@@ -114,7 +129,64 @@ Orchestrates the full camera scan loop:
 Scan interval is configurable (4–25 FPS equivalent).
 
 ### `MainAppBar`
-Top navigation bar. Logo/title + mobile hamburger menu with a link to `/scanner`.
+Top navigation bar. Logo/title + mobile hamburger menu with links to `/scanner` and `/users`.
+
+## URL State Hooks
+
+A set of hooks for managing page state via URL search params, enabling bookmarkable and shareable URLs.
+
+### `SearchParamsProvider`
+Wraps pages that use URL-synced state (mounted in `MainLayout`). Batches all `setParam` calls within the same synchronous tick into a single `setSearchParams` navigation via `queueMicrotask`, preventing concurrent hook updates from overwriting each other.
+
+### `useDebounce<T>(value, delay?)`
+Generic debounce hook. Returns the debounced copy of `value`; updates only after `delay` ms of inactivity (default 300 ms).
+
+```typescript
+const debouncedQuery = useDebounce(inputValue, 300);
+```
+
+### `useSyncedWithQueryState(key, fromQuery, toQuery)`
+Binds a typed state value to a single URL query param. Returns `[value, setValue]`; `setValue` writes to the URL via `SearchParamsProvider` (batched via `queueMicrotask`).
+
+```typescript
+const [search, setSearch] = useSyncedWithQueryState(
+  "search",
+  (q) => (typeof q === "string" ? q : ""),
+  (v) => v || null,
+);
+```
+
+### `useDebouncedSyncedWithQueryState(key, fromQuery, toQuery, delay?)`
+Combines local state, `useDebounce`, and `useSyncedWithQueryState` into one hook for lag-free inputs that sync to the URL after a debounce. Returns `[localValue, setLocalValue, urlValue]`.
+
+- `localValue` / `setLocalValue` — bind to the input element (updates instantly, no re-navigation per keystroke)
+- `urlValue` — debounced URL-synced value; pass this to API query params
+- Syncs `localValue` back from the URL when it changes externally (browser back/forward, deep link)
+
+```typescript
+const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
+  "search",
+  (q) => (typeof q === "string" ? q : ""),
+  (v) => v || null,
+);
+// inputValue → TextField value
+// searchString → usePaginatedParams immediateParams
+```
+
+### `useParamsState(debouncedParams, debouncedDeps, immediateParams, delay?)`
+Merges debounced and immediate params into one object. Debounced params settle after `delay` ms (default 300 ms); immediate params are always current. Use the merged result as query options.
+
+### `usePaginatedParams(debouncedParams, debouncedDeps, immediateParams?, immediateDeps?, options?)`
+Pagination wrapper that manages `page` and `pageSize` from the URL. Resets `page` to 1 atomically when debounced params settle or immediate params change (prevents a spurious API call with new filters + old page). Syncs `page` back from the URL on browser back/forward navigation.
+
+```typescript
+const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams(
+  {},
+  [],
+  {searchString},  // immediate params — bypass internal debounce, also reset page
+  [searchString],
+);
+```
 
 ### `InstallPrompt` / `UpdatePrompt`
 PWA lifecycle UI. `InstallPrompt` triggers `beforeinstallprompt`. `UpdatePrompt` calls `updateServiceWorker()` from `ServiceWorkerContext` when a new SW version is available.
