@@ -76,6 +76,46 @@ General (non-field) error:
 | `invalidJson` | Request body is not valid JSON |
 | `validationError` | Catch-all for unrecognized validation messages |
 
+## Field Path Conventions
+
+The `errors` key maps a **field path** to an array of errors. Paths point to the exact location in the request body that caused the problem.
+
+### Simple field
+A top-level property of the request body. Use the camelCase property name.
+
+```
+POST /api/users  →  "username", "password", "email"
+```
+
+### Nested property
+A property inside a nested object. Use dot notation.
+
+```
+PUT /api/users/{id}  →  "address.city", "address.zip"
+```
+
+### Array element property
+A property inside an object that is an element of an array. Use `[index].property`.
+
+```
+PUT /api/roles  →  "[2].permissions[0]", "[0].name"
+```
+
+| Situation | Field path |
+|-----------|-----------|
+| Unknown permission at index 0 in item 2 | `[2].permissions[0]` |
+| Invalid role ID in item 5 | `[5].id` |
+| Missing name in item 1 | `[1].name` |
+
+### Root (non-field) errors
+Errors that don't belong to a specific field — auth failures, entity-not-found, unexpected server errors. Always use `"root"`.
+
+```
+Unauthorized, Forbidden, role not found, unhandled exception  →  "root"
+```
+
+---
+
 ## Controller Helpers
 
 All controllers extend `AppControllerBase`, which provides one-liner error returns:
