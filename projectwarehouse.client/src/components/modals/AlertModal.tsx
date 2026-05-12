@@ -6,7 +6,7 @@ import {
   DialogContentText,
   DialogTitle,
 } from "@mui/material";
-import type {AlertOptions, ModalComponentProps} from "@/contexts/ModalContext";
+import type {AlertOptions, ModalComponentProps} from "@/contexts/Modal/ModalContext";
 
 type AlertModalProps = ModalComponentProps<void> & AlertOptions;
 

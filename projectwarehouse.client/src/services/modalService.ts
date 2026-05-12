@@ -5,7 +5,7 @@ import type {
   ModalComponentProps,
   ModalServiceAPI,
   ShowModalOptions,
-} from "@/contexts/ModalContext";
+} from "@/contexts/Modal/ModalContext";
 
 let _ref: ModalServiceAPI | null = null;
 

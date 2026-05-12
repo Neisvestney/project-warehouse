@@ -1,6 +1,6 @@
 import {type ReactNode, useCallback, useLayoutEffect, useRef} from "react";
 import {useSearchParams} from "react-router";
-import {SearchParamsContext} from "@/contexts/SearchParamsContext";
+import {SearchParamsContext} from "@/contexts/SearchParams/SearchParamsContext";
 
 export function SearchParamsProvider({children}: {children: ReactNode}) {
   const [searchParams, setSearchParams] = useSearchParams();
