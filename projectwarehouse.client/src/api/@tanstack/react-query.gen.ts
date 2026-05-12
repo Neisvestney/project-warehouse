@@ -17,14 +17,9 @@ import {
   authRefresh,
   type Options,
   permissionsGetAll,
-  rolesAddPermission,
-  rolesCreate,
-  rolesDelete,
   rolesGetAll,
-  rolesGetById,
-  rolesGetPermissions,
-  rolesRemovePermission,
-  rolesUpdate,
+  rolesSearch,
+  rolesUpdateAll,
   usersChangePassword,
   usersCreate,
   usersDelete,
@@ -52,30 +47,15 @@ import type {
   PermissionsGetAllData,
   PermissionsGetAllError,
   PermissionsGetAllResponse,
-  RolesAddPermissionData,
-  RolesAddPermissionError,
-  RolesAddPermissionResponse,
-  RolesCreateData,
-  RolesCreateError,
-  RolesCreateResponse,
-  RolesDeleteData,
-  RolesDeleteError,
-  RolesDeleteResponse,
   RolesGetAllData,
   RolesGetAllError,
   RolesGetAllResponse,
-  RolesGetByIdData,
-  RolesGetByIdError,
-  RolesGetByIdResponse,
-  RolesGetPermissionsData,
-  RolesGetPermissionsError,
-  RolesGetPermissionsResponse,
-  RolesRemovePermissionData,
-  RolesRemovePermissionError,
-  RolesRemovePermissionResponse,
-  RolesUpdateData,
-  RolesUpdateError,
-  RolesUpdateResponse,
+  RolesSearchData,
+  RolesSearchError,
+  RolesSearchResponse,
+  RolesUpdateAllData,
+  RolesUpdateAllError,
+  RolesUpdateAllResponse,
   UsersChangePasswordData,
   UsersChangePasswordError,
   UsersChangePasswordResponse,
@@ -281,7 +261,7 @@ export const rolesGetAllQueryKey = (options?: Options<RolesGetAllData>) =>
   createQueryKey("rolesGetAll", options);
 
 /**
- * List all roles.
+ * List all roles with their permissions.
  */
 export const rolesGetAllOptions = (options?: Options<RolesGetAllData>) =>
   queryOptions<
@@ -303,18 +283,18 @@ export const rolesGetAllOptions = (options?: Options<RolesGetAllData>) =>
   });
 
 /**
- * Create a new role.
+ * Atomically replace the entire roles collection.
  */
-export const rolesCreateMutation = (
-  options?: Partial<Options<RolesCreateData>>,
-): UseMutationOptions<RolesCreateResponse, RolesCreateError, Options<RolesCreateData>> => {
+export const rolesUpdateAllMutation = (
+  options?: Partial<Options<RolesUpdateAllData>>,
+): UseMutationOptions<RolesUpdateAllResponse, RolesUpdateAllError, Options<RolesUpdateAllData>> => {
   const mutationOptions: UseMutationOptions<
-    RolesCreateResponse,
-    RolesCreateError,
-    Options<RolesCreateData>
+    RolesUpdateAllResponse,
+    RolesUpdateAllError,
+    Options<RolesUpdateAllData>
   > = {
     mutationFn: async (fnOptions) => {
-      const {data} = await rolesCreate({
+      const {data} = await rolesUpdateAll({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -325,44 +305,21 @@ export const rolesCreateMutation = (
   return mutationOptions;
 };
 
-/**
- * Delete a role.
- */
-export const rolesDeleteMutation = (
-  options?: Partial<Options<RolesDeleteData>>,
-): UseMutationOptions<RolesDeleteResponse, RolesDeleteError, Options<RolesDeleteData>> => {
-  const mutationOptions: UseMutationOptions<
-    RolesDeleteResponse,
-    RolesDeleteError,
-    Options<RolesDeleteData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const {data} = await rolesDelete({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-export const rolesGetByIdQueryKey = (options: Options<RolesGetByIdData>) =>
-  createQueryKey("rolesGetById", options);
+export const rolesSearchQueryKey = (options?: Options<RolesSearchData>) =>
+  createQueryKey("rolesSearch", options);
 
 /**
- * Get a role by ID.
+ * Search roles by name (id + name only, max 10 results).
  */
-export const rolesGetByIdOptions = (options: Options<RolesGetByIdData>) =>
+export const rolesSearchOptions = (options?: Options<RolesSearchData>) =>
   queryOptions<
-    RolesGetByIdResponse,
-    RolesGetByIdError,
-    RolesGetByIdResponse,
-    ReturnType<typeof rolesGetByIdQueryKey>
+    RolesSearchResponse,
+    RolesSearchError,
+    RolesSearchResponse,
+    ReturnType<typeof rolesSearchQueryKey>
   >({
     queryFn: async ({queryKey, signal}) => {
-      const {data} = await rolesGetById({
+      const {data} = await rolesSearch({
         ...options,
         ...queryKey[0],
         signal,
@@ -370,110 +327,8 @@ export const rolesGetByIdOptions = (options: Options<RolesGetByIdData>) =>
       });
       return data;
     },
-    queryKey: rolesGetByIdQueryKey(options),
+    queryKey: rolesSearchQueryKey(options),
   });
-
-/**
- * Update a role's name.
- */
-export const rolesUpdateMutation = (
-  options?: Partial<Options<RolesUpdateData>>,
-): UseMutationOptions<RolesUpdateResponse, RolesUpdateError, Options<RolesUpdateData>> => {
-  const mutationOptions: UseMutationOptions<
-    RolesUpdateResponse,
-    RolesUpdateError,
-    Options<RolesUpdateData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const {data} = await rolesUpdate({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-export const rolesGetPermissionsQueryKey = (options: Options<RolesGetPermissionsData>) =>
-  createQueryKey("rolesGetPermissions", options);
-
-/**
- * Get permissions assigned to a role.
- */
-export const rolesGetPermissionsOptions = (options: Options<RolesGetPermissionsData>) =>
-  queryOptions<
-    RolesGetPermissionsResponse,
-    RolesGetPermissionsError,
-    RolesGetPermissionsResponse,
-    ReturnType<typeof rolesGetPermissionsQueryKey>
-  >({
-    queryFn: async ({queryKey, signal}) => {
-      const {data} = await rolesGetPermissions({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: rolesGetPermissionsQueryKey(options),
-  });
-
-/**
- * Assign a permission to a role.
- */
-export const rolesAddPermissionMutation = (
-  options?: Partial<Options<RolesAddPermissionData>>,
-): UseMutationOptions<
-  RolesAddPermissionResponse,
-  RolesAddPermissionError,
-  Options<RolesAddPermissionData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    RolesAddPermissionResponse,
-    RolesAddPermissionError,
-    Options<RolesAddPermissionData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const {data} = await rolesAddPermission({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
- * Remove a permission from a role.
- */
-export const rolesRemovePermissionMutation = (
-  options?: Partial<Options<RolesRemovePermissionData>>,
-): UseMutationOptions<
-  RolesRemovePermissionResponse,
-  RolesRemovePermissionError,
-  Options<RolesRemovePermissionData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    RolesRemovePermissionResponse,
-    RolesRemovePermissionError,
-    Options<RolesRemovePermissionData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const {data} = await rolesRemovePermission({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
 
 export const usersGetAllQueryKey = (options?: Options<UsersGetAllData>) =>
   createQueryKey("usersGetAll", options);

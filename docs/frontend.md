@@ -31,20 +31,25 @@ src/
 ├── assets/                      # Static images
 │
 ├── components/
+│   ├── form/
+│   │   └── FormTextField.tsx    # RHF-wired TextField wrapper
 │   ├── MainAppBar/
 │   │   └── MainAppBar.tsx       # Top nav bar with logo and links
 │   ├── InstallPrompt/
 │   │   └── InstallPrompt.tsx    # PWA "Add to Home Screen" prompt
 │   ├── UpdatePromt/
 │   │   └── UpdatePrompt.tsx     # Service worker update banner
-│   └── ScannerBlock/
-│       ├── ScannerBlock.tsx     # Camera scanner orchestrator
-│       └── components/
-│           ├── ScanArea.tsx            # <video> element + canvas
-│           ├── ScanFrameOverlay.tsx    # Viewfinder + barcode rect overlay
-│           ├── CameraSelectDialog.tsx  # Camera device picker dialog
-│           ├── ZoomControls.tsx        # Zoom slider/buttons
-│           └── index.ts
+│   ├── ScannerBlock/
+│   │   ├── ScannerBlock.tsx     # Camera scanner orchestrator
+│   │   └── components/
+│   │       ├── ScanArea.tsx            # <video> element + canvas
+│   │       ├── ScanFrameOverlay.tsx    # Viewfinder + barcode rect overlay
+│   │       ├── CameraSelectDialog.tsx  # Camera device picker dialog
+│   │       ├── ZoomControls.tsx        # Zoom slider/buttons
+│   │       └── index.ts
+│   ├── AppBreadcrumbs.tsx       # Page breadcrumb trail
+│   ├── PageGenericHeader.tsx    # Page header: title + filters + action buttons
+│   └── ConfirmDialog.tsx        # Confirmation dialog with loading state
 │
 ├── configuration/
 │   └── flagsConstants.ts        # IS_DEV flag (enables console logs)
@@ -70,8 +75,16 @@ src/
 │   │   └── HomePage.tsx         # Landing page with navigation cards
 │   ├── ScannerPage/
 │   │   └── ScannerPage.tsx      # Full-screen scanner + scanned codes drawer
-│   └── UsersPage/
-│       └── UsersPage.tsx        # Paginated, searchable user list (requires users.view)
+│   ├── UsersPage/
+│   │   └── UsersPage.tsx        # Paginated, searchable user list (requires users.view)
+│   ├── UserViewPage/
+│   │   ├── UserViewPage.tsx          # Read-only user detail (requires users.view)
+│   │   ├── ChangePasswordDialog.tsx  # Admin password reset dialog
+│   │   └── DeleteUserDialog.tsx      # Delete confirmation dialog
+│   ├── UserEditPage/
+│   │   └── UserEditPage.tsx     # Edit profile + roles + permissions (requires users.edit_profile)
+│   └── UserCreatePage/
+│       └── UserCreatePage.tsx   # Create user form (requires users.create)
 │
 ├── api/                         # Auto-generated — run `npm run generate-api` to refresh
 │   ├── client/                  # Bundled fetch client (from @hey-api/openapi-ts)
@@ -101,9 +114,12 @@ src/
 `BrowserRouter` in `main.tsx`. Pages are lazy-loaded via `React.lazy` + `Suspense`.
 
 ```
-/           → MainLayout > HomePage
-/scanner    → ScannerPage  (no layout wrapper — full-screen)
-/users      → MainLayout > UsersPage  (requires users.view permission)
+/                  → MainLayout > HomePage
+/scanner           → ScannerPage  (no layout wrapper — full-screen)
+/users             → MainLayout > UsersPage         (users.view)
+/users/new         → MainLayout > UserCreatePage    (users.create)
+/users/:id         → MainLayout > UserViewPage      (users.view)
+/users/:id/edit    → MainLayout > UserEditPage      (users.edit_profile)
 ```
 
 ## Pages
@@ -115,7 +131,16 @@ Landing page. Shows navigation cards (scanner link), PWA offline-ready indicator
 Full-screen camera scanner. Uses `ScannerBlock` for capture/decode. Maintains a list of scanned barcodes in local state; opens a bottom drawer when `?scannedCodesDrawerOpen=true` is in the query string.
 
 ### `UsersPage`
-Server-side paginated and searchable table of users. Requires `users.view` permission. State is stored in URL params (`?search=`, `?page=`, `?pageSize=`) using `useDebouncedSyncedWithQueryState` + `usePaginatedParams`. The search field updates instantly without lag; the URL and API call update after a 300 ms debounce.
+Server-side paginated and searchable table of users. Requires `users.view` permission. State is stored in URL params (`?search=`, `?page=`, `?pageSize=`) using `useDebouncedSyncedWithQueryState` + `usePaginatedParams`. The search field updates instantly without lag; the URL and API call update after a 300 ms debounce. Rows are clickable and navigate to `UserViewPage`.
+
+### `UserViewPage`
+Read-only detail view for a single user. Displays username, email, first/last name, assigned roles (chips), and direct permissions (chips). Action buttons: **Редактировать** → `UserEditPage`, **Сменить пароль** → opens `ChangePasswordDialog`, **Удалить** → opens `DeleteUserDialog`. Requires `users.view`.
+
+### `UserEditPage`
+RHF form for editing a user's profile (email, first/last name) and, if the current user has `users.manage_roles`, also roles (typeahead via `rolesSearch` API) and direct permissions (multi-select from `permissionsGetAll`). Pre-populated from `usersGetById`; refetches on window focus without losing unsaved edits (`keepDirtyValues: true`). Requires `users.edit_profile`.
+
+### `UserCreatePage`
+RHF form for creating a new user. Fields: username (required), password (required, with show/hide toggle), email, first name, last name. On success navigates to the new user's `UserViewPage`. Requires `users.create`.
 
 ## Key Components
 
@@ -130,6 +155,73 @@ Scan interval is configurable (4–25 FPS equivalent).
 
 ### `MainAppBar`
 Top navigation bar. Logo/title + mobile hamburger menu with links to `/scanner` and `/users`.
+
+### `AppBreadcrumbs`
+Renders a MUI `Breadcrumbs` trail from an array of `{ name, link? }` objects. Items with a `link` render as React Router `<Link>`; the last item is plain text. Used at the top of every page.
+
+```tsx
+<AppBreadcrumbs path={[
+  {name: "Пользователи", link: "/users"},
+  {name: user.username, link: `/users/${id}`},
+  {name: "Редактировать"},
+]} />
+```
+
+Props: `path: Array<{ name: string; link?: string }>`.
+
+### `PageGenericHeader`
+Three-zone page header: title (`h5`, left), optional middle slot for search/filters, optional right slot for action buttons. On mobile (`< md`) all zones stack vertically.
+
+```tsx
+<PageGenericHeader
+  title="Пользователи"
+  right={<Button component={RouterLink} to="/users/new">Создать</Button>}
+>
+  <TextField label="Поиск..." />
+</PageGenericHeader>
+```
+
+Props: `title: React.ReactNode`, `children?: React.ReactNode` (middle slot), `right?: React.ReactNode`.
+
+### `ConfirmDialog`
+Generic confirmation dialog with a loading spinner on the confirm button. Blocks backdrop-click dismiss while `isPending`. Used for all destructive confirm flows.
+
+```tsx
+<ConfirmDialog
+  open={open}
+  onClose={onClose}
+  title="Удалить запись?"
+  onConfirm={handleDelete}
+  isPending={mutation.isPending}
+  confirmText="Удалить"
+  confirmColor="error"
+>
+  <Typography>Это действие нельзя отменить.</Typography>
+</ConfirmDialog>
+```
+
+Props: `open`, `onClose`, `title`, `children?` (body), `onConfirm`, `isPending?`, `confirmText?` (default `"Подтвердить"`), `confirmColor?` (default `"primary"`), `maxWidth?` (default `"xs"`).
+
+### `FormTextField`
+Thin RHF + MUI `TextField` integration. Wraps `Controller` and automatically wires `error` and `helperText` from `fieldState`. Use in all RHF forms instead of manual `Controller` + `TextField`.
+
+```tsx
+<FormTextField
+  control={form.control}
+  name="email"
+  label="Email"
+  fullWidth
+/>
+<FormTextField
+  control={form.control}
+  name="username"
+  label="Логин"
+  rules={{required: "Обязательное поле"}}
+  fullWidth
+/>
+```
+
+Props: `control`, `name` (type-safe `Path<T>`), `rules?`, `helperText?` (shown when no error) — plus all MUI `TextFieldProps` except `error`/`helperText` (managed internally). For fields with custom `InputAdornment` (e.g. password show/hide toggle) use `Controller` directly.
 
 ## URL State Hooks
 

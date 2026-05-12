@@ -21,30 +21,15 @@ import type {
   PermissionsGetAllData,
   PermissionsGetAllErrors,
   PermissionsGetAllResponses,
-  RolesAddPermissionData,
-  RolesAddPermissionErrors,
-  RolesAddPermissionResponses,
-  RolesCreateData,
-  RolesCreateErrors,
-  RolesCreateResponses,
-  RolesDeleteData,
-  RolesDeleteErrors,
-  RolesDeleteResponses,
   RolesGetAllData,
   RolesGetAllErrors,
   RolesGetAllResponses,
-  RolesGetByIdData,
-  RolesGetByIdErrors,
-  RolesGetByIdResponses,
-  RolesGetPermissionsData,
-  RolesGetPermissionsErrors,
-  RolesGetPermissionsResponses,
-  RolesRemovePermissionData,
-  RolesRemovePermissionErrors,
-  RolesRemovePermissionResponses,
-  RolesUpdateData,
-  RolesUpdateErrors,
-  RolesUpdateResponses,
+  RolesSearchData,
+  RolesSearchErrors,
+  RolesSearchResponses,
+  RolesUpdateAllData,
+  RolesUpdateAllErrors,
+  RolesUpdateAllResponses,
   UsersChangePasswordData,
   UsersChangePasswordErrors,
   UsersChangePasswordResponses,
@@ -173,7 +158,7 @@ export const permissionsGetAll = <ThrowOnError extends boolean = false>(
   >({url: "/api/permissions", ...options});
 
 /**
- * List all roles.
+ * List all roles with their permissions.
  */
 export const rolesGetAll = <ThrowOnError extends boolean = false>(
   options?: Options<RolesGetAllData, ThrowOnError>,
@@ -184,12 +169,12 @@ export const rolesGetAll = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Create a new role.
+ * Atomically replace the entire roles collection.
  */
-export const rolesCreate = <ThrowOnError extends boolean = false>(
-  options: Options<RolesCreateData, ThrowOnError>,
+export const rolesUpdateAll = <ThrowOnError extends boolean = false>(
+  options: Options<RolesUpdateAllData, ThrowOnError>,
 ) =>
-  (options.client ?? client).post<RolesCreateResponses, RolesCreateErrors, ThrowOnError>({
+  (options.client ?? client).put<RolesUpdateAllResponses, RolesUpdateAllErrors, ThrowOnError>({
     url: "/api/roles",
     ...options,
     headers: {
@@ -199,84 +184,15 @@ export const rolesCreate = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Delete a role.
+ * Search roles by name (id + name only, max 10 results).
  */
-export const rolesDelete = <ThrowOnError extends boolean = false>(
-  options: Options<RolesDeleteData, ThrowOnError>,
+export const rolesSearch = <ThrowOnError extends boolean = false>(
+  options?: Options<RolesSearchData, ThrowOnError>,
 ) =>
-  (options.client ?? client).delete<RolesDeleteResponses, RolesDeleteErrors, ThrowOnError>({
-    url: "/api/roles/{id}",
+  (options?.client ?? client).get<RolesSearchResponses, RolesSearchErrors, ThrowOnError>({
+    url: "/api/roles/search",
     ...options,
   });
-
-/**
- * Get a role by ID.
- */
-export const rolesGetById = <ThrowOnError extends boolean = false>(
-  options: Options<RolesGetByIdData, ThrowOnError>,
-) =>
-  (options.client ?? client).get<RolesGetByIdResponses, RolesGetByIdErrors, ThrowOnError>({
-    url: "/api/roles/{id}",
-    ...options,
-  });
-
-/**
- * Update a role's name.
- */
-export const rolesUpdate = <ThrowOnError extends boolean = false>(
-  options: Options<RolesUpdateData, ThrowOnError>,
-) =>
-  (options.client ?? client).put<RolesUpdateResponses, RolesUpdateErrors, ThrowOnError>({
-    url: "/api/roles/{id}",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-
-/**
- * Get permissions assigned to a role.
- */
-export const rolesGetPermissions = <ThrowOnError extends boolean = false>(
-  options: Options<RolesGetPermissionsData, ThrowOnError>,
-) =>
-  (options.client ?? client).get<
-    RolesGetPermissionsResponses,
-    RolesGetPermissionsErrors,
-    ThrowOnError
-  >({url: "/api/roles/{id}/permissions", ...options});
-
-/**
- * Assign a permission to a role.
- */
-export const rolesAddPermission = <ThrowOnError extends boolean = false>(
-  options: Options<RolesAddPermissionData, ThrowOnError>,
-) =>
-  (options.client ?? client).post<
-    RolesAddPermissionResponses,
-    RolesAddPermissionErrors,
-    ThrowOnError
-  >({
-    url: "/api/roles/{id}/permissions",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-
-/**
- * Remove a permission from a role.
- */
-export const rolesRemovePermission = <ThrowOnError extends boolean = false>(
-  options: Options<RolesRemovePermissionData, ThrowOnError>,
-) =>
-  (options.client ?? client).delete<
-    RolesRemovePermissionResponses,
-    RolesRemovePermissionErrors,
-    ThrowOnError
-  >({url: "/api/roles/{id}/permissions/{permission}", ...options});
 
 /**
  * List all users (paginated).

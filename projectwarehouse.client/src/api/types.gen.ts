@@ -23,10 +23,6 @@ export type AppProblemDetails = {
   };
 };
 
-export type AssignRolePermissionRequest = {
-  permission: PermissionName;
-};
-
 export type ChangeOwnPasswordRequest = {
   currentPassword: string;
   newPassword: string;
@@ -34,10 +30,6 @@ export type ChangeOwnPasswordRequest = {
 
 export type ChangePasswordRequest = {
   newPassword: string;
-};
-
-export type CreateRoleRequest = {
-  name: string;
 };
 
 export type CreateUserRequest = {
@@ -101,13 +93,10 @@ export type PermissionName =
   | "users.create"
   | "users.edit_profile"
   | "users.delete"
-  | "users.manage_roles"
+  | "users.manage_roles_and_permissions"
   | "users.reset_password"
   | "roles.view"
-  | "roles.create"
-  | "roles.edit"
-  | "roles.delete"
-  | "roles.manage_permissions";
+  | "roles.edit";
 
 export type RefreshRequest = {
   refreshToken: string;
@@ -118,14 +107,22 @@ export type RoleDto = {
   name: string;
 };
 
+export type RoleWithPermissionsDto = {
+  id: string;
+  name: string;
+  permissions: Array<string>;
+};
+
 export type TokenResponse = {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
 };
 
-export type UpdateRoleRequest = {
+export type UpdateRoleItem = {
+  id?: null | string;
   name: string;
+  permissions: Array<string>;
 };
 
 export type UpdateUserRequest = {
@@ -358,19 +355,19 @@ export type RolesGetAllResponses = {
   /**
    * OK
    */
-  200: Array<RoleDto>;
+  200: Array<RoleWithPermissionsDto>;
 };
 
 export type RolesGetAllResponse = RolesGetAllResponses[keyof RolesGetAllResponses];
 
-export type RolesCreateData = {
-  body: CreateRoleRequest;
+export type RolesUpdateAllData = {
+  body: Array<UpdateRoleItem>;
   path?: never;
   query?: never;
   url: "/api/roles";
 };
 
-export type RolesCreateErrors = {
+export type RolesUpdateAllErrors = {
   /**
    * Unauthorized
    */
@@ -380,102 +377,32 @@ export type RolesCreateErrors = {
    */
   403: AppProblemDetails;
   /**
-   * Conflict
+   * Unprocessable Entity
    */
-  409: AppProblemDetails;
+  422: AppProblemDetails;
 };
 
-export type RolesCreateError = RolesCreateErrors[keyof RolesCreateErrors];
+export type RolesUpdateAllError = RolesUpdateAllErrors[keyof RolesUpdateAllErrors];
 
-export type RolesCreateResponses = {
-  /**
-   * Created
-   */
-  201: RoleDto;
-};
-
-export type RolesCreateResponse = RolesCreateResponses[keyof RolesCreateResponses];
-
-export type RolesDeleteData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: "/api/roles/{id}";
-};
-
-export type RolesDeleteErrors = {
-  /**
-   * Unauthorized
-   */
-  401: AppProblemDetails;
-  /**
-   * Forbidden
-   */
-  403: AppProblemDetails;
-  /**
-   * Not Found
-   */
-  404: AppProblemDetails;
-};
-
-export type RolesDeleteError = RolesDeleteErrors[keyof RolesDeleteErrors];
-
-export type RolesDeleteResponses = {
-  /**
-   * No Content
-   */
-  204: void;
-};
-
-export type RolesDeleteResponse = RolesDeleteResponses[keyof RolesDeleteResponses];
-
-export type RolesGetByIdData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: "/api/roles/{id}";
-};
-
-export type RolesGetByIdErrors = {
-  /**
-   * Unauthorized
-   */
-  401: AppProblemDetails;
-  /**
-   * Forbidden
-   */
-  403: AppProblemDetails;
-  /**
-   * Not Found
-   */
-  404: AppProblemDetails;
-};
-
-export type RolesGetByIdError = RolesGetByIdErrors[keyof RolesGetByIdErrors];
-
-export type RolesGetByIdResponses = {
+export type RolesUpdateAllResponses = {
   /**
    * OK
    */
-  200: RoleDto;
+  200: Array<RoleWithPermissionsDto>;
 };
 
-export type RolesGetByIdResponse = RolesGetByIdResponses[keyof RolesGetByIdResponses];
+export type RolesUpdateAllResponse = RolesUpdateAllResponses[keyof RolesUpdateAllResponses];
 
-export type RolesUpdateData = {
-  body: UpdateRoleRequest;
-  path: {
-    id: string;
+export type RolesSearchData = {
+  body?: never;
+  path?: never;
+  query?: {
+    searchString?: string;
   };
-  query?: never;
-  url: "/api/roles/{id}";
+  url: "/api/roles/search";
 };
 
-export type RolesUpdateErrors = {
+export type RolesSearchErrors = {
   /**
    * Unauthorized
    */
@@ -484,136 +411,18 @@ export type RolesUpdateErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
-  /**
-   * Not Found
-   */
-  404: AppProblemDetails;
 };
 
-export type RolesUpdateError = RolesUpdateErrors[keyof RolesUpdateErrors];
+export type RolesSearchError = RolesSearchErrors[keyof RolesSearchErrors];
 
-export type RolesUpdateResponses = {
+export type RolesSearchResponses = {
   /**
    * OK
    */
-  200: RoleDto;
+  200: Array<RoleDto>;
 };
 
-export type RolesUpdateResponse = RolesUpdateResponses[keyof RolesUpdateResponses];
-
-export type RolesGetPermissionsData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: "/api/roles/{id}/permissions";
-};
-
-export type RolesGetPermissionsErrors = {
-  /**
-   * Unauthorized
-   */
-  401: AppProblemDetails;
-  /**
-   * Forbidden
-   */
-  403: AppProblemDetails;
-  /**
-   * Not Found
-   */
-  404: AppProblemDetails;
-};
-
-export type RolesGetPermissionsError = RolesGetPermissionsErrors[keyof RolesGetPermissionsErrors];
-
-export type RolesGetPermissionsResponses = {
-  /**
-   * OK
-   */
-  200: Array<string>;
-};
-
-export type RolesGetPermissionsResponse =
-  RolesGetPermissionsResponses[keyof RolesGetPermissionsResponses];
-
-export type RolesAddPermissionData = {
-  body: AssignRolePermissionRequest;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: "/api/roles/{id}/permissions";
-};
-
-export type RolesAddPermissionErrors = {
-  /**
-   * Unauthorized
-   */
-  401: AppProblemDetails;
-  /**
-   * Forbidden
-   */
-  403: AppProblemDetails;
-  /**
-   * Not Found
-   */
-  404: AppProblemDetails;
-  /**
-   * Conflict
-   */
-  409: AppProblemDetails;
-};
-
-export type RolesAddPermissionError = RolesAddPermissionErrors[keyof RolesAddPermissionErrors];
-
-export type RolesAddPermissionResponses = {
-  /**
-   * No Content
-   */
-  204: void;
-};
-
-export type RolesAddPermissionResponse =
-  RolesAddPermissionResponses[keyof RolesAddPermissionResponses];
-
-export type RolesRemovePermissionData = {
-  body?: never;
-  path: {
-    id: string;
-    permission: string;
-  };
-  query?: never;
-  url: "/api/roles/{id}/permissions/{permission}";
-};
-
-export type RolesRemovePermissionErrors = {
-  /**
-   * Unauthorized
-   */
-  401: AppProblemDetails;
-  /**
-   * Forbidden
-   */
-  403: AppProblemDetails;
-  /**
-   * Not Found
-   */
-  404: AppProblemDetails;
-};
-
-export type RolesRemovePermissionError =
-  RolesRemovePermissionErrors[keyof RolesRemovePermissionErrors];
-
-export type RolesRemovePermissionResponses = {
-  /**
-   * No Content
-   */
-  204: void;
-};
-
-export type RolesRemovePermissionResponse =
-  RolesRemovePermissionResponses[keyof RolesRemovePermissionResponses];
+export type RolesSearchResponse = RolesSearchResponses[keyof RolesSearchResponses];
 
 export type UsersGetAllData = {
   body?: never;
