@@ -26,7 +26,11 @@ async function doRefreshTokens(): Promise<boolean> {
     });
 
     if (!res.ok) {
-      clearTokens();
+      // Only revoke on explicit auth rejections — 5xx means the server is down, not
+      // that the refresh token is invalid, so keep tokens and let the user retry.
+      if (res.status >= 400 && res.status < 500) {
+        clearTokens();
+      }
       return false;
     }
 
@@ -34,7 +38,7 @@ async function doRefreshTokens(): Promise<boolean> {
     window.dispatchEvent(new Event("auth:refresh"));
     return true;
   } catch {
-    clearTokens();
+    // Network error — tokens are still valid, we just can't reach the server.
     return false;
   }
 }

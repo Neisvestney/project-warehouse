@@ -19,7 +19,16 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
     queryKey: ME_QUERY_KEY,
     queryFn: async (): Promise<MeResponse | null> => {
       const {data: me, error} = await authMe();
-      if (error) return null;
+      if (error) {
+        // The interceptor may return a status-code string or TypeError at runtime,
+        // even though the generated type says AppProblemDetails.
+        const e: unknown = error;
+        // Transient errors (network failure, 5xx) — throw so TanStack keeps stale data.
+        if (e instanceof Error || (typeof e === "string" && e.startsWith("5"))) {
+          throw e;
+        }
+        return null;
+      }
       return me ?? null;
     },
     enabled: hasTokens,
