@@ -120,7 +120,7 @@ function UsersPage() {
                     <TableCell>{user.firstName ?? "—"}</TableCell>
                     <TableCell>{user.lastName ?? "—"}</TableCell>
                     <TableCell>
-                      <Stack direction="row" gap={0.5} flexWrap="wrap">
+                      <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap"}}>
                         {user.roles.map((role) => (
                           <Chip key={role.id} label={role.name} size="small" />
                         ))}

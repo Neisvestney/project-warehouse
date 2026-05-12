@@ -6,7 +6,7 @@ import theme from "@/theme.ts";
 import MainLayout from "@/layouts/MainLayout/MainLayout.tsx";
 import {SnackbarProvider} from "notistack";
 import ServiceWorkerContext from "@/contexts/ServiceWorkerContext.ts";
-import UpdatePrompt from "@/components/UpdatePromt/UpdatePrompt.tsx";
+import UpdatePrompt from "@/components/UpdatePrompt.tsx";
 import React, {Suspense} from "react";
 import {AuthProvider} from "@/contexts/AuthProvider.tsx";
 import {ModalProvider} from "@/contexts/ModalProvider.tsx";

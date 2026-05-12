@@ -1,4 +1,4 @@
-import {DependencyList, useEffect, useState} from "react";
+import {type DependencyList, useEffect, useState} from "react";
 
 export function useParamsState<D extends object, I extends object>(
   debouncedParams: D,

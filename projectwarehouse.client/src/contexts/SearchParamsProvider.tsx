@@ -1,4 +1,4 @@
-import {ReactNode, useCallback, useLayoutEffect, useRef} from "react";
+import {type ReactNode, useCallback, useLayoutEffect, useRef} from "react";
 import {useSearchParams} from "react-router";
 import {SearchParamsContext} from "@/contexts/SearchParamsContext";
 

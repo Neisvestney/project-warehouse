@@ -14,7 +14,7 @@ import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
 import React, {useContext} from "react";
 import {Link} from "react-router";
 import ServiceWorkerContext from "@/contexts/ServiceWorkerContext.ts";
-import InstallPrompt from "@/components/InstallPrompt/InstallPrompt.tsx";
+import InstallPrompt from "@/components/InstallPrompt.tsx";
 
 export interface HomePageProps {}
 
