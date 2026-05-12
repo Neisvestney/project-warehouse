@@ -10,6 +10,8 @@ public class AppMapperProfile : Profile
     public AppMapperProfile()
     {
         CreateMap<ApplicationRole, RoleDto>();
+        CreateMap<ApplicationRole, RoleWithPermissionsDto>()
+            .ForMember(d => d.Permissions, opt => opt.MapFrom(s => s.RolePermissions.Select(rp => rp.Permission)));
         CreateMap<ApplicationUser, UserDetailDto>()
             .ForMember(d => d.Username, opt => opt.MapFrom(s => s.UserName))
             .ForMember(d => d.Roles, opt => opt.MapFrom(s => s.UserRoles.Select(ur => ur.Role)))

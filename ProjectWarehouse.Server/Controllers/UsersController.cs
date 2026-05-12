@@ -119,7 +119,7 @@ public class UsersController(
         var permissionsChanged = !currentPermissions.SetEquals(requestedPermissions);
 
         // Authorization checks before any mutations
-        if ((rolesChanged || permissionsChanged) && !User.HasClaim("permission", Permissions.Users.ManageRoles))
+        if ((rolesChanged || permissionsChanged) && !User.HasClaim("permission", Permissions.Users.ManageRolesAndPermissions))
             return Forbidden();
 
         // Validate unknown permission strings
