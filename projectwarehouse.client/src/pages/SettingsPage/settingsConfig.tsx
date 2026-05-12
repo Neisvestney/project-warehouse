@@ -11,28 +11,6 @@ export const settingsSections: SectionConfig[] = [
     icon: <AdminPanelSettingsIcon fontSize="small" />,
     component: RolesSettingsPage,
   },
-  {
-    label: "Тест",
-    path: "roles2",
-    icon: <AdminPanelSettingsIcon fontSize="small" />,
-    children: [
-      {
-        label: "1",
-        path: "test",
-        component: RolesSettingsPage,
-        icon: <AdminPanelSettingsIcon fontSize="small" />,
-      },
-      {
-        label: "2",
-        path: "test2",
-        component: RolesSettingsPage,
-        icon: <AdminPanelSettingsIcon fontSize="small" />,
-        subroutes: [
-          {path: ":id", component: RolesSettingsPage},
-        ]
-      },
-    ],
-  },
 ];
 
 export const hasSettingsAccess = createHasAccess(settingsSections);

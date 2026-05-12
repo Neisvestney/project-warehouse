@@ -110,6 +110,7 @@ export type RoleDto = {
 export type RoleWithPermissionsDto = {
   id: string;
   name: string;
+  order: number;
   permissions: Array<string>;
 };
 
@@ -122,6 +123,7 @@ export type TokenResponse = {
 export type UpdateRoleItem = {
   id?: null | string;
   name: string;
+  order: number;
   permissions: Array<string>;
 };
 
