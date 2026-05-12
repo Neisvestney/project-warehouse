@@ -14,6 +14,7 @@ import {
   TablePagination,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
@@ -25,6 +26,26 @@ import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQu
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import PageGenericHeader from "@/components/PageGenericHeader.tsx";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs.tsx";
+import {getPermissionLabel} from "@/utils/permissionLabels.ts";
+import type {UserDetailDto} from "@/api";
+
+function renderDirectPermissions(user: UserDetailDto) {
+  const overflowing = user.directPermissions.length > 3;
+  const directPermissions = overflowing
+    ? user.directPermissions.slice(1, 3)
+    : user.directPermissions;
+
+  return (
+    <>
+      {directPermissions.map((p) => (
+        <Tooltip key={p} title={p} arrow>
+          <Chip label={getPermissionLabel(p)} size="small" />
+        </Tooltip>
+      ))}
+      {overflowing && <Chip label={`+${user.directPermissions.length - 2}`} size="small" />}
+    </>
+  );
+}
 
 function UsersPage() {
   const navigate = useNavigate();
@@ -56,7 +77,7 @@ function UsersPage() {
       <PageGenericHeader
         title={"Пользователи"}
         right={
-          <Button variant="contained" endIcon={<AddIcon />} component={RouterLink} to="/users/new">
+          <Button variant="outlined" endIcon={<AddIcon />} component={RouterLink} to="/users/new">
             Создать
           </Button>
         }
@@ -89,7 +110,7 @@ function UsersPage() {
                 <TableCell>Email</TableCell>
                 <TableCell>Имя</TableCell>
                 <TableCell>Фамилия</TableCell>
-                <TableCell>Роли</TableCell>
+                <TableCell>Роли и права</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -122,10 +143,11 @@ function UsersPage() {
                     <TableCell>{user.firstName ?? "—"}</TableCell>
                     <TableCell>{user.lastName ?? "—"}</TableCell>
                     <TableCell>
-                      <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap"}}>
+                      <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap"}} useFlexGap>
                         {user.roles.map((role) => (
                           <Chip key={role.id} label={role.name} size="small" />
                         ))}
+                        {renderDirectPermissions(user)}
                       </Stack>
                     </TableCell>
                   </TableRow>

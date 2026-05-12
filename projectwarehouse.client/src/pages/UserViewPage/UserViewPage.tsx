@@ -1,7 +1,17 @@
 import {useState} from "react";
 import {Link as RouterLink, useParams} from "react-router";
-import {Box, Button, Chip, CircularProgress, Paper, Stack, Typography} from "@mui/material";
+import {
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Paper,
+  Stack,
+  Tooltip,
+  Typography,
+} from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
+import {getPermissionLabel} from "@/utils/permissionLabels";
 import LockResetIcon from "@mui/icons-material/LockReset";
 import DeleteIcon from "@mui/icons-material/Delete";
 import {useQuery} from "@tanstack/react-query";
@@ -87,7 +97,11 @@ function UserViewPage() {
             </Typography>
             <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap", gap: 0.5}}>
               {user.directPermissions.length > 0 ? (
-                user.directPermissions.map((p) => <Chip key={p} label={p} size="small" />)
+                user.directPermissions.map((p) => (
+                  <Tooltip key={p} title={p} arrow>
+                    <Chip label={getPermissionLabel(p)} size="small" />
+                  </Tooltip>
+                ))
               ) : (
                 <Typography>—</Typography>
               )}

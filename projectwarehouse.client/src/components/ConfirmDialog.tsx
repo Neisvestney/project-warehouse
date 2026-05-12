@@ -33,12 +33,7 @@ function ConfirmDialog({
   maxWidth = "xs",
 }: ConfirmDialogProps) {
   return (
-    <Dialog
-      open={open}
-      onClose={isPending ? undefined : onClose}
-      maxWidth={maxWidth}
-      fullWidth
-    >
+    <Dialog open={open} onClose={isPending ? undefined : onClose} maxWidth={maxWidth} fullWidth>
       <DialogTitle>{title}</DialogTitle>
       {children && <DialogContent>{children}</DialogContent>}
       <DialogActions>
