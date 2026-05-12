@@ -27,6 +27,7 @@ const UserEditPage = React.lazy(
 const UserCreatePage = React.lazy(
   () => import("@/pages/UsersPage/pages/UserCreatePage/UserCreatePage.tsx"),
 );
+const SettingsPage = React.lazy(() => import("@/pages/SettingsPage/SettingsPage.tsx"));
 
 function App() {
   const {
@@ -73,6 +74,7 @@ function App() {
                       element={<UserEditPage />}
                       requiredPermission="users.edit_profile"
                     />
+                    <ProtectedRoute path="/settings/*" element={<SettingsPage />} />
                   </ProtectedRoute>
                   <ProtectedRoute path="/scanner" element={<ScannerPage />} />
                 </ProtectedRoutes>

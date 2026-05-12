@@ -17,17 +17,17 @@ import MenuIcon from "@mui/icons-material/Menu";
 import {Link, useNavigate} from "react-router";
 import {useAuth} from "@/hooks/useAuth";
 import type {PermissionName} from "@/api";
+import {hasSettingsAccess} from "@/pages/SettingsPage/settingsConfig.tsx";
 
-const pages: {name: string; url: string; requiredPermission?: PermissionName}[] = [
-  {
-    name: "Сканер",
-    url: "/scanner",
-  },
-  {
-    name: "Пользователи",
-    url: "/users",
-    requiredPermission: "users.view",
-  },
+const pages: {
+  name: string;
+  url: string;
+  requiredPermission?: PermissionName;
+  showIf?: (permissions: PermissionName[]) => boolean;
+}[] = [
+  {name: "Сканер", url: "/scanner"},
+  {name: "Пользователи", url: "/users", requiredPermission: "users.view"},
+  {name: "Настройки", url: "/settings", showIf: hasSettingsAccess},
 ];
 
 export interface AppBarProps {}
@@ -62,7 +62,9 @@ function MainAppBar({}: AppBarProps) {
   const avatarLetter = user?.username?.[0]?.toUpperCase() ?? "?";
 
   const filteredPages = pages.filter(
-    (page) => !page.requiredPermission || user?.permissions.includes(page.requiredPermission),
+    (page) =>
+      (!page.requiredPermission || user?.permissions.includes(page.requiredPermission)) &&
+      (!page.showIf || page.showIf(user?.permissions ?? [])),
   );
 
   return (
