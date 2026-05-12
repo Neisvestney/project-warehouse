@@ -1,4 +1,4 @@
-import {DependencyList, useCallback, useEffect, useRef, useState} from "react";
+import {type DependencyList, useCallback, useEffect, useRef, useState} from "react";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 
 interface PaginatedParamsOptions {
@@ -50,7 +50,7 @@ export function usePaginatedParams<D extends object, I extends object = object>(
   useEffect(() => {
     if (prevUrlPage.current !== urlPage) {
       prevUrlPage.current = urlPage;
-       
+
       setSettled((prev) => ({...prev, page: urlPage}));
     }
   }, [urlPage]);

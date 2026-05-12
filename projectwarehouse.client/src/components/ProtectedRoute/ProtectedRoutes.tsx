@@ -4,7 +4,7 @@ import {Box, CircularProgress} from "@mui/material";
 import type {PermissionName} from "@/api/types.gen";
 import {useAuth} from "@/hooks/useAuth";
 import {useHasPermission} from "@/hooks/usePermission";
-import AccessDenied from "@/components/AccessDenied/AccessDenied";
+import AccessDenied from "@/components/AccessDenied";
 import ProtectedRoute, {type ProtectedRouteProps} from "./ProtectedRoute";
 import {PROTECTED_ROUTE_MARKER} from "./_protectedRouteMarker";
 
