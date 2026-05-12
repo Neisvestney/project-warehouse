@@ -17,15 +17,17 @@ import {
   Typography,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
+import AddIcon from "@mui/icons-material/Add";
 import {useQuery} from "@tanstack/react-query";
+import {Link as RouterLink, useNavigate} from "react-router";
 import {usersGetAllOptions} from "@/api/@tanstack/react-query.gen";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import PageGenericHeader from "@/components/PageGenericHeader.tsx";
-import AddIcon from "@mui/icons-material/Add";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs.tsx";
 
 function UsersPage() {
+  const navigate = useNavigate();
   // inputValue: immediate local state for the TextField (no keystroke lag)
   // setInputValue: onChange handler
   // searchString: URL-synced value (written after 300ms debounce) for API params
@@ -54,7 +56,7 @@ function UsersPage() {
       <PageGenericHeader
         title={"Пользователи"}
         right={
-          <Button variant="contained" endIcon={<AddIcon />}>
+          <Button variant="contained" endIcon={<AddIcon />} component={RouterLink} to="/users/new">
             Создать
           </Button>
         }
@@ -107,10 +109,13 @@ function UsersPage() {
                 data?.items.map((user) => (
                   <TableRow
                     key={user.id}
+                    hover
                     sx={{
+                      cursor: "pointer",
                       opacity: isFetching && !isLoading ? 0.5 : 1,
                       transition: "opacity 0.2s",
                     }}
+                    onClick={() => navigate(`/users/${user.id}`)}
                   >
                     <TableCell>{user.username}</TableCell>
                     <TableCell>{user.email ?? "—"}</TableCell>

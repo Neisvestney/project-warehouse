@@ -18,6 +18,9 @@ const HomePage = React.lazy(() => import("@/pages/HomePage/HomePage.tsx"));
 const ScannerPage = React.lazy(() => import("@/pages/ScannerPage/ScannerPage.tsx"));
 const LoginPage = React.lazy(() => import("@/pages/LoginPage/LoginPage.tsx"));
 const UsersPage = React.lazy(() => import("@/pages/UsersPage/UsersPage.tsx"));
+const UserViewPage = React.lazy(() => import("@/pages/UserViewPage/UserViewPage.tsx"));
+const UserEditPage = React.lazy(() => import("@/pages/UserEditPage/UserEditPage.tsx"));
+const UserCreatePage = React.lazy(() => import("@/pages/UserCreatePage/UserCreatePage.tsx"));
 
 function App() {
   const {
@@ -48,6 +51,21 @@ function App() {
                       path="/users"
                       element={<UsersPage />}
                       requiredPermission="users.view"
+                    />
+                    <ProtectedRoute
+                      path="/users/new"
+                      element={<UserCreatePage />}
+                      requiredPermission="users.create"
+                    />
+                    <ProtectedRoute
+                      path="/users/:id"
+                      element={<UserViewPage />}
+                      requiredPermission="users.view"
+                    />
+                    <ProtectedRoute
+                      path="/users/:id/edit"
+                      element={<UserEditPage />}
+                      requiredPermission="users.edit_profile"
                     />
                   </ProtectedRoute>
                   <ProtectedRoute path="/scanner" element={<ScannerPage />} />
