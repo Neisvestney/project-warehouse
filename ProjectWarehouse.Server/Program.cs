@@ -1,5 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Reflection;
+using DotNetEnv;
+using Npgsql;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -24,6 +26,20 @@ using Serilog;
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .CreateBootstrapLogger();
+
+try
+{
+    Env.NoClobber().TraversePath().Load();
+    Log.Debug("Loaded environment variables from .env file");
+}
+catch (FileNotFoundException)
+{
+    Log.Debug(".env file not found — relying on environment variables");
+}
+catch (Exception ex)
+{
+    Log.Warning(ex, "Failed to parse .env file — relying on environment variables");
+}
 
 try
 {
@@ -122,8 +138,18 @@ try
     });
 
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
-            .UseProjectables());
+    {
+        var connStr = builder.Configuration.GetConnectionString("DefaultConnection")!;
+        var pgPassword = builder.Configuration["POSTGRES_PASSWORD"];
+        if (!string.IsNullOrEmpty(pgPassword))
+        {
+            var csb = new NpgsqlConnectionStringBuilder(connStr);
+            if (string.IsNullOrEmpty(csb.Password))
+                csb.Password = pgPassword;
+            connStr = csb.ConnectionString;
+        }
+        options.UseNpgsql(connStr).UseProjectables();
+    });
 
     builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
         {
