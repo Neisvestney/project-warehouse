@@ -169,7 +169,8 @@ src/
 ```
 /login             → LoginPage               (public)
 /scanner           → ScannerPage             (authenticated, no layout wrapper)
-/                  → MainLayout > HomePage   (authenticated)
+/                  → MainLayout > HomePage       (authenticated)
+/profile           → MainLayout > MyProfilePage  (authenticated)
 /users             → MainLayout > UsersPage         (users.view)
 /users/new         → MainLayout > UserCreatePage    (users.create)
 /users/:id         → MainLayout > UserViewPage      (users.view)
@@ -199,6 +200,13 @@ On query error: renders `<NotFound />` for 404, `<QueryError />` for everything 
 RHF form for editing a user's profile (email, first/last name) and, if the current user has `users.manage_roles`, also roles (typeahead via `rolesSearch` API) and direct permissions (multi-select from `permissionsGetAll`). Pre-populated from `usersGetById`; refetches on window focus without losing unsaved edits (`keepDirtyValues: true`). Requires `users.edit_profile`.
 
 Same error handling as `UserViewPage`: `<NotFound />` on 404, `<QueryError />` otherwise; refetch errors are suppressed.
+
+### `MyProfilePage`
+Read-only profile page for the currently authenticated user. Displays username, email, first/last name, assigned roles (chips), and effective permissions (chips with tooltip showing the raw permission string). Action button: **Сменить пароль** → opens `ChangePasswordDialog`. Accessible to all authenticated users at `/profile` via the user avatar menu in `MainAppBar`.
+
+`ChangePasswordDialog` is a modal form with two fields: current password and new password. Submits to `authChangeOwnPassword`. On success it closes and resets the form; on error, API errors are mapped back to form fields via `useRhfApiErrors`. Backdrop-click dismiss is disabled while the mutation is pending.
+
+Error handling mirrors `UserViewPage`: `<NotFound />` on 404, `<QueryError />` otherwise; refetch errors are suppressed. Both `suppressGlobalError` and `suppressGlobalNotFound` are set on the `/me` query to prevent global modals.
 
 ### `UserCreatePage`
 RHF form for creating a new user. Fields: username (required), password (required, with show/hide toggle), email, first name, last name. On success navigates to the new user's `UserViewPage`. Requires `users.create`.
@@ -238,6 +246,15 @@ Higher-level routing wrapper built on top of `SidebarLayout`. Takes a `sections:
 | `showIf` | `() => boolean?` | Additional visibility predicate (feature flags etc.) |
 | `subroutes` | `SectionSubroute[]?` | Sub-paths (e.g. `":id"`) that highlight the parent nav item |
 | `children` | `SectionConfig[]?` | Nested nav sections (max depth 1); section becomes a group |
+
+### `InfoRow`
+Simple label + value row used in detail views (`UserViewPage`, `MyProfilePage`).
+
+```tsx
+<InfoRow label="Email" value={user.email ?? "—"} />
+```
+
+Props: `label: string`, `value: string`. The label column is fixed at 160 px.
 
 ### `AppBreadcrumbs`
 Renders a MUI `Breadcrumbs` trail from an array of `{ name, link? }` objects. Items with a `link` render as React Router `<Link>`; the last item is plain text. Used at the top of every page.
@@ -451,7 +468,7 @@ Reads from `https://localhost:7095/openapi/v1.json` (dev cert TLS check is bypas
 `setupApiClient()` is called once in `main.tsx` before `ReactDOM.createRoot`. It:
 - Sets `baseUrl` to `/api` (Vite proxy routes this to the backend)
 - Installs a request interceptor that proactively refreshes the JWT access token when < 30s of its lifetime remains
-- Installs a response interceptor that clears stored tokens on any 401 (revoked session, server security version bump)
+- Installs a response interceptor that on a 401 attempts to refresh tokens and retry the request. If no `accessToken` is in `localStorage` the response is passed through without a refresh attempt (avoids spurious refresh on unauthenticated requests). Clears stored tokens when the refresh token is also invalid.
 
 ### Token storage (`src/services/apiClient.ts`)
 
