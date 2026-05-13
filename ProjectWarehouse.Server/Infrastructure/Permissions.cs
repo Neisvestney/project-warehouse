@@ -26,4 +26,10 @@ public static class Permissions
         public const string View = "roles.view";
         public const string Edit = "roles.edit";
     }
+
+    public static class Warehouses
+    {
+        public const string View = "warehouses.view";
+        public const string Edit = "warehouses.edit";
+    }
 }
