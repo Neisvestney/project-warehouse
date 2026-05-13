@@ -13,6 +13,8 @@ import {ModalProvider} from "@/contexts/Modal/ModalProvider.tsx";
 import {ProtectedRoutes} from "@/components/ProtectedRoute/ProtectedRoutes.tsx";
 import ProtectedRoute from "@/components/ProtectedRoute/ProtectedRoute.tsx";
 import {QueryErrorHandler} from "@/components/QueryErrorHandler";
+import WarehousesPage from "@/pages/WarehousesPage/WarehousesPage.tsx";
+import WarehouseViewPage from "@/pages/WarehousesPage/pages/WarehouseViewPage/WarehouseViewPage.tsx";
 
 const HomePage = React.lazy(() => import("@/pages/HomePage/HomePage.tsx"));
 const MyProfilePage = React.lazy(() => import("@/pages/MyProfilePage/MyProfilePage.tsx"));
@@ -75,6 +77,16 @@ function App() {
                       path="/users/:id/edit"
                       element={<UserEditPage />}
                       requiredPermission="users.edit_profile"
+                    />
+                    <ProtectedRoute
+                      path="/warehouses"
+                      element={<WarehousesPage />}
+                      requiredPermission="warehouses.view"
+                    />
+                    <ProtectedRoute
+                      path="/warehouses/:id"
+                      element={<WarehouseViewPage />}
+                      requiredPermission="warehouses.view"
                     />
                     <ProtectedRoute path="/settings/*" element={<SettingsPage />} />
                   </ProtectedRoute>

@@ -32,12 +32,24 @@ export type ChangePasswordRequest = {
   newPassword: string;
 };
 
+export type CreateStoragePlaceNodeRequest = {
+  name: string;
+  parentNodeId?: null | string;
+};
+
 export type CreateUserRequest = {
   username: string;
   password: string;
   email?: null | string;
   firstName?: null | string;
   lastName?: null | string;
+};
+
+export type CreateWarehouseRequest = {
+  name: string;
+  width: number;
+  height: number;
+  storagePlaces: Array<StoragePlaceItem>;
 };
 
 export type ErrorCode =
@@ -55,6 +67,11 @@ export type ErrorCode =
   | "userAlreadyExists"
   | "roleAlreadyExists"
   | "permissionAlreadyAssigned"
+  | "warehouseNotFound"
+  | "storagePlaceNotFound"
+  | "storagePlaceNodeNotFound"
+  | "storagePlaceNodeHasChildren"
+  | "storagePlaceNodeCyclicParent"
   | "required"
   | "tooShort"
   | "tooLong"
@@ -93,6 +110,16 @@ export type PaginatedOfUserDetailDto = {
   hasPreviousPage: boolean;
 };
 
+export type PaginatedOfWarehouseSummaryDto = {
+  items: Array<WarehouseSummaryDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
 export type PermissionName =
   | "users.view"
   | "users.create"
@@ -101,7 +128,9 @@ export type PermissionName =
   | "users.manage_roles_and_permissions"
   | "users.reset_password"
   | "roles.view"
-  | "roles.edit";
+  | "roles.edit"
+  | "warehouses.view"
+  | "warehouses.edit";
 
 export type RefreshRequest = {
   refreshToken: string;
@@ -119,6 +148,30 @@ export type RoleWithPermissionsDto = {
   permissions: Array<string>;
 };
 
+export type StoragePlaceDto = {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export type StoragePlaceItem = {
+  id?: null | string;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export type StoragePlaceNodeDto = {
+  id: string;
+  name: string;
+  parentNodeId?: null | string;
+};
+
 export type TokenResponse = {
   accessToken: string;
   refreshToken: string;
@@ -132,12 +185,24 @@ export type UpdateRoleItem = {
   permissions: Array<string>;
 };
 
+export type UpdateStoragePlaceNodeRequest = {
+  name: string;
+  parentNodeId?: null | string;
+};
+
 export type UpdateUserRequest = {
   email?: null | string;
   firstName?: null | string;
   lastName?: null | string;
   roleIds: Array<string>;
   directPermissions: Array<string>;
+};
+
+export type UpdateWarehouseRequest = {
+  name: string;
+  width: number;
+  height: number;
+  storagePlaces: Array<StoragePlaceItem>;
 };
 
 export type UserDetailDto = {
@@ -150,11 +215,20 @@ export type UserDetailDto = {
   directPermissions: Array<string>;
 };
 
-export type WeatherForecast = {
-  date: string;
-  temperatureC: number;
-  temperatureF: number;
-  summary?: null | string;
+export type WarehouseDto = {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  storagePlaces: Array<StoragePlaceDto>;
+};
+
+export type WarehouseSummaryDto = {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  storagePlaceCount: number;
 };
 
 export type AuthLoginData = {
@@ -431,6 +505,168 @@ export type RolesSearchResponses = {
 
 export type RolesSearchResponse = RolesSearchResponses[keyof RolesSearchResponses];
 
+export type StoragePlacesGetNodesData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/storagePlaces/{id}/nodes";
+};
+
+export type StoragePlacesGetNodesErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type StoragePlacesGetNodesError =
+  StoragePlacesGetNodesErrors[keyof StoragePlacesGetNodesErrors];
+
+export type StoragePlacesGetNodesResponses = {
+  /**
+   * OK
+   */
+  200: Array<StoragePlaceNodeDto>;
+};
+
+export type StoragePlacesGetNodesResponse =
+  StoragePlacesGetNodesResponses[keyof StoragePlacesGetNodesResponses];
+
+export type StoragePlacesAddNodeData = {
+  body: CreateStoragePlaceNodeRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/storagePlaces/{id}/nodes";
+};
+
+export type StoragePlacesAddNodeErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StoragePlacesAddNodeError =
+  StoragePlacesAddNodeErrors[keyof StoragePlacesAddNodeErrors];
+
+export type StoragePlacesAddNodeResponses = {
+  /**
+   * OK
+   */
+  200: Array<StoragePlaceNodeDto>;
+};
+
+export type StoragePlacesAddNodeResponse =
+  StoragePlacesAddNodeResponses[keyof StoragePlacesAddNodeResponses];
+
+export type StoragePlacesDeleteNodeData = {
+  body?: never;
+  path: {
+    id: string;
+    nodeId: string;
+  };
+  query?: never;
+  url: "/api/storagePlaces/{id}/nodes/{nodeId}";
+};
+
+export type StoragePlacesDeleteNodeErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StoragePlacesDeleteNodeError =
+  StoragePlacesDeleteNodeErrors[keyof StoragePlacesDeleteNodeErrors];
+
+export type StoragePlacesDeleteNodeResponses = {
+  /**
+   * OK
+   */
+  200: Array<StoragePlaceNodeDto>;
+};
+
+export type StoragePlacesDeleteNodeResponse =
+  StoragePlacesDeleteNodeResponses[keyof StoragePlacesDeleteNodeResponses];
+
+export type StoragePlacesUpdateNodeData = {
+  body: UpdateStoragePlaceNodeRequest;
+  path: {
+    id: string;
+    nodeId: string;
+  };
+  query?: never;
+  url: "/api/storagePlaces/{id}/nodes/{nodeId}";
+};
+
+export type StoragePlacesUpdateNodeErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StoragePlacesUpdateNodeError =
+  StoragePlacesUpdateNodeErrors[keyof StoragePlacesUpdateNodeErrors];
+
+export type StoragePlacesUpdateNodeResponses = {
+  /**
+   * OK
+   */
+  200: Array<StoragePlaceNodeDto>;
+};
+
+export type StoragePlacesUpdateNodeResponse =
+  StoragePlacesUpdateNodeResponses[keyof StoragePlacesUpdateNodeResponses];
+
 export type UsersGetAllData = {
   body?: never;
   path?: never;
@@ -642,19 +878,174 @@ export type UsersChangePasswordResponses = {
 export type UsersChangePasswordResponse =
   UsersChangePasswordResponses[keyof UsersChangePasswordResponses];
 
-export type WeatherForecastGetData = {
+export type WarehousesGetAllData = {
   body?: never;
   path?: never;
-  query?: never;
-  url: "/WeatherForecast";
+  query?: {
+    page?: number;
+    pageSize?: number;
+    searchString?: string;
+  };
+  url: "/api/warehouses";
 };
 
-export type WeatherForecastGetResponses = {
+export type WarehousesGetAllErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type WarehousesGetAllError = WarehousesGetAllErrors[keyof WarehousesGetAllErrors];
+
+export type WarehousesGetAllResponses = {
   /**
    * OK
    */
-  200: Array<WeatherForecast>;
+  200: PaginatedOfWarehouseSummaryDto;
 };
 
-export type WeatherForecastGetResponse =
-  WeatherForecastGetResponses[keyof WeatherForecastGetResponses];
+export type WarehousesGetAllResponse = WarehousesGetAllResponses[keyof WarehousesGetAllResponses];
+
+export type WarehousesCreateData = {
+  body: CreateWarehouseRequest;
+  path?: never;
+  query?: never;
+  url: "/api/warehouses";
+};
+
+export type WarehousesCreateErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type WarehousesCreateError = WarehousesCreateErrors[keyof WarehousesCreateErrors];
+
+export type WarehousesCreateResponses = {
+  /**
+   * Created
+   */
+  201: WarehouseDto;
+};
+
+export type WarehousesCreateResponse = WarehousesCreateResponses[keyof WarehousesCreateResponses];
+
+export type WarehousesDeleteData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/warehouses/{id}";
+};
+
+export type WarehousesDeleteErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type WarehousesDeleteError = WarehousesDeleteErrors[keyof WarehousesDeleteErrors];
+
+export type WarehousesDeleteResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type WarehousesDeleteResponse = WarehousesDeleteResponses[keyof WarehousesDeleteResponses];
+
+export type WarehousesGetByIdData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/warehouses/{id}";
+};
+
+export type WarehousesGetByIdErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type WarehousesGetByIdError = WarehousesGetByIdErrors[keyof WarehousesGetByIdErrors];
+
+export type WarehousesGetByIdResponses = {
+  /**
+   * OK
+   */
+  200: WarehouseDto;
+};
+
+export type WarehousesGetByIdResponse =
+  WarehousesGetByIdResponses[keyof WarehousesGetByIdResponses];
+
+export type WarehousesUpdateData = {
+  body: UpdateWarehouseRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/warehouses/{id}";
+};
+
+export type WarehousesUpdateErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type WarehousesUpdateError = WarehousesUpdateErrors[keyof WarehousesUpdateErrors];
+
+export type WarehousesUpdateResponses = {
+  /**
+   * OK
+   */
+  200: WarehouseDto;
+};
+
+export type WarehousesUpdateResponse = WarehousesUpdateResponses[keyof WarehousesUpdateResponses];

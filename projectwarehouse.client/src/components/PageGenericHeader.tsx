@@ -13,7 +13,9 @@ function PageGenericHeader({title, children, right}: PageGenericHeaderProps) {
       <Typography
         variant="h5"
         sx={{
-          flexBasis: 300,
+          flexBasis: {
+            md: 300,
+          },
           flexShrink: 1,
         }}
       >

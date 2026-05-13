@@ -11,7 +11,6 @@ import {
 } from "@mui/material";
 import {getPermissionLabel} from "@/utils/permissionLabels";
 import LockResetIcon from "@mui/icons-material/LockReset";
-import DeleteIcon from "@mui/icons-material/Delete";
 import {useQuery} from "@tanstack/react-query";
 import {authMeOptions} from "@/api/@tanstack/react-query.gen";
 import {isNotFoundError} from "@/utils/errorUtils";
