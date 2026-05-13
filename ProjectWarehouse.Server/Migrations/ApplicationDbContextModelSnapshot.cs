@@ -17,7 +17,7 @@ namespace ProjectWarehouse.Server.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.7")
+                .HasAnnotation("ProductVersion", "10.0.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -269,6 +269,63 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("RolePermissions");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlace", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("X")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Y")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("StoragePlaces");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlaceNode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("ParentNodeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RootStoragePlaceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentNodeId");
+
+                    b.HasIndex("RootStoragePlaceId");
+
+                    b.ToTable("StoragePlacesNodes");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.UserPermission", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -280,6 +337,27 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasKey("UserId", "Permission");
 
                     b.ToTable("UserPermissions");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Warehouse", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Warehouses");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -359,6 +437,34 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlace", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.Warehouse", "Warehouse")
+                        .WithMany("StoragePlaces")
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlaceNode", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.StoragePlaceNode", "ParentNode")
+                        .WithMany("ChildrenNodes")
+                        .HasForeignKey("ParentNodeId");
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.StoragePlace", "RootStoragePlace")
+                        .WithMany("StoragePlaceNodes")
+                        .HasForeignKey("RootStoragePlaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ParentNode");
+
+                    b.Navigation("RootStoragePlace");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.UserPermission", b =>
                 {
                     b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", "User")
@@ -384,6 +490,21 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("UserPermissions");
 
                     b.Navigation("UserRoles");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlace", b =>
+                {
+                    b.Navigation("StoragePlaceNodes");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlaceNode", b =>
+                {
+                    b.Navigation("ChildrenNodes");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Warehouse", b =>
+                {
+                    b.Navigation("StoragePlaces");
                 });
 #pragma warning restore 612, 618
         }

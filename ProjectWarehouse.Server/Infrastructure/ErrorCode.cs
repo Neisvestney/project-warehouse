@@ -21,6 +21,11 @@ public enum ErrorCode
     UserAlreadyExists,
     RoleAlreadyExists,
     PermissionAlreadyAssigned,
+    WarehouseNotFound,
+    StoragePlaceNotFound,
+    StoragePlaceNodeNotFound,
+    StoragePlaceNodeHasChildren,
+    StoragePlaceNodeCyclicParent,
 
     // Validation
     Required,

@@ -50,6 +50,12 @@ That's it. `Permissions.All` picks up new constants automatically via reflection
 | `roles.delete` | `Permissions.Roles.Delete` |
 | `roles.manage_permissions` | `Permissions.Roles.ManagePermissions` |
 
+### Warehouses (`warehouses.*`)
+| Permission | Constant |
+|-----------|----------|
+| `warehouses.view` | `Permissions.Warehouses.View` |
+| `warehouses.edit` | `Permissions.Warehouses.Edit` |
+
 ## RBAC + Direct Permissions
 
 A user's **effective permissions** = union of:
