@@ -87,6 +87,7 @@ export function setupApiClient() {
   // Falls back to clearTokens() when the refresh token is also invalid.
   client.interceptors.response.use(async (response, request) => {
     if (response.status !== 401) return response;
+    if (!localStorage.getItem("accessToken")) return response;
 
     const refreshed = await refreshTokens();
     const clone = retryClones.get(request);

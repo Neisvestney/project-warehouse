@@ -65,6 +65,7 @@ export type ErrorCode =
   | "passwordAtLeastOneDigit"
   | "passwordAtLeastOneUppercase"
   | "passwordAtLeastOneLowercase"
+  | "passwordInvalid"
   | "validationError";
 
 export type LoginRequest = {

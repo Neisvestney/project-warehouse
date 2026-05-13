@@ -15,6 +15,7 @@ import ProtectedRoute from "@/components/ProtectedRoute/ProtectedRoute.tsx";
 import {QueryErrorHandler} from "@/components/QueryErrorHandler";
 
 const HomePage = React.lazy(() => import("@/pages/HomePage/HomePage.tsx"));
+const MyProfilePage = React.lazy(() => import("@/pages/MyProfilePage/MyProfilePage.tsx"));
 const ScannerPage = React.lazy(() => import("@/pages/ScannerPage/ScannerPage.tsx"));
 const LoginPage = React.lazy(() => import("@/pages/LoginPage/LoginPage.tsx"));
 const UsersPage = React.lazy(() => import("@/pages/UsersPage/UsersPage.tsx"));
@@ -54,6 +55,7 @@ function App() {
                   <Route path="/login" element={<LoginPage />} />
                   <ProtectedRoute element={<MainLayout />}>
                     <ProtectedRoute path="/" element={<HomePage />} />
+                    <ProtectedRoute path="/profile" element={<MyProfilePage />} />
                     <ProtectedRoute
                       path="/users"
                       element={<UsersPage />}

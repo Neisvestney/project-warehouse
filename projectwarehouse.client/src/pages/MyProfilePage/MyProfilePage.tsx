@@ -1,5 +1,4 @@
 import {useState} from "react";
-import {Link as RouterLink, useParams} from "react-router";
 import {
   Box,
   Button,
@@ -10,25 +9,21 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import EditIcon from "@mui/icons-material/Edit";
 import {getPermissionLabel} from "@/utils/permissionLabels";
 import LockResetIcon from "@mui/icons-material/LockReset";
 import DeleteIcon from "@mui/icons-material/Delete";
 import {useQuery} from "@tanstack/react-query";
-import {usersGetByIdOptions} from "@/api/@tanstack/react-query.gen";
+import {authMeOptions} from "@/api/@tanstack/react-query.gen";
 import {isNotFoundError} from "@/utils/errorUtils";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
 import ChangePasswordDialog from "./ChangePasswordDialog";
-import DeleteUserDialog from "./DeleteUserDialog";
 import InfoRow from "@/components/InfoRow.tsx";
 
-function UserViewPage() {
-  const {id} = useParams<{id: string}>();
+function MyProfilePage() {
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const {
     data: user,
@@ -37,7 +32,7 @@ function UserViewPage() {
     isRefetchError,
     error,
   } = useQuery({
-    ...usersGetByIdOptions({path: {id: id!}}),
+    ...authMeOptions(),
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
   });
 
@@ -55,35 +50,17 @@ function UserViewPage() {
 
   return (
     <Stack spacing={2}>
-      <AppBreadcrumbs
-        path={[{name: "Пользователи", link: "/users"}, {name: user.username}, {name: "Просмотр"}]}
-      />
+      <AppBreadcrumbs path={[{name: "Мой профиль"}]} />
       <PageGenericHeader
         title={user.username}
         right={
           <>
             <Button
               variant="outlined"
-              startIcon={<EditIcon />}
-              component={RouterLink}
-              to={`/users/${id}/edit`}
-            >
-              Редактировать
-            </Button>
-            <Button
-              variant="outlined"
               startIcon={<LockResetIcon />}
               onClick={() => setChangePasswordOpen(true)}
             >
               Сменить пароль
-            </Button>
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<DeleteIcon />}
-              onClick={() => setDeleteOpen(true)}
-            >
-              Удалить
             </Button>
           </>
         }
@@ -100,7 +77,7 @@ function UserViewPage() {
             </Typography>
             <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap", gap: 0.5}}>
               {user.roles.length > 0 ? (
-                user.roles.map((role) => <Chip key={role.id} label={role.name} size="small" />)
+                user.roles.map((role, i) => <Chip key={i} label={role} size="small" />)
               ) : (
                 <Typography>—</Typography>
               )}
@@ -108,12 +85,12 @@ function UserViewPage() {
           </Stack>
           <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
             <Typography color="text.secondary" sx={{width: 160, flexShrink: 0, pt: 0.25}}>
-              Прямые
+              Права
             </Typography>
             <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap", gap: 0.5}}>
-              {user.directPermissions.length > 0 ? (
-                user.directPermissions.map((p) => (
-                  <Tooltip key={p} title={p} arrow>
+              {user.permissions.length > 0 ? (
+                user.permissions.map((p, i) => (
+                  <Tooltip key={i} title={p} arrow>
                     <Chip label={getPermissionLabel(p)} size="small" />
                   </Tooltip>
                 ))
@@ -127,17 +104,10 @@ function UserViewPage() {
 
       <ChangePasswordDialog
         open={changePasswordOpen}
-        userId={id!}
         onClose={() => setChangePasswordOpen(false)}
-      />
-      <DeleteUserDialog
-        open={deleteOpen}
-        userId={id!}
-        username={user.username}
-        onClose={() => setDeleteOpen(false)}
       />
     </Stack>
   );
 }
 
-export default UserViewPage;
+export default MyProfilePage;

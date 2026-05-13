@@ -50,6 +50,7 @@ src/
 │   │       ├── CameraSelectDialog.tsx  # Camera device picker dialog
 │   │       ├── ZoomControls.tsx        # Zoom slider/buttons
 │   │       └── index.ts
+│   ├── InfoRow.tsx              # Label + value row used in detail views
 │   ├── MainAppBar.tsx           # Top nav bar with logo and links
 │   ├── InstallPrompt.tsx        # PWA "Add to Home Screen" prompt
 │   ├── UpdatePrompt.tsx         # Service worker update banner
@@ -102,6 +103,9 @@ src/
 │   │   └── HomePage.tsx         # Landing page with navigation cards
 │   ├── LoginPage/
 │   │   └── LoginPage.tsx        # Login form
+│   ├── MyProfilePage/
+│   │   ├── MyProfilePage.tsx        # Current user's profile: info + roles + permissions (authenticated)
+│   │   └── ChangePasswordDialog.tsx # Change own password dialog (requires current password)
 │   ├── ScannerPage/
 │   │   └── ScannerPage.tsx      # Full-screen scanner + scanned codes drawer
 │   ├── UsersPage/

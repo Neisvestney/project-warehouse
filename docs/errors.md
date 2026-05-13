@@ -104,6 +104,7 @@ Returned on `POST /api/users` (create), and password reset/change flows.
 | `passwordAtLeastOneDigit` | Password does not contain a digit | — |
 | `passwordAtLeastOneUppercase` | Password does not contain an uppercase letter | — |
 | `passwordAtLeastOneLowercase` | Password does not contain a lowercase letter | — |
+| `passwordInvalid` | Current password is incorrect (change-password flow) | — |
 
 ## Field Path Conventions
 
