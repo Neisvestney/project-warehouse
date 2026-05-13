@@ -64,7 +64,7 @@ function MainAppBar({}: AppBarProps) {
   const filteredPages = pages.filter(
     (page) =>
       (!page.requiredPermission || user?.permissions.includes(page.requiredPermission)) &&
-      (!page.showIf || page.showIf(user?.permissions ?? [])),
+      (!page.showIf || page.showIf((user?.permissions ?? []) as PermissionName[])),
   );
 
   return (

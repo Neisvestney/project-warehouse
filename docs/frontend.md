@@ -11,6 +11,8 @@
 | Emotion | 11 | CSS-in-JS (MUI peer) |
 | React Router | v7 | Client-side routing |
 | TanStack React Query | v5 | Server state management |
+| MobX + mobx-react-lite | 6 | Local complex edit state (used in RolesSettingsPage) |
+| @dnd-kit/core + sortable | — | Drag-and-drop (used in RolesSettingsPage) |
 | @hey-api/openapi-ts | 0.97+ | OpenAPI → TypeScript codegen |
 | notistack | 3 | Toast notifications |
 | zxing-wasm | 3 | Barcode/QR decoding (WASM) |
@@ -117,7 +119,12 @@ src/
 │       ├── SettingsPage.tsx     # Sections declaration only — drives routes + sidebar nav for /settings/*
 │       └── pages/
 │           └── RolesSettingsPage/
-│               └── RolesSettingsPage.tsx   # WIP placeholder for role management
+│               ├── RolesSettingsPage.tsx   # Role-permission matrix table (observer, data fetching, header buttons)
+│               ├── RolesTable.tsx          # Sticky matrix table with @dnd-kit sortable columns
+│               ├── RoleColumnHeader.tsx    # Header cell: drag handle + name + edit/delete actions
+│               ├── RenameRoleDialog.tsx    # MUI Dialog for renaming a role (used via showModal)
+│               ├── RolesStoreContext.tsx   # React context + provider for RolesStore
+│               └── rolesStore.ts          # MobX store: EditableRole class + RolesStore
 │
 ├── api/                         # Auto-generated — run `npm run generate-api` to refresh
 │   ├── client/                  # Bundled fetch client (from @hey-api/openapi-ts)
@@ -165,7 +172,7 @@ src/
 /users/:id/edit    → MainLayout > UserEditPage      (users.edit_profile)
 /settings/*        → MainLayout > SettingsPage      (authenticated)
 /settings          →   redirect to /settings/roles
-/settings/roles    →   RolesSettingsPage            (WIP)
+/settings/roles    →   RolesSettingsPage            (roles.view)
 ```
 
 ## Pages

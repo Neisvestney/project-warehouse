@@ -54,9 +54,9 @@ export interface ModalComponentProps<T = unknown> {
 export interface ModalServiceAPI {
   showAlert: (options: AlertOptions) => Promise<void>;
   showConfirm: (options: ConfirmOptions) => Promise<boolean>;
-  showModal: <T>(
-    component: React.ComponentType<ModalComponentProps<T> & Record<string, unknown>>,
-    props?: Record<string, unknown>,
+  showModal: <T, P extends Record<string, unknown> = Record<never, never>>(
+    component: React.ComponentType<ModalComponentProps<T> & P>,
+    props?: P,
     options?: ShowModalOptions,
   ) => Promise<T | null>;
 }
