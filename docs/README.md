@@ -38,15 +38,20 @@ ProjectWarehouse.Server/   ASP.NET Core 9 REST API
 - Node.js 20+
 - PostgreSQL (local or via Docker)
 
-### User Secrets (required before first run)
+### Environment Variables (required before first run)
+
+Copy `.env.example` to `.env` at the repo root and fill in values:
 
 ```
-cd ProjectWarehouse.Server
-dotnet user-secrets set "Jwt:SecretKey" "your-secret-min-32-chars-here!!"
-dotnet user-secrets set "Seed:AdminPassword" "YourAdminPassword1!"
+cp .env.example .env
 ```
 
-`Seed:AdminUsername` defaults to `"admin"` if not set.
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `POSTGRES_PASSWORD` | PostgreSQL password | — |
+| `Jwt__SecretKey` | JWT signing key (min 32 chars) | — |
+| `Seed__AdminPassword` | Initial admin account password | — |
+| `Seed__AdminUsername` | Initial admin account username | `admin` |
 
 ### Run Backend
 
