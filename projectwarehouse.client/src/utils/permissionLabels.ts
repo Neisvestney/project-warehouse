@@ -1,4 +1,6 @@
-const permissionLabels: Record<string, string> = {
+import type {PermissionName} from "@/api";
+
+const permissionLabels: Record<PermissionName, string> = {
   "users.view": "Просмотр пользователей",
   "users.create": "Создание пользователей",
   "users.edit_profile": "Редактирование профиля",
@@ -7,8 +9,10 @@ const permissionLabels: Record<string, string> = {
   "users.reset_password": "Сброс пароля",
   "roles.view": "Просмотр ролей",
   "roles.edit": "Редактирование ролей",
+  "warehouses.view": "Просмотр всех складов",
+  "warehouses.edit": "Редактирование всех складов",
 };
 
-export function getPermissionLabel(permission: string): string {
-  return permissionLabels[permission] ?? permission;
+export function getPermissionLabel(permission: PermissionName | string): string {
+  return permissionLabels[permission as PermissionName] ?? permission;
 }

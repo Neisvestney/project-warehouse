@@ -24,11 +24,16 @@ import QueryError from "@/components/QueryError";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import DeleteUserDialog from "./DeleteUserDialog";
 import InfoRow from "@/components/InfoRow.tsx";
+import {useHasPermission} from "@/hooks/usePermission.ts";
 
 function UserViewPage() {
   const {id} = useParams<{id: string}>();
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const hasDeleteUserPermission = useHasPermission("users.delete");
+  const hasChangeUserPasswordPermission = useHasPermission("users.reset_password");
+  const hasEditUserPermission = useHasPermission("users.reset_password");
 
   const {
     data: user,
@@ -62,29 +67,35 @@ function UserViewPage() {
         title={user.username}
         right={
           <>
-            <Button
-              variant="outlined"
-              startIcon={<EditIcon />}
-              component={RouterLink}
-              to={`/users/${id}/edit`}
-            >
-              Редактировать
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<LockResetIcon />}
-              onClick={() => setChangePasswordOpen(true)}
-            >
-              Сменить пароль
-            </Button>
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<DeleteIcon />}
-              onClick={() => setDeleteOpen(true)}
-            >
-              Удалить
-            </Button>
+            {hasEditUserPermission && (
+              <Button
+                variant="outlined"
+                startIcon={<EditIcon />}
+                component={RouterLink}
+                to={`/users/${id}/edit`}
+              >
+                Редактировать
+              </Button>
+            )}
+            {hasChangeUserPasswordPermission && (
+              <Button
+                variant="outlined"
+                startIcon={<LockResetIcon />}
+                onClick={() => setChangePasswordOpen(true)}
+              >
+                Сменить пароль
+              </Button>
+            )}
+            {hasDeleteUserPermission && (
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteIcon />}
+                onClick={() => setDeleteOpen(true)}
+              >
+                Удалить
+              </Button>
+            )}
           </>
         }
       />

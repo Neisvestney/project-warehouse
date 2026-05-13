@@ -30,6 +30,18 @@ import type {
   RolesUpdateAllData,
   RolesUpdateAllErrors,
   RolesUpdateAllResponses,
+  StoragePlacesAddNodeData,
+  StoragePlacesAddNodeErrors,
+  StoragePlacesAddNodeResponses,
+  StoragePlacesDeleteNodeData,
+  StoragePlacesDeleteNodeErrors,
+  StoragePlacesDeleteNodeResponses,
+  StoragePlacesGetNodesData,
+  StoragePlacesGetNodesErrors,
+  StoragePlacesGetNodesResponses,
+  StoragePlacesUpdateNodeData,
+  StoragePlacesUpdateNodeErrors,
+  StoragePlacesUpdateNodeResponses,
   UsersChangePasswordData,
   UsersChangePasswordErrors,
   UsersChangePasswordResponses,
@@ -48,8 +60,21 @@ import type {
   UsersUpdateData,
   UsersUpdateErrors,
   UsersUpdateResponses,
-  WeatherForecastGetData,
-  WeatherForecastGetResponses,
+  WarehousesCreateData,
+  WarehousesCreateErrors,
+  WarehousesCreateResponses,
+  WarehousesDeleteData,
+  WarehousesDeleteErrors,
+  WarehousesDeleteResponses,
+  WarehousesGetAllData,
+  WarehousesGetAllErrors,
+  WarehousesGetAllResponses,
+  WarehousesGetByIdData,
+  WarehousesGetByIdErrors,
+  WarehousesGetByIdResponses,
+  WarehousesUpdateData,
+  WarehousesUpdateErrors,
+  WarehousesUpdateResponses,
 } from "./types.gen";
 
 export type Options<
@@ -195,6 +220,80 @@ export const rolesSearch = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Get a flat list of all nodes for a storage place.
+ *
+ * Returns `StoragePlaceNodeDto[]` ordered by name — id, name, parentNodeId (null = root).
+ */
+export const storagePlacesGetNodes = <ThrowOnError extends boolean = false>(
+  options: Options<StoragePlacesGetNodesData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    StoragePlacesGetNodesResponses,
+    StoragePlacesGetNodesErrors,
+    ThrowOnError
+  >({url: "/api/storagePlaces/{id}/nodes", ...options});
+
+/**
+ * Add a node to a storage place.
+ *
+ * Body: `CreateStoragePlaceNodeRequest` — name (required), parentNodeId (optional, null = root node).
+ * Returns the updated flat list.
+ * Returns 422 `storagePlaceNodeNotFound` (field: `parentNodeId`) if the parent does not belong to this storage place.
+ */
+export const storagePlacesAddNode = <ThrowOnError extends boolean = false>(
+  options: Options<StoragePlacesAddNodeData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    StoragePlacesAddNodeResponses,
+    StoragePlacesAddNodeErrors,
+    ThrowOnError
+  >({
+    url: "/api/storagePlaces/{id}/nodes",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete a node. Fails if the node has children — delete them first.
+ *
+ * Returns the updated flat list on success.
+ */
+export const storagePlacesDeleteNode = <ThrowOnError extends boolean = false>(
+  options: Options<StoragePlacesDeleteNodeData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<
+    StoragePlacesDeleteNodeResponses,
+    StoragePlacesDeleteNodeErrors,
+    ThrowOnError
+  >({url: "/api/storagePlaces/{id}/nodes/{nodeId}", ...options});
+
+/**
+ * Update a node's name or parent.
+ *
+ * Body: `UpdateStoragePlaceNodeRequest` — name (required), parentNodeId (nullable, null = root node).
+ * Returns the updated flat list.
+ * Returns 422 `storagePlaceNodeCyclicParent` (field: `parentNodeId`) if the new parent is a descendant of this node or the node itself.
+ */
+export const storagePlacesUpdateNode = <ThrowOnError extends boolean = false>(
+  options: Options<StoragePlacesUpdateNodeData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    StoragePlacesUpdateNodeResponses,
+    StoragePlacesUpdateNodeErrors,
+    ThrowOnError
+  >({
+    url: "/api/storagePlaces/{id}/nodes/{nodeId}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
  * List all users (paginated).
  */
 export const usersGetAll = <ThrowOnError extends boolean = false>(
@@ -276,10 +375,76 @@ export const usersChangePassword = <ThrowOnError extends boolean = false>(
     },
   });
 
-export const weatherForecastGet = <ThrowOnError extends boolean = false>(
-  options?: Options<WeatherForecastGetData, ThrowOnError>,
+/**
+ * List all warehouses (paginated, optionally filtered by name).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString` (optional).
+ * Returns `Paginated&lt;WarehouseSummaryDto&gt;` — id, name, width, height, storagePlaceCount.
+ */
+export const warehousesGetAll = <ThrowOnError extends boolean = false>(
+  options?: Options<WarehousesGetAllData, ThrowOnError>,
 ) =>
-  (options?.client ?? client).get<WeatherForecastGetResponses, unknown, ThrowOnError>({
-    url: "/WeatherForecast",
+  (options?.client ?? client).get<WarehousesGetAllResponses, WarehousesGetAllErrors, ThrowOnError>({
+    url: "/api/warehouses",
     ...options,
+  });
+
+/**
+ * Create a new warehouse with optional storage places.
+ *
+ * Body: `CreateWarehouseRequest` — name (required), width, height, storagePlaces (optional).
+ */
+export const warehousesCreate = <ThrowOnError extends boolean = false>(
+  options: Options<WarehousesCreateData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<WarehousesCreateResponses, WarehousesCreateErrors, ThrowOnError>({
+    url: "/api/warehouses",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete a warehouse and all its storage places.
+ */
+export const warehousesDelete = <ThrowOnError extends boolean = false>(
+  options: Options<WarehousesDeleteData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<
+    WarehousesDeleteResponses,
+    WarehousesDeleteErrors,
+    ThrowOnError
+  >({url: "/api/warehouses/{id}", ...options});
+
+/**
+ * Get a warehouse by ID including its storage places.
+ */
+export const warehousesGetById = <ThrowOnError extends boolean = false>(
+  options: Options<WarehousesGetByIdData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<WarehousesGetByIdResponses, WarehousesGetByIdErrors, ThrowOnError>(
+    {url: "/api/warehouses/{id}", ...options},
+  );
+
+/**
+ * Update a warehouse and atomically sync its storage places.
+ *
+ *     Body: `UpdateWarehouseRequest`. Storage place sync rules:
+ * * id: null — create new storage place
+ * * id present — update existing storage place
+ * * existing storage place not in the list — delete
+ * Returns 422 `storagePlaceNotFound` if any provided ID does not belong to this warehouse.
+ */
+export const warehousesUpdate = <ThrowOnError extends boolean = false>(
+  options: Options<WarehousesUpdateData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<WarehousesUpdateResponses, WarehousesUpdateErrors, ThrowOnError>({
+    url: "/api/warehouses/{id}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });

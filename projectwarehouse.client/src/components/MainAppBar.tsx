@@ -27,6 +27,7 @@ const pages: {
 }[] = [
   {name: "Сканер", url: "/scanner"},
   {name: "Пользователи", url: "/users", requiredPermission: "users.view"},
+  {name: "Склады", url: "/warehouses", requiredPermission: "warehouses.view"},
   {name: "Настройки", url: "/settings", showIf: hasSettingsAccess},
 ];
 
