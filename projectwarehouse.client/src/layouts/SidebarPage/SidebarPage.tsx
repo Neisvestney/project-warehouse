@@ -122,7 +122,7 @@ function buildRoutes(
 
 export function SidebarPage({sections, basePath}: SidebarPageProps) {
   const {user} = useAuth();
-  const permissions = user?.permissions ?? [];
+  const permissions = (user?.permissions ?? []) as PermissionName[];
   const navItems = toNavItems(sections, permissions, basePath);
   const firstLeaf = navItems.flatMap((item) => ("children" in item ? item.children : [item]))[0];
 

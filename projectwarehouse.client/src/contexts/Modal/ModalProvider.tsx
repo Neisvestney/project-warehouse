@@ -56,9 +56,9 @@ export function ModalProvider({children}: {children: React.ReactNode}) {
   }, []);
 
   const addModal = useCallback(
-    <T,>(
-      component: React.ComponentType<ModalComponentProps<T> & Record<string, unknown>>,
-      props: Record<string, unknown>,
+    <T, P extends Record<string, unknown> = Record<string, unknown>>(
+      component: React.ComponentType<ModalComponentProps<T> & P>,
+      props: P,
       options?: ShowModalOptions,
     ): Promise<T | null> => {
       const id = options?.id ?? crypto.randomUUID();
@@ -103,11 +103,11 @@ export function ModalProvider({children}: {children: React.ReactNode}) {
   );
 
   const showModal = useCallback(
-    <T,>(
-      component: React.ComponentType<ModalComponentProps<T> & Record<string, unknown>>,
-      props?: Record<string, unknown>,
+    <T, P extends Record<string, unknown> = Record<never, never>>(
+      component: React.ComponentType<ModalComponentProps<T> & P>,
+      props?: P,
       options?: ShowModalOptions,
-    ): Promise<T | null> => addModal<T>(component, props ?? {}, options),
+    ): Promise<T | null> => addModal<T, P>(component, (props ?? {}) as P, options),
     [addModal],
   );
 

@@ -10,6 +10,7 @@ export const settingsSections: SectionConfig[] = [
     path: "roles",
     icon: <AdminPanelSettingsIcon fontSize="small" />,
     component: RolesSettingsPage,
+    requiredPermission: "roles.view",
   },
 ];
 
