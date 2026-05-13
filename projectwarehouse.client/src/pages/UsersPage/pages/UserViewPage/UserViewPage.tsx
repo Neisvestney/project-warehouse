@@ -23,6 +23,7 @@ import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import DeleteUserDialog from "./DeleteUserDialog";
+import InfoRow from "@/components/InfoRow.tsx";
 
 function UserViewPage() {
   const {id} = useParams<{id: string}>();
@@ -107,7 +108,7 @@ function UserViewPage() {
           </Stack>
           <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
             <Typography color="text.secondary" sx={{width: 160, flexShrink: 0, pt: 0.25}}>
-              Права
+              Прямые
             </Typography>
             <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap", gap: 0.5}}>
               {user.directPermissions.length > 0 ? (
@@ -135,17 +136,6 @@ function UserViewPage() {
         username={user.username}
         onClose={() => setDeleteOpen(false)}
       />
-    </Stack>
-  );
-}
-
-function InfoRow({label, value}: {label: string; value: string}) {
-  return (
-    <Stack direction="row" spacing={1} sx={{alignItems: "baseline"}}>
-      <Typography color="text.secondary" sx={{width: 160, flexShrink: 0}}>
-        {label}
-      </Typography>
-      <Typography>{value}</Typography>
     </Stack>
   );
 }

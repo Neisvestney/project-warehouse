@@ -38,6 +38,11 @@ public class PasswordValidationErrorsMapper
             return ("root", ErrorCode.PasswordAtLeastOneLowercase, error.Description, null);
         }
         
+        if (error.Description.Contains("Incorrect password"))
+        {
+            return ("root", ErrorCode.PasswordInvalid, error.Description, null);
+        }
+        
         return ("root", ErrorCode.ValidationError, error.Description, null);
     }
     

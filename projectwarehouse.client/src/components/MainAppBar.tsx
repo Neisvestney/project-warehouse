@@ -59,6 +59,11 @@ function MainAppBar({}: AppBarProps) {
     navigate("/login", {replace: true});
   };
 
+  const handleNavToProfile = async () => {
+    handleCloseUserMenu();
+    navigate("/profile");
+  };
+
   const avatarLetter = user?.username?.[0]?.toUpperCase() ?? "?";
 
   const filteredPages = pages.filter(
@@ -187,6 +192,9 @@ function MainAppBar({}: AppBarProps) {
                 <Typography variant="body2" color="text.secondary">
                   {user?.username}
                 </Typography>
+              </MenuItem>
+              <MenuItem onClick={handleNavToProfile}>
+                <Typography sx={{textAlign: "center"}}>Профиль</Typography>
               </MenuItem>
               <MenuItem onClick={handleLogout}>
                 <Typography sx={{textAlign: "center"}}>Выйти</Typography>

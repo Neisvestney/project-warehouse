@@ -33,5 +33,6 @@ public enum ErrorCode
     PasswordAtLeastOneDigit,
     PasswordAtLeastOneUppercase,
     PasswordAtLeastOneLowercase,
+    PasswordInvalid,
     ValidationError,
 }

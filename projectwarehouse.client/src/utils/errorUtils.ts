@@ -38,6 +38,7 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   passwordAtLeastOneDigit: "Пароль должен содержать как минимум одну цифру",
   passwordAtLeastOneUppercase: "Пароль должен содержать хотя бы одну заглавную букву",
   passwordAtLeastOneLowercase: "Пароль должен содержать хотя бы одну строчную букву",
+  passwordInvalid: "Пароль неверный",
   validationError: "Ошибка валидации",
 };
 
