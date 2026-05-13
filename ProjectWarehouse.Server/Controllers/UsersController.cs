@@ -85,9 +85,8 @@ public class UsersController(
 
         var result = await userManager.CreateAsync(user, request.Password);
         if (!result.Succeeded)
-        {
-            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
-            return Problem(AppProblems.UnprocessableEntities(errors));
+        { 
+            return Problem(PasswordValidationErrorsMapper.MapPasswordValidationErrors(result.Errors));
         }
         
         var dto = await db.Users
@@ -240,8 +239,7 @@ public class UsersController(
         var result = await userManager.ResetPasswordAsync(user, token, request.NewPassword);
         if (!result.Succeeded)
         {
-            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
-            return Problem(AppProblems.UnprocessableEntities(errors));
+            return Problem(PasswordValidationErrorsMapper.MapPasswordValidationErrors(result.Errors));
         }
 
         await versionStore.BumpAsync(user.Id);

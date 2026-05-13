@@ -29,5 +29,9 @@ public enum ErrorCode
     InvalidFormat,
     OutOfRange,
     InvalidJson,
+    PasswordTooShort,
+    PasswordAtLeastOneDigit,
+    PasswordAtLeastOneUppercase,
+    PasswordAtLeastOneLowercase,
     ValidationError,
 }

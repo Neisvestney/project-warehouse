@@ -7,18 +7,18 @@ namespace ProjectWarehouse.Server.Models;
 
 public static class AppProblems
 {
-    public static AppProblemDetails Root(int status, ErrorCode code, string message) => new()
+    public static AppProblemDetails Root(int status, ErrorCode code, string message, IReadOnlyDictionary<string, object>? args = null) => new()
     {
         Status = status,
         Title = ReasonPhrases.GetReasonPhrase(status),
-        Errors = { ["root"] = [MakeError(code, message)] }
+        Errors = { ["root"] = [MakeError(code, message, args)] }
     };
 
-    public static AppProblemDetails Field(int status, string field, ErrorCode code, string message) => new()
+    public static AppProblemDetails Field(int status, string field, ErrorCode code, string message, IReadOnlyDictionary<string, object>? args = null) => new()
     {
         Status = status,
         Title = ReasonPhrases.GetReasonPhrase(status),
-        Errors = { [field] = [MakeError(code, message)] }
+        Errors = { [field] = [MakeError(code, message, args)] }
     };
 
     public static AppProblemDetails Fields(int status,
@@ -37,11 +37,12 @@ public static class AppProblems
 
     public static AppProblemDetails Unauthorized(ErrorCode code, string message) =>
         Root(StatusCodes.Status401Unauthorized, code, message);
-
+    
     public static AppProblemDetails Forbidden(
         ErrorCode code = ErrorCode.PermissionDenied,
-        string message = "You do not have permission to perform this action.") =>
-        Root(StatusCodes.Status403Forbidden, code, message);
+        string message = "You do not have permission to perform this action.",
+        IReadOnlyDictionary<string, object>? args = null) =>
+        Root(StatusCodes.Status403Forbidden, code, message, args);
 
     public static AppProblemDetails NotFound(ErrorCode code, string message) =>
         Root(StatusCodes.Status404NotFound, code, message);

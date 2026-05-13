@@ -90,20 +90,20 @@ public class RolesController(
         if (adminRole is not null)
         {
             if (toDelete.Any(r => r.NormalizedName == "ADMIN"))
-                return Forbidden(ErrorCode.RoleProtected, "The Admin role cannot be deleted.");
+                return Forbidden(ErrorCode.RoleProtected, "The Admin role cannot be deleted.", new Dictionary<string, object> { ["roleName"] = adminRole.Name ?? "" });
 
             var adminIncoming = toUpdate.FirstOrDefault(r => r.Id == adminRole.Id);
             if (adminIncoming is not null)
             {
                 if (roleManager.NormalizeKey(adminIncoming.Name) != adminRole.NormalizedName)
-                    return Forbidden(ErrorCode.RoleProtected, "The Admin role cannot be renamed.");
+                    return Forbidden(ErrorCode.RoleProtected, "The Admin role cannot be renamed.", new Dictionary<string, object> { ["roleName"] = adminRole.Name ?? "" });
 
                 var removedPerms = adminRole.RolePermissions
                     .Select(rp => rp.Permission)
                     .Except(adminIncoming.Permissions)
                     .Any();
                 if (removedPerms)
-                    return Forbidden(ErrorCode.RoleProtected, "Permissions cannot be removed from the Admin role.");
+                    return Forbidden(ErrorCode.RoleProtected, "Permissions cannot be removed from the Admin role.", new Dictionary<string, object> { ["roleName"] = adminRole.Name ?? "" });
             }
         }
 

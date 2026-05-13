@@ -152,7 +152,7 @@ src/
     │   ├── cameraUtils.ts       # Device enumeration, constraint helpers
     │   └── index.ts
     ├── qrTools.ts               # zxing-wasm decode + Otsu binarization + BarcodeDetector fallback
-    ├── errorUtils.ts            # API error shape helpers: extractErrorMessage, isNotFoundError, isAppProblemDetails
+    ├── errorUtils.ts            # API error shape helpers: extractErrorMessage, isNotFoundError, isAppProblemDetails; errorCodeMessages map (supports {placeholder} interpolation from error args)
     ├── parseJwt.ts              # Decode JWT payload without verification
     ├── permissionLabels.ts      # Human-readable labels for permission enum values
     └── useInstallPrompt.ts      # Hook: beforeinstallprompt event
@@ -189,12 +189,12 @@ Server-side paginated and searchable table of users. Requires `users.view` permi
 ### `UserViewPage`
 Read-only detail view for a single user. Displays username, email, first/last name, assigned roles (chips), and direct permissions (chips). Action buttons: **Редактировать** → `UserEditPage`, **Сменить пароль** → opens `ChangePasswordDialog`, **Удалить** → opens `DeleteUserDialog`. Requires `users.view`.
 
-On query error: renders `<NotFound />` for 404, `<QueryError />` for everything else. The `usersGetById` query sets `suppressGlobalError: true` and `suppressGlobalNotFound: true` so the global modal is never shown alongside these inline states.
+On query error: renders `<NotFound />` for 404, `<QueryError />` for everything else. The `usersGetById` query sets `suppressGlobalError: true` and `suppressGlobalNotFound: true` so the global modal is never shown alongside these inline states. Error screens are only shown on the initial load — background refetch errors (`isRefetchError`) are ignored so a transient network blip doesn't replace visible data with an error screen.
 
 ### `UserEditPage`
 RHF form for editing a user's profile (email, first/last name) and, if the current user has `users.manage_roles`, also roles (typeahead via `rolesSearch` API) and direct permissions (multi-select from `permissionsGetAll`). Pre-populated from `usersGetById`; refetches on window focus without losing unsaved edits (`keepDirtyValues: true`). Requires `users.edit_profile`.
 
-Same error handling as `UserViewPage`: `<NotFound />` on 404, `<QueryError />` otherwise.
+Same error handling as `UserViewPage`: `<NotFound />` on 404, `<QueryError />` otherwise; refetch errors are suppressed.
 
 ### `UserCreatePage`
 RHF form for creating a new user. Fields: username (required), password (required, with show/hide toggle), email, first name, last name. On success navigates to the new user's `UserViewPage`. Requires `users.create`.
