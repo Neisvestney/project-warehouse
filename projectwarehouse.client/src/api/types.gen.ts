@@ -61,6 +61,10 @@ export type ErrorCode =
   | "invalidFormat"
   | "outOfRange"
   | "invalidJson"
+  | "passwordTooShort"
+  | "passwordAtLeastOneDigit"
+  | "passwordAtLeastOneUppercase"
+  | "passwordAtLeastOneLowercase"
   | "validationError";
 
 export type LoginRequest = {

@@ -12,7 +12,8 @@ All API errors return `AppProblemDetails` — a superset of RFC 7807 `ProblemDet
     "username": [
       {
         "code": "userAlreadyExists",
-        "detail": "userAlreadyExists: Username is already taken"
+        "detail": "userAlreadyExists: Username is already taken",
+        "args": null
       }
     ]
   }
@@ -28,14 +29,32 @@ General (non-field) error:
     "root": [
       {
         "code": "invalidCredentials",
-        "detail": "invalidCredentials: Username or password is incorrect."
+        "detail": "invalidCredentials: Username or password is incorrect.",
+        "args": null
       }
     ]
   }
 }
 ```
 
-`code` is a camelCase string matching the `ErrorCode` enum. `detail` is `"code: human-readable message"`.
+Error with structured arguments (e.g. password too short):
+```json
+{
+  "status": 422,
+  "title": "Unprocessable Entity",
+  "errors": {
+    "root": [
+      {
+        "code": "passwordTooShort",
+        "detail": "passwordTooShort: Passwords must be at least 8 characters.",
+        "args": { "minimalLength": 8 }
+      }
+    ]
+  }
+}
+```
+
+`code` is a camelCase string matching the `ErrorCode` enum. `detail` is `"code: human-readable message"`. `args` is an optional object with extra context for i18n message formatting — its shape depends on the error code (see [ErrorCode Reference](#errorcode-reference)). `null` when no extra context is needed.
 
 ## ErrorCode Reference
 
@@ -50,10 +69,10 @@ General (non-field) error:
 | `refreshTokenRevoked` | Refresh token was already used or revoked |
 
 ### Access
-| Code | When |
-|------|------|
-| `permissionDenied` | User lacks the required permission |
-| `roleProtected` | Attempt to delete or modify the Admin role |
+| Code | When | `args` |
+|------|------|--------|
+| `permissionDenied` | User lacks the required permission | — |
+| `roleProtected` | Attempt to delete, rename, or remove permissions from the Admin role | `{ roleName: string }` |
 
 ### Entities
 | Code | When |
@@ -66,15 +85,25 @@ General (non-field) error:
 | `permissionAlreadyAssigned` | Permission already on the role/user |
 
 ### Validation
-| Code | When |
-|------|------|
-| `required` | Field missing or null |
-| `tooShort` | Value shorter than minimum |
-| `tooLong` | Value longer than maximum |
-| `invalidFormat` | Wrong type or format (e.g. string where int expected) |
-| `outOfRange` | Numeric value out of allowed range |
-| `invalidJson` | Request body is not valid JSON |
-| `validationError` | Catch-all for unrecognized validation messages |
+| Code | When | `args` |
+|------|------|--------|
+| `required` | Field missing or null | — |
+| `tooShort` | Value shorter than minimum | — |
+| `tooLong` | Value longer than maximum | — |
+| `invalidFormat` | Wrong type or format (e.g. string where int expected) | — |
+| `outOfRange` | Numeric value out of allowed range | — |
+| `invalidJson` | Request body is not valid JSON | — |
+| `validationError` | Catch-all for unrecognized validation messages | — |
+
+### Password validation
+Returned on `POST /api/users` (create), and password reset/change flows.
+
+| Code | When | `args` |
+|------|------|--------|
+| `passwordTooShort` | Password is shorter than the minimum length | `{ minimalLength: number }` |
+| `passwordAtLeastOneDigit` | Password does not contain a digit | — |
+| `passwordAtLeastOneUppercase` | Password does not contain an uppercase letter | — |
+| `passwordAtLeastOneLowercase` | Password does not contain a lowercase letter | — |
 
 ## Field Path Conventions
 
@@ -124,6 +153,7 @@ All controllers extend `AppControllerBase`, which provides one-liner error retur
 // Root errors
 return Unauthorized(ErrorCode.InvalidCredentials, "Username or password is incorrect.");
 return Forbidden();  // defaults to permissionDenied
+return Forbidden(ErrorCode.RoleProtected, "The Admin role cannot be deleted.", new Dictionary<string, object> { ["roleName"] = "Admin" });
 return NotFound(ErrorCode.UserNotFound, "User not found.");
 return Conflict(ErrorCode.UserAlreadyExists, "Username is already taken.");
 
@@ -136,7 +166,7 @@ For custom HTTP status codes or multi-field errors:
 ```csharp
 return Problem(AppProblems.Root(418, ErrorCode.ValidationError, "I'm a teapot."));
 return Problem(AppProblems.UnprocessableEntities(new[] {
-    ("username", ErrorCode.Required, "Username is required."),
-    ("password", ErrorCode.TooShort,  "Password must be at least 8 characters."),
+    ("username", ErrorCode.Required, "Username is required.", null),
+    ("password", ErrorCode.TooShort,  "Password must be at least 8 characters.", null),
 }));
 ```

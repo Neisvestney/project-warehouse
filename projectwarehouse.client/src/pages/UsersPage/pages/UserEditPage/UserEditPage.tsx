@@ -117,7 +117,7 @@ function UserEditPage() {
     );
   }
 
-  if (userQuery.isError)
+  if (userQuery.isError && !userQuery.isRefetchError)
     return isNotFoundError(userQuery.error) ? <NotFound /> : <QueryError error={userQuery.error} />;
   if (!userQuery.data) return <NotFound />;
 

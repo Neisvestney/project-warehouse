@@ -21,7 +21,7 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   refreshTokenExpired: "Токен обновления истёк",
   refreshTokenRevoked: "Токен обновления отозван",
   permissionDenied: "Недостаточно прав",
-  roleProtected: "Роль защищена от изменений",
+  roleProtected: "Роль {roleName} защищена от изменений",
   userNotFound: "Пользователь не найден",
   roleNotFound: "Роль не найдена",
   permissionNotFound: "Право не найдено",
@@ -34,6 +34,10 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   invalidFormat: "Неверный формат",
   outOfRange: "Значение вне допустимого диапазона",
   invalidJson: "Неверный формат JSON",
+  passwordTooShort: "Пароль должен содержать как минимум {minimalLength} симв.",
+  passwordAtLeastOneDigit: "Пароль должен содержать как минимум одну цифру",
+  passwordAtLeastOneUppercase: "Пароль должен содержать хотя бы одну заглавную букву",
+  passwordAtLeastOneLowercase: "Пароль должен содержать хотя бы одну строчную букву",
   validationError: "Ошибка валидации",
 };
 

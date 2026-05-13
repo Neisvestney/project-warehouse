@@ -23,9 +23,10 @@ public abstract class AppControllerBase : ControllerBase
 
     protected ObjectResult Forbidden(
         ErrorCode code = ErrorCode.PermissionDenied,
-        string? message = null) =>
+        string? message = null, 
+        IReadOnlyDictionary<string, object>? args = null) =>
         Problem(AppProblems.Forbidden(code,
-            message ?? "You do not have permission to perform this action."));
+            message ?? "You do not have permission to perform this action.", args));
 
     protected ObjectResult NotFound(ErrorCode code, string message) =>
         Problem(AppProblems.NotFound(code, message));

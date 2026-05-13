@@ -72,8 +72,7 @@ public class AuthController(
         var result = await userManager.ChangePasswordAsync(me, request.CurrentPassword, request.NewPassword);
         if (!result.Succeeded)
         {
-            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
-            return Problem(AppProblems.UnprocessableEntities(errors));
+            return Problem(PasswordValidationErrorsMapper.MapPasswordValidationErrors(result.Errors));
         }
 
         await versionStore.BumpAsync(me.Id);

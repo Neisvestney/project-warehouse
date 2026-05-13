@@ -33,6 +33,7 @@ function UserViewPage() {
     data: user,
     isLoading,
     isError,
+    isRefetchError,
     error,
   } = useQuery({
     ...usersGetByIdOptions({path: {id: id!}}),
@@ -47,7 +48,8 @@ function UserViewPage() {
     );
   }
 
-  if (isError) return isNotFoundError(error) ? <NotFound /> : <QueryError error={error} />;
+  if (isError && !isRefetchError)
+    return isNotFoundError(error) ? <NotFound /> : <QueryError error={error} />;
   if (!user) return <NotFound />;
 
   return (
