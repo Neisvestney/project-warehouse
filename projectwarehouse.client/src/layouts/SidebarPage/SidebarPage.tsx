@@ -1,4 +1,4 @@
-import React from "react";
+import React, {type ComponentType} from "react";
 import {Navigate, Route, Routes} from "react-router";
 import type {PermissionName} from "@/api/types.gen";
 import {useAuth} from "@/hooks/useAuth";
@@ -61,6 +61,7 @@ function toNavItems(
           label: s.label,
           defaultPath: visibleChildren[0].path,
           children: visibleChildren,
+          icon: s.icon,
         } as SidebarNavGroup;
       }
       return {label: s.label, path: absPath, icon: s.icon} as SidebarNavLeafItem;
@@ -81,6 +82,23 @@ function RedirectToFirstVisible({
   return <Navigate to={first ? `${parentAbsPath}/${first.path}` : "."} replace />;
 }
 
+function ProtectedRoute({
+  section,
+  permissions,
+}: {
+  section: Omit<SectionConfig, "children"> | SectionSubroute;
+  permissions: PermissionName[];
+}) {
+  return !section.component ||
+    ("requiredPermission" in section &&
+      section.requiredPermission &&
+      !permissions.includes(section.requiredPermission)) ? (
+    <AccessDenied />
+  ) : (
+    <section.component />
+  );
+}
+
 function buildRoutes(
   sections: SectionConfig[],
   parentAbsPath: string,
@@ -92,7 +110,11 @@ function buildRoutes(
     const relativePath = relativePrefix ? `${relativePrefix}/${s.path}` : s.path;
     return [
       s.component ? (
-        <Route key={relativePath} path={relativePath} element={<s.component />} />
+        <Route
+          key={relativePath}
+          path={relativePath}
+          element={<ProtectedRoute section={s} permissions={permissions} />}
+        />
       ) : s.children ? (
         <Route
           key={relativePath}
@@ -110,7 +132,7 @@ function buildRoutes(
         <Route
           key={`${relativePath}/${sr.path}`}
           path={`${relativePath}/${sr.path}`}
-          element={<sr.component />}
+          element={<ProtectedRoute section={sr} permissions={permissions} />}
         />
       )),
       ...(s.children

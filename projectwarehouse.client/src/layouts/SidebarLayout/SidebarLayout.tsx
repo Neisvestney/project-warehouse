@@ -12,6 +12,7 @@ export interface SidebarNavGroup {
   label: string;
   defaultPath: string;
   children: SidebarNavLeafItem[];
+  icon?: React.ReactElement;
 }
 
 export type SidebarNavItem = SidebarNavLeafItem | SidebarNavGroup;
@@ -33,6 +34,21 @@ function activeTabValue(navItems: SidebarNavItem[], locationPathname: string): s
   for (const item of navItems) {
     if (isGroup(item)) {
       if (item.children.some((c) => isActive(c.path, locationPathname))) return item.defaultPath;
+    } else {
+      if (isActive(item.path, locationPathname)) return item.path;
+    }
+  }
+  return false;
+}
+
+function activeTabValueFull(navItems: SidebarNavItem[], locationPathname: string): string | false {
+  for (const item of navItems) {
+    if (isGroup(item)) {
+      for (const child of item.children) {
+        if (isActive(child.path, locationPathname)) {
+          return child.path;
+        }
+      }
     } else {
       if (isActive(item.path, locationPathname)) return item.path;
     }
@@ -67,15 +83,16 @@ function SidebarDesktopGroup({
   item: SidebarNavGroup;
   locationPathname: string;
 }) {
-  const groupActive = item.children.some((c) => isActive(c.path, locationPathname));
+  const _groupActive = item.children.some((c) => isActive(c.path, locationPathname));
   return (
     <>
       <ListItemButton
         component={Link}
         to={item.defaultPath}
-        selected={groupActive}
+        // selected={groupActive}
         sx={{borderRadius: 1}}
       >
+        {item.icon && <ListItemIcon sx={{minWidth: 36}}>{item.icon}</ListItemIcon>}
         <ListItemText
           primary={item.label}
           slotProps={{primary: {variant: "body2", sx: {fontWeight: 600}}}}
@@ -100,6 +117,7 @@ function SidebarDesktopGroup({
 function SidebarLayout({navItems, children}: SidebarLayoutProps) {
   const location = useLocation();
   const activeTabPath = activeTabValue(navItems, location.pathname);
+  const activeTabPathFull = activeTabValueFull(navItems, location.pathname);
 
   return (
     <Box sx={{display: "flex", flexDirection: {xs: "column", md: "row"}, gap: 2}}>
@@ -136,16 +154,32 @@ function SidebarLayout({navItems, children}: SidebarLayoutProps) {
 
       {/* Mobile tabs */}
       <Box sx={{display: {xs: "block", md: "none"}}}>
-        <Tabs value={activeTabPath} variant="scrollable" scrollButtons="auto">
+        <Tabs
+          value={activeTabPathFull}
+          variant="scrollable"
+          scrollButtons="auto"
+          slotProps={{
+            root: {
+              sx: {
+                minHeight: 30,
+              },
+            },
+          }}
+        >
           {navItems.map((item) =>
             isGroup(item) ? (
-              <Tab
-                key={item.defaultPath}
-                label={item.label}
-                value={item.defaultPath}
-                component={Link}
-                to={item.defaultPath}
-              />
+              item.children.map((child) => (
+                <Tab
+                  key={child.path}
+                  label={child.label}
+                  value={child.path}
+                  component={Link}
+                  to={child.path}
+                  sx={{
+                    minHeight: 30,
+                  }}
+                />
+              ))
             ) : (
               <Tab
                 key={item.path}
@@ -155,6 +189,9 @@ function SidebarLayout({navItems, children}: SidebarLayoutProps) {
                 iconPosition="start"
                 component={Link}
                 to={item.path}
+                sx={{
+                  minHeight: 30,
+                }}
               />
             ),
           )}

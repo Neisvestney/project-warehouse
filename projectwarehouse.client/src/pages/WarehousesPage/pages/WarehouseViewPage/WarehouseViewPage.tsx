@@ -118,6 +118,7 @@ function WarehouseViewPage() {
                 height={p.height}
                 fill={green[300]}
                 onClick={() => openStoragePlaceDialog(p.id)}
+                onTap={() => openStoragePlaceDialog(p.id)}
               />
               <Text
                 x={p.x}
@@ -128,6 +129,7 @@ function WarehouseViewPage() {
                 verticalAlign="middle"
                 text={p.name}
                 onClick={() => openStoragePlaceDialog(p.id)}
+                onTap={() => openStoragePlaceDialog(p.id)}
               ></Text>
             </>
           ))}
