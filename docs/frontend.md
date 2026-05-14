@@ -67,8 +67,8 @@ src/
 │
 ├── contexts/
 │   ├── Auth/
-│   │   ├── AuthContext.ts       # Context: current user, login/logout
-│   │   └── AuthProvider.tsx     # Fetches /me, exposes AuthContext
+│   │   ├── AuthContext.ts       # Context: user, login/logout, profileIsLoadError, profileLoadError
+│   │   └── AuthProvider.tsx     # Fetches /me (suppressGlobalError), exposes AuthContext; clears full query cache on logout
 │   ├── Modal/
 │   │   ├── ModalContext.ts      # Context: open/close modals imperatively
 │   │   └── ModalProvider.tsx    # Renders active modals, wires modalService
@@ -84,7 +84,8 @@ src/
 │   ├── SidebarLayout/
 │   │   └── SidebarLayout.tsx    # Visual layout: left sidebar (desktop) / top tabs (mobile) + children slot
 │   └── SidebarPage/
-│       └── SidebarPage.tsx      # Routing wrapper: takes SectionConfig[], builds <Routes> + nav; exports createHasAccess
+│       ├── SidebarPage.tsx      # Routing wrapper: takes SectionConfig[], builds <Routes> + nav; exports createHasAccess
+│       └── createFirstPageUrl.ts  # Factory: given SectionConfig[], returns (permissions) => firstVisiblePath
 │
 ├── hooks/
 │   ├── useAuth.ts                            # Current user + permission helpers
@@ -123,7 +124,7 @@ src/
 │       ├── SettingsPage.tsx     # Sections declaration only — drives routes + sidebar nav for /settings/*
 │       └── pages/
 │           └── RolesSettingsPage/
-│               ├── RolesSettingsPage.tsx   # Role-permission matrix table (observer, data fetching, header buttons)
+│               ├── RolesSettingsPage.tsx   # Role-permission matrix table (observer, data fetching, QueryError on initial load, header buttons)
 │               ├── RolesTable.tsx          # Sticky matrix table with @dnd-kit sortable columns
 │               ├── RoleColumnHeader.tsx    # Header cell: drag handle + name + edit/delete actions
 │               ├── RenameRoleDialog.tsx    # MUI Dialog for renaming a role (used via showModal)
@@ -183,7 +184,7 @@ src/
 ## Pages
 
 ### `HomePage`
-Landing page. Shows navigation cards (scanner link), PWA offline-ready indicator, and the `InstallPrompt` when the app is installable.
+Landing page. Shows navigation cards (Warehouses — gated by `warehouses.view`, Scanner), PWA offline-ready indicator, and the `InstallPrompt` when the app is installable. Cards are rendered via the local `HomeCard` component (title, link, linkText, icon).
 
 ### `ScannerPage`
 Full-screen camera scanner. Uses `ScannerBlock` for capture/decode. Maintains a list of scanned barcodes in local state; opens a bottom drawer when `?scannedCodesDrawerOpen=true` is in the query string.
@@ -223,18 +224,21 @@ Orchestrates the full camera scan loop:
 Scan interval is configurable (4–25 FPS equivalent).
 
 ### `MainAppBar`
-Top navigation bar. Logo/title + mobile hamburger menu with permission-filtered links. Each entry in the `pages` array supports `requiredPermission` (must match a user permission) and `showIf` (arbitrary boolean predicate, used by "Настройки" to hide when no settings sections are accessible).
+Top navigation bar. Logo/title + mobile hamburger menu with permission-filtered links. Each entry in the `pages` array supports `requiredPermission` (must match a user permission), `showIf` (arbitrary boolean predicate), and `url` — which can be a plain string **or** a `(permissions: PermissionName[]) => string` factory (used by "Настройки" to link directly to the first accessible settings page via `getSettingsFirstPageUrl`). If the `/me` profile query fails, an inline red error message is shown in the user avatar dropdown via `profileIsLoadError`/`profileLoadError` from `AuthContext`.
 
 ### `SidebarLayout`
-Generic visual layout for pages with a left-panel navigation. On desktop (md+) renders a MUI `List` sidebar with a right border; on mobile renders scrollable MUI `Tabs` at the top. Takes `navItems: SidebarNavItem[]` (leaves with `path`, or groups with `defaultPath` + `children`) and `children` (the content area). Active item detection uses `matchPath({ end: false })` so sub-routes highlight the parent item.
+Generic visual layout for pages with a left-panel navigation. On desktop (md+) renders a MUI `List` sidebar with a right border; on mobile renders scrollable MUI `Tabs` at the top. Takes `navItems: SidebarNavItem[]` (leaves with `path`, or groups with `defaultPath` + `children` + optional `icon`) and `children` (the content area). Active item detection uses `matchPath({ end: false })` so sub-routes highlight the parent item.
+
+On mobile, **groups are expanded into individual child tabs** (each child gets its own `<Tab>`), so every route is directly reachable. Desktop sidebar groups render the group label with its optional icon as a non-selected header link, with children indented below it.
 
 ### `SidebarPage`
 Higher-level routing wrapper built on top of `SidebarLayout`. Takes a `sections: SectionConfig[]` declaration and a `basePath` string, and automatically:
 - Builds `SidebarNavItem[]` filtered by user permissions and `showIf`
 - Creates `<Routes>` with relative paths (leaf routes, subroutes, and redirect routes for groups)
 - Groups with no `component` redirect to their first visible child at runtime
+- Wraps every rendered route in `ProtectedRoute` — renders `<AccessDenied />` if the section's `requiredPermission` is not met at render time (double-checks beyond nav filtering)
 
-**To create a new sidebar-based page**, declare a `SectionConfig[]`, call `createHasAccess(sections)` to get an AppBar visibility helper, and render `<SidebarPage sections={...} basePath="..." />`. See `SettingsPage.tsx` for the reference implementation.
+**To create a new sidebar-based page**, declare a `SectionConfig[]`, call `createHasAccess(sections)` to get an AppBar visibility helper, call `createFirstPageUrl(sections)` to get a permission-aware deep link factory, and render `<SidebarPage sections={...} basePath="..." />`. See `SettingsPage.tsx` for the reference implementation.
 
 **`SectionConfig` fields:**
 | Field | Type | Description |
@@ -246,6 +250,7 @@ Higher-level routing wrapper built on top of `SidebarLayout`. Takes a `sections:
 | `showIf` | `() => boolean?` | Additional visibility predicate (feature flags etc.) |
 | `subroutes` | `SectionSubroute[]?` | Sub-paths (e.g. `":id"`) that highlight the parent nav item |
 | `children` | `SectionConfig[]?` | Nested nav sections (max depth 1); section becomes a group |
+| `icon` | `React.ReactElement?` | Icon shown in the sidebar group header (desktop only) |
 
 ### `InfoRow`
 Simple label + value row used in detail views (`UserViewPage`, `MyProfilePage`).

@@ -15,7 +15,7 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
     () => !!localStorage.getItem("accessToken") || !!localStorage.getItem("refreshToken"),
   );
 
-  const {data, isPending} = useQuery({
+  const {data, isPending, isError, error} = useQuery({
     queryKey: ME_QUERY_KEY,
     queryFn: async (): Promise<MeResponse | null> => {
       const {data: me, error} = await authMe();
@@ -34,11 +34,13 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
     enabled: hasTokens,
     initialData: initialUser ?? undefined,
     retry: false,
+    meta: {suppressGlobalError: true},
   });
 
   useEffect(() => {
     const handler = () => {
       queryClient.setQueryData(ME_QUERY_KEY, null);
+      queryClient.clear();
       setHasTokens(false);
     };
     window.addEventListener("auth:clear", handler);
@@ -82,6 +84,8 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
         isAuthenticated: !!user,
         login,
         logout,
+        profileIsLoadError: isError,
+        profileLoadError: error,
       }}
     >
       {children}

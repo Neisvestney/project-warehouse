@@ -7,6 +7,8 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  profileIsLoadError: boolean;
+  profileLoadError: Error | null;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);

@@ -11,24 +11,30 @@ import {
   MenuItem,
   Tooltip,
   Typography,
+  ListSubheader,
 } from "@mui/material";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
 import MenuIcon from "@mui/icons-material/Menu";
 import {Link, useNavigate} from "react-router";
 import {useAuth} from "@/hooks/useAuth";
 import type {PermissionName} from "@/api";
-import {hasSettingsAccess} from "@/pages/SettingsPage/settingsConfig.tsx";
+import {getSettingsFirstPageUrl, hasSettingsAccess} from "@/pages/SettingsPage/settingsConfig.tsx";
+import {extractErrorMessage} from "@/utils/errorUtils.ts";
 
 const pages: {
   name: string;
-  url: string;
+  url: string | ((permissions: PermissionName[]) => string);
   requiredPermission?: PermissionName;
   showIf?: (permissions: PermissionName[]) => boolean;
 }[] = [
   {name: "Сканер", url: "/scanner"},
   {name: "Пользователи", url: "/users", requiredPermission: "users.view"},
   {name: "Склады", url: "/warehouses", requiredPermission: "warehouses.view"},
-  {name: "Настройки", url: "/settings", showIf: hasSettingsAccess},
+  {
+    name: "Настройки",
+    url: (p) => `/settings/${getSettingsFirstPageUrl(p)}`,
+    showIf: hasSettingsAccess,
+  },
 ];
 
 export interface AppBarProps {}
@@ -36,7 +42,7 @@ export interface AppBarProps {}
 function MainAppBar({}: AppBarProps) {
   const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
-  const {user, logout} = useAuth();
+  const {user, logout, profileIsLoadError, profileLoadError} = useAuth();
   const navigate = useNavigate();
 
   const handleOpenNavMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -67,11 +73,19 @@ function MainAppBar({}: AppBarProps) {
 
   const avatarLetter = user?.username?.[0]?.toUpperCase() ?? "?";
 
-  const filteredPages = pages.filter(
-    (page) =>
-      (!page.requiredPermission || user?.permissions.includes(page.requiredPermission)) &&
-      (!page.showIf || page.showIf((user?.permissions ?? []) as PermissionName[])),
-  );
+  const filteredPages = pages
+    .filter(
+      (page) =>
+        (!page.requiredPermission || user?.permissions.includes(page.requiredPermission)) &&
+        (!page.showIf || page.showIf((user?.permissions ?? []) as PermissionName[])),
+    )
+    .map((page) => ({
+      ...page,
+      url:
+        typeof page.url === "string"
+          ? page.url
+          : page.url((user?.permissions ?? []) as PermissionName[]),
+    }));
 
   return (
     <AppBar position="static">
@@ -194,6 +208,11 @@ function MainAppBar({}: AppBarProps) {
                   {user?.username}
                 </Typography>
               </MenuItem>
+              {profileIsLoadError && (
+                <ListSubheader sx={{color: "red"}}>
+                  {extractErrorMessage(profileLoadError)}
+                </ListSubheader>
+              )}
               <MenuItem onClick={handleNavToProfile}>
                 <Typography sx={{textAlign: "center"}}>Профиль</Typography>
               </MenuItem>

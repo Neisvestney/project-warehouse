@@ -16,6 +16,7 @@ import {useHasPermission} from "@/hooks/usePermission";
 import {RolesStore} from "./rolesStore";
 import {RolesStoreProvider} from "./RolesStoreContext.tsx";
 import RolesTable from "./RolesTable.tsx";
+import QueryError from "@/components/QueryError.tsx";
 
 export default observer(function RolesSettingsPage() {
   const [store] = useState(() => new RolesStore());
@@ -23,10 +24,26 @@ export default observer(function RolesSettingsPage() {
   const queryClient = useQueryClient();
   const {enqueueSnackbar} = useSnackbar();
 
-  const {data: rolesData, isLoading: rolesLoading} = useQuery(rolesGetAllOptions());
-  const {data: permissionsData, isLoading: permissionsLoading} = useQuery(
-    permissionsGetAllOptions(),
-  );
+  const {
+    data: rolesData,
+    isLoading: rolesLoading,
+    error: rolesError,
+    isError: rolesIsError,
+    isRefetchError: rolesIsRefetchError,
+  } = useQuery({
+    ...rolesGetAllOptions(),
+    meta: {suppressGlobalError: true},
+  });
+  const {
+    data: permissionsData,
+    isLoading: permissionsLoading,
+    error: permissionsError,
+    isError: permissionsIsError,
+    isRefetchError: permissionsIsRefetchError,
+  } = useQuery({
+    ...permissionsGetAllOptions(),
+    meta: {suppressGlobalError: true},
+  });
 
   const isLoading = rolesLoading || permissionsLoading;
 
@@ -51,6 +68,10 @@ export default observer(function RolesSettingsPage() {
   function handleSave() {
     saveRoles({body: store.toUpdatePayload()});
   }
+
+  if (rolesIsError && !rolesIsRefetchError) return <QueryError error={rolesError} />;
+  if (permissionsIsError && !permissionsIsRefetchError)
+    return <QueryError error={permissionsError} />;
 
   return (
     <Stack spacing={2}>

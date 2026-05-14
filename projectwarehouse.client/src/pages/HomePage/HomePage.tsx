@@ -11,15 +11,19 @@ import {
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import OfflinePinIcon from "@mui/icons-material/OfflinePin";
 import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
+import WarehouseIcon from "@mui/icons-material/Warehouse";
 import React, {useContext} from "react";
 import {Link} from "react-router";
 import ServiceWorkerContext from "@/contexts/ServiceWorker/ServiceWorkerContext.ts";
 import InstallPrompt from "@/components/InstallPrompt.tsx";
+import {useHasPermission} from "@/hooks/usePermission.ts";
 
 export interface HomePageProps {}
 
 function HomePage({}: HomePageProps) {
   const swContext = useContext(ServiceWorkerContext);
+
+  const canUserViewWarehouses = useHasPermission("warehouses.view");
 
   return (
     <Box
@@ -52,41 +56,70 @@ function HomePage({}: HomePageProps) {
             </CardContent>
           </Card>
         ))}
-      <Card>
-        <CardActionArea
-          sx={{
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "unset",
-            justifyContent: "space-between",
-          }}
-          component={Link}
-          to={"/scanner"}
-        >
-          <CardContent>
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{
-                alignItems: "center",
-              }}
-            >
-              <QrCodeScannerIcon />
-              <Typography gutterBottom variant="h5" component="div">
-                Сканер
-              </Typography>
-            </Stack>
-          </CardContent>
-          <CardActions sx={{justifyContent: "end"}}>
-            <Button component={"span"} size="small" endIcon={<ArrowForwardIcon />}>
-              Начать сканировать
-            </Button>
-          </CardActions>
-        </CardActionArea>
-      </Card>
+      {canUserViewWarehouses && (
+        <HomeCard
+          title={"Склады"}
+          link={"/warehouses"}
+          linkText={"Посмотреть список"}
+          icon={<WarehouseIcon />}
+        />
+      )}
+      <HomeCard
+        title={"Сканер"}
+        link={"/scanner"}
+        linkText={"Начать сканировать"}
+        icon={<QrCodeScannerIcon />}
+      />
     </Box>
   );
 }
 
 export default HomePage;
+
+function HomeCard({
+  title,
+  link,
+  linkText,
+  icon,
+}: {
+  title: string;
+  link: string;
+  linkText: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <Card>
+      <CardActionArea
+        sx={{
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "unset",
+          justifyContent: "space-between",
+        }}
+        component={Link}
+        to={link}
+      >
+        <CardContent>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              alignItems: "center",
+            }}
+          >
+            {icon}
+            <Typography gutterBottom variant="h5" component="div">
+              {title}
+            </Typography>
+          </Stack>
+        </CardContent>
+        <CardActions sx={{justifyContent: "end"}}>
+          <Button component={"span"} size="small" endIcon={<ArrowForwardIcon />}>
+            {linkText}
+          </Button>
+        </CardActions>
+      </CardActionArea>
+    </Card>
+  );
+}
