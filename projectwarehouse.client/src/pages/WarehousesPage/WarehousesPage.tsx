@@ -1,6 +1,7 @@
 import {
   Button,
   CircularProgress,
+  IconButton,
   InputAdornment,
   LinearProgress,
   Paper,
@@ -24,6 +25,7 @@ import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQu
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import PageGenericHeader from "@/components/PageGenericHeader.tsx";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs.tsx";
+import RefreshIcon from "@mui/icons-material/Refresh";
 
 function WarehousesPage() {
   const navigate = useNavigate();
@@ -45,9 +47,11 @@ function WarehousesPage() {
     [searchString],
   );
 
-  const {data, isLoading, isFetching} = useQuery(warehousesGetAllOptions({query: fetchParams}));
+  const {data, isLoading, isFetching, refetch} = useQuery(
+    warehousesGetAllOptions({query: fetchParams}),
+  );
 
-  const totalWarehouses = Number(data?.total ?? 0);
+  const totalWarehouses = data?.total ?? 0;
 
   return (
     <Stack spacing={2}>
@@ -55,20 +59,25 @@ function WarehousesPage() {
       <PageGenericHeader
         title={"Склады"}
         right={
-          <Button
-            variant="outlined"
-            endIcon={<AddIcon />}
-            component={RouterLink}
-            to="/warehouses/new"
-            disabled
-          >
-            Создать
-          </Button>
+          <>
+            <IconButton color={"inherit"} onClick={() => refetch()}>
+              {<RefreshIcon />}
+            </IconButton>
+            <Button
+              variant="outlined"
+              endIcon={<AddIcon />}
+              component={RouterLink}
+              to="/warehouses/new"
+              disabled
+            >
+              Создать
+            </Button>
+          </>
         }
       >
         <TextField
           size="small"
-          label="Поиск..."
+          label="Поиск"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           slotProps={{

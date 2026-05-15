@@ -2,6 +2,7 @@ import {
   Button,
   Chip,
   CircularProgress,
+  IconButton,
   InputAdornment,
   LinearProgress,
   Paper,
@@ -28,6 +29,10 @@ import PageGenericHeader from "@/components/PageGenericHeader.tsx";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs.tsx";
 import {getPermissionLabel} from "@/utils/permissionLabels.ts";
 import type {UserDetailDto} from "@/api";
+import RolesSelect from "@/components/RolesSelect.tsx";
+import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState.ts";
+import FilterAltIcon from "@mui/icons-material/FilterAlt";
+import RefreshIcon from "@mui/icons-material/Refresh";
 
 function renderDirectPermissions(user: UserDetailDto) {
   const overflowing = user.directPermissions.length > 3;
@@ -58,18 +63,24 @@ function UsersPage() {
     (v) => v || null,
   );
 
+  const [roleId, setRoleId] = useSyncedWithQueryState(
+    "role",
+    (q) => (typeof q === "string" ? q : null),
+    (v) => v,
+  );
+
   // searchString (URL) is already debounced — pass as immediateParams to avoid
   // an additional debounce inside usePaginatedParams.
   const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams(
     {},
     [],
-    {searchString},
-    [searchString],
+    {searchString, role: roleId ?? undefined},
+    [searchString, roleId],
   );
 
-  const {data, isLoading, isFetching} = useQuery(usersGetAllOptions({query: fetchParams}));
+  const {data, isLoading, isFetching, refetch} = useQuery(usersGetAllOptions({query: fetchParams}));
 
-  const totalUsers = Number(data?.total ?? 0);
+  const totalUsers = data?.total ?? 0;
 
   return (
     <Stack spacing={2}>
@@ -77,14 +88,19 @@ function UsersPage() {
       <PageGenericHeader
         title={"Пользователи"}
         right={
-          <Button variant="outlined" endIcon={<AddIcon />} component={RouterLink} to="/users/new">
-            Создать
-          </Button>
+          <>
+            <IconButton color={"inherit"} onClick={() => refetch()}>
+              {<RefreshIcon />}
+            </IconButton>
+            <Button variant="outlined" endIcon={<AddIcon />} component={RouterLink} to="/users/new">
+              Создать
+            </Button>
+          </>
         }
       >
         <TextField
           size="small"
-          label="Поиск..."
+          label="Поиск"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           slotProps={{
@@ -98,6 +114,15 @@ function UsersPage() {
           }}
         />
       </PageGenericHeader>
+      <Stack spacing={2} direction={"row"} sx={{alignItems: "center"}}>
+        <Typography color={"textSecondary"}>
+          <Stack direction={"row"} sx={{alignItems: "center"}}>
+            <FilterAltIcon />
+            Фильтры:
+          </Stack>
+        </Typography>
+        <RolesSelect value={roleId} onChange={setRoleId} sx={{flexBasis: 150}} size={"small"} />
+      </Stack>
       <Paper>
         <LinearProgress
           sx={{visibility: isFetching ? "visible" : "hidden", borderRadius: "4px 4px 0 0"}}

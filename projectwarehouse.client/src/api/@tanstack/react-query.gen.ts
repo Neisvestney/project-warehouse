@@ -17,6 +17,7 @@ import {
   type Options,
   permissionsGetAll,
   rolesGetAll,
+  rolesGetById,
   rolesSearch,
   rolesUpdateAll,
   storagePlacesAddNode,
@@ -57,6 +58,9 @@ import type {
   RolesGetAllData,
   RolesGetAllError,
   RolesGetAllResponse,
+  RolesGetByIdData,
+  RolesGetByIdError,
+  RolesGetByIdResponse,
   RolesSearchData,
   RolesSearchError,
   RolesSearchResponse,
@@ -360,6 +364,31 @@ export const rolesSearchOptions = (options?: Options<RolesSearchData>) =>
       return data;
     },
     queryKey: rolesSearchQueryKey(options),
+  });
+
+export const rolesGetByIdQueryKey = (options: Options<RolesGetByIdData>) =>
+  createQueryKey("rolesGetById", options);
+
+/**
+ * Get a role by ID.
+ */
+export const rolesGetByIdOptions = (options: Options<RolesGetByIdData>) =>
+  queryOptions<
+    RolesGetByIdResponse,
+    RolesGetByIdError,
+    RolesGetByIdResponse,
+    ReturnType<typeof rolesGetByIdQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await rolesGetById({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: rolesGetByIdQueryKey(options),
   });
 
 export const storagePlacesGetNodesQueryKey = (options: Options<StoragePlacesGetNodesData>) =>
