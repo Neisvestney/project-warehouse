@@ -14,6 +14,7 @@ import {
   authLogout,
   authMe,
   authRefresh,
+  homePageContentGetHomePageContent,
   type Options,
   permissionsGetAll,
   rolesGetAll,
@@ -52,6 +53,9 @@ import type {
   AuthRefreshData,
   AuthRefreshError,
   AuthRefreshResponse,
+  HomePageContentGetHomePageContentData,
+  HomePageContentGetHomePageContentError,
+  HomePageContentGetHomePageContentResponse,
   PermissionsGetAllData,
   PermissionsGetAllError,
   PermissionsGetAllResponse,
@@ -266,6 +270,34 @@ export const authMeOptions = (options?: Options<AuthMeData>) =>
       return data;
     },
     queryKey: authMeQueryKey(options),
+  });
+
+export const homePageContentGetHomePageContentQueryKey = (
+  options?: Options<HomePageContentGetHomePageContentData>,
+) => createQueryKey("homePageContentGetHomePageContent", options);
+
+/**
+ * Get list of AppEntities for home page.
+ */
+export const homePageContentGetHomePageContentOptions = (
+  options?: Options<HomePageContentGetHomePageContentData>,
+) =>
+  queryOptions<
+    HomePageContentGetHomePageContentResponse,
+    HomePageContentGetHomePageContentError,
+    HomePageContentGetHomePageContentResponse,
+    ReturnType<typeof homePageContentGetHomePageContentQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await homePageContentGetHomePageContent({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: homePageContentGetHomePageContentQueryKey(options),
   });
 
 export const permissionsGetAllQueryKey = (options?: Options<PermissionsGetAllData>) =>

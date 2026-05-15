@@ -4,6 +4,17 @@ export type ClientOptions = {
   baseUrl: "https://localhost:7095/" | (string & {});
 };
 
+export type AppEntity = {
+  id?: null | string;
+  name?: null | string;
+  type: AppEntityType;
+  additionalFields?: null | {
+    [key: string]: unknown;
+  };
+};
+
+export type AppEntityType = "user" | "roles" | "warehouse";
+
 export type AppFieldError = {
   code: ErrorCode;
   detail: string;
@@ -381,6 +392,37 @@ export type AuthMeResponses = {
 };
 
 export type AuthMeResponse = AuthMeResponses[keyof AuthMeResponses];
+
+export type HomePageContentGetHomePageContentData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/homepagecontent";
+};
+
+export type HomePageContentGetHomePageContentErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type HomePageContentGetHomePageContentError =
+  HomePageContentGetHomePageContentErrors[keyof HomePageContentGetHomePageContentErrors];
+
+export type HomePageContentGetHomePageContentResponses = {
+  /**
+   * OK
+   */
+  200: Array<AppEntity>;
+};
+
+export type HomePageContentGetHomePageContentResponse =
+  HomePageContentGetHomePageContentResponses[keyof HomePageContentGetHomePageContentResponses];
 
 export type PermissionsGetAllData = {
   body?: never;

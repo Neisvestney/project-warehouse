@@ -1,4 +1,5 @@
 import type {AppFieldError, AppProblemDetails, ErrorCode} from "@/api/types.gen";
+import {interpolateArgs} from "@/utils/interpolateArgs.ts";
 
 export const httpStatusMessages: Partial<Record<number, string>> = {
   400: "Некорректный запрос",
@@ -46,13 +47,6 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   passwordInvalid: "Пароль неверный",
   validationError: "Ошибка валидации",
 };
-
-function interpolateArgs(template: string, args?: AppFieldError["args"]): string {
-  if (!args) return template;
-  return template.replace(/\{(\w+)\}/g, (_, key: string) =>
-    key in args ? String(args[key]) : `{${key}}`,
-  );
-}
 
 export function resolveErrorMessage(error: AppFieldError): string {
   const template = errorCodeMessages[error.code] ?? error.detail;

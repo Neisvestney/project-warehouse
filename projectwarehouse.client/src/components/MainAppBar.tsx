@@ -27,7 +27,6 @@ const pages: {
   requiredPermission?: PermissionName;
   showIf?: (permissions: PermissionName[]) => boolean;
 }[] = [
-  {name: "Сканер", url: "/scanner"},
   {name: "Пользователи", url: "/users", requiredPermission: "users.view"},
   {name: "Склады", url: "/warehouses", requiredPermission: "warehouses.view"},
   {
@@ -35,6 +34,7 @@ const pages: {
     url: (p) => `/settings/${getSettingsFirstPageUrl(p)}`,
     showIf: hasSettingsAccess,
   },
+  {name: "Сканер", url: "/scanner"},
 ];
 
 export interface AppBarProps {}

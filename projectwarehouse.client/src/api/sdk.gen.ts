@@ -18,6 +18,9 @@ import type {
   AuthRefreshData,
   AuthRefreshErrors,
   AuthRefreshResponses,
+  HomePageContentGetHomePageContentData,
+  HomePageContentGetHomePageContentErrors,
+  HomePageContentGetHomePageContentResponses,
   PermissionsGetAllData,
   PermissionsGetAllErrors,
   PermissionsGetAllResponses,
@@ -172,6 +175,18 @@ export const authMe = <ThrowOnError extends boolean = false>(
     url: "/api/auth/me",
     ...options,
   });
+
+/**
+ * Get list of AppEntities for home page.
+ */
+export const homePageContentGetHomePageContent = <ThrowOnError extends boolean = false>(
+  options?: Options<HomePageContentGetHomePageContentData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    HomePageContentGetHomePageContentResponses,
+    HomePageContentGetHomePageContentErrors,
+    ThrowOnError
+  >({url: "/api/homepagecontent", ...options});
 
 /**
  * Get all available static permissions defined in the system.
