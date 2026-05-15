@@ -31,6 +31,7 @@ const UserCreatePage = React.lazy(
   () => import("@/pages/UsersPage/pages/UserCreatePage/UserCreatePage.tsx"),
 );
 const SettingsPage = React.lazy(() => import("@/pages/SettingsPage/SettingsPage.tsx"));
+const PrintPage = React.lazy(() => import("@/pages/PrintPage/PrintPage.tsx"));
 
 function App() {
   const {
@@ -91,6 +92,7 @@ function App() {
                     <ProtectedRoute path="/settings/*" element={<SettingsPage />} />
                   </ProtectedRoute>
                   <ProtectedRoute path="/scanner" element={<ScannerPage />} />
+                  <ProtectedRoute path="/print" element={<PrintPage />} />
                 </ProtectedRoutes>
               </Suspense>
             </AuthProvider>

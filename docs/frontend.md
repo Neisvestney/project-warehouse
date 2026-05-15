@@ -160,6 +160,7 @@ src/
     ├── errorUtils.ts            # API error shape helpers: extractErrorMessage, isNotFoundError, isAppProblemDetails; errorCodeMessages map (supports {placeholder} interpolation from error args)
     ├── parseJwt.ts              # Decode JWT payload without verification
     ├── permissionLabels.ts      # Human-readable labels for permission enum values
+    ├── printUtils.ts            # openPrintPage(items) helper — builds URL and opens /print in a new tab
     └── useInstallPrompt.ts      # Hook: beforeinstallprompt event
 ```
 
@@ -170,6 +171,7 @@ src/
 ```
 /login             → LoginPage               (public)
 /scanner           → ScannerPage             (authenticated, no layout wrapper)
+/print             → PrintPage               (authenticated, no layout wrapper)
 /                  → MainLayout > HomePage       (authenticated)
 /profile           → MainLayout > MyProfilePage  (authenticated)
 /users             → MainLayout > UsersPage         (users.view)
@@ -188,6 +190,26 @@ Landing page. Shows navigation cards (Warehouses — gated by `warehouses.view`,
 
 ### `ScannerPage`
 Full-screen camera scanner. Uses `ScannerBlock` for capture/decode. Maintains a list of scanned barcodes in local state; opens a bottom drawer when `?scannedCodesDrawerOpen=true` is in the query string.
+
+### `PrintPage`
+Print-ready label sheet generator at `/print`. Reads `?item=TYPE:VALUE|LABEL` query params (repeatable, batch) and renders a grid of barcode/datamatrix labels. Supported types: `DataMatrix`, `EAN13`, `Code128`, `QR`. Uses `bwip-js` for canvas rendering.
+
+Query param format: `TYPE:VALUE` or `TYPE:VALUE|LABEL` — pipe separates value from an optional human-readable label shown above the barcode. The value may contain colons (e.g. URLs).
+
+Items are loaded from the URL once into local state on mount; the list is not reactive to subsequent URL changes. This allows removing individual labels before printing without navigating away.
+
+Each label is rendered by `BarcodeLabel` — a `<canvas>` element via `bwip-js.toCanvas()`. Optional label text is shown above the canvas in bold; the raw value is shown below in small print. Invalid codes (e.g. EAN-13 with wrong digit count) show an inline error.
+
+Each label card has a floating **×** `IconButton` in the top-right corner that removes that label from the list. The button is hidden via `@media print` (CSS class `delete-btn`).
+
+Print layout is controlled by `PrintSettings` (hidden on print via `@media print`):
+- **Preset selector** — built-in presets (A4 4×7, A4 2×5, A5 2×4, Термо 58мм) plus user-saved custom presets stored in `localStorage` under `print-page-presets`. Last selected preset is restored from `print-page-last-preset`.
+- **Manual fields** — label width/height (mm), columns, gap, page padding.
+- **Save preset** — saves current settings as a named custom preset; custom presets can be deleted.
+
+To open the print page programmatically use `openPrintPage(items)` from `@/utils/printUtils`.
+
+Example URL: `/print?item=DataMatrix:ABC123|Товар А&item=EAN13:5901234123457&item=Code128:HELLO&item=QR:test`
 
 ### `UsersPage`
 Server-side paginated and searchable table of users. Requires `users.view` permission. State is stored in URL params (`?search=`, `?page=`, `?pageSize=`) using `useDebouncedSyncedWithQueryState` + `usePaginatedParams`. The search field updates instantly without lag; the URL and API call update after a 300 ms debounce. Rows are clickable and navigate to `UserViewPage`.
