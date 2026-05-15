@@ -23,16 +23,18 @@ type OmitControlled<T> = Omit<
   | "onInputChange"
 >;
 
-interface RolesSelectMultiProps
-  extends OmitControlled<AutocompleteProps<RoleDto, true, false, false>> {
+interface RolesSelectMultiProps extends OmitControlled<
+  AutocompleteProps<RoleDto, true, false, false>
+> {
   label?: string;
   multiple: true;
   value: RoleDto[];
   onChange: (value: RoleDto[]) => void;
 }
 
-interface RolesSelectSingleProps
-  extends OmitControlled<AutocompleteProps<RoleDto, false, false, false>> {
+interface RolesSelectSingleProps extends OmitControlled<
+  AutocompleteProps<RoleDto, false, false, false>
+> {
   label?: string;
   multiple?: false;
   value: string | null;
