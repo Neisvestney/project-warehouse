@@ -7,23 +7,27 @@ import {
   Stack,
   Typography,
   Box,
+  CircularProgress,
 } from "@mui/material";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import OfflinePinIcon from "@mui/icons-material/OfflinePin";
-import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
-import WarehouseIcon from "@mui/icons-material/Warehouse";
 import React, {useContext} from "react";
 import {Link} from "react-router";
 import ServiceWorkerContext from "@/contexts/ServiceWorker/ServiceWorkerContext.ts";
 import InstallPrompt from "@/components/InstallPrompt.tsx";
-import {useHasPermission} from "@/hooks/usePermission.ts";
+import {useQuery} from "@tanstack/react-query";
+import {homePageContentGetHomePageContentOptions} from "@/api/@tanstack/react-query.gen.ts";
+import {resolveEntity} from "@/utils/appEntityUtils.tsx";
 
 export interface HomePageProps {}
 
 function HomePage({}: HomePageProps) {
   const swContext = useContext(ServiceWorkerContext);
 
-  const canUserViewWarehouses = useHasPermission("warehouses.view");
+  const {data, isError} = useQuery({
+    ...homePageContentGetHomePageContentOptions(),
+    meta: {suppressGlobalError: true},
+  });
 
   return (
     <Box
@@ -56,20 +60,10 @@ function HomePage({}: HomePageProps) {
             </CardContent>
           </Card>
         ))}
-      {canUserViewWarehouses && (
-        <HomeCard
-          title={"Склады"}
-          link={"/warehouses"}
-          linkText={"Посмотреть список"}
-          icon={<WarehouseIcon />}
-        />
-      )}
-      <HomeCard
-        title={"Сканер"}
-        link={"/scanner"}
-        linkText={"Начать сканировать"}
-        icon={<QrCodeScannerIcon />}
-      />
+      {!data && !isError && <HomeCard loading />}
+      {data?.map(resolveEntity).map((x) => (
+        <HomeCard title={x.name ?? x.typeName} link={x.link} linkText={"Перейти"} icon={x.icon} />
+      ))}
     </Box>
   );
 }
@@ -81,45 +75,53 @@ function HomeCard({
   link,
   linkText,
   icon,
+  loading,
 }: {
-  title: string;
-  link: string;
-  linkText: string;
-  icon: React.ReactNode;
+  title?: string;
+  link?: string;
+  linkText?: string;
+  icon?: React.ReactNode;
+  loading?: boolean;
 }) {
   return (
     <Card>
-      <CardActionArea
-        sx={{
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "unset",
-          justifyContent: "space-between",
-        }}
-        component={Link}
-        to={link}
-      >
-        <CardContent>
-          <Stack
-            direction="row"
-            spacing={1}
-            sx={{
-              alignItems: "center",
-            }}
-          >
-            {icon}
-            <Typography gutterBottom variant="h5" component="div">
-              {title}
-            </Typography>
-          </Stack>
-        </CardContent>
-        <CardActions sx={{justifyContent: "end"}}>
-          <Button component={"span"} size="small" endIcon={<ArrowForwardIcon />}>
-            {linkText}
-          </Button>
-        </CardActions>
-      </CardActionArea>
+      {!loading ? (
+        <CardActionArea
+          sx={{
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "unset",
+            justifyContent: "space-between",
+          }}
+          component={Link}
+          to={link ?? "#"}
+        >
+          <CardContent>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                alignItems: "center",
+              }}
+            >
+              {icon}
+              <Typography gutterBottom variant="h5" component="div">
+                {title}
+              </Typography>
+            </Stack>
+          </CardContent>
+          <CardActions sx={{justifyContent: "end"}}>
+            <Button component={"span"} size="small" endIcon={<ArrowForwardIcon />}>
+              {linkText}
+            </Button>
+          </CardActions>
+        </CardActionArea>
+      ) : (
+        <Stack sx={{width: "100%", height: "100%", justifyContent: "center", alignItems: "center"}}>
+          <CircularProgress size={32} />
+        </Stack>
+      )}
     </Card>
   );
 }

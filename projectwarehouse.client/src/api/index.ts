@@ -6,6 +6,7 @@ export {
   authLogout,
   authMe,
   authRefresh,
+  homePageContentGetHomePageContent,
   type Options,
   permissionsGetAll,
   rolesGetAll,
@@ -29,6 +30,8 @@ export {
   warehousesUpdate,
 } from "./sdk.gen";
 export type {
+  AppEntity,
+  AppEntityType,
   AppFieldError,
   AppProblemDetails,
   AuthChangeOwnPasswordData,
@@ -63,6 +66,11 @@ export type {
   CreateUserRequest,
   CreateWarehouseRequest,
   ErrorCode,
+  HomePageContentGetHomePageContentData,
+  HomePageContentGetHomePageContentError,
+  HomePageContentGetHomePageContentErrors,
+  HomePageContentGetHomePageContentResponse,
+  HomePageContentGetHomePageContentResponses,
   LoginRequest,
   MeResponse,
   PaginatedOfUserDetailDto,

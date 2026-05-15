@@ -51,15 +51,15 @@ function WarehousesPage() {
             <IconButton color={"inherit"} onClick={() => refetch()}>
               <RefreshIcon />
             </IconButton>
-            <Button
-              variant="outlined"
-              endIcon={<AddIcon />}
-              component={RouterLink}
-              to="/warehouses/new"
-              disabled
-            >
-              Создать
-            </Button>
+            {/*<Button*/}
+            {/*  variant="outlined"*/}
+            {/*  endIcon={<AddIcon />}*/}
+            {/*  component={RouterLink}*/}
+            {/*  to="/warehouses/new"*/}
+            {/*  disabled*/}
+            {/*>*/}
+            {/*  Создать*/}
+            {/*</Button>*/}
           </>
         }
       >
