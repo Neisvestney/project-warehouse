@@ -56,6 +56,11 @@ src/
 │   ├── UpdatePrompt.tsx         # Service worker update banner
 │   ├── AppBreadcrumbs.tsx       # Page breadcrumb trail
 │   ├── PageGenericHeader.tsx    # Page header: title + filters + action buttons
+│   ├── SearchInput.tsx          # TextField with search icon; extends TextFieldProps (omits onChange/value)
+│   ├── FiltersBar.tsx           # Filters row: FilterAlt icon + "Фильтры:" label + children slot; extends StackProps
+│   ├── DataTableContainer.tsx   # Paper + LinearProgress + TableContainer + TablePagination; extends PaperProps
+│   ├── TableRowLoader.tsx       # Full-width TableRow with CircularProgress for loading state
+│   ├── TableRowEmpty.tsx        # Full-width TableRow with message text for empty state
 │   ├── ConfirmDialog.tsx        # Confirmation dialog with loading state
 │   ├── AccessDenied.tsx         # 403 access denied placeholder
 │   ├── NotFound.tsx             # 404 not found placeholder
@@ -110,7 +115,7 @@ src/
 │   ├── ScannerPage/
 │   │   └── ScannerPage.tsx      # Full-screen scanner + scanned codes drawer
 │   ├── UsersPage/
-│   │   ├── UsersPage.tsx        # Paginated, searchable user list (requires users.view)
+│   │   ├── UsersPage.tsx        # Paginated, searchable, filterable user list (requires users.view)
 │   │   └── pages/
 │   │       ├── UserCreatePage/
 │   │       │   └── UserCreatePage.tsx   # Create user form (requires users.create)
@@ -120,6 +125,12 @@ src/
 │   │           ├── UserViewPage.tsx          # Read-only user detail (requires users.view)
 │   │           ├── ChangePasswordDialog.tsx  # Admin password reset dialog
 │   │           └── DeleteUserDialog.tsx      # Delete confirmation dialog
+│   ├── WarehousesPage/
+│   │   ├── WarehousesPage.tsx   # Paginated, searchable warehouse list (no permission guard yet)
+│   │   └── pages/
+│   │       └── WarehouseViewPage/
+│   │           ├── WarehouseViewPage.tsx    # Warehouse detail with storage places grid
+│   │           └── StoragePlaceDialog.tsx   # Create/edit storage place dialog
 │   └── SettingsPage/
 │       ├── SettingsPage.tsx     # Sections declaration only — drives routes + sidebar nav for /settings/*
 │       └── pages/
@@ -212,7 +223,10 @@ To open the print page programmatically use `openPrintPage(items)` from `@/utils
 Example URL: `/print?item=DataMatrix:ABC123|Товар А&item=EAN13:5901234123457&item=Code128:HELLO&item=QR:test`
 
 ### `UsersPage`
-Server-side paginated and searchable table of users. Requires `users.view` permission. State is stored in URL params (`?search=`, `?page=`, `?pageSize=`) using `useDebouncedSyncedWithQueryState` + `usePaginatedParams`. The search field updates instantly without lag; the URL and API call update after a 300 ms debounce. Rows are clickable and navigate to `UserViewPage`.
+Server-side paginated, searchable, and filterable table of users. Requires `users.view` permission. State is stored in URL params (`?search=`, `?role=`, `?page=`, `?pageSize=`) using `useDebouncedSyncedWithQueryState` + `useSyncedWithQueryState` + `usePaginatedParams`. The search field updates instantly without lag; the URL and API call update after a 300 ms debounce. A roles filter (`RolesSelect`) is shown in a `FiltersBar` below the header. Rows are clickable and navigate to `UserViewPage`.
+
+### `WarehousesPage`
+Server-side paginated and searchable table of warehouses. State is stored in URL params (`?search=`, `?page=`, `?pageSize=`) via `useDebouncedSyncedWithQueryState` + `usePaginatedParams`. Uses `SearchInput`, `DataTableContainer`, `TableRowLoader`, and `TableRowEmpty`. Rows navigate to `WarehouseViewPage`.
 
 ### `UserViewPage`
 Read-only detail view for a single user. Displays username, email, first/last name, assigned roles (chips), and direct permissions (chips). Action buttons: **Редактировать** → `UserEditPage`, **Сменить пароль** → opens `ChangePasswordDialog`, **Удалить** → opens `DeleteUserDialog`. Requires `users.view`.
@@ -273,6 +287,63 @@ Higher-level routing wrapper built on top of `SidebarLayout`. Takes a `sections:
 | `subroutes` | `SectionSubroute[]?` | Sub-paths (e.g. `":id"`) that highlight the parent nav item |
 | `children` | `SectionConfig[]?` | Nested nav sections (max depth 1); section becomes a group |
 | `icon` | `React.ReactElement?` | Icon shown in the sidebar group header (desktop only) |
+
+### `SearchInput`
+Controlled `TextField` with a `SearchIcon` start adornment and `size="small"` default. Accepts a plain `(value: string) => void` onChange instead of the raw event. Extends `TextFieldProps` (omits `onChange` and `value`) — all other TextField props (e.g. `sx`, `fullWidth`, `size`) pass through. The search icon is not overrideable.
+
+```tsx
+<SearchInput value={inputValue} onChange={setInputValue} />
+<SearchInput value={inputValue} onChange={setInputValue} label="Поиск по имени" sx={{width: 300}} />
+```
+
+Props: `value: string`, `onChange: (value: string) => void`, `label?: string` (default `"Поиск"`), plus all `TextFieldProps` except `onChange`/`value`.
+
+### `FiltersBar`
+Horizontal row with a `FilterAltIcon` + `"Фильтры:"` label and a children slot for filter controls. Extends `StackProps` (omits `direction` and `spacing`). The `sx` prop is **merged** (not replaced) with the default `{ alignItems: "center" }` via MUI's array `sx` syntax.
+
+```tsx
+<FiltersBar>
+  <RolesSelect value={roleId} onChange={setRoleId} size="small" />
+</FiltersBar>
+```
+
+Props: `children: React.ReactNode`, plus all `StackProps` except `direction`/`spacing`.
+
+### `DataTableContainer`
+Standard list-page table shell: `Paper` → `LinearProgress` (visible while fetching) → `TableContainer` → `TablePagination` with Russian labels baked in. Extends `PaperProps` — pass `elevation`, `sx`, etc. directly. The `page` prop is **1-based** (matches `usePaginatedParams` convention); the component converts internally for MUI.
+
+```tsx
+<DataTableContainer
+  isFetching={isFetching}
+  count={data?.total ?? 0}
+  page={page}
+  onPageChange={setPage}
+  rowsPerPage={pageSize}
+  onRowsPerPageChange={setPageSize}
+>
+  <Table size="small">...</Table>
+</DataTableContainer>
+```
+
+Props: `isFetching: boolean`, `count: number`, `page: number` (1-based), `onPageChange: (page: number) => void`, `rowsPerPage: number`, `onRowsPerPageChange: (rowsPerPage: number) => void`, `rowsPerPageOptions?: number[]` (default `[10, 20, 50]`), `children: React.ReactNode`, plus all `PaperProps` except `children`.
+
+### `TableRowLoader`
+Single `TableRow` spanning `colSpan` columns with a centered `CircularProgress`. Place inside `<TableBody>` as the loading branch.
+
+```tsx
+{isLoading ? <TableRowLoader colSpan={5} /> : ...}
+```
+
+Props: `colSpan: number`.
+
+### `TableRowEmpty`
+Single `TableRow` spanning `colSpan` columns with a centered `Typography` message. Place inside `<TableBody>` as the empty-results branch.
+
+```tsx
+{data?.items.length === 0 ? <TableRowEmpty colSpan={5} message="Пользователи не найдены" /> : ...}
+```
+
+Props: `colSpan: number`, `message: string`.
 
 ### `InfoRow`
 Simple label + value row used in detail views (`UserViewPage`, `MyProfilePage`).
