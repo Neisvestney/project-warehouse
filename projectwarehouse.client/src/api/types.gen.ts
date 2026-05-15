@@ -505,6 +505,41 @@ export type RolesSearchResponses = {
 
 export type RolesSearchResponse = RolesSearchResponses[keyof RolesSearchResponses];
 
+export type RolesGetByIdData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/roles/{id}";
+};
+
+export type RolesGetByIdErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type RolesGetByIdError = RolesGetByIdErrors[keyof RolesGetByIdErrors];
+
+export type RolesGetByIdResponses = {
+  /**
+   * OK
+   */
+  200: RoleDto;
+};
+
+export type RolesGetByIdResponse = RolesGetByIdResponses[keyof RolesGetByIdResponses];
+
 export type StoragePlacesGetNodesData = {
   body?: never;
   path: {
@@ -674,6 +709,7 @@ export type UsersGetAllData = {
     page?: number;
     pageSize?: number;
     searchString?: string;
+    role?: string;
   };
   url: "/api/users";
 };

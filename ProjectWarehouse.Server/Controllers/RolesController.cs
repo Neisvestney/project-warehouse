@@ -48,6 +48,22 @@ public class RolesController(
         return Ok(roles);
     }
 
+    /// <summary>Get a role by ID.</summary>
+    [HttpGet("{id:guid}")]
+    [Authorize(Policy = Permissions.Roles.View)]
+    [ProducesResponseType<RoleDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetById(Guid id, CancellationToken ct = default)
+    {
+        var dto = await roleManager.Roles
+            .Where(r => r.Id == id)
+            .ProjectTo<RoleDto>(mapper.ConfigurationProvider)
+            .FirstOrDefaultAsync(ct);
+        if (dto is null)
+            return NotFound(ErrorCode.RoleNotFound, "Role not found.");
+        return Ok(dto);
+    }
+
     /// <summary>Atomically replace the entire roles collection.</summary>
     [HttpPut]
     [Authorize(Policy = Permissions.Roles.Edit)]

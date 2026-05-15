@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useState} from "react";
+import {useEffect} from "react";
 import {useNavigate, useParams} from "react-router";
 import {
   Alert,
@@ -14,11 +14,10 @@ import {
   Typography,
 } from "@mui/material";
 import {getPermissionLabel} from "@/utils/permissionLabels";
-import {type Control, Controller, useController, useForm} from "react-hook-form";
+import {Controller, useForm} from "react-hook-form";
 import {useQuery, useMutation, useQueryClient} from "@tanstack/react-query";
 import {
   permissionsGetAllOptions,
-  rolesSearchOptions,
   usersGetByIdOptions,
   usersGetByIdQueryKey,
   usersUpdateMutation,
@@ -26,13 +25,13 @@ import {
 import type {RoleDto} from "@/api/types.gen";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {useHasPermission} from "@/hooks/usePermission";
-import {useDebounce} from "@/hooks/useDebounce";
 import {FormTextField} from "@/components/form/FormTextField";
 import {isNotFoundError} from "@/utils/errorUtils";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
+import RolesSelect from "@/components/RolesSelect";
 
 type EditFormValues = {
   email: string;
@@ -54,13 +53,6 @@ function UserEditPage() {
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
   });
   const permissionsQuery = useQuery(permissionsGetAllOptions());
-
-  const [rolesInput, setRolesInput] = useState("");
-  const debouncedRolesInput = useDebounce(rolesInput, 300);
-  const rolesSearchQuery = useQuery({
-    ...rolesSearchOptions({query: {searchString: debouncedRolesInput || undefined}}),
-    enabled: canManageRoles,
-  });
 
   const form = useForm<EditFormValues>({
     defaultValues: {email: "", firstName: "", lastName: "", roles: [], directPermissions: []},
@@ -165,12 +157,17 @@ function UserEditPage() {
 
             {canManageRoles && (
               <>
-                <RolesAutocomplete
+                <Controller
                   control={form.control}
-                  rolesInput={rolesInput}
-                  setRolesInput={setRolesInput}
-                  searchResults={rolesSearchQuery.data ?? []}
-                  disabled={mutation.isPending}
+                  name="roles"
+                  render={({field}) => (
+                    <RolesSelect
+                      multiple
+                      value={field.value}
+                      onChange={field.onChange}
+                      disabled={mutation.isPending}
+                    />
+                  )}
                 />
                 <Controller
                   control={form.control}
@@ -229,52 +226,6 @@ function UserEditPage() {
         </Box>
       </Paper>
     </Stack>
-  );
-}
-
-interface RolesAutocompleteProps {
-  control: Control<EditFormValues>;
-  rolesInput: string;
-  setRolesInput: (v: string) => void;
-  searchResults: RoleDto[];
-  disabled: boolean;
-}
-
-function RolesAutocomplete({
-  control,
-  rolesInput,
-  setRolesInput,
-  searchResults,
-  disabled,
-}: RolesAutocompleteProps) {
-  const {field} = useController({control, name: "roles"});
-
-  // merge search results with selected roles so selected items stay visible when query changes
-  const options = useMemo(() => {
-    const seen = new Set(searchResults.map((r) => r.id));
-    return [...searchResults, ...field.value.filter((r) => !seen.has(r.id))];
-  }, [searchResults, field.value]);
-
-  return (
-    <Autocomplete
-      multiple
-      options={options}
-      value={field.value}
-      onChange={(_, v) => field.onChange(v)}
-      inputValue={rolesInput}
-      onInputChange={(_, v) => setRolesInput(v)}
-      getOptionLabel={(r) => r.name}
-      isOptionEqualToValue={(o, v) => o.id === v.id}
-      filterSelectedOptions
-      filterOptions={(x) => x}
-      disabled={disabled}
-      renderInput={(params) => <TextField {...params} label="Роли" />}
-      renderValue={(tagValue, getItemProps) =>
-        tagValue.map((option, index) => (
-          <Chip label={option.name} {...getItemProps({index})} key={option.id} size="small" />
-        ))
-      }
-    />
   );
 }
 

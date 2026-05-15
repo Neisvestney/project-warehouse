@@ -24,6 +24,9 @@ import type {
   RolesGetAllData,
   RolesGetAllErrors,
   RolesGetAllResponses,
+  RolesGetByIdData,
+  RolesGetByIdErrors,
+  RolesGetByIdResponses,
   RolesSearchData,
   RolesSearchErrors,
   RolesSearchResponses,
@@ -216,6 +219,17 @@ export const rolesSearch = <ThrowOnError extends boolean = false>(
 ) =>
   (options?.client ?? client).get<RolesSearchResponses, RolesSearchErrors, ThrowOnError>({
     url: "/api/roles/search",
+    ...options,
+  });
+
+/**
+ * Get a role by ID.
+ */
+export const rolesGetById = <ThrowOnError extends boolean = false>(
+  options: Options<RolesGetByIdData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<RolesGetByIdResponses, RolesGetByIdErrors, ThrowOnError>({
+    url: "/api/roles/{id}",
     ...options,
   });
 

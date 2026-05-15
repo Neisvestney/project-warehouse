@@ -36,11 +36,20 @@ public class UsersController(
         [FromQuery][Range(1, int.MaxValue)] int page = 1,
         [FromQuery][Range(1, 200)] int pageSize = 20,
         [FromQuery] string? searchString = null,
+        [FromQuery] Guid? role = null,
         CancellationToken ct = default)
     {
-        var paginated = await db.Users
-            .WhereMatchesSearch(u => u.SearchString, searchString)
-            .OrderBy(u => u.Id)
+        var users = db.Users
+            .WhereMatchesSearch(u => u.SearchString, searchString);
+
+        if (role is { } r)
+        {
+            users = users.Where(x => x.UserRoles.Any(ur => ur.RoleId == r));
+        }
+        
+        users = users.OrderBy(u => u.Id);
+        
+        var paginated = await users
             .ProjectTo<UserDetailDto>(mapper.ConfigurationProvider)
             .ToPaginatedAsync(page, pageSize, ct);
 
