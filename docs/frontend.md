@@ -425,6 +425,37 @@ Generic confirmation dialog with a loading spinner on the confirm button. Blocks
 
 Props: `open`, `onClose`, `title`, `children?` (body), `onConfirm`, `isPending?`, `confirmText?` (default `"Подтвердить"`), `confirmColor?` (default `"primary"`), `maxWidth?` (default `"xs"`).
 
+### `ObservableForm<TFieldValues>`
+A class that creates a bidirectional bridge between a **react-hook-form** instance and **MobX**. It holds `_data` — a MobX observable snapshot of the form values — and keeps it in sync with the RHF form in both directions via a `watch` subscription (RHF → MobX) and a MobX `reaction` (MobX → RHF). A `_syncing` flag prevents feedback loops.
+
+**When to use:** when a page uses a MobX store alongside an RHF form and you need other store computeds or reactions to react to form field changes, or you need to push external data (e.g. an API response) back into the form from the store.
+
+```ts
+// In the store
+class MyStore {
+  form = new ObservableForm<MyFormValues>();
+
+  loadData = async () => {
+    const data = await fetchSomething();
+    this.form.data = data; // pushes into RHF via setValue / reset
+  };
+}
+
+// In the component
+const rhf = useForm<MyFormValues>();
+useEffect(() => store.form.init(rhf), []);
+
+// In an observer component or MobX reaction — reactive read:
+const value = store.form.data?.someField;
+```
+
+**Key behaviour:**
+- `init(deps)` — connects to RHF; must be called once inside `useEffect`. Returns a cleanup function — return it from the effect so subscriptions are torn down on unmount.
+- `data` getter — MobX-observable; reading it inside an `observer` / `computed` / `reaction` makes that context re-run on any field change.
+- `data` setter — replaces all form values; changed fields are applied via `setValue`, a full-object replacement falls back to `reset` (preserves dirty/touched/error state). Throws if called before `init`.
+
+**MobX → RHF detail:** uses `recursive-diff` to compute the minimal set of changed paths and calls `setValue` only for those paths. When the diff touches the root (e.g. the entire object was replaced), falls back to `reset` with `keepDirtyValues`, `keepErrors`, `keepDirty`, `keepIsSubmitted`, `keepTouched`, `keepIsValid`, and `keepSubmitCount` all set to `true` to preserve form state as much as possible.
+
 ### `FormTextField`
 Thin RHF + MUI `TextField` integration. Wraps `Controller` and automatically wires `error` and `helperText` from `fieldState`. Use in all RHF forms instead of manual `Controller` + `TextField`.
 
