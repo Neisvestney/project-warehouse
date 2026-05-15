@@ -89,6 +89,7 @@ export class ObservableForm<TFieldValues extends FieldValues> {
           } else {
             const newValue = this._deps!.getValues(name as FieldPath<TFieldValues>);
             const path = name.split(".");
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             let obj: any = this._data;
             for (let i = 0; i < path.length; i++) {
               if (i === path.length - 1) {
