@@ -1,4 +1,4 @@
-import React, {type ComponentType} from "react";
+import React from "react";
 import {Navigate, Route, Routes} from "react-router";
 import type {PermissionName} from "@/api/types.gen";
 import {useAuth} from "@/hooks/useAuth";

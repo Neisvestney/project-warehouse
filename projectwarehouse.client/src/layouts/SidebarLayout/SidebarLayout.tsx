@@ -116,7 +116,7 @@ function SidebarDesktopGroup({
 
 function SidebarLayout({navItems, children}: SidebarLayoutProps) {
   const location = useLocation();
-  const activeTabPath = activeTabValue(navItems, location.pathname);
+  const _activeTabPath = activeTabValue(navItems, location.pathname);
   const activeTabPathFull = activeTabValueFull(navItems, location.pathname);
 
   return (
