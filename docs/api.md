@@ -54,9 +54,12 @@ See [auth.md](auth.md) for the full auth flow and token refresh.
 |--------|------|------------|-------------|
 | GET | `/api/warehouses` | `warehouses.view` | List all warehouses (paginated) |
 | GET | `/api/warehouses/{id}` | `warehouses.view` | Get warehouse by ID |
+| GET | `/api/warehouses/{id}/print` | `warehouses.view` | All nodes as `StoragePlaceNodePrintDto[]` ordered by full path (for label printing) |
 | POST | `/api/warehouses` | `warehouses.edit` | Create warehouse |
 | PUT | `/api/warehouses/{id}` | `warehouses.edit` | Update warehouse and sync storage places |
 | DELETE | `/api/warehouses/{id}` | `warehouses.edit` | Delete warehouse |
+
+`StoragePlaceNodePrintDto` shape: `{ id: Guid, name: string[] }` — `name` is the full breadcrumb path from storage place root down to the node (e.g. `["Стеллаж А", "Полка 1", "Ячейка 3"]`).
 
 ---
 
@@ -64,10 +67,46 @@ See [auth.md](auth.md) for the full auth flow and token refresh.
 
 | Method | Path | Permission | Description |
 |--------|------|------------|-------------|
-| GET | `/api/storagePlaces/{id}/nodes` | `warehouses.view` | Flat list of all nodes |
-| POST | `/api/storagePlaces/{id}/nodes` | `warehouses.edit` | Add node, returns updated list |
-| PUT | `/api/storagePlaces/{id}/nodes/{nodeId}` | `warehouses.edit` | Update node, returns updated list |
-| DELETE | `/api/storagePlaces/{id}/nodes/{nodeId}` | `warehouses.edit` | Delete node (fails if has children), returns updated list |
+| GET | `/api/storagePlaces/{id}/nodes` | `warehouses.view` | Flat list of all nodes (`StoragePlaceNodeDto[]` ordered by name) |
+| POST | `/api/storagePlaces/{id}/nodes` | `warehouses.edit` | Add node, returns updated flat list |
+| PUT | `/api/storagePlaces/{id}/nodes/{nodeId}` | `warehouses.edit` | Update node name/parent, returns updated flat list |
+| DELETE | `/api/storagePlaces/{id}/nodes/{nodeId}` | `warehouses.edit` | Delete node (fails with `storagePlaceNodeHasChildren` if it has children), returns updated flat list |
+| GET | `/api/storagePlaces/{id}/nodes/{nodeId}` | `warehouses.view` | Node details including item groups (`StoragePlaceNodeDetailsDto`) |
+| PUT | `/api/storagePlaces/{id}/nodes/{nodeId}/items` | `warehouses.edit` | Atomically sync item groups for a node, returns updated `StoragePlaceNodeDetailsDto` |
+
+**Item group sync rules** (`PUT .../items` body: `NodeItemsGroupItem[]`):
+- `id: null` → create new item group
+- `id` present → update existing item group
+- existing group not in the list → delete
+
+Returns 422 `storagePlaceNodeItemsGroupNotFound` if any provided ID does not belong to this node.  
+Returns 422 `catalogItemCharacteristicNotFound` if any `catalogItemWithCharacteristicId` does not exist.  
+Returns 422 `catalogItemCharacteristicDuplicate` if the same `catalogItemWithCharacteristicId` appears more than once.
+
+---
+
+## Catalog — `/api/catalog`
+
+| Method | Path | Permission | Description |
+|--------|------|------------|-------------|
+| GET | `/api/catalog` | `catalog.view` | List catalog items paginated (`Paginated<CatalogItemSummaryDto>`), supports `searchString` |
+| GET | `/api/catalog/{id}` | `catalog.view` | Get catalog item with characteristics (`CatalogItemDto`) |
+| POST | `/api/catalog` | `catalog.edit` | Create catalog item with optional characteristics |
+| PUT | `/api/catalog/{id}` | `catalog.edit` | Update catalog item and atomically sync characteristics |
+| DELETE | `/api/catalog/{id}` | `catalog.edit` | Delete catalog item and all its characteristics |
+
+**Characteristic sync rules** (`PUT /api/catalog/{id}` body: `UpdateCatalogItemRequest`):
+- `id: null` → create new characteristic
+- `id` present → update existing characteristic
+- existing characteristic not in the list → delete
+
+Returns 422 `catalogItemCharacteristicNotFound` if any provided characteristic ID does not belong to this item.
+
+**Key DTOs:**
+
+`CatalogItemSummaryDto`: `{ id, name, article, barcode?, characteristicCount }`  
+`CatalogItemDto`: `{ id, name, article, barcode?, characteristics: CatalogItemCharacteristicDto[] }`  
+`CatalogItemCharacteristicDto`: `{ id, characteristic, barcode? }`
 
 ---
 

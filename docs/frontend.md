@@ -106,7 +106,10 @@ src/
 │
 ├── pages/
 │   ├── HomePage/
-│   │   └── HomePage.tsx         # Landing page with navigation cards
+│   │   └── HomePage.tsx         # Landing page; navigation cards driven by AppEntity from /api/home
+│   ├── CatalogPage/
+│   │   ├── CatalogPage.tsx      # Paginated, searchable catalog item list (catalog.view)
+│   │   └── CatalogItemDrawer.tsx # Right-drawer for viewing/editing a catalog item + characteristics
 │   ├── LoginPage/
 │   │   └── LoginPage.tsx        # Login form
 │   ├── MyProfilePage/
@@ -129,8 +132,9 @@ src/
 │   │   ├── WarehousesPage.tsx   # Paginated, searchable warehouse list (no permission guard yet)
 │   │   └── pages/
 │   │       └── WarehouseViewPage/
-│   │           ├── WarehouseViewPage.tsx    # Warehouse detail with storage places grid
-│   │           └── StoragePlaceDialog.tsx   # Create/edit storage place dialog
+│   │           ├── WarehouseViewPage.tsx    # Warehouse detail with pan/zoom storage place grid; "Этикетки" button prints all node labels
+│   │           ├── StoragePlaceDialog.tsx   # Right-drawer: node tree (SimpleTreeView) + NodeDetails panel for selected node
+│   │           └── NodeDetails.tsx          # Node detail panel: view/edit item groups (catalog item + characteristic + count)
 │   └── SettingsPage/
 │       ├── SettingsPage.tsx     # Sections declaration only — drives routes + sidebar nav for /settings/*
 │       └── pages/
@@ -172,6 +176,8 @@ src/
     ├── parseJwt.ts              # Decode JWT payload without verification
     ├── permissionLabels.ts      # Human-readable labels for permission enum values
     ├── printUtils.ts            # openPrintPage(items) helper — builds URL and opens /print in a new tab
+    ├── appEntityUtils.tsx       # entitiesTypes registry (user/roles/warehouse → icon, typeName, linkTemplate); resolveEntity(entity) → {link, typeName, icon, ...entity}
+    ├── interpolateArgs.ts       # interpolateArgs(template, args) — replaces {key} placeholders in a string
     └── useInstallPrompt.ts      # Hook: beforeinstallprompt event
 ```
 
@@ -189,6 +195,7 @@ src/
 /users/new         → MainLayout > UserCreatePage    (users.create)
 /users/:id         → MainLayout > UserViewPage      (users.view)
 /users/:id/edit    → MainLayout > UserEditPage      (users.edit_profile)
+/catalog           → MainLayout > CatalogPage        (catalog.view)
 /settings/*        → MainLayout > SettingsPage      (authenticated)
 /settings          →   redirect to /settings/roles
 /settings/roles    →   RolesSettingsPage            (roles.view)
@@ -197,7 +204,7 @@ src/
 ## Pages
 
 ### `HomePage`
-Landing page. Shows navigation cards (Warehouses — gated by `warehouses.view`, Scanner), PWA offline-ready indicator, and the `InstallPrompt` when the app is installable. Cards are rendered via the local `HomeCard` component (title, link, linkText, icon).
+Landing page. Fetches `AppEntity[]` from `/api/home` and renders navigation cards for each entity (icon, title, type label, link). Cards are resolved via `resolveEntity` from `appEntityUtils`. Also shows PWA offline-ready indicator and the `InstallPrompt` when the app is installable.
 
 ### `ScannerPage`
 Full-screen camera scanner. Uses `ScannerBlock` for capture/decode. Maintains a list of scanned barcodes in local state; opens a bottom drawer when `?scannedCodesDrawerOpen=true` is in the query string.
@@ -247,6 +254,19 @@ Error handling mirrors `UserViewPage`: `<NotFound />` on 404, `<QueryError />` o
 
 ### `UserCreatePage`
 RHF form for creating a new user. Fields: username (required), password (required, with show/hide toggle), email, first name, last name. On success navigates to the new user's `UserViewPage`. Requires `users.create`.
+
+### `CatalogPage`
+Server-side paginated, searchable list of catalog items. Requires `catalog.view`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Clicking a row opens `CatalogItemDrawer` (right-side MUI Drawer) with item details and characteristics; the selected item ID is stored in `?item=` query param. The drawer allows creating/editing catalog items and syncing characteristics if the user has `catalog.edit`.
+
+### `WarehouseViewPage`
+Warehouse detail page with a pan/zoom Konva canvas showing storage place rectangles. Clicking a storage place opens `StoragePlaceDialog` (1000 px wide right drawer) with a `SimpleTreeView` of that storage place's nodes on the left and `NodeDetails` on the right when a node is selected.
+
+**"Этикетки" button** fetches `GET /api/warehouses/{id}/print`, then calls `openPrintPage` with all nodes as `DataMatrix` labels (value = node ID, label = full path joined by ` / `). A `CircularProgress` spinner replaces the print icon while the request is in-flight.
+
+### `NodeDetails`
+Panel rendered inside `StoragePlaceDialog` for the selected node. Fetches `StoragePlaceNodeDetailsDto` via `GET /api/storagePlaces/{id}/nodes/{nodeId}`. Displays and edits the node's item groups:
+- View mode: table of catalog item name + characteristic + count + barcode
+- Edit mode: editable rows via `EditItemRow` — each row has a catalog `Autocomplete` (debounced search, 20 results), a characteristic `Select` (populated from the selected catalog item), and a count field. Rows can be added/removed. On save calls `PUT .../items` to atomically sync the groups.
 
 ## Key Components
 

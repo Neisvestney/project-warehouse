@@ -36,25 +36,28 @@ That's it. `Permissions.All` picks up new constants automatically via reflection
 |-----------|----------|
 | `users.view` | `Permissions.Users.View` |
 | `users.create` | `Permissions.Users.Create` |
-| `users.edit` | `Permissions.Users.Edit` |
+| `users.edit_profile` | `Permissions.Users.EditProfile` |
 | `users.delete` | `Permissions.Users.Delete` |
-| `users.manage_roles` | `Permissions.Users.ManageRoles` |
-| `users.manage_permissions` | `Permissions.Users.ManagePermissions` |
+| `users.manage_roles_and_permissions` | `Permissions.Users.ManageRolesAndPermissions` |
+| `users.reset_password` | `Permissions.Users.ResetPassword` |
 
 ### Roles (`roles.*`)
 | Permission | Constant |
 |-----------|----------|
 | `roles.view` | `Permissions.Roles.View` |
-| `roles.create` | `Permissions.Roles.Create` |
 | `roles.edit` | `Permissions.Roles.Edit` |
-| `roles.delete` | `Permissions.Roles.Delete` |
-| `roles.manage_permissions` | `Permissions.Roles.ManagePermissions` |
 
 ### Warehouses (`warehouses.*`)
 | Permission | Constant |
 |-----------|----------|
 | `warehouses.view` | `Permissions.Warehouses.View` |
 | `warehouses.edit` | `Permissions.Warehouses.Edit` |
+
+### Catalog (`catalog.*`)
+| Permission | Constant |
+|-----------|----------|
+| `catalog.view` | `Permissions.Catalog.View` |
+| `catalog.edit` | `Permissions.Catalog.Edit` |
 
 ## RBAC + Direct Permissions
 

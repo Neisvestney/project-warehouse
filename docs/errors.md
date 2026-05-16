@@ -83,6 +83,15 @@ Error with structured arguments (e.g. password too short):
 | `userAlreadyExists` | Username already taken |
 | `roleAlreadyExists` | Role name already taken |
 | `permissionAlreadyAssigned` | Permission already on the role/user |
+| `warehouseNotFound` | Warehouse ID not found |
+| `storagePlaceNotFound` | Storage place ID not found or does not belong to this warehouse |
+| `catalogItemNotFound` | Catalog item ID not found |
+| `catalogItemCharacteristicNotFound` | Characteristic ID not found or does not belong to this catalog item |
+| `catalogItemCharacteristicDuplicate` | The same `catalogItemWithCharacteristicId` appears more than once in a node items sync request |
+| `storagePlaceNodeNotFound` | Node ID not found or does not belong to this storage place |
+| `storagePlaceNodeHasChildren` | Attempt to delete a node that still has child nodes |
+| `storagePlaceNodeCyclicParent` | Setting the requested parent would create a cycle (parent is a descendant of the node, or the node itself) |
+| `storagePlaceNodeItemsGroupNotFound` | Item group ID not found or does not belong to this node |
 
 ### Validation
 | Code | When | `args` |
