@@ -57,6 +57,45 @@ public class WarehousesController(
         return Ok(warehouse);
     }
 
+    /// <summary>Get all storage place nodes for a warehouse mapped to id + full path name for printing.</summary>
+    [HttpGet("{id:guid}/print")]
+    [Authorize(Policy = Permissions.Warehouses.View)]
+    [ProducesResponseType<List<StoragePlaceNodePrintDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetByIdForPrint(Guid id, CancellationToken ct = default)
+    {
+        var warehouseExists = await db.Warehouses.AnyAsync(w => w.Id == id, ct);
+        if (!warehouseExists)
+            return NotFound(ErrorCode.WarehouseNotFound, "Warehouse not found.");
+
+        var nodes = await db.StoragePlacesNodes
+            .Where(n => n.RootStoragePlace.WarehouseId == id)
+            .Include(n => n.RootStoragePlace)
+            .ToListAsync(ct);
+
+        var nodeById = nodes.ToDictionary(n => n.Id);
+
+        var result = nodes
+            .Select(n =>
+            {
+                var parts = new List<string> { n.Name };
+                var parentId = n.ParentNodeId;
+                while (parentId.HasValue)
+                {
+                    var parent = nodeById[parentId.Value];
+                    parts.Add(parent.Name);
+                    parentId = parent.ParentNodeId;
+                }
+                parts.Add(n.RootStoragePlace.Name);
+                parts.Reverse();
+                return new StoragePlaceNodePrintDto { Id = n.Id, Name = parts.ToArray() };
+            })
+            .OrderBy(n => string.Join(" / ", n.Name))
+            .ToList();
+
+        return Ok(result);
+    }
+
     /// <summary>Create a new warehouse with optional storage places.</summary>
     /// <remarks>Body: <c>CreateWarehouseRequest</c> — name (required), width, height, storagePlaces (optional).</remarks>
     [HttpPost]

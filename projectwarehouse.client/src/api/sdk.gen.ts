@@ -98,6 +98,9 @@ import type {
   WarehousesGetAllResponses,
   WarehousesGetByIdData,
   WarehousesGetByIdErrors,
+  WarehousesGetByIdForPrintData,
+  WarehousesGetByIdForPrintErrors,
+  WarehousesGetByIdForPrintResponses,
   WarehousesGetByIdResponses,
   WarehousesUpdateData,
   WarehousesUpdateErrors,
@@ -605,3 +608,15 @@ export const warehousesUpdate = <ThrowOnError extends boolean = false>(
       ...options.headers,
     },
   });
+
+/**
+ * Get all storage place nodes for a warehouse mapped to id + full path name for printing.
+ */
+export const warehousesGetByIdForPrint = <ThrowOnError extends boolean = false>(
+  options: Options<WarehousesGetByIdForPrintData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    WarehousesGetByIdForPrintResponses,
+    WarehousesGetByIdForPrintErrors,
+    ThrowOnError
+  >({url: "/api/warehouses/{id}/print", ...options});

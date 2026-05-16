@@ -2,6 +2,7 @@ import React, {useEffect, useRef, useState} from "react";
 import {useParams} from "react-router";
 import {
   Box,
+  Button,
   CircularProgress,
   Divider,
   IconButton,
@@ -10,8 +11,11 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import {useQuery} from "@tanstack/react-query";
-import {warehousesGetByIdOptions} from "@/api/@tanstack/react-query.gen";
+import {useQuery, useQueryClient} from "@tanstack/react-query";
+import {
+  warehousesGetByIdForPrintOptions,
+  warehousesGetByIdOptions,
+} from "@/api/@tanstack/react-query.gen";
 import {isNotFoundError} from "@/utils/errorUtils";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import PageGenericHeader from "@/components/PageGenericHeader";
@@ -24,6 +28,8 @@ import StageWithPanAndZoom, {
 import {Rect, Text} from "react-konva";
 import {blue, green} from "@mui/material/colors";
 import StoragePlaceDialog from "@/pages/WarehousesPage/pages/WarehouseViewPage/StoragePlaceDialog.tsx";
+import PrintIcon from "@mui/icons-material/Print";
+import {openPrintPage} from "@/utils/printUtils.ts";
 
 function WarehouseViewPage() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -33,10 +39,33 @@ function WarehouseViewPage() {
 
   const [selectedStoragePlace, setSelectedStoragePlace] = useState<string | null>(null);
   const [storagePlaceDialogOpen, setStoragePlaceDialogOpen] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   const openStoragePlaceDialog = (storagePlace: string) => {
     setStoragePlaceDialogOpen(true);
     setSelectedStoragePlace(storagePlace);
+  };
+
+  const queryClient = useQueryClient();
+
+  const printLabels = async () => {
+    setIsPrinting(true);
+    try {
+      const data = await queryClient.fetchQuery(
+        warehousesGetByIdForPrintOptions({path: {id: id!}}),
+      );
+      openPrintPage(
+        data.map((node) => ({
+          type: "DataMatrix" as const,
+          value: node.id,
+          label: node.name.join(" / "),
+        })),
+      );
+    } catch {
+      // handled by QueryErrorHandler
+    } finally {
+      setIsPrinting(false);
+    }
   };
 
   const {id} = useParams<{id: string}>();
@@ -87,6 +116,14 @@ function WarehouseViewPage() {
         title={warehouse.name}
         right={
           <>
+            <Button
+              startIcon={isPrinting ? <CircularProgress size={14} /> : <PrintIcon />}
+              disabled={isPrinting}
+              onClick={printLabels}
+              variant="outlined"
+            >
+              Этикетки
+            </Button>
             {/*<Button*/}
             {/*  variant="outlined"*/}
             {/*  startIcon={<EditIcon />}*/}
