@@ -7,13 +7,17 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
 
 namespace ProjectWarehouse.Server.Controllers;
 
 [Route("api/catalog")]
-public class CatalogController(ApplicationDbContext db, IMapper mapper) : AppControllerBase
+public class CatalogController(
+    ApplicationDbContext db,
+    IMapper mapper,
+    IChangeLogService<CatalogItemDto> changeLog) : AppControllerBase
 {
     /// <summary>List all catalog items (paginated, optionally filtered by name).</summary>
     [HttpGet]
@@ -74,7 +78,10 @@ public class CatalogController(ApplicationDbContext db, IMapper mapper) : AppCon
         db.CatalogItems.Add(item);
         await db.SaveChangesAsync(ct);
 
-        return CreatedAtAction(nameof(GetById), new { id = item.Id }, mapper.Map<CatalogItemDto>(item));
+        var dto = mapper.Map<CatalogItemDto>(item);
+        await changeLog.CompareAndSaveToChangelog(null, dto);
+
+        return CreatedAtAction(nameof(GetById), new { id = item.Id }, dto);
     }
 
     /// <summary>Update a catalog item and atomically sync its characteristics.</summary>
@@ -100,6 +107,8 @@ public class CatalogController(ApplicationDbContext db, IMapper mapper) : AppCon
 
         if (item is null)
             return NotFound(ErrorCode.CatalogItemNotFound, "Catalog item not found.");
+
+        var beforeDto = mapper.Map<CatalogItemDto>(item);
 
         var incomingWithId = request.Characteristics
             .Where(c => c.Id is not null)
@@ -156,7 +165,10 @@ public class CatalogController(ApplicationDbContext db, IMapper mapper) : AppCon
 
         await db.Entry(item).Collection(c => c.Characteristics).LoadAsync(ct);
 
-        return Ok(mapper.Map<CatalogItemDto>(item));
+        var afterDto = mapper.Map<CatalogItemDto>(item);
+        await changeLog.CompareAndSaveToChangelog(beforeDto, afterDto);
+
+        return Ok(afterDto);
     }
 
     /// <summary>Delete a catalog item and all its characteristics.</summary>
@@ -166,13 +178,19 @@ public class CatalogController(ApplicationDbContext db, IMapper mapper) : AppCon
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct = default)
     {
-        var item = await db.CatalogItems.FindAsync([id], ct);
+        var item = await db.CatalogItems
+            .Include(c => c.Characteristics)
+            .FirstOrDefaultAsync(c => c.Id == id, ct);
 
         if (item is null)
             return NotFound(ErrorCode.CatalogItemNotFound, "Catalog item not found.");
 
+        var dto = mapper.Map<CatalogItemDto>(item);
+
         db.CatalogItems.Remove(item);
         await db.SaveChangesAsync(ct);
+
+        await changeLog.CompareAndSaveToChangelog(dto, null);
 
         return NoContent();
     }

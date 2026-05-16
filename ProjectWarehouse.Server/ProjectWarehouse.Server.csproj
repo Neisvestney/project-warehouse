@@ -18,6 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="CompareNETObjects" Version="4.84.0" />
     <PackageReference Include="DotNetEnv" Version="3.*" />
   </ItemGroup>
 

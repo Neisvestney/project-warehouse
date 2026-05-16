@@ -1,6 +1,8 @@
+using ProjectWarehouse.Server.Infrastructure;
+
 namespace ProjectWarehouse.Server.Models.Catalog;
 
-public class CatalogItemSummaryDto
+public class CatalogItemSummaryDto : IHasIdentity
 {
     public Guid Id { get; init; }
     public string Name { get; init; } = null!;

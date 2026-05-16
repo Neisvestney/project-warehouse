@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Warehouses;
 
@@ -14,7 +15,8 @@ namespace ProjectWarehouse.Server.Controllers;
 [Route("api/storagePlaces")]
 public class StoragePlacesController(
     ApplicationDbContext db,
-    IMapper mapper) : AppControllerBase
+    IMapper mapper,
+    IChangeLogService<StoragePlaceNodeDetailsDto> changeLog) : AppControllerBase
 {
     /// <summary>Get a flat list of all nodes for a storage place.</summary>
     /// <remarks>Returns <c>StoragePlaceNodeDto[]</c> ordered by name — id, name, parentNodeId (null = root).</remarks>
@@ -70,6 +72,9 @@ public class StoragePlacesController(
         db.StoragePlacesNodes.Add(node);
         await db.SaveChangesAsync(ct);
 
+        await db.Entry(node).Collection(n => n.ItemsGroups).LoadAsync(ct);
+        await changeLog.CompareAndSaveToChangelog(null, mapper.Map<StoragePlaceNodeDetailsDto>(node));
+
         return Ok(await GetFlatNodesAsync(id, ct));
     }
 
@@ -101,6 +106,13 @@ public class StoragePlacesController(
         if (node is null)
             return NotFound(ErrorCode.StoragePlaceNodeNotFound, "Storage place node not found.");
 
+        var nodeWithDetails = await db.StoragePlacesNodes
+            .Include(n => n.ItemsGroups)
+                .ThenInclude(g => g.CatalogItemWithCharacteristic)
+                    .ThenInclude(c => c.CatalogItem)
+            .FirstAsync(n => n.Id == nodeId, ct);
+        var beforeNodeDto = mapper.Map<StoragePlaceNodeDetailsDto>(nodeWithDetails);
+
         if (request.ParentNodeId is not null)
         {
             if (request.ParentNodeId == nodeId)
@@ -122,6 +134,8 @@ public class StoragePlacesController(
         node.ParentNodeId = request.ParentNodeId;
         await db.SaveChangesAsync(ct);
 
+        await changeLog.CompareAndSaveToChangelog(beforeNodeDto, mapper.Map<StoragePlaceNodeDetailsDto>(node));
+
         return Ok(await GetFlatNodesAsync(id, ct));
     }
 
@@ -138,6 +152,9 @@ public class StoragePlacesController(
             return NotFound(ErrorCode.StoragePlaceNotFound, "Storage place not found.");
 
         var node = await db.StoragePlacesNodes
+            .Include(n => n.ItemsGroups)
+                .ThenInclude(g => g.CatalogItemWithCharacteristic)
+                    .ThenInclude(c => c.CatalogItem)
             .FirstOrDefaultAsync(n => n.Id == nodeId && n.RootStoragePlaceId == id, ct);
 
         if (node is null)
@@ -148,8 +165,12 @@ public class StoragePlacesController(
             return UnprocessableEntity("nodeId", ErrorCode.StoragePlaceNodeHasChildren,
                 "Cannot delete a node that has children.");
 
+        var nodeDto = mapper.Map<StoragePlaceNodeDetailsDto>(node);
+
         db.StoragePlacesNodes.Remove(node);
         await db.SaveChangesAsync(ct);
+
+        await changeLog.CompareAndSaveToChangelog(nodeDto, null);
 
         return Ok(await GetFlatNodesAsync(id, ct));
     }
@@ -203,10 +224,14 @@ public class StoragePlacesController(
 
         var node = await db.StoragePlacesNodes
             .Include(n => n.ItemsGroups)
+                .ThenInclude(g => g.CatalogItemWithCharacteristic)
+                    .ThenInclude(c => c.CatalogItem)
             .FirstOrDefaultAsync(n => n.Id == nodeId && n.RootStoragePlaceId == id, ct);
 
         if (node is null)
             return NotFound(ErrorCode.StoragePlaceNodeNotFound, "Storage place node not found.");
+
+        var beforeNodeDto = mapper.Map<StoragePlaceNodeDetailsDto>(node);
 
         var incomingWithId = items.Where(x => x.Id is not null).ToList();
 
@@ -295,7 +320,10 @@ public class StoragePlacesController(
                 .ThenInclude(c => c.CatalogItem)
             .LoadAsync(ct);
 
-        return Ok(mapper.Map<StoragePlaceNodeDetailsDto>(node));
+        var afterNodeDto = mapper.Map<StoragePlaceNodeDetailsDto>(node);
+        await changeLog.CompareAndSaveToChangelog(beforeNodeDto, afterNodeDto);
+
+        return Ok(afterNodeDto);
     }
 
     private async Task<StoragePlaceNodeDto[]> GetFlatNodesAsync(Guid storagePlaceId, CancellationToken ct)

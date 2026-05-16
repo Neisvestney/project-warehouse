@@ -1,8 +1,9 @@
 using System.ComponentModel.DataAnnotations;
+using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Models.Warehouses;
 
-public class StoragePlaceItem
+public class StoragePlaceItem : IHasNullableIdentity
 {
     public Guid? Id { get; init; }
 

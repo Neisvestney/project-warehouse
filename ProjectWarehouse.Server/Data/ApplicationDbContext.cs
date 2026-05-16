@@ -24,6 +24,8 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     
+    public DbSet<ChangeLogEntry> ChangeLogEntries => Set<ChangeLogEntry>();
+
     public DbSet<CatalogItem> CatalogItems => Set<CatalogItem>();
     public DbSet<CatalogItemWithCharacteristic> CatalogItemsWithCharacteristics => Set<CatalogItemWithCharacteristic>();
     
@@ -64,6 +66,14 @@ public class ApplicationDbContext : IdentityDbContext<
             e.Ignore(x => x.IsActive);
         });
         
+        builder.Entity<ChangeLogEntry>(e =>
+        {
+            e.HasOne(x => x.User)
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
         builder.Entity<CatalogItem>(e =>
         {
             e.HasKey(x => x.Id);

@@ -1,6 +1,8 @@
+using ProjectWarehouse.Server.Infrastructure;
+
 namespace ProjectWarehouse.Server.Models.Warehouses;
 
-public class NodeCharacteristicDto
+public class NodeCharacteristicDto : IHasIdentity
 {
     public Guid Id { get; init; }
     public string Characteristic { get; init; } = null!;

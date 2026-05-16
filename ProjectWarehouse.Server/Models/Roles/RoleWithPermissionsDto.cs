@@ -1,6 +1,8 @@
+using ProjectWarehouse.Server.Infrastructure;
+
 namespace ProjectWarehouse.Server.Models.Roles;
 
-public class RoleWithPermissionsDto
+public class RoleWithPermissionsDto : IHasIdentity
 {
     public Guid Id { get; init; }
     public string Name { get; init; } = null!;

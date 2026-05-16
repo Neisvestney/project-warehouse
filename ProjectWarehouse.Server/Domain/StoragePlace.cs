@@ -3,7 +3,7 @@ using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Domain;
 
-public class StoragePlace : WarehouseLayoutObject
+public class StoragePlace : WarehouseLayoutObject, IHasIdentity
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = null!;

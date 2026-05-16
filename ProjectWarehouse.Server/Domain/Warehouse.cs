@@ -1,8 +1,9 @@
 ﻿using EntityFrameworkCore.Projectables;
+using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Domain;
 
-public class Warehouse
+public class Warehouse : IHasIdentity
 {
     public Guid Id { get; set; }
     public string Name {get; set;} = null!;

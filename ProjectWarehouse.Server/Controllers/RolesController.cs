@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Roles;
 using ProjectWarehouse.Server.Services;
@@ -18,7 +19,8 @@ public class RolesController(
     RoleManager<ApplicationRole> roleManager,
     ApplicationDbContext db,
     IPermissionService permissionService,
-    IMapper mapper) : AppControllerBase
+    IMapper mapper,
+    IChangeLogService<RolesListDto> changeLog) : AppControllerBase
 {
     /// <summary>List all roles with their permissions.</summary>
     [HttpGet]
@@ -87,6 +89,11 @@ public class RolesController(
             .Include(r => r.RolePermissions)
             .ToListAsync(ct);
         var existingById = existing.ToDictionary(r => r.Id);
+
+        var beforeDto = new RolesListDto
+        {
+            Roles = existing.Select(r => mapper.Map<RoleWithPermissionsDto>(r)).ToList()
+        };
 
         var toCreate = request.Where(r => r.Id is null || r.Id == Guid.Empty).ToList();
         var toUpdate = request.Where(r => r.Id is not null && r.Id != Guid.Empty).ToList();
@@ -216,6 +223,9 @@ public class RolesController(
             .OrderBy(r => r.Order).ThenBy(r => r.Name)
             .ProjectTo<RoleWithPermissionsDto>(mapper.ConfigurationProvider)
             .ToListAsync(ct);
+
+        await changeLog.CompareAndSaveToChangelog(beforeDto, new RolesListDto { Roles = updated });
+
         return Ok(updated);
     }
 }

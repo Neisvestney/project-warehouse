@@ -1,6 +1,8 @@
+using ProjectWarehouse.Server.Infrastructure;
+
 namespace ProjectWarehouse.Server.Models.Users;
 
-public class UserDto
+public class UserDto : IHasIdentity
 {
     public Guid Id { get; init; }
     public string Username { get; init; } = null!;
