@@ -15,6 +15,7 @@ import ProtectedRoute from "@/components/ProtectedRoute/ProtectedRoute.tsx";
 import {QueryErrorHandler} from "@/components/QueryErrorHandler";
 import WarehousesPage from "@/pages/WarehousesPage/WarehousesPage.tsx";
 import WarehouseViewPage from "@/pages/WarehousesPage/pages/WarehouseViewPage/WarehouseViewPage.tsx";
+import PageNotFound from "@/components/PageNotFound.tsx";
 const WarehouseItemsPage = React.lazy(
   () => import("@/pages/WarehousesPage/pages/WarehouseItemsPage/WarehouseItemsPage.tsx"),
 );
@@ -104,6 +105,7 @@ function App() {
                       requiredPermission="warehouses.view"
                     />
                     <ProtectedRoute path="/settings/*" element={<SettingsPage />} />
+                    <Route path="*" element={<PageNotFound />} />
                   </ProtectedRoute>
                   <ProtectedRoute path="/scanner" element={<ScannerPage />} />
                   <ProtectedRoute path="/print" element={<PrintPage />} />
