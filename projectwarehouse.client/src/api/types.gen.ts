@@ -118,6 +118,7 @@ export type CreateWarehouseRequest = {
   width: number;
   height: number;
   storagePlaces: Array<StoragePlaceItem>;
+  layoutObjects: Array<WarehouseLayoutElementItem>;
 };
 
 export type ErrorCode =
@@ -288,6 +289,7 @@ export type StoragePlaceDto = {
   y: number;
   width: number;
   height: number;
+  rotation: number;
   totalItemsCount: number;
 };
 
@@ -298,6 +300,7 @@ export type StoragePlaceItem = {
   y: number;
   width: number;
   height: number;
+  rotation: number;
 };
 
 export type StoragePlaceNodeDetailsDto = {
@@ -357,6 +360,7 @@ export type UpdateWarehouseRequest = {
   width: number;
   height: number;
   storagePlaces: Array<StoragePlaceItem>;
+  layoutObjects: Array<WarehouseLayoutElementItem>;
 };
 
 export type UserDetailDto = {
@@ -375,8 +379,29 @@ export type WarehouseDto = {
   width: number;
   height: number;
   storagePlaces: Array<StoragePlaceDto>;
+  layoutObjects: Array<WarehouseLayoutElementDto>;
   totalItemsCount: number;
 };
+
+export type WarehouseLayoutElementDto = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  type: WarehouseLayoutObjectType;
+};
+
+export type WarehouseLayoutElementItem = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  type: WarehouseLayoutObjectType;
+};
+
+export type WarehouseLayoutObjectType = "wall" | "passage";
 
 export type WarehouseSummaryDto = {
   id: string;

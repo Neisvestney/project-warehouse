@@ -29,6 +29,7 @@ public class AppMapperProfile : Profile
         CreateMap<CatalogItem, CatalogItemSummaryDto>()
             .ForMember(d => d.CharacteristicCount, opt => opt.MapFrom(s => s.Characteristics.Count));
 
+        CreateMap<WarehouseLayoutElement, WarehouseLayoutElementDto>();
         CreateMap<StoragePlace, StoragePlaceDto>();
         CreateMap<StoragePlaceNode, StoragePlaceNodeDto>();
         CreateMap<StoragePlaceNodeItemsGroup, ItemsGroupDto>();

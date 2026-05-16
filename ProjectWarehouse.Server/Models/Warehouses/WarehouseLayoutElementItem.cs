@@ -1,15 +1,13 @@
-using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Domain;
 
 namespace ProjectWarehouse.Server.Models.Warehouses;
 
-public class StoragePlaceDto : IHasIdentity
+public class WarehouseLayoutElementItem
 {
-    public Guid Id { get; init; }
-    public string Name { get; init; } = null!;
     public decimal X { get; init; }
     public decimal Y { get; init; }
     public decimal Width { get; init; }
     public decimal Height { get; init; }
     public decimal Rotation { get; init; }
-    public int TotalItemsCount { get; init; }
+    public WarehouseLayoutObjectType Type { get; init; }
 }

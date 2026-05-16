@@ -8,6 +8,7 @@ import React, {
   forwardRef,
   type RefObject,
 } from "react";
+
 import Konva from "konva";
 
 // by default Konva prevent some events when node is dragging
@@ -20,19 +21,62 @@ type Vec = {x: number; y: number};
 
 export interface StageWithPanAndZoomHandle {
   fit: () => void;
+  getStage: () => Konva.Stage | null;
 }
 
 export interface StageWithPanAndZoomProps {
   containerRef: RefObject<HTMLDivElement | null>;
   children: React.ReactNode;
   setStageScale?: (scale: {x: number; y: number}) => void;
+  /** Use Konva's built-in stage drag for panning (default). */
+  draggable?: boolean;
+  /**
+   * When true, disables Konva's built-in stage drag and implements panning
+   * via mouse events — but ONLY when the user clicks on unnamed canvas area
+   * (not on shapes or Transformer handles, which have non-empty names).
+   * Useful when shapes in the stage are also draggable.
+   */
+  panOnEmptyOnly?: boolean;
+  onMouseDown?: (e: Konva.KonvaEventObject<MouseEvent>) => void;
+  onMouseMove?: (e: Konva.KonvaEventObject<MouseEvent>) => void;
+  onMouseUp?: (e: Konva.KonvaEventObject<MouseEvent>) => void;
 }
 
 const StageWithPanAndZoom = forwardRef<StageWithPanAndZoomHandle, StageWithPanAndZoomProps>(
-  function StageWithPanAndZoom({containerRef, children, setStageScale: setStageScaleParent}, ref) {
+  function StageWithPanAndZoom(
+    {
+      containerRef,
+      children,
+      setStageScale: setStageScaleParent,
+      draggable = true,
+      panOnEmptyOnly = false,
+      onMouseDown,
+      onMouseMove,
+      onMouseUp,
+    },
+    ref,
+  ) {
     const stageRef = useRef<Konva.Stage>(null);
 
     const [size, setSize] = useState({width: 0, height: 0});
+
+    const fit = useCallback(() => {
+      const stage = stageRef.current;
+      if (!stage) return;
+      const layer = stage.getLayers()[0];
+      if (!layer) return;
+      const box = layer.getClientRect({relativeTo: stage});
+      if (box.width === 0 || box.height === 0) return;
+      const padding = 40;
+      const scaleX = (size.width - padding * 2) / box.width;
+      const scaleY = (size.height - padding * 2) / box.height;
+      const newScale = Math.min(scaleX, scaleY);
+      setStageScale({x: newScale, y: newScale});
+      setStagePos({
+        x: (size.width - box.width * newScale) / 2 - box.x * newScale,
+        y: (size.height - box.height * newScale) / 2 - box.y * newScale,
+      });
+    }, [size.height, size.width]);
 
     useEffect(() => {
       const el = containerRef.current;
@@ -56,26 +100,17 @@ const StageWithPanAndZoom = forwardRef<StageWithPanAndZoomHandle, StageWithPanAn
     useImperativeHandle(
       ref,
       () => ({
-        fit() {
-          const stage = stageRef.current;
-          if (!stage) return;
-          const layer = stage.getLayers()[0];
-          if (!layer) return;
-          const box = layer.getClientRect({relativeTo: stage});
-          if (box.width === 0 || box.height === 0) return;
-          const padding = 40;
-          const scaleX = (size.width - padding * 2) / box.width;
-          const scaleY = (size.height - padding * 2) / box.height;
-          const newScale = Math.min(scaleX, scaleY);
-          setStageScale({x: newScale, y: newScale});
-          setStagePos({
-            x: (size.width - box.width * newScale) / 2 - box.x * newScale,
-            y: (size.height - box.height * newScale) / 2 - box.y * newScale,
-          });
+        getStage() {
+          return stageRef.current;
         },
+        fit,
       }),
-      [size],
+      [fit],
     );
+    // Manual panning state for panOnEmptyOnly mode (avoids re-renders during pan)
+    const isPanningRef = useRef(false);
+    const panStartRef = useRef({clientX: 0, clientY: 0, stageX: 0, stageY: 0});
+
     const [lastCenter, setLastCenter] = useState<Vec | null>(null);
     const [lastDist, setLastDist] = useState(0);
     const [dragStopped, setDragStopped] = useState(false);
@@ -200,12 +235,43 @@ const StageWithPanAndZoom = forwardRef<StageWithPanAndZoomHandle, StageWithPanAn
       setStagePos({x: stage.x(), y: stage.y()});
     };
 
+    const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+      onMouseDown?.(e);
+      if (!panOnEmptyOnly) return;
+      // Only pan when clicking on unnamed canvas area (not shapes or Transformer handles)
+      const targetName = (e.target as Konva.Shape).name?.() ?? "";
+      if (targetName !== "") return;
+      isPanningRef.current = true;
+      panStartRef.current = {
+        clientX: e.evt.clientX,
+        clientY: e.evt.clientY,
+        stageX: stageRef.current?.x() ?? stagePos.x,
+        stageY: stageRef.current?.y() ?? stagePos.y,
+      };
+    };
+
+    const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
+      onMouseMove?.(e);
+      if (!panOnEmptyOnly || !isPanningRef.current) return;
+      const dx = e.evt.clientX - panStartRef.current.clientX;
+      const dy = e.evt.clientY - panStartRef.current.clientY;
+      setStagePos({
+        x: panStartRef.current.stageX + dx,
+        y: panStartRef.current.stageY + dy,
+      });
+    };
+
+    const handleMouseUp = (e: Konva.KonvaEventObject<MouseEvent>) => {
+      onMouseUp?.(e);
+      isPanningRef.current = false;
+    };
+
     return (
       <Stage
         ref={stageRef}
         width={size.width}
         height={size.height}
-        draggable
+        draggable={panOnEmptyOnly ? false : draggable}
         x={stagePos.x}
         y={stagePos.y}
         scaleX={stageScale.x}
@@ -214,6 +280,9 @@ const StageWithPanAndZoom = forwardRef<StageWithPanAndZoomHandle, StageWithPanAn
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onDragEnd={handleDragEnd}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
       >
         <Layer>{children}</Layer>
       </Stage>

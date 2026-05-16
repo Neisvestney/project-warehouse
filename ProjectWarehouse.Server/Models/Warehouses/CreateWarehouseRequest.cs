@@ -11,4 +11,5 @@ public class CreateWarehouseRequest
     public decimal Height { get; init; }
 
     public IReadOnlyList<StoragePlaceItem> StoragePlaces { get; init; } = [];
+    public IReadOnlyList<WarehouseLayoutElementItem> LayoutObjects { get; init; } = [];
 }

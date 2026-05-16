@@ -17,6 +17,7 @@ import {
   warehousesGetByIdOptions,
 } from "@/api/@tanstack/react-query.gen";
 import ListAltIcon from "@mui/icons-material/ListAlt";
+import EditIcon from "@mui/icons-material/Edit";
 import {isNotFoundError} from "@/utils/errorUtils";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import PageGenericHeader from "@/components/PageGenericHeader";
@@ -27,10 +28,17 @@ import StageWithPanAndZoom, {
   type StageWithPanAndZoomHandle,
 } from "@/components/StageWithPanAndZoom.tsx";
 import {Rect, Text} from "react-konva";
-import {blue, green} from "@mui/material/colors";
+import {blue, green, grey, orange} from "@mui/material/colors";
+import {type WarehouseLayoutObjectType} from "@/api/types.gen.ts";
 import StoragePlaceDialog from "@/pages/WarehousesPage/pages/WarehouseViewPage/StoragePlaceDialog.tsx";
 import PrintIcon from "@mui/icons-material/Print";
 import {openPrintPage} from "@/utils/printUtils.ts";
+import {useHasPermission} from "@/hooks/usePermission.ts";
+
+const layoutObjectStyle: Record<WarehouseLayoutObjectType, {fill: string; stroke: string}> = {
+  wall: {fill: grey[700], stroke: grey[800]},
+  passage: {fill: orange[100], stroke: orange[300]},
+};
 
 function WarehouseViewPage() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -41,6 +49,8 @@ function WarehouseViewPage() {
   const [selectedStoragePlace, setSelectedStoragePlace] = useState<string | null>(null);
   const [storagePlaceDialogOpen, setStoragePlaceDialogOpen] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+
+  const userCanEdit = useHasPermission("warehouses.edit");
 
   const openStoragePlaceDialog = (storagePlace: string) => {
     setStoragePlaceDialogOpen(true);
@@ -89,11 +99,7 @@ function WarehouseViewPage() {
     if (fitted.current) return;
     fitted.current = true;
 
-    const timeout = setTimeout(() => {
-      stageRef.current?.fit();
-    });
-
-    return () => clearTimeout(timeout);
+    requestAnimationFrame(() => stageRef.current?.fit());
   }, [warehouse, isLoading]);
 
   if (isLoading) {
@@ -133,21 +139,28 @@ function WarehouseViewPage() {
             >
               Этикетки
             </Button>
-            {/*<Button*/}
-            {/*  variant="outlined"*/}
-            {/*  startIcon={<EditIcon />}*/}
-            {/*  component={RouterLink}*/}
-            {/*  to={`/warehouses/${id}/edit`}*/}
-            {/*  disabled*/}
-            {/*>*/}
-            {/*  Редактировать*/}
-            {/*</Button>*/}
+            {userCanEdit && (
+              <Button
+                variant="outlined"
+                startIcon={<EditIcon />}
+                component={Link}
+                to={`/warehouses/${id}/edit`}
+              >
+                Редактировать
+              </Button>
+            )}
           </>
         }
       />
 
       <Paper sx={{px: 3, py: 2}}>
-        <Stack direction="row" spacing={3} divider={<Divider orientation="vertical" flexItem />}>
+        <Stack
+          direction="row"
+          spacing={3}
+          useFlexGap
+          sx={{flexWrap: "wrap"}}
+          divider={<Divider orientation="vertical" flexItem />}
+        >
           {[
             {label: "Ширина", value: `${warehouse.width} м`},
             {label: "Высота", value: `${warehouse.height} м`},
@@ -183,27 +196,46 @@ function WarehouseViewPage() {
             stroke={blue[300]}
             dash={[10 / stageScale.x]}
           />
+          {warehouse.layoutObjects.map((lo, i) => (
+            <Rect
+              key={i}
+              x={lo.x * 100 + (lo.width * 100) / 2}
+              y={lo.y * 100 + (lo.height * 100) / 2}
+              offsetX={(lo.width * 100) / 2}
+              offsetY={(lo.height * 100) / 2}
+              width={lo.width * 100}
+              height={lo.height * 100}
+              rotation={lo.rotation}
+              {...layoutObjectStyle[lo.type]}
+            />
+          ))}
           {warehouse.storagePlaces.map((p) => (
             <React.Fragment key={p.id}>
               <Rect
-                x={p.x * 100}
-                y={p.y * 100}
+                x={p.x * 100 + (p.width * 100) / 2}
+                y={p.y * 100 + (p.height * 100) / 2}
                 width={p.width * 100}
                 height={p.height * 100}
+                offsetX={(p.width * 100) / 2}
+                offsetY={(p.height * 100) / 2}
                 fill={green[300]}
                 onClick={() => openStoragePlaceDialog(p.id)}
                 onTap={() => openStoragePlaceDialog(p.id)}
+                rotation={p.rotation}
               />
               <Text
-                x={p.x * 100}
-                y={p.y * 100}
+                x={p.x * 100 + (p.width * 100) / 2}
+                y={p.y * 100 + (p.height * 100) / 2}
                 width={p.width * 100}
                 height={p.height * 100}
+                offsetX={(p.width * 100) / 2}
+                offsetY={(p.height * 100) / 2}
                 align="center"
                 verticalAlign="middle"
                 text={p.totalItemsCount > 0 ? `${p.name}\n${p.totalItemsCount} тов.` : p.name}
                 onClick={() => openStoragePlaceDialog(p.id)}
                 onTap={() => openStoragePlaceDialog(p.id)}
+                rotation={p.rotation}
               />
             </React.Fragment>
           ))}
