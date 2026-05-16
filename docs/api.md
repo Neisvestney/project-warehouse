@@ -55,6 +55,7 @@ See [auth.md](auth.md) for the full auth flow and token refresh.
 | GET | `/api/warehouses` | `warehouses.view` | List all warehouses (paginated) |
 | GET | `/api/warehouses/{id}` | `warehouses.view` | Get warehouse by ID |
 | GET | `/api/warehouses/{id}/print` | `warehouses.view` | All nodes as `StoragePlaceNodePrintDto[]` ordered by full path (for label printing) |
+| GET | `/api/warehouses/{id}/items-groups` | `warehouses.view` | List all item groups in a warehouse (`Paginated<ItemsGroupDto>`), supports `searchString` |
 | POST | `/api/warehouses` | `warehouses.edit` | Create warehouse |
 | PUT | `/api/warehouses/{id}` | `warehouses.edit` | Update warehouse and sync storage places |
 | DELETE | `/api/warehouses/{id}` | `warehouses.edit` | Delete warehouse |

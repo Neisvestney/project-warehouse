@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from "react";
-import {useParams} from "react-router";
+import {Link, useParams} from "react-router";
 import {
   Box,
   Button,
@@ -16,6 +16,7 @@ import {
   warehousesGetByIdForPrintOptions,
   warehousesGetByIdOptions,
 } from "@/api/@tanstack/react-query.gen";
+import ListAltIcon from "@mui/icons-material/ListAlt";
 import {isNotFoundError} from "@/utils/errorUtils";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import PageGenericHeader from "@/components/PageGenericHeader";
@@ -116,6 +117,14 @@ function WarehouseViewPage() {
         title={warehouse.name}
         right={
           <>
+            <Button
+              component={Link}
+              to={`/warehouses/${id}/items`}
+              startIcon={<ListAltIcon />}
+              variant="outlined"
+            >
+              Список товаров
+            </Button>
             <Button
               startIcon={isPrinting ? <CircularProgress size={14} /> : <PrintIcon />}
               disabled={isPrinting}

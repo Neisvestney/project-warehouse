@@ -220,6 +220,16 @@ export type PaginatedOfChangeLogEntryDto = {
   hasPreviousPage: boolean;
 };
 
+export type PaginatedOfItemsGroupDto = {
+  items: Array<ItemsGroupDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
 export type PaginatedOfUserDetailDto = {
   items: Array<UserDetailDto>;
   total: number;
@@ -1584,3 +1594,44 @@ export type WarehousesGetByIdForPrintResponses = {
 
 export type WarehousesGetByIdForPrintResponse =
   WarehousesGetByIdForPrintResponses[keyof WarehousesGetByIdForPrintResponses];
+
+export type WarehousesGetAllItemsGroupsData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: {
+    page?: number;
+    pageSize?: number;
+    searchString?: string;
+  };
+  url: "/api/warehouses/{id}/items-groups";
+};
+
+export type WarehousesGetAllItemsGroupsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type WarehousesGetAllItemsGroupsError =
+  WarehousesGetAllItemsGroupsErrors[keyof WarehousesGetAllItemsGroupsErrors];
+
+export type WarehousesGetAllItemsGroupsResponses = {
+  /**
+   * OK
+   */
+  200: PaginatedOfItemsGroupDto;
+};
+
+export type WarehousesGetAllItemsGroupsResponse =
+  WarehousesGetAllItemsGroupsResponses[keyof WarehousesGetAllItemsGroupsResponses];

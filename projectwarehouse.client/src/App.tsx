@@ -15,6 +15,9 @@ import ProtectedRoute from "@/components/ProtectedRoute/ProtectedRoute.tsx";
 import {QueryErrorHandler} from "@/components/QueryErrorHandler";
 import WarehousesPage from "@/pages/WarehousesPage/WarehousesPage.tsx";
 import WarehouseViewPage from "@/pages/WarehousesPage/pages/WarehouseViewPage/WarehouseViewPage.tsx";
+const WarehouseItemsPage = React.lazy(
+  () => import("@/pages/WarehousesPage/pages/WarehouseItemsPage/WarehouseItemsPage.tsx"),
+);
 
 const HomePage = React.lazy(() => import("@/pages/HomePage/HomePage.tsx"));
 const MyProfilePage = React.lazy(() => import("@/pages/MyProfilePage/MyProfilePage.tsx"));
@@ -93,6 +96,11 @@ function App() {
                     <ProtectedRoute
                       path="/warehouses/:id"
                       element={<WarehouseViewPage />}
+                      requiredPermission="warehouses.view"
+                    />
+                    <ProtectedRoute
+                      path="/warehouses/:id/items"
+                      element={<WarehouseItemsPage />}
                       requiredPermission="warehouses.view"
                     />
                     <ProtectedRoute path="/settings/*" element={<SettingsPage />} />

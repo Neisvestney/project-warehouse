@@ -42,6 +42,7 @@ import {
   warehousesCreate,
   warehousesDelete,
   warehousesGetAll,
+  warehousesGetAllItemsGroups,
   warehousesGetById,
   warehousesGetByIdForPrint,
   warehousesUpdate,
@@ -142,6 +143,9 @@ import type {
   WarehousesDeleteResponse,
   WarehousesGetAllData,
   WarehousesGetAllError,
+  WarehousesGetAllItemsGroupsData,
+  WarehousesGetAllItemsGroupsError,
+  WarehousesGetAllItemsGroupsResponse,
   WarehousesGetAllResponse,
   WarehousesGetByIdData,
   WarehousesGetByIdError,
@@ -1319,3 +1323,89 @@ export const warehousesGetByIdForPrintOptions = (options: Options<WarehousesGetB
     },
     queryKey: warehousesGetByIdForPrintQueryKey(options),
   });
+
+export const warehousesGetAllItemsGroupsQueryKey = (
+  options: Options<WarehousesGetAllItemsGroupsData>,
+) => createQueryKey("warehousesGetAllItemsGroups", options);
+
+/**
+ * List all item groups in a warehouse (paginated, optionally filtered).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString` (optional).
+ * Searches across item name, article, barcode (item + characteristic), and characteristic.
+ * Returns `Paginated&lt;ItemsGroupDto&gt;`.
+ */
+export const warehousesGetAllItemsGroupsOptions = (
+  options: Options<WarehousesGetAllItemsGroupsData>,
+) =>
+  queryOptions<
+    WarehousesGetAllItemsGroupsResponse,
+    WarehousesGetAllItemsGroupsError,
+    WarehousesGetAllItemsGroupsResponse,
+    ReturnType<typeof warehousesGetAllItemsGroupsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await warehousesGetAllItemsGroups({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: warehousesGetAllItemsGroupsQueryKey(options),
+  });
+
+export const warehousesGetAllItemsGroupsInfiniteQueryKey = (
+  options: Options<WarehousesGetAllItemsGroupsData>,
+): QueryKey<Options<WarehousesGetAllItemsGroupsData>> =>
+  createQueryKey("warehousesGetAllItemsGroups", options, true);
+
+/**
+ * List all item groups in a warehouse (paginated, optionally filtered).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString` (optional).
+ * Searches across item name, article, barcode (item + characteristic), and characteristic.
+ * Returns `Paginated&lt;ItemsGroupDto&gt;`.
+ */
+export const warehousesGetAllItemsGroupsInfiniteOptions = (
+  options: Options<WarehousesGetAllItemsGroupsData>,
+) =>
+  infiniteQueryOptions<
+    WarehousesGetAllItemsGroupsResponse,
+    WarehousesGetAllItemsGroupsError,
+    InfiniteData<WarehousesGetAllItemsGroupsResponse>,
+    QueryKey<Options<WarehousesGetAllItemsGroupsData>>,
+    | number
+    | Pick<
+        QueryKey<Options<WarehousesGetAllItemsGroupsData>>[0],
+        "body" | "headers" | "path" | "query"
+      >
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({pageParam, queryKey, signal}) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<WarehousesGetAllItemsGroupsData>>[0],
+          "body" | "headers" | "path" | "query"
+        > =
+          typeof pageParam === "object"
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const {data} = await warehousesGetAllItemsGroups({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: warehousesGetAllItemsGroupsInfiniteQueryKey(options),
+    },
+  );

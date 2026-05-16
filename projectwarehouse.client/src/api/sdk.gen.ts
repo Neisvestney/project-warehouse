@@ -98,6 +98,9 @@ import type {
   WarehousesDeleteResponses,
   WarehousesGetAllData,
   WarehousesGetAllErrors,
+  WarehousesGetAllItemsGroupsData,
+  WarehousesGetAllItemsGroupsErrors,
+  WarehousesGetAllItemsGroupsResponses,
   WarehousesGetAllResponses,
   WarehousesGetByIdData,
   WarehousesGetByIdErrors,
@@ -638,3 +641,19 @@ export const warehousesGetByIdForPrint = <ThrowOnError extends boolean = false>(
     WarehousesGetByIdForPrintErrors,
     ThrowOnError
   >({url: "/api/warehouses/{id}/print", ...options});
+
+/**
+ * List all item groups in a warehouse (paginated, optionally filtered).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString` (optional).
+ * Searches across item name, article, barcode (item + characteristic), and characteristic.
+ * Returns `Paginated&lt;ItemsGroupDto&gt;`.
+ */
+export const warehousesGetAllItemsGroups = <ThrowOnError extends boolean = false>(
+  options: Options<WarehousesGetAllItemsGroupsData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    WarehousesGetAllItemsGroupsResponses,
+    WarehousesGetAllItemsGroupsErrors,
+    ThrowOnError
+  >({url: "/api/warehouses/{id}/items-groups", ...options});
