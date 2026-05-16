@@ -2,6 +2,7 @@ import {useEffect, useRef, useState} from "react";
 import {observer} from "mobx-react-lite";
 import {Link, useParams} from "react-router";
 import {Box, Button, CircularProgress, Paper, Stack} from "@mui/material";
+import DeleteIcon from "@mui/icons-material/Delete";
 import {useForm} from "react-hook-form";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {useSnackbar} from "notistack";
@@ -21,6 +22,7 @@ import {WarehouseEditStoreProvider} from "./WarehouseEditStoreContext";
 import WarehouseMetaForm from "./components/WarehouseMetaForm";
 import WarehouseEditToolbar from "./components/WarehouseEditToolbar";
 import WarehouseCanvas from "./components/WarehouseCanvas";
+import DeleteWarehouseDialog from "./components/DeleteWarehouseDialog";
 
 export default observer(function WarehouseEditPage() {
   const {id} = useParams<{id: string}>();
@@ -28,6 +30,7 @@ export default observer(function WarehouseEditPage() {
   const queryClient = useQueryClient();
 
   const [store] = useState(() => new WarehouseEditStore());
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const form = useForm<WarehouseMetaFormValues>({
     defaultValues: {name: "", width: 10, height: 10},
@@ -112,6 +115,15 @@ export default observer(function WarehouseEditPage() {
                 Назад
               </Button>
               <Button
+                onClick={() => setDeleteOpen(true)}
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteIcon />}
+                disabled={isSaving}
+              >
+                Удалить
+              </Button>
+              <Button
                 onClick={() => onSubmit()}
                 variant="contained"
                 disabled={isSaving}
@@ -132,6 +144,12 @@ export default observer(function WarehouseEditPage() {
           <WarehouseCanvas />
         </Stack>
       </Stack>
+      <DeleteWarehouseDialog
+        open={deleteOpen}
+        warehouseId={id!}
+        warehouseName={warehouse.name}
+        onClose={() => setDeleteOpen(false)}
+      />
     </WarehouseEditStoreProvider>
   );
 });

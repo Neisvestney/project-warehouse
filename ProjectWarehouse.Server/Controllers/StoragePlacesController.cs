@@ -165,6 +165,10 @@ public class StoragePlacesController(
             return UnprocessableEntity("nodeId", ErrorCode.StoragePlaceNodeHasChildren,
                 "Cannot delete a node that has children.");
 
+        if (node.ItemsGroups.Any(g => g.Count > 0))
+            return UnprocessableEntity("nodeId", ErrorCode.StoragePlaceNodeHasItems,
+                "Cannot delete a node that has items stored in it.");
+
         var nodeDto = mapper.Map<StoragePlaceNodeDetailsDto>(node);
 
         db.StoragePlacesNodes.Remove(node);

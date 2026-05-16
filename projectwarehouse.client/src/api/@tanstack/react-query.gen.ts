@@ -439,6 +439,8 @@ export const catalogCreateMutation = (
 
 /**
  * Delete a catalog item and all its characteristics.
+ *
+ * Returns 409 `catalogItemIsInUse` if the item is currently stored in any warehouse.
  */
 export const catalogDeleteMutation = (
   options?: Partial<Options<CatalogDeleteData>>,
@@ -1215,6 +1217,8 @@ export const warehousesCreateMutation = (
 
 /**
  * Delete a warehouse and all its storage places.
+ *
+ * Returns 409 `warehouseHasItems` if the warehouse contains any stored items.
  */
 export const warehousesDeleteMutation = (
   options?: Partial<Options<WarehousesDeleteData>>,

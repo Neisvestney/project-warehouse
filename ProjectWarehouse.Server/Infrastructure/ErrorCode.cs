@@ -27,9 +27,13 @@ public enum ErrorCode
     CatalogItemCharacteristicNotFound,
     StoragePlaceNodeNotFound,
     StoragePlaceNodeHasChildren,
+    StoragePlaceNodeHasItems,
     StoragePlaceNodeCyclicParent,
     StoragePlaceNodeItemsGroupNotFound,
     CatalogItemCharacteristicDuplicate,
+    WarehouseHasItems,
+    StoragePlaceHasItems,
+    CatalogItemIsInUse,
 
     // Validation
     Required,

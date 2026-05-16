@@ -172,10 +172,12 @@ public class CatalogController(
     }
 
     /// <summary>Delete a catalog item and all its characteristics.</summary>
+    /// <remarks>Returns 409 <c>catalogItemIsInUse</c> if the item is currently stored in any warehouse.</remarks>
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = Permissions.Catalog.Edit)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct = default)
     {
         var item = await db.CatalogItems
@@ -184,6 +186,11 @@ public class CatalogController(
 
         if (item is null)
             return NotFound(ErrorCode.CatalogItemNotFound, "Catalog item not found.");
+
+        var isInUse = await db.StoragePlacesNodesItemsGroups
+            .AnyAsync(g => g.CatalogItemWithCharacteristic.CatalogItemId == id && g.Count > 0, ct);
+        if (isInUse)
+            return Conflict(ErrorCode.CatalogItemIsInUse, "Cannot delete a catalog item that is stored in a warehouse.");
 
         var dto = mapper.Map<CatalogItemDto>(item);
 

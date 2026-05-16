@@ -22,6 +22,9 @@ const WarehouseItemsPage = React.lazy(
 const WarehouseEditPage = React.lazy(
   () => import("@/pages/WarehousesPage/pages/WarehouseEditPage/WarehouseEditPage.tsx"),
 );
+const WarehouseNewPage = React.lazy(
+  () => import("@/pages/WarehousesPage/pages/WarehouseNewPage/WarehouseNewPage.tsx"),
+);
 
 const HomePage = React.lazy(() => import("@/pages/HomePage/HomePage.tsx"));
 const MyProfilePage = React.lazy(() => import("@/pages/MyProfilePage/MyProfilePage.tsx"));
@@ -106,6 +109,11 @@ function App() {
                       path="/warehouses/:id/items"
                       element={<WarehouseItemsPage />}
                       requiredPermission="warehouses.view"
+                    />
+                    <ProtectedRoute
+                      path="/warehouses/new"
+                      element={<WarehouseNewPage />}
+                      requiredPermission="warehouses.edit"
                     />
                     <ProtectedRoute
                       path="/warehouses/:id/edit"
