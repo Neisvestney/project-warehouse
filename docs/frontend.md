@@ -131,10 +131,12 @@ src/
 │   ├── WarehousesPage/
 │   │   ├── WarehousesPage.tsx   # Paginated, searchable warehouse list (no permission guard yet)
 │   │   └── pages/
-│   │       └── WarehouseViewPage/
-│   │           ├── WarehouseViewPage.tsx    # Warehouse detail with pan/zoom storage place grid; "Этикетки" button prints all node labels
-│   │           ├── StoragePlaceDialog.tsx   # Right-drawer: node tree (SimpleTreeView) + NodeDetails panel for selected node
-│   │           └── NodeDetails.tsx          # Node detail panel: view/edit item groups (catalog item + characteristic + count)
+│   │       ├── WarehouseViewPage/
+│   │       │   ├── WarehouseViewPage.tsx    # Warehouse detail with pan/zoom storage place grid; "Этикетки" + "Список товаров" buttons
+│   │       │   ├── StoragePlaceDialog.tsx   # Right-drawer: node tree (SimpleTreeView) + NodeDetails panel for selected node
+│   │       │   └── NodeDetails.tsx          # Node detail panel: view/edit item groups (catalog item + characteristic + count)
+│   │       └── WarehouseItemsPage/
+│   │           └── WarehouseItemsPage.tsx   # Paginated, searchable table of all item groups in a warehouse; link-to-catalog per row
 │   └── SettingsPage/
 │       ├── SettingsPage.tsx     # Sections declaration only — drives routes + sidebar nav for /settings/*
 │       └── pages/
@@ -196,6 +198,7 @@ src/
 /users/:id         → MainLayout > UserViewPage      (users.view)
 /users/:id/edit    → MainLayout > UserEditPage      (users.edit_profile)
 /catalog           → MainLayout > CatalogPage        (catalog.view)
+/warehouses/:id/items → MainLayout > WarehouseItemsPage  (warehouses.view)
 /settings/*        → MainLayout > SettingsPage      (authenticated)
 /settings          →   redirect to /settings/roles
 /settings/roles    →   RolesSettingsPage            (roles.view)
@@ -262,6 +265,13 @@ Server-side paginated, searchable list of catalog items. Requires `catalog.view`
 Warehouse detail page with a pan/zoom Konva canvas showing storage place rectangles. Clicking a storage place opens `StoragePlaceDialog` (1000 px wide right drawer) with a `SimpleTreeView` of that storage place's nodes on the left and `NodeDetails` on the right when a node is selected.
 
 **"Этикетки" button** fetches `GET /api/warehouses/{id}/print`, then calls `openPrintPage` with all nodes as `DataMatrix` labels (value = node ID, label = full path joined by ` / `). A `CircularProgress` spinner replaces the print icon while the request is in-flight.
+
+**"Список товаров" button** is a `Link` to `/warehouses/:id/items`.
+
+### `WarehouseItemsPage`
+Paginated, searchable table of all item groups aggregated across the entire warehouse. Requires `warehouses.view`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Also fetches the warehouse by ID (cached from `WarehouseViewPage`) for the breadcrumb name.
+
+Columns: **Название**, **Артикул**, **Характеристика**, **Штрихкод** (characteristic barcode falling back to catalog item barcode), **Количество** (shown as a `Chip`), and an action column with an `OpenInNew` icon button linking to `/catalog?item={catalogItemId}` — opens the catalog drawer directly on the item.
 
 ### `NodeDetails`
 Panel rendered inside `StoragePlaceDialog` for the selected node. Fetches `StoragePlaceNodeDetailsDto` via `GET /api/storagePlaces/{id}/nodes/{nodeId}`. Displays and edits the node's item groups:

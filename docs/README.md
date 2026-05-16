@@ -29,6 +29,7 @@ ProjectWarehouse.Server/   ASP.NET Core 9 REST API
 | [errors.md](errors.md) | Error response format (`AppProblemDetails`), all error codes |
 | [validation.md](validation.md) | Validation pipeline, `[JsonRequired]`, ModelState mapping |
 | [changelog.md](changelog.md) | Changelog system: architecture, how to add tracking to new methods, Action/ActionData |
+| [backend-patterns.md](backend-patterns.md) | Recurring backend implementation patterns (search, etc.) |
 | [frontend.md](frontend.md) | Frontend architecture, pages, components, routing |
 | [technical-specification.md](technical-specification.md) | WMS operational flows — data models, APIs, UX requirements |
 
