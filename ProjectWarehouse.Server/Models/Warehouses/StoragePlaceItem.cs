@@ -14,4 +14,5 @@ public class StoragePlaceItem : IHasNullableIdentity
     public decimal Y { get; init; }
     public decimal Width { get; init; }
     public decimal Height { get; init; }
+    public decimal Rotation { get; init; }
 }

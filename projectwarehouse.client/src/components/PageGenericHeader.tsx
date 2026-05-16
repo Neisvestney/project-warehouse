@@ -25,7 +25,12 @@ function PageGenericHeader({title, children, right}: PageGenericHeaderProps) {
         <MiddleContentWrapper>{children ?? <span></span>}</MiddleContentWrapper>
       </Box>
       {right && (
-        <Stack spacing={1} direction={"row"} sx={{flexShrink: 99, alignItems: "center"}}>
+        <Stack
+          spacing={1}
+          direction={"row"}
+          useFlexGap
+          sx={{flexShrink: 99, alignItems: "center", flexWrap: "wrap"}}
+        >
           {right}
         </Stack>
       )}

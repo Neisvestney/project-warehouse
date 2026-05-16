@@ -170,7 +170,17 @@ public class WarehousesController(
                 X = sp.X,
                 Y = sp.Y,
                 Width = sp.Width,
-                Height = sp.Height
+                Height = sp.Height,
+                Rotation = sp.Rotation
+            }).ToList(),
+            LayoutObjects = request.LayoutObjects.Select(lo => new WarehouseLayoutElement
+            {
+                X = lo.X,
+                Y = lo.Y,
+                Width = lo.Width,
+                Height = lo.Height,
+                Rotation = lo.Rotation,
+                Type = lo.Type
             }).ToList()
         };
 
@@ -202,6 +212,7 @@ public class WarehousesController(
     {
         var warehouse = await db.Warehouses
             .Include(w => w.StoragePlaces)
+            .Include(w => w.LayoutObjects)
             .FirstOrDefaultAsync(w => w.Id == id, ct);
 
         if (warehouse is null)
@@ -233,6 +244,17 @@ public class WarehousesController(
         warehouse.Name = request.Name;
         warehouse.Width = request.Width;
         warehouse.Height = request.Height;
+        warehouse.LayoutObjects.Clear();
+        foreach (var lo in request.LayoutObjects)
+            warehouse.LayoutObjects.Add(new WarehouseLayoutElement
+            {
+                X = lo.X,
+                Y = lo.Y,
+                Width = lo.Width,
+                Height = lo.Height,
+                Rotation = lo.Rotation,
+                Type = lo.Type
+            });
 
         var incomingIds = incomingWithId.Select(sp => sp.Id!.Value).ToHashSet();
 
@@ -250,6 +272,7 @@ public class WarehousesController(
             existing.Y = item.Y;
             existing.Width = item.Width;
             existing.Height = item.Height;
+            existing.Rotation = item.Rotation;
         }
 
         var toCreate = request.StoragePlaces
@@ -262,6 +285,7 @@ public class WarehousesController(
                 Y = sp.Y,
                 Width = sp.Width,
                 Height = sp.Height,
+                Rotation = sp.Rotation,
                 WarehouseId = warehouse.Id
             })
             .ToList();

@@ -403,6 +403,9 @@ namespace ProjectWarehouse.Server.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<decimal>("Rotation")
+                        .HasColumnType("numeric");
+
                     b.Property<Guid>("WarehouseId")
                         .HasColumnType("uuid");
 
@@ -630,6 +633,42 @@ namespace ProjectWarehouse.Server.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Warehouse", b =>
+                {
+                    b.OwnsMany("ProjectWarehouse.Server.Domain.WarehouseLayoutElement", "LayoutObjects", b1 =>
+                        {
+                            b1.Property<Guid>("WarehouseId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
+
+                            b1.Property<decimal>("Height");
+
+                            b1.Property<decimal>("Rotation");
+
+                            b1.Property<int>("Type");
+
+                            b1.Property<decimal>("Width");
+
+                            b1.Property<decimal>("X");
+
+                            b1.Property<decimal>("Y");
+
+                            b1.HasKey("WarehouseId", "__synthesizedOrdinal");
+
+                            b1.ToTable("Warehouses");
+
+                            b1
+                                .ToJson("LayoutObjects")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("WarehouseId");
+                        });
+
+                    b.Navigation("LayoutObjects");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlaceNodeItemsGroup", b =>

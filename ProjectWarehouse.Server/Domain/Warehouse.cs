@@ -11,6 +11,7 @@ public class Warehouse : IHasIdentity
     public decimal Height {get; set;}
 
     public ICollection<StoragePlace> StoragePlaces { get; set; } = [];
+    public ICollection<WarehouseLayoutElement> LayoutObjects { get; set; } = [];
 
     [Projectable]
     public int TotalItemsCount => StoragePlaces.Sum(p => p.TotalItemsCount);

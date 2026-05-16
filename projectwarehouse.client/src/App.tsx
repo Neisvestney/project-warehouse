@@ -19,6 +19,9 @@ import PageNotFound from "@/components/PageNotFound.tsx";
 const WarehouseItemsPage = React.lazy(
   () => import("@/pages/WarehousesPage/pages/WarehouseItemsPage/WarehouseItemsPage.tsx"),
 );
+const WarehouseEditPage = React.lazy(
+  () => import("@/pages/WarehousesPage/pages/WarehouseEditPage/WarehouseEditPage.tsx"),
+);
 
 const HomePage = React.lazy(() => import("@/pages/HomePage/HomePage.tsx"));
 const MyProfilePage = React.lazy(() => import("@/pages/MyProfilePage/MyProfilePage.tsx"));
@@ -103,6 +106,11 @@ function App() {
                       path="/warehouses/:id/items"
                       element={<WarehouseItemsPage />}
                       requiredPermission="warehouses.view"
+                    />
+                    <ProtectedRoute
+                      path="/warehouses/:id/edit"
+                      element={<WarehouseEditPage />}
+                      requiredPermission="warehouses.edit"
                     />
                     <ProtectedRoute path="/settings/*" element={<SettingsPage />} />
                     <Route path="*" element={<PageNotFound />} />
