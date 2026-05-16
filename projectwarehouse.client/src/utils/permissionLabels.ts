@@ -13,6 +13,7 @@ const permissionLabels: Record<PermissionName, string> = {
   "catalog.edit": "Редактирование каталога",
   "warehouses.view": "Просмотр всех складов",
   "warehouses.edit": "Редактирование всех складов",
+  "changelog.view": "Просмотр списка изменений",
 };
 
 export function getPermissionLabel(permission: PermissionName | string): string {
