@@ -1,6 +1,8 @@
-﻿namespace ProjectWarehouse.Server.Domain;
+﻿using ProjectWarehouse.Server.Infrastructure;
 
-public abstract class ItemsGroup
+namespace ProjectWarehouse.Server.Domain;
+
+public abstract class ItemsGroup : IHasIdentity
 {
     public Guid Id {get; set;}
     public Guid CatalogItemWithCharacteristicId { get; set; }

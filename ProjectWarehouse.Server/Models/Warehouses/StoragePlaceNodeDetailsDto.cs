@@ -1,6 +1,8 @@
+using ProjectWarehouse.Server.Infrastructure;
+
 namespace ProjectWarehouse.Server.Models.Warehouses;
 
-public class StoragePlaceNodeDetailsDto
+public class StoragePlaceNodeDetailsDto : IHasIdentity
 {
     public Guid Id { get; init; }
     public string Name { get; init; } = null!;

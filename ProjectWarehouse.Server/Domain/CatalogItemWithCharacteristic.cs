@@ -1,6 +1,8 @@
-﻿namespace ProjectWarehouse.Server.Domain;
+﻿using ProjectWarehouse.Server.Infrastructure;
 
-public class CatalogItemWithCharacteristic
+namespace ProjectWarehouse.Server.Domain;
+
+public class CatalogItemWithCharacteristic : IHasIdentity
 {
     public Guid Id { get; set; }
     public string Characteristic { get; set; } = null!;

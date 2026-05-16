@@ -1,5 +1,7 @@
+using System.Text.Json;
 using AutoMapper;
 using ProjectWarehouse.Server.Domain;
+using ProjectWarehouse.Server.Models.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
 using ProjectWarehouse.Server.Models.Roles;
@@ -38,5 +40,12 @@ public class AppMapperProfile : Profile
         CreateMap<Warehouse, AppEntity>()
             .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Warehouse))
             .ForMember(x => x.AdditionalFields, opt => opt.MapFrom(_ => (IReadOnlyDictionary<string, object>?)null));
+
+        CreateMap<ChangeLogEntry, ChangeLogEntryDto>()
+            .ForMember(d => d.UserName, opt => opt.MapFrom(s => s.User != null ? s.User.UserName : "deleted"))
+            .ForMember(d => d.Context, opt => opt.MapFrom(s =>
+                s.Context != null ? JsonSerializer.Deserialize<JsonElement>(s.Context) : (JsonElement?)null))
+            .ForMember(d => d.ActionData, opt => opt.MapFrom(s =>
+                s.ActionData != null ? JsonSerializer.Deserialize<JsonElement>(s.ActionData) : (JsonElement?)null));
     }
 }

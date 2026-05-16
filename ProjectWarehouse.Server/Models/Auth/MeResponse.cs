@@ -1,6 +1,8 @@
+using ProjectWarehouse.Server.Infrastructure;
+
 namespace ProjectWarehouse.Server.Models.Auth;
 
-public class MeResponse
+public class MeResponse : IHasIdentity
 {
     public Guid Id { get; init; }
     public string Username { get; init; } = null!;

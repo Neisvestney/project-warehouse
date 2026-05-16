@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Warehouses;
 
@@ -15,7 +16,8 @@ namespace ProjectWarehouse.Server.Controllers;
 [Route("api/warehouses")]
 public class WarehousesController(
     ApplicationDbContext db,
-    IMapper mapper) : AppControllerBase
+    IMapper mapper,
+    IChangeLogService<WarehouseDto> changeLog) : AppControllerBase
 {
     /// <summary>List all warehouses (paginated, optionally filtered by name).</summary>
     /// <remarks>
@@ -123,7 +125,10 @@ public class WarehousesController(
         db.Warehouses.Add(warehouse);
         await db.SaveChangesAsync(ct);
 
-        return CreatedAtAction(nameof(GetById), new { id = warehouse.Id }, mapper.Map<WarehouseDto>(warehouse));
+        var dto = mapper.Map<WarehouseDto>(warehouse);
+        await changeLog.CompareAndSaveToChangelog(null, dto);
+
+        return CreatedAtAction(nameof(GetById), new { id = warehouse.Id }, dto);
     }
 
     /// <summary>Update a warehouse and atomically sync its storage places.</summary>
@@ -149,6 +154,10 @@ public class WarehousesController(
 
         if (warehouse is null)
             return NotFound(ErrorCode.WarehouseNotFound, "Warehouse not found.");
+
+        var beforeDto = await db.Warehouses
+            .ProjectTo<WarehouseDto>(mapper.ConfigurationProvider)
+            .FirstAsync(w => w.Id == id, ct);
 
         var incomingWithId = request.StoragePlaces
             .Where(sp => sp.Id is not null)
@@ -213,6 +222,8 @@ public class WarehousesController(
             .ProjectTo<WarehouseDto>(mapper.ConfigurationProvider)
             .FirstAsync(w => w.Id == id, ct);
 
+        await changeLog.CompareAndSaveToChangelog(beforeDto, warehouseDto);
+
         return Ok(warehouseDto);
     }
 
@@ -223,13 +234,18 @@ public class WarehousesController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct = default)
     {
-        var warehouse = await db.Warehouses.FindAsync([id], ct);
+        var warehouseBeforeDto = await db.Warehouses
+            .ProjectTo<WarehouseDto>(mapper.ConfigurationProvider)
+            .FirstOrDefaultAsync(w => w.Id == id, ct);
 
-        if (warehouse is null)
+        if (warehouseBeforeDto is null)
             return NotFound(ErrorCode.WarehouseNotFound, "Warehouse not found.");
 
-        db.Warehouses.Remove(warehouse);
+        var warehouse = await db.Warehouses.FindAsync([id], ct);
+        db.Warehouses.Remove(warehouse!);
         await db.SaveChangesAsync(ct);
+
+        await changeLog.CompareAndSaveToChangelog(warehouseBeforeDto, null);
 
         return NoContent();
     }

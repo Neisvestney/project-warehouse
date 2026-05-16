@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Users;
 using ProjectWarehouse.Server.Services;
@@ -20,7 +21,8 @@ public class UsersController(
     UserManager<ApplicationUser> userManager,
     ApplicationDbContext db,
     SecurityVersionStore versionStore,
-    IMapper mapper) : AppControllerBase
+    IMapper mapper,
+    IChangeLogService<UserDetailDto> changeLogService) : AppControllerBase
 {
     private Task<ApplicationUser?> LoadUserWithDetailsAsync(Guid id, CancellationToken ct = default) =>
         db.Users
@@ -33,8 +35,8 @@ public class UsersController(
     [Authorize(Policy = Permissions.Users.View)]
     [ProducesResponseType<Paginated<UserDetailDto>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(
-        [FromQuery][Range(1, int.MaxValue)] int page = 1,
-        [FromQuery][Range(1, 200)] int pageSize = 20,
+        [FromQuery] [Range(1, int.MaxValue)] int page = 1,
+        [FromQuery] [Range(1, 200)] int pageSize = 20,
         [FromQuery] string? searchString = null,
         [FromQuery] Guid? role = null,
         CancellationToken ct = default)
@@ -46,9 +48,9 @@ public class UsersController(
         {
             users = users.Where(x => x.UserRoles.Any(ur => ur.RoleId == r));
         }
-        
+
         users = users.OrderBy(u => u.Id);
-        
+
         var paginated = await users
             .ProjectTo<UserDetailDto>(mapper.ConfigurationProvider)
             .ToPaginatedAsync(page, pageSize, ct);
@@ -94,14 +96,16 @@ public class UsersController(
 
         var result = await userManager.CreateAsync(user, request.Password);
         if (!result.Succeeded)
-        { 
+        {
             return Problem(PasswordValidationErrorsMapper.MapPasswordValidationErrors(result.Errors));
         }
-        
+
         var dto = await db.Users
             .Where(u => u.Id == user.Id)
             .ProjectTo<UserDetailDto>(mapper.ConfigurationProvider)
             .FirstAsync();
+
+        await changeLogService.CompareAndSaveToChangelog(null, dto);
 
         return CreatedAtAction(nameof(GetById), new { id = user.Id }, dto);
     }
@@ -112,11 +116,14 @@ public class UsersController(
     [ProducesResponseType<UserDetailDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateUserRequest request, CancellationToken ct = default)
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateUserRequest request,
+        CancellationToken ct = default)
     {
         var user = await LoadUserWithDetailsAsync(id, ct);
         if (user is null)
             return NotFound(ErrorCode.UserNotFound, "User not found.");
+
+        var beforeDto = mapper.Map<UserDetailDto>(user);
 
         var currentRoleIds = user.UserRoles.Select(ur => ur.RoleId).ToHashSet();
         var requestedRoleIds = request.RoleIds.ToHashSet();
@@ -127,7 +134,8 @@ public class UsersController(
         var permissionsChanged = !currentPermissions.SetEquals(requestedPermissions);
 
         // Authorization checks before any mutations
-        if ((rolesChanged || permissionsChanged) && !User.HasClaim("permission", Permissions.Users.ManageRolesAndPermissions))
+        if ((rolesChanged || permissionsChanged) &&
+            !User.HasClaim("permission", Permissions.Users.ManageRolesAndPermissions))
             return Forbidden();
 
         // Validate unknown permission strings
@@ -135,7 +143,8 @@ public class UsersController(
         if (unknownPermissions.Count > 0)
         {
             var errors = unknownPermissions.Select(p =>
-                ("directPermissions", ErrorCode.PermissionNotFound, $"Unknown permission: '{p}'", (IReadOnlyDictionary<string, object>?)null));
+                ("directPermissions", ErrorCode.PermissionNotFound, $"Unknown permission: '{p}'",
+                    (IReadOnlyDictionary<string, object>?)null));
             return Problem(AppProblems.UnprocessableEntities(errors));
         }
 
@@ -167,7 +176,8 @@ public class UsersController(
         var profileResult = await userManager.UpdateAsync(user);
         if (!profileResult.Succeeded)
         {
-            var errors = profileResult.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
+            var errors = profileResult.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description,
+                (IReadOnlyDictionary<string, object>?)null));
             return Problem(AppProblems.UnprocessableEntities(errors));
         }
 
@@ -176,7 +186,8 @@ public class UsersController(
             var result = await userManager.AddToRoleAsync(user, role.Name!);
             if (!result.Succeeded)
             {
-                var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
+                var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description,
+                    (IReadOnlyDictionary<string, object>?)null));
                 return Problem(AppProblems.UnprocessableEntities(errors));
             }
         }
@@ -186,7 +197,8 @@ public class UsersController(
             var result = await userManager.RemoveFromRoleAsync(user, role.Name!);
             if (!result.Succeeded)
             {
-                var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
+                var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description,
+                    (IReadOnlyDictionary<string, object>?)null));
                 return Problem(AppProblems.UnprocessableEntities(errors));
             }
         }
@@ -209,6 +221,9 @@ public class UsersController(
             .Where(u => u.Id == id)
             .ProjectTo<UserDetailDto>(mapper.ConfigurationProvider)
             .FirstAsync(ct);
+
+        await changeLogService.CompareAndSaveToChangelog(beforeDto, dto);
+        
         return Ok(dto);
     }
 
@@ -223,13 +238,22 @@ public class UsersController(
         if (user is null)
             return NotFound(ErrorCode.UserNotFound, "User not found.");
 
+        var beforeDto = await db.Users
+            .Where(u => u.Id == id)
+            .ProjectTo<UserDetailDto>(mapper.ConfigurationProvider)
+            .FirstAsync();
+
         var result = await userManager.DeleteAsync(user);
         if (!result.Succeeded)
         {
-            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
+            var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description,
+                (IReadOnlyDictionary<string, object>?)null));
             return Problem(AppProblems.UnprocessableEntities(errors));
         }
-        versionStore.Evict(user.Id);
+
+        versionStore.Evict(id);
+        await changeLogService.CompareAndSaveToChangelog(beforeDto, null);
+
         return NoContent();
     }
 

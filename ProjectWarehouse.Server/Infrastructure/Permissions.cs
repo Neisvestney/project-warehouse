@@ -38,4 +38,9 @@ public static class Permissions
         public const string View = "catalog.view";
         public const string Edit = "catalog.edit";
     }
+
+    public static class ChangeLog
+    {
+        public const string View = "changelog.view";
+    }
 }

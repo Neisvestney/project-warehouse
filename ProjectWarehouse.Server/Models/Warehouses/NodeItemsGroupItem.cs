@@ -1,8 +1,9 @@
 using System.ComponentModel.DataAnnotations;
+using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Models.Warehouses;
 
-public class NodeItemsGroupItem
+public class NodeItemsGroupItem : IHasNullableIdentity
 {
     public Guid? Id { get; init; }
     public Guid CatalogItemWithCharacteristicId { get; init; }

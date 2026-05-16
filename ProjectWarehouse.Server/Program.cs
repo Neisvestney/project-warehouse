@@ -18,7 +18,12 @@ using Microsoft.OpenApi;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Models;
+using ProjectWarehouse.Server.Models.Catalog;
+using ProjectWarehouse.Server.Models.Roles;
+using ProjectWarehouse.Server.Models.Users;
+using ProjectWarehouse.Server.Models.Warehouses;
 using ProjectWarehouse.Server.Services;
 using Scalar.AspNetCore;
 using Serilog;
@@ -151,7 +156,11 @@ try
             connStr = csb.ConnectionString;
         }
 
-        options.UseNpgsql(connStr).UseProjectables();
+        var dataSource = new NpgsqlDataSourceBuilder(connStr)
+            .EnableDynamicJson()
+            .Build();
+
+        options.UseNpgsql(dataSource).UseProjectables();
     });
 
     builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
@@ -244,11 +253,21 @@ try
         };
     });
 
+    builder.Services.AddHttpContextAccessor();
+
     builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
     builder.Services.AddScoped<ITokenService, TokenService>();
     builder.Services.AddScoped<IPermissionService, PermissionService>();
     builder.Services.AddSingleton<SecurityVersionStore>();
     builder.Services.AddAutoMapper(typeof(Program).Assembly);
+
+    builder.Services.AddScoped<IChangeLogService, AppChangeLogService>();
+    builder.Services.AddScoped<IChangeLogService<UserDetailDto>, UserDetailDtoChangelogService>();
+    builder.Services.AddScoped<IChangeLogService<CatalogItemDto>, CatalogItemDtoChangelogService>();
+    builder.Services.AddScoped<IChangeLogService<WarehouseDto>, WarehouseDtoChangelogService>();
+    builder.Services.AddScoped<IChangeLogService<StoragePlaceNodeDetailsDto>, StoragePlaceNodeDetailsDtoChangelogService>();
+    builder.Services.AddScoped<IChangeLogService<RolesListDto>, RolesListDtoChangelogService>();
+
 
     var app = builder.Build();
 
