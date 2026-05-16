@@ -24,9 +24,13 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     
+    public DbSet<CatalogItem> CatalogItems => Set<CatalogItem>();
+    public DbSet<CatalogItemWithCharacteristic> CatalogItemsWithCharacteristics => Set<CatalogItemWithCharacteristic>();
+    
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
     public DbSet<StoragePlace> StoragePlaces => Set<StoragePlace>();
     public DbSet<StoragePlaceNode> StoragePlacesNodes => Set<StoragePlaceNode>();
+    public DbSet<StoragePlaceNodeItemsGroup> StoragePlacesNodesItemsGroups => Set<StoragePlaceNodeItemsGroup>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -60,16 +64,45 @@ public class ApplicationDbContext : IdentityDbContext<
             e.Ignore(x => x.IsActive);
         });
         
+        builder.Entity<CatalogItem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasMany(x => x.Characteristics).WithOne(x => x.CatalogItem).HasForeignKey(x => x.CatalogItemId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<CatalogItemWithCharacteristic>(e =>
+        {
+            e.HasKey(x => x.Id);
+        });
+
+        builder.Entity<ItemsGroup>(e =>
+        {
+            e.HasKey(x => x.Id);
+        });
+
+        builder.Entity<StoragePlaceNodeItemsGroup>(e =>
+        {
+            e.HasOne(x => x.CatalogItemWithCharacteristic)
+             .WithMany(x => x.StoragePlaceNodesItemsGroups)
+             .HasForeignKey(x => x.CatalogItemWithCharacteristicId)
+             .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.StoragePlaceNode)
+             .WithMany(x => x.ItemsGroups)
+             .HasForeignKey(x => x.StoragePlaceNodeId)
+             .OnDelete(DeleteBehavior.Restrict);
+        });
+
         builder.Entity<Warehouse>(e =>
         {
             e.HasKey(x => x.Id);
             e.HasMany(x => x.StoragePlaces).WithOne(x => x.Warehouse).HasForeignKey(x => x.WarehouseId);
         });
-        
+
         builder.Entity<StoragePlace>(e =>
         {
             e.HasKey(x => x.Id);
-            e.HasMany(x => x.StoragePlaceNodes).WithOne(x => x.RootStoragePlace).HasForeignKey(x => x.RootStoragePlaceId);
+            e.HasMany(x => x.StoragePlaceNodes).WithOne(x => x.RootStoragePlace).HasForeignKey(x => x.RootStoragePlaceId)
+             .OnDelete(DeleteBehavior.Restrict);
         });
         
         builder.Entity<StoragePlaceNode>(e =>

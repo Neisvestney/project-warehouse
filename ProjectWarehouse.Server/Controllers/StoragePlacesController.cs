@@ -154,6 +154,150 @@ public class StoragePlacesController(
         return Ok(await GetFlatNodesAsync(id, ct));
     }
 
+    /// <summary>Get a node by ID including its item groups.</summary>
+    [HttpGet("{id:guid}/nodes/{nodeId:guid}")]
+    [Authorize(Policy = Permissions.Warehouses.View)]
+    [ProducesResponseType<StoragePlaceNodeDetailsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetNodeDetails(Guid id, Guid nodeId, CancellationToken ct = default)
+    {
+        if (!await db.StoragePlaces.AnyAsync(sp => sp.Id == id, ct))
+            return NotFound(ErrorCode.StoragePlaceNotFound, "Storage place not found.");
+
+        var node = await db.StoragePlacesNodes
+            .Include(n => n.ItemsGroups)
+                .ThenInclude(g => g.CatalogItemWithCharacteristic)
+                    .ThenInclude(c => c.CatalogItem)
+            .FirstOrDefaultAsync(n => n.Id == nodeId && n.RootStoragePlaceId == id, ct);
+
+        if (node is null)
+            return NotFound(ErrorCode.StoragePlaceNodeNotFound, "Storage place node not found.");
+
+        return Ok(mapper.Map<StoragePlaceNodeDetailsDto>(node));
+    }
+
+    /// <summary>Atomically sync item groups for a node.</summary>
+    /// <remarks>
+    /// Sync rules:
+    /// <list type="bullet">
+    ///   <item><c>id: null</c> — create new item group</item>
+    ///   <item><c>id</c> present — update existing item group</item>
+    ///   <item>existing item group not in the list — delete</item>
+    /// </list>
+    /// Returns 422 <c>storagePlaceNodeItemsGroupNotFound</c> if any provided ID does not belong to this node.
+    /// Returns 422 <c>catalogItemCharacteristicNotFound</c> if any <c>catalogItemWithCharacteristicId</c> does not exist.
+    /// </remarks>
+    [HttpPut("{id:guid}/nodes/{nodeId:guid}/items")]
+    [Authorize(Policy = Permissions.Warehouses.Edit)]
+    [ProducesResponseType<StoragePlaceNodeDetailsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> UpdateNodeItems(
+        Guid id,
+        Guid nodeId,
+        [FromBody] IReadOnlyList<NodeItemsGroupItem> items,
+        CancellationToken ct = default)
+    {
+        if (!await db.StoragePlaces.AnyAsync(sp => sp.Id == id, ct))
+            return NotFound(ErrorCode.StoragePlaceNotFound, "Storage place not found.");
+
+        var node = await db.StoragePlacesNodes
+            .Include(n => n.ItemsGroups)
+            .FirstOrDefaultAsync(n => n.Id == nodeId && n.RootStoragePlaceId == id, ct);
+
+        if (node is null)
+            return NotFound(ErrorCode.StoragePlaceNodeNotFound, "Storage place node not found.");
+
+        var incomingWithId = items.Where(x => x.Id is not null).ToList();
+
+        var unknownIds = items
+            .Select((x, i) => (x, i))
+            .Where(t => t.x.Id is not null &&
+                        node.ItemsGroups.All(g => g.Id != t.x.Id!.Value))
+            .ToList();
+
+        if (unknownIds.Count > 0)
+        {
+            var errors = unknownIds.Select(t =>
+                (Field: $"[{t.i}].id", Code: ErrorCode.StoragePlaceNodeItemsGroupNotFound,
+                    Message: $"ItemsGroup '{t.x.Id}' does not belong to this node.",
+                    Args: (IReadOnlyDictionary<string, object>?)null));
+            return Problem(AppProblems.UnprocessableEntities(errors));
+        }
+
+        var duplicates = items
+            .Select((x, i) => (x, i))
+            .GroupBy(t => t.x.CatalogItemWithCharacteristicId)
+            .Where(g => g.Count() > 1)
+            .SelectMany(g => g.Skip(1))
+            .ToList();
+
+        if (duplicates.Count > 0)
+        {
+            var errors = duplicates.Select(t =>
+                (Field: $"[{t.i}].catalogItemWithCharacteristicId",
+                    Code: ErrorCode.CatalogItemCharacteristicDuplicate,
+                    Message: $"CatalogItemWithCharacteristic '{t.x.CatalogItemWithCharacteristicId}' is duplicated.",
+                    Args: (IReadOnlyDictionary<string, object>?)null));
+            return Problem(AppProblems.UnprocessableEntities(errors));
+        }
+
+        var incomingCharacteristicIds = items.Select(x => x.CatalogItemWithCharacteristicId).ToHashSet();
+        var existingCharacteristicIds = await db.CatalogItemsWithCharacteristics
+            .Where(c => incomingCharacteristicIds.Contains(c.Id))
+            .Select(c => c.Id)
+            .ToHashSetAsync(ct);
+
+        var missingCharacteristics = items
+            .Select((x, i) => (x, i))
+            .Where(t => !existingCharacteristicIds.Contains(t.x.CatalogItemWithCharacteristicId))
+            .ToList();
+
+        if (missingCharacteristics.Count > 0)
+        {
+            var errors = missingCharacteristics.Select(t =>
+                (Field: $"[{t.i}].catalogItemWithCharacteristicId",
+                    Code: ErrorCode.CatalogItemCharacteristicNotFound,
+                    Message: $"CatalogItemWithCharacteristic '{t.x.CatalogItemWithCharacteristicId}' not found.",
+                    Args: (IReadOnlyDictionary<string, object>?)null));
+            return Problem(AppProblems.UnprocessableEntities(errors));
+        }
+
+        var incomingIds = incomingWithId.Select(x => x.Id!.Value).ToHashSet();
+        var toDelete = node.ItemsGroups.Where(g => !incomingIds.Contains(g.Id)).ToList();
+        db.StoragePlacesNodesItemsGroups.RemoveRange(toDelete);
+
+        foreach (var incoming in incomingWithId)
+        {
+            var existing = node.ItemsGroups.First(g => g.Id == incoming.Id!.Value);
+            existing.CatalogItemWithCharacteristicId = incoming.CatalogItemWithCharacteristicId;
+            existing.Count = incoming.Count;
+        }
+
+        var toCreate = items
+            .Where(x => x.Id is null)
+            .Select(x => new StoragePlaceNodeItemsGroup
+            {
+                Id = Guid.NewGuid(),
+                StoragePlaceNodeId = node.Id,
+                CatalogItemWithCharacteristicId = x.CatalogItemWithCharacteristicId,
+                Count = x.Count
+            })
+            .ToList();
+
+        db.StoragePlacesNodesItemsGroups.AddRange(toCreate);
+        await db.SaveChangesAsync(ct);
+
+        await db.Entry(node)
+            .Collection(n => n.ItemsGroups)
+            .Query()
+            .Include(g => g.CatalogItemWithCharacteristic)
+                .ThenInclude(c => c.CatalogItem)
+            .LoadAsync(ct);
+
+        return Ok(mapper.Map<StoragePlaceNodeDetailsDto>(node));
+    }
+
     private async Task<StoragePlaceNodeDto[]> GetFlatNodesAsync(Guid storagePlaceId, CancellationToken ct)
     {
         return await db.StoragePlacesNodes

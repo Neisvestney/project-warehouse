@@ -1,4 +1,5 @@
-﻿using ProjectWarehouse.Server.Infrastructure;
+﻿using EntityFrameworkCore.Projectables;
+using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Domain;
 
@@ -11,4 +12,7 @@ public class StoragePlace : WarehouseLayoutObject
     public Warehouse Warehouse { get; set; } = null!;
     
     public ICollection<StoragePlaceNode> StoragePlaceNodes { get; set; } = [];
+
+    [Projectable]
+    public int TotalItemsCount => StoragePlaceNodes.Sum(n => n.TotalItemsCount);
 }

@@ -9,6 +9,8 @@ const permissionLabels: Record<PermissionName, string> = {
   "users.reset_password": "Сброс пароля",
   "roles.view": "Просмотр ролей",
   "roles.edit": "Редактирование ролей",
+  "catalog.view": "Просмотр каталога",
+  "catalog.edit": "Редактирование каталога",
   "warehouses.view": "Просмотр всех складов",
   "warehouses.edit": "Редактирование всех складов",
 };

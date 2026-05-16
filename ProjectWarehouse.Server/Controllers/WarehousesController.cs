@@ -48,13 +48,13 @@ public class WarehousesController(
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct = default)
     {
         var warehouse = await db.Warehouses
-            .Include(w => w.StoragePlaces)
+            .ProjectTo<WarehouseDto>(mapper.ConfigurationProvider)
             .FirstOrDefaultAsync(w => w.Id == id, ct);
 
         if (warehouse is null)
             return NotFound(ErrorCode.WarehouseNotFound, "Warehouse not found.");
 
-        return Ok(mapper.Map<WarehouseDto>(warehouse));
+        return Ok(warehouse);
     }
 
     /// <summary>Create a new warehouse with optional storage places.</summary>
@@ -170,9 +170,11 @@ public class WarehousesController(
 
         await db.SaveChangesAsync(ct);
 
-        await db.Entry(warehouse).Collection(w => w.StoragePlaces).LoadAsync(ct);
+        var warehouseDto = await db.Warehouses
+            .ProjectTo<WarehouseDto>(mapper.ConfigurationProvider)
+            .FirstAsync(w => w.Id == id, ct);
 
-        return Ok(mapper.Map<WarehouseDto>(warehouse));
+        return Ok(warehouseDto);
     }
 
     /// <summary>Delete a warehouse and all its storage places.</summary>

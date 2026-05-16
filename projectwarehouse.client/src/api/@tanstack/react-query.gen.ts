@@ -14,6 +14,11 @@ import {
   authLogout,
   authMe,
   authRefresh,
+  catalogCreate,
+  catalogDelete,
+  catalogGetAll,
+  catalogGetById,
+  catalogUpdate,
   homePageContentGetHomePageContent,
   type Options,
   permissionsGetAll,
@@ -23,8 +28,10 @@ import {
   rolesUpdateAll,
   storagePlacesAddNode,
   storagePlacesDeleteNode,
+  storagePlacesGetNodeDetails,
   storagePlacesGetNodes,
   storagePlacesUpdateNode,
+  storagePlacesUpdateNodeItems,
   usersChangePassword,
   usersCreate,
   usersDelete,
@@ -53,6 +60,21 @@ import type {
   AuthRefreshData,
   AuthRefreshError,
   AuthRefreshResponse,
+  CatalogCreateData,
+  CatalogCreateError,
+  CatalogCreateResponse,
+  CatalogDeleteData,
+  CatalogDeleteError,
+  CatalogDeleteResponse,
+  CatalogGetAllData,
+  CatalogGetAllError,
+  CatalogGetAllResponse,
+  CatalogGetByIdData,
+  CatalogGetByIdError,
+  CatalogGetByIdResponse,
+  CatalogUpdateData,
+  CatalogUpdateError,
+  CatalogUpdateResponse,
   HomePageContentGetHomePageContentData,
   HomePageContentGetHomePageContentError,
   HomePageContentGetHomePageContentResponse,
@@ -77,11 +99,17 @@ import type {
   StoragePlacesDeleteNodeData,
   StoragePlacesDeleteNodeError,
   StoragePlacesDeleteNodeResponse,
+  StoragePlacesGetNodeDetailsData,
+  StoragePlacesGetNodeDetailsError,
+  StoragePlacesGetNodeDetailsResponse,
   StoragePlacesGetNodesData,
   StoragePlacesGetNodesError,
   StoragePlacesGetNodesResponse,
   StoragePlacesUpdateNodeData,
   StoragePlacesUpdateNodeError,
+  StoragePlacesUpdateNodeItemsData,
+  StoragePlacesUpdateNodeItemsError,
+  StoragePlacesUpdateNodeItemsResponse,
   StoragePlacesUpdateNodeResponse,
   UsersChangePasswordData,
   UsersChangePasswordError,
@@ -271,6 +299,208 @@ export const authMeOptions = (options?: Options<AuthMeData>) =>
     },
     queryKey: authMeQueryKey(options),
   });
+
+export const catalogGetAllQueryKey = (options?: Options<CatalogGetAllData>) =>
+  createQueryKey("catalogGetAll", options);
+
+/**
+ * List all catalog items (paginated, optionally filtered by name).
+ */
+export const catalogGetAllOptions = (options?: Options<CatalogGetAllData>) =>
+  queryOptions<
+    CatalogGetAllResponse,
+    CatalogGetAllError,
+    CatalogGetAllResponse,
+    ReturnType<typeof catalogGetAllQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await catalogGetAll({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: catalogGetAllQueryKey(options),
+  });
+
+const createInfiniteParams = <
+  K extends Pick<QueryKey<Options>[0], "body" | "headers" | "path" | "query">,
+>(
+  queryKey: QueryKey<Options>,
+  page: K,
+) => {
+  const params = {...queryKey[0]};
+  if (page.body) {
+    params.body = {
+      ...(queryKey[0].body as any),
+      ...(page.body as any),
+    };
+  }
+  if (page.headers) {
+    params.headers = {
+      ...queryKey[0].headers,
+      ...page.headers,
+    };
+  }
+  if (page.path) {
+    params.path = {
+      ...(queryKey[0].path as any),
+      ...(page.path as any),
+    };
+  }
+  if (page.query) {
+    params.query = {
+      ...(queryKey[0].query as any),
+      ...(page.query as any),
+    };
+  }
+  return params as unknown as typeof page;
+};
+
+export const catalogGetAllInfiniteQueryKey = (
+  options?: Options<CatalogGetAllData>,
+): QueryKey<Options<CatalogGetAllData>> => createQueryKey("catalogGetAll", options, true);
+
+/**
+ * List all catalog items (paginated, optionally filtered by name).
+ */
+export const catalogGetAllInfiniteOptions = (options?: Options<CatalogGetAllData>) =>
+  infiniteQueryOptions<
+    CatalogGetAllResponse,
+    CatalogGetAllError,
+    InfiniteData<CatalogGetAllResponse>,
+    QueryKey<Options<CatalogGetAllData>>,
+    number | Pick<QueryKey<Options<CatalogGetAllData>>[0], "body" | "headers" | "path" | "query">
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({pageParam, queryKey, signal}) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<CatalogGetAllData>>[0],
+          "body" | "headers" | "path" | "query"
+        > =
+          typeof pageParam === "object"
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const {data} = await catalogGetAll({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: catalogGetAllInfiniteQueryKey(options),
+    },
+  );
+
+/**
+ * Create a new catalog item with optional characteristics.
+ */
+export const catalogCreateMutation = (
+  options?: Partial<Options<CatalogCreateData>>,
+): UseMutationOptions<CatalogCreateResponse, CatalogCreateError, Options<CatalogCreateData>> => {
+  const mutationOptions: UseMutationOptions<
+    CatalogCreateResponse,
+    CatalogCreateError,
+    Options<CatalogCreateData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await catalogCreate({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Delete a catalog item and all its characteristics.
+ */
+export const catalogDeleteMutation = (
+  options?: Partial<Options<CatalogDeleteData>>,
+): UseMutationOptions<CatalogDeleteResponse, CatalogDeleteError, Options<CatalogDeleteData>> => {
+  const mutationOptions: UseMutationOptions<
+    CatalogDeleteResponse,
+    CatalogDeleteError,
+    Options<CatalogDeleteData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await catalogDelete({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const catalogGetByIdQueryKey = (options: Options<CatalogGetByIdData>) =>
+  createQueryKey("catalogGetById", options);
+
+/**
+ * Get a catalog item by ID including its characteristics.
+ */
+export const catalogGetByIdOptions = (options: Options<CatalogGetByIdData>) =>
+  queryOptions<
+    CatalogGetByIdResponse,
+    CatalogGetByIdError,
+    CatalogGetByIdResponse,
+    ReturnType<typeof catalogGetByIdQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await catalogGetById({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: catalogGetByIdQueryKey(options),
+  });
+
+/**
+ * Update a catalog item and atomically sync its characteristics.
+ *
+ *     Characteristic sync rules:
+ * * id: null — create new characteristic
+ * * id present — update existing characteristic
+ * * existing characteristic not in the list — delete
+ * Returns 422 `catalogItemCharacteristicNotFound` if any provided ID does not belong to this item.
+ */
+export const catalogUpdateMutation = (
+  options?: Partial<Options<CatalogUpdateData>>,
+): UseMutationOptions<CatalogUpdateResponse, CatalogUpdateError, Options<CatalogUpdateData>> => {
+  const mutationOptions: UseMutationOptions<
+    CatalogUpdateResponse,
+    CatalogUpdateError,
+    Options<CatalogUpdateData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await catalogUpdate({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 export const homePageContentGetHomePageContentQueryKey = (
   options?: Options<HomePageContentGetHomePageContentData>,
@@ -510,6 +740,34 @@ export const storagePlacesDeleteNodeMutation = (
   return mutationOptions;
 };
 
+export const storagePlacesGetNodeDetailsQueryKey = (
+  options: Options<StoragePlacesGetNodeDetailsData>,
+) => createQueryKey("storagePlacesGetNodeDetails", options);
+
+/**
+ * Get a node by ID including its item groups.
+ */
+export const storagePlacesGetNodeDetailsOptions = (
+  options: Options<StoragePlacesGetNodeDetailsData>,
+) =>
+  queryOptions<
+    StoragePlacesGetNodeDetailsResponse,
+    StoragePlacesGetNodeDetailsError,
+    StoragePlacesGetNodeDetailsResponse,
+    ReturnType<typeof storagePlacesGetNodeDetailsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await storagePlacesGetNodeDetails({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: storagePlacesGetNodeDetailsQueryKey(options),
+  });
+
 /**
  * Update a node's name or parent.
  *
@@ -531,6 +789,40 @@ export const storagePlacesUpdateNodeMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await storagePlacesUpdateNode({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Atomically sync item groups for a node.
+ *
+ *     Sync rules:
+ * * id: null — create new item group
+ * * id present — update existing item group
+ * * existing item group not in the list — delete
+ * Returns 422 `storagePlaceNodeItemsGroupNotFound` if any provided ID does not belong to this node.
+ * Returns 422 `catalogItemCharacteristicNotFound` if any `catalogItemWithCharacteristicId` does not exist.
+ */
+export const storagePlacesUpdateNodeItemsMutation = (
+  options?: Partial<Options<StoragePlacesUpdateNodeItemsData>>,
+): UseMutationOptions<
+  StoragePlacesUpdateNodeItemsResponse,
+  StoragePlacesUpdateNodeItemsError,
+  Options<StoragePlacesUpdateNodeItemsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StoragePlacesUpdateNodeItemsResponse,
+    StoragePlacesUpdateNodeItemsError,
+    Options<StoragePlacesUpdateNodeItemsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await storagePlacesUpdateNodeItems({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -565,40 +857,6 @@ export const usersGetAllOptions = (options?: Options<UsersGetAllData>) =>
     },
     queryKey: usersGetAllQueryKey(options),
   });
-
-const createInfiniteParams = <
-  K extends Pick<QueryKey<Options>[0], "body" | "headers" | "path" | "query">,
->(
-  queryKey: QueryKey<Options>,
-  page: K,
-) => {
-  const params = {...queryKey[0]};
-  if (page.body) {
-    params.body = {
-      ...(queryKey[0].body as any),
-      ...(page.body as any),
-    };
-  }
-  if (page.headers) {
-    params.headers = {
-      ...queryKey[0].headers,
-      ...page.headers,
-    };
-  }
-  if (page.path) {
-    params.path = {
-      ...(queryKey[0].path as any),
-      ...(page.path as any),
-    };
-  }
-  if (page.query) {
-    params.query = {
-      ...(queryKey[0].query as any),
-      ...(page.query as any),
-    };
-  }
-  return params as unknown as typeof page;
-};
 
 export const usersGetAllInfiniteQueryKey = (
   options?: Options<UsersGetAllData>,

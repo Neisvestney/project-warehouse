@@ -28,6 +28,7 @@ const pages: {
   showIf?: (permissions: PermissionName[]) => boolean;
 }[] = [
   {name: "Пользователи", url: "/users", requiredPermission: "users.view"},
+  {name: "Каталог", url: "/catalog", requiredPermission: "catalog.view"},
   {name: "Склады", url: "/warehouses", requiredPermission: "warehouses.view"},
   {
     name: "Настройки",

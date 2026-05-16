@@ -32,6 +32,7 @@ const UserCreatePage = React.lazy(
 );
 const SettingsPage = React.lazy(() => import("@/pages/SettingsPage/SettingsPage.tsx"));
 const PrintPage = React.lazy(() => import("@/pages/PrintPage/PrintPage.tsx"));
+const CatalogPage = React.lazy(() => import("@/pages/CatalogPage/CatalogPage.tsx"));
 
 function App() {
   const {
@@ -78,6 +79,11 @@ function App() {
                       path="/users/:id/edit"
                       element={<UserEditPage />}
                       requiredPermission="users.edit_profile"
+                    />
+                    <ProtectedRoute
+                      path="/catalog"
+                      element={<CatalogPage />}
+                      requiredPermission="catalog.view"
                     />
                     <ProtectedRoute
                       path="/warehouses"

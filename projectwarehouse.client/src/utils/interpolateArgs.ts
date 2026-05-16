@@ -1,5 +1,3 @@
-import type {AppFieldError} from "@/api";
-
 export function interpolateArgs(
   template: string,
   args?: {

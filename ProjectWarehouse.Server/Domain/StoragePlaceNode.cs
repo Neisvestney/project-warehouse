@@ -1,4 +1,6 @@
-﻿namespace ProjectWarehouse.Server.Domain;
+﻿using EntityFrameworkCore.Projectables;
+
+namespace ProjectWarehouse.Server.Domain;
 
 public class StoragePlaceNode
 {
@@ -11,4 +13,9 @@ public class StoragePlaceNode
     public Guid? ParentNodeId { get; set; }
     public StoragePlaceNode? ParentNode { get; set; }
     public ICollection<StoragePlaceNode> ChildrenNodes { get; set; } = [];
+    
+    public ICollection<StoragePlaceNodeItemsGroup> ItemsGroups { get; set; } = [];
+
+    [Projectable]
+    public int TotalItemsCount => ItemsGroups.Sum(g => g.Count);
 }

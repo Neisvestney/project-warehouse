@@ -34,6 +34,28 @@ export type AppProblemDetails = {
   };
 };
 
+export type CatalogItemCharacteristicDto = {
+  id: string;
+  characteristic: string;
+  barcode?: null | string;
+};
+
+export type CatalogItemDto = {
+  id: string;
+  name: string;
+  article: string;
+  barcode?: null | string;
+  characteristics: Array<CatalogItemCharacteristicDto>;
+};
+
+export type CatalogItemSummaryDto = {
+  id: string;
+  name: string;
+  article: string;
+  barcode?: null | string;
+  characteristicCount: number;
+};
+
 export type ChangeOwnPasswordRequest = {
   currentPassword: string;
   newPassword: string;
@@ -41,6 +63,19 @@ export type ChangeOwnPasswordRequest = {
 
 export type ChangePasswordRequest = {
   newPassword: string;
+};
+
+export type CharacteristicItem = {
+  id?: null | string;
+  characteristic: string;
+  barcode?: null | string;
+};
+
+export type CreateCatalogItemRequest = {
+  name: string;
+  article: string;
+  barcode?: null | string;
+  characteristics: Array<CharacteristicItem>;
 };
 
 export type CreateStoragePlaceNodeRequest = {
@@ -80,9 +115,13 @@ export type ErrorCode =
   | "permissionAlreadyAssigned"
   | "warehouseNotFound"
   | "storagePlaceNotFound"
+  | "catalogItemNotFound"
+  | "catalogItemCharacteristicNotFound"
   | "storagePlaceNodeNotFound"
   | "storagePlaceNodeHasChildren"
   | "storagePlaceNodeCyclicParent"
+  | "storagePlaceNodeItemsGroupNotFound"
+  | "catalogItemCharacteristicDuplicate"
   | "required"
   | "tooShort"
   | "tooLong"
@@ -95,6 +134,12 @@ export type ErrorCode =
   | "passwordAtLeastOneLowercase"
   | "passwordInvalid"
   | "validationError";
+
+export type ItemsGroupDto = {
+  id: string;
+  count: number;
+  catalogItemWithCharacteristic: NodeCharacteristicDto;
+};
 
 export type LoginRequest = {
   username: string;
@@ -109,6 +154,36 @@ export type MeResponse = {
   lastName?: null | string;
   roles: Array<string>;
   permissions: Array<string>;
+};
+
+export type NodeCatalogItemDto = {
+  id: string;
+  name: string;
+  article: string;
+  barcode?: null | string;
+};
+
+export type NodeCharacteristicDto = {
+  id: string;
+  characteristic: string;
+  barcode?: null | string;
+  catalogItem: NodeCatalogItemDto;
+};
+
+export type NodeItemsGroupItem = {
+  id?: null | string;
+  catalogItemWithCharacteristicId: string;
+  count: number;
+};
+
+export type PaginatedOfCatalogItemSummaryDto = {
+  items: Array<CatalogItemSummaryDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
 };
 
 export type PaginatedOfUserDetailDto = {
@@ -141,7 +216,9 @@ export type PermissionName =
   | "roles.view"
   | "roles.edit"
   | "warehouses.view"
-  | "warehouses.edit";
+  | "warehouses.edit"
+  | "catalog.view"
+  | "catalog.edit";
 
 export type RefreshRequest = {
   refreshToken: string;
@@ -166,6 +243,7 @@ export type StoragePlaceDto = {
   y: number;
   width: number;
   height: number;
+  totalItemsCount: number;
 };
 
 export type StoragePlaceItem = {
@@ -177,16 +255,31 @@ export type StoragePlaceItem = {
   height: number;
 };
 
+export type StoragePlaceNodeDetailsDto = {
+  id: string;
+  name: string;
+  parentNodeId?: null | string;
+  itemsGroups: Array<ItemsGroupDto>;
+};
+
 export type StoragePlaceNodeDto = {
   id: string;
   name: string;
   parentNodeId?: null | string;
+  totalItemsCount: number;
 };
 
 export type TokenResponse = {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+};
+
+export type UpdateCatalogItemRequest = {
+  name: string;
+  article: string;
+  barcode?: null | string;
+  characteristics: Array<CharacteristicItem>;
 };
 
 export type UpdateRoleItem = {
@@ -232,6 +325,7 @@ export type WarehouseDto = {
   width: number;
   height: number;
   storagePlaces: Array<StoragePlaceDto>;
+  totalItemsCount: number;
 };
 
 export type WarehouseSummaryDto = {
@@ -240,6 +334,7 @@ export type WarehouseSummaryDto = {
   width: number;
   height: number;
   storagePlaceCount: number;
+  totalItemsCount: number;
 };
 
 export type AuthLoginData = {
@@ -392,6 +487,177 @@ export type AuthMeResponses = {
 };
 
 export type AuthMeResponse = AuthMeResponses[keyof AuthMeResponses];
+
+export type CatalogGetAllData = {
+  body?: never;
+  path?: never;
+  query?: {
+    page?: number;
+    pageSize?: number;
+    searchString?: string;
+  };
+  url: "/api/catalog";
+};
+
+export type CatalogGetAllErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type CatalogGetAllError = CatalogGetAllErrors[keyof CatalogGetAllErrors];
+
+export type CatalogGetAllResponses = {
+  /**
+   * OK
+   */
+  200: PaginatedOfCatalogItemSummaryDto;
+};
+
+export type CatalogGetAllResponse = CatalogGetAllResponses[keyof CatalogGetAllResponses];
+
+export type CatalogCreateData = {
+  body: CreateCatalogItemRequest;
+  path?: never;
+  query?: never;
+  url: "/api/catalog";
+};
+
+export type CatalogCreateErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type CatalogCreateError = CatalogCreateErrors[keyof CatalogCreateErrors];
+
+export type CatalogCreateResponses = {
+  /**
+   * Created
+   */
+  201: CatalogItemDto;
+};
+
+export type CatalogCreateResponse = CatalogCreateResponses[keyof CatalogCreateResponses];
+
+export type CatalogDeleteData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/catalog/{id}";
+};
+
+export type CatalogDeleteErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type CatalogDeleteError = CatalogDeleteErrors[keyof CatalogDeleteErrors];
+
+export type CatalogDeleteResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type CatalogDeleteResponse = CatalogDeleteResponses[keyof CatalogDeleteResponses];
+
+export type CatalogGetByIdData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/catalog/{id}";
+};
+
+export type CatalogGetByIdErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type CatalogGetByIdError = CatalogGetByIdErrors[keyof CatalogGetByIdErrors];
+
+export type CatalogGetByIdResponses = {
+  /**
+   * OK
+   */
+  200: CatalogItemDto;
+};
+
+export type CatalogGetByIdResponse = CatalogGetByIdResponses[keyof CatalogGetByIdResponses];
+
+export type CatalogUpdateData = {
+  body: UpdateCatalogItemRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/catalog/{id}";
+};
+
+export type CatalogUpdateErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type CatalogUpdateError = CatalogUpdateErrors[keyof CatalogUpdateErrors];
+
+export type CatalogUpdateResponses = {
+  /**
+   * OK
+   */
+  200: CatalogItemDto;
+};
+
+export type CatalogUpdateResponse = CatalogUpdateResponses[keyof CatalogUpdateResponses];
 
 export type HomePageContentGetHomePageContentData = {
   body?: never;
@@ -702,6 +968,44 @@ export type StoragePlacesDeleteNodeResponses = {
 export type StoragePlacesDeleteNodeResponse =
   StoragePlacesDeleteNodeResponses[keyof StoragePlacesDeleteNodeResponses];
 
+export type StoragePlacesGetNodeDetailsData = {
+  body?: never;
+  path: {
+    id: string;
+    nodeId: string;
+  };
+  query?: never;
+  url: "/api/storagePlaces/{id}/nodes/{nodeId}";
+};
+
+export type StoragePlacesGetNodeDetailsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type StoragePlacesGetNodeDetailsError =
+  StoragePlacesGetNodeDetailsErrors[keyof StoragePlacesGetNodeDetailsErrors];
+
+export type StoragePlacesGetNodeDetailsResponses = {
+  /**
+   * OK
+   */
+  200: StoragePlaceNodeDetailsDto;
+};
+
+export type StoragePlacesGetNodeDetailsResponse =
+  StoragePlacesGetNodeDetailsResponses[keyof StoragePlacesGetNodeDetailsResponses];
+
 export type StoragePlacesUpdateNodeData = {
   body: UpdateStoragePlaceNodeRequest;
   path: {
@@ -743,6 +1047,48 @@ export type StoragePlacesUpdateNodeResponses = {
 
 export type StoragePlacesUpdateNodeResponse =
   StoragePlacesUpdateNodeResponses[keyof StoragePlacesUpdateNodeResponses];
+
+export type StoragePlacesUpdateNodeItemsData = {
+  body: Array<NodeItemsGroupItem>;
+  path: {
+    id: string;
+    nodeId: string;
+  };
+  query?: never;
+  url: "/api/storagePlaces/{id}/nodes/{nodeId}/items";
+};
+
+export type StoragePlacesUpdateNodeItemsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StoragePlacesUpdateNodeItemsError =
+  StoragePlacesUpdateNodeItemsErrors[keyof StoragePlacesUpdateNodeItemsErrors];
+
+export type StoragePlacesUpdateNodeItemsResponses = {
+  /**
+   * OK
+   */
+  200: StoragePlaceNodeDetailsDto;
+};
+
+export type StoragePlacesUpdateNodeItemsResponse =
+  StoragePlacesUpdateNodeItemsResponses[keyof StoragePlacesUpdateNodeItemsResponses];
 
 export type UsersGetAllData = {
   body?: never;
