@@ -537,6 +537,44 @@ const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams(
 ### `InstallPrompt` / `UpdatePrompt`
 PWA lifecycle UI. `InstallPrompt` triggers `beforeinstallprompt`. `UpdatePrompt` calls `updateServiceWorker()` from `ServiceWorkerContext` when a new SW version is available.
 
+## Form Hooks
+
+### `useRhfApiErrors<T extends FieldValues>(form)`
+
+Bridges API error responses to an RHF form. Returns `{ setApiError }`.
+
+**`setApiError(error: unknown)`** — call this in a mutation's `onError` to wire API errors into form fields automatically.
+
+**Behavior:**
+
+| Error shape | What happens |
+|---|---|
+| `AppProblemDetails` with field errors | Each field key (except `"root"`) → `form.setError(field, {type: "server", message})` |
+| `AppProblemDetails` with root errors | `"root"` errors → `form.setError("root", {type: "server", message})` |
+| `AppProblemDetails` with no matching errors | Falls back to `error.title ?? "Неизвестная ошибка"` set on `"root"` |
+| Any other error shape | Shows a modal alert via `useModal().showAlert` |
+
+Field error messages are resolved through `resolveErrorMessage` — which looks up the `code` in `errorCodeMessages` and interpolates `{placeholder}` values from `args`.
+
+```tsx
+const form = useForm<LoginFormValues>();
+const {setApiError} = useRhfApiErrors(form);
+
+const mutation = useMutation({
+  ...postApiAuthLoginMutationOptions(),
+  onSuccess: handleSuccess,
+  onError: setApiError,
+});
+
+// Field-level errors are shown automatically via FormTextField.
+// Root errors must be rendered manually:
+// {form.formState.errors.root && (
+//   <Alert severity="error">{form.formState.errors.root.message}</Alert>
+// )}
+```
+
+**Dependencies:** `useModal` (for non-structured errors), `isAppProblemDetails` + `resolveErrorMessage` from `@/utils/errorUtils`.
+
 ## Providers (in `App.tsx`)
 
 ```

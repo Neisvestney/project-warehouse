@@ -34,6 +34,7 @@ export {
   warehousesDelete,
   warehousesGetAll,
   warehousesGetById,
+  warehousesGetByIdForPrint,
   warehousesUpdate,
 } from "./sdk.gen";
 export type {
@@ -150,6 +151,7 @@ export type {
   StoragePlaceItem,
   StoragePlaceNodeDetailsDto,
   StoragePlaceNodeDto,
+  StoragePlaceNodePrintDto,
   StoragePlacesAddNodeData,
   StoragePlacesAddNodeError,
   StoragePlacesAddNodeErrors,
@@ -236,6 +238,11 @@ export type {
   WarehousesGetByIdData,
   WarehousesGetByIdError,
   WarehousesGetByIdErrors,
+  WarehousesGetByIdForPrintData,
+  WarehousesGetByIdForPrintError,
+  WarehousesGetByIdForPrintErrors,
+  WarehousesGetByIdForPrintResponse,
+  WarehousesGetByIdForPrintResponses,
   WarehousesGetByIdResponse,
   WarehousesGetByIdResponses,
   WarehouseSummaryDto,

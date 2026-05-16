@@ -42,6 +42,7 @@ import {
   warehousesDelete,
   warehousesGetAll,
   warehousesGetById,
+  warehousesGetByIdForPrint,
   warehousesUpdate,
 } from "../sdk.gen";
 import type {
@@ -140,6 +141,9 @@ import type {
   WarehousesGetAllResponse,
   WarehousesGetByIdData,
   WarehousesGetByIdError,
+  WarehousesGetByIdForPrintData,
+  WarehousesGetByIdForPrintError,
+  WarehousesGetByIdForPrintResponse,
   WarehousesGetByIdResponse,
   WarehousesUpdateData,
   WarehousesUpdateError,
@@ -1209,3 +1213,29 @@ export const warehousesUpdateMutation = (
   };
   return mutationOptions;
 };
+
+export const warehousesGetByIdForPrintQueryKey = (
+  options: Options<WarehousesGetByIdForPrintData>,
+) => createQueryKey("warehousesGetByIdForPrint", options);
+
+/**
+ * Get all storage place nodes for a warehouse mapped to id + full path name for printing.
+ */
+export const warehousesGetByIdForPrintOptions = (options: Options<WarehousesGetByIdForPrintData>) =>
+  queryOptions<
+    WarehousesGetByIdForPrintResponse,
+    WarehousesGetByIdForPrintError,
+    WarehousesGetByIdForPrintResponse,
+    ReturnType<typeof warehousesGetByIdForPrintQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await warehousesGetByIdForPrint({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: warehousesGetByIdForPrintQueryKey(options),
+  });

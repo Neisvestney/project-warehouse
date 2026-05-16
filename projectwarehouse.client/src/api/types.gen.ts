@@ -269,6 +269,11 @@ export type StoragePlaceNodeDto = {
   totalItemsCount: number;
 };
 
+export type StoragePlaceNodePrintDto = {
+  id: string;
+  name: Array<string>;
+};
+
 export type TokenResponse = {
   accessToken: string;
   refreshToken: string;
@@ -1473,3 +1478,40 @@ export type WarehousesUpdateResponses = {
 };
 
 export type WarehousesUpdateResponse = WarehousesUpdateResponses[keyof WarehousesUpdateResponses];
+
+export type WarehousesGetByIdForPrintData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/warehouses/{id}/print";
+};
+
+export type WarehousesGetByIdForPrintErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type WarehousesGetByIdForPrintError =
+  WarehousesGetByIdForPrintErrors[keyof WarehousesGetByIdForPrintErrors];
+
+export type WarehousesGetByIdForPrintResponses = {
+  /**
+   * OK
+   */
+  200: Array<StoragePlaceNodePrintDto>;
+};
+
+export type WarehousesGetByIdForPrintResponse =
+  WarehousesGetByIdForPrintResponses[keyof WarehousesGetByIdForPrintResponses];

@@ -84,7 +84,7 @@ function StoragePlaceDialog({open, storagePlace, warehouseId, onClose}: StorageP
         parts.unshift(current.name);
         current = current.parentNodeId ? nodeMap.get(current.parentNodeId) : undefined;
       }
-      return parts.join(" - ");
+      return parts.join(" / ");
     };
     openPrintPage(
       nodes.map((x) => ({
