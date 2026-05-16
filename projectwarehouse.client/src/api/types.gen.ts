@@ -13,7 +13,7 @@ export type AppEntity = {
   };
 };
 
-export type AppEntityType = "user" | "roles" | "warehouse";
+export type AppEntityType = "user" | "roles" | "warehouse" | "catalogItem" | "storagePlaceNode";
 
 export type AppFieldError = {
   code: ErrorCode;
@@ -55,6 +55,28 @@ export type CatalogItemSummaryDto = {
   barcode?: null | string;
   characteristicCount: number;
 };
+
+export type ChangeLogDiff = {
+  path: string;
+  from?: unknown;
+  to?: unknown;
+};
+
+export type ChangeLogEntryDto = {
+  id: string;
+  entityType: AppEntityType;
+  entityId: string;
+  changeLogEntryType: ChangeLogEntryType;
+  diffs: Array<ChangeLogDiff>;
+  userName?: null | string;
+  userId?: null | string;
+  createdAt: string;
+  context?: null | JsonElement;
+  action?: null | string;
+  actionData?: null | JsonElement;
+};
+
+export type ChangeLogEntryType = "added" | "modified" | "deleted";
 
 export type ChangeOwnPasswordRequest = {
   currentPassword: string;
@@ -141,6 +163,8 @@ export type ItemsGroupDto = {
   catalogItemWithCharacteristic: NodeCharacteristicDto;
 };
 
+export type JsonElement = unknown;
+
 export type LoginRequest = {
   username: string;
   password: string;
@@ -186,6 +210,16 @@ export type PaginatedOfCatalogItemSummaryDto = {
   hasPreviousPage: boolean;
 };
 
+export type PaginatedOfChangeLogEntryDto = {
+  items: Array<ChangeLogEntryDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
 export type PaginatedOfUserDetailDto = {
   items: Array<UserDetailDto>;
   total: number;
@@ -218,7 +252,8 @@ export type PermissionName =
   | "warehouses.view"
   | "warehouses.edit"
   | "catalog.view"
-  | "catalog.edit";
+  | "catalog.edit"
+  | "changelog.view";
 
 export type RefreshRequest = {
   refreshToken: string;
@@ -663,6 +698,40 @@ export type CatalogUpdateResponses = {
 };
 
 export type CatalogUpdateResponse = CatalogUpdateResponses[keyof CatalogUpdateResponses];
+
+export type ChangelogGetAllData = {
+  body?: never;
+  path?: never;
+  query?: {
+    page?: number;
+    pageSize?: number;
+    entityType?: AppEntityType;
+    changeLogEntryType?: ChangeLogEntryType;
+  };
+  url: "/api/changelog";
+};
+
+export type ChangelogGetAllErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type ChangelogGetAllError = ChangelogGetAllErrors[keyof ChangelogGetAllErrors];
+
+export type ChangelogGetAllResponses = {
+  /**
+   * OK
+   */
+  200: PaginatedOfChangeLogEntryDto;
+};
+
+export type ChangelogGetAllResponse = ChangelogGetAllResponses[keyof ChangelogGetAllResponses];
 
 export type HomePageContentGetHomePageContentData = {
   body?: never;

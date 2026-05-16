@@ -33,6 +33,9 @@ import type {
   CatalogUpdateData,
   CatalogUpdateErrors,
   CatalogUpdateResponses,
+  ChangelogGetAllData,
+  ChangelogGetAllErrors,
+  ChangelogGetAllResponses,
   HomePageContentGetHomePageContentData,
   HomePageContentGetHomePageContentErrors,
   HomePageContentGetHomePageContentResponses,
@@ -267,6 +270,21 @@ export const catalogUpdate = <ThrowOnError extends boolean = false>(
       "Content-Type": "application/json",
       ...options.headers,
     },
+  });
+
+/**
+ * List changelog entries (paginated).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200),
+ * `entityType` (optional), `changeLogEntryType` (optional).
+ * Returns `Paginated&lt;ChangeLogEntryDto&gt;` ordered by `createdAt` descending.
+ */
+export const changelogGetAll = <ThrowOnError extends boolean = false>(
+  options?: Options<ChangelogGetAllData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<ChangelogGetAllResponses, ChangelogGetAllErrors, ThrowOnError>({
+    url: "/api/changelog",
+    ...options,
   });
 
 /**

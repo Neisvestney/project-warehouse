@@ -19,6 +19,7 @@ import {
   catalogGetAll,
   catalogGetById,
   catalogUpdate,
+  changelogGetAll,
   homePageContentGetHomePageContent,
   type Options,
   permissionsGetAll,
@@ -76,6 +77,9 @@ import type {
   CatalogUpdateData,
   CatalogUpdateError,
   CatalogUpdateResponse,
+  ChangelogGetAllData,
+  ChangelogGetAllError,
+  ChangelogGetAllResponse,
   HomePageContentGetHomePageContentData,
   HomePageContentGetHomePageContentError,
   HomePageContentGetHomePageContentResponse,
@@ -505,6 +509,82 @@ export const catalogUpdateMutation = (
   };
   return mutationOptions;
 };
+
+export const changelogGetAllQueryKey = (options?: Options<ChangelogGetAllData>) =>
+  createQueryKey("changelogGetAll", options);
+
+/**
+ * List changelog entries (paginated).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200),
+ * `entityType` (optional), `changeLogEntryType` (optional).
+ * Returns `Paginated&lt;ChangeLogEntryDto&gt;` ordered by `createdAt` descending.
+ */
+export const changelogGetAllOptions = (options?: Options<ChangelogGetAllData>) =>
+  queryOptions<
+    ChangelogGetAllResponse,
+    ChangelogGetAllError,
+    ChangelogGetAllResponse,
+    ReturnType<typeof changelogGetAllQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await changelogGetAll({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: changelogGetAllQueryKey(options),
+  });
+
+export const changelogGetAllInfiniteQueryKey = (
+  options?: Options<ChangelogGetAllData>,
+): QueryKey<Options<ChangelogGetAllData>> => createQueryKey("changelogGetAll", options, true);
+
+/**
+ * List changelog entries (paginated).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200),
+ * `entityType` (optional), `changeLogEntryType` (optional).
+ * Returns `Paginated&lt;ChangeLogEntryDto&gt;` ordered by `createdAt` descending.
+ */
+export const changelogGetAllInfiniteOptions = (options?: Options<ChangelogGetAllData>) =>
+  infiniteQueryOptions<
+    ChangelogGetAllResponse,
+    ChangelogGetAllError,
+    InfiniteData<ChangelogGetAllResponse>,
+    QueryKey<Options<ChangelogGetAllData>>,
+    number | Pick<QueryKey<Options<ChangelogGetAllData>>[0], "body" | "headers" | "path" | "query">
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({pageParam, queryKey, signal}) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<ChangelogGetAllData>>[0],
+          "body" | "headers" | "path" | "query"
+        > =
+          typeof pageParam === "object"
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const {data} = await changelogGetAll({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: changelogGetAllInfiniteQueryKey(options),
+    },
+  );
 
 export const homePageContentGetHomePageContentQueryKey = (
   options?: Options<HomePageContentGetHomePageContentData>,

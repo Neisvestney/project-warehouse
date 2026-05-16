@@ -3,6 +3,7 @@ import {interpolateArgs} from "@/utils/interpolateArgs.ts";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
 import PersonIcon from "@mui/icons-material/Person";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+import InventoryIcon from "@mui/icons-material/Inventory";
 
 type EntityTypeConfig = {
   linkTemplate: string;
@@ -31,6 +32,16 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     linkTemplate: "/warehouses/{id}",
     typeName: "Склад",
     icon: <WarehouseIcon />,
+  },
+  storagePlaceNode: {
+    linkTemplate: "no-link",
+    typeName: "Место хранения",
+    icon: <WarehouseIcon />,
+  },
+  catalogItem: {
+    linkTemplate: "/catalog?item={id}",
+    typeName: "Товар",
+    icon: <InventoryIcon />,
   },
 };
 

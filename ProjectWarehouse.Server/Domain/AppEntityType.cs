@@ -6,6 +6,5 @@ public enum AppEntityType
     Roles,
     Warehouse,
     CatalogItem,
-    StoragePlace,
     StoragePlaceNode,
 }
