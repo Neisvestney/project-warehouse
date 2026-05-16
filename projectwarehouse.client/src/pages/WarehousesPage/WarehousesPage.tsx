@@ -1,4 +1,5 @@
 import {
+  Button,
   Chip,
   IconButton,
   Stack,
@@ -9,13 +10,14 @@ import {
   TableRow,
 } from "@mui/material";
 import {useQuery} from "@tanstack/react-query";
-import {useNavigate} from "react-router";
+import {Link as RouterLink, useNavigate} from "react-router";
 import {warehousesGetAllOptions} from "@/api/@tanstack/react-query.gen";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import PageGenericHeader from "@/components/PageGenericHeader.tsx";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs.tsx";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import AddIcon from "@mui/icons-material/Add";
 import SearchInput from "@/components/SearchInput.tsx";
 import DataTableContainer from "@/components/DataTableContainer.tsx";
 import TableRowLoader from "@/components/TableRowLoader.tsx";
@@ -50,15 +52,14 @@ function WarehousesPage() {
             <IconButton color={"inherit"} onClick={() => refetch()}>
               <RefreshIcon />
             </IconButton>
-            {/*<Button*/}
-            {/*  variant="outlined"*/}
-            {/*  endIcon={<AddIcon />}*/}
-            {/*  component={RouterLink}*/}
-            {/*  to="/warehouses/new"*/}
-            {/*  disabled*/}
-            {/*>*/}
-            {/*  Создать*/}
-            {/*</Button>*/}
+            <Button
+              variant="outlined"
+              endIcon={<AddIcon />}
+              component={RouterLink}
+              to="/warehouses/new"
+            >
+              Создать
+            </Button>
           </>
         }
       >

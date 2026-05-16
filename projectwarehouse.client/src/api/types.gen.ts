@@ -142,9 +142,13 @@ export type ErrorCode =
   | "catalogItemCharacteristicNotFound"
   | "storagePlaceNodeNotFound"
   | "storagePlaceNodeHasChildren"
+  | "storagePlaceNodeHasItems"
   | "storagePlaceNodeCyclicParent"
   | "storagePlaceNodeItemsGroupNotFound"
   | "catalogItemCharacteristicDuplicate"
+  | "warehouseHasItems"
+  | "storagePlaceHasItems"
+  | "catalogItemIsInUse"
   | "required"
   | "tooShort"
   | "tooLong"
@@ -647,6 +651,10 @@ export type CatalogDeleteErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type CatalogDeleteError = CatalogDeleteErrors[keyof CatalogDeleteErrors];
@@ -1495,6 +1503,10 @@ export type WarehousesDeleteErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type WarehousesDeleteError = WarehousesDeleteErrors[keyof WarehousesDeleteErrors];
@@ -1566,6 +1578,10 @@ export type WarehousesUpdateErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */

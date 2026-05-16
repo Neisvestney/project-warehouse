@@ -234,6 +234,8 @@ export const catalogCreate = <ThrowOnError extends boolean = false>(
 
 /**
  * Delete a catalog item and all its characteristics.
+ *
+ * Returns 409 `catalogItemIsInUse` if the item is currently stored in any warehouse.
  */
 export const catalogDelete = <ThrowOnError extends boolean = false>(
   options: Options<CatalogDeleteData, ThrowOnError>,
@@ -589,6 +591,8 @@ export const warehousesCreate = <ThrowOnError extends boolean = false>(
 
 /**
  * Delete a warehouse and all its storage places.
+ *
+ * Returns 409 `warehouseHasItems` if the warehouse contains any stored items.
  */
 export const warehousesDelete = <ThrowOnError extends boolean = false>(
   options: Options<WarehousesDeleteData, ThrowOnError>,

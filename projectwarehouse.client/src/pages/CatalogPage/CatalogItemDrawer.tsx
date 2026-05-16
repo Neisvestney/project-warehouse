@@ -23,11 +23,13 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import {useFieldArray, useForm} from "react-hook-form";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
+  catalogDeleteMutation,
   catalogGetAllQueryKey,
   catalogGetByIdOptions,
   catalogGetByIdQueryKey,
   catalogUpdateMutation,
 } from "@/api/@tanstack/react-query.gen";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import {useHasPermission} from "@/hooks/usePermission";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
@@ -50,10 +52,12 @@ type CatalogFormValues = {
 function ViewMode({
   itemId,
   onEdit,
+  onDelete,
   canEdit,
 }: {
   itemId: string;
   onEdit: () => void;
+  onDelete: () => void;
   canEdit: boolean;
 }) {
   const {data, isLoading} = useQuery({
@@ -120,11 +124,14 @@ function ViewMode({
           </Table>
         )}
         {canEdit && (
-          <Box>
+          <Stack direction="row" spacing={1}>
             <Button size="small" startIcon={<EditIcon />} onClick={onEdit}>
               Редактировать
             </Button>
-          </Box>
+            <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={onDelete}>
+              Удалить
+            </Button>
+          </Stack>
         )}
       </Stack>
     </Box>
@@ -298,12 +305,15 @@ export interface CatalogItemDrawerProps {
 
 export function CatalogItemDrawer({itemId, onClose}: CatalogItemDrawerProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [prevItemId, setPrevItemId] = useState(itemId);
   const canEdit = useHasPermission("catalog.edit");
+  const queryClient = useQueryClient();
 
   if (prevItemId !== itemId) {
     setPrevItemId(itemId);
     setIsEditing(false);
+    setDeleteOpen(false);
   }
 
   const {data} = useQuery({
@@ -311,8 +321,17 @@ export function CatalogItemDrawer({itemId, onClose}: CatalogItemDrawerProps) {
     enabled: !!itemId,
   });
 
+  const deleteMutation = useMutation({
+    ...catalogDeleteMutation(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({queryKey: catalogGetAllQueryKey()});
+      onClose();
+    },
+  });
+
   const handleClose = () => {
     setIsEditing(false);
+    setDeleteOpen(false);
     onClose();
   };
 
@@ -346,9 +365,27 @@ export function CatalogItemDrawer({itemId, onClose}: CatalogItemDrawerProps) {
       <Divider />
 
       {itemId && !isEditing && (
-        <ViewMode itemId={itemId} canEdit={canEdit} onEdit={() => setIsEditing(true)} />
+        <ViewMode
+          itemId={itemId}
+          canEdit={canEdit}
+          onEdit={() => setIsEditing(true)}
+          onDelete={() => setDeleteOpen(true)}
+        />
       )}
       {itemId && isEditing && <EditMode itemId={itemId} onClose={() => setIsEditing(false)} />}
+      <ConfirmDialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title="Удалить позицию?"
+        onConfirm={() => deleteMutation.mutate({path: {id: itemId!}})}
+        isPending={deleteMutation.isPending}
+        confirmText="Удалить"
+        confirmColor="error"
+      >
+        <Typography>
+          Позиция «{data?.name}» и все её характеристики будут удалены безвозвратно.
+        </Typography>
+      </ConfirmDialog>
     </Drawer>
   );
 }

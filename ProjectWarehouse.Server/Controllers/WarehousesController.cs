@@ -207,6 +207,7 @@ public class WarehousesController(
     [Authorize(Policy = Permissions.Warehouses.Edit)]
     [ProducesResponseType<WarehouseDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateWarehouseRequest request, CancellationToken ct = default)
     {
@@ -262,6 +263,15 @@ public class WarehousesController(
             .Where(sp => !incomingIds.Contains(sp.Id))
             .ToList();
 
+        if (toDelete.Count > 0)
+        {
+            var toDeleteIds = toDelete.Select(sp => sp.Id).ToHashSet();
+            var hasItems = await db.StoragePlacesNodesItemsGroups
+                .AnyAsync(g => toDeleteIds.Contains(g.StoragePlaceNode.RootStoragePlaceId) && g.Count > 0, ct);
+            if (hasItems)
+                return Conflict(ErrorCode.StoragePlaceHasItems, "Cannot delete storage places that contain items.");
+        }
+
         db.StoragePlaces.RemoveRange(toDelete);
 
         foreach (var item in incomingWithId)
@@ -304,10 +314,12 @@ public class WarehousesController(
     }
 
     /// <summary>Delete a warehouse and all its storage places.</summary>
+    /// <remarks>Returns 409 <c>warehouseHasItems</c> if the warehouse contains any stored items.</remarks>
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = Permissions.Warehouses.Edit)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct = default)
     {
         var warehouseBeforeDto = await db.Warehouses
@@ -316,6 +328,11 @@ public class WarehousesController(
 
         if (warehouseBeforeDto is null)
             return NotFound(ErrorCode.WarehouseNotFound, "Warehouse not found.");
+
+        var hasItems = await db.StoragePlacesNodesItemsGroups
+            .AnyAsync(g => g.StoragePlaceNode.RootStoragePlace.WarehouseId == id && g.Count > 0, ct);
+        if (hasItems)
+            return Conflict(ErrorCode.WarehouseHasItems, "Cannot delete a warehouse that contains items.");
 
         var warehouse = await db.Warehouses.FindAsync([id], ct);
         db.Warehouses.Remove(warehouse!);
