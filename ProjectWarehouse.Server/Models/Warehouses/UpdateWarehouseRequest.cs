@@ -7,8 +7,8 @@ public class UpdateWarehouseRequest
     [Required, MinLength(1)]
     public string Name { get; init; } = null!;
 
-    public int Width { get; init; }
-    public int Height { get; init; }
+    public decimal Width { get; init; }
+    public decimal Height { get; init; }
 
     public IReadOnlyList<StoragePlaceItem> StoragePlaces { get; init; } = [];
 }

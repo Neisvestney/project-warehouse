@@ -9,8 +9,8 @@ public class StoragePlaceItem
     [Required, MinLength(1)]
     public string Name { get; init; } = null!;
 
-    public int X { get; init; }
-    public int Y { get; init; }
-    public int Width { get; init; }
-    public int Height { get; init; }
+    public decimal X { get; init; }
+    public decimal Y { get; init; }
+    public decimal Width { get; init; }
+    public decimal Height { get; init; }
 }

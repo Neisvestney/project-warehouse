@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ProjectWarehouse.Server.Data;
@@ -11,9 +12,11 @@ using ProjectWarehouse.Server.Data;
 namespace ProjectWarehouse.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260516013952_AddCatalogItems")]
+    partial class AddCatalogItems
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -346,8 +349,8 @@ namespace ProjectWarehouse.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<decimal>("Height")
-                        .HasColumnType("numeric");
+                    b.Property<int>("Height")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -356,14 +359,14 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<Guid>("WarehouseId")
                         .HasColumnType("uuid");
 
-                    b.Property<decimal>("Width")
-                        .HasColumnType("numeric");
+                    b.Property<int>("Width")
+                        .HasColumnType("integer");
 
-                    b.Property<decimal>("X")
-                        .HasColumnType("numeric");
+                    b.Property<int>("X")
+                        .HasColumnType("integer");
 
-                    b.Property<decimal>("Y")
-                        .HasColumnType("numeric");
+                    b.Property<int>("Y")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -416,15 +419,15 @@ namespace ProjectWarehouse.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<decimal>("Height")
-                        .HasColumnType("numeric");
+                    b.Property<int>("Height")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<decimal>("Width")
-                        .HasColumnType("numeric");
+                    b.Property<int>("Width")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -553,7 +556,7 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasOne("ProjectWarehouse.Server.Domain.StoragePlace", "RootStoragePlace")
                         .WithMany("StoragePlaceNodes")
                         .HasForeignKey("RootStoragePlaceId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("ParentNode");
@@ -577,13 +580,13 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasOne("ProjectWarehouse.Server.Domain.CatalogItemWithCharacteristic", "CatalogItemWithCharacteristic")
                         .WithMany("StoragePlaceNodesItemsGroups")
                         .HasForeignKey("CatalogItemWithCharacteristicId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("ProjectWarehouse.Server.Domain.StoragePlaceNode", "StoragePlaceNode")
                         .WithMany("ItemsGroups")
                         .HasForeignKey("StoragePlaceNodeId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("CatalogItemWithCharacteristic");

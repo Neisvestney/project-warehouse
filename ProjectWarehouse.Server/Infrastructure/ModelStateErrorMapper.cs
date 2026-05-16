@@ -26,6 +26,13 @@ internal static class ModelStateErrorMapper
         if (annotation.Contains("required"))
             return (ErrorCode.Required, null);
 
+        // ASP.NET Core catches JsonException for null → non-nullable value types and converts it
+        // to an error message string without preserving the exception object. The message contains
+        // "could not be converted" in both null and bad-format cases, but null for a typed field
+        // is semantically "required but missing" — treat it as such.
+        if (annotation.Contains("could not be converted"))
+            return (ErrorCode.Required, null);
+
         if (annotation.Contains("maximum length") || annotation.Contains("too long"))
         {
             var max = ExtractNumber(annotation);
@@ -53,6 +60,14 @@ internal static class ModelStateErrorMapper
     public static string NormalizeField(string key)
     {
         if (string.IsNullOrEmpty(key)) return "root";
+
+        // Strip JSONPath root $ prefix generated for array-typed request bodies
+        if (key.StartsWith("$."))
+            key = key[2..];
+        else if (key.StartsWith("$"))
+            key = key[1..];
+
+        if (key.Length == 0) return "root";
         return char.ToLowerInvariant(key[0]) + key[1..];
     }
 

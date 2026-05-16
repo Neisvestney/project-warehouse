@@ -49,17 +49,18 @@ try
         .ReadFrom.Configuration(context.Configuration)
         .ReadFrom.Services(services)
         .Enrich.FromLogContext()
-        .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"));
+        .WriteTo.Console(
+            outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"));
 
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
             options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
-    
+
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
         options.SerializerOptions.NumberHandling = JsonNumberHandling.Strict;
     });
-    
+
     builder.Services.AddOpenApi(options =>
     {
         options.AddDocumentTransformer((document, _, _) =>
@@ -124,7 +125,8 @@ try
             document.Components ??= new OpenApiComponents();
             document.Components.Schemas ??= new Dictionary<string, IOpenApiSchema>();
             var schemas = document.Components.Schemas!;
-            schemas["PermissionName"] = new OpenApiSchema { Type = JsonSchemaType.String, Enum = permissionValues.ToList() };
+            schemas["PermissionName"] = new OpenApiSchema
+                { Type = JsonSchemaType.String, Enum = permissionValues.ToList() };
 
             return Task.CompletedTask;
         });
@@ -148,6 +150,7 @@ try
                 csb.Password = pgPassword;
             connStr = csb.ConnectionString;
         }
+
         options.UseNpgsql(connStr).UseProjectables();
     });
 
@@ -275,6 +278,10 @@ try
     app.MapFallbackToFile("/index.html");
 
     app.Run();
+}
+catch (HostAbortedException)
+{
+    Log.Information("Host stopped with HostAbortedException");
 }
 catch (Exception ex)
 {

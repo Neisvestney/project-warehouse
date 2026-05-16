@@ -1,5 +1,5 @@
 import {
-  Button,
+  Chip,
   IconButton,
   Stack,
   Table,
@@ -8,9 +8,8 @@ import {
   TableHead,
   TableRow,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
 import {useQuery} from "@tanstack/react-query";
-import {Link as RouterLink, useNavigate} from "react-router";
+import {useNavigate} from "react-router";
 import {warehousesGetAllOptions} from "@/api/@tanstack/react-query.gen";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
@@ -77,14 +76,15 @@ function WarehousesPage() {
           <TableHead>
             <TableRow>
               <TableCell>Название</TableCell>
-              <TableCell>Количество ячеек</TableCell>
+              <TableCell>Мест хранения</TableCell>
+              <TableCell>Товаров</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {isLoading ? (
-              <TableRowLoader colSpan={2} />
+              <TableRowLoader colSpan={3} />
             ) : data?.items.length === 0 ? (
-              <TableRowEmpty colSpan={2} message="Склады не найдены" />
+              <TableRowEmpty colSpan={3} message="Склады не найдены" />
             ) : (
               data?.items.map((warehouse) => (
                 <TableRow
@@ -98,7 +98,25 @@ function WarehousesPage() {
                   onClick={() => navigate(`/warehouses/${warehouse.id}`)}
                 >
                   <TableCell>{warehouse.name}</TableCell>
-                  <TableCell>{warehouse.storagePlaceCount ?? "—"}</TableCell>
+                  <TableCell>
+                    {warehouse.storagePlaceCount > 0 ? (
+                      <Chip label={warehouse.storagePlaceCount} size="small" />
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {warehouse.totalItemsCount > 0 ? (
+                      <Chip
+                        label={warehouse.totalItemsCount}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                      />
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
                 </TableRow>
               ))
             )}

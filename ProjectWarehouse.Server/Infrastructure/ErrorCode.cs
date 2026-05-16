@@ -23,9 +23,13 @@ public enum ErrorCode
     PermissionAlreadyAssigned,
     WarehouseNotFound,
     StoragePlaceNotFound,
+    CatalogItemNotFound,
+    CatalogItemCharacteristicNotFound,
     StoragePlaceNodeNotFound,
     StoragePlaceNodeHasChildren,
     StoragePlaceNodeCyclicParent,
+    StoragePlaceNodeItemsGroupNotFound,
+    CatalogItemCharacteristicDuplicate,
 
     // Validation
     Required,

@@ -18,6 +18,21 @@ import type {
   AuthRefreshData,
   AuthRefreshErrors,
   AuthRefreshResponses,
+  CatalogCreateData,
+  CatalogCreateErrors,
+  CatalogCreateResponses,
+  CatalogDeleteData,
+  CatalogDeleteErrors,
+  CatalogDeleteResponses,
+  CatalogGetAllData,
+  CatalogGetAllErrors,
+  CatalogGetAllResponses,
+  CatalogGetByIdData,
+  CatalogGetByIdErrors,
+  CatalogGetByIdResponses,
+  CatalogUpdateData,
+  CatalogUpdateErrors,
+  CatalogUpdateResponses,
   HomePageContentGetHomePageContentData,
   HomePageContentGetHomePageContentErrors,
   HomePageContentGetHomePageContentResponses,
@@ -42,11 +57,17 @@ import type {
   StoragePlacesDeleteNodeData,
   StoragePlacesDeleteNodeErrors,
   StoragePlacesDeleteNodeResponses,
+  StoragePlacesGetNodeDetailsData,
+  StoragePlacesGetNodeDetailsErrors,
+  StoragePlacesGetNodeDetailsResponses,
   StoragePlacesGetNodesData,
   StoragePlacesGetNodesErrors,
   StoragePlacesGetNodesResponses,
   StoragePlacesUpdateNodeData,
   StoragePlacesUpdateNodeErrors,
+  StoragePlacesUpdateNodeItemsData,
+  StoragePlacesUpdateNodeItemsErrors,
+  StoragePlacesUpdateNodeItemsResponses,
   StoragePlacesUpdateNodeResponses,
   UsersChangePasswordData,
   UsersChangePasswordErrors,
@@ -177,6 +198,75 @@ export const authMe = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * List all catalog items (paginated, optionally filtered by name).
+ */
+export const catalogGetAll = <ThrowOnError extends boolean = false>(
+  options?: Options<CatalogGetAllData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<CatalogGetAllResponses, CatalogGetAllErrors, ThrowOnError>({
+    url: "/api/catalog",
+    ...options,
+  });
+
+/**
+ * Create a new catalog item with optional characteristics.
+ */
+export const catalogCreate = <ThrowOnError extends boolean = false>(
+  options: Options<CatalogCreateData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<CatalogCreateResponses, CatalogCreateErrors, ThrowOnError>({
+    url: "/api/catalog",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete a catalog item and all its characteristics.
+ */
+export const catalogDelete = <ThrowOnError extends boolean = false>(
+  options: Options<CatalogDeleteData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<CatalogDeleteResponses, CatalogDeleteErrors, ThrowOnError>({
+    url: "/api/catalog/{id}",
+    ...options,
+  });
+
+/**
+ * Get a catalog item by ID including its characteristics.
+ */
+export const catalogGetById = <ThrowOnError extends boolean = false>(
+  options: Options<CatalogGetByIdData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<CatalogGetByIdResponses, CatalogGetByIdErrors, ThrowOnError>({
+    url: "/api/catalog/{id}",
+    ...options,
+  });
+
+/**
+ * Update a catalog item and atomically sync its characteristics.
+ *
+ *     Characteristic sync rules:
+ * * id: null — create new characteristic
+ * * id present — update existing characteristic
+ * * existing characteristic not in the list — delete
+ * Returns 422 `catalogItemCharacteristicNotFound` if any provided ID does not belong to this item.
+ */
+export const catalogUpdate = <ThrowOnError extends boolean = false>(
+  options: Options<CatalogUpdateData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<CatalogUpdateResponses, CatalogUpdateErrors, ThrowOnError>({
+    url: "/api/catalog/{id}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
  * Get list of AppEntities for home page.
  */
 export const homePageContentGetHomePageContent = <ThrowOnError extends boolean = false>(
@@ -300,6 +390,18 @@ export const storagePlacesDeleteNode = <ThrowOnError extends boolean = false>(
   >({url: "/api/storagePlaces/{id}/nodes/{nodeId}", ...options});
 
 /**
+ * Get a node by ID including its item groups.
+ */
+export const storagePlacesGetNodeDetails = <ThrowOnError extends boolean = false>(
+  options: Options<StoragePlacesGetNodeDetailsData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    StoragePlacesGetNodeDetailsResponses,
+    StoragePlacesGetNodeDetailsErrors,
+    ThrowOnError
+  >({url: "/api/storagePlaces/{id}/nodes/{nodeId}", ...options});
+
+/**
  * Update a node's name or parent.
  *
  * Body: `UpdateStoragePlaceNodeRequest` — name (required), parentNodeId (nullable, null = root node).
@@ -315,6 +417,32 @@ export const storagePlacesUpdateNode = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/api/storagePlaces/{id}/nodes/{nodeId}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Atomically sync item groups for a node.
+ *
+ *     Sync rules:
+ * * id: null — create new item group
+ * * id present — update existing item group
+ * * existing item group not in the list — delete
+ * Returns 422 `storagePlaceNodeItemsGroupNotFound` if any provided ID does not belong to this node.
+ * Returns 422 `catalogItemCharacteristicNotFound` if any `catalogItemWithCharacteristicId` does not exist.
+ */
+export const storagePlacesUpdateNodeItems = <ThrowOnError extends boolean = false>(
+  options: Options<StoragePlacesUpdateNodeItemsData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    StoragePlacesUpdateNodeItemsResponses,
+    StoragePlacesUpdateNodeItemsErrors,
+    ThrowOnError
+  >({
+    url: "/api/storagePlaces/{id}/nodes/{nodeId}/items",
     ...options,
     headers: {
       "Content-Type": "application/json",

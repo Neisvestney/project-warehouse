@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ProjectWarehouse.Server.Data;
@@ -11,9 +12,11 @@ using ProjectWarehouse.Server.Data;
 namespace ProjectWarehouse.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260516100926_DecimalDimensions")]
+    partial class DecimalDimensions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -553,7 +556,7 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasOne("ProjectWarehouse.Server.Domain.StoragePlace", "RootStoragePlace")
                         .WithMany("StoragePlaceNodes")
                         .HasForeignKey("RootStoragePlaceId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("ParentNode");
@@ -577,13 +580,13 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasOne("ProjectWarehouse.Server.Domain.CatalogItemWithCharacteristic", "CatalogItemWithCharacteristic")
                         .WithMany("StoragePlaceNodesItemsGroups")
                         .HasForeignKey("CatalogItemWithCharacteristicId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("ProjectWarehouse.Server.Domain.StoragePlaceNode", "StoragePlaceNode")
                         .WithMany("ItemsGroups")
                         .HasForeignKey("StoragePlaceNodeId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("CatalogItemWithCharacteristic");

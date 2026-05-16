@@ -1,7 +1,15 @@
 import React, {useEffect, useRef, useState} from "react";
-import {Link as RouterLink, useParams} from "react-router";
-import {Box, Button, CircularProgress, IconButton, Paper, Stack, Tooltip} from "@mui/material";
-import EditIcon from "@mui/icons-material/Edit";
+import {useParams} from "react-router";
+import {
+  Box,
+  CircularProgress,
+  Divider,
+  IconButton,
+  Paper,
+  Stack,
+  Tooltip,
+  Typography,
+} from "@mui/material";
 import {useQuery} from "@tanstack/react-query";
 import {warehousesGetByIdOptions} from "@/api/@tanstack/react-query.gen";
 import {isNotFoundError} from "@/utils/errorUtils";
@@ -79,22 +87,42 @@ function WarehouseViewPage() {
         title={warehouse.name}
         right={
           <>
-            <Button
-              variant="outlined"
-              startIcon={<EditIcon />}
-              component={RouterLink}
-              to={`/warehouses/${id}/edit`}
-              disabled
-            >
-              Редактировать
-            </Button>
+            {/*<Button*/}
+            {/*  variant="outlined"*/}
+            {/*  startIcon={<EditIcon />}*/}
+            {/*  component={RouterLink}*/}
+            {/*  to={`/warehouses/${id}/edit`}*/}
+            {/*  disabled*/}
+            {/*>*/}
+            {/*  Редактировать*/}
+            {/*</Button>*/}
           </>
         }
       />
 
+      <Paper sx={{px: 3, py: 2}}>
+        <Stack direction="row" spacing={3} divider={<Divider orientation="vertical" flexItem />}>
+          {[
+            {label: "Ширина", value: `${warehouse.width} м`},
+            {label: "Высота", value: `${warehouse.height} м`},
+            {label: "Мест хранения", value: String(warehouse.storagePlaces.length)},
+            {label: "Товаров", value: String(warehouse.totalItemsCount)},
+          ].map(({label, value}) => (
+            <Stack key={label} spacing={0.25}>
+              <Typography variant="caption" color="text.secondary">
+                {label}
+              </Typography>
+              <Typography variant="body1" sx={{fontWeight: 500}}>
+                {value}
+              </Typography>
+            </Stack>
+          ))}
+        </Stack>
+      </Paper>
+
       <Paper
         ref={containerRef}
-        sx={{width: "100%", height: "calc(100vh - 250px)", position: "relative"}}
+        sx={{width: "100%", height: "calc(100vh - 300px)", position: "relative"}}
       >
         <StageWithPanAndZoom
           containerRef={containerRef}
@@ -104,34 +132,34 @@ function WarehouseViewPage() {
           <Rect
             x={0}
             y={0}
-            width={warehouse.width}
-            height={warehouse.height}
+            width={warehouse.width * 100}
+            height={warehouse.height * 100}
             stroke={blue[300]}
             dash={[10 / stageScale.x]}
           />
           {warehouse.storagePlaces.map((p) => (
-            <>
+            <React.Fragment key={p.id}>
               <Rect
-                x={p.x}
-                y={p.y}
-                width={p.width}
-                height={p.height}
+                x={p.x * 100}
+                y={p.y * 100}
+                width={p.width * 100}
+                height={p.height * 100}
                 fill={green[300]}
                 onClick={() => openStoragePlaceDialog(p.id)}
                 onTap={() => openStoragePlaceDialog(p.id)}
               />
               <Text
-                x={p.x}
-                y={p.y}
-                width={p.width}
-                height={p.height}
+                x={p.x * 100}
+                y={p.y * 100}
+                width={p.width * 100}
+                height={p.height * 100}
                 align="center"
                 verticalAlign="middle"
-                text={p.name}
+                text={p.totalItemsCount > 0 ? `${p.name}\n${p.totalItemsCount} тов.` : p.name}
                 onClick={() => openStoragePlaceDialog(p.id)}
                 onTap={() => openStoragePlaceDialog(p.id)}
-              ></Text>
-            </>
+              />
+            </React.Fragment>
           ))}
         </StageWithPanAndZoom>
         <Stack sx={{position: "absolute", top: 10, right: 10}}>
@@ -147,6 +175,7 @@ function WarehouseViewPage() {
         open={!!storagePlaceDialogOpen}
         onClose={() => setStoragePlaceDialogOpen(false)}
         storagePlace={warehouse?.storagePlaces.find((x) => x.id === selectedStoragePlace)}
+        warehouseId={id!}
       />
     </Stack>
   );

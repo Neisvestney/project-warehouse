@@ -1,0 +1,13 @@
+﻿namespace ProjectWarehouse.Server.Domain;
+
+public class CatalogItemWithCharacteristic
+{
+    public Guid Id { get; set; }
+    public string Characteristic { get; set; } = null!;
+    public string? Barcode { get; set; }
+    
+    public Guid CatalogItemId { get; set; }
+    public CatalogItem CatalogItem { get; set; } = null!;
+    
+    public ICollection<StoragePlaceNodeItemsGroup> StoragePlaceNodesItemsGroups { get; set; } = []; 
+}

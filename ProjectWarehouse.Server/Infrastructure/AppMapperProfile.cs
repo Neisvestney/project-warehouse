@@ -1,6 +1,7 @@
 using AutoMapper;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Models;
+using ProjectWarehouse.Server.Models.Catalog;
 using ProjectWarehouse.Server.Models.Roles;
 using ProjectWarehouse.Server.Models.Users;
 using ProjectWarehouse.Server.Models.Warehouses;
@@ -19,8 +20,17 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.Roles, opt => opt.MapFrom(s => s.UserRoles.Select(ur => ur.Role)))
             .ForMember(d => d.DirectPermissions, opt => opt.MapFrom(s => s.UserPermissions.Select(up => up.Permission)));
 
+        CreateMap<CatalogItemWithCharacteristic, CatalogItemCharacteristicDto>();
+        CreateMap<CatalogItem, CatalogItemDto>();
+        CreateMap<CatalogItem, NodeCatalogItemDto>();
+        CreateMap<CatalogItemWithCharacteristic, NodeCharacteristicDto>();
+        CreateMap<CatalogItem, CatalogItemSummaryDto>()
+            .ForMember(d => d.CharacteristicCount, opt => opt.MapFrom(s => s.Characteristics.Count));
+
         CreateMap<StoragePlace, StoragePlaceDto>();
         CreateMap<StoragePlaceNode, StoragePlaceNodeDto>();
+        CreateMap<StoragePlaceNodeItemsGroup, ItemsGroupDto>();
+        CreateMap<StoragePlaceNode, StoragePlaceNodeDetailsDto>();
         CreateMap<Warehouse, WarehouseDto>();
         CreateMap<Warehouse, WarehouseSummaryDto>()
             .ForMember(d => d.StoragePlaceCount, opt => opt.MapFrom(s => s.StoragePlaces.Count));

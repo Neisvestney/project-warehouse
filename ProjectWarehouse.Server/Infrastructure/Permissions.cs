@@ -32,4 +32,10 @@ public static class Permissions
         public const string View = "warehouses.view";
         public const string Edit = "warehouses.edit";
     }
+
+    public static class Catalog
+    {
+        public const string View = "catalog.view";
+        public const string Edit = "catalog.edit";
+    }
 }

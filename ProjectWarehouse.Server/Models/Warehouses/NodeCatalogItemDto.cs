@@ -1,9 +1,9 @@
 namespace ProjectWarehouse.Server.Models.Warehouses;
 
-public class StoragePlaceNodeDto
+public class NodeCatalogItemDto
 {
     public Guid Id { get; init; }
     public string Name { get; init; } = null!;
-    public Guid? ParentNodeId { get; init; }
-    public int TotalItemsCount { get; init; }
+    public string Article { get; init; } = null!;
+    public string? Barcode { get; init; }
 }

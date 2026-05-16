@@ -4,7 +4,8 @@ public class WarehouseSummaryDto
 {
     public Guid Id { get; init; }
     public string Name { get; init; } = null!;
-    public int Width { get; init; }
-    public int Height { get; init; }
+    public decimal Width { get; init; }
+    public decimal Height { get; init; }
     public int StoragePlaceCount { get; init; }
+    public int TotalItemsCount { get; init; }
 }
