@@ -262,11 +262,11 @@ function NodeDetails({storagePlaceId, warehouseId, nodeId}: NodeDetailsProps) {
 
   return (
     <Stack spacing={1.5}>
-      <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+      <Stack direction="row" spacing={1} sx={{alignItems: "center", height: 31}}>
         <Typography variant="subtitle2">Содержимое ячейки</Typography>
-        {!isEditing && data.itemsGroups.length > 0 && (
-          <Chip label={data.itemsGroups.length} size="small" />
-        )}
+        {/*{!isEditing && data.itemsGroups.length > 0 && (*/}
+        {/*  <Chip label={`${data.itemsGroups.length} вида товаров`} size="small" />*/}
+        {/*)}*/}
         <Box sx={{flex: 1}} />
         {!isEditing && (
           <Button size="small" startIcon={<EditIcon />} onClick={enterEditMode}>
