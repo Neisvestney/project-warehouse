@@ -2,6 +2,7 @@ import {fileURLToPath, URL} from "node:url";
 
 import {defineConfig} from "vite";
 import plugin from "@vitejs/plugin-react";
+import legacy from "@vitejs/plugin-legacy";
 import {VitePWA} from "vite-plugin-pwa";
 import fs from "fs";
 import path from "path";
@@ -45,6 +46,9 @@ if (!fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
 export default defineConfig(({command}) => ({
   plugins: [
     plugin(),
+    legacy({
+      targets: ["chrome >= 55", "android >= 55"],
+    }),
     VitePWA({
       registerType: "prompt",
       workbox: {
