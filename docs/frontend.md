@@ -135,6 +135,7 @@ src/
 │   │       ├── WarehouseViewPage/
 │   │       │   ├── WarehouseViewPage.tsx    # Warehouse detail with pan/zoom storage place grid; "Этикетки" + "Список товаров" buttons
 │   │       │   ├── StoragePlaceDialog.tsx   # Right-drawer: node tree (SimpleTreeView) + NodeDetails panel for selected node; "Редактировать ячейки" mode for adding/renaming/deleting nodes via API
+│   │       │   ├── SortableNodeTree.tsx     # Drag-and-drop sortable node tree (@dnd-kit); used in edit mode inside StoragePlaceDialog
 │   │       │   └── NodeDetails.tsx          # Node detail panel: view/edit item groups (catalog item + characteristic + count)
 │   │       └── WarehouseItemsPage/
 │   │           └── WarehouseItemsPage.tsx   # Paginated, searchable table of all item groups in a warehouse; link-to-catalog per row
@@ -269,7 +270,10 @@ Warehouse detail page with a pan/zoom Konva canvas showing storage place rectang
 
 **"Список товаров" button** is a `Link` to `/warehouses/:id/items`.
 
-**"Редактировать ячейки" button** toggles tree edit mode inside `StoragePlaceDialog`. In edit mode: each node shows add-child, rename, and delete icon buttons; a root-level "Добавить ячейку" button appears above the tree; `NodeDetails` panel is hidden. Add/rename open a `Dialog` with a name input; delete opens a `ConfirmDialog`. All operations call the `StoragePlacesController` API and update the nodes query cache in-place from the returned flat list.
+**"Редактировать ячейки" button** toggles tree edit mode inside `StoragePlaceDialog`. In edit mode the tree switches from `SimpleTreeView` to `SortableNodeTree`; `NodeDetails` panel is hidden. Each node row shows add-child, rename, and delete icon buttons plus a drag handle. A root-level "Добавить ячейку" button appears above the tree. Add/rename open a `Dialog` with a name input; delete opens a `ConfirmDialog`. Drag-and-drop reorder calls `PUT .../nodes/reorder`. All operations update the nodes query cache in-place from the returned flat list.
+
+### `SortableNodeTree`
+Drag-and-drop sortable tree component used exclusively in `StoragePlaceDialog` edit mode. Built on `@dnd-kit/core` + `@dnd-kit/sortable`. Renders a recursive tree from a flat `StoragePlaceNodeDto[]` (sorted by `order` then `name`); each sibling group is its own `SortableContext`. Only same-level reordering is allowed — dragging across parent boundaries is a no-op. Fires `onReorder(NodeOrderItem[])` (zero-based index positions for affected siblings) on drop. Accepts an `isDisabled` flag that disables all actions and the drag handle cursor while API mutations are in-flight.
 
 ### `WarehouseItemsPage`
 Paginated, searchable table of all item groups aggregated across the entire warehouse. Requires `warehouses.view`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Also fetches the warehouse by ID (cached from `WarehouseViewPage`) for the breadcrumb name.
