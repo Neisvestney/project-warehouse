@@ -13,6 +13,7 @@ public class StoragePlaceNode : IHasIdentity
     
     public Guid? ParentNodeId { get; set; }
     public StoragePlaceNode? ParentNode { get; set; }
+    public int Order { get; set; }
     public ICollection<StoragePlaceNode> ChildrenNodes { get; set; } = [];
     
     public ICollection<StoragePlaceNodeItemsGroup> ItemsGroups { get; set; } = [];

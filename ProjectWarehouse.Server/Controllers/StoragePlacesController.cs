@@ -19,7 +19,7 @@ public class StoragePlacesController(
     IChangeLogService<StoragePlaceNodeDetailsDto> changeLog) : AppControllerBase
 {
     /// <summary>Get a flat list of all nodes for a storage place.</summary>
-    /// <remarks>Returns <c>StoragePlaceNodeDto[]</c> ordered by name — id, name, parentNodeId (null = root).</remarks>
+    /// <remarks>Returns <c>StoragePlaceNodeDto[]</c> ordered by order then name — id, name, parentNodeId (null = root), order.</remarks>
     [HttpGet("{id:guid}/nodes")]
     [Authorize(Policy = Permissions.Warehouses.View)]
     [ProducesResponseType<StoragePlaceNodeDto[]>(StatusCodes.Status200OK)]
@@ -54,11 +54,15 @@ public class StoragePlacesController(
 
         if (request.ParentNodeId is not null)
         {
-            var parentExists = await db.StoragePlacesNodes
-                .AnyAsync(n => n.Id == request.ParentNodeId && n.RootStoragePlaceId == id, ct);
-            if (!parentExists)
+            var parentNode = await db.StoragePlacesNodes
+                .Include(n => n.ItemsGroups)
+                .FirstOrDefaultAsync(n => n.Id == request.ParentNodeId && n.RootStoragePlaceId == id, ct);
+            if (parentNode is null)
                 return UnprocessableEntity("parentNodeId", ErrorCode.StoragePlaceNodeNotFound,
                     "Parent node not found in this storage place.");
+            if (parentNode.ItemsGroups.Any(g => g.Count > 0))
+                return UnprocessableEntity("root", ErrorCode.StoragePlaceNodeParentHasItems,
+                    "Cannot add a child node to a node that has items stored in it.");
         }
 
         var node = new StoragePlaceNode
@@ -66,7 +70,8 @@ public class StoragePlacesController(
             Id = Guid.NewGuid(),
             Name = request.Name,
             RootStoragePlaceId = id,
-            ParentNodeId = request.ParentNodeId
+            ParentNodeId = request.ParentNodeId,
+            Order = request.Order
         };
 
         db.StoragePlacesNodes.Add(node);
@@ -132,6 +137,7 @@ public class StoragePlacesController(
 
         node.Name = request.Name;
         node.ParentNodeId = request.ParentNodeId;
+        node.Order = request.Order;
         await db.SaveChangesAsync(ct);
 
         await changeLog.CompareAndSaveToChangelog(beforeNodeDto, mapper.Map<StoragePlaceNodeDetailsDto>(node));
@@ -162,11 +168,11 @@ public class StoragePlacesController(
 
         var hasChildren = await db.StoragePlacesNodes.AnyAsync(n => n.ParentNodeId == nodeId, ct);
         if (hasChildren)
-            return UnprocessableEntity("nodeId", ErrorCode.StoragePlaceNodeHasChildren,
+            return UnprocessableEntity("root", ErrorCode.StoragePlaceNodeHasChildren,
                 "Cannot delete a node that has children.");
 
         if (node.ItemsGroups.Any(g => g.Count > 0))
-            return UnprocessableEntity("nodeId", ErrorCode.StoragePlaceNodeHasItems,
+            return UnprocessableEntity("root", ErrorCode.StoragePlaceNodeHasItems,
                 "Cannot delete a node that has items stored in it.");
 
         var nodeDto = mapper.Map<StoragePlaceNodeDetailsDto>(node);
@@ -234,6 +240,11 @@ public class StoragePlacesController(
 
         if (node is null)
             return NotFound(ErrorCode.StoragePlaceNodeNotFound, "Storage place node not found.");
+
+        var hasChildren = await db.StoragePlacesNodes.AnyAsync(n => n.ParentNodeId == nodeId, ct);
+        if (hasChildren)
+            return UnprocessableEntity("root", ErrorCode.StoragePlaceNodeHasChildren,
+                "Cannot modify items of a node that has children.");
 
         var beforeNodeDto = mapper.Map<StoragePlaceNodeDetailsDto>(node);
 
@@ -330,11 +341,59 @@ public class StoragePlacesController(
         return Ok(afterNodeDto);
     }
 
+    /// <summary>Bulk-update Order for a set of nodes.</summary>
+    /// <remarks>
+    /// Body: <c>NodeOrderItem[]</c> — nodeId + order pairs.
+    /// Only the nodes included in the list are updated; others are unchanged.
+    /// Returns 422 <c>storagePlaceNodeNotFound</c> if any nodeId does not belong to this storage place.
+    /// </remarks>
+    [HttpPut("{id:guid}/nodes/reorder")]
+    [Authorize(Policy = Permissions.Warehouses.Edit)]
+    [ProducesResponseType<StoragePlaceNodeDto[]>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> ReorderNodes(
+        Guid id,
+        [FromBody] IReadOnlyList<NodeOrderItem> items,
+        CancellationToken ct = default)
+    {
+        if (!await db.StoragePlaces.AnyAsync(sp => sp.Id == id, ct))
+            return NotFound(ErrorCode.StoragePlaceNotFound, "Storage place not found.");
+
+        var requestedIds = items.Select(x => x.NodeId).ToHashSet();
+        var nodes = await db.StoragePlacesNodes
+            .Where(n => n.RootStoragePlaceId == id && requestedIds.Contains(n.Id))
+            .ToListAsync(ct);
+
+        var foundIds = nodes.Select(n => n.Id).ToHashSet();
+        var missing = items
+            .Select((x, i) => (x, i))
+            .Where(t => !foundIds.Contains(t.x.NodeId))
+            .ToList();
+
+        if (missing.Count > 0)
+        {
+            var errors = missing.Select(t =>
+                (Field: $"[{t.i}].nodeId", Code: ErrorCode.StoragePlaceNodeNotFound,
+                    Message: $"Node '{t.x.NodeId}' not found in this storage place.",
+                    Args: (IReadOnlyDictionary<string, object>?)null));
+            return Problem(AppProblems.UnprocessableEntities(errors));
+        }
+
+        var orderMap = items.ToDictionary(x => x.NodeId, x => x.Order);
+        foreach (var node in nodes)
+            node.Order = orderMap[node.Id];
+
+        await db.SaveChangesAsync(ct);
+        return Ok(await GetFlatNodesAsync(id, ct));
+    }
+
     private async Task<StoragePlaceNodeDto[]> GetFlatNodesAsync(Guid storagePlaceId, CancellationToken ct)
     {
         return await db.StoragePlacesNodes
             .Where(n => n.RootStoragePlaceId == storagePlaceId)
-            .OrderBy(n => n.Name)
+            .OrderBy(n => n.Order)
+            .ThenBy(n => n.Name)
             .ProjectTo<StoragePlaceNodeDto>(mapper.ConfigurationProvider)
             .ToArrayAsync(ct);
     }

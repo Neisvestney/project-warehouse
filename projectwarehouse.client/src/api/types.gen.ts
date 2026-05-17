@@ -103,6 +103,7 @@ export type CreateCatalogItemRequest = {
 export type CreateStoragePlaceNodeRequest = {
   name: string;
   parentNodeId?: null | string;
+  order: number;
 };
 
 export type CreateUserRequest = {
@@ -143,6 +144,7 @@ export type ErrorCode =
   | "storagePlaceNodeNotFound"
   | "storagePlaceNodeHasChildren"
   | "storagePlaceNodeHasItems"
+  | "storagePlaceNodeParentHasItems"
   | "storagePlaceNodeCyclicParent"
   | "storagePlaceNodeItemsGroupNotFound"
   | "catalogItemCharacteristicDuplicate"
@@ -203,6 +205,11 @@ export type NodeItemsGroupItem = {
   id?: null | string;
   catalogItemWithCharacteristicId: string;
   count: number;
+};
+
+export type NodeOrderItem = {
+  nodeId: string;
+  order: number;
 };
 
 export type PaginatedOfCatalogItemSummaryDto = {
@@ -311,6 +318,7 @@ export type StoragePlaceNodeDetailsDto = {
   id: string;
   name: string;
   parentNodeId?: null | string;
+  order: number;
   itemsGroups: Array<ItemsGroupDto>;
 };
 
@@ -318,6 +326,7 @@ export type StoragePlaceNodeDto = {
   id: string;
   name: string;
   parentNodeId?: null | string;
+  order: number;
   totalItemsCount: number;
 };
 
@@ -349,6 +358,7 @@ export type UpdateRoleItem = {
 export type UpdateStoragePlaceNodeRequest = {
   name: string;
   parentNodeId?: null | string;
+  order: number;
 };
 
 export type UpdateUserRequest = {
@@ -1206,6 +1216,47 @@ export type StoragePlacesUpdateNodeItemsResponses = {
 
 export type StoragePlacesUpdateNodeItemsResponse =
   StoragePlacesUpdateNodeItemsResponses[keyof StoragePlacesUpdateNodeItemsResponses];
+
+export type StoragePlacesReorderNodesData = {
+  body: Array<NodeOrderItem>;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/storagePlaces/{id}/nodes/reorder";
+};
+
+export type StoragePlacesReorderNodesErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StoragePlacesReorderNodesError =
+  StoragePlacesReorderNodesErrors[keyof StoragePlacesReorderNodesErrors];
+
+export type StoragePlacesReorderNodesResponses = {
+  /**
+   * OK
+   */
+  200: Array<StoragePlaceNodeDto>;
+};
+
+export type StoragePlacesReorderNodesResponse =
+  StoragePlacesReorderNodesResponses[keyof StoragePlacesReorderNodesResponses];
 
 export type UsersGetAllData = {
   body?: never;

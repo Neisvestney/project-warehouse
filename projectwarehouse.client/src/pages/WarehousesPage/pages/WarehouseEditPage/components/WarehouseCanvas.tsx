@@ -249,8 +249,8 @@ export default observer(function WarehouseCanvas() {
           containerRef={containerRef}
           ref={stageRef}
           setStageScale={setStageScale}
-          draggable={false}
-          panOnEmptyOnly={isSelectTool}
+          draggable={isSelectTool && !selectedObj}
+          panOnEmptyOnly={isSelectTool && !!selectedObj}
           onMouseDown={handleStageMouseDown}
           onMouseMove={handleStageMouseMove}
           onMouseUp={handleStageMouseUp}
@@ -285,7 +285,11 @@ export default observer(function WarehouseCanvas() {
                 rotation={lo.rotation}
                 {...LAYOUT_OBJECT_STYLE[lo.type]}
                 strokeWidth={isSelected ? 2 : 1}
-                draggable={isSelectTool}
+                draggable={
+                  isSelectTool &&
+                  store.selectedObject?.kind == "layoutObject" &&
+                  store.selectedObject.data.tempId == lo.tempId
+                }
                 onClick={makeClickHandler(lo.tempId)}
                 onTap={makeClickHandler(lo.tempId)}
                 onContextMenu={makeContextMenuHandler(lo.tempId)}
@@ -315,7 +319,11 @@ export default observer(function WarehouseCanvas() {
                   fill={green[300]}
                   stroke={green[700]}
                   strokeWidth={isSelected ? 2 : 1}
-                  draggable={isSelectTool}
+                  draggable={
+                    isSelectTool &&
+                    store.selectedObject?.kind == "storagePlace" &&
+                    store.selectedObject.data.tempId == sp.tempId
+                  }
                   onClick={makeClickHandler(sp.tempId)}
                   onTap={makeClickHandler(sp.tempId)}
                   onContextMenu={makeContextMenuHandler(sp.tempId)}

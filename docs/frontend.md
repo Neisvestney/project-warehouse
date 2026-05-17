@@ -102,7 +102,8 @@ src/
 │   ├── useSyncedWithQueryState.ts            # Sync a typed value with a URL query param
 │   ├── useDebouncedSyncedWithQueryState.ts   # Local state + debounce + URL sync in one hook
 │   ├── useParamsState.ts                     # Merge debounced + immediate params for API queries
-│   └── usePaginatedParams.ts                 # Pagination wrapper: page/pageSize from URL + page reset
+│   ├── usePaginatedParams.ts                 # Pagination wrapper: page/pageSize from URL + page reset
+│   └── useDrawerSearchParamsState.ts         # Drawer/dialog open state via URL param; supports back-button close
 │
 ├── pages/
 │   ├── HomePage/
@@ -133,7 +134,7 @@ src/
 │   │   └── pages/
 │   │       ├── WarehouseViewPage/
 │   │       │   ├── WarehouseViewPage.tsx    # Warehouse detail with pan/zoom storage place grid; "Этикетки" + "Список товаров" buttons
-│   │       │   ├── StoragePlaceDialog.tsx   # Right-drawer: node tree (SimpleTreeView) + NodeDetails panel for selected node
+│   │       │   ├── StoragePlaceDialog.tsx   # Right-drawer: node tree (SimpleTreeView) + NodeDetails panel for selected node; "Редактировать ячейки" mode for adding/renaming/deleting nodes via API
 │   │       │   └── NodeDetails.tsx          # Node detail panel: view/edit item groups (catalog item + characteristic + count)
 │   │       └── WarehouseItemsPage/
 │   │           └── WarehouseItemsPage.tsx   # Paginated, searchable table of all item groups in a warehouse; link-to-catalog per row
@@ -267,6 +268,8 @@ Warehouse detail page with a pan/zoom Konva canvas showing storage place rectang
 **"Этикетки" button** fetches `GET /api/warehouses/{id}/print`, then calls `openPrintPage` with all nodes as `DataMatrix` labels (value = node ID, label = full path joined by ` / `). A `CircularProgress` spinner replaces the print icon while the request is in-flight.
 
 **"Список товаров" button** is a `Link` to `/warehouses/:id/items`.
+
+**"Редактировать ячейки" button** toggles tree edit mode inside `StoragePlaceDialog`. In edit mode: each node shows add-child, rename, and delete icon buttons; a root-level "Добавить ячейку" button appears above the tree; `NodeDetails` panel is hidden. Add/rename open a `Dialog` with a name input; delete opens a `ConfirmDialog`. All operations call the `StoragePlacesController` API and update the nodes query cache in-place from the returned flat list.
 
 ### `WarehouseItemsPage`
 Paginated, searchable table of all item groups aggregated across the entire warehouse. Requires `warehouses.view`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Also fetches the warehouse by ID (cached from `WarehouseViewPage`) for the breadcrumb name.
@@ -563,6 +566,42 @@ const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams(
   [searchString],
 );
 ```
+
+### `useDrawerSearchParamsState(name)`
+
+Manages the open/close state of a detail drawer (or dialog) by storing the selected entity ID in a URL query param. Enables deep linking and browser back-button support.
+
+Returns `[selectedItemId, openDrawer, closeDrawer]`:
+
+- `selectedItemId` — `string | null`; the current value of `?{name}=`, or `null` when the drawer is closed. Pass directly to `open={!!selectedItemId}` and to fetch the entity.
+- `openDrawer(id)` — navigates **forward** (`navigate(...)` without `replace`), adding `?{name}={id}` to the URL. Pressing browser back closes the drawer.
+- `closeDrawer()` — removes the param using `replace: true`, so closing via button/×/escape doesn't add an extra history entry. Guards against no-ops when the param is already absent.
+
+**When to use:** whenever a page has a drawer or side panel whose open state should survive a page refresh, be bookmarkable, and work with the browser back button. Use instead of `useState` for any persistent drawer. Do not use for transient UI state that should not be reflected in the URL (loading spinners, hover states, etc.).
+
+**Usage:**
+
+```tsx
+const [selectedId, openDrawer, closeDrawer] = useDrawerSearchParamsState("item");
+
+// open drawer on row click
+<TableRow onClick={() => openDrawer(item.id)} />
+
+// drawer
+<MyDrawer
+  open={!!selectedId}
+  onClose={closeDrawer}
+  item={data?.items.find(x => x.id === selectedId)}
+/>
+```
+
+**Currently used in:**
+- `CatalogPage` — `?item=` param, opens `CatalogItemDrawer`
+- `WarehouseViewPage` — `?storagePlace=` param, opens `StoragePlaceDialog`
+
+**History semantics:**
+- Open: pushes a new history entry → back button closes the drawer.
+- Close via button: replaces current entry → back button goes to the page visited before the drawer was opened.
 
 ### `InstallPrompt` / `UpdatePrompt`
 PWA lifecycle UI. `InstallPrompt` triggers `beforeinstallprompt`. `UpdatePrompt` calls `updateServiceWorker()` from `ServiceWorkerContext` when a new SW version is available.

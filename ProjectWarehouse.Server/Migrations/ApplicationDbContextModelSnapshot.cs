@@ -435,6 +435,9 @@ namespace ProjectWarehouse.Server.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
                     b.Property<Guid?>("ParentNodeId")
                         .HasColumnType("uuid");
 

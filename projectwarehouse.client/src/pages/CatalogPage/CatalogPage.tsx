@@ -10,7 +10,6 @@ import {
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import {useQuery} from "@tanstack/react-query";
-import {useNavigate, useSearchParams} from "react-router";
 import {catalogGetAllOptions} from "@/api/@tanstack/react-query.gen";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
@@ -21,24 +20,10 @@ import DataTableContainer from "@/components/DataTableContainer.tsx";
 import TableRowLoader from "@/components/TableRowLoader.tsx";
 import TableRowEmpty from "@/components/TableRowEmpty.tsx";
 import {CatalogItemDrawer} from "./CatalogItemDrawer";
+import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState.ts";
 
 function CatalogPage() {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-
-  const selectedItemId = searchParams.get("item");
-
-  const openDrawer = (id: string) => {
-    const next = new URLSearchParams(searchParams);
-    next.set("item", id);
-    navigate(`?${next.toString()}`);
-  };
-
-  const closeDrawer = () => {
-    const next = new URLSearchParams(searchParams);
-    next.delete("item");
-    navigate(`?${next.toString()}`, {replace: true});
-  };
+  const [selectedItemId, openDrawer, closeDrawer] = useDrawerSearchParamsState("item");
 
   const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
     "search",

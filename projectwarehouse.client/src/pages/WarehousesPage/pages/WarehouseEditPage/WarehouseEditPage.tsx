@@ -107,6 +107,7 @@ export default observer(function WarehouseEditPage() {
               <Button
                 component={Link}
                 to={`/warehouses/${id}`}
+                replace
                 startIcon={<ArrowBackIcon />}
                 variant="outlined"
                 color="inherit"
