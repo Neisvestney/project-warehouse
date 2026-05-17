@@ -28,6 +28,7 @@ public enum ErrorCode
     StoragePlaceNodeNotFound,
     StoragePlaceNodeHasChildren,
     StoragePlaceNodeHasItems,
+    StoragePlaceNodeParentHasItems,
     StoragePlaceNodeCyclicParent,
     StoragePlaceNodeItemsGroupNotFound,
     CatalogItemCharacteristicDuplicate,

@@ -68,9 +68,10 @@ See [auth.md](auth.md) for the full auth flow and token refresh.
 
 | Method | Path | Permission | Description |
 |--------|------|------------|-------------|
-| GET | `/api/storagePlaces/{id}/nodes` | `warehouses.view` | Flat list of all nodes (`StoragePlaceNodeDto[]` ordered by name) |
+| GET | `/api/storagePlaces/{id}/nodes` | `warehouses.view` | Flat list of all nodes (`StoragePlaceNodeDto[]` ordered by `order` then `name`) |
 | POST | `/api/storagePlaces/{id}/nodes` | `warehouses.edit` | Add node, returns updated flat list |
-| PUT | `/api/storagePlaces/{id}/nodes/{nodeId}` | `warehouses.edit` | Update node name/parent, returns updated flat list |
+| PUT | `/api/storagePlaces/{id}/nodes/reorder` | `warehouses.edit` | Bulk-update `order` for a set of nodes (`NodeOrderItem[]`), returns updated flat list |
+| PUT | `/api/storagePlaces/{id}/nodes/{nodeId}` | `warehouses.edit` | Update node name/parent/order, returns updated flat list |
 | DELETE | `/api/storagePlaces/{id}/nodes/{nodeId}` | `warehouses.edit` | Delete node (fails with `storagePlaceNodeHasChildren` if it has children), returns updated flat list |
 | GET | `/api/storagePlaces/{id}/nodes/{nodeId}` | `warehouses.view` | Node details including item groups (`StoragePlaceNodeDetailsDto`) |
 | PUT | `/api/storagePlaces/{id}/nodes/{nodeId}/items` | `warehouses.edit` | Atomically sync item groups for a node, returns updated `StoragePlaceNodeDetailsDto` |
@@ -79,6 +80,10 @@ See [auth.md](auth.md) for the full auth flow and token refresh.
 - `id: null` → create new item group
 - `id` present → update existing item group
 - existing group not in the list → delete
+
+**Reorder rules** (`PUT .../reorder` body: `NodeOrderItem[]` — `{ nodeId, order }`):
+- Only nodes included in the list are updated; others are unchanged.
+- Returns 422 `storagePlaceNodeNotFound` (field: `[i].nodeId`) if any node does not belong to this storage place.
 
 Returns 422 `storagePlaceNodeItemsGroupNotFound` if any provided ID does not belong to this node.  
 Returns 422 `catalogItemCharacteristicNotFound` if any `catalogItemWithCharacteristicId` does not exist.  

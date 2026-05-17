@@ -31,6 +31,7 @@ import {
   storagePlacesDeleteNode,
   storagePlacesGetNodeDetails,
   storagePlacesGetNodes,
+  storagePlacesReorderNodes,
   storagePlacesUpdateNode,
   storagePlacesUpdateNodeItems,
   usersChangePassword,
@@ -111,6 +112,9 @@ import type {
   StoragePlacesGetNodesData,
   StoragePlacesGetNodesError,
   StoragePlacesGetNodesResponse,
+  StoragePlacesReorderNodesData,
+  StoragePlacesReorderNodesError,
+  StoragePlacesReorderNodesResponse,
   StoragePlacesUpdateNodeData,
   StoragePlacesUpdateNodeError,
   StoragePlacesUpdateNodeItemsData,
@@ -749,7 +753,7 @@ export const storagePlacesGetNodesQueryKey = (options: Options<StoragePlacesGetN
 /**
  * Get a flat list of all nodes for a storage place.
  *
- * Returns `StoragePlaceNodeDto[]` ordered by name — id, name, parentNodeId (null = root).
+ * Returns `StoragePlaceNodeDto[]` ordered by order then name — id, name, parentNodeId (null = root), order.
  */
 export const storagePlacesGetNodesOptions = (options: Options<StoragePlacesGetNodesData>) =>
   queryOptions<
@@ -913,6 +917,37 @@ export const storagePlacesUpdateNodeItemsMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await storagePlacesUpdateNodeItems({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Bulk-update Order for a set of nodes.
+ *
+ * Body: `NodeOrderItem[]` — nodeId + order pairs.
+ * Only the nodes included in the list are updated; others are unchanged.
+ * Returns 422 `storagePlaceNodeNotFound` if any nodeId does not belong to this storage place.
+ */
+export const storagePlacesReorderNodesMutation = (
+  options?: Partial<Options<StoragePlacesReorderNodesData>>,
+): UseMutationOptions<
+  StoragePlacesReorderNodesResponse,
+  StoragePlacesReorderNodesError,
+  Options<StoragePlacesReorderNodesData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StoragePlacesReorderNodesResponse,
+    StoragePlacesReorderNodesError,
+    Options<StoragePlacesReorderNodesData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await storagePlacesReorderNodes({
         ...options,
         ...fnOptions,
         throwOnError: true,

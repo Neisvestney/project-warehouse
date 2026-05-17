@@ -66,6 +66,9 @@ import type {
   StoragePlacesGetNodesData,
   StoragePlacesGetNodesErrors,
   StoragePlacesGetNodesResponses,
+  StoragePlacesReorderNodesData,
+  StoragePlacesReorderNodesErrors,
+  StoragePlacesReorderNodesResponses,
   StoragePlacesUpdateNodeData,
   StoragePlacesUpdateNodeErrors,
   StoragePlacesUpdateNodeItemsData,
@@ -367,7 +370,7 @@ export const rolesGetById = <ThrowOnError extends boolean = false>(
 /**
  * Get a flat list of all nodes for a storage place.
  *
- * Returns `StoragePlaceNodeDto[]` ordered by name — id, name, parentNodeId (null = root).
+ * Returns `StoragePlaceNodeDto[]` ordered by order then name — id, name, parentNodeId (null = root), order.
  */
 export const storagePlacesGetNodes = <ThrowOnError extends boolean = false>(
   options: Options<StoragePlacesGetNodesData, ThrowOnError>,
@@ -469,6 +472,29 @@ export const storagePlacesUpdateNodeItems = <ThrowOnError extends boolean = fals
     ThrowOnError
   >({
     url: "/api/storagePlaces/{id}/nodes/{nodeId}/items",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Bulk-update Order for a set of nodes.
+ *
+ * Body: `NodeOrderItem[]` — nodeId + order pairs.
+ * Only the nodes included in the list are updated; others are unchanged.
+ * Returns 422 `storagePlaceNodeNotFound` if any nodeId does not belong to this storage place.
+ */
+export const storagePlacesReorderNodes = <ThrowOnError extends boolean = false>(
+  options: Options<StoragePlacesReorderNodesData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    StoragePlacesReorderNodesResponses,
+    StoragePlacesReorderNodesErrors,
+    ThrowOnError
+  >({
+    url: "/api/storagePlaces/{id}/nodes/reorder",
     ...options,
     headers: {
       "Content-Type": "application/json",

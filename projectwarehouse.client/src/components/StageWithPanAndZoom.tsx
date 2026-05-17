@@ -90,6 +90,19 @@ const StageWithPanAndZoom = forwardRef<StageWithPanAndZoomHandle, StageWithPanAn
       return () => observer.disconnect();
     }, [containerRef]);
 
+    useEffect(() => {
+      const el = containerRef.current;
+      if (!el) return;
+      // Prevent Konva from capturing non-primary mouse buttons (e.g. browser back/forward).
+      // stopPropagation in capture phase stops the event before it reaches the canvas,
+      // so Konva can't call preventDefault() and block browser navigation.
+      const stopNonPrimary = (e: MouseEvent) => {
+        if (e.button !== 0) e.stopPropagation();
+      };
+      el.addEventListener("mousedown", stopNonPrimary, true);
+      return () => el.removeEventListener("mousedown", stopNonPrimary, true);
+    }, [containerRef]);
+
     const [stagePos, setStagePos] = useState({x: 0, y: 0});
     const [stageScale, setStageScale] = useState({x: 1, y: 1});
 
@@ -236,6 +249,7 @@ const StageWithPanAndZoom = forwardRef<StageWithPanAndZoomHandle, StageWithPanAn
     };
 
     const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (e.evt.button !== 0) return;
       onMouseDown?.(e);
       if (!panOnEmptyOnly) return;
       // Only pan when clicking on unnamed canvas area (not shapes or Transformer handles)

@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from "react";
-import {Link, useParams} from "react-router";
+import {Link, useLocation, useParams} from "react-router";
 import {
   Box,
   Button,
@@ -28,12 +28,13 @@ import StageWithPanAndZoom, {
   type StageWithPanAndZoomHandle,
 } from "@/components/StageWithPanAndZoom.tsx";
 import {Rect, Text} from "react-konva";
-import {blue, green, grey, orange} from "@mui/material/colors";
+import {blue, common, green, grey, orange} from "@mui/material/colors";
 import {type WarehouseLayoutObjectType} from "@/api/types.gen.ts";
 import StoragePlaceDialog from "@/pages/WarehousesPage/pages/WarehouseViewPage/StoragePlaceDialog.tsx";
 import PrintIcon from "@mui/icons-material/Print";
 import {openPrintPage} from "@/utils/printUtils.ts";
 import {useHasPermission} from "@/hooks/usePermission.ts";
+import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState.ts";
 
 const layoutObjectStyle: Record<WarehouseLayoutObjectType, {fill: string; stroke: string}> = {
   wall: {fill: grey[700], stroke: grey[800]},
@@ -46,16 +47,12 @@ function WarehouseViewPage() {
 
   const [stageScale, setStageScale] = useState({x: 1, y: 1});
 
-  const [selectedStoragePlace, setSelectedStoragePlace] = useState<string | null>(null);
-  const [storagePlaceDialogOpen, setStoragePlaceDialogOpen] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
 
   const userCanEdit = useHasPermission("warehouses.edit");
 
-  const openStoragePlaceDialog = (storagePlace: string) => {
-    setStoragePlaceDialogOpen(true);
-    setSelectedStoragePlace(storagePlace);
-  };
+  const [selectedStoragePlace, openStoragePlaceDialog, closeStoragePlaceDialog] =
+    useDrawerSearchParamsState("storagePlace");
 
   const queryClient = useQueryClient();
 
@@ -250,8 +247,8 @@ function WarehouseViewPage() {
       </Paper>
 
       <StoragePlaceDialog
-        open={!!storagePlaceDialogOpen}
-        onClose={() => setStoragePlaceDialogOpen(false)}
+        open={!!selectedStoragePlace}
+        onClose={() => closeStoragePlaceDialog()}
         storagePlace={warehouse?.storagePlaces.find((x) => x.id === selectedStoragePlace)}
         warehouseId={id!}
       />
