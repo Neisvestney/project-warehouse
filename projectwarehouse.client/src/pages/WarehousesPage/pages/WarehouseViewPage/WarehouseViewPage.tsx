@@ -160,7 +160,7 @@ function WarehouseViewPage() {
         >
           {[
             {label: "Ширина", value: `${warehouse.width} м`},
-            {label: "Высота", value: `${warehouse.height} м`},
+            {label: "Длина", value: `${warehouse.height} м`},
             {label: "Мест хранения", value: String(warehouse.storagePlaces.length)},
             {label: "Товаров", value: String(warehouse.totalItemsCount)},
           ].map(({label, value}) => (

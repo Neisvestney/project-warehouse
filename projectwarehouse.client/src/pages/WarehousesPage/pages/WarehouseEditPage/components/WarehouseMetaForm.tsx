@@ -31,7 +31,7 @@ export default function WarehouseMetaForm({control, disabled}: WarehouseMetaForm
       <FormTextField
         control={control}
         name="height"
-        label="Высота (м)"
+        label="Длина (м)"
         type="number"
         rules={{required: "Обязательное поле", min: {value: 1, message: "Минимум 1"}}}
         disabled={disabled}

@@ -157,7 +157,7 @@ export default observer(function ObjectPropertiesDialog({
                 })}
               />
               <TextField
-                label="Высота (м)"
+                label="Длина (м)"
                 size="small"
                 fullWidth
                 type="number"
