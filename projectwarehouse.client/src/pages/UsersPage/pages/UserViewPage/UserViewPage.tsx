@@ -119,7 +119,7 @@ function UserViewPage() {
           </Stack>
           <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
             <Typography color="text.secondary" sx={{width: 160, flexShrink: 0, pt: 0.25}}>
-              Прямые
+              Прямые права
             </Typography>
             <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap", gap: 0.5}}>
               {user.directPermissions.length > 0 ? (
@@ -128,6 +128,18 @@ function UserViewPage() {
                     <Chip label={getPermissionLabel(p)} size="small" />
                   </Tooltip>
                 ))
+              ) : (
+                <Typography>—</Typography>
+              )}
+            </Stack>
+          </Stack>
+          <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
+            <Typography color="text.secondary" sx={{width: 160, flexShrink: 0, pt: 0.25}}>
+              Склады
+            </Typography>
+            <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap", gap: 0.5}}>
+              {user.assignedWarehouses.length > 0 ? (
+                user.assignedWarehouses.map((w) => <Chip key={w.id} label={w.name} size="small" />)
               ) : (
                 <Typography>—</Typography>
               )}

@@ -16,4 +16,6 @@ public class ApplicationUser : IdentityUser<Guid>
     public ICollection<ApplicationUserRole> UserRoles { get; set; } = [];
     public ICollection<UserPermission> UserPermissions { get; set; } = [];
     public ICollection<RefreshToken> RefreshTokens { get; set; } = [];
+    
+    public ICollection<Warehouse> AssignedWarehouses { get; set; } = [];
 }

@@ -37,6 +37,11 @@ public class ApplicationDbContext : IdentityDbContext<
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        
+        builder.Entity<ApplicationUser>(e =>
+        {
+            e.HasMany(x => x.AssignedWarehouses).WithMany(x => x.AssignedUsers);
+        });
 
         builder.Entity<ApplicationUserRole>(e =>
         {

@@ -12,7 +12,7 @@ import {
 import {getPermissionLabel} from "@/utils/permissionLabels";
 import LockResetIcon from "@mui/icons-material/LockReset";
 import {useQuery} from "@tanstack/react-query";
-import {authMeOptions} from "@/api/@tanstack/react-query.gen";
+import {authMeOptions, usersGetByIdOptions} from "@/api/@tanstack/react-query.gen";
 import {isNotFoundError} from "@/utils/errorUtils";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import PageGenericHeader from "@/components/PageGenericHeader";
@@ -33,6 +33,11 @@ function MyProfilePage() {
   } = useQuery({
     ...authMeOptions(),
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
+  });
+
+  const {data: userDetails} = useQuery({
+    ...usersGetByIdOptions({path: {id: user?.id ?? ""}}),
+    enabled: !!user?.id,
   });
 
   if (isLoading) {
@@ -95,6 +100,24 @@ function MyProfilePage() {
                 ))
               ) : (
                 <Typography>—</Typography>
+              )}
+            </Stack>
+          </Stack>
+          <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
+            <Typography color="text.secondary" sx={{width: 160, flexShrink: 0, pt: 0.25}}>
+              Склады
+            </Typography>
+            <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap", gap: 0.5}}>
+              {userDetails ? (
+                userDetails.assignedWarehouses.length > 0 ? (
+                  userDetails.assignedWarehouses.map((w) => (
+                    <Chip key={w.id} label={w.name} size="small" />
+                  ))
+                ) : (
+                  <Typography>—</Typography>
+                )
+              ) : (
+                <Typography color="text.secondary">...</Typography>
               )}
             </Stack>
           </Stack>

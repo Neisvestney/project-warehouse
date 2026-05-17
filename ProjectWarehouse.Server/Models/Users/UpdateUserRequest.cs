@@ -9,4 +9,5 @@ public class UpdateUserRequest
     public string? LastName { get; init; }
     [Required] public IReadOnlyList<Guid> RoleIds { get; init; } = [];
     [Required] public IReadOnlyList<string> DirectPermissions { get; init; } = [];
+    [Required] public IReadOnlyList<Guid> AssignedWarehouseIds { get; init; } = [];
 }

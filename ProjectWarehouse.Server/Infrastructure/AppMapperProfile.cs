@@ -20,7 +20,8 @@ public class AppMapperProfile : Profile
         CreateMap<ApplicationUser, UserDetailDto>()
             .ForMember(d => d.Username, opt => opt.MapFrom(s => s.UserName))
             .ForMember(d => d.Roles, opt => opt.MapFrom(s => s.UserRoles.Select(ur => ur.Role)))
-            .ForMember(d => d.DirectPermissions, opt => opt.MapFrom(s => s.UserPermissions.Select(up => up.Permission)));
+            .ForMember(d => d.DirectPermissions, opt => opt.MapFrom(s => s.UserPermissions.Select(up => up.Permission)))
+            .ForMember(d => d.AssignedWarehouses, opt => opt.MapFrom(s => s.AssignedWarehouses));
 
         CreateMap<CatalogItemWithCharacteristic, CatalogItemCharacteristicDto>();
         CreateMap<CatalogItem, CatalogItemDto>();

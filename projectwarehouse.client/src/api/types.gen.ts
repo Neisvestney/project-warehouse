@@ -268,6 +268,7 @@ export type PermissionName =
   | "users.edit_profile"
   | "users.delete"
   | "users.manage_roles_and_permissions"
+  | "users.manage_assigned_warehouses"
   | "users.reset_password"
   | "roles.view"
   | "roles.edit"
@@ -367,6 +368,7 @@ export type UpdateUserRequest = {
   lastName?: null | string;
   roleIds: Array<string>;
   directPermissions: Array<string>;
+  assignedWarehouseIds: Array<string>;
 };
 
 export type UpdateWarehouseRequest = {
@@ -385,6 +387,7 @@ export type UserDetailDto = {
   lastName?: null | string;
   roles: Array<RoleDto>;
   directPermissions: Array<string>;
+  assignedWarehouses: Array<WarehouseSummaryDto>;
 };
 
 export type WarehouseDto = {
@@ -1266,6 +1269,7 @@ export type UsersGetAllData = {
     pageSize?: number;
     searchString?: string;
     role?: string;
+    warehouse?: string;
   };
   url: "/api/users";
 };

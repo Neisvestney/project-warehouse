@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from "react";
-import {Link, useLocation, useParams} from "react-router";
+import {Link, useParams} from "react-router";
 import {
   Box,
   Button,
@@ -28,7 +28,7 @@ import StageWithPanAndZoom, {
   type StageWithPanAndZoomHandle,
 } from "@/components/StageWithPanAndZoom.tsx";
 import {Rect, Text} from "react-konva";
-import {blue, common, green, grey, orange} from "@mui/material/colors";
+import {blue, green, grey, orange} from "@mui/material/colors";
 import {type WarehouseLayoutObjectType} from "@/api/types.gen.ts";
 import StoragePlaceDialog from "@/pages/WarehousesPage/pages/WarehouseViewPage/StoragePlaceDialog.tsx";
 import PrintIcon from "@mui/icons-material/Print";

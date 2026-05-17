@@ -1,5 +1,6 @@
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Models.Roles;
+using ProjectWarehouse.Server.Models.Warehouses;
 
 namespace ProjectWarehouse.Server.Models.Users;
 
@@ -12,4 +13,5 @@ public class UserDetailDto : IHasIdentity
     public string? LastName { get; init; }
     public IReadOnlyList<RoleDto> Roles { get; init; } = [];
     public IReadOnlyList<string> DirectPermissions { get; init; } = [];
+    public IReadOnlyList<WarehouseSummaryDto> AssignedWarehouses { get; init; } = [];
 }
