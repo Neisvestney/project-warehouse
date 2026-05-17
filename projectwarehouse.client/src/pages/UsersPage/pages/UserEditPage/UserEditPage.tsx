@@ -22,7 +22,7 @@ import {
   usersGetByIdQueryKey,
   usersUpdateMutation,
 } from "@/api/@tanstack/react-query.gen";
-import type {RoleDto} from "@/api/types.gen";
+import type {RoleDto, WarehouseSummaryDto} from "@/api/types.gen";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {useHasPermission} from "@/hooks/usePermission";
 import {FormTextField} from "@/components/form/FormTextField";
@@ -32,6 +32,7 @@ import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
 import RolesSelect from "@/components/RolesSelect";
+import WarehousesSelect from "@/components/WarehousesSelect";
 
 type EditFormValues = {
   email: string;
@@ -39,6 +40,7 @@ type EditFormValues = {
   lastName: string;
   roles: RoleDto[];
   directPermissions: string[];
+  assignedWarehouses: WarehouseSummaryDto[];
 };
 
 function UserEditPage() {
@@ -47,6 +49,7 @@ function UserEditPage() {
   const queryClient = useQueryClient();
 
   const canManageRoles = useHasPermission("users.manage_roles_and_permissions");
+  const canManageAssignedWarehouses = useHasPermission("users.manage_assigned_warehouses");
 
   const userQuery = useQuery({
     ...usersGetByIdOptions({path: {id: id!}}),
@@ -55,7 +58,14 @@ function UserEditPage() {
   const permissionsQuery = useQuery(permissionsGetAllOptions());
 
   const form = useForm<EditFormValues>({
-    defaultValues: {email: "", firstName: "", lastName: "", roles: [], directPermissions: []},
+    defaultValues: {
+      email: "",
+      firstName: "",
+      lastName: "",
+      roles: [],
+      directPermissions: [],
+      assignedWarehouses: [],
+    },
   });
   const {setApiError} = useRhfApiErrors(form);
   const {reset} = form;
@@ -69,6 +79,7 @@ function UserEditPage() {
         lastName: userQuery.data.lastName ?? "",
         roles: userQuery.data.roles,
         directPermissions: userQuery.data.directPermissions,
+        assignedWarehouses: userQuery.data.assignedWarehouses,
       },
       {keepDirtyValues: true},
     );
@@ -97,6 +108,9 @@ function UserEditPage() {
         directPermissions: canManageRoles
           ? values.directPermissions
           : (userQuery.data?.directPermissions ?? []),
+        assignedWarehouseIds: canManageAssignedWarehouses
+          ? values.assignedWarehouses.map((w) => w.id)
+          : (userQuery.data?.assignedWarehouses.map((w) => w.id) ?? []),
       },
     });
   });
@@ -154,6 +168,21 @@ function UserEditPage() {
               disabled={mutation.isPending}
               fullWidth
             />
+
+            {canManageAssignedWarehouses && (
+              <Controller
+                control={form.control}
+                name="assignedWarehouses"
+                render={({field}) => (
+                  <WarehousesSelect
+                    multiple
+                    value={field.value}
+                    onChange={field.onChange}
+                    disabled={mutation.isPending}
+                  />
+                )}
+              />
+            )}
 
             {canManageRoles && (
               <>

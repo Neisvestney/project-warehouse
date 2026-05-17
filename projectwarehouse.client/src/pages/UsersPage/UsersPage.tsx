@@ -21,6 +21,7 @@ import AppBreadcrumbs from "@/components/AppBreadcrumbs.tsx";
 import {getPermissionLabel} from "@/utils/permissionLabels.ts";
 import type {UserDetailDto} from "@/api";
 import RolesSelect from "@/components/RolesSelect.tsx";
+import WarehousesSelect from "@/components/WarehousesSelect.tsx";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState.ts";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchInput from "@/components/SearchInput.tsx";
@@ -61,11 +62,17 @@ function UsersPage() {
     (v) => v,
   );
 
+  const [warehouseId, setWarehouseId] = useSyncedWithQueryState(
+    "warehouse",
+    (q) => (typeof q === "string" ? q : null),
+    (v) => v,
+  );
+
   const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams(
     {},
     [],
-    {searchString, role: roleId ?? undefined},
-    [searchString, roleId],
+    {searchString, role: roleId ?? undefined, warehouse: warehouseId ?? undefined},
+    [searchString, roleId, warehouseId],
   );
 
   const {data, isLoading, isFetching, refetch} = useQuery(usersGetAllOptions({query: fetchParams}));
@@ -90,6 +97,12 @@ function UsersPage() {
       </PageGenericHeader>
       <FiltersBar>
         <RolesSelect value={roleId} onChange={setRoleId} sx={{flexBasis: 150}} size={"small"} />
+        <WarehousesSelect
+          value={warehouseId}
+          onChange={setWarehouseId}
+          sx={{flexBasis: 200}}
+          size={"small"}
+        />
       </FiltersBar>
       <DataTableContainer
         isFetching={isFetching}

@@ -28,6 +28,7 @@ public class UsersController(
         db.Users
             .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
             .Include(u => u.UserPermissions)
+            .Include(u => u.AssignedWarehouses)
             .FirstOrDefaultAsync(u => u.Id == id, ct);
 
     /// <summary>List all users (paginated).</summary>
@@ -39,6 +40,7 @@ public class UsersController(
         [FromQuery] [Range(1, 200)] int pageSize = 20,
         [FromQuery] string? searchString = null,
         [FromQuery] Guid? role = null,
+        [FromQuery] Guid? warehouse = null,
         CancellationToken ct = default)
     {
         var users = db.Users
@@ -47,6 +49,11 @@ public class UsersController(
         if (role is { } r)
         {
             users = users.Where(x => x.UserRoles.Any(ur => ur.RoleId == r));
+        }
+        
+        if (warehouse is { } w)
+        {
+            users = users.Where(x => x.AssignedWarehouses.Any(ur => ur.Id == w));
         }
 
         users = users.OrderBy(u => u.Id);
@@ -133,9 +140,16 @@ public class UsersController(
         var requestedPermissions = request.DirectPermissions.ToHashSet();
         var permissionsChanged = !currentPermissions.SetEquals(requestedPermissions);
 
+        var currentWarehouseIds = user.AssignedWarehouses.Select(w => w.Id).ToHashSet();
+        var requestedWarehouseIds = request.AssignedWarehouseIds.ToHashSet();
+        var warehousesChanged = !currentWarehouseIds.SetEquals(requestedWarehouseIds);
+
         // Authorization checks before any mutations
         if ((rolesChanged || permissionsChanged) &&
             !User.HasClaim("permission", Permissions.Users.ManageRolesAndPermissions))
+            return Forbidden();
+
+        if (warehousesChanged && !User.HasClaim("permission", Permissions.Users.ManageAssignedWarehouses))
             return Forbidden();
 
         // Validate unknown permission strings
@@ -165,6 +179,17 @@ public class UsersController(
 
         var toAddPerms = requestedPermissions.Except(currentPermissions).ToList();
         var toRemovePerms = currentPermissions.Except(requestedPermissions).ToList();
+
+        var toAddWarehouseIds = requestedWarehouseIds.Except(currentWarehouseIds).ToList();
+        var warehousesToAdd = toAddWarehouseIds.Count > 0
+            ? await db.Warehouses.Where(w => toAddWarehouseIds.Contains(w.Id)).ToListAsync(ct)
+            : [];
+        if (warehousesToAdd.Count != toAddWarehouseIds.Count)
+            return UnprocessableEntity("assignedWarehouseIds", ErrorCode.WarehouseNotFound,
+                "One or more warehouse IDs do not exist.");
+
+        var toRemoveWarehouseIds = currentWarehouseIds.Except(requestedWarehouseIds).ToHashSet();
+        var warehousesToRemove = user.AssignedWarehouses.Where(w => toRemoveWarehouseIds.Contains(w.Id)).ToList();
 
         // All mutations inside a single transaction
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -209,7 +234,10 @@ public class UsersController(
         if (toRemovePerms.Count > 0)
             db.UserPermissions.RemoveRange(user.UserPermissions.Where(up => toRemovePerms.Contains(up.Permission)));
 
-        if (permissionsChanged)
+        foreach (var w in warehousesToAdd) user.AssignedWarehouses.Add(w);
+        foreach (var w in warehousesToRemove) user.AssignedWarehouses.Remove(w);
+
+        if (permissionsChanged || warehousesChanged)
             await db.SaveChangesAsync(ct);
 
         await transaction.CommitAsync(ct);

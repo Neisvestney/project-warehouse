@@ -24,6 +24,21 @@ namespace ProjectWarehouse.Server.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ApplicationUserWarehouse", b =>
+                {
+                    b.Property<Guid>("AssignedUsersId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AssignedWarehousesId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("AssignedUsersId", "AssignedWarehousesId");
+
+                    b.HasIndex("AssignedWarehousesId");
+
+                    b.ToTable("ApplicationUserWarehouse");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
                     b.Property<int>("Id")
@@ -499,6 +514,21 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasIndex("StoragePlaceNodeId");
 
                     b.HasDiscriminator().HasValue("StoragePlaceNodeItemsGroup");
+                });
+
+            modelBuilder.Entity("ApplicationUserWarehouse", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("AssignedUsersId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("AssignedWarehousesId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>

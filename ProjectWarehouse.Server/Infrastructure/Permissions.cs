@@ -18,6 +18,7 @@ public static class Permissions
         public const string EditProfile                 = "users.edit_profile";
         public const string Delete                      = "users.delete";
         public const string ManageRolesAndPermissions   = "users.manage_roles_and_permissions";
+        public const string ManageAssignedWarehouses    = "users.manage_assigned_warehouses";
         public const string ResetPassword               = "users.reset_password";
     }
 
