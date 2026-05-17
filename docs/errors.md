@@ -90,6 +90,8 @@ Error with structured arguments (e.g. password too short):
 | `catalogItemCharacteristicDuplicate` | The same `catalogItemWithCharacteristicId` appears more than once in a node items sync request |
 | `storagePlaceNodeNotFound` | Node ID not found or does not belong to this storage place |
 | `storagePlaceNodeHasChildren` | Attempt to delete a node that still has child nodes |
+| `storagePlaceNodeHasItems` | Attempt to delete a node that has items stored in it |
+| `storagePlaceNodeParentHasItems` | Attempt to add a child node to a parent that already has items stored in it |
 | `storagePlaceNodeCyclicParent` | Setting the requested parent would create a cycle (parent is a descendant of the node, or the node itself) |
 | `storagePlaceNodeItemsGroupNotFound` | Item group ID not found or does not belong to this node |
 
