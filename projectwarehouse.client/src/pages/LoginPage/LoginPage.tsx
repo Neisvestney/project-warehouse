@@ -7,14 +7,18 @@ import {
   CardContent,
   CircularProgress,
   FormHelperText,
+  IconButton,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
+import DnsIcon from "@mui/icons-material/Dns";
 import {useMutation} from "@tanstack/react-query";
 import {useAuth} from "@/hooks/useAuth";
 import {useFormErrors} from "@/hooks/useFormErrors";
+import {Capacitor} from "@capacitor/core";
 
 function LoginPage() {
   const {login, isAuthenticated} = useAuth();
@@ -70,8 +74,31 @@ function LoginPage() {
     },
   });
 
+  const handleChangeServer = () => {
+    window.location.href = "https://localhost?clear_server=1";
+  };
+
   return (
-    <Box sx={{display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh"}}>
+    <Box
+      sx={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        minHeight: "100vh",
+        position: "relative",
+      }}
+    >
+      {Capacitor.isNativePlatform() && (
+        <Tooltip title="Сменить сервер">
+          <IconButton
+            onClick={handleChangeServer}
+            size="small"
+            sx={{position: "absolute", top: 16, right: 16}}
+          >
+            <DnsIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
       <Card sx={{width: 380}} elevation={3}>
         <CardContent sx={{p: 4, "&:last-child": {pb: 4}}}>
           <Box sx={{display: "flex", flexDirection: "column", alignItems: "center", gap: 4}}>

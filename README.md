@@ -92,6 +92,21 @@ dotnet ef database update --project ProjectWarehouse.Server
 
 ---
 
+## Нативный клиент (Android / ТСД)
+
+Приложение можно упаковать в Android APK через Capacitor для работы на ТСД АТОЛ Smart Slim (Android 7).
+
+Подробнее: [docs/native-client.md](docs/native-client.md)
+
+```bash
+cd projectwarehouse.client
+npm run build
+npx cap sync
+npx cap open android
+```
+
+---
+
 ## Линтинг фронта
 
 ```bash
