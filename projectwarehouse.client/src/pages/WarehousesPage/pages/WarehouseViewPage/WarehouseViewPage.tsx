@@ -49,7 +49,7 @@ function WarehouseViewPage() {
 
   const [isPrinting, setIsPrinting] = useState(false);
 
-  const userCanEdit = useHasPermission("warehouses.edit");
+  const userCanEdit = useHasPermission(["warehouses.edit", "warehouses.edit_assigned"]);
 
   const [selectedStoragePlace, openStoragePlaceDialog, closeStoragePlaceDialog] =
     useDrawerSearchParamsState("storagePlace");

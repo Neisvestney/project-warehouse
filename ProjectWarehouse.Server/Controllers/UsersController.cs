@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Authorization;
@@ -67,11 +69,18 @@ public class UsersController(
 
     /// <summary>Get a user by ID.</summary>
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = Permissions.Users.View)]
+    [Authorize]
     [ProducesResponseType<UserDetailDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct = default)
     {
+        var rawId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        var isSelf = Guid.TryParse(rawId, out var currentUserId) && currentUserId == id;
+
+        if (!isSelf && !User.HasClaim("permission", Permissions.Users.View))
+            return Forbidden();
+
         var dto = await db.Users
             .Where(u => u.Id == id)
             .ProjectTo<UserDetailDto>(mapper.ConfigurationProvider)

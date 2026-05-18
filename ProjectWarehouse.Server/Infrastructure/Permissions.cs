@@ -30,8 +30,10 @@ public static class Permissions
 
     public static class Warehouses
     {
-        public const string View = "warehouses.view";
-        public const string Edit = "warehouses.edit";
+        public const string View         = "warehouses.view";
+        public const string Edit         = "warehouses.edit";
+        public const string ViewAssigned = "warehouses.view_assigned";
+        public const string EditAssigned = "warehouses.edit_assigned";
     }
 
     public static class Catalog

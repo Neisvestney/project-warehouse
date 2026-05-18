@@ -14,6 +14,8 @@ const permissionLabels: Record<PermissionName, string> = {
   "catalog.edit": "Редактирование каталога",
   "warehouses.view": "Просмотр всех складов",
   "warehouses.edit": "Редактирование всех складов",
+  "warehouses.view_assigned": "Просмотр назначенных складов",
+  "warehouses.edit_assigned": "Редактирование назначенных складов",
   "changelog.view": "Просмотр списка изменений",
 };
 

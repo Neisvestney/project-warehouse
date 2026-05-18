@@ -274,6 +274,8 @@ export type PermissionName =
   | "roles.edit"
   | "warehouses.view"
   | "warehouses.edit"
+  | "warehouses.view_assigned"
+  | "warehouses.edit_assigned"
   | "catalog.view"
   | "catalog.edit"
   | "changelog.view";
