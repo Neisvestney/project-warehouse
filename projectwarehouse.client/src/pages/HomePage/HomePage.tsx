@@ -118,7 +118,9 @@ function HomeCard({
           </CardActions>
         </CardActionArea>
       ) : (
-        <Stack sx={{width: "100%", height: "100%", justifyContent: "center", alignItems: "center"}}>
+        <Stack
+          sx={{width: "100%", height: "100%", justifyContent: "center", alignItems: "center", p: 5}}
+        >
           <CircularProgress size={32} />
         </Stack>
       )}
