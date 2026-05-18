@@ -7,6 +7,7 @@ import {VitePWA} from "vite-plugin-pwa";
 import fs from "fs";
 import path from "path";
 import child_process from "child_process";
+import {type ChunkingContext} from "rolldown";
 
 const baseFolder =
   process.env.APPDATA !== undefined && process.env.APPDATA !== ""
@@ -83,6 +84,37 @@ export default defineConfig(({command}) => ({
       },
     }),
   ],
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: (moduleId, ctx: ChunkingContext) => {
+                if (moduleId.includes("node_modules")) {
+                  if (isEagerlyImported(moduleId, ctx)) {
+                    return "vendor";
+                  }
+                }
+
+                // if (
+                //   moduleId.includes("src/components") ||
+                //   moduleId.includes("src/contexts") ||
+                //   moduleId.includes("src/services") ||
+                //   moduleId.includes("src/hooks") ||
+                //   moduleId.includes("src/utils")
+                // ) {
+                //   return "shared";
+                // }
+
+                return null;
+              },
+            },
+          ],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
@@ -110,3 +142,20 @@ export default defineConfig(({command}) => ({
     },
   },
 }));
+
+function isEagerlyImported(id: string, ctx: ChunkingContext, visited = new Set<string>()): boolean {
+  if (visited.has(id)) return false; // cycle guard
+  visited.add(id);
+
+  const info = ctx.getModuleInfo(id);
+  if (!info) return false;
+
+  // Entry point itself — definitely eager
+  if (info.isEntry) return true;
+
+  // If this module has NO static importers (only dynamic) — it's lazy
+  if (info.importers.length === 0) return false;
+
+  // Walk up static importers recursively
+  return info.importers.some((importerId) => isEagerlyImported(importerId, ctx, visited));
+}

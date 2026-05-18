@@ -13,12 +13,15 @@ import {ModalProvider} from "@/contexts/Modal/ModalProvider.tsx";
 import {ProtectedRoutes} from "@/components/ProtectedRoute/ProtectedRoutes.tsx";
 import ProtectedRoute from "@/components/ProtectedRoute/ProtectedRoute.tsx";
 import {QueryErrorHandler} from "@/components/QueryErrorHandler";
-import WarehousesPage from "@/pages/WarehousesPage/WarehousesPage.tsx";
-import WarehouseViewPage from "@/pages/WarehousesPage/pages/WarehouseViewPage/WarehouseViewPage.tsx";
 import PageNotFound from "@/components/PageNotFound.tsx";
 import {Capacitor} from "@capacitor/core";
 import ServerSetupPage from "@/pages/ServerSetupPage/ServerSetupPage.tsx";
 import {SELECTED_SERVER_KEY} from "@/configuration/servers.ts";
+
+const WarehousesPage = React.lazy(() => import("@/pages/WarehousesPage/WarehousesPage.tsx"));
+const WarehouseViewPage = React.lazy(
+  () => import("@/pages/WarehousesPage/pages/WarehouseViewPage/WarehouseViewPage.tsx"),
+);
 const WarehouseItemsPage = React.lazy(
   () => import("@/pages/WarehousesPage/pages/WarehouseItemsPage/WarehouseItemsPage.tsx"),
 );
@@ -28,7 +31,6 @@ const WarehouseEditPage = React.lazy(
 const WarehouseNewPage = React.lazy(
   () => import("@/pages/WarehousesPage/pages/WarehouseNewPage/WarehouseNewPage.tsx"),
 );
-
 const HomePage = React.lazy(() => import("@/pages/HomePage/HomePage.tsx"));
 const MyProfilePage = React.lazy(() => import("@/pages/MyProfilePage/MyProfilePage.tsx"));
 const ScannerPage = React.lazy(() => import("@/pages/ScannerPage/ScannerPage.tsx"));
