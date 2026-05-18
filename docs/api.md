@@ -30,9 +30,9 @@ See [auth.md](auth.md) for the full auth flow and token refresh.
 | Method | Path | Permission | Description |
 |--------|------|------------|-------------|
 | GET | `/api/users` | `users.view` | List all users (paginated) |
-| GET | `/api/users/{id}` | `users.view` | Get user by ID |
+| GET | `/api/users/{id}` | `users.view` or self | Get user by ID; always allowed if `id` == current user |
 | POST | `/api/users` | `users.create` | Create user |
-| PUT | `/api/users/{id}` | `users.edit` | Update profile, roles, and direct permissions atomically |
+| PUT | `/api/users/{id}` | `users.edit_profile` | Update profile, roles, and direct permissions atomically |
 | DELETE | `/api/users/{id}` | `users.delete` | Delete user |
 | PUT | `/api/users/{id}/password` | `users.reset_password` | Reset another user's password |
 
@@ -52,13 +52,13 @@ See [auth.md](auth.md) for the full auth flow and token refresh.
 
 | Method | Path | Permission | Description |
 |--------|------|------------|-------------|
-| GET | `/api/warehouses` | `warehouses.view` | List all warehouses (paginated) |
-| GET | `/api/warehouses/{id}` | `warehouses.view` | Get warehouse by ID |
-| GET | `/api/warehouses/{id}/print` | `warehouses.view` | All nodes as `StoragePlaceNodePrintDto[]` ordered by full path (for label printing) |
-| GET | `/api/warehouses/{id}/items-groups` | `warehouses.view` | List all item groups in a warehouse (`Paginated<ItemsGroupDto>`), supports `searchString` |
+| GET | `/api/warehouses` | `warehouses.view` or `warehouses.view_assigned` | List warehouses; `view_assigned` returns only user's assigned warehouses |
+| GET | `/api/warehouses/{id}` | `warehouses.view` or `warehouses.view_assigned` | Get warehouse by ID; `view_assigned` returns 403 if warehouse not assigned |
+| GET | `/api/warehouses/{id}/print` | `warehouses.view` or `warehouses.view_assigned` | All nodes as `StoragePlaceNodePrintDto[]` ordered by full path (for label printing) |
+| GET | `/api/warehouses/{id}/items-groups` | `warehouses.view` or `warehouses.view_assigned` | List all item groups in a warehouse (`Paginated<ItemsGroupDto>`), supports `searchString` |
 | POST | `/api/warehouses` | `warehouses.edit` | Create warehouse |
-| PUT | `/api/warehouses/{id}` | `warehouses.edit` | Update warehouse and sync storage places |
-| DELETE | `/api/warehouses/{id}` | `warehouses.edit` | Delete warehouse |
+| PUT | `/api/warehouses/{id}` | `warehouses.edit` or `warehouses.edit_assigned` | Update warehouse and sync storage places; `edit_assigned` returns 403 if warehouse not assigned |
+| DELETE | `/api/warehouses/{id}` | `warehouses.edit` or `warehouses.edit_assigned` | Delete warehouse; `edit_assigned` returns 403 if warehouse not assigned |
 
 `StoragePlaceNodePrintDto` shape: `{ id: Guid, name: string[] }` — `name` is the full breadcrumb path from storage place root down to the node (e.g. `["Стеллаж А", "Полка 1", "Ячейка 3"]`).
 

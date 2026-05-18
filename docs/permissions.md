@@ -39,6 +39,7 @@ That's it. `Permissions.All` picks up new constants automatically via reflection
 | `users.edit_profile` | `Permissions.Users.EditProfile` |
 | `users.delete` | `Permissions.Users.Delete` |
 | `users.manage_roles_and_permissions` | `Permissions.Users.ManageRolesAndPermissions` |
+| `users.manage_assigned_warehouses` | `Permissions.Users.ManageAssignedWarehouses` |
 | `users.reset_password` | `Permissions.Users.ResetPassword` |
 
 ### Roles (`roles.*`)
@@ -48,10 +49,14 @@ That's it. `Permissions.All` picks up new constants automatically via reflection
 | `roles.edit` | `Permissions.Roles.Edit` |
 
 ### Warehouses (`warehouses.*`)
-| Permission | Constant |
-|-----------|----------|
-| `warehouses.view` | `Permissions.Warehouses.View` |
-| `warehouses.edit` | `Permissions.Warehouses.Edit` |
+| Permission | Constant | Scope |
+|-----------|----------|-------|
+| `warehouses.view` | `Permissions.Warehouses.View` | All warehouses |
+| `warehouses.edit` | `Permissions.Warehouses.Edit` | All warehouses |
+| `warehouses.view_assigned` | `Permissions.Warehouses.ViewAssigned` | Only user's `AssignedWarehouses` |
+| `warehouses.edit_assigned` | `Permissions.Warehouses.EditAssigned` | Only user's `AssignedWarehouses` |
+
+`warehouses.view` и `warehouses.view_assigned` можно назначать одновременно — `view` всегда перекрывает `view_assigned`. Аналогично для `edit` / `edit_assigned`.
 
 ### Catalog (`catalog.*`)
 | Permission | Constant |
