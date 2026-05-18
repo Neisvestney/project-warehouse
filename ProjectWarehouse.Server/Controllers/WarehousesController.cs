@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Authorization;
@@ -19,13 +21,31 @@ public class WarehousesController(
     IMapper mapper,
     IChangeLogService<WarehouseDto> changeLog) : AppControllerBase
 {
+    private Guid? GetCurrentUserId()
+    {
+        var raw = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        return Guid.TryParse(raw, out var id) ? id : null;
+    }
+
+    private async Task<HashSet<Guid>?> GetCurrentUserAssignedWarehouseIdsAsync(CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return null;
+        var ids = await db.Users
+            .Where(u => u.Id == userId.Value)
+            .SelectMany(u => u.AssignedWarehouses)
+            .Select(w => w.Id)
+            .ToListAsync(ct);
+        return [..ids];
+    }
     /// <summary>List all warehouses (paginated, optionally filtered by name).</summary>
     /// <remarks>
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c> (optional).
     /// Returns <c>Paginated&lt;WarehouseSummaryDto&gt;</c> — id, name, width, height, storagePlaceCount.
+    /// Requires <c>warehouses.view</c> (all warehouses) or <c>warehouses.view_assigned</c> (assigned warehouses only).
     /// </remarks>
     [HttpGet]
-    [Authorize(Policy = Permissions.Warehouses.View)]
+    [Authorize]
     [ProducesResponseType<Paginated<WarehouseSummaryDto>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(
         [FromQuery][Range(1, int.MaxValue)] int page = 1,
@@ -33,8 +53,23 @@ public class WarehousesController(
         [FromQuery] string? searchString = null,
         CancellationToken ct = default)
     {
-        var paginated = await db.Warehouses
-            .WhereMatchesSearch(w => w.Name, searchString)
+        var canViewAll = User.HasClaim("permission", Permissions.Warehouses.View);
+        var canViewAssigned = User.HasClaim("permission", Permissions.Warehouses.ViewAssigned);
+
+        if (!canViewAll && !canViewAssigned)
+            return Forbidden();
+
+        var query = db.Warehouses.WhereMatchesSearch(w => w.Name, searchString);
+
+        if (!canViewAll)
+        {
+            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(ct);
+            if (assignedIds is null)
+                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+            query = query.Where(w => assignedIds.Contains(w.Id));
+        }
+
+        var paginated = await query
             .OrderBy(w => w.Name)
             .ProjectTo<WarehouseSummaryDto>(mapper.ConfigurationProvider)
             .ToPaginatedAsync(page, pageSize, ct);
@@ -44,11 +79,27 @@ public class WarehousesController(
 
     /// <summary>Get a warehouse by ID including its storage places.</summary>
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = Permissions.Warehouses.View)]
+    [Authorize]
     [ProducesResponseType<WarehouseDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct = default)
     {
+        var canViewAll = User.HasClaim("permission", Permissions.Warehouses.View);
+        var canViewAssigned = User.HasClaim("permission", Permissions.Warehouses.ViewAssigned);
+
+        if (!canViewAll && !canViewAssigned)
+            return Forbidden();
+
+        if (!canViewAll)
+        {
+            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(ct);
+            if (assignedIds is null)
+                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+            if (!assignedIds.Contains(id))
+                return Forbidden();
+        }
+
         var warehouse = await db.Warehouses
             .ProjectTo<WarehouseDto>(mapper.ConfigurationProvider)
             .FirstOrDefaultAsync(w => w.Id == id, ct);
@@ -61,11 +112,27 @@ public class WarehousesController(
 
     /// <summary>Get all storage place nodes for a warehouse mapped to id + full path name for printing.</summary>
     [HttpGet("{id:guid}/print")]
-    [Authorize(Policy = Permissions.Warehouses.View)]
+    [Authorize]
     [ProducesResponseType<List<StoragePlaceNodePrintDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetByIdForPrint(Guid id, CancellationToken ct = default)
     {
+        var canViewAll = User.HasClaim("permission", Permissions.Warehouses.View);
+        var canViewAssigned = User.HasClaim("permission", Permissions.Warehouses.ViewAssigned);
+
+        if (!canViewAll && !canViewAssigned)
+            return Forbidden();
+
+        if (!canViewAll)
+        {
+            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(ct);
+            if (assignedIds is null)
+                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+            if (!assignedIds.Contains(id))
+                return Forbidden();
+        }
+
         var warehouseExists = await db.Warehouses.AnyAsync(w => w.Id == id, ct);
         if (!warehouseExists)
             return NotFound(ErrorCode.WarehouseNotFound, "Warehouse not found.");
@@ -105,8 +172,9 @@ public class WarehousesController(
     /// Returns <c>Paginated&lt;ItemsGroupDto&gt;</c>.
     /// </remarks>
     [HttpGet("{id:guid}/items-groups")]
-    [Authorize(Policy = Permissions.Warehouses.View)]
+    [Authorize]
     [ProducesResponseType<Paginated<ItemsGroupDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAllItemsGroups(
         Guid id,
@@ -115,6 +183,21 @@ public class WarehousesController(
         [FromQuery] string? searchString = null,
         CancellationToken ct = default)
     {
+        var canViewAll = User.HasClaim("permission", Permissions.Warehouses.View);
+        var canViewAssigned = User.HasClaim("permission", Permissions.Warehouses.ViewAssigned);
+
+        if (!canViewAll && !canViewAssigned)
+            return Forbidden();
+
+        if (!canViewAll)
+        {
+            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(ct);
+            if (assignedIds is null)
+                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+            if (!assignedIds.Contains(id))
+                return Forbidden();
+        }
+
         var warehouseExists = await db.Warehouses.AnyAsync(w => w.Id == id, ct);
         if (!warehouseExists)
             return NotFound(ErrorCode.WarehouseNotFound, "Warehouse not found.");
@@ -202,15 +285,32 @@ public class WarehousesController(
     ///   <item>existing storage place not in the list — delete</item>
     /// </list>
     /// Returns 422 <c>storagePlaceNotFound</c> if any provided ID does not belong to this warehouse.
+    /// Requires <c>warehouses.edit</c> or <c>warehouses.edit_assigned</c> (assigned warehouses only).
     /// </remarks>
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = Permissions.Warehouses.Edit)]
+    [Authorize]
     [ProducesResponseType<WarehouseDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateWarehouseRequest request, CancellationToken ct = default)
     {
+        var canEditAll = User.HasClaim("permission", Permissions.Warehouses.Edit);
+        var canEditAssigned = User.HasClaim("permission", Permissions.Warehouses.EditAssigned);
+
+        if (!canEditAll && !canEditAssigned)
+            return Forbidden();
+
+        if (!canEditAll)
+        {
+            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(ct);
+            if (assignedIds is null)
+                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+            if (!assignedIds.Contains(id))
+                return Forbidden();
+        }
+
         var warehouse = await db.Warehouses
             .Include(w => w.StoragePlaces)
             .Include(w => w.LayoutObjects)
@@ -314,14 +414,31 @@ public class WarehousesController(
     }
 
     /// <summary>Delete a warehouse and all its storage places.</summary>
-    /// <remarks>Returns 409 <c>warehouseHasItems</c> if the warehouse contains any stored items.</remarks>
+    /// <remarks>Returns 409 <c>warehouseHasItems</c> if the warehouse contains any stored items.
+    /// Requires <c>warehouses.edit</c> or <c>warehouses.edit_assigned</c> (assigned warehouses only).</remarks>
     [HttpDelete("{id:guid}")]
-    [Authorize(Policy = Permissions.Warehouses.Edit)]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct = default)
     {
+        var canEditAll = User.HasClaim("permission", Permissions.Warehouses.Edit);
+        var canEditAssigned = User.HasClaim("permission", Permissions.Warehouses.EditAssigned);
+
+        if (!canEditAll && !canEditAssigned)
+            return Forbidden();
+
+        if (!canEditAll)
+        {
+            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(ct);
+            if (assignedIds is null)
+                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+            if (!assignedIds.Contains(id))
+                return Forbidden();
+        }
+
         var warehouseBeforeDto = await db.Warehouses
             .ProjectTo<WarehouseDto>(mapper.ConfigurationProvider)
             .FirstOrDefaultAsync(w => w.Id == id, ct);

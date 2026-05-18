@@ -24,12 +24,16 @@ import {extractErrorMessage} from "@/utils/errorUtils.ts";
 const pages: {
   name: string;
   url: string | ((permissions: PermissionName[]) => string);
-  requiredPermission?: PermissionName;
+  requiredPermission?: PermissionName | PermissionName[];
   showIf?: (permissions: PermissionName[]) => boolean;
 }[] = [
   {name: "Пользователи", url: "/users", requiredPermission: "users.view"},
   {name: "Каталог", url: "/catalog", requiredPermission: "catalog.view"},
-  {name: "Склады", url: "/warehouses", requiredPermission: "warehouses.view"},
+  {
+    name: "Склады",
+    url: "/warehouses",
+    requiredPermission: ["warehouses.view", "warehouses.view_assigned"],
+  },
   {
     name: "Настройки",
     url: (p) => `/settings/${getSettingsFirstPageUrl(p)}`,
@@ -75,11 +79,15 @@ function MainAppBar({}: AppBarProps) {
   const avatarLetter = user?.username?.[0]?.toUpperCase() ?? "?";
 
   const filteredPages = pages
-    .filter(
-      (page) =>
-        (!page.requiredPermission || user?.permissions.includes(page.requiredPermission)) &&
-        (!page.showIf || page.showIf((user?.permissions ?? []) as PermissionName[])),
-    )
+    .filter((page) => {
+      const perms = (user?.permissions ?? []) as PermissionName[];
+      const hasPermission =
+        !page.requiredPermission ||
+        (Array.isArray(page.requiredPermission)
+          ? page.requiredPermission.some((p) => perms.includes(p))
+          : perms.includes(page.requiredPermission));
+      return hasPermission && (!page.showIf || page.showIf(perms));
+    })
     .map((page) => ({
       ...page,
       url:

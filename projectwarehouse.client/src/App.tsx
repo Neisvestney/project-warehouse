@@ -119,17 +119,17 @@ function App() {
                     <ProtectedRoute
                       path="/warehouses"
                       element={<WarehousesPage />}
-                      requiredPermission="warehouses.view"
+                      requiredPermission={["warehouses.view", "warehouses.view_assigned"]}
                     />
                     <ProtectedRoute
                       path="/warehouses/:id"
                       element={<WarehouseViewPage />}
-                      requiredPermission="warehouses.view"
+                      requiredPermission={["warehouses.view", "warehouses.view_assigned"]}
                     />
                     <ProtectedRoute
                       path="/warehouses/:id/items"
                       element={<WarehouseItemsPage />}
-                      requiredPermission="warehouses.view"
+                      requiredPermission={["warehouses.view", "warehouses.view_assigned"]}
                     />
                     <ProtectedRoute
                       path="/warehouses/new"
@@ -139,7 +139,7 @@ function App() {
                     <ProtectedRoute
                       path="/warehouses/:id/edit"
                       element={<WarehouseEditPage />}
-                      requiredPermission="warehouses.edit"
+                      requiredPermission={["warehouses.edit", "warehouses.edit_assigned"]}
                     />
                     <ProtectedRoute path="/settings/*" element={<SettingsPage />} />
                     <Route path="*" element={<PageNotFound />} />
