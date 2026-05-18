@@ -60,7 +60,7 @@ export function clearTokens() {
 const retryClones = new WeakMap<Request, Request>();
 
 export function setupApiClient() {
-  client.setConfig({baseUrl: "/"});
+  client.setConfig({baseUrl: window.location.origin});
 
   // Proactively refresh the token 30s before it expires so requests never hit 401 due to expiry.
   // Concurrent calls share a single in-flight refresh promise to prevent rotation conflicts.

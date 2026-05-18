@@ -16,6 +16,9 @@ import {QueryErrorHandler} from "@/components/QueryErrorHandler";
 import WarehousesPage from "@/pages/WarehousesPage/WarehousesPage.tsx";
 import WarehouseViewPage from "@/pages/WarehousesPage/pages/WarehouseViewPage/WarehouseViewPage.tsx";
 import PageNotFound from "@/components/PageNotFound.tsx";
+import {Capacitor} from "@capacitor/core";
+import ServerSetupPage from "@/pages/ServerSetupPage/ServerSetupPage.tsx";
+import {SELECTED_SERVER_KEY} from "@/configuration/servers.ts";
 const WarehouseItemsPage = React.lazy(
   () => import("@/pages/WarehousesPage/pages/WarehouseItemsPage/WarehouseItemsPage.tsx"),
 );
@@ -55,6 +58,21 @@ function App() {
     },
   });
 
+  const isLauncher =
+    Capacitor.isNativePlatform() &&
+    ["capacitor://localhost", "https://localhost"].includes(window.location.origin);
+
+  if (isLauncher && !localStorage.getItem(SELECTED_SERVER_KEY)) {
+    return (
+      <ThemeProvider theme={theme}>
+        <SnackbarProvider>
+          <CssBaseline />
+          <ServerSetupPage />
+        </SnackbarProvider>
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ServiceWorkerContext.Provider value={{needRefresh, offlineReady, updateServiceWorker}}>
       <ThemeProvider theme={theme}>
@@ -66,6 +84,7 @@ function App() {
             <AuthProvider>
               <Suspense>
                 <ProtectedRoutes>
+                  <Route path="/server-setup" element={<ServerSetupPage />} />
                   <Route path="/login" element={<LoginPage />} />
                   <ProtectedRoute element={<MainLayout />}>
                     <ProtectedRoute path="/" element={<HomePage />} />

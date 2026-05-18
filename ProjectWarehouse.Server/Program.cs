@@ -253,6 +253,21 @@ try
         };
     });
 
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("CapacitorPolicy", policy =>
+        {
+            policy.WithOrigins(
+                    "capacitor://localhost",  // Capacitor Android
+                    "https://localhost",       // Capacitor iOS / dev
+                    "http://localhost"
+                )
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+        });
+    });
+
     builder.Services.AddHttpContextAccessor();
 
     builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
@@ -291,6 +306,7 @@ try
     }
 
     app.UseHttpsRedirection();
+    app.UseCors("CapacitorPolicy");
     app.UseAuthentication();
     app.UseAuthorization();
     app.MapControllers();

@@ -47,7 +47,7 @@ export default defineConfig(({command}) => ({
   plugins: [
     plugin(),
     legacy({
-      targets: ["chrome >= 55", "android >= 55"],
+      targets: ["chrome >= 49", "android >= 49"],
     }),
     VitePWA({
       registerType: "prompt",
@@ -104,9 +104,9 @@ export default defineConfig(({command}) => ({
       },
     },
     port: 5173,
-    https: {
-      key: fs.readFileSync(keyFilePath),
-      cert: fs.readFileSync(certFilePath),
-    },
+    // https: {
+    //   key: fs.readFileSync(keyFilePath),
+    //   cert: fs.readFileSync(certFilePath),
+    // },
   },
 }));
