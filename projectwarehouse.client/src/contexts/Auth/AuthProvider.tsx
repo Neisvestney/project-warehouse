@@ -39,8 +39,8 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
 
   useEffect(() => {
     const handler = () => {
-      queryClient.setQueryData(ME_QUERY_KEY, null);
       queryClient.clear();
+      queryClient.setQueryData(ME_QUERY_KEY, null);
       setHasTokens(false);
     };
     window.addEventListener("auth:clear", handler);
