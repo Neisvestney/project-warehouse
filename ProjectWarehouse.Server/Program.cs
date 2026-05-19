@@ -23,6 +23,7 @@ using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
 using ProjectWarehouse.Server.Models.Roles;
 using ProjectWarehouse.Server.Models.Users;
+using ProjectWarehouse.Server.Models.InboundOrders;
 using ProjectWarehouse.Server.Models.Warehouses;
 using ProjectWarehouse.Server.Services;
 using Scalar.AspNetCore;
@@ -282,6 +283,7 @@ try
     builder.Services.AddScoped<IChangeLogService<WarehouseDto>, WarehouseDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<StoragePlaceNodeDetailsDto>, StoragePlaceNodeDetailsDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<RolesListDto>, RolesListDtoChangelogService>();
+    builder.Services.AddScoped<IChangeLogService<InboundOrderDto>, InboundOrderDtoChangelogService>();
 
 
     var app = builder.Build();

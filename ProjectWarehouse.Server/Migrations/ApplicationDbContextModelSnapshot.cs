@@ -24,6 +24,21 @@ namespace ProjectWarehouse.Server.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ApplicationUserInboundOrder", b =>
+                {
+                    b.Property<Guid>("AssignedInboundOrdersId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AssignedUsersId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("AssignedInboundOrdersId", "AssignedUsersId");
+
+                    b.HasIndex("AssignedUsersId");
+
+                    b.ToTable("ApplicationUserInboundOrder");
+                });
+
             modelBuilder.Entity("ApplicationUserWarehouse", b =>
                 {
                     b.Property<Guid>("AssignedUsersId")
@@ -339,6 +354,96 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("ChangeLogEntries");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.InboundOrder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Number")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Number"));
+
+                    b.Property<DateTime>("PlannedStartDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Number")
+                        .IsUnique();
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("InboundOrders");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.InboundOrderDraftItemsGroup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Article")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Barcode")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("CatalogItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CatalogItemWithCharacteristicId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Characteristic")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("CreateNew")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("InboundOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RootBarcode")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CatalogItemId");
+
+                    b.HasIndex("CatalogItemWithCharacteristicId");
+
+                    b.HasIndex("InboundOrderId");
+
+                    b.ToTable("InboundOrderDraftItemsGroups");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.ItemsGroup", b =>
                 {
                     b.Property<Guid>("Id")
@@ -502,6 +607,45 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("Warehouses");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.InboundOrderDeclaredItemsGroup", b =>
+                {
+                    b.HasBaseType("ProjectWarehouse.Server.Domain.ItemsGroup");
+
+                    b.Property<Guid>("InboundOrderId")
+                        .HasColumnType("uuid");
+
+                    b.HasIndex("CatalogItemWithCharacteristicId");
+
+                    b.HasIndex("InboundOrderId");
+
+                    b.ToTable("ItemsGroup", t =>
+                        {
+                            t.Property("InboundOrderId")
+                                .HasColumnName("InboundOrderDeclaredItemsGroup_InboundOrderId");
+                        });
+
+                    b.HasDiscriminator().HasValue("InboundOrderDeclaredItemsGroup");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.InboundOrderProcessedItemsGroup", b =>
+                {
+                    b.HasBaseType("ProjectWarehouse.Server.Domain.ItemsGroup");
+
+                    b.Property<Guid>("InboundOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("StoragePlaceNodeId")
+                        .HasColumnType("uuid");
+
+                    b.HasIndex("CatalogItemWithCharacteristicId");
+
+                    b.HasIndex("InboundOrderId");
+
+                    b.HasIndex("StoragePlaceNodeId");
+
+                    b.HasDiscriminator().HasValue("InboundOrderProcessedItemsGroup");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlaceNodeItemsGroup", b =>
                 {
                     b.HasBaseType("ProjectWarehouse.Server.Domain.ItemsGroup");
@@ -513,7 +657,28 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("StoragePlaceNodeId");
 
+                    b.ToTable("ItemsGroup", t =>
+                        {
+                            t.Property("StoragePlaceNodeId")
+                                .HasColumnName("StoragePlaceNodeItemsGroup_StoragePlaceNodeId");
+                        });
+
                     b.HasDiscriminator().HasValue("StoragePlaceNodeItemsGroup");
+                });
+
+            modelBuilder.Entity("ApplicationUserInboundOrder", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.InboundOrder", null)
+                        .WithMany()
+                        .HasForeignKey("AssignedInboundOrdersId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("AssignedUsersId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ApplicationUserWarehouse", b =>
@@ -605,6 +770,42 @@ namespace ProjectWarehouse.Server.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.InboundOrder", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.Warehouse", "Warehouse")
+                        .WithMany("InboundOrders")
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.InboundOrderDraftItemsGroup", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CatalogItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItemWithCharacteristic", "CatalogItemWithCharacteristic")
+                        .WithMany("InboundOrderDraftItemsGroups")
+                        .HasForeignKey("CatalogItemWithCharacteristicId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.InboundOrder", "InboundOrder")
+                        .WithMany("DraftItemsGroups")
+                        .HasForeignKey("InboundOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CatalogItem");
+
+                    b.Navigation("CatalogItemWithCharacteristic");
+
+                    b.Navigation("InboundOrder");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.RefreshToken", b =>
@@ -704,6 +905,51 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("LayoutObjects");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.InboundOrderDeclaredItemsGroup", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItemWithCharacteristic", "CatalogItemWithCharacteristic")
+                        .WithMany("InboundOrderDeclaredItemsGroups")
+                        .HasForeignKey("CatalogItemWithCharacteristicId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.InboundOrder", "InboundOrder")
+                        .WithMany("DeclaredItemsGroups")
+                        .HasForeignKey("InboundOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CatalogItemWithCharacteristic");
+
+                    b.Navigation("InboundOrder");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.InboundOrderProcessedItemsGroup", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItemWithCharacteristic", "CatalogItemWithCharacteristic")
+                        .WithMany("InboundOrderProcessedItemsGroups")
+                        .HasForeignKey("CatalogItemWithCharacteristicId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.InboundOrder", "InboundOrder")
+                        .WithMany("ProcessedItemsGroups")
+                        .HasForeignKey("InboundOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.StoragePlaceNode", "StoragePlaceNode")
+                        .WithMany("InboundOrderProcessedItemsGroups")
+                        .HasForeignKey("StoragePlaceNodeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CatalogItemWithCharacteristic");
+
+                    b.Navigation("InboundOrder");
+
+                    b.Navigation("StoragePlaceNode");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlaceNodeItemsGroup", b =>
                 {
                     b.HasOne("ProjectWarehouse.Server.Domain.CatalogItemWithCharacteristic", "CatalogItemWithCharacteristic")
@@ -746,7 +992,22 @@ namespace ProjectWarehouse.Server.Migrations
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemWithCharacteristic", b =>
                 {
+                    b.Navigation("InboundOrderDeclaredItemsGroups");
+
+                    b.Navigation("InboundOrderDraftItemsGroups");
+
+                    b.Navigation("InboundOrderProcessedItemsGroups");
+
                     b.Navigation("StoragePlaceNodesItemsGroups");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.InboundOrder", b =>
+                {
+                    b.Navigation("DeclaredItemsGroups");
+
+                    b.Navigation("DraftItemsGroups");
+
+                    b.Navigation("ProcessedItemsGroups");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlace", b =>
@@ -758,11 +1019,15 @@ namespace ProjectWarehouse.Server.Migrations
                 {
                     b.Navigation("ChildrenNodes");
 
+                    b.Navigation("InboundOrderProcessedItemsGroups");
+
                     b.Navigation("ItemsGroups");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Warehouse", b =>
                 {
+                    b.Navigation("InboundOrders");
+
                     b.Navigation("StoragePlaces");
                 });
 #pragma warning restore 612, 618

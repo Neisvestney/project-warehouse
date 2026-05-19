@@ -39,6 +39,63 @@ import type {
   HomePageContentGetHomePageContentData,
   HomePageContentGetHomePageContentErrors,
   HomePageContentGetHomePageContentResponses,
+  InboundOrderProcessingGetAllAssignedData,
+  InboundOrderProcessingGetAllAssignedErrors,
+  InboundOrderProcessingGetAllAssignedResponses,
+  InboundOrderProcessingGetByIdData,
+  InboundOrderProcessingGetByIdErrors,
+  InboundOrderProcessingGetByIdResponses,
+  InboundOrderProcessingGetStoragePlaceNodeDetailsData,
+  InboundOrderProcessingGetStoragePlaceNodeDetailsErrors,
+  InboundOrderProcessingGetStoragePlaceNodeDetailsResponses,
+  InboundOrderProcessingGetStoragePlaceNodesData,
+  InboundOrderProcessingGetStoragePlaceNodesErrors,
+  InboundOrderProcessingGetStoragePlaceNodesResponses,
+  InboundOrderProcessingPlaceItemsData,
+  InboundOrderProcessingPlaceItemsErrors,
+  InboundOrderProcessingPlaceItemsResponses,
+  InboundOrderProcessingUpdateItemsData,
+  InboundOrderProcessingUpdateItemsErrors,
+  InboundOrderProcessingUpdateItemsResponses,
+  InboundOrdersChangeStatusToFinishedData,
+  InboundOrdersChangeStatusToFinishedErrors,
+  InboundOrdersChangeStatusToFinishedResponses,
+  InboundOrdersChangeStatusToProcessingData,
+  InboundOrdersChangeStatusToProcessingErrors,
+  InboundOrdersChangeStatusToProcessingResponses,
+  InboundOrdersCreateData,
+  InboundOrdersCreateErrors,
+  InboundOrdersCreateResponses,
+  InboundOrdersDeleteData,
+  InboundOrdersDeleteErrors,
+  InboundOrdersDeleteResponses,
+  InboundOrdersGetAllData,
+  InboundOrdersGetAllErrors,
+  InboundOrdersGetAllResponses,
+  InboundOrdersGetByIdData,
+  InboundOrdersGetByIdErrors,
+  InboundOrdersGetByIdResponses,
+  InboundOrdersGetDraftItemsGroupsData,
+  InboundOrdersGetDraftItemsGroupsErrors,
+  InboundOrdersGetDraftItemsGroupsResponses,
+  InboundOrdersGetItemsComparisonData,
+  InboundOrdersGetItemsComparisonErrors,
+  InboundOrdersGetItemsComparisonResponses,
+  InboundOrdersRollbackStatusToDraftData,
+  InboundOrdersRollbackStatusToDraftErrors,
+  InboundOrdersRollbackStatusToDraftResponses,
+  InboundOrdersRollbackStatusToProcessingData,
+  InboundOrdersRollbackStatusToProcessingErrors,
+  InboundOrdersRollbackStatusToProcessingResponses,
+  InboundOrdersTryAutoAssignCatalogItemsData,
+  InboundOrdersTryAutoAssignCatalogItemsErrors,
+  InboundOrdersTryAutoAssignCatalogItemsResponses,
+  InboundOrdersUpdateData,
+  InboundOrdersUpdateDraftItemsGroupsData,
+  InboundOrdersUpdateDraftItemsGroupsErrors,
+  InboundOrdersUpdateDraftItemsGroupsResponses,
+  InboundOrdersUpdateErrors,
+  InboundOrdersUpdateResponses,
   PermissionsGetAllData,
   PermissionsGetAllErrors,
   PermissionsGetAllResponses,
@@ -306,6 +363,278 @@ export const homePageContentGetHomePageContent = <ThrowOnError extends boolean =
     HomePageContentGetHomePageContentErrors,
     ThrowOnError
   >({url: "/api/homepagecontent", ...options});
+
+/**
+ * List inbound orders assigned to the current user.
+ */
+export const inboundOrderProcessingGetAllAssigned = <ThrowOnError extends boolean = false>(
+  options?: Options<InboundOrderProcessingGetAllAssignedData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    InboundOrderProcessingGetAllAssignedResponses,
+    InboundOrderProcessingGetAllAssignedErrors,
+    ThrowOnError
+  >({url: "/api/inbound-order-processing", ...options});
+
+/**
+ * Get inbound order processing view with warehouse schema and storage place status.
+ */
+export const inboundOrderProcessingGetById = <ThrowOnError extends boolean = false>(
+  options: Options<InboundOrderProcessingGetByIdData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    InboundOrderProcessingGetByIdResponses,
+    InboundOrderProcessingGetByIdErrors,
+    ThrowOnError
+  >({url: "/api/inbound-order-processing/{id}", ...options});
+
+/**
+ * Get storage place nodes for a given storage place in this order's warehouse.
+ */
+export const inboundOrderProcessingGetStoragePlaceNodes = <ThrowOnError extends boolean = false>(
+  options: Options<InboundOrderProcessingGetStoragePlaceNodesData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    InboundOrderProcessingGetStoragePlaceNodesResponses,
+    InboundOrderProcessingGetStoragePlaceNodesErrors,
+    ThrowOnError
+  >({url: "/api/inbound-order-processing/{id}/nodes", ...options});
+
+/**
+ * Get storage place node details (including StoragePlaceId) in this order's warehouse.
+ */
+export const inboundOrderProcessingGetStoragePlaceNodeDetails = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<InboundOrderProcessingGetStoragePlaceNodeDetailsData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    InboundOrderProcessingGetStoragePlaceNodeDetailsResponses,
+    InboundOrderProcessingGetStoragePlaceNodeDetailsErrors,
+    ThrowOnError
+  >({url: "/api/inbound-order-processing/{id}/nodes/{nodeId}", ...options});
+
+/**
+ * Place items in a storage place node for this order (first placement only).
+ */
+export const inboundOrderProcessingPlaceItems = <ThrowOnError extends boolean = false>(
+  options: Options<InboundOrderProcessingPlaceItemsData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    InboundOrderProcessingPlaceItemsResponses,
+    InboundOrderProcessingPlaceItemsErrors,
+    ThrowOnError
+  >({
+    url: "/api/inbound-order-processing/{id}/nodes/{nodeId}/items",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Update items placed in a storage place node for this order (delta-based).
+ */
+export const inboundOrderProcessingUpdateItems = <ThrowOnError extends boolean = false>(
+  options: Options<InboundOrderProcessingUpdateItemsData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    InboundOrderProcessingUpdateItemsResponses,
+    InboundOrderProcessingUpdateItemsErrors,
+    ThrowOnError
+  >({
+    url: "/api/inbound-order-processing/{id}/nodes/{nodeId}/items",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * List inbound orders (paginated, searchable, filterable).
+ */
+export const inboundOrdersGetAll = <ThrowOnError extends boolean = false>(
+  options?: Options<InboundOrdersGetAllData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    InboundOrdersGetAllResponses,
+    InboundOrdersGetAllErrors,
+    ThrowOnError
+  >({url: "/api/inbound-orders", ...options});
+
+/**
+ * Create a new inbound order (always in Draft status).
+ */
+export const inboundOrdersCreate = <ThrowOnError extends boolean = false>(
+  options: Options<InboundOrdersCreateData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    InboundOrdersCreateResponses,
+    InboundOrdersCreateErrors,
+    ThrowOnError
+  >({
+    url: "/api/inbound-orders",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete an inbound order (only Draft or Finished status).
+ */
+export const inboundOrdersDelete = <ThrowOnError extends boolean = false>(
+  options: Options<InboundOrdersDeleteData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<
+    InboundOrdersDeleteResponses,
+    InboundOrdersDeleteErrors,
+    ThrowOnError
+  >({url: "/api/inbound-orders/{id}", ...options});
+
+/**
+ * Get an inbound order by ID (all fields except item groups).
+ */
+export const inboundOrdersGetById = <ThrowOnError extends boolean = false>(
+  options: Options<InboundOrdersGetByIdData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    InboundOrdersGetByIdResponses,
+    InboundOrdersGetByIdErrors,
+    ThrowOnError
+  >({url: "/api/inbound-orders/{id}", ...options});
+
+/**
+ * Update an inbound order.
+ */
+export const inboundOrdersUpdate = <ThrowOnError extends boolean = false>(
+  options: Options<InboundOrdersUpdateData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    InboundOrdersUpdateResponses,
+    InboundOrdersUpdateErrors,
+    ThrowOnError
+  >({
+    url: "/api/inbound-orders/{id}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get all draft item groups for an inbound order.
+ */
+export const inboundOrdersGetDraftItemsGroups = <ThrowOnError extends boolean = false>(
+  options: Options<InboundOrdersGetDraftItemsGroupsData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    InboundOrdersGetDraftItemsGroupsResponses,
+    InboundOrdersGetDraftItemsGroupsErrors,
+    ThrowOnError
+  >({url: "/api/inbound-orders/{id}/draft-items-groups", ...options});
+
+/**
+ * Atomically sync draft item groups for an inbound order (Draft status only).
+ */
+export const inboundOrdersUpdateDraftItemsGroups = <ThrowOnError extends boolean = false>(
+  options: Options<InboundOrdersUpdateDraftItemsGroupsData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    InboundOrdersUpdateDraftItemsGroupsResponses,
+    InboundOrdersUpdateDraftItemsGroupsErrors,
+    ThrowOnError
+  >({
+    url: "/api/inbound-orders/{id}/draft-items-groups",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get declared, processed, and diff summary for an inbound order.
+ */
+export const inboundOrdersGetItemsComparison = <ThrowOnError extends boolean = false>(
+  options: Options<InboundOrdersGetItemsComparisonData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    InboundOrdersGetItemsComparisonResponses,
+    InboundOrdersGetItemsComparisonErrors,
+    ThrowOnError
+  >({url: "/api/inbound-orders/{id}/items-comparison", ...options});
+
+/**
+ * Transition order from Draft to Processing (validates and copies draft items to declared).
+ */
+export const inboundOrdersChangeStatusToProcessing = <ThrowOnError extends boolean = false>(
+  options: Options<InboundOrdersChangeStatusToProcessingData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    InboundOrdersChangeStatusToProcessingResponses,
+    InboundOrdersChangeStatusToProcessingErrors,
+    ThrowOnError
+  >({url: "/api/inbound-orders/{id}/change-status-to-processing", ...options});
+
+/**
+ * Rollback order from Processing to Draft (only if no processed items exist).
+ */
+export const inboundOrdersRollbackStatusToDraft = <ThrowOnError extends boolean = false>(
+  options: Options<InboundOrdersRollbackStatusToDraftData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    InboundOrdersRollbackStatusToDraftResponses,
+    InboundOrdersRollbackStatusToDraftErrors,
+    ThrowOnError
+  >({url: "/api/inbound-orders/{id}/rollback-status-to-draft", ...options});
+
+/**
+ * Transition order from Processing to Finished.
+ */
+export const inboundOrdersChangeStatusToFinished = <ThrowOnError extends boolean = false>(
+  options: Options<InboundOrdersChangeStatusToFinishedData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    InboundOrdersChangeStatusToFinishedResponses,
+    InboundOrdersChangeStatusToFinishedErrors,
+    ThrowOnError
+  >({url: "/api/inbound-orders/{id}/change-status-to-finished", ...options});
+
+/**
+ * Rollback order from Finished to Processing.
+ */
+export const inboundOrdersRollbackStatusToProcessing = <ThrowOnError extends boolean = false>(
+  options: Options<InboundOrdersRollbackStatusToProcessingData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    InboundOrdersRollbackStatusToProcessingResponses,
+    InboundOrdersRollbackStatusToProcessingErrors,
+    ThrowOnError
+  >({url: "/api/inbound-orders/{id}/rollback-status-to-processing", ...options});
+
+/**
+ * Try to auto-assign CatalogItemWithCharacteristic to draft items by matching barcode → article+characteristic → name+characteristic.
+ */
+export const inboundOrdersTryAutoAssignCatalogItems = <ThrowOnError extends boolean = false>(
+  options: Options<InboundOrdersTryAutoAssignCatalogItemsData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    InboundOrdersTryAutoAssignCatalogItemsResponses,
+    InboundOrdersTryAutoAssignCatalogItemsErrors,
+    ThrowOnError
+  >({
+    url: "/api/inbound-orders/{id}/try-auto-assign-catalog-items",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
 
 /**
  * Get all available static permissions defined in the system.
@@ -589,6 +918,7 @@ export const usersChangePassword = <ThrowOnError extends boolean = false>(
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString` (optional).
  * Returns `Paginated&lt;WarehouseSummaryDto&gt;` — id, name, width, height, storagePlaceCount.
+ * Requires `warehouses.view` (all warehouses) or `warehouses.view_assigned` (assigned warehouses only).
  */
 export const warehousesGetAll = <ThrowOnError extends boolean = false>(
   options?: Options<WarehousesGetAllData, ThrowOnError>,
@@ -619,6 +949,7 @@ export const warehousesCreate = <ThrowOnError extends boolean = false>(
  * Delete a warehouse and all its storage places.
  *
  * Returns 409 `warehouseHasItems` if the warehouse contains any stored items.
+ * Requires `warehouses.edit` or `warehouses.edit_assigned` (assigned warehouses only).
  */
 export const warehousesDelete = <ThrowOnError extends boolean = false>(
   options: Options<WarehousesDeleteData, ThrowOnError>,
@@ -647,6 +978,7 @@ export const warehousesGetById = <ThrowOnError extends boolean = false>(
  * * id present — update existing storage place
  * * existing storage place not in the list — delete
  * Returns 422 `storagePlaceNotFound` if any provided ID does not belong to this warehouse.
+ * Requires `warehouses.edit` or `warehouses.edit_assigned` (assigned warehouses only).
  */
 export const warehousesUpdate = <ThrowOnError extends boolean = false>(
   options: Options<WarehousesUpdateData, ThrowOnError>,

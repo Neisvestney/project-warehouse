@@ -60,6 +60,15 @@ public static class AppProblems
         IEnumerable<(string Field, ErrorCode Code, string Message, IReadOnlyDictionary<string, object>? Args)> errors) =>
         Fields(StatusCodes.Status422UnprocessableEntity, errors);
 
+    public static AppProblemDetails UnprocessableEntitiesWithRoot(
+        ErrorCode rootCode, string rootMessage,
+        IEnumerable<(string Field, ErrorCode Code, string Message, IReadOnlyDictionary<string, object>? Args)> fieldErrors)
+    {
+        var details = Fields(StatusCodes.Status422UnprocessableEntity, fieldErrors);
+        details.Errors["root"] = [MakeError(rootCode, rootMessage)];
+        return details;
+    }
+
     private static AppFieldError MakeError(ErrorCode code, string message,
         IReadOnlyDictionary<string, object>? args = null) => new()
     {

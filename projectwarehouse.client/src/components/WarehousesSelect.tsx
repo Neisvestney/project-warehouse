@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useRef, useState} from "react";
-import type {AutocompleteProps} from "@mui/material";
+import type {AutocompleteProps, TextFieldProps} from "@mui/material";
 import {Autocomplete, Chip, TextField} from "@mui/material";
 import {useQuery} from "@tanstack/react-query";
 import {warehousesGetAllOptions, warehousesGetByIdOptions} from "@/api/@tanstack/react-query.gen";
@@ -52,6 +52,7 @@ interface WarehousesSelectSingleProps extends OmitControlled<
   onChange: (id: string | null) => void;
   /** Called when the DTO for the current value is resolved — on initial load and on every change. */
   onDtoChange?: (dto: WarehouseSummaryDto | null) => void;
+  textFieldProps?: Partial<TextFieldProps>;
 }
 
 export type WarehousesSelectProps = WarehousesSelectMultiProps | WarehousesSelectSingleProps;
@@ -113,6 +114,7 @@ function SingleSelect({
   onChange,
   onDtoChange,
   label = "Склад",
+  textFieldProps,
   ...autocompleteProps
 }: WarehousesSelectSingleProps) {
   const [inputValue, setInputValue] = useState("");
@@ -170,7 +172,7 @@ function SingleSelect({
       isOptionEqualToValue={(o, v) => o.id === v.id}
       filterOptions={(x) => x}
       loading={searchQuery.isLoading || getByIdQuery.isLoading}
-      renderInput={(params) => <TextField {...params} label={label} />}
+      renderInput={(params) => <TextField {...params} label={label} {...textFieldProps} />}
     />
   );
 }

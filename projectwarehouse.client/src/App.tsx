@@ -48,6 +48,15 @@ const UserCreatePage = React.lazy(
 const SettingsPage = React.lazy(() => import("@/pages/SettingsPage/SettingsPage.tsx"));
 const PrintPage = React.lazy(() => import("@/pages/PrintPage/PrintPage.tsx"));
 const CatalogPage = React.lazy(() => import("@/pages/CatalogPage/CatalogPage.tsx"));
+const InboundOrdersPage = React.lazy(
+  () => import("@/pages/InboundOrdersPage/InboundOrdersPage.tsx"),
+);
+const InboundOrderCreatePage = React.lazy(
+  () => import("@/pages/InboundOrdersPage/pages/InboundOrderCreatePage/InboundOrderCreatePage.tsx"),
+);
+const InboundOrderPage = React.lazy(
+  () => import("@/pages/InboundOrdersPage/pages/InboundOrderPage/InboundOrderPage.tsx"),
+);
 
 function App() {
   const {
@@ -140,6 +149,30 @@ function App() {
                       path="/warehouses/:id/edit"
                       element={<WarehouseEditPage />}
                       requiredPermission={["warehouses.edit", "warehouses.edit_assigned"]}
+                    />
+                    <ProtectedRoute
+                      path="/inbound-orders"
+                      element={<InboundOrdersPage />}
+                      requiredPermission={[
+                        "inbound_orders.view",
+                        "inbound_orders.view_assigned_warehouses",
+                      ]}
+                    />
+                    <ProtectedRoute
+                      path="/inbound-orders/new"
+                      element={<InboundOrderCreatePage />}
+                      requiredPermission={[
+                        "inbound_orders.edit",
+                        "inbound_orders.edit_assigned_warehouses",
+                      ]}
+                    />
+                    <ProtectedRoute
+                      path="/inbound-orders/:id"
+                      element={<InboundOrderPage />}
+                      requiredPermission={[
+                        "inbound_orders.view",
+                        "inbound_orders.view_assigned_warehouses",
+                      ]}
                     />
                     <ProtectedRoute path="/settings/*" element={<SettingsPage />} />
                     <Route path="*" element={<PageNotFound />} />

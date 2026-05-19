@@ -91,6 +91,102 @@ Returns 422 `catalogItemCharacteristicDuplicate` if the same `catalogItemWithCha
 
 ---
 
+## Inbound Orders — `/api/inbound-orders`
+
+| Method | Path | Permission | Description |
+|--------|------|------------|-------------|
+| GET | `/api/inbound-orders` | `inbound_orders.view` or `inbound_orders.view_assigned_warehouses` | List orders paginated; `_assigned_warehouses` filters to user's assigned warehouses. Supports `searchString`, `warehouseId` |
+| GET | `/api/inbound-orders/{id}` | `inbound_orders.view` or `inbound_orders.view_assigned_warehouses` | Get order details (all fields except item groups) |
+| POST | `/api/inbound-orders` | `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses` | Create order (always Draft); `_assigned_warehouses` restricts to user's warehouses |
+| PUT | `/api/inbound-orders/{id}` | `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses` | Update order metadata and assigned users |
+| DELETE | `/api/inbound-orders/{id}` | `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses` | Delete order (Draft or Finished only; 409 if Processing) |
+| GET | `/api/inbound-orders/{id}/draft-items-groups` | `inbound_orders.view` or `inbound_orders.view_assigned_warehouses` | Get all draft item groups with optional catalog links |
+| PUT | `/api/inbound-orders/{id}/draft-items-groups` | `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses` | Atomically sync draft items (sync pattern: null id = create, id = update, missing = delete). Draft status only. |
+| GET | `/api/inbound-orders/{id}/items-comparison` | `inbound_orders.view` or `inbound_orders.view_assigned_warehouses` | Declared vs processed comparison with shortage/surplus breakdown |
+| POST | `/api/inbound-orders/{id}/change-status-to-processing` | `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses` | Draft→Processing: validates/auto-creates catalog items, copies draft to declared |
+| POST | `/api/inbound-orders/{id}/rollback-status-to-draft` | `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses` | Processing→Draft: only if no processed items exist; deletes declared items |
+| POST | `/api/inbound-orders/{id}/change-status-to-finished` | `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses` | Processing→Finished |
+| POST | `/api/inbound-orders/{id}/rollback-status-to-processing` | `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses` | Finished→Processing |
+| POST | `/api/inbound-orders/{id}/try-auto-assign-catalog-items` | `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses` | Try to auto-assign `CatalogItemWithCharacteristic` to unlinked draft items by matching barcode → article+characteristic → name+characteristic. Draft status only. |
+
+**Draft items sync** (`PUT .../draft-items-groups` body: `{ draftItemsGroups: DraftItemsGroupItem[] }`):
+- `id: null` → create new draft item
+- `id` present → update existing draft item
+- existing item not in list → delete
+- Response and all subsequent reads preserve the order of elements as sent in the request (backed by a server-side `Order` field, not exposed in DTOs)
+
+**`DraftItemsGroupItem` fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `Guid?` | Null to create, present to update |
+| `name` | `string` | Item name |
+| `article` | `string` | Article / SKU |
+| `barcode` | `string?` | Barcode for this specific characteristic |
+| `rootBarcode` | `string?` | Barcode for the catalog item itself |
+| `characteristic` | `string` | Characteristic name |
+| `count` | `int` | Quantity (≥ 1) |
+| `catalogItemId` | `Guid?` | Optional reference to an existing `CatalogItem` (without characteristic assigned yet) |
+| `catalogItemWithCharacteristicId` | `Guid?` | Fully resolved catalog link |
+| `createNew` | `bool` | If `true` and `catalogItemWithCharacteristicId` is null, auto-create on `change-status-to-processing` (see below) |
+
+**`change-status-to-processing` auto-create logic** (per draft item, evaluated when `catalogItemWithCharacteristicId` is null and `createNew` is true):
+
+| Condition | Action |
+|-----------|--------|
+| `catalogItemId == null && createNew == true` | Create new `CatalogItem` (name, article, rootBarcode) + `CatalogItemWithCharacteristic` (characteristic, barcode), assign both |
+| `catalogItemId != null && createNew == true` | Add new `CatalogItemWithCharacteristic` (characteristic, barcode) to the existing `CatalogItem`, assign |
+
+Returns 422 `inboundOrderDraftItemsValidationFailed` (root) with field-level errors if:
+- Article/rootBarcode already exist in the catalog (or appear more than once within the request)
+- Characteristic already exists on the target `CatalogItem`
+- Characteristic barcode already exists globally
+- Any item still has no catalog link and `createNew == false`
+
+**`try-auto-assign-catalog-items` body**: `{ draftItemsGroupIds: Guid[] }` — list of draft item IDs to process. Empty array = try all unlinked items. Returns updated `InboundOrderDraftItemsGroupDto[]` for the whole order.
+
+Matching priority per item (stops at first match):
+1. `CatalogItemWithCharacteristic.Barcode` == `draft.Barcode`
+2. `CatalogItem.Article` (case-insensitive) == `draft.Article` AND `Characteristic` (case-insensitive) == `draft.Characteristic`
+3. `CatalogItem.Name` (case-insensitive) == `draft.Name` AND `Characteristic` (case-insensitive) == `draft.Characteristic`
+
+Already-linked items (with `catalogItemWithCharacteristicId` set) are skipped silently.
+
+**Key DTOs:**
+
+`InboundOrderSummaryDto`: `{ id, number, status, title?, plannedStartDateTime, warehouse: WarehouseSummaryDto }`  
+`InboundOrderDto`: `{ id, number, status, title?, plannedStartDateTime, notes?, warehouse: WarehouseSummaryDto, assignedUsers: UserDto[] }`  
+`InboundOrderDraftItemsGroupDto`: `{ id, name, article, barcode?, rootBarcode?, characteristic, count, catalogItem?: NodeCatalogItemDto, catalogItemWithCharacteristic?: NodeCharacteristicDto, createNew: bool }`  
+`InboundOrderItemsComparisonDto`: `{ declaredItems: ComparisonItemDto[], processedItems: ComparisonItemDto[], shortages: ItemDifferenceDto[], surpluses: ItemDifferenceDto[], totalShortageCount, totalSurplusCount }`
+
+---
+
+## Inbound Order Processing — `/api/inbound-order-processing`
+
+Requires `inbound_orders.process` permission. All endpoints additionally check that the current user is in the order's `AssignedUsers`.
+
+| Method | Path | Permission | Description |
+|--------|------|------------|-------------|
+| GET | `/api/inbound-order-processing` | `inbound_orders.process` | List orders assigned to current user (paginated, searchable) |
+| GET | `/api/inbound-order-processing/{id}` | `inbound_orders.process` | Order detail with full warehouse schema and storage place order-status flags (Processing only) |
+| GET | `/api/inbound-order-processing/{id}/nodes?storagePlaceId={storagePlaceId}` | `inbound_orders.process` | Flat list of nodes for a storage place (required param) |
+| GET | `/api/inbound-order-processing/{id}/nodes/{nodeId}` | `inbound_orders.process` | Node details with items groups (includes `storagePlaceId`) |
+| POST | `/api/inbound-order-processing/{id}/nodes/{nodeId}/items` | `inbound_orders.process` | Place items in a node for this order (409 if already placed) |
+| PUT | `/api/inbound-order-processing/{id}/nodes/{nodeId}/items` | `inbound_orders.process` | Update items in node for this order (delta-based; 422 if trying to remove more than placed) |
+
+**PlaceItems / UpdateItems body**: `{ items: [{ catalogItemWithCharacteristicId: Guid, count: int }] }`  
+`PlaceItems` creates new `InboundOrderProcessedItemsGroup` entries AND adds to `StoragePlaceNodeItemsGroup` (physical inventory).  
+`UpdateItems` computes delta vs current order-tracked quantities; removes from physical inventory on reduction.
+
+**Key DTOs:**
+
+`InboundOrderProcessingDto`: `{ id, number, status, title?, plannedStartDateTime, notes?, warehouse: ProcessingWarehouseDto }`  
+`ProcessingWarehouseDto`: `{ id, name, width, height, storagePlaces: ProcessingStoragePlaceDto[], layoutObjects: WarehouseLayoutElementDto[] }`  
+`ProcessingStoragePlaceDto`: `{ id, name, x, y, width, height, rotation, hasOrderItems: bool }`  
+`ProcessedNodeItemDto`: `{ catalogItemWithCharacteristic: NodeCharacteristicDto, count: int }`
+
+---
+
 ## Catalog — `/api/catalog`
 
 | Method | Path | Permission | Description |
@@ -107,6 +203,12 @@ Returns 422 `catalogItemCharacteristicDuplicate` if the same `catalogItemWithCha
 - existing characteristic not in the list → delete
 
 Returns 422 `catalogItemCharacteristicNotFound` if any provided characteristic ID does not belong to this item.
+
+**Duplicate validation** (both `POST` and `PUT`):
+- 422 `catalogItemArticleDuplicate` — field `article`: another catalog item with the same article already exists
+- 422 `catalogItemBarcodeDuplicate` — field `barcode`: another catalog item with the same barcode already exists
+- 422 `catalogItemCharacteristicDuplicate` — field `characteristics[i].characteristic`: duplicate characteristic name within the request
+- 422 `catalogItemCharacteristicBarcodeDuplicate` — field `characteristics[i].barcode`: characteristic barcode already exists globally (or appears more than once in the request)
 
 **Key DTOs:**
 

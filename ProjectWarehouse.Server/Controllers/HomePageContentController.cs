@@ -16,16 +16,30 @@ public class HomePageContentController(ApplicationDbContext db, IMapper mapper) 
     [HttpGet]
     [Authorize]
     [ProducesResponseType<IReadOnlyList<AppEntity>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetHomePageContent()
+    public async Task<IActionResult> GetHomePageContent(CancellationToken ct = default)
     {
         var list = new List<AppEntity>();
 
         var userCanViewAllWarehouses = User.HasClaim("permission", Permissions.Warehouses.View);
+        var userCanViewAssignedWarehouses = User.HasClaim("permission", Permissions.Warehouses.ViewAssigned);
 
         if (userCanViewAllWarehouses)
         {
             var warehouses = await db.Warehouses.ProjectTo<AppEntity>(mapper.ConfigurationProvider).Take(2).ToListAsync();
             list.AddRange(warehouses);
+        }
+        else if (userCanViewAssignedWarehouses)
+        {
+            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
+            if (assignedIds != null)
+            {
+                var warehouses = await db.Warehouses
+                    .Where(x => assignedIds.Contains(x.Id))
+                    .ProjectTo<AppEntity>(mapper.ConfigurationProvider)
+                    .Take(2)
+                    .ToListAsync();
+                list.AddRange(warehouses);
+            }
         }
 
         return Ok(list);

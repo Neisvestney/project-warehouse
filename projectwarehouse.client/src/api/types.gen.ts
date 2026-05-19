@@ -13,7 +13,13 @@ export type AppEntity = {
   };
 };
 
-export type AppEntityType = "user" | "roles" | "warehouse" | "catalogItem" | "storagePlaceNode";
+export type AppEntityType =
+  | "user"
+  | "roles"
+  | "warehouse"
+  | "catalogItem"
+  | "storagePlaceNode"
+  | "inboundOrder";
 
 export type AppFieldError = {
   code: ErrorCode;
@@ -93,11 +99,24 @@ export type CharacteristicItem = {
   barcode?: null | string;
 };
 
+export type ComparisonItemDto = {
+  catalogItemWithCharacteristic: NodeCharacteristicDto;
+  count: number;
+};
+
 export type CreateCatalogItemRequest = {
   name: string;
   article: string;
   barcode?: null | string;
   characteristics: Array<CharacteristicItem>;
+};
+
+export type CreateInboundOrderRequest = {
+  warehouseId: string;
+  title?: null | string;
+  plannedStartDateTime: string;
+  notes?: null | string;
+  assignedUserIds: Array<string>;
 };
 
 export type CreateStoragePlaceNodeRequest = {
@@ -120,6 +139,19 @@ export type CreateWarehouseRequest = {
   height: number;
   storagePlaces: Array<StoragePlaceItem>;
   layoutObjects: Array<WarehouseLayoutElementItem>;
+};
+
+export type DraftItemsGroupItem = {
+  id?: null | string;
+  name: string;
+  article: string;
+  barcode?: null | string;
+  rootBarcode?: null | string;
+  characteristic: string;
+  count: number;
+  catalogItemId?: null | string;
+  catalogItemWithCharacteristicId?: null | string;
+  createNew: boolean;
 };
 
 export type ErrorCode =
@@ -151,6 +183,17 @@ export type ErrorCode =
   | "warehouseHasItems"
   | "storagePlaceHasItems"
   | "catalogItemIsInUse"
+  | "inboundOrderNotFound"
+  | "inboundOrderDraftItemsGroupNotFound"
+  | "inboundOrderInvalidStatus"
+  | "inboundOrderDraftItemsMissingCatalogLink"
+  | "inboundOrderNotAssigned"
+  | "inboundOrderNodeAlreadyHasItems"
+  | "inboundOrderInsufficientProcessedItems"
+  | "inboundOrderDraftItemsValidationFailed"
+  | "catalogItemArticleDuplicate"
+  | "catalogItemBarcodeDuplicate"
+  | "catalogItemCharacteristicBarcodeDuplicate"
   | "required"
   | "tooShort"
   | "tooLong"
@@ -163,6 +206,67 @@ export type ErrorCode =
   | "passwordAtLeastOneLowercase"
   | "passwordInvalid"
   | "validationError";
+
+export type InboundOrderDraftItemsGroupDto = {
+  id: string;
+  name: string;
+  article: string;
+  barcode?: null | string;
+  rootBarcode?: null | string;
+  characteristic: string;
+  count: number;
+  catalogItem?: null | NodeCatalogItemDto;
+  catalogItemWithCharacteristic?: null | NodeCharacteristicDto;
+  createNew: boolean;
+};
+
+export type InboundOrderDto = {
+  id: string;
+  number: number;
+  status: InboundOrderStatus;
+  title?: null | string;
+  plannedStartDateTime: string;
+  notes?: null | string;
+  warehouse: WarehouseSummaryDto;
+  assignedUsers: Array<UserDto>;
+};
+
+export type InboundOrderItemsComparisonDto = {
+  declaredItems: Array<ComparisonItemDto>;
+  processedItems: Array<ComparisonItemDto>;
+  shortages: Array<ItemDifferenceDto>;
+  surpluses: Array<ItemDifferenceDto>;
+  totalShortageCount: number;
+  totalSurplusCount: number;
+};
+
+export type InboundOrderProcessingDto = {
+  id: string;
+  number: number;
+  status: InboundOrderStatus;
+  title?: null | string;
+  plannedStartDateTime: string;
+  notes?: null | string;
+  warehouse: ProcessingWarehouseDto;
+};
+
+export type InboundOrderStatus = "draft" | "processing" | "finished";
+
+export type InboundOrderSummaryDto = {
+  id: string;
+  number: number;
+  status: InboundOrderStatus;
+  title?: null | string;
+  plannedStartDateTime: string;
+  warehouse: WarehouseSummaryDto;
+};
+
+export type ItemDifferenceDto = {
+  catalogItemWithCharacteristic: NodeCharacteristicDto;
+  declaredCount: number;
+  processedCount: number;
+  differenceCount: number;
+};
 
 export type ItemsGroupDto = {
   id: string;
@@ -201,6 +305,11 @@ export type NodeCharacteristicDto = {
   catalogItem: NodeCatalogItemDto;
 };
 
+export type NodeItemEntry = {
+  catalogItemWithCharacteristicId: string;
+  count: number;
+};
+
 export type NodeItemsGroupItem = {
   id?: null | string;
   catalogItemWithCharacteristicId: string;
@@ -224,6 +333,16 @@ export type PaginatedOfCatalogItemSummaryDto = {
 
 export type PaginatedOfChangeLogEntryDto = {
   items: Array<ChangeLogEntryDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
+export type PaginatedOfInboundOrderSummaryDto = {
+  items: Array<InboundOrderSummaryDto>;
   total: number;
   page: number;
   pageSize: number;
@@ -278,7 +397,41 @@ export type PermissionName =
   | "warehouses.edit_assigned"
   | "catalog.view"
   | "catalog.edit"
-  | "changelog.view";
+  | "changelog.view"
+  | "inbound_orders.view"
+  | "inbound_orders.edit"
+  | "inbound_orders.view_assigned_warehouses"
+  | "inbound_orders.edit_assigned_warehouses"
+  | "inbound_orders.process";
+
+export type PlaceItemsRequest = {
+  items: Array<NodeItemEntry>;
+};
+
+export type ProcessedNodeItemDto = {
+  catalogItemWithCharacteristic: NodeCharacteristicDto;
+  count: number;
+};
+
+export type ProcessingStoragePlaceDto = {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  hasOrderItems: boolean;
+};
+
+export type ProcessingWarehouseDto = {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  storagePlaces: Array<ProcessingStoragePlaceDto>;
+  layoutObjects: Array<WarehouseLayoutElementDto>;
+};
 
 export type RefreshRequest = {
   refreshToken: string;
@@ -320,6 +473,7 @@ export type StoragePlaceItem = {
 export type StoragePlaceNodeDetailsDto = {
   id: string;
   name: string;
+  storagePlaceId: string;
   parentNodeId?: null | string;
   order: number;
   itemsGroups: Array<ItemsGroupDto>;
@@ -344,11 +498,27 @@ export type TokenResponse = {
   expiresIn: number;
 };
 
+export type TryAutoAssignRequest = {
+  draftItemsGroupIds: Array<string>;
+};
+
 export type UpdateCatalogItemRequest = {
   name: string;
   article: string;
   barcode?: null | string;
   characteristics: Array<CharacteristicItem>;
+};
+
+export type UpdateDraftItemsGroupsRequest = {
+  draftItemsGroups: Array<DraftItemsGroupItem>;
+};
+
+export type UpdateInboundOrderRequest = {
+  warehouseId: string;
+  title?: null | string;
+  plannedStartDateTime: string;
+  notes?: null | string;
+  assignedUserIds: Array<string>;
 };
 
 export type UpdateRoleItem = {
@@ -390,6 +560,14 @@ export type UserDetailDto = {
   roles: Array<RoleDto>;
   directPermissions: Array<string>;
   assignedWarehouses: Array<WarehouseSummaryDto>;
+};
+
+export type UserDto = {
+  id: string;
+  username: string;
+  email?: null | string;
+  firstName?: null | string;
+  lastName?: null | string;
 };
 
 export type WarehouseDto = {
@@ -631,6 +809,10 @@ export type CatalogCreateErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
 };
 
 export type CatalogCreateError = CatalogCreateErrors[keyof CatalogCreateErrors];
@@ -821,6 +1003,769 @@ export type HomePageContentGetHomePageContentResponses = {
 
 export type HomePageContentGetHomePageContentResponse =
   HomePageContentGetHomePageContentResponses[keyof HomePageContentGetHomePageContentResponses];
+
+export type InboundOrderProcessingGetAllAssignedData = {
+  body?: never;
+  path?: never;
+  query?: {
+    page?: number;
+    pageSize?: number;
+    searchString?: string;
+  };
+  url: "/api/inbound-order-processing";
+};
+
+export type InboundOrderProcessingGetAllAssignedErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type InboundOrderProcessingGetAllAssignedError =
+  InboundOrderProcessingGetAllAssignedErrors[keyof InboundOrderProcessingGetAllAssignedErrors];
+
+export type InboundOrderProcessingGetAllAssignedResponses = {
+  /**
+   * OK
+   */
+  200: PaginatedOfInboundOrderSummaryDto;
+};
+
+export type InboundOrderProcessingGetAllAssignedResponse =
+  InboundOrderProcessingGetAllAssignedResponses[keyof InboundOrderProcessingGetAllAssignedResponses];
+
+export type InboundOrderProcessingGetByIdData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/inbound-order-processing/{id}";
+};
+
+export type InboundOrderProcessingGetByIdErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+};
+
+export type InboundOrderProcessingGetByIdError =
+  InboundOrderProcessingGetByIdErrors[keyof InboundOrderProcessingGetByIdErrors];
+
+export type InboundOrderProcessingGetByIdResponses = {
+  /**
+   * OK
+   */
+  200: InboundOrderProcessingDto;
+};
+
+export type InboundOrderProcessingGetByIdResponse =
+  InboundOrderProcessingGetByIdResponses[keyof InboundOrderProcessingGetByIdResponses];
+
+export type InboundOrderProcessingGetStoragePlaceNodesData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: {
+    storagePlaceId?: string;
+  };
+  url: "/api/inbound-order-processing/{id}/nodes";
+};
+
+export type InboundOrderProcessingGetStoragePlaceNodesErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type InboundOrderProcessingGetStoragePlaceNodesError =
+  InboundOrderProcessingGetStoragePlaceNodesErrors[keyof InboundOrderProcessingGetStoragePlaceNodesErrors];
+
+export type InboundOrderProcessingGetStoragePlaceNodesResponses = {
+  /**
+   * OK
+   */
+  200: Array<StoragePlaceNodeDto>;
+};
+
+export type InboundOrderProcessingGetStoragePlaceNodesResponse =
+  InboundOrderProcessingGetStoragePlaceNodesResponses[keyof InboundOrderProcessingGetStoragePlaceNodesResponses];
+
+export type InboundOrderProcessingGetStoragePlaceNodeDetailsData = {
+  body?: never;
+  path: {
+    id: string;
+    nodeId: string;
+  };
+  query?: never;
+  url: "/api/inbound-order-processing/{id}/nodes/{nodeId}";
+};
+
+export type InboundOrderProcessingGetStoragePlaceNodeDetailsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type InboundOrderProcessingGetStoragePlaceNodeDetailsError =
+  InboundOrderProcessingGetStoragePlaceNodeDetailsErrors[keyof InboundOrderProcessingGetStoragePlaceNodeDetailsErrors];
+
+export type InboundOrderProcessingGetStoragePlaceNodeDetailsResponses = {
+  /**
+   * OK
+   */
+  200: StoragePlaceNodeDetailsDto;
+};
+
+export type InboundOrderProcessingGetStoragePlaceNodeDetailsResponse =
+  InboundOrderProcessingGetStoragePlaceNodeDetailsResponses[keyof InboundOrderProcessingGetStoragePlaceNodeDetailsResponses];
+
+export type InboundOrderProcessingPlaceItemsData = {
+  body: PlaceItemsRequest;
+  path: {
+    id: string;
+    nodeId: string;
+  };
+  query?: never;
+  url: "/api/inbound-order-processing/{id}/nodes/{nodeId}/items";
+};
+
+export type InboundOrderProcessingPlaceItemsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type InboundOrderProcessingPlaceItemsError =
+  InboundOrderProcessingPlaceItemsErrors[keyof InboundOrderProcessingPlaceItemsErrors];
+
+export type InboundOrderProcessingPlaceItemsResponses = {
+  /**
+   * Created
+   */
+  201: Array<ProcessedNodeItemDto>;
+};
+
+export type InboundOrderProcessingPlaceItemsResponse =
+  InboundOrderProcessingPlaceItemsResponses[keyof InboundOrderProcessingPlaceItemsResponses];
+
+export type InboundOrderProcessingUpdateItemsData = {
+  body: PlaceItemsRequest;
+  path: {
+    id: string;
+    nodeId: string;
+  };
+  query?: never;
+  url: "/api/inbound-order-processing/{id}/nodes/{nodeId}/items";
+};
+
+export type InboundOrderProcessingUpdateItemsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type InboundOrderProcessingUpdateItemsError =
+  InboundOrderProcessingUpdateItemsErrors[keyof InboundOrderProcessingUpdateItemsErrors];
+
+export type InboundOrderProcessingUpdateItemsResponses = {
+  /**
+   * OK
+   */
+  200: Array<ProcessedNodeItemDto>;
+};
+
+export type InboundOrderProcessingUpdateItemsResponse =
+  InboundOrderProcessingUpdateItemsResponses[keyof InboundOrderProcessingUpdateItemsResponses];
+
+export type InboundOrdersGetAllData = {
+  body?: never;
+  path?: never;
+  query?: {
+    page?: number;
+    pageSize?: number;
+    searchString?: string;
+    warehouseId?: string;
+  };
+  url: "/api/inbound-orders";
+};
+
+export type InboundOrdersGetAllErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type InboundOrdersGetAllError = InboundOrdersGetAllErrors[keyof InboundOrdersGetAllErrors];
+
+export type InboundOrdersGetAllResponses = {
+  /**
+   * OK
+   */
+  200: PaginatedOfInboundOrderSummaryDto;
+};
+
+export type InboundOrdersGetAllResponse =
+  InboundOrdersGetAllResponses[keyof InboundOrdersGetAllResponses];
+
+export type InboundOrdersCreateData = {
+  body: CreateInboundOrderRequest;
+  path?: never;
+  query?: never;
+  url: "/api/inbound-orders";
+};
+
+export type InboundOrdersCreateErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type InboundOrdersCreateError = InboundOrdersCreateErrors[keyof InboundOrdersCreateErrors];
+
+export type InboundOrdersCreateResponses = {
+  /**
+   * Created
+   */
+  201: InboundOrderDto;
+};
+
+export type InboundOrdersCreateResponse =
+  InboundOrdersCreateResponses[keyof InboundOrdersCreateResponses];
+
+export type InboundOrdersDeleteData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/inbound-orders/{id}";
+};
+
+export type InboundOrdersDeleteErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+};
+
+export type InboundOrdersDeleteError = InboundOrdersDeleteErrors[keyof InboundOrdersDeleteErrors];
+
+export type InboundOrdersDeleteResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type InboundOrdersDeleteResponse =
+  InboundOrdersDeleteResponses[keyof InboundOrdersDeleteResponses];
+
+export type InboundOrdersGetByIdData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/inbound-orders/{id}";
+};
+
+export type InboundOrdersGetByIdErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type InboundOrdersGetByIdError =
+  InboundOrdersGetByIdErrors[keyof InboundOrdersGetByIdErrors];
+
+export type InboundOrdersGetByIdResponses = {
+  /**
+   * OK
+   */
+  200: InboundOrderDto;
+};
+
+export type InboundOrdersGetByIdResponse =
+  InboundOrdersGetByIdResponses[keyof InboundOrdersGetByIdResponses];
+
+export type InboundOrdersUpdateData = {
+  body: UpdateInboundOrderRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/inbound-orders/{id}";
+};
+
+export type InboundOrdersUpdateErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type InboundOrdersUpdateError = InboundOrdersUpdateErrors[keyof InboundOrdersUpdateErrors];
+
+export type InboundOrdersUpdateResponses = {
+  /**
+   * OK
+   */
+  200: InboundOrderDto;
+};
+
+export type InboundOrdersUpdateResponse =
+  InboundOrdersUpdateResponses[keyof InboundOrdersUpdateResponses];
+
+export type InboundOrdersGetDraftItemsGroupsData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/inbound-orders/{id}/draft-items-groups";
+};
+
+export type InboundOrdersGetDraftItemsGroupsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type InboundOrdersGetDraftItemsGroupsError =
+  InboundOrdersGetDraftItemsGroupsErrors[keyof InboundOrdersGetDraftItemsGroupsErrors];
+
+export type InboundOrdersGetDraftItemsGroupsResponses = {
+  /**
+   * OK
+   */
+  200: Array<InboundOrderDraftItemsGroupDto>;
+};
+
+export type InboundOrdersGetDraftItemsGroupsResponse =
+  InboundOrdersGetDraftItemsGroupsResponses[keyof InboundOrdersGetDraftItemsGroupsResponses];
+
+export type InboundOrdersUpdateDraftItemsGroupsData = {
+  body: UpdateDraftItemsGroupsRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/inbound-orders/{id}/draft-items-groups";
+};
+
+export type InboundOrdersUpdateDraftItemsGroupsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type InboundOrdersUpdateDraftItemsGroupsError =
+  InboundOrdersUpdateDraftItemsGroupsErrors[keyof InboundOrdersUpdateDraftItemsGroupsErrors];
+
+export type InboundOrdersUpdateDraftItemsGroupsResponses = {
+  /**
+   * OK
+   */
+  200: Array<InboundOrderDraftItemsGroupDto>;
+};
+
+export type InboundOrdersUpdateDraftItemsGroupsResponse =
+  InboundOrdersUpdateDraftItemsGroupsResponses[keyof InboundOrdersUpdateDraftItemsGroupsResponses];
+
+export type InboundOrdersGetItemsComparisonData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/inbound-orders/{id}/items-comparison";
+};
+
+export type InboundOrdersGetItemsComparisonErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type InboundOrdersGetItemsComparisonError =
+  InboundOrdersGetItemsComparisonErrors[keyof InboundOrdersGetItemsComparisonErrors];
+
+export type InboundOrdersGetItemsComparisonResponses = {
+  /**
+   * OK
+   */
+  200: InboundOrderItemsComparisonDto;
+};
+
+export type InboundOrdersGetItemsComparisonResponse =
+  InboundOrdersGetItemsComparisonResponses[keyof InboundOrdersGetItemsComparisonResponses];
+
+export type InboundOrdersChangeStatusToProcessingData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/inbound-orders/{id}/change-status-to-processing";
+};
+
+export type InboundOrdersChangeStatusToProcessingErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type InboundOrdersChangeStatusToProcessingError =
+  InboundOrdersChangeStatusToProcessingErrors[keyof InboundOrdersChangeStatusToProcessingErrors];
+
+export type InboundOrdersChangeStatusToProcessingResponses = {
+  /**
+   * OK
+   */
+  200: InboundOrderDto;
+};
+
+export type InboundOrdersChangeStatusToProcessingResponse =
+  InboundOrdersChangeStatusToProcessingResponses[keyof InboundOrdersChangeStatusToProcessingResponses];
+
+export type InboundOrdersRollbackStatusToDraftData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/inbound-orders/{id}/rollback-status-to-draft";
+};
+
+export type InboundOrdersRollbackStatusToDraftErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+};
+
+export type InboundOrdersRollbackStatusToDraftError =
+  InboundOrdersRollbackStatusToDraftErrors[keyof InboundOrdersRollbackStatusToDraftErrors];
+
+export type InboundOrdersRollbackStatusToDraftResponses = {
+  /**
+   * OK
+   */
+  200: InboundOrderDto;
+};
+
+export type InboundOrdersRollbackStatusToDraftResponse =
+  InboundOrdersRollbackStatusToDraftResponses[keyof InboundOrdersRollbackStatusToDraftResponses];
+
+export type InboundOrdersChangeStatusToFinishedData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/inbound-orders/{id}/change-status-to-finished";
+};
+
+export type InboundOrdersChangeStatusToFinishedErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+};
+
+export type InboundOrdersChangeStatusToFinishedError =
+  InboundOrdersChangeStatusToFinishedErrors[keyof InboundOrdersChangeStatusToFinishedErrors];
+
+export type InboundOrdersChangeStatusToFinishedResponses = {
+  /**
+   * OK
+   */
+  200: InboundOrderDto;
+};
+
+export type InboundOrdersChangeStatusToFinishedResponse =
+  InboundOrdersChangeStatusToFinishedResponses[keyof InboundOrdersChangeStatusToFinishedResponses];
+
+export type InboundOrdersRollbackStatusToProcessingData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/inbound-orders/{id}/rollback-status-to-processing";
+};
+
+export type InboundOrdersRollbackStatusToProcessingErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+};
+
+export type InboundOrdersRollbackStatusToProcessingError =
+  InboundOrdersRollbackStatusToProcessingErrors[keyof InboundOrdersRollbackStatusToProcessingErrors];
+
+export type InboundOrdersRollbackStatusToProcessingResponses = {
+  /**
+   * OK
+   */
+  200: InboundOrderDto;
+};
+
+export type InboundOrdersRollbackStatusToProcessingResponse =
+  InboundOrdersRollbackStatusToProcessingResponses[keyof InboundOrdersRollbackStatusToProcessingResponses];
+
+export type InboundOrdersTryAutoAssignCatalogItemsData = {
+  body: TryAutoAssignRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/inbound-orders/{id}/try-auto-assign-catalog-items";
+};
+
+export type InboundOrdersTryAutoAssignCatalogItemsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+};
+
+export type InboundOrdersTryAutoAssignCatalogItemsError =
+  InboundOrdersTryAutoAssignCatalogItemsErrors[keyof InboundOrdersTryAutoAssignCatalogItemsErrors];
+
+export type InboundOrdersTryAutoAssignCatalogItemsResponses = {
+  /**
+   * OK
+   */
+  200: Array<InboundOrderDraftItemsGroupDto>;
+};
+
+export type InboundOrdersTryAutoAssignCatalogItemsResponse =
+  InboundOrdersTryAutoAssignCatalogItemsResponses[keyof InboundOrdersTryAutoAssignCatalogItemsResponses];
 
 export type PermissionsGetAllData = {
   body?: never;

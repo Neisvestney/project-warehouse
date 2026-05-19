@@ -13,6 +13,8 @@ public class Warehouse : IHasIdentity
     public ICollection<StoragePlace> StoragePlaces { get; set; } = [];
     public ICollection<WarehouseLayoutElement> LayoutObjects { get; set; } = [];
     
+    public ICollection<InboundOrder> InboundOrders { get; set; } = [];
+    
     public ICollection<ApplicationUser> AssignedUsers { get; set; } = [];
 
     [Projectable]

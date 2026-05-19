@@ -46,4 +46,13 @@ public static class Permissions
     {
         public const string View = "changelog.view";
     }
+
+    public static class InboundOrders
+    {
+        public const string View                   = "inbound_orders.view";
+        public const string Edit                   = "inbound_orders.edit";
+        public const string ViewAssignedWarehouses = "inbound_orders.view_assigned_warehouses";
+        public const string EditAssignedWarehouses = "inbound_orders.edit_assigned_warehouses";
+        public const string Process                = "inbound_orders.process";
+    }
 }
