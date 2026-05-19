@@ -35,6 +35,11 @@ const pages: {
     requiredPermission: ["warehouses.view", "warehouses.view_assigned"],
   },
   {
+    name: "Приходные ордера",
+    url: "/inbound-orders",
+    requiredPermission: ["inbound_orders.view", "inbound_orders.view_assigned_warehouses"],
+  },
+  {
     name: "Настройки",
     url: (p) => `/settings/${getSettingsFirstPageUrl(p)}`,
     showIf: hasSettingsAccess,

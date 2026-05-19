@@ -59,8 +59,14 @@ public class CatalogController(
     [HttpPost]
     [Authorize(Policy = Permissions.Catalog.Edit)]
     [ProducesResponseType<CatalogItemDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Create([FromBody] CreateCatalogItemRequest request, CancellationToken ct = default)
     {
+        var duplicateErrors = await ValidateCatalogItemDuplicates(request.Article, request.Barcode,
+            request.Characteristics.Select((c, i) => (c, i)).ToList(), excludeItemId: null, ct);
+        if (duplicateErrors.Count > 0)
+            return Problem(AppProblems.UnprocessableEntities(duplicateErrors));
+
         var item = new CatalogItem
         {
             Id = Guid.NewGuid(),
@@ -107,6 +113,11 @@ public class CatalogController(
 
         if (item is null)
             return NotFound(ErrorCode.CatalogItemNotFound, "Catalog item not found.");
+
+        var duplicateErrors = await ValidateCatalogItemDuplicates(request.Article, request.Barcode,
+            request.Characteristics.Select((c, i) => (c, i)).ToList(), excludeItemId: id, ct);
+        if (duplicateErrors.Count > 0)
+            return Problem(AppProblems.UnprocessableEntities(duplicateErrors));
 
         var beforeDto = mapper.Map<CatalogItemDto>(item);
 
@@ -200,5 +211,69 @@ public class CatalogController(
         await changeLog.CompareAndSaveToChangelog(dto, null);
 
         return NoContent();
+    }
+
+    private async Task<List<(string Field, ErrorCode Code, string Message, IReadOnlyDictionary<string, object>? Args)>>
+        ValidateCatalogItemDuplicates(
+            string article,
+            string? barcode,
+            List<(CharacteristicItem c, int i)> characteristics,
+            Guid? excludeItemId,
+            CancellationToken ct)
+    {
+        var errors = new List<(string, ErrorCode, string, IReadOnlyDictionary<string, object>?)>();
+
+        var articleExists = await db.CatalogItems
+            .AnyAsync(c => c.Article == article && (excludeItemId == null || c.Id != excludeItemId), ct);
+        if (articleExists)
+            errors.Add(("article", ErrorCode.CatalogItemArticleDuplicate,
+                $"A catalog item with article '{article}' already exists.", null));
+
+        if (barcode is not null)
+        {
+            var barcodeExists = await db.CatalogItems
+                .AnyAsync(c => c.Barcode == barcode && (excludeItemId == null || c.Id != excludeItemId), ct);
+            if (barcodeExists)
+                errors.Add(("barcode", ErrorCode.CatalogItemBarcodeDuplicate,
+                    $"A catalog item with barcode '{barcode}' already exists.", null));
+        }
+
+        var seenCharacteristics = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seenCharBarcodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var charBarcodesToCheck = characteristics
+            .Where(x => x.c.Barcode is not null)
+            .Select(x => x.c.Barcode!)
+            .ToList();
+
+        HashSet<string> existingCharBarcodes = [];
+        if (charBarcodesToCheck.Count > 0)
+        {
+            var query = db.CatalogItemsWithCharacteristics
+                .Where(c => charBarcodesToCheck.Contains(c.Barcode!));
+            if (excludeItemId.HasValue)
+                query = query.Where(c => c.CatalogItemId != excludeItemId.Value);
+            existingCharBarcodes = (await query.Select(c => c.Barcode!).ToListAsync(ct))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+
+        foreach (var (c, i) in characteristics)
+        {
+            if (!seenCharacteristics.Add(c.Characteristic))
+                errors.Add(($"characteristics[{i}].characteristic", ErrorCode.CatalogItemCharacteristicDuplicate,
+                    $"Characteristic '{c.Characteristic}' appears more than once.", null));
+
+            if (c.Barcode is not null)
+            {
+                if (!seenCharBarcodes.Add(c.Barcode))
+                    errors.Add(($"characteristics[{i}].barcode", ErrorCode.CatalogItemCharacteristicBarcodeDuplicate,
+                        $"Barcode '{c.Barcode}' appears more than once.", null));
+                else if (existingCharBarcodes.Contains(c.Barcode))
+                    errors.Add(($"characteristics[{i}].barcode", ErrorCode.CatalogItemCharacteristicBarcodeDuplicate,
+                        $"A characteristic with barcode '{c.Barcode}' already exists.", null));
+            }
+        }
+
+        return errors;
     }
 }

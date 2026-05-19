@@ -58,6 +58,18 @@ That's it. `Permissions.All` picks up new constants automatically via reflection
 
 `warehouses.view` и `warehouses.view_assigned` можно назначать одновременно — `view` всегда перекрывает `view_assigned`. Аналогично для `edit` / `edit_assigned`.
 
+### Inbound Orders (`inbound_orders.*`)
+| Permission | Constant | Scope |
+|-----------|----------|-------|
+| `inbound_orders.view` | `Permissions.InboundOrders.View` | All orders |
+| `inbound_orders.edit` | `Permissions.InboundOrders.Edit` | All orders |
+| `inbound_orders.view_assigned_warehouses` | `Permissions.InboundOrders.ViewAssignedWarehouses` | Orders in user's assigned warehouses |
+| `inbound_orders.edit_assigned_warehouses` | `Permissions.InboundOrders.EditAssignedWarehouses` | Orders in user's assigned warehouses |
+| `inbound_orders.process` | `Permissions.InboundOrders.Process` | Orders where user is in `AssignedUsers` |
+
+`inbound_orders.view` и `inbound_orders.view_assigned_warehouses` работают как warehouse аналоги: `view` всегда перекрывает `view_assigned_warehouses`.
+`inbound_orders.process` — отдельное право для операторов склада; дополнительно проверяется членство в `AssignedUsers` ордера.
+
 ### Catalog (`catalog.*`)
 | Permission | Constant |
 |-----------|----------|

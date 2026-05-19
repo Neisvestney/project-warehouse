@@ -21,23 +21,6 @@ public class WarehousesController(
     IMapper mapper,
     IChangeLogService<WarehouseDto> changeLog) : AppControllerBase
 {
-    private Guid? GetCurrentUserId()
-    {
-        var raw = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-        return Guid.TryParse(raw, out var id) ? id : null;
-    }
-
-    private async Task<HashSet<Guid>?> GetCurrentUserAssignedWarehouseIdsAsync(CancellationToken ct)
-    {
-        var userId = GetCurrentUserId();
-        if (userId is null) return null;
-        var ids = await db.Users
-            .Where(u => u.Id == userId.Value)
-            .SelectMany(u => u.AssignedWarehouses)
-            .Select(w => w.Id)
-            .ToListAsync(ct);
-        return [..ids];
-    }
     /// <summary>List all warehouses (paginated, optionally filtered by name).</summary>
     /// <remarks>
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c> (optional).
@@ -63,7 +46,7 @@ public class WarehousesController(
 
         if (!canViewAll)
         {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(ct);
+            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
             if (assignedIds is null)
                 return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
             query = query.Where(w => assignedIds.Contains(w.Id));
@@ -93,7 +76,7 @@ public class WarehousesController(
 
         if (!canViewAll)
         {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(ct);
+            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
             if (assignedIds is null)
                 return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
             if (!assignedIds.Contains(id))
@@ -126,7 +109,7 @@ public class WarehousesController(
 
         if (!canViewAll)
         {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(ct);
+            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
             if (assignedIds is null)
                 return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
             if (!assignedIds.Contains(id))
@@ -191,7 +174,7 @@ public class WarehousesController(
 
         if (!canViewAll)
         {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(ct);
+            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
             if (assignedIds is null)
                 return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
             if (!assignedIds.Contains(id))
@@ -304,7 +287,7 @@ public class WarehousesController(
 
         if (!canEditAll)
         {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(ct);
+            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
             if (assignedIds is null)
                 return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
             if (!assignedIds.Contains(id))
@@ -432,7 +415,7 @@ public class WarehousesController(
 
         if (!canEditAll)
         {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(ct);
+            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
             if (assignedIds is null)
                 return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
             if (!assignedIds.Contains(id))

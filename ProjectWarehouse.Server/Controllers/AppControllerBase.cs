@@ -3,6 +3,8 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Models;
@@ -52,5 +54,23 @@ public abstract class AppControllerBase : ControllerBase
             return (null, NotFound(ErrorCode.UserNotFound, "User not found."));
 
         return (user, null);
+    }
+    
+    protected Guid? GetCurrentUserId()
+    {
+        var raw = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        return Guid.TryParse(raw, out var id) ? id : null;
+    }
+
+    protected async Task<HashSet<Guid>?> GetCurrentUserAssignedWarehouseIdsAsync(ApplicationDbContext db, CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return null;
+        var ids = await db.Users
+            .Where(u => u.Id == userId.Value)
+            .SelectMany(u => u.AssignedWarehouses)
+            .Select(w => w.Id)
+            .ToListAsync(ct);
+        return [..ids];
     }
 }

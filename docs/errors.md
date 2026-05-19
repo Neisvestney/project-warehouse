@@ -94,6 +94,18 @@ Error with structured arguments (e.g. password too short):
 | `storagePlaceNodeParentHasItems` | Attempt to add a child node to a parent that already has items stored in it |
 | `storagePlaceNodeCyclicParent` | Setting the requested parent would create a cycle (parent is a descendant of the node, or the node itself) |
 | `storagePlaceNodeItemsGroupNotFound` | Item group ID not found or does not belong to this node |
+| `catalogItemIsInUse` | Attempt to delete a catalog item that is currently stored in a warehouse |
+| `catalogItemArticleDuplicate` | Another catalog item with the same article already exists |
+| `catalogItemBarcodeDuplicate` | Another catalog item with the same barcode already exists |
+| `catalogItemCharacteristicBarcodeDuplicate` | A characteristic with this barcode already exists (globally, or duplicate within the request) |
+| `inboundOrderNotFound` | Inbound order ID not found |
+| `inboundOrderDraftItemsGroupNotFound` | Draft item group ID not found or does not belong to this order |
+| `inboundOrderInvalidStatus` | Operation not allowed for the current order status |
+| `inboundOrderDraftItemsMissingCatalogLink` | Draft item has no `catalogItemWithCharacteristicId` and `createNew` is false — returned as a field error on `change-status-to-processing` |
+| `inboundOrderDraftItemsValidationFailed` | Root-level summary code on 422 from `change-status-to-processing` when one or more draft items fail validation |
+| `inboundOrderNotAssigned` | Current user is not in the order's `AssignedUsers` (processing endpoints) |
+| `inboundOrderNodeAlreadyHasItems` | `PlaceItems` called for a (order, node) pair that already has processed items |
+| `inboundOrderInsufficientProcessedItems` | `UpdateItems` delta would reduce a characteristic below zero |
 
 ### Validation
 | Code | When | `args` |

@@ -139,6 +139,19 @@ src/
 │   │       │   └── NodeDetails.tsx          # Node detail panel: view/edit item groups (catalog item + characteristic + count)
 │   │       └── WarehouseItemsPage/
 │   │           └── WarehouseItemsPage.tsx   # Paginated, searchable table of all item groups in a warehouse; link-to-catalog per row
+│   ├── InboundOrdersPage/
+│   │   ├── InboundOrdersPage.tsx   # Paginated, searchable list of inbound orders (приходные ордера)
+│   │   └── pages/
+│   │       ├── InboundOrderCreatePage/
+│   │       │   └── InboundOrderCreatePage.tsx   # RHF form for creating a new order (requires edit permission)
+│   │       └── InboundOrderPage/
+│   │           ├── InboundOrderPage.tsx          # Order detail page: info, status actions, draft items / comparison
+│   │           └── components/
+│   │               ├── InboundOrderInfoSection.tsx     # Order metadata (warehouse, date, assigned users) with inline edit form
+│   │               ├── InboundOrderStatusActions.tsx   # Status transition buttons (Draft→Processing→Finished and rollbacks)
+│   │               ├── DraftItemsSection.tsx           # RHF table of draft items; catalog linking, auto-assign, sync to API
+│   │               ├── ItemsComparisonSection.tsx      # Declared vs processed comparison with shortage/surplus chips
+│   │               └── CatalogLinkDialog.tsx           # Dialog for linking a draft item to a catalog item + characteristic
 │   └── SettingsPage/
 │       ├── SettingsPage.tsx     # Sections declaration only — drives routes + sidebar nav for /settings/*
 │       └── pages/
@@ -180,7 +193,8 @@ src/
     ├── parseJwt.ts              # Decode JWT payload without verification
     ├── permissionLabels.ts      # Human-readable labels for permission enum values
     ├── printUtils.ts            # openPrintPage(items) helper — builds URL and opens /print in a new tab
-    ├── appEntityUtils.tsx       # entitiesTypes registry (user/roles/warehouse → icon, typeName, linkTemplate); resolveEntity(entity) → {link, typeName, icon, ...entity}
+    ├── appEntityUtils.tsx       # entitiesTypes registry (user/roles/warehouse/inboundOrder → icon, typeName, linkTemplate); resolveEntity(entity) → {link, typeName, icon, ...entity}
+    ├── inboundOrderUtils.ts     # INBOUND_ORDER_STATUS_LABELS / INBOUND_ORDER_STATUS_COLORS — shared status chip helpers
     ├── interpolateArgs.ts       # interpolateArgs(template, args) — replaces {key} placeholders in a string
     └── useInstallPrompt.ts      # Hook: beforeinstallprompt event
 ```
@@ -190,20 +204,27 @@ src/
 `BrowserRouter` in `main.tsx`. Pages are lazy-loaded via `React.lazy` + `Suspense`. Access control is handled by `ProtectedRoute` / `ProtectedRoutes` components; unauthenticated users are redirected to `/login`.
 
 ```
-/login             → LoginPage               (public)
-/scanner           → ScannerPage             (authenticated, no layout wrapper)
-/print             → PrintPage               (authenticated, no layout wrapper)
-/                  → MainLayout > HomePage       (authenticated)
-/profile           → MainLayout > MyProfilePage  (authenticated)
-/users             → MainLayout > UsersPage         (users.view)
-/users/new         → MainLayout > UserCreatePage    (users.create)
-/users/:id         → MainLayout > UserViewPage      (users.view)
-/users/:id/edit    → MainLayout > UserEditPage      (users.edit_profile)
-/catalog           → MainLayout > CatalogPage        (catalog.view)
-/warehouses/:id/items → MainLayout > WarehouseItemsPage  (warehouses.view)
-/settings/*        → MainLayout > SettingsPage      (authenticated)
-/settings          →   redirect to /settings/roles
-/settings/roles    →   RolesSettingsPage            (roles.view)
+/login                  → LoginPage               (public)
+/scanner                → ScannerPage             (authenticated, no layout wrapper)
+/print                  → PrintPage               (authenticated, no layout wrapper)
+/                       → MainLayout > HomePage       (authenticated)
+/profile                → MainLayout > MyProfilePage  (authenticated)
+/users                  → MainLayout > UsersPage         (users.view)
+/users/new              → MainLayout > UserCreatePage    (users.create)
+/users/:id              → MainLayout > UserViewPage      (users.view)
+/users/:id/edit         → MainLayout > UserEditPage      (users.edit_profile)
+/catalog                → MainLayout > CatalogPage        (catalog.view)
+/warehouses             → MainLayout > WarehousesPage     (warehouses.view | warehouses.view_assigned)
+/warehouses/:id         → MainLayout > WarehouseViewPage  (warehouses.view | warehouses.view_assigned)
+/warehouses/:id/items   → MainLayout > WarehouseItemsPage (warehouses.view | warehouses.view_assigned)
+/warehouses/new         → MainLayout > WarehouseNewPage   (warehouses.edit)
+/warehouses/:id/edit    → MainLayout > WarehouseEditPage  (warehouses.edit | warehouses.edit_assigned)
+/inbound-orders         → MainLayout > InboundOrdersPage  (inbound_orders.view | inbound_orders.view_assigned_warehouses)
+/inbound-orders/new     → MainLayout > InboundOrderCreatePage  (inbound_orders.edit | inbound_orders.edit_assigned_warehouses)
+/inbound-orders/:id     → MainLayout > InboundOrderPage   (inbound_orders.view | inbound_orders.view_assigned_warehouses)
+/settings/*             → MainLayout > SettingsPage      (authenticated)
+/settings               →   redirect to /settings/roles
+/settings/roles         →   RolesSettingsPage            (roles.view)
 ```
 
 ## Pages
@@ -259,6 +280,26 @@ Error handling mirrors `UserViewPage`: `<NotFound />` on 404, `<QueryError />` o
 
 ### `UserCreatePage`
 RHF form for creating a new user. Fields: username (required), password (required, with show/hide toggle), email, first name, last name. On success navigates to the new user's `UserViewPage`. Requires `users.create`.
+
+### `InboundOrdersPage` (Приходные ордера)
+Server-side paginated, searchable list of inbound orders. Requires `inbound_orders.view` or `inbound_orders.view_assigned_warehouses`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Columns: **№**, **Название**, **Статус** (chip via `INBOUND_ORDER_STATUS_LABELS`/`INBOUND_ORDER_STATUS_COLORS`), **Склад**, **Дата начала**. Rows navigate to `InboundOrderPage`. A **Создать** button is shown if the user has an edit permission.
+
+### `InboundOrderCreatePage`
+RHF form for creating a new inbound order. Fields: title (optional), warehouse (required, via `WarehousesSelect`), planned start date (required, `datetime-local`), notes (optional multiline), assigned users (via `UsersSelect` filtered by selected warehouse). On success navigates to the created order's `InboundOrderPage`. Requires `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses`.
+
+### `InboundOrderPage`
+Detail page for a single inbound order (`/inbound-orders/:id`). Composes four sub-sections:
+
+- **`InboundOrderInfoSection`** — displays and edits order metadata (status chip, warehouse, planned start date, notes, assigned users). Edit mode: inline RHF form with `WarehousesSelect`, `UsersSelect`, datetime picker. Changing the warehouse resets assigned users.
+- **`InboundOrderStatusActions`** — renders status transition buttons based on `order.status`:
+  - `draft` → **Начать обработку** (disabled while draft form is dirty; shows tooltip)
+  - `processing` → **Завершить** + **Вернуть в черновик** (disabled if there are processed items)
+  - `finished` → **Вернуть в обработку**
+  - On status change: `removeQueries` + `invalidateQueries` for draft items and comparison caches to eliminate stale data flash.
+- **`DraftItemsSection`** — shown only in `draft` status. RHF `useFieldArray` table of draft item rows. Each row has free-text fields (name, article, barcodes, characteristic), a count field (stored as `string` to allow clearing), and a catalog link chip. Chip states: **Привязан** (green) / **Создать хар-ку** (info) / **Нет хар-ки** (secondary) / **Создать** (info) / **Не привязан** (warning). Clicking the chip opens `CatalogLinkDialog`. Rows with catalog validation errors are highlighted with a red row background. **Авто-привязка** button calls `try-auto-assign-catalog-items` for unlinked items. Form is considered dirty if there are unsaved changes; after auto-assign the form is reset (not dirty) while preserving text field edits.
+- **`ItemsComparisonSection`** — shown in `processing` and `finished` statuses. Fetches `GET .../items-comparison` and renders three tables: declared items, processed items, and (if any) shortage / surplus difference tables with colored chips in the header. Reports `hasProcessedItems` back to `InboundOrderPage` via callback (used to disable rollback-to-draft).
+
+**`CatalogLinkDialog`** — dialog opened from a draft item row chip. Left panel: catalog item search autocomplete (debounced). Right panel: characteristic select populated from the selected catalog item. Header shows draft item info (name, article, characteristic) → arrow → catalog item selection side-by-side. Checkbox: **Создать новую характеристику** when no match found. Closing without confirming discards the selection.
 
 ### `CatalogPage`
 Server-side paginated, searchable list of catalog items. Requires `catalog.view`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Clicking a row opens `CatalogItemDrawer` (right-side MUI Drawer) with item details and characteristics; the selected item ID is stored in `?item=` query param. The drawer allows creating/editing catalog items and syncing characteristics if the user has `catalog.edit`.
