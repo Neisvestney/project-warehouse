@@ -61,9 +61,9 @@ function WarehousesSelect(props: WarehousesSelectMultiProps): React.ReactElement
 function WarehousesSelect(props: WarehousesSelectSingleProps): React.ReactElement;
 function WarehousesSelect(props: WarehousesSelectProps): React.ReactElement {
   if (props.multiple) {
-    return <MultiSelect {...props} />;
+    return <MultiSelect {...(props as WarehousesSelectMultiProps)} />;
   }
-  return <SingleSelect {...props} />;
+  return <SingleSelect {...(props as WarehousesSelectSingleProps)} />;
 }
 
 function MultiSelect({

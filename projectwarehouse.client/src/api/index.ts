@@ -268,6 +268,8 @@ export type {
   PlaceItemsRequest,
   ProcessedNodeItemDto,
   ProcessingStoragePlaceDto,
+  ProcessingStoragePlaceNodeDetailsDto,
+  ProcessingStoragePlaceNodeDto,
   ProcessingWarehouseDto,
   RefreshRequest,
   RoleDto,

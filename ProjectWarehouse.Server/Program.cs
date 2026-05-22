@@ -228,6 +228,11 @@ try
         foreach (var permission in Permissions.All)
             options.AddPolicy(permission,
                 p => p.Requirements.Add(new PermissionRequirement(permission)));
+
+        options.AddPolicy(CombinedPolicies.CatalogViewOrInboundProcess, p =>
+            p.RequireAssertion(ctx =>
+                ctx.User.HasClaim("permission", Permissions.Catalog.View) ||
+                ctx.User.HasClaim("permission", Permissions.InboundOrders.Process)));
     });
 
     builder.Services.Configure<ApiBehaviorOptions>(options =>

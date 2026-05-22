@@ -32,6 +32,12 @@ src/
 │
 ├── assets/                      # Static images
 │
+├── features/
+│   └── warehouse/
+│       ├── WarehouseCanvas.tsx         # Generic pan/zoom Konva canvas for warehouse floor plans
+│       ├── StoragePlaceNodeTree.tsx    # Read-only SimpleTreeView of storage place nodes
+│       └── index.ts
+│
 ├── components/
 │   ├── form/
 │   │   └── FormTextField.tsx    # RHF-wired TextField wrapper
@@ -152,6 +158,18 @@ src/
 │   │               ├── DraftItemsSection.tsx           # RHF table of draft items; catalog linking, auto-assign, sync to API
 │   │               ├── ItemsComparisonSection.tsx      # Declared vs processed comparison with shortage/surplus chips
 │   │               └── CatalogLinkDialog.tsx           # Dialog for linking a draft item to a catalog item + characteristic
+│   ├── InboundOrderProcessingPage/
+│   │   ├── InboundOrderProcessingPage.tsx   # Paginated list of processing orders assigned to current user
+│   │   └── pages/
+│   │       └── InboundOrderProcessingOrderPage/
+│   │           ├── InboundOrderProcessingOrderPage.tsx  # Mobile-first operator page: scan + schema drawer + node details
+│   │           └── components/
+│   │               ├── OrderHeader.tsx           # Order info card (number, title, status chip, warehouse, date)
+│   │               ├── ScanActionBlock.tsx        # Barcode input (autoFocus, Enter submits) + camera toggle + ScannerBlock
+│   │               ├── WarehouseSchemaDrawer.tsx  # Bottom drawer with internal canvas → nodeTree navigation
+│   │               ├── NodeDetailsDrawer.tsx      # Bottom drawer: full path header, item tables, place/update edit form
+│   │               ├── ItemsGroupsTable.tsx       # Read-only table for ItemsGroupDto[] (товар, характеристика, количество)
+│   │               └── EditItemsTable.tsx         # RHF useFieldArray edit table for PlaceItems / UpdateItems mutations
 │   └── SettingsPage/
 │       ├── SettingsPage.tsx     # Sections declaration only — drives routes + sidebar nav for /settings/*
 │       └── pages/
@@ -213,7 +231,7 @@ src/
 /users/new              → MainLayout > UserCreatePage    (users.create)
 /users/:id              → MainLayout > UserViewPage      (users.view)
 /users/:id/edit         → MainLayout > UserEditPage      (users.edit_profile)
-/catalog                → MainLayout > CatalogPage        (catalog.view)
+/catalog                → MainLayout > CatalogPage        (catalog.view | inbound_orders.process)
 /warehouses             → MainLayout > WarehousesPage     (warehouses.view | warehouses.view_assigned)
 /warehouses/:id         → MainLayout > WarehouseViewPage  (warehouses.view | warehouses.view_assigned)
 /warehouses/:id/items   → MainLayout > WarehouseItemsPage (warehouses.view | warehouses.view_assigned)
@@ -222,6 +240,8 @@ src/
 /inbound-orders         → MainLayout > InboundOrdersPage  (inbound_orders.view | inbound_orders.view_assigned_warehouses)
 /inbound-orders/new     → MainLayout > InboundOrderCreatePage  (inbound_orders.edit | inbound_orders.edit_assigned_warehouses)
 /inbound-orders/:id     → MainLayout > InboundOrderPage   (inbound_orders.view | inbound_orders.view_assigned_warehouses)
+/inbound-order-processing        → MainLayout > InboundOrderProcessingPage       (inbound_orders.process)
+/inbound-order-processing/:id   → MainLayout > InboundOrderProcessingOrderPage  (inbound_orders.process)
 /settings/*             → MainLayout > SettingsPage      (authenticated)
 /settings               →   redirect to /settings/roles
 /settings/roles         →   RolesSettingsPage            (roles.view)
@@ -281,6 +301,30 @@ Error handling mirrors `UserViewPage`: `<NotFound />` on 404, `<QueryError />` o
 ### `UserCreatePage`
 RHF form for creating a new user. Fields: username (required), password (required, with show/hide toggle), email, first name, last name. On success navigates to the new user's `UserViewPage`. Requires `users.create`.
 
+### `InboundOrderProcessingPage` (Обработка приходных ордеров)
+Server-side paginated, searchable list of inbound orders assigned to the current user for processing. Requires `inbound_orders.process`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Same columns as `InboundOrdersPage`. Rows navigate to `InboundOrderProcessingOrderPage`. No "Создать" button — this is the operator view.
+
+### `InboundOrderProcessingOrderPage`
+Mobile-first warehouse operator page for processing a single inbound order (`/inbound-order-processing/:id`). Requires `inbound_orders.process`. Designed around bottom drawers and full-width touch targets.
+
+**Layout:** `OrderHeader` (order info) → `ScanActionBlock` (barcode entry) → "Выбрать из схемы склада" button → `NodeDetailsDrawer` when a node is selected.
+
+**Barcode scan flow:** The operator types or scans a node barcode ID into `ScanActionBlock`. On Enter (or after camera scan via `ScannerBlock`), `handleNodeScanned` calls `queryClient.fetchQuery(inboundOrderProcessingGetStoragePlaceNodeDetailsOptions)` imperatively — pre-populating the cache and revealing `NodeDetailsDrawer` with the scanned node selected. Scan errors are shown inline in the block via `lookupError`.
+
+**Schema selection flow:** "Выбрать из схемы склада" opens `WarehouseSchemaDrawer` — a single bottom drawer (80 vh) with internal navigation between two views:
+  - **Canvas view** — `WarehouseCanvas` with storage places colored by `hasOrderItems` (dark green if items were placed in this order, light green otherwise). Click a storage place to enter tree view.
+  - **Tree view** — fetches `inboundOrderProcessingGetStoragePlaceNodes` for the selected storage place and renders `StoragePlaceNodeTree`. Back button returns to canvas. Selecting a node closes the drawer and opens `NodeDetailsDrawer`.
+
+**`NodeDetailsDrawer`** (bottom, 85 vh): displays the node path in the header (built by walking `parentNodeId` chain from `GetStoragePlaceNodes`). Contains:
+  1. **Текущие товары в ячейке** — `ItemsGroupsTable` of `details.itemsGroups` (always shown)
+  2. **Размещено в этом ордере** — `ItemsGroupsTable` of `details.orderItemsGroups` (shown only when `orderItemsGroups.length > 0`)
+  3. **Action buttons** (when `editMode === null`):
+     - If `orderItemsGroups.length === 0`: "Добавить" (opens `EditItemsTable` in `place` mode, empty rows) + "Обновить" (opens `EditItemsTable` in `update` mode, pre-filled from `itemsGroups`)
+     - If `orderItemsGroups.length > 0`: only "Обновить" (pre-filled from `itemsGroups`, NOT `orderItemsGroups`)
+  4. **`EditItemsTable`** (when `editMode !== null`): RHF `useFieldArray` table — catalog Autocomplete (debounced), characteristic Select, count field, delete button. `place` mode → `inboundOrderProcessingPlaceItemsMutation` (POST); `update` mode → `inboundOrderProcessingUpdateItemsMutation` (PUT). Both use `meta: {suppressGlobalError: true}`. On success: invalidates nodeDetails + order query keys, clears `editMode` (drawer stays open and refetches).
+
+Error handling: `suppressGlobalError: true` + `suppressGlobalNotFound: true` on the order query. `isLoading` → `CircularProgress`; `isError && !isRefetchError` → `isNotFoundError` ? `<NotFound />` : `<QueryError />`; `!order` → `<NotFound />`.
+
 ### `InboundOrdersPage` (Приходные ордера)
 Server-side paginated, searchable list of inbound orders. Requires `inbound_orders.view` or `inbound_orders.view_assigned_warehouses`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Columns: **№**, **Название**, **Статус** (chip via `INBOUND_ORDER_STATUS_LABELS`/`INBOUND_ORDER_STATUS_COLORS`), **Склад**, **Дата начала**. Rows navigate to `InboundOrderPage`. A **Создать** button is shown if the user has an edit permission.
 
@@ -302,10 +346,10 @@ Detail page for a single inbound order (`/inbound-orders/:id`). Composes four su
 **`CatalogLinkDialog`** — dialog opened from a draft item row chip. Left panel: catalog item search autocomplete (debounced). Right panel: characteristic select populated from the selected catalog item. Header shows draft item info (name, article, characteristic) → arrow → catalog item selection side-by-side. Checkbox: **Создать новую характеристику** when no match found. Closing without confirming discards the selection.
 
 ### `CatalogPage`
-Server-side paginated, searchable list of catalog items. Requires `catalog.view`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Clicking a row opens `CatalogItemDrawer` (right-side MUI Drawer) with item details and characteristics; the selected item ID is stored in `?item=` query param. The drawer allows creating/editing catalog items and syncing characteristics if the user has `catalog.edit`.
+Server-side paginated, searchable list of catalog items. Requires `catalog.view` or `inbound_orders.process`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Clicking a row opens `CatalogItemDrawer` (right-side MUI Drawer) with item details and characteristics; the selected item ID is stored in `?item=` query param. The drawer allows creating/editing catalog items and syncing characteristics if the user has `catalog.edit`.
 
 ### `WarehouseViewPage`
-Warehouse detail page with a pan/zoom Konva canvas showing storage place rectangles. Clicking a storage place opens `StoragePlaceDialog` (1000 px wide right drawer) with a `SimpleTreeView` of that storage place's nodes on the left and `NodeDetails` on the right when a node is selected.
+Warehouse detail page with a pan/zoom Konva canvas showing storage place rectangles. The canvas is rendered by `WarehouseCanvas` from `src/features/warehouse/`. Clicking a storage place opens `StoragePlaceDialog` (1000 px wide right drawer) with a `StoragePlaceNodeTree` from `src/features/warehouse/` on the left and `NodeDetails` on the right when a node is selected.
 
 **"Этикетки" button** fetches `GET /api/warehouses/{id}/print`, then calls `openPrintPage` with all nodes as `DataMatrix` labels (value = node ID, label = full path joined by ` / `). A `CircularProgress` spinner replaces the print icon while the request is in-flight.
 
@@ -325,6 +369,66 @@ Columns: **Название**, **Артикул**, **Характеристик�
 Panel rendered inside `StoragePlaceDialog` for the selected node. Fetches `StoragePlaceNodeDetailsDto` via `GET /api/storagePlaces/{id}/nodes/{nodeId}`. Displays and edits the node's item groups:
 - View mode: table of catalog item name + characteristic + count + barcode
 - Edit mode: editable rows via `EditItemRow` — each row has a catalog `Autocomplete` (debounced search, 20 results), a characteristic `Select` (populated from the selected catalog item), and a count field. Rows can be added/removed. On save calls `PUT .../items` to atomically sync the groups.
+
+## Features
+
+### `src/features/warehouse/`
+
+Reusable warehouse visualization components shared between `WarehouseViewPage` and `InboundOrderProcessingOrderPage`.
+
+#### `WarehouseCanvas`
+
+Generic pan/zoom Konva canvas for rendering a warehouse floor plan. Manages its own `containerRef`, `stageRef`, `stageScale`, and auto-fit effect. Root element is `<Box sx={{position: "relative", width: "100%", height: "100%"}}>` — the caller wraps it in a `<Paper>` with a fixed height.
+
+```tsx
+interface WarehouseStoragePlaceRenderItem {
+  id: string; x: number; y: number; width: number; height: number;
+  rotation: number; name: string;
+  fill: string;    // caller decides color per storage place
+  label?: string;  // optional override for the text label, defaults to name
+}
+interface WarehouseCanvasProps {
+  width: number; height: number;
+  layoutObjects: WarehouseLayoutElementDto[];
+  storagePlaces: WarehouseStoragePlaceRenderItem[];
+  onStoragePlaceClick?: (id: string) => void;
+}
+```
+
+Usage in **WarehouseViewPage** (static display):
+```tsx
+storagePlaces={warehouse.storagePlaces.map(p => ({
+  ...p,
+  fill: green[300],
+  label: p.totalItemsCount > 0 ? `${p.name}\n${p.totalItemsCount} тов.` : p.name,
+}))}
+```
+
+Usage in **WarehouseSchemaDrawer** (processing, coloring by `hasOrderItems`):
+```tsx
+storagePlaces={order.warehouse.storagePlaces.map(p => ({
+  ...p,
+  fill: p.hasOrderItems ? green[500] : green[200],
+}))}
+```
+
+#### `StoragePlaceNodeTree`
+
+Read-only `SimpleTreeView` of storage place nodes. Handles `buildTree` internally from a flat `StoragePlaceNodeTreeNode[]`. Optionally shows an 8 px colored dot per node when `hasOrderItems` is present (`green.main` if true, `grey.400` if false). Shows `<CircularProgress>` while `isLoading` and "Ячейки не найдены" when the list is empty.
+
+```tsx
+interface StoragePlaceNodeTreeNode {
+  id: string; name: string; parentNodeId?: string | null;
+  order: number; totalItemsCount: number;
+  hasOrderItems?: boolean;
+}
+interface StoragePlaceNodeTreeProps {
+  nodes: StoragePlaceNodeTreeNode[];
+  selectedNodeId?: string | null;
+  onSelect?: (id: string) => void;
+  isLoading?: boolean;
+}
+```
 
 ## Key Components
 

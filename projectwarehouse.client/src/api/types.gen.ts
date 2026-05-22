@@ -424,6 +424,25 @@ export type ProcessingStoragePlaceDto = {
   hasOrderItems: boolean;
 };
 
+export type ProcessingStoragePlaceNodeDetailsDto = {
+  id: string;
+  name: string;
+  storagePlaceId: string;
+  parentNodeId?: null | string;
+  order: number;
+  itemsGroups: Array<ItemsGroupDto>;
+  orderItemsGroups: Array<ItemsGroupDto>;
+};
+
+export type ProcessingStoragePlaceNodeDto = {
+  id: string;
+  name: string;
+  parentNodeId?: null | string;
+  order: number;
+  totalItemsCount: number;
+  hasOrderItems: boolean;
+};
+
 export type ProcessingWarehouseDto = {
   id: string;
   name: string;
@@ -1117,7 +1136,7 @@ export type InboundOrderProcessingGetStoragePlaceNodesResponses = {
   /**
    * OK
    */
-  200: Array<StoragePlaceNodeDto>;
+  200: Array<ProcessingStoragePlaceNodeDto>;
 };
 
 export type InboundOrderProcessingGetStoragePlaceNodesResponse =
@@ -1155,7 +1174,7 @@ export type InboundOrderProcessingGetStoragePlaceNodeDetailsResponses = {
   /**
    * OK
    */
-  200: StoragePlaceNodeDetailsDto;
+  200: ProcessingStoragePlaceNodeDetailsDto;
 };
 
 export type InboundOrderProcessingGetStoragePlaceNodeDetailsResponse =
