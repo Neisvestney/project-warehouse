@@ -50,6 +50,7 @@ public class AppMapperProfile : Profile
         CreateMap<InboundOrderDraftItemsGroup, InboundOrderDraftItemsGroupDto>()
             .ForMember(d => d.CatalogItem, opt => opt.MapFrom(s => s.CatalogItem));
         CreateMap<InboundOrderProcessedItemsGroup, ProcessedNodeItemDto>();
+        CreateMap<InboundOrderProcessedItemsGroup, ItemsGroupDto>();
 
         CreateMap<Warehouse, AppEntity>()
             .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Warehouse))

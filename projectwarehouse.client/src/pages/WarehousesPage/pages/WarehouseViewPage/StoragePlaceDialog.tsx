@@ -16,8 +16,6 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import {SimpleTreeView} from "@mui/x-tree-view/SimpleTreeView";
-import {TreeItem} from "@mui/x-tree-view/TreeItem";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
   storagePlacesAddNodeMutation,
@@ -29,6 +27,7 @@ import {
 } from "@/api/@tanstack/react-query.gen.ts";
 import {type NodeOrderItem, type StoragePlaceDto, type StoragePlaceNodeDto} from "@/api";
 import {useState, useMemo, useRef, useEffect} from "react";
+import {StoragePlaceNodeTree} from "@/features/warehouse";
 import {openPrintPage} from "@/utils/printUtils.ts";
 import AddIcon from "@mui/icons-material/Add";
 import CheckIcon from "@mui/icons-material/Check";
@@ -48,74 +47,6 @@ interface StoragePlaceDialogProps {
   onClose: () => void;
 }
 
-type TreeNode = StoragePlaceNodeDto & {
-  children: TreeNode[];
-  childrenItemsTotalCount: number;
-};
-
-function buildTree(nodes: StoragePlaceNodeDto[]): TreeNode[] {
-  const nodeMap = new Map<string, TreeNode>();
-
-  for (const node of nodes) {
-    nodeMap.set(node.id, {...node, children: [], childrenItemsTotalCount: 0});
-  }
-
-  const roots: TreeNode[] = [];
-  for (const treeNode of nodeMap.values()) {
-    if (treeNode.parentNodeId) {
-      nodeMap.get(treeNode.parentNodeId)?.children.push(treeNode);
-    } else {
-      roots.push(treeNode);
-    }
-  }
-
-  const calcChildrenTotal = (node: TreeNode): number => {
-    const total = node.children.reduce(
-      (sum, child) => sum + child.totalItemsCount + calcChildrenTotal(child),
-      0,
-    );
-    node.childrenItemsTotalCount = total;
-    return total;
-  };
-
-  const sortNodes = (list: TreeNode[]) => {
-    list.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
-    for (const node of list) sortNodes(node.children);
-  };
-
-  for (const root of roots) calcChildrenTotal(root);
-  sortNodes(roots);
-
-  return roots;
-}
-
-function renderNodes(nodes: TreeNode[]): React.ReactNode {
-  return nodes.map((node) => (
-    <TreeItem
-      key={node.id}
-      itemId={node.id}
-      label={
-        <Stack direction="row" spacing={1} sx={{alignItems: "center", py: 0.25}}>
-          <span>{node.name}</span>
-          {node.children.length > 0 && node.childrenItemsTotalCount > 0 && (
-            <Chip
-              label={node.childrenItemsTotalCount}
-              size="small"
-              color="primary"
-              variant="outlined"
-            />
-          )}
-          {node.totalItemsCount > 0 && (
-            <Chip label={node.totalItemsCount} size="small" color="primary" variant="outlined" />
-          )}
-        </Stack>
-      }
-    >
-      {renderNodes(node.children)}
-    </TreeItem>
-  ));
-}
-
 type NodeDialogState =
   | {mode: "addRoot"}
   | {mode: "addChild"; parentId: string}
@@ -128,8 +59,6 @@ function StoragePlaceDialog({open, storagePlace, warehouseId, onClose}: StorageP
     ...storagePlacesGetNodesOptions({path: {id: storagePlace?.id ?? ""}}),
     enabled: open && !!storagePlace?.id,
   });
-
-  const tree = useMemo(() => buildTree(nodes), [nodes]);
 
   const nodesWithChildren = useMemo(
     () => new Set(nodes.map((n) => n.parentNodeId).filter(Boolean)),
@@ -415,12 +344,11 @@ function StoragePlaceDialog({open, storagePlace, warehouseId, onClose}: StorageP
                   {isTreeEditMode ? (
                     <SortableNodeTree nodes={nodes} actions={treeActions} />
                   ) : (
-                    <SimpleTreeView
-                      selectedItems={selectedNodeId}
-                      onSelectedItemsChange={(_e, nodeId) => setSelectedNodeId(nodeId)}
-                    >
-                      {renderNodes(tree)}
-                    </SimpleTreeView>
+                    <StoragePlaceNodeTree
+                      nodes={nodes}
+                      selectedNodeId={selectedNodeId}
+                      onSelect={setSelectedNodeId}
+                    />
                   )}
                 </Paper>
               )}

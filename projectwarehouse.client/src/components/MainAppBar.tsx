@@ -40,6 +40,11 @@ const pages: {
     requiredPermission: ["inbound_orders.view", "inbound_orders.view_assigned_warehouses"],
   },
   {
+    name: "Обработка приходных ордеров",
+    url: "/inbound-order-processing",
+    requiredPermission: "inbound_orders.process",
+  },
+  {
     name: "Настройки",
     url: (p) => `/settings/${getSettingsFirstPageUrl(p)}`,
     showIf: hasSettingsAccess,

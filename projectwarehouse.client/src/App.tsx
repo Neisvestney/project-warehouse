@@ -1,5 +1,5 @@
 import {useRegisterSW} from "virtual:pwa-register/react";
-import {Route} from "react-router";
+import {Route, useLocation, useNavigationType} from "react-router";
 import CssBaseline from "@mui/material/CssBaseline";
 import {ThemeProvider} from "@mui/material";
 import theme from "@/theme.ts";
@@ -57,8 +57,20 @@ const InboundOrderCreatePage = React.lazy(
 const InboundOrderPage = React.lazy(
   () => import("@/pages/InboundOrdersPage/pages/InboundOrderPage/InboundOrderPage.tsx"),
 );
+const InboundOrderProcessingPage = React.lazy(
+  () => import("@/pages/InboundOrderProcessingPage/InboundOrderProcessingPage.tsx"),
+);
+const InboundOrderProcessingOrderPage = React.lazy(
+  () =>
+    import("@/pages/InboundOrderProcessingPage/pages/InboundOrderProcessingOrderPage/InboundOrderProcessingOrderPage.tsx"),
+);
 
 function App() {
+  const location = useLocation();
+  const navType = useNavigationType();
+
+  console.log(location, navType, window.history);
+
   const {
     needRefresh: [needRefresh],
     offlineReady: [offlineReady],
@@ -173,6 +185,16 @@ function App() {
                         "inbound_orders.view",
                         "inbound_orders.view_assigned_warehouses",
                       ]}
+                    />
+                    <ProtectedRoute
+                      path="/inbound-order-processing"
+                      element={<InboundOrderProcessingPage />}
+                      requiredPermission="inbound_orders.process"
+                    />
+                    <ProtectedRoute
+                      path="/inbound-order-processing/:id"
+                      element={<InboundOrderProcessingOrderPage />}
+                      requiredPermission="inbound_orders.process"
                     />
                     <ProtectedRoute path="/settings/*" element={<SettingsPage />} />
                     <Route path="*" element={<PageNotFound />} />

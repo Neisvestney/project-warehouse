@@ -839,7 +839,7 @@ export const inboundOrderProcessingGetStoragePlaceNodeDetailsQueryKey = (
 ) => createQueryKey("inboundOrderProcessingGetStoragePlaceNodeDetails", options);
 
 /**
- * Get storage place node details (including StoragePlaceId) in this order's warehouse.
+ * Get storage place node details (including StoragePlaceId and order items) in this order's warehouse.
  */
 export const inboundOrderProcessingGetStoragePlaceNodeDetailsOptions = (
   options: Options<InboundOrderProcessingGetStoragePlaceNodeDetailsData>,

@@ -401,7 +401,7 @@ export const inboundOrderProcessingGetStoragePlaceNodes = <ThrowOnError extends 
   >({url: "/api/inbound-order-processing/{id}/nodes", ...options});
 
 /**
- * Get storage place node details (including StoragePlaceId) in this order's warehouse.
+ * Get storage place node details (including StoragePlaceId and order items) in this order's warehouse.
  */
 export const inboundOrderProcessingGetStoragePlaceNodeDetails = <
   ThrowOnError extends boolean = false,

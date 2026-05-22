@@ -49,9 +49,9 @@ function RolesSelect(props: RolesSelectMultiProps): React.ReactElement;
 function RolesSelect(props: RolesSelectSingleProps): React.ReactElement;
 function RolesSelect(props: RolesSelectProps): React.ReactElement {
   if (props.multiple) {
-    return <MultiSelect {...props} />;
+    return <MultiSelect {...(props as RolesSelectMultiProps)} />;
   }
-  return <SingleSelect {...props} />;
+  return <SingleSelect {...(props as RolesSelectSingleProps)} />;
 }
 
 function MultiSelect({

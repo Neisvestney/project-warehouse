@@ -21,7 +21,7 @@ public class CatalogController(
 {
     /// <summary>List all catalog items (paginated, optionally filtered by name).</summary>
     [HttpGet]
-    [Authorize(Policy = Permissions.Catalog.View)]
+    [Authorize(Policy = CombinedPolicies.CatalogViewOrInboundProcess)]
     [ProducesResponseType<Paginated<CatalogItemSummaryDto>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(
         [FromQuery][Range(1, int.MaxValue)] int page = 1,
@@ -40,7 +40,7 @@ public class CatalogController(
 
     /// <summary>Get a catalog item by ID including its characteristics.</summary>
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = Permissions.Catalog.View)]
+    [Authorize(Policy = CombinedPolicies.CatalogViewOrInboundProcess)]
     [ProducesResponseType<CatalogItemDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct = default)

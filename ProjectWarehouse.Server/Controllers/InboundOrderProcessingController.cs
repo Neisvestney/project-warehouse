@@ -35,6 +35,7 @@ public class InboundOrderProcessingController(
 
         var paginated = await db.InboundOrders
             .Where(o => o.AssignedUsers.Any(u => u.Id == userId.Value))
+            .Where(o => o.Status == InboundOrderStatus.Processing)
             .WhereMatchesSearch(o => o.SearchString, searchString)
             .OrderByDescending(o => o.PlannedStartDateTime)
             .ProjectTo<InboundOrderSummaryDto>(mapper.ConfigurationProvider)
@@ -111,7 +112,7 @@ public class InboundOrderProcessingController(
     /// <summary>Get storage place nodes for a given storage place in this order's warehouse.</summary>
     [HttpGet("{id:guid}/nodes")]
     [Authorize(Policy = Permissions.InboundOrders.Process)]
-    [ProducesResponseType<IReadOnlyList<StoragePlaceNodeDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<IReadOnlyList<ProcessingStoragePlaceNodeDto>>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
@@ -137,16 +138,24 @@ public class InboundOrderProcessingController(
             .Where(n => n.RootStoragePlaceId == storagePlaceId)
             .OrderBy(n => n.Order)
             .ThenBy(n => n.Name)
-            .ProjectTo<StoragePlaceNodeDto>(mapper.ConfigurationProvider)
+            .Select(n => new ProcessingStoragePlaceNodeDto
+            {
+                Id = n.Id,
+                Name = n.Name,
+                ParentNodeId = n.ParentNodeId,
+                Order = n.Order,
+                TotalItemsCount = n.TotalItemsCount,
+                HasOrderItems = n.InboundOrderProcessedItemsGroups.Any(g => g.InboundOrderId == id)
+            })
             .ToListAsync(ct);
 
         return Ok(nodes);
     }
 
-    /// <summary>Get storage place node details (including StoragePlaceId) in this order's warehouse.</summary>
+    /// <summary>Get storage place node details (including StoragePlaceId and order items) in this order's warehouse.</summary>
     [HttpGet("{id:guid}/nodes/{nodeId:guid}")]
     [Authorize(Policy = Permissions.InboundOrders.Process)]
-    [ProducesResponseType<StoragePlaceNodeDetailsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProcessingStoragePlaceNodeDetailsDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetStoragePlaceNodeDetails(Guid id, Guid nodeId, CancellationToken ct = default)
@@ -166,7 +175,21 @@ public class InboundOrderProcessingController(
         if (nodeDto is null)
             return NotFound(ErrorCode.StoragePlaceNodeNotFound, "Storage place node not found in this order's warehouse.");
 
-        return Ok(nodeDto);
+        var orderItems = await db.InboundOrderProcessedItemsGroups
+            .Where(g => g.InboundOrderId == id && g.StoragePlaceNodeId == nodeId)
+            .ProjectTo<ItemsGroupDto>(mapper.ConfigurationProvider)
+            .ToListAsync(ct);
+
+        return Ok(new ProcessingStoragePlaceNodeDetailsDto
+        {
+            Id = nodeDto.Id,
+            Name = nodeDto.Name,
+            StoragePlaceId = nodeDto.StoragePlaceId,
+            ParentNodeId = nodeDto.ParentNodeId,
+            Order = nodeDto.Order,
+            ItemsGroups = nodeDto.ItemsGroups,
+            OrderItemsGroups = orderItems
+        });
     }
 
     /// <summary>Place items in a storage place node for this order (first placement only).</summary>

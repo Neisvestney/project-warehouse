@@ -7,14 +7,15 @@ export function useDrawerSearchParamsState(name: string) {
   const selectedItemId = searchParams.get(name);
 
   const openDrawer = (id: string) => {
-    const next = new URLSearchParams(searchParams);
+    const next = new URLSearchParams(location.search);
     next.set(name, id);
     navigate(`?${next.toString()}`);
   };
 
   const closeDrawer = () => {
+    console.log("close");
+    const next = new URLSearchParams(location.search);
     if (!searchParams.has(name)) return;
-    const next = new URLSearchParams(searchParams);
     next.delete(name);
     navigate(`?${next.toString()}`, {replace: true});
   };
