@@ -1,6 +1,7 @@
 import {useState, useMemo} from "react";
 import {useSearchParams} from "react-router";
 import Box from "@mui/material/Box";
+import GlobalStyles from "@mui/material/GlobalStyles";
 import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
 import CloseIcon from "@mui/icons-material/Close";
@@ -65,10 +66,11 @@ function PrintPage() {
     setState({id: selectedId, settings: s});
   };
 
-  const {labelWidthMm, labelHeightMm, columns, gapMm, pagePaddingMm} = settings;
+  const {labelWidthMm, labelHeightMm, columns, gapMm, pagePaddingMm, labelPaddingMm} = settings;
 
   return (
     <Box sx={{minHeight: "100vh", bgcolor: "grey.100", "@media print": {bgcolor: "white"}}}>
+      <GlobalStyles styles={{"@page": {margin: 0}}} />
       <PrintSettings
         presets={allPresets}
         selectedPresetId={selectedId}
@@ -129,6 +131,7 @@ function PrintPage() {
                   label={item.label}
                   widthMm={labelWidthMm}
                   heightMm={labelHeightMm}
+                  paddingMm={labelPaddingMm}
                 />
                 <IconButton
                   className="delete-btn"

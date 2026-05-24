@@ -268,8 +268,10 @@ Each label card has a floating **×** `IconButton` in the top-right corner that 
 
 Print layout is controlled by `PrintSettings` (hidden on print via `@media print`):
 - **Preset selector** — built-in presets (A4 4×7, A4 2×5, A5 2×4, Термо 58мм) plus user-saved custom presets stored in `localStorage` under `print-page-presets`. Last selected preset is restored from `print-page-last-preset`.
-- **Manual fields** — label width/height (mm), columns, gap, page padding.
+- **Manual fields** — label width/height (mm), columns, gap (min 0 mm), page padding (min 0 mm), label padding (min 0 mm). All fields use `NumField` — the input can be cleared while focused and only snaps to the minimum value on blur.
 - **Save preset** — saves current settings as a named custom preset; custom presets can be deleted.
+
+`@page { margin: 0 }` is injected globally via `GlobalStyles` so that browser default print margins are removed and `pagePaddingMm` (applied as CSS `padding` on the page container) is the sole source of page margins. `labelPaddingMm` adds inner padding to each `BarcodeLabel` box; it applies in both screen preview and print. For 1D barcodes the bwip-js bar height is calculated from the unpadded label height so that the rendered canvas resolution stays fixed as padding changes — only the CSS `maxHeight` constraint shrinks.
 
 To open the print page programmatically use `openPrintPage(items)` from `@/utils/printUtils`.
 
