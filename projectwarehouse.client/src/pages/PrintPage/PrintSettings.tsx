@@ -32,6 +32,47 @@ interface PrintSettingsProps {
   customPresets: PrintPreset[];
 }
 
+function NumField({
+  label,
+  value,
+  min,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  onChange: (v: number) => void;
+}) {
+  const [raw, setRaw] = useState(String(value));
+  const [syncedValue, setSyncedValue] = useState(value);
+  if (syncedValue !== value) {
+    setSyncedValue(value);
+    setRaw(String(value));
+  }
+
+  return (
+    <TextField
+      label={label}
+      type="number"
+      size="small"
+      value={raw}
+      onChange={(e) => {
+        const s = e.target.value;
+        setRaw(s);
+        const n = Number(s);
+        if (s !== "" && !isNaN(n) && n >= min) onChange(n);
+      }}
+      onBlur={() => {
+        const n = Math.max(min, Number(raw) || 0);
+        setRaw(String(n));
+        onChange(n);
+      }}
+      slotProps={{htmlInput: {min, step: 1}}}
+      sx={{width: 110}}
+    />
+  );
+}
+
 function PrintSettings({
   presets,
   selectedPresetId,
@@ -76,18 +117,6 @@ function PrintSettings({
     }
   };
 
-  const num = (val: number, key: keyof PrintSettingsType) => (
-    <TextField
-      label={fieldLabel(key)}
-      type="number"
-      size="small"
-      value={val}
-      onChange={(e) => onSettingsChange({...settings, [key]: Math.max(1, Number(e.target.value))})}
-      slotProps={{htmlInput: {min: 1, step: 1}}}
-      sx={{width: 110}}
-    />
-  );
-
   return (
     <Box
       className="no-print"
@@ -131,11 +160,42 @@ function PrintSettings({
           )}
         </Stack>
 
-        {num(settings.labelWidthMm, "labelWidthMm")}
-        {num(settings.labelHeightMm, "labelHeightMm")}
-        {num(settings.columns, "columns")}
-        {num(settings.gapMm, "gapMm")}
-        {num(settings.pagePaddingMm, "pagePaddingMm")}
+        <NumField
+          label={fieldLabel("labelWidthMm")}
+          value={settings.labelWidthMm}
+          min={1}
+          onChange={(v) => onSettingsChange({...settings, labelWidthMm: v})}
+        />
+        <NumField
+          label={fieldLabel("labelHeightMm")}
+          value={settings.labelHeightMm}
+          min={1}
+          onChange={(v) => onSettingsChange({...settings, labelHeightMm: v})}
+        />
+        <NumField
+          label={fieldLabel("columns")}
+          value={settings.columns}
+          min={1}
+          onChange={(v) => onSettingsChange({...settings, columns: v})}
+        />
+        <NumField
+          label={fieldLabel("gapMm")}
+          value={settings.gapMm}
+          min={0}
+          onChange={(v) => onSettingsChange({...settings, gapMm: v})}
+        />
+        <NumField
+          label={fieldLabel("pagePaddingMm")}
+          value={settings.pagePaddingMm}
+          min={0}
+          onChange={(v) => onSettingsChange({...settings, pagePaddingMm: v})}
+        />
+        <NumField
+          label={fieldLabel("labelPaddingMm")}
+          value={settings.labelPaddingMm}
+          min={0}
+          onChange={(v) => onSettingsChange({...settings, labelPaddingMm: v})}
+        />
 
         <Tooltip title="Сохранить текущие настройки как пресет">
           <Button
@@ -195,6 +255,7 @@ function fieldLabel(key: keyof PrintSettingsType): string {
     columns: "Колонки",
     gapMm: "Зазор, мм",
     pagePaddingMm: "Поля, мм",
+    labelPaddingMm: "Отступ метки, мм",
   };
   return labels[key];
 }

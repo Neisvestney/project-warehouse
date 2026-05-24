@@ -4,6 +4,7 @@ export interface PrintSettings {
   columns: number;
   gapMm: number;
   pagePaddingMm: number;
+  labelPaddingMm: number;
 }
 
 export interface PrintPreset {
@@ -15,24 +16,52 @@ export interface PrintPreset {
 
 export const SYSTEM_PRESETS: PrintPreset[] = [
   {
+    id: "thermal-58x40mm",
+    name: "Термо 58x40мм",
+    settings: {
+      labelWidthMm: 58,
+      labelHeightMm: 40,
+      columns: 1,
+      gapMm: 0,
+      pagePaddingMm: 0,
+      labelPaddingMm: 5,
+    },
+  },
+  {
     id: "a4-4x7",
     name: "A4, 4×7",
-    settings: {labelWidthMm: 48, labelHeightMm: 38, columns: 4, gapMm: 3, pagePaddingMm: 10},
+    settings: {
+      labelWidthMm: 48,
+      labelHeightMm: 38,
+      columns: 4,
+      gapMm: 3,
+      pagePaddingMm: 10,
+      labelPaddingMm: 1,
+    },
   },
   {
     id: "a4-2x5",
     name: "A4, 2×5",
-    settings: {labelWidthMm: 90, labelHeightMm: 58, columns: 2, gapMm: 4, pagePaddingMm: 10},
+    settings: {
+      labelWidthMm: 90,
+      labelHeightMm: 58,
+      columns: 2,
+      gapMm: 4,
+      pagePaddingMm: 10,
+      labelPaddingMm: 1,
+    },
   },
   {
     id: "a5-2x4",
     name: "A5, 2×4",
-    settings: {labelWidthMm: 60, labelHeightMm: 37, columns: 2, gapMm: 3, pagePaddingMm: 8},
-  },
-  {
-    id: "thermal-58mm",
-    name: "Термо 58мм",
-    settings: {labelWidthMm: 50, labelHeightMm: 30, columns: 1, gapMm: 2, pagePaddingMm: 4},
+    settings: {
+      labelWidthMm: 60,
+      labelHeightMm: 37,
+      columns: 2,
+      gapMm: 3,
+      pagePaddingMm: 8,
+      labelPaddingMm: 1,
+    },
   },
 ];
 

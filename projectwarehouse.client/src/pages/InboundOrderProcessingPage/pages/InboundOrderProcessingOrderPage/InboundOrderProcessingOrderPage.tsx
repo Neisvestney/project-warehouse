@@ -66,7 +66,7 @@ function InboundOrderProcessingOrderPage() {
 
   const handleNodeSelectedFromSchema = (nodeId: string, storagePlaceId: string) => {
     const sp = order?.warehouse.storagePlaces.find((s) => s.id === storagePlaceId);
-    setSelectedStoragePlaceName(sp?.name ?? null);  
+    setSelectedStoragePlaceName(sp?.name ?? null);
     setSelectedNodeId(nodeId);
   };
 

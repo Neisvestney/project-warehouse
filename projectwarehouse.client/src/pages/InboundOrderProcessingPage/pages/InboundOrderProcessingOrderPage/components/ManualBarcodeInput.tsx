@@ -1,5 +1,12 @@
 import {useRef, useState} from "react";
-import {CircularProgress, IconButton, InputAdornment, Stack, TextField, Typography} from "@mui/material";
+import {
+  CircularProgress,
+  IconButton,
+  InputAdornment,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 
 interface ManualBarcodeInputProps {
@@ -45,7 +52,11 @@ function ManualBarcodeInput({
                 {isLookupLoading ? (
                   <CircularProgress size={20} />
                 ) : (
-                  <IconButton edge="end" onClick={() => handleScan(inputValue)} disabled={!inputValue.trim()}>
+                  <IconButton
+                    edge="end"
+                    onClick={() => handleScan(inputValue)}
+                    disabled={!inputValue.trim()}
+                  >
                     <SendIcon />
                   </IconButton>
                 )}

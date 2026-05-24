@@ -28,17 +28,19 @@ interface BarcodeLabelProps {
   label?: string;
   widthMm: number;
   heightMm: number;
+  paddingMm: number;
 }
 
-function BarcodeLabel({type, value, label, widthMm, heightMm}: BarcodeLabelProps) {
+function BarcodeLabel({type, value, label, widthMm, heightMm, paddingMm}: BarcodeLabelProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState<string | null>(null);
 
   const captionHeightMm = 5;
   const labelHeightMm = label ? 5 : 0;
-  const canvasHeightMm = heightMm - captionHeightMm - labelHeightMm;
+  const bwipHeightMm = heightMm - captionHeightMm - labelHeightMm;
+  const canvasHeightMm = Math.max(1, heightMm - 2 * paddingMm - captionHeightMm - labelHeightMm);
   const bwipHeight = IS_1D[type]
-    ? Math.max(1, Math.round(canvasHeightMm / MM_PER_BWIP_HEIGHT_UNIT))
+    ? Math.max(1, Math.round(bwipHeightMm / MM_PER_BWIP_HEIGHT_UNIT))
     : undefined;
 
   useEffect(() => {
@@ -49,7 +51,7 @@ function BarcodeLabel({type, value, label, widthMm, heightMm}: BarcodeLabelProps
       bwipjs.toCanvas(canvas, {
         bcid: BCID_MAP[type],
         text: value,
-        scale: 3,
+        scale: 4,
         includetext: false,
         ...(bwipHeight !== undefined && {height: bwipHeight}),
       });
@@ -73,9 +75,9 @@ function BarcodeLabel({type, value, label, widthMm, heightMm}: BarcodeLabelProps
         overflow: "hidden",
         border: "1px dashed",
         borderColor: "divider",
-        p: "1mm",
+        p: `${paddingMm}mm`,
         boxSizing: "border-box",
-        "@media print": {border: "none", p: 0},
+        "@media print": {border: "none", p: `${paddingMm}mm`},
       }}
     >
       {label && (
