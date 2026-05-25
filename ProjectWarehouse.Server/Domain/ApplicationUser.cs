@@ -18,5 +18,4 @@ public class ApplicationUser : IdentityUser<Guid>
     public ICollection<RefreshToken> RefreshTokens { get; set; } = [];
     
     public ICollection<Warehouse> AssignedWarehouses { get; set; } = [];
-    public ICollection<InboundOrder> AssignedInboundOrders { get; set; } = [];
 }

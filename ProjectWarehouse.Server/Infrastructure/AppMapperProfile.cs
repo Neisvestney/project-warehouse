@@ -4,8 +4,6 @@ using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Models.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
-using ProjectWarehouse.Server.Models.InboundOrderProcessing;
-using ProjectWarehouse.Server.Models.InboundOrders;
 using ProjectWarehouse.Server.Models.Roles;
 using ProjectWarehouse.Server.Models.Users;
 using ProjectWarehouse.Server.Models.Warehouses;
@@ -43,14 +41,6 @@ public class AppMapperProfile : Profile
         CreateMap<Warehouse, WarehouseDto>();
         CreateMap<Warehouse, WarehouseSummaryDto>()
             .ForMember(d => d.StoragePlaceCount, opt => opt.MapFrom(s => s.StoragePlaces.Count));
-
-        CreateMap<InboundOrder, InboundOrderSummaryDto>();
-        CreateMap<InboundOrder, InboundOrderDto>()
-            .ForMember(d => d.AssignedUsers, opt => opt.MapFrom(s => s.AssignedUsers));
-        CreateMap<InboundOrderDraftItemsGroup, InboundOrderDraftItemsGroupDto>()
-            .ForMember(d => d.CatalogItem, opt => opt.MapFrom(s => s.CatalogItem));
-        CreateMap<InboundOrderProcessedItemsGroup, ProcessedNodeItemDto>();
-        CreateMap<InboundOrderProcessedItemsGroup, ItemsGroupDto>();
 
         CreateMap<Warehouse, AppEntity>()
             .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Warehouse))

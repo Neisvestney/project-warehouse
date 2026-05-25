@@ -23,7 +23,6 @@ using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
 using ProjectWarehouse.Server.Models.Roles;
 using ProjectWarehouse.Server.Models.Users;
-using ProjectWarehouse.Server.Models.InboundOrders;
 using ProjectWarehouse.Server.Models.Warehouses;
 using ProjectWarehouse.Server.Services;
 using Scalar.AspNetCore;
@@ -229,10 +228,6 @@ try
             options.AddPolicy(permission,
                 p => p.Requirements.Add(new PermissionRequirement(permission)));
 
-        options.AddPolicy(CombinedPolicies.CatalogViewOrInboundProcess, p =>
-            p.RequireAssertion(ctx =>
-                ctx.User.HasClaim("permission", Permissions.Catalog.View) ||
-                ctx.User.HasClaim("permission", Permissions.InboundOrders.Process)));
     });
 
     builder.Services.Configure<ApiBehaviorOptions>(options =>
@@ -276,6 +271,8 @@ try
 
     builder.Services.AddHttpContextAccessor();
 
+    builder.Services.AddScoped<IListUpdater, ListUpdater>();
+    
     builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
     builder.Services.AddScoped<ITokenService, TokenService>();
     builder.Services.AddScoped<IPermissionService, PermissionService>();
@@ -288,9 +285,6 @@ try
     builder.Services.AddScoped<IChangeLogService<WarehouseDto>, WarehouseDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<StoragePlaceNodeDetailsDto>, StoragePlaceNodeDetailsDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<RolesListDto>, RolesListDtoChangelogService>();
-    builder.Services.AddScoped<IChangeLogService<InboundOrderDto>, InboundOrderDtoChangelogService>();
-
-
     var app = builder.Build();
 
     using (var scope = app.Services.CreateScope())

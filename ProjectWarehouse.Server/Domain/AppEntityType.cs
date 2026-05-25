@@ -7,5 +7,4 @@ public enum AppEntityType
     Warehouse,
     CatalogItem,
     StoragePlaceNode,
-    InboundOrder,
 }
