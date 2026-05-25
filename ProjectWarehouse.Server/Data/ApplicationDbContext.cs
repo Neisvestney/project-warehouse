@@ -34,11 +34,6 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<StoragePlaceNode> StoragePlacesNodes => Set<StoragePlaceNode>();
     public DbSet<StoragePlaceNodeItemsGroup> StoragePlacesNodesItemsGroups => Set<StoragePlaceNodeItemsGroup>();
 
-    public DbSet<InboundOrder> InboundOrders => Set<InboundOrder>();
-    public DbSet<InboundOrderDraftItemsGroup> InboundOrderDraftItemsGroups => Set<InboundOrderDraftItemsGroup>();
-    public DbSet<InboundOrderDeclaredItemsGroup> InboundOrderDeclaredItemsGroups => Set<InboundOrderDeclaredItemsGroup>();
-    public DbSet<InboundOrderProcessedItemsGroup> InboundOrderProcessedItemsGroups => Set<InboundOrderProcessedItemsGroup>();
-
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -125,57 +120,5 @@ public class ApplicationDbContext : IdentityDbContext<
             e.HasOne(x => x.ParentNode).WithMany(x => x.ChildrenNodes).HasForeignKey(x => x.ParentNodeId);
         });
 
-        builder.Entity<InboundOrder>(e =>
-        {
-            e.HasKey(x => x.Id);
-            e.HasOne(x => x.Warehouse).WithMany(x => x.InboundOrders).HasForeignKey(x => x.WarehouseId);
-            e.Property(x => x.Number).UseIdentityColumn();
-            e.HasIndex(x => x.Number).IsUnique();
-            e.HasMany(x => x.DraftItemsGroups).WithOne(x => x.InboundOrder).HasForeignKey(x => x.InboundOrderId);
-            e.HasMany(x => x.AssignedUsers).WithMany(x => x.AssignedInboundOrders);
-        });
-
-        builder.Entity<InboundOrderDraftItemsGroup>(e =>
-        {
-            e.HasKey(x => x.Id);
-            e.HasOne(x => x.CatalogItem)
-                .WithMany()
-                .HasForeignKey(x => x.CatalogItemId)
-                .OnDelete(DeleteBehavior.SetNull)
-                .IsRequired(false);
-            e.HasOne(x => x.CatalogItemWithCharacteristic)
-                .WithMany(x => x.InboundOrderDraftItemsGroups)
-                .HasForeignKey(x => x.CatalogItemWithCharacteristicId)
-                .OnDelete(DeleteBehavior.SetNull);
-        });
-
-        builder.Entity<InboundOrderDeclaredItemsGroup>(e =>
-        {
-            e.HasOne(x => x.CatalogItemWithCharacteristic)
-                .WithMany(x => x.InboundOrderDeclaredItemsGroups)
-                .HasForeignKey(x => x.CatalogItemWithCharacteristicId)
-                .OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(x => x.InboundOrder)
-                .WithMany(x => x.DeclaredItemsGroups)
-                .HasForeignKey(x => x.InboundOrderId)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        builder.Entity<InboundOrderProcessedItemsGroup>(e =>
-        {
-            e.HasOne(x => x.CatalogItemWithCharacteristic)
-                .WithMany(x => x.InboundOrderProcessedItemsGroups)
-                .HasForeignKey(x => x.CatalogItemWithCharacteristicId)
-                .OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(x => x.InboundOrder)
-                .WithMany(x => x.ProcessedItemsGroups)
-                .HasForeignKey(x => x.InboundOrderId)
-                .OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(x => x.StoragePlaceNode)
-                .WithMany(x => x.InboundOrderProcessedItemsGroups)
-                .HasForeignKey(x => x.StoragePlaceNodeId)
-                .OnDelete(DeleteBehavior.Restrict)
-                .IsRequired(false);
-        });
     }
 }

@@ -43,11 +43,6 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     typeName: "Товар",
     icon: <InventoryIcon />,
   },
-  inboundOrder: {
-    linkTemplate: "/inbound-orders/{id}",
-    typeName: "Приходный ордер",
-    icon: <InventoryIcon />,
-  },
 };
 
 export function resolveEntity(entity: AppEntity): ResolvedEntity {
