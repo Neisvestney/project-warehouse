@@ -66,7 +66,8 @@ function PrintPage() {
     setState({id: selectedId, settings: s});
   };
 
-  const {labelWidthMm, labelHeightMm, columns, gapMm, pagePaddingMm, labelPaddingMm} = settings;
+  const {labelWidthMm, labelHeightMm, columns, gapMm, pagePaddingMm, labelPaddingMm, fontSizePx} =
+    settings;
 
   return (
     <Box sx={{minHeight: "100vh", bgcolor: "grey.100", "@media print": {bgcolor: "white"}}}>
@@ -132,6 +133,7 @@ function PrintPage() {
                   widthMm={labelWidthMm}
                   heightMm={labelHeightMm}
                   paddingMm={labelPaddingMm}
+                  fontSizePx={fontSizePx}
                 />
                 <IconButton
                   className="delete-btn"

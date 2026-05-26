@@ -35,9 +35,15 @@ public enum ErrorCode
     WarehouseHasItems,
     StoragePlaceHasItems,
     CatalogItemIsInUse,
+    CatalogItemIsImmutable,
     CatalogItemArticleDuplicate,
     CatalogItemBarcodeDuplicate,
     CatalogItemCharacteristicBarcodeDuplicate,
+    CatalogItemGroupInvalid,
+    CatalogItemManagedByGroup,
+    CatalogItemVariationInvalid,
+    CatalogItemComponentInvalid,
+    CatalogItemComponentNotFound,
 
     // Validation
     Required,

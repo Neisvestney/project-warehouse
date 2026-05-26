@@ -1,9 +1,13 @@
 using System.ComponentModel.DataAnnotations;
+using ProjectWarehouse.Server.Domain;
 
 namespace ProjectWarehouse.Server.Models.Catalog;
 
 public class CreateCatalogItemRequest
 {
+    [Required]
+    public CatalogItemType Type { get; init; }
+
     [Required, MinLength(1)]
     public string Name { get; init; } = null!;
 
@@ -11,6 +15,4 @@ public class CreateCatalogItemRequest
     public string Article { get; init; } = null!;
 
     public string? Barcode { get; init; }
-
-    public IReadOnlyList<CharacteristicItem> Characteristics { get; init; } = [];
 }

@@ -1,11 +1,11 @@
-﻿using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Domain;
 
 public abstract class ItemsGroup : IHasIdentity
 {
-    public Guid Id {get; set;}
-    public Guid CatalogItemWithCharacteristicId { get; set; }
-    public CatalogItemWithCharacteristic CatalogItemWithCharacteristic { get; set; } = null!;
-    public int Count {get; set;}
+    public Guid Id { get; set; }
+    public Guid CatalogItemId { get; set; }
+    public CatalogItem CatalogItem { get; set; } = null!;
+    public int Count { get; set; }
 }

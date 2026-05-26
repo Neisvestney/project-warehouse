@@ -196,6 +196,12 @@ function PrintSettings({
           min={0}
           onChange={(v) => onSettingsChange({...settings, labelPaddingMm: v})}
         />
+        <NumField
+          label={fieldLabel("fontSizePx")}
+          value={settings.fontSizePx}
+          min={1}
+          onChange={(v) => onSettingsChange({...settings, fontSizePx: v})}
+        />
 
         <Tooltip title="Сохранить текущие настройки как пресет">
           <Button
@@ -256,6 +262,7 @@ function fieldLabel(key: keyof PrintSettingsType): string {
     gapMm: "Зазор, мм",
     pagePaddingMm: "Поля, мм",
     labelPaddingMm: "Отступ метки, мм",
+    fontSizePx: "Размер текста, px",
   };
   return labels[key];
 }

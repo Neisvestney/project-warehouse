@@ -27,7 +27,14 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<ChangeLogEntry> ChangeLogEntries => Set<ChangeLogEntry>();
 
     public DbSet<CatalogItem> CatalogItems => Set<CatalogItem>();
-    public DbSet<CatalogItemWithCharacteristic> CatalogItemsWithCharacteristics => Set<CatalogItemWithCharacteristic>();
+    public DbSet<CatalogItemTag> CatalogItemTags => Set<CatalogItemTag>();
+    public DbSet<CatalogItemVariationMember> CatalogItemVariationMembers => Set<CatalogItemVariationMember>();
+    public DbSet<BundleComponent> BundleComponents => Set<BundleComponent>();
+    public DbSet<AssembledBundleComponent> AssembledBundleComponents => Set<AssembledBundleComponent>();
+
+    public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
+    public DbSet<AssembledBundleInventoryItemComponent> AssembledBundleInventoryItemComponents =>
+        Set<AssembledBundleInventoryItemComponent>();
 
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
     public DbSet<StoragePlace> StoragePlaces => Set<StoragePlace>();
@@ -79,23 +86,118 @@ public class ApplicationDbContext : IdentityDbContext<
         builder.Entity<CatalogItem>(e =>
         {
             e.HasKey(x => x.Id);
-            e.HasMany(x => x.Characteristics).WithOne(x => x.CatalogItem).HasForeignKey(x => x.CatalogItemId)
-                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(x => x.GroupChildren)
+                .WithOne(x => x.Group)
+                .HasForeignKey(x => x.GroupId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasMany(x => x.AssembledInstances)
+                .WithOne(x => x.SourceBundle)
+                .HasForeignKey(x => x.SourceBundleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasMany(x => x.Tags)
+                .WithMany(x => x.Items)
+                .UsingEntity("CatalogItemTagLinks");
         });
 
-        builder.Entity<CatalogItemWithCharacteristic>(e => { e.HasKey(x => x.Id); });
+        builder.Entity<CatalogItemVariationMember>(e =>
+        {
+            e.HasKey(x => new { x.ItemId, x.VariationId });
+
+            e.HasOne(x => x.Item)
+                .WithMany(x => x.VariationMemberships)
+                .HasForeignKey(x => x.ItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.Variation)
+                .WithMany(x => x.VariationMembers)
+                .HasForeignKey(x => x.VariationId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<BundleComponent>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.Bundle)
+                .WithMany(x => x.BundleComponents)
+                .HasForeignKey(x => x.BundleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.Component)
+                .WithMany()
+                .HasForeignKey(x => x.ComponentId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<AssembledBundleComponent>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.AssembledBundle)
+                .WithMany(x => x.AssembledComponents)
+                .HasForeignKey(x => x.AssembledBundleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.Component)
+                .WithMany()
+                .HasForeignKey(x => x.ComponentId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
 
         builder.Entity<ItemsGroup>(e => { e.HasKey(x => x.Id); });
 
         builder.Entity<StoragePlaceNodeItemsGroup>(e =>
         {
-            e.HasOne(x => x.CatalogItemWithCharacteristic)
-                .WithMany(x => x.StoragePlaceNodesItemsGroups)
-                .HasForeignKey(x => x.CatalogItemWithCharacteristicId)
+            e.HasOne(x => x.CatalogItem)
+                .WithMany()
+                .HasForeignKey(x => x.CatalogItemId)
                 .OnDelete(DeleteBehavior.Restrict);
+
             e.HasOne(x => x.StoragePlaceNode)
                 .WithMany(x => x.ItemsGroups)
                 .HasForeignKey(x => x.StoragePlaceNodeId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<InventoryItem>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasDiscriminator<string>("Type")
+                .HasValue<UnitInventoryItem>("Unit")
+                .HasValue<AssembledBundleInventoryItem>("AssembledBundle");
+
+            e.HasOne(x => x.CatalogItem)
+                .WithMany()
+                .HasForeignKey(x => x.CatalogItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.StoragePlaceNode)
+                .WithMany(x => x.InventoryItems)
+                .HasForeignKey(x => x.StoragePlaceNodeId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<AssembledBundleInventoryItemComponent>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.AssembledBundleInventoryItem)
+                .WithMany(x => x.Components)
+                .HasForeignKey(x => x.AssembledBundleInventoryItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.UnitInventoryItem)
+                .WithMany()
+                .HasForeignKey(x => x.UnitInventoryItemId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.CatalogItem)
+                .WithMany()
+                .HasForeignKey(x => x.CatalogItemId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -119,6 +221,5 @@ public class ApplicationDbContext : IdentityDbContext<
             e.HasKey(x => x.Id);
             e.HasOne(x => x.ParentNode).WithMany(x => x.ChildrenNodes).HasForeignKey(x => x.ParentNodeId);
         });
-
     }
 }

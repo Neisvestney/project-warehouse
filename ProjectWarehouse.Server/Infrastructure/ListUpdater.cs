@@ -85,7 +85,7 @@ public class ListUpdater : IListUpdater
     
     // UpdateList((source, dto) => source.Id == dto.Id, dto =>> dto.Id == 0, dtoList, sourceList, dbSet)
     public void UpdateList<T, TDto>(List<TDto>? dto, List<T>? source, DbSet<T> dbSet, Func<T, TDto, bool> compare, Func<TDto, bool> isNew,
-        Action<TDto, T> afterMap = null) where T : class where TDto : class
+        Action<TDto, T>? afterMap = null) where T : class where TDto : class
     {
         if (dto == null || source == null) return;
 

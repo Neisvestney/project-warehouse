@@ -17,6 +17,7 @@ public class StoragePlaceNode : IHasIdentity
     public ICollection<StoragePlaceNode> ChildrenNodes { get; set; } = [];
     
     public ICollection<StoragePlaceNodeItemsGroup> ItemsGroups { get; set; } = [];
+    public ICollection<InventoryItem> InventoryItems { get; set; } = [];
 
     [Projectable]
     public int TotalItemsCount => ItemsGroups.Sum(g => g.Count);

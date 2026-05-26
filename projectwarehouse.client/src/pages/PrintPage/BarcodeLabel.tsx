@@ -29,9 +29,18 @@ interface BarcodeLabelProps {
   widthMm: number;
   heightMm: number;
   paddingMm: number;
+  fontSizePx: number;
 }
 
-function BarcodeLabel({type, value, label, widthMm, heightMm, paddingMm}: BarcodeLabelProps) {
+function BarcodeLabel({
+  type,
+  value,
+  label,
+  widthMm,
+  heightMm,
+  paddingMm,
+  fontSizePx,
+}: BarcodeLabelProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,7 +93,7 @@ function BarcodeLabel({type, value, label, widthMm, heightMm, paddingMm}: Barcod
         <Typography
           variant="caption"
           sx={{
-            fontSize: "8px",
+            fontSize: `${fontSizePx}px`,
             fontWeight: 600,
             lineHeight: 1.2,
             textAlign: "center",
@@ -113,7 +122,7 @@ function BarcodeLabel({type, value, label, widthMm, heightMm, paddingMm}: Barcod
       <Typography
         variant="caption"
         sx={{
-          fontSize: "7px",
+          fontSize: `${Math.max(1, fontSizePx - 1)}px`,
           lineHeight: 1.2,
           textAlign: "center",
           wordBreak: "break-all",

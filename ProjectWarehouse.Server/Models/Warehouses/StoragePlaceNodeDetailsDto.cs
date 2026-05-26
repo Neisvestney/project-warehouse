@@ -9,5 +9,4 @@ public class StoragePlaceNodeDetailsDto : IHasIdentity
     public Guid StoragePlaceId { get; init; }
     public Guid? ParentNodeId { get; init; }
     public int Order { get; init; }
-    public IReadOnlyList<ItemsGroupDto> ItemsGroups { get; init; } = [];
 }
