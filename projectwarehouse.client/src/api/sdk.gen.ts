@@ -21,6 +21,9 @@ import type {
   CatalogCreateData,
   CatalogCreateErrors,
   CatalogCreateResponses,
+  CatalogCreateTagData,
+  CatalogCreateTagErrors,
+  CatalogCreateTagResponses,
   CatalogDeleteData,
   CatalogDeleteErrors,
   CatalogDeleteResponses,
@@ -30,6 +33,9 @@ import type {
   CatalogGetByIdData,
   CatalogGetByIdErrors,
   CatalogGetByIdResponses,
+  CatalogGetTagsData,
+  CatalogGetTagsErrors,
+  CatalogGetTagsResponses,
   CatalogUpdateData,
   CatalogUpdateErrors,
   CatalogUpdateResponses,
@@ -71,9 +77,6 @@ import type {
   StoragePlacesReorderNodesResponses,
   StoragePlacesUpdateNodeData,
   StoragePlacesUpdateNodeErrors,
-  StoragePlacesUpdateNodeItemsData,
-  StoragePlacesUpdateNodeItemsErrors,
-  StoragePlacesUpdateNodeItemsResponses,
   StoragePlacesUpdateNodeResponses,
   UsersChangePasswordData,
   UsersChangePasswordErrors,
@@ -101,9 +104,6 @@ import type {
   WarehousesDeleteResponses,
   WarehousesGetAllData,
   WarehousesGetAllErrors,
-  WarehousesGetAllItemsGroupsData,
-  WarehousesGetAllItemsGroupsErrors,
-  WarehousesGetAllItemsGroupsResponses,
   WarehousesGetAllResponses,
   WarehousesGetByIdData,
   WarehousesGetByIdErrors,
@@ -210,6 +210,32 @@ export const authMe = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * List all catalog item tags, optionally filtered by name.
+ */
+export const catalogGetTags = <ThrowOnError extends boolean = false>(
+  options?: Options<CatalogGetTagsData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<CatalogGetTagsResponses, CatalogGetTagsErrors, ThrowOnError>({
+    url: "/api/catalog/tags",
+    ...options,
+  });
+
+/**
+ * Create a new catalog item tag.
+ */
+export const catalogCreateTag = <ThrowOnError extends boolean = false>(
+  options: Options<CatalogCreateTagData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<CatalogCreateTagResponses, CatalogCreateTagErrors, ThrowOnError>({
+    url: "/api/catalog/tags",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
  * List all catalog items (paginated, optionally filtered by name).
  */
 export const catalogGetAll = <ThrowOnError extends boolean = false>(
@@ -221,7 +247,7 @@ export const catalogGetAll = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Create a new catalog item with optional characteristics.
+ * Create a new catalog item.
  */
 export const catalogCreate = <ThrowOnError extends boolean = false>(
   options: Options<CatalogCreateData, ThrowOnError>,
@@ -236,7 +262,7 @@ export const catalogCreate = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Delete a catalog item and all its characteristics.
+ * Delete a catalog item.
  *
  * Returns 409 `catalogItemIsInUse` if the item is currently stored in any warehouse.
  */
@@ -249,7 +275,7 @@ export const catalogDelete = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Get a catalog item by ID including its characteristics.
+ * Get a catalog item by ID.
  */
 export const catalogGetById = <ThrowOnError extends boolean = false>(
   options: Options<CatalogGetByIdData, ThrowOnError>,
@@ -260,13 +286,13 @@ export const catalogGetById = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Update a catalog item and atomically sync its characteristics.
+ * Update a catalog item.
  *
- *     Characteristic sync rules:
- * * id: null — create new characteristic
- * * id present — update existing characteristic
- * * existing characteristic not in the list — delete
- * Returns 422 `catalogItemCharacteristicNotFound` if any provided ID does not belong to this item.
+ *     Assembled bundles are immutable and cannot be updated (returns 422).
+ * Type-specific fields:
+ * * Standard / Unit: groupId, variationIds (full replace)
+ * * Variation: memberIds (full replace)
+ * * Bundle: components — id: null creates, id present updates, missing existing entries are deleted
  */
 export const catalogUpdate = <ThrowOnError extends boolean = false>(
   options: Options<CatalogUpdateData, ThrowOnError>,
@@ -419,7 +445,7 @@ export const storagePlacesDeleteNode = <ThrowOnError extends boolean = false>(
   >({url: "/api/storagePlaces/{id}/nodes/{nodeId}", ...options});
 
 /**
- * Get a node by ID including its item groups.
+ * Get a node by ID.
  */
 export const storagePlacesGetNodeDetails = <ThrowOnError extends boolean = false>(
   options: Options<StoragePlacesGetNodeDetailsData, ThrowOnError>,
@@ -446,32 +472,6 @@ export const storagePlacesUpdateNode = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/api/storagePlaces/{id}/nodes/{nodeId}",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-
-/**
- * Atomically sync item groups for a node.
- *
- *     Sync rules:
- * * id: null — create new item group
- * * id present — update existing item group
- * * existing item group not in the list — delete
- * Returns 422 `storagePlaceNodeItemsGroupNotFound` if any provided ID does not belong to this node.
- * Returns 422 `catalogItemCharacteristicNotFound` if any `catalogItemWithCharacteristicId` does not exist.
- */
-export const storagePlacesUpdateNodeItems = <ThrowOnError extends boolean = false>(
-  options: Options<StoragePlacesUpdateNodeItemsData, ThrowOnError>,
-) =>
-  (options.client ?? client).put<
-    StoragePlacesUpdateNodeItemsResponses,
-    StoragePlacesUpdateNodeItemsErrors,
-    ThrowOnError
-  >({
-    url: "/api/storagePlaces/{id}/nodes/{nodeId}/items",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -674,19 +674,3 @@ export const warehousesGetByIdForPrint = <ThrowOnError extends boolean = false>(
     WarehousesGetByIdForPrintErrors,
     ThrowOnError
   >({url: "/api/warehouses/{id}/print", ...options});
-
-/**
- * List all item groups in a warehouse (paginated, optionally filtered).
- *
- * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString` (optional).
- * Searches across item name, article, barcode (item + characteristic), and characteristic.
- * Returns `Paginated&lt;ItemsGroupDto&gt;`.
- */
-export const warehousesGetAllItemsGroups = <ThrowOnError extends boolean = false>(
-  options: Options<WarehousesGetAllItemsGroupsData, ThrowOnError>,
-) =>
-  (options.client ?? client).get<
-    WarehousesGetAllItemsGroupsResponses,
-    WarehousesGetAllItemsGroupsErrors,
-    ThrowOnError
-  >({url: "/api/warehouses/{id}/items-groups", ...options});

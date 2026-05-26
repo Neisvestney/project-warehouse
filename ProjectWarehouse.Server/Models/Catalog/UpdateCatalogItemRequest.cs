@@ -11,6 +11,21 @@ public class UpdateCatalogItemRequest
     public string Article { get; init; } = null!;
 
     public string? Barcode { get; init; }
+    public string? Description { get; init; }
+    public string? Notes { get; init; }
+    public bool IsArchived { get; init; }
 
-    public IReadOnlyList<CharacteristicItem> Characteristics { get; init; } = [];
+    public IReadOnlyList<Guid> Tags { get; init; } = [];
+
+    // Standard / Unit only
+    public Guid? GroupId { get; init; }
+
+    // Variation only
+    public IReadOnlyList<Guid> MemberIds { get; init; } = [];
+
+    // Bundle only
+    public IReadOnlyList<BundleComponentRequest> Components { get; init; } = [];
+
+    // ProductGroup only
+    public IReadOnlyList<ProductGroupChildRequest> Children { get; init; } = [];
 }

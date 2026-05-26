@@ -34,27 +34,65 @@ export type AppProblemDetails = {
   };
 };
 
-export type CatalogItemCharacteristicDto = {
+export type BundleComponentDto = {
   id: string;
-  characteristic: string;
-  barcode?: null | string;
+  componentId: string;
+  componentName: string;
+  componentType: CatalogItemType;
+  quantity: number;
+};
+
+export type BundleComponentRequest = {
+  id?: null | string;
+  componentId: string;
+  quantity: number;
 };
 
 export type CatalogItemDto = {
   id: string;
+  type: CatalogItemType;
   name: string;
+  fullName: string;
   article: string;
   barcode?: null | string;
-  characteristics: Array<CatalogItemCharacteristicDto>;
+  description?: null | string;
+  notes?: null | string;
+  isArchived: boolean;
+  groupId?: null | string;
+  groupName?: null | string;
+  sourceBundleId?: null | string;
+  tags: Array<CatalogItemTagDto>;
+  components: Array<BundleComponentDto>;
+  variationIds: Array<string>;
+  memberIds: Array<string>;
+  children: Array<CatalogItemDto>;
 };
 
 export type CatalogItemSummaryDto = {
   id: string;
+  type: CatalogItemType;
   name: string;
+  fullName: string;
   article: string;
   barcode?: null | string;
-  characteristicCount: number;
+  isArchived: boolean;
+  tags: Array<CatalogItemTagDto>;
 };
+
+export type CatalogItemTagDto = {
+  id: string;
+  name: string;
+};
+
+export type CatalogItemType =
+  | "standard"
+  | "unit"
+  | "productGroup"
+  | "variation"
+  | "bundle"
+  | "assembledBundle";
+
+export type CatalogSortBy = "name" | "article" | "barcode" | "type";
 
 export type ChangeLogDiff = {
   path: string;
@@ -87,17 +125,15 @@ export type ChangePasswordRequest = {
   newPassword: string;
 };
 
-export type CharacteristicItem = {
-  id?: null | string;
-  characteristic: string;
-  barcode?: null | string;
-};
-
 export type CreateCatalogItemRequest = {
+  type: CatalogItemType;
   name: string;
   article: string;
   barcode?: null | string;
-  characteristics: Array<CharacteristicItem>;
+};
+
+export type CreateCatalogItemTagRequest = {
+  name: string;
 };
 
 export type CreateStoragePlaceNodeRequest = {
@@ -151,9 +187,15 @@ export type ErrorCode =
   | "warehouseHasItems"
   | "storagePlaceHasItems"
   | "catalogItemIsInUse"
+  | "catalogItemIsImmutable"
   | "catalogItemArticleDuplicate"
   | "catalogItemBarcodeDuplicate"
   | "catalogItemCharacteristicBarcodeDuplicate"
+  | "catalogItemGroupInvalid"
+  | "catalogItemManagedByGroup"
+  | "catalogItemVariationInvalid"
+  | "catalogItemComponentInvalid"
+  | "catalogItemComponentNotFound"
   | "required"
   | "tooShort"
   | "tooLong"
@@ -166,12 +208,6 @@ export type ErrorCode =
   | "passwordAtLeastOneLowercase"
   | "passwordInvalid"
   | "validationError";
-
-export type ItemsGroupDto = {
-  id: string;
-  count: number;
-  catalogItemWithCharacteristic: NodeCharacteristicDto;
-};
 
 export type JsonElement = unknown;
 
@@ -188,26 +224,6 @@ export type MeResponse = {
   lastName?: null | string;
   roles: Array<string>;
   permissions: Array<string>;
-};
-
-export type NodeCatalogItemDto = {
-  id: string;
-  name: string;
-  article: string;
-  barcode?: null | string;
-};
-
-export type NodeCharacteristicDto = {
-  id: string;
-  characteristic: string;
-  barcode?: null | string;
-  catalogItem: NodeCatalogItemDto;
-};
-
-export type NodeItemsGroupItem = {
-  id?: null | string;
-  catalogItemWithCharacteristicId: string;
-  count: number;
 };
 
 export type NodeOrderItem = {
@@ -227,16 +243,6 @@ export type PaginatedOfCatalogItemSummaryDto = {
 
 export type PaginatedOfChangeLogEntryDto = {
   items: Array<ChangeLogEntryDto>;
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-};
-
-export type PaginatedOfItemsGroupDto = {
-  items: Array<ItemsGroupDto>;
   total: number;
   page: number;
   pageSize: number;
@@ -283,6 +289,18 @@ export type PermissionName =
   | "catalog.edit"
   | "changelog.view";
 
+export type ProductGroupChildRequest = {
+  id?: null | string;
+  type: CatalogItemType;
+  name: string;
+  article: string;
+  barcode?: null | string;
+  description?: null | string;
+  notes?: null | string;
+  isArchived: boolean;
+  tags: Array<string>;
+};
+
 export type RefreshRequest = {
   refreshToken: string;
 };
@@ -298,6 +316,8 @@ export type RoleWithPermissionsDto = {
   order: number;
   permissions: Array<string>;
 };
+
+export type SortOrder = "asc" | "desc";
 
 export type StoragePlaceDto = {
   id: string;
@@ -326,7 +346,6 @@ export type StoragePlaceNodeDetailsDto = {
   storagePlaceId: string;
   parentNodeId?: null | string;
   order: number;
-  itemsGroups: Array<ItemsGroupDto>;
 };
 
 export type StoragePlaceNodeDto = {
@@ -352,7 +371,14 @@ export type UpdateCatalogItemRequest = {
   name: string;
   article: string;
   barcode?: null | string;
-  characteristics: Array<CharacteristicItem>;
+  description?: null | string;
+  notes?: null | string;
+  isArchived: boolean;
+  tags: Array<string>;
+  groupId?: null | string;
+  memberIds: Array<string>;
+  components: Array<BundleComponentRequest>;
+  children: Array<ProductGroupChildRequest>;
 };
 
 export type UpdateRoleItem = {
@@ -586,6 +612,66 @@ export type AuthMeResponses = {
 
 export type AuthMeResponse = AuthMeResponses[keyof AuthMeResponses];
 
+export type CatalogGetTagsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    search?: string;
+  };
+  url: "/api/catalog/tags";
+};
+
+export type CatalogGetTagsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type CatalogGetTagsError = CatalogGetTagsErrors[keyof CatalogGetTagsErrors];
+
+export type CatalogGetTagsResponses = {
+  /**
+   * OK
+   */
+  200: Array<CatalogItemTagDto>;
+};
+
+export type CatalogGetTagsResponse = CatalogGetTagsResponses[keyof CatalogGetTagsResponses];
+
+export type CatalogCreateTagData = {
+  body: CreateCatalogItemTagRequest;
+  path?: never;
+  query?: never;
+  url: "/api/catalog/tags";
+};
+
+export type CatalogCreateTagErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type CatalogCreateTagError = CatalogCreateTagErrors[keyof CatalogCreateTagErrors];
+
+export type CatalogCreateTagResponses = {
+  /**
+   * Created
+   */
+  201: CatalogItemTagDto;
+};
+
+export type CatalogCreateTagResponse = CatalogCreateTagResponses[keyof CatalogCreateTagResponses];
+
 export type CatalogGetAllData = {
   body?: never;
   path?: never;
@@ -593,6 +679,8 @@ export type CatalogGetAllData = {
     page?: number;
     pageSize?: number;
     searchString?: string;
+    sortBy?: CatalogSortBy;
+    sortOrder?: SortOrder;
   };
   url: "/api/catalog";
 };
@@ -1188,48 +1276,6 @@ export type StoragePlacesUpdateNodeResponses = {
 export type StoragePlacesUpdateNodeResponse =
   StoragePlacesUpdateNodeResponses[keyof StoragePlacesUpdateNodeResponses];
 
-export type StoragePlacesUpdateNodeItemsData = {
-  body: Array<NodeItemsGroupItem>;
-  path: {
-    id: string;
-    nodeId: string;
-  };
-  query?: never;
-  url: "/api/storagePlaces/{id}/nodes/{nodeId}/items";
-};
-
-export type StoragePlacesUpdateNodeItemsErrors = {
-  /**
-   * Unauthorized
-   */
-  401: AppProblemDetails;
-  /**
-   * Forbidden
-   */
-  403: AppProblemDetails;
-  /**
-   * Not Found
-   */
-  404: AppProblemDetails;
-  /**
-   * Unprocessable Entity
-   */
-  422: AppProblemDetails;
-};
-
-export type StoragePlacesUpdateNodeItemsError =
-  StoragePlacesUpdateNodeItemsErrors[keyof StoragePlacesUpdateNodeItemsErrors];
-
-export type StoragePlacesUpdateNodeItemsResponses = {
-  /**
-   * OK
-   */
-  200: StoragePlaceNodeDetailsDto;
-};
-
-export type StoragePlacesUpdateNodeItemsResponse =
-  StoragePlacesUpdateNodeItemsResponses[keyof StoragePlacesUpdateNodeItemsResponses];
-
 export type StoragePlacesReorderNodesData = {
   body: Array<NodeOrderItem>;
   path: {
@@ -1700,44 +1746,3 @@ export type WarehousesGetByIdForPrintResponses = {
 
 export type WarehousesGetByIdForPrintResponse =
   WarehousesGetByIdForPrintResponses[keyof WarehousesGetByIdForPrintResponses];
-
-export type WarehousesGetAllItemsGroupsData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query?: {
-    page?: number;
-    pageSize?: number;
-    searchString?: string;
-  };
-  url: "/api/warehouses/{id}/items-groups";
-};
-
-export type WarehousesGetAllItemsGroupsErrors = {
-  /**
-   * Unauthorized
-   */
-  401: AppProblemDetails;
-  /**
-   * Forbidden
-   */
-  403: AppProblemDetails;
-  /**
-   * Not Found
-   */
-  404: AppProblemDetails;
-};
-
-export type WarehousesGetAllItemsGroupsError =
-  WarehousesGetAllItemsGroupsErrors[keyof WarehousesGetAllItemsGroupsErrors];
-
-export type WarehousesGetAllItemsGroupsResponses = {
-  /**
-   * OK
-   */
-  200: PaginatedOfItemsGroupDto;
-};
-
-export type WarehousesGetAllItemsGroupsResponse =
-  WarehousesGetAllItemsGroupsResponses[keyof WarehousesGetAllItemsGroupsResponses];

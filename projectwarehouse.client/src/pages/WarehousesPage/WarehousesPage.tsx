@@ -57,6 +57,7 @@ function WarehousesPage() {
               endIcon={<AddIcon />}
               component={RouterLink}
               to="/warehouses/new"
+              size="small"
             >
               Создать
             </Button>

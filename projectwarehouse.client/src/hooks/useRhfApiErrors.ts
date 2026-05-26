@@ -15,7 +15,8 @@ export function useRhfApiErrors<T extends FieldValues>(form: UseFormReturn<T>) {
     (error: unknown) => {
       if (isAppProblemDetails(error)) {
         let hasFields = false;
-        for (const [field, errs] of Object.entries(error.errors)) {
+        for (const [rawField, errs] of Object.entries(error.errors)) {
+          const field = rawField.replace(/\[(\d+)\]/g, ".$1");
           if (field !== "root" && errs.length > 0) {
             form.setError(field as Path<T>, {type: "server", message: joinErrors(errs)});
             hasFields = true;

@@ -6,7 +6,6 @@ import {
   warehousesGetByIdForPrintOptions,
   warehousesGetByIdOptions,
 } from "@/api/@tanstack/react-query.gen";
-import ListAltIcon from "@mui/icons-material/ListAlt";
 import EditIcon from "@mui/icons-material/Edit";
 import {isNotFoundError} from "@/utils/errorUtils";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
@@ -85,14 +84,6 @@ function WarehouseViewPage() {
         title={warehouse.name}
         right={
           <>
-            <Button
-              component={Link}
-              to={`/warehouses/${id}/items`}
-              startIcon={<ListAltIcon />}
-              variant="outlined"
-            >
-              Список товаров
-            </Button>
             <Button
               startIcon={isPrinting ? <CircularProgress size={14} /> : <PrintIcon />}
               disabled={isPrinting}

@@ -39,6 +39,21 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("ApplicationUserWarehouse");
                 });
 
+            modelBuilder.Entity("CatalogItemTagLinks", b =>
+                {
+                    b.Property<Guid>("ItemsId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TagsId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("ItemsId", "TagsId");
+
+                    b.HasIndex("TagsId");
+
+                    b.ToTable("CatalogItemTagLinks");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
                     b.Property<int>("Id")
@@ -246,6 +261,83 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("AspNetUserRoles", (string)null);
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssembledBundleComponent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AssembledBundleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ComponentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssembledBundleId");
+
+                    b.HasIndex("ComponentId");
+
+                    b.ToTable("AssembledBundleComponents");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssembledBundleInventoryItemComponent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AssembledBundleInventoryItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CatalogItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("UnitInventoryItemId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssembledBundleInventoryItemId");
+
+                    b.HasIndex("CatalogItemId");
+
+                    b.HasIndex("UnitInventoryItemId");
+
+                    b.ToTable("AssembledBundleInventoryItemComponents");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.BundleComponent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BundleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ComponentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BundleId");
+
+                    b.HasIndex("ComponentId");
+
+                    b.ToTable("BundleComponents");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -259,36 +351,65 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<string>("Barcode")
                         .HasColumnType("text");
 
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("GroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("SourceBundleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("SourceBundleId");
+
+                    b.ToTable("CatalogItems");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemTag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
 
-                    b.ToTable("CatalogItems");
+                    b.ToTable("CatalogItemTags");
                 });
 
-            modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemWithCharacteristic", b =>
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemVariationMember", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
+                    b.Property<Guid>("ItemId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Barcode")
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("CatalogItemId")
+                    b.Property<Guid>("VariationId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Characteristic")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.HasKey("ItemId", "VariationId");
 
-                    b.HasKey("Id");
+                    b.HasIndex("VariationId");
 
-                    b.HasIndex("CatalogItemId");
-
-                    b.ToTable("CatalogItemsWithCharacteristics");
+                    b.ToTable("CatalogItemVariationMembers");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.ChangeLogEntry", b =>
@@ -339,13 +460,43 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("ChangeLogEntries");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.InventoryItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CatalogItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("StoragePlaceNodeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(21)
+                        .HasColumnType("character varying(21)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CatalogItemId");
+
+                    b.HasIndex("StoragePlaceNodeId");
+
+                    b.ToTable("InventoryItems");
+
+                    b.HasDiscriminator<string>("Type").HasValue("InventoryItem");
+
+                    b.UseTphMappingStrategy();
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.ItemsGroup", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("CatalogItemWithCharacteristicId")
+                    b.Property<Guid>("CatalogItemId")
                         .HasColumnType("uuid");
 
                     b.Property<int>("Count")
@@ -357,6 +508,8 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasColumnType("character varying(34)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CatalogItemId");
 
                     b.ToTable("ItemsGroup");
 
@@ -502,14 +655,30 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("Warehouses");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssembledBundleInventoryItem", b =>
+                {
+                    b.HasBaseType("ProjectWarehouse.Server.Domain.InventoryItem");
+
+                    b.HasDiscriminator().HasValue("AssembledBundle");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.UnitInventoryItem", b =>
+                {
+                    b.HasBaseType("ProjectWarehouse.Server.Domain.InventoryItem");
+
+                    b.Property<string>("Sku")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasDiscriminator().HasValue("Unit");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlaceNodeItemsGroup", b =>
                 {
                     b.HasBaseType("ProjectWarehouse.Server.Domain.ItemsGroup");
 
                     b.Property<Guid>("StoragePlaceNodeId")
                         .HasColumnType("uuid");
-
-                    b.HasIndex("CatalogItemWithCharacteristicId");
 
                     b.HasIndex("StoragePlaceNodeId");
 
@@ -527,6 +696,21 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasOne("ProjectWarehouse.Server.Domain.Warehouse", null)
                         .WithMany()
                         .HasForeignKey("AssignedWarehousesId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CatalogItemTagLinks", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", null)
+                        .WithMany()
+                        .HasForeignKey("ItemsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItemTag", null)
+                        .WithMany()
+                        .HasForeignKey("TagsId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -586,15 +770,103 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemWithCharacteristic", b =>
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssembledBundleComponent", b =>
                 {
-                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
-                        .WithMany("Characteristics")
-                        .HasForeignKey("CatalogItemId")
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "AssembledBundle")
+                        .WithMany("AssembledComponents")
+                        .HasForeignKey("AssembledBundleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "Component")
+                        .WithMany()
+                        .HasForeignKey("ComponentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AssembledBundle");
+
+                    b.Navigation("Component");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssembledBundleInventoryItemComponent", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.AssembledBundleInventoryItem", "AssembledBundleInventoryItem")
+                        .WithMany("Components")
+                        .HasForeignKey("AssembledBundleInventoryItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.UnitInventoryItem", "UnitInventoryItem")
+                        .WithMany()
+                        .HasForeignKey("UnitInventoryItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("AssembledBundleInventoryItem");
+
                     b.Navigation("CatalogItem");
+
+                    b.Navigation("UnitInventoryItem");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.BundleComponent", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "Bundle")
+                        .WithMany("BundleComponents")
+                        .HasForeignKey("BundleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "Component")
+                        .WithMany()
+                        .HasForeignKey("ComponentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Bundle");
+
+                    b.Navigation("Component");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItem", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "Group")
+                        .WithMany("GroupChildren")
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "SourceBundle")
+                        .WithMany("AssembledInstances")
+                        .HasForeignKey("SourceBundleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Group");
+
+                    b.Navigation("SourceBundle");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemVariationMember", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "Item")
+                        .WithMany("VariationMemberships")
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "Variation")
+                        .WithMany("VariationMembers")
+                        .HasForeignKey("VariationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+
+                    b.Navigation("Variation");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.ChangeLogEntry", b =>
@@ -605,6 +877,36 @@ namespace ProjectWarehouse.Server.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.InventoryItem", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.StoragePlaceNode", "StoragePlaceNode")
+                        .WithMany("InventoryItems")
+                        .HasForeignKey("StoragePlaceNodeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CatalogItem");
+
+                    b.Navigation("StoragePlaceNode");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.ItemsGroup", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CatalogItem");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.RefreshToken", b =>
@@ -706,19 +1008,11 @@ namespace ProjectWarehouse.Server.Migrations
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlaceNodeItemsGroup", b =>
                 {
-                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItemWithCharacteristic", "CatalogItemWithCharacteristic")
-                        .WithMany("StoragePlaceNodesItemsGroups")
-                        .HasForeignKey("CatalogItemWithCharacteristicId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("ProjectWarehouse.Server.Domain.StoragePlaceNode", "StoragePlaceNode")
                         .WithMany("ItemsGroups")
                         .HasForeignKey("StoragePlaceNodeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.Navigation("CatalogItemWithCharacteristic");
 
                     b.Navigation("StoragePlaceNode");
                 });
@@ -741,12 +1035,17 @@ namespace ProjectWarehouse.Server.Migrations
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItem", b =>
                 {
-                    b.Navigation("Characteristics");
-                });
+                    b.Navigation("AssembledComponents");
 
-            modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemWithCharacteristic", b =>
-                {
-                    b.Navigation("StoragePlaceNodesItemsGroups");
+                    b.Navigation("AssembledInstances");
+
+                    b.Navigation("BundleComponents");
+
+                    b.Navigation("GroupChildren");
+
+                    b.Navigation("VariationMembers");
+
+                    b.Navigation("VariationMemberships");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlace", b =>
@@ -758,12 +1057,19 @@ namespace ProjectWarehouse.Server.Migrations
                 {
                     b.Navigation("ChildrenNodes");
 
+                    b.Navigation("InventoryItems");
+
                     b.Navigation("ItemsGroups");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Warehouse", b =>
                 {
                     b.Navigation("StoragePlaces");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssembledBundleInventoryItem", b =>
+                {
+                    b.Navigation("Components");
                 });
 #pragma warning restore 612, 618
         }

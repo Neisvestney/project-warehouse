@@ -5,6 +5,7 @@ export interface PrintSettings {
   gapMm: number;
   pagePaddingMm: number;
   labelPaddingMm: number;
+  fontSizePx: number;
 }
 
 export interface PrintPreset {
@@ -25,6 +26,7 @@ export const SYSTEM_PRESETS: PrintPreset[] = [
       gapMm: 0,
       pagePaddingMm: 0,
       labelPaddingMm: 5,
+      fontSizePx: 8,
     },
   },
   {
@@ -37,6 +39,7 @@ export const SYSTEM_PRESETS: PrintPreset[] = [
       gapMm: 3,
       pagePaddingMm: 10,
       labelPaddingMm: 1,
+      fontSizePx: 8,
     },
   },
   {
@@ -49,6 +52,7 @@ export const SYSTEM_PRESETS: PrintPreset[] = [
       gapMm: 4,
       pagePaddingMm: 10,
       labelPaddingMm: 1,
+      fontSizePx: 8,
     },
   },
   {
@@ -61,6 +65,7 @@ export const SYSTEM_PRESETS: PrintPreset[] = [
       gapMm: 3,
       pagePaddingMm: 8,
       labelPaddingMm: 1,
+      fontSizePx: 8,
     },
   },
 ];

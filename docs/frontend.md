@@ -39,6 +39,10 @@ src/
 │       └── index.ts
 │
 ├── components/
+│   ├── catalog/
+│   │   ├── CatalogItemDrawer.tsx   # Reusable right-drawer: view + edit any catalog item (all types)
+│   │   └── CatalogItemTypeChip.tsx # MUI Chip mapping CatalogItemType → label + color
+│   ├── CatalogItemsSelect.tsx   # Autocomplete for catalog items; single (id/dto) or multi (dto[]) mode; supports type filter
 │   ├── form/
 │   │   └── FormTextField.tsx    # RHF-wired TextField wrapper
 │   ├── modals/
@@ -115,8 +119,7 @@ src/
 │   ├── HomePage/
 │   │   └── HomePage.tsx         # Landing page; navigation cards driven by AppEntity from /api/home
 │   ├── CatalogPage/
-│   │   ├── CatalogPage.tsx      # Paginated, searchable catalog item list (catalog.view)
-│   │   └── CatalogItemDrawer.tsx # Right-drawer for viewing/editing a catalog item + characteristics
+│   │   └── CatalogPage.tsx      # Paginated, searchable catalog item list (catalog.view); opens CatalogItemDrawer
 │   ├── LoginPage/
 │   │   └── LoginPage.tsx        # Login form
 │   ├── MyProfilePage/
@@ -348,7 +351,7 @@ Detail page for a single inbound order (`/inbound-orders/:id`). Composes four su
 **`CatalogLinkDialog`** — dialog opened from a draft item row chip. Left panel: catalog item search autocomplete (debounced). Right panel: characteristic select populated from the selected catalog item. Header shows draft item info (name, article, characteristic) → arrow → catalog item selection side-by-side. Checkbox: **Создать новую характеристику** when no match found. Closing without confirming discards the selection.
 
 ### `CatalogPage`
-Server-side paginated, searchable list of catalog items. Requires `catalog.view` or `inbound_orders.process`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Clicking a row opens `CatalogItemDrawer` (right-side MUI Drawer) with item details and characteristics; the selected item ID is stored in `?item=` query param. The drawer allows creating/editing catalog items and syncing characteristics if the user has `catalog.edit`.
+Server-side paginated, searchable list of catalog items. Requires `catalog.view` or `inbound_orders.process`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Clicking a row opens `CatalogItemDrawer` (right-side MUI Drawer); the selected item ID is stored in `?item=` query param via `useDrawerSearchParamsState`. Columns: **Тип** (`CatalogItemTypeChip`), **Название** (fullName + archive icon if isArchived), **Артикул**, **Штрихкод**.
 
 ### `WarehouseViewPage`
 Warehouse detail page with a pan/zoom Konva canvas showing storage place rectangles. The canvas is rendered by `WarehouseCanvas` from `src/features/warehouse/`. Clicking a storage place opens `StoragePlaceDialog` (1000 px wide right drawer) with a `StoragePlaceNodeTree` from `src/features/warehouse/` on the left and `NodeDetails` on the right when a node is selected.
@@ -433,6 +436,79 @@ interface StoragePlaceNodeTreeProps {
 ```
 
 ## Key Components
+
+### `CatalogItemDrawer`
+
+Reusable right-side MUI Drawer (`components/catalog/CatalogItemDrawer.tsx`) for viewing and editing any catalog item. Mount it on any page using `useDrawerSearchParamsState`.
+
+```tsx
+const [selectedItemId, openDrawer, closeDrawer] = useDrawerSearchParamsState("item");
+<CatalogItemDrawer itemId={selectedItemId} onClose={closeDrawer} onOpenItem={openDrawer} />
+```
+
+Props: `{ itemId: string | null; onClose: () => void; onOpenItem?: (id: string) => void }`.
+`onOpenItem` is used for in-drawer navigation (e.g. clicking "open parent group").
+
+**View mode** shows: type chip + name, article, barcode, description (with "effective" indicator if inherited from group), notes, tags (chips), archive badge, group membership with navigate-to-parent button. Type-specific sections: ProductGroup → children table; Bundle → components table; Variation → members list; Standard/Unit → variations list; AssembledBundle → source bundle + components.
+
+**Edit mode** (react-hook-form): base fields (name, article, barcode, description, notes, isArchived switch) + tags Autocomplete (fetches via `GET /api/catalog/tags`). Type-specific RHF sections:
+- Standard/Unit → Variations multi-select (`CatalogItemsSelect`)
+- Variation → Members multi-select
+- Bundle → Components `useFieldArray` (CatalogItemsSelect + quantity per row)
+- ProductGroup → Children `useFieldArray` (inline form per child: type, name, article, barcode, description, notes, tags, variations)
+
+Edit is hidden for `assembledBundle` items and for items with `groupId` (managed by parent group — shown as an info alert).
+
+### `CatalogItemTypeChip`
+
+Small `Chip` (`components/catalog/CatalogItemTypeChip.tsx`) that maps `CatalogItemType` to a label and color.
+
+| Type | Label | Color |
+|------|-------|-------|
+| standard | Товар | default |
+| unit | Единица | info |
+| productGroup | Группа | secondary |
+| variation | Вариация | warning |
+| bundle | Комплект | success |
+| assembledBundle | Сборка | primary |
+
+Props: `type: CatalogItemType` + all `ChipProps` except `label`/`color`.
+
+```tsx
+<CatalogItemTypeChip type={item.type} />
+<CatalogItemTypeChip type="bundle" size="medium" />
+```
+
+### `CatalogItemsSelect`
+
+Autocomplete for catalog items (`components/CatalogItemsSelect.tsx`). Supports single and multi selection.
+
+**Single mode** — value is an entity `id` (`string | null`); `onChange` receives `(id: string | null)`; optional `onDtoChange` callback fires with the resolved `CatalogItemSummaryDto` (useful for reading `fullName`, `type`, etc. without a separate query).
+
+**Multi mode** — value and onChange work with `CatalogItemSummaryDto[]`.
+
+Both modes debounce the search input (300 ms), fetch via `catalogGetAllOptions`, and cache selected items so they survive search changes.
+
+Optional `types?: CatalogItemType[]` prop for client-side filtering by item type.
+
+```tsx
+// Single
+<CatalogItemsSelect
+  value={selectedId}
+  onChange={(id) => setSelectedId(id)}
+  onDtoChange={(dto) => console.log(dto?.fullName)}
+  types={["standard", "unit"]}
+  label="Товар"
+/>
+
+// Multi
+<CatalogItemsSelect
+  multiple
+  value={selectedItems}
+  onChange={(items) => setSelectedItems(items)}
+  types={["variation"]}
+/>
+```
 
 ### `ScannerBlock`
 Orchestrates the full camera scan loop:

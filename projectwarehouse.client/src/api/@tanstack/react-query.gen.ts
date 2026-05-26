@@ -15,9 +15,11 @@ import {
   authMe,
   authRefresh,
   catalogCreate,
+  catalogCreateTag,
   catalogDelete,
   catalogGetAll,
   catalogGetById,
+  catalogGetTags,
   catalogUpdate,
   changelogGetAll,
   homePageContentGetHomePageContent,
@@ -33,7 +35,6 @@ import {
   storagePlacesGetNodes,
   storagePlacesReorderNodes,
   storagePlacesUpdateNode,
-  storagePlacesUpdateNodeItems,
   usersChangePassword,
   usersCreate,
   usersDelete,
@@ -43,7 +44,6 @@ import {
   warehousesCreate,
   warehousesDelete,
   warehousesGetAll,
-  warehousesGetAllItemsGroups,
   warehousesGetById,
   warehousesGetByIdForPrint,
   warehousesUpdate,
@@ -67,6 +67,9 @@ import type {
   CatalogCreateData,
   CatalogCreateError,
   CatalogCreateResponse,
+  CatalogCreateTagData,
+  CatalogCreateTagError,
+  CatalogCreateTagResponse,
   CatalogDeleteData,
   CatalogDeleteError,
   CatalogDeleteResponse,
@@ -76,6 +79,9 @@ import type {
   CatalogGetByIdData,
   CatalogGetByIdError,
   CatalogGetByIdResponse,
+  CatalogGetTagsData,
+  CatalogGetTagsError,
+  CatalogGetTagsResponse,
   CatalogUpdateData,
   CatalogUpdateError,
   CatalogUpdateResponse,
@@ -117,9 +123,6 @@ import type {
   StoragePlacesReorderNodesResponse,
   StoragePlacesUpdateNodeData,
   StoragePlacesUpdateNodeError,
-  StoragePlacesUpdateNodeItemsData,
-  StoragePlacesUpdateNodeItemsError,
-  StoragePlacesUpdateNodeItemsResponse,
   StoragePlacesUpdateNodeResponse,
   UsersChangePasswordData,
   UsersChangePasswordError,
@@ -147,9 +150,6 @@ import type {
   WarehousesDeleteResponse,
   WarehousesGetAllData,
   WarehousesGetAllError,
-  WarehousesGetAllItemsGroupsData,
-  WarehousesGetAllItemsGroupsError,
-  WarehousesGetAllItemsGroupsResponse,
   WarehousesGetAllResponse,
   WarehousesGetByIdData,
   WarehousesGetByIdError,
@@ -316,6 +316,58 @@ export const authMeOptions = (options?: Options<AuthMeData>) =>
     queryKey: authMeQueryKey(options),
   });
 
+export const catalogGetTagsQueryKey = (options?: Options<CatalogGetTagsData>) =>
+  createQueryKey("catalogGetTags", options);
+
+/**
+ * List all catalog item tags, optionally filtered by name.
+ */
+export const catalogGetTagsOptions = (options?: Options<CatalogGetTagsData>) =>
+  queryOptions<
+    CatalogGetTagsResponse,
+    CatalogGetTagsError,
+    CatalogGetTagsResponse,
+    ReturnType<typeof catalogGetTagsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await catalogGetTags({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: catalogGetTagsQueryKey(options),
+  });
+
+/**
+ * Create a new catalog item tag.
+ */
+export const catalogCreateTagMutation = (
+  options?: Partial<Options<CatalogCreateTagData>>,
+): UseMutationOptions<
+  CatalogCreateTagResponse,
+  CatalogCreateTagError,
+  Options<CatalogCreateTagData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    CatalogCreateTagResponse,
+    CatalogCreateTagError,
+    Options<CatalogCreateTagData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await catalogCreateTag({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
 export const catalogGetAllQueryKey = (options?: Options<CatalogGetAllData>) =>
   createQueryKey("catalogGetAll", options);
 
@@ -419,7 +471,7 @@ export const catalogGetAllInfiniteOptions = (options?: Options<CatalogGetAllData
   );
 
 /**
- * Create a new catalog item with optional characteristics.
+ * Create a new catalog item.
  */
 export const catalogCreateMutation = (
   options?: Partial<Options<CatalogCreateData>>,
@@ -442,7 +494,7 @@ export const catalogCreateMutation = (
 };
 
 /**
- * Delete a catalog item and all its characteristics.
+ * Delete a catalog item.
  *
  * Returns 409 `catalogItemIsInUse` if the item is currently stored in any warehouse.
  */
@@ -470,7 +522,7 @@ export const catalogGetByIdQueryKey = (options: Options<CatalogGetByIdData>) =>
   createQueryKey("catalogGetById", options);
 
 /**
- * Get a catalog item by ID including its characteristics.
+ * Get a catalog item by ID.
  */
 export const catalogGetByIdOptions = (options: Options<CatalogGetByIdData>) =>
   queryOptions<
@@ -492,13 +544,13 @@ export const catalogGetByIdOptions = (options: Options<CatalogGetByIdData>) =>
   });
 
 /**
- * Update a catalog item and atomically sync its characteristics.
+ * Update a catalog item.
  *
- *     Characteristic sync rules:
- * * id: null — create new characteristic
- * * id present — update existing characteristic
- * * existing characteristic not in the list — delete
- * Returns 422 `catalogItemCharacteristicNotFound` if any provided ID does not belong to this item.
+ *     Assembled bundles are immutable and cannot be updated (returns 422).
+ * Type-specific fields:
+ * * Standard / Unit: groupId, variationIds (full replace)
+ * * Variation: memberIds (full replace)
+ * * Bundle: components — id: null creates, id present updates, missing existing entries are deleted
  */
 export const catalogUpdateMutation = (
   options?: Partial<Options<CatalogUpdateData>>,
@@ -839,7 +891,7 @@ export const storagePlacesGetNodeDetailsQueryKey = (
 ) => createQueryKey("storagePlacesGetNodeDetails", options);
 
 /**
- * Get a node by ID including its item groups.
+ * Get a node by ID.
  */
 export const storagePlacesGetNodeDetailsOptions = (
   options: Options<StoragePlacesGetNodeDetailsData>,
@@ -883,40 +935,6 @@ export const storagePlacesUpdateNodeMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await storagePlacesUpdateNode({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
- * Atomically sync item groups for a node.
- *
- *     Sync rules:
- * * id: null — create new item group
- * * id present — update existing item group
- * * existing item group not in the list — delete
- * Returns 422 `storagePlaceNodeItemsGroupNotFound` if any provided ID does not belong to this node.
- * Returns 422 `catalogItemCharacteristicNotFound` if any `catalogItemWithCharacteristicId` does not exist.
- */
-export const storagePlacesUpdateNodeItemsMutation = (
-  options?: Partial<Options<StoragePlacesUpdateNodeItemsData>>,
-): UseMutationOptions<
-  StoragePlacesUpdateNodeItemsResponse,
-  StoragePlacesUpdateNodeItemsError,
-  Options<StoragePlacesUpdateNodeItemsData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    StoragePlacesUpdateNodeItemsResponse,
-    StoragePlacesUpdateNodeItemsError,
-    Options<StoragePlacesUpdateNodeItemsData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const {data} = await storagePlacesUpdateNodeItems({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -1366,89 +1384,3 @@ export const warehousesGetByIdForPrintOptions = (options: Options<WarehousesGetB
     },
     queryKey: warehousesGetByIdForPrintQueryKey(options),
   });
-
-export const warehousesGetAllItemsGroupsQueryKey = (
-  options: Options<WarehousesGetAllItemsGroupsData>,
-) => createQueryKey("warehousesGetAllItemsGroups", options);
-
-/**
- * List all item groups in a warehouse (paginated, optionally filtered).
- *
- * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString` (optional).
- * Searches across item name, article, barcode (item + characteristic), and characteristic.
- * Returns `Paginated&lt;ItemsGroupDto&gt;`.
- */
-export const warehousesGetAllItemsGroupsOptions = (
-  options: Options<WarehousesGetAllItemsGroupsData>,
-) =>
-  queryOptions<
-    WarehousesGetAllItemsGroupsResponse,
-    WarehousesGetAllItemsGroupsError,
-    WarehousesGetAllItemsGroupsResponse,
-    ReturnType<typeof warehousesGetAllItemsGroupsQueryKey>
-  >({
-    queryFn: async ({queryKey, signal}) => {
-      const {data} = await warehousesGetAllItemsGroups({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: warehousesGetAllItemsGroupsQueryKey(options),
-  });
-
-export const warehousesGetAllItemsGroupsInfiniteQueryKey = (
-  options: Options<WarehousesGetAllItemsGroupsData>,
-): QueryKey<Options<WarehousesGetAllItemsGroupsData>> =>
-  createQueryKey("warehousesGetAllItemsGroups", options, true);
-
-/**
- * List all item groups in a warehouse (paginated, optionally filtered).
- *
- * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString` (optional).
- * Searches across item name, article, barcode (item + characteristic), and characteristic.
- * Returns `Paginated&lt;ItemsGroupDto&gt;`.
- */
-export const warehousesGetAllItemsGroupsInfiniteOptions = (
-  options: Options<WarehousesGetAllItemsGroupsData>,
-) =>
-  infiniteQueryOptions<
-    WarehousesGetAllItemsGroupsResponse,
-    WarehousesGetAllItemsGroupsError,
-    InfiniteData<WarehousesGetAllItemsGroupsResponse>,
-    QueryKey<Options<WarehousesGetAllItemsGroupsData>>,
-    | number
-    | Pick<
-        QueryKey<Options<WarehousesGetAllItemsGroupsData>>[0],
-        "body" | "headers" | "path" | "query"
-      >
-  >(
-    // @ts-ignore
-    {
-      queryFn: async ({pageParam, queryKey, signal}) => {
-        // @ts-ignore
-        const page: Pick<
-          QueryKey<Options<WarehousesGetAllItemsGroupsData>>[0],
-          "body" | "headers" | "path" | "query"
-        > =
-          typeof pageParam === "object"
-            ? pageParam
-            : {
-                query: {
-                  page: pageParam,
-                },
-              };
-        const params = createInfiniteParams(queryKey, page);
-        const {data} = await warehousesGetAllItemsGroups({
-          ...options,
-          ...params,
-          signal,
-          throwOnError: true,
-        });
-        return data;
-      },
-      queryKey: warehousesGetAllItemsGroupsInfiniteQueryKey(options),
-    },
-  );

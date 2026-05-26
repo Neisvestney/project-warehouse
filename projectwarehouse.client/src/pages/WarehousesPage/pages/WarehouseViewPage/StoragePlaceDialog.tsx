@@ -26,7 +26,7 @@ import {
   storagePlacesUpdateNodeMutation,
 } from "@/api/@tanstack/react-query.gen.ts";
 import {type NodeOrderItem, type StoragePlaceDto, type StoragePlaceNodeDto} from "@/api";
-import {useState, useMemo, useRef, useEffect} from "react";
+import {useState, useRef, useEffect} from "react";
 import {StoragePlaceNodeTree} from "@/features/warehouse";
 import {openPrintPage} from "@/utils/printUtils.ts";
 import AddIcon from "@mui/icons-material/Add";
@@ -36,7 +36,6 @@ import EditIcon from "@mui/icons-material/Edit";
 import PrintIcon from "@mui/icons-material/Print";
 import ConfirmDialog from "@/components/ConfirmDialog.tsx";
 import {SortableNodeTree} from "./SortableNodeTree.tsx";
-import NodeDetails from "./NodeDetails.tsx";
 
 const DRAWER_WIDTH = 1000;
 
@@ -59,11 +58,6 @@ function StoragePlaceDialog({open, storagePlace, warehouseId, onClose}: StorageP
     ...storagePlacesGetNodesOptions({path: {id: storagePlace?.id ?? ""}}),
     enabled: open && !!storagePlace?.id,
   });
-
-  const nodesWithChildren = useMemo(
-    () => new Set(nodes.map((n) => n.parentNodeId).filter(Boolean)),
-    [nodes],
-  );
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const nodeAutoSelected = useRef(false);
@@ -353,20 +347,6 @@ function StoragePlaceDialog({open, storagePlace, warehouseId, onClose}: StorageP
                 </Paper>
               )}
             </Stack>
-
-            {!isTreeEditMode &&
-              selectedNodeId &&
-              storagePlace?.id &&
-              !nodesWithChildren.has(selectedNodeId) && (
-                <>
-                  <Divider />
-                  <NodeDetails
-                    storagePlaceId={storagePlace.id}
-                    nodeId={selectedNodeId}
-                    warehouseId={warehouseId}
-                  />
-                </>
-              )}
           </Stack>
         </Box>
       </Drawer>

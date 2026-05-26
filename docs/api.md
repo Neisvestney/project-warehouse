@@ -191,30 +191,35 @@ Requires `inbound_orders.process` permission. All endpoints additionally check t
 
 | Method | Path | Permission | Description |
 |--------|------|------------|-------------|
-| GET | `/api/catalog` | `catalog.view` | List catalog items paginated (`Paginated<CatalogItemSummaryDto>`), supports `searchString` |
-| GET | `/api/catalog/{id}` | `catalog.view` | Get catalog item with characteristics (`CatalogItemDto`) |
-| POST | `/api/catalog` | `catalog.edit` | Create catalog item with optional characteristics |
-| PUT | `/api/catalog/{id}` | `catalog.edit` | Update catalog item and atomically sync characteristics |
-| DELETE | `/api/catalog/{id}` | `catalog.edit` | Delete catalog item and all its characteristics |
+| GET | `/api/catalog` | `catalog.view` | List catalog items paginated (`Paginated<CatalogItemSummaryDto>`), supports `searchString`, `sortBy` (`name`\|`article`\|`barcode`\|`type`, default `name`), `sortOrder` (`asc`\|`desc`, default `asc`); archived items always sorted last |
+| GET | `/api/catalog/{id}` | `catalog.view` | Get full catalog item details (`CatalogItemDto`) |
+| GET | `/api/catalog/tags` | `catalog.view` | List tags (ordered by name), supports `search` query param |
+| POST | `/api/catalog` | `catalog.edit` | Create catalog item |
+| PUT | `/api/catalog/{id}` | `catalog.edit` | Update catalog item and atomically sync type-specific collections (children/components/variationIds/memberIds) |
+| DELETE | `/api/catalog/{id}` | `catalog.edit` | Delete catalog item |
 
-**Characteristic sync rules** (`PUT /api/catalog/{id}` body: `UpdateCatalogItemRequest`):
-- `id: null` → create new characteristic
-- `id` present → update existing characteristic
-- existing characteristic not in the list → delete
-
-Returns 422 `catalogItemCharacteristicNotFound` if any provided characteristic ID does not belong to this item.
+**Children sync rules** (ProductGroup only, `PUT /api/catalog/{id}` body: `UpdateCatalogItemRequest`):
+- `id: null` → create new child item
+- `id` present → update existing child
+- existing child not in the list → delete
 
 **Duplicate validation** (both `POST` and `PUT`):
-- 422 `catalogItemArticleDuplicate` — field `article`: another catalog item with the same article already exists
-- 422 `catalogItemBarcodeDuplicate` — field `barcode`: another catalog item with the same barcode already exists
-- 422 `catalogItemCharacteristicDuplicate` — field `characteristics[i].characteristic`: duplicate characteristic name within the request
-- 422 `catalogItemCharacteristicBarcodeDuplicate` — field `characteristics[i].barcode`: characteristic barcode already exists globally (or appears more than once in the request)
+- 422 `catalogItemArticleDuplicate` — field `article`
+- 422 `catalogItemBarcodeDuplicate` — field `barcode`
+- 422 `catalogItemComponentInvalid` — a component item is of an invalid type for bundles
+- 422 `catalogItemVariationInvalid` — a variation ID is invalid or wrong type
+- 422 `catalogItemGroupInvalid` — `groupId` does not refer to a ProductGroup
+- 422 `catalogItemIsImmutable` — assembledBundle cannot be edited
+- 422 `catalogItemManagedByGroup` — item with `groupId` cannot be edited directly
+
+**`CatalogItemType` values:** `standard`, `unit`, `productGroup`, `variation`, `bundle`, `assembledBundle`
 
 **Key DTOs:**
 
-`CatalogItemSummaryDto`: `{ id, name, article, barcode?, characteristicCount }`  
-`CatalogItemDto`: `{ id, name, article, barcode?, characteristics: CatalogItemCharacteristicDto[] }`  
-`CatalogItemCharacteristicDto`: `{ id, characteristic, barcode? }`
+`CatalogItemSummaryDto`: `{ id, type, name, fullName, article, barcode?, isArchived }`  
+`CatalogItemDto`: `{ id, type, name, fullName, article, barcode?, description?, notes?, isArchived, groupId?, groupName?, sourceBundleId?, tags: CatalogItemTagDto[], components: BundleComponentDto[], variationIds: Guid[], memberIds: Guid[], children: CatalogItemDto[] }`  
+`CatalogItemTagDto`: `{ id, name }`  
+`BundleComponentDto`: `{ id, componentId, componentName, quantity }`
 
 ---
 

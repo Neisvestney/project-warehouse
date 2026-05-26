@@ -25,12 +25,21 @@ public class AppMapperProfile : Profile
         CreateMap<ApplicationUser, UserDto>()
             .ForMember(d => d.Username, opt => opt.MapFrom(s => s.UserName));
 
-        CreateMap<CatalogItemWithCharacteristic, CatalogItemCharacteristicDto>();
-        CreateMap<CatalogItem, CatalogItemDto>();
+        CreateMap<CatalogItemTag, CatalogItemTagDto>();
+        CreateMap<BundleComponent, BundleComponentDto>()
+            .ForMember(d => d.ComponentName, opt => opt.MapFrom(s => s.Component.Name))
+            .ForMember(d => d.ComponentType, opt => opt.MapFrom(s => s.Component.Type));
+
+        CreateMap<CatalogItem, CatalogItemDto>()
+            .ForMember(d => d.GroupName, opt => opt.MapFrom(s => s.Group != null ? s.Group.Name : null))
+            .ForMember(d => d.Description, opt => opt.MapFrom(s => s.EffectiveDescription))
+            .ForMember(d => d.Notes, opt => opt.MapFrom(s => s.EffectiveNotes))
+            .ForMember(d => d.Components, opt => opt.MapFrom(s => s.BundleComponents))
+            .ForMember(d => d.VariationIds, opt => opt.MapFrom(s => s.VariationMemberships.Select(m => m.VariationId).ToList()))
+            .ForMember(d => d.MemberIds, opt => opt.MapFrom(s => s.VariationMembers.Select(m => m.ItemId).ToList()))
+            .ForMember(d => d.Children, opt => opt.MapFrom(s => s.GroupChildren));
+        CreateMap<CatalogItem, CatalogItemSummaryDto>();
         CreateMap<CatalogItem, NodeCatalogItemDto>();
-        CreateMap<CatalogItemWithCharacteristic, NodeCharacteristicDto>();
-        CreateMap<CatalogItem, CatalogItemSummaryDto>()
-            .ForMember(d => d.CharacteristicCount, opt => opt.MapFrom(s => s.Characteristics.Count));
 
         CreateMap<WarehouseLayoutElement, WarehouseLayoutElementDto>();
         CreateMap<StoragePlace, StoragePlaceDto>();
