@@ -591,7 +591,7 @@ function ChildRow({
             render={({field: f}) => (
               <Select {...f} size="small" disabled={isPending || !!entityId} sx={{minWidth: 120}}>
                 <MenuItem value="standard">Товар</MenuItem>
-                <MenuItem value="unit">Единица</MenuItem>
+                <MenuItem value="unit">Штучный</MenuItem>
               </Select>
             )}
           />

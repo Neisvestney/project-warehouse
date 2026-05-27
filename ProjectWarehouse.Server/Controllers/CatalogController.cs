@@ -57,19 +57,32 @@ public class CatalogController(
         [FromQuery] string? searchString = null,
         [FromQuery] CatalogSortBy sortBy = CatalogSortBy.Name,
         [FromQuery] SortOrder sortOrder = SortOrder.Asc,
+        [FromQuery] CatalogItemType? itemType = null,
+        [FromQuery] bool? isArchived = null,
         CancellationToken ct = default)
     {
         var baseQuery = db.CatalogItems
             .Where(c => c.GroupId == null)
-            .WhereMatchesSearch(c => c.SearchString, searchString)
-            .OrderBy(c => c.IsArchived);
+            .WhereMatchesSearch(c => c.SearchString, searchString);
+
+        if (itemType != null)
+        {
+            baseQuery = baseQuery.Where(c => c.Type == itemType.Value);
+        }
+
+        if (isArchived != null)
+        {
+            baseQuery = baseQuery.Where(c => c.IsArchived == isArchived.Value);
+        }
+            
+        var orderedQuery = baseQuery.OrderBy(c => c.IsArchived);
 
         var query = sortBy switch
         {
-            CatalogSortBy.Article => baseQuery.ThenSort(c => c.Article, sortOrder),
-            CatalogSortBy.Barcode => baseQuery.ThenSort(c => c.Barcode, sortOrder),
-            CatalogSortBy.Type    => baseQuery.ThenSort(c => c.Type, sortOrder),
-            _                     => baseQuery.ThenSort(c => c.Name, sortOrder),
+            CatalogSortBy.Article => orderedQuery.ThenSort(c => c.Article, sortOrder),
+            CatalogSortBy.Barcode => orderedQuery.ThenSort(c => c.Barcode, sortOrder),
+            CatalogSortBy.Type    => orderedQuery.ThenSort(c => c.Type, sortOrder),
+            _                     => orderedQuery.ThenSort(c => c.Name, sortOrder),
         };
 
         var paginated = await query
@@ -237,21 +250,27 @@ public class CatalogController(
     {
         var item = await db.CatalogItems
             .Include(c => c.Group)
+            .Include(c => c.GroupChildren)
             .FirstOrDefaultAsync(c => c.Id == id, ct);
 
         if (item is null)
             return NotFound(ErrorCode.CatalogItemNotFound, "Catalog item not found.");
 
+        var allIds = item.GroupChildren.Select(c => c.Id).Append(id).ToList();
+
         var isInItemsGroup = await db.StoragePlacesNodesItemsGroups
-            .AnyAsync(g => g.CatalogItemId == id && g.Count > 0, ct);
+            .AnyAsync(g => allIds.Contains(g.CatalogItemId) && g.Count > 0, ct);
         var isInInventory = await db.InventoryItems
-            .AnyAsync(i => i.CatalogItemId == id, ct);
+            .AnyAsync(i => allIds.Contains(i.CatalogItemId), ct);
 
         if (isInItemsGroup || isInInventory)
             return Conflict(ErrorCode.CatalogItemIsInUse, "Cannot delete a catalog item that is stored in a warehouse.");
 
         var itemForLog = await LoadItemWithDetailsAsync(id, ct);
         var dto = mapper.Map<CatalogItemDto>(itemForLog!);
+
+        foreach (var child in item.GroupChildren)
+            db.CatalogItems.Remove(child);
 
         db.CatalogItems.Remove(item);
         await db.SaveChangesAsync(ct);

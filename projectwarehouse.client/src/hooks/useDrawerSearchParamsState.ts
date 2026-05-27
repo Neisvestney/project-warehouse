@@ -18,7 +18,8 @@ export function useDrawerSearchParamsState(name: string) {
   const closeDrawer = () => {
     if (!searchParams.has(name)) return;
     if (historyLengthOnOpen.current !== null) {
-      const delta = window.history.length - historyLengthOnOpen.current;
+      let delta = window.history.length - historyLengthOnOpen.current;
+      if (delta == 0) delta = 1;
       historyLengthOnOpen.current = null;
       navigate(-delta);
     } else {

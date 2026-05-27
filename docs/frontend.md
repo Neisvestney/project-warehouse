@@ -33,6 +33,9 @@ src/
 ├── assets/                      # Static images
 │
 ├── features/
+│   ├── catalog/
+│   │   ├── catalogItemTypes.ts    # CATALOG_ITEM_TYPE_CONFIG + CATALOG_ITEM_TYPES — shared type metadata (label, chip color)
+│   │   └── index.ts
 │   └── warehouse/
 │       ├── WarehouseCanvas.tsx         # Generic pan/zoom Konva canvas for warehouse floor plans
 │       ├── StoragePlaceNodeTree.tsx    # Read-only SimpleTreeView of storage place nodes
@@ -377,6 +380,21 @@ Panel rendered inside `StoragePlaceDialog` for the selected node. Fetches `Stora
 
 ## Features
 
+### `src/features/catalog/`
+
+Shared catalog domain constants consumed by components and pages.
+
+#### `catalogItemTypes.ts`
+
+```ts
+CATALOG_ITEM_TYPE_CONFIG: Record<CatalogItemType, {label: string; color: ChipProps["color"]}>
+CATALOG_ITEM_TYPES: CatalogItemType[]   // all types in declaration order
+```
+
+`CATALOG_ITEM_TYPE_CONFIG` maps every `CatalogItemType` to a human-readable Russian label and a MUI chip color. Used by `CatalogItemTypeChip`, `CatalogPage` (filter Select), and `CreateCatalogItemDialog` (creation Select). `CATALOG_ITEM_TYPES` is derived from the config keys and guarantees the two stay in sync.
+
+When adding a new type to the backend OpenAPI schema, update only this file — all consumers update automatically.
+
 ### `src/features/warehouse/`
 
 Reusable warehouse visualization components shared between `WarehouseViewPage` and `InboundOrderProcessingOrderPage`.
@@ -461,7 +479,7 @@ Edit is hidden for `assembledBundle` items and for items with `groupId` (managed
 
 ### `CatalogItemTypeChip`
 
-Small `Chip` (`components/catalog/CatalogItemTypeChip.tsx`) that maps `CatalogItemType` to a label and color.
+Small `Chip` (`components/catalog/CatalogItemTypeChip.tsx`) that maps `CatalogItemType` to a label and color. Uses `CATALOG_ITEM_TYPE_CONFIG` from `src/features/catalog/`.
 
 | Type | Label | Color |
 |------|-------|-------|

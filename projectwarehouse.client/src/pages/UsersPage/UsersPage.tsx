@@ -87,7 +87,13 @@ function UsersPage() {
             <IconButton color={"inherit"} onClick={() => refetch()}>
               <RefreshIcon />
             </IconButton>
-            <Button variant="outlined" endIcon={<AddIcon />} size="small" component={RouterLink} to="/users/new">
+            <Button
+              variant="outlined"
+              endIcon={<AddIcon />}
+              size="small"
+              component={RouterLink}
+              to="/users/new"
+            >
               Создать
             </Button>
           </>
