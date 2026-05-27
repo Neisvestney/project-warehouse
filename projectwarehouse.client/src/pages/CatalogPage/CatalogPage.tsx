@@ -10,14 +10,23 @@ import {
   TableHead,
   TableRow,
   TableSortLabel,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
+  FormControl,
+  Select,
+  InputLabel,
+  MenuItem
 } from "@mui/material";
 import ArchiveIcon from "@mui/icons-material/Archive";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import StarIcon from '@mui/icons-material/Star';
 import {useQuery} from "@tanstack/react-query";
 import {catalogGetAllOptions} from "@/api/@tanstack/react-query.gen";
-import {type CatalogSortBy} from "@/api/types.gen";
+import {type CatalogItemType, type CatalogSortBy} from "@/api/types.gen";
+import {CATALOG_ITEM_TYPE_CONFIG, CATALOG_ITEM_TYPES} from "@/features/catalog";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
+import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useTableSort} from "@/hooks/useTableSort";
 import PageGenericHeader from "@/components/PageGenericHeader.tsx";
@@ -32,6 +41,7 @@ import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState.ts";
 import {useHasPermission} from "@/hooks/usePermission";
 import AddIcon from "@mui/icons-material/Add";
+import FiltersBar from "@/components/FiltersBar.tsx";
 
 const SORTABLE_COLUMNS: {key: CatalogSortBy; label: string}[] = [
   {key: "type", label: "Тип"},
@@ -53,11 +63,29 @@ function CatalogPage() {
 
   const {sortBy, sortOrder, handleSortClick} = useTableSort(SORTABLE_COLUMNS, "name");
 
+  const [itemType, setItemType] = useSyncedWithQueryState<CatalogItemType | null>(
+    "type",
+    (q) => (CATALOG_ITEM_TYPES.includes(q as CatalogItemType) ? (q as CatalogItemType) : null),
+    (v) => v ?? null,
+  );
+
+  const [isArchived, setIsArchived] = useSyncedWithQueryState<boolean | null>(
+    "archived",
+    (q) => (q === "true" ? true : q === "false" ? false : q === "null" ? null : false),
+    (v) => (v === false ? null : String(v)),
+  );
+
   const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams(
     {},
     [],
-    {searchString, sortBy, sortOrder},
-    [searchString, sortBy, sortOrder],
+    {
+      searchString,
+      sortBy,
+      sortOrder,
+      itemType: itemType ?? undefined,
+      isArchived: isArchived ?? undefined,
+    },
+    [searchString, sortBy, sortOrder, itemType, isArchived],
   );
 
   const {data, isLoading, isFetching, refetch} = useQuery(
@@ -76,7 +104,12 @@ function CatalogPage() {
                 <RefreshIcon />
               </IconButton>
               {canEdit && (
-                <Button endIcon={<AddIcon/>} variant="outlined" size="small" onClick={() => setCreateOpen(true)}>
+                <Button
+                  endIcon={<AddIcon />}
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setCreateOpen(true)}
+                >
                   Создать
                 </Button>
               )}
@@ -85,6 +118,39 @@ function CatalogPage() {
         >
           <SearchInput value={inputValue} onChange={setInputValue} />
         </PageGenericHeader>
+        <FiltersBar>
+          <FormControl size="small" sx={{minWidth: 150}}>
+            <InputLabel>Тип</InputLabel>
+            <Select
+              label="Тип"
+              value={itemType ?? ""}
+              onChange={(e) => setItemType((e.target.value as CatalogItemType) || null)}
+            >
+              <MenuItem value="">Все</MenuItem>
+              {CATALOG_ITEM_TYPES.map((type) => (
+                <MenuItem key={type} value={type}>
+                  {CATALOG_ITEM_TYPE_CONFIG[type].label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={isArchived ?? null}
+            onChange={(_, v: boolean | null) => setIsArchived(v)}
+          >
+            <ToggleButton value={false} sx={{gap: 0.5}}>
+              <StarIcon fontSize="small" />
+              Активные
+            </ToggleButton>
+            <ToggleButton value={true} sx={{gap: 0.5}}>
+              <ArchiveIcon fontSize="small" />
+              Архивные
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </FiltersBar>
         <DataTableContainer
           isFetching={isFetching}
           count={data?.total ?? 0}

@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import {catalogCreateMutation, catalogGetAllQueryKey} from "@/api/@tanstack/react-query.gen";
 import type {CatalogItemType} from "@/api/types.gen";
+import {CATALOG_ITEM_TYPE_CONFIG} from "@/features/catalog";
 import {FormTextField} from "@/components/form/FormTextField";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 
@@ -27,12 +28,14 @@ type CreateFormValues = {
   barcode: string;
 };
 
-const TYPE_OPTIONS: Array<{value: Exclude<CatalogItemType, "assembledBundle">; label: string}> = [
-  {value: "standard", label: "Товар"},
-  {value: "unit", label: "Единица"},
-  {value: "productGroup", label: "Группа"},
-  {value: "variation", label: "Вариация"},
-  {value: "bundle", label: "Комплект"},
+type CreatableCatalogItemType = Exclude<CatalogItemType, "assembledBundle">;
+
+const CREATABLE_TYPES: CreatableCatalogItemType[] = [
+  "standard",
+  "unit",
+  "productGroup",
+  "variation",
+  "bundle",
 ];
 
 interface CreateCatalogItemDialogProps {
@@ -92,9 +95,9 @@ export function CreateCatalogItemDialog({open, onClose, onCreated}: CreateCatalo
               <FormControl size="small" fullWidth error={!!fieldState.error}>
                 <InputLabel>Тип</InputLabel>
                 <Select {...field} label="Тип" disabled={isPending}>
-                  {TYPE_OPTIONS.map((opt) => (
-                    <MenuItem key={opt.value} value={opt.value}>
-                      {opt.label}
+                  {CREATABLE_TYPES.map((type) => (
+                    <MenuItem key={type} value={type}>
+                      {CATALOG_ITEM_TYPE_CONFIG[type].label}
                     </MenuItem>
                   ))}
                 </Select>

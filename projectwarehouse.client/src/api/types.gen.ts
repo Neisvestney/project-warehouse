@@ -681,6 +681,8 @@ export type CatalogGetAllData = {
     searchString?: string;
     sortBy?: CatalogSortBy;
     sortOrder?: SortOrder;
+    itemType?: CatalogItemType;
+    isArchived?: boolean;
   };
   url: "/api/catalog";
 };
