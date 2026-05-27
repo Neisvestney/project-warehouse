@@ -34,6 +34,19 @@ export type AppProblemDetails = {
   };
 };
 
+export type AssembledBundleInventoryItemDto = {
+  id: string;
+  catalogItem: CatalogItemSummaryDto;
+  warehouseId: string;
+  warehouseName: string;
+  storagePlaceId: string;
+  storagePlaceName: string;
+  nodeId: string;
+  nodeName: string;
+};
+
+export type AssembledBundleInventoryItemSortBy = "warehouseName" | "storagePlaceName" | "nodeName";
+
 export type BundleComponentDto = {
   id: string;
   componentId: string;
@@ -209,6 +222,14 @@ export type ErrorCode =
   | "passwordInvalid"
   | "validationError";
 
+export type InventoryItemSortBy = "name" | "article" | "type" | "count";
+
+export type InventoryItemSummaryDto = {
+  catalogItemId: string;
+  catalogItem: CatalogItemSummaryDto;
+  count: number;
+};
+
 export type JsonElement = unknown;
 
 export type LoginRequest = {
@@ -231,6 +252,16 @@ export type NodeOrderItem = {
   order: number;
 };
 
+export type PaginatedOfAssembledBundleInventoryItemDto = {
+  items: Array<AssembledBundleInventoryItemDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
 export type PaginatedOfCatalogItemSummaryDto = {
   items: Array<CatalogItemSummaryDto>;
   total: number;
@@ -243,6 +274,26 @@ export type PaginatedOfCatalogItemSummaryDto = {
 
 export type PaginatedOfChangeLogEntryDto = {
   items: Array<ChangeLogEntryDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
+export type PaginatedOfInventoryItemSummaryDto = {
+  items: Array<InventoryItemSummaryDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
+export type PaginatedOfUnitInventoryItemDto = {
+  items: Array<UnitInventoryItemDto>;
   total: number;
   page: number;
   pageSize: number;
@@ -366,6 +417,20 @@ export type TokenResponse = {
   refreshToken: string;
   expiresIn: number;
 };
+
+export type UnitInventoryItemDto = {
+  id: string;
+  sku: string;
+  catalogItem: CatalogItemSummaryDto;
+  warehouseId: string;
+  warehouseName: string;
+  storagePlaceId: string;
+  storagePlaceName: string;
+  nodeId: string;
+  nodeName: string;
+};
+
+export type UnitInventoryItemSortBy = "sku" | "warehouseName" | "storagePlaceName" | "nodeName";
 
 export type UpdateCatalogItemRequest = {
   name: string;
@@ -919,6 +984,130 @@ export type HomePageContentGetHomePageContentResponses = {
 
 export type HomePageContentGetHomePageContentResponse =
   HomePageContentGetHomePageContentResponses[keyof HomePageContentGetHomePageContentResponses];
+
+export type InventoryItemsGetAllData = {
+  body?: never;
+  path?: never;
+  query?: {
+    page?: number;
+    pageSize?: number;
+    searchString?: string;
+    warehouseId?: string;
+    storagePlaceId?: string;
+    nodeId?: string;
+    catalogItemType?: CatalogItemType;
+    isArchived?: boolean;
+    sortBy?: InventoryItemSortBy;
+    sortOrder?: SortOrder;
+  };
+  url: "/api/inventory-items";
+};
+
+export type InventoryItemsGetAllErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type InventoryItemsGetAllError =
+  InventoryItemsGetAllErrors[keyof InventoryItemsGetAllErrors];
+
+export type InventoryItemsGetAllResponses = {
+  /**
+   * OK
+   */
+  200: PaginatedOfInventoryItemSummaryDto;
+};
+
+export type InventoryItemsGetAllResponse =
+  InventoryItemsGetAllResponses[keyof InventoryItemsGetAllResponses];
+
+export type InventoryItemsGetAllUnitsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    page?: number;
+    pageSize?: number;
+    searchString?: string;
+    warehouseId?: string;
+    storagePlaceId?: string;
+    nodeId?: string;
+    catalogItemId?: string;
+    sortBy?: UnitInventoryItemSortBy;
+    sortOrder?: SortOrder;
+  };
+  url: "/api/inventory-items/units";
+};
+
+export type InventoryItemsGetAllUnitsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type InventoryItemsGetAllUnitsError =
+  InventoryItemsGetAllUnitsErrors[keyof InventoryItemsGetAllUnitsErrors];
+
+export type InventoryItemsGetAllUnitsResponses = {
+  /**
+   * OK
+   */
+  200: PaginatedOfUnitInventoryItemDto;
+};
+
+export type InventoryItemsGetAllUnitsResponse =
+  InventoryItemsGetAllUnitsResponses[keyof InventoryItemsGetAllUnitsResponses];
+
+export type InventoryItemsGetAllAssembledBundlesData = {
+  body?: never;
+  path?: never;
+  query?: {
+    page?: number;
+    pageSize?: number;
+    searchString?: string;
+    warehouseId?: string;
+    storagePlaceId?: string;
+    nodeId?: string;
+    catalogItemId?: string;
+    sortBy?: AssembledBundleInventoryItemSortBy;
+    sortOrder?: SortOrder;
+  };
+  url: "/api/inventory-items/assembled-bundles";
+};
+
+export type InventoryItemsGetAllAssembledBundlesErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type InventoryItemsGetAllAssembledBundlesError =
+  InventoryItemsGetAllAssembledBundlesErrors[keyof InventoryItemsGetAllAssembledBundlesErrors];
+
+export type InventoryItemsGetAllAssembledBundlesResponses = {
+  /**
+   * OK
+   */
+  200: PaginatedOfAssembledBundleInventoryItemDto;
+};
+
+export type InventoryItemsGetAllAssembledBundlesResponse =
+  InventoryItemsGetAllAssembledBundlesResponses[keyof InventoryItemsGetAllAssembledBundlesResponses];
 
 export type PermissionsGetAllData = {
   body?: never;

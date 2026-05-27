@@ -45,6 +45,17 @@ const UserCreatePage = React.lazy(
 const SettingsPage = React.lazy(() => import("@/pages/SettingsPage/SettingsPage.tsx"));
 const PrintPage = React.lazy(() => import("@/pages/PrintPage/PrintPage.tsx"));
 const CatalogPage = React.lazy(() => import("@/pages/CatalogPage/CatalogPage.tsx"));
+const InventoryPage = React.lazy(() => import("@/pages/InventoryPage/InventoryPage.tsx"));
+const WarehouseInventoryPage = React.lazy(
+  () => import("@/pages/WarehousesPage/pages/WarehouseInventoryPage/WarehouseInventoryPage.tsx"),
+);
+const StoragePlaceInventoryPage = React.lazy(
+  () =>
+    import("@/pages/WarehousesPage/pages/StoragePlaceInventoryPage/StoragePlaceInventoryPage.tsx"),
+);
+const NodeInventoryPage = React.lazy(
+  () => import("@/pages/WarehousesPage/pages/NodeInventoryPage/NodeInventoryPage.tsx"),
+);
 
 function App() {
   const location = useLocation();
@@ -117,6 +128,26 @@ function App() {
                       path="/catalog"
                       element={<CatalogPage />}
                       requiredPermission="catalog.view"
+                    />
+                    <ProtectedRoute
+                      path="/inventory"
+                      element={<InventoryPage />}
+                      requiredPermission={["warehouses.view", "warehouses.view_assigned"]}
+                    />
+                    <ProtectedRoute
+                      path="/warehouses/:id/inventory"
+                      element={<WarehouseInventoryPage />}
+                      requiredPermission={["warehouses.view", "warehouses.view_assigned"]}
+                    />
+                    <ProtectedRoute
+                      path="/warehouses/:warehouseId/storage-places/:storagePlaceId/inventory"
+                      element={<StoragePlaceInventoryPage />}
+                      requiredPermission={["warehouses.view", "warehouses.view_assigned"]}
+                    />
+                    <ProtectedRoute
+                      path="/warehouses/:warehouseId/storage-places/:storagePlaceId/nodes/:nodeId/inventory"
+                      element={<NodeInventoryPage />}
+                      requiredPermission={["warehouses.view", "warehouses.view_assigned"]}
                     />
                     <ProtectedRoute
                       path="/warehouses"

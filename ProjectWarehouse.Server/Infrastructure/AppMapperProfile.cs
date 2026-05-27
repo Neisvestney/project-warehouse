@@ -4,6 +4,7 @@ using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Models.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
+using ProjectWarehouse.Server.Models.Inventory;
 using ProjectWarehouse.Server.Models.Roles;
 using ProjectWarehouse.Server.Models.Users;
 using ProjectWarehouse.Server.Models.Warehouses;
@@ -50,6 +51,22 @@ public class AppMapperProfile : Profile
         CreateMap<Warehouse, WarehouseDto>();
         CreateMap<Warehouse, WarehouseSummaryDto>()
             .ForMember(d => d.StoragePlaceCount, opt => opt.MapFrom(s => s.StoragePlaces.Count));
+
+        CreateMap<UnitInventoryItem, UnitInventoryItemDto>()
+            .ForMember(d => d.NodeId, opt => opt.MapFrom(s => s.StoragePlaceNodeId))
+            .ForMember(d => d.NodeName, opt => opt.MapFrom(s => s.StoragePlaceNode.Name))
+            .ForMember(d => d.StoragePlaceId, opt => opt.MapFrom(s => s.StoragePlaceNode.RootStoragePlaceId))
+            .ForMember(d => d.StoragePlaceName, opt => opt.MapFrom(s => s.StoragePlaceNode.RootStoragePlace.Name))
+            .ForMember(d => d.WarehouseId, opt => opt.MapFrom(s => s.StoragePlaceNode.RootStoragePlace.WarehouseId))
+            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.StoragePlaceNode.RootStoragePlace.Warehouse.Name));
+
+        CreateMap<AssembledBundleInventoryItem, AssembledBundleInventoryItemDto>()
+            .ForMember(d => d.NodeId, opt => opt.MapFrom(s => s.StoragePlaceNodeId))
+            .ForMember(d => d.NodeName, opt => opt.MapFrom(s => s.StoragePlaceNode.Name))
+            .ForMember(d => d.StoragePlaceId, opt => opt.MapFrom(s => s.StoragePlaceNode.RootStoragePlaceId))
+            .ForMember(d => d.StoragePlaceName, opt => opt.MapFrom(s => s.StoragePlaceNode.RootStoragePlace.Name))
+            .ForMember(d => d.WarehouseId, opt => opt.MapFrom(s => s.StoragePlaceNode.RootStoragePlace.WarehouseId))
+            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.StoragePlaceNode.RootStoragePlace.Warehouse.Name));
 
         CreateMap<Warehouse, AppEntity>()
             .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Warehouse))

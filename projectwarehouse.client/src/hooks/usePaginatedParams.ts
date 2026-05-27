@@ -4,6 +4,8 @@ import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 interface PaginatedParamsOptions {
   defaultPageSize?: number;
   debounceDelay?: number;
+  pageParam?: string;
+  pageSizeParam?: string;
 }
 
 export function usePaginatedParams<D extends object, I extends object = object>(
@@ -19,10 +21,15 @@ export function usePaginatedParams<D extends object, I extends object = object>(
   pageSize: number;
   setPageSize: (v: number) => void;
 } {
-  const {defaultPageSize = 20, debounceDelay = 300} = options ?? {};
+  const {
+    defaultPageSize = 20,
+    debounceDelay = 300,
+    pageParam = "page",
+    pageSizeParam = "pageSize",
+  } = options ?? {};
 
   const [urlPage, setUrlPage] = useSyncedWithQueryState(
-    "page",
+    pageParam,
     (q) => {
       const n = Number(q);
       return Number.isInteger(n) && n >= 1 ? n : 1;
@@ -31,7 +38,7 @@ export function usePaginatedParams<D extends object, I extends object = object>(
   );
 
   const [pageSize, setPageSize] = useSyncedWithQueryState(
-    "pageSize",
+    pageSizeParam,
     (q) => {
       const n = Number(q);
       return Number.isInteger(n) && n >= 1 ? n : defaultPageSize;

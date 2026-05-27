@@ -223,6 +223,40 @@ Requires `inbound_orders.process` permission. All endpoints additionally check t
 
 ---
 
+## Inventory Items — `/api/inventory-items`
+
+| Method | Path | Permission | Description |
+|--------|------|------------|-------------|
+| GET | `/api/inventory-items` | `warehouses.view` or `warehouses.view_assigned` | Paginated stock overview aggregated by catalog item |
+| GET | `/api/inventory-items/units` | `warehouses.view` or `warehouses.view_assigned` | Paginated list of individual unit inventory item instances |
+| GET | `/api/inventory-items/assembled-bundles` | `warehouses.view` or `warehouses.view_assigned` | Paginated list of individual assembled bundle instances |
+
+`view_assigned` limits results to warehouses assigned to the current user.
+
+### `GET /api/inventory-items` — GetAll
+Query params: `page`, `pageSize`, `searchString?`, `warehouseId?`, `storagePlaceId?`, `nodeId?`, `catalogItemType?` (CatalogItemType), `isArchived?` (bool)  
+Returns: `Paginated<InventoryItemSummaryDto>`
+
+Items from all three storage mechanisms (StoragePlaceNodeItemsGroup for standard items, UnitInventoryItem, AssembledBundleInventoryItem) are counted separately per `CatalogItemId` and merged. The result is one row per catalog item with `Count` = total across all locations within the applied filters.
+
+**`InventoryItemSummaryDto`**: `{ catalogItemId: Guid, catalogItem: CatalogItemSummaryDto, count: int }`
+
+### `GET /api/inventory-items/units` — GetAllUnits
+Query params: `page`, `pageSize`, `searchString?` (searches SKU), `warehouseId?`, `storagePlaceId?`, `nodeId?`, `catalogItemId?`  
+Returns: `Paginated<UnitInventoryItemDto>`
+
+The `catalogItemId` filter is used by the frontend drawer to list all instances of a clicked catalog item.
+
+**`UnitInventoryItemDto`**: `{ id: Guid, sku: string, catalogItem: CatalogItemSummaryDto, warehouseId: Guid, warehouseName: string, storagePlaceId: Guid, storagePlaceName: string, nodeId: Guid, nodeName: string }`
+
+### `GET /api/inventory-items/assembled-bundles` — GetAllAssembledBundles
+Query params: `page`, `pageSize`, `searchString?` (searches catalog item name), `warehouseId?`, `storagePlaceId?`, `nodeId?`, `catalogItemId?`  
+Returns: `Paginated<AssembledBundleInventoryItemDto>`
+
+**`AssembledBundleInventoryItemDto`**: `{ id: Guid, catalogItem: CatalogItemSummaryDto, warehouseId: Guid, warehouseName: string, storagePlaceId: Guid, storagePlaceName: string, nodeId: Guid, nodeName: string }`
+
+---
+
 ## Permissions — `/api/permissions`
 
 | Method | Path | Auth | Description |

@@ -79,10 +79,10 @@ public class CatalogController(
 
         var query = sortBy switch
         {
-            CatalogSortBy.Article => orderedQuery.ThenSort(c => c.Article, sortOrder),
-            CatalogSortBy.Barcode => orderedQuery.ThenSort(c => c.Barcode, sortOrder),
-            CatalogSortBy.Type    => orderedQuery.ThenSort(c => c.Type, sortOrder),
-            _                     => orderedQuery.ThenSort(c => c.Name, sortOrder),
+            CatalogSortBy.Article => orderedQuery.ThenSort(c => c.Article, sortOrder).ThenBy(c => c.Id),
+            CatalogSortBy.Barcode => orderedQuery.ThenSort(c => c.Barcode, sortOrder).ThenBy(c => c.Id),
+            CatalogSortBy.Type    => orderedQuery.ThenSort(c => c.Type, sortOrder).ThenBy(c => c.Id),
+            _                     => orderedQuery.ThenSort(c => c.Name, sortOrder).ThenBy(c => c.Id),
         };
 
         var paginated = await query

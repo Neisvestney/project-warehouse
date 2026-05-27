@@ -35,6 +35,11 @@ const pages: {
     requiredPermission: ["warehouses.view", "warehouses.view_assigned"],
   },
   {
+    name: "Остатки",
+    url: "/inventory",
+    requiredPermission: ["warehouses.view", "warehouses.view_assigned"],
+  },
+  {
     name: "Настройки",
     url: (p) => `/settings/${getSettingsFirstPageUrl(p)}`,
     showIf: hasSettingsAccess,

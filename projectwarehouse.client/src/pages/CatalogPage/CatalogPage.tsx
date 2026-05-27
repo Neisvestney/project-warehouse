@@ -16,11 +16,11 @@ import {
   FormControl,
   Select,
   InputLabel,
-  MenuItem
+  MenuItem,
 } from "@mui/material";
 import ArchiveIcon from "@mui/icons-material/Archive";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import StarIcon from '@mui/icons-material/Star';
+import StarIcon from "@mui/icons-material/Star";
 import {useQuery} from "@tanstack/react-query";
 import {catalogGetAllOptions} from "@/api/@tanstack/react-query.gen";
 import {type CatalogItemType, type CatalogSortBy} from "@/api/types.gen";

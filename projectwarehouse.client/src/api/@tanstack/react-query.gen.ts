@@ -23,6 +23,9 @@ import {
   catalogUpdate,
   changelogGetAll,
   homePageContentGetHomePageContent,
+  inventoryItemsGetAll,
+  inventoryItemsGetAllAssembledBundles,
+  inventoryItemsGetAllUnits,
   type Options,
   permissionsGetAll,
   rolesGetAll,
@@ -91,6 +94,15 @@ import type {
   HomePageContentGetHomePageContentData,
   HomePageContentGetHomePageContentError,
   HomePageContentGetHomePageContentResponse,
+  InventoryItemsGetAllAssembledBundlesData,
+  InventoryItemsGetAllAssembledBundlesError,
+  InventoryItemsGetAllAssembledBundlesResponse,
+  InventoryItemsGetAllData,
+  InventoryItemsGetAllError,
+  InventoryItemsGetAllResponse,
+  InventoryItemsGetAllUnitsData,
+  InventoryItemsGetAllUnitsError,
+  InventoryItemsGetAllUnitsResponse,
   PermissionsGetAllData,
   PermissionsGetAllError,
   PermissionsGetAllResponse,
@@ -675,6 +687,240 @@ export const homePageContentGetHomePageContentOptions = (
     },
     queryKey: homePageContentGetHomePageContentQueryKey(options),
   });
+
+export const inventoryItemsGetAllQueryKey = (options?: Options<InventoryItemsGetAllData>) =>
+  createQueryKey("inventoryItemsGetAll", options);
+
+/**
+ * List all inventory items aggregated by catalog item.
+ *
+ * Returns one row per distinct CatalogItem with a total Count summed across all three item kinds
+ * (Standard, Unit, AssembledBundle). Supports filtering by warehouse, storage place, node,
+ * catalog item type, and archive state.
+ */
+export const inventoryItemsGetAllOptions = (options?: Options<InventoryItemsGetAllData>) =>
+  queryOptions<
+    InventoryItemsGetAllResponse,
+    InventoryItemsGetAllError,
+    InventoryItemsGetAllResponse,
+    ReturnType<typeof inventoryItemsGetAllQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await inventoryItemsGetAll({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: inventoryItemsGetAllQueryKey(options),
+  });
+
+export const inventoryItemsGetAllInfiniteQueryKey = (
+  options?: Options<InventoryItemsGetAllData>,
+): QueryKey<Options<InventoryItemsGetAllData>> =>
+  createQueryKey("inventoryItemsGetAll", options, true);
+
+/**
+ * List all inventory items aggregated by catalog item.
+ *
+ * Returns one row per distinct CatalogItem with a total Count summed across all three item kinds
+ * (Standard, Unit, AssembledBundle). Supports filtering by warehouse, storage place, node,
+ * catalog item type, and archive state.
+ */
+export const inventoryItemsGetAllInfiniteOptions = (options?: Options<InventoryItemsGetAllData>) =>
+  infiniteQueryOptions<
+    InventoryItemsGetAllResponse,
+    InventoryItemsGetAllError,
+    InfiniteData<InventoryItemsGetAllResponse>,
+    QueryKey<Options<InventoryItemsGetAllData>>,
+    | number
+    | Pick<QueryKey<Options<InventoryItemsGetAllData>>[0], "body" | "headers" | "path" | "query">
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({pageParam, queryKey, signal}) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<InventoryItemsGetAllData>>[0],
+          "body" | "headers" | "path" | "query"
+        > =
+          typeof pageParam === "object"
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const {data} = await inventoryItemsGetAll({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: inventoryItemsGetAllInfiniteQueryKey(options),
+    },
+  );
+
+export const inventoryItemsGetAllUnitsQueryKey = (
+  options?: Options<InventoryItemsGetAllUnitsData>,
+) => createQueryKey("inventoryItemsGetAllUnits", options);
+
+/**
+ * List all unit inventory items (individual serialized items).
+ */
+export const inventoryItemsGetAllUnitsOptions = (
+  options?: Options<InventoryItemsGetAllUnitsData>,
+) =>
+  queryOptions<
+    InventoryItemsGetAllUnitsResponse,
+    InventoryItemsGetAllUnitsError,
+    InventoryItemsGetAllUnitsResponse,
+    ReturnType<typeof inventoryItemsGetAllUnitsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await inventoryItemsGetAllUnits({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: inventoryItemsGetAllUnitsQueryKey(options),
+  });
+
+export const inventoryItemsGetAllUnitsInfiniteQueryKey = (
+  options?: Options<InventoryItemsGetAllUnitsData>,
+): QueryKey<Options<InventoryItemsGetAllUnitsData>> =>
+  createQueryKey("inventoryItemsGetAllUnits", options, true);
+
+/**
+ * List all unit inventory items (individual serialized items).
+ */
+export const inventoryItemsGetAllUnitsInfiniteOptions = (
+  options?: Options<InventoryItemsGetAllUnitsData>,
+) =>
+  infiniteQueryOptions<
+    InventoryItemsGetAllUnitsResponse,
+    InventoryItemsGetAllUnitsError,
+    InfiniteData<InventoryItemsGetAllUnitsResponse>,
+    QueryKey<Options<InventoryItemsGetAllUnitsData>>,
+    | number
+    | Pick<
+        QueryKey<Options<InventoryItemsGetAllUnitsData>>[0],
+        "body" | "headers" | "path" | "query"
+      >
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({pageParam, queryKey, signal}) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<InventoryItemsGetAllUnitsData>>[0],
+          "body" | "headers" | "path" | "query"
+        > =
+          typeof pageParam === "object"
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const {data} = await inventoryItemsGetAllUnits({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: inventoryItemsGetAllUnitsInfiniteQueryKey(options),
+    },
+  );
+
+export const inventoryItemsGetAllAssembledBundlesQueryKey = (
+  options?: Options<InventoryItemsGetAllAssembledBundlesData>,
+) => createQueryKey("inventoryItemsGetAllAssembledBundles", options);
+
+/**
+ * List all assembled bundle inventory items (individual bundle instances).
+ */
+export const inventoryItemsGetAllAssembledBundlesOptions = (
+  options?: Options<InventoryItemsGetAllAssembledBundlesData>,
+) =>
+  queryOptions<
+    InventoryItemsGetAllAssembledBundlesResponse,
+    InventoryItemsGetAllAssembledBundlesError,
+    InventoryItemsGetAllAssembledBundlesResponse,
+    ReturnType<typeof inventoryItemsGetAllAssembledBundlesQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await inventoryItemsGetAllAssembledBundles({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: inventoryItemsGetAllAssembledBundlesQueryKey(options),
+  });
+
+export const inventoryItemsGetAllAssembledBundlesInfiniteQueryKey = (
+  options?: Options<InventoryItemsGetAllAssembledBundlesData>,
+): QueryKey<Options<InventoryItemsGetAllAssembledBundlesData>> =>
+  createQueryKey("inventoryItemsGetAllAssembledBundles", options, true);
+
+/**
+ * List all assembled bundle inventory items (individual bundle instances).
+ */
+export const inventoryItemsGetAllAssembledBundlesInfiniteOptions = (
+  options?: Options<InventoryItemsGetAllAssembledBundlesData>,
+) =>
+  infiniteQueryOptions<
+    InventoryItemsGetAllAssembledBundlesResponse,
+    InventoryItemsGetAllAssembledBundlesError,
+    InfiniteData<InventoryItemsGetAllAssembledBundlesResponse>,
+    QueryKey<Options<InventoryItemsGetAllAssembledBundlesData>>,
+    | number
+    | Pick<
+        QueryKey<Options<InventoryItemsGetAllAssembledBundlesData>>[0],
+        "body" | "headers" | "path" | "query"
+      >
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({pageParam, queryKey, signal}) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<InventoryItemsGetAllAssembledBundlesData>>[0],
+          "body" | "headers" | "path" | "query"
+        > =
+          typeof pageParam === "object"
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const {data} = await inventoryItemsGetAllAssembledBundles({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: inventoryItemsGetAllAssembledBundlesInfiniteQueryKey(options),
+    },
+  );
 
 export const permissionsGetAllQueryKey = (options?: Options<PermissionsGetAllData>) =>
   createQueryKey("permissionsGetAll", options);

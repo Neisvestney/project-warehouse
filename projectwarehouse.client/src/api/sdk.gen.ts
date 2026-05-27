@@ -45,6 +45,15 @@ import type {
   HomePageContentGetHomePageContentData,
   HomePageContentGetHomePageContentErrors,
   HomePageContentGetHomePageContentResponses,
+  InventoryItemsGetAllAssembledBundlesData,
+  InventoryItemsGetAllAssembledBundlesErrors,
+  InventoryItemsGetAllAssembledBundlesResponses,
+  InventoryItemsGetAllData,
+  InventoryItemsGetAllErrors,
+  InventoryItemsGetAllResponses,
+  InventoryItemsGetAllUnitsData,
+  InventoryItemsGetAllUnitsErrors,
+  InventoryItemsGetAllUnitsResponses,
   PermissionsGetAllData,
   PermissionsGetAllErrors,
   PermissionsGetAllResponses,
@@ -332,6 +341,46 @@ export const homePageContentGetHomePageContent = <ThrowOnError extends boolean =
     HomePageContentGetHomePageContentErrors,
     ThrowOnError
   >({url: "/api/homepagecontent", ...options});
+
+/**
+ * List all inventory items aggregated by catalog item.
+ *
+ * Returns one row per distinct CatalogItem with a total Count summed across all three item kinds
+ * (Standard, Unit, AssembledBundle). Supports filtering by warehouse, storage place, node,
+ * catalog item type, and archive state.
+ */
+export const inventoryItemsGetAll = <ThrowOnError extends boolean = false>(
+  options?: Options<InventoryItemsGetAllData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    InventoryItemsGetAllResponses,
+    InventoryItemsGetAllErrors,
+    ThrowOnError
+  >({url: "/api/inventory-items", ...options});
+
+/**
+ * List all unit inventory items (individual serialized items).
+ */
+export const inventoryItemsGetAllUnits = <ThrowOnError extends boolean = false>(
+  options?: Options<InventoryItemsGetAllUnitsData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    InventoryItemsGetAllUnitsResponses,
+    InventoryItemsGetAllUnitsErrors,
+    ThrowOnError
+  >({url: "/api/inventory-items/units", ...options});
+
+/**
+ * List all assembled bundle inventory items (individual bundle instances).
+ */
+export const inventoryItemsGetAllAssembledBundles = <ThrowOnError extends boolean = false>(
+  options?: Options<InventoryItemsGetAllAssembledBundlesData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    InventoryItemsGetAllAssembledBundlesResponses,
+    InventoryItemsGetAllAssembledBundlesErrors,
+    ThrowOnError
+  >({url: "/api/inventory-items/assembled-bundles", ...options});
 
 /**
  * Get all available static permissions defined in the system.
