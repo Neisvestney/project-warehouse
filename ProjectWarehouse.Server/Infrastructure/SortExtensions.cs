@@ -5,6 +5,14 @@ namespace ProjectWarehouse.Server.Infrastructure;
 
 public static class SortExtensions
 {
+    public static IOrderedQueryable<T> Sort<T, TKey>(
+        this IQueryable<T> query,
+        Expression<Func<T, TKey>> keySelector,
+        SortOrder sortOrder) =>
+        sortOrder == SortOrder.Asc
+            ? query.OrderBy(keySelector)
+            : query.OrderByDescending(keySelector);
+
     public static IOrderedQueryable<T> ThenSort<T, TKey>(
         this IOrderedQueryable<T> query,
         Expression<Func<T, TKey>> keySelector,

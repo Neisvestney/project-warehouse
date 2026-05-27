@@ -7,6 +7,7 @@ import {
   warehousesGetByIdOptions,
 } from "@/api/@tanstack/react-query.gen";
 import EditIcon from "@mui/icons-material/Edit";
+import Inventory2Icon from "@mui/icons-material/Inventory2";
 import {isNotFoundError} from "@/utils/errorUtils";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import PageGenericHeader from "@/components/PageGenericHeader";
@@ -84,6 +85,14 @@ function WarehouseViewPage() {
         title={warehouse.name}
         right={
           <>
+            <Button
+              variant="outlined"
+              startIcon={<Inventory2Icon />}
+              component={Link}
+              to={`/warehouses/${id}/inventory`}
+            >
+              Остатки
+            </Button>
             <Button
               startIcon={isPrinting ? <CircularProgress size={14} /> : <PrintIcon />}
               disabled={isPrinting}

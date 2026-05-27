@@ -45,6 +45,10 @@ src/
 │   ├── catalog/
 │   │   ├── CatalogItemDrawer.tsx   # Reusable right-drawer: view + edit any catalog item (all types)
 │   │   └── CatalogItemTypeChip.tsx # MUI Chip mapping CatalogItemType → label + color
+│   ├── inventory/
+│   │   ├── ItemsBasePage.tsx        # Reusable inventory table: search, filters (type/archive/warehouse), pagination, row-click drawers
+│   │   ├── UnitItemsDrawer.tsx      # Bottom drawer: paginated list of individual UnitInventoryItem instances for a clicked catalog item
+│   │   └── AssembledBundleItemsDrawer.tsx  # Bottom drawer: paginated list of individual AssembledBundleInventoryItem instances
 │   ├── CatalogItemsSelect.tsx   # Autocomplete for catalog items; single (id/dto) or multi (dto[]) mode; supports type filter
 │   ├── form/
 │   │   └── FormTextField.tsx    # RHF-wired TextField wrapper
@@ -123,6 +127,8 @@ src/
 │   │   └── HomePage.tsx         # Landing page; navigation cards driven by AppEntity from /api/home
 │   ├── CatalogPage/
 │   │   └── CatalogPage.tsx      # Paginated, searchable catalog item list (catalog.view); opens CatalogItemDrawer
+│   ├── InventoryPage/
+│   │   └── InventoryPage.tsx    # Global stock overview (warehouses.view); uses ItemsBasePage with warehouse filter
 │   ├── LoginPage/
 │   │   └── LoginPage.tsx        # Login form
 │   ├── MyProfilePage/
@@ -145,10 +151,16 @@ src/
 │   │   ├── WarehousesPage.tsx   # Paginated, searchable warehouse list (no permission guard yet)
 │   │   └── pages/
 │   │       ├── WarehouseViewPage/
-│   │       │   ├── WarehouseViewPage.tsx    # Warehouse detail with pan/zoom storage place grid; "Этикетки" + "Список товаров" buttons
-│   │       │   ├── StoragePlaceDialog.tsx   # Right-drawer: node tree (SimpleTreeView) + NodeDetails panel for selected node; "Редактировать ячейки" mode for adding/renaming/deleting nodes via API
+│   │       │   ├── WarehouseViewPage.tsx    # Warehouse detail with pan/zoom storage place grid; "Остатки", "Этикетки" buttons
+│   │       │   ├── StoragePlaceDialog.tsx   # Right-drawer: node tree (SimpleTreeView) + NodeDetails panel; "Остатки", "Остатки ячейки", "Редактировать ячейки" buttons
 │   │       │   ├── SortableNodeTree.tsx     # Drag-and-drop sortable node tree (@dnd-kit); used in edit mode inside StoragePlaceDialog
 │   │       │   └── NodeDetails.tsx          # Node detail panel: view/edit item groups (catalog item + characteristic + count)
+│   │       ├── WarehouseInventoryPage/
+│   │       │   └── WarehouseInventoryPage.tsx  # Stock overview scoped to one warehouse; uses ItemsBasePage with warehouseId
+│   │       ├── StoragePlaceInventoryPage/
+│   │       │   └── StoragePlaceInventoryPage.tsx  # Stock overview scoped to one storage place; uses ItemsBasePage with warehouseId + storagePlaceId
+│   │       ├── NodeInventoryPage/
+│   │       │   └── NodeInventoryPage.tsx   # Stock overview scoped to one node; uses ItemsBasePage with all 3 IDs
 │   │       └── WarehouseItemsPage/
 │   │           └── WarehouseItemsPage.tsx   # Paginated, searchable table of all item groups in a warehouse; link-to-catalog per row
 │   ├── InboundOrdersPage/
@@ -238,9 +250,13 @@ src/
 /users/:id              → MainLayout > UserViewPage      (users.view)
 /users/:id/edit         → MainLayout > UserEditPage      (users.edit_profile)
 /catalog                → MainLayout > CatalogPage        (catalog.view | inbound_orders.process)
-/warehouses             → MainLayout > WarehousesPage     (warehouses.view | warehouses.view_assigned)
-/warehouses/:id         → MainLayout > WarehouseViewPage  (warehouses.view | warehouses.view_assigned)
-/warehouses/:id/items   → MainLayout > WarehouseItemsPage (warehouses.view | warehouses.view_assigned)
+/inventory              → MainLayout > InventoryPage      (warehouses.view | warehouses.view_assigned)
+/warehouses                                                         → MainLayout > WarehousesPage                  (warehouses.view | warehouses.view_assigned)
+/warehouses/:id                                                     → MainLayout > WarehouseViewPage               (warehouses.view | warehouses.view_assigned)
+/warehouses/:id/inventory                                           → MainLayout > WarehouseInventoryPage          (warehouses.view | warehouses.view_assigned)
+/warehouses/:id/items                                               → MainLayout > WarehouseItemsPage              (warehouses.view | warehouses.view_assigned)
+/warehouses/:warehouseId/storage-places/:storagePlaceId/inventory  → MainLayout > StoragePlaceInventoryPage       (warehouses.view | warehouses.view_assigned)
+/warehouses/:warehouseId/storage-places/:storagePlaceId/nodes/:nodeId/inventory → MainLayout > NodeInventoryPage (warehouses.view | warehouses.view_assigned)
 /warehouses/new         → MainLayout > WarehouseNewPage   (warehouses.edit)
 /warehouses/:id/edit    → MainLayout > WarehouseEditPage  (warehouses.edit | warehouses.edit_assigned)
 /inbound-orders         → MainLayout > InboundOrdersPage  (inbound_orders.view | inbound_orders.view_assigned_warehouses)
@@ -356,8 +372,40 @@ Detail page for a single inbound order (`/inbound-orders/:id`). Composes four su
 ### `CatalogPage`
 Server-side paginated, searchable list of catalog items. Requires `catalog.view` or `inbound_orders.process`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Clicking a row opens `CatalogItemDrawer` (right-side MUI Drawer); the selected item ID is stored in `?item=` query param via `useDrawerSearchParamsState`. Columns: **Тип** (`CatalogItemTypeChip`), **Название** (fullName + archive icon if isArchived), **Артикул**, **Штрихкод**.
 
+### `InventoryPage`
+Global stock overview at `/inventory`. Uses `ItemsBasePage` without any ID props, so the warehouse filter Select is shown. Requires `warehouses.view` or `warehouses.view_assigned`.
+
+### `WarehouseInventoryPage`
+Stock overview scoped to a single warehouse at `/warehouses/:id/inventory`. Fetches the warehouse by ID for the breadcrumb name, passes `warehouseId` to `ItemsBasePage` (no warehouse filter shown). Requires `warehouses.view` or `warehouses.view_assigned`.
+
+### `StoragePlaceInventoryPage`
+Stock overview scoped to a single storage place at `/warehouses/:warehouseId/storage-places/:storagePlaceId/inventory`. Fetches the warehouse to resolve the storage place name for breadcrumbs. Passes `warehouseId` + `storagePlaceId` to `ItemsBasePage`. Requires `warehouses.view` or `warehouses.view_assigned`.
+
+### `NodeInventoryPage`
+Stock overview scoped to a single storage place node at `/warehouses/:warehouseId/storage-places/:storagePlaceId/nodes/:nodeId/inventory`. Fetches the warehouse (for storage place name) and `storagePlacesGetNodes` (for node name). Passes all three IDs to `ItemsBasePage`. Requires `warehouses.view` or `warehouses.view_assigned`.
+
+### `ItemsBasePage`
+Reusable inventory table component (`components/inventory/ItemsBasePage.tsx`). Accepts `warehouseId?`, `storagePlaceId?`, `nodeId?` as scope constraints.
+
+- **Warehouse filter Select** — shown only when `warehouseId` prop is not provided; fetches all warehouses (`pageSize: 200`); URL-synced via `?warehouse=`
+- **Type filter** — `catalogItemType` Select using `CATALOG_ITEM_TYPE_CONFIG`; URL-synced via `?type=`
+- **Archive filter** — ToggleButtonGroup (Активные / Архивные) for `isArchived`; URL-synced via `?archived=`
+- **Search** — debounced via `useDebouncedSyncedWithQueryState("search")`
+- **Table columns:** Тип (`CatalogItemTypeChip`), Название (fullName + archive icon + `OpenInNew` button), Артикул, Количество
+- **Catalog item link** — clicking the `OpenInNew` button (`e.stopPropagation()`) calls `openCatalogDrawer(row.catalogItemId)` → opens `CatalogItemDrawer`
+- **Row click** — type `unit` → opens `UnitItemsDrawer`; type `assembledBundle` → opens `AssembledBundleItemsDrawer`; other types → no action
+- All drawer state via `useDrawerSearchParamsState`: `"catalogItem"`, `"unitCatalogItem"`, `"bundleCatalogItem"`
+
+### `UnitItemsDrawer`
+Bottom MUI Drawer (`components/inventory/UnitItemsDrawer.tsx`). Opens when `?unitCatalogItem=` param is set (managed by `ItemsBasePage`). Shows a paginated, searchable list of individual `UnitInventoryItem` instances for the selected catalog item filtered to the same scope (warehouseId/storagePlaceId/nodeId). Search by SKU. Columns: Артикул, Склад, Место хранения, Ячейка.
+
+### `AssembledBundleItemsDrawer`
+Bottom MUI Drawer (`components/inventory/AssembledBundleItemsDrawer.tsx`). Opens when `?bundleCatalogItem=` param is set. Same pattern as `UnitItemsDrawer` but for `AssembledBundleInventoryItem` instances. Search by catalog item name. Columns: ID, Склад, Место хранения, Ячейка.
+
 ### `WarehouseViewPage`
 Warehouse detail page with a pan/zoom Konva canvas showing storage place rectangles. The canvas is rendered by `WarehouseCanvas` from `src/features/warehouse/`. Clicking a storage place opens `StoragePlaceDialog` (1000 px wide right drawer) with a `StoragePlaceNodeTree` from `src/features/warehouse/` on the left and `NodeDetails` on the right when a node is selected.
+
+**"Остатки" button** is a `Link` to `/warehouses/:id/inventory`.
 
 **"Этикетки" button** fetches `GET /api/warehouses/{id}/print`, then calls `openPrintPage` with all nodes as `DataMatrix` labels (value = node ID, label = full path joined by ` / `). A `CircularProgress` spinner replaces the print icon while the request is in-flight.
 
@@ -843,6 +891,7 @@ const [selectedId, openDrawer, closeDrawer] = useDrawerSearchParamsState("item")
 **Currently used in:**
 - `CatalogPage` — `?item=` param, opens `CatalogItemDrawer`
 - `WarehouseViewPage` — `?storagePlace=` param, opens `StoragePlaceDialog`
+- `ItemsBasePage` — `?catalogItem=`, `?unitCatalogItem=`, `?bundleCatalogItem=` params for the three inventory drawers
 
 **History semantics:**
 - Open: pushes a new history entry → back button closes the drawer.

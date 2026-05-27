@@ -16,6 +16,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import {Link} from "react-router";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
   storagePlacesAddNodeMutation,
@@ -34,6 +35,7 @@ import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
 import PrintIcon from "@mui/icons-material/Print";
+import Inventory2Icon from "@mui/icons-material/Inventory2";
 import ConfirmDialog from "@/components/ConfirmDialog.tsx";
 import {SortableNodeTree} from "./SortableNodeTree.tsx";
 
@@ -264,6 +266,25 @@ function StoragePlaceDialog({open, storagePlace, warehouseId, onClose}: StorageP
             {storagePlace?.name ?? ""}
           </Typography>
           <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
+            {selectedNodeId && (
+              <Button
+                size="small"
+                startIcon={<Inventory2Icon />}
+                component={Link}
+                to={`/warehouses/${warehouseId}/storage-places/${storagePlace?.id}/nodes/${selectedNodeId}/inventory`}
+              >
+                Остатки ячейки
+              </Button>
+            )}
+            <Button
+              size="small"
+              startIcon={<Inventory2Icon />}
+              component={Link}
+              to={`/warehouses/${warehouseId}/storage-places/${storagePlace?.id}/inventory`}
+              disabled={!storagePlace?.id}
+            >
+              Остатки
+            </Button>
             <Button
               size="small"
               startIcon={<PrintIcon />}
