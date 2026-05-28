@@ -89,6 +89,10 @@ public class AppMapperProfile : Profile
             .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Warehouse))
             .ForMember(x => x.AdditionalFields, opt => opt.MapFrom(_ => (IReadOnlyDictionary<string, object>?)null));
 
+        CreateMap<Receipt, AppEntity>()
+            .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Receipt))
+            .ForMember(x => x.AdditionalFields, opt => opt.MapFrom(_ => (IReadOnlyDictionary<string, object>?)null));
+
         CreateMap<Receipt, ReceiptDto>()
             .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
             .ForMember(d => d.TotalPlannedCount, opt => opt.MapFrom(s => s.Items.Sum(i => i.PlannedCount)))
