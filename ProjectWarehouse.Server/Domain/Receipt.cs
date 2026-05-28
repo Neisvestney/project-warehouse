@@ -14,6 +14,7 @@ public class Receipt : IHasIdentity
     public ReceiptReason Reason { get; set; }
     public ReceiptStatus Status { get; set; } = ReceiptStatus.Draft;
     public string? Notes { get; set; }
+    public DateOnly? PlannedDeliveryDate { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public Guid WarehouseId { get; set; }

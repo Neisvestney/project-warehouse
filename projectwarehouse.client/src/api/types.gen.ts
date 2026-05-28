@@ -191,6 +191,7 @@ export type CreateReceiptRequest = {
   reason: ReceiptReason;
   warehouseId: string;
   notes?: null | string;
+  plannedDeliveryDate?: null | string;
 };
 
 export type CreateStandardPlacementRequest = {
@@ -458,6 +459,7 @@ export type ReceiptDto = {
   reason: ReceiptReason;
   status: ReceiptStatus;
   notes?: null | string;
+  plannedDeliveryDate?: null | string;
   createdAt: string;
   warehouseId: string;
   warehouseName: string;
@@ -522,6 +524,7 @@ export type ReceiptSummaryDto = {
   totalPlannedCount: number;
   totalReceivedCount: number;
   createdAt: string;
+  plannedDeliveryDate?: null | string;
 };
 
 export type RefreshRequest = {
@@ -638,6 +641,7 @@ export type UpdateReceiptRequest = {
   name: string;
   reason: ReceiptReason;
   notes?: null | string;
+  plannedDeliveryDate?: null | string;
 };
 
 export type UpdateReceivedCountRequest = {

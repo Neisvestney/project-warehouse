@@ -45,6 +45,7 @@ interface EditInfoFormValues {
   name: string;
   reason: ReceiptReason;
   notes: string;
+  plannedDeliveryDate: string;
 }
 
 function EditInfoForm({
@@ -59,6 +60,7 @@ function EditInfoForm({
       name: receipt.name,
       reason: receipt.reason,
       notes: receipt.notes ?? "",
+      plannedDeliveryDate: receipt.plannedDeliveryDate ?? "",
     },
   });
   const {setApiError} = useRhfApiErrors(form);
@@ -77,6 +79,7 @@ function EditInfoForm({
         name: values.name,
         reason: values.reason,
         notes: values.notes || null,
+        plannedDeliveryDate: values.plannedDeliveryDate || null,
       },
     });
   });
@@ -109,6 +112,15 @@ function EditInfoForm({
               </Select>
             </Stack>
           )}
+        />
+        <FormTextField
+          control={form.control}
+          name="plannedDeliveryDate"
+          label="Планируемая дата поставки"
+          type="date"
+          disabled={mutation.isPending}
+          fullWidth
+          slotProps={{inputLabel: {shrink: true}}}
         />
         <FormTextField
           control={form.control}
@@ -357,6 +369,14 @@ function ReceiptPage() {
               <InfoRow
                 label="Создана"
                 value={new Date(receipt.createdAt).toLocaleString("ru-RU")}
+              />
+              <InfoRow
+                label="Дата поставки"
+                value={
+                  receipt.plannedDeliveryDate
+                    ? new Date(receipt.plannedDeliveryDate).toLocaleDateString("ru-RU")
+                    : "—"
+                }
               />
               <InfoRow label="Примечания" value={receipt.notes ?? "—"} />
               {isDraft && canEdit && (
