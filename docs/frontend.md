@@ -136,7 +136,7 @@ src/
 │   │   └── ChangePasswordDialog.tsx # Change own password dialog (requires current password)
 │   ├── ScannerPage/
 │   │   └── ScannerPage.tsx      # Full-screen scanner + scanned codes drawer
-│   ├── UsersPage/
+│   ├── UsersPage/               # Reused inside SettingsPage at /settings/employees
 │   │   ├── UsersPage.tsx        # Paginated, searchable, filterable user list (requires users.view)
 │   │   └── pages/
 │   │       ├── UserCreatePage/
@@ -188,8 +188,20 @@ src/
 │   │               ├── NodeDetailsDrawer.tsx      # Bottom drawer: full path header, item tables, place/update edit form
 │   │               ├── ItemsGroupsTable.tsx       # Read-only table for ItemsGroupDto[] (товар, характеристика, количество)
 │   │               └── EditItemsTable.tsx         # RHF useFieldArray edit table for PlaceItems / UpdateItems mutations
+│   ├── StoragePage/             # /storage/* — SidebarPage module (Склады + Остатки)
+│   │   ├── StoragePage.tsx      # SidebarPage wrapper for /storage/*
+│   │   └── storageConfig.tsx    # storageSections, hasStorageAccess, getStorageFirstPageUrl
+│   ├── OperationsPage/          # /operations/* — SidebarPage module (Приемки + Заказы + Перемещения + Списания)
+│   │   ├── OperationsPage.tsx   # SidebarPage wrapper for /operations/*
+│   │   ├── operationsConfig.tsx # operationsSections, hasOperationsAccess, getOperationsFirstPageUrl
+│   │   └── stubs/
+│   │       ├── OrdersFbsPage.tsx   # Stub — страница в разработке
+│   │       ├── OrdersFboPage.tsx   # Stub — страница в разработке
+│   │       ├── TransfersPage.tsx   # Stub — страница в разработке
+│   │       └── WriteoffsPage.tsx   # Stub — страница в разработке
 │   └── SettingsPage/
 │       ├── SettingsPage.tsx     # Sections declaration only — drives routes + sidebar nav for /settings/*
+│       ├── settingsConfig.tsx   # settingsSections (Роли + Сотрудники), hasSettingsAccess, getSettingsFirstPageUrl
 │       └── pages/
 │           └── RolesSettingsPage/
 │               ├── RolesSettingsPage.tsx   # Role-permission matrix table (observer, data fetching, QueryError on initial load, header buttons)
@@ -240,33 +252,42 @@ src/
 `BrowserRouter` in `main.tsx`. Pages are lazy-loaded via `React.lazy` + `Suspense`. Access control is handled by `ProtectedRoute` / `ProtectedRoutes` components; unauthenticated users are redirected to `/login`.
 
 ```
-/login                  → LoginPage               (public)
-/scanner                → ScannerPage             (authenticated, no layout wrapper)
-/print                  → PrintPage               (authenticated, no layout wrapper)
-/                       → MainLayout > HomePage       (authenticated)
-/profile                → MainLayout > MyProfilePage  (authenticated)
-/users                  → MainLayout > UsersPage         (users.view)
-/users/new              → MainLayout > UserCreatePage    (users.create)
-/users/:id              → MainLayout > UserViewPage      (users.view)
-/users/:id/edit         → MainLayout > UserEditPage      (users.edit_profile)
-/catalog                → MainLayout > CatalogPage        (catalog.view | inbound_orders.process)
-/inventory              → MainLayout > InventoryPage      (warehouses.view | warehouses.view_assigned)
-/warehouses                                                         → MainLayout > WarehousesPage                  (warehouses.view | warehouses.view_assigned)
-/warehouses/:id                                                     → MainLayout > WarehouseViewPage               (warehouses.view | warehouses.view_assigned)
-/warehouses/:id/inventory                                           → MainLayout > WarehouseInventoryPage          (warehouses.view | warehouses.view_assigned)
-/warehouses/:id/items                                               → MainLayout > WarehouseItemsPage              (warehouses.view | warehouses.view_assigned)
-/warehouses/:warehouseId/storage-places/:storagePlaceId/inventory  → MainLayout > StoragePlaceInventoryPage       (warehouses.view | warehouses.view_assigned)
-/warehouses/:warehouseId/storage-places/:storagePlaceId/nodes/:nodeId/inventory → MainLayout > NodeInventoryPage (warehouses.view | warehouses.view_assigned)
-/warehouses/new         → MainLayout > WarehouseNewPage   (warehouses.edit)
-/warehouses/:id/edit    → MainLayout > WarehouseEditPage  (warehouses.edit | warehouses.edit_assigned)
-/inbound-orders         → MainLayout > InboundOrdersPage  (inbound_orders.view | inbound_orders.view_assigned_warehouses)
-/inbound-orders/new     → MainLayout > InboundOrderCreatePage  (inbound_orders.edit | inbound_orders.edit_assigned_warehouses)
-/inbound-orders/:id     → MainLayout > InboundOrderPage   (inbound_orders.view | inbound_orders.view_assigned_warehouses)
-/inbound-order-processing        → MainLayout > InboundOrderProcessingPage       (inbound_orders.process)
-/inbound-order-processing/:id   → MainLayout > InboundOrderProcessingOrderPage  (inbound_orders.process)
-/settings/*             → MainLayout > SettingsPage      (authenticated)
-/settings               →   redirect to /settings/roles
-/settings/roles         →   RolesSettingsPage            (roles.view)
+/login                    → LoginPage                (public)
+/scanner                  → ScannerPage              (authenticated, no layout wrapper)
+/print                    → PrintPage                (authenticated, no layout wrapper)
+/                         → MainLayout > HomePage        (authenticated)
+/profile                  → MainLayout > MyProfilePage   (authenticated)
+/catalog                  → MainLayout > CatalogPage     (catalog.view)
+
+/storage/*                → MainLayout > StoragePage     (SidebarPage)
+/storage                  →   redirect to /storage/warehouses
+/storage/warehouses                                                              →   WarehousesPage                  (authenticated)
+/storage/warehouses/new                                                          →   WarehouseNewPage                (warehouses.edit)
+/storage/warehouses/:id                                                          →   WarehouseViewPage               (authenticated)
+/storage/warehouses/:id/edit                                                     →   WarehouseEditPage               (warehouses.edit | warehouses.edit_assigned)
+/storage/warehouses/:id/inventory                                                →   WarehouseInventoryPage          (authenticated)
+/storage/warehouses/:warehouseId/storage-places/:storagePlaceId/inventory        →   StoragePlaceInventoryPage       (authenticated)
+/storage/warehouses/:warehouseId/storage-places/:storagePlaceId/nodes/:nodeId/inventory → NodeInventoryPage         (authenticated)
+/storage/inventory        →   InventoryPage                   (authenticated)
+
+/operations/*             → MainLayout > OperationsPage  (SidebarPage)
+/operations               →   redirect to /operations/receipts
+/operations/receipts      →   ReceiptsPage                    (authenticated)
+/operations/receipts/new  →   ReceiptCreatePage               (receipts.edit | receipts.edit_assigned)
+/operations/receipts/:id  →   ReceiptPage                     (authenticated)
+/operations/orders        →   redirect to /operations/orders/fbs
+/operations/orders/fbs    →   OrdersFbsPage                   (stub)
+/operations/orders/fbo    →   OrdersFboPage                   (stub)
+/operations/transfers     →   TransfersPage                   (stub)
+/operations/writeoffs     →   WriteoffsPage                   (stub)
+
+/settings/*               → MainLayout > SettingsPage    (SidebarPage)
+/settings                 →   redirect to first accessible section
+/settings/roles           →   RolesSettingsPage               (roles.view)
+/settings/employees                                            →   UsersPage                       (users.view)
+/settings/employees/new                                        →   UserCreatePage                  (users.create)
+/settings/employees/:id                                        →   UserViewPage                    (users.view)
+/settings/employees/:id/edit                                   →   UserEditPage                    (users.edit_profile)
 ```
 
 ## Pages
@@ -586,7 +607,9 @@ Orchestrates the full camera scan loop:
 Scan interval is configurable (4–25 FPS equivalent).
 
 ### `MainAppBar`
-Top navigation bar. Logo/title + mobile hamburger menu with permission-filtered links. Each entry in the `pages` array supports `requiredPermission` (must match a user permission), `showIf` (arbitrary boolean predicate), and `url` — which can be a plain string **or** a `(permissions: PermissionName[]) => string` factory (used by "Настройки" to link directly to the first accessible settings page via `getSettingsFirstPageUrl`). If the `/me` profile query fails, an inline red error message is shown in the user avatar dropdown via `profileIsLoadError`/`profileLoadError` from `AuthContext`.
+Top navigation bar. Logo/title + mobile hamburger menu with permission-filtered links. Nav entries: **Склад** (`/storage/*`, requires warehouses.view or warehouses.view_assigned), **Каталог** (`/catalog`, requires catalog.view), **Операции** (`/operations/*`, always visible), **Настройки** (`/settings/*`, requires at least one settings permission).
+
+Each entry in the `pages` array supports `requiredPermission` (must match a user permission), `showIf` (arbitrary boolean predicate over permissions), and `url` — which can be a plain string **or** a `(permissions: PermissionName[]) => string` factory (used by sidebar modules to link directly to the first accessible section via `getStorageFirstPageUrl`, `getOperationsFirstPageUrl`, `getSettingsFirstPageUrl`). If the `/me` profile query fails, an inline red error message is shown in the user avatar dropdown via `profileIsLoadError`/`profileLoadError` from `AuthContext`.
 
 ### `SidebarLayout`
 Generic visual layout for pages with a left-panel navigation. On desktop (md+) renders a MUI `List` sidebar with a right border; on mobile renders scrollable MUI `Tabs` at the top. Takes `navItems: SidebarNavItem[]` (leaves with `path`, or groups with `defaultPath` + `children` + optional `icon`) and `children` (the content area). Active item detection uses `matchPath({ end: false })` so sub-routes highlight the parent item.
