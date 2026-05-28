@@ -19,6 +19,7 @@ import {
   catalogDelete,
   catalogGetAll,
   catalogGetById,
+  catalogGetForSelect,
   catalogGetTags,
   catalogUpdate,
   changelogGetAll,
@@ -28,6 +29,22 @@ import {
   inventoryItemsGetAllUnits,
   type Options,
   permissionsGetAll,
+  receiptsAddAssembledBundlePlacement,
+  receiptsAddStandardPlacement,
+  receiptsAddUnitPlacement,
+  receiptsCancel,
+  receiptsCreate,
+  receiptsDelete,
+  receiptsDeletePlacement,
+  receiptsFinish,
+  receiptsGetAll,
+  receiptsGetById,
+  receiptsPlan,
+  receiptsRevert,
+  receiptsStartProcessing,
+  receiptsSyncItems,
+  receiptsUpdate,
+  receiptsUpdateReceivedCount,
   rolesGetAll,
   rolesGetById,
   rolesSearch,
@@ -82,6 +99,9 @@ import type {
   CatalogGetByIdData,
   CatalogGetByIdError,
   CatalogGetByIdResponse,
+  CatalogGetForSelectData,
+  CatalogGetForSelectError,
+  CatalogGetForSelectResponse,
   CatalogGetTagsData,
   CatalogGetTagsError,
   CatalogGetTagsResponse,
@@ -106,6 +126,54 @@ import type {
   PermissionsGetAllData,
   PermissionsGetAllError,
   PermissionsGetAllResponse,
+  ReceiptsAddAssembledBundlePlacementData,
+  ReceiptsAddAssembledBundlePlacementError,
+  ReceiptsAddAssembledBundlePlacementResponse,
+  ReceiptsAddStandardPlacementData,
+  ReceiptsAddStandardPlacementError,
+  ReceiptsAddStandardPlacementResponse,
+  ReceiptsAddUnitPlacementData,
+  ReceiptsAddUnitPlacementError,
+  ReceiptsAddUnitPlacementResponse,
+  ReceiptsCancelData,
+  ReceiptsCancelError,
+  ReceiptsCancelResponse,
+  ReceiptsCreateData,
+  ReceiptsCreateError,
+  ReceiptsCreateResponse,
+  ReceiptsDeleteData,
+  ReceiptsDeleteError,
+  ReceiptsDeletePlacementData,
+  ReceiptsDeletePlacementError,
+  ReceiptsDeletePlacementResponse,
+  ReceiptsDeleteResponse,
+  ReceiptsFinishData,
+  ReceiptsFinishError,
+  ReceiptsFinishResponse,
+  ReceiptsGetAllData,
+  ReceiptsGetAllError,
+  ReceiptsGetAllResponse,
+  ReceiptsGetByIdData,
+  ReceiptsGetByIdError,
+  ReceiptsGetByIdResponse,
+  ReceiptsPlanData,
+  ReceiptsPlanError,
+  ReceiptsPlanResponse,
+  ReceiptsRevertData,
+  ReceiptsRevertError,
+  ReceiptsRevertResponse,
+  ReceiptsStartProcessingData,
+  ReceiptsStartProcessingError,
+  ReceiptsStartProcessingResponse,
+  ReceiptsSyncItemsData,
+  ReceiptsSyncItemsError,
+  ReceiptsSyncItemsResponse,
+  ReceiptsUpdateData,
+  ReceiptsUpdateError,
+  ReceiptsUpdateReceivedCountData,
+  ReceiptsUpdateReceivedCountError,
+  ReceiptsUpdateReceivedCountResponse,
+  ReceiptsUpdateResponse,
   RolesGetAllData,
   RolesGetAllError,
   RolesGetAllResponse,
@@ -504,6 +572,33 @@ export const catalogCreateMutation = (
   };
   return mutationOptions;
 };
+
+export const catalogGetForSelectQueryKey = (options?: Options<CatalogGetForSelectData>) =>
+  createQueryKey("catalogGetForSelect", options);
+
+/**
+ * Get a flat list of catalog items for use in select/autocomplete controls.
+ *
+ * Returns at most 50 items. Excludes product-group children. Optionally filtered by types.
+ */
+export const catalogGetForSelectOptions = (options?: Options<CatalogGetForSelectData>) =>
+  queryOptions<
+    CatalogGetForSelectResponse,
+    CatalogGetForSelectError,
+    CatalogGetForSelectResponse,
+    ReturnType<typeof catalogGetForSelectQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await catalogGetForSelect({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: catalogGetForSelectQueryKey(options),
+  });
 
 /**
  * Delete a catalog item.
@@ -946,6 +1041,449 @@ export const permissionsGetAllOptions = (options?: Options<PermissionsGetAllData
     },
     queryKey: permissionsGetAllQueryKey(options),
   });
+
+export const receiptsGetAllQueryKey = (options?: Options<ReceiptsGetAllData>) =>
+  createQueryKey("receiptsGetAll", options);
+
+/**
+ * List receipts with pagination, filtering, and search.
+ */
+export const receiptsGetAllOptions = (options?: Options<ReceiptsGetAllData>) =>
+  queryOptions<
+    ReceiptsGetAllResponse,
+    ReceiptsGetAllError,
+    ReceiptsGetAllResponse,
+    ReturnType<typeof receiptsGetAllQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await receiptsGetAll({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: receiptsGetAllQueryKey(options),
+  });
+
+export const receiptsGetAllInfiniteQueryKey = (
+  options?: Options<ReceiptsGetAllData>,
+): QueryKey<Options<ReceiptsGetAllData>> => createQueryKey("receiptsGetAll", options, true);
+
+/**
+ * List receipts with pagination, filtering, and search.
+ */
+export const receiptsGetAllInfiniteOptions = (options?: Options<ReceiptsGetAllData>) =>
+  infiniteQueryOptions<
+    ReceiptsGetAllResponse,
+    ReceiptsGetAllError,
+    InfiniteData<ReceiptsGetAllResponse>,
+    QueryKey<Options<ReceiptsGetAllData>>,
+    number | Pick<QueryKey<Options<ReceiptsGetAllData>>[0], "body" | "headers" | "path" | "query">
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({pageParam, queryKey, signal}) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<ReceiptsGetAllData>>[0],
+          "body" | "headers" | "path" | "query"
+        > =
+          typeof pageParam === "object"
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const {data} = await receiptsGetAll({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: receiptsGetAllInfiniteQueryKey(options),
+    },
+  );
+
+/**
+ * Create a new receipt in Draft status.
+ */
+export const receiptsCreateMutation = (
+  options?: Partial<Options<ReceiptsCreateData>>,
+): UseMutationOptions<ReceiptsCreateResponse, ReceiptsCreateError, Options<ReceiptsCreateData>> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsCreateResponse,
+    ReceiptsCreateError,
+    Options<ReceiptsCreateData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsCreate({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Delete a receipt. Only allowed in Draft status.
+ */
+export const receiptsDeleteMutation = (
+  options?: Partial<Options<ReceiptsDeleteData>>,
+): UseMutationOptions<ReceiptsDeleteResponse, ReceiptsDeleteError, Options<ReceiptsDeleteData>> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsDeleteResponse,
+    ReceiptsDeleteError,
+    Options<ReceiptsDeleteData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsDelete({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const receiptsGetByIdQueryKey = (options: Options<ReceiptsGetByIdData>) =>
+  createQueryKey("receiptsGetById", options);
+
+/**
+ * Get full receipt details including items and placements.
+ */
+export const receiptsGetByIdOptions = (options: Options<ReceiptsGetByIdData>) =>
+  queryOptions<
+    ReceiptsGetByIdResponse,
+    ReceiptsGetByIdError,
+    ReceiptsGetByIdResponse,
+    ReturnType<typeof receiptsGetByIdQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await receiptsGetById({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: receiptsGetByIdQueryKey(options),
+  });
+
+/**
+ * Update receipt name, reason, notes. Only allowed in Draft status.
+ */
+export const receiptsUpdateMutation = (
+  options?: Partial<Options<ReceiptsUpdateData>>,
+): UseMutationOptions<ReceiptsUpdateResponse, ReceiptsUpdateError, Options<ReceiptsUpdateData>> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsUpdateResponse,
+    ReceiptsUpdateError,
+    Options<ReceiptsUpdateData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsUpdate({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Replace the full list of expected items. Allowed in Draft and Planned statuses.
+ */
+export const receiptsSyncItemsMutation = (
+  options?: Partial<Options<ReceiptsSyncItemsData>>,
+): UseMutationOptions<
+  ReceiptsSyncItemsResponse,
+  ReceiptsSyncItemsError,
+  Options<ReceiptsSyncItemsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsSyncItemsResponse,
+    ReceiptsSyncItemsError,
+    Options<ReceiptsSyncItemsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsSyncItems({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Update the actually received count for a specific item. Only in Processing status.
+ */
+export const receiptsUpdateReceivedCountMutation = (
+  options?: Partial<Options<ReceiptsUpdateReceivedCountData>>,
+): UseMutationOptions<
+  ReceiptsUpdateReceivedCountResponse,
+  ReceiptsUpdateReceivedCountError,
+  Options<ReceiptsUpdateReceivedCountData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsUpdateReceivedCountResponse,
+    ReceiptsUpdateReceivedCountError,
+    Options<ReceiptsUpdateReceivedCountData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsUpdateReceivedCount({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Place Standard (count-based) items at a storage node. Only in Processing status.
+ */
+export const receiptsAddStandardPlacementMutation = (
+  options?: Partial<Options<ReceiptsAddStandardPlacementData>>,
+): UseMutationOptions<
+  ReceiptsAddStandardPlacementResponse,
+  ReceiptsAddStandardPlacementError,
+  Options<ReceiptsAddStandardPlacementData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsAddStandardPlacementResponse,
+    ReceiptsAddStandardPlacementError,
+    Options<ReceiptsAddStandardPlacementData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsAddStandardPlacement({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Place a Unit (serialised) item at a storage node. Only in Processing status.
+ */
+export const receiptsAddUnitPlacementMutation = (
+  options?: Partial<Options<ReceiptsAddUnitPlacementData>>,
+): UseMutationOptions<
+  ReceiptsAddUnitPlacementResponse,
+  ReceiptsAddUnitPlacementError,
+  Options<ReceiptsAddUnitPlacementData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsAddUnitPlacementResponse,
+    ReceiptsAddUnitPlacementError,
+    Options<ReceiptsAddUnitPlacementData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsAddUnitPlacement({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Place an AssembledBundle item at a storage node. Only in Processing status.
+ */
+export const receiptsAddAssembledBundlePlacementMutation = (
+  options?: Partial<Options<ReceiptsAddAssembledBundlePlacementData>>,
+): UseMutationOptions<
+  ReceiptsAddAssembledBundlePlacementResponse,
+  ReceiptsAddAssembledBundlePlacementError,
+  Options<ReceiptsAddAssembledBundlePlacementData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsAddAssembledBundlePlacementResponse,
+    ReceiptsAddAssembledBundlePlacementError,
+    Options<ReceiptsAddAssembledBundlePlacementData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsAddAssembledBundlePlacement({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Remove a placement, reversing the inventory change. Only in Processing status.
+ */
+export const receiptsDeletePlacementMutation = (
+  options?: Partial<Options<ReceiptsDeletePlacementData>>,
+): UseMutationOptions<
+  ReceiptsDeletePlacementResponse,
+  ReceiptsDeletePlacementError,
+  Options<ReceiptsDeletePlacementData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsDeletePlacementResponse,
+    ReceiptsDeletePlacementError,
+    Options<ReceiptsDeletePlacementData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsDeletePlacement({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Transition: Draft → Planned.
+ */
+export const receiptsPlanMutation = (
+  options?: Partial<Options<ReceiptsPlanData>>,
+): UseMutationOptions<ReceiptsPlanResponse, ReceiptsPlanError, Options<ReceiptsPlanData>> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsPlanResponse,
+    ReceiptsPlanError,
+    Options<ReceiptsPlanData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsPlan({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Transition: Planned → Processing.
+ */
+export const receiptsStartProcessingMutation = (
+  options?: Partial<Options<ReceiptsStartProcessingData>>,
+): UseMutationOptions<
+  ReceiptsStartProcessingResponse,
+  ReceiptsStartProcessingError,
+  Options<ReceiptsStartProcessingData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsStartProcessingResponse,
+    ReceiptsStartProcessingError,
+    Options<ReceiptsStartProcessingData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsStartProcessing({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Transition: Processing → Finished.
+ */
+export const receiptsFinishMutation = (
+  options?: Partial<Options<ReceiptsFinishData>>,
+): UseMutationOptions<ReceiptsFinishResponse, ReceiptsFinishError, Options<ReceiptsFinishData>> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsFinishResponse,
+    ReceiptsFinishError,
+    Options<ReceiptsFinishData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsFinish({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Revert one step back (Planned → Draft, Processing → Planned if no placements).
+ */
+export const receiptsRevertMutation = (
+  options?: Partial<Options<ReceiptsRevertData>>,
+): UseMutationOptions<ReceiptsRevertResponse, ReceiptsRevertError, Options<ReceiptsRevertData>> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsRevertResponse,
+    ReceiptsRevertError,
+    Options<ReceiptsRevertData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsRevert({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Cancel the receipt. Allowed from Draft, Planned, and Processing (if no placements).
+ */
+export const receiptsCancelMutation = (
+  options?: Partial<Options<ReceiptsCancelData>>,
+): UseMutationOptions<ReceiptsCancelResponse, ReceiptsCancelError, Options<ReceiptsCancelData>> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsCancelResponse,
+    ReceiptsCancelError,
+    Options<ReceiptsCancelData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsCancel({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 export const rolesGetAllQueryKey = (options?: Options<RolesGetAllData>) =>
   createQueryKey("rolesGetAll", options);

@@ -128,19 +128,10 @@ public class WarehousesController(
         var nodeById = nodes.ToDictionary(n => n.Id);
 
         var result = nodes
-            .Select(n =>
+            .Select(n => new StoragePlaceNodePrintDto
             {
-                var parts = new List<string> { n.Name };
-                var parentId = n.ParentNodeId;
-                while (parentId.HasValue)
-                {
-                    var parent = nodeById[parentId.Value];
-                    parts.Add(parent.Name);
-                    parentId = parent.ParentNodeId;
-                }
-                parts.Add(n.RootStoragePlace.Name);
-                parts.Reverse();
-                return new StoragePlaceNodePrintDto { Id = n.Id, Name = parts.ToArray() };
+                Id   = n.Id,
+                Name = StoragePlaceNodeHelper.BuildPath(n, nodeById),
             })
             .OrderBy(n => string.Join(" / ", n.Name))
             .ToList();

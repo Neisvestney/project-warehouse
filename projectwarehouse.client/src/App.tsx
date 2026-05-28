@@ -56,6 +56,13 @@ const StoragePlaceInventoryPage = React.lazy(
 const NodeInventoryPage = React.lazy(
   () => import("@/pages/WarehousesPage/pages/NodeInventoryPage/NodeInventoryPage.tsx"),
 );
+const ReceiptsPage = React.lazy(() => import("@/pages/ReceiptsPage/ReceiptsPage.tsx"));
+const ReceiptCreatePage = React.lazy(
+  () => import("@/pages/ReceiptsPage/pages/ReceiptCreatePage/ReceiptCreatePage.tsx"),
+);
+const ReceiptPage = React.lazy(
+  () => import("@/pages/ReceiptsPage/pages/ReceiptPage/ReceiptPage.tsx"),
+);
 
 function App() {
   const location = useLocation();
@@ -168,6 +175,29 @@ function App() {
                       path="/warehouses/:id/edit"
                       element={<WarehouseEditPage />}
                       requiredPermission={["warehouses.edit", "warehouses.edit_assigned"]}
+                    />
+                    <ProtectedRoute
+                      path="/receipts"
+                      element={<ReceiptsPage />}
+                      requiredPermission={[
+                        "receipts.view",
+                        "receipts.view_assigned",
+                        "receipts.process_assigned",
+                      ]}
+                    />
+                    <ProtectedRoute
+                      path="/receipts/new"
+                      element={<ReceiptCreatePage />}
+                      requiredPermission={["receipts.edit", "receipts.edit_assigned"]}
+                    />
+                    <ProtectedRoute
+                      path="/receipts/:id"
+                      element={<ReceiptPage />}
+                      requiredPermission={[
+                        "receipts.view",
+                        "receipts.view_assigned",
+                        "receipts.process_assigned",
+                      ]}
                     />
                     <ProtectedRoute path="/settings/*" element={<SettingsPage />} />
                     <Route path="*" element={<PageNotFound />} />

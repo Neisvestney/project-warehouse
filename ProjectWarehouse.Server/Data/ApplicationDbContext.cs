@@ -41,6 +41,10 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<StoragePlaceNode> StoragePlacesNodes => Set<StoragePlaceNode>();
     public DbSet<StoragePlaceNodeItemsGroup> StoragePlacesNodesItemsGroups => Set<StoragePlaceNodeItemsGroup>();
 
+    public DbSet<Receipt> Receipts => Set<Receipt>();
+    public DbSet<ReceiptItem> ReceiptItems => Set<ReceiptItem>();
+    public DbSet<ReceiptItemPlacement> ReceiptItemPlacements => Set<ReceiptItemPlacement>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -181,6 +185,14 @@ public class ApplicationDbContext : IdentityDbContext<
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
+        // Partial unique index: inventory number must be unique per catalog item among Unit items only.
+        builder.Entity<UnitInventoryItem>(e =>
+        {
+            e.HasIndex(x => new { x.CatalogItemId, x.InventoryNumber })
+                .IsUnique()
+                .HasFilter("\"Type\" = 'Unit'");
+        });
+
         builder.Entity<AssembledBundleInventoryItemComponent>(e =>
         {
             e.HasKey(x => x.Id);
@@ -220,6 +232,63 @@ public class ApplicationDbContext : IdentityDbContext<
         {
             e.HasKey(x => x.Id);
             e.HasOne(x => x.ParentNode).WithMany(x => x.ChildrenNodes).HasForeignKey(x => x.ParentNodeId);
+        });
+
+        builder.Entity<Receipt>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Number).ValueGeneratedOnAdd();
+            e.HasIndex(x => x.Number).IsUnique();
+
+            e.HasOne(x => x.Warehouse)
+                .WithMany()
+                .HasForeignKey(x => x.WarehouseId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.CreatedBy)
+                .WithMany()
+                .HasForeignKey(x => x.CreatedById)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<ReceiptItem>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.Receipt)
+                .WithMany(x => x.Items)
+                .HasForeignKey(x => x.ReceiptId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.CatalogItem)
+                .WithMany()
+                .HasForeignKey(x => x.CatalogItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<ReceiptItemPlacement>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.ReceiptItem)
+                .WithMany(x => x.Placements)
+                .HasForeignKey(x => x.ReceiptItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.StoragePlaceNode)
+                .WithMany()
+                .HasForeignKey(x => x.StoragePlaceNodeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.UnitInventoryItem)
+                .WithMany()
+                .HasForeignKey(x => x.UnitInventoryItemId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.AssembledBundleInventoryItem)
+                .WithMany()
+                .HasForeignKey(x => x.AssembledBundleInventoryItemId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

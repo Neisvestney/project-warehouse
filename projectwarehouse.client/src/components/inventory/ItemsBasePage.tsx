@@ -1,5 +1,4 @@
 import {
-  Button,
   FormControl,
   IconButton,
   InputLabel,
@@ -261,23 +260,31 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
                         <CatalogItemTypeChip type={row.catalogItem.type} />
                       </TableCell>
                       <TableCell>
-                        <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          sx={{
+                            alignItems: "center",
+                            cursor: "pointer",
+                            width: "fit-content",
+                            "& .open-icon": {visibility: "hidden"},
+                            "&:hover .open-icon": {visibility: "visible"},
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openCatalogDrawer(row.catalogItemId);
+                          }}
+                        >
                           <Typography variant="body2">{row.catalogItem.fullName}</Typography>
                           {row.catalogItem.isArchived && (
                             <ArchiveIcon
                               sx={{fontSize: 14, color: "warning.main", flexShrink: 0}}
                             />
                           )}
-                          <Button
-                            size="small"
-                            sx={{minWidth: 0, p: 0.25, ml: 0.5}}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openCatalogDrawer(row.catalogItemId);
-                            }}
-                          >
-                            <OpenInNewIcon fontSize="small" />
-                          </Button>
+                          <OpenInNewIcon
+                            className="open-icon"
+                            sx={{fontSize: 14, color: "text.secondary"}}
+                          />
                         </Stack>
                       </TableCell>
                       <TableCell>{row.catalogItem.article}</TableCell>

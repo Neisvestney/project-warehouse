@@ -1,21 +1,19 @@
 import React, {useEffect, useMemo, useRef, useState} from "react";
 import type {AutocompleteProps, TextFieldProps} from "@mui/material";
-import {Autocomplete, Chip, TextField} from "@mui/material";
+import {Autocomplete, Box, Chip, TextField, Typography} from "@mui/material";
 import {useQuery} from "@tanstack/react-query";
-import {catalogGetAllOptions, catalogGetByIdOptions} from "@/api/@tanstack/react-query.gen";
-import type {CatalogItemDto, CatalogItemSummaryDto, CatalogItemType} from "@/api/types.gen";
+import {catalogGetByIdOptions, catalogGetForSelectOptions} from "@/api/@tanstack/react-query.gen";
+import type {CatalogItemDto, CatalogItemSelectDto, CatalogItemType} from "@/api/types.gen";
 import {useDebounce} from "@/hooks/useDebounce";
+import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 
-function toSummary(dto: CatalogItemDto): CatalogItemSummaryDto {
+function toSelectDto(dto: CatalogItemDto): CatalogItemSelectDto {
   return {
     id: dto.id,
     type: dto.type,
     name: dto.name,
     fullName: dto.fullName,
     article: dto.article,
-    barcode: dto.barcode,
-    isArchived: dto.isArchived,
-    tags: dto.tags,
   };
 }
 
@@ -37,24 +35,24 @@ type OmitControlled<T> = Omit<
 >;
 
 interface CatalogItemsSelectMultiProps extends OmitControlled<
-  AutocompleteProps<CatalogItemSummaryDto, true, false, false>
+  AutocompleteProps<CatalogItemSelectDto, true, false, false>
 > {
   label?: string;
   multiple: true;
-  value: CatalogItemSummaryDto[];
-  onChange: (value: CatalogItemSummaryDto[]) => void;
+  value: CatalogItemSelectDto[];
+  onChange: (value: CatalogItemSelectDto[]) => void;
   types?: CatalogItemType[];
 }
 
 interface CatalogItemsSelectSingleProps extends OmitControlled<
-  AutocompleteProps<CatalogItemSummaryDto, false, false, false>
+  AutocompleteProps<CatalogItemSelectDto, false, false, false>
 > {
   label?: string;
   multiple?: false;
   value: string | null;
   onChange: (id: string | null) => void;
   /** Called when the DTO for the current value is resolved — on initial load and on every change. */
-  onDtoChange?: (dto: CatalogItemSummaryDto | null) => void;
+  onDtoChange?: (dto: CatalogItemSelectDto | null) => void;
   textFieldProps?: Partial<TextFieldProps>;
   types?: CatalogItemType[];
 }
@@ -70,12 +68,18 @@ function CatalogItemsSelect(props: CatalogItemsSelectProps): React.ReactElement 
   return <SingleSelect {...(props as CatalogItemsSelectSingleProps)} />;
 }
 
-function filterByTypes(
-  items: CatalogItemSummaryDto[],
-  types?: CatalogItemType[],
-): CatalogItemSummaryDto[] {
-  if (!types || types.length === 0) return items;
-  return items.filter((item) => types.includes(item.type));
+function OptionContent({item}: {item: CatalogItemSelectDto}) {
+  return (
+    <Box sx={{display: "flex", alignItems: "center", gap: 1, width: "100%", minWidth: 0}}>
+      <CatalogItemTypeChip type={item.type} />
+      <Typography variant="body2" noWrap sx={{flex: 1}}>
+        {item.fullName}
+      </Typography>
+      <Typography variant="caption" color="text.secondary" sx={{flexShrink: 0}}>
+        {item.article}
+      </Typography>
+    </Box>
+  );
 }
 
 function MultiSelect({
@@ -89,14 +93,16 @@ function MultiSelect({
   const debouncedInput = useDebounce(inputValue, 300);
 
   const searchQuery = useQuery(
-    catalogGetAllOptions({query: {searchString: debouncedInput || undefined}}),
+    catalogGetForSelectOptions({
+      query: {searchString: debouncedInput || undefined, types: types},
+    }),
   );
 
   const options = useMemo(() => {
-    const results = filterByTypes(searchQuery.data?.items ?? [], types);
+    const results = searchQuery.data ?? [];
     const seen = new Set(results.map((item) => item.id));
     return [...results, ...value.filter((item) => !seen.has(item.id))];
-  }, [searchQuery.data, value, types]);
+  }, [searchQuery.data, value]);
 
   return (
     <Autocomplete
@@ -113,6 +119,11 @@ function MultiSelect({
       filterOptions={(x) => x}
       loading={searchQuery.isLoading}
       renderInput={(params) => <TextField {...params} label={label} />}
+      renderOption={(props, option) => (
+        <li {...props} key={option.id}>
+          <OptionContent item={option} />
+        </li>
+      )}
       renderValue={(tagValue, getItemProps) =>
         tagValue.map((option, index) => (
           <Chip label={option.fullName} {...getItemProps({index})} key={option.id} size="small" />
@@ -135,7 +146,9 @@ function SingleSelect({
   const debouncedInput = useDebounce(inputValue, 300);
 
   const searchQuery = useQuery(
-    catalogGetAllOptions({query: {searchString: debouncedInput || undefined}}),
+    catalogGetForSelectOptions({
+      query: {searchString: debouncedInput || undefined, types: types},
+    }),
   );
 
   const getByIdQuery = useQuery({
@@ -149,8 +162,8 @@ function SingleSelect({
     onDtoChangeRef.current = onDtoChange;
   });
 
-  const fetchedSummary = useMemo(
-    () => (getByIdQuery.data ? toSummary(getByIdQuery.data) : undefined),
+  const fetchedSelectDto = useMemo(
+    () => (getByIdQuery.data ? toSelectDto(getByIdQuery.data) : undefined),
     [getByIdQuery.data],
   );
 
@@ -159,23 +172,23 @@ function SingleSelect({
       onDtoChangeRef.current?.(null);
       return;
     }
-    if (fetchedSummary) {
-      onDtoChangeRef.current?.(fetchedSummary);
+    if (fetchedSelectDto) {
+      onDtoChangeRef.current?.(fetchedSelectDto);
     }
-  }, [value, fetchedSummary]);
+  }, [value, fetchedSelectDto]);
 
   const options = useMemo(() => {
-    const results = filterByTypes(searchQuery.data?.items ?? [], types);
+    const results = searchQuery.data ?? [];
     const seen = new Set(results.map((item) => item.id));
-    const extra = fetchedSummary && !seen.has(fetchedSummary.id) ? [fetchedSummary] : [];
+    const extra = fetchedSelectDto && !seen.has(fetchedSelectDto.id) ? [fetchedSelectDto] : [];
     return [...results, ...extra];
-  }, [searchQuery.data, fetchedSummary, types]);
+  }, [searchQuery.data, fetchedSelectDto]);
 
   return (
     <Autocomplete
       {...autocompleteProps}
       options={options}
-      value={fetchedSummary ?? null}
+      value={fetchedSelectDto ?? null}
       onChange={(_, dto) => {
         onChange(dto?.id ?? null);
         onDtoChangeRef.current?.(dto);
@@ -187,6 +200,11 @@ function SingleSelect({
       filterOptions={(x) => x}
       loading={searchQuery.isLoading || getByIdQuery.isLoading}
       renderInput={(params) => <TextField {...params} label={label} {...textFieldProps} />}
+      renderOption={(props, option) => (
+        <li {...props} key={option.id}>
+          <OptionContent item={option} />
+        </li>
+      )}
     />
   );
 }

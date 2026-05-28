@@ -126,7 +126,7 @@ public class InventoryItemsController(
         [FromQuery] Guid? storagePlaceId = null,
         [FromQuery] Guid? nodeId = null,
         [FromQuery] Guid? catalogItemId = null,
-        [FromQuery] UnitInventoryItemSortBy sortBy = UnitInventoryItemSortBy.Sku,
+        [FromQuery] UnitInventoryItemSortBy sortBy = UnitInventoryItemSortBy.InventoryNumber,
         [FromQuery] SortOrder sortOrder = SortOrder.Asc,
         CancellationToken ct = default)
     {
@@ -150,14 +150,14 @@ public class InventoryItemsController(
             .Where(u => nodeId == null || u.StoragePlaceNodeId == nodeId)
             .Where(u => catalogItemId == null || u.CatalogItemId == catalogItemId)
             .Where(u => assignedIds == null || assignedIds.Contains(u.StoragePlaceNode.RootStoragePlace.WarehouseId))
-            .WhereMatchesSearch(u => u.Sku, searchString);
+            .WhereMatchesSearch(u => u.InventoryNumber, searchString);
 
         var query = sortBy switch
         {
             UnitInventoryItemSortBy.WarehouseName    => unitBaseQuery.Sort(u => u.StoragePlaceNode.RootStoragePlace.Warehouse.Name, sortOrder).ThenBy(u => u.Id),
             UnitInventoryItemSortBy.StoragePlaceName => unitBaseQuery.Sort(u => u.StoragePlaceNode.RootStoragePlace.Name, sortOrder).ThenBy(u => u.Id),
             UnitInventoryItemSortBy.NodeName         => unitBaseQuery.Sort(u => u.StoragePlaceNode.Name, sortOrder).ThenBy(u => u.Id),
-            _                                        => unitBaseQuery.Sort(u => u.Sku, sortOrder).ThenBy(u => u.Id),
+            _                                        => unitBaseQuery.Sort(u => u.InventoryNumber, sortOrder).ThenBy(u => u.Id),
         };
 
         var paginated = await query

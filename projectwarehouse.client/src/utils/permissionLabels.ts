@@ -17,6 +17,11 @@ const permissionLabels: Record<PermissionName, string> = {
   "warehouses.view_assigned": "Просмотр назначенных складов",
   "warehouses.edit_assigned": "Редактирование назначенных складов",
   "changelog.view": "Просмотр списка изменений",
+  "receipts.view": "Просмотр всех приемок",
+  "receipts.edit": "Редактирование всех приемок",
+  "receipts.view_assigned": "Просмотр приемок назначенных складов",
+  "receipts.edit_assigned": "Редактирование приемок назначенных складов",
+  "receipts.process_assigned": "Обработка приемок назначенных складов",
 };
 
 export function getPermissionLabel(permission: PermissionName | string): string {

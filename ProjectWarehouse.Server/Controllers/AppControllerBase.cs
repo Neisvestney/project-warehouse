@@ -42,6 +42,17 @@ public abstract class AppControllerBase : ControllerBase
     protected ObjectResult UnprocessableEntity(string field, ErrorCode code, string message) =>
         Problem(AppProblems.UnprocessableEntity(field, code, message));
 
+    /// <summary>Converts a <see cref="ValidationException"/> into a 422 response using its own field path.</summary>
+    protected ObjectResult UnprocessableEntity(ValidationException ex) =>
+        UnprocessableEntity(ex.Field, ex.ErrorCode, ex.Message);
+
+    /// <summary>
+    /// Converts a <see cref="ValidationException"/> into a 422 response, prepending <paramref name="fieldPrefix"/>
+    /// to the exception's field path (e.g. <c>"components"</c> + <c>"inventoryNumber"</c> → <c>"components.inventoryNumber"</c>).
+    /// </summary>
+    protected ObjectResult UnprocessableEntity(ValidationException ex, string fieldPrefix) =>
+        UnprocessableEntity($"{fieldPrefix}.{ex.Field}", ex.ErrorCode, ex.Message);
+
     protected async Task<(ApplicationUser? User, IActionResult? Error)> GetCurrentUserAsync(
         UserManager<ApplicationUser> userManager)
     {

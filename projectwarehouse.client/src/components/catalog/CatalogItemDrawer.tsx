@@ -42,17 +42,20 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import type {
   CatalogItemDto,
-  CatalogItemSummaryDto,
+  CatalogItemSelectDto,
   CatalogItemTagDto,
   UpdateCatalogItemRequest,
 } from "@/api/types.gen";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import NotFound from "@/components/NotFound";
+import QueryError from "@/components/QueryError";
 import {FormTextField} from "@/components/form/FormTextField";
 import {useHasPermission} from "@/hooks/usePermission";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {useDebounce} from "@/hooks/useDebounce";
+import {isNotFoundError} from "@/utils/errorUtils";
 
 const DRAWER_WIDTH = 1000;
 
@@ -60,7 +63,7 @@ const DRAWER_WIDTH = 1000;
 
 type ComponentValue = {
   entityId?: string;
-  component: CatalogItemSummaryDto | null;
+  component: CatalogItemSelectDto | null;
   quantity: number;
 };
 
@@ -83,32 +86,29 @@ type CatalogItemFormValues = {
   notes: string;
   isArchived: boolean;
   tags: CatalogItemTagDto[];
-  members: CatalogItemSummaryDto[];
+  members: CatalogItemSelectDto[];
   components: ComponentValue[];
   children: ChildValue[];
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function toSummary(dto: CatalogItemDto): CatalogItemSummaryDto {
+function toSelectDto(dto: CatalogItemDto): CatalogItemSelectDto {
   return {
     id: dto.id,
     type: dto.type,
     name: dto.name,
     fullName: dto.fullName,
     article: dto.article,
-    barcode: dto.barcode,
-    isArchived: dto.isArchived,
-    tags: dto.tags,
   };
 }
 
-function toPartialSummary(
+function toPartialSelectDto(
   id: string,
   fullName: string,
-  type: CatalogItemSummaryDto["type"] = "standard",
-): CatalogItemSummaryDto {
-  return {id, type, name: fullName, fullName, article: "", isArchived: false, tags: []};
+  type: CatalogItemSelectDto["type"] = "standard",
+): CatalogItemSelectDto {
+  return {id, type, name: fullName, fullName, article: ""};
 }
 
 function mapFormToRequest(values: CatalogItemFormValues): UpdateCatalogItemRequest {
@@ -252,7 +252,10 @@ function ViewMode({
   canEdit: boolean;
   onOpenItem?: (id: string) => void;
 }) {
-  const {data, isLoading} = useQuery(catalogGetByIdOptions({path: {id: itemId}}));
+  const {data, isLoading, isError, isRefetchError, error} = useQuery({
+    ...catalogGetByIdOptions({path: {id: itemId}}),
+    meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
+  });
 
   const variationQueries = useQueries({
     queries: (data?.variationIds ?? []).map((id) => ({
@@ -274,6 +277,8 @@ function ViewMode({
       </Box>
     );
   }
+  if (isError && !isRefetchError)
+    return isNotFoundError(error) ? <NotFound /> : <QueryError error={error} />;
   if (!data) return null;
 
   const isStandardOrUnit = data.type === "standard" || data.type === "unit";
@@ -656,7 +661,10 @@ function ChildRow({
 function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
   const queryClient = useQueryClient();
 
-  const {data} = useQuery(catalogGetByIdOptions({path: {id: itemId}}));
+  const {data, isLoading: isItemLoading} = useQuery({
+    ...catalogGetByIdOptions({path: {id: itemId}}),
+    meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
+  });
 
   const memberQueries = useQueries({
     queries: (data?.memberIds ?? []).map((id) => ({
@@ -686,7 +694,7 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
 
   useEffect(() => {
     if (!data || !membersResolved) return;
-    const memberSummaries = memberQueries.filter((q) => q.data).map((q) => toSummary(q.data!));
+    const memberSummaries = memberQueries.filter((q) => q.data).map((q) => toSelectDto(q.data!));
     reset({
       name: data.name,
       article: data.article,
@@ -698,7 +706,7 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
       members: memberSummaries,
       components: data.components.map((c) => ({
         entityId: c.id,
-        component: toPartialSummary(c.componentId, c.componentName, c.componentType),
+        component: toPartialSelectDto(c.componentId, c.componentName, c.componentType),
         quantity: c.quantity,
       })),
       children: data.children.map((c) => ({
@@ -740,6 +748,12 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
     mutation.mutate({path: {id: itemId}, body: mapFormToRequest(values)});
   });
 
+  if (isItemLoading)
+    return (
+      <Box sx={{display: "flex", justifyContent: "center", pt: 4}}>
+        <CircularProgress />
+      </Box>
+    );
   if (!data) return null;
 
   if (data.type === "assembledBundle") {
@@ -954,6 +968,7 @@ export function CatalogItemDrawer({itemId, onClose, onOpenItem}: CatalogItemDraw
   const {data} = useQuery({
     ...catalogGetByIdOptions({path: {id: itemId!}}),
     enabled: !!itemId,
+    meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
   });
 
   const deleteMutation = useMutation({
