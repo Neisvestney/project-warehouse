@@ -192,7 +192,7 @@ function ReceiptPage() {
 
   const deleteMutation = useMutation({
     ...receiptsDeleteMutation(),
-    onSuccess: () => navigate("/receipts"),
+    onSuccess: () => navigate("/operations/receipts"),
   });
 
   if (isLoading) {
@@ -225,7 +225,10 @@ function ReceiptPage() {
   return (
     <Stack spacing={2}>
       <AppBreadcrumbs
-        path={[{name: "Приемки", link: "/receipts"}, {name: formatReceiptNumber(receipt.number)}]}
+        path={[
+          {name: "Приемки", link: "/operations/receipts"},
+          {name: formatReceiptNumber(receipt.number)},
+        ]}
       />
       <PageGenericHeader
         title={
@@ -341,7 +344,7 @@ function ReceiptPage() {
                 </Typography>
                 <Typography
                   component={RouterLink}
-                  to={`/warehouses/${receipt.warehouseId}`}
+                  to={`/storage/warehouses/${receipt.warehouseId}`}
                   sx={{
                     color: "primary.main",
                     textDecoration: "none",

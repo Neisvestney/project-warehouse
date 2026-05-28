@@ -17,7 +17,10 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import {green} from "@mui/material/colors";
 import {useQuery} from "@tanstack/react-query";
-import {storagePlacesGetNodesOptions, warehousesGetByIdOptions} from "@/api/@tanstack/react-query.gen";
+import {
+  storagePlacesGetNodesOptions,
+  warehousesGetByIdOptions,
+} from "@/api/@tanstack/react-query.gen";
 import StoragePlaceNodeTree from "@/features/warehouse/StoragePlaceNodeTree";
 import WarehouseCanvas from "@/features/warehouse/WarehouseCanvas";
 import ScannerBlock from "@/components/ScannerBlock/ScannerBlock";

@@ -67,8 +67,8 @@ function NodeInventoryPage() {
     <Stack spacing={2}>
       <AppBreadcrumbs
         path={[
-          {name: "Склады", link: "/warehouses"},
-          {name: warehouse.name, link: `/warehouses/${warehouseId}`},
+          {name: "Склады", link: "/storage/warehouses"},
+          {name: warehouse.name, link: `/storage/warehouses/${warehouseId}`},
           {name: storagePlace.name},
           {name: node?.name ?? "Ячейка"},
           {name: "Остатки"},

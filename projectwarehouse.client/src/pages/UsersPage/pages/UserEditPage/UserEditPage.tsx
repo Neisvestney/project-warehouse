@@ -90,7 +90,7 @@ function UserEditPage() {
     meta: {suppressGlobalError: true},
     onSuccess: async () => {
       await queryClient.invalidateQueries({queryKey: usersGetByIdQueryKey({path: {id: id!}})});
-      navigate(`/users/${id}`);
+      navigate(`/settings/employees/${id}`);
     },
     onError: setApiError,
   });
@@ -133,8 +133,8 @@ function UserEditPage() {
     <Stack spacing={2}>
       <AppBreadcrumbs
         path={[
-          {name: "Пользователи", link: "/users"},
-          {name: user.username, link: `/users/${id}`},
+          {name: "Сотрудники", link: "/settings/employees"},
+          {name: user.username, link: `/settings/employees/${id}`},
           {name: "Редактировать"},
         ]}
       />
@@ -244,7 +244,10 @@ function UserEditPage() {
             )}
 
             <Stack direction="row" spacing={1} sx={{justifyContent: "flex-end"}}>
-              <Button onClick={() => navigate(`/users/${id}`)} disabled={mutation.isPending}>
+              <Button
+                onClick={() => navigate(`/settings/employees/${id}`)}
+                disabled={mutation.isPending}
+              >
                 Отмена
               </Button>
               <Button type="submit" variant="contained" disabled={mutation.isPending}>

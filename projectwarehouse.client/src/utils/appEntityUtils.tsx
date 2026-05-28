@@ -20,7 +20,7 @@ type ResolvedEntity = {
 
 export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
   user: {
-    linkTemplate: "/users/{id}",
+    linkTemplate: "/settings/employees/{id}",
     typeName: "Пользователь",
     icon: <PersonIcon />,
   },
@@ -30,7 +30,7 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     icon: <AdminPanelSettingsIcon />,
   },
   warehouse: {
-    linkTemplate: "/warehouses/{id}",
+    linkTemplate: "/storage/warehouses/{id}",
     typeName: "Склад",
     icon: <WarehouseIcon />,
   },
@@ -45,7 +45,7 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     icon: <InventoryIcon />,
   },
   receipt: {
-    linkTemplate: "/receipts/{id}",
+    linkTemplate: "/operations/receipts/{id}",
     typeName: "Приемка",
     icon: <AssignmentIcon />,
   },

@@ -25,7 +25,7 @@ function DeleteWarehouseDialog({
     ...warehousesDeleteMutation(),
     onSuccess: async () => {
       await queryClient.invalidateQueries({queryKey: warehousesGetAllQueryKey()});
-      navigate("/warehouses");
+      navigate("/storage/warehouses");
     },
   });
 

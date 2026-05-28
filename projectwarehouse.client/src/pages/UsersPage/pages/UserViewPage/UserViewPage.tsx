@@ -61,7 +61,11 @@ function UserViewPage() {
   return (
     <Stack spacing={2}>
       <AppBreadcrumbs
-        path={[{name: "Пользователи", link: "/users"}, {name: user.username}, {name: "Просмотр"}]}
+        path={[
+          {name: "Сотрудники", link: "/settings/employees"},
+          {name: user.username},
+          {name: "Просмотр"},
+        ]}
       />
       <PageGenericHeader
         title={user.username}
@@ -72,7 +76,7 @@ function UserViewPage() {
                 variant="outlined"
                 startIcon={<EditIcon />}
                 component={RouterLink}
-                to={`/users/${id}/edit`}
+                to={`/settings/employees/${id}/edit`}
               >
                 Редактировать
               </Button>

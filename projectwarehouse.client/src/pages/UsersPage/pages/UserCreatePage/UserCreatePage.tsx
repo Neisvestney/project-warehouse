@@ -41,7 +41,7 @@ function UserCreatePage() {
   const mutation = useMutation({
     ...usersCreateMutation(),
     meta: {suppressGlobalError: true},
-    onSuccess: (data) => navigate(`/users/${data.id}`),
+    onSuccess: (data) => navigate(`/settings/employees/${data.id}`),
     onError: setApiError,
   });
 
@@ -59,7 +59,9 @@ function UserCreatePage() {
 
   return (
     <Stack spacing={2}>
-      <AppBreadcrumbs path={[{name: "Пользователи", link: "/users"}, {name: "Создать"}]} />
+      <AppBreadcrumbs
+        path={[{name: "Сотрудники", link: "/settings/employees"}, {name: "Создать"}]}
+      />
       <PageGenericHeader title="Создать пользователя" />
       <Paper>
         <Box component="form" onSubmit={onSubmit} sx={{p: 3}}>
@@ -135,7 +137,7 @@ function UserCreatePage() {
               <Alert severity="error">{form.formState.errors.root.message}</Alert>
             )}
             <Stack direction="row" spacing={1} sx={{justifyContent: "flex-end"}}>
-              <Button onClick={() => navigate("/users")} disabled={mutation.isPending}>
+              <Button onClick={() => navigate("/settings/employees")} disabled={mutation.isPending}>
                 Отмена
               </Button>
               <Button type="submit" variant="contained" disabled={mutation.isPending}>

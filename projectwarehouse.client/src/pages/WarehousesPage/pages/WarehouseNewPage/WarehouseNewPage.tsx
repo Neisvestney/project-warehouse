@@ -20,7 +20,7 @@ function WarehouseNewPage() {
   const mutation = useMutation({
     ...warehousesCreateMutation(),
     meta: {suppressGlobalError: true},
-    onSuccess: (data) => navigate(`/warehouses/${data.id}/edit`),
+    onSuccess: (data) => navigate(`/storage/warehouses/${data.id}/edit`),
     onError: setApiError,
   });
 
@@ -38,7 +38,7 @@ function WarehouseNewPage() {
 
   return (
     <Stack spacing={2}>
-      <AppBreadcrumbs path={[{name: "Склады", link: "/warehouses"}, {name: "Создать"}]} />
+      <AppBreadcrumbs path={[{name: "Склады", link: "/storage/warehouses"}, {name: "Создать"}]} />
       <PageGenericHeader title="Создать склад" />
       <Paper>
         <Box component="form" onSubmit={onSubmit} sx={{p: 3}}>
@@ -48,7 +48,7 @@ function WarehouseNewPage() {
               <Alert severity="error">{form.formState.errors.root.message}</Alert>
             )}
             <Stack direction="row" spacing={1} sx={{justifyContent: "flex-end"}}>
-              <Button onClick={() => navigate("/warehouses")} disabled={mutation.isPending}>
+              <Button onClick={() => navigate("/storage/warehouses")} disabled={mutation.isPending}>
                 Отмена
               </Button>
               <Button type="submit" variant="contained" disabled={mutation.isPending}>

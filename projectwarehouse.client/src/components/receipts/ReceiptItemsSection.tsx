@@ -35,13 +35,7 @@ import type {ReceiptDto, ReceiptItemDto, ReceiptItemPlacementDto} from "@/api/ty
 
 const VIRTUAL_TYPES = new Set(["productGroup", "variation", "bundle"]);
 
-function CatalogItemCell({
-  item,
-  onOpen,
-}: {
-  item: ReceiptItemDto;
-  onOpen: (id: string) => void;
-}) {
+function CatalogItemCell({item, onOpen}: {item: ReceiptItemDto; onOpen: (id: string) => void}) {
   return (
     <Stack
       direction="row"
@@ -62,7 +56,13 @@ function CatalogItemCell({
   );
 }
 
-function DiscrepancyCell({planned, received}: {planned: number; received: number | null | undefined}) {
+function DiscrepancyCell({
+  planned,
+  received,
+}: {
+  planned: number;
+  received: number | null | undefined;
+}) {
   if (received === null || received === undefined) {
     return <TableCell align="right">—</TableCell>;
   }

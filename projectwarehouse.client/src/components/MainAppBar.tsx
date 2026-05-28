@@ -19,6 +19,8 @@ import {Link, useNavigate} from "react-router";
 import {useAuth} from "@/hooks/useAuth";
 import type {PermissionName} from "@/api";
 import {getSettingsFirstPageUrl, hasSettingsAccess} from "@/pages/SettingsPage/settingsConfig.tsx";
+import {getStorageFirstPageUrl} from "@/pages/StoragePage/storageConfig.tsx";
+import {getOperationsFirstPageUrl} from "@/pages/OperationsPage/operationsConfig.tsx";
 import {extractErrorMessage} from "@/utils/errorUtils.ts";
 
 const pages: {
@@ -27,29 +29,21 @@ const pages: {
   requiredPermission?: PermissionName | PermissionName[];
   showIf?: (permissions: PermissionName[]) => boolean;
 }[] = [
-  {name: "Пользователи", url: "/users", requiredPermission: "users.view"},
+  {
+    name: "Склад",
+    url: (p) => `/storage/${getStorageFirstPageUrl(p)}`,
+    showIf: (p) => p.includes("warehouses.view") || p.includes("warehouses.view_assigned"),
+  },
   {name: "Каталог", url: "/catalog", requiredPermission: "catalog.view"},
   {
-    name: "Склады",
-    url: "/warehouses",
-    requiredPermission: ["warehouses.view", "warehouses.view_assigned"],
-  },
-  {
-    name: "Остатки",
-    url: "/inventory",
-    requiredPermission: ["warehouses.view", "warehouses.view_assigned"],
-  },
-  {
-    name: "Приемки",
-    url: "/receipts",
-    requiredPermission: ["receipts.view", "receipts.view_assigned", "receipts.process_assigned"],
+    name: "Операции",
+    url: (p) => `/operations/${getOperationsFirstPageUrl(p)}`,
   },
   {
     name: "Настройки",
     url: (p) => `/settings/${getSettingsFirstPageUrl(p)}`,
     showIf: hasSettingsAccess,
   },
-  {name: "Сканер", url: "/scanner"},
 ];
 
 export interface AppBarProps {}
@@ -109,7 +103,7 @@ function MainAppBar({}: AppBarProps) {
   return (
     <AppBar position="static">
       <Container maxWidth="xl">
-        <Toolbar disableGutters variant={"dense"}>
+        <Toolbar disableGutters variant="dense" sx={{minHeight: 50}}>
           <WarehouseIcon sx={{display: {xs: "none", md: "flex"}, mr: 1}} />
           <Typography
             variant="h6"
@@ -192,7 +186,7 @@ function MainAppBar({}: AppBarProps) {
               <Button
                 key={page.url}
                 onClick={handleCloseNavMenu}
-                sx={{my: 2, color: "white", display: "block"}}
+                sx={{color: "white", display: "block"}}
                 component={Link}
                 to={page.url}
               >
