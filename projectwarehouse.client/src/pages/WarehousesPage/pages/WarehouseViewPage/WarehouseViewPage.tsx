@@ -14,7 +14,7 @@ import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
 import {green} from "@mui/material/colors";
-import StoragePlaceDialog from "@/pages/WarehousesPage/pages/WarehouseViewPage/StoragePlaceDialog.tsx";
+import StoragePlaceDrawer from "@/pages/WarehousesPage/pages/WarehouseViewPage/StoragePlaceDrawer.tsx";
 import PrintIcon from "@mui/icons-material/Print";
 import {openPrintPage} from "@/utils/printUtils.ts";
 import {useHasPermission} from "@/hooks/usePermission.ts";
@@ -159,7 +159,7 @@ function WarehouseViewPage() {
         />
       </Paper>
 
-      <StoragePlaceDialog
+      <StoragePlaceDrawer
         open={!!selectedStoragePlace}
         onClose={() => closeStoragePlaceDialog()}
         storagePlace={warehouse?.storagePlaces.find((x) => x.id === selectedStoragePlace)}
