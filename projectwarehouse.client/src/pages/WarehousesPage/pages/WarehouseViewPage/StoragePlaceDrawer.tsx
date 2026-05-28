@@ -53,7 +53,7 @@ type NodeDialogState =
   | {mode: "addChild"; parentId: string}
   | {mode: "rename"; node: StoragePlaceNodeDto};
 
-function StoragePlaceDialog({open, storagePlace, warehouseId, onClose}: StoragePlaceDialogProps) {
+function StoragePlaceDrawer({open, storagePlace, warehouseId, onClose}: StoragePlaceDialogProps) {
   const queryClient = useQueryClient();
 
   const {data: nodes = [], isLoading} = useQuery({
@@ -272,6 +272,7 @@ function StoragePlaceDialog({open, storagePlace, warehouseId, onClose}: StorageP
                 startIcon={<Inventory2Icon />}
                 component={Link}
                 to={`/storage/warehouses/${warehouseId}/storage-places/${storagePlace?.id}/nodes/${selectedNodeId}/inventory`}
+                disabled={!!nodes.find(x => x.parentNodeId == selectedNodeId)}
               >
                 Остатки ячейки
               </Button>
@@ -419,4 +420,4 @@ function StoragePlaceDialog({open, storagePlace, warehouseId, onClose}: StorageP
   );
 }
 
-export default StoragePlaceDialog;
+export default StoragePlaceDrawer;
