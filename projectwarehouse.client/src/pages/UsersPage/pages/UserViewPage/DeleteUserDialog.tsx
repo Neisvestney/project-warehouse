@@ -20,7 +20,7 @@ function DeleteUserDialog({open, userId, username, onClose}: DeleteUserDialogPro
     ...usersDeleteMutation(),
     onSuccess: async () => {
       await queryClient.invalidateQueries({queryKey: usersGetAllQueryKey()});
-      navigate("/users");
+      navigate("/settings/employees");
     },
   });
 

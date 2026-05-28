@@ -79,7 +79,11 @@ function WarehouseViewPage() {
   return (
     <Stack spacing={2}>
       <AppBreadcrumbs
-        path={[{name: "Склады", link: "/warehouses"}, {name: warehouse.name}, {name: "Просмотр"}]}
+        path={[
+          {name: "Склады", link: "/storage/warehouses"},
+          {name: warehouse.name},
+          {name: "Просмотр"},
+        ]}
       />
       <PageGenericHeader
         title={warehouse.name}
@@ -89,7 +93,7 @@ function WarehouseViewPage() {
               variant="outlined"
               startIcon={<Inventory2Icon />}
               component={Link}
-              to={`/warehouses/${id}/inventory`}
+              to={`/storage/warehouses/${id}/inventory`}
             >
               Остатки
             </Button>
@@ -106,7 +110,7 @@ function WarehouseViewPage() {
                 variant="outlined"
                 startIcon={<EditIcon />}
                 component={Link}
-                to={`/warehouses/${id}/edit`}
+                to={`/storage/warehouses/${id}/edit`}
               >
                 Редактировать
               </Button>

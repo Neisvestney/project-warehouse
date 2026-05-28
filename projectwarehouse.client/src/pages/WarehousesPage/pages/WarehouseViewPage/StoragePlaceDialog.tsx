@@ -271,7 +271,7 @@ function StoragePlaceDialog({open, storagePlace, warehouseId, onClose}: StorageP
                 size="small"
                 startIcon={<Inventory2Icon />}
                 component={Link}
-                to={`/warehouses/${warehouseId}/storage-places/${storagePlace?.id}/nodes/${selectedNodeId}/inventory`}
+                to={`/storage/warehouses/${warehouseId}/storage-places/${storagePlace?.id}/nodes/${selectedNodeId}/inventory`}
               >
                 Остатки ячейки
               </Button>
@@ -280,7 +280,7 @@ function StoragePlaceDialog({open, storagePlace, warehouseId, onClose}: StorageP
               size="small"
               startIcon={<Inventory2Icon />}
               component={Link}
-              to={`/warehouses/${warehouseId}/storage-places/${storagePlace?.id}/inventory`}
+              to={`/storage/warehouses/${warehouseId}/storage-places/${storagePlace?.id}/inventory`}
               disabled={!storagePlace?.id}
             >
               Остатки

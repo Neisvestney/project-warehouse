@@ -95,8 +95,8 @@ export default observer(function WarehouseEditPage() {
       <Stack spacing={2}>
         <AppBreadcrumbs
           path={[
-            {name: "Склады", link: "/warehouses"},
-            {name: warehouse.name, link: `/warehouses/${id}`},
+            {name: "Склады", link: "/storage/warehouses"},
+            {name: warehouse.name, link: `/storage/warehouses/${id}`},
             {name: "Редактировать"},
           ]}
         />
@@ -106,7 +106,7 @@ export default observer(function WarehouseEditPage() {
             <>
               <Button
                 component={Link}
-                to={`/warehouses/${id}`}
+                to={`/storage/warehouses/${id}`}
                 replace
                 startIcon={<ArrowBackIcon />}
                 variant="outlined"

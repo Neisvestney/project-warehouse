@@ -79,9 +79,11 @@ function UsersPage() {
 
   return (
     <Stack spacing={2}>
-      <AppBreadcrumbs path={[{name: "Пользователи", link: "/users"}, {name: "Список"}]} />
+      <AppBreadcrumbs
+        path={[{name: "Сотрудники", link: "/settings/employees"}, {name: "Список"}]}
+      />
       <PageGenericHeader
-        title={"Пользователи"}
+        title={"Сотрудники"}
         right={
           <>
             <IconButton color={"inherit"} onClick={() => refetch()}>
@@ -92,7 +94,7 @@ function UsersPage() {
               endIcon={<AddIcon />}
               size="small"
               component={RouterLink}
-              to="/users/new"
+              to="/settings/employees/new"
             >
               Создать
             </Button>
@@ -143,7 +145,7 @@ function UsersPage() {
                     opacity: isFetching && !isLoading ? 0.5 : 1,
                     transition: "opacity 0.2s",
                   }}
-                  onClick={() => navigate(`/users/${user.id}`)}
+                  onClick={() => navigate(`/settings/employees/${user.id}`)}
                 >
                   <TableCell>{user.username}</TableCell>
                   <TableCell>{user.email ?? "—"}</TableCell>

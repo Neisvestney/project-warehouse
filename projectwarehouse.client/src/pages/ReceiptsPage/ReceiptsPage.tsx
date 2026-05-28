@@ -99,7 +99,7 @@ function ReceiptsPage() {
 
   return (
     <Stack spacing={2}>
-      <AppBreadcrumbs path={[{name: "Приемки", link: "/receipts"}, {name: "Список"}]} />
+      <AppBreadcrumbs path={[{name: "Приемки", link: "/operations/receipts"}, {name: "Список"}]} />
       <PageGenericHeader
         title="Приемки"
         right={
@@ -113,7 +113,7 @@ function ReceiptsPage() {
                 endIcon={<AddIcon />}
                 size="small"
                 component={RouterLink}
-                to="/receipts/new"
+                to="/operations/receipts/new"
               >
                 Новая приемка
               </Button>
@@ -202,7 +202,7 @@ function ReceiptsPage() {
                     opacity: isFetching && !isLoading ? 0.5 : 1,
                     transition: "opacity 0.2s",
                   }}
-                  onClick={() => navigate(`/receipts/${receipt.id}`)}
+                  onClick={() => navigate(`/operations/receipts/${receipt.id}`)}
                 >
                   <TableCell sx={{fontFamily: "monospace"}}>
                     {formatReceiptNumber(receipt.number)}

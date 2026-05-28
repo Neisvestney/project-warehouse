@@ -41,7 +41,7 @@ function ReceiptCreatePage() {
   const mutation = useMutation({
     ...receiptsCreateMutation(),
     meta: {suppressGlobalError: true},
-    onSuccess: (data) => navigate(`/receipts/${data.id}`),
+    onSuccess: (data) => navigate(`/operations/receipts/${data.id}`),
     onError: setApiError,
   });
 
@@ -59,7 +59,9 @@ function ReceiptCreatePage() {
 
   return (
     <Stack spacing={2}>
-      <AppBreadcrumbs path={[{name: "Приемки", link: "/receipts"}, {name: "Новая приемка"}]} />
+      <AppBreadcrumbs
+        path={[{name: "Приемки", link: "/operations/receipts"}, {name: "Новая приемка"}]}
+      />
       <PageGenericHeader title="Новая приемка" />
       <Paper>
         <Box component="form" onSubmit={onSubmit} sx={{p: 3}}>
@@ -122,7 +124,10 @@ function ReceiptCreatePage() {
               <Alert severity="error">{form.formState.errors.root.message}</Alert>
             )}
             <Stack direction="row" spacing={1} sx={{justifyContent: "flex-end"}}>
-              <Button onClick={() => navigate("/receipts")} disabled={mutation.isPending}>
+              <Button
+                onClick={() => navigate("/operations/receipts")}
+                disabled={mutation.isPending}
+              >
                 Отмена
               </Button>
               <Button type="submit" variant="contained" disabled={mutation.isPending}>

@@ -384,7 +384,12 @@ function AssembledBundlePlacementFormLoaded({
                 <TableCell>
                   {row.componentName}
                   {row.unitSlotLabel && (
-                    <Typography component="span" variant="caption" color="text.secondary" sx={{ml: 0.5}}>
+                    <Typography
+                      component="span"
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ml: 0.5}}
+                    >
                       ({row.unitSlotLabel})
                     </Typography>
                   )}
@@ -394,7 +399,9 @@ function AssembledBundlePlacementFormLoaded({
                   <TableCell>
                     {row.isUnit ? (
                       <TextField
-                        {...form.register(`inventoryNumbers.${row.unitFieldIndex!}`, {required: true})}
+                        {...form.register(`inventoryNumbers.${row.unitFieldIndex!}`, {
+                          required: true,
+                        })}
                         size="small"
                         placeholder="Инв. номер"
                         disabled={mutation.isPending}

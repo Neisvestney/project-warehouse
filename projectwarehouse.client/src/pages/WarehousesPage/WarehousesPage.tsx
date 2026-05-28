@@ -44,7 +44,7 @@ function WarehousesPage() {
 
   return (
     <Stack spacing={2}>
-      <AppBreadcrumbs path={[{name: "Склады", link: "/warehouses"}, {name: "Список"}]} />
+      <AppBreadcrumbs path={[{name: "Склады", link: "/storage/warehouses"}, {name: "Список"}]} />
       <PageGenericHeader
         title={"Склады"}
         right={
@@ -56,7 +56,7 @@ function WarehousesPage() {
               variant="outlined"
               endIcon={<AddIcon />}
               component={RouterLink}
-              to="/warehouses/new"
+              to="/storage/warehouses/new"
               size="small"
             >
               Создать
@@ -97,7 +97,7 @@ function WarehousesPage() {
                     opacity: isFetching && !isLoading ? 0.5 : 1,
                     transition: "opacity 0.2s",
                   }}
-                  onClick={() => navigate(`/warehouses/${warehouse.id}`)}
+                  onClick={() => navigate(`/storage/warehouses/${warehouse.id}`)}
                 >
                   <TableCell>{warehouse.name}</TableCell>
                   <TableCell>
