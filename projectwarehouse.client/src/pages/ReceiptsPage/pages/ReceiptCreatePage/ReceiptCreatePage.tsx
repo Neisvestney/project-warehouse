@@ -26,6 +26,7 @@ type CreateFormValues = {
   reason: ReceiptReason;
   warehouseId: string | null;
   notes: string;
+  plannedDeliveryDate: string;
 };
 
 const ALL_REASONS: ReceiptReason[] = ["newGoods", "return", "other"];
@@ -34,7 +35,13 @@ function ReceiptCreatePage() {
   const navigate = useNavigate();
 
   const form = useForm<CreateFormValues>({
-    defaultValues: {name: "", reason: "newGoods", warehouseId: null, notes: ""},
+    defaultValues: {
+      name: "",
+      reason: "newGoods",
+      warehouseId: null,
+      notes: "",
+      plannedDeliveryDate: "",
+    },
   });
   const {setApiError} = useRhfApiErrors(form);
 
@@ -53,6 +60,7 @@ function ReceiptCreatePage() {
         reason: values.reason,
         warehouseId: values.warehouseId,
         notes: values.notes || null,
+        plannedDeliveryDate: values.plannedDeliveryDate || null,
       },
     });
   });
@@ -110,6 +118,15 @@ function ReceiptCreatePage() {
                   fullWidth
                 />
               )}
+            />
+            <FormTextField
+              control={form.control}
+              name="plannedDeliveryDate"
+              label="Планируемая дата поставки"
+              type="date"
+              disabled={mutation.isPending}
+              fullWidth
+              slotProps={{inputLabel: {shrink: true}}}
             />
             <FormTextField
               control={form.control}

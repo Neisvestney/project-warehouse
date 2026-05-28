@@ -18,4 +18,6 @@ public class CreateReceiptRequest
 
     [MaxLength(2048)]
     public string? Notes { get; init; }
+
+    public DateOnly? PlannedDeliveryDate { get; init; }
 }

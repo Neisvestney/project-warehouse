@@ -36,7 +36,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("AssignedWarehousesId");
 
-                    b.ToTable("ApplicationUserWarehouse", (string)null);
+                    b.ToTable("ApplicationUserWarehouse");
                 });
 
             modelBuilder.Entity("CatalogItemTagLinks", b =>
@@ -51,7 +51,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("TagsId");
 
-                    b.ToTable("CatalogItemTagLinks", (string)null);
+                    b.ToTable("CatalogItemTagLinks");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -282,7 +282,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("ComponentId");
 
-                    b.ToTable("AssembledBundleComponents", (string)null);
+                    b.ToTable("AssembledBundleComponents");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssembledBundleInventoryItemComponent", b =>
@@ -311,7 +311,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("UnitInventoryItemId");
 
-                    b.ToTable("AssembledBundleInventoryItemComponents", (string)null);
+                    b.ToTable("AssembledBundleInventoryItemComponents");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.BundleComponent", b =>
@@ -335,7 +335,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("ComponentId");
 
-                    b.ToTable("BundleComponents", (string)null);
+                    b.ToTable("BundleComponents");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItem", b =>
@@ -379,7 +379,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("SourceBundleId");
 
-                    b.ToTable("CatalogItems", (string)null);
+                    b.ToTable("CatalogItems");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemTag", b =>
@@ -394,7 +394,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("CatalogItemTags", (string)null);
+                    b.ToTable("CatalogItemTags");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemVariationMember", b =>
@@ -409,7 +409,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("VariationId");
 
-                    b.ToTable("CatalogItemVariationMembers", (string)null);
+                    b.ToTable("CatalogItemVariationMembers");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.ChangeLogEntry", b =>
@@ -457,7 +457,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("ChangeLogEntries", (string)null);
+                    b.ToTable("ChangeLogEntries");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.InventoryItem", b =>
@@ -483,7 +483,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("StoragePlaceNodeId");
 
-                    b.ToTable("InventoryItems", (string)null);
+                    b.ToTable("InventoryItems");
 
                     b.HasDiscriminator<string>("Type").HasValue("InventoryItem");
 
@@ -511,7 +511,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("CatalogItemId");
 
-                    b.ToTable("ItemsGroup", (string)null);
+                    b.ToTable("ItemsGroup");
 
                     b.HasDiscriminator<string>("Discriminator").HasValue("ItemsGroup");
 
@@ -543,6 +543,9 @@ namespace ProjectWarehouse.Server.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Number"));
 
+                    b.Property<DateOnly?>("PlannedDeliveryDate")
+                        .HasColumnType("date");
+
                     b.Property<int>("Reason")
                         .HasColumnType("integer");
 
@@ -561,7 +564,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.ToTable("Receipts", (string)null);
+                    b.ToTable("Receipts");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.ReceiptItem", b =>
@@ -591,7 +594,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("ReceiptId");
 
-                    b.ToTable("ReceiptItems", (string)null);
+                    b.ToTable("ReceiptItems");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.ReceiptItemPlacement", b =>
@@ -625,7 +628,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("UnitInventoryItemId");
 
-                    b.ToTable("ReceiptItemPlacements", (string)null);
+                    b.ToTable("ReceiptItemPlacements");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.RefreshToken", b =>
@@ -652,7 +655,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens", (string)null);
+                    b.ToTable("RefreshTokens");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.RolePermission", b =>
@@ -665,7 +668,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasKey("RoleId", "Permission");
 
-                    b.ToTable("RolePermissions", (string)null);
+                    b.ToTable("RolePermissions");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlace", b =>
@@ -700,7 +703,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.ToTable("StoragePlaces", (string)null);
+                    b.ToTable("StoragePlaces");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlaceNode", b =>
@@ -728,7 +731,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("RootStoragePlaceId");
 
-                    b.ToTable("StoragePlacesNodes", (string)null);
+                    b.ToTable("StoragePlacesNodes");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.UserPermission", b =>
@@ -741,7 +744,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasKey("UserId", "Permission");
 
-                    b.ToTable("UserPermissions", (string)null);
+                    b.ToTable("UserPermissions");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Warehouse", b =>
@@ -762,7 +765,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Warehouses", (string)null);
+                    b.ToTable("Warehouses");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssembledBundleInventoryItem", b =>
@@ -1177,7 +1180,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                             b1.HasKey("WarehouseId", "__synthesizedOrdinal");
 
-                            b1.ToTable("Warehouses", (string)null);
+                            b1.ToTable("Warehouses");
 
                             b1
                                 .ToJson("LayoutObjects")

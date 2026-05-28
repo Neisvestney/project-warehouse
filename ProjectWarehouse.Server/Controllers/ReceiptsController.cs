@@ -189,14 +189,15 @@ public class ReceiptsController(
 
         var receipt = new Receipt
         {
-            Id          = Guid.NewGuid(),
-            Name        = request.Name,
-            Reason      = request.Reason,
-            Notes       = request.Notes,
-            WarehouseId = request.WarehouseId,
-            CreatedById = GetCurrentUserId(),
-            CreatedAt   = DateTime.UtcNow,
-            Status      = ReceiptStatus.Draft,
+            Id                   = Guid.NewGuid(),
+            Name                 = request.Name,
+            Reason               = request.Reason,
+            Notes                = request.Notes,
+            PlannedDeliveryDate  = request.PlannedDeliveryDate,
+            WarehouseId          = request.WarehouseId,
+            CreatedById          = GetCurrentUserId(),
+            CreatedAt            = DateTime.UtcNow,
+            Status               = ReceiptStatus.Draft,
         };
 
         db.Receipts.Add(receipt);
@@ -230,9 +231,10 @@ public class ReceiptsController(
 
         var before = mapper.Map<ReceiptDto>(receipt);
 
-        receipt.Name   = request.Name;
-        receipt.Reason = request.Reason;
-        receipt.Notes  = request.Notes;
+        receipt.Name                = request.Name;
+        receipt.Reason              = request.Reason;
+        receipt.Notes               = request.Notes;
+        receipt.PlannedDeliveryDate = request.PlannedDeliveryDate;
 
         await db.SaveChangesAsync(ct);
 
@@ -960,17 +962,18 @@ public class ReceiptsController(
     private ReceiptDto BuildItemChangelogSnapshot(Receipt receipt, ReceiptItemDto itemDto) =>
         new()
         {
-            Id                 = receipt.Id,
-            Number             = receipt.Number,
-            Name               = receipt.Name,
-            Reason             = receipt.Reason,
-            Status             = receipt.Status,
-            Notes              = receipt.Notes,
-            CreatedAt          = receipt.CreatedAt,
-            WarehouseId        = receipt.WarehouseId,
-            WarehouseName      = receipt.Warehouse.Name,
-            TotalPlannedCount  = itemDto.PlannedCount,
-            TotalReceivedCount = itemDto.ReceivedCount ?? 0,
-            Items              = [itemDto],
+            Id                  = receipt.Id,
+            Number              = receipt.Number,
+            Name                = receipt.Name,
+            Reason              = receipt.Reason,
+            Status              = receipt.Status,
+            Notes               = receipt.Notes,
+            PlannedDeliveryDate = receipt.PlannedDeliveryDate,
+            CreatedAt           = receipt.CreatedAt,
+            WarehouseId         = receipt.WarehouseId,
+            WarehouseName       = receipt.Warehouse.Name,
+            TotalPlannedCount   = itemDto.PlannedCount,
+            TotalReceivedCount  = itemDto.ReceivedCount ?? 0,
+            Items               = [itemDto],
         };
 }
