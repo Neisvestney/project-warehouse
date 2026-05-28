@@ -100,6 +100,7 @@ function toSelectDto(dto: CatalogItemDto): CatalogItemSelectDto {
     name: dto.name,
     fullName: dto.fullName,
     article: dto.article,
+    isArchived: dto.isArchived,
   };
 }
 
@@ -108,7 +109,7 @@ function toPartialSelectDto(
   fullName: string,
   type: CatalogItemSelectDto["type"] = "standard",
 ): CatalogItemSelectDto {
-  return {id, type, name: fullName, fullName, article: ""};
+  return {id, type, name: fullName, fullName, article: "", isArchived: false};
 }
 
 function mapFormToRequest(values: CatalogItemFormValues): UpdateCatalogItemRequest {
