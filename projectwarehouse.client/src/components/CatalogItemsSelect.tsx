@@ -1,6 +1,7 @@
 import React, {useEffect, useMemo, useRef, useState} from "react";
 import type {AutocompleteProps, TextFieldProps} from "@mui/material";
 import {Autocomplete, Box, Chip, TextField, Typography} from "@mui/material";
+import ArchiveIcon from "@mui/icons-material/Archive";
 import {useQuery} from "@tanstack/react-query";
 import {catalogGetByIdOptions, catalogGetForSelectOptions} from "@/api/@tanstack/react-query.gen";
 import type {CatalogItemDto, CatalogItemSelectDto, CatalogItemType} from "@/api/types.gen";
@@ -14,6 +15,7 @@ function toSelectDto(dto: CatalogItemDto): CatalogItemSelectDto {
     name: dto.name,
     fullName: dto.fullName,
     article: dto.article,
+    isArchived: dto.isArchived,
   };
 }
 
@@ -75,6 +77,7 @@ function OptionContent({item}: {item: CatalogItemSelectDto}) {
       <Typography variant="body2" noWrap sx={{flex: 1}}>
         {item.fullName}
       </Typography>
+      {item.isArchived && <ArchiveIcon sx={{fontSize: 14, color: "warning.main", flexShrink: 0}} />}
       <Typography variant="caption" color="text.secondary" sx={{flexShrink: 0}}>
         {item.article}
       </Typography>

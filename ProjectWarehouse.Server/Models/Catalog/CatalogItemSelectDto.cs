@@ -9,4 +9,5 @@ public class CatalogItemSelectDto
     public string Name { get; init; } = null!;
     public string FullName { get; init; } = null!;
     public string Article { get; init; } = null!;
+    public bool IsArchived { get; init; }
 }

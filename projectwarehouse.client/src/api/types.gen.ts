@@ -110,6 +110,7 @@ export type CatalogItemSelectDto = {
   name: string;
   fullName: string;
   article: string;
+  isArchived: boolean;
 };
 
 export type CatalogItemSummaryDto = {

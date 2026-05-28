@@ -109,7 +109,8 @@ public class CatalogController(
             query = query.Where(c => types.Contains(c.Type));
 
         var items = await query
-            .OrderBy(c => c.Name)
+            .OrderBy(c => c.IsArchived)
+            .ThenBy(c => c.Name)
             .ThenBy(c => c.Id)
             .Take(10)
             .ProjectTo<CatalogItemSelectDto>(mapper.ConfigurationProvider)
