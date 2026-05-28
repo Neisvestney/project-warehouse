@@ -440,7 +440,6 @@ function ReceiptPage() {
 
       <Paper>
         <Box sx={{p: 3}}>
-          <Divider sx={{mb: 2}} />
           <ReceiptItemsSection receipt={receipt} onUpdate={updateLocalReceipt} />
         </Box>
       </Paper>

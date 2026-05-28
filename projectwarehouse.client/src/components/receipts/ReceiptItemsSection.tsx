@@ -4,7 +4,9 @@ import {
   Button,
   Chip,
   Collapse,
+  Divider,
   IconButton,
+  Paper,
   Stack,
   Table,
   TableBody,
@@ -14,6 +16,8 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -75,6 +79,24 @@ function DiscrepancyCell({
         {label}
       </Typography>
     </TableCell>
+  );
+}
+
+function DiscrepancyText({
+  planned,
+  received,
+}: {
+  planned: number;
+  received: number | null | undefined;
+}) {
+  if (received === null || received === undefined) return <span>—</span>;
+  const diff = received - planned;
+  const color = diff === 0 ? "success.main" : diff < 0 ? "warning.main" : "info.main";
+  const label = diff > 0 ? `+${diff}` : String(diff);
+  return (
+    <Typography variant="body2" component="span" sx={{color, fontWeight: 500}}>
+      {label}
+    </Typography>
   );
 }
 
@@ -287,11 +309,146 @@ function ProcessingItemRow({
   );
 }
 
+function ProcessingItemCard({
+  item,
+  receipt,
+  onUpdate,
+  onOpenCatalog,
+}: {
+  item: ReceiptItemDto;
+  receipt: ReceiptDto;
+  onUpdate: (data: ReceiptDto) => void;
+  onOpenCatalog: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [placementDialogOpen, setPlacementDialogOpen] = useState(false);
+  const canProcess = useHasPermission("receipts.process_assigned");
+
+  const mergeItem = (updatedItem: ReceiptItemDto): ReceiptDto => ({
+    ...receipt,
+    items: receipt.items.map((i) => (i.id === updatedItem.id ? updatedItem : i)),
+  });
+
+  const deleteMutation = useMutation({
+    ...receiptsDeletePlacementMutation(),
+    meta: {suppressGlobalError: true},
+    onSuccess: (data) => onUpdate(mergeItem(data)),
+  });
+
+  const totalPlaced = useMemo(() => calcTotalPlaced(item), [item]);
+  const isVirtual = VIRTUAL_TYPES.has(item.catalogItem.type);
+
+  return (
+    <>
+      <Paper variant="outlined" sx={{p: 1.5}}>
+        <Stack spacing={1}>
+          <CatalogItemCell item={item} onOpen={onOpenCatalog} />
+          <Typography variant="body2" color="text.secondary">
+            Запланировано: {item.plannedCount}
+          </Typography>
+          <Stack direction="row" spacing={2} sx={{alignItems: "center"}}>
+            <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+              <Typography variant="body2" color="text.secondary">
+                Принято:
+              </Typography>
+              <ReceivedCountInput
+                item={item}
+                receiptId={receipt.id}
+                onUpdateItem={(d) => onUpdate(mergeItem(d))}
+              />
+            </Stack>
+            <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
+              <Typography variant="body2" color="text.secondary">
+                Расх.:
+              </Typography>
+              <DiscrepancyText planned={item.plannedCount} received={item.receivedCount} />
+            </Stack>
+          </Stack>
+          {totalPlaced > 0 && (
+            <Typography variant="body2" color="text.secondary">
+              Размещено:{" "}
+              <Chip label={totalPlaced} size="small" color="primary" variant="outlined" />
+            </Typography>
+          )}
+          <Stack direction="row" spacing={1}>
+            {canProcess && !isVirtual && (
+              <Button
+                startIcon={<AddIcon />}
+                size="small"
+                onClick={() => setPlacementDialogOpen(true)}
+              >
+                Разместить
+              </Button>
+            )}
+            <Button
+              size="small"
+              endIcon={expanded ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+              onClick={() => setExpanded((v) => !v)}
+            >
+              Размещения
+            </Button>
+          </Stack>
+          <Collapse in={expanded} unmountOnExit>
+            <Divider sx={{mb: 1}} />
+            {item.placements.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                Нет размещений
+              </Typography>
+            ) : (
+              <Stack spacing={0.5}>
+                {item.placements.map((placement) => (
+                  <Stack key={placement.id} direction="row" sx={{alignItems: "center"}}>
+                    <Box sx={{flexGrow: 1}}>
+                      <PlacementDisplay placement={placement} />
+                    </Box>
+                    {canProcess && (
+                      <Tooltip title="Удалить размещение">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          disabled={deleteMutation.isPending}
+                          onClick={() =>
+                            deleteMutation.mutate({
+                              path: {id: receipt.id, itemId: item.id, placementId: placement.id},
+                            })
+                          }
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Stack>
+                ))}
+              </Stack>
+            )}
+          </Collapse>
+        </Stack>
+      </Paper>
+      {placementDialogOpen && (
+        <AddPlacementDialog
+          open
+          onClose={() => setPlacementDialogOpen(false)}
+          receiptId={receipt.id}
+          item={item}
+          warehouseId={receipt.warehouseId}
+          onUpdate={(updatedItem) => {
+            onUpdate(mergeItem(updatedItem));
+            setPlacementDialogOpen(false);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
 function ReceiptItemsSection({receipt, onUpdate}: ReceiptItemsSectionProps) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [catalogItemId, setCatalogItemId] = useState<string | null>(null);
   const canEdit = useHasPermission(["receipts.edit", "receipts.edit_assigned"]);
   const {status, items} = receipt;
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("lg"));
 
   const isDraftOrPlanned = status === "draft" || status === "planned";
   const isProcessing = status === "processing";
@@ -315,42 +472,51 @@ function ReceiptItemsSection({receipt, onUpdate}: ReceiptItemsSectionProps) {
           Нет позиций
         </Typography>
       ) : isDraftOrPlanned ? (
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Товар</TableCell>
-              <TableCell align="right">Запланировано</TableCell>
-              <TableCell>Примечание</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
+        isMobile ? (
+          <Stack spacing={1}>
             {items.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>
+              <Paper key={item.id} variant="outlined" sx={{p: 1.5}}>
+                <Stack spacing={0.5}>
                   <CatalogItemCell item={item} onOpen={setCatalogItemId} />
-                </TableCell>
-                <TableCell align="right">{item.plannedCount}</TableCell>
-                <TableCell sx={{color: "text.secondary"}}>{item.notes ?? "—"}</TableCell>
-              </TableRow>
+                  <Typography variant="body2" color="text.secondary">
+                    Запланировано: {item.plannedCount}
+                  </Typography>
+                  {item.notes && (
+                    <Typography variant="body2" color="text.secondary">
+                      {item.notes}
+                    </Typography>
+                  )}
+                </Stack>
+              </Paper>
             ))}
-          </TableBody>
-        </Table>
+          </Stack>
+        ) : (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Товар</TableCell>
+                <TableCell align="right">Запланировано</TableCell>
+                <TableCell>Примечание</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {items.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell>
+                    <CatalogItemCell item={item} onOpen={setCatalogItemId} />
+                  </TableCell>
+                  <TableCell align="right">{item.plannedCount}</TableCell>
+                  <TableCell sx={{color: "text.secondary"}}>{item.notes ?? "—"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )
       ) : isProcessing ? (
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell padding="checkbox" />
-              <TableCell>Товар</TableCell>
-              <TableCell align="right">Запланировано</TableCell>
-              <TableCell align="left">Принято</TableCell>
-              <TableCell align="right">Расхождение</TableCell>
-              <TableCell align="right">Размещено</TableCell>
-              <TableCell />
-            </TableRow>
-          </TableHead>
-          <TableBody>
+        isMobile ? (
+          <Stack spacing={1}>
             {items.map((item) => (
-              <ProcessingItemRow
+              <ProcessingItemCard
                 key={item.id}
                 item={item}
                 receipt={receipt}
@@ -358,50 +524,119 @@ function ReceiptItemsSection({receipt, onUpdate}: ReceiptItemsSectionProps) {
                 onOpenCatalog={setCatalogItemId}
               />
             ))}
-          </TableBody>
-        </Table>
+          </Stack>
+        ) : (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell padding="checkbox" />
+                <TableCell>Товар</TableCell>
+                <TableCell align="right">Запланировано</TableCell>
+                <TableCell align="left">Принято</TableCell>
+                <TableCell align="right">Расхождение</TableCell>
+                <TableCell align="right">Размещено</TableCell>
+                <TableCell />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {items.map((item) => (
+                <ProcessingItemRow
+                  key={item.id}
+                  item={item}
+                  receipt={receipt}
+                  onUpdate={onUpdate}
+                  onOpenCatalog={setCatalogItemId}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        )
       ) : isReadOnly ? (
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Товар</TableCell>
-              <TableCell align="right">Запланировано</TableCell>
-              <TableCell align="right">Принято</TableCell>
-              <TableCell align="right">Расхождение</TableCell>
-              <TableCell align="right">Размещено</TableCell>
-              <TableCell>Размещения</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
+        isMobile ? (
+          <Stack spacing={1}>
             {items.map((item) => {
               const totalPlaced = calcTotalPlaced(item);
               return (
-                <TableRow key={item.id}>
-                  <TableCell>
+                <Paper key={item.id} variant="outlined" sx={{p: 1.5}}>
+                  <Stack spacing={0.75}>
                     <CatalogItemCell item={item} onOpen={setCatalogItemId} />
-                  </TableCell>
-                  <TableCell align="right">{item.plannedCount}</TableCell>
-                  <TableCell align="right">{item.receivedCount ?? "—"}</TableCell>
-                  <DiscrepancyCell planned={item.plannedCount} received={item.receivedCount} />
-                  <TableCell align="right">{totalPlaced || "—"}</TableCell>
-                  <TableCell>
-                    {item.placements.length > 0 ? (
-                      <Stack spacing={0.5}>
-                        {item.placements.map((p) => (
-                          <PlacementDisplay key={p.id} placement={p} />
-                        ))}
-                      </Stack>
-                    ) : (
+                    <Stack direction="row" spacing={2}>
                       <Typography variant="body2" color="text.secondary">
-                        —
+                        Запланировано: {item.plannedCount}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Принято: {item.receivedCount ?? "—"}
+                      </Typography>
+                    </Stack>
+                    <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
+                      <Typography variant="body2" color="text.secondary">
+                        Расхождение:
+                      </Typography>
+                      <DiscrepancyText planned={item.plannedCount} received={item.receivedCount} />
+                    </Stack>
+                    {totalPlaced > 0 && (
+                      <Typography variant="body2" color="text.secondary">
+                        Размещено: {totalPlaced}
                       </Typography>
                     )}
-                  </TableCell>
-                </TableRow>
+                    {item.placements.length > 0 && (
+                      <>
+                        <Divider />
+                        <Stack spacing={0.5}>
+                          {item.placements.map((p) => (
+                            <PlacementDisplay key={p.id} placement={p} />
+                          ))}
+                        </Stack>
+                      </>
+                    )}
+                  </Stack>
+                </Paper>
               );
             })}
-          </TableBody>
-        </Table>
+          </Stack>
+        ) : (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Товар</TableCell>
+                <TableCell align="right">Запланировано</TableCell>
+                <TableCell align="right">Принято</TableCell>
+                <TableCell align="right">Расхождение</TableCell>
+                <TableCell align="right">Размещено</TableCell>
+                <TableCell>Размещения</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {items.map((item) => {
+                const totalPlaced = calcTotalPlaced(item);
+                return (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <CatalogItemCell item={item} onOpen={setCatalogItemId} />
+                    </TableCell>
+                    <TableCell align="right">{item.plannedCount}</TableCell>
+                    <TableCell align="right">{item.receivedCount ?? "—"}</TableCell>
+                    <DiscrepancyCell planned={item.plannedCount} received={item.receivedCount} />
+                    <TableCell align="right">{totalPlaced || "—"}</TableCell>
+                    <TableCell>
+                      {item.placements.length > 0 ? (
+                        <Stack spacing={0.5}>
+                          {item.placements.map((p) => (
+                            <PlacementDisplay key={p.id} placement={p} />
+                          ))}
+                        </Stack>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          —
+                        </Typography>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )
       ) : null}
 
       {isDraftOrPlanned && editorOpen && (
