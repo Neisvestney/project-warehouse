@@ -53,6 +53,17 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
 
 export function resolveEntity(entity: AppEntity): ResolvedEntity {
   const config = entitiesTypes[entity.type];
+  if (!config) {
+    return {
+      id: "",
+      icon: <InventoryIcon />,
+      link: "/",
+      type: "warehouse",
+      typeName: "Обновите приложение",
+      name: "Обновите приложение",
+      additionalFields: {},
+    };
+  }
   return {
     ...entity,
     link: interpolateArgs(config.linkTemplate, {

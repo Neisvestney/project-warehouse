@@ -5,6 +5,7 @@ import {
   CircularProgress,
   Drawer,
   IconButton,
+  Paper,
   Stack,
   Table,
   TableBody,
@@ -13,6 +14,8 @@ import {
   TableRow,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -59,6 +62,9 @@ function ReceiptItemsEditorDrawer({
   });
 
   const {setApiError} = useRhfApiErrors(form);
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("lg"));
 
   const mutation = useMutation({
     ...receiptsSyncItemsMutation(),
@@ -113,19 +119,11 @@ function ReceiptItemsEditorDrawer({
         </Stack>
 
         <Box component="form" onSubmit={onSubmit} sx={{overflow: "auto", flexGrow: 1, px: 2}}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Товар</TableCell>
-                <TableCell sx={{width: 100}}>Кол-во</TableCell>
-                <TableCell>Примечание</TableCell>
-                <TableCell sx={{width: 48}} />
-              </TableRow>
-            </TableHead>
-            <TableBody>
+          {isMobile ? (
+            <Stack spacing={1} sx={{py: 1}}>
               {fields.map((field, index) => (
-                <TableRow key={field.id}>
-                  <TableCell>
+                <Paper key={field.id} variant="outlined" sx={{p: 1.5}}>
+                  <Stack spacing={1}>
                     <Controller
                       control={form.control}
                       name={`items.${index}.catalogItemId`}
@@ -141,65 +139,155 @@ function ReceiptItemsEditorDrawer({
                             error: !!fieldState.error,
                             placeholder: "Выберите товар",
                           }}
-                          sx={{minWidth: 200}}
+                          sx={{width: "100%"}}
                         />
                       )}
                     />
-                  </TableCell>
-                  <TableCell>
-                    <Controller
-                      control={form.control}
-                      name={`items.${index}.plannedCount`}
-                      rules={{required: true, min: 1}}
-                      render={({field: f, fieldState}) => (
-                        <TextField
-                          {...f}
-                          type="number"
-                          size="small"
-                          fullWidth
-                          error={!!fieldState.error}
-                          disabled={mutation.isPending}
-                          slotProps={{htmlInput: {min: 1}}}
-                          onChange={(e) => f.onChange(Number(e.target.value))}
-                        />
-                      )}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Controller
-                      control={form.control}
-                      name={`items.${index}.notes`}
-                      render={({field: f}) => (
-                        <TextField
-                          {...f}
-                          size="small"
-                          fullWidth
-                          placeholder="Необязательно"
-                          disabled={mutation.isPending}
-                        />
-                      )}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <IconButton
-                      size="small"
-                      onClick={() => remove(index)}
-                      disabled={mutation.isPending}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
+                    <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
+                      <Controller
+                        control={form.control}
+                        name={`items.${index}.plannedCount`}
+                        rules={{required: true, min: 1}}
+                        render={({field: f, fieldState}) => (
+                          <TextField
+                            {...f}
+                            type="number"
+                            size="small"
+                            label="Кол-во"
+                            error={!!fieldState.error}
+                            disabled={mutation.isPending}
+                            slotProps={{htmlInput: {min: 1}}}
+                            onChange={(e) => f.onChange(Number(e.target.value))}
+                            sx={{width: 100}}
+                          />
+                        )}
+                      />
+                      <Controller
+                        control={form.control}
+                        name={`items.${index}.notes`}
+                        render={({field: f}) => (
+                          <TextField
+                            {...f}
+                            size="small"
+                            label="Примечание"
+                            placeholder="Необязательно"
+                            disabled={mutation.isPending}
+                            sx={{flexGrow: 1}}
+                          />
+                        )}
+                      />
+                      <IconButton
+                        size="small"
+                        onClick={() => remove(index)}
+                        disabled={mutation.isPending}
+                        color="error"
+                        sx={{mt: 0.5}}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                  </Stack>
+                </Paper>
               ))}
               {fields.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4} align="center" sx={{py: 3, color: "text.secondary"}}>
-                    Нет позиций — добавьте товары
-                  </TableCell>
-                </TableRow>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{py: 2, textAlign: "center"}}
+                >
+                  Нет позиций — добавьте товары
+                </Typography>
               )}
-            </TableBody>
-          </Table>
+            </Stack>
+          ) : (
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Товар</TableCell>
+                  <TableCell sx={{width: 100}}>Кол-во</TableCell>
+                  <TableCell>Примечание</TableCell>
+                  <TableCell sx={{width: 48}} />
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {fields.map((field, index) => (
+                  <TableRow key={field.id}>
+                    <TableCell>
+                      <Controller
+                        control={form.control}
+                        name={`items.${index}.catalogItemId`}
+                        rules={{required: true}}
+                        render={({field: f, fieldState}) => (
+                          <CatalogItemsSelect
+                            value={f.value}
+                            onChange={f.onChange}
+                            types={["standard", "unit", "assembledBundle"]}
+                            size="small"
+                            disabled={mutation.isPending}
+                            textFieldProps={{
+                              error: !!fieldState.error,
+                              placeholder: "Выберите товар",
+                            }}
+                            sx={{minWidth: 200}}
+                          />
+                        )}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Controller
+                        control={form.control}
+                        name={`items.${index}.plannedCount`}
+                        rules={{required: true, min: 1}}
+                        render={({field: f, fieldState}) => (
+                          <TextField
+                            {...f}
+                            type="number"
+                            size="small"
+                            fullWidth
+                            error={!!fieldState.error}
+                            disabled={mutation.isPending}
+                            slotProps={{htmlInput: {min: 1}}}
+                            onChange={(e) => f.onChange(Number(e.target.value))}
+                          />
+                        )}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Controller
+                        control={form.control}
+                        name={`items.${index}.notes`}
+                        render={({field: f}) => (
+                          <TextField
+                            {...f}
+                            size="small"
+                            fullWidth
+                            placeholder="Необязательно"
+                            disabled={mutation.isPending}
+                          />
+                        )}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <IconButton
+                        size="small"
+                        onClick={() => remove(index)}
+                        disabled={mutation.isPending}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {fields.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} align="center" sx={{py: 3, color: "text.secondary"}}>
+                      Нет позиций — добавьте товары
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
 
           {form.formState.errors.root && (
             <Alert severity="error" sx={{mt: 1}}>

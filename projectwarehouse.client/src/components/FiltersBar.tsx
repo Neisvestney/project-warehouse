@@ -11,7 +11,8 @@ function FiltersBar({children, sx, ...stackProps}: FiltersBarProps) {
     <Stack
       spacing={2}
       direction="row"
-      sx={[{alignItems: "center"}, ...(Array.isArray(sx) ? sx : [sx])]}
+      useFlexGap
+      sx={[{alignItems: "center", flexWrap: "wrap"}, ...(Array.isArray(sx) ? sx : [sx])]}
       {...stackProps}
     >
       <Typography color="textSecondary">

@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  Paper,
   Stack,
   Table,
   TableBody,
@@ -17,6 +18,8 @@ import {
   TableRow,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import {useForm} from "react-hook-form";
 import {useMutation, useQuery} from "@tanstack/react-query";
@@ -301,6 +304,9 @@ function AssembledBundlePlacementFormLoaded({
 }) {
   const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(null);
 
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
   const {rows, totalUnitFields} = buildComponentRows(catalogItem.components);
   const hasOnlyStandard = totalUnitFields === 0;
 
@@ -370,55 +376,103 @@ function AssembledBundlePlacementFormLoaded({
           Компоненты
         </Typography>
 
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Товар</TableCell>
-              <TableCell align="right">Кол-во</TableCell>
-              {!hasOnlyStandard && <TableCell>Инв. номер</TableCell>}
-            </TableRow>
-          </TableHead>
-          <TableBody>
+        {isMobile ? (
+          <Stack spacing={1}>
             {rows.map((row) => (
-              <TableRow key={row.key}>
-                <TableCell>
-                  {row.componentName}
-                  {row.unitSlotLabel && (
-                    <Typography
-                      component="span"
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ml: 0.5}}
-                    >
-                      ({row.unitSlotLabel})
+              <Paper key={row.key} variant="outlined" sx={{p: 1.5}}>
+                <Stack spacing={1}>
+                  <Typography variant="body2">
+                    {row.componentName}
+                    {row.unitSlotLabel && (
+                      <Typography
+                        component="span"
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ml: 0.5}}
+                      >
+                        ({row.unitSlotLabel})
+                      </Typography>
+                    )}
+                  </Typography>
+                  {!hasOnlyStandard && (
+                    <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+                      <Typography variant="body2" color="text.secondary" sx={{minWidth: 60}}>
+                        {row.isUnit ? "Инв. номер:" : `Кол-во: ${row.standardQuantity}`}
+                      </Typography>
+                      {row.isUnit && (
+                        <TextField
+                          {...form.register(`inventoryNumbers.${row.unitFieldIndex!}`, {
+                            required: true,
+                          })}
+                          size="small"
+                          placeholder="Инв. номер"
+                          disabled={mutation.isPending}
+                          error={!!form.formState.errors.inventoryNumbers?.[row.unitFieldIndex!]}
+                          fullWidth
+                        />
+                      )}
+                    </Stack>
+                  )}
+                  {hasOnlyStandard && (
+                    <Typography variant="body2" color="text.secondary">
+                      Кол-во: {row.standardQuantity}
                     </Typography>
                   )}
-                </TableCell>
-                <TableCell align="right">{row.standardQuantity ?? "—"}</TableCell>
-                {!hasOnlyStandard && (
+                </Stack>
+              </Paper>
+            ))}
+          </Stack>
+        ) : (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Товар</TableCell>
+                <TableCell align="right">Кол-во</TableCell>
+                {!hasOnlyStandard && <TableCell>Инв. номер</TableCell>}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow key={row.key}>
                   <TableCell>
-                    {row.isUnit ? (
-                      <TextField
-                        {...form.register(`inventoryNumbers.${row.unitFieldIndex!}`, {
-                          required: true,
-                        })}
-                        size="small"
-                        placeholder="Инв. номер"
-                        disabled={mutation.isPending}
-                        error={!!form.formState.errors.inventoryNumbers?.[row.unitFieldIndex!]}
-                        sx={{width: 140}}
-                      />
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        —
+                    {row.componentName}
+                    {row.unitSlotLabel && (
+                      <Typography
+                        component="span"
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ml: 0.5}}
+                      >
+                        ({row.unitSlotLabel})
                       </Typography>
                     )}
                   </TableCell>
-                )}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                  <TableCell align="right">{row.standardQuantity ?? "—"}</TableCell>
+                  {!hasOnlyStandard && (
+                    <TableCell>
+                      {row.isUnit ? (
+                        <TextField
+                          {...form.register(`inventoryNumbers.${row.unitFieldIndex!}`, {
+                            required: true,
+                          })}
+                          size="small"
+                          placeholder="Инв. номер"
+                          disabled={mutation.isPending}
+                          error={!!form.formState.errors.inventoryNumbers?.[row.unitFieldIndex!]}
+                          sx={{width: 140}}
+                        />
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          —
+                        </Typography>
+                      )}
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
 
         {hasOnlyStandard && (
           <Typography variant="body2" color="text.secondary">
@@ -497,8 +551,11 @@ function AddPlacementDialog({
   const isAssembledBundle = type === "assembledBundle";
   const isVirtual = VIRTUAL_TYPES.has(type);
 
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth fullScreen={isMobile}>
       <DialogTitle>Добавить размещение — {item.catalogItem.fullName}</DialogTitle>
       <DialogContent>
         {isVirtual ? (
