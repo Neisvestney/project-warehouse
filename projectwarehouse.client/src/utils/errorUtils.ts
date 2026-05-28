@@ -64,6 +64,16 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   passwordAtLeastOneLowercase: "Пароль должен содержать хотя бы одну строчную букву",
   passwordInvalid: "Пароль неверный",
   validationError: "Ошибка валидации",
+  receiptNotFound: "Приемка не найдена",
+  receiptInvalidStatusTransition: "Недопустимый переход статуса приемки",
+  receiptHasPlacements: "У приемки есть размещения",
+  receiptItemNotFound: "Позиция приемки не найдена",
+  receiptItemPlacementNotFound: "Размещение позиции не найдено",
+  receiptNotAssignedToWarehouse: "Приемка не привязана к этому складу",
+  receiptItemsUnderplaced: "Некоторые позиции размещены не полностью",
+  receiptItemsOverplaced: "Некоторые позиции размещены сверх принятого количества",
+  insufficientInventory: "Недостаточно товара на складе",
+  unitInventoryItemNumberDuplicate: "Инвентарный номер уже используется для этого товара",
 };
 
 export function resolveErrorMessage(error: AppFieldError): string {

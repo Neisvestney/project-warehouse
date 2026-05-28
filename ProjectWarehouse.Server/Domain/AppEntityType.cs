@@ -7,4 +7,5 @@ public enum AppEntityType
     Warehouse,
     CatalogItem,
     StoragePlaceNode,
+    Receipt,
 }

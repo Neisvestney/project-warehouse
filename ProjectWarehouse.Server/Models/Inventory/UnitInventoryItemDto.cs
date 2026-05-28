@@ -5,7 +5,7 @@ namespace ProjectWarehouse.Server.Models.Inventory;
 public class UnitInventoryItemDto
 {
     public Guid Id { get; init; }
-    public string Sku { get; init; } = null!;
+    public string InventoryNumber { get; init; } = null!;
     public CatalogItemSummaryDto CatalogItem { get; init; } = null!;
     public Guid WarehouseId { get; init; }
     public string WarehouseName { get; init; } = null!;

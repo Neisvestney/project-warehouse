@@ -13,7 +13,13 @@ export type AppEntity = {
   };
 };
 
-export type AppEntityType = "user" | "roles" | "warehouse" | "catalogItem" | "storagePlaceNode";
+export type AppEntityType =
+  | "user"
+  | "roles"
+  | "warehouse"
+  | "catalogItem"
+  | "storagePlaceNode"
+  | "receipt";
 
 export type AppFieldError = {
   code: ErrorCode;
@@ -47,6 +53,23 @@ export type AssembledBundleInventoryItemDto = {
 
 export type AssembledBundleInventoryItemSortBy = "warehouseName" | "storagePlaceName" | "nodeName";
 
+export type AssembledBundlePlacementComponentRequest = {
+  /**
+   * The catalog item ID of this component.
+   */
+  catalogItemId: string;
+  /**
+   * Quantity to place. Required for Standard/Bundle components.
+   * Null when a unit item is supplied via Guid? AssembledBundlePlacementComponentRequest.UnitInventoryItemId or CreateUnitItemRequest? AssembledBundlePlacementComponentRequest.NewUnitItem.
+   */
+  quantity?: null | number;
+  /**
+   * Existing `UnitInventoryItem` to include as a component. Mutually exclusive with CreateUnitItemRequest? AssembledBundlePlacementComponentRequest.NewUnitItem.
+   */
+  unitInventoryItemId?: null | string;
+  newUnitItem?: null | CreateUnitItemRequest;
+};
+
 export type BundleComponentDto = {
   id: string;
   componentId: string;
@@ -79,6 +102,14 @@ export type CatalogItemDto = {
   variationIds: Array<string>;
   memberIds: Array<string>;
   children: Array<CatalogItemDto>;
+};
+
+export type CatalogItemSelectDto = {
+  id: string;
+  type: CatalogItemType;
+  name: string;
+  fullName: string;
+  article: string;
 };
 
 export type CatalogItemSummaryDto = {
@@ -138,6 +169,11 @@ export type ChangePasswordRequest = {
   newPassword: string;
 };
 
+export type CreateAssembledBundlePlacementRequest = {
+  storagePlaceNodeId: string;
+  components: Array<AssembledBundlePlacementComponentRequest>;
+};
+
 export type CreateCatalogItemRequest = {
   type: CatalogItemType;
   name: string;
@@ -149,10 +185,34 @@ export type CreateCatalogItemTagRequest = {
   name: string;
 };
 
+export type CreateReceiptRequest = {
+  name: string;
+  reason: ReceiptReason;
+  warehouseId: string;
+  notes?: null | string;
+};
+
+export type CreateStandardPlacementRequest = {
+  storagePlaceNodeId: string;
+  count: number;
+};
+
 export type CreateStoragePlaceNodeRequest = {
   name: string;
   parentNodeId?: null | string;
   order: number;
+};
+
+/**
+ * Data required to create a new unit (serialised) inventory item.
+ */
+export type CreateUnitItemRequest = {
+  inventoryNumber: string;
+};
+
+export type CreateUnitPlacementRequest = {
+  storagePlaceNodeId: string;
+  unitItem: CreateUnitItemRequest;
 };
 
 export type CreateUserRequest = {
@@ -209,6 +269,16 @@ export type ErrorCode =
   | "catalogItemVariationInvalid"
   | "catalogItemComponentInvalid"
   | "catalogItemComponentNotFound"
+  | "receiptNotFound"
+  | "receiptInvalidStatusTransition"
+  | "receiptHasPlacements"
+  | "receiptItemNotFound"
+  | "receiptItemPlacementNotFound"
+  | "receiptNotAssignedToWarehouse"
+  | "receiptItemsUnderplaced"
+  | "receiptItemsOverplaced"
+  | "insufficientInventory"
+  | "unitInventoryItemNumberDuplicate"
   | "required"
   | "tooShort"
   | "tooLong"
@@ -230,6 +300,12 @@ export type InventoryItemSummaryDto = {
   count: number;
 };
 
+export type ItemsGroupDto = {
+  id: string;
+  count: number;
+  catalogItem: NodeCatalogItemDto;
+};
+
 export type JsonElement = unknown;
 
 export type LoginRequest = {
@@ -245,6 +321,13 @@ export type MeResponse = {
   lastName?: null | string;
   roles: Array<string>;
   permissions: Array<string>;
+};
+
+export type NodeCatalogItemDto = {
+  id: string;
+  name: string;
+  article: string;
+  barcode?: null | string;
 };
 
 export type NodeOrderItem = {
@@ -284,6 +367,16 @@ export type PaginatedOfChangeLogEntryDto = {
 
 export type PaginatedOfInventoryItemSummaryDto = {
   items: Array<InventoryItemSummaryDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
+export type PaginatedOfReceiptSummaryDto = {
+  items: Array<ReceiptSummaryDto>;
   total: number;
   page: number;
   pageSize: number;
@@ -338,7 +431,12 @@ export type PermissionName =
   | "warehouses.edit_assigned"
   | "catalog.view"
   | "catalog.edit"
-  | "changelog.view";
+  | "changelog.view"
+  | "receipts.view"
+  | "receipts.edit"
+  | "receipts.view_assigned"
+  | "receipts.edit_assigned"
+  | "receipts.process_assigned";
 
 export type ProductGroupChildRequest = {
   id?: null | string;
@@ -350,6 +448,79 @@ export type ProductGroupChildRequest = {
   notes?: null | string;
   isArchived: boolean;
   tags: Array<string>;
+};
+
+export type ReceiptDto = {
+  id: string;
+  number: number;
+  name: string;
+  reason: ReceiptReason;
+  status: ReceiptStatus;
+  notes?: null | string;
+  createdAt: string;
+  warehouseId: string;
+  warehouseName: string;
+  totalPlannedCount: number;
+  totalReceivedCount: number;
+  items: Array<ReceiptItemDto>;
+};
+
+export type ReceiptItemDto = {
+  id: string;
+  catalogItemId: string;
+  catalogItem: CatalogItemSummaryDto;
+  plannedCount: number;
+  receivedCount?: null | number;
+  notes?: null | string;
+  placements: Array<ReceiptItemPlacementDto>;
+};
+
+export type ReceiptItemPlacementDto = {
+  id: string;
+  storagePlaceNodeId: string;
+  /**
+   * Full breadcrumb path from root to node: [StoragePlace, …parents…, Node].
+   */
+  nodePath: Array<string>;
+  /**
+   * Quantity placed. Positive for Standard items; zero for Unit/AssembledBundle placements.
+   */
+  count: number;
+  /**
+   * Set for Unit item placements.
+   */
+  unitInventoryItemId?: null | string;
+  inventoryNumber?: null | string;
+  /**
+   * Set for AssembledBundle item placements.
+   */
+  assembledBundleInventoryItemId?: null | string;
+};
+
+export type ReceiptItemRequest = {
+  catalogItemId: string;
+  plannedCount: number;
+  notes?: null | string;
+};
+
+export type ReceiptReason = "newGoods" | "return" | "other";
+
+export type ReceiptSortBy = "name" | "number" | "status" | "createdAt" | "warehouseName";
+
+export type ReceiptStatus = "draft" | "planned" | "processing" | "finished" | "canceled";
+
+export type ReceiptSummaryDto = {
+  id: string;
+  number: number;
+  name: string;
+  reason: ReceiptReason;
+  status: ReceiptStatus;
+  warehouseId: string;
+  warehouseName: string;
+  itemsCount: number;
+  totalPlannedCount: number;
+  totalReceivedCount: number;
+  createdAt: string;
 };
 
 export type RefreshRequest = {
@@ -397,6 +568,18 @@ export type StoragePlaceNodeDetailsDto = {
   storagePlaceId: string;
   parentNodeId?: null | string;
   order: number;
+  /**
+   * Current standard items stored in this node. Used for inventory changelog diffing.
+   */
+  itemsGroups: Array<ItemsGroupDto>;
+  /**
+   * Count of unit inventory items at this node. Used for inventory changelog diffing.
+   */
+  unitItemsCount: number;
+  /**
+   * Count of assembled bundle inventory items at this node. Used for inventory changelog diffing.
+   */
+  assembledBundlesCount: number;
 };
 
 export type StoragePlaceNodeDto = {
@@ -420,7 +603,7 @@ export type TokenResponse = {
 
 export type UnitInventoryItemDto = {
   id: string;
-  sku: string;
+  inventoryNumber: string;
   catalogItem: CatalogItemSummaryDto;
   warehouseId: string;
   warehouseName: string;
@@ -430,7 +613,11 @@ export type UnitInventoryItemDto = {
   nodeName: string;
 };
 
-export type UnitInventoryItemSortBy = "sku" | "warehouseName" | "storagePlaceName" | "nodeName";
+export type UnitInventoryItemSortBy =
+  | "inventoryNumber"
+  | "warehouseName"
+  | "storagePlaceName"
+  | "nodeName";
 
 export type UpdateCatalogItemRequest = {
   name: string;
@@ -444,6 +631,16 @@ export type UpdateCatalogItemRequest = {
   memberIds: Array<string>;
   components: Array<BundleComponentRequest>;
   children: Array<ProductGroupChildRequest>;
+};
+
+export type UpdateReceiptRequest = {
+  name: string;
+  reason: ReceiptReason;
+  notes?: null | string;
+};
+
+export type UpdateReceivedCountRequest = {
+  receivedCount?: null | number;
 };
 
 export type UpdateRoleItem = {
@@ -807,6 +1004,39 @@ export type CatalogCreateResponses = {
 
 export type CatalogCreateResponse = CatalogCreateResponses[keyof CatalogCreateResponses];
 
+export type CatalogGetForSelectData = {
+  body?: never;
+  path?: never;
+  query?: {
+    searchString?: string;
+    types?: Array<CatalogItemType>;
+  };
+  url: "/api/catalog/for-select";
+};
+
+export type CatalogGetForSelectErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type CatalogGetForSelectError = CatalogGetForSelectErrors[keyof CatalogGetForSelectErrors];
+
+export type CatalogGetForSelectResponses = {
+  /**
+   * OK
+   */
+  200: Array<CatalogItemSelectDto>;
+};
+
+export type CatalogGetForSelectResponse =
+  CatalogGetForSelectResponses[keyof CatalogGetForSelectResponses];
+
 export type CatalogDeleteData = {
   body?: never;
   path: {
@@ -1138,6 +1368,638 @@ export type PermissionsGetAllResponses = {
 
 export type PermissionsGetAllResponse =
   PermissionsGetAllResponses[keyof PermissionsGetAllResponses];
+
+export type ReceiptsGetAllData = {
+  body?: never;
+  path?: never;
+  query?: {
+    page?: number;
+    pageSize?: number;
+    searchString?: string;
+    warehouseId?: string;
+    status?: ReceiptStatus;
+    reason?: ReceiptReason;
+    sortBy?: ReceiptSortBy;
+    sortOrder?: SortOrder;
+  };
+  url: "/api/receipts";
+};
+
+export type ReceiptsGetAllErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type ReceiptsGetAllError = ReceiptsGetAllErrors[keyof ReceiptsGetAllErrors];
+
+export type ReceiptsGetAllResponses = {
+  /**
+   * OK
+   */
+  200: PaginatedOfReceiptSummaryDto;
+};
+
+export type ReceiptsGetAllResponse = ReceiptsGetAllResponses[keyof ReceiptsGetAllResponses];
+
+export type ReceiptsCreateData = {
+  body: CreateReceiptRequest;
+  path?: never;
+  query?: never;
+  url: "/api/receipts";
+};
+
+export type ReceiptsCreateErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsCreateError = ReceiptsCreateErrors[keyof ReceiptsCreateErrors];
+
+export type ReceiptsCreateResponses = {
+  /**
+   * Created
+   */
+  201: ReceiptDto;
+};
+
+export type ReceiptsCreateResponse = ReceiptsCreateResponses[keyof ReceiptsCreateResponses];
+
+export type ReceiptsDeleteData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}";
+};
+
+export type ReceiptsDeleteErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsDeleteError = ReceiptsDeleteErrors[keyof ReceiptsDeleteErrors];
+
+export type ReceiptsDeleteResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type ReceiptsDeleteResponse = ReceiptsDeleteResponses[keyof ReceiptsDeleteResponses];
+
+export type ReceiptsGetByIdData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}";
+};
+
+export type ReceiptsGetByIdErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type ReceiptsGetByIdError = ReceiptsGetByIdErrors[keyof ReceiptsGetByIdErrors];
+
+export type ReceiptsGetByIdResponses = {
+  /**
+   * OK
+   */
+  200: ReceiptDto;
+};
+
+export type ReceiptsGetByIdResponse = ReceiptsGetByIdResponses[keyof ReceiptsGetByIdResponses];
+
+export type ReceiptsUpdateData = {
+  body: UpdateReceiptRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}";
+};
+
+export type ReceiptsUpdateErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsUpdateError = ReceiptsUpdateErrors[keyof ReceiptsUpdateErrors];
+
+export type ReceiptsUpdateResponses = {
+  /**
+   * OK
+   */
+  200: ReceiptDto;
+};
+
+export type ReceiptsUpdateResponse = ReceiptsUpdateResponses[keyof ReceiptsUpdateResponses];
+
+export type ReceiptsSyncItemsData = {
+  body: Array<ReceiptItemRequest>;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}/items";
+};
+
+export type ReceiptsSyncItemsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsSyncItemsError = ReceiptsSyncItemsErrors[keyof ReceiptsSyncItemsErrors];
+
+export type ReceiptsSyncItemsResponses = {
+  /**
+   * OK
+   */
+  200: ReceiptDto;
+};
+
+export type ReceiptsSyncItemsResponse =
+  ReceiptsSyncItemsResponses[keyof ReceiptsSyncItemsResponses];
+
+export type ReceiptsUpdateReceivedCountData = {
+  body: UpdateReceivedCountRequest;
+  path: {
+    id: string;
+    itemId: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}/items/{itemId}/received-count";
+};
+
+export type ReceiptsUpdateReceivedCountErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsUpdateReceivedCountError =
+  ReceiptsUpdateReceivedCountErrors[keyof ReceiptsUpdateReceivedCountErrors];
+
+export type ReceiptsUpdateReceivedCountResponses = {
+  /**
+   * OK
+   */
+  200: ReceiptItemDto;
+};
+
+export type ReceiptsUpdateReceivedCountResponse =
+  ReceiptsUpdateReceivedCountResponses[keyof ReceiptsUpdateReceivedCountResponses];
+
+export type ReceiptsAddStandardPlacementData = {
+  body: CreateStandardPlacementRequest;
+  path: {
+    id: string;
+    itemId: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}/items/{itemId}/placements/standard";
+};
+
+export type ReceiptsAddStandardPlacementErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsAddStandardPlacementError =
+  ReceiptsAddStandardPlacementErrors[keyof ReceiptsAddStandardPlacementErrors];
+
+export type ReceiptsAddStandardPlacementResponses = {
+  /**
+   * OK
+   */
+  200: ReceiptItemDto;
+};
+
+export type ReceiptsAddStandardPlacementResponse =
+  ReceiptsAddStandardPlacementResponses[keyof ReceiptsAddStandardPlacementResponses];
+
+export type ReceiptsAddUnitPlacementData = {
+  body: CreateUnitPlacementRequest;
+  path: {
+    id: string;
+    itemId: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}/items/{itemId}/placements/unit";
+};
+
+export type ReceiptsAddUnitPlacementErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsAddUnitPlacementError =
+  ReceiptsAddUnitPlacementErrors[keyof ReceiptsAddUnitPlacementErrors];
+
+export type ReceiptsAddUnitPlacementResponses = {
+  /**
+   * OK
+   */
+  200: ReceiptItemDto;
+};
+
+export type ReceiptsAddUnitPlacementResponse =
+  ReceiptsAddUnitPlacementResponses[keyof ReceiptsAddUnitPlacementResponses];
+
+export type ReceiptsAddAssembledBundlePlacementData = {
+  body: CreateAssembledBundlePlacementRequest;
+  path: {
+    id: string;
+    itemId: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}/items/{itemId}/placements/assembled-bundle";
+};
+
+export type ReceiptsAddAssembledBundlePlacementErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsAddAssembledBundlePlacementError =
+  ReceiptsAddAssembledBundlePlacementErrors[keyof ReceiptsAddAssembledBundlePlacementErrors];
+
+export type ReceiptsAddAssembledBundlePlacementResponses = {
+  /**
+   * OK
+   */
+  200: ReceiptItemDto;
+};
+
+export type ReceiptsAddAssembledBundlePlacementResponse =
+  ReceiptsAddAssembledBundlePlacementResponses[keyof ReceiptsAddAssembledBundlePlacementResponses];
+
+export type ReceiptsDeletePlacementData = {
+  body?: never;
+  path: {
+    id: string;
+    itemId: string;
+    placementId: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}/items/{itemId}/placements/{placementId}";
+};
+
+export type ReceiptsDeletePlacementErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsDeletePlacementError =
+  ReceiptsDeletePlacementErrors[keyof ReceiptsDeletePlacementErrors];
+
+export type ReceiptsDeletePlacementResponses = {
+  /**
+   * OK
+   */
+  200: ReceiptItemDto;
+};
+
+export type ReceiptsDeletePlacementResponse =
+  ReceiptsDeletePlacementResponses[keyof ReceiptsDeletePlacementResponses];
+
+export type ReceiptsPlanData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}/plan";
+};
+
+export type ReceiptsPlanErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsPlanError = ReceiptsPlanErrors[keyof ReceiptsPlanErrors];
+
+export type ReceiptsPlanResponses = {
+  /**
+   * OK
+   */
+  200: ReceiptDto;
+};
+
+export type ReceiptsPlanResponse = ReceiptsPlanResponses[keyof ReceiptsPlanResponses];
+
+export type ReceiptsStartProcessingData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}/start-processing";
+};
+
+export type ReceiptsStartProcessingErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsStartProcessingError =
+  ReceiptsStartProcessingErrors[keyof ReceiptsStartProcessingErrors];
+
+export type ReceiptsStartProcessingResponses = {
+  /**
+   * OK
+   */
+  200: ReceiptDto;
+};
+
+export type ReceiptsStartProcessingResponse =
+  ReceiptsStartProcessingResponses[keyof ReceiptsStartProcessingResponses];
+
+export type ReceiptsFinishData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}/finish";
+};
+
+export type ReceiptsFinishErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsFinishError = ReceiptsFinishErrors[keyof ReceiptsFinishErrors];
+
+export type ReceiptsFinishResponses = {
+  /**
+   * OK
+   */
+  200: ReceiptDto;
+};
+
+export type ReceiptsFinishResponse = ReceiptsFinishResponses[keyof ReceiptsFinishResponses];
+
+export type ReceiptsRevertData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}/revert";
+};
+
+export type ReceiptsRevertErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsRevertError = ReceiptsRevertErrors[keyof ReceiptsRevertErrors];
+
+export type ReceiptsRevertResponses = {
+  /**
+   * OK
+   */
+  200: ReceiptDto;
+};
+
+export type ReceiptsRevertResponse = ReceiptsRevertResponses[keyof ReceiptsRevertResponses];
+
+export type ReceiptsCancelData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}/cancel";
+};
+
+export type ReceiptsCancelErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsCancelError = ReceiptsCancelErrors[keyof ReceiptsCancelErrors];
+
+export type ReceiptsCancelResponses = {
+  /**
+   * OK
+   */
+  200: ReceiptDto;
+};
+
+export type ReceiptsCancelResponse = ReceiptsCancelResponses[keyof ReceiptsCancelResponses];
 
 export type RolesGetAllData = {
   body?: never;

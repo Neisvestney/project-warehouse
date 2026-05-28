@@ -2,7 +2,7 @@ namespace ProjectWarehouse.Server.Models.Inventory;
 
 public enum UnitInventoryItemSortBy
 {
-    Sku,
+    InventoryNumber,
     WarehouseName,
     StoragePlaceName,
     NodeName,

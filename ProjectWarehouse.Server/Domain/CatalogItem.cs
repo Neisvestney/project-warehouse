@@ -30,16 +30,13 @@ public class CatalogItem : IHasIdentity
 
     public ICollection<CatalogItemTag> Tags { get; set; } = [];
 
-    [Projectable]
-    public string FullName => Group != null ? Group.Name + " " + Name : Name;
+    [Projectable] public string FullName => Group != null ? Group.Name + " " + Name : Name;
+
+    [Projectable] public string? EffectiveDescription => Description ?? (Group != null ? Group.Description : null);
+
+    [Projectable] public string? EffectiveNotes => Notes ?? (Group != null ? Group.Notes : null);
 
     [Projectable]
-    public string? EffectiveDescription => Description ?? (Group != null ? Group.Description : null);
-
-    [Projectable]
-    public string? EffectiveNotes => Notes ?? (Group != null ? Group.Notes : null);
-
-    [Projectable]
-    public string SearchString =>
-        (Name ?? "") + " " + (Article ?? "") + " " + (Barcode ?? "") + " " + Id;
+    public string SearchString => (Name ?? "") + " " + (Article ?? "") + " " + (Barcode ?? "") + " " + Id +
+                                  (Group != null ? (Group.Name + " " + Group.Article + " " + Group.Barcode ?? "") : "");
 }

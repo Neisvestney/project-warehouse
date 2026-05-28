@@ -45,6 +45,18 @@ public enum ErrorCode
     CatalogItemComponentInvalid,
     CatalogItemComponentNotFound,
 
+    // Receipts
+    ReceiptNotFound,
+    ReceiptInvalidStatusTransition,
+    ReceiptHasPlacements,
+    ReceiptItemNotFound,
+    ReceiptItemPlacementNotFound,
+    ReceiptNotAssignedToWarehouse,
+    ReceiptItemsUnderplaced,
+    ReceiptItemsOverplaced,
+    InsufficientInventory,
+    UnitInventoryItemNumberDuplicate,
+
     // Validation
     Required,
     TooShort,

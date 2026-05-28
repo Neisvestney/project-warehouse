@@ -46,4 +46,18 @@ public static class Permissions
     {
         public const string View = "changelog.view";
     }
+
+    public static class Receipts
+    {
+        public const string View            = "receipts.view";
+        public const string Edit            = "receipts.edit";
+        public const string ViewAssigned    = "receipts.view_assigned";
+        public const string EditAssigned    = "receipts.edit_assigned";
+
+        /// <summary>
+        /// Allows processing (receiving + placement) for warehouses assigned to the user.
+        /// Checked alongside warehouse assignment validation.
+        /// </summary>
+        public const string ProcessAssigned = "receipts.process_assigned";
+    }
 }

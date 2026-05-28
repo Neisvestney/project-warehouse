@@ -92,6 +92,32 @@ public class CatalogController(
         return Ok(paginated);
     }
 
+    /// <summary>Get a flat list of catalog items for use in select/autocomplete controls.</summary>
+    /// <remarks>Returns at most 50 items. Excludes product-group children. Optionally filtered by types.</remarks>
+    [HttpGet("for-select")]
+    [Authorize(Policy = Permissions.Catalog.View)]
+    [ProducesResponseType<IReadOnlyList<CatalogItemSelectDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetForSelect(
+        [FromQuery] string? searchString = null,
+        [FromQuery] IReadOnlyList<CatalogItemType>? types = null,
+        CancellationToken ct = default)
+    {
+        var query = db.CatalogItems
+            .WhereMatchesSearch(c => c.SearchString, searchString);
+
+        if (types != null && types.Count > 0)
+            query = query.Where(c => types.Contains(c.Type));
+
+        var items = await query
+            .OrderBy(c => c.Name)
+            .ThenBy(c => c.Id)
+            .Take(10)
+            .ProjectTo<CatalogItemSelectDto>(mapper.ConfigurationProvider)
+            .ToListAsync(ct);
+
+        return Ok(items);
+    }
+
     /// <summary>Get a catalog item by ID.</summary>
     [HttpGet("{id:guid}")]
     [Authorize(Policy = Permissions.Catalog.View)]

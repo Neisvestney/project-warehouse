@@ -33,6 +33,9 @@ import type {
   CatalogGetByIdData,
   CatalogGetByIdErrors,
   CatalogGetByIdResponses,
+  CatalogGetForSelectData,
+  CatalogGetForSelectErrors,
+  CatalogGetForSelectResponses,
   CatalogGetTagsData,
   CatalogGetTagsErrors,
   CatalogGetTagsResponses,
@@ -57,6 +60,54 @@ import type {
   PermissionsGetAllData,
   PermissionsGetAllErrors,
   PermissionsGetAllResponses,
+  ReceiptsAddAssembledBundlePlacementData,
+  ReceiptsAddAssembledBundlePlacementErrors,
+  ReceiptsAddAssembledBundlePlacementResponses,
+  ReceiptsAddStandardPlacementData,
+  ReceiptsAddStandardPlacementErrors,
+  ReceiptsAddStandardPlacementResponses,
+  ReceiptsAddUnitPlacementData,
+  ReceiptsAddUnitPlacementErrors,
+  ReceiptsAddUnitPlacementResponses,
+  ReceiptsCancelData,
+  ReceiptsCancelErrors,
+  ReceiptsCancelResponses,
+  ReceiptsCreateData,
+  ReceiptsCreateErrors,
+  ReceiptsCreateResponses,
+  ReceiptsDeleteData,
+  ReceiptsDeleteErrors,
+  ReceiptsDeletePlacementData,
+  ReceiptsDeletePlacementErrors,
+  ReceiptsDeletePlacementResponses,
+  ReceiptsDeleteResponses,
+  ReceiptsFinishData,
+  ReceiptsFinishErrors,
+  ReceiptsFinishResponses,
+  ReceiptsGetAllData,
+  ReceiptsGetAllErrors,
+  ReceiptsGetAllResponses,
+  ReceiptsGetByIdData,
+  ReceiptsGetByIdErrors,
+  ReceiptsGetByIdResponses,
+  ReceiptsPlanData,
+  ReceiptsPlanErrors,
+  ReceiptsPlanResponses,
+  ReceiptsRevertData,
+  ReceiptsRevertErrors,
+  ReceiptsRevertResponses,
+  ReceiptsStartProcessingData,
+  ReceiptsStartProcessingErrors,
+  ReceiptsStartProcessingResponses,
+  ReceiptsSyncItemsData,
+  ReceiptsSyncItemsErrors,
+  ReceiptsSyncItemsResponses,
+  ReceiptsUpdateData,
+  ReceiptsUpdateErrors,
+  ReceiptsUpdateReceivedCountData,
+  ReceiptsUpdateReceivedCountErrors,
+  ReceiptsUpdateReceivedCountResponses,
+  ReceiptsUpdateResponses,
   RolesGetAllData,
   RolesGetAllErrors,
   RolesGetAllResponses,
@@ -271,6 +322,20 @@ export const catalogCreate = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Get a flat list of catalog items for use in select/autocomplete controls.
+ *
+ * Returns at most 50 items. Excludes product-group children. Optionally filtered by types.
+ */
+export const catalogGetForSelect = <ThrowOnError extends boolean = false>(
+  options?: Options<CatalogGetForSelectData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    CatalogGetForSelectResponses,
+    CatalogGetForSelectErrors,
+    ThrowOnError
+  >({url: "/api/catalog/for-select", ...options});
+
+/**
  * Delete a catalog item.
  *
  * Returns 409 `catalogItemIsInUse` if the item is currently stored in any warehouse.
@@ -393,6 +458,230 @@ export const permissionsGetAll = <ThrowOnError extends boolean = false>(
     PermissionsGetAllErrors,
     ThrowOnError
   >({url: "/api/permissions", ...options});
+
+/**
+ * List receipts with pagination, filtering, and search.
+ */
+export const receiptsGetAll = <ThrowOnError extends boolean = false>(
+  options?: Options<ReceiptsGetAllData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<ReceiptsGetAllResponses, ReceiptsGetAllErrors, ThrowOnError>({
+    url: "/api/receipts",
+    ...options,
+  });
+
+/**
+ * Create a new receipt in Draft status.
+ */
+export const receiptsCreate = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsCreateData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<ReceiptsCreateResponses, ReceiptsCreateErrors, ThrowOnError>({
+    url: "/api/receipts",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete a receipt. Only allowed in Draft status.
+ */
+export const receiptsDelete = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsDeleteData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<ReceiptsDeleteResponses, ReceiptsDeleteErrors, ThrowOnError>({
+    url: "/api/receipts/{id}",
+    ...options,
+  });
+
+/**
+ * Get full receipt details including items and placements.
+ */
+export const receiptsGetById = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsGetByIdData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<ReceiptsGetByIdResponses, ReceiptsGetByIdErrors, ThrowOnError>({
+    url: "/api/receipts/{id}",
+    ...options,
+  });
+
+/**
+ * Update receipt name, reason, notes. Only allowed in Draft status.
+ */
+export const receiptsUpdate = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsUpdateData, ThrowOnError>,
+) =>
+  (options.client ?? client).patch<ReceiptsUpdateResponses, ReceiptsUpdateErrors, ThrowOnError>({
+    url: "/api/receipts/{id}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Replace the full list of expected items. Allowed in Draft and Planned statuses.
+ */
+export const receiptsSyncItems = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsSyncItemsData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<ReceiptsSyncItemsResponses, ReceiptsSyncItemsErrors, ThrowOnError>(
+    {
+      url: "/api/receipts/{id}/items",
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    },
+  );
+
+/**
+ * Update the actually received count for a specific item. Only in Processing status.
+ */
+export const receiptsUpdateReceivedCount = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsUpdateReceivedCountData, ThrowOnError>,
+) =>
+  (options.client ?? client).patch<
+    ReceiptsUpdateReceivedCountResponses,
+    ReceiptsUpdateReceivedCountErrors,
+    ThrowOnError
+  >({
+    url: "/api/receipts/{id}/items/{itemId}/received-count",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Place Standard (count-based) items at a storage node. Only in Processing status.
+ */
+export const receiptsAddStandardPlacement = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsAddStandardPlacementData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    ReceiptsAddStandardPlacementResponses,
+    ReceiptsAddStandardPlacementErrors,
+    ThrowOnError
+  >({
+    url: "/api/receipts/{id}/items/{itemId}/placements/standard",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Place a Unit (serialised) item at a storage node. Only in Processing status.
+ */
+export const receiptsAddUnitPlacement = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsAddUnitPlacementData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    ReceiptsAddUnitPlacementResponses,
+    ReceiptsAddUnitPlacementErrors,
+    ThrowOnError
+  >({
+    url: "/api/receipts/{id}/items/{itemId}/placements/unit",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Place an AssembledBundle item at a storage node. Only in Processing status.
+ */
+export const receiptsAddAssembledBundlePlacement = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsAddAssembledBundlePlacementData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    ReceiptsAddAssembledBundlePlacementResponses,
+    ReceiptsAddAssembledBundlePlacementErrors,
+    ThrowOnError
+  >({
+    url: "/api/receipts/{id}/items/{itemId}/placements/assembled-bundle",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Remove a placement, reversing the inventory change. Only in Processing status.
+ */
+export const receiptsDeletePlacement = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsDeletePlacementData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<
+    ReceiptsDeletePlacementResponses,
+    ReceiptsDeletePlacementErrors,
+    ThrowOnError
+  >({url: "/api/receipts/{id}/items/{itemId}/placements/{placementId}", ...options});
+
+/**
+ * Transition: Draft → Planned.
+ */
+export const receiptsPlan = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsPlanData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<ReceiptsPlanResponses, ReceiptsPlanErrors, ThrowOnError>({
+    url: "/api/receipts/{id}/plan",
+    ...options,
+  });
+
+/**
+ * Transition: Planned → Processing.
+ */
+export const receiptsStartProcessing = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsStartProcessingData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    ReceiptsStartProcessingResponses,
+    ReceiptsStartProcessingErrors,
+    ThrowOnError
+  >({url: "/api/receipts/{id}/start-processing", ...options});
+
+/**
+ * Transition: Processing → Finished.
+ */
+export const receiptsFinish = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsFinishData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<ReceiptsFinishResponses, ReceiptsFinishErrors, ThrowOnError>({
+    url: "/api/receipts/{id}/finish",
+    ...options,
+  });
+
+/**
+ * Revert one step back (Planned → Draft, Processing → Planned if no placements).
+ */
+export const receiptsRevert = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsRevertData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<ReceiptsRevertResponses, ReceiptsRevertErrors, ThrowOnError>({
+    url: "/api/receipts/{id}/revert",
+    ...options,
+  });
+
+/**
+ * Cancel the receipt. Allowed from Draft, Planned, and Processing (if no placements).
+ */
+export const receiptsCancel = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsCancelData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<ReceiptsCancelResponses, ReceiptsCancelErrors, ThrowOnError>({
+    url: "/api/receipts/{id}/cancel",
+    ...options,
+  });
 
 /**
  * List all roles with their permissions.

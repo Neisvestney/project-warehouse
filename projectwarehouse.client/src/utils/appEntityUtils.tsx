@@ -4,6 +4,7 @@ import WarehouseIcon from "@mui/icons-material/Warehouse";
 import PersonIcon from "@mui/icons-material/Person";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import InventoryIcon from "@mui/icons-material/Inventory";
+import AssignmentIcon from "@mui/icons-material/Assignment";
 
 type EntityTypeConfig = {
   linkTemplate: string;
@@ -42,6 +43,11 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     linkTemplate: "/catalog?item={id}",
     typeName: "Товар",
     icon: <InventoryIcon />,
+  },
+  receipt: {
+    linkTemplate: "/receipts/{id}",
+    typeName: "Приемка",
+    icon: <AssignmentIcon />,
   },
 };
 

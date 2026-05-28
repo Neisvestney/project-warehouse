@@ -36,7 +36,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("AssignedWarehousesId");
 
-                    b.ToTable("ApplicationUserWarehouse");
+                    b.ToTable("ApplicationUserWarehouse", (string)null);
                 });
 
             modelBuilder.Entity("CatalogItemTagLinks", b =>
@@ -51,7 +51,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("TagsId");
 
-                    b.ToTable("CatalogItemTagLinks");
+                    b.ToTable("CatalogItemTagLinks", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -282,7 +282,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("ComponentId");
 
-                    b.ToTable("AssembledBundleComponents");
+                    b.ToTable("AssembledBundleComponents", (string)null);
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssembledBundleInventoryItemComponent", b =>
@@ -311,7 +311,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("UnitInventoryItemId");
 
-                    b.ToTable("AssembledBundleInventoryItemComponents");
+                    b.ToTable("AssembledBundleInventoryItemComponents", (string)null);
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.BundleComponent", b =>
@@ -335,7 +335,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("ComponentId");
 
-                    b.ToTable("BundleComponents");
+                    b.ToTable("BundleComponents", (string)null);
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItem", b =>
@@ -379,7 +379,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("SourceBundleId");
 
-                    b.ToTable("CatalogItems");
+                    b.ToTable("CatalogItems", (string)null);
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemTag", b =>
@@ -394,7 +394,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("CatalogItemTags");
+                    b.ToTable("CatalogItemTags", (string)null);
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemVariationMember", b =>
@@ -409,7 +409,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("VariationId");
 
-                    b.ToTable("CatalogItemVariationMembers");
+                    b.ToTable("CatalogItemVariationMembers", (string)null);
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.ChangeLogEntry", b =>
@@ -457,7 +457,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("ChangeLogEntries");
+                    b.ToTable("ChangeLogEntries", (string)null);
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.InventoryItem", b =>
@@ -483,7 +483,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("StoragePlaceNodeId");
 
-                    b.ToTable("InventoryItems");
+                    b.ToTable("InventoryItems", (string)null);
 
                     b.HasDiscriminator<string>("Type").HasValue("InventoryItem");
 
@@ -511,11 +511,121 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("CatalogItemId");
 
-                    b.ToTable("ItemsGroup");
+                    b.ToTable("ItemsGroup", (string)null);
 
                     b.HasDiscriminator<string>("Discriminator").HasValue("ItemsGroup");
 
                     b.UseTphMappingStrategy();
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Receipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Number")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Number"));
+
+                    b.Property<int>("Reason")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("Number")
+                        .IsUnique();
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("Receipts", (string)null);
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.ReceiptItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CatalogItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<int>("PlannedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ReceiptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("ReceivedCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CatalogItemId");
+
+                    b.HasIndex("ReceiptId");
+
+                    b.ToTable("ReceiptItems", (string)null);
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.ReceiptItemPlacement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssembledBundleInventoryItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ReceiptItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("StoragePlaceNodeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("UnitInventoryItemId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssembledBundleInventoryItemId");
+
+                    b.HasIndex("ReceiptItemId");
+
+                    b.HasIndex("StoragePlaceNodeId");
+
+                    b.HasIndex("UnitInventoryItemId");
+
+                    b.ToTable("ReceiptItemPlacements", (string)null);
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.RefreshToken", b =>
@@ -542,7 +652,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens");
+                    b.ToTable("RefreshTokens", (string)null);
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.RolePermission", b =>
@@ -555,7 +665,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasKey("RoleId", "Permission");
 
-                    b.ToTable("RolePermissions");
+                    b.ToTable("RolePermissions", (string)null);
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlace", b =>
@@ -590,7 +700,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.ToTable("StoragePlaces");
+                    b.ToTable("StoragePlaces", (string)null);
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlaceNode", b =>
@@ -618,7 +728,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("RootStoragePlaceId");
 
-                    b.ToTable("StoragePlacesNodes");
+                    b.ToTable("StoragePlacesNodes", (string)null);
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.UserPermission", b =>
@@ -631,7 +741,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasKey("UserId", "Permission");
 
-                    b.ToTable("UserPermissions");
+                    b.ToTable("UserPermissions", (string)null);
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Warehouse", b =>
@@ -652,7 +762,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Warehouses");
+                    b.ToTable("Warehouses", (string)null);
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssembledBundleInventoryItem", b =>
@@ -666,9 +776,13 @@ namespace ProjectWarehouse.Server.Migrations
                 {
                     b.HasBaseType("ProjectWarehouse.Server.Domain.InventoryItem");
 
-                    b.Property<string>("Sku")
+                    b.Property<string>("InventoryNumber")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.HasIndex("CatalogItemId", "InventoryNumber")
+                        .IsUnique()
+                        .HasFilter("\"Type\" = 'Unit'");
 
                     b.HasDiscriminator().HasValue("Unit");
                 });
@@ -909,6 +1023,76 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("CatalogItem");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Receipt", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.ReceiptItem", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Receipt", "Receipt")
+                        .WithMany("Items")
+                        .HasForeignKey("ReceiptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CatalogItem");
+
+                    b.Navigation("Receipt");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.ReceiptItemPlacement", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.AssembledBundleInventoryItem", "AssembledBundleInventoryItem")
+                        .WithMany()
+                        .HasForeignKey("AssembledBundleInventoryItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.ReceiptItem", "ReceiptItem")
+                        .WithMany("Placements")
+                        .HasForeignKey("ReceiptItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.StoragePlaceNode", "StoragePlaceNode")
+                        .WithMany()
+                        .HasForeignKey("StoragePlaceNodeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.UnitInventoryItem", "UnitInventoryItem")
+                        .WithMany()
+                        .HasForeignKey("UnitInventoryItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("AssembledBundleInventoryItem");
+
+                    b.Navigation("ReceiptItem");
+
+                    b.Navigation("StoragePlaceNode");
+
+                    b.Navigation("UnitInventoryItem");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.RefreshToken", b =>
                 {
                     b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", "User")
@@ -993,7 +1177,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                             b1.HasKey("WarehouseId", "__synthesizedOrdinal");
 
-                            b1.ToTable("Warehouses");
+                            b1.ToTable("Warehouses", (string)null);
 
                             b1
                                 .ToJson("LayoutObjects")
@@ -1046,6 +1230,16 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("VariationMembers");
 
                     b.Navigation("VariationMemberships");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Receipt", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.ReceiptItem", b =>
+                {
+                    b.Navigation("Placements");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlace", b =>

@@ -25,7 +25,7 @@ import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
 
 const SORTABLE_COLUMNS: {key: UnitInventoryItemSortBy; label: string}[] = [
-  {key: "sku", label: "Артикул (SKU)"},
+  {key: "inventoryNumber", label: "Инвентарный номер"},
   {key: "warehouseName", label: "Склад"},
   {key: "storagePlaceName", label: "Место хранения"},
   {key: "nodeName", label: "Ячейка"},
@@ -54,7 +54,7 @@ export function UnitItemsDrawer({
     (v) => v || null,
   );
 
-  const {sortBy, sortOrder, handleSortClick} = useTableSort(SORTABLE_COLUMNS, "sku", {
+  const {sortBy, sortOrder, handleSortClick} = useTableSort(SORTABLE_COLUMNS, "inventoryNumber", {
     sortByParam: "unitSortBy",
     sortOrderParam: "unitSortOrder",
   });
@@ -141,7 +141,7 @@ export function UnitItemsDrawer({
               ) : (
                 data?.items.map((item) => (
                   <TableRow key={item.id} hover>
-                    <TableCell sx={{fontFamily: "monospace"}}>{item.sku}</TableCell>
+                    <TableCell sx={{fontFamily: "monospace"}}>{item.inventoryNumber}</TableCell>
                     <TableCell>{item.warehouseName}</TableCell>
                     <TableCell>{item.storagePlaceName}</TableCell>
                     <TableCell>{item.nodeName}</TableCell>

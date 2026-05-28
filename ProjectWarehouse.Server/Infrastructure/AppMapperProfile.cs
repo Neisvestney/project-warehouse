@@ -5,6 +5,7 @@ using ProjectWarehouse.Server.Models.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
 using ProjectWarehouse.Server.Models.Inventory;
+using ProjectWarehouse.Server.Models.Receipts;
 using ProjectWarehouse.Server.Models.Roles;
 using ProjectWarehouse.Server.Models.Users;
 using ProjectWarehouse.Server.Models.Warehouses;
@@ -31,15 +32,26 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.ComponentName, opt => opt.MapFrom(s => s.Component.Name))
             .ForMember(d => d.ComponentType, opt => opt.MapFrom(s => s.Component.Type));
 
+        CreateMap<AssembledBundleComponent, BundleComponentDto>()
+            .ForMember(d => d.Id, opt => opt.MapFrom(s => s.Id))
+            .ForMember(d => d.ComponentId, opt => opt.MapFrom(s => s.ComponentId))
+            .ForMember(d => d.ComponentName, opt => opt.MapFrom(s => s.Component.Name))
+            .ForMember(d => d.ComponentType, opt => opt.MapFrom(s => s.Component.Type))
+            .ForMember(d => d.Quantity, opt => opt.MapFrom(s => s.Quantity));
+
         CreateMap<CatalogItem, CatalogItemDto>()
             .ForMember(d => d.GroupName, opt => opt.MapFrom(s => s.Group != null ? s.Group.Name : null))
             .ForMember(d => d.Description, opt => opt.MapFrom(s => s.EffectiveDescription))
             .ForMember(d => d.Notes, opt => opt.MapFrom(s => s.EffectiveNotes))
-            .ForMember(d => d.Components, opt => opt.MapFrom(s => s.BundleComponents))
+            .ForMember(d => d.Components, opt => opt.MapFrom((s, _, _, ctx) =>
+                s.Type == CatalogItemType.AssembledBundle
+                    ? ctx.Mapper.Map<List<BundleComponentDto>>(s.AssembledComponents)
+                    : ctx.Mapper.Map<List<BundleComponentDto>>(s.BundleComponents)))
             .ForMember(d => d.VariationIds, opt => opt.MapFrom(s => s.VariationMemberships.Select(m => m.VariationId).ToList()))
             .ForMember(d => d.MemberIds, opt => opt.MapFrom(s => s.VariationMembers.Select(m => m.ItemId).ToList()))
             .ForMember(d => d.Children, opt => opt.MapFrom(s => s.GroupChildren));
         CreateMap<CatalogItem, CatalogItemSummaryDto>();
+        CreateMap<CatalogItem, CatalogItemSelectDto>();
         CreateMap<CatalogItem, NodeCatalogItemDto>();
 
         CreateMap<WarehouseLayoutElement, WarehouseLayoutElementDto>();
@@ -47,7 +59,12 @@ public class AppMapperProfile : Profile
         CreateMap<StoragePlaceNode, StoragePlaceNodeDto>();
         CreateMap<StoragePlaceNodeItemsGroup, ItemsGroupDto>();
         CreateMap<StoragePlaceNode, StoragePlaceNodeDetailsDto>()
-            .ForMember(d => d.StoragePlaceId, opt => opt.MapFrom(s => s.RootStoragePlaceId));
+            .ForMember(d => d.StoragePlaceId, opt => opt.MapFrom(s => s.RootStoragePlaceId))
+            .ForMember(d => d.ItemsGroups, opt => opt.MapFrom(s => s.ItemsGroups))
+            .ForMember(d => d.UnitItemsCount,
+                opt => opt.MapFrom(s => s.InventoryItems.OfType<UnitInventoryItem>().Count()))
+            .ForMember(d => d.AssembledBundlesCount,
+                opt => opt.MapFrom(s => s.InventoryItems.OfType<AssembledBundleInventoryItem>().Count()));
         CreateMap<Warehouse, WarehouseDto>();
         CreateMap<Warehouse, WarehouseSummaryDto>()
             .ForMember(d => d.StoragePlaceCount, opt => opt.MapFrom(s => s.StoragePlaces.Count));
@@ -72,11 +89,51 @@ public class AppMapperProfile : Profile
             .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Warehouse))
             .ForMember(x => x.AdditionalFields, opt => opt.MapFrom(_ => (IReadOnlyDictionary<string, object>?)null));
 
+        CreateMap<Receipt, ReceiptDto>()
+            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
+            .ForMember(d => d.TotalPlannedCount, opt => opt.MapFrom(s => s.Items.Sum(i => i.PlannedCount)))
+            .ForMember(d => d.TotalReceivedCount, opt => opt.MapFrom(s => s.Items.Sum(i => i.ReceivedCount ?? 0)));
+        CreateMap<Receipt, ReceiptSummaryDto>()
+            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
+            .ForMember(d => d.ItemsCount, opt => opt.MapFrom(s => s.Items.Count))
+            .ForMember(d => d.TotalPlannedCount, opt => opt.MapFrom(s => s.Items.Sum(i => i.PlannedCount)))
+            .ForMember(d => d.TotalReceivedCount, opt => opt.MapFrom(s => s.Items.Sum(i => i.ReceivedCount ?? 0)));
+        CreateMap<ReceiptItem, ReceiptItemDto>();
+        CreateMap<ReceiptItemPlacement, ReceiptItemPlacementDto>()
+            .ForMember(d => d.NodePath, opt => opt.MapFrom<NodePathResolver>())
+            .ForMember(d => d.InventoryNumber,
+                opt => opt.MapFrom(s => s.UnitInventoryItem != null ? s.UnitInventoryItem.InventoryNumber : null));
+
         CreateMap<ChangeLogEntry, ChangeLogEntryDto>()
             .ForMember(d => d.UserName, opt => opt.MapFrom(s => s.User != null ? s.User.UserName : "deleted"))
             .ForMember(d => d.Context, opt => opt.MapFrom(s =>
                 s.Context != null ? JsonSerializer.Deserialize<JsonElement>(s.Context) : (JsonElement?)null))
             .ForMember(d => d.ActionData, opt => opt.MapFrom(s =>
                 s.ActionData != null ? JsonSerializer.Deserialize<JsonElement>(s.ActionData) : (JsonElement?)null));
+    }
+}
+
+/// <summary>
+/// AutoMapper value resolver that builds the full breadcrumb path for a <see cref="ReceiptItemPlacement"/>.
+/// Requires a pre-loaded <c>nodeById</c> dictionary to be passed via
+/// <c>mapper.Map&lt;T&gt;(src, opts =&gt; opts.Items["nodeById"] = nodeById)</c>.
+/// Falls back to a two-element path <c>[StoragePlace, Node]</c> when the dictionary is not supplied
+/// (e.g., changelog diffing where full ancestry is not needed).
+/// </summary>
+public class NodePathResolver : IValueResolver<ReceiptItemPlacement, ReceiptItemPlacementDto, string[]>
+{
+    public string[] Resolve(
+        ReceiptItemPlacement source,
+        ReceiptItemPlacementDto destination,
+        string[] destMember,
+        ResolutionContext context)
+    {
+        if (context.TryGetItems(out var items)
+            && items.TryGetValue("nodeById", out var obj)
+            && obj is IReadOnlyDictionary<Guid, StoragePlaceNode> nodeById)
+            return StoragePlaceNodeHelper.BuildPath(source.StoragePlaceNode, nodeById);
+
+        // Fallback: two-element path when no full node dictionary is available.
+        return [source.StoragePlaceNode.RootStoragePlace.Name, source.StoragePlaceNode.Name];
     }
 }
