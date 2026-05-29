@@ -277,7 +277,7 @@ function ReceiptPage() {
                     variant="outlined"
                     disabled={actionPending}
                     onClick={() => planMutation.mutate({path: {id: receipt.id}})}
-                    startIcon={<ScheduleSendIcon/>}
+                    startIcon={<ScheduleSendIcon />}
                     loading={planMutation.isPending}
                   >
                     Запланировать
@@ -487,7 +487,9 @@ function ReceiptPage() {
         onConfirm={() => startProcessingMutation.mutate({path: {id: receipt.id}})}
         isPending={startProcessingMutation.isPending}
       >
-        <Typography>После начала приёмки изменить список позиций будет нельзя. Продолжить?</Typography>
+        <Typography>
+          После начала приёмки изменить список позиций будет нельзя. Продолжить?
+        </Typography>
       </ConfirmDialog>
     </Stack>
   );

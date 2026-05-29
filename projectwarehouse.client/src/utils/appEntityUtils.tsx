@@ -1,4 +1,4 @@
-import type {AppEntity, AppEntityType} from "@/api";
+import type {AppEntity, AppEntityType, CatalogItemType, ReceiptStatus} from "@/api";
 import {interpolateArgs} from "@/utils/interpolateArgs.ts";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
 import PersonIcon from "@mui/icons-material/Person";
@@ -6,17 +6,26 @@ import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import InventoryIcon from "@mui/icons-material/Inventory";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import QuestionMarkIcon from "@mui/icons-material/QuestionMark";
+import React from "react";
+import {Typography} from "@mui/material";
+import ReceiptStatusChip from "@/components/receipts/ReceiptStatusChip.tsx";
+import {formatReceiptNumber} from "@/components/receipts/receiptUtils.ts";
+import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip.tsx";
 
 type EntityTypeConfig = {
   linkTemplate: string;
   typeName: string;
   icon: React.ReactNode;
+  renderAdditionalCardContent?: (entity: ResolvedEntity) => React.ReactNode;
+  renderAdditionalSearchContent?: (entity: ResolvedEntity) => React.ReactNode;
 };
 
 type ResolvedEntity = {
   link: string;
   typeName: string;
   icon: React.ReactNode;
+  renderAdditionalCardContent?: (entity: ResolvedEntity) => React.ReactNode;
+  renderAdditionalSearchContent?: (entity: ResolvedEntity) => React.ReactNode;
 } & AppEntity;
 
 export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
@@ -27,8 +36,16 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
   },
   user: {
     linkTemplate: "/settings/employees/{id}",
-    typeName: "Пользователь",
+    typeName: "Сотрудник",
     icon: <PersonIcon />,
+    renderAdditionalCardContent: (e) => (
+      <>
+        <Typography>{e.additionalFields?.username as string}</Typography>
+        {e.additionalFields?.email && (
+          <Typography variant={"caption"}>{e.additionalFields?.email as string}</Typography>
+        )}
+      </>
+    ),
   },
   roles: {
     linkTemplate: "/settings/roles",
@@ -39,6 +56,11 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     linkTemplate: "/storage/warehouses/{id}",
     typeName: "Склад",
     icon: <WarehouseIcon />,
+    renderAdditionalCardContent: (e) => (
+      <>
+        <Typography>Товаров: {(e.additionalFields?.totalItemsCount as number) || "—"}</Typography>
+      </>
+    ),
   },
   storagePlaceNode: {
     linkTemplate: "no-link",
@@ -49,11 +71,35 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     linkTemplate: "/catalog?item={id}",
     typeName: "Товар",
     icon: <InventoryIcon />,
+    renderAdditionalSearchContent: (e) => (
+      <>
+        {e.additionalFields?.article && (
+          <Typography sx={{fontFamily: "monospace"}}>
+            {e.additionalFields.article as string}
+          </Typography>
+        )}
+        {e.additionalFields?.type && (
+          <CatalogItemTypeChip type={e.additionalFields.type as CatalogItemType} />
+        )}
+      </>
+    ),
   },
   receipt: {
     linkTemplate: "/operations/receipts/{id}",
     typeName: "Приемка",
     icon: <AssignmentIcon />,
+    renderAdditionalCardContent: (e) => (
+      <>
+        {e.additionalFields?.number && (
+          <Typography sx={{fontFamily: "monospace"}}>
+            {formatReceiptNumber(e.additionalFields.number as number)}
+          </Typography>
+        )}
+        {e.additionalFields?.status && (
+          <ReceiptStatusChip status={e.additionalFields.status as ReceiptStatus} />
+        )}
+      </>
+    ),
   },
 };
 
@@ -76,5 +122,7 @@ export function resolveEntity(entity: AppEntity): ResolvedEntity {
     }),
     typeName: config.typeName,
     icon: config.icon,
+    renderAdditionalCardContent: config.renderAdditionalCardContent,
+    renderAdditionalSearchContent: config.renderAdditionalSearchContent,
   };
 }

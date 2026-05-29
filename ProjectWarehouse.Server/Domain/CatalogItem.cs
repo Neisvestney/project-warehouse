@@ -37,6 +37,6 @@ public class CatalogItem : IHasIdentity
     [Projectable] public string? EffectiveNotes => Notes ?? (Group != null ? Group.Notes : null);
 
     [Projectable]
-    public string SearchString => (Name ?? "") + " " + (Article ?? "") + " " + (Barcode ?? "") + " " + Id +
+    public string SearchString => (Name ?? "") + " " + (Article ?? "") + " " + (Barcode ?? "") + " " +
                                   (Group != null ? (Group.Name + " " + Group.Article + " " + Group.Barcode ?? "") : "");
 }

@@ -1196,14 +1196,14 @@ export type ChangelogGetAllResponses = {
 
 export type ChangelogGetAllResponse = ChangelogGetAllResponses[keyof ChangelogGetAllResponses];
 
-export type HomePageContentGetHomePageContentData = {
+export type CommonContentGetHomePageContentData = {
   body?: never;
   path?: never;
   query?: never;
-  url: "/api/homepagecontent";
+  url: "/api/commoncontent";
 };
 
-export type HomePageContentGetHomePageContentErrors = {
+export type CommonContentGetHomePageContentErrors = {
   /**
    * Unauthorized
    */
@@ -1214,18 +1214,51 @@ export type HomePageContentGetHomePageContentErrors = {
   403: AppProblemDetails;
 };
 
-export type HomePageContentGetHomePageContentError =
-  HomePageContentGetHomePageContentErrors[keyof HomePageContentGetHomePageContentErrors];
+export type CommonContentGetHomePageContentError =
+  CommonContentGetHomePageContentErrors[keyof CommonContentGetHomePageContentErrors];
 
-export type HomePageContentGetHomePageContentResponses = {
+export type CommonContentGetHomePageContentResponses = {
   /**
    * OK
    */
   200: Array<AppEntity>;
 };
 
-export type HomePageContentGetHomePageContentResponse =
-  HomePageContentGetHomePageContentResponses[keyof HomePageContentGetHomePageContentResponses];
+export type CommonContentGetHomePageContentResponse =
+  CommonContentGetHomePageContentResponses[keyof CommonContentGetHomePageContentResponses];
+
+export type CommonContentGlobalSearchData = {
+  body?: never;
+  path?: never;
+  query?: {
+    searchString?: string;
+  };
+  url: "/api/commoncontent/search";
+};
+
+export type CommonContentGlobalSearchErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type CommonContentGlobalSearchError =
+  CommonContentGlobalSearchErrors[keyof CommonContentGlobalSearchErrors];
+
+export type CommonContentGlobalSearchResponses = {
+  /**
+   * OK
+   */
+  200: Array<AppEntity>;
+};
+
+export type CommonContentGlobalSearchResponse =
+  CommonContentGlobalSearchResponses[keyof CommonContentGlobalSearchResponses];
 
 export type InventoryItemsGetAllData = {
   body?: never;

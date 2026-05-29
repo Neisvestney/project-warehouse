@@ -16,7 +16,7 @@ import {Link} from "react-router";
 import ServiceWorkerContext from "@/contexts/ServiceWorker/ServiceWorkerContext.ts";
 import InstallPrompt from "@/components/InstallPrompt.tsx";
 import {useQuery} from "@tanstack/react-query";
-import {homePageContentGetHomePageContentOptions} from "@/api/@tanstack/react-query.gen.ts";
+import {commonContentGetHomePageContentOptions} from "@/api/@tanstack/react-query.gen.ts";
 import {resolveEntity} from "@/utils/appEntityUtils.tsx";
 
 export interface HomePageProps {}
@@ -25,16 +25,17 @@ function HomePage({}: HomePageProps) {
   const swContext = useContext(ServiceWorkerContext);
 
   const {data, isError} = useQuery({
-    ...homePageContentGetHomePageContentOptions(),
+    ...commonContentGetHomePageContentOptions(),
     meta: {suppressGlobalError: true},
   });
 
   return (
     <Box
       sx={{
+        width: "100%",
         display: "grid",
         gap: 2,
-        gridTemplateColumns: {md: "repeat(auto-fit, minmax(200px, 250px))", sx: "1fr"},
+        gridTemplateColumns: {md: "repeat(auto-fill, minmax(200px, 1fr))", sx: "1fr"},
       }}
     >
       <InstallPrompt />
@@ -62,7 +63,9 @@ function HomePage({}: HomePageProps) {
         ))}
       {!data && !isError && <HomeCard loading />}
       {data?.map(resolveEntity).map((x) => (
-        <HomeCard title={x.name ?? x.typeName} link={x.link} linkText={"Перейти"} icon={x.icon} />
+        <HomeCard title={x.name ?? x.typeName} link={x.link} linkText={"Перейти"} icon={x.icon}>
+          {x.renderAdditionalCardContent?.(x)}
+        </HomeCard>
       ))}
     </Box>
   );
@@ -76,12 +79,14 @@ function HomeCard({
   linkText,
   icon,
   loading,
+  children,
 }: {
   title?: string;
   link?: string;
   linkText?: string;
   icon?: React.ReactNode;
   loading?: boolean;
+  children?: React.ReactNode;
 }) {
   return (
     <Card>
@@ -110,6 +115,7 @@ function HomeCard({
                 {title}
               </Typography>
             </Stack>
+            {children}
           </CardContent>
           <CardActions sx={{justifyContent: "end"}}>
             <Button component={"span"} size="small" endIcon={<ArrowForwardIcon />}>

@@ -10,8 +10,8 @@ using ProjectWarehouse.Server.Models;
 
 namespace ProjectWarehouse.Server.Controllers;
 
-[Route("api/homepagecontent")]
-public class HomePageContentController(ApplicationDbContext db, IMapper mapper) : AppControllerBase
+[Route("api/commoncontent")]
+public class CommonContentController(ApplicationDbContext db, IMapper mapper) : AppControllerBase
 {
     /// <summary>Get list of AppEntities for home page.</summary>
     [HttpGet]
@@ -36,6 +36,36 @@ public class HomePageContentController(ApplicationDbContext db, IMapper mapper) 
         list.AddRange(receipts);
 
         return Ok(list);
+    }
+    
+    
+    /// <summary>Global search for entities.</summary>
+    [HttpGet("search")]
+    [Authorize]
+    [ProducesResponseType<IReadOnlyList<AppEntity>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GlobalSearch([FromQuery] string searchString, CancellationToken ct = default)
+    {
+        var warehousesQueryable = await GetUserWarehousesQueryable(ct);
+        var receiptsQueryable = await GetUserReceiptsQueryable(ct);
+        var catalogQueryable = await GetUserCatalogItemsQueryable(ct);
+        var usersQueryable = await GetUserUsersQueryable(ct);
+
+        var warehousesResults = await Search(warehousesQueryable, searchString, ct);
+        var receiptsResults = await Search(receiptsQueryable, searchString, ct);
+        var catalogResults = await Search(catalogQueryable, searchString, ct);
+        var usersResults = await Search(usersQueryable, searchString, ct);
+        
+        return Ok(warehousesResults.Union(receiptsResults).Union(catalogResults).Union(usersResults).Take(10));
+    }
+
+
+    private Task<List<AppEntity>> Search<T>(IQueryable<T> queryable, [FromQuery] string searchString, CancellationToken ct = default)
+    {
+        return queryable.ProjectTo<AppEntityWithSearchString>(mapper.ConfigurationProvider)
+            .WhereMatchesSearch(x => x.SearchString, searchString)
+            .Select(x => x.AppEntity)
+            .Take(10)
+            .ToListAsync(ct);
     }
 
 
@@ -84,5 +114,29 @@ public class HomePageContentController(ApplicationDbContext db, IMapper mapper) 
         }
 
         return db.Receipts.Take(0);
+    }
+    
+    private async Task<IQueryable<ApplicationUser>> GetUserUsersQueryable(CancellationToken ct)
+    {
+        var canViewAll = User.HasClaim("permission", Permissions.Users.View);
+
+        if (canViewAll)
+        {
+            return db.Users;
+        }
+
+        return db.Users.Take(0);
+    }
+    
+    private async Task<IQueryable<CatalogItem>> GetUserCatalogItemsQueryable(CancellationToken ct)
+    {
+        var canView = User.HasClaim("permission", Permissions.Catalog.View);
+
+        if (canView)
+        {
+            return db.CatalogItems;
+        }
+
+        return db.CatalogItems.Take(0);
     }
 }

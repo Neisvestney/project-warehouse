@@ -45,9 +45,12 @@ import type {
   ChangelogGetAllData,
   ChangelogGetAllErrors,
   ChangelogGetAllResponses,
-  HomePageContentGetHomePageContentData,
-  HomePageContentGetHomePageContentErrors,
-  HomePageContentGetHomePageContentResponses,
+  CommonContentGetHomePageContentData,
+  CommonContentGetHomePageContentErrors,
+  CommonContentGetHomePageContentResponses,
+  CommonContentGlobalSearchData,
+  CommonContentGlobalSearchErrors,
+  CommonContentGlobalSearchResponses,
   InventoryItemsGetAllAssembledBundlesData,
   InventoryItemsGetAllAssembledBundlesErrors,
   InventoryItemsGetAllAssembledBundlesResponses,
@@ -398,14 +401,26 @@ export const changelogGetAll = <ThrowOnError extends boolean = false>(
 /**
  * Get list of AppEntities for home page.
  */
-export const homePageContentGetHomePageContent = <ThrowOnError extends boolean = false>(
-  options?: Options<HomePageContentGetHomePageContentData, ThrowOnError>,
+export const commonContentGetHomePageContent = <ThrowOnError extends boolean = false>(
+  options?: Options<CommonContentGetHomePageContentData, ThrowOnError>,
 ) =>
   (options?.client ?? client).get<
-    HomePageContentGetHomePageContentResponses,
-    HomePageContentGetHomePageContentErrors,
+    CommonContentGetHomePageContentResponses,
+    CommonContentGetHomePageContentErrors,
     ThrowOnError
-  >({url: "/api/homepagecontent", ...options});
+  >({url: "/api/commoncontent", ...options});
+
+/**
+ * Global search for entities.
+ */
+export const commonContentGlobalSearch = <ThrowOnError extends boolean = false>(
+  options?: Options<CommonContentGlobalSearchData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    CommonContentGlobalSearchResponses,
+    CommonContentGlobalSearchErrors,
+    ThrowOnError
+  >({url: "/api/commoncontent/search", ...options});
 
 /**
  * List all inventory items aggregated by catalog item.

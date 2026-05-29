@@ -26,5 +26,5 @@ public class Receipt : IHasIdentity
     public ICollection<ReceiptItem> Items { get; set; } = [];
 
     [Projectable]
-    public string SearchString => $"{Number} {Name} {Warehouse.Name}";
+    public string SearchString => Number + " " +  Name + " " + Notes; 
 }
