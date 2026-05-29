@@ -48,7 +48,7 @@ import {AssembledBundleItemsDrawer} from "@/components/inventory/AssembledBundle
 
 const SORTABLE_COLUMNS: {key: InventoryItemSortBy; label: string}[] = [
   {key: "type", label: "Тип"},
-  {key: "name", label: "Название"},
+  {key: "fullName", label: "Название"},
   {key: "article", label: "Артикул"},
   {key: "count", label: "Количество"},
 ];

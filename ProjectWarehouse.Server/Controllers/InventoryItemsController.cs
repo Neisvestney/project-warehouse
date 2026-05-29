@@ -55,6 +55,7 @@ public class InventoryItemsController(
         }
 
         var baseQuery = db.CatalogItems
+            .Include(ci => ci.Group)
             .Where(ci => catalogItemType == null || ci.Type == catalogItemType)
             .Where(ci => isArchived == null || ci.IsArchived == isArchived)
             .WhereMatchesSearch(ci => ci.SearchString, searchString)
@@ -88,10 +89,11 @@ public class InventoryItemsController(
 
         var query = sortBy switch
         {
-            InventoryItemSortBy.Article => baseQuery.Sort(x => x.CatalogItem.Article, sortOrder).ThenBy(x => x.CatalogItem.Id),
-            InventoryItemSortBy.Type    => baseQuery.Sort(x => x.CatalogItem.Type, sortOrder).ThenBy(x => x.CatalogItem.Id),
-            InventoryItemSortBy.Count   => baseQuery.Sort(x => x.Count, sortOrder).ThenBy(x => x.CatalogItem.Id),
-            _                           => baseQuery.Sort(x => x.CatalogItem.Name, sortOrder).ThenBy(x => x.CatalogItem.Id),
+            InventoryItemSortBy.Article  => baseQuery.Sort(x => x.CatalogItem.Article, sortOrder).ThenBy(x => x.CatalogItem.Id),
+            InventoryItemSortBy.Type     => baseQuery.Sort(x => x.CatalogItem.Type, sortOrder).ThenBy(x => x.CatalogItem.Id),
+            InventoryItemSortBy.Count    => baseQuery.Sort(x => x.Count, sortOrder).ThenBy(x => x.CatalogItem.Id),
+            InventoryItemSortBy.Name     => baseQuery.Sort(x => x.CatalogItem.Name, sortOrder).ThenBy(x => x.CatalogItem.Id),
+            _                            => baseQuery.Sort(x => x.CatalogItem.FullName, sortOrder).ThenBy(x => x.CatalogItem.Id),
         };
 
         var paginated = await query.ToPaginatedAsync(page, pageSize, ct);

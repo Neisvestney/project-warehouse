@@ -112,11 +112,12 @@ public class ReceiptsController(
 
         var query = sortBy switch
         {
-            ReceiptSortBy.Status        => baseQuery.Sort(r => r.Status, sortOrder).ThenBy(r => r.Id),
-            ReceiptSortBy.CreatedAt     => baseQuery.Sort(r => r.CreatedAt, sortOrder).ThenBy(r => r.Id),
-            ReceiptSortBy.WarehouseName => baseQuery.Sort(r => r.Warehouse.Name, sortOrder).ThenBy(r => r.Id),
-            ReceiptSortBy.Name          => baseQuery.Sort(r => r.Name, sortOrder).ThenBy(r => r.Id),
-            _                           => baseQuery.Sort(r => r.Number, sortOrder).ThenBy(r => r.Id),
+            ReceiptSortBy.Status              => baseQuery.Sort(r => r.Status, sortOrder).ThenBy(r => r.Id),
+            ReceiptSortBy.CreatedAt           => baseQuery.Sort(r => r.CreatedAt, sortOrder).ThenBy(r => r.Id),
+            ReceiptSortBy.WarehouseName       => baseQuery.Sort(r => r.Warehouse.Name, sortOrder).ThenBy(r => r.Id),
+            ReceiptSortBy.Name                => baseQuery.Sort(r => r.Name, sortOrder).ThenBy(r => r.Id),
+            ReceiptSortBy.PlannedDeliveryDate => baseQuery.Sort(r => r.PlannedDeliveryDate, sortOrder).ThenBy(r => r.Id),
+            _                                 => baseQuery.Sort(r => r.Number, sortOrder).ThenBy(r => r.Id),
         };
 
         var paginated = await query

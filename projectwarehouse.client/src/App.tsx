@@ -29,11 +29,6 @@ const StoragePage = React.lazy(() => import("@/pages/StoragePage/StoragePage.tsx
 const OperationsPage = React.lazy(() => import("@/pages/OperationsPage/OperationsPage.tsx"));
 
 function App() {
-  const location = useLocation();
-  const navType = useNavigationType();
-
-  console.log(location, navType, window.history);
-
   const {
     needRefresh: [needRefresh],
     offlineReady: [offlineReady],

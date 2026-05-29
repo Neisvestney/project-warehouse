@@ -7,4 +7,5 @@ public enum ReceiptSortBy
     Status,
     CreatedAt,
     WarehouseName,
+    PlannedDeliveryDate,
 }

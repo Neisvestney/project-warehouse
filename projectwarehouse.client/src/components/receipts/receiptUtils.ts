@@ -13,7 +13,7 @@ export function formatReceiptNumber(n: number): string {
 export const RECEIPT_STATUS_LABELS: Record<ReceiptStatus, string> = {
   draft: "Черновик",
   planned: "Запланирована",
-  processing: "Приёмка",
+  processing: "Обрабатывается",
   finished: "Завершена",
   canceled: "Отменена",
 };
