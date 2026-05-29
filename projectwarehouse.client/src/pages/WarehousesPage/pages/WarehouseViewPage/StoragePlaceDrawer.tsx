@@ -272,7 +272,7 @@ function StoragePlaceDrawer({open, storagePlace, warehouseId, onClose}: StorageP
                 startIcon={<Inventory2Icon />}
                 component={Link}
                 to={`/storage/warehouses/${warehouseId}/storage-places/${storagePlace?.id}/nodes/${selectedNodeId}/inventory`}
-                disabled={!!nodes.find(x => x.parentNodeId == selectedNodeId)}
+                disabled={!!nodes.find((x) => x.parentNodeId == selectedNodeId)}
               >
                 Остатки ячейки
               </Button>

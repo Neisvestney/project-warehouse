@@ -1,5 +1,5 @@
 import {useRegisterSW} from "virtual:pwa-register/react";
-import {Route, useLocation, useNavigationType} from "react-router";
+import {Route} from "react-router";
 import CssBaseline from "@mui/material/CssBaseline";
 import {ThemeProvider} from "@mui/material";
 import theme from "@/theme.ts";

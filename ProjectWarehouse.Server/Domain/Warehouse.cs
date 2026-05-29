@@ -14,6 +14,9 @@ public class Warehouse : IHasIdentity
     public ICollection<WarehouseLayoutElement> LayoutObjects { get; set; } = [];
 
     public ICollection<ApplicationUser> AssignedUsers { get; set; } = [];
+    
+    [Projectable]
+    public string SearchString => Name;
 
     [Projectable]
     public int TotalItemsCount => StoragePlaces.Sum(p => p.TotalItemsCount);

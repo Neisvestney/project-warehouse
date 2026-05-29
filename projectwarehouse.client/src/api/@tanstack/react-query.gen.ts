@@ -23,7 +23,8 @@ import {
   catalogGetTags,
   catalogUpdate,
   changelogGetAll,
-  homePageContentGetHomePageContent,
+  commonContentGetHomePageContent,
+  commonContentGlobalSearch,
   inventoryItemsGetAll,
   inventoryItemsGetAllAssembledBundles,
   inventoryItemsGetAllUnits,
@@ -111,9 +112,12 @@ import type {
   ChangelogGetAllData,
   ChangelogGetAllError,
   ChangelogGetAllResponse,
-  HomePageContentGetHomePageContentData,
-  HomePageContentGetHomePageContentError,
-  HomePageContentGetHomePageContentResponse,
+  CommonContentGetHomePageContentData,
+  CommonContentGetHomePageContentError,
+  CommonContentGetHomePageContentResponse,
+  CommonContentGlobalSearchData,
+  CommonContentGlobalSearchError,
+  CommonContentGlobalSearchResponse,
   InventoryItemsGetAllAssembledBundlesData,
   InventoryItemsGetAllAssembledBundlesError,
   InventoryItemsGetAllAssembledBundlesResponse,
@@ -755,24 +759,24 @@ export const changelogGetAllInfiniteOptions = (options?: Options<ChangelogGetAll
     },
   );
 
-export const homePageContentGetHomePageContentQueryKey = (
-  options?: Options<HomePageContentGetHomePageContentData>,
-) => createQueryKey("homePageContentGetHomePageContent", options);
+export const commonContentGetHomePageContentQueryKey = (
+  options?: Options<CommonContentGetHomePageContentData>,
+) => createQueryKey("commonContentGetHomePageContent", options);
 
 /**
  * Get list of AppEntities for home page.
  */
-export const homePageContentGetHomePageContentOptions = (
-  options?: Options<HomePageContentGetHomePageContentData>,
+export const commonContentGetHomePageContentOptions = (
+  options?: Options<CommonContentGetHomePageContentData>,
 ) =>
   queryOptions<
-    HomePageContentGetHomePageContentResponse,
-    HomePageContentGetHomePageContentError,
-    HomePageContentGetHomePageContentResponse,
-    ReturnType<typeof homePageContentGetHomePageContentQueryKey>
+    CommonContentGetHomePageContentResponse,
+    CommonContentGetHomePageContentError,
+    CommonContentGetHomePageContentResponse,
+    ReturnType<typeof commonContentGetHomePageContentQueryKey>
   >({
     queryFn: async ({queryKey, signal}) => {
-      const {data} = await homePageContentGetHomePageContent({
+      const {data} = await commonContentGetHomePageContent({
         ...options,
         ...queryKey[0],
         signal,
@@ -780,7 +784,35 @@ export const homePageContentGetHomePageContentOptions = (
       });
       return data;
     },
-    queryKey: homePageContentGetHomePageContentQueryKey(options),
+    queryKey: commonContentGetHomePageContentQueryKey(options),
+  });
+
+export const commonContentGlobalSearchQueryKey = (
+  options?: Options<CommonContentGlobalSearchData>,
+) => createQueryKey("commonContentGlobalSearch", options);
+
+/**
+ * Global search for entities.
+ */
+export const commonContentGlobalSearchOptions = (
+  options?: Options<CommonContentGlobalSearchData>,
+) =>
+  queryOptions<
+    CommonContentGlobalSearchResponse,
+    CommonContentGlobalSearchError,
+    CommonContentGlobalSearchResponse,
+    ReturnType<typeof commonContentGlobalSearchQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await commonContentGlobalSearch({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: commonContentGlobalSearchQueryKey(options),
   });
 
 export const inventoryItemsGetAllQueryKey = (options?: Options<InventoryItemsGetAllData>) =>

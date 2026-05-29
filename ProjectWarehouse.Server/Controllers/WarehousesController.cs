@@ -42,7 +42,7 @@ public class WarehousesController(
         if (!canViewAll && !canViewAssigned)
             return Forbidden();
 
-        var query = db.Warehouses.WhereMatchesSearch(w => w.Name, searchString);
+        var query = db.Warehouses.WhereMatchesSearch(w => w.SearchString, searchString);
 
         if (!canViewAll)
         {

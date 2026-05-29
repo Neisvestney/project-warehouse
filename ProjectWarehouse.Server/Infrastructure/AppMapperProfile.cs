@@ -87,12 +87,49 @@ public class AppMapperProfile : Profile
 
         CreateMap<Warehouse, AppEntity>()
             .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Warehouse))
-            .ForMember(x => x.AdditionalFields, opt => opt.MapFrom(_ => (IReadOnlyDictionary<string, object>?)null));
+            .ForMember(x => x.AdditionalFields, opt => opt.MapFrom(r => new Dictionary<string, object>
+            {
+                { "totalItemsCount", r.TotalItemsCount },
+            }));
 
         CreateMap<Receipt, AppEntity>()
             .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Receipt))
-            .ForMember(x => x.AdditionalFields, opt => opt.MapFrom(_ => (IReadOnlyDictionary<string, object>?)null));
+            .ForMember(x => x.AdditionalFields, opt => opt.MapFrom(r => new Dictionary<string, object>
+            {
+                { "number", r.Number },
+                { "status", r.Status },
+            }));
+        
+        CreateMap<CatalogItem, AppEntity>()
+            .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.CatalogItem))
+            .ForMember(x => x.Name, opt => opt.MapFrom(ci => ci.FullName))
+            .ForMember(x => x.AdditionalFields, opt => opt.MapFrom(r => new Dictionary<string, object>
+            {
+                { "type", r.Type },
+                { "article", r.Article },
+            }));
+        
+        CreateMap<ApplicationUser, AppEntity>()
+            .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.User))
+            .ForMember(x => x.Name, opt => opt.MapFrom(ci => ci.FullName))
+            .ForMember(x => x.AdditionalFields, opt => opt.MapFrom(r => new Dictionary<string, object>
+            {
+                { "username", r.UserName ?? "" },
+                { "email", r.Email ?? "" },
+            }));
 
+        CreateMap<Warehouse, AppEntityWithSearchString>()
+            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
+        
+        CreateMap<Receipt, AppEntityWithSearchString>()
+            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
+        
+        CreateMap<CatalogItem, AppEntityWithSearchString>()
+            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
+        
+        CreateMap<ApplicationUser, AppEntityWithSearchString>()
+            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
+        
         CreateMap<Receipt, ReceiptDto>()
             .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
             .ForMember(d => d.TotalPlannedCount, opt => opt.MapFrom(s => s.Items.Sum(i => i.PlannedCount)))

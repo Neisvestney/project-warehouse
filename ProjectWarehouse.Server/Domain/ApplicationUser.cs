@@ -12,6 +12,9 @@ public class ApplicationUser : IdentityUser<Guid>
     [Projectable]
     public string SearchString =>
         (FirstName ?? "") + " " + (LastName ?? "") + " " + (UserName ?? "") + " " + (Email ?? "");
+    
+    [Projectable]
+    public string FullName => (!String.IsNullOrEmpty(FirstName) || !String.IsNullOrEmpty(LastName)) ? (FirstName ?? "") + " " + (LastName ?? "") : UserName ?? "";
 
     public ICollection<ApplicationUserRole> UserRoles { get; set; } = [];
     public ICollection<UserPermission> UserPermissions { get; set; } = [];

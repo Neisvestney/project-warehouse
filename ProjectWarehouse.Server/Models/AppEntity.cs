@@ -9,3 +9,9 @@ public class AppEntity
     public AppEntityType Type {get; set;}
     public IReadOnlyDictionary<string, object>? AdditionalFields { get; init; }
 }
+
+public class AppEntityWithSearchString
+{
+   public AppEntity AppEntity { get; set; }
+   public string SearchString { get; set; }
+}
