@@ -38,6 +38,13 @@ import ReceiptStatusChip from "@/components/receipts/ReceiptStatusChip";
 import ReceiptItemsSection from "@/components/receipts/ReceiptItemsSection";
 import {RECEIPT_REASON_LABELS, formatReceiptNumber} from "@/components/receipts/receiptUtils";
 import type {ReceiptDto, ReceiptReason} from "@/api/types.gen";
+import DeleteIcon from "@mui/icons-material/Delete";
+import ScheduleSendIcon from "@mui/icons-material/ScheduleSend";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import UndoIcon from "@mui/icons-material/Undo";
+import TaskAltIcon from "@mui/icons-material/TaskAlt";
+import BlockIcon from "@mui/icons-material/Block";
+import SaveIcon from "@mui/icons-material/Save";
 
 const ALL_REASONS: ReceiptReason[] = ["newGoods", "return", "other"];
 
@@ -138,8 +145,14 @@ function EditInfoForm({
           <Button onClick={() => onDone(receipt)} disabled={mutation.isPending}>
             Отмена
           </Button>
-          <Button type="submit" variant="contained" disabled={mutation.isPending}>
-            {mutation.isPending ? <CircularProgress size={22} color="inherit" /> : "Сохранить"}
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={mutation.isPending}
+            startIcon={<SaveIcon />}
+            loading={mutation.isPending}
+          >
+            Сохранить
           </Button>
         </Stack>
       </Stack>
@@ -154,6 +167,7 @@ function ReceiptPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [startProcessingOpen, setStartProcessingOpen] = useState(false);
 
   const canEdit = useHasPermission(["receipts.edit", "receipts.edit_assigned"]);
 
@@ -181,7 +195,10 @@ function ReceiptPage() {
 
   const startProcessingMutation = useMutation({
     ...receiptsStartProcessingMutation(),
-    onSuccess: updateLocalReceipt,
+    onSuccess: (data) => {
+      updateLocalReceipt(data);
+      setStartProcessingOpen(false);
+    },
   });
 
   const finishMutation = useMutation({
@@ -257,21 +274,20 @@ function ReceiptPage() {
               {isDraft && (
                 <>
                   <Button
-                    variant="contained"
+                    variant="outlined"
                     disabled={actionPending}
                     onClick={() => planMutation.mutate({path: {id: receipt.id}})}
+                    startIcon={<ScheduleSendIcon/>}
+                    loading={planMutation.isPending}
                   >
-                    {planMutation.isPending ? (
-                      <CircularProgress size={20} color="inherit" />
-                    ) : (
-                      "Запланировать"
-                    )}
+                    Запланировать
                   </Button>
                   <Button
                     color="error"
                     variant="outlined"
                     disabled={actionPending}
                     onClick={() => setDeleteOpen(true)}
+                    startIcon={<DeleteIcon />}
                   >
                     Удалить
                   </Button>
@@ -282,24 +298,20 @@ function ReceiptPage() {
                   <Button
                     variant="contained"
                     disabled={actionPending}
-                    onClick={() => startProcessingMutation.mutate({path: {id: receipt.id}})}
+                    onClick={() => setStartProcessingOpen(true)}
+                    startIcon={<PlayArrowIcon />}
+                    loading={startProcessingMutation.isPending}
                   >
-                    {startProcessingMutation.isPending ? (
-                      <CircularProgress size={20} color="inherit" />
-                    ) : (
-                      "Начать приёмку"
-                    )}
+                    Начать приёмку
                   </Button>
                   <Button
                     variant="outlined"
                     disabled={actionPending}
                     onClick={() => revertMutation.mutate({path: {id: receipt.id}})}
+                    startIcon={<UndoIcon />}
+                    loading={revertMutation.isPending}
                   >
-                    {revertMutation.isPending ? (
-                      <CircularProgress size={20} color="inherit" />
-                    ) : (
-                      "Откатить"
-                    )}
+                    Откатить
                   </Button>
                 </>
               )}
@@ -308,12 +320,10 @@ function ReceiptPage() {
                   variant="contained"
                   disabled={actionPending}
                   onClick={() => finishMutation.mutate({path: {id: receipt.id}})}
+                  startIcon={<TaskAltIcon />}
+                  loading={finishMutation.isPending}
                 >
-                  {finishMutation.isPending ? (
-                    <CircularProgress size={20} color="inherit" />
-                  ) : (
-                    "Завершить"
-                  )}
+                  Завершить
                 </Button>
               )}
               {isFinished && (
@@ -321,12 +331,10 @@ function ReceiptPage() {
                   variant="outlined"
                   disabled={actionPending}
                   onClick={() => revertMutation.mutate({path: {id: receipt.id}})}
+                  startIcon={<UndoIcon />}
+                  loading={revertMutation.isPending}
                 >
-                  {revertMutation.isPending ? (
-                    <CircularProgress size={20} color="inherit" />
-                  ) : (
-                    "Откатить"
-                  )}
+                  Откатить
                 </Button>
               )}
               {!isDraft && !isFinished && (
@@ -335,6 +343,7 @@ function ReceiptPage() {
                   variant="outlined"
                   disabled={actionPending}
                   onClick={() => setCancelOpen(true)}
+                  startIcon={<BlockIcon />}
                 >
                   Отменить
                 </Button>
@@ -468,6 +477,17 @@ function ReceiptPage() {
         isPending={cancelMutation.isPending}
       >
         <Typography>Статус приемки будет изменён на «Отменена».</Typography>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={startProcessingOpen}
+        onClose={() => setStartProcessingOpen(false)}
+        title="Начать приёмку?"
+        confirmText="Начать приёмку"
+        onConfirm={() => startProcessingMutation.mutate({path: {id: receipt.id}})}
+        isPending={startProcessingMutation.isPending}
+      >
+        <Typography>После начала приёмки изменить список позиций будет нельзя. Продолжить?</Typography>
       </ConfirmDialog>
     </Stack>
   );

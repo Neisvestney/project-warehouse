@@ -1417,7 +1417,7 @@ export const receiptsStartProcessingMutation = (
 };
 
 /**
- * Transition: Processing → Finished.
+ * Transition: Processing → Finished. Validates that each item with a received count has enough placements.
  */
 export const receiptsFinishMutation = (
   options?: Partial<Options<ReceiptsFinishData>>,

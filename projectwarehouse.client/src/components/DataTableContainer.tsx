@@ -5,7 +5,9 @@ import {
   type PaperProps,
   TableContainer,
   TablePagination,
+  useMediaQuery,
 } from "@mui/material";
+import theme from "@/theme.ts";
 
 type DataTableContainerProps = Omit<PaperProps, "children"> & {
   isFetching: boolean;
@@ -30,6 +32,8 @@ function DataTableContainer({
   children,
   ...paperProps
 }: DataTableContainerProps) {
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
   return (
     <Paper {...paperProps}>
       <LinearProgress
@@ -44,7 +48,7 @@ function DataTableContainer({
         rowsPerPageOptions={rowsPerPageOptions}
         onPageChange={(_, newPage) => onPageChange(newPage + 1)}
         onRowsPerPageChange={(e) => onRowsPerPageChange(Number(e.target.value))}
-        labelRowsPerPage="Строк на странице:"
+        labelRowsPerPage={isMobile ? "" : "Строк на странице:"}
         labelDisplayedRows={({from, to, count}) => `${from}–${to} из ${count}`}
       />
     </Paper>

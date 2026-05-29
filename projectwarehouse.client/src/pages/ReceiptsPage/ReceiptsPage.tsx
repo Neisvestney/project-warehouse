@@ -1,3 +1,4 @@
+
 import {
   Button,
   Chip,
@@ -44,6 +45,7 @@ const SORT_COLUMNS: {key: ReceiptSortBy; label: string}[] = [
   {key: "status", label: "Статус"},
   {key: "warehouseName", label: "Склад"},
   {key: "createdAt", label: "Создана"},
+  {key: "plannedDeliveryDate", label: "Планируемая дата доставки"},
 ];
 
 const ALL_STATUSES: ReceiptStatus[] = ["draft", "planned", "processing", "finished", "canceled"];
@@ -213,6 +215,11 @@ function ReceiptsPage() {
                   </TableCell>
                   <TableCell>{receipt.warehouseName}</TableCell>
                   <TableCell>{new Date(receipt.createdAt).toLocaleDateString("ru-RU")}</TableCell>
+                  <TableCell>
+                    {receipt.plannedDeliveryDate
+                      ? new Date(receipt.plannedDeliveryDate).toLocaleDateString("ru-RU")
+                      : "—"}
+                  </TableCell>
                   <TableCell>{RECEIPT_REASON_LABELS[receipt.reason]}</TableCell>
                   <TableCell>
                     {receipt.itemsCount > 0 ? (

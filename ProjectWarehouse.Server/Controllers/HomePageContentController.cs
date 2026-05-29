@@ -19,64 +19,70 @@ public class HomePageContentController(ApplicationDbContext db, IMapper mapper) 
     [ProducesResponseType<IReadOnlyList<AppEntity>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetHomePageContent(CancellationToken ct = default)
     {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Forbidden();
+        
         var list = new List<AppEntity>();
 
+        var warehousesQueryable = await GetUserWarehousesQueryable(ct);
+        var warehouses = await warehousesQueryable.ProjectTo<AppEntity>(mapper.ConfigurationProvider).Take(2).ToListAsync(ct);
+        list.AddRange(warehouses);
+
+        var receiptsQueryable = await GetUserReceiptsQueryable(ct);
+        var receipts = await receiptsQueryable
+            .Where(x => x.Status == ReceiptStatus.Processing || (x.CreatedById == userId && x.Status == ReceiptStatus.Draft))
+            .ProjectTo<AppEntity>(mapper.ConfigurationProvider)
+            .ToListAsync(ct);
+        list.AddRange(receipts);
+
+        return Ok(list);
+    }
+
+
+    private async Task<IQueryable<Warehouse>> GetUserWarehousesQueryable(CancellationToken ct)
+    {
         var userCanViewAllWarehouses = User.HasClaim("permission", Permissions.Warehouses.View);
         var userCanViewAssignedWarehouses = User.HasClaim("permission", Permissions.Warehouses.ViewAssigned);
 
         if (userCanViewAllWarehouses)
         {
-            var warehouses = await db.Warehouses.ProjectTo<AppEntity>(mapper.ConfigurationProvider).Take(2).ToListAsync();
-            list.AddRange(warehouses);
+            return db.Warehouses.AsQueryable();
         }
-        else if (userCanViewAssignedWarehouses)
+        
+        if (userCanViewAssignedWarehouses)
         {
             var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
             if (assignedIds != null)
             {
-                var warehouses = await db.Warehouses
-                    .Where(x => assignedIds.Contains(x.Id))
-                    .ProjectTo<AppEntity>(mapper.ConfigurationProvider)
-                    .Take(2)
-                    .ToListAsync();
-                list.AddRange(warehouses);
+                return db.Warehouses.Where(x => assignedIds.Contains(x.Id));
             }
         }
 
-        // Draft receipts created by the current user
-        var currentUserId = GetCurrentUserId();
-        if (currentUserId.HasValue)
-        {
-            var draftReceipts = await db.Receipts
-                .Where(r => r.CreatedById == currentUserId.Value && r.Status == ReceiptStatus.Draft)
-                .ProjectTo<AppEntity>(mapper.ConfigurationProvider)
-                .ToListAsync(ct);
-            list.AddRange(draftReceipts);
-        }
-
-        // Processing receipts accessible to the current user
-        var canViewAll      = User.HasClaim("permission", Permissions.Receipts.View);
+        return db.Warehouses.Take(0);
+    }
+    
+    private async Task<IQueryable<Receipt>> GetUserReceiptsQueryable(CancellationToken ct)
+    {
+        var canViewAll = User.HasClaim("permission", Permissions.Receipts.View);
         var canViewAssigned = User.HasClaim("permission", Permissions.Receipts.ViewAssigned);
-        var canProcess      = User.HasClaim("permission", Permissions.Receipts.ProcessAssigned);
+        var canProcess = User.HasClaim("permission", Permissions.Receipts.ProcessAssigned);
 
-        if (canViewAll || canViewAssigned || canProcess)
+        if (canViewAll)
         {
-            HashSet<Guid>? receiptWarehouseIds = null;
-            if (!canViewAll)
-            {
-                receiptWarehouseIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-                if (receiptWarehouseIds == null)
-                    return Ok(list);
-            }
-
-            var processingReceipts = await db.Receipts
-                .Where(r => r.Status == ReceiptStatus.Processing)
-                .Where(r => receiptWarehouseIds == null || receiptWarehouseIds.Contains(r.WarehouseId))
-                .ProjectTo<AppEntity>(mapper.ConfigurationProvider)
-                .ToListAsync(ct);
-            list.AddRange(processingReceipts);
+            return db.Receipts;
         }
 
-        return Ok(list);
+        if (canViewAssigned || canProcess)
+        {
+            var assignedWarehousesIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
+            if (assignedWarehousesIds != null)
+            {
+                return db.Receipts
+                    .Where(x => assignedWarehousesIds.Contains(x.WarehouseId))
+                    .Where(x => canViewAssigned || (x.Status == ReceiptStatus.Processing && canProcess));
+            }
+        }
+
+        return db.Receipts.Take(0);
     }
 }

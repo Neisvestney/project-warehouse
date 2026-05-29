@@ -651,7 +651,7 @@ export const receiptsStartProcessing = <ThrowOnError extends boolean = false>(
   >({url: "/api/receipts/{id}/start-processing", ...options});
 
 /**
- * Transition: Processing → Finished.
+ * Transition: Processing → Finished. Validates that each item with a received count has enough placements.
  */
 export const receiptsFinish = <ThrowOnError extends boolean = false>(
   options: Options<ReceiptsFinishData, ThrowOnError>,

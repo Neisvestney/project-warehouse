@@ -2,6 +2,7 @@
 
 public enum AppEntityType
 {
+    Unknown,
     User,
     Roles,
     Warehouse,

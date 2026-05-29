@@ -14,6 +14,7 @@ export type AppEntity = {
 };
 
 export type AppEntityType =
+  | "unknown"
   | "user"
   | "roles"
   | "warehouse"
@@ -294,7 +295,7 @@ export type ErrorCode =
   | "passwordInvalid"
   | "validationError";
 
-export type InventoryItemSortBy = "name" | "article" | "type" | "count";
+export type InventoryItemSortBy = "name" | "fullName" | "article" | "type" | "count";
 
 export type InventoryItemSummaryDto = {
   catalogItemId: string;
@@ -508,7 +509,13 @@ export type ReceiptItemRequest = {
 
 export type ReceiptReason = "newGoods" | "return" | "other";
 
-export type ReceiptSortBy = "name" | "number" | "status" | "createdAt" | "warehouseName";
+export type ReceiptSortBy =
+  | "name"
+  | "number"
+  | "status"
+  | "createdAt"
+  | "warehouseName"
+  | "plannedDeliveryDate";
 
 export type ReceiptStatus = "draft" | "planned" | "processing" | "finished" | "canceled";
 

@@ -81,12 +81,17 @@ export function AssembledBundleItemsDrawer({
 
   return (
     <Drawer
-      anchor="bottom"
+      anchor="right"
       open={!!catalogItemId}
       onClose={onClose}
       slotProps={{
         paper: {
-          sx: {maxHeight: "50vh", display: "flex", flexDirection: "column"},
+          sx: {
+            maxWidth: "100vw",
+            minWidth: "calc(min(1200px, 100vw))",
+            display: "flex",
+            flexDirection: "column",
+          },
         },
       }}
     >

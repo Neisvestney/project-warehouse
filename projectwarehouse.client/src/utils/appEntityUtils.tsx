@@ -5,6 +5,7 @@ import PersonIcon from "@mui/icons-material/Person";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import InventoryIcon from "@mui/icons-material/Inventory";
 import AssignmentIcon from "@mui/icons-material/Assignment";
+import QuestionMarkIcon from "@mui/icons-material/QuestionMark";
 
 type EntityTypeConfig = {
   linkTemplate: string;
@@ -19,6 +20,11 @@ type ResolvedEntity = {
 } & AppEntity;
 
 export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
+  unknown: {
+    linkTemplate: "#",
+    typeName: "Обновите приложение",
+    icon: <QuestionMarkIcon />,
+  },
   user: {
     linkTemplate: "/settings/employees/{id}",
     typeName: "Пользователь",
@@ -55,15 +61,13 @@ export function resolveEntity(entity: AppEntity): ResolvedEntity {
   const config = entitiesTypes[entity.type];
   if (!config) {
     return {
-      id: "",
-      icon: <InventoryIcon />,
-      link: "/",
-      type: "warehouse",
-      typeName: "Обновите приложение",
+      ...entitiesTypes["unknown"],
+      link: "#",
+      type: "unknown",
       name: "Обновите приложение",
-      additionalFields: {},
     };
   }
+
   return {
     ...entity,
     link: interpolateArgs(config.linkTemplate, {

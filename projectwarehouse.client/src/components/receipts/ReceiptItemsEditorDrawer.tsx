@@ -101,11 +101,13 @@ function ReceiptItemsEditorDrawer({
 
   return (
     <Drawer
-      anchor="bottom"
+      anchor="right"
       open={open}
       onClose={mutation.isPending ? undefined : onClose}
       slotProps={{
-        paper: {sx: {minHeight: "60vh", maxHeight: "80vh"}},
+        paper: {
+          sx: {maxWidth: "100vw", minWidth: "calc(min(1200px, 100vw))"},
+        },
       }}
     >
       <Box sx={{display: "flex", flexDirection: "column", height: "100%"}}>
