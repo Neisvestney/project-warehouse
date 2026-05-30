@@ -63,6 +63,12 @@ See [auth.md](auth.md) for the full auth flow and token refresh.
 
 `StoragePlaceNodePrintDto` shape: `{ id: Guid, name: string[] }` — `name` is the full breadcrumb path from storage place root down to the node (e.g. `["Стеллаж А", "Полка 1", "Ячейка 3"]`).
 
+`WarehouseDto` includes `defaultStoragePlaceNodeId: Guid?` — the default storage place node for this warehouse. `PUT /api/warehouses/{id}` accepts `defaultStoragePlaceNodeId: Guid?`; returns 422 `storagePlaceNotFound` (field: `defaultStoragePlaceNodeId`) if the node does not belong to this warehouse. Deleting the referenced node sets this field to `null` via cascade.
+
+`GET /api/warehouses/{id}/default-node` — returns `StoragePlaceNodeDetailsDto` for the warehouse's default node (includes full breadcrumb `name: string[]`). Returns 404 `storagePlaceNodeNotFound` if no default node is set.
+
+`StoragePlaceNodeDetailsDto.name` is now `string[]` — the full breadcrumb path (e.g. `["Стеллаж А", "Полка 1", "Ячейка 3"]`). Applies to both `GET .../nodes/{nodeId}` and the new default-node endpoint.
+
 ---
 
 ## Storage Place Nodes — `/api/storagePlaces/{id}/nodes`

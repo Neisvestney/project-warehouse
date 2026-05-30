@@ -73,9 +73,28 @@ An immutable snapshot of a specific Bundle assembly. Created when a Bundle is ph
 
 ## Fields by Type
 
+## FullName Rule
+
+**Always use `FullName` (not `Name`) when displaying a CatalogItem to the user.**
+
+`FullName` is a computed field:
+- For items with a parent group: `Group.Name + " " + Item.Name`
+- For standalone items: `Item.Name`
+
+Using `Name` alone omits the group prefix and produces incomplete, ambiguous labels (e.g. "Red" instead of "T-Shirt Red").
+
+**Backend:** `FullName` is a `[Projectable]` property on `CatalogItem` — it works in both in-memory and EF Core `ProjectTo` queries. All mapper mappings that produce display names (e.g. `BundleComponentDto.ComponentName`, `AppEntity.Name` for catalog items) must use `s.Component.FullName` / `ci.FullName`.
+
+**Frontend:** All DTOs expose `fullName`. Use `item.fullName` in tables, selects, chips, drawers, and any other display surface. The raw `item.name` field is used only in form inputs where the user edits just the item's own name (without the group prefix).
+
+---
+
+## Fields by Type
+
 | Field | Standard | Unit | ProductGroup | Variation | Bundle | AssembledBundle |
 |-------|----------|------|--------------|-----------|--------|-----------------|
 | `Name` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `FullName` (computed) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `Article` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `Barcode` | opt | opt | opt | — | — | — |
 | `Description` ¹ | opt | opt | opt | opt | opt | opt |

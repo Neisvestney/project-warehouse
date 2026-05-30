@@ -10,6 +10,8 @@ public class UpdateWarehouseRequest
     public decimal Width { get; init; }
     public decimal Height { get; init; }
 
+    public Guid? DefaultStoragePlaceNodeId { get; init; }
+
     public IReadOnlyList<StoragePlaceItem> StoragePlaces { get; init; } = [];
     public IReadOnlyList<WarehouseLayoutElementItem> LayoutObjects { get; init; } = [];
 }

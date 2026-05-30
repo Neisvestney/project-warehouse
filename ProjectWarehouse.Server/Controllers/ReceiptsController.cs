@@ -32,7 +32,7 @@ public class ReceiptsController(
 
         if (includeItems)
             q = q.Include(r => r.Items)
-                .ThenInclude(i => i.CatalogItem)
+                .ThenInclude(i => i.CatalogItem).ThenInclude(c => c.Group)
                 .Include(r => r.Items)
                 .ThenInclude(i => i.Placements)
                 .ThenInclude(p => p.StoragePlaceNode)
@@ -366,7 +366,7 @@ public class ReceiptsController(
                 "Received count can only be updated in Processing status.");
 
         var item = await db.ReceiptItems
-            .Include(i => i.CatalogItem)
+            .Include(i => i.CatalogItem).ThenInclude(c => c.Group)
             .Include(i => i.Placements).ThenInclude(p => p.StoragePlaceNode).ThenInclude(n => n.RootStoragePlace)
             .Include(i => i.Placements).ThenInclude(p => p.UnitInventoryItem)
             .FirstOrDefaultAsync(i => i.Id == itemId && i.ReceiptId == id, ct);
@@ -949,7 +949,7 @@ public class ReceiptsController(
     {
         nodeById ??= await LoadWarehouseNodesAsync(warehouseId, ct);
         var item = await db.ReceiptItems
-            .Include(i => i.CatalogItem)
+            .Include(i => i.CatalogItem).ThenInclude(c => c.Group)
             .Include(i => i.Placements).ThenInclude(p => p.StoragePlaceNode).ThenInclude(n => n.RootStoragePlace)
             .Include(i => i.Placements).ThenInclude(p => p.UnitInventoryItem)
             .FirstAsync(i => i.Id == itemId, ct);

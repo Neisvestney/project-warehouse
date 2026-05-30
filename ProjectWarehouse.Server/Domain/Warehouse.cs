@@ -10,6 +10,9 @@ public class Warehouse : IHasIdentity
     public decimal Width {get; set;}
     public decimal Height {get; set;}
 
+    public Guid? DefaultStoragePlaceNodeId { get; set; }
+    public StoragePlaceNode? DefaultStoragePlaceNode { get; set; }
+
     public ICollection<StoragePlace> StoragePlaces { get; set; } = [];
     public ICollection<WarehouseLayoutElement> LayoutObjects { get; set; } = [];
 

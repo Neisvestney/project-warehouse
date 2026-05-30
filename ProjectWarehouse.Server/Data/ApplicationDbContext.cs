@@ -218,6 +218,10 @@ public class ApplicationDbContext : IdentityDbContext<
             e.HasKey(x => x.Id);
             e.HasMany(x => x.StoragePlaces).WithOne(x => x.Warehouse).HasForeignKey(x => x.WarehouseId);
             e.OwnsMany(x => x.LayoutObjects, lo => { lo.ToJson(); });
+            e.HasOne(x => x.DefaultStoragePlaceNode)
+                .WithMany()
+                .HasForeignKey(x => x.DefaultStoragePlaceNodeId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         builder.Entity<StoragePlace>(e =>

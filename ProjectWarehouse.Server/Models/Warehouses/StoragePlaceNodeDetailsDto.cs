@@ -5,7 +5,7 @@ namespace ProjectWarehouse.Server.Models.Warehouses;
 public class StoragePlaceNodeDetailsDto : IHasIdentity
 {
     public Guid Id { get; init; }
-    public string Name { get; init; } = null!;
+    public string[] Name { get; set; } = null!;
     public Guid StoragePlaceId { get; init; }
     public Guid? ParentNodeId { get; init; }
     public int Order { get; init; }

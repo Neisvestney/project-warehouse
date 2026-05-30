@@ -282,6 +282,7 @@ export type ErrorCode =
   | "receiptItemsOverplaced"
   | "insufficientInventory"
   | "unitInventoryItemNumberDuplicate"
+  | "routeNotFound"
   | "required"
   | "tooShort"
   | "tooLong"
@@ -293,8 +294,7 @@ export type ErrorCode =
   | "passwordAtLeastOneUppercase"
   | "passwordAtLeastOneLowercase"
   | "passwordInvalid"
-  | "validationError"
-  | "routeNotFound";
+  | "validationError";
 
 export type InventoryItemSortBy = "name" | "fullName" | "article" | "type" | "count";
 
@@ -576,7 +576,7 @@ export type StoragePlaceItem = {
 
 export type StoragePlaceNodeDetailsDto = {
   id: string;
-  name: string;
+  name: Array<string>;
   storagePlaceId: string;
   parentNodeId?: null | string;
   order: number;
@@ -682,6 +682,7 @@ export type UpdateWarehouseRequest = {
   name: string;
   width: number;
   height: number;
+  defaultStoragePlaceNodeId?: null | string;
   storagePlaces: Array<StoragePlaceItem>;
   layoutObjects: Array<WarehouseLayoutElementItem>;
 };
@@ -702,6 +703,7 @@ export type WarehouseDto = {
   name: string;
   width: number;
   height: number;
+  defaultStoragePlaceNodeId?: null | string;
   storagePlaces: Array<StoragePlaceDto>;
   layoutObjects: Array<WarehouseLayoutElementDto>;
   totalItemsCount: number;
@@ -2845,3 +2847,40 @@ export type WarehousesGetByIdForPrintResponses = {
 
 export type WarehousesGetByIdForPrintResponse =
   WarehousesGetByIdForPrintResponses[keyof WarehousesGetByIdForPrintResponses];
+
+export type WarehousesGetDefaultNodeData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/warehouses/{id}/default-node";
+};
+
+export type WarehousesGetDefaultNodeErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type WarehousesGetDefaultNodeError =
+  WarehousesGetDefaultNodeErrors[keyof WarehousesGetDefaultNodeErrors];
+
+export type WarehousesGetDefaultNodeResponses = {
+  /**
+   * OK
+   */
+  200: StoragePlaceNodeDetailsDto;
+};
+
+export type WarehousesGetDefaultNodeResponse =
+  WarehousesGetDefaultNodeResponses[keyof WarehousesGetDefaultNodeResponses];

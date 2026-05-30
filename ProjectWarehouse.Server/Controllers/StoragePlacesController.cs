@@ -195,13 +195,20 @@ public class StoragePlacesController(
         if (!await db.StoragePlaces.AnyAsync(sp => sp.Id == id, ct))
             return NotFound(ErrorCode.StoragePlaceNotFound, "Storage place not found.");
 
-        var node = await db.StoragePlacesNodes
-            .FirstOrDefaultAsync(n => n.Id == nodeId && n.RootStoragePlaceId == id, ct);
+        var allNodes = await db.StoragePlacesNodes
+            .Where(n => n.RootStoragePlaceId == id)
+            .ToListAsync(ct);
 
+        var node = allNodes.FirstOrDefault(n => n.Id == nodeId);
         if (node is null)
             return NotFound(ErrorCode.StoragePlaceNodeNotFound, "Storage place node not found.");
 
-        return Ok(mapper.Map<StoragePlaceNodeDetailsDto>(node));
+        await db.Entry(node).Reference(n => n.RootStoragePlace).LoadAsync(ct);
+
+        var nodeById = allNodes.ToDictionary(n => n.Id);
+        var dto = mapper.Map<StoragePlaceNodeDetailsDto>(node);
+        dto.Name = StoragePlaceNodeHelper.BuildPath(node, nodeById);
+        return Ok(dto);
     }
 
     /// <summary>Bulk-update Order for a set of nodes.</summary>

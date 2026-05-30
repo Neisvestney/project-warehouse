@@ -139,6 +139,56 @@ public class WarehousesController(
         return Ok(result);
     }
 
+    /// <summary>Get the default storage place node for a warehouse.</summary>
+    /// <remarks>Returns 404 <c>warehouseNotFound</c> if the warehouse does not exist, or 404 <c>storagePlaceNodeNotFound</c> if no default node is set.</remarks>
+    [HttpGet("{id:guid}/default-node")]
+    [Authorize]
+    [ProducesResponseType<StoragePlaceNodeDetailsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDefaultNode(Guid id, CancellationToken ct = default)
+    {
+        var canViewAll = User.HasClaim("permission", Permissions.Warehouses.View);
+        var canViewAssigned = User.HasClaim("permission", Permissions.Warehouses.ViewAssigned);
+
+        if (!canViewAll && !canViewAssigned)
+            return Forbidden();
+
+        if (!canViewAll)
+        {
+            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
+            if (assignedIds is null)
+                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+            if (!assignedIds.Contains(id))
+                return Forbidden();
+        }
+
+        var defaultNodeId = await db.Warehouses
+            .Where(w => w.Id == id)
+            .Select(w => (Guid?)w.DefaultStoragePlaceNodeId)
+            .FirstOrDefaultAsync(ct);
+
+        if (defaultNodeId is null)
+            return NotFound(ErrorCode.StoragePlaceNodeNotFound, "No default storage place node set for this warehouse.");
+
+        var allNodes = await db.StoragePlacesNodes
+            .Where(n => n.RootStoragePlace.WarehouseId == id)
+            .ToListAsync(ct);
+
+        var node = allNodes.FirstOrDefault(n => n.Id == defaultNodeId.Value);
+        if (node is null)
+            return NotFound(ErrorCode.StoragePlaceNodeNotFound, "Default storage place node not found.");
+
+        await db.Entry(node).Reference(n => n.RootStoragePlace).LoadAsync(ct);
+        await db.Entry(node).Collection(n => n.ItemsGroups).LoadAsync(ct);
+        await db.Entry(node).Collection(n => n.InventoryItems).LoadAsync(ct);
+
+        var nodeById = allNodes.ToDictionary(n => n.Id);
+        var dto = mapper.Map<StoragePlaceNodeDetailsDto>(node);
+        dto.Name = StoragePlaceNodeHelper.BuildPath(node, nodeById);
+        return Ok(dto);
+    }
+
     /// <summary>Create a new warehouse with optional storage places.</summary>
     /// <remarks>Body: <c>CreateWarehouseRequest</c> — name (required), width, height, storagePlaces (optional).</remarks>
     [HttpPost]
@@ -248,9 +298,23 @@ public class WarehousesController(
             return Problem(AppProblems.UnprocessableEntities(errors));
         }
 
+        if (request.DefaultStoragePlaceNodeId.HasValue)
+        {
+            var nodeExists = await db.StoragePlacesNodes
+                .AnyAsync(n => n.Id == request.DefaultStoragePlaceNodeId.Value &&
+                               n.RootStoragePlace.WarehouseId == id, ct);
+            if (!nodeExists)
+                return Problem(AppProblems.UnprocessableEntities([(
+                    Field: "defaultStoragePlaceNodeId",
+                    Code: ErrorCode.StoragePlaceNotFound,
+                    Message: "StoragePlaceNode does not belong to this warehouse.",
+                    Args: (IReadOnlyDictionary<string, object>?)null)]));
+        }
+
         warehouse.Name = request.Name;
         warehouse.Width = request.Width;
         warehouse.Height = request.Height;
+        warehouse.DefaultStoragePlaceNodeId = request.DefaultStoragePlaceNodeId;
         warehouse.LayoutObjects.Clear();
         foreach (var lo in request.LayoutObjects)
             warehouse.LayoutObjects.Add(new WarehouseLayoutElement

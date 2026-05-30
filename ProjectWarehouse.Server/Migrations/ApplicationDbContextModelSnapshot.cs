@@ -753,6 +753,9 @@ namespace ProjectWarehouse.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("DefaultStoragePlaceNodeId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("Height")
                         .HasColumnType("numeric");
 
@@ -764,6 +767,8 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasColumnType("numeric");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DefaultStoragePlaceNodeId");
 
                     b.ToTable("Warehouses");
                 });
@@ -1159,6 +1164,11 @@ namespace ProjectWarehouse.Server.Migrations
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Warehouse", b =>
                 {
+                    b.HasOne("ProjectWarehouse.Server.Domain.StoragePlaceNode", "DefaultStoragePlaceNode")
+                        .WithMany()
+                        .HasForeignKey("DefaultStoragePlaceNodeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.OwnsMany("ProjectWarehouse.Server.Domain.WarehouseLayoutElement", "LayoutObjects", b1 =>
                         {
                             b1.Property<Guid>("WarehouseId");
@@ -1189,6 +1199,8 @@ namespace ProjectWarehouse.Server.Migrations
                             b1.WithOwner()
                                 .HasForeignKey("WarehouseId");
                         });
+
+                    b.Navigation("DefaultStoragePlaceNode");
 
                     b.Navigation("LayoutObjects");
                 });

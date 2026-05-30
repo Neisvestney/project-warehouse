@@ -174,6 +174,9 @@ import type {
   WarehousesGetByIdForPrintErrors,
   WarehousesGetByIdForPrintResponses,
   WarehousesGetByIdResponses,
+  WarehousesGetDefaultNodeData,
+  WarehousesGetDefaultNodeErrors,
+  WarehousesGetDefaultNodeResponses,
   WarehousesUpdateData,
   WarehousesUpdateErrors,
   WarehousesUpdateResponses,
@@ -1027,3 +1030,17 @@ export const warehousesGetByIdForPrint = <ThrowOnError extends boolean = false>(
     WarehousesGetByIdForPrintErrors,
     ThrowOnError
   >({url: "/api/warehouses/{id}/print", ...options});
+
+/**
+ * Get the default storage place node for a warehouse.
+ *
+ * Returns 404 `warehouseNotFound` if the warehouse does not exist, or 404 `storagePlaceNodeNotFound` if no default node is set.
+ */
+export const warehousesGetDefaultNode = <ThrowOnError extends boolean = false>(
+  options: Options<WarehousesGetDefaultNodeData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    WarehousesGetDefaultNodeResponses,
+    WarehousesGetDefaultNodeErrors,
+    ThrowOnError
+  >({url: "/api/warehouses/{id}/default-node", ...options});
