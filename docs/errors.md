@@ -98,14 +98,14 @@ Error with structured arguments (e.g. password too short):
 | `catalogItemArticleDuplicate` | Another catalog item with the same article already exists |
 | `catalogItemBarcodeDuplicate` | Another catalog item with the same barcode already exists |
 | `catalogItemCharacteristicBarcodeDuplicate` | A characteristic with this barcode already exists (globally, or duplicate within the request) |
-| `inboundOrderNotFound` | Inbound order ID not found |
-| `inboundOrderDraftItemsGroupNotFound` | Draft item group ID not found or does not belong to this order |
-| `inboundOrderInvalidStatus` | Operation not allowed for the current order status |
-| `inboundOrderDraftItemsMissingCatalogLink` | Draft item has no `catalogItemWithCharacteristicId` and `createNew` is false — returned as a field error on `change-status-to-processing` |
-| `inboundOrderDraftItemsValidationFailed` | Root-level summary code on 422 from `change-status-to-processing` when one or more draft items fail validation |
-| `inboundOrderNotAssigned` | Current user is not in the order's `AssignedUsers` (processing endpoints) |
-| `inboundOrderNodeAlreadyHasItems` | `PlaceItems` called for a (order, node) pair that already has processed items |
-| `inboundOrderInsufficientProcessedItems` | `UpdateItems` delta would reduce a characteristic below zero |
+| `receiptNotFound` | Receipt ID not found |
+| `receiptInvalidStatusTransition` | Operation not allowed for the current receipt status |
+| `receiptHasPlacements` | Revert/cancel blocked because one or more items already have placements |
+| `receiptItemNotFound` | Receipt item ID not found or does not belong to this receipt |
+| `receiptItemPlacementNotFound` | Placement ID not found or does not belong to this item |
+| `receiptNotAssignedToWarehouse` | Current user is not assigned to the receipt's warehouse (assigned permission check) |
+| `receiptItemsUnderplaced` | Finish blocked: some items with `receivedCount` have fewer placements than required |
+| `receiptItemsOverplaced` | Finish blocked: some items with `receivedCount` have more placements than the received count |
 
 ### Validation
 | Code | When | `args` |

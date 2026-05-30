@@ -45,6 +45,13 @@ src/
 │   ├── catalog/
 │   │   ├── CatalogItemDrawer.tsx   # Reusable right-drawer: view + edit any catalog item (all types)
 │   │   └── CatalogItemTypeChip.tsx # MUI Chip mapping CatalogItemType → label + color
+│   ├── receipts/
+│   │   ├── ReceiptStatusChip.tsx       # MUI Chip for ReceiptStatus (color per status)
+│   │   ├── ReceiptItemsSection.tsx     # Collapsible per-item section: planned/received counts + placements table
+│   │   ├── ReceiptItemsEditorDrawer.tsx # Right drawer: edit expected items list (add/remove catalog items + plannedCount)
+│   │   ├── AddPlacementDialog.tsx      # Dialog: place items at a node (standard / unit / assembled-bundle)
+│   │   ├── SelectNodeModal.tsx         # Modal for selecting a storage place node (warehouse schema or tree)
+│   │   └── receiptUtils.ts            # RECEIPT_REASON_LABELS, formatReceiptNumber helpers
 │   ├── inventory/
 │   │   ├── ItemsBasePage.tsx        # Reusable inventory table: search, filters (type/archive/warehouse), pagination, row-click drawers
 │   │   ├── UnitItemsDrawer.tsx      # Bottom drawer: paginated list of individual UnitInventoryItem instances for a clicked catalog item
@@ -151,10 +158,22 @@ src/
 │   │   ├── WarehousesPage.tsx   # Paginated, searchable warehouse list (no permission guard yet)
 │   │   └── pages/
 │   │       ├── WarehouseViewPage/
-│   │       │   ├── WarehouseViewPage.tsx    # Warehouse detail with pan/zoom storage place grid; "Остатки", "Этикетки" buttons
-│   │       │   ├── StoragePlaceDialog.tsx   # Right-drawer: node tree (SimpleTreeView) + NodeDetails panel; "Остатки", "Остатки ячейки", "Редактировать ячейки" buttons
-│   │       │   ├── SortableNodeTree.tsx     # Drag-and-drop sortable node tree (@dnd-kit); used in edit mode inside StoragePlaceDialog
+│   │       │   ├── WarehouseViewPage.tsx    # Warehouse detail with pan/zoom storage place grid; "Остатки", "Этикетки", "Редактировать" buttons
+│   │       │   ├── StoragePlaceDrawer.tsx   # Right-drawer: node tree (SimpleTreeView) + NodeDetails panel; "Остатки", "Остатки ячейки", "Редактировать ячейки" buttons
+│   │       │   ├── SortableNodeTree.tsx     # Drag-and-drop sortable node tree (@dnd-kit); used in edit mode inside StoragePlaceDrawer
 │   │       │   └── NodeDetails.tsx          # Node detail panel: view/edit item groups (catalog item + characteristic + count)
+│   │       ├── WarehouseEditPage/
+│   │       │   ├── WarehouseEditPage.tsx    # Full warehouse editor: canvas-based layout edit + metadata form; uses MobX WarehouseEditStore
+│   │       │   ├── warehouseEditStore.ts    # MobX store: canvas state, drag/resize/add/delete storage places
+│   │       │   ├── WarehouseEditStoreContext.tsx
+│   │       │   └── components/
+│   │       │       ├── WarehouseCanvas.tsx        # Konva canvas — edit-mode variant with drag/resize/add storage places
+│   │       │       ├── WarehouseMetaForm.tsx      # Name/dimensions/notes form embedded in the edit page
+│   │       │       ├── WarehouseEditToolbar.tsx   # Toolbar: add storage place, save, undo buttons
+│   │       │       ├── ObjectPropertiesDialog.tsx # Dialog for editing selected storage place properties
+│   │       │       └── DeleteWarehouseDialog.tsx  # Confirm dialog for warehouse deletion
+│   │       ├── WarehouseNewPage/
+│   │       │   └── WarehouseNewPage.tsx    # Create warehouse form (requires warehouses.edit)
 │   │       ├── WarehouseInventoryPage/
 │   │       │   └── WarehouseInventoryPage.tsx  # Stock overview scoped to one warehouse; uses ItemsBasePage with warehouseId
 │   │       ├── StoragePlaceInventoryPage/
@@ -163,31 +182,13 @@ src/
 │   │       │   └── NodeInventoryPage.tsx   # Stock overview scoped to one node; uses ItemsBasePage with all 3 IDs
 │   │       └── WarehouseItemsPage/
 │   │           └── WarehouseItemsPage.tsx   # Paginated, searchable table of all item groups in a warehouse; link-to-catalog per row
-│   ├── InboundOrdersPage/
-│   │   ├── InboundOrdersPage.tsx   # Paginated, searchable list of inbound orders (приходные ордера)
+│   ├── ReceiptsPage/
+│   │   ├── ReceiptsPage.tsx   # Paginated, searchable, sortable list of receipts (приёмки)
 │   │   └── pages/
-│   │       ├── InboundOrderCreatePage/
-│   │       │   └── InboundOrderCreatePage.tsx   # RHF form for creating a new order (requires edit permission)
-│   │       └── InboundOrderPage/
-│   │           ├── InboundOrderPage.tsx          # Order detail page: info, status actions, draft items / comparison
-│   │           └── components/
-│   │               ├── InboundOrderInfoSection.tsx     # Order metadata (warehouse, date, assigned users) with inline edit form
-│   │               ├── InboundOrderStatusActions.tsx   # Status transition buttons (Draft→Processing→Finished and rollbacks)
-│   │               ├── DraftItemsSection.tsx           # RHF table of draft items; catalog linking, auto-assign, sync to API
-│   │               ├── ItemsComparisonSection.tsx      # Declared vs processed comparison with shortage/surplus chips
-│   │               └── CatalogLinkDialog.tsx           # Dialog for linking a draft item to a catalog item + characteristic
-│   ├── InboundOrderProcessingPage/
-│   │   ├── InboundOrderProcessingPage.tsx   # Paginated list of processing orders assigned to current user
-│   │   └── pages/
-│   │       └── InboundOrderProcessingOrderPage/
-│   │           ├── InboundOrderProcessingOrderPage.tsx  # Mobile-first operator page: scan + schema drawer + node details
-│   │           └── components/
-│   │               ├── OrderHeader.tsx           # Order info card (number, title, status chip, warehouse, date)
-│   │               ├── ScanActionBlock.tsx        # Barcode input (autoFocus, Enter submits) + camera toggle + ScannerBlock
-│   │               ├── WarehouseSchemaDrawer.tsx  # Bottom drawer with internal canvas → nodeTree navigation
-│   │               ├── NodeDetailsDrawer.tsx      # Bottom drawer: full path header, item tables, place/update edit form
-│   │               ├── ItemsGroupsTable.tsx       # Read-only table for ItemsGroupDto[] (товар, характеристика, количество)
-│   │               └── EditItemsTable.tsx         # RHF useFieldArray edit table for PlaceItems / UpdateItems mutations
+│   │       ├── ReceiptCreatePage/
+│   │       │   └── ReceiptCreatePage.tsx   # RHF form for creating a new receipt (requires edit permission)
+│   │       └── ReceiptPage/
+│   │           └── ReceiptPage.tsx          # Receipt detail: metadata edit, status transitions, items + placements
 │   ├── StoragePage/             # /storage/* — SidebarPage module (Склады + Остатки)
 │   │   ├── StoragePage.tsx      # SidebarPage wrapper for /storage/*
 │   │   └── storageConfig.tsx    # storageSections, hasStorageAccess, getStorageFirstPageUrl
@@ -241,8 +242,8 @@ src/
     ├── parseJwt.ts              # Decode JWT payload without verification
     ├── permissionLabels.ts      # Human-readable labels for permission enum values
     ├── printUtils.ts            # openPrintPage(items) helper — builds URL and opens /print in a new tab
-    ├── appEntityUtils.tsx       # entitiesTypes registry (user/roles/warehouse/inboundOrder → icon, typeName, linkTemplate); resolveEntity(entity) → {link, typeName, icon, ...entity}
-    ├── inboundOrderUtils.ts     # INBOUND_ORDER_STATUS_LABELS / INBOUND_ORDER_STATUS_COLORS — shared status chip helpers
+    ├── appEntityUtils.tsx       # entitiesTypes registry (user/roles/warehouse/receipt → icon, typeName, linkTemplate); resolveEntity(entity) → {link, typeName, icon, ...entity}
+    ├── fetchWithTimeout.ts      # fetchWithTimeout(url, options, timeoutMs) — fetch wrapper with AbortController timeout
     ├── interpolateArgs.ts       # interpolateArgs(template, args) — replaces {key} placeholders in a string
     └── useInstallPrompt.ts      # Hook: beforeinstallprompt event
 ```
@@ -263,6 +264,7 @@ src/
 /storage                  →   redirect to /storage/warehouses
 /storage/warehouses                                                              →   WarehousesPage                  (authenticated)
 /storage/warehouses/new                                                          →   WarehouseNewPage                (warehouses.edit)
+/storage/warehouses/new                                                          →   WarehouseNewPage                (warehouses.edit)
 /storage/warehouses/:id                                                          →   WarehouseViewPage               (authenticated)
 /storage/warehouses/:id/edit                                                     →   WarehouseEditPage               (warehouses.edit | warehouses.edit_assigned)
 /storage/warehouses/:id/inventory                                                →   WarehouseInventoryPage          (authenticated)
@@ -272,7 +274,7 @@ src/
 
 /operations/*             → MainLayout > OperationsPage  (SidebarPage)
 /operations               →   redirect to /operations/receipts
-/operations/receipts      →   ReceiptsPage                    (authenticated)
+/operations/receipts      →   ReceiptsPage                    (receipts.view | receipts.view_assigned | receipts.process_assigned)
 /operations/receipts/new  →   ReceiptCreatePage               (receipts.edit | receipts.edit_assigned)
 /operations/receipts/:id  →   ReceiptPage                     (authenticated)
 /operations/orders        →   redirect to /operations/orders/fbs
@@ -332,7 +334,7 @@ Read-only detail view for a single user. Displays username, email, first/last na
 On query error: renders `<NotFound />` for 404, `<QueryError />` for everything else. The `usersGetById` query sets `suppressGlobalError: true` and `suppressGlobalNotFound: true` so the global modal is never shown alongside these inline states. Error screens are only shown on the initial load — background refetch errors (`isRefetchError`) are ignored so a transient network blip doesn't replace visible data with an error screen.
 
 ### `UserEditPage`
-RHF form for editing a user's profile (email, first/last name) and, if the current user has `users.manage_roles`, also roles (typeahead via `rolesSearch` API) and direct permissions (multi-select from `permissionsGetAll`). Pre-populated from `usersGetById`; refetches on window focus without losing unsaved edits (`keepDirtyValues: true`). Requires `users.edit_profile`.
+RHF form for editing a user's profile (email, first/last name) and, if the current user has `users.manage_roles_and_permissions`, also roles (typeahead via `rolesSearch` API) and direct permissions (multi-select from `permissionsGetAll`). Pre-populated from `usersGetById`; refetches on window focus without losing unsaved edits (`keepDirtyValues: true`). Requires `users.edit_profile`.
 
 Same error handling as `UserViewPage`: `<NotFound />` on 404, `<QueryError />` otherwise; refetch errors are suppressed.
 
@@ -346,52 +348,26 @@ Error handling mirrors `UserViewPage`: `<NotFound />` on 404, `<QueryError />` o
 ### `UserCreatePage`
 RHF form for creating a new user. Fields: username (required), password (required, with show/hide toggle), email, first name, last name. On success navigates to the new user's `UserViewPage`. Requires `users.create`.
 
-### `InboundOrderProcessingPage` (Обработка приходных ордеров)
-Server-side paginated, searchable list of inbound orders assigned to the current user for processing. Requires `inbound_orders.process`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Same columns as `InboundOrdersPage`. Rows navigate to `InboundOrderProcessingOrderPage`. No "Создать" button — this is the operator view.
+### `ReceiptsPage` (Приёмки)
+Server-side paginated, searchable, sortable list of receipts. Access requires any of `receipts.view`, `receipts.view_assigned`, or `receipts.process_assigned`. State in URL params (`?search=`, `?page=`, `?pageSize=`, `?status=`, `?sortBy=`, `?sortOrder=`). Columns: **№**, **Название**, **Причина**, **Статус** (`ReceiptStatusChip`), **Склад**, **Дата доставки**, **Факт/план** (received/planned counts). Rows navigate to `ReceiptPage`. A **Создать** button is shown if the user has an edit permission.
 
-### `InboundOrderProcessingOrderPage`
-Mobile-first warehouse operator page for processing a single inbound order (`/inbound-order-processing/:id`). Requires `inbound_orders.process`. Designed around bottom drawers and full-width touch targets.
+### `ReceiptCreatePage`
+RHF form for creating a new receipt. Fields: name (optional), reason (select: `newGoods`/`return`/`other`), warehouse (required, via `WarehousesSelect`), planned delivery date (optional), notes (optional). On success navigates to the created receipt's `ReceiptPage`. Requires `receipts.edit` or `receipts.edit_assigned`.
 
-**Layout:** `OrderHeader` (order info) → `ScanActionBlock` (barcode entry) → "Выбрать из схемы склада" button → `NodeDetailsDrawer` when a node is selected.
+### `ReceiptPage`
+Detail page for a single receipt (`/operations/receipts/:id`). Shows receipt metadata with inline edit form (PATCH) and status action buttons. Body section is `ReceiptItemsSection` — one collapsible card per item showing planned/received counts and a placements table.
 
-**Barcode scan flow:** The operator types or scans a node barcode ID into `ScanActionBlock`. On Enter (or after camera scan via `ScannerBlock`), `handleNodeScanned` calls `queryClient.fetchQuery(inboundOrderProcessingGetStoragePlaceNodeDetailsOptions)` imperatively — pre-populating the cache and revealing `NodeDetailsDrawer` with the scanned node selected. Scan errors are shown inline in the block via `lookupError`.
+**Status transitions rendered as action buttons based on `receipt.status`:**
+- `draft` → **Запланировать** + **Редактировать состав** (opens `ReceiptItemsEditorDrawer`) + **Удалить**
+- `planned` → **Начать приёмку** + **Редактировать состав** (opens `ReceiptItemsEditorDrawer`) + **Вернуть** + **Отменить**
+- `processing` → **Завершить** + **Вернуть** + **Отменить** (Вернуть/Отменить disabled if any placements exist)
+- `finished` → **Вернуть в обработку**
+- `canceled` → read-only, no actions
 
-**Schema selection flow:** "Выбрать из схемы склада" opens `WarehouseSchemaDrawer` — a single bottom drawer (80 vh) with internal navigation between two views:
-  - **Canvas view** — `WarehouseCanvas` with storage places colored by `hasOrderItems` (dark green if items were placed in this order, light green otherwise). Click a storage place to enter tree view.
-  - **Tree view** — fetches `inboundOrderProcessingGetStoragePlaceNodes` for the selected storage place and renders `StoragePlaceNodeTree`. Back button returns to canvas. Selecting a node closes the drawer and opens `NodeDetailsDrawer`.
-
-**`NodeDetailsDrawer`** (bottom, 85 vh): displays the node path in the header (built by walking `parentNodeId` chain from `GetStoragePlaceNodes`). Contains:
-  1. **Текущие товары в ячейке** — `ItemsGroupsTable` of `details.itemsGroups` (always shown)
-  2. **Размещено в этом ордере** — `ItemsGroupsTable` of `details.orderItemsGroups` (shown only when `orderItemsGroups.length > 0`)
-  3. **Action buttons** (when `editMode === null`):
-     - If `orderItemsGroups.length === 0`: "Добавить" (opens `EditItemsTable` in `place` mode, empty rows) + "Обновить" (opens `EditItemsTable` in `update` mode, pre-filled from `itemsGroups`)
-     - If `orderItemsGroups.length > 0`: only "Обновить" (pre-filled from `itemsGroups`, NOT `orderItemsGroups`)
-  4. **`EditItemsTable`** (when `editMode !== null`): RHF `useFieldArray` table — catalog Autocomplete (debounced), characteristic Select, count field, delete button. `place` mode → `inboundOrderProcessingPlaceItemsMutation` (POST); `update` mode → `inboundOrderProcessingUpdateItemsMutation` (PUT). Both use `meta: {suppressGlobalError: true}`. On success: invalidates nodeDetails + order query keys, clears `editMode` (drawer stays open and refetches).
-
-Error handling: `suppressGlobalError: true` + `suppressGlobalNotFound: true` on the order query. `isLoading` → `CircularProgress`; `isError && !isRefetchError` → `isNotFoundError` ? `<NotFound />` : `<QueryError />`; `!order` → `<NotFound />`.
-
-### `InboundOrdersPage` (Приходные ордера)
-Server-side paginated, searchable list of inbound orders. Requires `inbound_orders.view` or `inbound_orders.view_assigned_warehouses`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Columns: **№**, **Название**, **Статус** (chip via `INBOUND_ORDER_STATUS_LABELS`/`INBOUND_ORDER_STATUS_COLORS`), **Склад**, **Дата начала**. Rows navigate to `InboundOrderPage`. A **Создать** button is shown if the user has an edit permission.
-
-### `InboundOrderCreatePage`
-RHF form for creating a new inbound order. Fields: title (optional), warehouse (required, via `WarehousesSelect`), planned start date (required, `datetime-local`), notes (optional multiline), assigned users (via `UsersSelect` filtered by selected warehouse). On success navigates to the created order's `InboundOrderPage`. Requires `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses`.
-
-### `InboundOrderPage`
-Detail page for a single inbound order (`/inbound-orders/:id`). Composes four sub-sections:
-
-- **`InboundOrderInfoSection`** — displays and edits order metadata (status chip, warehouse, planned start date, notes, assigned users). Edit mode: inline RHF form with `WarehousesSelect`, `UsersSelect`, datetime picker. Changing the warehouse resets assigned users.
-- **`InboundOrderStatusActions`** — renders status transition buttons based on `order.status`:
-  - `draft` → **Начать обработку** (disabled while draft form is dirty; shows tooltip)
-  - `processing` → **Завершить** + **Вернуть в черновик** (disabled if there are processed items)
-  - `finished` → **Вернуть в обработку**
-  - On status change: `removeQueries` + `invalidateQueries` for draft items and comparison caches to eliminate stale data flash.
-- **`DraftItemsSection`** — shown only in `draft` status. RHF `useFieldArray` table of draft item rows. Each row has free-text fields (name, article, barcodes, characteristic), a count field (stored as `string` to allow clearing), and a catalog link chip. Chip states: **Привязан** (green) / **Создать хар-ку** (info) / **Нет хар-ки** (secondary) / **Создать** (info) / **Не привязан** (warning). Clicking the chip opens `CatalogLinkDialog`. Rows with catalog validation errors are highlighted with a red row background. **Авто-привязка** button calls `try-auto-assign-catalog-items` for unlinked items. Form is considered dirty if there are unsaved changes; after auto-assign the form is reset (not dirty) while preserving text field edits.
-- **`ItemsComparisonSection`** — shown in `processing` and `finished` statuses. Fetches `GET .../items-comparison` and renders three tables: declared items, processed items, and (if any) shortage / surplus difference tables with colored chips in the header. Reports `hasProcessedItems` back to `InboundOrderPage` via callback (used to disable rollback-to-draft).
-
-**`CatalogLinkDialog`** — dialog opened from a draft item row chip. Left panel: catalog item search autocomplete (debounced). Right panel: characteristic select populated from the selected catalog item. Header shows draft item info (name, article, characteristic) → arrow → catalog item selection side-by-side. Checkbox: **Создать новую характеристику** when no match found. Closing without confirming discards the selection.
+**`ReceiptItemsSection`:** per-item collapsible panel. Shows `receivedCount` field (editable in Processing status via PATCH `.../received-count`). Placements table lists node path + count/SKU per placement with a delete button (Processing only). **Разместить** button opens `AddPlacementDialog`.
 
 ### `CatalogPage`
-Server-side paginated, searchable list of catalog items. Requires `catalog.view` or `inbound_orders.process`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Clicking a row opens `CatalogItemDrawer` (right-side MUI Drawer); the selected item ID is stored in `?item=` query param via `useDrawerSearchParamsState`. Columns: **Тип** (`CatalogItemTypeChip`), **Название** (fullName + archive icon if isArchived), **Артикул**, **Штрихкод**.
+Server-side paginated, searchable list of catalog items. Requires `catalog.view` or `receipts.process_assigned`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Clicking a row opens `CatalogItemDrawer` (right-side MUI Drawer); the selected item ID is stored in `?item=` query param via `useDrawerSearchParamsState`. Columns: **Тип** (`CatalogItemTypeChip`), **Название** (fullName + archive icon if isArchived), **Артикул**, **Штрихкод**.
 
 ### `InventoryPage`
 Global stock overview at `/inventory`. Uses `ItemsBasePage` without any ID props, so the warehouse filter Select is shown. Requires `warehouses.view` or `warehouses.view_assigned`.
@@ -424,18 +400,21 @@ Bottom MUI Drawer (`components/inventory/UnitItemsDrawer.tsx`). Opens when `?uni
 Bottom MUI Drawer (`components/inventory/AssembledBundleItemsDrawer.tsx`). Opens when `?bundleCatalogItem=` param is set. Same pattern as `UnitItemsDrawer` but for `AssembledBundleInventoryItem` instances. Search by catalog item name. Columns: ID, Склад, Место хранения, Ячейка.
 
 ### `WarehouseViewPage`
-Warehouse detail page with a pan/zoom Konva canvas showing storage place rectangles. The canvas is rendered by `WarehouseCanvas` from `src/features/warehouse/`. Clicking a storage place opens `StoragePlaceDialog` (1000 px wide right drawer) with a `StoragePlaceNodeTree` from `src/features/warehouse/` on the left and `NodeDetails` on the right when a node is selected.
+Warehouse detail page with a pan/zoom Konva canvas showing storage place rectangles. The canvas is rendered by `WarehouseCanvas` from `src/features/warehouse/`. Clicking a storage place opens `StoragePlaceDrawer` (1000 px wide right drawer) with a `StoragePlaceNodeTree` from `src/features/warehouse/` on the left and `NodeDetails` on the right when a node is selected.
 
-**"Остатки" button** is a `Link` to `/warehouses/:id/inventory`.
+**"Остатки" button** is a `Link` to `/storage/warehouses/:id/inventory`.
 
 **"Этикетки" button** fetches `GET /api/warehouses/{id}/print`, then calls `openPrintPage` with all nodes as `DataMatrix` labels (value = node ID, label = full path joined by ` / `). A `CircularProgress` spinner replaces the print icon while the request is in-flight.
 
-**"Список товаров" button** is a `Link` to `/warehouses/:id/items`.
+**"Редактировать" button** navigates to `WarehouseEditPage` (`/storage/warehouses/:id/edit`).
 
-**"Редактировать ячейки" button** toggles tree edit mode inside `StoragePlaceDialog`. In edit mode the tree switches from `SimpleTreeView` to `SortableNodeTree`; `NodeDetails` panel is hidden. Each node row shows add-child, rename, and delete icon buttons plus a drag handle. A root-level "Добавить ячейку" button appears above the tree. Add/rename open a `Dialog` with a name input; delete opens a `ConfirmDialog`. Drag-and-drop reorder calls `PUT .../nodes/reorder`. All operations update the nodes query cache in-place from the returned flat list.
+**"Редактировать ячейки" button** (inside `StoragePlaceDrawer`) toggles tree edit mode. In edit mode the tree switches from `SimpleTreeView` to `SortableNodeTree`; `NodeDetails` panel is hidden. Each node row shows add-child, rename, and delete icon buttons plus a drag handle. A root-level "Добавить ячейку" button appears above the tree. Add/rename open a `Dialog` with a name input; delete opens a `ConfirmDialog`. Drag-and-drop reorder calls `PUT .../nodes/reorder`. All operations update the nodes query cache in-place from the returned flat list.
+
+### `WarehouseEditPage`
+Full warehouse editor at `/storage/warehouses/:id/edit`. Combines a Konva canvas (the local `WarehouseCanvas` component, distinct from the read-only variant in `src/features/warehouse/`) with a metadata form (`WarehouseMetaForm`). State is managed by `WarehouseEditStore` (MobX) provided via `WarehouseEditStoreProvider`. The toolbar (`WarehouseEditToolbar`) exposes add/save/delete actions. `ObjectPropertiesDialog` opens when a storage place is selected on the canvas, allowing name/position/size edits. `DeleteWarehouseDialog` is shown on the delete action.
 
 ### `SortableNodeTree`
-Drag-and-drop sortable tree component used exclusively in `StoragePlaceDialog` edit mode. Built on `@dnd-kit/core` + `@dnd-kit/sortable`. Renders a recursive tree from a flat `StoragePlaceNodeDto[]` (sorted by `order` then `name`); each sibling group is its own `SortableContext`. Only same-level reordering is allowed — dragging across parent boundaries is a no-op. Fires `onReorder(NodeOrderItem[])` (zero-based index positions for affected siblings) on drop. Accepts an `isDisabled` flag that disables all actions and the drag handle cursor while API mutations are in-flight.
+Drag-and-drop sortable tree component used exclusively in `StoragePlaceDrawer` edit mode. Built on `@dnd-kit/core` + `@dnd-kit/sortable`. Renders a recursive tree from a flat `StoragePlaceNodeDto[]` (sorted by `order` then `name`); each sibling group is its own `SortableContext`. Only same-level reordering is allowed — dragging across parent boundaries is a no-op. Fires `onReorder(NodeOrderItem[])` (zero-based index positions for affected siblings) on drop. Accepts an `isDisabled` flag that disables all actions and the drag handle cursor while API mutations are in-flight.
 
 ### `WarehouseItemsPage`
 Paginated, searchable table of all item groups aggregated across the entire warehouse. Requires `warehouses.view`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Also fetches the warehouse by ID (cached from `WarehouseViewPage`) for the breadcrumb name.
@@ -466,7 +445,7 @@ When adding a new type to the backend OpenAPI schema, update only this file — 
 
 ### `src/features/warehouse/`
 
-Reusable warehouse visualization components shared between `WarehouseViewPage` and `InboundOrderProcessingOrderPage`.
+Reusable warehouse visualization components shared between `WarehouseViewPage` and other pages that need a read-only canvas or node tree.
 
 #### `WarehouseCanvas`
 

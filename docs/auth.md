@@ -8,9 +8,10 @@ The app uses JWT Bearer authentication. Access tokens are short-lived (15 min by
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
-| POST | `/api/auth/login` | — | Get token pair |e  
+| POST | `/api/auth/login` | — | Get token pair |
 | POST | `/api/auth/refresh` | — | Rotate refresh token |
 | POST | `/api/auth/logout` | Bearer | Revoke refresh token |
+| PUT | `/api/auth/password` | Bearer | Change own password (requires current password) |
 | GET | `/api/auth/me` | Bearer | Current user info + permissions |
 
 ### Login
