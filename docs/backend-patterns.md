@@ -31,23 +31,27 @@ db.CatalogItems
 
 ### Searching across related entities
 
-When the searchable fields span a navigation property, put `SearchString` on the related entity and navigate to it in the expression:
+When the searchable fields span a navigation property, navigate to it directly in the expression. For simple cases (a single field on a related entity) you don't need a separate `SearchString` property — just navigate inline:
 
-**Domain entity** (`CatalogItemWithCharacteristic.cs`):
+**Controller** (`InventoryItemsController.cs`):
 ```csharp
-[Projectable]
-public string SearchString =>
-    (CatalogItem.Name ?? "") + " " +
-    (CatalogItem.Article ?? "") + " " +
-    (CatalogItem.Barcode ?? "") + " " +
-    (Barcode ?? "") + " " +
-    (Characteristic ?? "");
+db.InventoryItems.OfType<AssembledBundleInventoryItem>()
+    .WhereMatchesSearch(ab => ab.CatalogItem.Name, searchString)
+    ...
 ```
 
-**Controller** (`WarehousesController.cs`):
+For richer cross-field search, put `SearchString` on the related entity and navigate to it:
+
+**Domain entity** (`Receipt.cs`):
 ```csharp
-db.StoragePlacesNodesItemsGroups
-    .WhereMatchesSearch(g => g.CatalogItemWithCharacteristic.SearchString, searchString)
+[Projectable]
+public string SearchString => Number + " " + Name + " " + Notes;
+```
+
+**Controller** (`ReceiptsController.cs`):
+```csharp
+db.Receipts
+    .WhereMatchesSearch(r => r.SearchString, searchString)
     ...
 ```
 

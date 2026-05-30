@@ -58,17 +58,17 @@ That's it. `Permissions.All` picks up new constants automatically via reflection
 
 `warehouses.view` и `warehouses.view_assigned` можно назначать одновременно — `view` всегда перекрывает `view_assigned`. Аналогично для `edit` / `edit_assigned`.
 
-### Inbound Orders (`inbound_orders.*`)
+### Receipts (`receipts.*`)
 | Permission | Constant | Scope |
 |-----------|----------|-------|
-| `inbound_orders.view` | `Permissions.InboundOrders.View` | All orders |
-| `inbound_orders.edit` | `Permissions.InboundOrders.Edit` | All orders |
-| `inbound_orders.view_assigned_warehouses` | `Permissions.InboundOrders.ViewAssignedWarehouses` | Orders in user's assigned warehouses |
-| `inbound_orders.edit_assigned_warehouses` | `Permissions.InboundOrders.EditAssignedWarehouses` | Orders in user's assigned warehouses |
-| `inbound_orders.process` | `Permissions.InboundOrders.Process` | Orders where user is in `AssignedUsers` |
+| `receipts.view` | `Permissions.Receipts.View` | All receipts |
+| `receipts.edit` | `Permissions.Receipts.Edit` | All receipts |
+| `receipts.view_assigned` | `Permissions.Receipts.ViewAssigned` | Receipts in user's assigned warehouses |
+| `receipts.edit_assigned` | `Permissions.Receipts.EditAssigned` | Receipts in user's assigned warehouses |
+| `receipts.process_assigned` | `Permissions.Receipts.ProcessAssigned` | Placement ops in user's assigned warehouses |
 
-`inbound_orders.view` и `inbound_orders.view_assigned_warehouses` работают как warehouse аналоги: `view` всегда перекрывает `view_assigned_warehouses`.
-`inbound_orders.process` — отдельное право для операторов склада; дополнительно проверяется членство в `AssignedUsers` ордера.
+`receipts.view` перекрывает `receipts.view_assigned`, `receipts.edit` перекрывает `receipts.edit_assigned`.  
+`receipts.process_assigned` — право для операторов склада (приёмка физического товара: обновление `receivedCount` и добавление placements). Без `edit`/`edit_assigned` оператор видит только приёмки в статусе Processing своих складов.
 
 ### Catalog (`catalog.*`)
 | Permission | Constant |
@@ -88,23 +88,25 @@ These are embedded in the JWT as individual `permission` claims. The `Permission
 
 See [Auth docs](auth.md) for getting a token first.
 
-**Assign permission to role:**
+**Manage role permissions** — atomically replaces the entire roles collection including their permission sets:
 ```http
-POST /api/roles/{roleId}/permissions
+PUT /api/roles
 Authorization: Bearer ...
 Content-Type: application/json
 
-{ "permission": "items.view" }
+[{ "id": "<guid>", "name": "Manager", "order": 1, "permissions": ["warehouses.view", "catalog.view"] }]
 ```
+Requires `roles.edit`. See [api.md](api.md) for the full shape.
 
-**Assign direct permission to user:**
+**Manage user direct permissions and roles** — atomically updates a user's profile, roles, and direct permissions:
 ```http
-POST /api/users/{userId}/permissions
+PUT /api/users/{id}
 Authorization: Bearer ...
 Content-Type: application/json
 
-{ "permission": "items.delete" }
+{ "roleIds": ["<guid>"], "directPermissions": ["users.view"] }
 ```
+Requires `users.manage_roles_and_permissions` to change roles/permissions. See [api.md](api.md) for the full shape.
 
 **Get all valid permission strings:**
 ```http

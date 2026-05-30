@@ -43,6 +43,7 @@ See [auth.md](auth.md) for the full auth flow and token refresh.
 | Method | Path | Permission | Description |
 |--------|------|------------|-------------|
 | GET | `/api/roles` | `roles.view` | List all roles with permissions |
+| GET | `/api/roles/{id}` | `roles.view` | Get role by ID |
 | GET | `/api/roles/search` | `roles.view` | Search roles by name (max 10) |
 | PUT | `/api/roles` | `roles.edit` | Atomically replace the entire roles collection |
 
@@ -91,99 +92,68 @@ Returns 422 `catalogItemCharacteristicDuplicate` if the same `catalogItemWithCha
 
 ---
 
-## Inbound Orders — `/api/inbound-orders`
+## Receipts — `/api/receipts`
 
-| Method | Path | Permission | Description |
-|--------|------|------------|-------------|
-| GET | `/api/inbound-orders` | `inbound_orders.view` or `inbound_orders.view_assigned_warehouses` | List orders paginated; `_assigned_warehouses` filters to user's assigned warehouses. Supports `searchString`, `warehouseId` |
-| GET | `/api/inbound-orders/{id}` | `inbound_orders.view` or `inbound_orders.view_assigned_warehouses` | Get order details (all fields except item groups) |
-| POST | `/api/inbound-orders` | `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses` | Create order (always Draft); `_assigned_warehouses` restricts to user's warehouses |
-| PUT | `/api/inbound-orders/{id}` | `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses` | Update order metadata and assigned users |
-| DELETE | `/api/inbound-orders/{id}` | `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses` | Delete order (Draft or Finished only; 409 if Processing) |
-| GET | `/api/inbound-orders/{id}/draft-items-groups` | `inbound_orders.view` or `inbound_orders.view_assigned_warehouses` | Get all draft item groups with optional catalog links |
-| PUT | `/api/inbound-orders/{id}/draft-items-groups` | `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses` | Atomically sync draft items (sync pattern: null id = create, id = update, missing = delete). Draft status only. |
-| GET | `/api/inbound-orders/{id}/items-comparison` | `inbound_orders.view` or `inbound_orders.view_assigned_warehouses` | Declared vs processed comparison with shortage/surplus breakdown |
-| POST | `/api/inbound-orders/{id}/change-status-to-processing` | `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses` | Draft→Processing: validates/auto-creates catalog items, copies draft to declared |
-| POST | `/api/inbound-orders/{id}/rollback-status-to-draft` | `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses` | Processing→Draft: only if no processed items exist; deletes declared items |
-| POST | `/api/inbound-orders/{id}/change-status-to-finished` | `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses` | Processing→Finished |
-| POST | `/api/inbound-orders/{id}/rollback-status-to-processing` | `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses` | Finished→Processing |
-| POST | `/api/inbound-orders/{id}/try-auto-assign-catalog-items` | `inbound_orders.edit` or `inbound_orders.edit_assigned_warehouses` | Try to auto-assign `CatalogItemWithCharacteristic` to unlinked draft items by matching barcode → article+characteristic → name+characteristic. Draft status only. |
+Access: `receipts.view` / `receipts.view_assigned` (read), `receipts.edit` / `receipts.edit_assigned` (write), `receipts.process_assigned` (placement ops). `*_assigned` variants are restricted to warehouses assigned to the current user.
 
-**Draft items sync** (`PUT .../draft-items-groups` body: `{ draftItemsGroups: DraftItemsGroupItem[] }`):
-- `id: null` → create new draft item
-- `id` present → update existing draft item
-- existing item not in list → delete
-- Response and all subsequent reads preserve the order of elements as sent in the request (backed by a server-side `Order` field, not exposed in DTOs)
+### CRUD
 
-**`DraftItemsGroupItem` fields:**
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/receipts` | Bearer | List receipts paginated. Supports `searchString`, `warehouseId`, `status`, `reason`, `sortBy`, `sortOrder`. Access level determined from user permissions. |
+| GET | `/api/receipts/{id}` | Bearer | Get full receipt details including items and placements. |
+| POST | `/api/receipts` | `receipts.edit` or `receipts.edit_assigned` | Create receipt (always Draft). |
+| PATCH | `/api/receipts/{id}` | `receipts.edit` or `receipts.edit_assigned` | Update name/reason/notes. Draft status only. |
+| DELETE | `/api/receipts/{id}` | `receipts.edit` | Delete receipt. Draft status only. |
+
+### Items
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| PUT | `/api/receipts/{id}/items` | `receipts.edit` or `receipts.edit_assigned` | Atomically sync the expected items list (`ReceiptItemRequest[]`). Draft or Planned status only. Deduplicates by `catalogItemId`. |
+| PATCH | `/api/receipts/{id}/items/{itemId}/received-count` | `receipts.edit` or `receipts.process_assigned` | Update actually received count for one item. Processing status only. |
+
+### Placements
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/receipts/{id}/items/{itemId}/placements/standard` | `receipts.edit` or `receipts.process_assigned` | Place count-based (Standard) items at a storage node. Processing status only. |
+| POST | `/api/receipts/{id}/items/{itemId}/placements/unit` | `receipts.edit` or `receipts.process_assigned` | Place a serialised Unit item (by `inventoryNumber`) at a storage node. Processing status only. |
+| POST | `/api/receipts/{id}/items/{itemId}/placements/assembled-bundle` | `receipts.edit` or `receipts.process_assigned` | Place an AssembledBundle at a storage node (components must exactly match the catalog definition). Processing status only. |
+| DELETE | `/api/receipts/{id}/items/{itemId}/placements/{placementId}` | `receipts.edit` or `receipts.process_assigned` | Remove a placement, reversing the inventory change. Processing status only. |
+
+### Status transitions
+
+Statuses: `Draft` → `Planned` → `Processing` → `Finished` / `Canceled`
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/receipts/{id}/plan` | `receipts.edit` or `receipts.edit_assigned` | Draft → Planned |
+| POST | `/api/receipts/{id}/start-processing` | `receipts.edit` or `receipts.edit_assigned` | Planned → Processing |
+| POST | `/api/receipts/{id}/finish` | `receipts.edit` or `receipts.edit_assigned` | Processing → Finished. Validates all items with `receivedCount` are fully placed (placed == receivedCount). |
+| POST | `/api/receipts/{id}/revert` | `receipts.edit` or `receipts.edit_assigned` | Go one status back: Finished→Processing, Processing→Planned (only if no placements), Planned→Draft. |
+| POST | `/api/receipts/{id}/cancel` | `receipts.edit` or `receipts.edit_assigned` | Cancel from Draft/Planned/Processing (Processing only if no placements). |
+
+**Items sync** (`PUT .../items` body: `ReceiptItemRequest[]`):
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | `Guid?` | Null to create, present to update |
-| `name` | `string` | Item name |
-| `article` | `string` | Article / SKU |
-| `barcode` | `string?` | Barcode for this specific characteristic |
-| `rootBarcode` | `string?` | Barcode for the catalog item itself |
-| `characteristic` | `string` | Characteristic name |
-| `count` | `int` | Quantity (≥ 1) |
-| `catalogItemId` | `Guid?` | Optional reference to an existing `CatalogItem` (without characteristic assigned yet) |
-| `catalogItemWithCharacteristicId` | `Guid?` | Fully resolved catalog link |
-| `createNew` | `bool` | If `true` and `catalogItemWithCharacteristicId` is null, auto-create on `change-status-to-processing` (see below) |
+| `catalogItemId` | `Guid` | Reference to an existing `CatalogItem` |
+| `plannedCount` | `int` | Expected quantity (≥ 1) |
+| `notes` | `string?` | Optional item note |
 
-**`change-status-to-processing` auto-create logic** (per draft item, evaluated when `catalogItemWithCharacteristicId` is null and `createNew` is true):
-
-| Condition | Action |
-|-----------|--------|
-| `catalogItemId == null && createNew == true` | Create new `CatalogItem` (name, article, rootBarcode) + `CatalogItemWithCharacteristic` (characteristic, barcode), assign both |
-| `catalogItemId != null && createNew == true` | Add new `CatalogItemWithCharacteristic` (characteristic, barcode) to the existing `CatalogItem`, assign |
-
-Returns 422 `inboundOrderDraftItemsValidationFailed` (root) with field-level errors if:
-- Article/rootBarcode already exist in the catalog (or appear more than once within the request)
-- Characteristic already exists on the target `CatalogItem`
-- Characteristic barcode already exists globally
-- Any item still has no catalog link and `createNew == false`
-
-**`try-auto-assign-catalog-items` body**: `{ draftItemsGroupIds: Guid[] }` — list of draft item IDs to process. Empty array = try all unlinked items. Returns updated `InboundOrderDraftItemsGroupDto[]` for the whole order.
-
-Matching priority per item (stops at first match):
-1. `CatalogItemWithCharacteristic.Barcode` == `draft.Barcode`
-2. `CatalogItem.Article` (case-insensitive) == `draft.Article` AND `Characteristic` (case-insensitive) == `draft.Characteristic`
-3. `CatalogItem.Name` (case-insensitive) == `draft.Name` AND `Characteristic` (case-insensitive) == `draft.Characteristic`
-
-Already-linked items (with `catalogItemWithCharacteristicId` set) are skipped silently.
+Existing items not in the list are removed. Duplicate `catalogItemId` values in the same request → 422 `validationError`.
 
 **Key DTOs:**
 
-`InboundOrderSummaryDto`: `{ id, number, status, title?, plannedStartDateTime, warehouse: WarehouseSummaryDto }`  
-`InboundOrderDto`: `{ id, number, status, title?, plannedStartDateTime, notes?, warehouse: WarehouseSummaryDto, assignedUsers: UserDto[] }`  
-`InboundOrderDraftItemsGroupDto`: `{ id, name, article, barcode?, rootBarcode?, characteristic, count, catalogItem?: NodeCatalogItemDto, catalogItemWithCharacteristic?: NodeCharacteristicDto, createNew: bool }`  
-`InboundOrderItemsComparisonDto`: `{ declaredItems: ComparisonItemDto[], processedItems: ComparisonItemDto[], shortages: ItemDifferenceDto[], surpluses: ItemDifferenceDto[], totalShortageCount, totalSurplusCount }`
+`ReceiptSummaryDto`: `{ id, number, name?, reason, status, plannedDeliveryDate?, createdAt, warehouseId, warehouseName, totalPlannedCount, totalReceivedCount }`  
+`ReceiptDto`: `{ id, number, name?, reason, status, notes?, plannedDeliveryDate?, createdAt, warehouseId, warehouseName, totalPlannedCount, totalReceivedCount, items: ReceiptItemDto[] }`  
+`ReceiptItemDto`: `{ id, catalogItemId, catalogItem: CatalogItemSummaryDto, plannedCount, receivedCount?, notes?, placements: ReceiptItemPlacementDto[] }`  
+`ReceiptItemPlacementDto`: `{ id, storagePlaceNodeId, storagePlaceName, storagePlacePath, count, unitInventoryItem?: ..., assembledBundleInventoryItem?: ... }`
 
----
-
-## Inbound Order Processing — `/api/inbound-order-processing`
-
-Requires `inbound_orders.process` permission. All endpoints additionally check that the current user is in the order's `AssignedUsers`.
-
-| Method | Path | Permission | Description |
-|--------|------|------------|-------------|
-| GET | `/api/inbound-order-processing` | `inbound_orders.process` | List orders assigned to current user (paginated, searchable) |
-| GET | `/api/inbound-order-processing/{id}` | `inbound_orders.process` | Order detail with full warehouse schema and storage place order-status flags (Processing only) |
-| GET | `/api/inbound-order-processing/{id}/nodes?storagePlaceId={storagePlaceId}` | `inbound_orders.process` | Flat list of nodes for a storage place (required param) |
-| GET | `/api/inbound-order-processing/{id}/nodes/{nodeId}` | `inbound_orders.process` | Node details with items groups (includes `storagePlaceId`) |
-| POST | `/api/inbound-order-processing/{id}/nodes/{nodeId}/items` | `inbound_orders.process` | Place items in a node for this order (409 if already placed) |
-| PUT | `/api/inbound-order-processing/{id}/nodes/{nodeId}/items` | `inbound_orders.process` | Update items in node for this order (delta-based; 422 if trying to remove more than placed) |
-
-**PlaceItems / UpdateItems body**: `{ items: [{ catalogItemWithCharacteristicId: Guid, count: int }] }`  
-`PlaceItems` creates new `InboundOrderProcessedItemsGroup` entries AND adds to `StoragePlaceNodeItemsGroup` (physical inventory).  
-`UpdateItems` computes delta vs current order-tracked quantities; removes from physical inventory on reduction.
-
-**Key DTOs:**
-
-`InboundOrderProcessingDto`: `{ id, number, status, title?, plannedStartDateTime, notes?, warehouse: ProcessingWarehouseDto }`  
-`ProcessingWarehouseDto`: `{ id, name, width, height, storagePlaces: ProcessingStoragePlaceDto[], layoutObjects: WarehouseLayoutElementDto[] }`  
-`ProcessingStoragePlaceDto`: `{ id, name, x, y, width, height, rotation, hasOrderItems: bool }`  
-`ProcessedNodeItemDto`: `{ catalogItemWithCharacteristic: NodeCharacteristicDto, count: int }`
+**`ReceiptReason` values:** `newGoods`, `return`, `other`  
+**`ReceiptStatus` values:** `draft`, `planned`, `processing`, `finished`, `canceled`  
+**`ReceiptSortBy` values:** `number` (default), `status`, `createdAt`, `warehouseName`, `name`, `plannedDeliveryDate`
 
 ---
 
