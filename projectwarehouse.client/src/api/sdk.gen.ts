@@ -141,6 +141,9 @@ import type {
   StoragePlacesUpdateNodeData,
   StoragePlacesUpdateNodeErrors,
   StoragePlacesUpdateNodeResponses,
+  TransfersExecuteData,
+  TransfersExecuteErrors,
+  TransfersExecuteResponses,
   UsersChangePasswordData,
   UsersChangePasswordErrors,
   UsersChangePasswordResponses,
@@ -851,6 +854,25 @@ export const storagePlacesReorderNodes = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/api/storagePlaces/{id}/nodes/reorder",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Execute an atomic inventory transfer between two storage nodes.
+ *
+ * All items are moved in a single transaction — if any item fails, the entire transfer is rolled back.
+ * Transfer type is determined by which field of each TransferItemRequest is populated:
+ * `catalogItemId + count` → Standard; `unitItemId` → Unit; `assembledBundleItemId` → AssembledBundle.
+ */
+export const transfersExecute = <ThrowOnError extends boolean = false>(
+  options: Options<TransfersExecuteData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<TransfersExecuteResponses, TransfersExecuteErrors, ThrowOnError>({
+    url: "/api/transfers",
     ...options,
     headers: {
       "Content-Type": "application/json",

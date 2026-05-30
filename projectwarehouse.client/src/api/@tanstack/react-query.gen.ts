@@ -56,6 +56,7 @@ import {
   storagePlacesGetNodes,
   storagePlacesReorderNodes,
   storagePlacesUpdateNode,
+  transfersExecute,
   usersChangePassword,
   usersCreate,
   usersDelete,
@@ -209,6 +210,9 @@ import type {
   StoragePlacesUpdateNodeData,
   StoragePlacesUpdateNodeError,
   StoragePlacesUpdateNodeResponse,
+  TransfersExecuteData,
+  TransfersExecuteError,
+  TransfersExecuteResponse,
   UsersChangePasswordData,
   UsersChangePasswordError,
   UsersChangePasswordResponse,
@@ -1786,6 +1790,37 @@ export const storagePlacesReorderNodesMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await storagePlacesReorderNodes({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Execute an atomic inventory transfer between two storage nodes.
+ *
+ * All items are moved in a single transaction — if any item fails, the entire transfer is rolled back.
+ * Transfer type is determined by which field of each TransferItemRequest is populated:
+ * `catalogItemId + count` → Standard; `unitItemId` → Unit; `assembledBundleItemId` → AssembledBundle.
+ */
+export const transfersExecuteMutation = (
+  options?: Partial<Options<TransfersExecuteData>>,
+): UseMutationOptions<
+  TransfersExecuteResponse,
+  TransfersExecuteError,
+  Options<TransfersExecuteData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    TransfersExecuteResponse,
+    TransfersExecuteError,
+    Options<TransfersExecuteData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await transfersExecute({
         ...options,
         ...fnOptions,
         throwOnError: true,

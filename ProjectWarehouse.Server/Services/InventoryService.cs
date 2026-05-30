@@ -26,8 +26,7 @@ public class InventoryService(
             .Include(n => n.ItemsGroups).ThenInclude(g => g.CatalogItem)
             .Include(n => n.InventoryItems)
             .FirstOrDefaultAsync(n => n.Id == nodeId, ct)
-            ?? throw new InvalidOperationException(
-                $"Storage place node '{nodeId}' was not found. Cannot snapshot inventory state.");
+            ?? throw new StoragePlaceNodeNotFoundException(nodeId);
 
         return mapper.Map<StoragePlaceNodeDetailsDto>(node);
     }
@@ -86,8 +85,7 @@ public class InventoryService(
             .FirstOrDefaultAsync(g => g.StoragePlaceNodeId == nodeId && g.CatalogItemId == catalogItemId, ct);
 
         if (group is null || group.Count < count)
-            throw new InvalidOperationException(
-                $"Cannot remove {count} item(s) of catalog item '{catalogItemId}' from node '{nodeId}': insufficient inventory (available: {group?.Count ?? 0}).");
+            throw new InsufficientInventoryException(nodeId, catalogItemId, group?.Count ?? 0, count);
 
         group.Count -= count;
         await db.SaveChangesAsync(ct);
@@ -144,13 +142,16 @@ public class InventoryService(
 
     public async Task RemoveUnitItemAsync(
         Guid unitItemId,
+        Guid expectedNodeId,
         string action = InventoryActions.RemoveUnitItem,
         CancellationToken ct = default)
     {
         var item = await db.InventoryItems.OfType<UnitInventoryItem>()
             .FirstOrDefaultAsync(u => u.Id == unitItemId, ct)
-            ?? throw new InvalidOperationException(
-                $"UnitInventoryItem '{unitItemId}' was not found.");
+            ?? throw new UnitInventoryItemNotFoundException(unitItemId);
+
+        if (item.StoragePlaceNodeId != expectedNodeId)
+            throw new InventoryItemNodeMismatchException(unitItemId, expectedNodeId, item.StoragePlaceNodeId);
 
         var nodeId = item.StoragePlaceNodeId;
         var before = await SnapshotNodeAsync(nodeId, ct);
@@ -225,13 +226,16 @@ public class InventoryService(
 
     public async Task RemoveAssembledBundleAsync(
         Guid assembledBundleItemId,
+        Guid expectedNodeId,
         string action = InventoryActions.RemoveAssembledBundle,
         CancellationToken ct = default)
     {
         var item = await db.InventoryItems.OfType<AssembledBundleInventoryItem>()
             .FirstOrDefaultAsync(ab => ab.Id == assembledBundleItemId, ct)
-            ?? throw new InvalidOperationException(
-                $"AssembledBundleInventoryItem '{assembledBundleItemId}' was not found.");
+            ?? throw new AssembledBundleItemNotFoundException(assembledBundleItemId);
+
+        if (item.StoragePlaceNodeId != expectedNodeId)
+            throw new InventoryItemNodeMismatchException(assembledBundleItemId, expectedNodeId, item.StoragePlaceNodeId);
 
         var nodeId = item.StoragePlaceNodeId;
         var before = await SnapshotNodeAsync(nodeId, ct);
@@ -250,23 +254,22 @@ public class InventoryService(
         Guid toNodeId,
         Guid catalogItemId,
         int count,
+        string action = InventoryActions.MoveStandardItems,
         CancellationToken ct = default)
     {
-        await RemoveStandardItemsFromNodeAsync(fromNodeId, catalogItemId, count,
-            InventoryActions.MoveStandardItems, ct);
-        await AddStandardItemsToNodeAsync(toNodeId, catalogItemId, count,
-            InventoryActions.MoveStandardItems, ct);
+        await RemoveStandardItemsFromNodeAsync(fromNodeId, catalogItemId, count, action, ct);
+        await AddStandardItemsToNodeAsync(toNodeId, catalogItemId, count, action, ct);
     }
 
     public async Task MoveUnitItemAsync(
         Guid unitItemId,
         Guid toNodeId,
+        string action = InventoryActions.MoveUnitItem,
         CancellationToken ct = default)
     {
         var item = await db.InventoryItems.OfType<UnitInventoryItem>()
             .FirstOrDefaultAsync(u => u.Id == unitItemId, ct)
-            ?? throw new InvalidOperationException(
-                $"UnitInventoryItem '{unitItemId}' was not found.");
+            ?? throw new UnitInventoryItemNotFoundException(unitItemId);
 
         var fromNodeId = item.StoragePlaceNodeId;
 
@@ -279,7 +282,32 @@ public class InventoryService(
         var fromAfter = await SnapshotNodeAsync(fromNodeId, ct);
         var toAfter   = await SnapshotNodeAsync(toNodeId, ct);
 
-        await changeLog.CompareAndSaveToChangelog(fromBefore, fromAfter, InventoryActions.MoveUnitItem);
-        await changeLog.CompareAndSaveToChangelog(toBefore, toAfter, InventoryActions.MoveUnitItem);
+        await changeLog.CompareAndSaveToChangelog(fromBefore, fromAfter, action);
+        await changeLog.CompareAndSaveToChangelog(toBefore, toAfter, action);
+    }
+
+    public async Task MoveAssembledBundleAsync(
+        Guid assembledBundleItemId,
+        Guid toNodeId,
+        string action = InventoryActions.MoveAssembledBundle,
+        CancellationToken ct = default)
+    {
+        var item = await db.InventoryItems.OfType<AssembledBundleInventoryItem>()
+            .FirstOrDefaultAsync(ab => ab.Id == assembledBundleItemId, ct)
+            ?? throw new AssembledBundleItemNotFoundException(assembledBundleItemId);
+
+        var fromNodeId = item.StoragePlaceNodeId;
+
+        var fromBefore = await SnapshotNodeAsync(fromNodeId, ct);
+        var toBefore   = await SnapshotNodeAsync(toNodeId, ct);
+
+        item.StoragePlaceNodeId = toNodeId;
+        await db.SaveChangesAsync(ct);
+
+        var fromAfter = await SnapshotNodeAsync(fromNodeId, ct);
+        var toAfter   = await SnapshotNodeAsync(toNodeId, ct);
+
+        await changeLog.CompareAndSaveToChangelog(fromBefore, fromAfter, action);
+        await changeLog.CompareAndSaveToChangelog(toBefore, toAfter, action);
     }
 }

@@ -75,6 +75,10 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   receiptItemsOverplaced: "Некоторые позиции размещены сверх принятого количества",
   insufficientInventory: "Недостаточно товара на складе",
   unitInventoryItemNumberDuplicate: "Инвентарный номер уже используется для этого товара",
+  transferSameNode: "Источник и назначение не могут быть одной ячейкой",
+  unitInventoryItemNotFound: "Единичный товар не найден",
+  assembledBundleItemNotFound: "Комплект не найден",
+  inventoryItemMovedToAnotherNodeAfterPlacementCreated: "Товар был перемещён в другую ячейку после создания размещения",
 };
 
 export function resolveErrorMessage(error: AppFieldError): string {

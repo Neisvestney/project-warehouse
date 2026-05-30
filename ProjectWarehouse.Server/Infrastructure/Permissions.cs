@@ -47,6 +47,12 @@ public static class Permissions
         public const string View = "changelog.view";
     }
 
+    public static class Transfers
+    {
+        public const string Execute         = "transfers.execute";
+        public const string ExecuteAssigned = "transfers.execute_assigned";
+    }
+
     public static class Receipts
     {
         public const string View            = "receipts.view";

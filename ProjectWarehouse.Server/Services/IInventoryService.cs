@@ -58,10 +58,12 @@ public interface IInventoryService
 
     /// <summary>
     /// Deletes the <see cref="UnitInventoryItem"/> with the given ID.
+    /// Throws <see cref="InventoryItemNodeMismatchException"/> if the item is not in <paramref name="expectedNodeId"/>.
     /// Writes a changelog entry on the node.
     /// </summary>
     Task RemoveUnitItemAsync(
         Guid unitItemId,
+        Guid expectedNodeId,
         string action = InventoryActions.RemoveUnitItem,
         CancellationToken ct = default);
 
@@ -82,10 +84,12 @@ public interface IInventoryService
 
     /// <summary>
     /// Deletes the <see cref="AssembledBundleInventoryItem"/> with the given ID.
+    /// Throws <see cref="InventoryItemNodeMismatchException"/> if the item is not in <paramref name="expectedNodeId"/>.
     /// Writes a changelog entry on the node.
     /// </summary>
     Task RemoveAssembledBundleAsync(
         Guid assembledBundleItemId,
+        Guid expectedNodeId,
         string action = InventoryActions.RemoveAssembledBundle,
         CancellationToken ct = default);
 
@@ -96,10 +100,22 @@ public interface IInventoryService
         Guid toNodeId,
         Guid catalogItemId,
         int count,
+        string action = InventoryActions.MoveStandardItems,
         CancellationToken ct = default);
 
     Task MoveUnitItemAsync(
         Guid unitItemId,
         Guid toNodeId,
+        string action = InventoryActions.MoveUnitItem,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Moves an <see cref="AssembledBundleInventoryItem"/> to <paramref name="toNodeId"/>.
+    /// Writes changelog entries on both the source and destination nodes.
+    /// </summary>
+    Task MoveAssembledBundleAsync(
+        Guid assembledBundleItemId,
+        Guid toNodeId,
+        string action = InventoryActions.MoveAssembledBundle,
         CancellationToken ct = default);
 }
