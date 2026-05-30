@@ -55,9 +55,10 @@ export default defineConfig(({command}) => ({
       workbox: {
         // add this to cache all the imports
         globPatterns: ["**/*"],
+        navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
-            urlPattern: /api/,
+            urlPattern: /^\/api\//,
             handler: "NetworkOnly",
           },
         ],
