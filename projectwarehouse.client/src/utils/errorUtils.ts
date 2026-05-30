@@ -64,6 +64,7 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   passwordAtLeastOneLowercase: "Пароль должен содержать хотя бы одну строчную букву",
   passwordInvalid: "Пароль неверный",
   validationError: "Ошибка валидации",
+  routeNotFound: "Маршрут API не найден",
   receiptNotFound: "Приемка не найдена",
   receiptInvalidStatusTransition: "Недопустимый переход статуса приемки",
   receiptHasPlacements: "У приемки есть размещения",

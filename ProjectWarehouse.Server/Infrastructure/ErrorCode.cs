@@ -57,6 +57,9 @@ public enum ErrorCode
     InsufficientInventory,
     UnitInventoryItemNumberDuplicate,
 
+    // Routing
+    RouteNotFound,
+
     // Validation
     Required,
     TooShort,

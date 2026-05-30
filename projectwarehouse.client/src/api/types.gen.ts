@@ -293,7 +293,8 @@ export type ErrorCode =
   | "passwordAtLeastOneUppercase"
   | "passwordAtLeastOneLowercase"
   | "passwordInvalid"
-  | "validationError";
+  | "validationError"
+  | "routeNotFound";
 
 export type InventoryItemSortBy = "name" | "fullName" | "article" | "type" | "count";
 

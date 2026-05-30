@@ -17,6 +17,7 @@ import PageNotFound from "@/components/PageNotFound.tsx";
 import {Capacitor} from "@capacitor/core";
 import ServerSetupPage from "@/pages/ServerSetupPage/ServerSetupPage.tsx";
 import {SELECTED_SERVER_KEY} from "@/configuration/servers.ts";
+import ErrorBoundary from "@/components/ErrorBoundary.tsx";
 
 const HomePage = React.lazy(() => import("@/pages/HomePage/HomePage.tsx"));
 const MyProfilePage = React.lazy(() => import("@/pages/MyProfilePage/MyProfilePage.tsx"));
@@ -27,6 +28,7 @@ const PrintPage = React.lazy(() => import("@/pages/PrintPage/PrintPage.tsx"));
 const CatalogPage = React.lazy(() => import("@/pages/CatalogPage/CatalogPage.tsx"));
 const StoragePage = React.lazy(() => import("@/pages/StoragePage/StoragePage.tsx"));
 const OperationsPage = React.lazy(() => import("@/pages/OperationsPage/OperationsPage.tsx"));
+const ThrowErrorPage = React.lazy(() => import("@/pages/ThrowErrorPage/ThrowErrorPage.tsx"));
 
 function App() {
   const {
@@ -57,36 +59,39 @@ function App() {
   return (
     <ServiceWorkerContext.Provider value={{needRefresh, offlineReady, updateServiceWorker}}>
       <ThemeProvider theme={theme}>
-        <SnackbarProvider>
-          <ModalProvider>
-            <QueryErrorHandler />
-            <CssBaseline />
-            <UpdatePrompt />
-            <AuthProvider>
-              <Suspense>
-                <ProtectedRoutes>
-                  <Route path="/server-setup" element={<ServerSetupPage />} />
-                  <Route path="/login" element={<LoginPage />} />
-                  <ProtectedRoute element={<MainLayout />}>
-                    <ProtectedRoute path="/" element={<HomePage />} />
-                    <ProtectedRoute path="/profile" element={<MyProfilePage />} />
-                    <ProtectedRoute
-                      path="/catalog"
-                      element={<CatalogPage />}
-                      requiredPermission="catalog.view"
-                    />
-                    <ProtectedRoute path="/storage/*" element={<StoragePage />} />
-                    <ProtectedRoute path="/operations/*" element={<OperationsPage />} />
-                    <ProtectedRoute path="/settings/*" element={<SettingsPage />} />
-                    <Route path="*" element={<PageNotFound />} />
-                  </ProtectedRoute>
-                  <ProtectedRoute path="/scanner" element={<ScannerPage />} />
-                  <ProtectedRoute path="/print" element={<PrintPage />} />
-                </ProtectedRoutes>
-              </Suspense>
-            </AuthProvider>
-          </ModalProvider>
-        </SnackbarProvider>
+        <ErrorBoundary>
+          <SnackbarProvider>
+            <ModalProvider>
+              <QueryErrorHandler />
+              <CssBaseline />
+              <UpdatePrompt />
+              <AuthProvider>
+                <Suspense>
+                  <ProtectedRoutes>
+                    <Route path="/server-setup" element={<ServerSetupPage />} />
+                    <Route path="/login" element={<LoginPage />} />
+                    <ProtectedRoute element={<MainLayout />}>
+                      <ProtectedRoute path="/" element={<HomePage />} />
+                      <ProtectedRoute path="/profile" element={<MyProfilePage />} />
+                      <ProtectedRoute
+                        path="/catalog"
+                        element={<CatalogPage />}
+                        requiredPermission="catalog.view"
+                      />
+                      <ProtectedRoute path="/storage/*" element={<StoragePage />} />
+                      <ProtectedRoute path="/operations/*" element={<OperationsPage />} />
+                      <ProtectedRoute path="/settings/*" element={<SettingsPage />} />
+                      <Route path="/throw-error" element={<ThrowErrorPage />} />
+                      <Route path="*" element={<PageNotFound />} />
+                    </ProtectedRoute>
+                    <ProtectedRoute path="/scanner" element={<ScannerPage />} />
+                    <ProtectedRoute path="/print" element={<PrintPage />} />
+                  </ProtectedRoutes>
+                </Suspense>
+              </AuthProvider>
+            </ModalProvider>
+          </SnackbarProvider>
+        </ErrorBoundary>
       </ThemeProvider>
     </ServiceWorkerContext.Provider>
   );

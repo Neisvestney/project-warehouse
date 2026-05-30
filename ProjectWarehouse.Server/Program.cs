@@ -26,6 +26,7 @@ using ProjectWarehouse.Server.Models.Users;
 using ProjectWarehouse.Server.Models.Receipts;
 using ProjectWarehouse.Server.Models.Warehouses;
 using ProjectWarehouse.Server.Services;
+using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
 using Serilog;
 
@@ -115,7 +116,7 @@ try
             if (!type.IsEnum) return Task.CompletedTask;
 
             schema.Enum = Enum.GetNames(type)
-                .Select(n => (JsonNode)JsonValue.Create(JsonNamingPolicy.CamelCase.ConvertName(n))!)
+                .Select(n => (JsonNode)JsonValue.Create(JsonNamingPolicy.CamelCase.ConvertName(n)))
                 .ToList();
             schema.Type = JsonSchemaType.String;
             schema.Format = null;
@@ -126,7 +127,7 @@ try
         options.AddDocumentTransformer((document, _, _) =>
         {
             var permissionValues = Permissions.All
-                .Select(p => (JsonNode)JsonValue.Create(p)!);
+                .Select(p => (JsonNode)JsonValue.Create(p));
 
             document.Components ??= new OpenApiComponents();
             document.Components.Schemas ??= new Dictionary<string, IOpenApiSchema>();
@@ -314,6 +315,14 @@ try
     app.UseAuthentication();
     app.UseAuthorization();
     app.MapControllers();
+    app.Map("/api/{**path}", (async ctx =>
+    {
+        var problem = AppProblems.NotFound(ErrorCode.RouteNotFound, "The requested API endpoint does not exist.");
+        ctx.Response.StatusCode = StatusCodes.Status404NotFound;
+        ctx.Response.ContentType = "application/problem+json";
+        await ctx.Response.WriteAsJsonAsync(problem, ctx.RequestServices
+            .GetRequiredService<IOptions<JsonOptions>>().Value.JsonSerializerOptions);
+    }));
     app.MapFallbackToFile("/index.html");
 
     app.Run();
