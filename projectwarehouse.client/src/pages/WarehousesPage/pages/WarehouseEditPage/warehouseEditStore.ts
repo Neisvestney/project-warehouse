@@ -33,6 +33,7 @@ export interface WarehouseMetaFormValues {
   name: string;
   width: number;
   height: number;
+  defaultStoragePlaceNodeId: string | null;
 }
 
 export class WarehouseEditStore {
@@ -79,6 +80,7 @@ export class WarehouseEditStore {
       name: warehouse.name,
       width: warehouse.width,
       height: warehouse.height,
+      defaultStoragePlaceNodeId: warehouse.defaultStoragePlaceNodeId ?? null,
     };
   }
 
@@ -126,6 +128,7 @@ export class WarehouseEditStore {
       name: meta?.name ?? "",
       width: meta?.width ?? 0,
       height: meta?.height ?? 0,
+      defaultStoragePlaceNodeId: meta?.defaultStoragePlaceNodeId ?? null,
       storagePlaces: this.storagePlaces.map((sp) => ({
         id: sp.serverId ?? undefined,
         name: sp.name,

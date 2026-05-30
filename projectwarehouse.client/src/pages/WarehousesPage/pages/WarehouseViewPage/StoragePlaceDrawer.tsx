@@ -25,6 +25,7 @@ import {
   storagePlacesGetNodesQueryKey,
   storagePlacesReorderNodesMutation,
   storagePlacesUpdateNodeMutation,
+  warehousesGetByIdQueryKey,
 } from "@/api/@tanstack/react-query.gen.ts";
 import {type NodeOrderItem, type StoragePlaceDto, type StoragePlaceNodeDto} from "@/api";
 import {useState, useRef, useEffect} from "react";
@@ -106,7 +107,12 @@ function StoragePlaceDrawer({open, storagePlace, warehouseId, onClose}: StorageP
 
   const deleteMutation = useMutation({
     ...storagePlacesDeleteNodeMutation(),
-    onSuccess: updateNodesCache,
+    onSuccess: (updatedNodes) => {
+      updateNodesCache(updatedNodes);
+      void queryClient.invalidateQueries({
+        queryKey: warehousesGetByIdQueryKey({path: {id: warehouseId}}),
+      });
+    },
   });
 
   const reorderMutation = useMutation({

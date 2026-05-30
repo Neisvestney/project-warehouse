@@ -67,6 +67,7 @@ import {
   warehousesGetAll,
   warehousesGetById,
   warehousesGetByIdForPrint,
+  warehousesGetDefaultNode,
   warehousesUpdate,
 } from "../sdk.gen";
 import type {
@@ -241,6 +242,9 @@ import type {
   WarehousesGetByIdForPrintError,
   WarehousesGetByIdForPrintResponse,
   WarehousesGetByIdResponse,
+  WarehousesGetDefaultNodeData,
+  WarehousesGetDefaultNodeError,
+  WarehousesGetDefaultNodeResponse,
   WarehousesUpdateData,
   WarehousesUpdateError,
   WarehousesUpdateResponse,
@@ -2199,4 +2203,31 @@ export const warehousesGetByIdForPrintOptions = (options: Options<WarehousesGetB
       return data;
     },
     queryKey: warehousesGetByIdForPrintQueryKey(options),
+  });
+
+export const warehousesGetDefaultNodeQueryKey = (options: Options<WarehousesGetDefaultNodeData>) =>
+  createQueryKey("warehousesGetDefaultNode", options);
+
+/**
+ * Get the default storage place node for a warehouse.
+ *
+ * Returns 404 `warehouseNotFound` if the warehouse does not exist, or 404 `storagePlaceNodeNotFound` if no default node is set.
+ */
+export const warehousesGetDefaultNodeOptions = (options: Options<WarehousesGetDefaultNodeData>) =>
+  queryOptions<
+    WarehousesGetDefaultNodeResponse,
+    WarehousesGetDefaultNodeError,
+    WarehousesGetDefaultNodeResponse,
+    ReturnType<typeof warehousesGetDefaultNodeQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await warehousesGetDefaultNode({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: warehousesGetDefaultNodeQueryKey(options),
   });

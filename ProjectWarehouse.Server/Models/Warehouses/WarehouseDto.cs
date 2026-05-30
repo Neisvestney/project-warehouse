@@ -8,6 +8,7 @@ public class WarehouseDto : IHasIdentity
     public string Name { get; init; } = null!;
     public decimal Width { get; init; }
     public decimal Height { get; init; }
+    public Guid? DefaultStoragePlaceNodeId { get; init; }
     public IReadOnlyList<StoragePlaceDto> StoragePlaces { get; init; } = [];
     public IReadOnlyList<WarehouseLayoutElementDto> LayoutObjects { get; init; } = [];
     public int TotalItemsCount { get; init; }

@@ -1,6 +1,15 @@
 import {useState} from "react";
 import {Link, useParams} from "react-router";
-import {Box, Button, CircularProgress, Divider, Paper, Stack, Typography} from "@mui/material";
+import {
+  Box,
+  Button,
+  CircularProgress,
+  Divider,
+  Paper,
+  Skeleton,
+  Stack,
+  Typography,
+} from "@mui/material";
 import {useQuery, useQueryClient} from "@tanstack/react-query";
 import {
   warehousesGetByIdForPrintOptions,
@@ -63,6 +72,19 @@ function WarehouseViewPage() {
     ...warehousesGetByIdOptions({path: {id: id!}}),
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
   });
+
+  const defaultNodeId = warehouse?.defaultStoragePlaceNodeId;
+
+  const printQuery = useQuery({
+    ...warehousesGetByIdForPrintOptions({path: {id: id!}}),
+    enabled: !!defaultNodeId,
+    meta: {suppressGlobalError: true},
+  });
+
+  const defaultNodePath =
+    defaultNodeId && printQuery.data
+      ? (printQuery.data.find((n) => n.id === defaultNodeId)?.name.join(" / ") ?? null)
+      : null;
 
   if (isLoading) {
     return (
@@ -142,6 +164,20 @@ function WarehouseViewPage() {
               </Typography>
             </Stack>
           ))}
+          {defaultNodeId && (
+            <Stack spacing={0.25}>
+              <Typography variant="caption" color="text.secondary">
+                Ячейка по умолчанию
+              </Typography>
+              {printQuery.isLoading ? (
+                <Skeleton width={160} />
+              ) : (
+                <Typography variant="body1" sx={{fontWeight: 500}}>
+                  {defaultNodePath ?? "—"}
+                </Typography>
+              )}
+            </Stack>
+          )}
         </Stack>
       </Paper>
 

@@ -59,6 +59,7 @@ export {
   warehousesGetAll,
   warehousesGetById,
   warehousesGetByIdForPrint,
+  warehousesGetDefaultNode,
   warehousesUpdate,
 } from "./sdk.gen";
 export type {
@@ -429,6 +430,11 @@ export type {
   WarehousesGetByIdForPrintResponses,
   WarehousesGetByIdResponse,
   WarehousesGetByIdResponses,
+  WarehousesGetDefaultNodeData,
+  WarehousesGetDefaultNodeError,
+  WarehousesGetDefaultNodeErrors,
+  WarehousesGetDefaultNodeResponse,
+  WarehousesGetDefaultNodeResponses,
   WarehouseSummaryDto,
   WarehousesUpdateData,
   WarehousesUpdateError,

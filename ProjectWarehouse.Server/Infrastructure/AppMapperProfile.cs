@@ -29,13 +29,13 @@ public class AppMapperProfile : Profile
 
         CreateMap<CatalogItemTag, CatalogItemTagDto>();
         CreateMap<BundleComponent, BundleComponentDto>()
-            .ForMember(d => d.ComponentName, opt => opt.MapFrom(s => s.Component.Name))
+            .ForMember(d => d.ComponentName, opt => opt.MapFrom(s => s.Component.FullName))
             .ForMember(d => d.ComponentType, opt => opt.MapFrom(s => s.Component.Type));
 
         CreateMap<AssembledBundleComponent, BundleComponentDto>()
             .ForMember(d => d.Id, opt => opt.MapFrom(s => s.Id))
             .ForMember(d => d.ComponentId, opt => opt.MapFrom(s => s.ComponentId))
-            .ForMember(d => d.ComponentName, opt => opt.MapFrom(s => s.Component.Name))
+            .ForMember(d => d.ComponentName, opt => opt.MapFrom(s => s.Component.FullName))
             .ForMember(d => d.ComponentType, opt => opt.MapFrom(s => s.Component.Type))
             .ForMember(d => d.Quantity, opt => opt.MapFrom(s => s.Quantity));
 
@@ -59,6 +59,7 @@ public class AppMapperProfile : Profile
         CreateMap<StoragePlaceNode, StoragePlaceNodeDto>();
         CreateMap<StoragePlaceNodeItemsGroup, ItemsGroupDto>();
         CreateMap<StoragePlaceNode, StoragePlaceNodeDetailsDto>()
+            .ForMember(d => d.Name, opt => opt.MapFrom(s => new[] { s.Name }))
             .ForMember(d => d.StoragePlaceId, opt => opt.MapFrom(s => s.RootStoragePlaceId))
             .ForMember(d => d.ItemsGroups, opt => opt.MapFrom(s => s.ItemsGroups))
             .ForMember(d => d.UnitItemsCount,

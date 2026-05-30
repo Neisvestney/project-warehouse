@@ -311,7 +311,7 @@ public class CatalogController(
         db.CatalogItems
             .Include(c => c.Group)
             .Include(c => c.Tags)
-            .Include(c => c.BundleComponents).ThenInclude(bc => bc.Component)
+            .Include(c => c.BundleComponents).ThenInclude(bc => bc.Component).ThenInclude(comp => comp.Group)
             .Include(c => c.VariationMemberships)
             .Include(c => c.VariationMembers)
             .Include(c => c.GroupChildren).ThenInclude(child => child.Tags)

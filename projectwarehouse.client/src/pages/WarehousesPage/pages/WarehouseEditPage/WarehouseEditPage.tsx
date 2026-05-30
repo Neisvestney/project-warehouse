@@ -33,7 +33,7 @@ export default observer(function WarehouseEditPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const form = useForm<WarehouseMetaFormValues>({
-    defaultValues: {name: "", width: 10, height: 10},
+    defaultValues: {name: "", width: 10, height: 10, defaultStoragePlaceNodeId: null},
   });
 
   // Connect ObservableForm bridge to RHF — runs once on mount
@@ -137,7 +137,7 @@ export default observer(function WarehouseEditPage() {
         />
 
         <Paper sx={{px: 3, py: 2}}>
-          <WarehouseMetaForm control={form.control} disabled={isSaving} />
+          <WarehouseMetaForm control={form.control} disabled={isSaving} warehouseId={id!} />
         </Paper>
 
         <Stack spacing={1}>

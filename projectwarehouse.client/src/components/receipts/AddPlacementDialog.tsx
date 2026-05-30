@@ -28,6 +28,7 @@ import {
   receiptsAddAssembledBundlePlacementMutation,
   receiptsAddStandardPlacementMutation,
   receiptsAddUnitPlacementMutation,
+  warehousesGetDefaultNodeOptions,
 } from "@/api/@tanstack/react-query.gen";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
@@ -94,16 +95,18 @@ function StandardPlacementForm({
   item,
   receiptId,
   warehouseId,
+  defaultNode,
   onUpdate,
   onClose,
 }: {
   item: ReceiptItemDto;
   receiptId: string;
   warehouseId: string;
+  defaultNode: SelectedNode | null;
   onUpdate: (item: ReceiptItemDto) => void;
   onClose: () => void;
 }) {
-  const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(null);
+  const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(defaultNode);
   const form = useForm<{count: number}>({defaultValues: {count: 1}});
   const {setApiError} = useRhfApiErrors(form);
 
@@ -167,16 +170,18 @@ function UnitPlacementForm({
   item,
   receiptId,
   warehouseId,
+  defaultNode,
   onUpdate,
   onClose,
 }: {
   item: ReceiptItemDto;
   receiptId: string;
   warehouseId: string;
+  defaultNode: SelectedNode | null;
   onUpdate: (item: ReceiptItemDto) => void;
   onClose: () => void;
 }) {
-  const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(null);
+  const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(defaultNode);
   const form = useForm<{inventoryNumber: string}>({defaultValues: {inventoryNumber: ""}});
   const {setApiError} = useRhfApiErrors(form);
 
@@ -292,6 +297,7 @@ function AssembledBundlePlacementFormLoaded({
   item,
   receiptId,
   warehouseId,
+  defaultNode,
   onUpdate,
   onClose,
 }: {
@@ -299,10 +305,11 @@ function AssembledBundlePlacementFormLoaded({
   item: ReceiptItemDto;
   receiptId: string;
   warehouseId: string;
+  defaultNode: SelectedNode | null;
   onUpdate: (item: ReceiptItemDto) => void;
   onClose: () => void;
 }) {
-  const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(null);
+  const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(defaultNode);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -500,12 +507,14 @@ function AssembledBundlePlacementForm({
   item,
   receiptId,
   warehouseId,
+  defaultNode,
   onUpdate,
   onClose,
 }: {
   item: ReceiptItemDto;
   receiptId: string;
   warehouseId: string;
+  defaultNode: SelectedNode | null;
   onUpdate: (item: ReceiptItemDto) => void;
   onClose: () => void;
 }) {
@@ -530,6 +539,7 @@ function AssembledBundlePlacementForm({
       item={item}
       receiptId={receiptId}
       warehouseId={warehouseId}
+      defaultNode={defaultNode}
       onUpdate={onUpdate}
       onClose={onClose}
     />
@@ -554,6 +564,19 @@ function AddPlacementDialog({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
+  const defaultNodeQuery = useQuery({
+    ...warehousesGetDefaultNodeOptions({path: {id: warehouseId}}),
+    enabled: open && !isVirtual,
+    meta: {suppressGlobalError: true},
+    retry: false,
+  });
+
+  const defaultNode: SelectedNode | null = defaultNodeQuery.data
+    ? {nodeId: defaultNodeQuery.data.id, nodePath: defaultNodeQuery.data.name}
+    : null;
+
+  const isReady = !defaultNodeQuery.isPending || defaultNodeQuery.isError;
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth fullScreen={isMobile}>
       <DialogTitle>Добавить размещение — {item.catalogItem.fullName}</DialogTitle>
@@ -567,11 +590,16 @@ function AddPlacementDialog({
               <Button onClick={onClose}>Закрыть</Button>
             </DialogActions>
           </Box>
+        ) : !isReady ? (
+          <Box sx={{display: "flex", justifyContent: "center", py: 4}}>
+            <CircularProgress size={32} />
+          </Box>
         ) : isUnit ? (
           <UnitPlacementForm
             item={item}
             receiptId={receiptId}
             warehouseId={warehouseId}
+            defaultNode={defaultNode}
             onUpdate={onUpdate}
             onClose={onClose}
           />
@@ -580,6 +608,7 @@ function AddPlacementDialog({
             item={item}
             receiptId={receiptId}
             warehouseId={warehouseId}
+            defaultNode={defaultNode}
             onUpdate={onUpdate}
             onClose={onClose}
           />
@@ -588,6 +617,7 @@ function AddPlacementDialog({
             item={item}
             receiptId={receiptId}
             warehouseId={warehouseId}
+            defaultNode={defaultNode}
             onUpdate={onUpdate}
             onClose={onClose}
           />
