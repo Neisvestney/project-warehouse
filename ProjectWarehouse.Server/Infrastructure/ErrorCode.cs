@@ -45,6 +45,14 @@ public enum ErrorCode
     CatalogItemComponentInvalid,
     CatalogItemComponentNotFound,
 
+    // Inventory operations
+    UnitInventoryItemNotFound,
+    AssembledBundleItemNotFound,
+    InventoryItemMovedToAnotherNodeAfterPlacementCreated,
+
+    // Transfers
+    TransferSameNode,
+
     // Receipts
     ReceiptNotFound,
     ReceiptInvalidStatusTransition,

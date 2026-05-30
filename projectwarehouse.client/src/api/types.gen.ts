@@ -272,6 +272,10 @@ export type ErrorCode =
   | "catalogItemVariationInvalid"
   | "catalogItemComponentInvalid"
   | "catalogItemComponentNotFound"
+  | "unitInventoryItemNotFound"
+  | "assembledBundleItemNotFound"
+  | "inventoryItemMovedToAnotherNodeAfterPlacementCreated"
+  | "transferSameNode"
   | "receiptNotFound"
   | "receiptInvalidStatusTransition"
   | "receiptHasPlacements"
@@ -295,6 +299,12 @@ export type ErrorCode =
   | "passwordAtLeastOneLowercase"
   | "passwordInvalid"
   | "validationError";
+
+export type ExecuteTransferRequest = {
+  fromNodeId: string;
+  toNodeId: string;
+  items: Array<TransferItemRequest>;
+};
 
 export type InventoryItemSortBy = "name" | "fullName" | "article" | "type" | "count";
 
@@ -436,6 +446,8 @@ export type PermissionName =
   | "catalog.view"
   | "catalog.edit"
   | "changelog.view"
+  | "transfers.execute"
+  | "transfers.execute_assigned"
   | "receipts.view"
   | "receipts.edit"
   | "receipts.view_assigned"
@@ -611,6 +623,25 @@ export type TokenResponse = {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+};
+
+export type TransferItemRequest = {
+  /**
+   * Filled for Standard (count-based) items. Requires int? TransferItemRequest.Count.
+   */
+  catalogItemId?: null | string;
+  /**
+   * Required when Guid? TransferItemRequest.CatalogItemId is set.
+   */
+  count?: null | number;
+  /**
+   * Filled for Unit items.
+   */
+  unitItemId?: null | string;
+  /**
+   * Filled for AssembledBundle items.
+   */
+  assembledBundleItemId?: null | string;
 };
 
 export type UnitInventoryItemDto = {
@@ -2417,6 +2448,39 @@ export type StoragePlacesReorderNodesResponses = {
 
 export type StoragePlacesReorderNodesResponse =
   StoragePlacesReorderNodesResponses[keyof StoragePlacesReorderNodesResponses];
+
+export type TransfersExecuteData = {
+  body: ExecuteTransferRequest;
+  path?: never;
+  query?: never;
+  url: "/api/transfers";
+};
+
+export type TransfersExecuteErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type TransfersExecuteError = TransfersExecuteErrors[keyof TransfersExecuteErrors];
+
+export type TransfersExecuteResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type TransfersExecuteResponse = TransfersExecuteResponses[keyof TransfersExecuteResponses];
 
 export type UsersGetAllData = {
   body?: never;

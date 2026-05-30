@@ -207,7 +207,6 @@ function ProcessingItemRow({
 
   const deleteMutation = useMutation({
     ...receiptsDeletePlacementMutation(),
-    meta: {suppressGlobalError: true},
     onSuccess: (data) => onUpdate(mergeItem(data)),
   });
 

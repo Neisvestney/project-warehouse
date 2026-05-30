@@ -11,4 +11,5 @@ public static class InventoryActions
     public const string RemoveAssembledBundle = "inventory.remove_assembled_bundle";
     public const string MoveStandardItems     = "inventory.move_standard";
     public const string MoveUnitItem          = "inventory.move_unit";
+    public const string MoveAssembledBundle   = "inventory.move_assembled_bundle";
 }

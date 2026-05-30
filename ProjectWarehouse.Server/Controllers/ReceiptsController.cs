@@ -665,25 +665,54 @@ public class ReceiptsController(
 
         // Reverse the inventory change and remove the placement record atomically.
         var strategy = db.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync(async () =>
+        try
         {
-            await using var tx = await db.Database.BeginTransactionAsync(ct);
+            await strategy.ExecuteAsync(async () =>
+            {
+                await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-            if (placement.UnitInventoryItemId is not null)
-                await inventory.RemoveUnitItemAsync(placement.UnitInventoryItemId.Value, ct: ct);
-            else if (placement.AssembledBundleInventoryItemId is not null)
-                await inventory.RemoveAssembledBundleAsync(placement.AssembledBundleInventoryItemId.Value, ct: ct);
-            else if (placement.Count > 0)
-                await inventory.RemoveStandardItemsFromNodeAsync(
-                    placement.StoragePlaceNodeId,
-                    itemEntity.CatalogItemId,
-                    placement.Count,
-                    ct: ct);
+                if (placement.UnitInventoryItemId is not null)
+                    await inventory.RemoveUnitItemAsync(
+                        placement.UnitInventoryItemId.Value,
+                        placement.StoragePlaceNodeId,
+                        ct: ct);
+                else if (placement.AssembledBundleInventoryItemId is not null)
+                    await inventory.RemoveAssembledBundleAsync(
+                        placement.AssembledBundleInventoryItemId.Value,
+                        placement.StoragePlaceNodeId,
+                        ct: ct);
+                else if (placement.Count > 0)
+                    await inventory.RemoveStandardItemsFromNodeAsync(
+                        placement.StoragePlaceNodeId,
+                        itemEntity.CatalogItemId,
+                        placement.Count,
+                        ct: ct);
 
-            db.ReceiptItemPlacements.Remove(placement);
-            await db.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
-        });
+                db.ReceiptItemPlacements.Remove(placement);
+                await db.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
+            });
+        }
+        catch (InventoryItemNodeMismatchException)
+        {
+            return UnprocessableEntity("root", ErrorCode.InventoryItemMovedToAnotherNodeAfterPlacementCreated,
+                "Товар был перемещён в другую ячейку после создания размещения. Обновите страницу.");
+        }
+        catch (UnitInventoryItemNotFoundException)
+        {
+            return UnprocessableEntity("root", ErrorCode.UnitInventoryItemNotFound,
+                "Единичный товар не найден — возможно, он уже был удалён.");
+        }
+        catch (AssembledBundleItemNotFoundException)
+        {
+            return UnprocessableEntity("root", ErrorCode.AssembledBundleItemNotFound,
+                "Комплект не найден — возможно, он уже был удалён.");
+        }
+        catch (InsufficientInventoryException ex)
+        {
+            return UnprocessableEntity("root", ErrorCode.InsufficientInventory,
+                $"Недостаточно товара для отмены размещения: доступно {ex.Available}, требуется {ex.Requested}.");
+        }
 
         var itemAfter = await LoadItemDtoAsync(itemId, receipt.WarehouseId, ct, nodeById);
         await changeLog.CompareAndSaveToChangelog(

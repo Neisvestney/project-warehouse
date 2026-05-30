@@ -163,6 +163,44 @@ Existing items not in the list are removed. Duplicate `catalogItemId` values in 
 
 ---
 
+## Transfers — `/api/transfers`
+
+| Method | Path | Permission | Description |
+|--------|------|------------|-------------|
+| POST | `/api/transfers` | `transfers.execute` or `transfers.execute_assigned` | Execute an atomic inventory transfer between two storage nodes |
+
+**Request body (`ExecuteTransferRequest`):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `fromNodeId` | `Guid` | Source storage place node |
+| `toNodeId` | `Guid` | Destination storage place node (must differ from `fromNodeId`) |
+| `items` | `TransferItemRequest[]` | One or more items to transfer (min 1) |
+
+**`TransferItemRequest`** — type is inferred by which field is populated:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `catalogItemId` | `Guid?` | Set for Standard items; requires `count` |
+| `count` | `int?` | Required when `catalogItemId` is set (> 0) |
+| `unitItemId` | `Guid?` | Set for Unit items |
+| `assembledBundleItemId` | `Guid?` | Set for AssembledBundle items |
+
+**Permission notes:**
+- `transfers.execute` — can transfer between any nodes
+- `transfers.execute_assigned` — can only transfer between nodes in warehouses assigned to the current user
+
+**Errors:**
+- `transferSameNode` — `fromNodeId` == `toNodeId`
+- `insufficientInventory` — not enough Standard items available in the source node
+- `storagePlaceNodeNotFound` — source or destination node not found
+- `unitInventoryItemNotFound` — Unit item not found (or already moved)
+- `assembledBundleItemNotFound` — AssembledBundle item not found (or already moved)
+
+All items are moved in a single DB transaction — any failure rolls back the entire operation.
+
+---
+
 ## Catalog — `/api/catalog`
 
 | Method | Path | Permission | Description |

@@ -11,7 +11,7 @@ import ReceiptCreatePage from "@/pages/ReceiptsPage/pages/ReceiptCreatePage/Rece
 import ReceiptPage from "@/pages/ReceiptsPage/pages/ReceiptPage/ReceiptPage.tsx";
 import OrdersFbsPage from "./stubs/OrdersFbsPage.tsx";
 import OrdersFboPage from "./stubs/OrdersFboPage.tsx";
-import TransfersPage from "./stubs/TransfersPage.tsx";
+import TransfersPage from "./TransfersPage/TransfersPage.tsx";
 import WriteoffsPage from "./stubs/WriteoffsPage.tsx";
 
 export const operationsSections: SectionConfig[] = [

@@ -98,6 +98,10 @@ Error with structured arguments (e.g. password too short):
 | `catalogItemArticleDuplicate` | Another catalog item with the same article already exists |
 | `catalogItemBarcodeDuplicate` | Another catalog item with the same barcode already exists |
 | `catalogItemCharacteristicBarcodeDuplicate` | A characteristic with this barcode already exists (globally, or duplicate within the request) |
+| `unitInventoryItemNotFound` | Unit inventory item ID not found (or already deleted) |
+| `assembledBundleItemNotFound` | AssembledBundle inventory item ID not found (or already deleted) |
+| `inventoryItemMovedToAnotherNodeAfterPlacementCreated` | Item was moved to a different node after the placement was created — refresh and retry |
+| `transferSameNode` | `fromNodeId` and `toNodeId` are the same node |
 | `receiptNotFound` | Receipt ID not found |
 | `receiptInvalidStatusTransition` | Operation not allowed for the current receipt status |
 | `receiptHasPlacements` | Revert/cancel blocked because one or more items already have placements |
