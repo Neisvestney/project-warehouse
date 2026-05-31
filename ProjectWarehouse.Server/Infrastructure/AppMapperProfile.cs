@@ -4,6 +4,7 @@ using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Models.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
+using ProjectWarehouse.Server.Models.Events;
 using ProjectWarehouse.Server.Models.Inventory;
 using ProjectWarehouse.Server.Models.Receipts;
 using ProjectWarehouse.Server.Models.Roles;
@@ -130,6 +131,11 @@ public class AppMapperProfile : Profile
         
         CreateMap<ApplicationUser, AppEntityWithSearchString>()
             .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
+        
+        CreateMap<Receipt, EventDto>()
+            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x))
+            .ForMember(x => x.StartDate, opt => opt.MapFrom(x => x.PlannedDeliveryDate))
+            .ForMember(x => x.EndDate, opt => opt.MapFrom(x => x.PlannedDeliveryDate));
         
         CreateMap<Receipt, ReceiptDto>()
             .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))

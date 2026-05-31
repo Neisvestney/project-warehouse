@@ -1,4 +1,5 @@
 import type {AppEntity, AppEntityType, CatalogItemType, ReceiptStatus} from "@/api";
+import type {SchedulerEventColor} from "@mui/x-scheduler/models";
 import {interpolateArgs} from "@/utils/interpolateArgs.ts";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
 import PersonIcon from "@mui/icons-material/Person";
@@ -18,12 +19,16 @@ type EntityTypeConfig = {
   icon: React.ReactNode;
   renderAdditionalCardContent?: (entity: ResolvedEntity) => React.ReactNode;
   renderAdditionalSearchContent?: (entity: ResolvedEntity) => React.ReactNode;
+  getEventCalendarTitle?: (entity: AppEntity) => string;
+  getStatusColor?: (entity: AppEntity) => SchedulerEventColor;
 };
 
 type ResolvedEntity = {
   link: string;
   typeName: string;
   icon: React.ReactNode;
+  eventCalendarTitle: string;
+  statusColor: SchedulerEventColor;
   renderAdditionalCardContent?: (entity: ResolvedEntity) => React.ReactNode;
   renderAdditionalSearchContent?: (entity: ResolvedEntity) => React.ReactNode;
 } & AppEntity;
@@ -88,6 +93,22 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     linkTemplate: "/operations/receipts/{id}",
     typeName: "Приемка",
     icon: <AssignmentIcon />,
+    getStatusColor: (e) => {
+      const statusColors: Record<ReceiptStatus, SchedulerEventColor> = {
+        draft: "grey",
+        planned: "blue",
+        processing: "amber",
+        finished: "green",
+        canceled: "red",
+      };
+      const status = e.additionalFields?.status as ReceiptStatus | undefined;
+      return status != null ? statusColors[status] : "teal";
+    },
+    getEventCalendarTitle: (e) => {
+      const number = e.additionalFields?.number as number | undefined;
+      const prefix = number != null ? formatReceiptNumber(number) : null;
+      return [prefix, e.name].filter(Boolean).join(" — ");
+    },
     renderAdditionalCardContent: (e) => (
       <>
         {e.additionalFields?.number && (
@@ -111,6 +132,8 @@ export function resolveEntity(entity: AppEntity): ResolvedEntity {
       link: "#",
       type: "unknown",
       name: "Обновите приложение",
+      eventCalendarTitle: entity.name ?? "Обновите приложение",
+      statusColor: "grey" as SchedulerEventColor,
     };
   }
 
@@ -122,6 +145,8 @@ export function resolveEntity(entity: AppEntity): ResolvedEntity {
     }),
     typeName: config.typeName,
     icon: config.icon,
+    eventCalendarTitle: config.getEventCalendarTitle?.(entity) ?? entity.name ?? "—",
+    statusColor: config.getStatusColor?.(entity) ?? "teal",
     renderAdditionalCardContent: config.renderAdditionalCardContent,
     renderAdditionalSearchContent: config.renderAdditionalSearchContent,
   };

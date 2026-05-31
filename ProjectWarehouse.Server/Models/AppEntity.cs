@@ -12,6 +12,6 @@ public class AppEntity
 
 public class AppEntityWithSearchString
 {
-   public AppEntity AppEntity { get; set; }
-   public string SearchString { get; set; }
+    public AppEntity AppEntity { get; set; } = null!;
+   public string SearchString { get; set; } = null!;
 }
