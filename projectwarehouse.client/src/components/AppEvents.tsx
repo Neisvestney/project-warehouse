@@ -116,7 +116,7 @@ function AppEvents({}: AppEventsProps) {
           ...ruRU.components.MuiEventCalendar.defaultProps.localeText,
           today: "Сегодня",
         }}
-        defaultPreferences={{ampm: false}}
+        defaultPreferences={{ampm: false, isSidePanelOpen: false}}
         onClickCapture={handleClickCapture}
         visibleDate={visibleDate}
         onVisibleDateChange={(d) => setVisibleDate(d as Date)}
