@@ -83,7 +83,7 @@ function AppEvents({}: AppEventsProps) {
   );
 
   return (
-    <div style={{height: 600, width: "100%"}}>
+    <div style={{height: "calc(min(600px, 100vh - 120px))", width: "100%"}}>
       <EventCalendar
         events={events}
         readOnly

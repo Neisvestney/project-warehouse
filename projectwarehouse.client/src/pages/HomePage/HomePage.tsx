@@ -8,6 +8,7 @@ import {
   Typography,
   Box,
   CircularProgress,
+  useMediaQuery,
 } from "@mui/material";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import OfflinePinIcon from "@mui/icons-material/OfflinePin";
@@ -19,11 +20,13 @@ import {useQuery} from "@tanstack/react-query";
 import {commonContentGetHomePageContentOptions} from "@/api/@tanstack/react-query.gen.ts";
 import {resolveEntity} from "@/utils/appEntityUtils.tsx";
 import AppEvents from "@/components/AppEvents.tsx";
+import theme from "@/theme.ts";
 
 export interface HomePageProps {}
 
 function HomePage({}: HomePageProps) {
   const swContext = useContext(ServiceWorkerContext);
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const {data, isError} = useQuery({
     ...commonContentGetHomePageContentOptions(),
@@ -32,7 +35,7 @@ function HomePage({}: HomePageProps) {
 
   return (
     <Stack spacing={2}>
-      <AppEvents />
+      {!isMobile && <AppEvents />}
       <Box
         sx={{
           width: "100%",
