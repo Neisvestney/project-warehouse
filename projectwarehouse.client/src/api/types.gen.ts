@@ -1303,7 +1303,10 @@ export type CommonContentGlobalSearchResponse =
 export type EventsGetEventsData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    startDate?: string;
+    endDate?: string;
+  };
   url: "/api/events";
 };
 

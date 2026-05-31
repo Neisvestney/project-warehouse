@@ -17,13 +17,15 @@ public class EventsController(ApplicationDbContext db, IMapper mapper, IUserQuer
     [HttpGet]
     [Authorize]
     [ProducesResponseType<IReadOnlyList<EventDto>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetEvents(CancellationToken ct = default)
+    public async Task<IActionResult> GetEvents(CancellationToken ct = default, DateOnly? startDate = null, DateOnly? endDate = null)
     {
         var receiptsQueryable = await queryFilter.GetReceiptsAsync(User, ct);
         var receiptsEvents = await receiptsQueryable
             .Where(x => x.PlannedDeliveryDate != null)
             .Where(x => x.Status != ReceiptStatus.Canceled && x.Status != ReceiptStatus.Draft)
             .ProjectTo<EventDto>(mapper.ConfigurationProvider)
+            .Where(x => startDate == null || x.StartDate >= startDate)
+            .Where(x => endDate == null || x.EndDate <= endDate)
             .ToListAsync(ct);
         
         return Ok(receiptsEvents);

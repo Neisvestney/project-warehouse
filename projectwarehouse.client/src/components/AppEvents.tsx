@@ -1,10 +1,13 @@
-import {useCallback, useMemo} from "react";
+import {useCallback, useMemo, useState} from "react";
 import {useQuery} from "@tanstack/react-query";
 import {useNavigate} from "react-router";
 import {EventCalendar} from "@mui/x-scheduler";
 import {ruRU} from "@mui/x-scheduler/locales";
 import type {SchedulerEvent} from "@mui/x-scheduler/models";
 import {ru as ruDateFns} from "date-fns/locale/ru";
+import CircularProgress from "@mui/material/CircularProgress";
+import Paper from "@mui/material/Paper";
+import Typography from "@mui/material/Typography";
 
 // date-fns ru locale quirks fixed for EventCalendar:
 // - month: genitive ("мая") → nominative ("Май") by forcing standalone context
@@ -26,11 +29,30 @@ import {eventsGetEventsOptions} from "@/api/@tanstack/react-query.gen";
 import {resolveEntity} from "@/utils/appEntityUtils";
 import type React from "react";
 
+function toDateOnly(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export interface AppEventsProps {}
 
 function AppEvents({}: AppEventsProps) {
   const navigate = useNavigate();
-  const {data = []} = useQuery(eventsGetEventsOptions());
+  const [visibleDate, setVisibleDate] = useState(() => new Date());
+
+  const startDate = useMemo(
+    () => toDateOnly(new Date(visibleDate.getFullYear(), visibleDate.getMonth(), 1)),
+    [visibleDate],
+  );
+  const endDate = useMemo(
+    () => toDateOnly(new Date(visibleDate.getFullYear(), visibleDate.getMonth() + 1, 0)),
+    [visibleDate],
+  );
+
+  const {
+    data = [],
+    isLoading,
+    isError,
+  } = useQuery(eventsGetEventsOptions({query: {startDate, endDate}}));
 
   const resolved = useMemo(() => data.map((dto) => resolveEntity(dto.appEntity)), [data]);
 
@@ -83,7 +105,7 @@ function AppEvents({}: AppEventsProps) {
   );
 
   return (
-    <div style={{height: "calc(min(600px, 100vh - 120px))", width: "100%"}}>
+    <div style={{height: "calc(min(600px, 100vh - 120px))", width: "100%", position: "relative"}}>
       <EventCalendar
         events={events}
         readOnly
@@ -96,7 +118,37 @@ function AppEvents({}: AppEventsProps) {
         }}
         defaultPreferences={{ampm: false}}
         onClickCapture={handleClickCapture}
+        visibleDate={visibleDate}
+        onVisibleDateChange={(d) => setVisibleDate(d as Date)}
       />
+      {(isLoading || isError) && (
+        <Paper
+          elevation={3}
+          sx={{
+            position: "absolute",
+            bottom: 16,
+            right: 16,
+            px: 2,
+            py: 1,
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            zIndex: 1,
+          }}
+        >
+          {isLoading && (
+            <>
+              <CircularProgress size={16} />
+              <Typography variant="body2">Загрузка событий...</Typography>
+            </>
+          )}
+          {isError && (
+            <Typography variant="body2" color="error">
+              Ошибка загрузки событий
+            </Typography>
+          )}
+        </Paper>
+      )}
     </div>
   );
 }
