@@ -25,6 +25,7 @@ import {
   changelogGetAll,
   commonContentGetHomePageContent,
   commonContentGlobalSearch,
+  eventsGetEvents,
   inventoryItemsGetAll,
   inventoryItemsGetAllAssembledBundles,
   inventoryItemsGetAllUnits,
@@ -120,6 +121,9 @@ import type {
   CommonContentGlobalSearchData,
   CommonContentGlobalSearchError,
   CommonContentGlobalSearchResponse,
+  EventsGetEventsData,
+  EventsGetEventsError,
+  EventsGetEventsResponse,
   InventoryItemsGetAllAssembledBundlesData,
   InventoryItemsGetAllAssembledBundlesError,
   InventoryItemsGetAllAssembledBundlesResponse,
@@ -821,6 +825,28 @@ export const commonContentGlobalSearchOptions = (
       return data;
     },
     queryKey: commonContentGlobalSearchQueryKey(options),
+  });
+
+export const eventsGetEventsQueryKey = (options?: Options<EventsGetEventsData>) =>
+  createQueryKey("eventsGetEvents", options);
+
+export const eventsGetEventsOptions = (options?: Options<EventsGetEventsData>) =>
+  queryOptions<
+    EventsGetEventsResponse,
+    EventsGetEventsError,
+    EventsGetEventsResponse,
+    ReturnType<typeof eventsGetEventsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await eventsGetEvents({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: eventsGetEventsQueryKey(options),
   });
 
 export const inventoryItemsGetAllQueryKey = (options?: Options<InventoryItemsGetAllData>) =>

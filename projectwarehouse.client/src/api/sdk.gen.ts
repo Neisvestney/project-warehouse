@@ -51,6 +51,9 @@ import type {
   CommonContentGlobalSearchData,
   CommonContentGlobalSearchErrors,
   CommonContentGlobalSearchResponses,
+  EventsGetEventsData,
+  EventsGetEventsErrors,
+  EventsGetEventsResponses,
   InventoryItemsGetAllAssembledBundlesData,
   InventoryItemsGetAllAssembledBundlesErrors,
   InventoryItemsGetAllAssembledBundlesResponses,
@@ -427,6 +430,14 @@ export const commonContentGlobalSearch = <ThrowOnError extends boolean = false>(
     CommonContentGlobalSearchErrors,
     ThrowOnError
   >({url: "/api/commoncontent/search", ...options});
+
+export const eventsGetEvents = <ThrowOnError extends boolean = false>(
+  options?: Options<EventsGetEventsData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<EventsGetEventsResponses, EventsGetEventsErrors, ThrowOnError>({
+    url: "/api/events",
+    ...options,
+  });
 
 /**
  * List all inventory items aggregated by catalog item.

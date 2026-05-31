@@ -300,6 +300,12 @@ export type ErrorCode =
   | "passwordInvalid"
   | "validationError";
 
+export type EventDto = {
+  appEntity: AppEntity;
+  startDate: string;
+  endDate: string;
+};
+
 export type ExecuteTransferRequest = {
   fromNodeId: string;
   toNodeId: string;
@@ -1293,6 +1299,35 @@ export type CommonContentGlobalSearchResponses = {
 
 export type CommonContentGlobalSearchResponse =
   CommonContentGlobalSearchResponses[keyof CommonContentGlobalSearchResponses];
+
+export type EventsGetEventsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/events";
+};
+
+export type EventsGetEventsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type EventsGetEventsError = EventsGetEventsErrors[keyof EventsGetEventsErrors];
+
+export type EventsGetEventsResponses = {
+  /**
+   * OK
+   */
+  200: Array<EventDto>;
+};
+
+export type EventsGetEventsResponse = EventsGetEventsResponses[keyof EventsGetEventsResponses];
 
 export type InventoryItemsGetAllData = {
   body?: never;

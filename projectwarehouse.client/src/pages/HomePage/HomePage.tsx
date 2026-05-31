@@ -18,6 +18,7 @@ import InstallPrompt from "@/components/InstallPrompt.tsx";
 import {useQuery} from "@tanstack/react-query";
 import {commonContentGetHomePageContentOptions} from "@/api/@tanstack/react-query.gen.ts";
 import {resolveEntity} from "@/utils/appEntityUtils.tsx";
+import AppEvents from "@/components/AppEvents.tsx";
 
 export interface HomePageProps {}
 
@@ -30,44 +31,47 @@ function HomePage({}: HomePageProps) {
   });
 
   return (
-    <Box
-      sx={{
-        width: "100%",
-        display: "grid",
-        gap: 2,
-        gridTemplateColumns: {md: "repeat(auto-fill, minmax(200px, 1fr))", sx: "1fr"},
-      }}
-    >
-      <InstallPrompt />
-      {swContext.offlineReady ||
-        (import.meta.env.DEV && (
-          <Card>
-            <CardContent>
-              <Stack
-                direction="row"
-                spacing={1}
-                sx={{
-                  alignItems: "center",
-                }}
-              >
-                <OfflinePinIcon />
-                <Typography gutterBottom variant="h5" component="div">
-                  Приложение
+    <Stack spacing={2}>
+      <AppEvents />
+      <Box
+        sx={{
+          width: "100%",
+          display: "grid",
+          gap: 2,
+          gridTemplateColumns: {md: "repeat(auto-fill, minmax(200px, 1fr))", sx: "1fr"},
+        }}
+      >
+        <InstallPrompt />
+        {swContext.offlineReady ||
+          (import.meta.env.DEV && (
+            <Card>
+              <CardContent>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{
+                    alignItems: "center",
+                  }}
+                >
+                  <OfflinePinIcon />
+                  <Typography gutterBottom variant="h5" component="div">
+                    Приложение
+                  </Typography>
+                </Stack>
+                <Typography gutterBottom variant="body1" component="div">
+                  Приложение готово к работе в оффлайн
                 </Typography>
-              </Stack>
-              <Typography gutterBottom variant="body1" component="div">
-                Приложение готово к работе в оффлайн
-              </Typography>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ))}
+        {!data && !isError && <HomeCard loading />}
+        {data?.map(resolveEntity).map((x) => (
+          <HomeCard title={x.name ?? x.typeName} link={x.link} linkText={"Перейти"} icon={x.icon}>
+            {x.renderAdditionalCardContent?.(x)}
+          </HomeCard>
         ))}
-      {!data && !isError && <HomeCard loading />}
-      {data?.map(resolveEntity).map((x) => (
-        <HomeCard title={x.name ?? x.typeName} link={x.link} linkText={"Перейти"} icon={x.icon}>
-          {x.renderAdditionalCardContent?.(x)}
-        </HomeCard>
-      ))}
-    </Box>
+      </Box>
+    </Stack>
   );
 }
 
