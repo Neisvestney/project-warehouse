@@ -31,11 +31,33 @@ const OperationsPage = React.lazy(() => import("@/pages/OperationsPage/Operation
 const ThrowErrorPage = React.lazy(() => import("@/pages/ThrowErrorPage/ThrowErrorPage.tsx"));
 
 function App() {
+  const [installing, setInstalling] = React.useState(false);
+
   const {
     needRefresh: [needRefresh],
     offlineReady: [offlineReady],
     updateServiceWorker,
   } = useRegisterSW({
+    onRegistered(registration) {
+      if (!registration) return;
+
+      const trackWorker = (worker: ServiceWorker) => {
+        setInstalling(true);
+        worker.addEventListener(
+          "statechange",
+          () => {
+            if (worker.state === "installed") setInstalling(false);
+          },
+          {once: true},
+        );
+      };
+
+      if (registration.installing) trackWorker(registration.installing);
+
+      registration.addEventListener("updatefound", () => {
+        if (registration.installing) trackWorker(registration.installing);
+      });
+    },
     onOfflineReady: () => {
       console.log("onOfflineReady");
     },
@@ -57,7 +79,9 @@ function App() {
   }
 
   return (
-    <ServiceWorkerContext.Provider value={{needRefresh, offlineReady, updateServiceWorker}}>
+    <ServiceWorkerContext.Provider
+      value={{installing, needRefresh, offlineReady, updateServiceWorker}}
+    >
       <ThemeProvider theme={theme}>
         <ErrorBoundary>
           <SnackbarProvider>
