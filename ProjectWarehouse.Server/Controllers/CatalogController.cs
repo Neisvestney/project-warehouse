@@ -57,7 +57,7 @@ public class CatalogController(
         [FromQuery] string? searchString = null,
         [FromQuery] CatalogSortBy sortBy = CatalogSortBy.Name,
         [FromQuery] SortOrder sortOrder = SortOrder.Asc,
-        [FromQuery] CatalogItemType? itemType = null,
+        [FromQuery] IReadOnlyList<CatalogItemType>? itemTypes = null,
         [FromQuery] bool? isArchived = null,
         CancellationToken ct = default)
     {
@@ -65,9 +65,9 @@ public class CatalogController(
             .Where(c => c.GroupId == null)
             .WhereMatchesSearch(c => c.SearchString, searchString);
 
-        if (itemType != null)
+        if (itemTypes != null && itemTypes.Count > 0)
         {
-            baseQuery = baseQuery.Where(c => c.Type == itemType.Value);
+            baseQuery = baseQuery.Where(c => itemTypes.Contains(c.Type));
         }
 
         if (isArchived != null)

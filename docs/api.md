@@ -205,7 +205,7 @@ All items are moved in a single DB transaction — any failure rolls back the en
 
 | Method | Path | Permission | Description |
 |--------|------|------------|-------------|
-| GET | `/api/catalog` | `catalog.view` | List catalog items paginated (`Paginated<CatalogItemSummaryDto>`), supports `searchString`, `sortBy` (`name`\|`article`\|`barcode`\|`type`, default `name`), `sortOrder` (`asc`\|`desc`, default `asc`); archived items always sorted last |
+| GET | `/api/catalog` | `catalog.view` | List catalog items paginated (`Paginated<CatalogItemSummaryDto>`), supports `searchString`, `sortBy` (`name`\|`article`\|`barcode`\|`type`, default `name`), `sortOrder` (`asc`\|`desc`, default `asc`), `itemTypes` (repeatable `CatalogItemType`, omit for all); archived items always sorted last |
 | GET | `/api/catalog/{id}` | `catalog.view` | Get full catalog item details (`CatalogItemDto`) |
 | GET | `/api/catalog/tags` | `catalog.view` | List tags (ordered by name), supports `search` query param |
 | POST | `/api/catalog` | `catalog.edit` | Create catalog item |

@@ -1,8 +1,10 @@
 import {useState} from "react";
 import {
   Button,
+  Checkbox,
   Chip,
   IconButton,
+  ListItemText,
   Stack,
   Table,
   TableBody,
@@ -43,6 +45,8 @@ import {useHasPermission} from "@/hooks/usePermission";
 import AddIcon from "@mui/icons-material/Add";
 import FiltersBar from "@/components/FiltersBar.tsx";
 
+const DEFAULT_ITEM_TYPES = CATALOG_ITEM_TYPES.filter((t) => t !== "assembledBundle");
+
 const SORTABLE_COLUMNS: {key: CatalogSortBy; label: string}[] = [
   {key: "type", label: "Тип"},
   {key: "name", label: "Название"},
@@ -63,10 +67,20 @@ function CatalogPage() {
 
   const {sortBy, sortOrder, handleSortClick} = useTableSort(SORTABLE_COLUMNS, "name");
 
-  const [itemType, setItemType] = useSyncedWithQueryState<CatalogItemType | null>(
-    "type",
-    (q) => (CATALOG_ITEM_TYPES.includes(q as CatalogItemType) ? (q as CatalogItemType) : null),
-    (v) => v ?? null,
+  const [itemTypes, setItemTypes] = useSyncedWithQueryState<CatalogItemType[]>(
+    "types",
+    (q) => {
+      if (!q) return DEFAULT_ITEM_TYPES;
+      const parsed = q
+        .split(",")
+        .filter((p) => CATALOG_ITEM_TYPES.includes(p as CatalogItemType)) as CatalogItemType[];
+      return parsed.length > 0 ? parsed : DEFAULT_ITEM_TYPES;
+    },
+    (v) => {
+      const isDefault =
+        v.length === DEFAULT_ITEM_TYPES.length && DEFAULT_ITEM_TYPES.every((t) => v.includes(t));
+      return isDefault ? null : v.join(",") || null;
+    },
   );
 
   const [isArchived, setIsArchived] = useSyncedWithQueryState<boolean | null>(
@@ -82,10 +96,10 @@ function CatalogPage() {
       searchString,
       sortBy,
       sortOrder,
-      itemType: itemType ?? undefined,
+      itemTypes: itemTypes.length < CATALOG_ITEM_TYPES.length ? itemTypes : undefined,
       isArchived: isArchived ?? undefined,
     },
-    [searchString, sortBy, sortOrder, itemType, isArchived],
+    [searchString, sortBy, sortOrder, itemTypes, isArchived],
   );
 
   const {data, isLoading, isFetching, refetch} = useQuery(
@@ -122,14 +136,21 @@ function CatalogPage() {
           <FormControl size="small" sx={{minWidth: 150}}>
             <InputLabel>Тип</InputLabel>
             <Select
+              multiple
               label="Тип"
-              value={itemType ?? ""}
-              onChange={(e) => setItemType((e.target.value as CatalogItemType) || null)}
+              value={itemTypes}
+              onChange={(e) => setItemTypes(e.target.value as CatalogItemType[])}
+              renderValue={(selected) => {
+                if (selected.length === CATALOG_ITEM_TYPES.length) return "Все";
+                if (selected.length === 0) return "Нет";
+                if (selected.length === 1) return CATALOG_ITEM_TYPE_CONFIG[selected[0]].label;
+                return `${selected.length} типов`;
+              }}
             >
-              <MenuItem value="">Все</MenuItem>
               {CATALOG_ITEM_TYPES.map((type) => (
                 <MenuItem key={type} value={type}>
-                  {CATALOG_ITEM_TYPE_CONFIG[type].label}
+                  <Checkbox checked={itemTypes.includes(type)} size="small" />
+                  <ListItemText primary={CATALOG_ITEM_TYPE_CONFIG[type].label} />
                 </MenuItem>
               ))}
             </Select>

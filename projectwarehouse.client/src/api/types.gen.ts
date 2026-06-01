@@ -995,7 +995,7 @@ export type CatalogGetAllData = {
     searchString?: string;
     sortBy?: CatalogSortBy;
     sortOrder?: SortOrder;
-    itemType?: CatalogItemType;
+    itemTypes?: Array<CatalogItemType>;
     isArchived?: boolean;
   };
   url: "/api/catalog";
