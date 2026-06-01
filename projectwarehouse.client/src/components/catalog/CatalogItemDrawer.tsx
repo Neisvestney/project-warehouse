@@ -420,7 +420,19 @@ function ViewMode({
                   <TableBody>
                     {data.components.map((c) => (
                       <TableRow key={c.id}>
-                        <TableCell>{c.componentName}</TableCell>
+                        <TableCell>
+                          {onOpenItem ? (
+                            <Button
+                              size="small"
+                              onClick={() => onOpenItem(c.componentId)}
+                              sx={{p: 0, minWidth: 0, textTransform: "none", fontWeight: "normal"}}
+                            >
+                              {c.componentName}
+                            </Button>
+                          ) : (
+                            c.componentName
+                          )}
+                        </TableCell>
                         <TableCell align="right">{c.quantity}</TableCell>
                       </TableRow>
                     ))}
@@ -431,30 +443,18 @@ function ViewMode({
           )}
 
         {/* Source bundle (AssembledBundle) */}
-        {data.type === "assembledBundle" && data.sourceBundleId && (
+        {data.type === "assembledBundle" && data.sourceBundleId && onOpenItem && (
           <>
             <Divider />
-            <LabeledRow label="Источник (бандл)">
-              <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{fontFamily: "monospace", fontSize: "0.75rem"}}
-                >
-                  {data.sourceBundleId}
-                </Typography>
-                {onOpenItem && (
-                  <Tooltip title="Открыть бандл">
-                    <IconButton
-                      size="small"
-                      onClick={() => onOpenItem(data.sourceBundleId!)}
-                      sx={{p: 0.25}}
-                    >
-                      <OpenInNewIcon sx={{fontSize: 14}} />
-                    </IconButton>
-                  </Tooltip>
-                )}
-              </Stack>
+            <LabeledRow label="Источник (комплект)">
+              <Button
+                size="small"
+                endIcon={<OpenInNewIcon />}
+                onClick={() => onOpenItem(data.sourceBundleId!)}
+                sx={{p: 0, minWidth: 0, textTransform: "none"}}
+              >
+                Перейти
+              </Button>
             </LabeledRow>
           </>
         )}
@@ -538,7 +538,7 @@ function BundleComponentRow({
             if (!id) setValue(`components.${index}.component`, null);
           }}
           onDtoChange={(dto) => setValue(`components.${index}.component`, dto)}
-          types={["standard", "unit", "productGroup", "variation"]}
+          types={["standard", "unit", "productGroup", "variation", "bundle"]}
           label="Позиция"
           disabled={isPending}
           size="small"

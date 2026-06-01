@@ -272,6 +272,8 @@ export type ErrorCode =
   | "catalogItemVariationInvalid"
   | "catalogItemComponentInvalid"
   | "catalogItemComponentNotFound"
+  | "catalogItemCircularDependency"
+  | "catalogItemTooManyCombinations"
   | "unitInventoryItemNotFound"
   | "assembledBundleItemNotFound"
   | "inventoryItemMovedToAnotherNodeAfterPlacementCreated"

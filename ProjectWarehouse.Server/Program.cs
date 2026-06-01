@@ -289,6 +289,7 @@ try
     builder.Services.AddScoped<IChangeLogService<RolesListDto>, RolesListDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<ReceiptDto>, ReceiptDtoChangelogService>();
     builder.Services.AddScoped<IInventoryService, InventoryService>();
+    builder.Services.AddScoped<ICatalogService, CatalogService>();
     builder.Services.AddScoped<IUserQueryFilterService, UserQueryFilterService>();
     var app = builder.Build();
 

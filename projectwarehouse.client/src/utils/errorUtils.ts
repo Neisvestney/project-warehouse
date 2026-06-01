@@ -52,6 +52,8 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   catalogItemVariationInvalid: "Указанная вариация не существует или неверного типа",
   catalogItemComponentInvalid: "Указанная позиция не может быть компонентом комплекта",
   catalogItemComponentNotFound: "Компонент комплекта не найден",
+  catalogItemCircularDependency: "Обнаружена циклическая зависимость в компонентах комплекта",
+  catalogItemTooManyCombinations: "Комплект порождает слишком много вариантов сборки — уменьшите количество вариаций или группы",
   required: "Обязательное поле",
   tooShort: "Значение слишком короткое (мин. {minimalLength} симв.)",
   tooLong: "Значение слишком длинное (макс. {maximalLength} симв.)",
