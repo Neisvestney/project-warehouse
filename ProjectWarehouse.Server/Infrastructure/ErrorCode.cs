@@ -44,6 +44,8 @@ public enum ErrorCode
     CatalogItemVariationInvalid,
     CatalogItemComponentInvalid,
     CatalogItemComponentNotFound,
+    CatalogItemCircularDependency,
+    CatalogItemTooManyCombinations,
 
     // Inventory operations
     UnitInventoryItemNotFound,

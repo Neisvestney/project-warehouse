@@ -10,6 +10,7 @@ using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
+using ProjectWarehouse.Server.Services;
 
 namespace ProjectWarehouse.Server.Controllers;
 
@@ -17,7 +18,8 @@ namespace ProjectWarehouse.Server.Controllers;
 public class CatalogController(
     ApplicationDbContext db,
     IMapper mapper,
-    IChangeLogService<CatalogItemDto> changeLog) : AppControllerBase
+    IChangeLogService<CatalogItemDto> changeLog,
+    ICatalogService catalogService) : AppControllerBase
 {
     /// <summary>List all catalog item tags, optionally filtered by name.</summary>
     [HttpGet("tags")]
@@ -75,7 +77,9 @@ public class CatalogController(
             baseQuery = baseQuery.Where(c => c.IsArchived == isArchived.Value);
         }
             
-        var orderedQuery = baseQuery.OrderBy(c => c.IsArchived);
+        var orderedQuery = baseQuery
+            .OrderBy(c => c.IsArchived)
+            .ThenBy(c => c.Type == CatalogItemType.AssembledBundle ? 1 : 0);
 
         var query = sortBy switch
         {
@@ -110,6 +114,7 @@ public class CatalogController(
 
         var items = await query
             .OrderBy(c => c.IsArchived)
+            .ThenBy(c => c.Type == CatalogItemType.AssembledBundle ? 1 : 0)
             .ThenBy(c => c.Name)
             .ThenBy(c => c.Id)
             .Take(10)
@@ -257,13 +262,40 @@ public class CatalogController(
             }
         }
 
-        await db.SaveChangesAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
 
-        var afterItem = await LoadItemWithDetailsAsync(id, ct);
-        var afterDto = mapper.Map<CatalogItemDto>(afterItem!);
-        await changeLog.CompareAndSaveToChangelog(beforeDto, afterDto);
+            if (item.Type == CatalogItemType.Bundle)
+                await catalogService.SyncAssembledBundlesForBundleAsync(id, ct);
 
-        return Ok(afterDto);
+            if (item.Type == CatalogItemType.Variation ||
+                item.Type == CatalogItemType.ProductGroup ||
+                item.Type == CatalogItemType.Bundle)
+                await catalogService.SyncParentBundlesAsync(id, ct);
+
+            if (item.Type == CatalogItemType.Standard || item.Type == CatalogItemType.Unit)
+                await catalogService.UpdateAssembledBundlesOnComponentChangeAsync(
+                    id, beforeDto, request.Name, request.Article, request.Barcode, ct);
+
+            var afterItem = await LoadItemWithDetailsAsync(id, ct);
+            var afterDto = mapper.Map<CatalogItemDto>(afterItem!);
+            await changeLog.CompareAndSaveToChangelog(beforeDto, afterDto);
+
+            await tx.CommitAsync(ct);
+            return Ok(afterDto);
+        }
+        catch (BundleCircularDependencyException)
+        {
+            return UnprocessableEntity("root", ErrorCode.CatalogItemCircularDependency,
+                "Circular dependency detected in bundle components.");
+        }
+        catch (BundleTooManyCombinationsException ex)
+        {
+            return UnprocessableEntity("root", ErrorCode.CatalogItemTooManyCombinations,
+                $"Bundle generates too many assembly combinations (limit: {ex.Limit}). Reduce the number of variation or group options.");
+        }
     }
 
     /// <summary>Delete a catalog item.</summary>
@@ -312,6 +344,7 @@ public class CatalogController(
             .Include(c => c.Group)
             .Include(c => c.Tags)
             .Include(c => c.BundleComponents).ThenInclude(bc => bc.Component).ThenInclude(comp => comp.Group)
+            .Include(c => c.AssembledComponents).ThenInclude(abc => abc.Component).ThenInclude(comp => comp.Group)
             .Include(c => c.VariationMemberships)
             .Include(c => c.VariationMembers)
             .Include(c => c.GroupChildren).ThenInclude(child => child.Tags)
@@ -371,7 +404,8 @@ public class CatalogController(
         var validIds = await db.CatalogItems
             .Where(c => reqComponentIds.Contains(c.Id) &&
                         (c.Type == CatalogItemType.Standard || c.Type == CatalogItemType.Unit ||
-                         c.Type == CatalogItemType.ProductGroup || c.Type == CatalogItemType.Variation))
+                         c.Type == CatalogItemType.ProductGroup || c.Type == CatalogItemType.Variation ||
+                         c.Type == CatalogItemType.Bundle))
             .Select(c => c.Id)
             .ToListAsync(ct);
         var errors = components

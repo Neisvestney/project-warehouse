@@ -55,19 +55,57 @@ A virtual container that groups multiple Standard or Unit items as interchangeab
 
 ### Bundle
 
-A configurable kit composed of any combination of Standard, Unit, ProductGroup, or Variation components, each with a quantity. A Bundle can be modified over time.
+A configurable kit composed of any combination of Standard, Unit, ProductGroup, Variation, or nested Bundle components, each with a quantity. A Bundle can be modified over time.
 
 Components are stored in `BundleComponent` records linked to the Bundle's CatalogItem.
 
+Circular dependencies between Bundles are detected at save time and rejected with `422 catalogItemCircularDependency`.
+
 ### AssembledBundle
 
-An immutable snapshot of a specific Bundle assembly. Created when a Bundle is physically assembled (e.g. during order picking). If an identical configuration already exists in the catalog, the existing AssembledBundle CatalogItem is reused.
+An immutable snapshot of a specific Bundle assembly. AssembledBundle CatalogItems are **auto-generated** by `ICatalogService.SyncAssembledBundlesForBundleAsync` every time a Bundle is updated.
 
 - References its source Bundle via `SourceBundleId`
-- Cannot be modified after creation
+- Cannot be modified manually — created and maintained automatically
 - Physically stored via `AssembledBundleInventoryItem`
 - If the Bundle contains Unit items, the `AssembledBundleInventoryItem` records the specific `UnitInventoryItem` instances (by SKU) used in that assembly
 - If the Bundle contains Standard items, the component is recorded by `CatalogItem` reference + quantity
+
+#### Auto-sync logic
+
+The entire `PUT /api/catalog/{id}` operation runs inside a single database transaction. If the sync fails for any reason (including a circular dependency), the whole update is rolled back.
+
+Every time a Bundle is saved (`PUT /api/catalog/{id}`), `ICatalogService.SyncAssembledBundlesForBundleAsync` runs and:
+
+1. Loads the full component tree recursively via `LoadBundleComponentsTreeAsync` (expands Variations → pick one member, ProductGroups → pick one child, nested Bundles → recursive expansion). Detects circular dependencies via a visited-set; throws `BundleCircularDependencyException` on a cycle.
+2. Computes the cartesian product of all component options. Components that resolve to the same catalog item across multiple slots have their quantities **summed** (e.g. a direct `1x Item-A` + a variation that also resolves to `Item-A` → `2x Item-A`). Maximum **500 combinations** per Bundle — exceeding this returns an error.
+3. Compares combinations against existing AssembledBundle CatalogItems with matching `SourceBundleId`:
+   - **New combination** — creates a new AssembledBundle CatalogItem + `AssembledBundleComponent` records.
+   - **Existing match, active** — updates `Name` if it changed.
+   - **Existing match, archived** — sets `IsArchived = false` and updates `Name`.
+   - **No matching combination** — sets `IsArchived = true` (never deleted).
+
+All mutations produce `ChangeLogEntry` records with `Action = "catalog.bundle_sync"` and `ActionData = { bundleId }`.
+
+#### Cascade sync on component updates
+
+When a **Variation**, **ProductGroup**, or **nested Bundle** is updated, all ancestor Bundles that (directly or indirectly) contain it are re-synced automatically via `ICatalogService.SyncParentBundlesAsync`. The traversal is protected by a visited-set seeded with the updated item's ID so no Bundle is synced twice.
+
+#### Name format
+
+```
+{BundleName} [{qty}x {article1} + {qty}x {article2} + ...]
+```
+
+Component articles are sorted alphabetically. Example: `"Laptop Kit [1x KB-RED + 1x MOUSE-001]"`.
+
+#### Article generation
+
+Each new AssembledBundle receives a deterministic article: `{bundleArticle}-{16-char SHA-256 hex}` where the hash is computed from the sorted set of `(ComponentId, Quantity)` pairs. Re-appearing combinations (previously archived) reuse the same article, so an archived AssembledBundle is unarchived rather than duplicated.
+
+#### Cascade name update
+
+When a Standard or Unit item's `Article` changes, `ICatalogService.UpdateAssembledBundleNamesForComponentAsync` regenerates the names of all AssembledBundles that include that item. These changelog entries use `Action = "catalog.component_article_changed"` and `ActionData = { componentId }` so the UI can display a human-readable explanation ("Name updated because component article changed").
 
 ---
 
