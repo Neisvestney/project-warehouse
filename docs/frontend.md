@@ -367,7 +367,9 @@ Detail page for a single receipt (`/operations/receipts/:id`). Shows receipt met
 **`ReceiptItemsSection`:** per-item collapsible panel. Shows `receivedCount` field (editable in Processing status via PATCH `.../received-count`). Placements table lists node path + count/SKU per placement with a delete button (Processing only). **Разместить** button opens `AddPlacementDialog`.
 
 ### `CatalogPage`
-Server-side paginated, searchable list of catalog items. Requires `catalog.view` or `receipts.process_assigned`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Clicking a row opens `CatalogItemDrawer` (right-side MUI Drawer); the selected item ID is stored in `?item=` query param via `useDrawerSearchParamsState`. Columns: **Тип** (`CatalogItemTypeChip`), **Название** (fullName + archive icon if isArchived), **Артикул**, **Штрихкод**.
+Server-side paginated, searchable list of catalog items. Requires `catalog.view` or `receipts.process_assigned`. State in URL params (`?search=`, `?page=`, `?pageSize=`, `?types=` comma-separated `CatalogItemType`). Clicking a row opens `CatalogItemDrawer` (right-side MUI Drawer); the selected item ID is stored in `?item=` query param via `useDrawerSearchParamsState`. Columns: **Тип** (`CatalogItemTypeChip`), **Название** (fullName + archive icon if isArchived), **Артикул**, **Штрихкод**.
+
+**Type filter** — multiselect `Select` with `Checkbox` per item; default is all types except `assembledBundle` (URL param omitted when default is active). `renderValue` shows "Все" for all 6, `"N типов"` for 2+, or the single type label. `DEFAULT_ITEM_TYPES` constant holds the default selection.
 
 ### `InventoryPage`
 Global stock overview at `/inventory`. Uses `ItemsBasePage` without any ID props, so the warehouse filter Select is shown. Requires `warehouses.view` or `warehouses.view_assigned`.
