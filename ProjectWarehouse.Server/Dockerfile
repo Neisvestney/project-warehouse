@@ -20,7 +20,7 @@ RUN npm install --no-audit --no-fund --verbose
 WORKDIR /src
 COPY . .
 WORKDIR "/src/ProjectWarehouse.Server"
-RUN dotnet build "./ProjectWarehouse.Server.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet build "./ProjectWarehouse.Server.csproj" -c $BUILD_CONFIGURATION -o /app/build --no-restore
 
 FROM build AS publish
 RUN mkdir -p ~/.aspnet/https
