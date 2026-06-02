@@ -70,6 +70,16 @@ That's it. `Permissions.All` picks up new constants automatically via reflection
 `receipts.view` перекрывает `receipts.view_assigned`, `receipts.edit` перекрывает `receipts.edit_assigned`.  
 `receipts.process_assigned` — право для операторов склада (приёмка физического товара: обновление `receivedCount` и добавление placements). Без `edit`/`edit_assigned` оператор видит только приёмки в статусе Processing своих складов.
 
+### Writeoffs (`writeoffs.*`)
+| Permission | Constant | Scope |
+|-----------|----------|-------|
+| `writeoffs.view` | `Permissions.Writeoffs.View` | All warehouses |
+| `writeoffs.edit` | `Permissions.Writeoffs.Edit` | All warehouses |
+| `writeoffs.view_assigned` | `Permissions.Writeoffs.ViewAssigned` | Only user's assigned warehouses |
+| `writeoffs.edit_assigned` | `Permissions.Writeoffs.EditAssigned` | Only user's assigned warehouses |
+
+`writeoffs.view` перекрывает `writeoffs.view_assigned`, `writeoffs.edit` перекрывает `writeoffs.edit_assigned`.
+
 ### Catalog (`catalog.*`)
 | Permission | Constant |
 |-----------|----------|

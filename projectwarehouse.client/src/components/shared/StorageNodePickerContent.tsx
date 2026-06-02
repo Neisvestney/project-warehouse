@@ -1,16 +1,28 @@
 import {useState, useCallback, useMemo} from "react";
-import {Alert, Box, CircularProgress, MenuItem, Select, Tab, Tabs, Typography} from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  Divider,
+  MenuItem,
+  Select,
+  Tab,
+  Tabs,
+  Typography,
+} from "@mui/material";
 import {green} from "@mui/material/colors";
 import {useQuery} from "@tanstack/react-query";
 import {
   storagePlacesGetNodesOptions,
   warehousesGetByIdOptions,
+  warehousesGetDefaultNodeOptions,
 } from "@/api/@tanstack/react-query.gen";
 import StoragePlaceNodeTree from "@/features/warehouse/StoragePlaceNodeTree";
 import WarehouseCanvas from "@/features/warehouse/WarehouseCanvas";
 import ScannerBlock from "@/components/ScannerBlock/ScannerBlock";
 import {useHardwareScanner} from "@/hooks/useHardwareScanner";
-import {buildNodePath} from "@/components/shared/nodePathUtils";
+import {buildNodePath, formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import type {SelectedNode} from "@/components/shared/nodePathUtils";
 
 export type {SelectedNode};
@@ -97,6 +109,18 @@ function StorageNodePickerContent({warehouseId, onSelect, open}: StorageNodePick
 
   const warehouse = warehouseQuery.data;
 
+  const defaultNodeQuery = useQuery({
+    ...warehousesGetDefaultNodeOptions({path: {id: warehouseId}}),
+    enabled: open && !!warehouse?.defaultStoragePlaceNodeId,
+    meta: {suppressGlobalError: true},
+  });
+  const defaultNode = defaultNodeQuery.data;
+
+  const handleSelectDefault = () => {
+    if (!defaultNode) return;
+    onSelect({nodeId: defaultNode.id, nodePath: defaultNode.name});
+  };
+
   if (warehouseQuery.isLoading) {
     return (
       <Box sx={{display: "flex", justifyContent: "center", py: 4}}>
@@ -107,6 +131,16 @@ function StorageNodePickerContent({warehouseId, onSelect, open}: StorageNodePick
 
   return (
     <>
+      {defaultNode && (
+        <>
+          <Box sx={{px: 2, py: 1.5}}>
+            <Button variant="outlined" size="small" fullWidth onClick={handleSelectDefault}>
+              Выбрать «{formatStoragePlaceNodeName(defaultNode.name)}»
+            </Button>
+          </Box>
+          <Divider />
+        </>
+      )}
       <Tabs
         value={activeTab}
         onChange={(_, v) => {

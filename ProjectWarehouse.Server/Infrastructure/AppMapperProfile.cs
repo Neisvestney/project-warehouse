@@ -8,6 +8,7 @@ using ProjectWarehouse.Server.Models.Events;
 using ProjectWarehouse.Server.Models.Inventory;
 using ProjectWarehouse.Server.Models.Receipts;
 using ProjectWarehouse.Server.Models.Roles;
+using ProjectWarehouse.Server.Models.Writeoffs;
 using ProjectWarehouse.Server.Models.Users;
 using ProjectWarehouse.Server.Models.Warehouses;
 
@@ -152,12 +153,78 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.InventoryNumber,
                 opt => opt.MapFrom(s => s.UnitInventoryItem != null ? s.UnitInventoryItem.InventoryNumber : null));
 
+        CreateMap<Writeoff, WriteoffSummaryDto>()
+            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
+            .ForMember(d => d.ItemsCount, opt => opt.MapFrom(s => s.Items.Count));
+        CreateMap<Writeoff, WriteoffDto>()
+            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name));
+        CreateMap<WriteoffItem, WriteoffItemDto>()
+            .ForMember(d => d.SourceNodePath, opt => opt.MapFrom<WriteoffItemNodePathResolver>())
+            .ForMember(d => d.InventoryNumber,
+                opt => opt.MapFrom(s => s.UnitInventoryItem != null ? s.UnitInventoryItem.InventoryNumber : null))
+            .ForMember(d => d.CatalogItemName, opt => opt.MapFrom<WriteoffItemCatalogNameResolver>());
+
+        CreateMap<Writeoff, AppEntity>()
+            .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Writeoff))
+            .ForMember(x => x.AdditionalFields, opt => opt.MapFrom(r => new Dictionary<string, object>
+            {
+                { "number", r.Number },
+                { "status", r.Status },
+            }));
+
+        CreateMap<Writeoff, AppEntityWithSearchString>()
+            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
+
         CreateMap<ChangeLogEntry, ChangeLogEntryDto>()
             .ForMember(d => d.UserName, opt => opt.MapFrom(s => s.User != null ? s.User.UserName : "deleted"))
             .ForMember(d => d.Context, opt => opt.MapFrom(s =>
                 s.Context != null ? JsonSerializer.Deserialize<JsonElement>(s.Context) : (JsonElement?)null))
             .ForMember(d => d.ActionData, opt => opt.MapFrom(s =>
                 s.ActionData != null ? JsonSerializer.Deserialize<JsonElement>(s.ActionData) : (JsonElement?)null));
+    }
+}
+
+/// <summary>
+/// AutoMapper value resolver that builds the full breadcrumb source node path for a <see cref="WriteoffItem"/>.
+/// Requires a pre-loaded <c>nodeById</c> dictionary passed via
+/// <c>mapper.Map&lt;T&gt;(src, opts =&gt; opts.Items["nodeById"] = nodeById)</c>.
+/// Falls back to a two-element path when the dictionary is not supplied.
+/// </summary>
+public class WriteoffItemNodePathResolver : IValueResolver<WriteoffItem, WriteoffItemDto, string[]>
+{
+    public string[] Resolve(
+        WriteoffItem source,
+        WriteoffItemDto destination,
+        string[] destMember,
+        ResolutionContext context)
+    {
+        if (context.TryGetItems(out var items)
+            && items.TryGetValue("nodeById", out var obj)
+            && obj is IReadOnlyDictionary<Guid, StoragePlaceNode> nodeById)
+            return StoragePlaceNodeHelper.BuildPath(source.SourceNode, nodeById);
+
+        return [source.SourceNode.RootStoragePlace.Name, source.SourceNode.Name];
+    }
+}
+
+/// <summary>
+/// Resolves the catalog item display name for a <see cref="WriteoffItem"/> regardless of its type.
+/// </summary>
+public class WriteoffItemCatalogNameResolver : IValueResolver<WriteoffItem, WriteoffItemDto, string>
+{
+    public string Resolve(
+        WriteoffItem source,
+        WriteoffItemDto destination,
+        string destMember,
+        ResolutionContext context)
+    {
+        if (source.CatalogItem is not null)
+            return source.CatalogItem.Name;
+        if (source.UnitInventoryItem?.CatalogItem is not null)
+            return source.UnitInventoryItem.CatalogItem.Name;
+        if (source.AssembledBundleInventoryItem?.CatalogItem is not null)
+            return source.AssembledBundleInventoryItem.CatalogItem.Name;
+        return string.Empty;
     }
 }
 

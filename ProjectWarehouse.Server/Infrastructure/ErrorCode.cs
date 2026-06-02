@@ -55,6 +55,14 @@ public enum ErrorCode
     // Transfers
     TransferSameNode,
 
+    // Writeoffs
+    WriteoffNotFound,
+    WriteoffNotDraft,
+    WriteoffHasNoItems,
+    WriteoffItemNotFound,
+    WriteoffInsufficientInventory,
+    WriteoffNotAssignedToWarehouse,
+
     // Receipts
     ReceiptNotFound,
     ReceiptInvalidStatusTransition,

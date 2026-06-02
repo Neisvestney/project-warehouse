@@ -36,6 +36,7 @@ import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
 import ReceiptItemsEditorDrawer from "@/components/receipts/ReceiptItemsEditorDrawer";
 import AddPlacementDialog from "@/components/receipts/AddPlacementDialog";
 import type {ReceiptDto, ReceiptItemDto, ReceiptItemPlacementDto} from "@/api/types.gen";
+import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 
 const VIRTUAL_TYPES = new Set(["productGroup", "variation", "bundle"]);
 
@@ -114,7 +115,7 @@ interface ReceiptItemsSectionProps {
 }
 
 function PlacementDisplay({placement}: {placement: ReceiptItemPlacementDto}) {
-  const path = placement.nodePath.join(" / ");
+  const path = formatStoragePlaceNodeName(placement.nodePath);
   if (placement.inventoryNumber) {
     return (
       <Typography variant="body2">

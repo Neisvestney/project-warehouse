@@ -12,7 +12,9 @@ import ReceiptPage from "@/pages/ReceiptsPage/pages/ReceiptPage/ReceiptPage.tsx"
 import OrdersFbsPage from "./stubs/OrdersFbsPage.tsx";
 import OrdersFboPage from "./stubs/OrdersFboPage.tsx";
 import TransfersPage from "./TransfersPage/TransfersPage.tsx";
-import WriteoffsPage from "./stubs/WriteoffsPage.tsx";
+import WriteoffsPage from "@/pages/WriteoffsPage/WriteoffsPage.tsx";
+import WriteoffCreatePage from "@/pages/WriteoffsPage/pages/WriteoffCreatePage/WriteoffCreatePage.tsx";
+import WriteoffPage from "@/pages/WriteoffsPage/pages/WriteoffPage/WriteoffPage.tsx";
 
 export const operationsSections: SectionConfig[] = [
   {
@@ -45,6 +47,10 @@ export const operationsSections: SectionConfig[] = [
     path: "writeoffs",
     icon: <DeleteSweepIcon fontSize="small" />,
     component: WriteoffsPage,
+    subroutes: [
+      {path: "new", component: WriteoffCreatePage},
+      {path: ":id", component: WriteoffPage},
+    ],
   },
 ];
 

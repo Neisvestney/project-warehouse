@@ -24,6 +24,10 @@ const permissionLabels: Record<PermissionName, string> = {
   "receipts.process_assigned": "Обработка приемок назначенных складов",
   "transfers.execute": "Перемещение товаров (все склады)",
   "transfers.execute_assigned": "Перемещение товаров (назначенные склады)",
+  "writeoffs.view": "Просмотр всех списаний",
+  "writeoffs.edit": "Редактирование всех списаний",
+  "writeoffs.view_assigned": "Просмотр списаний назначенных складов",
+  "writeoffs.edit_assigned": "Редактирование списаний назначенных складов",
 };
 
 export function getPermissionLabel(permission: PermissionName | string): string {

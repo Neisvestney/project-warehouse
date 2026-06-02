@@ -8,6 +8,7 @@ import {warehousesGetByIdForPrintOptions} from "@/api/@tanstack/react-query.gen"
 import {FormTextField} from "@/components/form/FormTextField";
 import SelectNodeModal from "@/components/receipts/SelectNodeModal";
 import type {WarehouseMetaFormValues} from "../warehouseEditStore";
+import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 
 interface WarehouseMetaFormProps {
   control: Control<WarehouseMetaFormValues>;
@@ -37,7 +38,7 @@ function DefaultNodePicker({
 
   const nodePath =
     nodeId && printQuery.data
-      ? (printQuery.data.find((n) => n.id === nodeId)?.name.join(" / ") ?? nodeId)
+      ? formatStoragePlaceNodeName(printQuery.data.find((n) => n.id === nodeId)?.name ?? [nodeId])
       : null;
 
   return (

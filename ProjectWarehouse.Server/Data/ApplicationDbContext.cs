@@ -45,6 +45,9 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<ReceiptItem> ReceiptItems => Set<ReceiptItem>();
     public DbSet<ReceiptItemPlacement> ReceiptItemPlacements => Set<ReceiptItemPlacement>();
 
+    public DbSet<Writeoff> Writeoffs => Set<Writeoff>();
+    public DbSet<WriteoffItem> WriteoffItems => Set<WriteoffItem>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -292,6 +295,56 @@ public class ApplicationDbContext : IdentityDbContext<
             e.HasOne(x => x.AssembledBundleInventoryItem)
                 .WithMany()
                 .HasForeignKey(x => x.AssembledBundleInventoryItemId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<Writeoff>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Number).ValueGeneratedOnAdd();
+            e.HasIndex(x => x.Number).IsUnique();
+
+            e.HasOne(x => x.Warehouse)
+                .WithMany()
+                .HasForeignKey(x => x.WarehouseId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.CreatedBy)
+                .WithMany()
+                .HasForeignKey(x => x.CreatedById)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<WriteoffItem>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.Writeoff)
+                .WithMany(x => x.Items)
+                .HasForeignKey(x => x.WriteoffId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.SourceNode)
+                .WithMany()
+                .HasForeignKey(x => x.SourceNodeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.CatalogItem)
+                .WithMany()
+                .HasForeignKey(x => x.CatalogItemId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.UnitInventoryItem)
+                .WithMany()
+                .HasForeignKey(x => x.UnitInventoryItemId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.AssembledBundleInventoryItem)
+                .WithMany()
+                .HasForeignKey(x => x.AssembledBundleInventoryItemId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
         });
     }

@@ -29,6 +29,7 @@ import {openPrintPage} from "@/utils/printUtils.ts";
 import {useHasPermission} from "@/hooks/usePermission.ts";
 import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState.ts";
 import {WarehouseCanvas} from "@/features/warehouse";
+import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 
 function WarehouseViewPage() {
   const [isPrinting, setIsPrinting] = useState(false);
@@ -50,7 +51,7 @@ function WarehouseViewPage() {
         data.map((node) => ({
           type: "DataMatrix" as const,
           value: node.id,
-          label: node.name.join(" / "),
+          label: formatStoragePlaceNodeName(node.name),
         })),
       );
     } catch {
@@ -81,10 +82,11 @@ function WarehouseViewPage() {
     meta: {suppressGlobalError: true},
   });
 
-  const defaultNodePath =
-    defaultNodeId && printQuery.data
-      ? (printQuery.data.find((n) => n.id === defaultNodeId)?.name.join(" / ") ?? null)
-      : null;
+  const defaultNodePath = (() => {
+    if (!defaultNodeId || !printQuery.data) return null;
+    const node = printQuery.data.find((n) => n.id === defaultNodeId);
+    return node ? formatStoragePlaceNodeName(node.name) : null;
+  })();
 
   if (isLoading) {
     return (

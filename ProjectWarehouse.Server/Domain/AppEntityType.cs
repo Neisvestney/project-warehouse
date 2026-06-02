@@ -9,4 +9,5 @@ public enum AppEntityType
     CatalogItem,
     StoragePlaceNode,
     Receipt,
+    Writeoff,
 }

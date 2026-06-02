@@ -20,7 +20,8 @@ export type AppEntityType =
   | "warehouse"
   | "catalogItem"
   | "storagePlaceNode"
-  | "receipt";
+  | "receipt"
+  | "writeoff";
 
 export type AppFieldError = {
   code: ErrorCode;
@@ -234,6 +235,13 @@ export type CreateWarehouseRequest = {
   layoutObjects: Array<WarehouseLayoutElementItem>;
 };
 
+export type CreateWriteoffRequest = {
+  name: string;
+  reason: WriteoffReason;
+  warehouseId: string;
+  notes?: null | string;
+};
+
 export type ErrorCode =
   | "invalidCredentials"
   | "tokenOutdated"
@@ -278,6 +286,12 @@ export type ErrorCode =
   | "assembledBundleItemNotFound"
   | "inventoryItemMovedToAnotherNodeAfterPlacementCreated"
   | "transferSameNode"
+  | "writeoffNotFound"
+  | "writeoffNotDraft"
+  | "writeoffHasNoItems"
+  | "writeoffItemNotFound"
+  | "writeoffInsufficientInventory"
+  | "writeoffNotAssignedToWarehouse"
   | "receiptNotFound"
   | "receiptInvalidStatusTransition"
   | "receiptHasPlacements"
@@ -437,6 +451,16 @@ export type PaginatedOfWarehouseSummaryDto = {
   hasPreviousPage: boolean;
 };
 
+export type PaginatedOfWriteoffSummaryDto = {
+  items: Array<WriteoffSummaryDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
 export type PermissionName =
   | "users.view"
   | "users.create"
@@ -456,6 +480,10 @@ export type PermissionName =
   | "changelog.view"
   | "transfers.execute"
   | "transfers.execute_assigned"
+  | "writeoffs.view"
+  | "writeoffs.edit"
+  | "writeoffs.view_assigned"
+  | "writeoffs.edit_assigned"
   | "receipts.view"
   | "receipts.edit"
   | "receipts.view_assigned"
@@ -726,6 +754,12 @@ export type UpdateWarehouseRequest = {
   layoutObjects: Array<WarehouseLayoutElementItem>;
 };
 
+export type UpdateWriteoffRequest = {
+  name: string;
+  reason: WriteoffReason;
+  notes?: null | string;
+};
+
 export type UserDetailDto = {
   id: string;
   username: string;
@@ -775,6 +809,63 @@ export type WarehouseSummaryDto = {
   height: number;
   storagePlaceCount: number;
   totalItemsCount: number;
+};
+
+export type WriteoffDto = {
+  id: string;
+  number: number;
+  name: string;
+  reason: WriteoffReason;
+  status: WriteoffStatus;
+  notes?: null | string;
+  createdAt: string;
+  warehouseId: string;
+  warehouseName: string;
+  items: Array<WriteoffItemDto>;
+};
+
+export type WriteoffItemDto = {
+  id: string;
+  sourceNodeId: string;
+  sourceNodePath: Array<string>;
+  notes?: null | string;
+  catalogItemId?: null | string;
+  catalogItem?: null | CatalogItemSummaryDto;
+  count: number;
+  unitInventoryItemId?: null | string;
+  inventoryNumber?: null | string;
+  assembledBundleInventoryItemId?: null | string;
+  /**
+   * Catalog item display name. Populated for all item types.
+   */
+  catalogItemName: string;
+};
+
+export type WriteoffItemRequest = {
+  sourceNodeId: string;
+  catalogItemId?: null | string;
+  count?: null | number;
+  unitInventoryItemId?: null | string;
+  assembledBundleInventoryItemId?: null | string;
+  notes?: null | string;
+};
+
+export type WriteoffReason = "loss" | "defect" | "other";
+
+export type WriteoffSortBy = "number" | "name" | "status" | "createdAt" | "warehouseName";
+
+export type WriteoffStatus = "draft" | "finished" | "canceled";
+
+export type WriteoffSummaryDto = {
+  id: string;
+  number: number;
+  name: string;
+  reason: WriteoffReason;
+  status: WriteoffStatus;
+  warehouseId: string;
+  warehouseName: string;
+  itemsCount: number;
+  createdAt: string;
 };
 
 export type AuthLoginData = {
@@ -2988,3 +3079,305 @@ export type WarehousesGetDefaultNodeResponses = {
 
 export type WarehousesGetDefaultNodeResponse =
   WarehousesGetDefaultNodeResponses[keyof WarehousesGetDefaultNodeResponses];
+
+export type WriteoffsGetAllData = {
+  body?: never;
+  path?: never;
+  query?: {
+    page?: number;
+    pageSize?: number;
+    searchString?: string;
+    warehouseId?: string;
+    status?: WriteoffStatus;
+    reason?: WriteoffReason;
+    sortBy?: WriteoffSortBy;
+    sortOrder?: SortOrder;
+  };
+  url: "/api/writeoffs";
+};
+
+export type WriteoffsGetAllErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type WriteoffsGetAllError = WriteoffsGetAllErrors[keyof WriteoffsGetAllErrors];
+
+export type WriteoffsGetAllResponses = {
+  /**
+   * OK
+   */
+  200: PaginatedOfWriteoffSummaryDto;
+};
+
+export type WriteoffsGetAllResponse = WriteoffsGetAllResponses[keyof WriteoffsGetAllResponses];
+
+export type WriteoffsCreateData = {
+  body: CreateWriteoffRequest;
+  path?: never;
+  query?: never;
+  url: "/api/writeoffs";
+};
+
+export type WriteoffsCreateErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type WriteoffsCreateError = WriteoffsCreateErrors[keyof WriteoffsCreateErrors];
+
+export type WriteoffsCreateResponses = {
+  /**
+   * Created
+   */
+  201: WriteoffDto;
+};
+
+export type WriteoffsCreateResponse = WriteoffsCreateResponses[keyof WriteoffsCreateResponses];
+
+export type WriteoffsDeleteData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/writeoffs/{id}";
+};
+
+export type WriteoffsDeleteErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type WriteoffsDeleteError = WriteoffsDeleteErrors[keyof WriteoffsDeleteErrors];
+
+export type WriteoffsDeleteResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type WriteoffsDeleteResponse = WriteoffsDeleteResponses[keyof WriteoffsDeleteResponses];
+
+export type WriteoffsGetByIdData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/writeoffs/{id}";
+};
+
+export type WriteoffsGetByIdErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type WriteoffsGetByIdError = WriteoffsGetByIdErrors[keyof WriteoffsGetByIdErrors];
+
+export type WriteoffsGetByIdResponses = {
+  /**
+   * OK
+   */
+  200: WriteoffDto;
+};
+
+export type WriteoffsGetByIdResponse = WriteoffsGetByIdResponses[keyof WriteoffsGetByIdResponses];
+
+export type WriteoffsUpdateData = {
+  body: UpdateWriteoffRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/writeoffs/{id}";
+};
+
+export type WriteoffsUpdateErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type WriteoffsUpdateError = WriteoffsUpdateErrors[keyof WriteoffsUpdateErrors];
+
+export type WriteoffsUpdateResponses = {
+  /**
+   * OK
+   */
+  200: WriteoffDto;
+};
+
+export type WriteoffsUpdateResponse = WriteoffsUpdateResponses[keyof WriteoffsUpdateResponses];
+
+export type WriteoffsSyncItemsData = {
+  body: Array<WriteoffItemRequest>;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/writeoffs/{id}/items";
+};
+
+export type WriteoffsSyncItemsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type WriteoffsSyncItemsError = WriteoffsSyncItemsErrors[keyof WriteoffsSyncItemsErrors];
+
+export type WriteoffsSyncItemsResponses = {
+  /**
+   * OK
+   */
+  200: WriteoffDto;
+};
+
+export type WriteoffsSyncItemsResponse =
+  WriteoffsSyncItemsResponses[keyof WriteoffsSyncItemsResponses];
+
+export type WriteoffsFinishData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/writeoffs/{id}/finish";
+};
+
+export type WriteoffsFinishErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type WriteoffsFinishError = WriteoffsFinishErrors[keyof WriteoffsFinishErrors];
+
+export type WriteoffsFinishResponses = {
+  /**
+   * OK
+   */
+  200: WriteoffDto;
+};
+
+export type WriteoffsFinishResponse = WriteoffsFinishResponses[keyof WriteoffsFinishResponses];
+
+export type WriteoffsCancelData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/writeoffs/{id}/cancel";
+};
+
+export type WriteoffsCancelErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type WriteoffsCancelError = WriteoffsCancelErrors[keyof WriteoffsCancelErrors];
+
+export type WriteoffsCancelResponses = {
+  /**
+   * OK
+   */
+  200: WriteoffDto;
+};
+
+export type WriteoffsCancelResponse = WriteoffsCancelResponses[keyof WriteoffsCancelResponses];

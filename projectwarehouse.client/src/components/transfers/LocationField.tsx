@@ -2,6 +2,7 @@ import {useState} from "react";
 import {Button, Stack, Typography} from "@mui/material";
 import SelectLocationModal from "./SelectLocationModal";
 import type {SelectedLocation} from "./SelectLocationModal";
+import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 
 interface LocationFieldProps {
   label: string;
@@ -14,7 +15,7 @@ function LocationField({label, value, onChange, disabled}: LocationFieldProps) {
   const [open, setOpen] = useState(false);
 
   const displayText = value
-    ? `${value.warehouseName} / ${value.nodePath.join(" / ")}`
+    ? `${value.warehouseName} / ${formatStoragePlaceNodeName(value.nodePath)}`
     : "Не выбрано";
 
   return (
