@@ -10,7 +10,7 @@ function MainLayout({}: MainLayoutProps) {
   return (
     <>
       <MainAppBar />
-      <Container maxWidth="xl" sx={{marginTop: 2}}>
+      <Container maxWidth="xl" sx={{marginTop: 2, paddingBottom: 2}}>
         <SearchParamsProvider>
           <Outlet />
         </SearchParamsProvider>

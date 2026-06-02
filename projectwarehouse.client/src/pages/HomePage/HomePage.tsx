@@ -34,7 +34,7 @@ function HomePage({}: HomePageProps) {
   });
 
   return (
-    <Stack spacing={2} sx={{pb: 2}}>
+    <Stack spacing={2}>
       {!isMobile && <AppEvents />}
       <Box
         sx={{

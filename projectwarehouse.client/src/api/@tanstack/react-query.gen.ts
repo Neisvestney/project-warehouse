@@ -33,6 +33,7 @@ import {
   permissionsGetAll,
   receiptsAddAssembledBundlePlacement,
   receiptsAddStandardPlacement,
+  receiptsAddStandardPlacementBatch,
   receiptsAddUnitPlacement,
   receiptsCancel,
   receiptsCreate,
@@ -42,6 +43,7 @@ import {
   receiptsGetAll,
   receiptsGetById,
   receiptsPlan,
+  receiptsQuickAddItem,
   receiptsRevert,
   receiptsStartProcessing,
   receiptsSyncItems,
@@ -147,6 +149,9 @@ import type {
   ReceiptsAddAssembledBundlePlacementData,
   ReceiptsAddAssembledBundlePlacementError,
   ReceiptsAddAssembledBundlePlacementResponse,
+  ReceiptsAddStandardPlacementBatchData,
+  ReceiptsAddStandardPlacementBatchError,
+  ReceiptsAddStandardPlacementBatchResponse,
   ReceiptsAddStandardPlacementData,
   ReceiptsAddStandardPlacementError,
   ReceiptsAddStandardPlacementResponse,
@@ -177,6 +182,9 @@ import type {
   ReceiptsPlanData,
   ReceiptsPlanError,
   ReceiptsPlanResponse,
+  ReceiptsQuickAddItemData,
+  ReceiptsQuickAddItemError,
+  ReceiptsQuickAddItemResponse,
   ReceiptsRevertData,
   ReceiptsRevertError,
   ReceiptsRevertResponse,
@@ -1303,6 +1311,34 @@ export const receiptsUpdateMutation = (
 };
 
 /**
+ * Add a single catalog item to the receipt with plannedCount=0 during Processing.
+ * Used when a new item is discovered while physically receiving goods.
+ */
+export const receiptsQuickAddItemMutation = (
+  options?: Partial<Options<ReceiptsQuickAddItemData>>,
+): UseMutationOptions<
+  ReceiptsQuickAddItemResponse,
+  ReceiptsQuickAddItemError,
+  Options<ReceiptsQuickAddItemData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsQuickAddItemResponse,
+    ReceiptsQuickAddItemError,
+    Options<ReceiptsQuickAddItemData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsQuickAddItem({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
  * Replace the full list of expected items. Allowed in Draft and Planned statuses.
  */
 export const receiptsSyncItemsMutation = (
@@ -1373,6 +1409,33 @@ export const receiptsAddStandardPlacementMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await receiptsAddStandardPlacement({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Place multiple Standard items at the same storage node in one transaction. Only in Processing status.
+ */
+export const receiptsAddStandardPlacementBatchMutation = (
+  options?: Partial<Options<ReceiptsAddStandardPlacementBatchData>>,
+): UseMutationOptions<
+  ReceiptsAddStandardPlacementBatchResponse,
+  ReceiptsAddStandardPlacementBatchError,
+  Options<ReceiptsAddStandardPlacementBatchData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsAddStandardPlacementBatchResponse,
+    ReceiptsAddStandardPlacementBatchError,
+    Options<ReceiptsAddStandardPlacementBatchData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsAddStandardPlacementBatch({
         ...options,
         ...fnOptions,
         throwOnError: true,
