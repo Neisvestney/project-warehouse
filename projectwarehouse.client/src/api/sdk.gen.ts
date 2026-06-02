@@ -69,6 +69,9 @@ import type {
   ReceiptsAddAssembledBundlePlacementData,
   ReceiptsAddAssembledBundlePlacementErrors,
   ReceiptsAddAssembledBundlePlacementResponses,
+  ReceiptsAddStandardPlacementBatchData,
+  ReceiptsAddStandardPlacementBatchErrors,
+  ReceiptsAddStandardPlacementBatchResponses,
   ReceiptsAddStandardPlacementData,
   ReceiptsAddStandardPlacementErrors,
   ReceiptsAddStandardPlacementResponses,
@@ -99,6 +102,9 @@ import type {
   ReceiptsPlanData,
   ReceiptsPlanErrors,
   ReceiptsPlanResponses,
+  ReceiptsQuickAddItemData,
+  ReceiptsQuickAddItemErrors,
+  ReceiptsQuickAddItemResponses,
   ReceiptsRevertData,
   ReceiptsRevertErrors,
   ReceiptsRevertResponses,
@@ -579,6 +585,26 @@ export const receiptsUpdate = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Add a single catalog item to the receipt with plannedCount=0 during Processing.
+ * Used when a new item is discovered while physically receiving goods.
+ */
+export const receiptsQuickAddItem = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsQuickAddItemData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    ReceiptsQuickAddItemResponses,
+    ReceiptsQuickAddItemErrors,
+    ThrowOnError
+  >({
+    url: "/api/receipts/{id}/items/quick-add",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
  * Replace the full list of expected items. Allowed in Draft and Planned statuses.
  */
 export const receiptsSyncItems = <ThrowOnError extends boolean = false>(
@@ -626,6 +652,25 @@ export const receiptsAddStandardPlacement = <ThrowOnError extends boolean = fals
     ThrowOnError
   >({
     url: "/api/receipts/{id}/items/{itemId}/placements/standard",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Place multiple Standard items at the same storage node in one transaction. Only in Processing status.
+ */
+export const receiptsAddStandardPlacementBatch = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsAddStandardPlacementBatchData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    ReceiptsAddStandardPlacementBatchResponses,
+    ReceiptsAddStandardPlacementBatchErrors,
+    ThrowOnError
+  >({
+    url: "/api/receipts/{id}/placements/standard/batch",
     ...options,
     headers: {
       "Content-Type": "application/json",

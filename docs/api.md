@@ -117,7 +117,16 @@ Access: `receipts.view` / `receipts.view_assigned` (read), `receipts.edit` / `re
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | PUT | `/api/receipts/{id}/items` | `receipts.edit` or `receipts.edit_assigned` | Atomically sync the expected items list (`ReceiptItemRequest[]`). Draft or Planned status only. Deduplicates by `catalogItemId`. |
+| POST | `/api/receipts/{id}/items/quick-add` | `receipts.edit` or `receipts.process_assigned` | Add a single catalog item to the receipt with `plannedCount=0`. Processing status only. Used when a new item is discovered while physically receiving goods. |
 | PATCH | `/api/receipts/{id}/items/{itemId}/received-count` | `receipts.edit` or `receipts.process_assigned` | Update actually received count for one item. Processing status only. |
+
+**`POST .../items/quick-add` body (`QuickAddReceiptItemRequest`):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `catalogItemId` | `Guid` | Must exist, not archived, not virtual (`productGroup`, `variation`, `bundle`), not already in the receipt |
+
+Returns `ReceiptDto`. Errors: `catalogItemNotFound`, `catalogItemIsImmutable` (archived), `validationError` (virtual type or duplicate).
 
 ### Placements
 
@@ -126,7 +135,17 @@ Access: `receipts.view` / `receipts.view_assigned` (read), `receipts.edit` / `re
 | POST | `/api/receipts/{id}/items/{itemId}/placements/standard` | `receipts.edit` or `receipts.process_assigned` | Place count-based (Standard) items at a storage node. Processing status only. |
 | POST | `/api/receipts/{id}/items/{itemId}/placements/unit` | `receipts.edit` or `receipts.process_assigned` | Place a serialised Unit item (by `inventoryNumber`) at a storage node. Processing status only. |
 | POST | `/api/receipts/{id}/items/{itemId}/placements/assembled-bundle` | `receipts.edit` or `receipts.process_assigned` | Place an AssembledBundle at a storage node (components must exactly match the catalog definition). Processing status only. |
+| POST | `/api/receipts/{id}/placements/standard/batch` | `receipts.edit` or `receipts.process_assigned` | Place multiple Standard items at the same storage node in one transaction. Processing status only. |
 | DELETE | `/api/receipts/{id}/items/{itemId}/placements/{placementId}` | `receipts.edit` or `receipts.process_assigned` | Remove a placement, reversing the inventory change. Processing status only. |
+
+**`POST .../placements/standard/batch` body (`BatchStandardPlacementRequest`):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `storagePlaceNodeId` | `Guid` | Target storage node |
+| `items` | `BatchStandardPlacementItemRequest[]` | One or more items to place (min 1, no duplicate `itemId`) |
+
+`BatchStandardPlacementItemRequest`: `{ itemId: Guid, count: int (≥1) }`. All items must be of type `Standard`. Returns `ReceiptDto`.
 
 ### Status transitions
 

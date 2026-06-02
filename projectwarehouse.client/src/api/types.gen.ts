@@ -72,6 +72,16 @@ export type AssembledBundlePlacementComponentRequest = {
   newUnitItem?: null | CreateUnitItemRequest;
 };
 
+export type BatchStandardPlacementItemRequest = {
+  itemId: string;
+  count: number;
+};
+
+export type BatchStandardPlacementRequest = {
+  storagePlaceNodeId: string;
+  items: Array<BatchStandardPlacementItemRequest>;
+};
+
 export type BundleComponentDto = {
   id: string;
   componentId: string;
@@ -500,6 +510,10 @@ export type ProductGroupChildRequest = {
   notes?: null | string;
   isArchived: boolean;
   tags: Array<string>;
+};
+
+export type QuickAddReceiptItemRequest = {
+  catalogItemId: string;
 };
 
 export type ReceiptDto = {
@@ -1763,6 +1777,47 @@ export type ReceiptsUpdateResponses = {
 
 export type ReceiptsUpdateResponse = ReceiptsUpdateResponses[keyof ReceiptsUpdateResponses];
 
+export type ReceiptsQuickAddItemData = {
+  body: QuickAddReceiptItemRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}/items/quick-add";
+};
+
+export type ReceiptsQuickAddItemErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsQuickAddItemError =
+  ReceiptsQuickAddItemErrors[keyof ReceiptsQuickAddItemErrors];
+
+export type ReceiptsQuickAddItemResponses = {
+  /**
+   * OK
+   */
+  200: ReceiptDto;
+};
+
+export type ReceiptsQuickAddItemResponse =
+  ReceiptsQuickAddItemResponses[keyof ReceiptsQuickAddItemResponses];
+
 export type ReceiptsSyncItemsData = {
   body: Array<ReceiptItemRequest>;
   path: {
@@ -1886,6 +1941,47 @@ export type ReceiptsAddStandardPlacementResponses = {
 
 export type ReceiptsAddStandardPlacementResponse =
   ReceiptsAddStandardPlacementResponses[keyof ReceiptsAddStandardPlacementResponses];
+
+export type ReceiptsAddStandardPlacementBatchData = {
+  body: BatchStandardPlacementRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}/placements/standard/batch";
+};
+
+export type ReceiptsAddStandardPlacementBatchErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsAddStandardPlacementBatchError =
+  ReceiptsAddStandardPlacementBatchErrors[keyof ReceiptsAddStandardPlacementBatchErrors];
+
+export type ReceiptsAddStandardPlacementBatchResponses = {
+  /**
+   * OK
+   */
+  200: ReceiptDto;
+};
+
+export type ReceiptsAddStandardPlacementBatchResponse =
+  ReceiptsAddStandardPlacementBatchResponses[keyof ReceiptsAddStandardPlacementBatchResponses];
 
 export type ReceiptsAddUnitPlacementData = {
   body: CreateUnitPlacementRequest;

@@ -276,6 +276,67 @@ public class ReceiptsController(
 
     // ── PUT items sync ────────────────────────────────────────────────────────
 
+    // ── POST items / quick-add ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Add a single catalog item to the receipt with plannedCount=0 during Processing.
+    /// Used when a new item is discovered while physically receiving goods.
+    /// </summary>
+    [HttpPost("{id:guid}/items/quick-add")]
+    [Authorize]
+    [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> QuickAddItem(Guid id,
+        [FromBody] QuickAddReceiptItemRequest request, CancellationToken ct = default)
+    {
+        var (receipt, error) = await LoadReceiptWithProcessAccessAsync(id, ct);
+        if (error is not null) return error;
+
+        if (receipt!.Status != ReceiptStatus.Processing)
+            return UnprocessableEntity("root", ErrorCode.ReceiptInvalidStatusTransition,
+                "Items can only be quick-added during Processing status.");
+
+        var catalogItem = await db.CatalogItems.FindAsync([request.CatalogItemId], ct);
+        if (catalogItem is null)
+            return UnprocessableEntity("catalogItemId", ErrorCode.CatalogItemNotFound,
+                "Catalog item not found.");
+
+        if (catalogItem.IsArchived)
+            return UnprocessableEntity("catalogItemId", ErrorCode.CatalogItemIsImmutable,
+                "Archived catalog items cannot be added to a receipt.");
+
+        if (catalogItem.Type is CatalogItemType.ProductGroup
+                             or CatalogItemType.Variation
+                             or CatalogItemType.Bundle)
+            return UnprocessableEntity("catalogItemId", ErrorCode.ValidationError,
+                $"Catalog item type '{catalogItem.Type}' cannot be added to a receipt.");
+
+        if (receipt.Items.Any(i => i.CatalogItemId == request.CatalogItemId))
+            return UnprocessableEntity("catalogItemId", ErrorCode.ValidationError,
+                "This catalog item is already in the receipt.");
+
+        var before = mapper.Map<ReceiptDto>(receipt);
+
+        db.ReceiptItems.Add(new ReceiptItem
+        {
+            Id            = Guid.NewGuid(),
+            ReceiptId     = receipt.Id,
+            CatalogItemId = request.CatalogItemId,
+            PlannedCount  = 0,
+        });
+        await db.SaveChangesAsync(ct);
+
+        var nodeById = await LoadWarehouseNodesAsync(receipt.WarehouseId, ct);
+        var updatedReceipt = await BaseQuery(includeItems: true).FirstAsync(r => r.Id == id, ct);
+        var after = mapper.Map<ReceiptDto>(updatedReceipt, opts => opts.Items["nodeById"] = nodeById);
+        await changeLog.CompareAndSaveToChangelog(before, after, ReceiptActions.ItemQuickAdded);
+
+        return Ok(after);
+    }
+
+    // ── PUT items sync ────────────────────────────────────────────────────────
+
     /// <summary>Replace the full list of expected items. Allowed in Draft and Planned statuses.</summary>
     [HttpPut("{id:guid}/items")]
     [Authorize]
@@ -443,6 +504,101 @@ public class ReceiptsController(
             ReceiptActions.PlacementAdded);
 
         return Ok(itemAfter);
+    }
+
+    // ── POST placement / standard / batch ────────────────────────────────────
+
+    /// <summary>Place multiple Standard items at the same storage node in one transaction. Only in Processing status.</summary>
+    [HttpPost("{id:guid}/placements/standard/batch")]
+    [Authorize]
+    [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> AddStandardPlacementBatch(Guid id,
+        [FromBody] BatchStandardPlacementRequest request, CancellationToken ct = default)
+    {
+        var (receipt, error) = await LoadReceiptWithProcessAccessAsync(id, ct);
+        if (error is not null) return error;
+
+        if (receipt!.Status != ReceiptStatus.Processing)
+            return UnprocessableEntity("root", ErrorCode.ReceiptInvalidStatusTransition,
+                "Placements can only be added during Processing status.");
+
+        var nodeExists = await db.StoragePlacesNodes.AnyAsync(n => n.Id == request.StoragePlaceNodeId, ct);
+        if (!nodeExists)
+            return UnprocessableEntity("storagePlaceNodeId", ErrorCode.StoragePlaceNodeNotFound,
+                "Storage place node not found.");
+
+        var duplicateIds = request.Items
+            .GroupBy(x => x.ItemId)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+        if (duplicateIds.Count > 0)
+            return UnprocessableEntity("items", ErrorCode.ValidationError,
+                $"Duplicate item id(s) in request: {string.Join(", ", duplicateIds)}.");
+
+        var requestItemIds = request.Items.Select(i => i.ItemId).ToHashSet();
+        var receiptItemsById = receipt.Items
+            .Where(i => requestItemIds.Contains(i.Id))
+            .ToDictionary(i => i.Id);
+
+        foreach (var req in request.Items)
+        {
+            if (!receiptItemsById.TryGetValue(req.ItemId, out var item))
+                return NotFound(ErrorCode.ReceiptItemNotFound, $"Receipt item '{req.ItemId}' not found.");
+
+            if (item.CatalogItem.Type != CatalogItemType.Standard)
+                return UnprocessableEntity("items", ErrorCode.ValidationError,
+                    $"Item '{item.CatalogItem.Name}' is not Standard type and cannot be batch-placed.");
+        }
+
+        var warehouseId = receipt.WarehouseId;
+        var nodeById = await LoadWarehouseNodesAsync(warehouseId, ct);
+
+        var before = mapper.Map<ReceiptDto>(receipt, opts => opts.Items["nodeById"] = nodeById);
+
+        var strategy = db.Database.CreateExecutionStrategy();
+        try
+        {
+            await strategy.ExecuteAsync(async () =>
+            {
+                await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+                foreach (var req in request.Items)
+                {
+                    var item = receiptItemsById[req.ItemId];
+
+                    await inventory.AddStandardItemsToNodeAsync(
+                        request.StoragePlaceNodeId,
+                        item.CatalogItemId,
+                        req.Count,
+                        ct: ct);
+
+                    db.ReceiptItemPlacements.Add(new ReceiptItemPlacement
+                    {
+                        Id                 = Guid.NewGuid(),
+                        ReceiptItemId      = req.ItemId,
+                        StoragePlaceNodeId = request.StoragePlaceNodeId,
+                        Count              = req.Count,
+                    });
+                }
+
+                await db.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
+            });
+        }
+        catch (StoragePlaceNodeNotFoundException)
+        {
+            return UnprocessableEntity("storagePlaceNodeId", ErrorCode.StoragePlaceNodeNotFound,
+                "Storage place node not found.");
+        }
+
+        var updatedReceipt = await BaseQuery(includeItems: true).FirstAsync(r => r.Id == id, ct);
+        var after = mapper.Map<ReceiptDto>(updatedReceipt, opts => opts.Items["nodeById"] = nodeById);
+        await changeLog.CompareAndSaveToChangelog(before, after, ReceiptActions.BatchPlacementsAdded);
+
+        return Ok(after);
     }
 
     // ── POST placement / unit ─────────────────────────────────────────────────
