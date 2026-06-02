@@ -773,6 +773,94 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("Warehouses");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Writeoff", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Number")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Number"));
+
+                    b.Property<int>("Reason")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("Number")
+                        .IsUnique();
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("Writeoffs");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.WriteoffItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssembledBundleInventoryItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CatalogItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("SourceNodeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("UnitInventoryItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WriteoffId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssembledBundleInventoryItemId");
+
+                    b.HasIndex("CatalogItemId");
+
+                    b.HasIndex("SourceNodeId");
+
+                    b.HasIndex("UnitInventoryItemId");
+
+                    b.HasIndex("WriteoffId");
+
+                    b.ToTable("WriteoffItems");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssembledBundleInventoryItem", b =>
                 {
                     b.HasBaseType("ProjectWarehouse.Server.Domain.InventoryItem");
@@ -1205,6 +1293,64 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("LayoutObjects");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Writeoff", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.WriteoffItem", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.AssembledBundleInventoryItem", "AssembledBundleInventoryItem")
+                        .WithMany()
+                        .HasForeignKey("AssembledBundleInventoryItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.StoragePlaceNode", "SourceNode")
+                        .WithMany()
+                        .HasForeignKey("SourceNodeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.UnitInventoryItem", "UnitInventoryItem")
+                        .WithMany()
+                        .HasForeignKey("UnitInventoryItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Writeoff", "Writeoff")
+                        .WithMany("Items")
+                        .HasForeignKey("WriteoffId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AssembledBundleInventoryItem");
+
+                    b.Navigation("CatalogItem");
+
+                    b.Navigation("SourceNode");
+
+                    b.Navigation("UnitInventoryItem");
+
+                    b.Navigation("Writeoff");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlaceNodeItemsGroup", b =>
                 {
                     b.HasOne("ProjectWarehouse.Server.Domain.StoragePlaceNode", "StoragePlaceNode")
@@ -1274,6 +1420,11 @@ namespace ProjectWarehouse.Server.Migrations
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Warehouse", b =>
                 {
                     b.Navigation("StoragePlaces");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Writeoff", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssembledBundleInventoryItem", b =>

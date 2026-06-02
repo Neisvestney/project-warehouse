@@ -5,6 +5,10 @@ export interface SelectedNode {
   nodePath: string[];
 }
 
+export function formatStoragePlaceNodeName(path: string[]): string {
+  return path.join(" / ");
+}
+
 export function buildNodePath(
   nodes: StoragePlaceNodeDto[],
   nodeId: string,

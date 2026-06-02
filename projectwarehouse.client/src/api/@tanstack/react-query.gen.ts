@@ -71,6 +71,14 @@ import {
   warehousesGetByIdForPrint,
   warehousesGetDefaultNode,
   warehousesUpdate,
+  writeoffsCancel,
+  writeoffsCreate,
+  writeoffsDelete,
+  writeoffsFinish,
+  writeoffsGetAll,
+  writeoffsGetById,
+  writeoffsSyncItems,
+  writeoffsUpdate,
 } from "../sdk.gen";
 import type {
   AuthChangeOwnPasswordData,
@@ -256,6 +264,30 @@ import type {
   WarehousesUpdateData,
   WarehousesUpdateError,
   WarehousesUpdateResponse,
+  WriteoffsCancelData,
+  WriteoffsCancelError,
+  WriteoffsCancelResponse,
+  WriteoffsCreateData,
+  WriteoffsCreateError,
+  WriteoffsCreateResponse,
+  WriteoffsDeleteData,
+  WriteoffsDeleteError,
+  WriteoffsDeleteResponse,
+  WriteoffsFinishData,
+  WriteoffsFinishError,
+  WriteoffsFinishResponse,
+  WriteoffsGetAllData,
+  WriteoffsGetAllError,
+  WriteoffsGetAllResponse,
+  WriteoffsGetByIdData,
+  WriteoffsGetByIdError,
+  WriteoffsGetByIdResponse,
+  WriteoffsSyncItemsData,
+  WriteoffsSyncItemsError,
+  WriteoffsSyncItemsResponse,
+  WriteoffsUpdateData,
+  WriteoffsUpdateError,
+  WriteoffsUpdateResponse,
 } from "../types.gen";
 
 /**
@@ -2292,3 +2324,258 @@ export const warehousesGetDefaultNodeOptions = (options: Options<WarehousesGetDe
     },
     queryKey: warehousesGetDefaultNodeQueryKey(options),
   });
+
+export const writeoffsGetAllQueryKey = (options?: Options<WriteoffsGetAllData>) =>
+  createQueryKey("writeoffsGetAll", options);
+
+/**
+ * List write-offs with pagination, filtering, and search.
+ */
+export const writeoffsGetAllOptions = (options?: Options<WriteoffsGetAllData>) =>
+  queryOptions<
+    WriteoffsGetAllResponse,
+    WriteoffsGetAllError,
+    WriteoffsGetAllResponse,
+    ReturnType<typeof writeoffsGetAllQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await writeoffsGetAll({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: writeoffsGetAllQueryKey(options),
+  });
+
+export const writeoffsGetAllInfiniteQueryKey = (
+  options?: Options<WriteoffsGetAllData>,
+): QueryKey<Options<WriteoffsGetAllData>> => createQueryKey("writeoffsGetAll", options, true);
+
+/**
+ * List write-offs with pagination, filtering, and search.
+ */
+export const writeoffsGetAllInfiniteOptions = (options?: Options<WriteoffsGetAllData>) =>
+  infiniteQueryOptions<
+    WriteoffsGetAllResponse,
+    WriteoffsGetAllError,
+    InfiniteData<WriteoffsGetAllResponse>,
+    QueryKey<Options<WriteoffsGetAllData>>,
+    number | Pick<QueryKey<Options<WriteoffsGetAllData>>[0], "body" | "headers" | "path" | "query">
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({pageParam, queryKey, signal}) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<WriteoffsGetAllData>>[0],
+          "body" | "headers" | "path" | "query"
+        > =
+          typeof pageParam === "object"
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const {data} = await writeoffsGetAll({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: writeoffsGetAllInfiniteQueryKey(options),
+    },
+  );
+
+/**
+ * Create a new write-off in Draft status.
+ */
+export const writeoffsCreateMutation = (
+  options?: Partial<Options<WriteoffsCreateData>>,
+): UseMutationOptions<
+  WriteoffsCreateResponse,
+  WriteoffsCreateError,
+  Options<WriteoffsCreateData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    WriteoffsCreateResponse,
+    WriteoffsCreateError,
+    Options<WriteoffsCreateData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await writeoffsCreate({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Delete a write-off. Only allowed in Draft status.
+ */
+export const writeoffsDeleteMutation = (
+  options?: Partial<Options<WriteoffsDeleteData>>,
+): UseMutationOptions<
+  WriteoffsDeleteResponse,
+  WriteoffsDeleteError,
+  Options<WriteoffsDeleteData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    WriteoffsDeleteResponse,
+    WriteoffsDeleteError,
+    Options<WriteoffsDeleteData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await writeoffsDelete({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const writeoffsGetByIdQueryKey = (options: Options<WriteoffsGetByIdData>) =>
+  createQueryKey("writeoffsGetById", options);
+
+/**
+ * Get full write-off details including items.
+ */
+export const writeoffsGetByIdOptions = (options: Options<WriteoffsGetByIdData>) =>
+  queryOptions<
+    WriteoffsGetByIdResponse,
+    WriteoffsGetByIdError,
+    WriteoffsGetByIdResponse,
+    ReturnType<typeof writeoffsGetByIdQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await writeoffsGetById({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: writeoffsGetByIdQueryKey(options),
+  });
+
+/**
+ * Update write-off name, reason, notes. Only allowed in Draft status.
+ */
+export const writeoffsUpdateMutation = (
+  options?: Partial<Options<WriteoffsUpdateData>>,
+): UseMutationOptions<
+  WriteoffsUpdateResponse,
+  WriteoffsUpdateError,
+  Options<WriteoffsUpdateData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    WriteoffsUpdateResponse,
+    WriteoffsUpdateError,
+    Options<WriteoffsUpdateData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await writeoffsUpdate({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Replace the full list of items to write off. Only allowed in Draft status.
+ */
+export const writeoffsSyncItemsMutation = (
+  options?: Partial<Options<WriteoffsSyncItemsData>>,
+): UseMutationOptions<
+  WriteoffsSyncItemsResponse,
+  WriteoffsSyncItemsError,
+  Options<WriteoffsSyncItemsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    WriteoffsSyncItemsResponse,
+    WriteoffsSyncItemsError,
+    Options<WriteoffsSyncItemsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await writeoffsSyncItems({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Finish the write-off: execute inventory removal for all items. Draft → Finished.
+ */
+export const writeoffsFinishMutation = (
+  options?: Partial<Options<WriteoffsFinishData>>,
+): UseMutationOptions<
+  WriteoffsFinishResponse,
+  WriteoffsFinishError,
+  Options<WriteoffsFinishData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    WriteoffsFinishResponse,
+    WriteoffsFinishError,
+    Options<WriteoffsFinishData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await writeoffsFinish({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Cancel the write-off. Only allowed in Draft status.
+ */
+export const writeoffsCancelMutation = (
+  options?: Partial<Options<WriteoffsCancelData>>,
+): UseMutationOptions<
+  WriteoffsCancelResponse,
+  WriteoffsCancelError,
+  Options<WriteoffsCancelData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    WriteoffsCancelResponse,
+    WriteoffsCancelError,
+    Options<WriteoffsCancelData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await writeoffsCancel({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};

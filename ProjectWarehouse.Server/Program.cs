@@ -25,6 +25,7 @@ using ProjectWarehouse.Server.Models.Roles;
 using ProjectWarehouse.Server.Models.Users;
 using ProjectWarehouse.Server.Models.Receipts;
 using ProjectWarehouse.Server.Models.Warehouses;
+using ProjectWarehouse.Server.Models.Writeoffs;
 using ProjectWarehouse.Server.Services;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
@@ -288,6 +289,7 @@ try
     builder.Services.AddScoped<IChangeLogService<StoragePlaceNodeDetailsDto>, StoragePlaceNodeDetailsDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<RolesListDto>, RolesListDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<ReceiptDto>, ReceiptDtoChangelogService>();
+    builder.Services.AddScoped<IChangeLogService<WriteoffDto>, WriteoffDtoChangelogService>();
     builder.Services.AddScoped<IInventoryService, InventoryService>();
     builder.Services.AddScoped<ICatalogService, CatalogService>();
     builder.Services.AddScoped<IUserQueryFilterService, UserQueryFilterService>();

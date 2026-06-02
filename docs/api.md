@@ -201,6 +201,84 @@ All items are moved in a single DB transaction — any failure rolls back the en
 
 ---
 
+## Writeoffs — `/api/writeoffs`
+
+| Method | Path | Permission | Description |
+|--------|------|------------|-------------|
+| GET | `/api/writeoffs` | `writeoffs.view` or `writeoffs.view_assigned` | List write-offs (paginated) |
+| GET | `/api/writeoffs/{id}` | `writeoffs.view` or `writeoffs.view_assigned` | Get full write-off with items |
+| POST | `/api/writeoffs` | `writeoffs.edit` or `writeoffs.edit_assigned` | Create write-off in Draft status |
+| PATCH | `/api/writeoffs/{id}` | `writeoffs.edit` or `writeoffs.edit_assigned` | Update name/reason/notes (Draft only) |
+| DELETE | `/api/writeoffs/{id}` | `writeoffs.edit` or `writeoffs.edit_assigned` | Delete write-off (Draft only) |
+| PUT | `/api/writeoffs/{id}/items` | `writeoffs.edit` or `writeoffs.edit_assigned` | Replace full items list (Draft only) |
+| POST | `/api/writeoffs/{id}/finish` | `writeoffs.edit` or `writeoffs.edit_assigned` | Execute write-off: remove items from inventory (Draft → Finished) |
+| POST | `/api/writeoffs/{id}/cancel` | `writeoffs.edit` or `writeoffs.edit_assigned` | Cancel write-off (Draft → Canceled) |
+
+**Query parameters for `GET /api/writeoffs`:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `page` | `int` | Page number (default 1) |
+| `pageSize` | `int` | Items per page (default 20, max 200) |
+| `searchString` | `string?` | Search in number, name, notes |
+| `warehouseId` | `Guid?` | Filter by warehouse |
+| `status` | `WriteoffStatus?` | Filter by status |
+| `reason` | `WriteoffReason?` | Filter by reason |
+| `sortBy` | `WriteoffSortBy` | Sort field (default `number`) |
+| `sortOrder` | `asc`\|`desc` | Sort direction (default `desc`) |
+
+**`CreateWriteoffRequest`:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | `string` | ✓ | Display name (max 256) |
+| `reason` | `WriteoffReason` | ✓ | `loss` \| `defect` \| `other` |
+| `warehouseId` | `Guid` | ✓ | Target warehouse |
+| `notes` | `string?` | — | Free-text notes (max 2048) |
+
+**`UpdateWriteoffRequest`:** same fields as Create (without `warehouseId`).
+
+**`PUT /api/writeoffs/{id}/items` body — `WriteoffItemRequest[]`:**
+
+Each element represents one inventory line. Exactly one item type discriminator must be set:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `sourceNodeId` | `Guid` | Storage node to remove from (must belong to write-off's warehouse) |
+| `catalogItemId` | `Guid?` | Standard item — also requires `count` |
+| `count` | `int?` | Required when `catalogItemId` is set (> 0) |
+| `unitInventoryItemId` | `Guid?` | Unit item ID (must be at `sourceNodeId`) |
+| `assembledBundleInventoryItemId` | `Guid?` | Bundle item ID (must be at `sourceNodeId`) |
+| `notes` | `string?` | Line-level notes |
+
+**Key DTOs:**
+
+`WriteoffSummaryDto`: `{ id, number, name, reason, status, warehouseId, warehouseName, itemsCount, createdAt }`
+
+`WriteoffDto`: same as summary + `notes?` + `items: WriteoffItemDto[]`
+
+`WriteoffItemDto`: `{ id, sourceNodeId, sourceNodePath: string[], notes?, catalogItemId?, catalogItem?, count, unitInventoryItemId?, inventoryNumber?, assembledBundleInventoryItemId?, catalogItemName }`
+
+**`WriteoffReason` values:** `loss`, `defect`, `other`  
+**`WriteoffStatus` values:** `draft`, `finished`, `canceled`  
+**`WriteoffSortBy` values:** `number` (default), `name`, `status`, `createdAt`, `warehouseName`
+
+**`POST /api/writeoffs/{id}/finish` behaviour:**
+
+All item removals execute in a single DB transaction. If any operation fails, nothing is committed. Possible 422 errors:
+
+- `writeoffNotDraft` — write-off is not in Draft status
+- `writeoffHasNoItems` — no items to write off
+- `writeoffInsufficientInventory` — not enough Standard items in the source node
+- `unitInventoryItemNotFound` — Unit item not found at expected node
+- `assembledBundleItemNotFound` — Bundle item not found at expected node
+
+**Permission notes:**
+- `writeoffs.view` / `writeoffs.edit` — access all warehouses
+- `writeoffs.view_assigned` / `writeoffs.edit_assigned` — restricted to user's assigned warehouses
+
+---
+
 ## Catalog — `/api/catalog`
 
 | Method | Path | Permission | Description |

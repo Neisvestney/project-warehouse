@@ -89,6 +89,20 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
       </>
     ),
   },
+  writeoff: {
+    linkTemplate: "/operations/writeoffs/{id}",
+    typeName: "Списание",
+    icon: <AssignmentIcon />,
+    renderAdditionalCardContent: (e) => (
+      <>
+        {e.additionalFields?.number && (
+          <Typography sx={{fontFamily: "monospace"}}>
+            СПС-{String(e.additionalFields.number as number).padStart(5, "0")}
+          </Typography>
+        )}
+      </>
+    ),
+  },
   receipt: {
     linkTemplate: "/operations/receipts/{id}",
     typeName: "Приемка",

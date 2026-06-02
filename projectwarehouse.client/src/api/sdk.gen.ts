@@ -186,6 +186,30 @@ import type {
   WarehousesUpdateData,
   WarehousesUpdateErrors,
   WarehousesUpdateResponses,
+  WriteoffsCancelData,
+  WriteoffsCancelErrors,
+  WriteoffsCancelResponses,
+  WriteoffsCreateData,
+  WriteoffsCreateErrors,
+  WriteoffsCreateResponses,
+  WriteoffsDeleteData,
+  WriteoffsDeleteErrors,
+  WriteoffsDeleteResponses,
+  WriteoffsFinishData,
+  WriteoffsFinishErrors,
+  WriteoffsFinishResponses,
+  WriteoffsGetAllData,
+  WriteoffsGetAllErrors,
+  WriteoffsGetAllResponses,
+  WriteoffsGetByIdData,
+  WriteoffsGetByIdErrors,
+  WriteoffsGetByIdResponses,
+  WriteoffsSyncItemsData,
+  WriteoffsSyncItemsErrors,
+  WriteoffsSyncItemsResponses,
+  WriteoffsUpdateData,
+  WriteoffsUpdateErrors,
+  WriteoffsUpdateResponses,
 } from "./types.gen";
 
 export type Options<
@@ -1077,3 +1101,107 @@ export const warehousesGetDefaultNode = <ThrowOnError extends boolean = false>(
     WarehousesGetDefaultNodeErrors,
     ThrowOnError
   >({url: "/api/warehouses/{id}/default-node", ...options});
+
+/**
+ * List write-offs with pagination, filtering, and search.
+ */
+export const writeoffsGetAll = <ThrowOnError extends boolean = false>(
+  options?: Options<WriteoffsGetAllData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<WriteoffsGetAllResponses, WriteoffsGetAllErrors, ThrowOnError>({
+    url: "/api/writeoffs",
+    ...options,
+  });
+
+/**
+ * Create a new write-off in Draft status.
+ */
+export const writeoffsCreate = <ThrowOnError extends boolean = false>(
+  options: Options<WriteoffsCreateData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<WriteoffsCreateResponses, WriteoffsCreateErrors, ThrowOnError>({
+    url: "/api/writeoffs",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete a write-off. Only allowed in Draft status.
+ */
+export const writeoffsDelete = <ThrowOnError extends boolean = false>(
+  options: Options<WriteoffsDeleteData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<WriteoffsDeleteResponses, WriteoffsDeleteErrors, ThrowOnError>({
+    url: "/api/writeoffs/{id}",
+    ...options,
+  });
+
+/**
+ * Get full write-off details including items.
+ */
+export const writeoffsGetById = <ThrowOnError extends boolean = false>(
+  options: Options<WriteoffsGetByIdData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<WriteoffsGetByIdResponses, WriteoffsGetByIdErrors, ThrowOnError>({
+    url: "/api/writeoffs/{id}",
+    ...options,
+  });
+
+/**
+ * Update write-off name, reason, notes. Only allowed in Draft status.
+ */
+export const writeoffsUpdate = <ThrowOnError extends boolean = false>(
+  options: Options<WriteoffsUpdateData, ThrowOnError>,
+) =>
+  (options.client ?? client).patch<WriteoffsUpdateResponses, WriteoffsUpdateErrors, ThrowOnError>({
+    url: "/api/writeoffs/{id}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Replace the full list of items to write off. Only allowed in Draft status.
+ */
+export const writeoffsSyncItems = <ThrowOnError extends boolean = false>(
+  options: Options<WriteoffsSyncItemsData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    WriteoffsSyncItemsResponses,
+    WriteoffsSyncItemsErrors,
+    ThrowOnError
+  >({
+    url: "/api/writeoffs/{id}/items",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Finish the write-off: execute inventory removal for all items. Draft → Finished.
+ */
+export const writeoffsFinish = <ThrowOnError extends boolean = false>(
+  options: Options<WriteoffsFinishData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<WriteoffsFinishResponses, WriteoffsFinishErrors, ThrowOnError>({
+    url: "/api/writeoffs/{id}/finish",
+    ...options,
+  });
+
+/**
+ * Cancel the write-off. Only allowed in Draft status.
+ */
+export const writeoffsCancel = <ThrowOnError extends boolean = false>(
+  options: Options<WriteoffsCancelData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<WriteoffsCancelResponses, WriteoffsCancelErrors, ThrowOnError>({
+    url: "/api/writeoffs/{id}/cancel",
+    ...options,
+  });

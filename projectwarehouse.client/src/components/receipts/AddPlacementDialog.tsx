@@ -41,6 +41,7 @@ import type {
 } from "@/api/types.gen";
 
 import type {SelectedNode} from "@/components/receipts/SelectNodeModal";
+import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 
 interface AddPlacementDialogProps {
   open: boolean;
@@ -72,7 +73,7 @@ function NodeSelector({
             fontStyle: node ? "normal" : "italic",
           }}
         >
-          {node ? node.nodePath.join(" / ") : "Ячейка не выбрана"}
+          {node ? formatStoragePlaceNodeName(node.nodePath) : "Ячейка не выбрана"}
         </Typography>
         <Button variant="outlined" size="small" onClick={() => setOpen(true)}>
           Выбрать ячейку

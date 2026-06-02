@@ -53,6 +53,14 @@ public static class Permissions
         public const string ExecuteAssigned = "transfers.execute_assigned";
     }
 
+    public static class Writeoffs
+    {
+        public const string View         = "writeoffs.view";
+        public const string Edit         = "writeoffs.edit";
+        public const string ViewAssigned = "writeoffs.view_assigned";
+        public const string EditAssigned = "writeoffs.edit_assigned";
+    }
+
     public static class Receipts
     {
         public const string View            = "receipts.view";
