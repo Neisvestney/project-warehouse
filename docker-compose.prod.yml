@@ -22,7 +22,7 @@ services:
     ports:
       - "4587:8080"
     environment:
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=projectwarehouse;Username=postgres;Password=${POSTGRES_PASSWORD}
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=projectwarehouse;Username=postgres;Password=${POSTGRES_PASSWORD};GssEncMode=Disable
       - Jwt__SecretKey=${Jwt__SecretKey}
       - Seed__AdminPassword=${Seed__AdminPassword}
     depends_on:
