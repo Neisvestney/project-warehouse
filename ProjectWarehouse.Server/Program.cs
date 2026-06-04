@@ -35,6 +35,8 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .CreateBootstrapLogger();
 
+Log.Information("Starting web host");
+
 try
 {
     Env.NoClobber().TraversePath().Load();
