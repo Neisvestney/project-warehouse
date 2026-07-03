@@ -11,6 +11,7 @@ using ProjectWarehouse.Server.Models.Roles;
 using ProjectWarehouse.Server.Models.Writeoffs;
 using ProjectWarehouse.Server.Models.Users;
 using ProjectWarehouse.Server.Models.Warehouses;
+using ProjectWarehouse.Server.Models.Orders;
 
 namespace ProjectWarehouse.Server.Infrastructure;
 
@@ -173,6 +174,50 @@ public class AppMapperProfile : Profile
             }));
 
         CreateMap<Writeoff, AppEntityWithSearchString>()
+            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
+
+        CreateMap<Order, OrderSummaryDto>()
+            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
+            .ForMember(d => d.CreatedByName, opt => opt.MapFrom(s => s.CreatedBy != null ? s.CreatedBy.FullName : null))
+            .ForMember(d => d.BoxCount, opt => opt.MapFrom(s => s.Boxes.Count))
+            .ForMember(d => d.ComponentCount, opt => opt.MapFrom(s => s.Boxes.SelectMany(b => b.Components).Sum(c => c.Quantity)));
+
+        CreateMap<Order, OrderDetailsDto>()
+            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
+            .ForMember(d => d.CreatedByName, opt => opt.MapFrom(s => s.CreatedBy != null ? s.CreatedBy.FullName : null));
+
+        CreateMap<OrderBox, OrderBoxDto>();
+
+        CreateMap<OrderBoxComponent, OrderBoxComponentDto>()
+            .ForMember(d => d.CatalogItemName, opt => opt.MapFrom(s => s.CatalogItem.FullName))
+            .ForMember(d => d.CatalogItemType, opt => opt.MapFrom(s => s.CatalogItem.Type));
+
+        CreateMap<AssemblyTask, AssemblyTaskDto>()
+            .ForMember(d => d.AssignedToName, opt => opt.MapFrom(s => s.AssignedTo != null ? s.AssignedTo.FullName : null));
+
+        CreateMap<AssemblyTaskBox, AssemblyTaskBoxDto>()
+            .ForMember(d => d.OrderBoxLabel, opt => opt.MapFrom(s => s.OrderBox.Label));
+
+        CreateMap<AssemblyTaskBoxComponent, AssemblyTaskBoxComponentDto>()
+            .ForMember(d => d.CatalogItemName, opt => opt.MapFrom(s => s.CatalogItem.FullName))
+            .ForMember(d => d.CatalogItemType, opt => opt.MapFrom(s => s.CatalogItem.Type));
+
+        CreateMap<AssemblyFulfillment, AssemblyFulfillmentDto>();
+
+        CreateMap<AssemblyFulfillmentBundleComponent, AssemblyFulfillmentBundleComponentDto>()
+            .ForMember(d => d.CatalogItemName, opt => opt.MapFrom(s => s.CatalogItem.FullName));
+
+        CreateMap<Order, AppEntity>()
+            .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Order))
+            .ForMember(x => x.Name, opt => opt.MapFrom(s => "#" + s.Number))
+            .ForMember(x => x.AdditionalFields, opt => opt.MapFrom(r => new Dictionary<string, object>
+            {
+                { "number", r.Number },
+                { "type", r.Type },
+                { "status", r.Status },
+            }));
+
+        CreateMap<Order, AppEntityWithSearchString>()
             .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
 
         CreateMap<ChangeLogEntry, ChangeLogEntryDto>()

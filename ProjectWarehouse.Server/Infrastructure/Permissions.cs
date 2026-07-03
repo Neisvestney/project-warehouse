@@ -74,4 +74,18 @@ public static class Permissions
         /// </summary>
         public const string ProcessAssigned = "receipts.process_assigned";
     }
+
+    public static class Orders
+    {
+        public const string View             = "orders.view";
+        public const string Edit             = "orders.edit";
+        public const string ViewAssigned     = "orders.view_assigned";
+        public const string EditAssigned     = "orders.edit_assigned";
+
+        /// <summary>Allows executing assembly tasks for warehouses assigned to the user.</summary>
+        public const string AssembleAssigned = "orders.assemble_assigned";
+
+        /// <summary>Allows taking a Confirmed order from an assigned warehouse without admin involvement.</summary>
+        public const string SelfAssign       = "orders.self_assign";
+    }
 }

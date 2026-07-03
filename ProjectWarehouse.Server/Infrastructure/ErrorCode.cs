@@ -75,6 +75,25 @@ public enum ErrorCode
     InsufficientInventory,
     UnitInventoryItemNumberDuplicate,
 
+    // Orders
+    OrderNotFound,
+    OrderNotDraft,
+    OrderNotConfirmed,
+    OrderNotAssembly,
+    OrderInvalidStatusTransition,
+    OrderHasFulfillments,
+    OrderNotAssignedToWarehouse,
+    OrderBoxNotFound,
+    OrderBoxComponentNotFound,
+    AssemblyTaskNotFound,
+    AssemblyTaskNotDeletable,
+    AssemblyTaskBoxNotFound,
+    AssemblyTaskBoxComponentNotFound,
+    AssemblyFulfillmentNotFound,
+    AssemblyFulfillmentInvalidType,
+    AssemblyTaskAlreadyDone,
+    AssemblyTaskMoveTargetInvalid,
+
     // Routing
     RouteNotFound,
 

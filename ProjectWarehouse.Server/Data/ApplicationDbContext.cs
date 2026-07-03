@@ -48,6 +48,19 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<Writeoff> Writeoffs => Set<Writeoff>();
     public DbSet<WriteoffItem> WriteoffItems => Set<WriteoffItem>();
 
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderMarketplaceItem> OrderMarketplaceItems => Set<OrderMarketplaceItem>();
+    public DbSet<OrderBox> OrderBoxes => Set<OrderBox>();
+    public DbSet<OrderBoxComponent> OrderBoxComponents => Set<OrderBoxComponent>();
+    public DbSet<AssemblyTask> AssemblyTasks => Set<AssemblyTask>();
+    public DbSet<AssemblyTaskBox> AssemblyTaskBoxes => Set<AssemblyTaskBox>();
+    public DbSet<AssemblyTaskBoxComponent> AssemblyTaskBoxComponents => Set<AssemblyTaskBoxComponent>();
+    public DbSet<AssemblyFulfillment> AssemblyFulfillments => Set<AssemblyFulfillment>();
+    public DbSet<AssemblyFulfillmentBundleComponent> AssemblyFulfillmentBundleComponents =>
+        Set<AssemblyFulfillmentBundleComponent>();
+    public DbSet<AssemblyFulfillmentAssembledBundleComponentSnapshot> AssemblyFulfillmentAssembledBundleComponentSnapshots =>
+        Set<AssemblyFulfillmentAssembledBundleComponentSnapshot>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -346,6 +359,179 @@ public class ApplicationDbContext : IdentityDbContext<
                 .HasForeignKey(x => x.AssembledBundleInventoryItemId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<Order>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Number).ValueGeneratedOnAdd();
+            e.HasIndex(x => x.Number).IsUnique();
+
+            e.HasOne(x => x.Warehouse)
+                .WithMany()
+                .HasForeignKey(x => x.WarehouseId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.CreatedBy)
+                .WithMany()
+                .HasForeignKey(x => x.CreatedById)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<OrderMarketplaceItem>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.Order)
+                .WithMany(x => x.MarketplaceItems)
+                .HasForeignKey(x => x.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<OrderBox>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.Order)
+                .WithMany(x => x.Boxes)
+                .HasForeignKey(x => x.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<OrderBoxComponent>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.OrderBox)
+                .WithMany(x => x.Components)
+                .HasForeignKey(x => x.OrderBoxId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.CatalogItem)
+                .WithMany()
+                .HasForeignKey(x => x.CatalogItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<AssemblyTask>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.Order)
+                .WithMany(x => x.AssemblyTasks)
+                .HasForeignKey(x => x.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.AssignedTo)
+                .WithMany()
+                .HasForeignKey(x => x.AssignedToId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<AssemblyTaskBox>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.AssemblyTask)
+                .WithMany(x => x.Boxes)
+                .HasForeignKey(x => x.AssemblyTaskId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.OrderBox)
+                .WithMany()
+                .HasForeignKey(x => x.OrderBoxId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<AssemblyTaskBoxComponent>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.AssemblyTaskBox)
+                .WithMany(x => x.Components)
+                .HasForeignKey(x => x.AssemblyTaskBoxId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.CatalogItem)
+                .WithMany()
+                .HasForeignKey(x => x.CatalogItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<AssemblyFulfillment>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.TaskBoxComponent)
+                .WithMany(x => x.Fulfillments)
+                .HasForeignKey(x => x.TaskBoxComponentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.SourceNode)
+                .WithMany()
+                .HasForeignKey(x => x.SourceNodeId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.UnitInventoryItem)
+                .WithMany()
+                .HasForeignKey(x => x.UnitInventoryItemId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.AssembledBundleInventoryItem)
+                .WithMany()
+                .HasForeignKey(x => x.AssembledBundleInventoryItemId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<AssemblyFulfillmentBundleComponent>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.Fulfillment)
+                .WithMany(x => x.BundleComponents)
+                .HasForeignKey(x => x.FulfillmentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.CatalogItem)
+                .WithMany()
+                .HasForeignKey(x => x.CatalogItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.SourceNode)
+                .WithMany()
+                .HasForeignKey(x => x.SourceNodeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.UnitInventoryItem)
+                .WithMany()
+                .HasForeignKey(x => x.UnitInventoryItemId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<AssemblyFulfillmentAssembledBundleComponentSnapshot>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.Fulfillment)
+                .WithMany(x => x.AssembledBundleComponentSnapshots)
+                .HasForeignKey(x => x.FulfillmentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.UnitInventoryItem)
+                .WithMany()
+                .HasForeignKey(x => x.UnitInventoryItemId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.CatalogItem)
+                .WithMany()
+                .HasForeignKey(x => x.CatalogItemId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

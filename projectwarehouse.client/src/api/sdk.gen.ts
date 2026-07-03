@@ -63,6 +63,78 @@ import type {
   InventoryItemsGetAllUnitsData,
   InventoryItemsGetAllUnitsErrors,
   InventoryItemsGetAllUnitsResponses,
+  OrdersAddBoxData,
+  OrdersAddBoxErrors,
+  OrdersAddBoxResponses,
+  OrdersAddComponentData,
+  OrdersAddComponentErrors,
+  OrdersAddComponentResponses,
+  OrdersAddFulfillmentData,
+  OrdersAddFulfillmentErrors,
+  OrdersAddFulfillmentResponses,
+  OrdersBatchFulfillData,
+  OrdersBatchFulfillErrors,
+  OrdersBatchFulfillResponses,
+  OrdersCreateAssemblyTaskData,
+  OrdersCreateAssemblyTaskErrors,
+  OrdersCreateAssemblyTaskResponses,
+  OrdersCreateDirectData,
+  OrdersCreateDirectErrors,
+  OrdersCreateDirectResponses,
+  OrdersDeleteAssemblyTaskData,
+  OrdersDeleteAssemblyTaskErrors,
+  OrdersDeleteAssemblyTaskResponses,
+  OrdersDeleteData,
+  OrdersDeleteErrors,
+  OrdersDeleteResponses,
+  OrdersGetAllAssemblyData,
+  OrdersGetAllAssemblyErrors,
+  OrdersGetAllAssemblyResponses,
+  OrdersGetAllData,
+  OrdersGetAllErrors,
+  OrdersGetAllResponses,
+  OrdersGetByIdData,
+  OrdersGetByIdErrors,
+  OrdersGetByIdResponses,
+  OrdersGetMoveTargetsData,
+  OrdersGetMoveTargetsErrors,
+  OrdersGetMoveTargetsResponses,
+  OrdersMoveComponentData,
+  OrdersMoveComponentErrors,
+  OrdersMoveComponentResponses,
+  OrdersRemoveBoxData,
+  OrdersRemoveBoxErrors,
+  OrdersRemoveBoxResponses,
+  OrdersRemoveComponentData,
+  OrdersRemoveComponentErrors,
+  OrdersRemoveComponentResponses,
+  OrdersRemoveFulfillmentData,
+  OrdersRemoveFulfillmentErrors,
+  OrdersRemoveFulfillmentResponses,
+  OrdersSelfAssignData,
+  OrdersSelfAssignErrors,
+  OrdersSelfAssignResponses,
+  OrdersTransitionStatusData,
+  OrdersTransitionStatusErrors,
+  OrdersTransitionStatusResponses,
+  OrdersTransitionTaskStatusData,
+  OrdersTransitionTaskStatusErrors,
+  OrdersTransitionTaskStatusResponses,
+  OrdersUpdateAssemblyTaskData,
+  OrdersUpdateAssemblyTaskErrors,
+  OrdersUpdateAssemblyTaskResponses,
+  OrdersUpdateBoxData,
+  OrdersUpdateBoxErrors,
+  OrdersUpdateBoxResponses,
+  OrdersUpdateComponentData,
+  OrdersUpdateComponentErrors,
+  OrdersUpdateComponentResponses,
+  OrdersUpdateData,
+  OrdersUpdateErrors,
+  OrdersUpdateResponses,
+  OrdersUpdateTaskBoxComponentData,
+  OrdersUpdateTaskBoxComponentErrors,
+  OrdersUpdateTaskBoxComponentResponses,
   PermissionsGetAllData,
   PermissionsGetAllErrors,
   PermissionsGetAllResponses,
@@ -508,6 +580,306 @@ export const inventoryItemsGetAllAssembledBundles = <ThrowOnError extends boolea
     InventoryItemsGetAllAssembledBundlesErrors,
     ThrowOnError
   >({url: "/api/inventory-items/assembled-bundles", ...options});
+
+export const ordersGetAll = <ThrowOnError extends boolean = false>(
+  options?: Options<OrdersGetAllData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<OrdersGetAllResponses, OrdersGetAllErrors, ThrowOnError>({
+    url: "/api/orders",
+    ...options,
+  });
+
+export const ordersGetAllAssembly = <ThrowOnError extends boolean = false>(
+  options?: Options<OrdersGetAllAssemblyData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    OrdersGetAllAssemblyResponses,
+    OrdersGetAllAssemblyErrors,
+    ThrowOnError
+  >({url: "/api/orders/assembly", ...options});
+
+export const ordersDelete = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersDeleteData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<OrdersDeleteResponses, OrdersDeleteErrors, ThrowOnError>({
+    url: "/api/orders/{id}",
+    ...options,
+  });
+
+export const ordersGetById = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersGetByIdData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<OrdersGetByIdResponses, OrdersGetByIdErrors, ThrowOnError>({
+    url: "/api/orders/{id}",
+    ...options,
+  });
+
+export const ordersUpdate = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersUpdateData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<OrdersUpdateResponses, OrdersUpdateErrors, ThrowOnError>({
+    url: "/api/orders/{id}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+export const ordersCreateDirect = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersCreateDirectData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    OrdersCreateDirectResponses,
+    OrdersCreateDirectErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/direct",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+export const ordersTransitionStatus = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersTransitionStatusData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    OrdersTransitionStatusResponses,
+    OrdersTransitionStatusErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/{id}/status",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+export const ordersSelfAssign = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersSelfAssignData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<OrdersSelfAssignResponses, OrdersSelfAssignErrors, ThrowOnError>({
+    url: "/api/orders/{id}/self-assign",
+    ...options,
+  });
+
+export const ordersAddBox = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersAddBoxData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<OrdersAddBoxResponses, OrdersAddBoxErrors, ThrowOnError>({
+    url: "/api/orders/{id}/boxes",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+export const ordersRemoveBox = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersRemoveBoxData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<OrdersRemoveBoxResponses, OrdersRemoveBoxErrors, ThrowOnError>({
+    url: "/api/orders/{id}/boxes/{boxId}",
+    ...options,
+  });
+
+export const ordersUpdateBox = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersUpdateBoxData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<OrdersUpdateBoxResponses, OrdersUpdateBoxErrors, ThrowOnError>({
+    url: "/api/orders/{id}/boxes/{boxId}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+export const ordersAddComponent = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersAddComponentData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    OrdersAddComponentResponses,
+    OrdersAddComponentErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/{id}/boxes/{boxId}/components",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+export const ordersRemoveComponent = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersRemoveComponentData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<
+    OrdersRemoveComponentResponses,
+    OrdersRemoveComponentErrors,
+    ThrowOnError
+  >({url: "/api/orders/{id}/boxes/{boxId}/components/{cid}", ...options});
+
+export const ordersUpdateComponent = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersUpdateComponentData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    OrdersUpdateComponentResponses,
+    OrdersUpdateComponentErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/{id}/boxes/{boxId}/components/{cid}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+export const ordersGetMoveTargets = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersGetMoveTargetsData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    OrdersGetMoveTargetsResponses,
+    OrdersGetMoveTargetsErrors,
+    ThrowOnError
+  >({url: "/api/orders/{id}/boxes/{boxId}/components/{cid}/move-targets", ...options});
+
+export const ordersMoveComponent = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersMoveComponentData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    OrdersMoveComponentResponses,
+    OrdersMoveComponentErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/{id}/boxes/{boxId}/components/{cid}/move",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+export const ordersCreateAssemblyTask = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersCreateAssemblyTaskData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    OrdersCreateAssemblyTaskResponses,
+    OrdersCreateAssemblyTaskErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/{id}/assembly-tasks",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+export const ordersDeleteAssemblyTask = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersDeleteAssemblyTaskData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<
+    OrdersDeleteAssemblyTaskResponses,
+    OrdersDeleteAssemblyTaskErrors,
+    ThrowOnError
+  >({url: "/api/orders/{id}/assembly-tasks/{taskId}", ...options});
+
+export const ordersUpdateAssemblyTask = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersUpdateAssemblyTaskData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    OrdersUpdateAssemblyTaskResponses,
+    OrdersUpdateAssemblyTaskErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/{id}/assembly-tasks/{taskId}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+export const ordersTransitionTaskStatus = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersTransitionTaskStatusData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    OrdersTransitionTaskStatusResponses,
+    OrdersTransitionTaskStatusErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/{id}/assembly-tasks/{taskId}/status",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+export const ordersUpdateTaskBoxComponent = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersUpdateTaskBoxComponentData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    OrdersUpdateTaskBoxComponentResponses,
+    OrdersUpdateTaskBoxComponentErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/{id}/assembly-tasks/{taskId}/boxes/{tbid}/components/{cid}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+export const ordersAddFulfillment = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersAddFulfillmentData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    OrdersAddFulfillmentResponses,
+    OrdersAddFulfillmentErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/{id}/assembly-tasks/{taskId}/boxes/{tbid}/components/{cid}/fulfillments",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+export const ordersRemoveFulfillment = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersRemoveFulfillmentData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<
+    OrdersRemoveFulfillmentResponses,
+    OrdersRemoveFulfillmentErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/{id}/assembly-tasks/{taskId}/boxes/{tbid}/components/{cid}/fulfillments/{fid}",
+    ...options,
+  });
+
+export const ordersBatchFulfill = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersBatchFulfillData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    OrdersBatchFulfillResponses,
+    OrdersBatchFulfillErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/assembly-tasks/batch-fulfill",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
 
 /**
  * Get all available static permissions defined in the system.

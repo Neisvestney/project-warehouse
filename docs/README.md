@@ -32,6 +32,7 @@ ProjectWarehouse.Server/   ASP.NET Core 9 REST API
 | [backend-patterns.md](backend-patterns.md) | Recurring backend implementation patterns (search, etc.) |
 | [frontend.md](frontend.md) | Frontend architecture, pages, components, routing |
 | [technical-specification.md](technical-specification.md) | WMS operational flows — data models, APIs, UX requirements |
+| [orders-specification.md](orders-specification.md) | Orders system — FBS, FBO, Direct, assembly tasks, status flows |
 
 ## Local Dev Setup
 

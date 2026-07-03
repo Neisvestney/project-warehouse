@@ -314,6 +314,178 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("AssembledBundleInventoryItemComponents");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssemblyFulfillment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssembledBundleInventoryItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("SourceNodeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TaskBoxComponentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("UnitInventoryItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UnitInventoryNumber")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssembledBundleInventoryItemId");
+
+                    b.HasIndex("SourceNodeId");
+
+                    b.HasIndex("TaskBoxComponentId");
+
+                    b.HasIndex("UnitInventoryItemId");
+
+                    b.ToTable("AssemblyFulfillments");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssemblyFulfillmentAssembledBundleComponentSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CatalogItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("FulfillmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("UnitInventoryItemId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CatalogItemId");
+
+                    b.HasIndex("FulfillmentId");
+
+                    b.HasIndex("UnitInventoryItemId");
+
+                    b.ToTable("AssemblyFulfillmentAssembledBundleComponentSnapshots");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssemblyFulfillmentBundleComponent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CatalogItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("FulfillmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SourceNodeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("UnitInventoryItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UnitInventoryNumber")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CatalogItemId");
+
+                    b.HasIndex("FulfillmentId");
+
+                    b.HasIndex("SourceNodeId");
+
+                    b.HasIndex("UnitInventoryItemId");
+
+                    b.ToTable("AssemblyFulfillmentBundleComponents");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssemblyTask", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssignedToId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedToId");
+
+                    b.HasIndex("OrderId");
+
+                    b.ToTable("AssemblyTasks");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssemblyTaskBox", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AssemblyTaskId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrderBoxId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssemblyTaskId");
+
+                    b.HasIndex("OrderBoxId");
+
+                    b.ToTable("AssemblyTaskBoxes");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssemblyTaskBoxComponent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AssemblyTaskBoxId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CatalogItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssemblyTaskBoxId");
+
+                    b.HasIndex("CatalogItemId");
+
+                    b.ToTable("AssemblyTaskBoxComponents");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.BundleComponent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -516,6 +688,120 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasDiscriminator<string>("Discriminator").HasValue("ItemsGroup");
 
                     b.UseTphMappingStrategy();
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Order", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("MarketplaceOrderId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Number")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Number"));
+
+                    b.Property<DateTime?>("PlannedShipmentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("Number")
+                        .IsUnique();
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("Orders");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.OrderBox", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Label")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId");
+
+                    b.ToTable("OrderBoxes");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.OrderBoxComponent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CatalogItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrderBoxId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CatalogItemId");
+
+                    b.HasIndex("OrderBoxId");
+
+                    b.ToTable("OrderBoxComponents");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.OrderMarketplaceItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("MarketplaceCardId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId");
+
+                    b.ToTable("OrderMarketplaceItems");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Receipt", b =>
@@ -1024,6 +1310,153 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("UnitInventoryItem");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssemblyFulfillment", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.AssembledBundleInventoryItem", "AssembledBundleInventoryItem")
+                        .WithMany()
+                        .HasForeignKey("AssembledBundleInventoryItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.StoragePlaceNode", "SourceNode")
+                        .WithMany()
+                        .HasForeignKey("SourceNodeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.AssemblyTaskBoxComponent", "TaskBoxComponent")
+                        .WithMany("Fulfillments")
+                        .HasForeignKey("TaskBoxComponentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.UnitInventoryItem", "UnitInventoryItem")
+                        .WithMany()
+                        .HasForeignKey("UnitInventoryItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("AssembledBundleInventoryItem");
+
+                    b.Navigation("SourceNode");
+
+                    b.Navigation("TaskBoxComponent");
+
+                    b.Navigation("UnitInventoryItem");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssemblyFulfillmentAssembledBundleComponentSnapshot", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.AssemblyFulfillment", "Fulfillment")
+                        .WithMany("AssembledBundleComponentSnapshots")
+                        .HasForeignKey("FulfillmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.UnitInventoryItem", "UnitInventoryItem")
+                        .WithMany()
+                        .HasForeignKey("UnitInventoryItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CatalogItem");
+
+                    b.Navigation("Fulfillment");
+
+                    b.Navigation("UnitInventoryItem");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssemblyFulfillmentBundleComponent", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.AssemblyFulfillment", "Fulfillment")
+                        .WithMany("BundleComponents")
+                        .HasForeignKey("FulfillmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.StoragePlaceNode", "SourceNode")
+                        .WithMany()
+                        .HasForeignKey("SourceNodeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.UnitInventoryItem", "UnitInventoryItem")
+                        .WithMany()
+                        .HasForeignKey("UnitInventoryItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CatalogItem");
+
+                    b.Navigation("Fulfillment");
+
+                    b.Navigation("SourceNode");
+
+                    b.Navigation("UnitInventoryItem");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssemblyTask", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", "AssignedTo")
+                        .WithMany()
+                        .HasForeignKey("AssignedToId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Order", "Order")
+                        .WithMany("AssemblyTasks")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AssignedTo");
+
+                    b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssemblyTaskBox", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.AssemblyTask", "AssemblyTask")
+                        .WithMany("Boxes")
+                        .HasForeignKey("AssemblyTaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.OrderBox", "OrderBox")
+                        .WithMany()
+                        .HasForeignKey("OrderBoxId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AssemblyTask");
+
+                    b.Navigation("OrderBox");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssemblyTaskBoxComponent", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.AssemblyTaskBox", "AssemblyTaskBox")
+                        .WithMany("Components")
+                        .HasForeignKey("AssemblyTaskBoxId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AssemblyTaskBox");
+
+                    b.Navigation("CatalogItem");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.BundleComponent", b =>
                 {
                     b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "Bundle")
@@ -1117,6 +1550,65 @@ namespace ProjectWarehouse.Server.Migrations
                         .IsRequired();
 
                     b.Navigation("CatalogItem");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Order", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.OrderBox", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.Order", "Order")
+                        .WithMany("Boxes")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.OrderBoxComponent", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.OrderBox", "OrderBox")
+                        .WithMany("Components")
+                        .HasForeignKey("OrderBoxId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CatalogItem");
+
+                    b.Navigation("OrderBox");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.OrderMarketplaceItem", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.Order", "Order")
+                        .WithMany("MarketplaceItems")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Receipt", b =>
@@ -1378,6 +1870,28 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("UserRoles");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssemblyFulfillment", b =>
+                {
+                    b.Navigation("AssembledBundleComponentSnapshots");
+
+                    b.Navigation("BundleComponents");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssemblyTask", b =>
+                {
+                    b.Navigation("Boxes");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssemblyTaskBox", b =>
+                {
+                    b.Navigation("Components");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssemblyTaskBoxComponent", b =>
+                {
+                    b.Navigation("Fulfillments");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItem", b =>
                 {
                     b.Navigation("AssembledComponents");
@@ -1391,6 +1905,20 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("VariationMembers");
 
                     b.Navigation("VariationMemberships");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Order", b =>
+                {
+                    b.Navigation("AssemblyTasks");
+
+                    b.Navigation("Boxes");
+
+                    b.Navigation("MarketplaceItems");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.OrderBox", b =>
+                {
+                    b.Navigation("Components");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Receipt", b =>
