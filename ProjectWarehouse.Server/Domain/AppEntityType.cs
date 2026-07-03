@@ -10,4 +10,5 @@ public enum AppEntityType
     StoragePlaceNode,
     Receipt,
     Writeoff,
+    Order,
 }

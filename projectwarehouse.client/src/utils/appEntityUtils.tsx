@@ -103,6 +103,20 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
       </>
     ),
   },
+  order: {
+    linkTemplate: "/operations/orders/{id}",
+    typeName: "Заказ",
+    icon: <AssignmentIcon />,
+    renderAdditionalCardContent: (e) => (
+      <>
+        {e.additionalFields?.number && (
+          <Typography sx={{fontFamily: "monospace"}}>
+            ЗКЗ-{String(e.additionalFields.number as number).padStart(5, "0")}
+          </Typography>
+        )}
+      </>
+    ),
+  },
   receipt: {
     linkTemplate: "/operations/receipts/{id}",
     typeName: "Приемка",

@@ -295,6 +295,7 @@ try
     builder.Services.AddScoped<IInventoryService, InventoryService>();
     builder.Services.AddScoped<ICatalogService, CatalogService>();
     builder.Services.AddScoped<IUserQueryFilterService, UserQueryFilterService>();
+    builder.Services.AddScoped<IOrderService, OrderService>();
     var app = builder.Build();
 
     using (var scope = app.Services.CreateScope())

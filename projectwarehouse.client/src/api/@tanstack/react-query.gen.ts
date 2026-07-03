@@ -30,6 +30,30 @@ import {
   inventoryItemsGetAllAssembledBundles,
   inventoryItemsGetAllUnits,
   type Options,
+  ordersAddBox,
+  ordersAddComponent,
+  ordersAddFulfillment,
+  ordersBatchFulfill,
+  ordersCreateAssemblyTask,
+  ordersCreateDirect,
+  ordersDelete,
+  ordersDeleteAssemblyTask,
+  ordersGetAll,
+  ordersGetAllAssembly,
+  ordersGetById,
+  ordersGetMoveTargets,
+  ordersMoveComponent,
+  ordersRemoveBox,
+  ordersRemoveComponent,
+  ordersRemoveFulfillment,
+  ordersSelfAssign,
+  ordersTransitionStatus,
+  ordersTransitionTaskStatus,
+  ordersUpdate,
+  ordersUpdateAssemblyTask,
+  ordersUpdateBox,
+  ordersUpdateComponent,
+  ordersUpdateTaskBoxComponent,
   permissionsGetAll,
   receiptsAddAssembledBundlePlacement,
   receiptsAddStandardPlacement,
@@ -143,6 +167,78 @@ import type {
   InventoryItemsGetAllUnitsData,
   InventoryItemsGetAllUnitsError,
   InventoryItemsGetAllUnitsResponse,
+  OrdersAddBoxData,
+  OrdersAddBoxError,
+  OrdersAddBoxResponse,
+  OrdersAddComponentData,
+  OrdersAddComponentError,
+  OrdersAddComponentResponse,
+  OrdersAddFulfillmentData,
+  OrdersAddFulfillmentError,
+  OrdersAddFulfillmentResponse,
+  OrdersBatchFulfillData,
+  OrdersBatchFulfillError,
+  OrdersBatchFulfillResponse,
+  OrdersCreateAssemblyTaskData,
+  OrdersCreateAssemblyTaskError,
+  OrdersCreateAssemblyTaskResponse,
+  OrdersCreateDirectData,
+  OrdersCreateDirectError,
+  OrdersCreateDirectResponse,
+  OrdersDeleteAssemblyTaskData,
+  OrdersDeleteAssemblyTaskError,
+  OrdersDeleteAssemblyTaskResponse,
+  OrdersDeleteData,
+  OrdersDeleteError,
+  OrdersDeleteResponse,
+  OrdersGetAllAssemblyData,
+  OrdersGetAllAssemblyError,
+  OrdersGetAllAssemblyResponse,
+  OrdersGetAllData,
+  OrdersGetAllError,
+  OrdersGetAllResponse,
+  OrdersGetByIdData,
+  OrdersGetByIdError,
+  OrdersGetByIdResponse,
+  OrdersGetMoveTargetsData,
+  OrdersGetMoveTargetsError,
+  OrdersGetMoveTargetsResponse,
+  OrdersMoveComponentData,
+  OrdersMoveComponentError,
+  OrdersMoveComponentResponse,
+  OrdersRemoveBoxData,
+  OrdersRemoveBoxError,
+  OrdersRemoveBoxResponse,
+  OrdersRemoveComponentData,
+  OrdersRemoveComponentError,
+  OrdersRemoveComponentResponse,
+  OrdersRemoveFulfillmentData,
+  OrdersRemoveFulfillmentError,
+  OrdersRemoveFulfillmentResponse,
+  OrdersSelfAssignData,
+  OrdersSelfAssignError,
+  OrdersSelfAssignResponse,
+  OrdersTransitionStatusData,
+  OrdersTransitionStatusError,
+  OrdersTransitionStatusResponse,
+  OrdersTransitionTaskStatusData,
+  OrdersTransitionTaskStatusError,
+  OrdersTransitionTaskStatusResponse,
+  OrdersUpdateAssemblyTaskData,
+  OrdersUpdateAssemblyTaskError,
+  OrdersUpdateAssemblyTaskResponse,
+  OrdersUpdateBoxData,
+  OrdersUpdateBoxError,
+  OrdersUpdateBoxResponse,
+  OrdersUpdateComponentData,
+  OrdersUpdateComponentError,
+  OrdersUpdateComponentResponse,
+  OrdersUpdateData,
+  OrdersUpdateError,
+  OrdersUpdateResponse,
+  OrdersUpdateTaskBoxComponentData,
+  OrdersUpdateTaskBoxComponentError,
+  OrdersUpdateTaskBoxComponentResponse,
   PermissionsGetAllData,
   PermissionsGetAllError,
   PermissionsGetAllResponse,
@@ -1122,6 +1218,602 @@ export const inventoryItemsGetAllAssembledBundlesInfiniteOptions = (
       queryKey: inventoryItemsGetAllAssembledBundlesInfiniteQueryKey(options),
     },
   );
+
+export const ordersGetAllQueryKey = (options?: Options<OrdersGetAllData>) =>
+  createQueryKey("ordersGetAll", options);
+
+export const ordersGetAllOptions = (options?: Options<OrdersGetAllData>) =>
+  queryOptions<
+    OrdersGetAllResponse,
+    OrdersGetAllError,
+    OrdersGetAllResponse,
+    ReturnType<typeof ordersGetAllQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await ordersGetAll({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: ordersGetAllQueryKey(options),
+  });
+
+export const ordersGetAllInfiniteQueryKey = (
+  options?: Options<OrdersGetAllData>,
+): QueryKey<Options<OrdersGetAllData>> => createQueryKey("ordersGetAll", options, true);
+
+export const ordersGetAllInfiniteOptions = (options?: Options<OrdersGetAllData>) =>
+  infiniteQueryOptions<
+    OrdersGetAllResponse,
+    OrdersGetAllError,
+    InfiniteData<OrdersGetAllResponse>,
+    QueryKey<Options<OrdersGetAllData>>,
+    number | Pick<QueryKey<Options<OrdersGetAllData>>[0], "body" | "headers" | "path" | "query">
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({pageParam, queryKey, signal}) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<OrdersGetAllData>>[0],
+          "body" | "headers" | "path" | "query"
+        > =
+          typeof pageParam === "object"
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const {data} = await ordersGetAll({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: ordersGetAllInfiniteQueryKey(options),
+    },
+  );
+
+export const ordersGetAllAssemblyQueryKey = (options?: Options<OrdersGetAllAssemblyData>) =>
+  createQueryKey("ordersGetAllAssembly", options);
+
+export const ordersGetAllAssemblyOptions = (options?: Options<OrdersGetAllAssemblyData>) =>
+  queryOptions<
+    OrdersGetAllAssemblyResponse,
+    OrdersGetAllAssemblyError,
+    OrdersGetAllAssemblyResponse,
+    ReturnType<typeof ordersGetAllAssemblyQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await ordersGetAllAssembly({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: ordersGetAllAssemblyQueryKey(options),
+  });
+
+export const ordersDeleteMutation = (
+  options?: Partial<Options<OrdersDeleteData>>,
+): UseMutationOptions<OrdersDeleteResponse, OrdersDeleteError, Options<OrdersDeleteData>> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersDeleteResponse,
+    OrdersDeleteError,
+    Options<OrdersDeleteData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersDelete({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersGetByIdQueryKey = (options: Options<OrdersGetByIdData>) =>
+  createQueryKey("ordersGetById", options);
+
+export const ordersGetByIdOptions = (options: Options<OrdersGetByIdData>) =>
+  queryOptions<
+    OrdersGetByIdResponse,
+    OrdersGetByIdError,
+    OrdersGetByIdResponse,
+    ReturnType<typeof ordersGetByIdQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await ordersGetById({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: ordersGetByIdQueryKey(options),
+  });
+
+export const ordersUpdateMutation = (
+  options?: Partial<Options<OrdersUpdateData>>,
+): UseMutationOptions<OrdersUpdateResponse, OrdersUpdateError, Options<OrdersUpdateData>> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersUpdateResponse,
+    OrdersUpdateError,
+    Options<OrdersUpdateData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersUpdate({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersCreateDirectMutation = (
+  options?: Partial<Options<OrdersCreateDirectData>>,
+): UseMutationOptions<
+  OrdersCreateDirectResponse,
+  OrdersCreateDirectError,
+  Options<OrdersCreateDirectData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersCreateDirectResponse,
+    OrdersCreateDirectError,
+    Options<OrdersCreateDirectData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersCreateDirect({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersTransitionStatusMutation = (
+  options?: Partial<Options<OrdersTransitionStatusData>>,
+): UseMutationOptions<
+  OrdersTransitionStatusResponse,
+  OrdersTransitionStatusError,
+  Options<OrdersTransitionStatusData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersTransitionStatusResponse,
+    OrdersTransitionStatusError,
+    Options<OrdersTransitionStatusData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersTransitionStatus({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersSelfAssignMutation = (
+  options?: Partial<Options<OrdersSelfAssignData>>,
+): UseMutationOptions<
+  OrdersSelfAssignResponse,
+  OrdersSelfAssignError,
+  Options<OrdersSelfAssignData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersSelfAssignResponse,
+    OrdersSelfAssignError,
+    Options<OrdersSelfAssignData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersSelfAssign({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersAddBoxMutation = (
+  options?: Partial<Options<OrdersAddBoxData>>,
+): UseMutationOptions<OrdersAddBoxResponse, OrdersAddBoxError, Options<OrdersAddBoxData>> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersAddBoxResponse,
+    OrdersAddBoxError,
+    Options<OrdersAddBoxData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersAddBox({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersRemoveBoxMutation = (
+  options?: Partial<Options<OrdersRemoveBoxData>>,
+): UseMutationOptions<
+  OrdersRemoveBoxResponse,
+  OrdersRemoveBoxError,
+  Options<OrdersRemoveBoxData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersRemoveBoxResponse,
+    OrdersRemoveBoxError,
+    Options<OrdersRemoveBoxData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersRemoveBox({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersUpdateBoxMutation = (
+  options?: Partial<Options<OrdersUpdateBoxData>>,
+): UseMutationOptions<
+  OrdersUpdateBoxResponse,
+  OrdersUpdateBoxError,
+  Options<OrdersUpdateBoxData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersUpdateBoxResponse,
+    OrdersUpdateBoxError,
+    Options<OrdersUpdateBoxData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersUpdateBox({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersAddComponentMutation = (
+  options?: Partial<Options<OrdersAddComponentData>>,
+): UseMutationOptions<
+  OrdersAddComponentResponse,
+  OrdersAddComponentError,
+  Options<OrdersAddComponentData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersAddComponentResponse,
+    OrdersAddComponentError,
+    Options<OrdersAddComponentData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersAddComponent({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersRemoveComponentMutation = (
+  options?: Partial<Options<OrdersRemoveComponentData>>,
+): UseMutationOptions<
+  OrdersRemoveComponentResponse,
+  OrdersRemoveComponentError,
+  Options<OrdersRemoveComponentData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersRemoveComponentResponse,
+    OrdersRemoveComponentError,
+    Options<OrdersRemoveComponentData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersRemoveComponent({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersUpdateComponentMutation = (
+  options?: Partial<Options<OrdersUpdateComponentData>>,
+): UseMutationOptions<
+  OrdersUpdateComponentResponse,
+  OrdersUpdateComponentError,
+  Options<OrdersUpdateComponentData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersUpdateComponentResponse,
+    OrdersUpdateComponentError,
+    Options<OrdersUpdateComponentData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersUpdateComponent({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersGetMoveTargetsQueryKey = (options: Options<OrdersGetMoveTargetsData>) =>
+  createQueryKey("ordersGetMoveTargets", options);
+
+export const ordersGetMoveTargetsOptions = (options: Options<OrdersGetMoveTargetsData>) =>
+  queryOptions<
+    OrdersGetMoveTargetsResponse,
+    OrdersGetMoveTargetsError,
+    OrdersGetMoveTargetsResponse,
+    ReturnType<typeof ordersGetMoveTargetsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await ordersGetMoveTargets({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: ordersGetMoveTargetsQueryKey(options),
+  });
+
+export const ordersMoveComponentMutation = (
+  options?: Partial<Options<OrdersMoveComponentData>>,
+): UseMutationOptions<
+  OrdersMoveComponentResponse,
+  OrdersMoveComponentError,
+  Options<OrdersMoveComponentData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersMoveComponentResponse,
+    OrdersMoveComponentError,
+    Options<OrdersMoveComponentData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersMoveComponent({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersCreateAssemblyTaskMutation = (
+  options?: Partial<Options<OrdersCreateAssemblyTaskData>>,
+): UseMutationOptions<
+  OrdersCreateAssemblyTaskResponse,
+  OrdersCreateAssemblyTaskError,
+  Options<OrdersCreateAssemblyTaskData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersCreateAssemblyTaskResponse,
+    OrdersCreateAssemblyTaskError,
+    Options<OrdersCreateAssemblyTaskData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersCreateAssemblyTask({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersDeleteAssemblyTaskMutation = (
+  options?: Partial<Options<OrdersDeleteAssemblyTaskData>>,
+): UseMutationOptions<
+  OrdersDeleteAssemblyTaskResponse,
+  OrdersDeleteAssemblyTaskError,
+  Options<OrdersDeleteAssemblyTaskData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersDeleteAssemblyTaskResponse,
+    OrdersDeleteAssemblyTaskError,
+    Options<OrdersDeleteAssemblyTaskData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersDeleteAssemblyTask({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersUpdateAssemblyTaskMutation = (
+  options?: Partial<Options<OrdersUpdateAssemblyTaskData>>,
+): UseMutationOptions<
+  OrdersUpdateAssemblyTaskResponse,
+  OrdersUpdateAssemblyTaskError,
+  Options<OrdersUpdateAssemblyTaskData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersUpdateAssemblyTaskResponse,
+    OrdersUpdateAssemblyTaskError,
+    Options<OrdersUpdateAssemblyTaskData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersUpdateAssemblyTask({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersTransitionTaskStatusMutation = (
+  options?: Partial<Options<OrdersTransitionTaskStatusData>>,
+): UseMutationOptions<
+  OrdersTransitionTaskStatusResponse,
+  OrdersTransitionTaskStatusError,
+  Options<OrdersTransitionTaskStatusData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersTransitionTaskStatusResponse,
+    OrdersTransitionTaskStatusError,
+    Options<OrdersTransitionTaskStatusData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersTransitionTaskStatus({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersUpdateTaskBoxComponentMutation = (
+  options?: Partial<Options<OrdersUpdateTaskBoxComponentData>>,
+): UseMutationOptions<
+  OrdersUpdateTaskBoxComponentResponse,
+  OrdersUpdateTaskBoxComponentError,
+  Options<OrdersUpdateTaskBoxComponentData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersUpdateTaskBoxComponentResponse,
+    OrdersUpdateTaskBoxComponentError,
+    Options<OrdersUpdateTaskBoxComponentData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersUpdateTaskBoxComponent({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersAddFulfillmentMutation = (
+  options?: Partial<Options<OrdersAddFulfillmentData>>,
+): UseMutationOptions<
+  OrdersAddFulfillmentResponse,
+  OrdersAddFulfillmentError,
+  Options<OrdersAddFulfillmentData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersAddFulfillmentResponse,
+    OrdersAddFulfillmentError,
+    Options<OrdersAddFulfillmentData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersAddFulfillment({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersRemoveFulfillmentMutation = (
+  options?: Partial<Options<OrdersRemoveFulfillmentData>>,
+): UseMutationOptions<
+  OrdersRemoveFulfillmentResponse,
+  OrdersRemoveFulfillmentError,
+  Options<OrdersRemoveFulfillmentData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersRemoveFulfillmentResponse,
+    OrdersRemoveFulfillmentError,
+    Options<OrdersRemoveFulfillmentData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersRemoveFulfillment({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersBatchFulfillMutation = (
+  options?: Partial<Options<OrdersBatchFulfillData>>,
+): UseMutationOptions<
+  OrdersBatchFulfillResponse,
+  OrdersBatchFulfillError,
+  Options<OrdersBatchFulfillData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersBatchFulfillResponse,
+    OrdersBatchFulfillError,
+    Options<OrdersBatchFulfillData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersBatchFulfill({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 export const permissionsGetAllQueryKey = (options?: Options<PermissionsGetAllData>) =>
   createQueryKey("permissionsGetAll", options);

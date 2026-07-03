@@ -89,6 +89,23 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   assembledBundleItemNotFound: "Комплект не найден",
   inventoryItemMovedToAnotherNodeAfterPlacementCreated:
     "Товар был перемещён в другую ячейку после создания размещения",
+  orderNotFound: "Заказ не найден",
+  orderNotDraft: "Заказ должен быть в статусе Черновик",
+  orderNotConfirmed: "Заказ должен быть в статусе Подтверждён",
+  orderNotAssembly: "Заказ должен быть в статусе Сборка",
+  orderInvalidStatusTransition: "Недопустимый переход статуса заказа",
+  orderHasFulfillments: "У заказа есть фулфилменты",
+  orderNotAssignedToWarehouse: "Заказ не привязан к этому складу",
+  orderBoxNotFound: "Коробка заказа не найдена",
+  orderBoxComponentNotFound: "Компонент коробки не найден",
+  assemblyTaskNotFound: "Задание на сборку не найдено",
+  assemblyTaskNotDeletable: "Задание нельзя удалить",
+  assemblyTaskBoxNotFound: "Коробка задания не найдена",
+  assemblyTaskBoxComponentNotFound: "Компонент задания не найден",
+  assemblyFulfillmentNotFound: "Фулфилмент не найден",
+  assemblyFulfillmentInvalidType: "Неверный тип фулфилмента",
+  assemblyTaskAlreadyDone: "Задание уже завершено",
+  assemblyTaskMoveTargetInvalid: "Недопустимая целевая коробка для перемещения",
 };
 
 export function resolveErrorMessage(error: AppFieldError): string {
