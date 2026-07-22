@@ -204,7 +204,9 @@ function TagsAutocomplete({
       filterSelectedOptions
       filterOptions={(x, params) => {
         const trimmed = params.inputValue.trim();
-        const alreadyExists = x.some((o) => o.name.toLowerCase() === trimmed.toLowerCase());
+        const alreadyExists = x.some(
+          (o) => typeof o != "string" && o.name.toLowerCase() === trimmed.toLowerCase(),
+        );
         if (trimmed && !alreadyExists) {
           return [
             ...x,
