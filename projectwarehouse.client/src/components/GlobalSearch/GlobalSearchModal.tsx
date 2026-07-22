@@ -138,7 +138,7 @@ function GlobalSearchContent({
               <ListItemButton
                 key={entity.id ?? index}
                 ref={(el) => {
-                  itemRefs.current[index] = el as HTMLLIElement | null;
+                  itemRefs.current[index] = el as unknown as HTMLLIElement | null;
                 }}
                 selected={index === effectiveActiveIndex}
                 onClick={() => handleSelect(entity)}

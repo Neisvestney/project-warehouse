@@ -5,7 +5,7 @@
 | Tool | Version | Role |
 |------|---------|------|
 | React | 19 | UI framework |
-| TypeScript | 6 | Type safety |
+| TypeScript | 7 (native Go compiler) | Type safety |
 | Vite | 8 | Build tool + dev server |
 | MUI (Material UI) | v9 | Component library |
 | Emotion | 11 | CSS-in-JS (MUI peer) |
@@ -19,6 +19,27 @@
 | vite-plugin-pwa | 1 | PWA + service worker |
 | sass-embedded | — | Sass support |
 | use-double-tap | 1 | Double-tap gesture (camera focus on mobile) |
+
+### TypeScript 7 tooling note
+
+The `typescript` package is aliased to `npm:@typescript/typescript6` because `typescript-eslint`'s
+programmatic API support doesn't cover TS 7 yet (its `typescript` peer range is `<6.1.0`). The real
+TS 7 (native Go) compiler is installed under the `typescript-7` alias and used only for type-checking
+via `npm run typecheck` (`node ./node_modules/typescript-7/bin/tsc -b`, wired into `npm run build`
+and documented in `CLAUDE.md`). `npx --package typescript-7 tsc` does **not** work for this alias — npx resolves
+`--package` by the package's own internal name, not the local alias key, and falls back to fetching
+a nonexistent `typescript-7` from the registry. Once `typescript-eslint` supports TS 7, drop the
+`@typescript/typescript6` alias and use `typescript@^7` directly for both linting and building.
+
+Both aliased packages declare a `tsc` bin, so `node_modules/.bin/tsc` (and therefore bare `tsc -b` /
+`npx tsc`) resolves to whichever package npm linked last — currently `typescript-7`, but this is an
+npm install-order artifact, not a guaranteed contract, and can silently flip to TS 6 on a different
+npm version or lockfile state. Always use `npm run typecheck` (or invoke
+`node ./node_modules/typescript-7/bin/tsc` directly) rather than relying on `tsc`/`npx tsc` to pick
+the right version.
+
+`strict` is explicitly set to `true` in `tsconfig.app.json`/`tsconfig.node.json` (verified clean —
+0 errors — against the full codebase when enabled during the TS 7 migration).
 
 ## Directory Layout
 
