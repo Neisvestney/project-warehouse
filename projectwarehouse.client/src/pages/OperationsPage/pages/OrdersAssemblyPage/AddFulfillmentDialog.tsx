@@ -15,15 +15,12 @@ import {
   Select,
   Stack,
   TextField,
-  ToggleButton,
-  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import {useMutation, useQueries, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
   catalogGetByIdOptions,
-  inventoryItemsGetAllAssembledBundlesOptions,
   inventoryItemsGetAllUnitsOptions,
   ordersAddFulfillmentMutation,
   ordersBatchFulfillMutation,
@@ -214,80 +211,6 @@ function UnitForm({catalogItemId, warehouseId, onChange}: UnitFormProps) {
   );
 }
 
-// ─── AssembledBundle fulfillment ────────────────────────────────────────────
-
-interface AssembledBundleFormProps {
-  catalogItemId: string;
-  warehouseId: string;
-  value: string | null;
-  onChange: (id: string | null, nodeId: string | null) => void;
-}
-
-function AssembledBundleForm({
-  catalogItemId,
-  warehouseId,
-  value,
-  onChange,
-}: AssembledBundleFormProps) {
-  const [searchString, setSearchString] = useState("");
-  const debouncedSearch = useDebounce(searchString, 300);
-  const [nodeFilter, setNodeFilter] = useState<{id: string; path: string} | null>(null);
-
-  const query = useQuery({
-    ...inventoryItemsGetAllAssembledBundlesOptions({
-      query: {
-        catalogItemId,
-        warehouseId,
-        pageSize: 50,
-        searchString: debouncedSearch || undefined,
-        nodeId: nodeFilter?.id,
-      },
-    }),
-  });
-
-  return (
-    <Stack spacing={1}>
-      <TextField
-        label="Поиск"
-        size="small"
-        value={searchString}
-        onChange={(e) => setSearchString(e.target.value)}
-        fullWidth
-      />
-      <NodeField
-        label="Фильтр по ячейке"
-        warehouseId={warehouseId}
-        nodePath={nodeFilter?.path ?? null}
-        onSelect={(node) =>
-          setNodeFilter({id: node.nodeId, path: formatStoragePlaceNodeName(node.nodePath)})
-        }
-        onClear={() => setNodeFilter(null)}
-      />
-      <FormControl size="small" fullWidth>
-        <InputLabel>Готовый комплект</InputLabel>
-        <Select
-          value={value ?? ""}
-          onChange={(e) => {
-            const item = query.data?.items.find((i) => i.id === e.target.value);
-            onChange(e.target.value || null, item?.nodeId ?? null);
-          }}
-          label="Готовый комплект"
-          disabled={query.isLoading}
-        >
-          {query.data?.items.map((item) => (
-            <MenuItem key={item.id} value={item.id}>
-              {item.storagePlaceName} / {item.nodeName}
-            </MenuItem>
-          ))}
-          {!query.isLoading && !query.data?.items.length && (
-            <MenuItem disabled>Нет доступных комплектов</MenuItem>
-          )}
-        </Select>
-      </FormControl>
-    </Stack>
-  );
-}
-
 // ─── Bundle slot (recursive — handles standard/unit/nested bundle/variation) ─
 
 interface BundleSlotFormProps {
@@ -417,23 +340,17 @@ function BundleSlotForm({
           </Select>
         </FormControl>
 
-        {selectedVariantId &&
-          selectedVariantType &&
-          (selectedVariantType === "assembledBundle" ? (
-            <Alert severity="warning">
-              Вариант "Готовый комплект" внутри состава комплекта не поддерживается
-            </Alert>
-          ) : (
-            <BundleSlotForm
-              key={selectedVariantId}
-              warehouseId={warehouseId}
-              catalogItemId={selectedVariantId}
-              catalogItemType={selectedVariantType}
-              componentName={componentName}
-              multiplier={multiplier}
-              onChange={onChange}
-            />
-          ))}
+        {selectedVariantId && selectedVariantType && (
+          <BundleSlotForm
+            key={selectedVariantId}
+            warehouseId={warehouseId}
+            catalogItemId={selectedVariantId}
+            catalogItemType={selectedVariantType}
+            componentName={componentName}
+            multiplier={multiplier}
+            onChange={onChange}
+          />
+        )}
       </Stack>
     );
   }
@@ -589,7 +506,6 @@ function SubFulfillmentForm({
   fulfillment,
   onChange,
 }: SubFulfillmentFormProps) {
-  const [bundleMode, setBundleMode] = useState<"tree" | "assembled">("tree");
   const [nodeState, setNodeState] = useState<{
     sourceNodeId: string | null;
     nodePath: string | null;
@@ -627,52 +543,14 @@ function SubFulfillmentForm({
     );
   }
 
-  if (catalogItemType === "assembledBundle") {
-    return (
-      <AssembledBundleForm
-        catalogItemId={catalogItemId}
-        warehouseId={warehouseId}
-        value={fulfillment.assembledBundleInventoryItemId ?? null}
-        onChange={(id, nodeId) =>
-          onChange({sourceNodeId: nodeId, quantity: 0, assembledBundleInventoryItemId: id})
-        }
-      />
-    );
-  }
-
   if (catalogItemType === "bundle") {
     return (
-      <Stack spacing={2}>
-        <ToggleButtonGroup
-          size="small"
-          value={bundleMode}
-          exclusive
-          onChange={(_, v) => v && setBundleMode(v)}
-        >
-          <ToggleButton value="tree">Собрать из компонентов</ToggleButton>
-          <ToggleButton value="assembled">Готовый комплект</ToggleButton>
-        </ToggleButtonGroup>
-
-        {bundleMode === "assembled" ? (
-          <AssembledBundleForm
-            catalogItemId={catalogItemId}
-            warehouseId={warehouseId}
-            value={fulfillment.assembledBundleInventoryItemId ?? null}
-            onChange={(id, nodeId) =>
-              onChange({sourceNodeId: nodeId, quantity: 0, assembledBundleInventoryItemId: id})
-            }
-          />
-        ) : (
-          <BundleTreeForm
-            key={catalogItemId}
-            catalogItemId={catalogItemId}
-            warehouseId={warehouseId}
-            onChange={(comps) =>
-              onChange({sourceNodeId: null, quantity: 0, bundleComponents: comps})
-            }
-          />
-        )}
-      </Stack>
+      <BundleTreeForm
+        key={catalogItemId}
+        catalogItemId={catalogItemId}
+        warehouseId={warehouseId}
+        onChange={(comps) => onChange({sourceNodeId: null, quantity: 0, bundleComponents: comps})}
+      />
     );
   }
 
@@ -752,9 +630,7 @@ function AddFulfillmentDialog({
   const canSubmit =
     !!fulfillment.sourceNodeId && fulfillment.quantity > 0
       ? true
-      : !!fulfillment.unitInventoryItemId ||
-        !!fulfillment.assembledBundleInventoryItemId ||
-        isBundleFulfillment;
+      : !!fulfillment.unitInventoryItemId || isBundleFulfillment;
 
   const isPending = mutation.isPending || batchMutation.isPending;
 
@@ -825,5 +701,5 @@ function AddFulfillmentDialog({
   );
 }
 
-export {UnitForm, AssembledBundleForm, BundleTreeForm, VariationForm};
+export {UnitForm, BundleTreeForm, VariationForm};
 export default AddFulfillmentDialog;

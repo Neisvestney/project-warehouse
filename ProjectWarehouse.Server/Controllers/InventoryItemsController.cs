@@ -20,8 +20,8 @@ public class InventoryItemsController(
 {
     /// <summary>List all inventory items aggregated by catalog item.</summary>
     /// <remarks>
-    /// Returns one row per distinct CatalogItem with a total Count summed across all three item kinds
-    /// (Standard, Unit, AssembledBundle). Supports filtering by warehouse, storage place, node,
+    /// Returns one row per distinct CatalogItem with a total Count summed across both item kinds
+    /// (Standard, Unit). Supports filtering by warehouse, storage place, node,
     /// catalog item type, and archive state.
     /// </remarks>
     [HttpGet]
@@ -76,13 +76,6 @@ public class InventoryItemsController(
                         .Where(u => storagePlaceId == null || u.StoragePlaceNode.RootStoragePlaceId == storagePlaceId)
                         .Where(u => nodeId == null || u.StoragePlaceNodeId == nodeId)
                         .Where(u => assignedIds == null || assignedIds.Contains(u.StoragePlaceNode.RootStoragePlace.WarehouseId))
-                        .Count()
-                    + db.InventoryItems.OfType<AssembledBundleInventoryItem>()
-                        .Where(ab => ab.CatalogItemId == ci.Id)
-                        .Where(ab => warehouseId == null || ab.StoragePlaceNode.RootStoragePlace.WarehouseId == warehouseId)
-                        .Where(ab => storagePlaceId == null || ab.StoragePlaceNode.RootStoragePlaceId == storagePlaceId)
-                        .Where(ab => nodeId == null || ab.StoragePlaceNodeId == nodeId)
-                        .Where(ab => assignedIds == null || assignedIds.Contains(ab.StoragePlaceNode.RootStoragePlace.WarehouseId))
                         .Count(),
             })
             .Where(x => x.Count > 0);
@@ -164,58 +157,6 @@ public class InventoryItemsController(
 
         var paginated = await query
             .ProjectTo<UnitInventoryItemDto>(mapper.ConfigurationProvider)
-            .ToPaginatedAsync(page, pageSize, ct);
-
-        return Ok(paginated);
-    }
-
-    /// <summary>List all assembled bundle inventory items (individual bundle instances).</summary>
-    [HttpGet("assembled-bundles")]
-    [Authorize]
-    [ProducesResponseType<Paginated<AssembledBundleInventoryItemDto>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAllAssembledBundles(
-        [FromQuery][Range(1, int.MaxValue)] int page = 1,
-        [FromQuery][Range(1, 200)] int pageSize = 20,
-        [FromQuery] string? searchString = null,
-        [FromQuery] Guid? warehouseId = null,
-        [FromQuery] Guid? storagePlaceId = null,
-        [FromQuery] Guid? nodeId = null,
-        [FromQuery] Guid? catalogItemId = null,
-        [FromQuery] AssembledBundleInventoryItemSortBy sortBy = AssembledBundleInventoryItemSortBy.WarehouseName,
-        [FromQuery] SortOrder sortOrder = SortOrder.Asc,
-        CancellationToken ct = default)
-    {
-        var canViewAll = User.HasClaim("permission", Permissions.Warehouses.View);
-        var canViewAssigned = User.HasClaim("permission", Permissions.Warehouses.ViewAssigned);
-
-        if (!canViewAll && !canViewAssigned)
-            return Forbidden();
-
-        HashSet<Guid>? assignedIds = null;
-        if (!canViewAll)
-        {
-            assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-            if (assignedIds is null)
-                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
-        }
-
-        var bundleBaseQuery = db.InventoryItems.OfType<AssembledBundleInventoryItem>()
-            .Where(ab => warehouseId == null || ab.StoragePlaceNode.RootStoragePlace.WarehouseId == warehouseId)
-            .Where(ab => storagePlaceId == null || ab.StoragePlaceNode.RootStoragePlaceId == storagePlaceId)
-            .Where(ab => nodeId == null || ab.StoragePlaceNodeId == nodeId)
-            .Where(ab => catalogItemId == null || ab.CatalogItemId == catalogItemId)
-            .Where(ab => assignedIds == null || assignedIds.Contains(ab.StoragePlaceNode.RootStoragePlace.WarehouseId))
-            .WhereMatchesSearch(ab => ab.CatalogItem.Name, searchString);
-
-        var query = sortBy switch
-        {
-            AssembledBundleInventoryItemSortBy.StoragePlaceName => bundleBaseQuery.Sort(ab => ab.StoragePlaceNode.RootStoragePlace.Name, sortOrder).ThenBy(ab => ab.Id),
-            AssembledBundleInventoryItemSortBy.NodeName         => bundleBaseQuery.Sort(ab => ab.StoragePlaceNode.Name, sortOrder).ThenBy(ab => ab.Id),
-            _                                                   => bundleBaseQuery.Sort(ab => ab.StoragePlaceNode.RootStoragePlace.Warehouse.Name, sortOrder).ThenBy(ab => ab.Id),
-        };
-
-        var paginated = await query
-            .ProjectTo<AssembledBundleInventoryItemDto>(mapper.ConfigurationProvider)
             .ToPaginatedAsync(page, pageSize, ct);
 
         return Ok(paginated);

@@ -2,11 +2,9 @@ namespace ProjectWarehouse.Server.Models.Orders;
 
 /// <summary>
 /// Exactly one fulfillment scenario must be provided:
-/// - Standard:        SourceNodeId + Quantity > 0
-/// - Unit:            UnitInventoryItemId + SourceNodeId
-/// - AssembledBundle: AssembledBundleInventoryItemId + SourceNodeId
-/// - Bundle mode 2:   AssembledBundleInventoryItemId + SourceNodeId (same as AssembledBundle)
-/// - Bundle mode 1:   BundleComponents (non-empty); SourceNodeId is ignored
+/// - Standard: SourceNodeId + Quantity > 0
+/// - Unit:     UnitInventoryItemId + SourceNodeId
+/// - Bundle:   BundleComponents (non-empty); SourceNodeId is ignored
 /// </summary>
 public class AddFulfillmentRequest
 {
@@ -18,9 +16,6 @@ public class AddFulfillmentRequest
     // Unit
     public Guid? UnitInventoryItemId { get; init; }
 
-    // AssembledBundle or Bundle mode 2
-    public Guid? AssembledBundleInventoryItemId { get; init; }
-
-    // Bundle mode 1
+    // Bundle
     public IReadOnlyList<AddFulfillmentBundleComponentRequest>? BundleComponents { get; init; }
 }

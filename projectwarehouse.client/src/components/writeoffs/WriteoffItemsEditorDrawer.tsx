@@ -61,15 +61,6 @@ type DraftItem =
       inventoryNumber: string;
       catalogItemName: string;
       notes: string;
-    }
-  | {
-      type: "assembledBundle";
-      key: string;
-      sourceNodeId: string;
-      sourceNodePath: string[];
-      assembledBundleItemId: string;
-      catalogItemName: string;
-      notes: string;
     };
 
 function existingItemsToDraft(items: WriteoffItemDto[]): DraftItem[] {
@@ -82,17 +73,6 @@ function existingItemsToDraft(items: WriteoffItemDto[]): DraftItem[] {
         sourceNodePath: item.sourceNodePath,
         unitItemId: item.unitInventoryItemId,
         inventoryNumber: item.inventoryNumber ?? "",
-        catalogItemName: item.catalogItemName,
-        notes: item.notes ?? "",
-      };
-    }
-    if (item.assembledBundleInventoryItemId) {
-      return {
-        type: "assembledBundle",
-        key: item.id,
-        sourceNodeId: item.sourceNodeId,
-        sourceNodePath: item.sourceNodePath,
-        assembledBundleItemId: item.assembledBundleInventoryItemId,
         catalogItemName: item.catalogItemName,
         notes: item.notes ?? "",
       };
@@ -120,16 +100,12 @@ function draftToRequest(items: DraftItem[]): WriteoffItemRequest[] {
     if (item.type === "standard") {
       return {...base, catalogItemId: item.catalogItemId, count: item.count};
     }
-    if (item.type === "unit") {
-      return {...base, unitInventoryItemId: item.unitItemId};
-    }
-    return {...base, assembledBundleInventoryItemId: item.assembledBundleItemId};
+    return {...base, unitInventoryItemId: item.unitItemId};
   });
 }
 
 function itemLabel(item: DraftItem): string {
   if (item.type === "unit") return `${item.catalogItemName} [${item.inventoryNumber}]`;
-  if (item.type === "assembledBundle") return item.catalogItemName;
   return item.catalogItemName;
 }
 
@@ -191,7 +167,7 @@ function WriteoffItemsEditorDrawer({open, onClose, writeoff}: WriteoffItemsEdito
               notes: "",
             });
           }
-        } else if (item.type === "unit") {
+        } else {
           if (!next.some((d) => d.type === "unit" && d.unitItemId === item.unitItemId)) {
             next.push({
               type: "unit",
@@ -200,24 +176,6 @@ function WriteoffItemsEditorDrawer({open, onClose, writeoff}: WriteoffItemsEdito
               sourceNodePath: pickerNode.nodePath,
               unitItemId: item.unitItemId,
               inventoryNumber: item.inventoryNumber,
-              catalogItemName: item.catalogItemName,
-              notes: "",
-            });
-          }
-        } else {
-          if (
-            !next.some(
-              (d) =>
-                d.type === "assembledBundle" &&
-                d.assembledBundleItemId === item.assembledBundleItemId,
-            )
-          ) {
-            next.push({
-              type: "assembledBundle",
-              key: item.assembledBundleItemId,
-              sourceNodeId: pickerNode.nodeId,
-              sourceNodePath: pickerNode.nodePath,
-              assembledBundleItemId: item.assembledBundleItemId,
               catalogItemName: item.catalogItemName,
               notes: "",
             });

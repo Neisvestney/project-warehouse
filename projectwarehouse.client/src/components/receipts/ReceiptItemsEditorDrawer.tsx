@@ -134,7 +134,7 @@ function ReceiptItemsEditorDrawer({
                         <CatalogItemsSelect
                           value={f.value}
                           onChange={f.onChange}
-                          types={["standard", "unit", "assembledBundle"]}
+                          types={["standard", "unit"]}
                           size="small"
                           disabled={mutation.isPending}
                           textFieldProps={{
@@ -223,7 +223,7 @@ function ReceiptItemsEditorDrawer({
                           <CatalogItemsSelect
                             value={f.value}
                             onChange={f.onChange}
-                            types={["standard", "unit", "assembledBundle"]}
+                            types={["standard", "unit"]}
                             size="small"
                             disabled={mutation.isPending}
                             textFieldProps={{

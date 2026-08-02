@@ -45,7 +45,7 @@ import {useHasPermission} from "@/hooks/usePermission";
 import AddIcon from "@mui/icons-material/Add";
 import FiltersBar from "@/components/FiltersBar.tsx";
 
-const DEFAULT_ITEM_TYPES = CATALOG_ITEM_TYPES.filter((t) => t !== "assembledBundle");
+const DEFAULT_ITEM_TYPES = CATALOG_ITEM_TYPES;
 
 const SORTABLE_COLUMNS: {key: CatalogSortBy; label: string}[] = [
   {key: "type", label: "Тип"},

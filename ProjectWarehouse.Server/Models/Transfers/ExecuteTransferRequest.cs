@@ -24,7 +24,4 @@ public record TransferItemRequest
 
     /// <summary>Filled for Unit items.</summary>
     public Guid? UnitItemId { get; init; }
-
-    /// <summary>Filled for AssembledBundle items.</summary>
-    public Guid? AssembledBundleItemId { get; init; }
 }

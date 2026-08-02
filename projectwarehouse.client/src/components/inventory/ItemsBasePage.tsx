@@ -44,7 +44,6 @@ import TableRowEmpty from "@/components/TableRowEmpty";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
 import {UnitItemsDrawer} from "@/components/inventory/UnitItemsDrawer";
-import {AssembledBundleItemsDrawer} from "@/components/inventory/AssembledBundleItemsDrawer";
 
 const SORTABLE_COLUMNS: {key: InventoryItemSortBy; label: string}[] = [
   {key: "type", label: "Тип"},
@@ -129,18 +128,13 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
     useDrawerSearchParamsState("catalogItem");
   const [unitCatalogItemId, openUnitDrawer, closeUnitDrawer] =
     useDrawerSearchParamsState("unitCatalogItem");
-  const [bundleCatalogItemId, openBundleDrawer, closeBundleDrawer] =
-    useDrawerSearchParamsState("bundleCatalogItem");
 
   const getRowClickHandler = (row: InventoryItemSummaryDto) => {
     if (row.catalogItem.type === "unit") return () => openUnitDrawer(row.catalogItemId);
-    if (row.catalogItem.type === "assembledBundle")
-      return () => openBundleDrawer(row.catalogItemId);
     return undefined;
   };
 
   const unitItem = data?.items.find((i) => i.catalogItemId === unitCatalogItemId);
-  const bundleItem = data?.items.find((i) => i.catalogItemId === bundleCatalogItemId);
 
   return (
     <>
@@ -245,10 +239,7 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
                     <TableRow
                       key={row.catalogItemId}
                       hover={isClickable}
-                      selected={
-                        row.catalogItemId === unitCatalogItemId ||
-                        row.catalogItemId === bundleCatalogItemId
-                      }
+                      selected={row.catalogItemId === unitCatalogItemId}
                       sx={{
                         cursor: isClickable ? "pointer" : "default",
                         opacity: isFetching && !isLoading ? 0.5 : 1,
@@ -315,15 +306,6 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
         storagePlaceId={storagePlaceId}
         nodeId={nodeId}
         onClose={closeUnitDrawer}
-      />
-
-      <AssembledBundleItemsDrawer
-        catalogItemId={bundleCatalogItemId}
-        catalogItemName={bundleItem?.catalogItem.fullName}
-        warehouseId={effectiveWarehouseId}
-        storagePlaceId={storagePlaceId}
-        nodeId={nodeId}
-        onClose={closeBundleDrawer}
       />
     </>
   );

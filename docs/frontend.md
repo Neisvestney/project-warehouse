@@ -75,8 +75,7 @@ src/
 │   │   └── receiptUtils.ts            # RECEIPT_REASON_LABELS, formatReceiptNumber helpers
 │   ├── inventory/
 │   │   ├── ItemsBasePage.tsx        # Reusable inventory table: search, filters (type/archive/warehouse), pagination, row-click drawers
-│   │   ├── UnitItemsDrawer.tsx      # Bottom drawer: paginated list of individual UnitInventoryItem instances for a clicked catalog item
-│   │   └── AssembledBundleItemsDrawer.tsx  # Bottom drawer: paginated list of individual AssembledBundleInventoryItem instances
+│   │   └── UnitItemsDrawer.tsx      # Bottom drawer: paginated list of individual UnitInventoryItem instances for a clicked catalog item
 │   ├── CatalogItemsSelect.tsx   # Autocomplete for catalog items; single (id/dto) or multi (dto[]) mode; supports type filter
 │   ├── form/
 │   │   └── FormTextField.tsx    # RHF-wired TextField wrapper
@@ -390,7 +389,7 @@ Detail page for a single receipt (`/operations/receipts/:id`). Shows receipt met
 ### `CatalogPage`
 Server-side paginated, searchable list of catalog items. Requires `catalog.view` or `receipts.process_assigned`. State in URL params (`?search=`, `?page=`, `?pageSize=`, `?types=` comma-separated `CatalogItemType`). Clicking a row opens `CatalogItemDrawer` (right-side MUI Drawer); the selected item ID is stored in `?item=` query param via `useDrawerSearchParamsState`. Columns: **Тип** (`CatalogItemTypeChip`), **Название** (fullName + archive icon if isArchived), **Артикул**, **Штрихкод**.
 
-**Type filter** — multiselect `Select` with `Checkbox` per item; default is all types except `assembledBundle` (URL param omitted when default is active). `renderValue` shows "Все" for all 6, `"N типов"` for 2+, or the single type label. `DEFAULT_ITEM_TYPES` constant holds the default selection.
+**Type filter** — multiselect `Select` with `Checkbox` per item; default is all types (URL param omitted when default is active). `renderValue` shows "Все" for all 5, `"N типов"` for 2+, or the single type label. `DEFAULT_ITEM_TYPES` constant holds the default selection.
 
 ### `InventoryPage`
 Global stock overview at `/inventory`. Uses `ItemsBasePage` without any ID props, so the warehouse filter Select is shown. Requires `warehouses.view` or `warehouses.view_assigned`.
@@ -413,14 +412,11 @@ Reusable inventory table component (`components/inventory/ItemsBasePage.tsx`). A
 - **Search** — debounced via `useDebouncedSyncedWithQueryState("search")`
 - **Table columns:** Тип (`CatalogItemTypeChip`), Название (fullName + archive icon + `OpenInNew` button), Артикул, Количество
 - **Catalog item link** — clicking the `OpenInNew` button (`e.stopPropagation()`) calls `openCatalogDrawer(row.catalogItemId)` → opens `CatalogItemDrawer`
-- **Row click** — type `unit` → opens `UnitItemsDrawer`; type `assembledBundle` → opens `AssembledBundleItemsDrawer`; other types → no action
-- All drawer state via `useDrawerSearchParamsState`: `"catalogItem"`, `"unitCatalogItem"`, `"bundleCatalogItem"`
+- **Row click** — type `unit` → opens `UnitItemsDrawer`; other types → no action
+- All drawer state via `useDrawerSearchParamsState`: `"catalogItem"`, `"unitCatalogItem"`
 
 ### `UnitItemsDrawer`
 Bottom MUI Drawer (`components/inventory/UnitItemsDrawer.tsx`). Opens when `?unitCatalogItem=` param is set (managed by `ItemsBasePage`). Shows a paginated, searchable list of individual `UnitInventoryItem` instances for the selected catalog item filtered to the same scope (warehouseId/storagePlaceId/nodeId). Search by SKU. Columns: Артикул, Склад, Место хранения, Ячейка.
-
-### `AssembledBundleItemsDrawer`
-Bottom MUI Drawer (`components/inventory/AssembledBundleItemsDrawer.tsx`). Opens when `?bundleCatalogItem=` param is set. Same pattern as `UnitItemsDrawer` but for `AssembledBundleInventoryItem` instances. Search by catalog item name. Columns: ID, Склад, Место хранения, Ячейка.
 
 ### `WarehouseViewPage`
 Warehouse detail page with a pan/zoom Konva canvas showing storage place rectangles. The canvas is rendered by `WarehouseCanvas` from `src/features/warehouse/`. Clicking a storage place opens `StoragePlaceDrawer` (1000 px wide right drawer) with a `StoragePlaceNodeTree` from `src/features/warehouse/` on the left and `NodeDetails` on the right when a node is selected.
@@ -538,15 +534,15 @@ const [selectedItemId, openDrawer, closeDrawer] = useDrawerSearchParamsState("it
 Props: `{ itemId: string | null; onClose: () => void; onOpenItem?: (id: string) => void }`.
 `onOpenItem` is used for in-drawer navigation (e.g. clicking "open parent group").
 
-**View mode** shows: type chip + name, article, barcode, description (with "effective" indicator if inherited from group), notes, tags (chips), archive badge, group membership with navigate-to-parent button. Type-specific sections: ProductGroup → children table; Bundle → components table; Variation → members list; Standard/Unit → variations list; AssembledBundle → source bundle + components.
+**View mode** shows: type chip + name, article, barcode, description (with "effective" indicator if inherited from group), notes, tags (chips), archive badge, group membership with navigate-to-parent button. Type-specific sections: ProductGroup → children table; Bundle → components table; Variation → members list; Standard/Unit → variations list.
 
 **Edit mode** (react-hook-form): base fields (name, article, barcode, description, notes, isArchived switch) + tags Autocomplete (fetches via `GET /api/catalog/tags`). Type-specific RHF sections:
 - Standard/Unit → Variations multi-select (`CatalogItemsSelect`)
-- Variation → Members multi-select
-- Bundle → Components `useFieldArray` (CatalogItemsSelect + quantity per row)
+- Variation → Members multi-select (`CatalogItemsSelect`, types: standard/unit/bundle — not variation)
+- Bundle → Components `useFieldArray` (`CatalogItemsSelect` + quantity per row; types: standard/unit/productGroup/variation — not bundle)
 - ProductGroup → Children `useFieldArray` (inline form per child: type, name, article, barcode, description, notes, tags, variations)
 
-Edit is hidden for `assembledBundle` items and for items with `groupId` (managed by parent group — shown as an info alert).
+Edit is hidden for items with `groupId` (managed by parent group — shown as an info alert).
 
 ### `CatalogItemTypeChip`
 
@@ -559,7 +555,6 @@ Small `Chip` (`components/catalog/CatalogItemTypeChip.tsx`) that maps `CatalogIt
 | productGroup | Группа | secondary |
 | variation | Вариация | warning |
 | bundle | Комплект | success |
-| assembledBundle | Сборка | primary |
 
 Props: `type: CatalogItemType` + all `ChipProps` except `label`/`color`.
 

@@ -4,7 +4,6 @@ using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
-using ProjectWarehouse.Server.Models.Receipts;
 using ProjectWarehouse.Server.Models.Warehouses;
 
 namespace ProjectWarehouse.Server.Services;
@@ -163,90 +162,6 @@ public class InventoryService(
         await changeLog.CompareAndSaveToChangelog(before, after, action);
     }
 
-    // ── Assembled bundle items ────────────────────────────────────────────────
-
-    public async Task<AssembledBundleInventoryItem> AddAssembledBundleToNodeAsync(
-        Guid nodeId,
-        Guid catalogItemId,
-        IReadOnlyList<AssembledBundlePlacementComponentRequest> components,
-        string action = InventoryActions.AddAssembledBundle,
-        CancellationToken ct = default)
-    {
-        var before = await SnapshotNodeAsync(nodeId, ct);
-
-        // For components with NewUnitItem, create the unit item first (validates uniqueness, adds to context).
-        var bundleComponents = new List<AssembledBundleInventoryItemComponent>(components.Count);
-        for (var i = 0; i < components.Count; i++)
-        {
-            var c = components[i];
-            if (c.NewUnitItem is not null)
-            {
-                UnitInventoryItem unitItem;
-                try
-                {
-                    unitItem = await CreateUnitItemAsync(nodeId, c.CatalogItemId, c.NewUnitItem.InventoryNumber, ct);
-                }
-                catch (ValidationException ex)
-                {
-                    throw ex.WithPrefix($"components[{i}]");
-                }
-                bundleComponents.Add(new AssembledBundleInventoryItemComponent
-                {
-                    Id                  = Guid.NewGuid(),
-                    UnitInventoryItemId = unitItem.Id,
-                });
-            }
-            else
-            {
-                bundleComponents.Add(new AssembledBundleInventoryItemComponent
-                {
-                    Id                  = Guid.NewGuid(),
-                    UnitInventoryItemId = c.UnitInventoryItemId,
-                    CatalogItemId       = c.UnitInventoryItemId is null ? c.CatalogItemId : null,
-                    Quantity            = c.UnitInventoryItemId is null ? c.Quantity : null,
-                });
-            }
-        }
-
-        var bundle = new AssembledBundleInventoryItem
-        {
-            Id                 = Guid.NewGuid(),
-            StoragePlaceNodeId = nodeId,
-            CatalogItemId      = catalogItemId,
-            Components         = bundleComponents,
-        };
-        db.InventoryItems.Add(bundle);
-        await db.SaveChangesAsync(ct);
-
-        var after = await SnapshotNodeAsync(nodeId, ct);
-        await changeLog.CompareAndSaveToChangelog(before, after, action);
-
-        return bundle;
-    }
-
-    public async Task RemoveAssembledBundleAsync(
-        Guid assembledBundleItemId,
-        Guid expectedNodeId,
-        string action = InventoryActions.RemoveAssembledBundle,
-        CancellationToken ct = default)
-    {
-        var item = await db.InventoryItems.OfType<AssembledBundleInventoryItem>()
-            .FirstOrDefaultAsync(ab => ab.Id == assembledBundleItemId, ct)
-            ?? throw new AssembledBundleItemNotFoundException(assembledBundleItemId);
-
-        if (item.StoragePlaceNodeId != expectedNodeId)
-            throw new InventoryItemNodeMismatchException(assembledBundleItemId, expectedNodeId, item.StoragePlaceNodeId);
-
-        var nodeId = item.StoragePlaceNodeId;
-        var before = await SnapshotNodeAsync(nodeId, ct);
-
-        db.InventoryItems.Remove(item);
-        await db.SaveChangesAsync(ct);
-
-        var after = await SnapshotNodeAsync(nodeId, ct);
-        await changeLog.CompareAndSaveToChangelog(before, after, action);
-    }
-
     // ── Movement ──────────────────────────────────────────────────────────────
 
     public async Task MoveStandardItemsAsync(
@@ -270,31 +185,6 @@ public class InventoryService(
         var item = await db.InventoryItems.OfType<UnitInventoryItem>()
             .FirstOrDefaultAsync(u => u.Id == unitItemId, ct)
             ?? throw new UnitInventoryItemNotFoundException(unitItemId);
-
-        var fromNodeId = item.StoragePlaceNodeId;
-
-        var fromBefore = await SnapshotNodeAsync(fromNodeId, ct);
-        var toBefore   = await SnapshotNodeAsync(toNodeId, ct);
-
-        item.StoragePlaceNodeId = toNodeId;
-        await db.SaveChangesAsync(ct);
-
-        var fromAfter = await SnapshotNodeAsync(fromNodeId, ct);
-        var toAfter   = await SnapshotNodeAsync(toNodeId, ct);
-
-        await changeLog.CompareAndSaveToChangelog(fromBefore, fromAfter, action);
-        await changeLog.CompareAndSaveToChangelog(toBefore, toAfter, action);
-    }
-
-    public async Task MoveAssembledBundleAsync(
-        Guid assembledBundleItemId,
-        Guid toNodeId,
-        string action = InventoryActions.MoveAssembledBundle,
-        CancellationToken ct = default)
-    {
-        var item = await db.InventoryItems.OfType<AssembledBundleInventoryItem>()
-            .FirstOrDefaultAsync(ab => ab.Id == assembledBundleItemId, ct)
-            ?? throw new AssembledBundleItemNotFoundException(assembledBundleItemId);
 
         var fromNodeId = item.StoragePlaceNodeId;
 

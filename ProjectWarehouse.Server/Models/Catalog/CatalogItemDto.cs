@@ -16,7 +16,6 @@ public class CatalogItemDto : IHasIdentity
     public bool IsArchived { get; init; }
     public Guid? GroupId { get; init; }
     public string? GroupName { get; init; }
-    public Guid? SourceBundleId { get; init; }
     public IReadOnlyList<CatalogItemTagDto> Tags { get; init; } = [];
     public IReadOnlyList<BundleComponentDto> Components { get; init; } = [];
     public IReadOnlyList<Guid> VariationIds { get; init; } = [];

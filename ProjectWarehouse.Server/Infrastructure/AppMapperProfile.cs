@@ -35,21 +35,11 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.ComponentName, opt => opt.MapFrom(s => s.Component.FullName))
             .ForMember(d => d.ComponentType, opt => opt.MapFrom(s => s.Component.Type));
 
-        CreateMap<AssembledBundleComponent, BundleComponentDto>()
-            .ForMember(d => d.Id, opt => opt.MapFrom(s => s.Id))
-            .ForMember(d => d.ComponentId, opt => opt.MapFrom(s => s.ComponentId))
-            .ForMember(d => d.ComponentName, opt => opt.MapFrom(s => s.Component.FullName))
-            .ForMember(d => d.ComponentType, opt => opt.MapFrom(s => s.Component.Type))
-            .ForMember(d => d.Quantity, opt => opt.MapFrom(s => s.Quantity));
-
         CreateMap<CatalogItem, CatalogItemDto>()
             .ForMember(d => d.GroupName, opt => opt.MapFrom(s => s.Group != null ? s.Group.Name : null))
             .ForMember(d => d.Description, opt => opt.MapFrom(s => s.EffectiveDescription))
             .ForMember(d => d.Notes, opt => opt.MapFrom(s => s.EffectiveNotes))
-            .ForMember(d => d.Components, opt => opt.MapFrom((s, _, _, ctx) =>
-                s.Type == CatalogItemType.AssembledBundle
-                    ? ctx.Mapper.Map<List<BundleComponentDto>>(s.AssembledComponents)
-                    : ctx.Mapper.Map<List<BundleComponentDto>>(s.BundleComponents)))
+            .ForMember(d => d.Components, opt => opt.MapFrom(s => s.BundleComponents))
             .ForMember(d => d.VariationIds, opt => opt.MapFrom(s => s.VariationMemberships.Select(m => m.VariationId).ToList()))
             .ForMember(d => d.MemberIds, opt => opt.MapFrom(s => s.VariationMembers.Select(m => m.ItemId).ToList()))
             .ForMember(d => d.Children, opt => opt.MapFrom(s => s.GroupChildren));
@@ -66,22 +56,12 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.StoragePlaceId, opt => opt.MapFrom(s => s.RootStoragePlaceId))
             .ForMember(d => d.ItemsGroups, opt => opt.MapFrom(s => s.ItemsGroups))
             .ForMember(d => d.UnitItemsCount,
-                opt => opt.MapFrom(s => s.InventoryItems.OfType<UnitInventoryItem>().Count()))
-            .ForMember(d => d.AssembledBundlesCount,
-                opt => opt.MapFrom(s => s.InventoryItems.OfType<AssembledBundleInventoryItem>().Count()));
+                opt => opt.MapFrom(s => s.InventoryItems.OfType<UnitInventoryItem>().Count()));
         CreateMap<Warehouse, WarehouseDto>();
         CreateMap<Warehouse, WarehouseSummaryDto>()
             .ForMember(d => d.StoragePlaceCount, opt => opt.MapFrom(s => s.StoragePlaces.Count));
 
         CreateMap<UnitInventoryItem, UnitInventoryItemDto>()
-            .ForMember(d => d.NodeId, opt => opt.MapFrom(s => s.StoragePlaceNodeId))
-            .ForMember(d => d.NodeName, opt => opt.MapFrom(s => s.StoragePlaceNode.Name))
-            .ForMember(d => d.StoragePlaceId, opt => opt.MapFrom(s => s.StoragePlaceNode.RootStoragePlaceId))
-            .ForMember(d => d.StoragePlaceName, opt => opt.MapFrom(s => s.StoragePlaceNode.RootStoragePlace.Name))
-            .ForMember(d => d.WarehouseId, opt => opt.MapFrom(s => s.StoragePlaceNode.RootStoragePlace.WarehouseId))
-            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.StoragePlaceNode.RootStoragePlace.Warehouse.Name));
-
-        CreateMap<AssembledBundleInventoryItem, AssembledBundleInventoryItemDto>()
             .ForMember(d => d.NodeId, opt => opt.MapFrom(s => s.StoragePlaceNodeId))
             .ForMember(d => d.NodeName, opt => opt.MapFrom(s => s.StoragePlaceNode.Name))
             .ForMember(d => d.StoragePlaceId, opt => opt.MapFrom(s => s.StoragePlaceNode.RootStoragePlaceId))
@@ -267,8 +247,6 @@ public class WriteoffItemCatalogNameResolver : IValueResolver<WriteoffItem, Writ
             return source.CatalogItem.Name;
         if (source.UnitInventoryItem?.CatalogItem is not null)
             return source.UnitInventoryItem.CatalogItem.Name;
-        if (source.AssembledBundleInventoryItem?.CatalogItem is not null)
-            return source.AssembledBundleInventoryItem.CatalogItem.Name;
         return string.Empty;
     }
 }

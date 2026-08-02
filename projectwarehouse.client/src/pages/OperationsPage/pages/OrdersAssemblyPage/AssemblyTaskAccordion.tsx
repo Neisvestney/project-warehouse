@@ -81,11 +81,9 @@ function FulfillmentItem({
 
   const label = fulfillment.unitInventoryItemId
     ? `Экз. ${fulfillment.unitInventoryItemId.slice(0, 8)}…`
-    : fulfillment.assembledBundleInventoryItemId
-      ? `Комплект ${fulfillment.assembledBundleInventoryItemId.slice(0, 8)}…`
-      : fulfillment.bundleComponents?.length
-        ? `Bundle (${fulfillment.bundleComponents.length} комп.)`
-        : `× ${fulfillment.quantity}`;
+    : fulfillment.bundleComponents?.length
+      ? `Bundle (${fulfillment.bundleComponents.length} комп.)`
+      : `× ${fulfillment.quantity}`;
 
   return (
     <Stack direction="row" sx={{alignItems: "center", justifyContent: "space-between", py: 0.5}}>
@@ -234,7 +232,7 @@ function AssemblyTaskAccordion({
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Stack direction="row" sx={{alignItems: "center", gap: 1.5, flex: 1, pr: 1}}>
           {onCheckChange !== undefined && (
-            <Tooltip title={!batchEligible ? "Содержит Unit/AssembledBundle компоненты" : ""}>
+            <Tooltip title={!batchEligible ? "Содержит Unit компоненты" : ""}>
               <span>
                 <Checkbox
                   size="small"

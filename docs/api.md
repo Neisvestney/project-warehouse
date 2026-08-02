@@ -134,7 +134,6 @@ Returns `ReceiptDto`. Errors: `catalogItemNotFound`, `catalogItemIsImmutable` (a
 |--------|------|------|-------------|
 | POST | `/api/receipts/{id}/items/{itemId}/placements/standard` | `receipts.edit` or `receipts.process_assigned` | Place count-based (Standard) items at a storage node. Processing status only. |
 | POST | `/api/receipts/{id}/items/{itemId}/placements/unit` | `receipts.edit` or `receipts.process_assigned` | Place a serialised Unit item (by `inventoryNumber`) at a storage node. Processing status only. |
-| POST | `/api/receipts/{id}/items/{itemId}/placements/assembled-bundle` | `receipts.edit` or `receipts.process_assigned` | Place an AssembledBundle at a storage node (components must exactly match the catalog definition). Processing status only. |
 | POST | `/api/receipts/{id}/placements/standard/batch` | `receipts.edit` or `receipts.process_assigned` | Place multiple Standard items at the same storage node in one transaction. Processing status only. |
 | DELETE | `/api/receipts/{id}/items/{itemId}/placements/{placementId}` | `receipts.edit` or `receipts.process_assigned` | Remove a placement, reversing the inventory change. Processing status only. |
 
@@ -174,7 +173,7 @@ Existing items not in the list are removed. Duplicate `catalogItemId` values in 
 `ReceiptSummaryDto`: `{ id, number, name?, reason, status, plannedDeliveryDate?, createdAt, warehouseId, warehouseName, totalPlannedCount, totalReceivedCount }`  
 `ReceiptDto`: `{ id, number, name?, reason, status, notes?, plannedDeliveryDate?, createdAt, warehouseId, warehouseName, totalPlannedCount, totalReceivedCount, items: ReceiptItemDto[] }`  
 `ReceiptItemDto`: `{ id, catalogItemId, catalogItem: CatalogItemSummaryDto, plannedCount, receivedCount?, notes?, placements: ReceiptItemPlacementDto[] }`  
-`ReceiptItemPlacementDto`: `{ id, storagePlaceNodeId, storagePlaceName, storagePlacePath, count, unitInventoryItem?: ..., assembledBundleInventoryItem?: ... }`
+`ReceiptItemPlacementDto`: `{ id, storagePlaceNodeId, storagePlaceName, storagePlacePath, count, unitInventoryItem?: ... }`
 
 **`ReceiptReason` values:** `newGoods`, `return`, `other`  
 **`ReceiptStatus` values:** `draft`, `planned`, `processing`, `finished`, `canceled`  
@@ -203,7 +202,6 @@ Existing items not in the list are removed. Duplicate `catalogItemId` values in 
 | `catalogItemId` | `Guid?` | Set for Standard items; requires `count` |
 | `count` | `int?` | Required when `catalogItemId` is set (> 0) |
 | `unitItemId` | `Guid?` | Set for Unit items |
-| `assembledBundleItemId` | `Guid?` | Set for AssembledBundle items |
 
 **Permission notes:**
 - `transfers.execute` — can transfer between any nodes
@@ -214,7 +212,6 @@ Existing items not in the list are removed. Duplicate `catalogItemId` values in 
 - `insufficientInventory` — not enough Standard items available in the source node
 - `storagePlaceNodeNotFound` — source or destination node not found
 - `unitInventoryItemNotFound` — Unit item not found (or already moved)
-- `assembledBundleItemNotFound` — AssembledBundle item not found (or already moved)
 
 All items are moved in a single DB transaction — any failure rolls back the entire operation.
 
@@ -267,7 +264,6 @@ Each element represents one inventory line. Exactly one item type discriminator 
 | `catalogItemId` | `Guid?` | Standard item — also requires `count` |
 | `count` | `int?` | Required when `catalogItemId` is set (> 0) |
 | `unitInventoryItemId` | `Guid?` | Unit item ID (must be at `sourceNodeId`) |
-| `assembledBundleInventoryItemId` | `Guid?` | Bundle item ID (must be at `sourceNodeId`) |
 | `notes` | `string?` | Line-level notes |
 
 **Key DTOs:**
@@ -276,7 +272,7 @@ Each element represents one inventory line. Exactly one item type discriminator 
 
 `WriteoffDto`: same as summary + `notes?` + `items: WriteoffItemDto[]`
 
-`WriteoffItemDto`: `{ id, sourceNodeId, sourceNodePath: string[], notes?, catalogItemId?, catalogItem?, count, unitInventoryItemId?, inventoryNumber?, assembledBundleInventoryItemId?, catalogItemName }`
+`WriteoffItemDto`: `{ id, sourceNodeId, sourceNodePath: string[], notes?, catalogItemId?, catalogItem?, count, unitInventoryItemId?, inventoryNumber?, catalogItemName }`
 
 **`WriteoffReason` values:** `loss`, `defect`, `other`  
 **`WriteoffStatus` values:** `draft`, `finished`, `canceled`  
@@ -290,7 +286,6 @@ All item removals execute in a single DB transaction. If any operation fails, no
 - `writeoffHasNoItems` — no items to write off
 - `writeoffInsufficientInventory` — not enough Standard items in the source node
 - `unitInventoryItemNotFound` — Unit item not found at expected node
-- `assembledBundleItemNotFound` — Bundle item not found at expected node
 
 **Permission notes:**
 - `writeoffs.view` / `writeoffs.edit` — access all warehouses
@@ -320,15 +315,16 @@ All item removals execute in a single DB transaction. If any operation fails, no
 - 422 `catalogItemComponentInvalid` — a component item is of an invalid type for bundles
 - 422 `catalogItemVariationInvalid` — a variation ID is invalid or wrong type
 - 422 `catalogItemGroupInvalid` — `groupId` does not refer to a ProductGroup
-- 422 `catalogItemIsImmutable` — assembledBundle cannot be edited
+- 422 `catalogItemIsImmutable` — attempt to change a CatalogItem's type
 - 422 `catalogItemManagedByGroup` — item with `groupId` cannot be edited directly
+- 422 `catalogItemCircularDependency` — saving a Bundle or Variation would create a cycle in the Bundle↔Variation nesting graph
 
-**`CatalogItemType` values:** `standard`, `unit`, `productGroup`, `variation`, `bundle`, `assembledBundle`
+**`CatalogItemType` values:** `standard`, `unit`, `productGroup`, `variation`, `bundle`
 
 **Key DTOs:**
 
 `CatalogItemSummaryDto`: `{ id, type, name, fullName, article, barcode?, isArchived }`  
-`CatalogItemDto`: `{ id, type, name, fullName, article, barcode?, description?, notes?, isArchived, groupId?, groupName?, sourceBundleId?, tags: CatalogItemTagDto[], components: BundleComponentDto[], variationIds: Guid[], memberIds: Guid[], children: CatalogItemDto[] }`  
+`CatalogItemDto`: `{ id, type, name, fullName, article, barcode?, description?, notes?, isArchived, groupId?, groupName?, tags: CatalogItemTagDto[], components: BundleComponentDto[], variationIds: Guid[], memberIds: Guid[], children: CatalogItemDto[] }`  
 `CatalogItemTagDto`: `{ id, name }`  
 `BundleComponentDto`: `{ id, componentId, componentName, quantity }`
 
@@ -340,7 +336,6 @@ All item removals execute in a single DB transaction. If any operation fails, no
 |--------|------|------------|-------------|
 | GET | `/api/inventory-items` | `warehouses.view` or `warehouses.view_assigned` | Paginated stock overview aggregated by catalog item |
 | GET | `/api/inventory-items/units` | `warehouses.view` or `warehouses.view_assigned` | Paginated list of individual unit inventory item instances |
-| GET | `/api/inventory-items/assembled-bundles` | `warehouses.view` or `warehouses.view_assigned` | Paginated list of individual assembled bundle instances |
 
 `view_assigned` limits results to warehouses assigned to the current user.
 
@@ -348,7 +343,7 @@ All item removals execute in a single DB transaction. If any operation fails, no
 Query params: `page`, `pageSize`, `searchString?`, `warehouseId?`, `storagePlaceId?`, `nodeId?`, `catalogItemType?` (CatalogItemType), `isArchived?` (bool)  
 Returns: `Paginated<InventoryItemSummaryDto>`
 
-Items from all three storage mechanisms (StoragePlaceNodeItemsGroup for standard items, UnitInventoryItem, AssembledBundleInventoryItem) are counted separately per `CatalogItemId` and merged. The result is one row per catalog item with `Count` = total across all locations within the applied filters.
+Items from both storage mechanisms (StoragePlaceNodeItemsGroup for standard items, UnitInventoryItem) are counted separately per `CatalogItemId` and merged. The result is one row per catalog item with `Count` = total across all locations within the applied filters.
 
 **`InventoryItemSummaryDto`**: `{ catalogItemId: Guid, catalogItem: CatalogItemSummaryDto, count: int }`
 
@@ -359,12 +354,6 @@ Returns: `Paginated<UnitInventoryItemDto>`
 The `catalogItemId` filter is used by the frontend drawer to list all instances of a clicked catalog item.
 
 **`UnitInventoryItemDto`**: `{ id: Guid, sku: string, catalogItem: CatalogItemSummaryDto, warehouseId: Guid, warehouseName: string, storagePlaceId: Guid, storagePlaceName: string, nodeId: Guid, nodeName: string }`
-
-### `GET /api/inventory-items/assembled-bundles` — GetAllAssembledBundles
-Query params: `page`, `pageSize`, `searchString?` (searches catalog item name), `warehouseId?`, `storagePlaceId?`, `nodeId?`, `catalogItemId?`  
-Returns: `Paginated<AssembledBundleInventoryItemDto>`
-
-**`AssembledBundleInventoryItemDto`**: `{ id: Guid, catalogItem: CatalogItemSummaryDto, warehouseId: Guid, warehouseName: string, storagePlaceId: Guid, storagePlaceName: string, nodeId: Guid, nodeName: string }`
 
 ---
 

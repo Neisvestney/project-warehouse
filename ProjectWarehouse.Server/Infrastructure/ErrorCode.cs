@@ -45,11 +45,9 @@ public enum ErrorCode
     CatalogItemComponentInvalid,
     CatalogItemComponentNotFound,
     CatalogItemCircularDependency,
-    CatalogItemTooManyCombinations,
 
     // Inventory operations
     UnitInventoryItemNotFound,
-    AssembledBundleItemNotFound,
     InventoryItemMovedToAnotherNodeAfterPlacementCreated,
 
     // Transfers

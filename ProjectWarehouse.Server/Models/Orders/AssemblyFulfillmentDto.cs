@@ -11,9 +11,6 @@ public class AssemblyFulfillmentDto
     // Unit
     public Guid? UnitInventoryItemId { get; init; }
 
-    // AssembledBundle or Bundle mode 2
-    public Guid? AssembledBundleInventoryItemId { get; init; }
-
-    // Bundle mode 1
+    // Bundle
     public IReadOnlyList<AssemblyFulfillmentBundleComponentDto> BundleComponents { get; init; } = [];
 }

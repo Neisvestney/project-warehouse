@@ -2,8 +2,7 @@ import type {AssemblyFulfillmentDto, AssemblyTaskDto} from "@/api/types.gen";
 
 export function countFulfilledQty(fulfillments: AssemblyFulfillmentDto[]): number {
   return fulfillments.reduce((sum, f) => {
-    if (f.unitInventoryItemId || f.assembledBundleInventoryItemId || f.bundleComponents?.length)
-      return sum + 1;
+    if (f.unitInventoryItemId || f.bundleComponents?.length) return sum + 1;
     return sum + f.quantity;
   }, 0);
 }

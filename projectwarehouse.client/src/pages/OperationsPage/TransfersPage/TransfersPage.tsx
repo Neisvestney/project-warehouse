@@ -25,14 +25,12 @@ import type {SelectedInventoryItem} from "@/components/inventory/InventoryItemPi
 
 function itemToCatalogType(item: SelectedInventoryItem): CatalogItemType {
   if (item.type === "unit") return "unit";
-  if (item.type === "assembledBundle") return "assembledBundle";
   return "standard";
 }
 
 function itemLabel(item: SelectedInventoryItem): string {
   if (item.type === "standard") return `${item.catalogItemName} × ${item.count}`;
-  if (item.type === "unit") return `${item.catalogItemName} [${item.inventoryNumber}]`;
-  return item.catalogItemName;
+  return `${item.catalogItemName} [${item.inventoryNumber}]`;
 }
 
 function TransfersPage() {
@@ -62,8 +60,7 @@ function TransfersPage() {
         items: selectedItems.map((item) => {
           if (item.type === "standard")
             return {catalogItemId: item.catalogItemId, count: item.count};
-          if (item.type === "unit") return {unitItemId: item.unitItemId};
-          return {assembledBundleItemId: item.assembledBundleItemId};
+          return {unitItemId: item.unitItemId};
         }),
       },
     });
@@ -185,13 +182,7 @@ function TransfersPage() {
                     ? next.some(
                         (s) => s.type === "standard" && s.catalogItemId === item.catalogItemId,
                       )
-                    : item.type === "unit"
-                      ? next.some((s) => s.type === "unit" && s.unitItemId === item.unitItemId)
-                      : next.some(
-                          (s) =>
-                            s.type === "assembledBundle" &&
-                            s.assembledBundleItemId === item.assembledBundleItemId,
-                        );
+                    : next.some((s) => s.type === "unit" && s.unitItemId === item.unitItemId);
                 if (!isDup) next.push(item);
               }
               return next;

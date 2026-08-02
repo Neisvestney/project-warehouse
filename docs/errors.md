@@ -95,18 +95,17 @@ Error with structured arguments (e.g. password too short):
 | `storagePlaceNodeCyclicParent` | Setting the requested parent would create a cycle (parent is a descendant of the node, or the node itself) |
 | `storagePlaceNodeItemsGroupNotFound` | Item group ID not found or does not belong to this node |
 | `catalogItemIsInUse` | Attempt to delete a catalog item that is currently stored in a warehouse |
-| `catalogItemIsImmutable` | Attempt to update an AssembledBundle (immutable) or change a CatalogItem's type |
+| `catalogItemIsImmutable` | Attempt to change a CatalogItem's type |
 | `catalogItemManagedByGroup` | Attempt to update a ProductGroup child directly — must go through the group |
 | `catalogItemGroupInvalid` | `groupId` does not point to an existing ProductGroup |
 | `catalogItemVariationInvalid` | A variation or member ID is invalid or wrong type |
 | `catalogItemComponentInvalid` | A bundle component ID does not exist or has a type not allowed as a component |
 | `catalogItemComponentNotFound` | A bundle component update references an ID that does not belong to this bundle |
-| `catalogItemCircularDependency` | Saving the bundle would create a circular dependency in the component tree |
+| `catalogItemCircularDependency` | Saving the Bundle or Variation would create a cycle in the Bundle↔Variation nesting graph |
 | `catalogItemArticleDuplicate` | Another catalog item with the same article already exists |
 | `catalogItemBarcodeDuplicate` | Another catalog item with the same barcode already exists |
 | `catalogItemCharacteristicBarcodeDuplicate` | A characteristic with this barcode already exists (globally, or duplicate within the request) |
 | `unitInventoryItemNotFound` | Unit inventory item ID not found (or already deleted) |
-| `assembledBundleItemNotFound` | AssembledBundle inventory item ID not found (or already deleted) |
 | `inventoryItemMovedToAnotherNodeAfterPlacementCreated` | Item was moved to a different node after the placement was created — refresh and retry |
 | `transferSameNode` | `fromNodeId` and `toNodeId` are the same node |
 | `receiptNotFound` | Receipt ID not found |

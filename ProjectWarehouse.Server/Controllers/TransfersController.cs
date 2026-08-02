@@ -18,7 +18,7 @@ public class TransfersController(
     /// <remarks>
     /// All items are moved in a single transaction — if any item fails, the entire transfer is rolled back.
     /// Transfer type is determined by which field of each <see cref="TransferItemRequest"/> is populated:
-    /// <c>catalogItemId + count</c> → Standard; <c>unitItemId</c> → Unit; <c>assembledBundleItemId</c> → AssembledBundle.
+    /// <c>catalogItemId + count</c> → Standard; <c>unitItemId</c> → Unit.
     /// </remarks>
     [HttpPost]
     [Authorize]
@@ -48,12 +48,11 @@ public class TransfersController(
             var item = request.Items[i];
             var hasStandard = item.CatalogItemId.HasValue;
             var hasUnit     = item.UnitItemId.HasValue;
-            var hasBundle   = item.AssembledBundleItemId.HasValue;
 
-            var filledCount = (hasStandard ? 1 : 0) + (hasUnit ? 1 : 0) + (hasBundle ? 1 : 0);
+            var filledCount = (hasStandard ? 1 : 0) + (hasUnit ? 1 : 0);
             if (filledCount != 1)
                 return UnprocessableEntity($"items[{i}]", ErrorCode.ValidationError,
-                    "Each item must have exactly one of: catalogItemId, unitItemId, or assembledBundleItemId.");
+                    "Each item must have exactly one of: catalogItemId or unitItemId.");
 
             if (hasStandard && (item.Count is null or <= 0))
                 return UnprocessableEntity($"items[{i}].count", ErrorCode.ValidationError,
@@ -122,14 +121,6 @@ public class TransfersController(
                             TransferActions.TransferUnit,
                             ct);
                     }
-                    else if (item.AssembledBundleItemId.HasValue)
-                    {
-                        await inventory.MoveAssembledBundleAsync(
-                            item.AssembledBundleItemId.Value,
-                            request.ToNodeId,
-                            TransferActions.TransferAssembledBundle,
-                            ct);
-                    }
                 }
 
                 await tx.CommitAsync(ct);
@@ -149,11 +140,6 @@ public class TransfersController(
         {
             return UnprocessableEntity("items", ErrorCode.UnitInventoryItemNotFound,
                 $"Unit inventory item '{ex.ItemId}' not found.");
-        }
-        catch (AssembledBundleItemNotFoundException ex)
-        {
-            return UnprocessableEntity("items", ErrorCode.AssembledBundleItemNotFound,
-                $"Assembled bundle item '{ex.ItemId}' not found.");
         }
 
         return NoContent();

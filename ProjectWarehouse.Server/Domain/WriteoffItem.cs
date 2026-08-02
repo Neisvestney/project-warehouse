@@ -3,10 +3,9 @@ using ProjectWarehouse.Server.Infrastructure;
 namespace ProjectWarehouse.Server.Domain;
 
 /// <summary>
-/// Represents a single line in a write-off document. Exactly one of the three scenarios applies:
-/// - Standard item:         CatalogItemId != null, Count > 0, UnitInventoryItemId == null, AssembledBundleInventoryItemId == null
-/// - Unit item:             CatalogItemId == null, Count == 0, UnitInventoryItemId != null
-/// - Assembled bundle item: CatalogItemId == null, Count == 0, AssembledBundleInventoryItemId != null
+/// Represents a single line in a write-off document. Exactly one of the two scenarios applies:
+/// - Standard item: CatalogItemId != null, Count > 0, UnitInventoryItemId == null
+/// - Unit item:     CatalogItemId == null, Count == 0, UnitInventoryItemId != null
 /// Each item carries its own source storage node.
 /// </summary>
 public class WriteoffItem : IHasIdentity
@@ -30,8 +29,4 @@ public class WriteoffItem : IHasIdentity
     // Unit item fields
     public Guid? UnitInventoryItemId { get; set; }
     public UnitInventoryItem? UnitInventoryItem { get; set; }
-
-    // Assembled bundle fields
-    public Guid? AssembledBundleInventoryItemId { get; set; }
-    public AssembledBundleInventoryItem? AssembledBundleInventoryItem { get; set; }
 }

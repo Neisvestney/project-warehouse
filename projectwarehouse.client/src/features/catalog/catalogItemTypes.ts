@@ -12,7 +12,6 @@ export const CATALOG_ITEM_TYPE_CONFIG: Record<CatalogItemType, CatalogItemTypeCo
   productGroup: {label: "Группа", color: "secondary"},
   variation: {label: "Вариация", color: "warning"},
   bundle: {label: "Комплект", color: "success"},
-  assembledBundle: {label: "Сборка", color: "primary"},
 };
 
 export const CATALOG_ITEM_TYPES = Object.keys(CATALOG_ITEM_TYPE_CONFIG) as CatalogItemType[];

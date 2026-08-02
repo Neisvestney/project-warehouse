@@ -292,8 +292,8 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
     qty: number,
   ): AddFulfillmentRequest {
     if (group.catalogItemType === "variation") {
-      // Unit / AssembledBundle variants reference a single inventory instance, which is
-      // consumed by the first replicated fulfillment — remaining tasks in the group fail.
+      // Unit variants reference a single inventory instance, which is consumed by the first
+      // replicated fulfillment — remaining tasks in the group fail.
       return state.variantFulfillment;
     }
     if (group.catalogItemType === "bundle" && state.bundleComponents.length > 0) {
@@ -310,13 +310,11 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
       const state = getGroupState(group.key);
       return group.taskComponents.flatMap((tc) => {
         const fulfillment = buildFulfillment(group, state, tc.qty);
-        // Bundle / Unit / AssembledBundle fulfillments each count as exactly +1 towards task
-        // progress (see countFulfilledQty), so a task needing tc.qty of them requires tc.qty
-        // separate identical fulfillments — unlike Standard, where quantity is additive.
+        // Bundle / Unit fulfillments each count as exactly +1 towards task progress (see
+        // countFulfilledQty), so a task needing tc.qty of them requires tc.qty separate
+        // identical fulfillments — unlike Standard, where quantity is additive.
         const countsAsOne =
-          (fulfillment.bundleComponents?.length ?? 0) > 0 ||
-          !!fulfillment.unitInventoryItemId ||
-          !!fulfillment.assembledBundleInventoryItemId;
+          (fulfillment.bundleComponents?.length ?? 0) > 0 || !!fulfillment.unitInventoryItemId;
         const repeat = countsAsOne ? tc.qty : 1;
         return Array.from({length: repeat}, () => ({
           orderId: tc.orderId,

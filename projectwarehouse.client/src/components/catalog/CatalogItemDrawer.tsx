@@ -400,64 +400,44 @@ function ViewMode({
           </>
         )}
 
-        {/* Components (Bundle / AssembledBundle) */}
-        {(data.type === "bundle" || data.type === "assembledBundle") &&
-          data.components.length > 0 && (
-            <>
-              <Divider />
-              <Stack spacing={1}>
-                <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
-                  <Typography variant="subtitle2">
-                    {data.type === "assembledBundle" ? "Компоненты сборки" : "Компоненты"}
-                  </Typography>
-                  <Chip label={data.components.length} size="small" />
-                </Stack>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Позиция</TableCell>
-                      <TableCell align="right">Кол-во</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {data.components.map((c) => (
-                      <TableRow key={c.id}>
-                        <TableCell>
-                          {onOpenItem ? (
-                            <Button
-                              size="small"
-                              onClick={() => onOpenItem(c.componentId)}
-                              sx={{p: 0, minWidth: 0, textTransform: "none", fontWeight: "normal"}}
-                            >
-                              {c.componentName}
-                            </Button>
-                          ) : (
-                            c.componentName
-                          )}
-                        </TableCell>
-                        <TableCell align="right">{c.quantity}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Stack>
-            </>
-          )}
-
-        {/* Source bundle (AssembledBundle) */}
-        {data.type === "assembledBundle" && data.sourceBundleId && onOpenItem && (
+        {/* Components (Bundle) */}
+        {data.type === "bundle" && data.components.length > 0 && (
           <>
             <Divider />
-            <LabeledRow label="Источник (комплект)">
-              <Button
-                size="small"
-                endIcon={<OpenInNewIcon />}
-                onClick={() => onOpenItem(data.sourceBundleId!)}
-                sx={{p: 0, minWidth: 0, textTransform: "none"}}
-              >
-                Перейти
-              </Button>
-            </LabeledRow>
+            <Stack spacing={1}>
+              <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+                <Typography variant="subtitle2">Компоненты</Typography>
+                <Chip label={data.components.length} size="small" />
+              </Stack>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Позиция</TableCell>
+                    <TableCell align="right">Кол-во</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {data.components.map((c) => (
+                    <TableRow key={c.id}>
+                      <TableCell>
+                        {onOpenItem ? (
+                          <Button
+                            size="small"
+                            onClick={() => onOpenItem(c.componentId)}
+                            sx={{p: 0, minWidth: 0, textTransform: "none", fontWeight: "normal"}}
+                          >
+                            {c.componentName}
+                          </Button>
+                        ) : (
+                          c.componentName
+                        )}
+                      </TableCell>
+                      <TableCell align="right">{c.quantity}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Stack>
           </>
         )}
 
@@ -500,7 +480,7 @@ function ViewMode({
         )}
 
         {/* Actions */}
-        {canEdit && data.type !== "assembledBundle" && !data.groupId && (
+        {canEdit && !data.groupId && (
           <Stack direction="row" spacing={1} sx={{pt: 1}}>
             <Button size="small" startIcon={<EditIcon />} onClick={onEdit}>
               Редактировать
@@ -540,7 +520,7 @@ function BundleComponentRow({
             if (!id) setValue(`components.${index}.component`, null);
           }}
           onDtoChange={(dto) => setValue(`components.${index}.component`, dto)}
-          types={["standard", "unit", "productGroup", "variation", "bundle"]}
+          types={["standard", "unit", "productGroup", "variation"]}
           label="Позиция"
           disabled={isPending}
           size="small"
@@ -759,14 +739,6 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
     );
   if (!data) return null;
 
-  if (data.type === "assembledBundle") {
-    return (
-      <Box sx={{px: 2, py: 2}}>
-        <Alert severity="info">Собранные бандлы неизменяемы.</Alert>
-      </Box>
-    );
-  }
-
   if (data.groupId) {
     return (
       <Box sx={{px: 2, py: 2}}>
@@ -858,7 +830,7 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
               multiple
               value={members}
               onChange={(v) => setValue("members", v)}
-              types={["standard", "unit"]}
+              types={["standard", "unit", "bundle"]}
               label="Участники"
               disabled={isPending}
               size="small"
