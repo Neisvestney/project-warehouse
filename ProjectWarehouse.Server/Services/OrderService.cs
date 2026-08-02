@@ -366,13 +366,12 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
     {
         var isBundleMode1 = request.BundleComponents is { Count: > 0 };
         var isUnit        = request.UnitInventoryItemId.HasValue;
-        var isBundle      = request.AssembledBundleInventoryItemId.HasValue;
-        var isStandard    = !isBundleMode1 && !isUnit && !isBundle && request.Quantity > 0;
+        var isStandard    = !isBundleMode1 && !isUnit && request.Quantity > 0;
 
-        var setCount = (isBundleMode1 ? 1 : 0) + (isUnit ? 1 : 0) + (isBundle ? 1 : 0) + (isStandard ? 1 : 0);
+        var setCount = (isBundleMode1 ? 1 : 0) + (isUnit ? 1 : 0) + (isStandard ? 1 : 0);
         if (setCount != 1)
             throw new ValidationException("root", ErrorCode.AssemblyFulfillmentInvalidType,
-                "Exactly one fulfillment type must be specified: Standard (sourceNodeId+quantity), Unit (unitInventoryItemId), AssembledBundle (assembledBundleInventoryItemId), or Bundle mode 1 (bundleComponents).");
+                "Exactly one fulfillment type must be specified: Standard (sourceNodeId+quantity), Unit (unitInventoryItemId), or Bundle (bundleComponents).");
 
         var fulfillment = new AssemblyFulfillment
         {
@@ -430,48 +429,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
 
             await tx.CommitAsync(ct);
         }
-        else if (isBundle)
-        {
-            if (!request.SourceNodeId.HasValue)
-                throw new ValidationException("sourceNodeId", ErrorCode.Required, "SourceNodeId is required for AssembledBundle fulfillment.");
-
-            var bundleItem = await db.InventoryItems.OfType<AssembledBundleInventoryItem>()
-                .Include(b => b.Components).ThenInclude(c => c.UnitInventoryItem)
-                .FirstOrDefaultAsync(b => b.Id == request.AssembledBundleInventoryItemId, ct)
-                ?? throw new ValidationException("assembledBundleInventoryItemId", ErrorCode.AssembledBundleItemNotFound,
-                    "Assembled bundle inventory item not found.");
-
-            // Snapshot components before removal for restoration
-            fulfillment.SourceNodeId                      = request.SourceNodeId;
-            fulfillment.AssembledBundleInventoryItemId    = request.AssembledBundleInventoryItemId;
-
-            foreach (var comp in bundleItem.Components)
-            {
-                fulfillment.AssembledBundleComponentSnapshots.Add(new AssemblyFulfillmentAssembledBundleComponentSnapshot
-                {
-                    Id                  = Guid.NewGuid(),
-                    FulfillmentId       = fulfillment.Id,
-                    UnitInventoryItemId = comp.UnitInventoryItemId,
-                    CatalogItemId       = comp.CatalogItemId ?? comp.UnitInventoryItem?.CatalogItemId,
-                    Quantity            = comp.Quantity,
-                });
-            }
-
-            db.AssemblyFulfillments.Add(fulfillment);
-
-            await using var tx = await db.Database.BeginTransactionAsync(ct);
-
-            await db.SaveChangesAsync(ct);
-
-            await inventory.RemoveAssembledBundleAsync(
-                request.AssembledBundleInventoryItemId!.Value,
-                request.SourceNodeId.Value,
-                InventoryActions.RemoveAssembledBundle,
-                ct);
-
-            await tx.CommitAsync(ct);
-        }
-        else // Bundle mode 1
+        else // Bundle
         {
             fulfillment.SourceNodeId = null;
 
@@ -546,7 +504,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
         // Determine type and restore inventory
         if (fulfillment.BundleComponents.Count > 0)
         {
-            // Bundle mode 1 — restore each component
+            // Bundle — restore each component
             foreach (var comp in fulfillment.BundleComponents)
             {
                 if (!string.IsNullOrEmpty(comp.UnitInventoryNumber))
@@ -577,26 +535,6 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
                 fulfillment.TaskBoxComponent.CatalogItemId,
                 fulfillment.UnitInventoryNumber,
                 InventoryActions.AddUnitItem,
-                ct);
-        }
-        else if (fulfillment.AssembledBundleComponentSnapshots.Count > 0)
-        {
-            // AssembledBundle (mode 1 or 2) — recreate from snapshot
-            var snapshotComponents = fulfillment.AssembledBundleComponentSnapshots
-                .Select(s => new AssembledBundlePlacementComponentRequest
-                {
-                    CatalogItemId       = s.CatalogItemId
-                        ?? throw new InvalidOperationException("Assembled bundle snapshot is missing CatalogItemId."),
-                    UnitInventoryItemId = s.UnitInventoryItemId,
-                    Quantity            = s.Quantity ?? 0,
-                })
-                .ToList();
-
-            await inventory.AddAssembledBundleToNodeAsync(
-                fulfillment.SourceNodeId!.Value,
-                fulfillment.TaskBoxComponent.CatalogItemId,
-                snapshotComponents,
-                InventoryActions.AddAssembledBundle,
                 ct);
         }
         else if (fulfillment.Quantity > 0 && fulfillment.SourceNodeId.HasValue)

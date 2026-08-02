@@ -18,9 +18,6 @@ public class WriteoffItemDto
     public Guid? UnitInventoryItemId { get; init; }
     public string? InventoryNumber { get; init; }
 
-    // Assembled bundle
-    public Guid? AssembledBundleInventoryItemId { get; init; }
-
     /// <summary>Catalog item display name. Populated for all item types.</summary>
     public string CatalogItemName { get; init; } = null!;
 }

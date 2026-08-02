@@ -166,7 +166,7 @@ function OrderComponentsTable({
                 value={addCatalogItemId}
                 onChange={setAddCatalogItemId}
                 label="Добавить позицию"
-                types={["standard", "unit", "variation", "bundle", "assembledBundle"]}
+                types={["standard", "unit", "variation", "bundle"]}
                 size="small"
                 sx={{flex: 1}}
               />

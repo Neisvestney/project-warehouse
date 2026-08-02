@@ -38,10 +38,7 @@ public class WriteoffsController(
                 .ThenInclude(i => i.CatalogItem)
                 .Include(w => w.Items)
                 .ThenInclude(i => i.UnitInventoryItem)
-                .ThenInclude(u => u!.CatalogItem)
-                .Include(w => w.Items)
-                .ThenInclude(i => i.AssembledBundleInventoryItem)
-                .ThenInclude(b => b!.CatalogItem);
+                .ThenInclude(u => u!.CatalogItem);
 
         return q;
     }
@@ -313,12 +310,11 @@ public class WriteoffsController(
 
             var isStandard = req.CatalogItemId.HasValue && req.Count.HasValue;
             var isUnit     = req.UnitInventoryItemId.HasValue;
-            var isBundle   = req.AssembledBundleInventoryItemId.HasValue;
 
-            var setCount = (isStandard ? 1 : 0) + (isUnit ? 1 : 0) + (isBundle ? 1 : 0);
+            var setCount = (isStandard ? 1 : 0) + (isUnit ? 1 : 0);
             if (setCount != 1)
                 return UnprocessableEntity(prefix, ErrorCode.ValidationError,
-                    "Exactly one of (catalogItemId+count), unitInventoryItemId, or assembledBundleInventoryItemId must be provided.");
+                    "Exactly one of (catalogItemId+count) or unitInventoryItemId must be provided.");
 
             if (isStandard && req.Count!.Value <= 0)
                 return UnprocessableEntity($"{prefix}.count", ErrorCode.OutOfRange,
@@ -352,15 +348,6 @@ public class WriteoffsController(
                     $"Unit inventory item '{req.UnitInventoryItemId}' not found at node '{req.SourceNodeId}'.");
         }
 
-        foreach (var req in items.Where(r => r.AssembledBundleInventoryItemId.HasValue))
-        {
-            var exists = await db.InventoryItems.OfType<AssembledBundleInventoryItem>()
-                .AnyAsync(b => b.Id == req.AssembledBundleInventoryItemId && b.StoragePlaceNodeId == req.SourceNodeId, ct);
-            if (!exists)
-                return UnprocessableEntity("root", ErrorCode.AssembledBundleItemNotFound,
-                    $"Assembled bundle item '{req.AssembledBundleInventoryItemId}' not found at node '{req.SourceNodeId}'.");
-        }
-
         var before = await BuildDtoAsync(writeoff, ct);
 
         // Remove all existing items and replace with the new list (sync pattern)
@@ -386,13 +373,9 @@ public class WriteoffsController(
                 item.CatalogItemId = req.CatalogItemId.Value;
                 item.Count         = req.Count!.Value;
             }
-            else if (req.UnitInventoryItemId.HasValue)
-            {
-                item.UnitInventoryItemId = req.UnitInventoryItemId.Value;
-            }
             else
             {
-                item.AssembledBundleInventoryItemId = req.AssembledBundleInventoryItemId!.Value;
+                item.UnitInventoryItemId = req.UnitInventoryItemId!.Value;
             }
 
             db.WriteoffItems.Add(item);
@@ -461,13 +444,6 @@ public class WriteoffsController(
                             item.SourceNodeId,
                             ct: ct);
                     }
-                    else if (item.AssembledBundleInventoryItemId.HasValue)
-                    {
-                        await inventory.RemoveAssembledBundleAsync(
-                            item.AssembledBundleInventoryItemId.Value,
-                            item.SourceNodeId,
-                            ct: ct);
-                    }
                 }
 
                 fresh.Status = WriteoffStatus.Finished;
@@ -490,15 +466,10 @@ public class WriteoffsController(
             return UnprocessableEntity("root", ErrorCode.UnitInventoryItemNotFound,
                 "One or more unit items were not found.");
         }
-        catch (AssembledBundleItemNotFoundException)
-        {
-            return UnprocessableEntity("root", ErrorCode.AssembledBundleItemNotFound,
-                "One or more assembled bundle items were not found.");
-        }
 
         var nodeById = await LoadWarehouseNodesAsync(writeoff.WarehouseId, ct);
 
-        // Reload items after finish (unit/bundle FKs may be SetNull after removal)
+        // Reload items after finish (unit FKs may be SetNull after removal)
         var updated = await BaseQuery(includeItems: true).FirstAsync(w => w.Id == id, ct);
         var after = MapWithNodes(updated, nodeById);
         await changeLog.CompareAndSaveToChangelog(before, after, WriteoffActions.Finished);

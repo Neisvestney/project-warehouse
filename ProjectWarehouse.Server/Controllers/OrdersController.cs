@@ -36,10 +36,7 @@ public class OrdersController(
                 .ThenInclude(tb => tb.Components).ThenInclude(c => c.CatalogItem)
             .Include(o => o.AssemblyTasks).ThenInclude(t => t.Boxes)
                 .ThenInclude(tb => tb.Components).ThenInclude(c => c.Fulfillments)
-                .ThenInclude(f => f.BundleComponents)
-            .Include(o => o.AssemblyTasks).ThenInclude(t => t.Boxes)
-                .ThenInclude(tb => tb.Components).ThenInclude(c => c.Fulfillments)
-                .ThenInclude(f => f.AssembledBundleComponentSnapshots);
+                .ThenInclude(f => f.BundleComponents);
 
     // ── Access helpers ────────────────────────────────────────────────────────
 
@@ -195,9 +192,6 @@ public class OrdersController(
             .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
                 .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
                 .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.BundleComponents)
-            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
-                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
-                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.AssembledBundleComponentSnapshots)
             .Where(o => o.Status == OrderStatus.Assembly)
             .Where(o => o.AssemblyTasks.Any(t => t.AssignedToId == userId))
             .AsSplitQuery();
@@ -818,11 +812,6 @@ public class OrdersController(
             return UnprocessableEntity("unitInventoryItemId", ErrorCode.UnitInventoryItemNotFound,
                 "Unit inventory item not found.");
         }
-        catch (AssembledBundleItemNotFoundException)
-        {
-            return UnprocessableEntity("assembledBundleInventoryItemId", ErrorCode.AssembledBundleItemNotFound,
-                "Assembled bundle item not found.");
-        }
         catch (InventoryItemNodeMismatchException)
         {
             return UnprocessableEntity("root", ErrorCode.WriteoffItemNotFound,
@@ -845,7 +834,6 @@ public class OrdersController(
         var fulfillment = await db.AssemblyFulfillments
             .Include(f => f.TaskBoxComponent).ThenInclude(c => c.CatalogItem)
             .Include(f => f.BundleComponents)
-            .Include(f => f.AssembledBundleComponentSnapshots)
             .FirstOrDefaultAsync(f => f.Id == fid
                 && f.TaskBoxComponent.Id == cid
                 && f.TaskBoxComponent.AssemblyTaskBox.Id == tbid
@@ -945,10 +933,6 @@ public class OrdersController(
                 catch (UnitInventoryItemNotFoundException)
                 {
                     failedItems.Add(new BatchFulfillFailedItem { OrderId = item.OrderId, ComponentId = item.ComponentId, Error = "Unit inventory item not found." });
-                }
-                catch (AssembledBundleItemNotFoundException)
-                {
-                    failedItems.Add(new BatchFulfillFailedItem { OrderId = item.OrderId, ComponentId = item.ComponentId, Error = "Assembled bundle item not found." });
                 }
                 catch (InventoryItemNodeMismatchException)
                 {

@@ -54,9 +54,6 @@ import type {
   EventsGetEventsData,
   EventsGetEventsErrors,
   EventsGetEventsResponses,
-  InventoryItemsGetAllAssembledBundlesData,
-  InventoryItemsGetAllAssembledBundlesErrors,
-  InventoryItemsGetAllAssembledBundlesResponses,
   InventoryItemsGetAllData,
   InventoryItemsGetAllErrors,
   InventoryItemsGetAllResponses,
@@ -138,9 +135,6 @@ import type {
   PermissionsGetAllData,
   PermissionsGetAllErrors,
   PermissionsGetAllResponses,
-  ReceiptsAddAssembledBundlePlacementData,
-  ReceiptsAddAssembledBundlePlacementErrors,
-  ReceiptsAddAssembledBundlePlacementResponses,
   ReceiptsAddStandardPlacementBatchData,
   ReceiptsAddStandardPlacementBatchErrors,
   ReceiptsAddStandardPlacementBatchResponses,
@@ -476,8 +470,7 @@ export const catalogGetById = <ThrowOnError extends boolean = false>(
 /**
  * Update a catalog item.
  *
- *     Assembled bundles are immutable and cannot be updated (returns 422).
- * Type-specific fields:
+ *     Type-specific fields:
  * * Standard / Unit: groupId, variationIds (full replace)
  * * Variation: memberIds (full replace)
  * * Bundle: components — id: null creates, id present updates, missing existing entries are deleted
@@ -544,8 +537,8 @@ export const eventsGetEvents = <ThrowOnError extends boolean = false>(
 /**
  * List all inventory items aggregated by catalog item.
  *
- * Returns one row per distinct CatalogItem with a total Count summed across all three item kinds
- * (Standard, Unit, AssembledBundle). Supports filtering by warehouse, storage place, node,
+ * Returns one row per distinct CatalogItem with a total Count summed across both item kinds
+ * (Standard, Unit). Supports filtering by warehouse, storage place, node,
  * catalog item type, and archive state.
  */
 export const inventoryItemsGetAll = <ThrowOnError extends boolean = false>(
@@ -568,18 +561,6 @@ export const inventoryItemsGetAllUnits = <ThrowOnError extends boolean = false>(
     InventoryItemsGetAllUnitsErrors,
     ThrowOnError
   >({url: "/api/inventory-items/units", ...options});
-
-/**
- * List all assembled bundle inventory items (individual bundle instances).
- */
-export const inventoryItemsGetAllAssembledBundles = <ThrowOnError extends boolean = false>(
-  options?: Options<InventoryItemsGetAllAssembledBundlesData, ThrowOnError>,
-) =>
-  (options?.client ?? client).get<
-    InventoryItemsGetAllAssembledBundlesResponses,
-    InventoryItemsGetAllAssembledBundlesErrors,
-    ThrowOnError
-  >({url: "/api/inventory-items/assembled-bundles", ...options});
 
 export const ordersGetAll = <ThrowOnError extends boolean = false>(
   options?: Options<OrdersGetAllData, ThrowOnError>,
@@ -1070,25 +1051,6 @@ export const receiptsAddUnitPlacement = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Place an AssembledBundle item at a storage node. Only in Processing status.
- */
-export const receiptsAddAssembledBundlePlacement = <ThrowOnError extends boolean = false>(
-  options: Options<ReceiptsAddAssembledBundlePlacementData, ThrowOnError>,
-) =>
-  (options.client ?? client).post<
-    ReceiptsAddAssembledBundlePlacementResponses,
-    ReceiptsAddAssembledBundlePlacementErrors,
-    ThrowOnError
-  >({
-    url: "/api/receipts/{id}/items/{itemId}/placements/assembled-bundle",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-
-/**
  * Remove a placement, reversing the inventory change. Only in Processing status.
  */
 export const receiptsDeletePlacement = <ThrowOnError extends boolean = false>(
@@ -1318,7 +1280,7 @@ export const storagePlacesReorderNodes = <ThrowOnError extends boolean = false>(
  *
  * All items are moved in a single transaction — if any item fails, the entire transfer is rolled back.
  * Transfer type is determined by which field of each TransferItemRequest is populated:
- * `catalogItemId + count` → Standard; `unitItemId` → Unit; `assembledBundleItemId` → AssembledBundle.
+ * `catalogItemId + count` → Standard; `unitItemId` → Unit.
  */
 export const transfersExecute = <ThrowOnError extends boolean = false>(
   options: Options<TransfersExecuteData, ThrowOnError>,

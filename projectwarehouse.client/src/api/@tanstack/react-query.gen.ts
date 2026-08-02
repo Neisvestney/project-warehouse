@@ -27,7 +27,6 @@ import {
   commonContentGlobalSearch,
   eventsGetEvents,
   inventoryItemsGetAll,
-  inventoryItemsGetAllAssembledBundles,
   inventoryItemsGetAllUnits,
   type Options,
   ordersAddBox,
@@ -55,7 +54,6 @@ import {
   ordersUpdateComponent,
   ordersUpdateTaskBoxComponent,
   permissionsGetAll,
-  receiptsAddAssembledBundlePlacement,
   receiptsAddStandardPlacement,
   receiptsAddStandardPlacementBatch,
   receiptsAddUnitPlacement,
@@ -158,9 +156,6 @@ import type {
   EventsGetEventsData,
   EventsGetEventsError,
   EventsGetEventsResponse,
-  InventoryItemsGetAllAssembledBundlesData,
-  InventoryItemsGetAllAssembledBundlesError,
-  InventoryItemsGetAllAssembledBundlesResponse,
   InventoryItemsGetAllData,
   InventoryItemsGetAllError,
   InventoryItemsGetAllResponse,
@@ -242,9 +237,6 @@ import type {
   PermissionsGetAllData,
   PermissionsGetAllError,
   PermissionsGetAllResponse,
-  ReceiptsAddAssembledBundlePlacementData,
-  ReceiptsAddAssembledBundlePlacementError,
-  ReceiptsAddAssembledBundlePlacementResponse,
   ReceiptsAddStandardPlacementBatchData,
   ReceiptsAddStandardPlacementBatchError,
   ReceiptsAddStandardPlacementBatchResponse,
@@ -805,8 +797,7 @@ export const catalogGetByIdOptions = (options: Options<CatalogGetByIdData>) =>
 /**
  * Update a catalog item.
  *
- *     Assembled bundles are immutable and cannot be updated (returns 422).
- * Type-specific fields:
+ *     Type-specific fields:
  * * Standard / Unit: groupId, variationIds (full replace)
  * * Variation: memberIds (full replace)
  * * Bundle: components — id: null creates, id present updates, missing existing entries are deleted
@@ -991,8 +982,8 @@ export const inventoryItemsGetAllQueryKey = (options?: Options<InventoryItemsGet
 /**
  * List all inventory items aggregated by catalog item.
  *
- * Returns one row per distinct CatalogItem with a total Count summed across all three item kinds
- * (Standard, Unit, AssembledBundle). Supports filtering by warehouse, storage place, node,
+ * Returns one row per distinct CatalogItem with a total Count summed across both item kinds
+ * (Standard, Unit). Supports filtering by warehouse, storage place, node,
  * catalog item type, and archive state.
  */
 export const inventoryItemsGetAllOptions = (options?: Options<InventoryItemsGetAllData>) =>
@@ -1022,8 +1013,8 @@ export const inventoryItemsGetAllInfiniteQueryKey = (
 /**
  * List all inventory items aggregated by catalog item.
  *
- * Returns one row per distinct CatalogItem with a total Count summed across all three item kinds
- * (Standard, Unit, AssembledBundle). Supports filtering by warehouse, storage place, node,
+ * Returns one row per distinct CatalogItem with a total Count summed across both item kinds
+ * (Standard, Unit). Supports filtering by warehouse, storage place, node,
  * catalog item type, and archive state.
  */
 export const inventoryItemsGetAllInfiniteOptions = (options?: Options<InventoryItemsGetAllData>) =>
@@ -1138,84 +1129,6 @@ export const inventoryItemsGetAllUnitsInfiniteOptions = (
         return data;
       },
       queryKey: inventoryItemsGetAllUnitsInfiniteQueryKey(options),
-    },
-  );
-
-export const inventoryItemsGetAllAssembledBundlesQueryKey = (
-  options?: Options<InventoryItemsGetAllAssembledBundlesData>,
-) => createQueryKey("inventoryItemsGetAllAssembledBundles", options);
-
-/**
- * List all assembled bundle inventory items (individual bundle instances).
- */
-export const inventoryItemsGetAllAssembledBundlesOptions = (
-  options?: Options<InventoryItemsGetAllAssembledBundlesData>,
-) =>
-  queryOptions<
-    InventoryItemsGetAllAssembledBundlesResponse,
-    InventoryItemsGetAllAssembledBundlesError,
-    InventoryItemsGetAllAssembledBundlesResponse,
-    ReturnType<typeof inventoryItemsGetAllAssembledBundlesQueryKey>
-  >({
-    queryFn: async ({queryKey, signal}) => {
-      const {data} = await inventoryItemsGetAllAssembledBundles({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: inventoryItemsGetAllAssembledBundlesQueryKey(options),
-  });
-
-export const inventoryItemsGetAllAssembledBundlesInfiniteQueryKey = (
-  options?: Options<InventoryItemsGetAllAssembledBundlesData>,
-): QueryKey<Options<InventoryItemsGetAllAssembledBundlesData>> =>
-  createQueryKey("inventoryItemsGetAllAssembledBundles", options, true);
-
-/**
- * List all assembled bundle inventory items (individual bundle instances).
- */
-export const inventoryItemsGetAllAssembledBundlesInfiniteOptions = (
-  options?: Options<InventoryItemsGetAllAssembledBundlesData>,
-) =>
-  infiniteQueryOptions<
-    InventoryItemsGetAllAssembledBundlesResponse,
-    InventoryItemsGetAllAssembledBundlesError,
-    InfiniteData<InventoryItemsGetAllAssembledBundlesResponse>,
-    QueryKey<Options<InventoryItemsGetAllAssembledBundlesData>>,
-    | number
-    | Pick<
-        QueryKey<Options<InventoryItemsGetAllAssembledBundlesData>>[0],
-        "body" | "headers" | "path" | "query"
-      >
-  >(
-    // @ts-ignore
-    {
-      queryFn: async ({pageParam, queryKey, signal}) => {
-        // @ts-ignore
-        const page: Pick<
-          QueryKey<Options<InventoryItemsGetAllAssembledBundlesData>>[0],
-          "body" | "headers" | "path" | "query"
-        > =
-          typeof pageParam === "object"
-            ? pageParam
-            : {
-                query: {
-                  page: pageParam,
-                },
-              };
-        const params = createInfiniteParams(queryKey, page);
-        const {data} = await inventoryItemsGetAllAssembledBundles({
-          ...options,
-          ...params,
-          signal,
-          throwOnError: true,
-        });
-        return data;
-      },
-      queryKey: inventoryItemsGetAllAssembledBundlesInfiniteQueryKey(options),
     },
   );
 
@@ -2166,33 +2079,6 @@ export const receiptsAddUnitPlacementMutation = (
 };
 
 /**
- * Place an AssembledBundle item at a storage node. Only in Processing status.
- */
-export const receiptsAddAssembledBundlePlacementMutation = (
-  options?: Partial<Options<ReceiptsAddAssembledBundlePlacementData>>,
-): UseMutationOptions<
-  ReceiptsAddAssembledBundlePlacementResponse,
-  ReceiptsAddAssembledBundlePlacementError,
-  Options<ReceiptsAddAssembledBundlePlacementData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    ReceiptsAddAssembledBundlePlacementResponse,
-    ReceiptsAddAssembledBundlePlacementError,
-    Options<ReceiptsAddAssembledBundlePlacementData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const {data} = await receiptsAddAssembledBundlePlacement({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
  * Remove a placement, reversing the inventory change. Only in Processing status.
  */
 export const receiptsDeletePlacementMutation = (
@@ -2618,7 +2504,7 @@ export const storagePlacesReorderNodesMutation = (
  *
  * All items are moved in a single transaction — if any item fails, the entire transfer is rolled back.
  * Transfer type is determined by which field of each TransferItemRequest is populated:
- * `catalogItemId + count` → Standard; `unitItemId` → Unit; `assembledBundleItemId` → AssembledBundle.
+ * `catalogItemId + count` → Standard; `unitItemId` → Unit.
  */
 export const transfersExecuteMutation = (
   options?: Partial<Options<TransfersExecuteData>>,

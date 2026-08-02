@@ -673,121 +673,6 @@ public class ReceiptsController(
         return Ok(itemAfter);
     }
 
-    // ── POST placement / assembled-bundle ─────────────────────────────────────
-
-    /// <summary>Place an AssembledBundle item at a storage node. Only in Processing status.</summary>
-    [HttpPost("{id:guid}/items/{itemId:guid}/placements/assembled-bundle")]
-    [Authorize]
-    [ProducesResponseType<ReceiptItemDto>(StatusCodes.Status200OK)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> AddAssembledBundlePlacement(Guid id, Guid itemId,
-        [FromBody] CreateAssembledBundlePlacementRequest request, CancellationToken ct = default)
-    {
-        var (receipt, item, error) = await LoadReceiptItemForPlacementAsync(id, itemId, ct);
-        if (error is not null) return error;
-
-        var nodeExists = await db.StoragePlacesNodes.AnyAsync(n => n.Id == request.StoragePlaceNodeId, ct);
-        if (!nodeExists)
-            return UnprocessableEntity("storagePlaceNodeId", ErrorCode.StoragePlaceNodeNotFound,
-                "Storage place node not found.");
-
-        var catalogItemId = item!.CatalogItemId;
-        var warehouseId = receipt!.WarehouseId;
-
-        // Validate that the request components exactly match the catalog item's AssembledComponents definition.
-        var definedComponents = await db.CatalogItems
-            .Where(c => c.Id == catalogItemId)
-            .SelectMany(c => c.AssembledComponents)
-            .Include(ac => ac.Component)
-            .ToListAsync(ct);
-
-        var validationMessages = new List<string>();
-
-        foreach (var defined in definedComponents)
-        {
-            var isUnit = defined.Component.Type == CatalogItemType.Unit;
-            var matching = request.Components.Where(c => c.CatalogItemId == defined.ComponentId).ToList();
-
-            if (isUnit)
-            {
-                if (matching.Count != defined.Quantity)
-                    validationMessages.Add(
-                        $"«{defined.Component.Name}»: ожидается {defined.Quantity} шт., получено {matching.Count}.");
-            }
-            else
-            {
-                if (matching.Count != 1)
-                    validationMessages.Add(
-                        $"«{defined.Component.Name}»: ожидается 1 запись, получено {matching.Count}.");
-                else if (matching[0].Quantity != defined.Quantity)
-                    validationMessages.Add(
-                        $"«{defined.Component.Name}»: ожидается количество {defined.Quantity}, получено {matching[0].Quantity}.");
-            }
-        }
-
-        var definedIds = definedComponents.Select(c => c.ComponentId).ToHashSet();
-        var extraIds = request.Components
-            .Select(c => c.CatalogItemId)
-            .Where(cid => !definedIds.Contains(cid))
-            .Distinct()
-            .ToList();
-        if (extraIds.Count > 0)
-            validationMessages.Add($"Лишние компоненты не входят в состав комплекта.");
-
-        if (validationMessages.Count > 0)
-            return UnprocessableEntity("root", ErrorCode.ValidationError,
-                string.Join(" ", validationMessages));
-
-        var nodeById = await LoadWarehouseNodesAsync(warehouseId, ct);
-        var itemBefore = mapper.Map<ReceiptItemDto>(item, opts => opts.Items["nodeById"] = nodeById);
-
-        var strategy = db.Database.CreateExecutionStrategy();
-        try
-        {
-            await strategy.ExecuteAsync(async () =>
-            {
-                await using var tx = await db.Database.BeginTransactionAsync(ct);
-
-                var bundleItem = await inventory.AddAssembledBundleToNodeAsync(
-                    request.StoragePlaceNodeId,
-                    catalogItemId,
-                    request.Components,
-                    ct: ct);
-
-                db.ReceiptItemPlacements.Add(new ReceiptItemPlacement
-                {
-                    Id                             = Guid.NewGuid(),
-                    ReceiptItemId                  = itemId,
-                    StoragePlaceNodeId             = request.StoragePlaceNodeId,
-                    Count                          = 0,
-                    AssembledBundleInventoryItemId = bundleItem.Id,
-                });
-                await db.SaveChangesAsync(ct);
-                await tx.CommitAsync(ct);
-            });
-        }
-        catch (ValidationException ex)
-        {
-            // Field already contains the full path with component index, e.g. "components[0].inventoryNumber".
-            return UnprocessableEntity(ex);
-        }
-        catch (DbUpdateException)
-        {
-            // Race condition: a new unit item component hit the DB unique constraint.
-            return UnprocessableEntity("components", ErrorCode.UnitInventoryItemNumberDuplicate,
-                "One or more unit item inventory numbers already exist for their catalog items.");
-        }
-
-        var itemAfter = await LoadItemDtoAsync(itemId, warehouseId, ct, nodeById);
-        await changeLog.CompareAndSaveToChangelog(
-            BuildItemChangelogSnapshot(receipt!, itemBefore),
-            BuildItemChangelogSnapshot(receipt!, itemAfter),
-            ReceiptActions.PlacementAdded);
-
-        return Ok(itemAfter);
-    }
-
     // ── DELETE placement ──────────────────────────────────────────────────────
 
     /// <summary>Remove a placement, reversing the inventory change. Only in Processing status.</summary>
@@ -832,11 +717,6 @@ public class ReceiptsController(
                         placement.UnitInventoryItemId.Value,
                         placement.StoragePlaceNodeId,
                         ct: ct);
-                else if (placement.AssembledBundleInventoryItemId is not null)
-                    await inventory.RemoveAssembledBundleAsync(
-                        placement.AssembledBundleInventoryItemId.Value,
-                        placement.StoragePlaceNodeId,
-                        ct: ct);
                 else if (placement.Count > 0)
                     await inventory.RemoveStandardItemsFromNodeAsync(
                         placement.StoragePlaceNodeId,
@@ -858,11 +738,6 @@ public class ReceiptsController(
         {
             return UnprocessableEntity("root", ErrorCode.UnitInventoryItemNotFound,
                 "Единичный товар не найден — возможно, он уже был удалён.");
-        }
-        catch (AssembledBundleItemNotFoundException)
-        {
-            return UnprocessableEntity("root", ErrorCode.AssembledBundleItemNotFound,
-                "Комплект не найден — возможно, он уже был удалён.");
         }
         catch (InsufficientInventoryException ex)
         {

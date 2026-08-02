@@ -112,11 +112,7 @@ function DiscrepancyText({
 }
 
 function calcTotalPlaced(item: ReceiptItemDto): number {
-  return item.placements.reduce(
-    (sum, p) =>
-      sum + (p.count || (p.unitInventoryItemId || p.assembledBundleInventoryItemId ? 1 : 0)),
-    0,
-  );
+  return item.placements.reduce((sum, p) => sum + (p.count || (p.unitInventoryItemId ? 1 : 0)), 0);
 }
 
 interface ReceiptItemsSectionProps {
@@ -132,9 +128,6 @@ function PlacementDisplay({placement}: {placement: ReceiptItemPlacementDto}) {
         {path} — инв. {placement.inventoryNumber}
       </Typography>
     );
-  }
-  if (placement.assembledBundleInventoryItemId) {
-    return <Typography variant="body2">{path} — комплект</Typography>;
   }
   return (
     <Typography variant="body2">
@@ -481,11 +474,7 @@ function ProcessingItemCard({
   );
 }
 
-const PLACEABLE_TYPES: Array<"standard" | "unit" | "assembledBundle"> = [
-  "standard",
-  "unit",
-  "assembledBundle",
-];
+const PLACEABLE_TYPES: Array<"standard" | "unit"> = ["standard", "unit"];
 
 function ReceiptItemsSection({receipt, onUpdate}: ReceiptItemsSectionProps) {
   const [editorOpen, setEditorOpen] = useState(false);

@@ -53,8 +53,6 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   catalogItemComponentInvalid: "Указанная позиция не может быть компонентом комплекта",
   catalogItemComponentNotFound: "Компонент комплекта не найден",
   catalogItemCircularDependency: "Обнаружена циклическая зависимость в компонентах комплекта",
-  catalogItemTooManyCombinations:
-    "Комплект порождает слишком много вариантов сборки — уменьшите количество вариаций или группы",
   required: "Обязательное поле",
   tooShort: "Значение слишком короткое (мин. {minimalLength} симв.)",
   tooLong: "Значение слишком длинное (макс. {maximalLength} симв.)",
@@ -86,7 +84,6 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   unitInventoryItemNumberDuplicate: "Инвентарный номер уже используется для этого товара",
   transferSameNode: "Источник и назначение не могут быть одной ячейкой",
   unitInventoryItemNotFound: "Единичный товар не найден",
-  assembledBundleItemNotFound: "Комплект не найден",
   inventoryItemMovedToAnotherNodeAfterPlacementCreated:
     "Товар был перемещён в другую ячейку после создания размещения",
   orderNotFound: "Заказ не найден",

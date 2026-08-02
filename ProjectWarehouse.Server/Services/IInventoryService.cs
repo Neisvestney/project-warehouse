@@ -1,6 +1,5 @@
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
-using ProjectWarehouse.Server.Models.Receipts;
 
 namespace ProjectWarehouse.Server.Services;
 
@@ -67,32 +66,6 @@ public interface IInventoryService
         string action = InventoryActions.RemoveUnitItem,
         CancellationToken ct = default);
 
-    // ── Assembled bundle items ───────────────────────────────────────────────
-
-    /// <summary>
-    /// Creates a new <see cref="AssembledBundleInventoryItem"/> at the given node with the specified components.
-    /// For components with <c>NewUnitItem</c> set, a new <see cref="UnitInventoryItem"/> is created first
-    /// via <see cref="CreateUnitItemAsync"/> before building the bundle.
-    /// Writes a changelog entry on the node.
-    /// </summary>
-    Task<AssembledBundleInventoryItem> AddAssembledBundleToNodeAsync(
-        Guid nodeId,
-        Guid catalogItemId,
-        IReadOnlyList<AssembledBundlePlacementComponentRequest> components,
-        string action = InventoryActions.AddAssembledBundle,
-        CancellationToken ct = default);
-
-    /// <summary>
-    /// Deletes the <see cref="AssembledBundleInventoryItem"/> with the given ID.
-    /// Throws <see cref="InventoryItemNodeMismatchException"/> if the item is not in <paramref name="expectedNodeId"/>.
-    /// Writes a changelog entry on the node.
-    /// </summary>
-    Task RemoveAssembledBundleAsync(
-        Guid assembledBundleItemId,
-        Guid expectedNodeId,
-        string action = InventoryActions.RemoveAssembledBundle,
-        CancellationToken ct = default);
-
     // ── Movement ─────────────────────────────────────────────────────────────
 
     Task MoveStandardItemsAsync(
@@ -107,15 +80,5 @@ public interface IInventoryService
         Guid unitItemId,
         Guid toNodeId,
         string action = InventoryActions.MoveUnitItem,
-        CancellationToken ct = default);
-
-    /// <summary>
-    /// Moves an <see cref="AssembledBundleInventoryItem"/> to <paramref name="toNodeId"/>.
-    /// Writes changelog entries on both the source and destination nodes.
-    /// </summary>
-    Task MoveAssembledBundleAsync(
-        Guid assembledBundleItemId,
-        Guid toNodeId,
-        string action = InventoryActions.MoveAssembledBundle,
         CancellationToken ct = default);
 }

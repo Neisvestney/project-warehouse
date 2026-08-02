@@ -30,11 +30,8 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<CatalogItemTag> CatalogItemTags => Set<CatalogItemTag>();
     public DbSet<CatalogItemVariationMember> CatalogItemVariationMembers => Set<CatalogItemVariationMember>();
     public DbSet<BundleComponent> BundleComponents => Set<BundleComponent>();
-    public DbSet<AssembledBundleComponent> AssembledBundleComponents => Set<AssembledBundleComponent>();
 
     public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
-    public DbSet<AssembledBundleInventoryItemComponent> AssembledBundleInventoryItemComponents =>
-        Set<AssembledBundleInventoryItemComponent>();
 
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
     public DbSet<StoragePlace> StoragePlaces => Set<StoragePlace>();
@@ -58,8 +55,6 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<AssemblyFulfillment> AssemblyFulfillments => Set<AssemblyFulfillment>();
     public DbSet<AssemblyFulfillmentBundleComponent> AssemblyFulfillmentBundleComponents =>
         Set<AssemblyFulfillmentBundleComponent>();
-    public DbSet<AssemblyFulfillmentAssembledBundleComponentSnapshot> AssemblyFulfillmentAssembledBundleComponentSnapshots =>
-        Set<AssemblyFulfillmentAssembledBundleComponentSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -112,11 +107,6 @@ public class ApplicationDbContext : IdentityDbContext<
                 .HasForeignKey(x => x.GroupId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            e.HasMany(x => x.AssembledInstances)
-                .WithOne(x => x.SourceBundle)
-                .HasForeignKey(x => x.SourceBundleId)
-                .OnDelete(DeleteBehavior.Restrict);
-
             e.HasMany(x => x.Tags)
                 .WithMany(x => x.Items)
                 .UsingEntity("CatalogItemTagLinks");
@@ -152,21 +142,6 @@ public class ApplicationDbContext : IdentityDbContext<
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-        builder.Entity<AssembledBundleComponent>(e =>
-        {
-            e.HasKey(x => x.Id);
-
-            e.HasOne(x => x.AssembledBundle)
-                .WithMany(x => x.AssembledComponents)
-                .HasForeignKey(x => x.AssembledBundleId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            e.HasOne(x => x.Component)
-                .WithMany()
-                .HasForeignKey(x => x.ComponentId)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
-
         builder.Entity<ItemsGroup>(e => { e.HasKey(x => x.Id); });
 
         builder.Entity<StoragePlaceNodeItemsGroup>(e =>
@@ -187,8 +162,7 @@ public class ApplicationDbContext : IdentityDbContext<
             e.HasKey(x => x.Id);
 
             e.HasDiscriminator<string>("Type")
-                .HasValue<UnitInventoryItem>("Unit")
-                .HasValue<AssembledBundleInventoryItem>("AssembledBundle");
+                .HasValue<UnitInventoryItem>("Unit");
 
             e.HasOne(x => x.CatalogItem)
                 .WithMany()
@@ -207,26 +181,6 @@ public class ApplicationDbContext : IdentityDbContext<
             e.HasIndex(x => new { x.CatalogItemId, x.InventoryNumber })
                 .IsUnique()
                 .HasFilter("\"Type\" = 'Unit'");
-        });
-
-        builder.Entity<AssembledBundleInventoryItemComponent>(e =>
-        {
-            e.HasKey(x => x.Id);
-
-            e.HasOne(x => x.AssembledBundleInventoryItem)
-                .WithMany(x => x.Components)
-                .HasForeignKey(x => x.AssembledBundleInventoryItemId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            e.HasOne(x => x.UnitInventoryItem)
-                .WithMany()
-                .HasForeignKey(x => x.UnitInventoryItemId)
-                .OnDelete(DeleteBehavior.SetNull);
-
-            e.HasOne(x => x.CatalogItem)
-                .WithMany()
-                .HasForeignKey(x => x.CatalogItemId)
-                .OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<Warehouse>(e =>
@@ -304,11 +258,6 @@ public class ApplicationDbContext : IdentityDbContext<
                 .WithMany()
                 .HasForeignKey(x => x.UnitInventoryItemId)
                 .OnDelete(DeleteBehavior.SetNull);
-
-            e.HasOne(x => x.AssembledBundleInventoryItem)
-                .WithMany()
-                .HasForeignKey(x => x.AssembledBundleInventoryItemId)
-                .OnDelete(DeleteBehavior.SetNull);
         });
 
         builder.Entity<Writeoff>(e =>
@@ -351,12 +300,6 @@ public class ApplicationDbContext : IdentityDbContext<
             e.HasOne(x => x.UnitInventoryItem)
                 .WithMany()
                 .HasForeignKey(x => x.UnitInventoryItemId)
-                .IsRequired(false)
-                .OnDelete(DeleteBehavior.SetNull);
-
-            e.HasOne(x => x.AssembledBundleInventoryItem)
-                .WithMany()
-                .HasForeignKey(x => x.AssembledBundleInventoryItemId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
         });
@@ -478,12 +421,6 @@ public class ApplicationDbContext : IdentityDbContext<
                 .HasForeignKey(x => x.UnitInventoryItemId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
-
-            e.HasOne(x => x.AssembledBundleInventoryItem)
-                .WithMany()
-                .HasForeignKey(x => x.AssembledBundleInventoryItemId)
-                .IsRequired(false)
-                .OnDelete(DeleteBehavior.SetNull);
         });
 
         builder.Entity<AssemblyFulfillmentBundleComponent>(e =>
@@ -510,28 +447,6 @@ public class ApplicationDbContext : IdentityDbContext<
                 .HasForeignKey(x => x.UnitInventoryItemId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
-        });
-
-        builder.Entity<AssemblyFulfillmentAssembledBundleComponentSnapshot>(e =>
-        {
-            e.HasKey(x => x.Id);
-
-            e.HasOne(x => x.Fulfillment)
-                .WithMany(x => x.AssembledBundleComponentSnapshots)
-                .HasForeignKey(x => x.FulfillmentId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            e.HasOne(x => x.UnitInventoryItem)
-                .WithMany()
-                .HasForeignKey(x => x.UnitInventoryItemId)
-                .IsRequired(false)
-                .OnDelete(DeleteBehavior.SetNull);
-
-            e.HasOne(x => x.CatalogItem)
-                .WithMany()
-                .HasForeignKey(x => x.CatalogItemId)
-                .IsRequired(false)
-                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

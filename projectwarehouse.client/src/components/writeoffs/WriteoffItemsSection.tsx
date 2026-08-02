@@ -24,13 +24,11 @@ interface WriteoffItemsSectionProps {
 
 function itemDisplayCount(item: WriteoffDto["items"][number]): string {
   if (item.inventoryNumber) return `[${item.inventoryNumber}]`;
-  if (item.assembledBundleInventoryItemId) return "1 компл.";
   return String(item.count);
 }
 
 function itemType(item: WriteoffDto["items"][number]) {
   if (item.unitInventoryItemId) return "unit" as const;
-  if (item.assembledBundleInventoryItemId) return "assembledBundle" as const;
   return "standard" as const;
 }
 

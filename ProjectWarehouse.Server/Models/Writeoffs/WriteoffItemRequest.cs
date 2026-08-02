@@ -14,8 +14,5 @@ public class WriteoffItemRequest
     // Unit item
     public Guid? UnitInventoryItemId { get; init; }
 
-    // Assembled bundle
-    public Guid? AssembledBundleInventoryItemId { get; init; }
-
     public string? Notes { get; init; }
 }

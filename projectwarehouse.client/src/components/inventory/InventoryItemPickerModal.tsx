@@ -27,17 +27,12 @@ import CloseIcon from "@mui/icons-material/Close";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {useQuery} from "@tanstack/react-query";
 import {
-  inventoryItemsGetAllAssembledBundlesOptions,
   inventoryItemsGetAllOptions,
   inventoryItemsGetAllUnitsOptions,
 } from "@/api/@tanstack/react-query.gen";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import type {CatalogItemType} from "@/api/types.gen";
-import type {
-  AssembledBundleInventoryItemDto,
-  InventoryItemSummaryDto,
-  UnitInventoryItemDto,
-} from "@/api/types.gen";
+import type {InventoryItemSummaryDto, UnitInventoryItemDto} from "@/api/types.gen";
 
 export type SelectedInventoryItem =
   | {
@@ -47,8 +42,7 @@ export type SelectedInventoryItem =
       count: number;
       available: number;
     }
-  | {type: "unit"; unitItemId: string; inventoryNumber: string; catalogItemName: string}
-  | {type: "assembledBundle"; assembledBundleItemId: string; catalogItemName: string};
+  | {type: "unit"; unitItemId: string; inventoryNumber: string; catalogItemName: string};
 
 interface InventoryItemPickerModalProps {
   open: boolean;
@@ -61,7 +55,6 @@ const PAGE_SIZE = 50;
 
 function itemToCatalogType(item: SelectedInventoryItem): CatalogItemType {
   if (item.type === "unit") return "unit";
-  if (item.type === "assembledBundle") return "assembledBundle";
   return "standard";
 }
 
@@ -343,130 +336,6 @@ function UnitAccordion({
   );
 }
 
-// ── AssembledBundle accordion ─────────────────────────────────────────────────
-
-function AssembledBundleAccordion({
-  nodeId,
-  open,
-  onAdd,
-}: {
-  nodeId: string;
-  open: boolean;
-  onAdd: (items: SelectedInventoryItem[]) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const [page, setPage] = useState(1);
-  const [checked, setChecked] = useState<Set<string>>(new Set());
-
-  const query = useQuery({
-    ...inventoryItemsGetAllAssembledBundlesOptions({
-      query: {nodeId, page, pageSize: PAGE_SIZE},
-    }),
-    enabled: open && expanded,
-    meta: {suppressGlobalError: true},
-  });
-
-  const items = query.data?.items ?? [];
-  const total = query.data?.total ?? 0;
-
-  const toggleChecked = (id: string) => {
-    setChecked((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  const handleAdd = () => {
-    const toAdd: SelectedInventoryItem[] = items
-      .filter((item: AssembledBundleInventoryItemDto) => checked.has(item.id))
-      .map((item: AssembledBundleInventoryItemDto) => ({
-        type: "assembledBundle" as const,
-        assembledBundleItemId: item.id,
-        catalogItemName: item.catalogItem.fullName,
-      }));
-    onAdd(toAdd);
-    setChecked(new Set());
-  };
-
-  return (
-    <Accordion expanded={expanded} onChange={(_, v) => setExpanded(v)} disableGutters>
-      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Typography variant="body2" sx={{fontWeight: 500}}>
-          Комплекты
-        </Typography>
-      </AccordionSummary>
-      <AccordionDetails sx={{p: 0}}>
-        {query.isLoading ? (
-          <Box sx={{display: "flex", justifyContent: "center", py: 3}}>
-            <CircularProgress size={28} />
-          </Box>
-        ) : items.length === 0 ? (
-          <Typography color="text.secondary" sx={{px: 2, py: 2}} variant="body2">
-            Нет комплектов в этой ячейке
-          </Typography>
-        ) : (
-          <>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell padding="checkbox" />
-                  <TableCell>Комплект</TableCell>
-                  <TableCell>Тип</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {items.map((item: AssembledBundleInventoryItemDto) => (
-                  <TableRow key={item.id} hover>
-                    <TableCell padding="checkbox">
-                      <Checkbox
-                        size="small"
-                        checked={checked.has(item.id)}
-                        onChange={() => toggleChecked(item.id)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{item.catalogItem.fullName}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <CatalogItemTypeChip type={item.catalogItem.type} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-
-            <TablePagination
-              component="div"
-              count={total}
-              page={page - 1}
-              rowsPerPage={PAGE_SIZE}
-              rowsPerPageOptions={[]}
-              onPageChange={(_, newPage) => setPage(newPage + 1)}
-              labelDisplayedRows={({from, to, count}) => `${from}–${to} из ${count}`}
-            />
-          </>
-        )}
-
-        <Box sx={{px: 2, py: 1.5}}>
-          <Button
-            size="small"
-            variant="contained"
-            disabled={checked.size === 0}
-            onClick={handleAdd}
-          >
-            Выбрать выделенное ({checked.size})
-          </Button>
-        </Box>
-      </AccordionDetails>
-    </Accordion>
-  );
-}
-
 // ── Main modal ────────────────────────────────────────────────────────────────
 
 function InventoryItemPickerModal({
@@ -484,13 +353,7 @@ function InventoryItemPickerModal({
         const isDuplicate =
           item.type === "standard"
             ? next.some((s) => s.type === "standard" && s.catalogItemId === item.catalogItemId)
-            : item.type === "unit"
-              ? next.some((s) => s.type === "unit" && s.unitItemId === item.unitItemId)
-              : next.some(
-                  (s) =>
-                    s.type === "assembledBundle" &&
-                    s.assembledBundleItemId === item.assembledBundleItemId,
-                );
+            : next.some((s) => s.type === "unit" && s.unitItemId === item.unitItemId);
         if (!isDuplicate) next.push(item);
       }
       return next;
@@ -559,15 +422,7 @@ function InventoryItemPickerModal({
               </TableHead>
               <TableBody>
                 {selected.map((item, i) => (
-                  <TableRow
-                    key={
-                      item.type === "standard"
-                        ? item.catalogItemId
-                        : item.type === "unit"
-                          ? item.unitItemId
-                          : item.assembledBundleItemId
-                    }
-                  >
+                  <TableRow key={item.type === "standard" ? item.catalogItemId : item.unitItemId}>
                     <TableCell>
                       <CatalogItemTypeChip type={itemToCatalogType(item)} size="small" />
                     </TableCell>
@@ -623,7 +478,6 @@ function InventoryItemPickerModal({
         <Box sx={{overflow: "auto", flex: 1}}>
           <StandardAccordion nodeId={nodeId} open={open} onAdd={addItems} />
           <UnitAccordion nodeId={nodeId} open={open} onAdd={addItems} />
-          <AssembledBundleAccordion nodeId={nodeId} open={open} onAdd={addItems} />
         </Box>
       </DialogContent>
 

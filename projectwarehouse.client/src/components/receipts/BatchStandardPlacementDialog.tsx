@@ -31,11 +31,7 @@ import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {extractErrorMessage} from "@/utils/errorUtils";
 
 function calcTotalPlaced(item: ReceiptItemDto): number {
-  return item.placements.reduce(
-    (sum, p) =>
-      sum + (p.count || (p.unitInventoryItemId || p.assembledBundleInventoryItemId ? 1 : 0)),
-    0,
-  );
+  return item.placements.reduce((sum, p) => sum + (p.count || (p.unitInventoryItemId ? 1 : 0)), 0);
 }
 
 function calcBatchCount(item: ReceiptItemDto): number {

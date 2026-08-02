@@ -28,9 +28,7 @@ type CreateFormValues = {
   barcode: string;
 };
 
-type CreatableCatalogItemType = Exclude<CatalogItemType, "assembledBundle">;
-
-const CREATABLE_TYPES: CreatableCatalogItemType[] = [
+const CREATABLE_TYPES: CatalogItemType[] = [
   "standard",
   "unit",
   "productGroup",

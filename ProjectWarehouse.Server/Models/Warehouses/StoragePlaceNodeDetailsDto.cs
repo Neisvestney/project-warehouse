@@ -15,7 +15,4 @@ public class StoragePlaceNodeDetailsDto : IHasIdentity
 
     /// <summary>Count of unit inventory items at this node. Used for inventory changelog diffing.</summary>
     public int UnitItemsCount { get; init; }
-
-    /// <summary>Count of assembled bundle inventory items at this node. Used for inventory changelog diffing.</summary>
-    public int AssembledBundlesCount { get; init; }
 }

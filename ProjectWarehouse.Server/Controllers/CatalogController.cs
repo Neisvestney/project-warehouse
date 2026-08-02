@@ -78,8 +78,7 @@ public class CatalogController(
         }
             
         var orderedQuery = baseQuery
-            .OrderBy(c => c.IsArchived)
-            .ThenBy(c => c.Type == CatalogItemType.AssembledBundle ? 1 : 0);
+            .OrderBy(c => c.IsArchived);
 
         var query = sortBy switch
         {
@@ -114,7 +113,6 @@ public class CatalogController(
 
         var items = await query
             .OrderBy(c => c.IsArchived)
-            .ThenBy(c => c.Type == CatalogItemType.AssembledBundle ? 1 : 0)
             .ThenBy(c => c.Name)
             .ThenBy(c => c.Id)
             .Take(10)
@@ -146,10 +144,6 @@ public class CatalogController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Create([FromBody] CreateCatalogItemRequest request, CancellationToken ct = default)
     {
-        if (request.Type == CatalogItemType.AssembledBundle)
-            return UnprocessableEntity("type", ErrorCode.CatalogItemIsImmutable,
-                "Assembled bundles are created by the assembly process, not through the catalog.");
-
         var duplicateErrors = await ValidateDuplicates(request.Article, request.Barcode, excludeItemId: null, ct);
         if (duplicateErrors.Count > 0)
             return Problem(AppProblems.UnprocessableEntities(duplicateErrors));
@@ -175,7 +169,6 @@ public class CatalogController(
 
     /// <summary>Update a catalog item.</summary>
     /// <remarks>
-    /// Assembled bundles are immutable and cannot be updated (returns 422).
     /// Type-specific fields:
     /// <list type="bullet">
     ///   <item><b>Standard / Unit</b>: <c>groupId</c>, <c>variationIds</c> (full replace)</item>
@@ -200,10 +193,6 @@ public class CatalogController(
 
         if (item is null)
             return NotFound(ErrorCode.CatalogItemNotFound, "Catalog item not found.");
-
-        if (item.Type == CatalogItemType.AssembledBundle)
-            return UnprocessableEntity("root", ErrorCode.CatalogItemIsImmutable,
-                "Assembled bundles cannot be modified.");
 
         if (item.GroupId is not null)
             return UnprocessableEntity("root", ErrorCode.CatalogItemManagedByGroup,
@@ -262,39 +251,42 @@ public class CatalogController(
             }
         }
 
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var cycleErr = await EnsureNoBundleOrVariationCycle(item, request, ct);
+        if (cycleErr is not null) return cycleErr;
+
+        await db.SaveChangesAsync(ct);
+
+        var afterItem = await LoadItemWithDetailsAsync(id, ct);
+        var afterDto = mapper.Map<CatalogItemDto>(afterItem!);
+        await changeLog.CompareAndSaveToChangelog(beforeDto, afterDto);
+
+        return Ok(afterDto);
+    }
+
+    /// <summary>
+    /// For Bundle/Variation saves, checks the submitted components/members for a circular
+    /// dependency in the Bundle↔Variation nesting graph. Returns a 422 result on a cycle,
+    /// otherwise null.
+    /// </summary>
+    private async Task<IActionResult?> EnsureNoBundleOrVariationCycle(
+        CatalogItem item, UpdateCatalogItemRequest request, CancellationToken ct)
+    {
+        if (item.Type != CatalogItemType.Bundle && item.Type != CatalogItemType.Variation)
+            return null;
+
+        var edgeIds = item.Type == CatalogItemType.Bundle
+            ? request.Components.Select(c => c.ComponentId).ToList()
+            : request.MemberIds.ToList();
+
         try
         {
-            await db.SaveChangesAsync(ct);
-
-            if (item.Type == CatalogItemType.Bundle)
-                await catalogService.SyncAssembledBundlesForBundleAsync(id, ct);
-
-            if (item.Type == CatalogItemType.Variation ||
-                item.Type == CatalogItemType.ProductGroup ||
-                item.Type == CatalogItemType.Bundle)
-                await catalogService.SyncParentBundlesAsync(id, ct);
-
-            if (item.Type == CatalogItemType.Standard || item.Type == CatalogItemType.Unit)
-                await catalogService.UpdateAssembledBundlesOnComponentChangeAsync(
-                    id, beforeDto, request.Name, request.Article, request.Barcode, ct);
-
-            var afterItem = await LoadItemWithDetailsAsync(id, ct);
-            var afterDto = mapper.Map<CatalogItemDto>(afterItem!);
-            await changeLog.CompareAndSaveToChangelog(beforeDto, afterDto);
-
-            await tx.CommitAsync(ct);
-            return Ok(afterDto);
+            await catalogService.EnsureNoCycleAsync(item.Id, item.Type, edgeIds, ct);
+            return null;
         }
         catch (BundleCircularDependencyException)
         {
             return UnprocessableEntity("root", ErrorCode.CatalogItemCircularDependency,
                 "Circular dependency detected in bundle components.");
-        }
-        catch (BundleTooManyCombinationsException ex)
-        {
-            return UnprocessableEntity("root", ErrorCode.CatalogItemTooManyCombinations,
-                $"Bundle generates too many assembly combinations (limit: {ex.Limit}). Reduce the number of variation or group options.");
         }
     }
 
@@ -344,7 +336,6 @@ public class CatalogController(
             .Include(c => c.Group)
             .Include(c => c.Tags)
             .Include(c => c.BundleComponents).ThenInclude(bc => bc.Component).ThenInclude(comp => comp.Group)
-            .Include(c => c.AssembledComponents).ThenInclude(abc => abc.Component).ThenInclude(comp => comp.Group)
             .Include(c => c.VariationMemberships)
             .Include(c => c.VariationMembers)
             .Include(c => c.GroupChildren).ThenInclude(child => child.Tags)
@@ -384,14 +375,15 @@ public class CatalogController(
         if (memberIds.Count == 0) return null;
         var validIdSet = (await db.CatalogItems
             .Where(c => memberIds.Contains(c.Id) &&
-                        (c.Type == CatalogItemType.Standard || c.Type == CatalogItemType.Unit))
+                        (c.Type == CatalogItemType.Standard || c.Type == CatalogItemType.Unit ||
+                         c.Type == CatalogItemType.Bundle))
             .Select(c => c.Id)
             .ToListAsync(ct)).ToHashSet();
         var errors = memberIds
             .Select((id, i) => (id, i))
             .Where(x => !validIdSet.Contains(x.id))
             .Select(x => (Field: $"{field}[{x.i}]", Code: ErrorCode.CatalogItemVariationInvalid,
-                Message: $"Item '{x.id}' does not exist or is not a standard/unit item.",
+                Message: $"Item '{x.id}' does not exist or is not a standard/unit/bundle item.",
                 Args: (IReadOnlyDictionary<string, object>?)null))
             .ToList();
         return errors.Count > 0 ? Problem(AppProblems.UnprocessableEntities(errors)) : null;
@@ -404,8 +396,7 @@ public class CatalogController(
         var validIds = await db.CatalogItems
             .Where(c => reqComponentIds.Contains(c.Id) &&
                         (c.Type == CatalogItemType.Standard || c.Type == CatalogItemType.Unit ||
-                         c.Type == CatalogItemType.ProductGroup || c.Type == CatalogItemType.Variation ||
-                         c.Type == CatalogItemType.Bundle))
+                         c.Type == CatalogItemType.ProductGroup || c.Type == CatalogItemType.Variation))
             .Select(c => c.Id)
             .ToListAsync(ct);
         var errors = components

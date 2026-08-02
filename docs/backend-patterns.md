@@ -35,8 +35,8 @@ When the searchable fields span a navigation property, navigate to it directly i
 
 **Controller** (`InventoryItemsController.cs`):
 ```csharp
-db.InventoryItems.OfType<AssembledBundleInventoryItem>()
-    .WhereMatchesSearch(ab => ab.CatalogItem.Name, searchString)
+db.InventoryItems.OfType<UnitInventoryItem>()
+    .WhereMatchesSearch(u => u.InventoryNumber, searchString)
     ...
 ```
 

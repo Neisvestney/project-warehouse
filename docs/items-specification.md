@@ -15,7 +15,6 @@
 | Product Group | `ProductGroup` | Yes | — |
 | Variation | `Variation` | Yes | — |
 | Bundle | `Bundle` | Yes | — |
-| Assembled Bundle | `AssembledBundle` | No | `AssembledBundleInventoryItem` |
 
 Virtual types (ProductGroup, Variation, Bundle) exist only in the catalog. They group or describe items but are never directly stored in a warehouse node.
 
@@ -51,61 +50,19 @@ A virtual grouping of related Standard or Unit items (e.g. a clothing item with 
 
 ### Variation
 
-A virtual container that groups multiple Standard or Unit items as interchangeable variations (e.g. "iPhone 15 sizes"). A single item can belong to multiple Variation containers (many-to-many). The Variation itself carries no inventory.
+A virtual container that groups multiple Standard, Unit, or Bundle items as interchangeable variations (e.g. "iPhone 15 sizes") — **not** another Variation directly. A single item can belong to multiple Variation containers (many-to-many). The Variation itself carries no inventory. See [Bundle/Variation nesting](#bundlevariation-nesting) below.
 
 ### Bundle
 
-A configurable kit composed of any combination of Standard, Unit, ProductGroup, Variation, or nested Bundle components, each with a quantity. A Bundle can be modified over time.
+A configurable kit composed of any combination of Standard, Unit, ProductGroup, or Variation components — **not** another Bundle directly — each with a quantity. A Bundle can be modified over time.
 
 Components are stored in `BundleComponent` records linked to the Bundle's CatalogItem.
 
-Circular dependencies between Bundles are detected at save time and rejected with `422 catalogItemCircularDependency`.
+#### Bundle/Variation nesting
 
-### AssembledBundle
+Bundle and Variation can nest each other to arbitrary depth: a Bundle component may be a Variation, and a Variation member may be a Bundle (`Bundle → Variation → Bundle → ...`), as long as the result is acyclic. The only two combinations that are disallowed are a Bundle directly containing another Bundle, and a Variation directly containing another Variation.
 
-An immutable snapshot of a specific Bundle assembly. AssembledBundle CatalogItems are **auto-generated** by `ICatalogService.SyncAssembledBundlesForBundleAsync` every time a Bundle is updated.
-
-- References its source Bundle via `SourceBundleId`
-- Cannot be modified manually — created and maintained automatically
-- Physically stored via `AssembledBundleInventoryItem`
-- If the Bundle contains Unit items, the `AssembledBundleInventoryItem` records the specific `UnitInventoryItem` instances (by SKU) used in that assembly
-- If the Bundle contains Standard items, the component is recorded by `CatalogItem` reference + quantity
-
-#### Auto-sync logic
-
-The entire `PUT /api/catalog/{id}` operation runs inside a single database transaction. If the sync fails for any reason (including a circular dependency), the whole update is rolled back.
-
-Every time a Bundle is saved (`PUT /api/catalog/{id}`), `ICatalogService.SyncAssembledBundlesForBundleAsync` runs and:
-
-1. Loads the full component tree recursively via `LoadBundleComponentsTreeAsync` (expands Variations → pick one member, ProductGroups → pick one child, nested Bundles → recursive expansion). Detects circular dependencies via a visited-set; throws `BundleCircularDependencyException` on a cycle.
-2. Computes the cartesian product of all component options. Components that resolve to the same catalog item across multiple slots have their quantities **summed** (e.g. a direct `1x Item-A` + a variation that also resolves to `Item-A` → `2x Item-A`). Maximum **500 combinations** per Bundle — exceeding this returns an error.
-3. Compares combinations against existing AssembledBundle CatalogItems with matching `SourceBundleId`:
-   - **New combination** — creates a new AssembledBundle CatalogItem + `AssembledBundleComponent` records.
-   - **Existing match, active** — updates `Name` if it changed.
-   - **Existing match, archived** — sets `IsArchived = false` and updates `Name`.
-   - **No matching combination** — sets `IsArchived = true` (never deleted).
-
-All mutations produce `ChangeLogEntry` records with `Action = "catalog.bundle_sync"` and `ActionData = { bundleId }`.
-
-#### Cascade sync on component updates
-
-When a **Variation**, **ProductGroup**, or **nested Bundle** is updated, all ancestor Bundles that (directly or indirectly) contain it are re-synced automatically via `ICatalogService.SyncParentBundlesAsync`. The traversal is protected by a visited-set seeded with the updated item's ID so no Bundle is synced twice.
-
-#### Name format
-
-```
-{BundleName} [{qty}x {article1} + {qty}x {article2} + ...]
-```
-
-Component articles are sorted alphabetically. Example: `"Laptop Kit [1x KB-RED + 1x MOUSE-001]"`.
-
-#### Article generation
-
-Each new AssembledBundle receives a deterministic article: `{bundleArticle}-{16-char SHA-256 hex}` where the hash is computed from the sorted set of `(ComponentId, Quantity)` pairs. Re-appearing combinations (previously archived) reuse the same article, so an archived AssembledBundle is unarchived rather than duplicated.
-
-#### Cascade name update
-
-When a Standard or Unit item's `Article` changes, `ICatalogService.UpdateAssembledBundleNamesForComponentAsync` regenerates the names of all AssembledBundles that include that item. These changelog entries use `Action = "catalog.component_article_changed"` and `ActionData = { componentId }` so the UI can display a human-readable explanation ("Name updated because component article changed").
+Both Bundle saves and Variation saves run a standalone circular-dependency check (`ICatalogService.EnsureNoCycleAsync`), which walks this Bundle↔Variation edge graph with a recursion-stack DFS. A cycle is rejected with `422 catalogItemCircularDependency`.
 
 ---
 
@@ -129,23 +86,21 @@ Using `Name` alone omits the group prefix and produces incomplete, ambiguous lab
 
 ## Fields by Type
 
-| Field | Standard | Unit | ProductGroup | Variation | Bundle | AssembledBundle |
-|-------|----------|------|--------------|-----------|--------|-----------------|
-| `Name` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `FullName` (computed) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `Article` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `Barcode` | opt | opt | opt | — | — | — |
-| `Description` ¹ | opt | opt | opt | opt | opt | opt |
-| `Notes` ¹ | opt | opt | opt | opt | opt | opt |
-| `IsArchived` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `Tags` | opt | opt | opt | opt | opt | opt |
-| `GroupId` | opt | opt | — | — | — | — |
-| `SourceBundleId` | — | — | — | — | — | ✓ |
-| `BundleComponents` | — | — | — | — | ✓ | — |
-| `AssembledComponents` | — | — | — | — | — | ✓ |
-| `VariationMemberships` | opt | opt | — | — | — | — |
-| `VariationMembers` | — | — | — | ✓ | — | — |
-| `GroupChildren` | — | — | ✓ | — | — | — |
+| Field | Standard | Unit | ProductGroup | Variation | Bundle |
+|-------|----------|------|--------------|-----------|--------|
+| `Name` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `FullName` (computed) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `Article` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `Barcode` | opt | opt | opt | — | — |
+| `Description` ¹ | opt | opt | opt | opt | opt |
+| `Notes` ¹ | opt | opt | opt | opt | opt |
+| `IsArchived` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `Tags` | opt | opt | opt | opt | opt |
+| `GroupId` | opt | opt | — | — | — |
+| `BundleComponents` | — | — | — | — | ✓ |
+| `VariationMemberships` | opt | opt | — | — | opt |
+| `VariationMembers` | — | — | — | ✓ | — |
+| `GroupChildren` | — | — | ✓ | — | — |
 
 ¹ Inheritable — see [Inheritable Fields](#inheritable-fields) below.
 
@@ -167,16 +122,6 @@ StoragePlaceNode (1) ──> (many) StoragePlaceNodeItemsGroup
 StoragePlaceNode (1) ──> (many) UnitInventoryItem : InventoryItem
                                   ├── CatalogItemId  → CatalogItem (type=Unit)
                                   └── Sku
-```
-
-### AssembledBundle → AssembledBundleInventoryItem
-
-```
-StoragePlaceNode (1) ──> (many) AssembledBundleInventoryItem : InventoryItem
-                                  ├── CatalogItemId  → CatalogItem (type=AssembledBundle)
-                                  └── Components[]
-                                        ├── UnitInventoryItemId  (if Unit component)
-                                        └── CatalogItemId + Quantity  (if Standard component)
 ```
 
 `InventoryItem` uses TPH — all subtypes share the `InventoryItems` table with a `Type` discriminator column.
@@ -237,4 +182,4 @@ A `CatalogItem`'s `Type` is set at creation and **cannot be changed**. This is e
 1. **`Update` endpoint** — `UpdateCatalogItemRequest` has no `type` field; the stored type is never touched.
 2. **`SyncGroupChildren`** — when updating existing children of a ProductGroup, the request's `type` value is validated against the stored type. A mismatch returns `422 catalogItemIsImmutable`.
 
-The rationale: the type determines which related tables and navigation properties are meaningful (e.g. `BundleComponents` only exist for `Bundle`, `InventoryItems` only point to `Unit`/`AssembledBundle`). Allowing type changes in-place would silently orphan or corrupt those relationships.
+The rationale: the type determines which related tables and navigation properties are meaningful (e.g. `BundleComponents` only exist for `Bundle`, `InventoryItems` only point to `Unit`). Allowing type changes in-place would silently orphan or corrupt those relationships.

@@ -18,15 +18,10 @@ public class CatalogItem : IHasIdentity
     public CatalogItem? Group { get; set; }
     public ICollection<CatalogItem> GroupChildren { get; set; } = [];
 
-    public Guid? SourceBundleId { get; set; }
-    public CatalogItem? SourceBundle { get; set; }
-    public ICollection<CatalogItem> AssembledInstances { get; set; } = [];
-
     public ICollection<CatalogItemVariationMember> VariationMemberships { get; set; } = [];
     public ICollection<CatalogItemVariationMember> VariationMembers { get; set; } = [];
 
     public ICollection<BundleComponent> BundleComponents { get; set; } = [];
-    public ICollection<AssembledBundleComponent> AssembledComponents { get; set; } = [];
 
     public ICollection<CatalogItemTag> Tags { get; set; } = [];
 
