@@ -24,7 +24,8 @@ import {
   ordersCreateAssemblyTaskMutation,
   ordersGetByIdQueryKey,
 } from "@/api/@tanstack/react-query.gen";
-import type {OrderBoxDto, OrderDetailsDto} from "@/api/types.gen";
+import type {OrderDetailsDto} from "@/api/types.gen";
+import {formatBoxLabel} from "@/components/orders/orderUtils";
 import UsersSelect from "@/components/UsersSelect";
 
 interface TaskBox {
@@ -33,16 +34,20 @@ interface TaskBox {
   components: {catalogItemId: string; name: string; maxQty: number; qty: number}[];
 }
 
-function initTaskBoxes(boxes: OrderBoxDto[]): TaskBox[] {
-  return boxes.map((box) => ({
+function initTaskBoxes(order: OrderDetailsDto): TaskBox[] {
+  return order.boxes.map((box) => ({
     orderBoxId: box.id,
     selected: true,
-    components: box.components.map((c) => ({
-      catalogItemId: c.catalogItemId,
-      name: c.catalogItemName,
-      maxQty: c.quantity,
-      qty: c.quantity,
-    })),
+    components: box.components.map((c) => {
+      const allocated = order.assemblyTasks
+        .flatMap((t) => t.boxes)
+        .filter((tb) => tb.orderBoxId === box.id)
+        .flatMap((tb) => tb.components)
+        .filter((tc) => tc.catalogItemId === c.catalogItemId)
+        .reduce((sum, tc) => sum + tc.quantity, 0);
+      const maxQty = Math.max(0, c.quantity - allocated);
+      return {catalogItemId: c.catalogItemId, name: c.catalogItemName, maxQty, qty: maxQty};
+    }),
   }));
 }
 
@@ -55,7 +60,7 @@ interface CreateAssemblyTaskDialogProps {
 function CreateAssemblyTaskDialog({open, onClose, order}: CreateAssemblyTaskDialogProps) {
   const queryClient = useQueryClient();
   const [assignedToIds, setAssignedToIds] = useState<string[]>([]);
-  const [taskBoxes, setTaskBoxes] = useState<TaskBox[]>(() => initTaskBoxes(order.boxes));
+  const [taskBoxes, setTaskBoxes] = useState<TaskBox[]>(() => initTaskBoxes(order));
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
@@ -81,7 +86,9 @@ function CreateAssemblyTaskDialog({open, onClose, order}: CreateAssemblyTaskDial
           ? {
               ...tb,
               components: tb.components.map((c) =>
-                c.catalogItemId === catalogItemId ? {...c, qty: Math.max(0, qty)} : c,
+                c.catalogItemId === catalogItemId
+                  ? {...c, qty: Math.max(0, Math.min(c.maxQty, qty))}
+                  : c,
               ),
             }
           : tb,
@@ -111,7 +118,7 @@ function CreateAssemblyTaskDialog({open, onClose, order}: CreateAssemblyTaskDial
   }
 
   const boxLabels = Object.fromEntries(
-    order.boxes.map((b) => [b.id, b.label ?? `Коробка #${b.id.slice(0, 8)}`]),
+    order.boxes.map((b) => [b.id, formatBoxLabel(b, order.boxes)]),
   );
 
   return (

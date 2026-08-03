@@ -91,6 +91,7 @@ public enum ErrorCode
     AssemblyFulfillmentInvalidType,
     AssemblyTaskAlreadyDone,
     AssemblyTaskMoveTargetInvalid,
+    AssemblyTaskQuantityExceedsAvailable,
 
     // Routing
     RouteNotFound,

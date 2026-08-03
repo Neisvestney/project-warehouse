@@ -403,6 +403,7 @@ export type ErrorCode =
   | "assemblyFulfillmentInvalidType"
   | "assemblyTaskAlreadyDone"
   | "assemblyTaskMoveTargetInvalid"
+  | "assemblyTaskQuantityExceedsAvailable"
   | "routeNotFound"
   | "required"
   | "tooShort"
@@ -463,13 +464,13 @@ export type MeResponse = {
 /**
  * Exactly one of TargetBoxId or NewBoxLabel must be set.
  */
-export type MoveOrderBoxComponentRequest = {
+export type MoveTaskBoxComponentRequest = {
   /**
-   * Existing target box. Mutually exclusive with NewBoxLabel.
+   * Existing target order box. Mutually exclusive with NewBoxLabel.
    */
   targetBoxId?: null | string;
   /**
-   * Label for a new box to create on the fly. Mutually exclusive with TargetBoxId.
+   * Label for a new order box to create on the fly. Mutually exclusive with TargetBoxId.
    */
   newBoxLabel?: null | string;
   quantity: number;
@@ -2047,6 +2048,10 @@ export type OrdersRemoveBoxErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
 };
 
 export type OrdersRemoveBoxError = OrdersRemoveBoxErrors[keyof OrdersRemoveBoxErrors];
@@ -2218,79 +2223,6 @@ export type OrdersUpdateComponentResponses = {
 
 export type OrdersUpdateComponentResponse =
   OrdersUpdateComponentResponses[keyof OrdersUpdateComponentResponses];
-
-export type OrdersGetMoveTargetsData = {
-  body?: never;
-  path: {
-    id: string;
-    boxId: string;
-    cid: string;
-  };
-  query?: never;
-  url: "/api/orders/{id}/boxes/{boxId}/components/{cid}/move-targets";
-};
-
-export type OrdersGetMoveTargetsErrors = {
-  /**
-   * Unauthorized
-   */
-  401: AppProblemDetails;
-  /**
-   * Forbidden
-   */
-  403: AppProblemDetails;
-};
-
-export type OrdersGetMoveTargetsError =
-  OrdersGetMoveTargetsErrors[keyof OrdersGetMoveTargetsErrors];
-
-export type OrdersGetMoveTargetsResponses = {
-  /**
-   * OK
-   */
-  200: Array<OrderBoxDto>;
-};
-
-export type OrdersGetMoveTargetsResponse =
-  OrdersGetMoveTargetsResponses[keyof OrdersGetMoveTargetsResponses];
-
-export type OrdersMoveComponentData = {
-  body: MoveOrderBoxComponentRequest;
-  path: {
-    id: string;
-    boxId: string;
-    cid: string;
-  };
-  query?: never;
-  url: "/api/orders/{id}/boxes/{boxId}/components/{cid}/move";
-};
-
-export type OrdersMoveComponentErrors = {
-  /**
-   * Unauthorized
-   */
-  401: AppProblemDetails;
-  /**
-   * Forbidden
-   */
-  403: AppProblemDetails;
-  /**
-   * Unprocessable Entity
-   */
-  422: AppProblemDetails;
-};
-
-export type OrdersMoveComponentError = OrdersMoveComponentErrors[keyof OrdersMoveComponentErrors];
-
-export type OrdersMoveComponentResponses = {
-  /**
-   * OK
-   */
-  200: OrderDetailsDto;
-};
-
-export type OrdersMoveComponentResponse =
-  OrdersMoveComponentResponses[keyof OrdersMoveComponentResponses];
 
 export type OrdersCreateAssemblyTaskData = {
   body: CreateAssemblyTaskRequest;
@@ -2486,6 +2418,86 @@ export type OrdersUpdateTaskBoxComponentResponses = {
 
 export type OrdersUpdateTaskBoxComponentResponse =
   OrdersUpdateTaskBoxComponentResponses[keyof OrdersUpdateTaskBoxComponentResponses];
+
+export type OrdersGetTaskMoveTargetsData = {
+  body?: never;
+  path: {
+    id: string;
+    taskId: string;
+    tbid: string;
+    cid: string;
+  };
+  query?: never;
+  url: "/api/orders/{id}/assembly-tasks/{taskId}/boxes/{tbid}/components/{cid}/move-targets";
+};
+
+export type OrdersGetTaskMoveTargetsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type OrdersGetTaskMoveTargetsError =
+  OrdersGetTaskMoveTargetsErrors[keyof OrdersGetTaskMoveTargetsErrors];
+
+export type OrdersGetTaskMoveTargetsResponses = {
+  /**
+   * OK
+   */
+  200: Array<OrderBoxDto>;
+};
+
+export type OrdersGetTaskMoveTargetsResponse =
+  OrdersGetTaskMoveTargetsResponses[keyof OrdersGetTaskMoveTargetsResponses];
+
+export type OrdersMoveTaskComponentData = {
+  body: MoveTaskBoxComponentRequest;
+  path: {
+    id: string;
+    taskId: string;
+    tbid: string;
+    cid: string;
+  };
+  query?: never;
+  url: "/api/orders/{id}/assembly-tasks/{taskId}/boxes/{tbid}/components/{cid}/move";
+};
+
+export type OrdersMoveTaskComponentErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type OrdersMoveTaskComponentError =
+  OrdersMoveTaskComponentErrors[keyof OrdersMoveTaskComponentErrors];
+
+export type OrdersMoveTaskComponentResponses = {
+  /**
+   * OK
+   */
+  200: OrderDetailsDto;
+};
+
+export type OrdersMoveTaskComponentResponse =
+  OrdersMoveTaskComponentResponses[keyof OrdersMoveTaskComponentResponses];
 
 export type OrdersAddFulfillmentData = {
   body: AddFulfillmentRequest;

@@ -1,8 +1,9 @@
-import {Box, Chip, Stack, Typography} from "@mui/material";
+import {Chip, Divider, Paper, Stack, Typography} from "@mui/material";
 import {Link} from "react-router";
 import type {AssemblyTaskDto, OrderDetailsDto} from "@/api/types.gen";
 import OrderTypeChip from "@/components/orders/OrderTypeChip";
 import {formatOrderNumber} from "@/components/orders/orderUtils";
+import AssemblyOrderBoxesSection from "./AssemblyOrderBoxesSection";
 import AssemblyTaskAccordion from "./AssemblyTaskAccordion";
 
 interface AssemblyOrderInlineProps {
@@ -23,7 +24,7 @@ function AssemblyOrderInline({
   batchEligible,
 }: AssemblyOrderInlineProps) {
   return (
-    <Box>
+    <Paper variant="outlined" sx={{p: 1.5}}>
       <Stack direction="row" sx={{alignItems: "center", gap: 1.5, px: 1, pb: 0.5}}>
         <Typography
           variant="subtitle2"
@@ -40,9 +41,12 @@ function AssemblyOrderInline({
         <OrderTypeChip type={order.type} />
         <Chip label={order.warehouseName} size="small" variant="outlined" />
       </Stack>
+      <AssemblyOrderBoxesSection order={order} canManage={canFulfill} />
+      <Divider sx={{mb: 1}} />
       <AssemblyTaskAccordion
         task={task}
         orderId={order.id}
+        orderBoxes={order.boxes}
         warehouseId={order.warehouseId}
         canFulfill={canFulfill}
         checked={checked}
@@ -50,7 +54,7 @@ function AssemblyOrderInline({
         batchEligible={batchEligible}
         defaultExpanded
       />
-    </Box>
+    </Paper>
   );
 }
 

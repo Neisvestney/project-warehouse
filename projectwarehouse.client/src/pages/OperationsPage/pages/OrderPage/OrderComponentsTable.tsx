@@ -16,7 +16,6 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
-import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {
   ordersAddComponentMutation,
@@ -28,7 +27,6 @@ import type {OrderBoxComponentDto, OrderStatus} from "@/api/types.gen";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import OrderComponentMoveDialog from "./OrderComponentMoveDialog";
 
 interface OrderComponentsTableProps {
   orderId: string;
@@ -50,14 +48,13 @@ function OrderComponentsTable({
 
   const canAdd = canEdit && (orderStatus === "draft" || orderStatus === "confirmed");
   const canDelete = canEdit && (orderStatus === "draft" || orderStatus === "confirmed");
-  const canMove = canEdit && orderStatus === "assembly";
+  const canEditQuantity = canEdit && (orderStatus === "draft" || orderStatus === "confirmed");
 
   const [addCatalogItemId, setAddCatalogItemId] = useState<string | null>(null);
   const [addQuantity, setAddQuantity] = useState(1);
   const [addError, setAddError] = useState<string | null>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<OrderBoxComponentDto | null>(null);
-  const [moveTarget, setMoveTarget] = useState<OrderBoxComponentDto | null>(null);
 
   const addMutation = useMutation({
     ...ordersAddComponentMutation(),
@@ -108,7 +105,7 @@ function OrderComponentsTable({
             <TableCell>Позиция</TableCell>
             <TableCell>Тип</TableCell>
             <TableCell sx={{width: 100}}>Кол-во</TableCell>
-            {(canDelete || canMove) && <TableCell sx={{width: 80}} />}
+            {canDelete && <TableCell sx={{width: 80}} />}
           </TableRow>
         </TableHead>
         <TableBody>
@@ -119,7 +116,7 @@ function OrderComponentsTable({
                 <CatalogItemTypeChip type={c.catalogItemType} />
               </TableCell>
               <TableCell>
-                {canEdit ? (
+                {canEditQuantity ? (
                   <TextField
                     type="number"
                     size="small"
@@ -132,24 +129,13 @@ function OrderComponentsTable({
                   c.quantity
                 )}
               </TableCell>
-              {(canDelete || canMove) && (
+              {canDelete && (
                 <TableCell>
-                  <Stack direction="row" spacing={0.5}>
-                    {canMove && (
-                      <Tooltip title="Переместить в другую коробку">
-                        <IconButton size="small" onClick={() => setMoveTarget(c)}>
-                          <SwapHorizIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                    {canDelete && (
-                      <Tooltip title="Удалить">
-                        <IconButton size="small" color="error" onClick={() => setDeleteTarget(c)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                  </Stack>
+                  <Tooltip title="Удалить">
+                    <IconButton size="small" color="error" onClick={() => setDeleteTarget(c)}>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 </TableCell>
               )}
             </TableRow>
@@ -204,17 +190,6 @@ function OrderComponentsTable({
         }
         isPending={deleteMutation.isPending}
       />
-
-      {moveTarget && (
-        <OrderComponentMoveDialog
-          open
-          onClose={() => setMoveTarget(null)}
-          orderId={orderId}
-          boxId={boxId}
-          component={moveTarget}
-          maxQuantity={moveTarget.quantity}
-        />
-      )}
     </>
   );
 }

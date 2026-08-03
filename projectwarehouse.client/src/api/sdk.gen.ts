@@ -93,12 +93,12 @@ import type {
   OrdersGetByIdData,
   OrdersGetByIdErrors,
   OrdersGetByIdResponses,
-  OrdersGetMoveTargetsData,
-  OrdersGetMoveTargetsErrors,
-  OrdersGetMoveTargetsResponses,
-  OrdersMoveComponentData,
-  OrdersMoveComponentErrors,
-  OrdersMoveComponentResponses,
+  OrdersGetTaskMoveTargetsData,
+  OrdersGetTaskMoveTargetsErrors,
+  OrdersGetTaskMoveTargetsResponses,
+  OrdersMoveTaskComponentData,
+  OrdersMoveTaskComponentErrors,
+  OrdersMoveTaskComponentResponses,
   OrdersRemoveBoxData,
   OrdersRemoveBoxErrors,
   OrdersRemoveBoxResponses,
@@ -720,31 +720,6 @@ export const ordersUpdateComponent = <ThrowOnError extends boolean = false>(
     },
   });
 
-export const ordersGetMoveTargets = <ThrowOnError extends boolean = false>(
-  options: Options<OrdersGetMoveTargetsData, ThrowOnError>,
-) =>
-  (options.client ?? client).get<
-    OrdersGetMoveTargetsResponses,
-    OrdersGetMoveTargetsErrors,
-    ThrowOnError
-  >({url: "/api/orders/{id}/boxes/{boxId}/components/{cid}/move-targets", ...options});
-
-export const ordersMoveComponent = <ThrowOnError extends boolean = false>(
-  options: Options<OrdersMoveComponentData, ThrowOnError>,
-) =>
-  (options.client ?? client).post<
-    OrdersMoveComponentResponses,
-    OrdersMoveComponentErrors,
-    ThrowOnError
-  >({
-    url: "/api/orders/{id}/boxes/{boxId}/components/{cid}/move",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-
 export const ordersCreateAssemblyTask = <ThrowOnError extends boolean = false>(
   options: Options<OrdersCreateAssemblyTaskData, ThrowOnError>,
 ) =>
@@ -811,6 +786,34 @@ export const ordersUpdateTaskBoxComponent = <ThrowOnError extends boolean = fals
     ThrowOnError
   >({
     url: "/api/orders/{id}/assembly-tasks/{taskId}/boxes/{tbid}/components/{cid}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+export const ordersGetTaskMoveTargets = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersGetTaskMoveTargetsData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    OrdersGetTaskMoveTargetsResponses,
+    OrdersGetTaskMoveTargetsErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/{id}/assembly-tasks/{taskId}/boxes/{tbid}/components/{cid}/move-targets",
+    ...options,
+  });
+
+export const ordersMoveTaskComponent = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersMoveTaskComponentData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    OrdersMoveTaskComponentResponses,
+    OrdersMoveTaskComponentErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/{id}/assembly-tasks/{taskId}/boxes/{tbid}/components/{cid}/move",
     ...options,
     headers: {
       "Content-Type": "application/json",

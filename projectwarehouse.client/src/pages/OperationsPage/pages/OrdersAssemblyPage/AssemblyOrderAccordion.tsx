@@ -4,6 +4,7 @@ import {
   AccordionDetails,
   AccordionSummary,
   Chip,
+  Divider,
   Stack,
   Typography,
 } from "@mui/material";
@@ -11,6 +12,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {Link} from "react-router";
 import type {OrderDetailsDto} from "@/api/types.gen";
 import OrderTypeChip from "@/components/orders/OrderTypeChip";
+import AssemblyOrderBoxesSection from "./AssemblyOrderBoxesSection";
 import AssemblyTaskAccordion from "./AssemblyTaskAccordion";
 import {formatOrderNumber} from "@/components/orders/orderUtils";
 import {checkBatchEligibility} from "./batchEligibility";
@@ -62,6 +64,8 @@ function AssemblyOrderAccordion({
       </AccordionSummary>
 
       <AccordionDetails sx={{p: 0, pl: 2}}>
+        <AssemblyOrderBoxesSection order={order} canManage={canFulfill} />
+        <Divider sx={{mb: 1}} />
         {tasks.map((task) => {
           const eligible = eligibilityMap.get(task.id) ?? checkBatchEligibility(task);
           return (
@@ -69,6 +73,7 @@ function AssemblyOrderAccordion({
               key={task.id}
               task={task}
               orderId={order.id}
+              orderBoxes={order.boxes}
               warehouseId={order.warehouseId}
               canFulfill={canFulfill}
               checked={selectedTaskIds.has(task.id)}

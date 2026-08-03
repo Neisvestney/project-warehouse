@@ -29,15 +29,6 @@ public interface IOrderService
     Task<OrderBoxComponent> UpsertBoxComponentAsync(OrderBox box, Guid catalogItemId, int quantity, CancellationToken ct = default);
     Task RemoveBoxComponentAsync(OrderBoxComponent component, CancellationToken ct = default);
 
-    /// <summary>Returns all boxes in the order except the one that contains the given component.</summary>
-    Task<IReadOnlyList<OrderBox>> GetMoveTargetsAsync(OrderBoxComponent component, CancellationToken ct = default);
-
-    /// <summary>
-    /// Partially or fully moves a component to another box.
-    /// Supports moving to an existing box (TargetBoxId) or creating a new box (NewBoxLabel).
-    /// </summary>
-    Task MoveBoxComponentAsync(OrderBoxComponent component, MoveOrderBoxComponentRequest request, CancellationToken ct = default);
-
     // ── Assembly task management ──────────────────────────────────────────────
 
     Task<AssemblyTask> CreateAssemblyTaskAsync(Order order, CreateAssemblyTaskRequest request, CancellationToken ct = default);
@@ -45,6 +36,15 @@ public interface IOrderService
     Task DeleteAssemblyTaskAsync(AssemblyTask task, CancellationToken ct = default);
     Task TransitionTaskStatusAsync(AssemblyTask task, AssemblyTaskStatus targetStatus, Order order, CancellationToken ct = default);
     Task UpdateTaskBoxComponentAsync(AssemblyTaskBoxComponent component, int quantity, CancellationToken ct = default);
+
+    /// <summary>Returns all order boxes except the one the given task box component currently sits in.</summary>
+    Task<IReadOnlyList<OrderBox>> GetTaskMoveTargetsAsync(AssemblyTaskBoxComponent component, CancellationToken ct = default);
+
+    /// <summary>
+    /// Moves part or all of a task's own allocation of a component to another box (existing or newly created).
+    /// Updates both this task's own split and the order's overall composition; other tasks are untouched.
+    /// </summary>
+    Task MoveTaskBoxComponentAsync(AssemblyTaskBoxComponent component, MoveTaskBoxComponentRequest request, CancellationToken ct = default);
 
     // ── Fulfillments ──────────────────────────────────────────────────────────
 

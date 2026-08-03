@@ -34,3 +34,18 @@ export const ORDER_TYPE_COLORS: Record<OrderType, ChipProps["color"]> = {
 export function formatOrderNumber(n: number): string {
   return `ЗКЗ-${String(n).padStart(5, "0")}`;
 }
+
+/**
+ * Human-readable box name. Falls back to a 1-based position within
+ * `orderBoxes` (the order's full box list) instead of exposing the box GUID,
+ * so unlabeled boxes stay distinguishable and consistent across all
+ * box-selection UIs.
+ */
+export function formatBoxLabel(
+  box: {id: string; label?: string | null},
+  orderBoxes: ReadonlyArray<{id: string}>,
+): string {
+  if (box.label) return box.label;
+  const index = orderBoxes.findIndex((b) => b.id === box.id);
+  return index === -1 ? "Коробка без названия" : `Коробка ${index + 1}`;
+}

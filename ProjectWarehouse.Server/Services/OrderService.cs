@@ -53,6 +53,20 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
     public async Task TransitionOrderStatusAsync(Order order, OrderStatus targetStatus, CancellationToken ct = default)
     {
         ValidateOrderTransition(order, targetStatus);
+
+        if (order.Status == OrderStatus.Assembly && targetStatus == OrderStatus.Confirmed)
+        {
+            var tasks = await db.AssemblyTasks
+                .Where(t => t.OrderId == order.Id)
+                .Include(t => t.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem)
+                .Include(t => t.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.Fulfillments)
+                    .ThenInclude(f => f.BundleComponents)
+                .ToListAsync(ct);
+
+            foreach (var task in tasks)
+                await RestoreAndDeleteTaskAsync(task, ct);
+        }
+
         order.Status = targetStatus;
         await db.SaveChangesAsync(ct);
     }
@@ -135,6 +149,9 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
 
     public async Task RemoveBoxAsync(OrderBox box, CancellationToken ct = default)
     {
+        if (box.Components.Any())
+            throw new ValidationException("root", ErrorCode.ValidationError, "Cannot remove a non-empty box.");
+
         db.OrderBoxes.Remove(box);
         await db.SaveChangesAsync(ct);
     }
@@ -167,78 +184,6 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
     public async Task RemoveBoxComponentAsync(OrderBoxComponent component, CancellationToken ct = default)
     {
         db.OrderBoxComponents.Remove(component);
-        await db.SaveChangesAsync(ct);
-    }
-
-    public async Task<IReadOnlyList<OrderBox>> GetMoveTargetsAsync(OrderBoxComponent component, CancellationToken ct = default)
-    {
-        return await db.OrderBoxes
-            .Where(b => b.OrderId == component.OrderBox.OrderId && b.Id != component.OrderBoxId)
-            .ToListAsync(ct);
-    }
-
-    public async Task MoveBoxComponentAsync(
-        OrderBoxComponent component, MoveOrderBoxComponentRequest request, CancellationToken ct = default)
-    {
-        var hasTarget = request.TargetBoxId.HasValue;
-        var hasNew    = !string.IsNullOrEmpty(request.NewBoxLabel);
-
-        if (hasTarget == hasNew)
-            throw new ValidationException("root", ErrorCode.ValidationError,
-                "Exactly one of TargetBoxId or NewBoxLabel must be provided.");
-
-        if (request.Quantity <= 0)
-            throw new ValidationException("quantity", ErrorCode.OutOfRange, "Quantity must be greater than zero.");
-
-        if (request.Quantity > component.Quantity)
-            throw new ValidationException("quantity", ErrorCode.OutOfRange,
-                $"Cannot move {request.Quantity}: component only has {component.Quantity}.");
-
-        OrderBox targetBox;
-
-        if (hasNew)
-        {
-            targetBox = new OrderBox
-            {
-                Id      = Guid.NewGuid(),
-                OrderId = component.OrderBox.OrderId,
-                Label   = request.NewBoxLabel,
-            };
-            db.OrderBoxes.Add(targetBox);
-        }
-        else
-        {
-            targetBox = await db.OrderBoxes
-                .Include(b => b.Components)
-                .FirstOrDefaultAsync(b => b.Id == request.TargetBoxId!.Value, ct)
-                ?? throw new ValidationException("targetBoxId", ErrorCode.OrderBoxNotFound, "Target box not found.");
-
-            if (targetBox.OrderId != component.OrderBox.OrderId)
-                throw new ValidationException("targetBoxId", ErrorCode.OrderBoxNotFound,
-                    "Target box does not belong to the same order.");
-        }
-
-        // Merge into existing component in target box or create new
-        var targetComp = targetBox.Components.FirstOrDefault(c => c.CatalogItemId == component.CatalogItemId);
-        if (targetComp is not null)
-        {
-            targetComp.Quantity += request.Quantity;
-        }
-        else
-        {
-            db.OrderBoxComponents.Add(new OrderBoxComponent
-            {
-                Id            = Guid.NewGuid(),
-                OrderBoxId    = targetBox.Id,
-                CatalogItemId = component.CatalogItemId,
-                Quantity      = request.Quantity,
-            });
-        }
-
-        component.Quantity -= request.Quantity;
-        if (component.Quantity == 0)
-            db.OrderBoxComponents.Remove(component);
-
         await db.SaveChangesAsync(ct);
     }
 
@@ -278,6 +223,15 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
             for (var j = 0; j < boxReq.Components.Count; j++)
             {
                 var compReq = boxReq.Components[j];
+
+                var available = await GetAvailableQuantityAsync(orderBox.Id, compReq.CatalogItemId, excludeTaskId: null, ct);
+                if (available is null)
+                    throw new ValidationException($"{prefix}.components[{j}].catalogItemId", ErrorCode.OrderBoxComponentNotFound,
+                        $"Catalog item '{compReq.CatalogItemId}' not found in box '{orderBox.Id}'.");
+                if (compReq.Quantity > available)
+                    throw new ValidationException($"{prefix}.components[{j}].quantity", ErrorCode.AssemblyTaskQuantityExceedsAvailable,
+                        $"Requested quantity {compReq.Quantity} exceeds available quantity {available} for this catalog item in this box.");
+
                 taskBox.Components.Add(new AssemblyTaskBoxComponent
                 {
                     Id                = Guid.NewGuid(),
@@ -315,7 +269,13 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
             throw new ValidationException("root", ErrorCode.AssemblyTaskNotDeletable,
                 "Assembly tasks can only be deleted when the order is in Assembly status.");
 
-        db.AssemblyTasks.Remove(task);
+        var fullTask = await db.AssemblyTasks
+            .Include(t => t.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem)
+            .Include(t => t.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.Fulfillments)
+                .ThenInclude(f => f.BundleComponents)
+            .FirstAsync(t => t.Id == task.Id, ct);
+
+        await RestoreAndDeleteTaskAsync(fullTask, ct);
         await db.SaveChangesAsync(ct);
     }
 
@@ -353,7 +313,142 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
     public async Task UpdateTaskBoxComponentAsync(
         AssemblyTaskBoxComponent component, int quantity, CancellationToken ct = default)
     {
+        var available = await GetAvailableQuantityAsync(
+            component.AssemblyTaskBox.OrderBoxId, component.CatalogItemId,
+            excludeTaskId: component.AssemblyTaskBox.AssemblyTaskId, ct);
+
+        if (quantity > available)
+            throw new ValidationException("quantity", ErrorCode.AssemblyTaskQuantityExceedsAvailable,
+                $"Requested quantity {quantity} exceeds available quantity {available} for this catalog item in this box.");
+
         component.Quantity = quantity;
+        await db.SaveChangesAsync(ct);
+    }
+
+    // ── Task-scoped box/component moves (Assembly, assembler-only) ─────────────
+
+    /// <summary>Returns all order boxes except the one the given task box component currently sits in.</summary>
+    public async Task<IReadOnlyList<OrderBox>> GetTaskMoveTargetsAsync(
+        AssemblyTaskBoxComponent component, CancellationToken ct = default)
+    {
+        return await db.OrderBoxes
+            .Where(b => b.OrderId == component.AssemblyTaskBox.OrderBox.OrderId
+                     && b.Id != component.AssemblyTaskBox.OrderBoxId)
+            .ToListAsync(ct);
+    }
+
+    /// <summary>
+    /// Moves part or all of a task's own allocation of a component to another box.
+    /// Updates both the assembly task's own component split (AssemblyTaskBoxComponent) and the
+    /// order's overall composition (OrderBoxComponent) — the move only affects this task's allocation,
+    /// other tasks referencing the same OrderBox/CatalogItem are untouched.
+    /// </summary>
+    public async Task MoveTaskBoxComponentAsync(
+        AssemblyTaskBoxComponent component, MoveTaskBoxComponentRequest request, CancellationToken ct = default)
+    {
+        var hasTarget = request.TargetBoxId.HasValue;
+        var hasNew    = !string.IsNullOrEmpty(request.NewBoxLabel);
+
+        if (hasTarget == hasNew)
+            throw new ValidationException("root", ErrorCode.ValidationError,
+                "Exactly one of TargetBoxId or NewBoxLabel must be provided.");
+
+        var fulfilledQty = CountFulfilledQty(component.Fulfillments);
+        var movable = component.Quantity - fulfilledQty;
+
+        if (request.Quantity <= 0 || request.Quantity > movable)
+            throw new ValidationException("quantity", ErrorCode.OutOfRange,
+                $"Cannot move {request.Quantity}: only {movable} unfulfilled unit(s) available in this task.");
+
+        var sourceOrderBoxId = component.AssemblyTaskBox.OrderBoxId;
+        var taskId            = component.AssemblyTaskBox.AssemblyTaskId;
+        var catalogItemId     = component.CatalogItemId;
+        var orderId           = component.AssemblyTaskBox.OrderBox.OrderId;
+
+        // 1) Resolve/create the target OrderBox
+        OrderBox targetOrderBox;
+        if (hasNew)
+        {
+            targetOrderBox = new OrderBox { Id = Guid.NewGuid(), OrderId = orderId, Label = request.NewBoxLabel };
+            db.OrderBoxes.Add(targetOrderBox);
+        }
+        else
+        {
+            targetOrderBox = await db.OrderBoxes
+                .Include(b => b.Components)
+                .FirstOrDefaultAsync(b => b.Id == request.TargetBoxId!.Value, ct)
+                ?? throw new ValidationException("targetBoxId", ErrorCode.OrderBoxNotFound, "Target box not found.");
+
+            if (targetOrderBox.OrderId != orderId)
+                throw new ValidationException("targetBoxId", ErrorCode.OrderBoxNotFound,
+                    "Target box does not belong to the same order.");
+
+            if (targetOrderBox.Id == sourceOrderBoxId)
+                throw new ValidationException("targetBoxId", ErrorCode.ValidationError,
+                    "Target box must be different from the source box.");
+        }
+
+        // 2) Update the order's overall composition (OrderBoxComponent)
+        var sourceOrderComp = await db.OrderBoxComponents
+            .FirstOrDefaultAsync(c => c.OrderBoxId == sourceOrderBoxId && c.CatalogItemId == catalogItemId, ct)
+            ?? throw new ValidationException("root", ErrorCode.OrderBoxComponentNotFound, "Source order box component not found.");
+
+        sourceOrderComp.Quantity -= request.Quantity;
+        if (sourceOrderComp.Quantity == 0)
+            db.OrderBoxComponents.Remove(sourceOrderComp);
+
+        var targetOrderComp = hasNew ? null : targetOrderBox.Components.FirstOrDefault(c => c.CatalogItemId == catalogItemId);
+        if (targetOrderComp is not null)
+        {
+            targetOrderComp.Quantity += request.Quantity;
+        }
+        else
+        {
+            db.OrderBoxComponents.Add(new OrderBoxComponent
+            {
+                Id            = Guid.NewGuid(),
+                OrderBoxId    = targetOrderBox.Id,
+                CatalogItemId = catalogItemId,
+                Quantity      = request.Quantity,
+            });
+        }
+
+        // 3) Update this task's own allocation (AssemblyTaskBoxComponent)
+        var targetTaskBox = await db.AssemblyTaskBoxes
+            .Include(b => b.Components)
+            .FirstOrDefaultAsync(b => b.AssemblyTaskId == taskId && b.OrderBoxId == targetOrderBox.Id, ct);
+
+        if (targetTaskBox is null)
+        {
+            targetTaskBox = new AssemblyTaskBox { Id = Guid.NewGuid(), AssemblyTaskId = taskId, OrderBoxId = targetOrderBox.Id };
+            db.AssemblyTaskBoxes.Add(targetTaskBox);
+        }
+
+        var targetTaskComp = targetTaskBox.Components.FirstOrDefault(c => c.CatalogItemId == catalogItemId);
+        if (targetTaskComp is not null)
+        {
+            targetTaskComp.Quantity += request.Quantity;
+        }
+        else
+        {
+            db.AssemblyTaskBoxComponents.Add(new AssemblyTaskBoxComponent
+            {
+                Id                = Guid.NewGuid(),
+                AssemblyTaskBoxId = targetTaskBox.Id,
+                CatalogItemId     = catalogItemId,
+                Quantity          = request.Quantity,
+            });
+        }
+
+        var sourceTaskBox = component.AssemblyTaskBox;
+        component.Quantity -= request.Quantity;
+        if (component.Quantity == 0)
+        {
+            db.AssemblyTaskBoxComponents.Remove(component);
+            if (sourceTaskBox.Components.All(c => c.Id == component.Id))
+                db.AssemblyTaskBoxes.Remove(sourceTaskBox);
+        }
+
         await db.SaveChangesAsync(ct);
     }
 
@@ -501,6 +596,15 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
 
     public async Task RemoveFulfillmentAsync(AssemblyFulfillment fulfillment, CancellationToken ct = default)
     {
+        await RestoreFulfillmentInventoryAsync(fulfillment, ct);
+        db.AssemblyFulfillments.Remove(fulfillment);
+        await db.SaveChangesAsync(ct);
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    private async Task RestoreFulfillmentInventoryAsync(AssemblyFulfillment fulfillment, CancellationToken ct)
+    {
         // Determine type and restore inventory
         if (fulfillment.BundleComponents.Count > 0)
         {
@@ -547,12 +651,45 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
                 InventoryActions.AddStandardItems,
                 ct);
         }
-
-        db.AssemblyFulfillments.Remove(fulfillment);
-        await db.SaveChangesAsync(ct);
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────
+    /// <summary>Restores inventory for every fulfillment under the task, then removes the task (cascades boxes/components/fulfillments). Does not call SaveChanges.</summary>
+    private async Task RestoreAndDeleteTaskAsync(AssemblyTask task, CancellationToken ct)
+    {
+        foreach (var box in task.Boxes)
+            foreach (var comp in box.Components)
+                foreach (var fulfillment in comp.Fulfillments.ToList())
+                    await RestoreFulfillmentInventoryAsync(fulfillment, ct);
+
+        db.AssemblyTasks.Remove(task);
+    }
+
+    /// <summary>Same counting convention as the frontend's countFulfilledQty: a Unit/Bundle fulfillment always counts as 1, Standard counts by Quantity.</summary>
+    private static int CountFulfilledQty(IEnumerable<AssemblyFulfillment> fulfillments)
+    {
+        var sum = 0;
+        foreach (var f in fulfillments)
+            sum += (f.UnitInventoryItemId.HasValue || f.BundleComponents.Count > 0) ? 1 : f.Quantity;
+        return sum;
+    }
+
+    /// <summary>OrderBoxComponent.Quantity minus what's already allocated to OTHER assembly tasks for the same box+item. Null if the catalog item isn't in this box at all.</summary>
+    private async Task<int?> GetAvailableQuantityAsync(
+        Guid orderBoxId, Guid catalogItemId, Guid? excludeTaskId, CancellationToken ct)
+    {
+        var boxComponent = await db.OrderBoxComponents
+            .FirstOrDefaultAsync(c => c.OrderBoxId == orderBoxId && c.CatalogItemId == catalogItemId, ct);
+        if (boxComponent is null)
+            return null;
+
+        var allocatedElsewhere = await db.AssemblyTaskBoxComponents
+            .Where(c => c.AssemblyTaskBox.OrderBoxId == orderBoxId
+                     && c.CatalogItemId == catalogItemId
+                     && (excludeTaskId == null || c.AssemblyTaskBox.AssemblyTaskId != excludeTaskId))
+            .SumAsync(c => (int?)c.Quantity, ct) ?? 0;
+
+        return boxComponent.Quantity - allocatedElsewhere;
+    }
 
     private static void ValidateOrderTransition(Order order, OrderStatus target)
     {
