@@ -576,6 +576,7 @@ function AddFulfillmentDialog({
   const [bundleCount, setBundleCount] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [failedItems, setFailedItems] = useState<BatchFulfillFailedItem[]>([]);
+  const submittingRef = useRef(false);
 
   const mutation = useMutation({
     ...ordersAddFulfillmentMutation(),
@@ -586,6 +587,9 @@ function AddFulfillmentDialog({
       onClose();
     },
     onError: () => setError("Не удалось добавить фулфилмент"),
+    onSettled: () => {
+      submittingRef.current = false;
+    },
   });
 
   const batchMutation = useMutation({
@@ -601,6 +605,9 @@ function AddFulfillmentDialog({
       }
     },
     onError: () => setError("Не удалось добавить фулфилмент"),
+    onSettled: () => {
+      submittingRef.current = false;
+    },
   });
 
   const isVariation = component.catalogItemType === "variation";
@@ -608,6 +615,9 @@ function AddFulfillmentDialog({
   const remaining = component.quantity - countFulfilledQty(component.fulfillments);
 
   function handleSubmit() {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
     setError(null);
     setFailedItems([]);
     if (isBundleFulfillment && bundleCount > 1) {

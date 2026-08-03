@@ -104,6 +104,7 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   assemblyTaskAlreadyDone: "Задание уже завершено",
   assemblyTaskMoveTargetInvalid: "Недопустимая целевая коробка для перемещения",
   assemblyTaskQuantityExceedsAvailable: "Запрошенное количество превышает доступное",
+  assemblyComponentAlreadyFulfilled: "Компонент уже полностью укомплектован",
 };
 
 export function resolveErrorMessage(error: AppFieldError): string {

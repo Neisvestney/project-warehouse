@@ -116,6 +116,7 @@ Error with structured arguments (e.g. password too short):
 | `receiptNotAssignedToWarehouse` | Current user is not assigned to the receipt's warehouse (assigned permission check) |
 | `receiptItemsUnderplaced` | Finish blocked: some items with `receivedCount` have fewer placements than required |
 | `receiptItemsOverplaced` | Finish blocked: some items with `receivedCount` have more placements than the received count |
+| `assemblyComponentAlreadyFulfilled` | Adding a fulfillment (single or batch) to an `AssemblyTaskBoxComponent` that is already fully fulfilled — guards against double-submit re-processing the same request |
 
 ### Validation
 | Code | When | `args` |
