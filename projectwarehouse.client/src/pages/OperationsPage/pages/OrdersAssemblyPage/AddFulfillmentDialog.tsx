@@ -395,7 +395,7 @@ function BundleTreeForm({
   if (catalogQuery.isLoading) return <CircularProgress size={20} />;
 
   return (
-    <Stack spacing={2}>
+    <Stack spacing={2} divider={<Divider orientation="horizontal" flexItem />}>
       {components.map((comp) => (
         <BundleSlotForm
           key={comp.componentId}
