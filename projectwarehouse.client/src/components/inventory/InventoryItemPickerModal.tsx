@@ -20,7 +20,6 @@ import {
   TableHead,
   TablePagination,
   TableRow,
-  TextField,
   Typography,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
@@ -31,6 +30,7 @@ import {
   inventoryItemsGetAllUnitsOptions,
 } from "@/api/@tanstack/react-query.gen";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
+import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 import type {CatalogItemType} from "@/api/types.gen";
 import type {InventoryItemSummaryDto, UnitInventoryItemDto} from "@/api/types.gen";
 
@@ -161,18 +161,15 @@ function StandardAccordion({
                         <Typography variant="body2">{item.count}</Typography>
                       </TableCell>
                       <TableCell align="right" sx={{width: 90}}>
-                        <TextField
-                          type="number"
+                        <ClampedIntegerField
                           size="small"
                           value={counts[item.catalogItemId] ?? 1}
-                          onChange={(e) => {
-                            const val = Math.max(1, Math.min(item.count, Number(e.target.value)));
-                            setCounts((prev) => ({...prev, [item.catalogItemId]: val}));
-                          }}
+                          max={item.count}
+                          onCommit={(n) =>
+                            setCounts((prev) => ({...prev, [item.catalogItemId]: n}))
+                          }
                           disabled={!isChecked}
-                          slotProps={{
-                            htmlInput: {min: 1, max: item.count, style: {textAlign: "right"}},
-                          }}
+                          slotProps={{htmlInput: {style: {textAlign: "right"}}}}
                           sx={{width: 80}}
                         />
                       </TableCell>
@@ -440,20 +437,12 @@ function InventoryItemPickerModal({
                     </TableCell>
                     <TableCell align="right">
                       {item.type === "standard" ? (
-                        <TextField
-                          type="number"
+                        <ClampedIntegerField
                           size="small"
                           value={item.count}
-                          onChange={(e) => {
-                            const val = Math.max(
-                              1,
-                              Math.min(item.available, Number(e.target.value)),
-                            );
-                            updateCount(i, val);
-                          }}
-                          slotProps={{
-                            htmlInput: {min: 1, max: item.available, style: {textAlign: "right"}},
-                          }}
+                          max={item.available}
+                          onCommit={(val) => updateCount(i, val)}
+                          slotProps={{htmlInput: {style: {textAlign: "right"}}}}
                           sx={{width: 80}}
                         />
                       ) : (

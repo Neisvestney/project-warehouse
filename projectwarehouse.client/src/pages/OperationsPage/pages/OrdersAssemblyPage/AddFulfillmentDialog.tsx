@@ -1,4 +1,4 @@
-import {useMemo, useRef, useState} from "react";
+import {useEffect, useMemo, useRef, useState} from "react";
 import {
   Alert,
   Autocomplete,
@@ -35,10 +35,12 @@ import type {
   CatalogItemType,
   UnitInventoryItemDto,
 } from "@/api/types.gen";
-import SelectNodeModal, {type SelectedNode} from "@/components/receipts/SelectNodeModal";
+import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 import {countFulfilledQty} from "@/components/orders/orderAssemblyUtils";
+import SelectNodeModal, {type SelectedNode} from "@/components/receipts/SelectNodeModal";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {useDebounce} from "@/hooks/useDebounce";
+import {useDefaultStorageNode} from "@/hooks/useDefaultStorageNode";
 
 // ─── Node field (display + pick, no manual typing) ─────────────────────────
 
@@ -130,13 +132,11 @@ function StandardForm({warehouseId, value, onChange}: StandardFormProps) {
           })
         }
       />
-      <TextField
+      <ClampedIntegerField
         label="Количество"
-        type="number"
         size="small"
         value={value.quantity}
-        onChange={(e) => onChange({...value, quantity: Math.max(1, Number(e.target.value))})}
-        slotProps={{htmlInput: {min: 1}}}
+        onCommit={(quantity) => onChange({...value, quantity})}
       />
     </Stack>
   );
@@ -230,7 +230,7 @@ function BundleSlotForm({
   multiplier,
   onChange,
 }: BundleSlotFormProps) {
-  const [nodePath, setNodePath] = useState<string | null>(null);
+  const [overrideNode, setOverrideNode] = useState<SelectedNode | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [selectedVariantType, setSelectedVariantType] = useState<CatalogItemType | null>(null);
 
@@ -243,23 +243,29 @@ function BundleSlotForm({
     queries: memberIds.map((id) => catalogGetByIdOptions({path: {id}})),
   });
 
+  const defaultNode = useDefaultStorageNode(warehouseId, catalogItemType === "standard");
+  const effectiveNode = overrideNode ?? defaultNode;
+
+  useEffect(() => {
+    if (catalogItemType === "standard" && effectiveNode) {
+      onChange([
+        {
+          catalogItemId,
+          sourceNodeId: effectiveNode.nodeId,
+          quantity: multiplier,
+          unitInventoryItemId: null,
+        },
+      ]);
+    }
+  }, [catalogItemType, effectiveNode, catalogItemId, multiplier, onChange]);
+
   if (catalogItemType === "standard") {
     return (
       <NodeField
         label={`${componentName} × ${multiplier}`}
         warehouseId={warehouseId}
-        nodePath={nodePath}
-        onSelect={(node) => {
-          setNodePath(formatStoragePlaceNodeName(node.nodePath));
-          onChange([
-            {
-              catalogItemId,
-              sourceNodeId: node.nodeId,
-              quantity: multiplier,
-              unitInventoryItemId: null,
-            },
-          ]);
-        }}
+        nodePath={effectiveNode ? formatStoragePlaceNodeName(effectiveNode.nodePath) : null}
+        onSelect={(node) => setOverrideNode(node)}
       />
     );
   }
@@ -506,15 +512,26 @@ function SubFulfillmentForm({
   fulfillment,
   onChange,
 }: SubFulfillmentFormProps) {
-  const [nodeState, setNodeState] = useState<{
-    sourceNodeId: string | null;
-    nodePath: string | null;
-    quantity: number;
-  }>({
-    sourceNodeId: fulfillment.sourceNodeId ?? null,
-    nodePath: null,
-    quantity: fulfillment.quantity,
-  });
+  const [overrideNode, setOverrideNode] = useState<{
+    sourceNodeId: string;
+    nodePath: string;
+  } | null>(null);
+  const [quantity, setQuantity] = useState(fulfillment.quantity);
+
+  const defaultNode = useDefaultStorageNode(warehouseId, catalogItemType === "standard");
+  const nodeState = {
+    sourceNodeId: overrideNode?.sourceNodeId ?? defaultNode?.nodeId ?? null,
+    nodePath:
+      overrideNode?.nodePath ??
+      (defaultNode ? formatStoragePlaceNodeName(defaultNode.nodePath) : null),
+    quantity,
+  };
+
+  useEffect(() => {
+    if (catalogItemType === "standard" && nodeState.sourceNodeId) {
+      onChange({sourceNodeId: nodeState.sourceNodeId, quantity: nodeState.quantity});
+    }
+  }, [catalogItemType, nodeState.sourceNodeId, nodeState.quantity, onChange]);
 
   if (catalogItemType === "standard") {
     return (
@@ -523,8 +540,10 @@ function SubFulfillmentForm({
         quantity={fulfillment.quantity}
         value={nodeState}
         onChange={(v) => {
-          setNodeState(v);
-          onChange({sourceNodeId: v.sourceNodeId, quantity: v.quantity});
+          if (v.sourceNodeId && v.nodePath) {
+            setOverrideNode({sourceNodeId: v.sourceNodeId, nodePath: v.nodePath});
+          }
+          setQuantity(v.quantity);
         }}
       />
     );
@@ -667,20 +686,17 @@ function AddFulfillmentDialog({
           )}
 
           {isBundleFulfillment && (
-            <TextField
+            <ClampedIntegerField
               label="Количество комплектов для сборки"
-              type="number"
               size="small"
               value={bundleCount}
-              onChange={(e) =>
-                setBundleCount(Math.max(1, Math.min(remaining, Number(e.target.value) || 1)))
-              }
+              max={Math.max(1, remaining)}
+              onCommit={setBundleCount}
               helperText={
                 bundleCount > 1
                   ? `Будет создано ${bundleCount} одинаковых фулфилментов комплекта`
                   : undefined
               }
-              slotProps={{htmlInput: {min: 1, max: Math.max(1, remaining)}}}
             />
           )}
 

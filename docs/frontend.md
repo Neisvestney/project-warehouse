@@ -78,7 +78,8 @@ src/
 │   │   └── UnitItemsDrawer.tsx      # Bottom drawer: paginated list of individual UnitInventoryItem instances for a clicked catalog item
 │   ├── CatalogItemsSelect.tsx   # Autocomplete for catalog items; single (id/dto) or multi (dto[]) mode; supports type filter
 │   ├── form/
-│   │   └── FormTextField.tsx    # RHF-wired TextField wrapper
+│   │   ├── FormTextField.tsx        # RHF-wired TextField wrapper
+│   │   └── ClampedIntegerField.tsx  # Number TextField that only clamps min/max on blur, not on keystroke
 │   ├── modals/
 │   │   ├── ConfirmModal.tsx     # Reusable confirm modal (modal system)
 │   │   └── AlertModal.tsx       # Reusable alert modal (modal system)
@@ -822,6 +823,30 @@ Thin RHF + MUI `TextField` integration. Wraps `Controller` and automatically wir
 ```
 
 Props: `control`, `name` (type-safe `Path<T>`), `rules?`, `helperText?` (shown when no error) — plus all MUI `TextFieldProps` except `error`/`helperText` (managed internally). For fields with custom `InputAdornment` (e.g. password show/hide toggle) use `Controller` directly.
+
+### `ClampedIntegerField`
+Number `TextField` (`components/form/ClampedIntegerField.tsx`) for editing a quantity/count outside of RHF (local state, or committed via a callback rather than a form). Keeps raw keystrokes uncommitted — including a temporarily empty field — until blur, so the min/max clamp doesn't fight the user while they're typing or clearing the field to type a new value. Use this instead of hand-rolling `Math.max(min, Number(e.target.value))` in an `onChange`, which snaps an emptied field back to the min on every keystroke.
+
+```tsx
+<ClampedIntegerField
+  size="small"
+  value={qty}
+  min={0}       // default 1
+  max={maxQty}  // optional
+  onCommit={(n) => setQty(n)}
+/>
+```
+
+Props: `value: number`, `min?: number` (default `1`), `max?: number`, `onCommit: (value: number) => void`, plus all `TextFieldProps` except `value`/`onChange`/`onBlur`/`onFocus`/`type`. If `value` changes externally (e.g. after a mutation invalidates and refetches), the displayed text re-syncs — unless the field is currently focused, so it won't clobber an in-progress edit.
+
+### `useDefaultStorageNode(warehouseId, enabled?)`
+Hook (`hooks/useDefaultStorageNode.ts`) fetching the warehouse's default storage cell via `GET /api/warehouses/{id}/default-node`. Returns a `SelectedNode | null` — `null` while loading, on error, or if the warehouse has no default cell assigned (`defaultStoragePlaceNodeId` unset). `enabled` (default `true`) gates the query, e.g. to skip it for non-`standard` catalog item types that don't need a storage cell.
+
+```tsx
+const defaultNode = useDefaultStorageNode(warehouseId, catalogItemType === "standard");
+```
+
+Used to pre-fill node pickers with the default cell instead of requiring a manual pick every time — see [orders-specification.md § Дефолтная ячейка склада](orders-specification.md#дефолтная-ячейка-склада-в-фулфилменте) for the pattern used in `AddFulfillmentDialog`/`BatchAssemblyDialog` (override-over-default merge, since directly `setState`-ing from inside a `useEffect` trips the `react-hooks/set-state-in-effect` lint rule). `AddPlacementDialog` uses the same underlying endpoint directly (`warehousesGetDefaultNodeOptions`) since it only needs to seed initial state once, not merge with a live override.
 
 ## URL State Hooks
 

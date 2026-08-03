@@ -28,6 +28,7 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import type {WriteoffDto, WriteoffItemDto, WriteoffItemRequest} from "@/api/types.gen";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
+import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 import InventoryItemPickerModal from "@/components/inventory/InventoryItemPickerModal";
 import type {SelectedInventoryItem} from "@/components/inventory/InventoryItemPickerModal";
 import SelectNodeModal from "@/components/receipts/SelectNodeModal";
@@ -193,12 +194,11 @@ function WriteoffItemsEditorDrawer({open, onClose, writeoff}: WriteoffItemsEdito
     setDraftItems((prev) => prev.filter((d) => d.key !== key));
   };
 
-  const handleCountChange = (key: string, value: string) => {
-    const parsed = parseInt(value, 10);
+  const handleCountChange = (key: string, count: number) => {
     setDraftItems((prev) =>
       prev.map((d) => {
         if (d.key !== key || d.type !== "standard") return d;
-        return {...d, count: isNaN(parsed) ? 1 : Math.max(1, Math.min(parsed, d.available))};
+        return {...d, count};
       }),
     );
   };
@@ -286,14 +286,13 @@ function WriteoffItemsEditorDrawer({open, onClose, writeoff}: WriteoffItemsEdito
                             </TableCell>
                             <TableCell>
                               {item.type === "standard" ? (
-                                <TextField
+                                <ClampedIntegerField
                                   size="small"
-                                  type="number"
                                   value={item.count}
-                                  onChange={(e) => handleCountChange(item.key, e.target.value)}
-                                  slotProps={{htmlInput: {min: 1, max: item.available}}}
-                                  sx={{width: 72}}
+                                  max={item.available}
                                   disabled={mutation.isPending}
+                                  onCommit={(count) => handleCountChange(item.key, count)}
+                                  sx={{width: 72}}
                                 />
                               ) : (
                                 "1"

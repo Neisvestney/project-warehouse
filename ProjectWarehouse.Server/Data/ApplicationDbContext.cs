@@ -448,5 +448,21 @@ public class ApplicationDbContext : IdentityDbContext<
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
         });
+
+        // Npgsql requires DateTime values with Kind=Utc for "timestamp with time zone" columns.
+        // Values coming from JSON model binding are deserialized with Kind=Unspecified, which
+        // otherwise throws at save time. Treat unspecified/local kinds as UTC transparently.
+        var utcConverter = new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime, DateTime>(
+            v => v.Kind == DateTimeKind.Utc ? v : DateTime.SpecifyKind(v, DateTimeKind.Utc),
+            v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+
+        foreach (var entityType in builder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.ClrType == typeof(DateTime) || property.ClrType == typeof(DateTime?))
+                    property.SetValueConverter(utcConverter);
+            }
+        }
     }
 }
