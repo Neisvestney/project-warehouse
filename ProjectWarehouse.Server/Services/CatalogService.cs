@@ -58,4 +58,84 @@ public class CatalogService(ApplicationDbContext db) : ICatalogService
             stack.Remove(nodeId);
         }
     }
+
+    public async Task<Dictionary<Guid, bool>> ComputeContainsUnitAsync(
+        IReadOnlyCollection<Guid> catalogItemIds,
+        CancellationToken ct = default)
+    {
+        var cache = new Dictionary<Guid, bool>();
+        foreach (var id in catalogItemIds)
+        {
+            if (!cache.ContainsKey(id))
+                await ComputeContainsUnitRecursiveAsync(id, cache, [], ct);
+        }
+        return cache;
+    }
+
+    /// <summary>
+    /// Depth-first, memoized walk mirroring <see cref="VisitAsync"/>'s traversal shape, but
+    /// unlike the cycle check this also inspects leaf (Standard/Unit/ProductGroup) edges, since
+    /// a Bundle or Variation can directly contain a Unit leaf without any further nesting.
+    /// </summary>
+    private async Task<bool> ComputeContainsUnitRecursiveAsync(
+        Guid catalogItemId, Dictionary<Guid, bool> cache, HashSet<Guid> visiting, CancellationToken ct)
+    {
+        if (cache.TryGetValue(catalogItemId, out var cached))
+            return cached;
+
+        // Defensive cycle guard — writes should already prevent this via EnsureNoCycleAsync.
+        if (!visiting.Add(catalogItemId))
+            return false;
+
+        var type = await db.CatalogItems
+            .Where(c => c.Id == catalogItemId)
+            .Select(c => c.Type)
+            .FirstOrDefaultAsync(ct);
+
+        bool result;
+        if (type == CatalogItemType.Unit)
+        {
+            result = true;
+        }
+        else if (type == CatalogItemType.Bundle)
+        {
+            var children = await db.BundleComponents
+                .Where(bc => bc.BundleId == catalogItemId)
+                .Select(bc => new { bc.ComponentId, bc.Component.Type })
+                .ToListAsync(ct);
+
+            result = false;
+            foreach (var child in children)
+            {
+                if (child.Type == CatalogItemType.Unit) { result = true; break; }
+                if (child.Type is CatalogItemType.Bundle or CatalogItemType.Variation
+                    && await ComputeContainsUnitRecursiveAsync(child.ComponentId, cache, visiting, ct))
+                { result = true; break; }
+            }
+        }
+        else if (type == CatalogItemType.Variation)
+        {
+            var members = await db.CatalogItemVariationMembers
+                .Where(vm => vm.VariationId == catalogItemId)
+                .Select(vm => new { ComponentId = vm.ItemId, vm.Item.Type })
+                .ToListAsync(ct);
+
+            result = false;
+            foreach (var member in members)
+            {
+                if (member.Type == CatalogItemType.Unit) { result = true; break; }
+                if (member.Type is CatalogItemType.Bundle or CatalogItemType.Variation
+                    && await ComputeContainsUnitRecursiveAsync(member.ComponentId, cache, visiting, ct))
+                { result = true; break; }
+            }
+        }
+        else
+        {
+            result = false; // Standard, ProductGroup
+        }
+
+        visiting.Remove(catalogItemId);
+        cache[catalogItemId] = result;
+        return result;
+    }
 }

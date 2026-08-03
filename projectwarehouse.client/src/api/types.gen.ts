@@ -93,6 +93,13 @@ export type AssemblyTaskBoxComponentDto = {
   catalogItemType: CatalogItemType;
   quantity: number;
   fulfillments: Array<AssemblyFulfillmentDto>;
+  /**
+   * True if this component's own type is Unit, or if it's a Bundle/Variation whose
+   * composition resolves to a Unit item anywhere in its nested tree. Used to exclude such
+   * components from bulk/batch assembly eligibility, since a Unit fulfillment must reference
+   * a distinct physical inventory instance per task and can't be shared/copied across tasks.
+   */
+  containsUnit: boolean;
 };
 
 export type AssemblyTaskBoxDto = {
@@ -404,6 +411,7 @@ export type ErrorCode =
   | "assemblyTaskAlreadyDone"
   | "assemblyTaskMoveTargetInvalid"
   | "assemblyTaskQuantityExceedsAvailable"
+  | "assemblyComponentAlreadyFulfilled"
   | "routeNotFound"
   | "required"
   | "tooShort"

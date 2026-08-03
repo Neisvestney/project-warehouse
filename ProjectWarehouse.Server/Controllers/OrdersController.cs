@@ -18,7 +18,8 @@ namespace ProjectWarehouse.Server.Controllers;
 public class OrdersController(
     ApplicationDbContext db,
     IMapper mapper,
-    IOrderService orders) : AppControllerBase
+    IOrderService orders,
+    ICatalogService catalog) : AppControllerBase
 {
     // ── Base query helpers ────────────────────────────────────────────────────
 
@@ -201,7 +202,19 @@ public class OrdersController(
             query = query.Where(o => assignedIds.Contains(o.WarehouseId));
 
         var result = await query.ToListAsync(ct);
-        return Ok(mapper.Map<List<OrderDetailsDto>>(result));
+        var dtos = mapper.Map<List<OrderDetailsDto>>(result);
+
+        var componentDtos = dtos
+            .SelectMany(o => o.AssemblyTasks)
+            .SelectMany(t => t.Boxes)
+            .SelectMany(b => b.Components)
+            .ToList();
+        var containsUnitByCatalogItemId = await catalog.ComputeContainsUnitAsync(
+            componentDtos.Select(c => c.CatalogItemId).Distinct().ToList(), ct);
+        foreach (var componentDto in componentDtos)
+            componentDto.ContainsUnit = containsUnitByCatalogItemId.GetValueOrDefault(componentDto.CatalogItemId);
+
+        return Ok(dtos);
     }
 
     // ── GET /api/orders/{id} ──────────────────────────────────────────────────
@@ -847,6 +860,11 @@ public class OrdersController(
             return UnprocessableEntity("root", ErrorCode.WriteoffItemNotFound,
                 "Item is not at the expected storage node.");
         }
+        catch (AssemblyComponentAlreadyFulfilledException)
+        {
+            return UnprocessableEntity("root", ErrorCode.AssemblyComponentAlreadyFulfilled,
+                "This component is already fully fulfilled.");
+        }
     }
 
     // ── DELETE .../fulfillments/{fid} ─────────────────────────────────────────
@@ -967,6 +985,10 @@ public class OrdersController(
                 catch (InventoryItemNodeMismatchException)
                 {
                     failedItems.Add(new BatchFulfillFailedItem { OrderId = item.OrderId, ComponentId = item.ComponentId, Error = "Item is not at the expected storage node." });
+                }
+                catch (AssemblyComponentAlreadyFulfilledException)
+                {
+                    failedItems.Add(new BatchFulfillFailedItem { OrderId = item.OrderId, ComponentId = item.ComponentId, Error = "Component is already fully fulfilled." });
                 }
             }
 

@@ -30,4 +30,15 @@ public interface ICatalogService
         CatalogItemType rootType,
         IReadOnlyList<Guid> rootEdgeIds,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// For each of <paramref name="catalogItemIds"/>, determines whether the catalog item is
+    /// itself of type Unit, or (for Bundle/Variation) whether its composition resolves to a
+    /// Unit item anywhere in its nested tree. Standard/ProductGroup items always resolve to
+    /// <c>false</c>. Results are memoized across the whole call, since "contains a unit" is a
+    /// property of the catalog item's composition graph, not of any particular caller/task.
+    /// </summary>
+    Task<Dictionary<Guid, bool>> ComputeContainsUnitAsync(
+        IReadOnlyCollection<Guid> catalogItemIds,
+        CancellationToken ct = default);
 }

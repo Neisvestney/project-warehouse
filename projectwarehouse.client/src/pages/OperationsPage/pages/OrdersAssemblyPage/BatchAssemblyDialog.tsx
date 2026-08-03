@@ -1,4 +1,4 @@
-import {useMemo, useState} from "react";
+import {useMemo, useRef, useState} from "react";
 import {
   Alert,
   Button,
@@ -266,6 +266,7 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
 
   const [failedItems, setFailedItems] = useState<BatchFulfillFailedItem[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const submittingRef = useRef(false);
 
   const mutation = useMutation({
     ...ordersBatchFulfillMutation(),
@@ -280,6 +281,9 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
       }
     },
     onError: () => setSubmitError("Ошибка при отправке запроса"),
+    onSettled: () => {
+      submittingRef.current = false;
+    },
   });
 
   function updateGroupState(key: string, state: GroupState) {
@@ -303,6 +307,9 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
   }
 
   function handleSubmit() {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
     setFailedItems([]);
     setSubmitError(null);
 

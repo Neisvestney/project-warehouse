@@ -1,11 +1,9 @@
-import type {AssemblyTaskDto} from "@/api/types.gen";
+import type {AssemblyTaskBoxComponentDto, AssemblyTaskDto} from "@/api/types.gen";
 
 export function checkBatchEligibility(task: AssemblyTaskDto): boolean {
-  return task.boxes.every((box) =>
-    box.components.every((c) => isComponentEligible(c.catalogItemType)),
-  );
+  return task.boxes.every((box) => box.components.every((c) => isComponentEligible(c)));
 }
 
-function isComponentEligible(type: string): boolean {
-  return type === "standard" || type === "variation" || type === "bundle";
+function isComponentEligible(component: AssemblyTaskBoxComponentDto): boolean {
+  return !component.containsUnit;
 }

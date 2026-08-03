@@ -459,6 +459,20 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
         AddFulfillmentRequest request,
         CancellationToken ct = default)
     {
+        // Re-check against freshly-loaded fulfillment state (not the possibly-stale
+        // navigation on the passed-in component) to guard against duplicate/concurrent
+        // calls re-fulfilling a component that's already fully satisfied.
+        var existingFulfillments = await db.AssemblyFulfillments
+            .Where(f => f.TaskBoxComponentId == component.Id)
+            .Select(f => new { f.Quantity, f.UnitInventoryItemId, HasBundleComponents = f.BundleComponents.Count > 0 })
+            .ToListAsync(ct);
+
+        var alreadyFulfilled = existingFulfillments.Sum(f =>
+            f.UnitInventoryItemId.HasValue || f.HasBundleComponents ? 1 : f.Quantity);
+
+        if (alreadyFulfilled >= component.Quantity)
+            throw new AssemblyComponentAlreadyFulfilledException(component.Id);
+
         var isBundleMode1 = request.BundleComponents is { Count: > 0 };
         var isUnit        = request.UnitInventoryItemId.HasValue;
         var isStandard    = !isBundleMode1 && !isUnit && request.Quantity > 0;
