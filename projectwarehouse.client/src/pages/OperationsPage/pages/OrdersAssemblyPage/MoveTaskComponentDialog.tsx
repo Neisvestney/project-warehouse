@@ -19,47 +19,58 @@ import {
 } from "@mui/material";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
+  ordersGetAllAssemblyQueryKey,
   ordersGetByIdQueryKey,
-  ordersGetMoveTargetsOptions,
-  ordersMoveComponentMutation,
+  ordersGetTaskMoveTargetsOptions,
+  ordersMoveTaskComponentMutation,
 } from "@/api/@tanstack/react-query.gen";
-import type {OrderBoxComponentDto} from "@/api/types.gen";
+import type {AssemblyTaskBoxComponentDto, OrderBoxDto} from "@/api/types.gen";
+import {formatBoxLabel} from "@/components/orders/orderUtils";
 
-interface OrderComponentMoveDialogProps {
+interface MoveTaskComponentDialogProps {
   open: boolean;
   onClose: () => void;
   orderId: string;
-  boxId: string;
-  component: OrderBoxComponentDto;
+  orderBoxes: OrderBoxDto[];
+  taskId: string;
+  taskBoxId: string;
+  component: AssemblyTaskBoxComponentDto;
   maxQuantity: number;
 }
 
-function OrderComponentMoveDialog({
+function MoveTaskComponentDialog({
   open,
   onClose,
   orderId,
-  boxId,
+  orderBoxes,
+  taskId,
+  taskBoxId,
   component,
   maxQuantity,
-}: OrderComponentMoveDialogProps) {
+}: MoveTaskComponentDialogProps) {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [targetBoxId, setTargetBoxId] = useState<string>("");
   const [newBoxLabel, setNewBoxLabel] = useState("");
-  const [quantity, setQuantity] = useState(maxQuantity);
+  const [quantityInput, setQuantityInput] = useState(String(maxQuantity));
   const [error, setError] = useState<string | null>(null);
 
+  const parsedQuantity = Number(quantityInput);
+  const quantity =
+    quantityInput.trim() !== "" && Number.isFinite(parsedQuantity) ? parsedQuantity : 0;
+
   const targetsQuery = useQuery({
-    ...ordersGetMoveTargetsOptions({
-      path: {id: orderId, boxId, cid: component.id},
+    ...ordersGetTaskMoveTargetsOptions({
+      path: {id: orderId, taskId, tbid: taskBoxId, cid: component.id},
     }),
     enabled: open,
   });
 
   const moveMutation = useMutation({
-    ...ordersMoveComponentMutation(),
+    ...ordersMoveTaskComponentMutation(),
     meta: {suppressGlobalError: true},
     onSuccess: () => {
+      queryClient.invalidateQueries({queryKey: ordersGetAllAssemblyQueryKey()});
       queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: orderId}})});
       onClose();
     },
@@ -68,6 +79,10 @@ function OrderComponentMoveDialog({
 
   function handleSubmit() {
     setError(null);
+    if (quantity < 1 || quantity > maxQuantity) {
+      setError(`Количество должно быть от 1 до ${maxQuantity}`);
+      return;
+    }
     if (mode === "existing" && !targetBoxId) {
       setError("Выберите целевую коробку");
       return;
@@ -77,7 +92,7 @@ function OrderComponentMoveDialog({
       return;
     }
     moveMutation.mutate({
-      path: {id: orderId, boxId, cid: component.id},
+      path: {id: orderId, taskId, tbid: taskBoxId, cid: component.id},
       body: {
         quantity,
         targetBoxId: mode === "existing" ? targetBoxId : null,
@@ -94,13 +109,17 @@ function OrderComponentMoveDialog({
           <TextField
             label="Количество"
             type="number"
-            value={quantity}
-            onChange={(e) =>
-              setQuantity(Math.max(1, Math.min(maxQuantity, Number(e.target.value))))
-            }
+            value={quantityInput}
+            onChange={(e) => setQuantityInput(e.target.value)}
+            onBlur={() => {
+              if (quantityInput.trim() === "") return;
+              const clamped = Math.max(1, Math.min(maxQuantity, quantity || 1));
+              setQuantityInput(String(clamped));
+            }}
             slotProps={{htmlInput: {min: 1, max: maxQuantity}}}
             size="small"
             fullWidth
+            helperText={`Доступно для перемещения: ${maxQuantity}`}
           />
           <RadioGroup value={mode} onChange={(e) => setMode(e.target.value as "existing" | "new")}>
             <FormControlLabel
@@ -125,7 +144,7 @@ function OrderComponentMoveDialog({
               >
                 {targetsQuery.data?.map((box) => (
                   <MenuItem key={box.id} value={box.id}>
-                    {box.label ?? `Коробка #${box.id.slice(0, 8)}`}
+                    {formatBoxLabel(box, orderBoxes)}
                   </MenuItem>
                 ))}
               </Select>
@@ -155,4 +174,4 @@ function OrderComponentMoveDialog({
   );
 }
 
-export default OrderComponentMoveDialog;
+export default MoveTaskComponentDialog;

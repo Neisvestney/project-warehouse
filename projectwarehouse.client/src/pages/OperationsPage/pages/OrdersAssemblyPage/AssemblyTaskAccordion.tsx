@@ -18,6 +18,7 @@ import {
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
+import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {
@@ -32,10 +33,13 @@ import type {
   AssemblyTaskBoxComponentDto,
   AssemblyTaskDto,
   AssemblyTaskStatus,
+  OrderBoxDto,
 } from "@/api/types.gen";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import {countFulfilledQty, getTaskProgress} from "@/components/orders/orderAssemblyUtils";
+import {formatBoxLabel} from "@/components/orders/orderUtils";
 import AddFulfillmentDialog from "./AddFulfillmentDialog";
+import MoveTaskComponentDialog from "./MoveTaskComponentDialog";
 
 const TASK_STATUS_LABELS: Record<AssemblyTaskStatus, string> = {
   pending: "Ожидает",
@@ -117,6 +121,7 @@ function FulfillmentItem({
 interface ComponentRowProps {
   component: AssemblyTaskBoxComponentDto;
   orderId: string;
+  orderBoxes: OrderBoxDto[];
   warehouseId: string;
   taskId: string;
   taskBoxId: string;
@@ -126,15 +131,18 @@ interface ComponentRowProps {
 function ComponentRow({
   component,
   orderId,
+  orderBoxes,
   warehouseId,
   taskId,
   taskBoxId,
   canFulfill,
 }: ComponentRowProps) {
   const [addOpen, setAddOpen] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
 
   const fulfilledQty = countFulfilledQty(component.fulfillments);
   const isDone = fulfilledQty >= component.quantity;
+  const movableQty = component.quantity - fulfilledQty;
 
   return (
     <Box sx={{mb: 1}}>
@@ -150,11 +158,20 @@ function ComponentRow({
             {fulfilledQty}/{component.quantity}
           </Typography>
         </Stack>
-        {canFulfill && !isDone && (
-          <Button size="small" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
-            Добавить
-          </Button>
-        )}
+        <Stack direction="row" spacing={0.5}>
+          {canFulfill && movableQty > 0 && (
+            <Tooltip title="Переместить в другую коробку">
+              <IconButton size="small" onClick={() => setMoveOpen(true)}>
+                <SwapHorizIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          {canFulfill && !isDone && (
+            <Button size="small" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
+              Добавить
+            </Button>
+          )}
+        </Stack>
       </Stack>
 
       {component.fulfillments.map((f) => (
@@ -181,6 +198,19 @@ function ComponentRow({
           component={component}
         />
       )}
+
+      {moveOpen && (
+        <MoveTaskComponentDialog
+          open
+          onClose={() => setMoveOpen(false)}
+          orderId={orderId}
+          orderBoxes={orderBoxes}
+          taskId={taskId}
+          taskBoxId={taskBoxId}
+          component={component}
+          maxQuantity={movableQty}
+        />
+      )}
     </Box>
   );
 }
@@ -188,6 +218,7 @@ function ComponentRow({
 interface AssemblyTaskAccordionProps {
   task: AssemblyTaskDto;
   orderId: string;
+  orderBoxes: OrderBoxDto[];
   warehouseId: string;
   canFulfill: boolean;
   checked?: boolean;
@@ -199,6 +230,7 @@ interface AssemblyTaskAccordionProps {
 function AssemblyTaskAccordion({
   task,
   orderId,
+  orderBoxes,
   warehouseId,
   canFulfill,
   checked,
@@ -271,13 +303,14 @@ function AssemblyTaskAccordion({
           {task.boxes.map((box) => (
             <Box key={box.id}>
               <Typography variant="caption" color="text.secondary" sx={{fontWeight: 600}}>
-                {box.orderBoxLabel ?? "Коробка"}
+                {formatBoxLabel({id: box.orderBoxId, label: box.orderBoxLabel}, orderBoxes)}
               </Typography>
               {box.components.map((c) => (
                 <ComponentRow
                   key={c.id}
                   component={c}
                   orderId={orderId}
+                  orderBoxes={orderBoxes}
                   warehouseId={warehouseId}
                   taskId={task.id}
                   taskBoxId={box.id}

@@ -29,14 +29,14 @@ public class OrdersController(
 
     private IQueryable<Order> DetailsQuery() =>
         BaseQuery()
-            .Include(o => o.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem)
+            .Include(o => o.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(o => o.AssemblyTasks).ThenInclude(t => t.AssignedTo)
             .Include(o => o.AssemblyTasks).ThenInclude(t => t.Boxes).ThenInclude(tb => tb.OrderBox)
             .Include(o => o.AssemblyTasks).ThenInclude(t => t.Boxes)
-                .ThenInclude(tb => tb.Components).ThenInclude(c => c.CatalogItem)
+                .ThenInclude(tb => tb.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(o => o.AssemblyTasks).ThenInclude(t => t.Boxes)
                 .ThenInclude(tb => tb.Components).ThenInclude(c => c.Fulfillments)
-                .ThenInclude(f => f.BundleComponents);
+                .ThenInclude(f => f.BundleComponents).ThenInclude(bc => bc.CatalogItem).ThenInclude(ci => ci.Group);
 
     // ── Access helpers ────────────────────────────────────────────────────────
 
@@ -183,15 +183,16 @@ public class OrdersController(
         var query = db.Orders
             .Include(o => o.Warehouse)
             .Include(o => o.CreatedBy)
+            .Include(o => o.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
                 .ThenInclude(t => t.AssignedTo)
             .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
                 .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.OrderBox)
             .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
-                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components).ThenInclude(c => c.CatalogItem)
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
                 .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
-                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.BundleComponents)
+                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.BundleComponents).ThenInclude(bc => bc.CatalogItem).ThenInclude(ci => ci.Group)
             .Where(o => o.Status == OrderStatus.Assembly)
             .Where(o => o.AssemblyTasks.Any(t => t.AssignedToId == userId))
             .AsSplitQuery();
@@ -433,6 +434,7 @@ public class OrdersController(
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> RemoveBox(Guid id, Guid boxId, CancellationToken ct = default)
     {
         var order = await BaseQuery().FirstOrDefaultAsync(o => o.Id == id, ct);
@@ -449,11 +451,20 @@ public class OrdersController(
         if (order.Status == OrderStatus.Assembly && !canAssemble)
             return Forbidden();
 
-        var box = await db.OrderBoxes.FirstOrDefaultAsync(b => b.Id == boxId && b.OrderId == id, ct);
+        var box = await db.OrderBoxes.Include(b => b.Components)
+            .FirstOrDefaultAsync(b => b.Id == boxId && b.OrderId == id, ct);
         if (box is null)
             return NotFound(ErrorCode.OrderBoxNotFound, "Box not found.");
 
-        await orders.RemoveBoxAsync(box, ct);
+        try
+        {
+            await orders.RemoveBoxAsync(box, ct);
+        }
+        catch (ValidationException ex)
+        {
+            return UnprocessableEntity(ex);
+        }
+
         return NoContent();
     }
 
@@ -485,6 +496,7 @@ public class OrdersController(
 
         var component = await orders.UpsertBoxComponentAsync(box, request.CatalogItemId, request.Quantity, ct);
         await db.Entry(component).Reference(c => c.CatalogItem).LoadAsync(ct);
+        await db.Entry(component.CatalogItem).Reference(c => c.Group).LoadAsync(ct);
 
         return CreatedAtAction(nameof(GetById), new { id }, mapper.Map<OrderBoxComponentDto>(component));
     }
@@ -502,12 +514,12 @@ public class OrdersController(
         var (order, error) = await LoadOrderWithEditAccessAsync(id, ct);
         if (error is not null) return error;
 
-        if (order!.Status is not (OrderStatus.Draft or OrderStatus.Confirmed or OrderStatus.Assembly))
+        if (order!.Status is not (OrderStatus.Draft or OrderStatus.Confirmed))
             return UnprocessableEntity("root", ErrorCode.OrderInvalidStatusTransition,
-                "Components can only be updated in Draft, Confirmed, or Assembly status.");
+                "Components can only be updated in Draft or Confirmed status.");
 
         var component = await db.OrderBoxComponents
-            .Include(c => c.CatalogItem)
+            .Include(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .FirstOrDefaultAsync(c => c.Id == cid && c.OrderBoxId == boxId, ct);
         if (component is null)
             return NotFound(ErrorCode.OrderBoxComponentNotFound, "Component not found.");
@@ -518,7 +530,8 @@ public class OrdersController(
 
         if (request.CatalogItemId != component.CatalogItemId)
         {
-            var catalogItem = await db.CatalogItems.FindAsync([request.CatalogItemId], ct);
+            var catalogItem = await db.CatalogItems.Include(ci => ci.Group)
+                .FirstOrDefaultAsync(ci => ci.Id == request.CatalogItemId, ct);
             if (catalogItem is null)
                 return UnprocessableEntity("catalogItemId", ErrorCode.CatalogItemNotFound, "Catalog item not found.");
             component.CatalogItem = catalogItem;
@@ -555,66 +568,6 @@ public class OrdersController(
 
         await orders.RemoveBoxComponentAsync(component, ct);
         return NoContent();
-    }
-
-    // ── GET .../components/{cid}/move-targets ─────────────────────────────────
-
-    [HttpGet("{id:guid}/boxes/{boxId:guid}/components/{cid:guid}/move-targets")]
-    [Authorize]
-    [ProducesResponseType<IReadOnlyList<OrderBoxDto>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetMoveTargets(
-        Guid id, Guid boxId, Guid cid, CancellationToken ct = default)
-    {
-        var (order, error) = await LoadOrderWithAssembleAccessAsync(id, ct);
-        if (error is not null) return error;
-
-        if (order!.Status != OrderStatus.Assembly)
-            return UnprocessableEntity("root", ErrorCode.OrderNotAssembly,
-                "Moving components is only available during Assembly.");
-
-        var component = await db.OrderBoxComponents
-            .Include(c => c.OrderBox)
-            .FirstOrDefaultAsync(c => c.Id == cid && c.OrderBoxId == boxId, ct);
-        if (component is null)
-            return NotFound(ErrorCode.OrderBoxComponentNotFound, "Component not found.");
-
-        var targets = await orders.GetMoveTargetsAsync(component, ct);
-        return Ok(mapper.Map<IReadOnlyList<OrderBoxDto>>(targets));
-    }
-
-    // ── POST .../components/{cid}/move ────────────────────────────────────────
-
-    [HttpPost("{id:guid}/boxes/{boxId:guid}/components/{cid:guid}/move")]
-    [Authorize]
-    [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> MoveComponent(
-        Guid id, Guid boxId, Guid cid, [FromBody] MoveOrderBoxComponentRequest request, CancellationToken ct = default)
-    {
-        var (order, error) = await LoadOrderWithAssembleAccessAsync(id, ct);
-        if (error is not null) return error;
-
-        if (order!.Status != OrderStatus.Assembly)
-            return UnprocessableEntity("root", ErrorCode.OrderNotAssembly,
-                "Moving components is only available during Assembly.");
-
-        var component = await db.OrderBoxComponents
-            .Include(c => c.OrderBox)
-            .FirstOrDefaultAsync(c => c.Id == cid && c.OrderBoxId == boxId, ct);
-        if (component is null)
-            return NotFound(ErrorCode.OrderBoxComponentNotFound, "Component not found.");
-
-        try
-        {
-            await orders.MoveBoxComponentAsync(component, request, ct);
-        }
-        catch (ValidationException ex)
-        {
-            return UnprocessableEntity(ex);
-        }
-
-        var full = await LoadOrderDetailsAsync(id, ct);
-        return Ok(mapper.Map<OrderDetailsDto>(full));
     }
 
     // ── POST /api/orders/{id}/assembly-tasks ──────────────────────────────────
@@ -663,7 +616,7 @@ public class OrdersController(
         var task = await db.AssemblyTasks
             .Include(t => t.AssignedTo)
             .Include(t => t.Boxes).ThenInclude(b => b.OrderBox)
-            .Include(t => t.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem)
+            .Include(t => t.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(t => t.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.Fulfillments)
             .FirstOrDefaultAsync(t => t.Id == taskId && t.OrderId == id, ct);
         if (task is null)
@@ -721,7 +674,7 @@ public class OrdersController(
         var task = await db.AssemblyTasks
             .Include(t => t.AssignedTo)
             .Include(t => t.Boxes).ThenInclude(b => b.OrderBox)
-            .Include(t => t.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem)
+            .Include(t => t.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(t => t.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.Fulfillments)
             .FirstOrDefaultAsync(t => t.Id == taskId && t.OrderId == id, ct);
         if (task is null)
@@ -758,14 +711,91 @@ public class OrdersController(
                 "Task components can only be edited during Assembly.");
 
         var component = await db.AssemblyTaskBoxComponents
-            .Include(c => c.CatalogItem)
+            .Include(c => c.AssemblyTaskBox)
+            .Include(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(c => c.Fulfillments)
             .FirstOrDefaultAsync(c => c.Id == cid && c.AssemblyTaskBoxId == tbid, ct);
         if (component is null)
             return NotFound(ErrorCode.AssemblyTaskBoxComponentNotFound, "Task box component not found.");
 
-        await orders.UpdateTaskBoxComponentAsync(component, request.Quantity, ct);
+        try
+        {
+            await orders.UpdateTaskBoxComponentAsync(component, request.Quantity, ct);
+        }
+        catch (ValidationException ex)
+        {
+            return UnprocessableEntity(ex);
+        }
+
         return Ok(mapper.Map<AssemblyTaskBoxComponentDto>(component));
+    }
+
+    // ── GET .../boxes/{tbid}/components/{cid}/move-targets (assembler only) ───
+
+    [HttpGet("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}/move-targets")]
+    [Authorize]
+    [ProducesResponseType<IReadOnlyList<OrderBoxDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> GetTaskMoveTargets(
+        Guid id, Guid taskId, Guid tbid, Guid cid, CancellationToken ct = default)
+    {
+        var (order, error) = await LoadOrderWithAssembleAccessAsync(id, ct);
+        if (error is not null) return error;
+
+        if (!User.HasClaim("permission", Permissions.Orders.AssembleAssigned))
+            return Forbidden();
+
+        if (order!.Status != OrderStatus.Assembly)
+            return UnprocessableEntity("root", ErrorCode.OrderNotAssembly,
+                "Moving components is only available during Assembly.");
+
+        var component = await db.AssemblyTaskBoxComponents
+            .Include(c => c.AssemblyTaskBox).ThenInclude(b => b.OrderBox)
+            .FirstOrDefaultAsync(c => c.Id == cid && c.AssemblyTaskBoxId == tbid && c.AssemblyTaskBox.AssemblyTaskId == taskId, ct);
+        if (component is null)
+            return NotFound(ErrorCode.AssemblyTaskBoxComponentNotFound, "Task box component not found.");
+
+        var targets = await orders.GetTaskMoveTargetsAsync(component, ct);
+        return Ok(mapper.Map<IReadOnlyList<OrderBoxDto>>(targets));
+    }
+
+    // ── POST .../boxes/{tbid}/components/{cid}/move (assembler only) ──────────
+
+    [HttpPost("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}/move")]
+    [Authorize]
+    [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> MoveTaskComponent(
+        Guid id, Guid taskId, Guid tbid, Guid cid, [FromBody] MoveTaskBoxComponentRequest request, CancellationToken ct = default)
+    {
+        var (order, error) = await LoadOrderWithAssembleAccessAsync(id, ct);
+        if (error is not null) return error;
+
+        if (!User.HasClaim("permission", Permissions.Orders.AssembleAssigned))
+            return Forbidden();
+
+        if (order!.Status != OrderStatus.Assembly)
+            return UnprocessableEntity("root", ErrorCode.OrderNotAssembly,
+                "Moving components is only available during Assembly.");
+
+        var component = await db.AssemblyTaskBoxComponents
+            .Include(c => c.AssemblyTaskBox).ThenInclude(b => b.OrderBox)
+            .Include(c => c.Fulfillments)
+            .FirstOrDefaultAsync(c => c.Id == cid && c.AssemblyTaskBoxId == tbid && c.AssemblyTaskBox.AssemblyTaskId == taskId, ct);
+        if (component is null)
+            return NotFound(ErrorCode.AssemblyTaskBoxComponentNotFound, "Task box component not found.");
+
+        try
+        {
+            await orders.MoveTaskBoxComponentAsync(component, request, ct);
+        }
+        catch (ValidationException ex)
+        {
+            return UnprocessableEntity(ex);
+        }
+
+        var full = await LoadOrderDetailsAsync(id, ct);
+        return Ok(mapper.Map<OrderDetailsDto>(full));
     }
 
     // ── POST .../fulfillments ─────────────────────────────────────────────────

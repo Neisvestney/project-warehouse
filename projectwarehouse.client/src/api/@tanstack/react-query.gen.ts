@@ -40,8 +40,8 @@ import {
   ordersGetAll,
   ordersGetAllAssembly,
   ordersGetById,
-  ordersGetMoveTargets,
-  ordersMoveComponent,
+  ordersGetTaskMoveTargets,
+  ordersMoveTaskComponent,
   ordersRemoveBox,
   ordersRemoveComponent,
   ordersRemoveFulfillment,
@@ -195,12 +195,12 @@ import type {
   OrdersGetByIdData,
   OrdersGetByIdError,
   OrdersGetByIdResponse,
-  OrdersGetMoveTargetsData,
-  OrdersGetMoveTargetsError,
-  OrdersGetMoveTargetsResponse,
-  OrdersMoveComponentData,
-  OrdersMoveComponentError,
-  OrdersMoveComponentResponse,
+  OrdersGetTaskMoveTargetsData,
+  OrdersGetTaskMoveTargetsError,
+  OrdersGetTaskMoveTargetsResponse,
+  OrdersMoveTaskComponentData,
+  OrdersMoveTaskComponentError,
+  OrdersMoveTaskComponentResponse,
   OrdersRemoveBoxData,
   OrdersRemoveBoxError,
   OrdersRemoveBoxResponse,
@@ -1490,52 +1490,6 @@ export const ordersUpdateComponentMutation = (
   return mutationOptions;
 };
 
-export const ordersGetMoveTargetsQueryKey = (options: Options<OrdersGetMoveTargetsData>) =>
-  createQueryKey("ordersGetMoveTargets", options);
-
-export const ordersGetMoveTargetsOptions = (options: Options<OrdersGetMoveTargetsData>) =>
-  queryOptions<
-    OrdersGetMoveTargetsResponse,
-    OrdersGetMoveTargetsError,
-    OrdersGetMoveTargetsResponse,
-    ReturnType<typeof ordersGetMoveTargetsQueryKey>
-  >({
-    queryFn: async ({queryKey, signal}) => {
-      const {data} = await ordersGetMoveTargets({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: ordersGetMoveTargetsQueryKey(options),
-  });
-
-export const ordersMoveComponentMutation = (
-  options?: Partial<Options<OrdersMoveComponentData>>,
-): UseMutationOptions<
-  OrdersMoveComponentResponse,
-  OrdersMoveComponentError,
-  Options<OrdersMoveComponentData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    OrdersMoveComponentResponse,
-    OrdersMoveComponentError,
-    Options<OrdersMoveComponentData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const {data} = await ordersMoveComponent({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
 export const ordersCreateAssemblyTaskMutation = (
   options?: Partial<Options<OrdersCreateAssemblyTaskData>>,
 ): UseMutationOptions<
@@ -1646,6 +1600,52 @@ export const ordersUpdateTaskBoxComponentMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await ordersUpdateTaskBoxComponent({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersGetTaskMoveTargetsQueryKey = (options: Options<OrdersGetTaskMoveTargetsData>) =>
+  createQueryKey("ordersGetTaskMoveTargets", options);
+
+export const ordersGetTaskMoveTargetsOptions = (options: Options<OrdersGetTaskMoveTargetsData>) =>
+  queryOptions<
+    OrdersGetTaskMoveTargetsResponse,
+    OrdersGetTaskMoveTargetsError,
+    OrdersGetTaskMoveTargetsResponse,
+    ReturnType<typeof ordersGetTaskMoveTargetsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await ordersGetTaskMoveTargets({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: ordersGetTaskMoveTargetsQueryKey(options),
+  });
+
+export const ordersMoveTaskComponentMutation = (
+  options?: Partial<Options<OrdersMoveTaskComponentData>>,
+): UseMutationOptions<
+  OrdersMoveTaskComponentResponse,
+  OrdersMoveTaskComponentError,
+  Options<OrdersMoveTaskComponentData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersMoveTaskComponentResponse,
+    OrdersMoveTaskComponentError,
+    Options<OrdersMoveTaskComponentData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersMoveTaskComponent({
         ...options,
         ...fnOptions,
         throwOnError: true,

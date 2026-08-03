@@ -25,6 +25,7 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import type {OrderBoxDto, OrderDetailsDto} from "@/api/types.gen";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import {formatBoxLabel} from "@/components/orders/orderUtils";
 import OrderComponentsTable from "./OrderComponentsTable";
 
 interface OrderBoxesSectionProps {
@@ -36,9 +37,7 @@ function OrderBoxesSection({order, canEdit}: OrderBoxesSectionProps) {
   const queryClient = useQueryClient();
   const queryKey = ordersGetByIdQueryKey({path: {id: order.id}});
 
-  const canAddBox =
-    canEdit &&
-    (order.status === "draft" || order.status === "confirmed" || order.status === "assembly");
+  const canAddBox = canEdit && (order.status === "draft" || order.status === "confirmed");
 
   const [newBoxLabel, setNewBoxLabel] = useState("");
   const [addBoxError, setAddBoxError] = useState<string | null>(null);
@@ -80,19 +79,16 @@ function OrderBoxesSection({order, canEdit}: OrderBoxesSectionProps) {
           <Typography variant="subtitle2" color="text.secondary">
             Компоненты
           </Typography>
-          {canEdit &&
-            (order.status === "draft" ||
-              order.status === "confirmed" ||
-              order.status === "assembly") && (
-              <IconButton
-                size="small"
-                color="error"
-                onClick={() => setDeleteTarget(box)}
-                title="Удалить коробку"
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            )}
+          {canEdit && (order.status === "draft" || order.status === "confirmed") && (
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => setDeleteTarget(box)}
+              title="Удалить коробку"
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          )}
         </Stack>
         <OrderComponentsTable
           orderId={order.id}
@@ -185,7 +181,7 @@ function OrderBoxesSection({order, canEdit}: OrderBoxesSectionProps) {
                 </Stack>
               ) : (
                 <Typography variant="body2" sx={{fontWeight: 500}}>
-                  {box.label ?? "Коробка без названия"}
+                  {formatBoxLabel(box, order.boxes)}
                   {canEdit && (
                     <Box
                       component="span"
@@ -200,21 +196,18 @@ function OrderBoxesSection({order, canEdit}: OrderBoxesSectionProps) {
                   )}
                 </Typography>
               )}
-              {canEdit &&
-                (order.status === "draft" ||
-                  order.status === "confirmed" ||
-                  order.status === "assembly") && (
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeleteTarget(box);
-                    }}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                )}
+              {canEdit && (order.status === "draft" || order.status === "confirmed") && (
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteTarget(box);
+                  }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              )}
             </Stack>
           </AccordionSummary>
           <AccordionDetails sx={{p: 0}}>

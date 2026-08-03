@@ -103,6 +103,7 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   assemblyFulfillmentInvalidType: "Неверный тип фулфилмента",
   assemblyTaskAlreadyDone: "Задание уже завершено",
   assemblyTaskMoveTargetInvalid: "Недопустимая целевая коробка для перемещения",
+  assemblyTaskQuantityExceedsAvailable: "Запрошенное количество превышает доступное",
 };
 
 export function resolveErrorMessage(error: AppFieldError): string {
