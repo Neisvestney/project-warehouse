@@ -11,7 +11,6 @@ import {
   TableCell,
   TableHead,
   TableRow,
-  TextField,
   Tooltip,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
@@ -27,6 +26,7 @@ import type {OrderBoxComponentDto, OrderStatus} from "@/api/types.gen";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 
 interface OrderComponentsTableProps {
   orderId: string;
@@ -117,12 +117,11 @@ function OrderComponentsTable({
               </TableCell>
               <TableCell>
                 {canEditQuantity ? (
-                  <TextField
-                    type="number"
+                  <ClampedIntegerField
                     size="small"
                     value={c.quantity}
-                    onChange={(e) => handleQuantityChange(c, Number(e.target.value))}
-                    slotProps={{htmlInput: {min: 1, style: {width: 60}}}}
+                    onCommit={(qty) => handleQuantityChange(c, qty)}
+                    slotProps={{htmlInput: {style: {width: 60}}}}
                     variant="outlined"
                   />
                 ) : (
@@ -156,13 +155,12 @@ function OrderComponentsTable({
                 size="small"
                 sx={{flex: 1}}
               />
-              <TextField
-                type="number"
+              <ClampedIntegerField
                 label="Кол-во"
                 size="small"
                 value={addQuantity}
-                onChange={(e) => setAddQuantity(Math.max(1, Number(e.target.value)))}
-                slotProps={{htmlInput: {min: 1, style: {width: 70}}}}
+                onCommit={setAddQuantity}
+                slotProps={{htmlInput: {style: {width: 70}}}}
               />
               <Button
                 variant="outlined"

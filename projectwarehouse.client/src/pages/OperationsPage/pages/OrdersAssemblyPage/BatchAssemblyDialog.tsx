@@ -1,4 +1,4 @@
-import {useMemo, useRef, useState} from "react";
+import {useEffect, useMemo, useRef, useState} from "react";
 import {
   Alert,
   Button,
@@ -27,6 +27,7 @@ import type {
 } from "@/api/types.gen";
 import SelectNodeModal, {type SelectedNode} from "@/components/receipts/SelectNodeModal";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
+import {useDefaultStorageNode} from "@/hooks/useDefaultStorageNode";
 import {BundleTreeForm, VariationForm} from "./AddFulfillmentDialog";
 
 interface SelectedTaskInfo {
@@ -135,6 +136,16 @@ interface StandardGroupFormProps {
 }
 
 function StandardGroupForm({group, value, onChange}: StandardGroupFormProps) {
+  const defaultNode = useDefaultStorageNode(group.warehouseId);
+  useEffect(() => {
+    if (defaultNode && !value.nodeId) {
+      onChange({
+        nodeId: defaultNode.nodeId,
+        nodePath: formatStoragePlaceNodeName(defaultNode.nodePath),
+      });
+    }
+  }, [defaultNode, value.nodeId, onChange]);
+
   return (
     <Stack spacing={1}>
       <Typography variant="body2">

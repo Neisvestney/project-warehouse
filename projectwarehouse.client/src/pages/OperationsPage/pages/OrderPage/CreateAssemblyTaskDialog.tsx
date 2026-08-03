@@ -16,7 +16,6 @@ import {
   TableCell,
   TableHead,
   TableRow,
-  TextField,
   Typography,
 } from "@mui/material";
 import {useMutation, useQueryClient} from "@tanstack/react-query";
@@ -25,6 +24,7 @@ import {
   ordersGetByIdQueryKey,
 } from "@/api/@tanstack/react-query.gen";
 import type {OrderDetailsDto} from "@/api/types.gen";
+import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 import {formatBoxLabel} from "@/components/orders/orderUtils";
 import UsersSelect from "@/components/UsersSelect";
 
@@ -86,9 +86,7 @@ function CreateAssemblyTaskDialog({open, onClose, order}: CreateAssemblyTaskDial
           ? {
               ...tb,
               components: tb.components.map((c) =>
-                c.catalogItemId === catalogItemId
-                  ? {...c, qty: Math.max(0, Math.min(c.maxQty, qty))}
-                  : c,
+                c.catalogItemId === catalogItemId ? {...c, qty} : c,
               ),
             }
           : tb,
@@ -164,18 +162,13 @@ function CreateAssemblyTaskDialog({open, onClose, order}: CreateAssemblyTaskDial
                       <TableRow key={c.catalogItemId}>
                         <TableCell>{c.name}</TableCell>
                         <TableCell>
-                          <TextField
-                            type="number"
+                          <ClampedIntegerField
                             size="small"
                             value={c.qty}
-                            onChange={(e) =>
-                              setComponentQty(
-                                tb.orderBoxId,
-                                c.catalogItemId,
-                                Number(e.target.value),
-                              )
-                            }
-                            slotProps={{htmlInput: {min: 0, max: c.maxQty, style: {width: 60}}}}
+                            min={0}
+                            max={c.maxQty}
+                            onCommit={(qty) => setComponentQty(tb.orderBoxId, c.catalogItemId, qty)}
+                            slotProps={{htmlInput: {style: {width: 60}}}}
                             variant="outlined"
                           />
                         </TableCell>
