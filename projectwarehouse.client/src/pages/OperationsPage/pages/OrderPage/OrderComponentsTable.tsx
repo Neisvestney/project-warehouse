@@ -130,8 +130,8 @@ function OrderComponentsTable({
                 hover
                 sx={{cursor: "pointer"}}
                 onClick={() => {
-                  setFulfillmentsTarget(c)
-                  setFulfillmentsDrawerOpen(true)
+                  setFulfillmentsTarget(c);
+                  setFulfillmentsDrawerOpen(true);
                 }}
               >
                 <TableCell>{c.catalogItemName}</TableCell>
@@ -194,8 +194,11 @@ function OrderComponentsTable({
                 slotProps={{htmlInput: {style: {width: 70}}}}
               />
               <Button
-                variant="outlined"
                 size="small"
+                sx={{
+                  whiteSpace: "nowrap",
+                  alignSelf: "stretch",
+                }}
                 startIcon={addMutation.isPending ? <CircularProgress size={14} /> : <AddIcon />}
                 disabled={!addCatalogItemId || addMutation.isPending}
                 onClick={handleAddComponent}

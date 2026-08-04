@@ -10,6 +10,7 @@ export interface TableSortState<TSortBy extends string> {
 interface UseTableSortOptions {
   sortByParam?: string;
   sortOrderParam?: string;
+  defaultSortOrder?: SortOrder;
 }
 
 export function useTableSort<TSortBy extends string>(
@@ -28,8 +29,15 @@ export function useTableSort<TSortBy extends string>(
 
   const [sortOrder, setSortOrder] = useSyncedWithQueryState<SortOrder>(
     sortOrderParam,
-    (q) => (q === "desc" ? "desc" : "asc"),
-    (v) => (v === "asc" ? null : v),
+    (q) =>
+      q === "desc" ||
+      (options?.defaultSortOrder != null &&
+        sortBy == defaultSortBy &&
+        q == null &&
+        options.defaultSortOrder == "desc")
+        ? "desc"
+        : "asc",
+    (v) => (v === "asc" && options?.defaultSortOrder == null ? null : v),
   );
 
   const handleSortClick = (column: TSortBy) => {

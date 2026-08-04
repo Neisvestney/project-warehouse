@@ -101,15 +101,18 @@ function OrderBoxesSection({order, canEdit}: OrderBoxesSectionProps) {
         {canAddBox && (
           <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
             <TextField
-              label="Название новой коробки"
+              label="Название новой коробки (необязательно)"
               size="small"
               value={newBoxLabel}
               onChange={(e) => setNewBoxLabel(e.target.value)}
               sx={{flex: 1}}
             />
             <Button
-              variant="outlined"
               size="small"
+              sx={{
+                whiteSpace: "nowrap",
+                alignSelf: "stretch",
+              }}
               startIcon={addBoxMutation.isPending ? <CircularProgress size={14} /> : <AddIcon />}
               disabled={addBoxMutation.isPending}
               onClick={() =>
@@ -225,15 +228,18 @@ function OrderBoxesSection({order, canEdit}: OrderBoxesSectionProps) {
       {canAddBox && (
         <Stack direction="row" spacing={1} sx={{alignItems: "center", mt: 1}}>
           <TextField
-            label="Название новой коробки"
+            label="Название новой коробки (необязательно)"
             size="small"
             value={newBoxLabel}
             onChange={(e) => setNewBoxLabel(e.target.value)}
             sx={{flex: 1}}
           />
           <Button
-            variant="outlined"
             size="small"
+            sx={{
+              whiteSpace: "nowrap",
+              alignSelf: "stretch",
+            }}
             startIcon={addBoxMutation.isPending ? <CircularProgress size={14} /> : <AddIcon />}
             disabled={addBoxMutation.isPending}
             onClick={() =>

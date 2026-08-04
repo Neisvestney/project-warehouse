@@ -1029,7 +1029,10 @@ public class OrdersController(
                 }
             }
 
-            // Attempt to auto-complete each processed task
+            // Mass-assembly only: advance touched tasks, completing just the fully fulfilled ones
+            if (!request.AutoCompleteTasks)
+                continue;
+
             foreach (var taskId in attemptedTaskIds)
             {
                 try
@@ -1045,6 +1048,9 @@ public class OrdersController(
 
                     if (task.Status == AssemblyTaskStatus.Pending)
                         await orders.TransitionTaskStatusAsync(task, AssemblyTaskStatus.InProgress, fullOrder, ct);
+
+                    if (!await orders.IsTaskFullyFulfilledAsync(taskId, ct))
+                        continue;
 
                     if (task.Status == AssemblyTaskStatus.InProgress)
                         await orders.TransitionTaskStatusAsync(task, AssemblyTaskStatus.Done, fullOrder, ct);

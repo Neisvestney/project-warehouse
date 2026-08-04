@@ -373,7 +373,7 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
       });
     });
 
-    mutation.mutate({body: {items}});
+    mutation.mutate({body: {items, autoCompleteTasks: true}});
   }
 
   return (

@@ -35,6 +35,9 @@ public interface IOrderService
     Task UpdateAssemblyTaskAsync(AssemblyTask task, UpdateAssemblyTaskRequest request, CancellationToken ct = default);
     Task DeleteAssemblyTaskAsync(AssemblyTask task, CancellationToken ct = default);
     Task TransitionTaskStatusAsync(AssemblyTask task, AssemblyTaskStatus targetStatus, Order order, CancellationToken ct = default);
+
+    /// <summary>True when every component of every box of the task is fulfilled up to its required quantity.</summary>
+    Task<bool> IsTaskFullyFulfilledAsync(Guid taskId, CancellationToken ct = default);
     Task UpdateTaskBoxComponentAsync(AssemblyTaskBoxComponent component, int quantity, CancellationToken ct = default);
 
     /// <summary>Returns all order boxes except the one the given task box component currently sits in.</summary>

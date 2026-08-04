@@ -4,7 +4,6 @@ import {
   AccordionDetails,
   AccordionSummary,
   Chip,
-  Divider,
   Stack,
   Typography,
 } from "@mui/material";
@@ -65,7 +64,6 @@ function AssemblyOrderAccordion({
 
       <AccordionDetails sx={{p: 0, pl: 2}}>
         <AssemblyOrderBoxesSection order={order} canManage={canFulfill} />
-        <Divider sx={{mb: 1}} />
         {tasks.map((task) => {
           const eligible = eligibilityMap.get(task.id) ?? checkBatchEligibility(task);
           return (

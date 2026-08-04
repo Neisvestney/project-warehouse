@@ -141,8 +141,8 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
                       hover
                       sx={{cursor: "pointer"}}
                       onClick={() => {
-                        setFulfillmentsTarget({component: c, boxLabel: box.orderBoxLabel})
-                        setFulfillmentsDrawerOpen(true) 
+                        setFulfillmentsTarget({component: c, boxLabel: box.orderBoxLabel});
+                        setFulfillmentsDrawerOpen(true);
                       }}
                     >
                       <TableCell>{c.catalogItemName}</TableCell>
