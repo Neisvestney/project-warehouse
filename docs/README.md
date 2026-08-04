@@ -33,6 +33,8 @@ ProjectWarehouse.Server/   ASP.NET Core 9 REST API
 | [frontend.md](frontend.md) | Frontend architecture, pages, components, routing |
 | [technical-specification.md](technical-specification.md) | WMS operational flows — data models, APIs, UX requirements |
 | [orders-specification.md](orders-specification.md) | Orders system — FBS, FBO, Direct, assembly tasks, status flows |
+| [marketplaces-specification.md](marketplaces-specification.md) | Marketplace integrations — Ozon Seller API, client codegen, credential storage, warehouse/card sync & mapping |
+| [realtime-specification.md](realtime-specification.md) | Real-time updates — SSE transport, event schema, advisory edit locks |
 
 ## Local Dev Setup
 
