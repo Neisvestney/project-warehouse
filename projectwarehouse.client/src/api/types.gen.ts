@@ -137,7 +137,11 @@ export type AssemblyTaskStatus = "pending" | "inProgress" | "done";
 export type BatchFulfillFailedItem = {
   orderId: string;
   componentId: string;
-  error: string;
+  /**
+   * Empty when the component itself could not be loaded.
+   */
+  catalogItemName: string;
+  error: AppFieldError;
 };
 
 export type BatchFulfillItemRequest = {
@@ -411,6 +415,7 @@ export type ErrorCode =
   | "receiptItemsUnderplaced"
   | "receiptItemsOverplaced"
   | "insufficientInventory"
+  | "inventoryItemNodeMismatch"
   | "unitInventoryItemNumberDuplicate"
   | "orderNotFound"
   | "orderNotDraft"

@@ -209,7 +209,7 @@ Existing items not in the list are removed. Duplicate `catalogItemId` values in 
 
 **Errors:**
 - `transferSameNode` — `fromNodeId` == `toNodeId`
-- `insufficientInventory` — not enough Standard items available in the source node
+- `insufficientInventory` — not enough Standard items available in the source node (carries `args`, see [errors.md](errors.md#inventory))
 - `storagePlaceNodeNotFound` — source or destination node not found
 - `unitInventoryItemNotFound` — Unit item not found (or already moved)
 
@@ -284,7 +284,7 @@ All item removals execute in a single DB transaction. If any operation fails, no
 
 - `writeoffNotDraft` — write-off is not in Draft status
 - `writeoffHasNoItems` — no items to write off
-- `writeoffInsufficientInventory` — not enough Standard items in the source node
+- `writeoffInsufficientInventory` — not enough Standard items in the source node (carries `args`, see [errors.md](errors.md#inventory))
 - `unitInventoryItemNotFound` — Unit item not found at expected node
 
 **Permission notes:**

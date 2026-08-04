@@ -290,7 +290,7 @@ src/
     │   ├── cameraUtils.ts       # Device enumeration, constraint helpers
     │   └── index.ts
     ├── qrTools.ts               # zxing-wasm decode + Otsu binarization + BarcodeDetector fallback
-    ├── errorUtils.ts            # API error shape helpers: extractErrorMessage, isNotFoundError, isAppProblemDetails; errorCodeMessages map (supports {placeholder} interpolation from error args)
+    ├── errorUtils.ts            # API error shape helpers: extractErrorMessage (root error, then any field error), firstFieldError, isNotFoundError, isAppProblemDetails; errorCodeMessages map + errorCodeArgMessages (detailed variants used only when args cover every {placeholder})
     ├── parseJwt.ts              # Decode JWT payload without verification
     ├── permissionLabels.ts      # Human-readable labels for permission enum values
     ├── printUtils.ts            # openPrintPage(items) helper — builds URL and opens /print in a new tab
@@ -1070,7 +1070,7 @@ Bridges API error responses to an RHF form. Returns `{ setApiError }`.
 | `AppProblemDetails` with no matching errors | Falls back to `error.title ?? "Неизвестная ошибка"` set on `"root"` |
 | Any other error shape | Shows a modal alert via `useModal().showAlert` |
 
-Field error messages are resolved through `resolveErrorMessage` — which looks up the `code` in `errorCodeMessages` and interpolates `{placeholder}` values from `args`.
+Field error messages are resolved through `resolveErrorMessage` — which prefers the detailed `errorCodeArgMessages` template when `args` fills every `{placeholder}` (e.g. `insufficientInventory` gets the item name, quantities and the cell path), otherwise falls back to `errorCodeMessages` and interpolates whatever `args` are present.
 
 ```tsx
 const form = useForm<LoginFormValues>();

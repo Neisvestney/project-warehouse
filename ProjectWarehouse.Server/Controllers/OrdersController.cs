@@ -865,7 +865,7 @@ public class OrdersController(
                 "Fulfillments can only be added during Assembly.");
 
         var component = await db.AssemblyTaskBoxComponents
-            .Include(c => c.CatalogItem)
+            .Include(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(c => c.Fulfillments)
             .FirstOrDefaultAsync(c => c.Id == cid && c.AssemblyTaskBoxId == tbid, ct);
         if (component is null)
@@ -885,7 +885,8 @@ public class OrdersController(
         catch (InsufficientInventoryException ex)
         {
             return UnprocessableEntity("root", ErrorCode.InsufficientInventory,
-                $"Insufficient inventory at node '{ex.NodeId}': requested {ex.Requested}, available {ex.Available}.");
+                $"Insufficient inventory at node '{ex.NodeId}': requested {ex.Requested}, available {ex.Available}.",
+                ex.ToArgs());
         }
         catch (UnitInventoryItemNotFoundException)
         {
@@ -894,7 +895,7 @@ public class OrdersController(
         }
         catch (InventoryItemNodeMismatchException)
         {
-            return UnprocessableEntity("root", ErrorCode.WriteoffItemNotFound,
+            return UnprocessableEntity("root", ErrorCode.InventoryItemNodeMismatch,
                 "Item is not at the expected storage node.");
         }
         catch (AssemblyComponentAlreadyFulfilledException)
@@ -917,7 +918,7 @@ public class OrdersController(
         if (error is not null) return error;
 
         var fulfillment = await db.AssemblyFulfillments
-            .Include(f => f.TaskBoxComponent).ThenInclude(c => c.CatalogItem)
+            .Include(f => f.TaskBoxComponent).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(f => f.BundleComponents)
             .FirstOrDefaultAsync(f => f.Id == fid
                 && f.TaskBoxComponent.Id == cid
@@ -960,6 +961,16 @@ public class OrdersController(
         var completedTaskIds = new List<string>();
         var failedItems      = new List<BatchFulfillFailedItem>();
 
+        void Fail(BatchFulfillItemRequest item, ErrorCode code, string message,
+            IReadOnlyDictionary<string, object>? args = null, string catalogItemName = "") =>
+            failedItems.Add(new BatchFulfillFailedItem
+            {
+                OrderId = item.OrderId,
+                ComponentId = item.ComponentId,
+                CatalogItemName = catalogItemName,
+                Error = AppProblems.MakeError(code, message, args),
+            });
+
         // Process items grouped by order to avoid redundant DB lookups
         var itemsByOrder = request.Items.GroupBy(i => i.OrderId).ToList();
 
@@ -969,21 +980,21 @@ public class OrdersController(
             if (order is null)
             {
                 foreach (var item in orderGroup)
-                    failedItems.Add(new BatchFulfillFailedItem { OrderId = item.OrderId, ComponentId = item.ComponentId, Error = "Order not found." });
+                    Fail(item, ErrorCode.OrderNotFound, "Order not found.");
                 continue;
             }
 
             if (!assignedWarehouseIds.Contains(order.WarehouseId))
             {
                 foreach (var item in orderGroup)
-                    failedItems.Add(new BatchFulfillFailedItem { OrderId = item.OrderId, ComponentId = item.ComponentId, Error = "Not assigned to this order's warehouse." });
+                    Fail(item, ErrorCode.OrderNotAssignedToWarehouse, "Not assigned to this order's warehouse.");
                 continue;
             }
 
             if (order.Status != OrderStatus.Assembly)
             {
                 foreach (var item in orderGroup)
-                    failedItems.Add(new BatchFulfillFailedItem { OrderId = item.OrderId, ComponentId = item.ComponentId, Error = "Order is not in Assembly status." });
+                    Fail(item, ErrorCode.OrderNotAssembly, "Order is not in Assembly status.");
                 continue;
             }
 
@@ -991,41 +1002,46 @@ public class OrdersController(
 
             foreach (var item in orderGroup)
             {
+                var itemName = "";
                 try
                 {
                     var component = await db.AssemblyTaskBoxComponents
-                        .Include(c => c.CatalogItem)
+                        .Include(c => c.CatalogItem).ThenInclude(ci => ci.Group)
                         .Include(c => c.Fulfillments)
                         .FirstOrDefaultAsync(c => c.Id == item.ComponentId && c.AssemblyTaskBoxId == item.TaskBoxId, ct);
 
                     if (component is null)
                     {
-                        failedItems.Add(new BatchFulfillFailedItem { OrderId = item.OrderId, ComponentId = item.ComponentId, Error = "Component not found." });
+                        Fail(item, ErrorCode.AssemblyTaskBoxComponentNotFound, "Component not found.");
                         continue;
                     }
+
+                    itemName = component.CatalogItem.FullName;
 
                     await orders.AddFulfillmentAsync(component, item.Fulfillment, GetCurrentUserId(), ct);
                     attemptedTaskIds.Add(item.TaskId);
                 }
                 catch (ValidationException ex)
                 {
-                    failedItems.Add(new BatchFulfillFailedItem { OrderId = item.OrderId, ComponentId = item.ComponentId, Error = ex.Message });
+                    Fail(item, ex.ErrorCode, ex.Message, catalogItemName: itemName);
                 }
                 catch (InsufficientInventoryException ex)
                 {
-                    failedItems.Add(new BatchFulfillFailedItem { OrderId = item.OrderId, ComponentId = item.ComponentId, Error = $"Insufficient inventory at node '{ex.NodeId}'." });
+                    Fail(item, ErrorCode.InsufficientInventory,
+                        $"Insufficient inventory at node '{ex.NodeId}': requested {ex.Requested}, available {ex.Available}.",
+                        ex.ToArgs(), itemName);
                 }
                 catch (UnitInventoryItemNotFoundException)
                 {
-                    failedItems.Add(new BatchFulfillFailedItem { OrderId = item.OrderId, ComponentId = item.ComponentId, Error = "Unit inventory item not found." });
+                    Fail(item, ErrorCode.UnitInventoryItemNotFound, "Unit inventory item not found.", catalogItemName: itemName);
                 }
                 catch (InventoryItemNodeMismatchException)
                 {
-                    failedItems.Add(new BatchFulfillFailedItem { OrderId = item.OrderId, ComponentId = item.ComponentId, Error = "Item is not at the expected storage node." });
+                    Fail(item, ErrorCode.InventoryItemNodeMismatch, "Item is not at the expected storage node.", catalogItemName: itemName);
                 }
                 catch (AssemblyComponentAlreadyFulfilledException)
                 {
-                    failedItems.Add(new BatchFulfillFailedItem { OrderId = item.OrderId, ComponentId = item.ComponentId, Error = "Component is already fully fulfilled." });
+                    Fail(item, ErrorCode.AssemblyComponentAlreadyFulfilled, "Component is already fully fulfilled.", catalogItemName: itemName);
                 }
             }
 

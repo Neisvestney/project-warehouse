@@ -7,7 +7,7 @@ import {useHasPermission} from "@/hooks/usePermission";
 import {CatalogItemDrawerHost} from "@/components/catalog/CatalogItemDrawerHost";
 import AssemblyOrderAccordion from "./AssemblyOrderAccordion";
 import AssemblyOrderInline from "./AssemblyOrderInline";
-import {checkBatchEligibility} from "./batchEligibility";
+import {checkBatchEligibility, hasRemainingWork} from "./batchEligibility";
 import BatchAssemblyDialog, {type SelectedTaskInfo} from "./BatchAssemblyDialog";
 
 function OrdersAssemblyPage() {
@@ -46,7 +46,7 @@ function OrdersAssemblyPage() {
     const eligibleIds = new Set<string>();
     for (const order of orders) {
       for (const task of order.assemblyTasks) {
-        if (checkBatchEligibility(task) && task.status !== "done") {
+        if (checkBatchEligibility(task) && hasRemainingWork(task) && task.status !== "done") {
           eligibleIds.add(task.id);
         }
       }

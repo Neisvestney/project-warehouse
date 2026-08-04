@@ -41,6 +41,7 @@ import SelectNodeModal, {type SelectedNode} from "@/components/receipts/SelectNo
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {useDebounce} from "@/hooks/useDebounce";
 import {useDefaultStorageNode} from "@/hooks/useDefaultStorageNode";
+import {resolveErrorMessage} from "@/utils/errorUtils";
 
 // ─── Node field (display + pick, no manual typing) ─────────────────────────
 
@@ -794,7 +795,7 @@ function AddFulfillmentDialog({
               </Typography>
               {failedItems.map((f, i) => (
                 <Typography key={i} variant="caption" sx={{display: "block"}}>
-                  • {f.error}
+                  • {resolveErrorMessage(f.error)}
                 </Typography>
               ))}
             </Alert>

@@ -119,6 +119,19 @@ Error with structured arguments (e.g. password too short):
 | `assemblyComponentAlreadyFulfilled` | Adding a fulfillment (single or batch) to an `AssemblyTaskBoxComponent` that is already fully fulfilled — guards against double-submit re-processing the same request |
 | `catalogItemNotVariationMember` | The item picked for a Variation component is not one of its members (nested variations are walked through). Field `resolvedCatalogItemId` for Standard/Bundle, `unitInventoryItemId` for Unit — there the item's own catalog entry is checked |
 
+### Inventory
+| Code | When | `args` |
+|------|------|--------|
+| `insufficientInventory` | Not enough Standard items in the source node — order fulfillment, transfer, or removing a receipt placement | `{ itemName: string, requested: number, available: number, missing: number, path: string }` |
+| `writeoffInsufficientInventory` | Same shortage, raised while finishing a write-off | same as above |
+| `inventoryItemNodeMismatch` | A Unit item is no longer in the node the operation expected (moved after the request was built) — order fulfillment and write-off finish | — |
+
+Both are produced from a single throw site (`InventoryService.RemoveStandardItemsFromNodeAsync`), which resolves the
+catalog item name and the node breadcrumb on the failure path. `path` is the breadcrumb joined with `" / "`
+(e.g. `"Основной склад / Стеллаж A / Ячейка 3"`), `missing` is `requested - available`. The client formats a detailed
+Russian message from these args and falls back to the plain per-code message when they are absent
+(`errorCodeArgMessages` in `src/utils/errorUtils.ts`).
+
 ### Validation
 | Code | When | `args` |
 |------|------|--------|

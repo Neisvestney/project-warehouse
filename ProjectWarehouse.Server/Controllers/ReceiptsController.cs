@@ -742,7 +742,8 @@ public class ReceiptsController(
         catch (InsufficientInventoryException ex)
         {
             return UnprocessableEntity("root", ErrorCode.InsufficientInventory,
-                $"Недостаточно товара для отмены размещения: доступно {ex.Available}, требуется {ex.Requested}.");
+                $"Недостаточно товара для отмены размещения: доступно {ex.Available}, требуется {ex.Requested}.",
+                ex.ToArgs());
         }
 
         var itemAfter = await LoadItemDtoAsync(itemId, receipt.WarehouseId, ct, nodeById);

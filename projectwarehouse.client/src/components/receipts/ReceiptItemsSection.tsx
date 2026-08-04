@@ -31,6 +31,7 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import SearchIcon from "@mui/icons-material/Search";
 import {useMutation, useQuery} from "@tanstack/react-query";
+import {useSnackbar} from "notistack";
 import {
   catalogGetAllOptions,
   receiptsDeletePlacementMutation,
@@ -38,6 +39,7 @@ import {
   receiptsUpdateReceivedCountMutation,
 } from "@/api/@tanstack/react-query.gen";
 import {useDebounce} from "@/hooks/useDebounce";
+import {extractErrorMessage} from "@/utils/errorUtils";
 import {useHasPermission} from "@/hooks/usePermission";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
@@ -133,6 +135,7 @@ function ReceivedCountInput({
   receiptId: string;
   onUpdateItem: (data: ReceiptItemDto) => void;
 }) {
+  const {enqueueSnackbar} = useSnackbar();
   const [value, setValue] = useState<string>(
     item.receivedCount !== null && item.receivedCount !== undefined
       ? String(item.receivedCount)
@@ -143,6 +146,7 @@ function ReceivedCountInput({
     ...receiptsUpdateReceivedCountMutation(),
     meta: {suppressGlobalError: true},
     onSuccess: (data) => onUpdateItem(data),
+    onError: (err) => enqueueSnackbar(extractErrorMessage(err), {variant: "error"}),
   });
 
   const save = () => {
@@ -329,6 +333,8 @@ function ProcessingItemCard({
   const [placementDialogOpen, setPlacementDialogOpen] = useState(false);
   const canProcess = useHasPermission("receipts.process_assigned");
 
+  const {enqueueSnackbar} = useSnackbar();
+
   const mergeItem = (updatedItem: ReceiptItemDto): ReceiptDto => ({
     ...receipt,
     items: receipt.items.map((i) => (i.id === updatedItem.id ? updatedItem : i)),
@@ -338,6 +344,7 @@ function ProcessingItemCard({
     ...receiptsDeletePlacementMutation(),
     meta: {suppressGlobalError: true},
     onSuccess: (data) => onUpdate(mergeItem(data)),
+    onError: (err) => enqueueSnackbar(extractErrorMessage(err), {variant: "error"}),
   });
 
   const totalPlaced = useMemo(() => calcTotalPlaced(item), [item]);

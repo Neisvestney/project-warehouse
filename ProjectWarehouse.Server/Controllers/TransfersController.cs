@@ -129,7 +129,8 @@ public class TransfersController(
         catch (InsufficientInventoryException ex)
         {
             return UnprocessableEntity("items", ErrorCode.InsufficientInventory,
-                $"Insufficient inventory: requested {ex.Requested}, available {ex.Available}.");
+                $"Insufficient inventory: requested {ex.Requested}, available {ex.Available}.",
+                ex.ToArgs());
         }
         catch (StoragePlaceNodeNotFoundException)
         {

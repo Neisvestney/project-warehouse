@@ -30,6 +30,48 @@ public class InventoryService(
         return mapper.Map<StoragePlaceNodeDetailsDto>(node);
     }
 
+    /// Scoped service, so this lives for one request — batch endpoints hitting several shortages
+    /// in a row reuse the warehouse node map instead of re-reading it per failure.
+    private readonly Dictionary<Guid, Dictionary<Guid, StoragePlaceNode>> _nodesByWarehouse = [];
+
+    /// <summary>
+    /// Resolves the item name and the node breadcrumb so the error can be shown to the user.
+    /// Only runs on the failure path, so the extra queries are not on the hot path.
+    /// </summary>
+    private async Task<InsufficientInventoryException> BuildInsufficientInventoryExceptionAsync(
+        Guid nodeId, Guid catalogItemId, int available, int requested, CancellationToken ct)
+    {
+        var itemName = await db.CatalogItems
+            .Where(i => i.Id == catalogItemId)
+            .Select(i => i.FullName)
+            .FirstOrDefaultAsync(ct) ?? "";
+
+        var node = await db.StoragePlacesNodes
+            .Include(n => n.RootStoragePlace)
+            .FirstOrDefaultAsync(n => n.Id == nodeId, ct);
+
+        string[]? path = null;
+        if (node is not null)
+            path = StoragePlaceNodeHelper.BuildPath(
+                node, await GetWarehouseNodesAsync(node.RootStoragePlace.WarehouseId, ct));
+
+        return new InsufficientInventoryException(nodeId, catalogItemId, available, requested, itemName, path);
+    }
+
+    private async Task<Dictionary<Guid, StoragePlaceNode>> GetWarehouseNodesAsync(
+        Guid warehouseId, CancellationToken ct)
+    {
+        if (_nodesByWarehouse.TryGetValue(warehouseId, out var cached)) return cached;
+
+        var nodeById = await db.StoragePlacesNodes
+            .Where(n => n.RootStoragePlace.WarehouseId == warehouseId)
+            .Include(n => n.RootStoragePlace)
+            .ToDictionaryAsync(n => n.Id, ct);
+
+        _nodesByWarehouse[warehouseId] = nodeById;
+        return nodeById;
+    }
+
     // ── Standard items ────────────────────────────────────────────────────────
 
     public async Task AddStandardItemsToNodeAsync(
@@ -84,7 +126,7 @@ public class InventoryService(
             .FirstOrDefaultAsync(g => g.StoragePlaceNodeId == nodeId && g.CatalogItemId == catalogItemId, ct);
 
         if (group is null || group.Count < count)
-            throw new InsufficientInventoryException(nodeId, catalogItemId, group?.Count ?? 0, count);
+            throw await BuildInsufficientInventoryExceptionAsync(nodeId, catalogItemId, group?.Count ?? 0, count, ct);
 
         group.Count -= count;
         await db.SaveChangesAsync(ct);
