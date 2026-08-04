@@ -1,15 +1,6 @@
 import {useState} from "react";
 import {useParams} from "react-router";
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Divider,
-  Paper,
-  Stack,
-  Typography,
-} from "@mui/material";
+import {Box, Button, CircularProgress, Paper, Stack, Typography} from "@mui/material";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
   ordersGetByIdOptions,
@@ -21,6 +12,7 @@ import type {OrderStatus} from "@/api/types.gen";
 import {isNotFoundError} from "@/utils/errorUtils";
 import {useHasPermission} from "@/hooks/usePermission";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -30,10 +22,18 @@ import {ORDER_TYPE_LABELS, formatOrderNumber} from "@/components/orders/orderUti
 import OrderMetaSection from "./OrderMetaSection";
 import OrderBoxesSection from "./OrderBoxesSection";
 import OrderAssemblyTasksSection from "./OrderAssemblyTasksSection";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import CheckIcon from "@mui/icons-material/Check";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import UndoIcon from "@mui/icons-material/Undo";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import BlockIcon from "@mui/icons-material/Block";
+import {useSnackbar} from "notistack";
 
 function OrderPage() {
   const {id} = useParams<{id: string}>();
   const queryClient = useQueryClient();
+  const {enqueueSnackbar} = useSnackbar();
 
   const canEdit = useHasPermission("orders.edit");
   const canSelfAssign = useHasPermission("orders.self_assign");
@@ -43,7 +43,6 @@ function OrderPage() {
   );
 
   const [cancelConfirm, setCancelConfirm] = useState(false);
-  const [statusError, setStatusError] = useState<string | null>(null);
 
   const query = useQuery({
     ...ordersGetByIdOptions({path: {id: id!}}),
@@ -55,10 +54,9 @@ function OrderPage() {
     meta: {suppressGlobalError: true},
     onSuccess: () => {
       queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: id!}})});
-      setStatusError(null);
       setCancelConfirm(false);
     },
-    onError: () => setStatusError("Ошибка смены статуса"),
+    onError: () => enqueueSnackbar("Ошибка смены статуса", {variant: "error"}),
   });
 
   const selfAssignMutation = useMutation({
@@ -73,7 +71,6 @@ function OrderPage() {
       setCancelConfirm(true);
       return;
     }
-    setStatusError(null);
     transitionMutation.mutate({path: {id: id!}, body: {targetStatus}});
   }
 
@@ -93,8 +90,13 @@ function OrderPage() {
   const typeLabel = ORDER_TYPE_LABELS[order.type];
   const hasDoneTasks = order.assemblyTasks.some((t) => t.status === "done");
 
+  const actionPending = transitionMutation.isPending || selfAssignMutation.isPending;
+  const hasActions =
+    (canSelfAssign && order.status === "confirmed") ||
+    (canEdit && order.status !== "canceled" && order.status !== "shipped");
+
   return (
-    <Stack spacing={3}>
+    <Stack spacing={2}>
       <AppBreadcrumbs
         path={[
           {name: "Операции", link: "/operations"},
@@ -104,133 +106,131 @@ function OrderPage() {
         ]}
       />
 
-      <Paper sx={{p: 3}}>
-        {/* Header */}
-        <Stack direction="row" spacing={2} sx={{alignItems: "center", flexWrap: "wrap", mb: 2}}>
-          <Typography variant="h5" sx={{fontWeight: 700}}>
-            {formatOrderNumber(order.number)}
-          </Typography>
-          <OrderTypeChip type={order.type} />
-          <OrderStatusChip status={order.status} />
-
-          <Stack direction="row" spacing={1} sx={{ml: "auto", flexWrap: "wrap"}}>
-            {statusError && (
-              <Alert severity="error" sx={{py: 0, px: 1, alignSelf: "center"}}>
-                {statusError}
-              </Alert>
-            )}
-
-            {/* Self-assign */}
-            {canSelfAssign && order.status === "confirmed" && (
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={() => selfAssignMutation.mutate({path: {id: order.id}})}
-                disabled={selfAssignMutation.isPending}
-              >
-                Взять на себя
-              </Button>
-            )}
-
-            {/* Status transitions */}
-            {canEdit && order.status === "draft" && (
-              <>
-                <Button
-                  size="small"
-                  variant="contained"
-                  color="primary"
-                  onClick={() => transition("confirmed")}
-                  disabled={transitionMutation.isPending}
-                >
-                  Подтвердить
-                </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="error"
-                  onClick={() => transition("canceled")}
-                  disabled={transitionMutation.isPending}
-                >
-                  Отменить
-                </Button>
-              </>
-            )}
-
-            {canEdit && order.status === "confirmed" && (
-              <>
-                <Button
-                  size="small"
-                  variant="contained"
-                  onClick={() => transition("assembly")}
-                  disabled={transitionMutation.isPending}
-                >
-                  На сборку
-                </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => transition("draft")}
-                  disabled={transitionMutation.isPending}
-                >
-                  Вернуть в черновик
-                </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="error"
-                  onClick={() => transition("canceled")}
-                  disabled={transitionMutation.isPending}
-                >
-                  Отменить
-                </Button>
-              </>
-            )}
-
-            {canEdit && order.status === "assembly" && (
-              <>
-                {!hasDoneTasks && (
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={() => transition("confirmed")}
-                    disabled={transitionMutation.isPending}
-                  >
-                    Вернуть в Подтверждён
-                  </Button>
-                )}
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="error"
-                  onClick={() => transition("canceled")}
-                  disabled={transitionMutation.isPending}
-                >
-                  Отменить
-                </Button>
-              </>
-            )}
-
-            {canEdit && order.status === "assembled" && (
-              <Button
-                size="small"
-                variant="contained"
-                color="success"
-                onClick={() => transition("shipped")}
-                disabled={transitionMutation.isPending}
-              >
-                Отгрузить
-              </Button>
-            )}
-
-            {transitionMutation.isPending && (
-              <CircularProgress size={20} sx={{alignSelf: "center"}} />
-            )}
+      <PageGenericHeader
+        title={
+          <Stack direction="row" spacing={1.5} sx={{alignItems: "center", flexWrap: "wrap"}}>
+            <Typography variant="h5" component="span">
+              {formatOrderNumber(order.number)}
+            </Typography>
+            <OrderTypeChip type={order.type} />
+            <OrderStatusChip status={order.status} />
           </Stack>
+        }
+        right={
+          hasActions ? (
+            <Stack direction="row" spacing={1} sx={{flexWrap: "wrap"}}>
+              {canSelfAssign && order.status === "confirmed" && (
+                <Button
+                  variant="outlined"
+                  disabled={actionPending}
+                  onClick={() => selfAssignMutation.mutate({path: {id: order.id}})}
+                  startIcon={<PersonAddIcon />}
+                  loading={selfAssignMutation.isPending}
+                >
+                  Взять на себя
+                </Button>
+              )}
+
+              {canEdit && order.status === "draft" && (
+                <>
+                  <Button
+                    variant="contained"
+                    disabled={actionPending}
+                    onClick={() => transition("confirmed")}
+                    startIcon={<CheckIcon />}
+                    loading={transitionMutation.isPending}
+                  >
+                    Подтвердить
+                  </Button>
+                  <Button
+                    color="error"
+                    variant="outlined"
+                    disabled={actionPending}
+                    onClick={() => transition("canceled")}
+                    startIcon={<BlockIcon />}
+                  >
+                    Отменить
+                  </Button>
+                </>
+              )}
+
+              {canEdit && order.status === "confirmed" && (
+                <>
+                  <Button
+                    variant="contained"
+                    disabled={actionPending}
+                    onClick={() => transition("assembly")}
+                    startIcon={<PlayArrowIcon />}
+                    loading={transitionMutation.isPending}
+                  >
+                    На сборку
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    disabled={actionPending}
+                    onClick={() => transition("draft")}
+                    startIcon={<UndoIcon />}
+                  >
+                    Вернуть в черновик
+                  </Button>
+                  <Button
+                    color="error"
+                    variant="outlined"
+                    disabled={actionPending}
+                    onClick={() => transition("canceled")}
+                    startIcon={<BlockIcon />}
+                  >
+                    Отменить
+                  </Button>
+                </>
+              )}
+
+              {canEdit && order.status === "assembly" && (
+                <>
+                  {!hasDoneTasks && (
+                    <Button
+                      variant="outlined"
+                      disabled={actionPending}
+                      onClick={() => transition("confirmed")}
+                      startIcon={<UndoIcon />}
+                      loading={transitionMutation.isPending}
+                    >
+                      Вернуть в Подтверждён
+                    </Button>
+                  )}
+                  <Button
+                    color="error"
+                    variant="outlined"
+                    disabled={actionPending}
+                    onClick={() => transition("canceled")}
+                    startIcon={<BlockIcon />}
+                  >
+                    Отменить
+                  </Button>
+                </>
+              )}
+
+              {canEdit && order.status === "assembled" && (
+                <Button
+                  variant="contained"
+                  color="success"
+                  disabled={actionPending}
+                  onClick={() => transition("shipped")}
+                  startIcon={<LocalShippingIcon />}
+                  loading={transitionMutation.isPending}
+                >
+                  Отгрузить
+                </Button>
+              )}
+            </Stack>
+          ) : undefined
+        }
+      />
+
+      <Paper>
+        <Stack spacing={1.5} sx={{p: 3}}>
+          <OrderMetaSection order={order} canEdit={canEdit} />
         </Stack>
-
-        <Divider sx={{my: 2}} />
-
-        <OrderMetaSection order={order} canEdit={canEdit} />
       </Paper>
 
       <Paper sx={{p: 3}}>
