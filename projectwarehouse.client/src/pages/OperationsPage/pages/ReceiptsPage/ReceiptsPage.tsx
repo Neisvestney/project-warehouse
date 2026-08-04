@@ -79,7 +79,9 @@ function ReceiptsPage() {
     (v) => v || null,
   );
 
-  const {sortBy, sortOrder, handleSortClick} = useTableSort(SORT_COLUMNS, "number", {defaultSortOrder: "desc"});
+  const {sortBy, sortOrder, handleSortClick} = useTableSort(SORT_COLUMNS, "number", {
+    defaultSortOrder: "desc",
+  });
 
   const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams(
     {searchString: searchString || undefined},

@@ -4,6 +4,7 @@ import {useQuery} from "@tanstack/react-query";
 import {ordersGetAllAssemblyOptions} from "@/api/@tanstack/react-query.gen";
 import type {OrderDetailsDto} from "@/api/types.gen";
 import {useHasPermission} from "@/hooks/usePermission";
+import {CatalogItemDrawerHost} from "@/components/catalog/CatalogItemDrawerHost";
 import AssemblyOrderAccordion from "./AssemblyOrderAccordion";
 import AssemblyOrderInline from "./AssemblyOrderInline";
 import {checkBatchEligibility} from "./batchEligibility";
@@ -86,66 +87,68 @@ function OrdersAssemblyPage() {
   }
 
   return (
-    <Stack spacing={2}>
-      <Stack direction="row" sx={{alignItems: "center", justifyContent: "space-between"}}>
-        <Typography variant="h6">Сборка заказов</Typography>
+    <CatalogItemDrawerHost>
+      <Stack spacing={2}>
+        <Stack direction="row" sx={{alignItems: "center", justifyContent: "space-between"}}>
+          <Typography variant="h6">Сборка заказов</Typography>
 
-        {canFulfill && (
-          <Stack direction="row" spacing={1}>
-            <Button size="small" variant="outlined" onClick={handleSelectAllEligible}>
-              Выбрать все доступные для массовой сборки
-            </Button>
-            {selectedTaskIds.size >= 1 && (
-              <Button size="small" variant="contained" onClick={() => setBatchDialogOpen(true)}>
-                Собрать выбранные ({selectedTaskIds.size})
+          {canFulfill && (
+            <Stack direction="row" spacing={1}>
+              <Button size="small" variant="outlined" onClick={handleSelectAllEligible}>
+                Выбрать все доступные для массовой сборки
               </Button>
-            )}
-          </Stack>
-        )}
-      </Stack>
+              {selectedTaskIds.size >= 1 && (
+                <Button size="small" variant="contained" onClick={() => setBatchDialogOpen(true)}>
+                  Собрать выбранные ({selectedTaskIds.size})
+                </Button>
+              )}
+            </Stack>
+          )}
+        </Stack>
 
-      {orders.map((order) => {
-        const tasks = order.assemblyTasks;
+        {orders.map((order) => {
+          const tasks = order.assemblyTasks;
 
-        if (tasks.length === 1) {
-          const task = tasks[0];
-          const eligible = eligibilityMap.get(task.id) ?? checkBatchEligibility(task);
+          if (tasks.length === 1) {
+            const task = tasks[0];
+            const eligible = eligibilityMap.get(task.id) ?? checkBatchEligibility(task);
+            return (
+              <AssemblyOrderInline
+                key={order.id}
+                order={order}
+                task={task}
+                canFulfill={canFulfill}
+                checked={selectedTaskIds.has(task.id)}
+                onCheckChange={(checked) => handleTaskCheckChange(order.id, task.id, checked)}
+                batchEligible={eligible}
+              />
+            );
+          }
+
           return (
-            <AssemblyOrderInline
+            <AssemblyOrderAccordion
               key={order.id}
               order={order}
-              task={task}
               canFulfill={canFulfill}
-              checked={selectedTaskIds.has(task.id)}
-              onCheckChange={(checked) => handleTaskCheckChange(order.id, task.id, checked)}
-              batchEligible={eligible}
+              selectedTaskIds={selectedTaskIds}
+              onTaskCheckChange={handleTaskCheckChange}
+              eligibilityMap={eligibilityMap}
             />
           );
-        }
+        })}
 
-        return (
-          <AssemblyOrderAccordion
-            key={order.id}
-            order={order}
-            canFulfill={canFulfill}
-            selectedTaskIds={selectedTaskIds}
-            onTaskCheckChange={handleTaskCheckChange}
-            eligibilityMap={eligibilityMap}
+        {batchDialogOpen && (
+          <BatchAssemblyDialog
+            open
+            onClose={() => {
+              setBatchDialogOpen(false);
+              setSelectedTaskIds(new Set());
+            }}
+            selectedTasks={selectedTaskInfos}
           />
-        );
-      })}
-
-      {batchDialogOpen && (
-        <BatchAssemblyDialog
-          open
-          onClose={() => {
-            setBatchDialogOpen(false);
-            setSelectedTaskIds(new Set());
-          }}
-          selectedTasks={selectedTaskInfos}
-        />
-      )}
-    </Stack>
+        )}
+      </Stack>
+    </CatalogItemDrawerHost>
   );
 }
 

@@ -29,7 +29,6 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import SearchIcon from "@mui/icons-material/Search";
 import {useMutation, useQuery} from "@tanstack/react-query";
 import {
@@ -42,6 +41,7 @@ import {useDebounce} from "@/hooks/useDebounce";
 import {useHasPermission} from "@/hooks/usePermission";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
+import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
 import ReceiptItemsEditorDrawer from "@/components/receipts/ReceiptItemsEditorDrawer";
 import AddPlacementDialog from "@/components/receipts/AddPlacementDialog";
 import BatchStandardPlacementDialog from "@/components/receipts/BatchStandardPlacementDialog";
@@ -52,22 +52,10 @@ const VIRTUAL_TYPES = new Set(["productGroup", "variation", "bundle"]);
 
 function CatalogItemCell({item, onOpen}: {item: ReceiptItemDto; onOpen: (id: string) => void}) {
   return (
-    <Stack
-      direction="row"
-      spacing={1}
-      sx={{
-        alignItems: "center",
-        cursor: "pointer",
-        width: "fit-content",
-        "& .open-icon": {visibility: "hidden"},
-        "&:hover .open-icon": {visibility: "visible"},
-      }}
-      onClick={() => onOpen(item.catalogItemId)}
-    >
+    <CatalogItemLink catalogItemId={item.catalogItemId} onOpen={onOpen}>
       <CatalogItemTypeChip type={item.catalogItem.type} />
       <Typography variant="body2">{item.catalogItem.fullName}</Typography>
-      <OpenInNewIcon className="open-icon" sx={{fontSize: 14, color: "text.secondary"}} />
-    </Stack>
+    </CatalogItemLink>
   );
 }
 

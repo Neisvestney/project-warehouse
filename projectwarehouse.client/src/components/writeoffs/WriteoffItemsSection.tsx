@@ -15,6 +15,9 @@ import {
 import EditIcon from "@mui/icons-material/Edit";
 import type {WriteoffDto} from "@/api/types.gen";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
+import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
+import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
+import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState";
 import WriteoffItemsEditorDrawer from "@/components/writeoffs/WriteoffItemsEditorDrawer";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 
@@ -32,8 +35,39 @@ function itemType(item: WriteoffDto["items"][number]) {
   return "standard" as const;
 }
 
+function ItemNameCell({
+  item,
+  onOpen,
+}: {
+  item: WriteoffDto["items"][number];
+  onOpen: (id: string) => void;
+}) {
+  const label = (
+    <>
+      <CatalogItemTypeChip type={itemType(item)} />
+      <Typography variant="body2">{item.catalogItemName}</Typography>
+    </>
+  );
+
+  if (!item.catalogItemId) {
+    return (
+      <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+        {label}
+      </Stack>
+    );
+  }
+
+  return (
+    <CatalogItemLink catalogItemId={item.catalogItemId} onOpen={onOpen}>
+      {label}
+    </CatalogItemLink>
+  );
+}
+
 function WriteoffItemsSection({writeoff}: WriteoffItemsSectionProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [openedCatalogItemId, openCatalogDrawer, closeCatalogDrawer] =
+    useDrawerSearchParamsState("catalogItem");
   const isDraft = writeoff.status === "draft";
 
   // Group items by source node
@@ -96,10 +130,7 @@ function WriteoffItemsSection({writeoff}: WriteoffItemsSectionProps) {
                     {items.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell>
-                          <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
-                            <CatalogItemTypeChip type={itemType(item)} />
-                            <Typography variant="body2">{item.catalogItemName}</Typography>
-                          </Stack>
+                          <ItemNameCell item={item} onOpen={openCatalogDrawer} />
                         </TableCell>
                         <TableCell>{itemDisplayCount(item)}</TableCell>
                         <TableCell>
@@ -124,6 +155,12 @@ function WriteoffItemsSection({writeoff}: WriteoffItemsSectionProps) {
           writeoff={writeoff}
         />
       )}
+
+      <CatalogItemDrawer
+        itemId={openedCatalogItemId}
+        onClose={closeCatalogDrawer}
+        onOpenItem={openCatalogDrawer}
+      />
     </>
   );
 }

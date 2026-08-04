@@ -25,6 +25,8 @@ import {
   ordersGetByIdQueryKey,
 } from "@/api/@tanstack/react-query.gen";
 import type {AssemblyTaskBoxComponentDto, AssemblyTaskDto, OrderDetailsDto} from "@/api/types.gen";
+import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
+import {useOpenCatalogItem} from "@/components/catalog/CatalogItemDrawerContext";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import FulfillmentsDrawer from "@/components/orders/FulfillmentsDrawer";
 import {countFulfilledQty, getTaskProgress} from "@/components/orders/orderAssemblyUtils";
@@ -49,6 +51,7 @@ interface AssemblyTaskAccordionItemProps {
 
 function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordionItemProps) {
   const queryClient = useQueryClient();
+  const openCatalogItem = useOpenCatalogItem();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [fulfillmentsTarget, setFulfillmentsTarget] = useState<{
@@ -145,7 +148,11 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
                         setFulfillmentsDrawerOpen(true);
                       }}
                     >
-                      <TableCell>{c.catalogItemName}</TableCell>
+                      <TableCell>
+                        <CatalogItemLink catalogItemId={c.catalogItemId} onOpen={openCatalogItem}>
+                          <Typography variant="body2">{c.catalogItemName}</Typography>
+                        </CatalogItemLink>
+                      </TableCell>
                       <TableCell>{c.quantity}</TableCell>
                       <TableCell
                         sx={{color: qty >= c.quantity ? "success.main" : "text.secondary"}}
@@ -179,6 +186,7 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
         subtitle={fulfillmentsTarget?.boxLabel ?? undefined}
         quantity={fulfillmentsTarget?.component.quantity ?? 0}
         isVariation={fulfillmentsTarget?.component.catalogItemType === "variation"}
+        catalogItemId={fulfillmentsTarget?.component.catalogItemId}
         fulfillments={fulfillmentsTarget?.component.fulfillments ?? []}
       />
 

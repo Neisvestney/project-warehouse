@@ -40,6 +40,7 @@ import TableRowEmpty from "@/components/TableRowEmpty.tsx";
 import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
 import {CreateCatalogItemDialog} from "@/components/catalog/CreateCatalogItemDialog";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
+import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
 import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState.ts";
 import {useHasPermission} from "@/hooks/usePermission";
 import AddIcon from "@mui/icons-material/Add";
@@ -219,12 +220,12 @@ function CatalogPage() {
                       <CatalogItemTypeChip type={item.type} />
                     </TableCell>
                     <TableCell>
-                      <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
+                      <CatalogItemLink catalogItemId={item.id} onOpen={openDrawer} spacing={0.5}>
                         <Typography variant="body2">{item.fullName}</Typography>
                         {item.isArchived && (
                           <ArchiveIcon sx={{fontSize: 14, color: "warning.main", flexShrink: 0}} />
                         )}
-                      </Stack>
+                      </CatalogItemLink>
                     </TableCell>
                     <TableCell>{item.article}</TableCell>
                     <TableCell>{item.barcode ?? "—"}</TableCell>
