@@ -71,6 +71,7 @@ public enum ErrorCode
     ReceiptItemsUnderplaced,
     ReceiptItemsOverplaced,
     InsufficientInventory,
+    InventoryItemNodeMismatch,
     UnitInventoryItemNumberDuplicate,
 
     // Orders

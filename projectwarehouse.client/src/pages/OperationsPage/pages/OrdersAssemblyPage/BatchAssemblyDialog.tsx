@@ -28,7 +28,9 @@ import type {
 import SelectNodeModal, {type SelectedNode} from "@/components/receipts/SelectNodeModal";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {useDefaultStorageNode} from "@/hooks/useDefaultStorageNode";
+import {resolveErrorMessage} from "@/utils/errorUtils";
 import {BundleTreeForm, VariationForm} from "./AddFulfillmentDialog";
+import {getRemainingQty} from "./batchEligibility";
 
 interface SelectedTaskInfo {
   orderId: string;
@@ -59,6 +61,9 @@ function buildBatchGroups(selectedTasks: SelectedTaskInfo[]): BatchGroup[] {
   for (const {orderId, taskId, task, warehouseId} of selectedTasks) {
     for (const box of task.boxes) {
       for (const comp of box.components) {
+        const remaining = getRemainingQty(comp);
+        if (remaining <= 0) continue;
+
         const key = `${comp.catalogItemId}::${warehouseId}`;
         const existing = groupMap.get(key);
         const entry = {
@@ -66,10 +71,10 @@ function buildBatchGroups(selectedTasks: SelectedTaskInfo[]): BatchGroup[] {
           taskId,
           taskBoxId: box.id,
           componentId: comp.id,
-          qty: comp.quantity,
+          qty: remaining,
         };
         if (existing) {
-          existing.totalNeeded += comp.quantity;
+          existing.totalNeeded += remaining;
           existing.taskComponents.push(entry);
         } else {
           groupMap.set(key, {
@@ -78,7 +83,7 @@ function buildBatchGroups(selectedTasks: SelectedTaskInfo[]): BatchGroup[] {
             catalogItemName: comp.catalogItemName,
             catalogItemType: comp.catalogItemType as CatalogItemType,
             warehouseId,
-            totalNeeded: comp.quantity,
+            totalNeeded: remaining,
             taskComponents: [entry],
           });
         }
@@ -304,14 +309,16 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
   const mutation = useMutation({
     ...ordersBatchFulfillMutation(),
     meta: {suppressGlobalError: true},
-    onSuccess: (data) => {
-      if (data.failedItems.length === 0) {
-        queryClient.invalidateQueries({queryKey: ordersGetAllQueryKey()});
-        queryClient.invalidateQueries({queryKey: ordersGetAllAssemblyQueryKey()});
-        onClose();
-      } else {
-        setFailedItems(data.failedItems);
-      }
+    // Awaited: the mutation stays pending until the refetch lands, so the button cannot be pressed
+    // again against stale groups. Invalidated on partial success too, so the refetched tasks shrink
+    // the groups to what is still missing and a retry cannot re-send what already went through.
+    onSuccess: async (data) => {
+      await Promise.all([
+        queryClient.invalidateQueries({queryKey: ordersGetAllQueryKey()}),
+        queryClient.invalidateQueries({queryKey: ordersGetAllAssemblyQueryKey()}),
+      ]);
+      setFailedItems(data.failedItems);
+      if (data.failedItems.length === 0) onClose();
     },
     onError: () => setSubmitError("Ошибка при отправке запроса"),
     onSettled: () => {
@@ -381,6 +388,12 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
       <DialogTitle>Массовая сборка ({selectedTasks.length} заданий)</DialogTitle>
       <DialogContent>
         <Stack spacing={3} sx={{mt: 1}}>
+          {groups.length === 0 && (
+            <Typography color="text.secondary">
+              В выбранных заданиях не осталось несобранных позиций
+            </Typography>
+          )}
+
           {groups.map((group, idx) => {
             const state = getGroupState(group.key);
             return (
@@ -398,7 +411,7 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
               </Typography>
               {failedItems.map((f, i) => (
                 <Typography key={i} variant="caption" sx={{display: "block"}}>
-                  • Компонент {f.componentId.slice(0, 8)}: {f.error}
+                  • {f.catalogItemName || "Компонент"}: {resolveErrorMessage(f.error)}
                 </Typography>
               ))}
             </Alert>
@@ -414,7 +427,7 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={mutation.isPending || !allGroupsReady}
+          disabled={mutation.isPending || groups.length === 0 || !allGroupsReady}
         >
           {mutation.isPending ? <CircularProgress size={20} color="inherit" /> : "Собрать"}
         </Button>

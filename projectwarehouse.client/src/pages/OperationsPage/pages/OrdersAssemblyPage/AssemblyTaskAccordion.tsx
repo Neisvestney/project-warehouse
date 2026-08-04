@@ -43,6 +43,7 @@ import FulfillmentsDrawer from "@/components/orders/FulfillmentsDrawer";
 import {countFulfilledQty, getTaskProgress} from "@/components/orders/orderAssemblyUtils";
 import {formatBoxLabel} from "@/components/orders/orderUtils";
 import AddFulfillmentDialog from "./AddFulfillmentDialog";
+import {hasRemainingWork} from "./batchEligibility";
 import MoveTaskComponentDialog from "./MoveTaskComponentDialog";
 
 const TASK_STATUS_LABELS: Record<AssemblyTaskStatus, string> = {
@@ -266,6 +267,12 @@ function AssemblyTaskAccordion({
 
   const {fulfilled: fulfilledComponents, total: totalComponents} = getTaskProgress(task);
 
+  const batchDisabledReason = !batchEligible
+    ? "Содержит Единичные товары"
+    : !hasRemainingWork(task)
+      ? "Задание полностью собрано"
+      : "";
+
   const transitionMutation = useMutation({
     ...ordersTransitionTaskStatusMutation(),
     meta: {suppressGlobalError: true},
@@ -287,12 +294,12 @@ function AssemblyTaskAccordion({
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Stack direction="row" sx={{alignItems: "center", gap: 1.5, flex: 1, pr: 1}}>
           {onCheckChange !== undefined && (
-            <Tooltip title={!batchEligible ? "Содержит Единичные товары" : ""}>
+            <Tooltip title={batchDisabledReason}>
               <span>
                 <Checkbox
                   size="small"
                   checked={checked}
-                  disabled={!batchEligible}
+                  disabled={batchDisabledReason !== ""}
                   onChange={(e) => onCheckChange(e.target.checked)}
                   onClick={(e) => e.stopPropagation()}
                   sx={{p: 0.5}}

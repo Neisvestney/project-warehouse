@@ -53,8 +53,9 @@ public static class AppProblems
     public static AppProblemDetails ConflictField(string field, ErrorCode code, string message) =>
         Field(StatusCodes.Status409Conflict, field, code, message);
 
-    public static AppProblemDetails UnprocessableEntity(string field, ErrorCode code, string message) =>
-        Field(StatusCodes.Status422UnprocessableEntity, field, code, message);
+    public static AppProblemDetails UnprocessableEntity(string field, ErrorCode code, string message,
+        IReadOnlyDictionary<string, object>? args = null) =>
+        Field(StatusCodes.Status422UnprocessableEntity, field, code, message, args);
 
     public static AppProblemDetails UnprocessableEntities(
         IEnumerable<(string Field, ErrorCode Code, string Message, IReadOnlyDictionary<string, object>? Args)> errors) =>
@@ -69,7 +70,7 @@ public static class AppProblems
         return details;
     }
 
-    private static AppFieldError MakeError(ErrorCode code, string message,
+    public static AppFieldError MakeError(ErrorCode code, string message,
         IReadOnlyDictionary<string, object>? args = null) => new()
     {
         Code = code,

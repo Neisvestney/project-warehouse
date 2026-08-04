@@ -20,7 +20,7 @@ import {
   writeoffsFinishMutation,
   writeoffsUpdateMutation,
 } from "@/api/@tanstack/react-query.gen";
-import {isNotFoundError} from "@/utils/errorUtils";
+import {extractErrorMessage, isNotFoundError} from "@/utils/errorUtils";
 import {useHasPermission} from "@/hooks/usePermission";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
@@ -193,14 +193,20 @@ function WriteoffPage() {
       updateLocal(data);
       setCancelOpen(false);
     },
-    onError: () => enqueueSnackbar("Не удалось отменить списание", {variant: "error"}),
+    onError: (err) =>
+      enqueueSnackbar(extractErrorMessage(err) || "Не удалось отменить списание", {
+        variant: "error",
+      }),
   });
 
   const deleteMutation = useMutation({
     ...writeoffsDeleteMutation(),
     meta: {suppressGlobalError: true},
     onSuccess: () => navigate("/operations/writeoffs"),
-    onError: () => enqueueSnackbar("Не удалось удалить списание", {variant: "error"}),
+    onError: (err) =>
+      enqueueSnackbar(extractErrorMessage(err) || "Не удалось удалить списание", {
+        variant: "error",
+      }),
   });
 
   if (isLoading) {
@@ -340,7 +346,7 @@ function WriteoffPage() {
         </Typography>
         {finishMutation.isError && (
           <Alert severity="error" sx={{mt: 1}}>
-            {(finishMutation.error as {detail?: string})?.detail ?? "Произошла ошибка"}
+            {extractErrorMessage(finishMutation.error)}
           </Alert>
         )}
       </ConfirmDialog>

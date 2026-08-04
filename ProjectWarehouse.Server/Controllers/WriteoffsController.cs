@@ -454,11 +454,12 @@ public class WriteoffsController(
         catch (InsufficientInventoryException ex)
         {
             return UnprocessableEntity("root", ErrorCode.WriteoffInsufficientInventory,
-                $"Insufficient inventory at node '{ex.NodeId}': requested {ex.Requested}, available {ex.Available}.");
+                $"Insufficient inventory at node '{ex.NodeId}': requested {ex.Requested}, available {ex.Available}.",
+                ex.ToArgs());
         }
         catch (InventoryItemNodeMismatchException)
         {
-            return UnprocessableEntity("root", ErrorCode.WriteoffItemNotFound,
+            return UnprocessableEntity("root", ErrorCode.InventoryItemNodeMismatch,
                 "One or more items are no longer at the expected storage node.");
         }
         catch (UnitInventoryItemNotFoundException)

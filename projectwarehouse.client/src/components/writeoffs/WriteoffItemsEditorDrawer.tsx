@@ -34,6 +34,7 @@ import type {SelectedInventoryItem} from "@/components/inventory/InventoryItemPi
 import SelectNodeModal from "@/components/receipts/SelectNodeModal";
 import type {SelectedNode} from "@/components/receipts/SelectNodeModal";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
+import {extractErrorMessage} from "@/utils/errorUtils";
 
 interface WriteoffItemsEditorDrawerProps {
   open: boolean;
@@ -130,8 +131,10 @@ function WriteoffItemsEditorDrawer({open, onClose, writeoff}: WriteoffItemsEdito
       enqueueSnackbar("Список товаров обновлён", {variant: "success"});
       onClose();
     },
-    onError: () => {
-      enqueueSnackbar("Не удалось сохранить список товаров", {variant: "error"});
+    onError: (err) => {
+      enqueueSnackbar(extractErrorMessage(err) || "Не удалось сохранить список товаров", {
+        variant: "error",
+      });
     },
   });
 

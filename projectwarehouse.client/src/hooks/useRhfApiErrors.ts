@@ -28,7 +28,7 @@ export function useRhfApiErrors<T extends FieldValues>(form: UseFormReturn<T>) {
         } else if (!hasFields) {
           form.setError("root" as Path<T>, {
             type: "server",
-            message: error.title ?? "Неизвестная ошибка",
+            message: extractErrorMessage(error),
           });
         }
       } else {

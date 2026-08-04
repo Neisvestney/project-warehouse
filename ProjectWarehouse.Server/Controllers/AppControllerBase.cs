@@ -39,8 +39,9 @@ public abstract class AppControllerBase : ControllerBase
     protected ObjectResult ConflictField(string field, ErrorCode code, string message) =>
         Problem(AppProblems.ConflictField(field, code, message));
 
-    protected ObjectResult UnprocessableEntity(string field, ErrorCode code, string message) =>
-        Problem(AppProblems.UnprocessableEntity(field, code, message));
+    protected ObjectResult UnprocessableEntity(string field, ErrorCode code, string message,
+        IReadOnlyDictionary<string, object>? args = null) =>
+        Problem(AppProblems.UnprocessableEntity(field, code, message, args));
 
     /// <summary>Converts a <see cref="ValidationException"/> into a 422 response using its own field path.</summary>
     protected ObjectResult UnprocessableEntity(ValidationException ex) =>

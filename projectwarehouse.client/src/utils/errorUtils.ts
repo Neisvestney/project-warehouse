@@ -1,5 +1,5 @@
 import type {AppFieldError, AppProblemDetails, ErrorCode} from "@/api/types.gen";
-import {interpolateArgs} from "@/utils/interpolateArgs.ts";
+import {hasAllArgs, interpolateArgs} from "@/utils/interpolateArgs.ts";
 
 export const httpStatusMessages: Partial<Record<number, string>> = {
   400: "Некорректный запрос",
@@ -81,6 +81,7 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   receiptItemsUnderplaced: "Некоторые позиции размещены не полностью",
   receiptItemsOverplaced: "Некоторые позиции размещены сверх принятого количества",
   insufficientInventory: "Недостаточно товара на складе",
+  inventoryItemNodeMismatch: "Товар больше не находится в ожидаемой ячейке. Обновите страницу",
   unitInventoryItemNumberDuplicate: "Инвентарный номер уже используется для этого товара",
   transferSameNode: "Источник и назначение не могут быть одной ячейкой",
   unitInventoryItemNotFound: "Единичный товар не найден",
@@ -108,7 +109,19 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   catalogItemNotVariationMember: "Выбранный вариант не входит в эту вариацию",
 };
 
+/** Richer variants used only when the server supplied every placeholder in args. */
+const errorCodeArgMessages: Partial<Record<ErrorCode, string>> = {
+  insufficientInventory:
+    "Недостаточно «{itemName}» в {path}: требуется {requested}, доступно {available} (не хватает {missing})",
+  writeoffInsufficientInventory:
+    "Недостаточно «{itemName}» в {path}: требуется {requested}, доступно {available} (не хватает {missing})",
+};
+
 export function resolveErrorMessage(error: AppFieldError): string {
+  const detailed = errorCodeArgMessages[error.code];
+  if (detailed && hasAllArgs(detailed, error.args)) {
+    return interpolateArgs(detailed, error.args);
+  }
   const template = errorCodeMessages[error.code] ?? error.detail;
   return interpolateArgs(template, error.args);
 }
@@ -142,13 +155,18 @@ function isNetworkError(error: Error): boolean {
   );
 }
 
+/** Root error first, otherwise any field error — endpoints scope errors to fields like `items`. */
+export function firstFieldError(error: AppProblemDetails): AppFieldError | undefined {
+  const rootErrors = error.errors["root"];
+  if (rootErrors?.length) return rootErrors[0];
+  return Object.values(error.errors).find((errors) => errors?.length)?.[0];
+}
+
 /** Returns the best human-readable message from an unknown API error. */
 export function extractErrorMessage(error: unknown): string {
   if (isAppProblemDetails(error)) {
-    const rootErrors = error.errors["root"];
-    if (rootErrors?.length) {
-      return resolveErrorMessage(rootErrors[0]);
-    }
+    const fieldError = firstFieldError(error);
+    if (fieldError) return resolveErrorMessage(fieldError);
     return error.title ?? error.detail ?? "Неизвестная ошибка";
   }
 

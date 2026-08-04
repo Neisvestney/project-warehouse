@@ -1,5 +1,6 @@
 import {useState} from "react";
 import {
+  Alert,
   Box,
   Button,
   CircularProgress,
@@ -19,6 +20,7 @@ import PageGenericHeader from "@/components/PageGenericHeader";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import LocationField from "@/components/transfers/LocationField";
 import InventoryItemPickerModal from "@/components/inventory/InventoryItemPickerModal";
+import {extractErrorMessage} from "@/utils/errorUtils";
 import type {CatalogItemType} from "@/api/types.gen";
 import type {SelectedLocation} from "@/components/transfers/SelectLocationModal";
 import type {SelectedInventoryItem} from "@/components/inventory/InventoryItemPickerModal";
@@ -40,19 +42,24 @@ function TransfersPage() {
   const [selectedItems, setSelectedItems] = useState<SelectedInventoryItem[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
 
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const mutation = useMutation({
     ...transfersExecuteMutation(),
+    meta: {suppressGlobalError: true},
     onSuccess: () => {
       enqueueSnackbar("Перемещение выполнено успешно", {variant: "success"});
       setFromLocation(null);
       setToLocation(null);
       setSelectedItems([]);
     },
+    onError: (err) => setErrorMsg(extractErrorMessage(err)),
   });
 
   const handleSubmit = () => {
     if (!fromLocation || !toLocation || selectedItems.length === 0) return;
 
+    setErrorMsg(null);
     mutation.mutate({
       body: {
         fromNodeId: fromLocation.nodeId,
@@ -146,6 +153,8 @@ function TransfersPage() {
 
           {/* To location */}
           <LocationField label="Куда" value={toLocation} onChange={setToLocation} />
+
+          {errorMsg && <Alert severity="error">{errorMsg}</Alert>}
 
           {/* Submit */}
           <Stack direction="row" sx={{justifyContent: "flex-end"}}>

@@ -10,5 +10,7 @@ public class BatchFulfillFailedItem
 {
     public Guid OrderId { get; init; }
     public Guid ComponentId { get; init; }
-    public string Error { get; init; } = "";
+    /// <summary>Empty when the component itself could not be loaded.</summary>
+    public string CatalogItemName { get; init; } = "";
+    public required AppFieldError Error { get; init; }
 }
