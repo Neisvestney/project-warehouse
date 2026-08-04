@@ -19,7 +19,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import {CatalogItemDrawerHost} from "@/components/catalog/CatalogItemDrawerHost";
 import OrderStatusChip from "@/components/orders/OrderStatusChip";
 import OrderTypeChip from "@/components/orders/OrderTypeChip";
-import {ORDER_TYPE_LABELS, formatOrderNumber} from "@/components/orders/orderUtils";
+import {ORDER_TYPE_LABELS, formatBoxLabel, formatOrderNumber} from "@/components/orders/orderUtils";
 import OrderMetaSection from "./OrderMetaSection";
 import OrderBoxesSection from "./OrderBoxesSection";
 import OrderAssemblyTasksSection from "./OrderAssemblyTasksSection";
@@ -44,6 +44,7 @@ function OrderPage() {
   );
 
   const [cancelConfirm, setCancelConfirm] = useState(false);
+  const [emptyBoxesConfirm, setEmptyBoxesConfirm] = useState<OrderStatus | null>(null);
 
   const query = useQuery({
     ...ordersGetByIdOptions({path: {id: id!}}),
@@ -56,6 +57,7 @@ function OrderPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: id!}})});
       setCancelConfirm(false);
+      setEmptyBoxesConfirm(null);
     },
     onError: () => enqueueSnackbar("Ошибка смены статуса", {variant: "error"}),
   });
@@ -66,14 +68,6 @@ function OrderPage() {
       queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: id!}})});
     },
   });
-
-  function transition(targetStatus: OrderStatus) {
-    if (targetStatus === "canceled") {
-      setCancelConfirm(true);
-      return;
-    }
-    transitionMutation.mutate({path: {id: id!}, body: {targetStatus}});
-  }
 
   if (query.isLoading) {
     return (
@@ -90,6 +84,26 @@ function OrderPage() {
   const order = query.data;
   const typeLabel = ORDER_TYPE_LABELS[order.type];
   const hasDoneTasks = order.assemblyTasks.some((t) => t.status === "done");
+
+  const emptyBoxes = order.boxes.filter((b) => b.components.length === 0);
+  const hasBoxIssues = order.boxes.length === 0 || emptyBoxes.length > 0;
+
+  function doTransition(targetStatus: OrderStatus) {
+    transitionMutation.mutate({path: {id: order.id}, body: {targetStatus}});
+  }
+
+  // «Подтвердить» и «На сборку» дополнительно переспрашивают, если состав заказа неполный
+  function transition(targetStatus: OrderStatus, warnOnEmptyBoxes = false) {
+    if (targetStatus === "canceled") {
+      setCancelConfirm(true);
+      return;
+    }
+    if (warnOnEmptyBoxes && hasBoxIssues) {
+      setEmptyBoxesConfirm(targetStatus);
+      return;
+    }
+    doTransition(targetStatus);
+  }
 
   const actionPending = transitionMutation.isPending || selfAssignMutation.isPending;
   const hasActions =
@@ -138,7 +152,7 @@ function OrderPage() {
                     <Button
                       variant="contained"
                       disabled={actionPending}
-                      onClick={() => transition("confirmed")}
+                      onClick={() => transition("confirmed", true)}
                       startIcon={<CheckIcon />}
                       loading={transitionMutation.isPending}
                     >
@@ -161,7 +175,7 @@ function OrderPage() {
                     <Button
                       variant="contained"
                       disabled={actionPending}
-                      onClick={() => transition("assembly")}
+                      onClick={() => transition("assembly", true)}
                       startIcon={<PlayArrowIcon />}
                       loading={transitionMutation.isPending}
                     >
@@ -259,6 +273,36 @@ function OrderPage() {
           }
           isPending={transitionMutation.isPending}
         />
+
+        <ConfirmDialog
+          open={emptyBoxesConfirm !== null}
+          onClose={() => setEmptyBoxesConfirm(null)}
+          title={
+            emptyBoxesConfirm === "assembly" ? "Отправить заказ на сборку?" : "Подтвердить заказ?"
+          }
+          confirmText={emptyBoxesConfirm === "assembly" ? "На сборку" : "Подтвердить"}
+          maxWidth="sm"
+          onConfirm={() => emptyBoxesConfirm && doTransition(emptyBoxesConfirm)}
+          isPending={transitionMutation.isPending}
+        >
+          {order.boxes.length === 0 ? (
+            <Typography variant="body2">В заказе нет ни одной коробки.</Typography>
+          ) : (
+            <>
+              <Typography variant="body2">В заказе есть коробки без компонентов:</Typography>
+              <Box component="ul" sx={{mt: 1, mb: 0, pl: 3}}>
+                {emptyBoxes.map((box) => (
+                  <Typography key={box.id} component="li" variant="body2">
+                    {formatBoxLabel(box, order.boxes)}
+                  </Typography>
+                ))}
+              </Box>
+            </>
+          )}
+          <Typography variant="body2" sx={{mt: 2}}>
+            Всё равно продолжить?
+          </Typography>
+        </ConfirmDialog>
       </Stack>
     </CatalogItemDrawerHost>
   );
