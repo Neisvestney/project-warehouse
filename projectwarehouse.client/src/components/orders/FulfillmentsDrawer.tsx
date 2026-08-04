@@ -17,6 +17,9 @@ import type {AssemblyFulfillmentDto} from "@/api/types.gen";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import {countFulfilledQty, getFulfillmentKind} from "@/components/orders/orderAssemblyUtils";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
+import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
+import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
+import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState";
 
 function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -34,9 +37,16 @@ function formatNodePath(path: string[]): string {
 interface FulfillmentCardProps {
   fulfillment: AssemblyFulfillmentDto;
   isVariation: boolean;
+  catalogItemId?: string;
+  openCatalogItemDrawer: (id: string) => void;
 }
 
-function FulfillmentCard({fulfillment, isVariation}: FulfillmentCardProps) {
+function FulfillmentCard({
+  fulfillment,
+  isVariation,
+  catalogItemId,
+  openCatalogItemDrawer,
+}: FulfillmentCardProps) {
   const kind = getFulfillmentKind(fulfillment);
   const headline =
     kind === "unit"
@@ -45,25 +55,37 @@ function FulfillmentCard({fulfillment, isVariation}: FulfillmentCardProps) {
         ? `Комплект (${fulfillment.bundleComponents.length} комп.)`
         : `× ${fulfillment.quantity}`;
 
+  const headlineText = (
+    <Typography variant="body2" sx={{fontWeight: 600}}>
+      {headline}
+    </Typography>
+  );
+
   return (
     <Paper variant="outlined" sx={{p: 1.5}}>
       <Stack spacing={1}>
-        <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
-          <Typography variant="body2" sx={{fontWeight: 600}}>
-            {headline}
-          </Typography>
-        </Stack>
+        {catalogItemId ? (
+          <CatalogItemLink catalogItemId={catalogItemId} onOpen={openCatalogItemDrawer}>
+            {headlineText}
+          </CatalogItemLink>
+        ) : (
+          headlineText
+        )}
 
         {isVariation &&
           (fulfillment.resolvedCatalogItemId ? (
-            <Stack direction="row" spacing={1} sx={{alignItems: "center", flexWrap: "wrap"}}>
+            <CatalogItemLink
+              catalogItemId={fulfillment.resolvedCatalogItemId}
+              onOpen={openCatalogItemDrawer}
+              sx={{flexWrap: "wrap"}}
+            >
               <Typography variant="body2">
                 Вариант: {fulfillment.resolvedCatalogItemName}
               </Typography>
               {fulfillment.resolvedCatalogItemType && (
                 <CatalogItemTypeChip type={fulfillment.resolvedCatalogItemType} />
               )}
-            </Stack>
+            </CatalogItemLink>
           ) : (
             <Typography variant="body2" color="text.disabled">
               Вариант не зафиксирован
@@ -84,10 +106,14 @@ function FulfillmentCard({fulfillment, isVariation}: FulfillmentCardProps) {
                 {fulfillment.bundleComponents.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell>
-                      <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
+                      <CatalogItemLink
+                        catalogItemId={c.catalogItemId}
+                        onOpen={openCatalogItemDrawer}
+                        spacing={0.5}
+                      >
                         <Typography variant="body2">{c.catalogItemName}</Typography>
                         <CatalogItemTypeChip type={c.catalogItemType} />
-                      </Stack>
+                      </CatalogItemLink>
                     </TableCell>
                     <TableCell>
                       <Typography variant="caption">{formatNodePath(c.sourceNodePath)}</Typography>
@@ -125,6 +151,7 @@ interface FulfillmentsDrawerProps {
   subtitle?: string;
   quantity: number;
   isVariation?: boolean;
+  catalogItemId?: string;
   fulfillments: AssemblyFulfillmentDto[];
 }
 
@@ -135,8 +162,12 @@ function FulfillmentsDrawer({
   subtitle,
   quantity,
   isVariation = false,
+  catalogItemId,
   fulfillments,
 }: FulfillmentsDrawerProps) {
+  const [openedCatalogItemId, openCatalogDrawer, closeCatalogDrawer] =
+    useDrawerSearchParamsState("fulfillmentCatalogItem");
+
   return (
     <Drawer
       anchor="right"
@@ -163,10 +194,21 @@ function FulfillmentsDrawer({
           </Typography>
         ) : (
           fulfillments.map((f) => (
-            <FulfillmentCard key={f.id} fulfillment={f} isVariation={isVariation} />
+            <FulfillmentCard
+              key={f.id}
+              fulfillment={f}
+              isVariation={isVariation}
+              catalogItemId={catalogItemId}
+              openCatalogItemDrawer={openCatalogDrawer}
+            />
           ))
         )}
       </Stack>
+      <CatalogItemDrawer
+        itemId={openedCatalogItemId}
+        onClose={closeCatalogDrawer}
+        onOpenItem={openCatalogDrawer}
+      />
     </Drawer>
   );
 }

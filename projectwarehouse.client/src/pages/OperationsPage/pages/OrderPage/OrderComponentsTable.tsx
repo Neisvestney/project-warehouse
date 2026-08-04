@@ -12,6 +12,7 @@ import {
   TableHead,
   TableRow,
   Tooltip,
+  Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -24,6 +25,8 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import type {OrderBoxComponentDto, OrderDetailsDto, OrderStatus} from "@/api/types.gen";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
+import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
+import {useOpenCatalogItem} from "@/components/catalog/CatalogItemDrawerContext";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
@@ -49,6 +52,7 @@ function OrderComponentsTable({
   canEdit,
 }: OrderComponentsTableProps) {
   const orderId = order.id;
+  const openCatalogItem = useOpenCatalogItem();
   const queryClient = useQueryClient();
   const queryKey = ordersGetByIdQueryKey({path: {id: orderId}});
 
@@ -134,7 +138,11 @@ function OrderComponentsTable({
                   setFulfillmentsDrawerOpen(true);
                 }}
               >
-                <TableCell>{c.catalogItemName}</TableCell>
+                <TableCell>
+                  <CatalogItemLink catalogItemId={c.catalogItemId} onOpen={openCatalogItem}>
+                    <Typography variant="body2">{c.catalogItemName}</Typography>
+                  </CatalogItemLink>
+                </TableCell>
                 <TableCell>
                   <CatalogItemTypeChip type={c.catalogItemType} />
                 </TableCell>
@@ -229,6 +237,7 @@ function OrderComponentsTable({
         title={fulfillmentsTarget?.catalogItemName ?? ""}
         quantity={fulfillmentsTarget?.quantity ?? 0}
         isVariation={fulfillmentsTarget?.catalogItemType === "variation"}
+        catalogItemId={fulfillmentsTarget?.catalogItemId}
         fulfillments={collectBoxComponentFulfillments(
           order,
           boxId,

@@ -36,6 +36,8 @@ import type {
   AssemblyTaskStatus,
   OrderBoxDto,
 } from "@/api/types.gen";
+import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
+import {useOpenCatalogItem} from "@/components/catalog/CatalogItemDrawerContext";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import FulfillmentsDrawer from "@/components/orders/FulfillmentsDrawer";
 import {countFulfilledQty, getTaskProgress} from "@/components/orders/orderAssemblyUtils";
@@ -139,6 +141,7 @@ function ComponentRow({
   taskBoxId,
   canFulfill,
 }: ComponentRowProps) {
+  const openCatalogItem = useOpenCatalogItem();
   const [addOpen, setAddOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [fulfillmentsOpen, setFulfillmentsOpen] = useState(false);
@@ -156,7 +159,9 @@ function ComponentRow({
           ) : (
             <Box sx={{width: 16, height: 16, borderRadius: "50%", bgcolor: "grey.300"}} />
           )}
-          <Typography variant="body2">{component.catalogItemName}</Typography>
+          <CatalogItemLink catalogItemId={component.catalogItemId} onOpen={openCatalogItem}>
+            <Typography variant="body2">{component.catalogItemName}</Typography>
+          </CatalogItemLink>
           <Typography variant="caption" color="text.secondary">
             {fulfilledQty}/{component.quantity}
           </Typography>
@@ -226,6 +231,7 @@ function ComponentRow({
         title={component.catalogItemName}
         quantity={component.quantity}
         isVariation={component.catalogItemType === "variation"}
+        catalogItemId={component.catalogItemId}
         fulfillments={component.fulfillments}
       />
     </Box>

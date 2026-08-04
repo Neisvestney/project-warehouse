@@ -17,7 +17,6 @@ import {
 } from "@mui/material";
 import ArchiveIcon from "@mui/icons-material/Archive";
 import StarIcon from "@mui/icons-material/Star";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import {useQuery} from "@tanstack/react-query";
@@ -43,6 +42,7 @@ import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
+import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
 import {UnitItemsDrawer} from "@/components/inventory/UnitItemsDrawer";
 
 const SORTABLE_COLUMNS: {key: InventoryItemSortBy; label: string}[] = [
@@ -251,20 +251,9 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
                         <CatalogItemTypeChip type={row.catalogItem.type} />
                       </TableCell>
                       <TableCell>
-                        <Stack
-                          direction="row"
-                          spacing={1}
-                          sx={{
-                            alignItems: "center",
-                            cursor: "pointer",
-                            width: "fit-content",
-                            "& .open-icon": {visibility: "hidden"},
-                            "&:hover .open-icon": {visibility: "visible"},
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openCatalogDrawer(row.catalogItemId);
-                          }}
+                        <CatalogItemLink
+                          catalogItemId={row.catalogItemId}
+                          onOpen={openCatalogDrawer}
                         >
                           <Typography variant="body2">{row.catalogItem.fullName}</Typography>
                           {row.catalogItem.isArchived && (
@@ -272,11 +261,7 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
                               sx={{fontSize: 14, color: "warning.main", flexShrink: 0}}
                             />
                           )}
-                          <OpenInNewIcon
-                            className="open-icon"
-                            sx={{fontSize: 14, color: "text.secondary"}}
-                          />
-                        </Stack>
+                        </CatalogItemLink>
                       </TableCell>
                       <TableCell>{row.catalogItem.article}</TableCell>
                       <TableCell align="right">

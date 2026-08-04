@@ -64,8 +64,11 @@ src/
 │
 ├── components/
 │   ├── catalog/
-│   │   ├── CatalogItemDrawer.tsx   # Reusable right-drawer: view + edit any catalog item (all types)
-│   │   └── CatalogItemTypeChip.tsx # MUI Chip mapping CatalogItemType → label + color
+│   │   ├── CatalogItemDrawer.tsx        # Reusable right-drawer: view + edit any catalog item (all types)
+│   │   ├── CatalogItemDrawerHost.tsx    # One CatalogItemDrawer per page, open fn shared via context
+│   │   ├── CatalogItemDrawerContext.ts  # Context + useOpenCatalogItem() for the host
+│   │   ├── CatalogItemLink.tsx          # Clickable catalog item label with hover OpenInNew icon
+│   │   └── CatalogItemTypeChip.tsx      # MUI Chip mapping CatalogItemType → label + color
 │   ├── receipts/
 │   │   ├── ReceiptStatusChip.tsx       # MUI Chip for ReceiptStatus (color per status)
 │   │   ├── ReceiptItemsSection.tsx     # Collapsible per-item section: planned/received counts + placements table
@@ -445,8 +448,8 @@ Reusable inventory table component (`components/inventory/ItemsBasePage.tsx`). A
 - **Type filter** — `catalogItemType` Select using `CATALOG_ITEM_TYPE_CONFIG`; URL-synced via `?type=`
 - **Archive filter** — ToggleButtonGroup (Активные / Архивные) for `isArchived`; URL-synced via `?archived=`
 - **Search** — debounced via `useDebouncedSyncedWithQueryState("search")`
-- **Table columns:** Тип (`CatalogItemTypeChip`), Название (fullName + archive icon + `OpenInNew` button), Артикул, Количество
-- **Catalog item link** — clicking the `OpenInNew` button (`e.stopPropagation()`) calls `openCatalogDrawer(row.catalogItemId)` → opens `CatalogItemDrawer`
+- **Table columns:** Тип (`CatalogItemTypeChip`), Название (`CatalogItemLink` with fullName + archive icon), Артикул, Количество
+- **Catalog item link** — the name cell is a `CatalogItemLink` calling `openCatalogDrawer(row.catalogItemId)` → opens `CatalogItemDrawer` (it `stopPropagation()`s, so the row's own click handler doesn't fire)
 - **Row click** — type `unit` → opens `UnitItemsDrawer`; other types → no action
 - All drawer state via `useDrawerSearchParamsState`: `"catalogItem"`, `"unitCatalogItem"`
 
@@ -578,6 +581,50 @@ Props: `{ itemId: string | null; onClose: () => void; onOpenItem?: (id: string) 
 - ProductGroup → Children `useFieldArray` (inline form per child: type, name, article, barcode, description, notes, tags, variations)
 
 Edit is hidden for items with `groupId` (managed by parent group — shown as an info alert).
+
+**Convention:** wherever a catalog item name is rendered — table cell, card headline, drawer row — it should be a `CatalogItemLink` that opens this drawer. When building a new page or drawer that shows catalog items, add the open-drawer affordance as part of the initial implementation, not as a follow-up. State always goes through `useDrawerSearchParamsState`, so «назад» closes the drawer; only the param name differs:
+
+- **Page, single link owner** → `useDrawerSearchParamsState("catalogItem")` plus a local `<CatalogItemDrawer>`. The opened item lands in the URL and stays deep-linkable (`ItemsBasePage`, `ReceiptItemsSection`, `WriteoffItemsSection`). `CatalogPage` predates the convention and uses `"item"` for its own row drawer — its param is page-local and must not be confused with the shared `"catalogItem"` name.
+- **Page whose links live in components rendered in a loop** → wrap the page in [`CatalogItemDrawerHost`](#catalogitemdrawerhost) and call `useOpenCatalogItem()` in the leaf. A per-component drawer would open N copies at once, since the state is shared via the URL.
+- **Nested inside a drawer/dialog whose own open state is *not* in the URL** → use a distinct param name and register it in `EPHEMERAL_PARAMS` (`utils/ephemeralSearchParams.ts`), e.g. `"fulfillmentCatalogItem"` in `FulfillmentsDrawer`. Otherwise a reload would reopen the nested drawer on top of a closed parent. Never reuse `"catalogItem"` for this — that name must survive a cold load.
+
+### `CatalogItemDrawerHost`
+
+`components/catalog/CatalogItemDrawerHost.tsx` — renders exactly one `CatalogItemDrawer` for a whole page (param `"catalogItem"`) and publishes its open function through context. The context and the `useOpenCatalogItem()` hook live in a separate `CatalogItemDrawerContext.ts` so the host file only exports a component (react-refresh rule).
+
+```tsx
+// page
+<CatalogItemDrawerHost>
+  <Stack spacing={2}>…</Stack>
+</CatalogItemDrawerHost>
+
+// any descendant, however deep
+const openCatalogItem = useOpenCatalogItem();
+<CatalogItemLink catalogItemId={c.catalogItemId} onOpen={openCatalogItem}>…</CatalogItemLink>
+```
+
+`useOpenCatalogItem()` throws outside the host — a missing wrapper fails loudly instead of silently doing nothing. Used by `OrderPage` (→ `OrderComponentsTable`, `AssemblyTaskAccordionItem`) and `OrdersAssemblyPage` (→ `AssemblyTaskAccordion`).
+
+### `stripEphemeralSearchParams()`
+
+Called in `main.tsx` before `mountApp()` (same slot as the existing `clear_server` cleanup). Deletes every param listed in `EPHEMERAL_PARAMS` from the current URL via `history.replaceState`, so they never survive a cold entry (F5, bookmark, pasted link) but are untouched by in-app SPA navigation. Running before React mounts means the drawer doesn't flash open for a frame, and the history entry is replaced rather than pushed.
+
+### `CatalogItemLink`
+
+Wrapper (`components/catalog/CatalogItemLink.tsx`) giving any catalog item label the standard clickable look: pointer cursor, `fit-content` width, and an `OpenInNewIcon` that only appears on hover. Click calls `onOpen(catalogItemId)` and `stopPropagation()`s, so it stays safe inside clickable table rows.
+
+Props: `{ catalogItemId: string; onOpen: (id: string) => void; spacing?: number; sx?: SxProps<Theme>; children: ReactNode }`.
+
+Content is passed as children because the composition differs per call site (chip before or after the name, extra badges), and the wrapper stays flag-free.
+
+```tsx
+<CatalogItemLink catalogItemId={c.catalogItemId} onOpen={openCatalogItemDrawer} spacing={0.5}>
+  <Typography variant="body2">{c.catalogItemName}</Typography>
+  <CatalogItemTypeChip type={c.catalogItemType} />
+</CatalogItemLink>
+```
+
+Used by `ItemsBasePage` (name + archive icon), `CatalogPage` (name + archive icon), `ReceiptItemsSection` (chip + name), `WriteoffItemsSection` (chip + name; falls back to plain text when `catalogItemId` is null), `FulfillmentsDrawer` (card headline, resolved variant row, bundle component rows), `OrderComponentsTable` / `AssemblyTaskAccordionItem` / `AssemblyTaskAccordion` (component name, via `useOpenCatalogItem()`).
 
 ### `CatalogItemTypeChip`
 
@@ -883,9 +930,12 @@ Read-only right-hand `Drawer` (`components/orders/FulfillmentsDrawer.tsx`) listi
   title={component.catalogItemName}
   quantity={component.quantity}
   isVariation={component.catalogItemType === "variation"}
+  catalogItemId={component.catalogItemId}
   fulfillments={fulfillments}
 />
 ```
+
+Every catalog item inside the drawer is a `CatalogItemLink` opening a nested `CatalogItemDrawer`, held in the `?fulfillmentCatalogItem=` param (an [ephemeral param](#stripephemeralsearchparams), since this drawer's own open state is local): the card headline (`Инв. № …` / `× N` / `Комплект (N комп.)`) uses the optional `catalogItemId` prop — the position's own item, which `AssemblyFulfillmentDto` doesn't carry, so callers pass it down; the «Вариант: …» row uses `resolvedCatalogItemId`; bundle rows use each component's `catalogItemId`. Without `catalogItemId` the headline just renders as plain text.
 
 Helpers in `components/orders/orderAssemblyUtils.ts`:
 - `countFulfilledQty(fulfillments)` — progress count; a `Unit`/`Bundle` fulfillment always counts as 1.
@@ -990,10 +1040,15 @@ const [selectedId, openDrawer, closeDrawer] = useDrawerSearchParamsState("item")
 - `CatalogPage` — `?item=` param, opens `CatalogItemDrawer`
 - `WarehouseViewPage` — `?storagePlace=` param, opens `StoragePlaceDialog`
 - `ItemsBasePage` — `?catalogItem=`, `?unitCatalogItem=`, `?bundleCatalogItem=` params for the three inventory drawers
+- `ReceiptItemsSection`, `WriteoffItemsSection` — `?catalogItem=`, opens `CatalogItemDrawer`
+- `CatalogItemDrawerHost` — `?catalogItem=`, one drawer per page shared via context (`OrderPage`, `OrdersAssemblyPage`)
+- `FulfillmentsDrawer` — `?fulfillmentCatalogItem=`, an ephemeral param (see [`stripEphemeralSearchParams()`](#stripephemeralsearchparams))
 
 **History semantics:**
 - Open: pushes a new history entry → back button closes the drawer.
 - Close via button: replaces current entry → back button goes to the page visited before the drawer was opened.
+
+**Params of drawers nested in a non-URL parent** must be registered in `EPHEMERAL_PARAMS` — a refresh would otherwise restore the nested drawer with its parent closed.
 
 ### `InstallPrompt` / `UpdatePrompt`
 PWA lifecycle UI. `InstallPrompt` triggers `beforeinstallprompt`. `UpdatePrompt` calls `updateServiceWorker()` from `ServiceWorkerContext` when a new SW version is available.
