@@ -20,6 +20,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {
   ordersRemoveFulfillmentMutation,
@@ -36,6 +37,7 @@ import type {
   OrderBoxDto,
 } from "@/api/types.gen";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import FulfillmentsDrawer from "@/components/orders/FulfillmentsDrawer";
 import {countFulfilledQty, getTaskProgress} from "@/components/orders/orderAssemblyUtils";
 import {formatBoxLabel} from "@/components/orders/orderUtils";
 import AddFulfillmentDialog from "./AddFulfillmentDialog";
@@ -139,6 +141,7 @@ function ComponentRow({
 }: ComponentRowProps) {
   const [addOpen, setAddOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
+  const [fulfillmentsOpen, setFulfillmentsOpen] = useState(false);
 
   const fulfilledQty = countFulfilledQty(component.fulfillments);
   const isDone = fulfilledQty >= component.quantity;
@@ -159,6 +162,11 @@ function ComponentRow({
           </Typography>
         </Stack>
         <Stack direction="row" spacing={0.5}>
+          <Tooltip title="Как собрана позиция">
+            <IconButton size="small" onClick={() => setFulfillmentsOpen(true)}>
+              <VisibilityOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
           {canFulfill && movableQty > 0 && (
             <Tooltip title="Переместить в другую коробку">
               <IconButton size="small" onClick={() => setMoveOpen(true)}>
@@ -211,6 +219,15 @@ function ComponentRow({
           maxQuantity={movableQty}
         />
       )}
+
+      <FulfillmentsDrawer
+        open={fulfillmentsOpen}
+        onClose={() => setFulfillmentsOpen(false)}
+        title={component.catalogItemName}
+        quantity={component.quantity}
+        isVariation={component.catalogItemType === "variation"}
+        fulfillments={component.fulfillments}
+      />
     </Box>
   );
 }

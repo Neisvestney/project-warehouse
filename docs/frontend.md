@@ -840,7 +840,7 @@ Number `TextField` (`components/form/ClampedIntegerField.tsx`) for editing a qua
 Props: `value: number`, `min?: number` (default `1`), `max?: number`, `onCommit: (value: number) => void`, plus all `TextFieldProps` except `value`/`onChange`/`onBlur`/`onFocus`/`type`. If `value` changes externally (e.g. after a mutation invalidates and refetches), the displayed text re-syncs — unless the field is currently focused, so it won't clobber an in-progress edit.
 
 ### `FulfillmentsDrawer`
-Read-only right-hand `Drawer` (`components/orders/FulfillmentsDrawer.tsx`) listing what was actually picked for one order position: source cell breadcrumb, inventory number for `Unit`, chosen variant for `Variation`, an expanded component table for `Bundle`, plus who assembled it and when. Opened by clicking a row in the order page's «Коробки и состав» and «Задания на сборку» cards.
+Read-only right-hand `Drawer` (`components/orders/FulfillmentsDrawer.tsx`) listing what was actually picked for one order position: source cell breadcrumb, inventory number for `Unit`, chosen variant for `Variation`, an expanded component table for `Bundle`, plus who assembled it and when. Opened by clicking a row in the order page's «Коробки и состав» and «Задания на сборку» cards, and by the eye `IconButton` on every component row of the assembler page (`OrdersAssemblyPage`).
 
 ```tsx
 <FulfillmentsDrawer
