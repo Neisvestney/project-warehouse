@@ -4,6 +4,9 @@ import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import DeleteSweepIcon from "@mui/icons-material/DeleteSweep";
 import AssemblyIcon from "@mui/icons-material/Handyman";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import WarehouseIcon from "@mui/icons-material/Warehouse";
 import {createHasAccess} from "@/layouts/SidebarPage/createHasAccess.ts";
 import {createFirstPageUrl} from "@/layouts/SidebarPage/createFirstPageUrl.ts";
 import type {SectionConfig} from "@/layouts/SidebarPage/SidebarPage.tsx";
@@ -23,6 +26,39 @@ import OrdersAssemblyPage from "./pages/OrdersAssemblyPage/OrdersAssemblyPage.ts
 
 export const operationsSections: SectionConfig[] = [
   {
+    label: "Заказы",
+    path: "orders",
+    icon: <ShoppingCartIcon fontSize="small" />,
+    subroutes: [{path: ":id", component: OrderPage}],
+    children: [
+      {
+        label: "Сборка",
+        path: "assembly",
+        component: OrdersAssemblyPage,
+        icon: <AssemblyIcon fontSize="small" />,
+      },
+      {
+        label: "Прямые",
+        path: "direct",
+        component: OrdersDirectPage,
+        subroutes: [{path: "new", component: OrderDirectCreatePage}],
+        icon: <StorefrontIcon fontSize="small" />,
+      },
+      {
+        label: "FBS",
+        path: "fbs",
+        component: OrdersFbsPage,
+        icon: <LocalShippingIcon fontSize="small" />,
+      },
+      {
+        label: "FBO",
+        path: "fbo",
+        component: OrdersFboPage,
+        icon: <WarehouseIcon fontSize="small" />,
+      },
+    ],
+  },
+  {
     label: "Приемки",
     path: "receipts",
     icon: <MoveToInboxIcon fontSize="small" />,
@@ -30,28 +66,6 @@ export const operationsSections: SectionConfig[] = [
     subroutes: [
       {path: "new", component: ReceiptCreatePage},
       {path: ":id", component: ReceiptPage},
-    ],
-  },
-  {
-    label: "Заказы",
-    path: "orders",
-    icon: <ShoppingCartIcon fontSize="small" />,
-    subroutes: [{path: ":id", component: OrderPage}],
-    children: [
-      {
-        label: "Прямые",
-        path: "direct",
-        component: OrdersDirectPage,
-        subroutes: [{path: "new", component: OrderDirectCreatePage}],
-      },
-      {label: "FBS", path: "fbs", component: OrdersFbsPage},
-      {label: "FBO", path: "fbo", component: OrdersFboPage},
-      {
-        label: "Сборка",
-        path: "assembly",
-        component: OrdersAssemblyPage,
-        icon: <AssemblyIcon fontSize="small" />,
-      },
     ],
   },
   {
