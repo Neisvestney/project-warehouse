@@ -203,24 +203,52 @@ src/
 │   │       │   └── NodeInventoryPage.tsx   # Stock overview scoped to one node; uses ItemsBasePage with all 3 IDs
 │   │       └── WarehouseItemsPage/
 │   │           └── WarehouseItemsPage.tsx   # Paginated, searchable table of all item groups in a warehouse; link-to-catalog per row
-│   ├── ReceiptsPage/
-│   │   ├── ReceiptsPage.tsx   # Paginated, searchable, sortable list of receipts (приёмки)
-│   │   └── pages/
-│   │       ├── ReceiptCreatePage/
-│   │       │   └── ReceiptCreatePage.tsx   # RHF form for creating a new receipt (requires edit permission)
-│   │       └── ReceiptPage/
-│   │           └── ReceiptPage.tsx          # Receipt detail: metadata edit, status transitions, items + placements
 │   ├── StoragePage/             # /storage/* — SidebarPage module (Склады + Остатки)
 │   │   ├── StoragePage.tsx      # SidebarPage wrapper for /storage/*
 │   │   └── storageConfig.tsx    # storageSections, hasStorageAccess, getStorageFirstPageUrl
 │   ├── OperationsPage/          # /operations/* — SidebarPage module (Приемки + Заказы + Перемещения + Списания)
 │   │   ├── OperationsPage.tsx   # SidebarPage wrapper for /operations/*
 │   │   ├── operationsConfig.tsx # operationsSections, hasOperationsAccess, getOperationsFirstPageUrl
-│   │   └── stubs/
-│   │       ├── OrdersFbsPage.tsx   # Stub — страница в разработке
-│   │       ├── OrdersFboPage.tsx   # Stub — страница в разработке
-│   │       ├── TransfersPage.tsx   # Stub — страница в разработке
-│   │       └── WriteoffsPage.tsx   # Stub — страница в разработке
+│   │   └── pages/
+│   │       ├── OrdersDirectPage/
+│   │       │   └── OrdersDirectPage.tsx     # Paginated, searchable list of direct orders
+│   │       ├── OrderDirectCreatePage/
+│   │       │   └── OrderDirectCreatePage.tsx # RHF form for creating a direct order
+│   │       ├── OrderPage/
+│   │       │   ├── OrderPage.tsx             # Order detail: meta, components, boxes, assembly tasks
+│   │       │   ├── OrderMetaSection.tsx      # Order metadata block (status transitions, edit)
+│   │       │   ├── OrderComponentsTable.tsx  # Table of order components
+│   │       │   ├── OrderBoxesSection.tsx     # Boxes attached to the order
+│   │       │   ├── OrderAssemblyTasksSection.tsx # Assembly tasks list for the order
+│   │       │   ├── AssemblyTaskAccordionItem.tsx # Single assembly task accordion row
+│   │       │   ├── CreateAssemblyTaskDialog.tsx  # Dialog for creating an assembly task
+│   │       │   └── EditAssemblyTaskDialog.tsx    # Dialog for editing an assembly task
+│   │       ├── OrdersAssemblyPage/
+│   │       │   ├── OrdersAssemblyPage.tsx    # Assembly workspace: orders + tasks + fulfillments
+│   │       │   ├── AssemblyOrderAccordion.tsx / AssemblyOrderInline.tsx / AssemblyOrderBoxesSection.tsx
+│   │       │   ├── AssemblyTaskAccordion.tsx # Task accordion with fulfillments drawer
+│   │       │   ├── AddFulfillmentDialog.tsx / MoveTaskComponentDialog.tsx / BatchAssemblyDialog.tsx
+│   │       │   └── batchEligibility.ts       # Pure helpers deciding which tasks can be batch-fulfilled
+│   │       ├── OrdersFbsPage/
+│   │       │   └── OrdersFbsPage.tsx         # Stub — страница в разработке
+│   │       ├── OrdersFboPage/
+│   │       │   └── OrdersFboPage.tsx         # Stub — страница в разработке
+│   │       ├── ReceiptsPage/
+│   │       │   ├── ReceiptsPage.tsx          # Paginated, searchable, sortable list of receipts (приёмки)
+│   │       │   └── pages/
+│   │       │       ├── ReceiptCreatePage/
+│   │       │       │   └── ReceiptCreatePage.tsx # RHF form for creating a new receipt (requires edit permission)
+│   │       │       └── ReceiptPage/
+│   │       │           └── ReceiptPage.tsx    # Receipt detail: metadata edit, status transitions, items + placements
+│   │       ├── TransfersPage/
+│   │       │   └── TransfersPage.tsx         # Перемещения: pick source/target location, execute transfer
+│   │       └── WriteoffsPage/
+│   │           ├── WriteoffsPage.tsx         # Paginated, searchable, sortable list of writeoffs (списания)
+│   │           └── pages/
+│   │               ├── WriteoffCreatePage/
+│   │               │   └── WriteoffCreatePage.tsx # RHF form for creating a new writeoff
+│   │               └── WriteoffPage/
+│   │                   └── WriteoffPage.tsx   # Writeoff detail: metadata edit, status transitions, items
 │   └── SettingsPage/
 │       ├── SettingsPage.tsx     # Sections declaration only — drives routes + sidebar nav for /settings/*
 │       ├── settingsConfig.tsx   # settingsSections (Роли + Сотрудники), hasSettingsAccess, getSettingsFirstPageUrl
@@ -294,15 +322,21 @@ src/
 /storage/inventory        →   InventoryPage                   (authenticated)
 
 /operations/*             → MainLayout > OperationsPage  (SidebarPage)
-/operations               →   redirect to /operations/receipts
+/operations               →   redirect to first accessible section (/operations/orders/assembly)
+/operations/orders        →   redirect to /operations/orders/assembly
+/operations/orders/assembly   →   OrdersAssemblyPage
+/operations/orders/direct     →   OrdersDirectPage
+/operations/orders/direct/new →   OrderDirectCreatePage
+/operations/orders/fbs    →   OrdersFbsPage                   (stub)
+/operations/orders/fbo    →   OrdersFboPage                   (stub)
+/operations/orders/:id    →   OrderPage
 /operations/receipts      →   ReceiptsPage                    (receipts.view | receipts.view_assigned | receipts.process_assigned)
 /operations/receipts/new  →   ReceiptCreatePage               (receipts.edit | receipts.edit_assigned)
 /operations/receipts/:id  →   ReceiptPage                     (authenticated)
-/operations/orders        →   redirect to /operations/orders/fbs
-/operations/orders/fbs    →   OrdersFbsPage                   (stub)
-/operations/orders/fbo    →   OrdersFboPage                   (stub)
-/operations/transfers     →   TransfersPage                   (stub)
-/operations/writeoffs     →   WriteoffsPage                   (stub)
+/operations/transfers     →   TransfersPage
+/operations/writeoffs     →   WriteoffsPage
+/operations/writeoffs/new →   WriteoffCreatePage
+/operations/writeoffs/:id →   WriteoffPage
 
 /settings/*               → MainLayout > SettingsPage    (SidebarPage)
 /settings                 →   redirect to first accessible section

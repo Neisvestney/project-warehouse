@@ -90,9 +90,9 @@
 
 ---
 
-## Флоу 3: Перемещения (планируется)
+## Флоу 3: Перемещения (реализовано)
 
-Не реализовано. Заглушка `TransfersPage` на фронтенде.
+`TransfersPage` (`projectwarehouse.client/src/pages/OperationsPage/pages/TransfersPage`): выбор источника и приёмника (`LocationField`), список позиций, выполнение через `transfersExecute`.
 
 ---
 
