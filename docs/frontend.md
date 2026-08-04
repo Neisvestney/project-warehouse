@@ -839,6 +839,25 @@ Number `TextField` (`components/form/ClampedIntegerField.tsx`) for editing a qua
 
 Props: `value: number`, `min?: number` (default `1`), `max?: number`, `onCommit: (value: number) => void`, plus all `TextFieldProps` except `value`/`onChange`/`onBlur`/`onFocus`/`type`. If `value` changes externally (e.g. after a mutation invalidates and refetches), the displayed text re-syncs — unless the field is currently focused, so it won't clobber an in-progress edit.
 
+### `FulfillmentsDrawer`
+Read-only right-hand `Drawer` (`components/orders/FulfillmentsDrawer.tsx`) listing what was actually picked for one order position: source cell breadcrumb, inventory number for `Unit`, chosen variant for `Variation`, an expanded component table for `Bundle`, plus who assembled it and when. Opened by clicking a row in the order page's «Коробки и состав» and «Задания на сборку» cards.
+
+```tsx
+<FulfillmentsDrawer
+  open
+  onClose={() => setTarget(null)}
+  title={component.catalogItemName}
+  quantity={component.quantity}
+  isVariation={component.catalogItemType === "variation"}
+  fulfillments={fulfillments}
+/>
+```
+
+Helpers in `components/orders/orderAssemblyUtils.ts`:
+- `countFulfilledQty(fulfillments)` — progress count; a `Unit`/`Bundle` fulfillment always counts as 1.
+- `getFulfillmentKind(fulfillment)` — `"unit" | "bundle" | "standard"`, so the three call sites don't each re-derive it.
+- `collectBoxComponentFulfillments(order, orderBoxId, catalogItemId)` — fulfillments hang off `AssemblyTaskBoxComponent`, so an order box component's ones have to be gathered across every assembly task that took on that box.
+
 ### `useDefaultStorageNode(warehouseId, enabled?)`
 Hook (`hooks/useDefaultStorageNode.ts`) fetching the warehouse's default storage cell via `GET /api/warehouses/{id}/default-node`. Returns a `SelectedNode | null` — `null` while loading, on error, or if the warehouse has no default cell assigned (`defaultStoragePlaceNodeId` unset). `enabled` (default `true`) gates the query, e.g. to skip it for non-`standard` catalog item types that don't need a storage cell.
 

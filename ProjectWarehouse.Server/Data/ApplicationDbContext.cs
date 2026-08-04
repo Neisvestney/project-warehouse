@@ -421,6 +421,18 @@ public class ApplicationDbContext : IdentityDbContext<
                 .HasForeignKey(x => x.UnitInventoryItemId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.ResolvedCatalogItem)
+                .WithMany()
+                .HasForeignKey(x => x.ResolvedCatalogItemId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.CreatedBy)
+                .WithMany()
+                .HasForeignKey(x => x.CreatedById)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         builder.Entity<AssemblyFulfillmentBundleComponent>(e =>

@@ -22,14 +22,19 @@ import {
   ordersRemoveComponentMutation,
   ordersUpdateComponentMutation,
 } from "@/api/@tanstack/react-query.gen";
-import type {OrderBoxComponentDto, OrderStatus} from "@/api/types.gen";
+import type {OrderBoxComponentDto, OrderDetailsDto, OrderStatus} from "@/api/types.gen";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
+import FulfillmentsDrawer from "@/components/orders/FulfillmentsDrawer";
+import {
+  collectBoxComponentFulfillments,
+  countFulfilledQty,
+} from "@/components/orders/orderAssemblyUtils";
 
 interface OrderComponentsTableProps {
-  orderId: string;
+  order: OrderDetailsDto;
   boxId: string;
   components: OrderBoxComponentDto[];
   orderStatus: OrderStatus;
@@ -37,14 +42,19 @@ interface OrderComponentsTableProps {
 }
 
 function OrderComponentsTable({
-  orderId,
+  order,
   boxId,
   components,
   orderStatus,
   canEdit,
 }: OrderComponentsTableProps) {
+  const orderId = order.id;
   const queryClient = useQueryClient();
   const queryKey = ordersGetByIdQueryKey({path: {id: orderId}});
+
+  const [fulfillmentsTarget, setFulfillmentsTarget] = useState<OrderBoxComponentDto | null>(null);
+  const [fulfillmentsDrawerOpen, setFulfillmentsDrawerOpen] = useState(false);
+  const hasAssembly = order.assemblyTasks.length > 0;
 
   const canAdd = canEdit && (orderStatus === "draft" || orderStatus === "confirmed");
   const canDelete = canEdit && (orderStatus === "draft" || orderStatus === "confirmed");
@@ -105,40 +115,61 @@ function OrderComponentsTable({
             <TableCell>Позиция</TableCell>
             <TableCell>Тип</TableCell>
             <TableCell sx={{width: 100}}>Кол-во</TableCell>
+            {hasAssembly && <TableCell sx={{width: 90}}>Собрано</TableCell>}
             {canDelete && <TableCell sx={{width: 80}} />}
           </TableRow>
         </TableHead>
         <TableBody>
-          {components.map((c) => (
-            <TableRow key={c.id}>
-              <TableCell>{c.catalogItemName}</TableCell>
-              <TableCell>
-                <CatalogItemTypeChip type={c.catalogItemType} />
-              </TableCell>
-              <TableCell>
-                {canEditQuantity ? (
-                  <ClampedIntegerField
-                    size="small"
-                    value={c.quantity}
-                    onCommit={(qty) => handleQuantityChange(c, qty)}
-                    slotProps={{htmlInput: {style: {width: 60}}}}
-                    variant="outlined"
-                  />
-                ) : (
-                  c.quantity
-                )}
-              </TableCell>
-              {canDelete && (
+          {components.map((c) => {
+            const fulfilledQty = hasAssembly
+              ? countFulfilledQty(collectBoxComponentFulfillments(order, boxId, c.catalogItemId))
+              : 0;
+            return (
+              <TableRow
+                key={c.id}
+                hover
+                sx={{cursor: "pointer"}}
+                onClick={() => {
+                  setFulfillmentsTarget(c)
+                  setFulfillmentsDrawerOpen(true)
+                }}
+              >
+                <TableCell>{c.catalogItemName}</TableCell>
                 <TableCell>
-                  <Tooltip title="Удалить">
-                    <IconButton size="small" color="error" onClick={() => setDeleteTarget(c)}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                  <CatalogItemTypeChip type={c.catalogItemType} />
                 </TableCell>
-              )}
-            </TableRow>
-          ))}
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  {canEditQuantity ? (
+                    <ClampedIntegerField
+                      size="small"
+                      value={c.quantity}
+                      onCommit={(qty) => handleQuantityChange(c, qty)}
+                      slotProps={{htmlInput: {style: {width: 60}}}}
+                      variant="outlined"
+                    />
+                  ) : (
+                    c.quantity
+                  )}
+                </TableCell>
+                {hasAssembly && (
+                  <TableCell
+                    sx={{color: fulfilledQty >= c.quantity ? "success.main" : "text.secondary"}}
+                  >
+                    {fulfilledQty}
+                  </TableCell>
+                )}
+                {canDelete && (
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Tooltip title="Удалить">
+                      <IconButton size="small" color="error" onClick={() => setDeleteTarget(c)}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                )}
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
 
@@ -187,6 +218,19 @@ function OrderComponentsTable({
           deleteTarget && deleteMutation.mutate({path: {id: orderId, boxId, cid: deleteTarget.id}})
         }
         isPending={deleteMutation.isPending}
+      />
+
+      <FulfillmentsDrawer
+        open={fulfillmentsDrawerOpen}
+        onClose={() => setFulfillmentsDrawerOpen(false)}
+        title={fulfillmentsTarget?.catalogItemName ?? ""}
+        quantity={fulfillmentsTarget?.quantity ?? 0}
+        isVariation={fulfillmentsTarget?.catalogItemType === "variation"}
+        fulfillments={collectBoxComponentFulfillments(
+          order,
+          boxId,
+          fulfillmentsTarget?.catalogItemId ?? "",
+        )}
       />
     </>
   );

@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useRef, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {
   Alert,
   Autocomplete,
@@ -112,12 +112,12 @@ interface AddFulfillmentDialogProps {
 
 interface StandardFormProps {
   warehouseId: string;
-  quantity: number;
+  maxQuantity?: number;
   value: {sourceNodeId: string | null; nodePath: string | null; quantity: number};
   onChange: (v: {sourceNodeId: string | null; nodePath: string | null; quantity: number}) => void;
 }
 
-function StandardForm({warehouseId, value, onChange}: StandardFormProps) {
+function StandardForm({warehouseId, maxQuantity, value, onChange}: StandardFormProps) {
   return (
     <Stack spacing={2}>
       <NodeField
@@ -136,6 +136,7 @@ function StandardForm({warehouseId, value, onChange}: StandardFormProps) {
         label="Количество"
         size="small"
         value={value.quantity}
+        max={maxQuantity}
         onCommit={(quantity) => onChange({...value, quantity})}
       />
     </Stack>
@@ -215,15 +216,21 @@ function UnitForm({catalogItemId, warehouseId, onChange}: UnitFormProps) {
 
 interface BundleSlotFormProps {
   warehouseId: string;
+  slotKey: string;
   catalogItemId: string;
   catalogItemType: CatalogItemType;
   componentName: string;
   multiplier: number;
-  onChange: (entries: AddFulfillmentBundleComponentRequest[]) => void;
+  onChange: (
+    slotKey: string,
+    entries: AddFulfillmentBundleComponentRequest[],
+    complete: boolean,
+  ) => void;
 }
 
 function BundleSlotForm({
   warehouseId,
+  slotKey,
   catalogItemId,
   catalogItemType,
   componentName,
@@ -248,16 +255,33 @@ function BundleSlotForm({
 
   useEffect(() => {
     if (catalogItemType === "standard" && effectiveNode) {
-      onChange([
-        {
-          catalogItemId,
-          sourceNodeId: effectiveNode.nodeId,
-          quantity: multiplier,
-          unitInventoryItemId: null,
-        },
-      ]);
+      onChange(
+        slotKey,
+        [
+          {
+            catalogItemId,
+            sourceNodeId: effectiveNode.nodeId,
+            quantity: multiplier,
+            unitInventoryItemId: null,
+          },
+        ],
+        true,
+      );
     }
-  }, [catalogItemType, effectiveNode, catalogItemId, multiplier, onChange]);
+  }, [catalogItemType, effectiveNode, catalogItemId, multiplier, slotKey, onChange]);
+
+  // A slot awaiting input must announce itself, otherwise the parent never learns it exists.
+  useEffect(() => {
+    if (catalogItemType === "unit" || (catalogItemType === "variation" && !selectedVariantId)) {
+      onChange(slotKey, [], false);
+    }
+  }, [catalogItemType, selectedVariantId, slotKey, onChange]);
+
+  const handleNestedChange = useCallback(
+    (entries: AddFulfillmentBundleComponentRequest[], complete: boolean) =>
+      onChange(slotKey, entries, complete),
+    [onChange, slotKey],
+  );
 
   if (catalogItemType === "standard") {
     return (
@@ -282,6 +306,7 @@ function BundleSlotForm({
           value={null}
           onChange={(id, nodeId) =>
             onChange(
+              slotKey,
               id
                 ? [
                     {
@@ -292,6 +317,7 @@ function BundleSlotForm({
                     },
                   ]
                 : [],
+              !!id,
             )
           }
         />
@@ -309,7 +335,7 @@ function BundleSlotForm({
           catalogItemId={catalogItemId}
           warehouseId={warehouseId}
           multiplier={multiplier}
-          onChange={onChange}
+          onChange={handleNestedChange}
         />
       </Stack>
     );
@@ -326,7 +352,7 @@ function BundleSlotForm({
 
     return (
       <Stack spacing={1} sx={{pl: 1, borderLeft: "2px solid", borderColor: "divider"}}>
-        <FormControl size="small" fullWidth>
+        <FormControl size="small" fullWidth error={!selectedVariantId}>
           <InputLabel>{componentName} — вариант</InputLabel>
           <Select
             value={selectedVariantId ?? ""}
@@ -335,7 +361,7 @@ function BundleSlotForm({
               const variant = variantOptions.find((v) => v.id === e.target.value);
               setSelectedVariantId(e.target.value || null);
               setSelectedVariantType(variant?.type ?? null);
-              onChange([]);
+              onChange(slotKey, [], false);
             }}
           >
             {variantOptions.map((v) => (
@@ -350,6 +376,7 @@ function BundleSlotForm({
           <BundleSlotForm
             key={selectedVariantId}
             warehouseId={warehouseId}
+            slotKey={slotKey}
             catalogItemId={selectedVariantId}
             catalogItemType={selectedVariantType}
             componentName={componentName}
@@ -374,7 +401,7 @@ interface BundleTreeFormProps {
   catalogItemId: string;
   warehouseId: string;
   multiplier?: number;
-  onChange: (entries: AddFulfillmentBundleComponentRequest[]) => void;
+  onChange: (entries: AddFulfillmentBundleComponentRequest[], complete: boolean) => void;
 }
 
 function BundleTreeForm({
@@ -384,13 +411,22 @@ function BundleTreeForm({
   onChange,
 }: BundleTreeFormProps) {
   const catalogQuery = useQuery(catalogGetByIdOptions({path: {id: catalogItemId}}));
-  const components = catalogQuery.data?.components ?? [];
+  const catalogComponents = catalogQuery.data?.components;
+  const components = useMemo(() => catalogComponents ?? [], [catalogComponents]);
   const slotEntriesRef = useRef<Map<string, AddFulfillmentBundleComponentRequest[]>>(new Map());
+  const slotCompleteRef = useRef<Map<string, boolean>>(new Map());
+  const slotKeys = useMemo(() => components.map((c) => c.componentId), [components]);
 
-  function updateSlot(componentId: string, entries: AddFulfillmentBundleComponentRequest[]) {
-    slotEntriesRef.current.set(componentId, entries);
-    onChange(Array.from(slotEntriesRef.current.values()).flat());
-  }
+  const updateSlot = useCallback(
+    (slotKey: string, entries: AddFulfillmentBundleComponentRequest[], complete: boolean) => {
+      slotEntriesRef.current.set(slotKey, entries);
+      slotCompleteRef.current.set(slotKey, complete);
+      const allComplete =
+        slotKeys.length > 0 && slotKeys.every((key) => slotCompleteRef.current.get(key) === true);
+      onChange(Array.from(slotEntriesRef.current.values()).flat(), allComplete);
+    },
+    [onChange, slotKeys],
+  );
 
   if (catalogQuery.isLoading) return <CircularProgress size={20} />;
 
@@ -400,11 +436,12 @@ function BundleTreeForm({
         <BundleSlotForm
           key={comp.componentId}
           warehouseId={warehouseId}
+          slotKey={comp.componentId}
           catalogItemId={comp.componentId}
           catalogItemType={comp.componentType}
           componentName={comp.componentName}
           multiplier={comp.quantity * multiplier}
-          onChange={(entries) => updateSlot(comp.componentId, entries)}
+          onChange={updateSlot}
         />
       ))}
     </Stack>
@@ -416,18 +453,28 @@ function BundleTreeForm({
 interface VariationFormProps {
   catalogItemId: string;
   warehouseId: string;
+  maxQuantity?: number;
   fulfillment: AddFulfillmentRequest;
-  onFulfillmentChange: (f: AddFulfillmentRequest) => void;
+  onFulfillmentChange: (f: AddFulfillmentRequest, complete: boolean) => void;
 }
 
 function VariationForm({
   catalogItemId,
   warehouseId,
+  maxQuantity,
   fulfillment,
   onFulfillmentChange,
 }: VariationFormProps) {
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [selectedVariantType, setSelectedVariantType] = useState<CatalogItemType | null>(null);
+
+  // The leaf variant is what inventory moves against — a nested VariationForm passes its own
+  // choice straight through, overwriting ours.
+  const handleLeafChange = useCallback(
+    (f: AddFulfillmentRequest, complete: boolean) =>
+      onFulfillmentChange({...f, resolvedCatalogItemId: selectedVariantId}, complete),
+    [onFulfillmentChange, selectedVariantId],
+  );
 
   const catalogQuery = useQuery(catalogGetByIdOptions({path: {id: catalogItemId}}));
   const memberIds = catalogQuery.data?.memberIds ?? [];
@@ -445,7 +492,7 @@ function VariationForm({
 
   return (
     <Stack spacing={2}>
-      <FormControl size="small" fullWidth>
+      <FormControl size="small" fullWidth error={!selectedVariantId}>
         <InputLabel>Вариант</InputLabel>
         <Select
           value={selectedVariantId ?? ""}
@@ -453,7 +500,10 @@ function VariationForm({
             const variant = variantOptions.find((v) => v.id === e.target.value);
             setSelectedVariantId(e.target.value || null);
             setSelectedVariantType(variant?.type ?? null);
-            onFulfillmentChange({sourceNodeId: null, quantity: 0});
+            onFulfillmentChange(
+              {sourceNodeId: null, quantity: 1, resolvedCatalogItemId: e.target.value || null},
+              false,
+            );
           }}
           label="Вариант"
         >
@@ -474,6 +524,7 @@ function VariationForm({
               key={selectedVariantId}
               catalogItemId={selectedVariantId}
               warehouseId={warehouseId}
+              maxQuantity={maxQuantity}
               fulfillment={fulfillment}
               onFulfillmentChange={onFulfillmentChange}
             />
@@ -486,8 +537,9 @@ function VariationForm({
               catalogItemId={selectedVariantId}
               catalogItemType={selectedVariantType}
               warehouseId={warehouseId}
+              maxQuantity={maxQuantity}
               fulfillment={fulfillment}
-              onChange={onFulfillmentChange}
+              onChange={handleLeafChange}
             />
           </>
         ))}
@@ -501,14 +553,16 @@ interface SubFulfillmentFormProps {
   catalogItemId: string;
   catalogItemType: CatalogItemType;
   warehouseId: string;
+  maxQuantity?: number;
   fulfillment: AddFulfillmentRequest;
-  onChange: (f: AddFulfillmentRequest) => void;
+  onChange: (f: AddFulfillmentRequest, complete: boolean) => void;
 }
 
 function SubFulfillmentForm({
   catalogItemId,
   catalogItemType,
   warehouseId,
+  maxQuantity,
   fulfillment,
   onChange,
 }: SubFulfillmentFormProps) {
@@ -516,7 +570,9 @@ function SubFulfillmentForm({
     sourceNodeId: string;
     nodePath: string;
   } | null>(null);
-  const [quantity, setQuantity] = useState(fulfillment.quantity);
+  const [quantity, setQuantity] = useState(() =>
+    Math.min(Math.max(1, fulfillment.quantity), maxQuantity ?? Number.MAX_SAFE_INTEGER),
+  );
 
   const defaultNode = useDefaultStorageNode(warehouseId, catalogItemType === "standard");
   const nodeState = {
@@ -529,15 +585,31 @@ function SubFulfillmentForm({
 
   useEffect(() => {
     if (catalogItemType === "standard" && nodeState.sourceNodeId) {
-      onChange({sourceNodeId: nodeState.sourceNodeId, quantity: nodeState.quantity});
+      onChange(
+        {sourceNodeId: nodeState.sourceNodeId, quantity: nodeState.quantity},
+        nodeState.quantity > 0,
+      );
     }
   }, [catalogItemType, nodeState.sourceNodeId, nodeState.quantity, onChange]);
+
+  // Unit and bundle sub-forms stay silent until filled in, so seed an incomplete state.
+  useEffect(() => {
+    if (catalogItemType === "unit") {
+      onChange({sourceNodeId: null, quantity: 0}, false);
+    }
+  }, [catalogItemType, onChange]);
+
+  const handleBundleChange = useCallback(
+    (comps: AddFulfillmentBundleComponentRequest[], complete: boolean) =>
+      onChange({sourceNodeId: null, quantity: 0, bundleComponents: comps}, complete),
+    [onChange],
+  );
 
   if (catalogItemType === "standard") {
     return (
       <StandardForm
         warehouseId={warehouseId}
-        quantity={fulfillment.quantity}
+        maxQuantity={maxQuantity}
         value={nodeState}
         onChange={(v) => {
           if (v.sourceNodeId && v.nodePath) {
@@ -556,7 +628,7 @@ function SubFulfillmentForm({
         warehouseId={warehouseId}
         value={fulfillment.unitInventoryItemId ?? null}
         onChange={(id, nodeId) =>
-          onChange({sourceNodeId: nodeId, quantity: 0, unitInventoryItemId: id})
+          onChange({sourceNodeId: nodeId, quantity: 0, unitInventoryItemId: id}, !!id)
         }
       />
     );
@@ -568,7 +640,7 @@ function SubFulfillmentForm({
         key={catalogItemId}
         catalogItemId={catalogItemId}
         warehouseId={warehouseId}
-        onChange={(comps) => onChange({sourceNodeId: null, quantity: 0, bundleComponents: comps})}
+        onChange={handleBundleChange}
       />
     );
   }
@@ -592,8 +664,14 @@ function AddFulfillmentDialog({
     sourceNodeId: null,
     quantity: component.quantity,
   });
+  const [isComplete, setIsComplete] = useState(false);
   const [bundleCount, setBundleCount] = useState(1);
   const [error, setError] = useState<string | null>(null);
+
+  const handleFulfillmentChange = useCallback((f: AddFulfillmentRequest, complete: boolean) => {
+    setFulfillment(f);
+    setIsComplete(complete);
+  }, []);
   const [failedItems, setFailedItems] = useState<BatchFulfillFailedItem[]>([]);
   const submittingRef = useRef(false);
 
@@ -632,6 +710,7 @@ function AddFulfillmentDialog({
   const isVariation = component.catalogItemType === "variation";
   const isBundleFulfillment = (fulfillment.bundleComponents?.length ?? 0) > 0;
   const remaining = component.quantity - countFulfilledQty(component.fulfillments);
+  const maxQuantity = Math.max(1, remaining);
 
   function handleSubmit() {
     if (submittingRef.current) return;
@@ -656,10 +735,9 @@ function AddFulfillmentDialog({
     }
   }
 
-  const canSubmit =
-    !!fulfillment.sourceNodeId && fulfillment.quantity > 0
-      ? true
-      : !!fulfillment.unitInventoryItemId || isBundleFulfillment;
+  // Every slot of the tree has to report itself filled — a half-built bundle would otherwise
+  // count as a whole one while only deducting the slots that were filled.
+  const canSubmit = isComplete && (!isVariation || !!fulfillment.resolvedCatalogItemId);
 
   const isPending = mutation.isPending || batchMutation.isPending;
 
@@ -672,17 +750,25 @@ function AddFulfillmentDialog({
             <VariationForm
               catalogItemId={component.catalogItemId}
               warehouseId={warehouseId}
+              maxQuantity={maxQuantity}
               fulfillment={fulfillment}
-              onFulfillmentChange={setFulfillment}
+              onFulfillmentChange={handleFulfillmentChange}
             />
           ) : (
             <SubFulfillmentForm
               catalogItemId={component.catalogItemId}
               catalogItemType={component.catalogItemType}
               warehouseId={warehouseId}
+              maxQuantity={maxQuantity}
               fulfillment={fulfillment}
-              onChange={setFulfillment}
+              onChange={handleFulfillmentChange}
             />
+          )}
+
+          {!canSubmit && (
+            <Typography variant="caption" color="text.secondary">
+              Заполните все позиции — незаполненные подсвечены.
+            </Typography>
           )}
 
           {isBundleFulfillment && (
@@ -690,7 +776,7 @@ function AddFulfillmentDialog({
               label="Количество комплектов для сборки"
               size="small"
               value={bundleCount}
-              max={Math.max(1, remaining)}
+              max={maxQuantity}
               onCommit={setBundleCount}
               helperText={
                 bundleCount > 1

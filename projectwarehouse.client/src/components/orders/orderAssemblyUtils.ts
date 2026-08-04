@@ -1,4 +1,30 @@
-import type {AssemblyFulfillmentDto, AssemblyTaskDto} from "@/api/types.gen";
+import type {AssemblyFulfillmentDto, AssemblyTaskDto, OrderDetailsDto} from "@/api/types.gen";
+
+export type FulfillmentKind = "unit" | "bundle" | "standard";
+
+export function getFulfillmentKind(fulfillment: AssemblyFulfillmentDto): FulfillmentKind {
+  if (fulfillment.unitInventoryItemId) return "unit";
+  if (fulfillment.bundleComponents?.length) return "bundle";
+  return "standard";
+}
+
+/** Fulfillments live on assembly tasks, so an order box component's ones are spread across every
+ * task that took on that box. */
+export function collectBoxComponentFulfillments(
+  order: OrderDetailsDto,
+  orderBoxId: string,
+  catalogItemId: string,
+): AssemblyFulfillmentDto[] {
+  return order.assemblyTasks.flatMap((task) =>
+    task.boxes
+      .filter((box) => box.orderBoxId === orderBoxId)
+      .flatMap((box) =>
+        box.components
+          .filter((c) => c.catalogItemId === catalogItemId)
+          .flatMap((c) => c.fulfillments),
+      ),
+  );
+}
 
 export function countFulfilledQty(fulfillments: AssemblyFulfillmentDto[]): number {
   return fulfillments.reduce((sum, f) => {

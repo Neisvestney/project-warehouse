@@ -37,7 +37,27 @@ public class OrdersController(
                 .ThenInclude(tb => tb.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(o => o.AssemblyTasks).ThenInclude(t => t.Boxes)
                 .ThenInclude(tb => tb.Components).ThenInclude(c => c.Fulfillments)
-                .ThenInclude(f => f.BundleComponents).ThenInclude(bc => bc.CatalogItem).ThenInclude(ci => ci.Group);
+                .ThenInclude(f => f.BundleComponents).ThenInclude(bc => bc.CatalogItem).ThenInclude(ci => ci.Group)
+            .Include(o => o.AssemblyTasks).ThenInclude(t => t.Boxes)
+                .ThenInclude(tb => tb.Components).ThenInclude(c => c.Fulfillments)
+                .ThenInclude(f => f.BundleComponents).ThenInclude(bc => bc.SourceNode).ThenInclude(n => n.RootStoragePlace)
+            .Include(o => o.AssemblyTasks).ThenInclude(t => t.Boxes)
+                .ThenInclude(tb => tb.Components).ThenInclude(c => c.Fulfillments)
+                .ThenInclude(f => f.SourceNode).ThenInclude(n => n!.RootStoragePlace)
+            .Include(o => o.AssemblyTasks).ThenInclude(t => t.Boxes)
+                .ThenInclude(tb => tb.Components).ThenInclude(c => c.Fulfillments)
+                .ThenInclude(f => f.ResolvedCatalogItem).ThenInclude(ci => ci!.Group)
+            .Include(o => o.AssemblyTasks).ThenInclude(t => t.Boxes)
+                .ThenInclude(tb => tb.Components).ThenInclude(c => c.Fulfillments)
+                .ThenInclude(f => f.CreatedBy)
+            .AsSplitQuery();
+
+    private async Task<Dictionary<Guid, StoragePlaceNode>> LoadWarehouseNodesAsync(
+        IReadOnlyCollection<Guid> warehouseIds, CancellationToken ct) =>
+        await db.StoragePlacesNodes
+            .Where(n => warehouseIds.Contains(n.RootStoragePlace.WarehouseId))
+            .Include(n => n.RootStoragePlace)
+            .ToDictionaryAsync(n => n.Id, ct);
 
     // ── Access helpers ────────────────────────────────────────────────────────
 
@@ -194,6 +214,18 @@ public class OrdersController(
             .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
                 .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
                 .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.BundleComponents).ThenInclude(bc => bc.CatalogItem).ThenInclude(ci => ci.Group)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
+                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.BundleComponents).ThenInclude(bc => bc.SourceNode).ThenInclude(n => n.RootStoragePlace)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
+                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.SourceNode).ThenInclude(n => n!.RootStoragePlace)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
+                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.ResolvedCatalogItem).ThenInclude(ci => ci!.Group)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
+                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.CreatedBy)
             .Where(o => o.Status == OrderStatus.Assembly)
             .Where(o => o.AssemblyTasks.Any(t => t.AssignedToId == userId))
             .AsSplitQuery();
@@ -202,7 +234,9 @@ public class OrdersController(
             query = query.Where(o => assignedIds.Contains(o.WarehouseId));
 
         var result = await query.ToListAsync(ct);
-        var dtos = mapper.Map<List<OrderDetailsDto>>(result);
+        var nodeById = await LoadWarehouseNodesAsync(
+            result.Select(o => o.WarehouseId).Distinct().ToList(), ct);
+        var dtos = mapper.Map<List<OrderDetailsDto>>(result, opts => opts.Items["nodeById"] = nodeById);
 
         var componentDtos = dtos
             .SelectMany(o => o.AssemblyTasks)
@@ -239,7 +273,8 @@ public class OrdersController(
         if (assignedIds is not null && !assignedIds.Contains(order.WarehouseId))
             return Forbidden();
 
-        return Ok(mapper.Map<OrderDetailsDto>(order));
+        var nodeById = await LoadWarehouseNodesAsync([order.WarehouseId], ct);
+        return Ok(mapper.Map<OrderDetailsDto>(order, opts => opts.Items["nodeById"] = nodeById));
     }
 
     // ── POST /api/orders/direct ───────────────────────────────────────────────
@@ -838,8 +873,10 @@ public class OrdersController(
 
         try
         {
-            var fulfillment = await orders.AddFulfillmentAsync(component, request, ct);
-            return CreatedAtAction(nameof(GetById), new { id }, mapper.Map<AssemblyFulfillmentDto>(fulfillment));
+            var fulfillment = await orders.AddFulfillmentAsync(component, request, GetCurrentUserId(), ct);
+            var nodeById = await LoadWarehouseNodesAsync([order.WarehouseId], ct);
+            return CreatedAtAction(nameof(GetById), new { id },
+                mapper.Map<AssemblyFulfillmentDto>(fulfillment, opts => opts.Items["nodeById"] = nodeById));
         }
         catch (ValidationException ex)
         {
@@ -967,7 +1004,7 @@ public class OrdersController(
                         continue;
                     }
 
-                    await orders.AddFulfillmentAsync(component, item.Fulfillment, ct);
+                    await orders.AddFulfillmentAsync(component, item.Fulfillment, GetCurrentUserId(), ct);
                     attemptedTaskIds.Add(item.TaskId);
                 }
                 catch (ValidationException ex)

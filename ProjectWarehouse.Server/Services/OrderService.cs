@@ -7,7 +7,7 @@ using ProjectWarehouse.Server.Models.Receipts;
 
 namespace ProjectWarehouse.Server.Services;
 
-public class OrderService(ApplicationDbContext db, IInventoryService inventory) : IOrderService
+public class OrderService(ApplicationDbContext db, IInventoryService inventory, ICatalogService catalog) : IOrderService
 {
     // ── Order lifecycle ───────────────────────────────────────────────────────
 
@@ -457,6 +457,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
     public async Task<AssemblyFulfillment> AddFulfillmentAsync(
         AssemblyTaskBoxComponent component,
         AddFulfillmentRequest request,
+        Guid? createdById,
         CancellationToken ct = default)
     {
         // Re-check against freshly-loaded fulfillment state (not the possibly-stale
@@ -482,10 +483,47 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
             throw new ValidationException("root", ErrorCode.AssemblyFulfillmentInvalidType,
                 "Exactly one fulfillment type must be specified: Standard (sourceNodeId+quantity), Unit (unitInventoryItemId), or Bundle (bundleComponents).");
 
+        var isVariation = component.CatalogItem.Type == CatalogItemType.Variation;
+
+        // For a Variation the client picks a concrete member; everything else resolves to itself.
+        // A plain Bundle deducts per leaf, so it needs no resolved item at all.
+        Guid? resolvedCatalogItemId = null;
+        if (!isVariation)
+        {
+            resolvedCatalogItemId = isBundleMode1 ? null : component.CatalogItemId;
+        }
+        else if (!isUnit)
+        {
+            if (!request.ResolvedCatalogItemId.HasValue)
+                throw new ValidationException("resolvedCatalogItemId", ErrorCode.Required,
+                    "ResolvedCatalogItemId is required when fulfilling a Variation component.");
+
+            var resolvedType = await db.CatalogItems
+                .Where(c => c.Id == request.ResolvedCatalogItemId.Value)
+                .Select(c => (CatalogItemType?)c.Type)
+                .FirstOrDefaultAsync(ct)
+                ?? throw new ValidationException("resolvedCatalogItemId", ErrorCode.CatalogItemNotFound,
+                    "Resolved catalog item not found.");
+
+            var expectedType = isBundleMode1 ? CatalogItemType.Bundle : CatalogItemType.Standard;
+            if (resolvedType != expectedType)
+                throw new ValidationException("resolvedCatalogItemId", ErrorCode.AssemblyFulfillmentInvalidType,
+                    $"Resolved catalog item must be of type {expectedType} for this fulfillment scenario.");
+
+            if (!await catalog.IsVariationMemberAsync(component.CatalogItemId, request.ResolvedCatalogItemId.Value, ct))
+                throw new ValidationException("resolvedCatalogItemId", ErrorCode.CatalogItemNotVariationMember,
+                    "Resolved catalog item is not a member of this variation.");
+
+            // Kept even for Bundle (where deduction is per leaf) so the UI can still show the choice.
+            resolvedCatalogItemId = request.ResolvedCatalogItemId;
+        }
+
         var fulfillment = new AssemblyFulfillment
         {
-            Id                  = Guid.NewGuid(),
-            TaskBoxComponentId  = component.Id,
+            Id                    = Guid.NewGuid(),
+            TaskBoxComponentId    = component.Id,
+            ResolvedCatalogItemId = resolvedCatalogItemId,
+            CreatedById           = createdById,
         };
 
         if (isStandard)
@@ -504,7 +542,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
 
             await inventory.RemoveStandardItemsFromNodeAsync(
                 request.SourceNodeId.Value,
-                component.CatalogItemId,
+                fulfillment.ResolvedCatalogItemId!.Value,
                 request.Quantity,
                 InventoryActions.RemoveStandardItems,
                 ct);
@@ -520,9 +558,17 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
                 .FirstOrDefaultAsync(u => u.Id == request.UnitInventoryItemId, ct)
                 ?? throw new ValidationException("unitInventoryItemId", ErrorCode.UnitInventoryItemNotFound, "Unit inventory item not found.");
 
+            if (isVariation &&
+                !await catalog.IsVariationMemberAsync(component.CatalogItemId, unitItem.CatalogItemId, ct))
+                throw new ValidationException("unitInventoryItemId", ErrorCode.CatalogItemNotVariationMember,
+                    "The unit inventory item's catalog entry is not a member of this variation.");
+
             fulfillment.SourceNodeId         = request.SourceNodeId;
             fulfillment.UnitInventoryItemId  = request.UnitInventoryItemId;
             fulfillment.UnitInventoryNumber  = unitItem.InventoryNumber;
+
+            // The item itself is authoritative about which catalog entry was picked.
+            fulfillment.ResolvedCatalogItemId = unitItem.CatalogItemId;
 
             db.AssemblyFulfillments.Add(fulfillment);
 
@@ -650,7 +696,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
             // Unit — recreate the unit item
             await inventory.PlaceUnitItemToNodeAsync(
                 fulfillment.SourceNodeId!.Value,
-                fulfillment.TaskBoxComponent.CatalogItemId,
+                RestoreTargetCatalogItemId(fulfillment),
                 fulfillment.UnitInventoryNumber,
                 InventoryActions.AddUnitItem,
                 ct);
@@ -660,12 +706,16 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory) 
             // Standard
             await inventory.AddStandardItemsToNodeAsync(
                 fulfillment.SourceNodeId.Value,
-                fulfillment.TaskBoxComponent.CatalogItemId,
+                RestoreTargetCatalogItemId(fulfillment),
                 fulfillment.Quantity,
                 InventoryActions.AddStandardItems,
                 ct);
         }
     }
+
+    /// <summary>Pre-migration rows have no resolved item; they were deducted from the component's own item, so they go back the same way.</summary>
+    private static Guid RestoreTargetCatalogItemId(AssemblyFulfillment fulfillment) =>
+        fulfillment.ResolvedCatalogItemId ?? fulfillment.TaskBoxComponent.CatalogItemId;
 
     /// <summary>Restores inventory for every fulfillment under the task, then removes the task (cascades boxes/components/fulfillments). Does not call SaveChanges.</summary>
     private async Task RestoreAndDeleteTaskAsync(AssemblyTask task, CancellationToken ct)

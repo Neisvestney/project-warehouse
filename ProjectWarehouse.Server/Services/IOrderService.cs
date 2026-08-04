@@ -48,6 +48,6 @@ public interface IOrderService
 
     // ── Fulfillments ──────────────────────────────────────────────────────────
 
-    Task<AssemblyFulfillment> AddFulfillmentAsync(AssemblyTaskBoxComponent component, AddFulfillmentRequest request, CancellationToken ct = default);
+    Task<AssemblyFulfillment> AddFulfillmentAsync(AssemblyTaskBoxComponent component, AddFulfillmentRequest request, Guid? createdById, CancellationToken ct = default);
     Task RemoveFulfillmentAsync(AssemblyFulfillment fulfillment, CancellationToken ct = default);
 }

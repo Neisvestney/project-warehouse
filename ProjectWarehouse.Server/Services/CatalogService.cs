@@ -138,4 +138,38 @@ public class CatalogService(ApplicationDbContext db) : ICatalogService
         cache[catalogItemId] = result;
         return result;
     }
+
+    public async Task<bool> IsVariationMemberAsync(
+        Guid variationId, Guid candidateId, CancellationToken ct = default)
+    {
+        var members = new HashSet<Guid>();
+        await CollectVariationMembersAsync(variationId, members, [], ct);
+        return members.Contains(candidateId);
+    }
+
+    /// <summary>
+    /// Collects the items a Variation can resolve to. Nested Variations are expanded further;
+    /// Standard/Unit/Bundle members are terminal, since a Bundle member is itself a valid choice.
+    /// </summary>
+    private async Task CollectVariationMembersAsync(
+        Guid variationId, HashSet<Guid> members, HashSet<Guid> visiting, CancellationToken ct)
+    {
+        // Defensive cycle guard — writes should already prevent this via EnsureNoCycleAsync.
+        if (!visiting.Add(variationId)) return;
+
+        var directMembers = await db.CatalogItemVariationMembers
+            .Where(vm => vm.VariationId == variationId)
+            .Select(vm => new { vm.ItemId, vm.Item.Type })
+            .ToListAsync(ct);
+
+        foreach (var member in directMembers)
+        {
+            if (member.Type == CatalogItemType.Variation)
+                await CollectVariationMembersAsync(member.ItemId, members, visiting, ct);
+            else
+                members.Add(member.ItemId);
+        }
+
+        visiting.Remove(variationId);
+    }
 }

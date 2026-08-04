@@ -28,6 +28,11 @@ export type AddFulfillmentRequest = {
   quantity: number;
   unitInventoryItemId?: null | string;
   bundleComponents?: null | Array<AddFulfillmentBundleComponentRequest>;
+  /**
+   * For a Variation component — the member actually picked. Required for Standard and Bundle
+   * scenarios; derived server-side from the unit item for the Unit scenario. Ignored otherwise.
+   */
+  resolvedCatalogItemId?: null | string;
 };
 
 export type AppEntity = {
@@ -73,17 +78,27 @@ export type AssemblyFulfillmentBundleComponentDto = {
   id: string;
   catalogItemId: string;
   catalogItemName: string;
+  catalogItemType: CatalogItemType;
   sourceNodeId: string;
+  sourceNodePath: Array<string>;
   quantity: number;
   unitInventoryItemId?: null | string;
+  unitInventoryNumber?: null | string;
 };
 
 export type AssemblyFulfillmentDto = {
   id: string;
   sourceNodeId?: null | string;
+  sourceNodePath: Array<string>;
   quantity: number;
   unitInventoryItemId?: null | string;
+  unitInventoryNumber?: null | string;
   bundleComponents: Array<AssemblyFulfillmentBundleComponentDto>;
+  resolvedCatalogItemId?: null | string;
+  resolvedCatalogItemName?: null | string;
+  resolvedCatalogItemType?: null | CatalogItemType;
+  createdAt: string;
+  createdByName?: null | string;
 };
 
 export type AssemblyTaskBoxComponentDto = {
@@ -412,6 +427,7 @@ export type ErrorCode =
   | "assemblyTaskMoveTargetInvalid"
   | "assemblyTaskQuantityExceedsAvailable"
   | "assemblyComponentAlreadyFulfilled"
+  | "catalogItemNotVariationMember"
   | "routeNotFound"
   | "required"
   | "tooShort"
