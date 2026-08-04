@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:17
+    command: postgres -c max_connections=400
     environment:
       POSTGRES_DB: projectwarehouse
       POSTGRES_USER: postgres
@@ -24,7 +25,7 @@ services:
     ports:
       - "4587:8080"
     environment:
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=projectwarehouse;Username=postgres;Password=${POSTGRES_PASSWORD}
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=projectwarehouse;Username=postgres;Password=${POSTGRES_PASSWORD};Maximum Pool Size=200
       - Jwt__SecretKey=${Jwt__SecretKey}
       - Seed__AdminPassword=${Seed__AdminPassword}
     depends_on:
