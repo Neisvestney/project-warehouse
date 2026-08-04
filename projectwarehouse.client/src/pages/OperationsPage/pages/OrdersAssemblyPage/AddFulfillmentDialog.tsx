@@ -726,7 +726,7 @@ function AddFulfillmentDialog({
         componentId: component.id,
         fulfillment,
       }));
-      batchMutation.mutate({body: {items}});
+      batchMutation.mutate({body: {items, autoCompleteTasks: false}});
     } else {
       mutation.mutate({
         path: {id: orderId, taskId, tbid: taskBoxId, cid: component.id},

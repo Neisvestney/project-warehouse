@@ -150,6 +150,10 @@ export type BatchFulfillItemRequest = {
 
 export type BatchFulfillRequest = {
   items: Array<BatchFulfillItemRequest>;
+  /**
+   * Mass-assembly mode: advance touched tasks (Done only when every component is fully fulfilled). Off for plain multi-fulfillment adds.
+   */
+  autoCompleteTasks: boolean;
 };
 
 export type BatchFulfillResponse = {

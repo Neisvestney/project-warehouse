@@ -102,7 +102,9 @@ function OrdersListPage({
     (v) => v || null,
   );
 
-  const {sortBy, sortOrder, handleSortClick} = useTableSort(SORT_COLUMNS, "number");
+  const {sortBy, sortOrder, handleSortClick} = useTableSort(SORT_COLUMNS, "number", {
+    defaultSortOrder: "desc",
+  });
 
   const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams(
     {searchString: searchString || undefined},

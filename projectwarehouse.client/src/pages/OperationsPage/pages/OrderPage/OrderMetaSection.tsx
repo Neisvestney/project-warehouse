@@ -1,10 +1,12 @@
 import {type ReactNode, useState} from "react";
-import {Button, Stack, TextField, Typography} from "@mui/material";
+import {Alert, Box, Button, Stack, Typography} from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
-import CheckIcon from "@mui/icons-material/Check";
-import CloseIcon from "@mui/icons-material/Close";
+import SaveIcon from "@mui/icons-material/Save";
+import {useForm} from "react-hook-form";
 import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {ordersGetByIdQueryKey, ordersUpdateMutation} from "@/api/@tanstack/react-query.gen";
+import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
+import {FormTextField} from "@/components/form/FormTextField";
 import type {OrderDetailsDto} from "@/api/types.gen";
 import {format} from "date-fns";
 import {ru} from "date-fns/locale";
@@ -18,9 +20,18 @@ function formatDate(iso: string | null | undefined): string {
   }
 }
 
+function toDateTimeLocal(iso: string | null | undefined): string {
+  if (!iso) return "";
+  try {
+    return format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
+  } catch {
+    return "";
+  }
+}
+
 function MetaRow({label, children}: {label: string; children: ReactNode}) {
   return (
-    <Stack direction="row" spacing={1} sx={{alignItems: "flex-start", minHeight: 32}}>
+    <Stack direction="row" spacing={1} sx={{alignItems: "baseline", minHeight: 32}}>
       <Typography color="text.secondary" sx={{width: 160, flexShrink: 0, pt: 0.25}}>
         {label}
       </Typography>
@@ -29,60 +40,83 @@ function MetaRow({label, children}: {label: string; children: ReactNode}) {
   );
 }
 
-interface InlineEditProps {
-  value: string;
-  onSave: (value: string) => void;
-  multiline?: boolean;
-  type?: string;
+interface EditInfoFormValues {
+  plannedShipmentAt: string;
+  notes: string;
 }
 
-function InlineEdit({value, onSave, multiline, type = "text"}: InlineEditProps) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
+function EditInfoForm({order, onDone}: {order: OrderDetailsDto; onDone: () => void}) {
+  const queryClient = useQueryClient();
+  const form = useForm<EditInfoFormValues>({
+    defaultValues: {
+      plannedShipmentAt: toDateTimeLocal(order.plannedShipmentAt),
+      notes: order.notes ?? "",
+    },
+  });
+  const {setApiError} = useRhfApiErrors(form);
 
-  if (!editing) {
-    return (
-      <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
-        <Typography variant="body2">{value || "—"}</Typography>
-        <Button
-          size="small"
-          sx={{minWidth: 0, p: 0.25}}
-          onClick={() => {
-            setDraft(value);
-            setEditing(true);
-          }}
-        >
-          <EditIcon sx={{fontSize: 14}} />
-        </Button>
-      </Stack>
-    );
-  }
+  const mutation = useMutation({
+    ...ordersUpdateMutation(),
+    meta: {suppressGlobalError: true},
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ordersGetByIdQueryKey({path: {id: order.id}}),
+      });
+      onDone();
+    },
+    onError: setApiError,
+  });
+
+  const onSubmit = form.handleSubmit((values) => {
+    mutation.mutate({
+      path: {id: order.id},
+      body: {
+        plannedShipmentAt: values.plannedShipmentAt || null,
+        notes: values.notes.trim() || null,
+      },
+    });
+  });
 
   return (
-    <Stack direction="row" spacing={0.5} sx={{alignItems: "flex-start"}}>
-      <TextField
-        size="small"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        multiline={multiline}
-        type={type}
-        autoFocus
-        sx={{flex: 1}}
-      />
-      <Button
-        size="small"
-        sx={{minWidth: 0, p: 0.25, mt: 0.5}}
-        onClick={() => {
-          onSave(draft);
-          setEditing(false);
-        }}
-      >
-        <CheckIcon sx={{fontSize: 14}} color="success" />
-      </Button>
-      <Button size="small" sx={{minWidth: 0, p: 0.25, mt: 0.5}} onClick={() => setEditing(false)}>
-        <CloseIcon sx={{fontSize: 14}} />
-      </Button>
-    </Stack>
+    <Box component="form" onSubmit={onSubmit}>
+      <Stack spacing={2}>
+        <FormTextField
+          control={form.control}
+          name="plannedShipmentAt"
+          label="Плановая отгрузка"
+          type="datetime-local"
+          disabled={mutation.isPending}
+          fullWidth
+          slotProps={{inputLabel: {shrink: true}}}
+        />
+        <FormTextField
+          control={form.control}
+          name="notes"
+          label="Заметки"
+          multiline
+          rows={2}
+          disabled={mutation.isPending}
+          fullWidth
+        />
+        {form.formState.errors.root && (
+          <Alert severity="error">{form.formState.errors.root.message}</Alert>
+        )}
+        <Stack direction="row" spacing={1} sx={{justifyContent: "flex-end"}}>
+          <Button onClick={onDone} disabled={mutation.isPending}>
+            Отмена
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={mutation.isPending}
+            startIcon={<SaveIcon />}
+            loading={mutation.isPending}
+          >
+            Сохранить
+          </Button>
+        </Stack>
+      </Stack>
+    </Box>
   );
 }
 
@@ -92,27 +126,10 @@ interface OrderMetaSectionProps {
 }
 
 function OrderMetaSection({order, canEdit}: OrderMetaSectionProps) {
-  const queryClient = useQueryClient();
+  const [isEditing, setIsEditing] = useState(false);
 
-  const mutation = useMutation({
-    ...ordersUpdateMutation(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: order.id}})});
-    },
-  });
-
-  function handleSaveNotes(notes: string) {
-    mutation.mutate({
-      path: {id: order.id},
-      body: {notes: notes.trim() || null, plannedShipmentAt: order.plannedShipmentAt ?? null},
-    });
-  }
-
-  function handleSavePlanned(planned: string) {
-    mutation.mutate({
-      path: {id: order.id},
-      body: {notes: order.notes ?? null, plannedShipmentAt: planned || null},
-    });
+  if (isEditing) {
+    return <EditInfoForm order={order} onDone={() => setIsEditing(false)} />;
   }
 
   return (
@@ -132,33 +149,25 @@ function OrderMetaSection({order, canEdit}: OrderMetaSectionProps) {
       )}
 
       <MetaRow label="Плановая отгрузка">
-        {canEdit ? (
-          <InlineEdit
-            value={
-              order.plannedShipmentAt
-                ? new Date(order.plannedShipmentAt).toISOString().slice(0, 16)
-                : ""
-            }
-            type="datetime-local"
-            onSave={handleSavePlanned}
-          />
-        ) : (
-          <Typography variant="body2">{formatDate(order.plannedShipmentAt)}</Typography>
-        )}
+        <Typography variant="body2">{formatDate(order.plannedShipmentAt)}</Typography>
       </MetaRow>
 
       <MetaRow label="Заметки">
-        {canEdit ? (
-          <InlineEdit value={order.notes ?? ""} multiline onSave={handleSaveNotes} />
-        ) : (
-          <Typography variant="body2">{order.notes || "—"}</Typography>
-        )}
+        <Typography variant="body2">{order.notes || "—"}</Typography>
       </MetaRow>
 
       {order.marketplaceOrderId && (
         <MetaRow label="ID маркетплейса">
           <Typography variant="body2">{order.marketplaceOrderId}</Typography>
         </MetaRow>
+      )}
+
+      {canEdit && (
+        <Box sx={{pt: 0.5}}>
+          <Button size="small" startIcon={<EditIcon />} onClick={() => setIsEditing(true)}>
+            Редактировать
+          </Button>
+        </Box>
       )}
     </Stack>
   );

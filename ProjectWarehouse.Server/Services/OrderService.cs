@@ -310,6 +310,18 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
         await db.SaveChangesAsync(ct);
     }
 
+    public async Task<bool> IsTaskFullyFulfilledAsync(Guid taskId, CancellationToken ct = default)
+    {
+        var components = await db.AssemblyTaskBoxComponents
+            .Where(c => c.AssemblyTaskBox.AssemblyTaskId == taskId)
+            .Include(c => c.Fulfillments)
+                .ThenInclude(f => f.BundleComponents)
+            .ToListAsync(ct);
+
+        return components.Count > 0
+            && components.All(c => CountFulfilledQty(c.Fulfillments) >= c.Quantity);
+    }
+
     public async Task UpdateTaskBoxComponentAsync(
         AssemblyTaskBoxComponent component, int quantity, CancellationToken ct = default)
     {
