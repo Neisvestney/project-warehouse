@@ -19,7 +19,7 @@ namespace ProjectWarehouse.Server.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.10")
+                .HasAnnotation("ProductVersion", "10.0.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -267,8 +267,17 @@ namespace ProjectWarehouse.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
+
+                    b.Property<Guid?>("ResolvedCatalogItemId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid?>("SourceNodeId")
                         .HasColumnType("uuid");
@@ -283,6 +292,10 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("ResolvedCatalogItemId");
 
                     b.HasIndex("SourceNodeId");
 
@@ -1159,6 +1172,16 @@ namespace ProjectWarehouse.Server.Migrations
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.AssemblyFulfillment", b =>
                 {
+                    b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "ResolvedCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("ResolvedCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("ProjectWarehouse.Server.Domain.StoragePlaceNode", "SourceNode")
                         .WithMany()
                         .HasForeignKey("SourceNodeId")
@@ -1174,6 +1197,10 @@ namespace ProjectWarehouse.Server.Migrations
                         .WithMany()
                         .HasForeignKey("UnitInventoryItemId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("ResolvedCatalogItem");
 
                     b.Navigation("SourceNode");
 

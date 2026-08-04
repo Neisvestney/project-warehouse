@@ -41,4 +41,13 @@ public interface ICatalogService
     Task<Dictionary<Guid, bool>> ComputeContainsUnitAsync(
         IReadOnlyCollection<Guid> catalogItemIds,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Whether <paramref name="candidateId"/> is something the variation can resolve to, walking
+    /// through nested variations. Bundle members are terminal — a bundle is itself a valid choice.
+    /// </summary>
+    Task<bool> IsVariationMemberAsync(
+        Guid variationId,
+        Guid candidateId,
+        CancellationToken ct = default);
 }

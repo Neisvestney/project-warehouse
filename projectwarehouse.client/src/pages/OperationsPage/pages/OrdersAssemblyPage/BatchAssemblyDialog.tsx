@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useRef, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {
   Alert,
   Button,
@@ -165,7 +165,7 @@ function StandardGroupForm({group, value, onChange}: StandardGroupFormProps) {
 
 interface BundleGroupFormProps {
   group: BatchGroup;
-  onChange: (v: AddFulfillmentBundleComponentRequest[]) => void;
+  onChange: (v: AddFulfillmentBundleComponentRequest[], complete: boolean) => void;
 }
 
 function BundleGroupForm({group, onChange}: BundleGroupFormProps) {
@@ -188,11 +188,11 @@ function BundleGroupForm({group, onChange}: BundleGroupFormProps) {
 
 interface VariationGroupFormProps {
   group: BatchGroup;
-  state: GroupState;
-  onChange: (state: GroupState) => void;
+  fulfillment: AddFulfillmentRequest;
+  onFulfillmentChange: (f: AddFulfillmentRequest, complete: boolean) => void;
 }
 
-function VariationGroupForm({group, state, onChange}: VariationGroupFormProps) {
+function VariationGroupForm({group, fulfillment, onFulfillmentChange}: VariationGroupFormProps) {
   return (
     <Stack spacing={2}>
       <Typography variant="body2">
@@ -202,8 +202,8 @@ function VariationGroupForm({group, state, onChange}: VariationGroupFormProps) {
       <VariationForm
         catalogItemId={group.catalogItemId}
         warehouseId={group.warehouseId}
-        fulfillment={state.variantFulfillment}
-        onFulfillmentChange={(f) => onChange({...state, variantFulfillment: f})}
+        fulfillment={fulfillment}
+        onFulfillmentChange={onFulfillmentChange}
       />
     </Stack>
   );
@@ -215,35 +215,63 @@ interface GroupState {
   standardNode: {nodeId: string | null; nodePath: string | null};
   bundleComponents: AddFulfillmentBundleComponentRequest[];
   variantFulfillment: AddFulfillmentRequest;
+  // Whether the bundle tree / variation choice below is fully specified.
+  complete: boolean;
+}
+
+function emptyGroupState(): GroupState {
+  return {
+    standardNode: {nodeId: null, nodePath: null},
+    bundleComponents: [],
+    variantFulfillment: {sourceNodeId: null, quantity: 0},
+    complete: false,
+  };
 }
 
 interface GroupFormRowProps {
   group: BatchGroup;
   state: GroupState;
-  onChange: (state: GroupState) => void;
+  onPatch: (key: string, patch: Partial<GroupState>) => void;
 }
 
-function GroupFormRow({group, state, onChange}: GroupFormRowProps) {
+function GroupFormRow({group, state, onPatch}: GroupFormRowProps) {
   const type = group.catalogItemType;
+  const groupKey = group.key;
+
+  // Slot forms below keep these in effect deps, so a fresh identity each render would loop.
+  const handleStandardChange = useCallback(
+    (standardNode: GroupState["standardNode"]) => onPatch(groupKey, {standardNode}),
+    [onPatch, groupKey],
+  );
+  const handleBundleChange = useCallback(
+    (bundleComponents: AddFulfillmentBundleComponentRequest[], complete: boolean) =>
+      onPatch(groupKey, {bundleComponents, complete}),
+    [onPatch, groupKey],
+  );
+  const handleVariantChange = useCallback(
+    (variantFulfillment: AddFulfillmentRequest, complete: boolean) =>
+      onPatch(groupKey, {variantFulfillment, complete}),
+    [onPatch, groupKey],
+  );
 
   if (type === "standard") {
     return (
-      <StandardGroupForm
-        group={group}
-        value={state.standardNode}
-        onChange={(v) => onChange({...state, standardNode: v})}
-      />
+      <StandardGroupForm group={group} value={state.standardNode} onChange={handleStandardChange} />
     );
   }
 
   if (type === "bundle") {
-    return (
-      <BundleGroupForm group={group} onChange={(v) => onChange({...state, bundleComponents: v})} />
-    );
+    return <BundleGroupForm group={group} onChange={handleBundleChange} />;
   }
 
   if (type === "variation") {
-    return <VariationGroupForm group={group} state={state} onChange={onChange} />;
+    return (
+      <VariationGroupForm
+        group={group}
+        fulfillment={state.variantFulfillment}
+        onFulfillmentChange={handleVariantChange}
+      />
+    );
   }
 
   return null;
@@ -266,13 +294,7 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
   const [groupStates, setGroupStates] = useState<Map<string, GroupState>>(new Map());
 
   function getGroupState(key: string): GroupState {
-    return (
-      groupStates.get(key) ?? {
-        standardNode: {nodeId: null, nodePath: null},
-        bundleComponents: [],
-        variantFulfillment: {sourceNodeId: null, quantity: 0},
-      }
-    );
+    return groupStates.get(key) ?? emptyGroupState();
   }
 
   const [failedItems, setFailedItems] = useState<BatchFulfillFailedItem[]>([]);
@@ -297,9 +319,11 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
     },
   });
 
-  function updateGroupState(key: string, state: GroupState) {
-    setGroupStates((prev) => new Map(prev).set(key, state));
-  }
+  const patchGroupState = useCallback((key: string, patch: Partial<GroupState>) => {
+    setGroupStates((prev) =>
+      new Map(prev).set(key, {...(prev.get(key) ?? emptyGroupState()), ...patch}),
+    );
+  }, []);
 
   function buildFulfillment(
     group: BatchGroup,
@@ -316,6 +340,11 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
     }
     return {sourceNodeId: state.standardNode.nodeId, quantity: qty};
   }
+
+  const allGroupsReady = groups.every((group) => {
+    const state = getGroupState(group.key);
+    return group.catalogItemType === "standard" ? !!state.standardNode.nodeId : state.complete;
+  });
 
   function handleSubmit() {
     if (submittingRef.current) return;
@@ -357,11 +386,7 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
             return (
               <Stack key={group.key} spacing={1}>
                 {idx > 0 && <Divider />}
-                <GroupFormRow
-                  group={group}
-                  state={state}
-                  onChange={(s) => updateGroupState(group.key, s)}
-                />
+                <GroupFormRow group={group} state={state} onPatch={patchGroupState} />
               </Stack>
             );
           })}
@@ -386,7 +411,11 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
         <Button onClick={onClose} disabled={mutation.isPending}>
           Отмена
         </Button>
-        <Button variant="contained" onClick={handleSubmit} disabled={mutation.isPending}>
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={mutation.isPending || !allGroupsReady}
+        >
           {mutation.isPending ? <CircularProgress size={20} color="inherit" /> : "Собрать"}
         </Button>
       </DialogActions>

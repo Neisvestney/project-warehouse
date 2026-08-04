@@ -24,8 +24,9 @@ import {
   ordersDeleteAssemblyTaskMutation,
   ordersGetByIdQueryKey,
 } from "@/api/@tanstack/react-query.gen";
-import type {AssemblyTaskDto, OrderDetailsDto} from "@/api/types.gen";
+import type {AssemblyTaskBoxComponentDto, AssemblyTaskDto, OrderDetailsDto} from "@/api/types.gen";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import FulfillmentsDrawer from "@/components/orders/FulfillmentsDrawer";
 import {countFulfilledQty, getTaskProgress} from "@/components/orders/orderAssemblyUtils";
 import EditAssemblyTaskDialog from "./EditAssemblyTaskDialog";
 
@@ -50,6 +51,11 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
   const queryClient = useQueryClient();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [fulfillmentsTarget, setFulfillmentsTarget] = useState<{
+    component: AssemblyTaskBoxComponentDto;
+    boxLabel: string | null | undefined;
+  } | null>(null);
+  const [fulfillmentsDrawerOpen, setFulfillmentsDrawerOpen] = useState(false);
 
   const {fulfilled: fulfilledComponents, total: totalComponents} = getTaskProgress(task);
 
@@ -130,7 +136,15 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
                 {box.components.map((c) => {
                   const qty = countFulfilledQty(c.fulfillments);
                   return (
-                    <TableRow key={c.id}>
+                    <TableRow
+                      key={c.id}
+                      hover
+                      sx={{cursor: "pointer"}}
+                      onClick={() => {
+                        setFulfillmentsTarget({component: c, boxLabel: box.orderBoxLabel})
+                        setFulfillmentsDrawerOpen(true) 
+                      }}
+                    >
                       <TableCell>{c.catalogItemName}</TableCell>
                       <TableCell>{c.quantity}</TableCell>
                       <TableCell
@@ -156,6 +170,16 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
         confirmColor="error"
         onConfirm={() => deleteMutation.mutate({path: {id: order.id, taskId: task.id}})}
         isPending={deleteMutation.isPending}
+      />
+
+      <FulfillmentsDrawer
+        open={fulfillmentsDrawerOpen}
+        onClose={() => setFulfillmentsDrawerOpen(false)}
+        title={fulfillmentsTarget?.component.catalogItemName ?? ""}
+        subtitle={fulfillmentsTarget?.boxLabel ?? undefined}
+        quantity={fulfillmentsTarget?.component.quantity ?? 0}
+        isVariation={fulfillmentsTarget?.component.catalogItemType === "variation"}
+        fulfillments={fulfillmentsTarget?.component.fulfillments ?? []}
       />
 
       {editOpen && (

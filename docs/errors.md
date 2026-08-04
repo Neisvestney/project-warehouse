@@ -117,6 +117,7 @@ Error with structured arguments (e.g. password too short):
 | `receiptItemsUnderplaced` | Finish blocked: some items with `receivedCount` have fewer placements than required |
 | `receiptItemsOverplaced` | Finish blocked: some items with `receivedCount` have more placements than the received count |
 | `assemblyComponentAlreadyFulfilled` | Adding a fulfillment (single or batch) to an `AssemblyTaskBoxComponent` that is already fully fulfilled — guards against double-submit re-processing the same request |
+| `catalogItemNotVariationMember` | The item picked for a Variation component is not one of its members (nested variations are walked through). Field `resolvedCatalogItemId` for Standard/Bundle, `unitInventoryItemId` for Unit — there the item's own catalog entry is checked |
 
 ### Validation
 | Code | When | `args` |

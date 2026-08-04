@@ -182,10 +182,16 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.CatalogItemName, opt => opt.MapFrom(s => s.CatalogItem.FullName))
             .ForMember(d => d.CatalogItemType, opt => opt.MapFrom(s => s.CatalogItem.Type));
 
-        CreateMap<AssemblyFulfillment, AssemblyFulfillmentDto>();
+        CreateMap<AssemblyFulfillment, AssemblyFulfillmentDto>()
+            .ForMember(d => d.SourceNodePath, opt => opt.MapFrom<FulfillmentNodePathResolver>())
+            .ForMember(d => d.CreatedByName, opt => opt.MapFrom(s => s.CreatedBy != null ? s.CreatedBy.FullName : null))
+            .ForMember(d => d.ResolvedCatalogItemName, opt => opt.MapFrom(s => s.ResolvedCatalogItem != null ? s.ResolvedCatalogItem.FullName : null))
+            .ForMember(d => d.ResolvedCatalogItemType, opt => opt.MapFrom(s => s.ResolvedCatalogItem != null ? s.ResolvedCatalogItem.Type : (CatalogItemType?)null));
 
         CreateMap<AssemblyFulfillmentBundleComponent, AssemblyFulfillmentBundleComponentDto>()
-            .ForMember(d => d.CatalogItemName, opt => opt.MapFrom(s => s.CatalogItem.FullName));
+            .ForMember(d => d.CatalogItemName, opt => opt.MapFrom(s => s.CatalogItem.FullName))
+            .ForMember(d => d.CatalogItemType, opt => opt.MapFrom(s => s.CatalogItem.Type))
+            .ForMember(d => d.SourceNodePath, opt => opt.MapFrom<FulfillmentBundleComponentNodePathResolver>());
 
         CreateMap<Order, AppEntity>()
             .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Order))
@@ -248,6 +254,59 @@ public class WriteoffItemCatalogNameResolver : IValueResolver<WriteoffItem, Writ
         if (source.UnitInventoryItem?.CatalogItem is not null)
             return source.UnitInventoryItem.CatalogItem.Name;
         return string.Empty;
+    }
+}
+
+/// <summary>
+/// Builds the source node breadcrumb for an <see cref="AssemblyFulfillment"/>. Bundle fulfillments
+/// carry no source node of their own (each component has one), so they resolve to an empty path.
+/// Uses the same <c>nodeById</c> convention as <see cref="NodePathResolver"/>.
+/// </summary>
+public class FulfillmentNodePathResolver : IValueResolver<AssemblyFulfillment, AssemblyFulfillmentDto, string[]>
+{
+    public string[] Resolve(
+        AssemblyFulfillment source,
+        AssemblyFulfillmentDto destination,
+        string[] destMember,
+        ResolutionContext context)
+    {
+        if (source.SourceNode is null) return [];
+
+        if (context.TryGetItems(out var items)
+            && items.TryGetValue("nodeById", out var obj)
+            && obj is IReadOnlyDictionary<Guid, StoragePlaceNode> nodeById)
+            return StoragePlaceNodeHelper.BuildPath(source.SourceNode, nodeById);
+
+        // RootStoragePlace is not loaded on a freshly created fulfillment.
+        return source.SourceNode.RootStoragePlace is null
+            ? [source.SourceNode.Name]
+            : [source.SourceNode.RootStoragePlace.Name, source.SourceNode.Name];
+    }
+}
+
+/// <summary>
+/// Builds the source node breadcrumb for one component of a Bundle fulfillment.
+/// Uses the same <c>nodeById</c> convention as <see cref="NodePathResolver"/>.
+/// </summary>
+public class FulfillmentBundleComponentNodePathResolver
+    : IValueResolver<AssemblyFulfillmentBundleComponent, AssemblyFulfillmentBundleComponentDto, string[]>
+{
+    public string[] Resolve(
+        AssemblyFulfillmentBundleComponent source,
+        AssemblyFulfillmentBundleComponentDto destination,
+        string[] destMember,
+        ResolutionContext context)
+    {
+        if (source.SourceNode is null) return [];
+
+        if (context.TryGetItems(out var items)
+            && items.TryGetValue("nodeById", out var obj)
+            && obj is IReadOnlyDictionary<Guid, StoragePlaceNode> nodeById)
+            return StoragePlaceNodeHelper.BuildPath(source.SourceNode, nodeById);
+
+        return source.SourceNode.RootStoragePlace is null
+            ? [source.SourceNode.Name]
+            : [source.SourceNode.RootStoragePlace.Name, source.SourceNode.Name];
     }
 }
 

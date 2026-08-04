@@ -30,4 +30,15 @@ public class AssemblyFulfillment : IHasIdentity
 
     // Bundle
     public ICollection<AssemblyFulfillmentBundleComponent> BundleComponents { get; set; } = [];
+
+    /// <summary>
+    /// The item inventory actually moved for. For a Variation component this is the chosen member,
+    /// otherwise it equals TaskBoxComponent.CatalogItemId. Null for Bundle and for pre-migration rows.
+    /// </summary>
+    public Guid? ResolvedCatalogItemId { get; set; }
+    public CatalogItem? ResolvedCatalogItem { get; set; }
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public Guid? CreatedById { get; set; }
+    public ApplicationUser? CreatedBy { get; set; }
 }

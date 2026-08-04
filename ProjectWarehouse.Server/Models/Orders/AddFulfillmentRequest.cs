@@ -18,4 +18,10 @@ public class AddFulfillmentRequest
 
     // Bundle
     public IReadOnlyList<AddFulfillmentBundleComponentRequest>? BundleComponents { get; init; }
+
+    /// <summary>
+    /// For a Variation component — the member actually picked. Required for Standard and Bundle
+    /// scenarios; derived server-side from the unit item for the Unit scenario. Ignored otherwise.
+    /// </summary>
+    public Guid? ResolvedCatalogItemId { get; init; }
 }

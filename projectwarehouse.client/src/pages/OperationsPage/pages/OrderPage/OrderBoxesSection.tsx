@@ -91,7 +91,7 @@ function OrderBoxesSection({order, canEdit}: OrderBoxesSectionProps) {
           )}
         </Stack>
         <OrderComponentsTable
-          orderId={order.id}
+          order={order}
           boxId={box.id}
           components={box.components}
           orderStatus={order.status}
@@ -212,7 +212,7 @@ function OrderBoxesSection({order, canEdit}: OrderBoxesSectionProps) {
           </AccordionSummary>
           <AccordionDetails sx={{p: 0}}>
             <OrderComponentsTable
-              orderId={order.id}
+              order={order}
               boxId={box.id}
               components={box.components}
               orderStatus={order.status}

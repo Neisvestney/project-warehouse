@@ -93,6 +93,7 @@ public enum ErrorCode
     AssemblyTaskMoveTargetInvalid,
     AssemblyTaskQuantityExceedsAvailable,
     AssemblyComponentAlreadyFulfilled,
+    CatalogItemNotVariationMember,
 
     // Routing
     RouteNotFound,
