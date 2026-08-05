@@ -284,6 +284,7 @@ function OrderPage() {
           maxWidth="sm"
           onConfirm={() => emptyBoxesConfirm && doTransition(emptyBoxesConfirm)}
           isPending={transitionMutation.isPending}
+          confirmColor={"error"}
         >
           {order.boxes.length === 0 ? (
             <Typography variant="body2">В заказе нет ни одной коробки.</Typography>

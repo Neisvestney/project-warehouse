@@ -62,7 +62,7 @@ function AssemblyOrderAccordion({
         </Stack>
       </AccordionSummary>
 
-      <AccordionDetails sx={{p: 0, pl: 2}}>
+      <AccordionDetails sx={{pl: 2, pb: 2}}>
         <AssemblyOrderBoxesSection order={order} canManage={canFulfill} />
         {tasks.map((task) => {
           const eligible = eligibilityMap.get(task.id) ?? checkBatchEligibility(task);

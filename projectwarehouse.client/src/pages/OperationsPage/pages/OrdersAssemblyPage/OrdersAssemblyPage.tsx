@@ -1,5 +1,6 @@
 import {useMemo, useState} from "react";
-import {Alert, Box, Button, CircularProgress, Stack, Typography} from "@mui/material";
+import {Alert, Box, Button, CircularProgress, IconButton, Stack, Typography} from "@mui/material";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import {useQuery} from "@tanstack/react-query";
 import {ordersGetAllAssemblyOptions} from "@/api/@tanstack/react-query.gen";
 import type {OrderDetailsDto} from "@/api/types.gen";
@@ -34,6 +35,18 @@ function OrdersAssemblyPage() {
   );
 
   const orders = useMemo<OrderDetailsDto[]>(() => ordersQuery.data ?? [], [ordersQuery.data]);
+
+  const [isManualRefetching, setIsManualRefetching] = useState(false);
+  const showLoading = ordersQuery.isLoading || isManualRefetching;
+
+  async function handleRefresh() {
+    setIsManualRefetching(true);
+    try {
+      await ordersQuery.refetch();
+    } finally {
+      setIsManualRefetching(false);
+    }
+  }
 
   const eligibilityMap = useMemo(() => {
     const m = new Map<string, boolean>();
@@ -91,6 +104,9 @@ function OrdersAssemblyPage() {
           title={"Сборка заказов"}
           right={
             <>
+              <IconButton color="inherit" onClick={handleRefresh} disabled={showLoading}>
+                <RefreshIcon />
+              </IconButton>
               {canFulfill && (
                 <Stack direction="row" spacing={1}>
                   <Button size="small" variant="outlined" onClick={handleSelectAllEligible}>
@@ -124,48 +140,49 @@ function OrdersAssemblyPage() {
           <Alert severity="error">Не удалось загрузить заказы на сборке</Alert>
         )}
 
-        {ordersQuery.isLoading && (
+        {showLoading && (
           <Box sx={{display: "flex", justifyContent: "center", p: 4}}>
             <CircularProgress />
           </Box>
         )}
 
-        {orders.length === 0 && !ordersQuery.isLoading && (
+        {orders.length === 0 && !showLoading && (
           <Box sx={{p: 4, textAlign: "center"}}>
             <Typography color="text.secondary">Нет заказов на сборке</Typography>
           </Box>
         )}
 
-        {orders.map((order) => {
-          const tasks = order.assemblyTasks;
+        {!showLoading &&
+          orders.map((order) => {
+            const tasks = order.assemblyTasks;
 
-          if (tasks.length === 1) {
-            const task = tasks[0];
-            const eligible = eligibilityMap.get(task.id) ?? checkBatchEligibility(task);
+            if (tasks.length === 1) {
+              const task = tasks[0];
+              const eligible = eligibilityMap.get(task.id) ?? checkBatchEligibility(task);
+              return (
+                <AssemblyOrderInline
+                  key={order.id}
+                  order={order}
+                  task={task}
+                  canFulfill={canFulfill}
+                  checked={selectedTaskIds.has(task.id)}
+                  onCheckChange={(checked) => handleTaskCheckChange(order.id, task.id, checked)}
+                  batchEligible={eligible}
+                />
+              );
+            }
+
             return (
-              <AssemblyOrderInline
+              <AssemblyOrderAccordion
                 key={order.id}
                 order={order}
-                task={task}
                 canFulfill={canFulfill}
-                checked={selectedTaskIds.has(task.id)}
-                onCheckChange={(checked) => handleTaskCheckChange(order.id, task.id, checked)}
-                batchEligible={eligible}
+                selectedTaskIds={selectedTaskIds}
+                onTaskCheckChange={handleTaskCheckChange}
+                eligibilityMap={eligibilityMap}
               />
             );
-          }
-
-          return (
-            <AssemblyOrderAccordion
-              key={order.id}
-              order={order}
-              canFulfill={canFulfill}
-              selectedTaskIds={selectedTaskIds}
-              onTaskCheckChange={handleTaskCheckChange}
-              eligibilityMap={eligibilityMap}
-            />
-          );
-        })}
+          })}
 
         {batchDialogOpen && (
           <BatchAssemblyDialog
