@@ -67,11 +67,11 @@ public class AppMapperProfile : Profile
 
         CreateMap<UnitInventoryItem, UnitInventoryItemDto>()
             .ForMember(d => d.NodeId, opt => opt.MapFrom(s => s.StoragePlaceNodeId))
-            .ForMember(d => d.NodeName, opt => opt.MapFrom(s => s.StoragePlaceNode.Name))
-            .ForMember(d => d.StoragePlaceId, opt => opt.MapFrom(s => s.StoragePlaceNode.RootStoragePlaceId))
-            .ForMember(d => d.StoragePlaceName, opt => opt.MapFrom(s => s.StoragePlaceNode.RootStoragePlace.Name))
-            .ForMember(d => d.WarehouseId, opt => opt.MapFrom(s => s.StoragePlaceNode.RootStoragePlace.WarehouseId))
-            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.StoragePlaceNode.RootStoragePlace.Warehouse.Name));
+            .ForMember(d => d.NodeName, opt => opt.MapFrom(s => s.StoragePlaceNode!.Name))
+            .ForMember(d => d.StoragePlaceId, opt => opt.MapFrom(s => s.StoragePlaceNode!.RootStoragePlaceId))
+            .ForMember(d => d.StoragePlaceName, opt => opt.MapFrom(s => s.StoragePlaceNode!.RootStoragePlace.Name))
+            .ForMember(d => d.WarehouseId, opt => opt.MapFrom(s => s.StoragePlaceNode!.RootStoragePlace.WarehouseId))
+            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.StoragePlaceNode!.RootStoragePlace.Warehouse.Name));
 
         CreateMap<Warehouse, AppEntity>()
             .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Warehouse))

@@ -563,7 +563,7 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<Guid>("CatalogItemId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("StoragePlaceNodeId")
+                    b.Property<Guid?>("StoragePlaceNodeId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Type")
@@ -1606,8 +1606,7 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasOne("ProjectWarehouse.Server.Domain.StoragePlaceNode", "StoragePlaceNode")
                         .WithMany("InventoryItems")
                         .HasForeignKey("StoragePlaceNodeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("CatalogItem");
 
@@ -1680,7 +1679,7 @@ namespace ProjectWarehouse.Server.Migrations
                         .IsRequired();
 
                     b.HasOne("ProjectWarehouse.Server.Domain.Warehouse", "Warehouse")
-                        .WithMany()
+                        .WithMany("MarketplaceWarehouses")
                         .HasForeignKey("WarehouseId")
                         .OnDelete(DeleteBehavior.Restrict);
 
@@ -2073,6 +2072,8 @@ namespace ProjectWarehouse.Server.Migrations
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Warehouse", b =>
                 {
+                    b.Navigation("MarketplaceWarehouses");
+
                     b.Navigation("StoragePlaces");
                 });
 

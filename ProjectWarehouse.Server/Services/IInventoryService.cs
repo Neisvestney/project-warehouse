@@ -66,6 +66,28 @@ public interface IInventoryService
         string action = InventoryActions.RemoveUnitItem,
         CancellationToken ct = default);
 
+    /// <summary>
+    /// Detaches the <see cref="UnitInventoryItem"/> from its node (sets <c>StoragePlaceNodeId</c> to null)
+    /// without deleting the row — used when a fulfillment takes hold of the item, so its identity and
+    /// any future data on the row survive the round trip. Throws <see cref="InventoryItemNodeMismatchException"/>
+    /// if the item is not in <paramref name="expectedNodeId"/>. Writes a changelog entry on the node.
+    /// </summary>
+    Task DetachUnitItemAsync(
+        Guid unitItemId,
+        Guid expectedNodeId,
+        string action = InventoryActions.RemoveUnitItem,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Reattaches a previously detached <see cref="UnitInventoryItem"/> to a node (sets <c>StoragePlaceNodeId</c>).
+    /// Writes a changelog entry on the node.
+    /// </summary>
+    Task ReattachUnitItemAsync(
+        Guid unitItemId,
+        Guid nodeId,
+        string action = InventoryActions.AddUnitItem,
+        CancellationToken ct = default);
+
     // ── Movement ─────────────────────────────────────────────────────────────
 
     Task MoveStandardItemsAsync(

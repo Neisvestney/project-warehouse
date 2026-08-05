@@ -72,10 +72,11 @@ public class InventoryItemsController(
                         .Sum(g => g.Count)
                     + db.InventoryItems.OfType<UnitInventoryItem>()
                         .Where(u => u.CatalogItemId == ci.Id)
-                        .Where(u => warehouseId == null || u.StoragePlaceNode.RootStoragePlace.WarehouseId == warehouseId)
-                        .Where(u => storagePlaceId == null || u.StoragePlaceNode.RootStoragePlaceId == storagePlaceId)
+                        .Where(u => u.StoragePlaceNodeId != null)
+                        .Where(u => warehouseId == null || u.StoragePlaceNode!.RootStoragePlace.WarehouseId == warehouseId)
+                        .Where(u => storagePlaceId == null || u.StoragePlaceNode!.RootStoragePlaceId == storagePlaceId)
                         .Where(u => nodeId == null || u.StoragePlaceNodeId == nodeId)
-                        .Where(u => assignedIds == null || assignedIds.Contains(u.StoragePlaceNode.RootStoragePlace.WarehouseId))
+                        .Where(u => assignedIds == null || assignedIds.Contains(u.StoragePlaceNode!.RootStoragePlace.WarehouseId))
                         .Count(),
             })
             .Where(x => x.Count > 0);
@@ -140,18 +141,19 @@ public class InventoryItemsController(
         }
 
         var unitBaseQuery = db.InventoryItems.OfType<UnitInventoryItem>()
-            .Where(u => warehouseId == null || u.StoragePlaceNode.RootStoragePlace.WarehouseId == warehouseId)
-            .Where(u => storagePlaceId == null || u.StoragePlaceNode.RootStoragePlaceId == storagePlaceId)
+            .Where(u => u.StoragePlaceNodeId != null)
+            .Where(u => warehouseId == null || u.StoragePlaceNode!.RootStoragePlace.WarehouseId == warehouseId)
+            .Where(u => storagePlaceId == null || u.StoragePlaceNode!.RootStoragePlaceId == storagePlaceId)
             .Where(u => nodeId == null || u.StoragePlaceNodeId == nodeId)
             .Where(u => catalogItemId == null || u.CatalogItemId == catalogItemId)
-            .Where(u => assignedIds == null || assignedIds.Contains(u.StoragePlaceNode.RootStoragePlace.WarehouseId))
+            .Where(u => assignedIds == null || assignedIds.Contains(u.StoragePlaceNode!.RootStoragePlace.WarehouseId))
             .WhereMatchesSearch(u => u.InventoryNumber, searchString);
 
         var query = sortBy switch
         {
-            UnitInventoryItemSortBy.WarehouseName    => unitBaseQuery.Sort(u => u.StoragePlaceNode.RootStoragePlace.Warehouse.Name, sortOrder).ThenBy(u => u.Id),
-            UnitInventoryItemSortBy.StoragePlaceName => unitBaseQuery.Sort(u => u.StoragePlaceNode.RootStoragePlace.Name, sortOrder).ThenBy(u => u.Id),
-            UnitInventoryItemSortBy.NodeName         => unitBaseQuery.Sort(u => u.StoragePlaceNode.Name, sortOrder).ThenBy(u => u.Id),
+            UnitInventoryItemSortBy.WarehouseName    => unitBaseQuery.Sort(u => u.StoragePlaceNode!.RootStoragePlace.Warehouse.Name, sortOrder).ThenBy(u => u.Id),
+            UnitInventoryItemSortBy.StoragePlaceName => unitBaseQuery.Sort(u => u.StoragePlaceNode!.RootStoragePlace.Name, sortOrder).ThenBy(u => u.Id),
+            UnitInventoryItemSortBy.NodeName         => unitBaseQuery.Sort(u => u.StoragePlaceNode!.Name, sortOrder).ThenBy(u => u.Id),
             _                                        => unitBaseQuery.Sort(u => u.InventoryNumber, sortOrder).ThenBy(u => u.Id),
         };
 
