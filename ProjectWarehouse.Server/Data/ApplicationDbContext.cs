@@ -177,6 +177,7 @@ public class ApplicationDbContext : IdentityDbContext<
             e.HasOne(x => x.StoragePlaceNode)
                 .WithMany(x => x.InventoryItems)
                 .HasForeignKey(x => x.StoragePlaceNodeId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

@@ -192,12 +192,57 @@ public class InventoryService(
             ?? throw new UnitInventoryItemNotFoundException(unitItemId);
 
         if (item.StoragePlaceNodeId != expectedNodeId)
-            throw new InventoryItemNodeMismatchException(unitItemId, expectedNodeId, item.StoragePlaceNodeId);
+            throw new InventoryItemNodeMismatchException(unitItemId, expectedNodeId, item.StoragePlaceNodeId ?? Guid.Empty);
 
-        var nodeId = item.StoragePlaceNodeId;
+        var nodeId = item.StoragePlaceNodeId!.Value;
         var before = await SnapshotNodeAsync(nodeId, ct);
 
         db.InventoryItems.Remove(item);
+        await db.SaveChangesAsync(ct);
+
+        var after = await SnapshotNodeAsync(nodeId, ct);
+        await changeLog.CompareAndSaveToChangelog(before, after, action);
+    }
+
+    public async Task DetachUnitItemAsync(
+        Guid unitItemId,
+        Guid expectedNodeId,
+        string action = InventoryActions.RemoveUnitItem,
+        CancellationToken ct = default)
+    {
+        var item = await db.InventoryItems.OfType<UnitInventoryItem>()
+            .FirstOrDefaultAsync(u => u.Id == unitItemId, ct)
+            ?? throw new UnitInventoryItemNotFoundException(unitItemId);
+
+        if (item.StoragePlaceNodeId != expectedNodeId)
+            throw new InventoryItemNodeMismatchException(unitItemId, expectedNodeId, item.StoragePlaceNodeId ?? Guid.Empty);
+
+        var nodeId = expectedNodeId;
+        var before = await SnapshotNodeAsync(nodeId, ct);
+
+        item.StoragePlaceNodeId = null;
+        await db.SaveChangesAsync(ct);
+
+        var after = await SnapshotNodeAsync(nodeId, ct);
+        await changeLog.CompareAndSaveToChangelog(before, after, action);
+    }
+
+    public async Task ReattachUnitItemAsync(
+        Guid unitItemId,
+        Guid nodeId,
+        string action = InventoryActions.AddUnitItem,
+        CancellationToken ct = default)
+    {
+        var item = await db.InventoryItems.OfType<UnitInventoryItem>()
+            .FirstOrDefaultAsync(u => u.Id == unitItemId, ct)
+            ?? throw new UnitInventoryItemNotFoundException(unitItemId);
+
+        if (item.StoragePlaceNodeId != null)
+            throw new InventoryItemNodeMismatchException(unitItemId, nodeId, item.StoragePlaceNodeId.Value);
+
+        var before = await SnapshotNodeAsync(nodeId, ct);
+
+        item.StoragePlaceNodeId = nodeId;
         await db.SaveChangesAsync(ct);
 
         var after = await SnapshotNodeAsync(nodeId, ct);
@@ -228,7 +273,8 @@ public class InventoryService(
             .FirstOrDefaultAsync(u => u.Id == unitItemId, ct)
             ?? throw new UnitInventoryItemNotFoundException(unitItemId);
 
-        var fromNodeId = item.StoragePlaceNodeId;
+        var fromNodeId = item.StoragePlaceNodeId
+            ?? throw new InvalidOperationException($"Unit inventory item {unitItemId} is detached and cannot be moved.");
 
         var fromBefore = await SnapshotNodeAsync(fromNodeId, ct);
         var toBefore   = await SnapshotNodeAsync(toNodeId, ct);

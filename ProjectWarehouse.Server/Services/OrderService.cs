@@ -588,7 +588,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
 
             await db.SaveChangesAsync(ct);
 
-            await inventory.RemoveUnitItemAsync(
+            await inventory.DetachUnitItemAsync(
                 request.UnitInventoryItemId!.Value,
                 request.SourceNodeId.Value,
                 InventoryActions.RemoveUnitItem,
@@ -643,7 +643,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
             {
                 if (bundleComp.UnitInventoryItemId.HasValue)
                 {
-                    await inventory.RemoveUnitItemAsync(
+                    await inventory.DetachUnitItemAsync(
                         bundleComp.UnitInventoryItemId.Value,
                         bundleComp.SourceNodeId,
                         InventoryActions.RemoveUnitItem,
@@ -683,8 +683,18 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
             // Bundle — restore each component
             foreach (var comp in fulfillment.BundleComponents)
             {
-                if (!string.IsNullOrEmpty(comp.UnitInventoryNumber))
+                if (comp.UnitInventoryItemId.HasValue)
                 {
+                    await inventory.ReattachUnitItemAsync(
+                        comp.UnitInventoryItemId.Value,
+                        comp.SourceNodeId,
+                        InventoryActions.AddUnitItem,
+                        ct);
+                }
+                else if (!string.IsNullOrEmpty(comp.UnitInventoryNumber))
+                {
+                    // Legacy row from before the detach/reattach refactor — the item was
+                    // hard-deleted, so recreate it from the snapshot instead.
                     await inventory.PlaceUnitItemToNodeAsync(
                         comp.SourceNodeId,
                         comp.CatalogItemId,
@@ -703,9 +713,19 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                 }
             }
         }
+        else if (fulfillment.UnitInventoryItemId.HasValue)
+        {
+            // Unit — reattach the same item to its original node
+            await inventory.ReattachUnitItemAsync(
+                fulfillment.UnitInventoryItemId.Value,
+                fulfillment.SourceNodeId!.Value,
+                InventoryActions.AddUnitItem,
+                ct);
+        }
         else if (!string.IsNullOrEmpty(fulfillment.UnitInventoryNumber))
         {
-            // Unit — recreate the unit item
+            // Legacy row from before the detach/reattach refactor — the item was
+            // hard-deleted, so recreate it from the snapshot instead.
             await inventory.PlaceUnitItemToNodeAsync(
                 fulfillment.SourceNodeId!.Value,
                 RestoreTargetCatalogItemId(fulfillment),
