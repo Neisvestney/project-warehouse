@@ -40,6 +40,7 @@ import PrintIcon from "@mui/icons-material/Print";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import ConfirmDialog from "@/components/ConfirmDialog.tsx";
 import {SortableNodeTree} from "./SortableNodeTree.tsx";
+import {NOUNS, pluralCount} from "@/utils/pluralUtils";
 
 const DRAWER_WIDTH = 1000;
 
@@ -334,7 +335,7 @@ function StoragePlaceDrawer({open, storagePlace, warehouseId, onClose}: StorageP
                 {nodes.length > 0 && <Chip label={nodes.length} size="small" />}
                 {(storagePlace?.totalItemsCount ?? 0) > 0 && (
                   <Chip
-                    label={`${storagePlace!.totalItemsCount} товаров`}
+                    label={pluralCount(storagePlace!.totalItemsCount, NOUNS.item)}
                     size="small"
                     color="primary"
                     variant="outlined"

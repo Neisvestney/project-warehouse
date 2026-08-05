@@ -43,6 +43,7 @@ import WarehousesSelect from "@/components/WarehousesSelect";
 import OrderStatusChip from "./OrderStatusChip";
 import {ORDER_STATUS_LABELS, formatOrderNumber} from "./orderUtils";
 import type {OrderSortBy, OrderStatus, OrderType} from "@/api/types.gen";
+import {pluralCount} from "@/utils/pluralUtils";
 
 const SORT_COLUMNS: {key: OrderSortBy; label: string}[] = [
   {key: "number", label: "#"},
@@ -236,7 +237,11 @@ function OrdersListPage({
           }}
         >
           <Typography variant="body2" sx={{flexGrow: 1}}>
-            Выбрано {selectedConfirmedIds.length} подтверждённых
+            {pluralCount(selectedConfirmedIds.length, {
+              one: "подтверждённый заказ выбран",
+              few: "подтверждённых заказа выбрано",
+              many: "подтверждённых заказов выбрано",
+            })}
           </Typography>
           <Button
             size="small"

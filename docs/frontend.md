@@ -978,6 +978,34 @@ Label maps for every marketplace enum (`MARKETPLACE_TYPE_LABELS`, `SYNC_STATUS_L
 
 `hasCapability(capabilities, flag)` exists because `MarketplaceCapabilities` is a **`[Flags]` enum**: `JsonStringEnumConverter` sends a combination as one comma-separated string (`"warehouses, cards, sellerInfo"`), which the generated union of single values does not describe. Never compare `capabilities` with `===`.
 
+### `pluralUtils`
+Русская плюрализация счётчиков. Формы выбирает `Intl.PluralRules("ru-RU")`, а не ручная арифметика по `% 10` / `% 100`.
+
+```ts
+plural(n, forms)        // → одна форма: "задания"
+pluralCount(n, forms)   // → "2 задания" (число через toLocaleString("ru-RU"))
+```
+
+`PluralForms` — это `{one, few, many}`: `one` — 1, 21, 31…; `few` — 2-4, 22-24…; `many` — 0, 5-20, 25-30…
+
+Дробные CLDR относит к категории `"other"`, которой в `PluralForms` нет — `plural()` сводит её к `few`, потому что по-русски правильно «1,5 задания». Не заменяй это на индексацию `forms[category]`: она молча вернёт `undefined`.
+
+`NOUNS` — общий словарь существительных в именительном падеже (`task`, `item`, `position`, `itemType`). Для повторно используемого счётчика добавляй слово сюда, а не в компонент.
+
+Формы — произвольные строки, поэтому во фразах со согласованием глагола или прилагательного склоняй всю фразу целиком:
+
+```ts
+pluralCount(n, {
+  one: "позиция будет удалена",
+  few: "позиции будут удалены",
+  many: "позиций будут удалены",
+});
+```
+
+Слово в косвенном падеже (например после «для» — «для 2 **заданий**») в `NOUNS` не кладём: там только именительный. Такие формы объявляй константой рядом с местом использования (см. `TASKS_GENITIVE` в `BatchAssemblyDialog.tsx`).
+
+Не трогаем сокращения — `шт.`, `поз.`, `комп.`, `м`, `мин`: они не склоняются.
+
 ### `ObservableForm<TFieldValues>`
 A class that creates a bidirectional bridge between a **react-hook-form** instance and **MobX**. It holds `_data` — a MobX observable snapshot of the form values — and keeps it in sync with the RHF form in both directions via a `watch` subscription (RHF → MobX) and a MobX `reaction` (MobX → RHF). A `_syncing` flag prevents feedback loops.
 

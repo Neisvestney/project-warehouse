@@ -45,6 +45,7 @@ import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState.ts"
 import {useHasPermission} from "@/hooks/usePermission";
 import AddIcon from "@mui/icons-material/Add";
 import FiltersBar from "@/components/FiltersBar.tsx";
+import {NOUNS, pluralCount} from "@/utils/pluralUtils";
 
 const DEFAULT_ITEM_TYPES = CATALOG_ITEM_TYPES;
 
@@ -145,7 +146,7 @@ function CatalogPage() {
                 if (selected.length === CATALOG_ITEM_TYPES.length) return "Все";
                 if (selected.length === 0) return "Нет";
                 if (selected.length === 1) return CATALOG_ITEM_TYPE_CONFIG[selected[0]].label;
-                return `${selected.length} типов`;
+                return pluralCount(selected.length, NOUNS.itemType);
               }}
             >
               {CATALOG_ITEM_TYPES.map((type) => (

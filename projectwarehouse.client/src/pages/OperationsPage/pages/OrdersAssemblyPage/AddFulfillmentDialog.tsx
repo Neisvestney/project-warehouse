@@ -42,6 +42,7 @@ import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {useDebounce} from "@/hooks/useDebounce";
 import {useDefaultStorageNode} from "@/hooks/useDefaultStorageNode";
 import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
+import {pluralCount} from "@/utils/pluralUtils";
 
 // ─── Node field (display + pick, no manual typing) ─────────────────────────
 
@@ -781,7 +782,11 @@ function AddFulfillmentDialog({
               onCommit={setBundleCount}
               helperText={
                 bundleCount > 1
-                  ? `Будет создано ${bundleCount} одинаковых фулфилментов комплекта`
+                  ? `Будет создано ${pluralCount(bundleCount, {
+                      one: "одинаковый фулфилмент",
+                      few: "одинаковых фулфилмента",
+                      many: "одинаковых фулфилментов",
+                    })} комплекта`
                   : undefined
               }
             />

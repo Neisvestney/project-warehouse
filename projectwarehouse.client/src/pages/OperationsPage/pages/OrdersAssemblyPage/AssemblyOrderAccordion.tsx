@@ -15,6 +15,7 @@ import AssemblyOrderBoxesSection from "./AssemblyOrderBoxesSection";
 import AssemblyTaskAccordion from "./AssemblyTaskAccordion";
 import {formatOrderNumber} from "@/components/orders/orderUtils";
 import {checkBatchEligibility} from "./batchEligibility";
+import {NOUNS, pluralCount} from "@/utils/pluralUtils";
 
 interface AssemblyOrderAccordionProps {
   order: OrderDetailsDto;
@@ -57,7 +58,7 @@ function AssemblyOrderAccordion({
           <Chip label={order.warehouseName} size="small" variant="outlined" />
 
           <Typography variant="caption" color="text.secondary" sx={{ml: "auto"}}>
-            {tasks.length} заданий
+            {pluralCount(tasks.length, NOUNS.task)}
           </Typography>
         </Stack>
       </AccordionSummary>

@@ -45,6 +45,7 @@ import {formatBoxLabel} from "@/components/orders/orderUtils";
 import AddFulfillmentDialog from "./AddFulfillmentDialog";
 import {hasRemainingWork} from "./batchEligibility";
 import MoveTaskComponentDialog from "./MoveTaskComponentDialog";
+import {NOUNS, plural} from "@/utils/pluralUtils";
 
 const TASK_STATUS_LABELS: Record<AssemblyTaskStatus, string> = {
   pending: "Ожидает",
@@ -317,7 +318,7 @@ function AssemblyTaskAccordion({
           {/*<Typography variant="body2">{task.assignedToName ?? "Не назначен"}</Typography>*/}
 
           <Typography variant="caption" color="text.secondary" sx={{ml: "auto"}}>
-            {fulfilledComponents}/{totalComponents} позиций
+            {fulfilledComponents}/{totalComponents} {plural(totalComponents, NOUNS.position)}
           </Typography>
         </Stack>
       </AccordionSummary>
