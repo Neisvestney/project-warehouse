@@ -188,16 +188,18 @@ function WarehouseViewPage() {
               <Typography variant="caption" color="text.secondary">
                 Привязано к складам маркетплейсов
               </Typography>
-               <Stack spacing={1} direction="row">
-                 {warehouse.marketplaceAccounts.map((account) => <Chip 
-                   component={Link}
-                   to={`/settings/integrations/${account.id}?tab=warehouses`}
-                   color={MARKETPLACE_TYPE_COLORS[account.type]}
-                   onClick={() => {}}
-                   label={account.name}
-                   size="small"
-                 />)}
-               </Stack>
+              <Stack spacing={1} direction="row">
+                {warehouse.marketplaceAccounts.map((account) => (
+                  <Chip
+                    component={Link}
+                    to={`/settings/integrations/${account.id}?tab=warehouses`}
+                    color={MARKETPLACE_TYPE_COLORS[account.type]}
+                    onClick={() => {}}
+                    label={account.name}
+                    size="small"
+                  />
+                ))}
+              </Stack>
             </Stack>
           )}
         </Stack>

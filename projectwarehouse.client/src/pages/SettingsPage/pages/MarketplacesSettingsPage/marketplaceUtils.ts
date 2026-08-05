@@ -20,7 +20,6 @@ export const MARKETPLACE_TYPE_COLORS: Record<MarketplaceType, "ozon" | "wb"> = {
   wildberries: "wb",
 };
 
-
 export const SYNC_STATUS_LABELS: Record<MarketplaceSyncStatus, string> = {
   running: "Синхронизация",
   success: "Синхронизировано",
@@ -84,6 +83,10 @@ export function hasCapability(
     .split(",")
     .map((part) => part.trim())
     .includes(flag);
+}
+
+export function formatApiKeyMask(last4: string | null | undefined): string {
+  return last4 ? `••••${last4}` : "—";
 }
 
 export function formatDateTime(value: string | null | undefined): string {

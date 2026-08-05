@@ -220,7 +220,6 @@ public class AppMapperProfile : Profile
         CreateMap<MarketplaceAccount, MarketplaceAccountShortSummaryDto>();
 
         CreateMap<MarketplaceAccount, MarketplaceAccountDto>()
-            .ForMember(d => d.ApiKeyMask, opt => opt.MapFrom(s => "••••" + s.ApiKeyLast4))
             .ForMember(d => d.CreatedByName, opt => opt.MapFrom(s => s.CreatedBy != null ? s.CreatedBy.UserName : null))
             .ForMember(d => d.WarehouseCount, opt => opt.MapFrom(s => s.Warehouses.Count))
             .ForMember(d => d.UnmappedWarehouseCount,

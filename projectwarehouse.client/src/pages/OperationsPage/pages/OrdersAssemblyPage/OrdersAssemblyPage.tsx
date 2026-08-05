@@ -27,9 +27,11 @@ function OrdersAssemblyPage() {
     (v) => v,
   );
 
-  const ordersQuery = useQuery(ordersGetAllAssemblyOptions({
-    query: {warehouseId: warehouseId ?? undefined}
-  }));
+  const ordersQuery = useQuery(
+    ordersGetAllAssemblyOptions({
+      query: {warehouseId: warehouseId ?? undefined},
+    }),
+  );
 
   const orders = useMemo<OrderDetailsDto[]>(() => ordersQuery.data ?? [], [ordersQuery.data]);
 
@@ -83,27 +85,30 @@ function OrdersAssemblyPage() {
     <CatalogItemDrawerHost>
       <Stack spacing={2}>
         <AppBreadcrumbs
-          path={[
-            {name: "Операции", link: "/operations"},
-            {name: "Сборка заказов"},
-          ]}
+          path={[{name: "Операции", link: "/operations"}, {name: "Сборка заказов"}]}
         />
-        <PageGenericHeader 
+        <PageGenericHeader
           title={"Сборка заказов"}
-          right={<>
-            {canFulfill && (
-              <Stack direction="row" spacing={1}>
-                <Button size="small" variant="outlined" onClick={handleSelectAllEligible}>
-                  Выбрать все доступные для массовой сборки
-                </Button>
-                {selectedTaskIds.size >= 1 && (
-                  <Button size="small" variant="contained" onClick={() => setBatchDialogOpen(true)}>
-                    Собрать выбранные ({selectedTaskIds.size})
+          right={
+            <>
+              {canFulfill && (
+                <Stack direction="row" spacing={1}>
+                  <Button size="small" variant="outlined" onClick={handleSelectAllEligible}>
+                    Выбрать все доступные для массовой сборки
                   </Button>
-                )}
-              </Stack>
-            )}
-          </>}
+                  {selectedTaskIds.size >= 1 && (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      onClick={() => setBatchDialogOpen(true)}
+                    >
+                      Собрать выбранные ({selectedTaskIds.size})
+                    </Button>
+                  )}
+                </Stack>
+              )}
+            </>
+          }
         />
         <FiltersBar>
           <WarehousesSelect
@@ -115,21 +120,21 @@ function OrdersAssemblyPage() {
           />
         </FiltersBar>
 
-        {ordersQuery.isError && 
+        {ordersQuery.isError && (
           <Alert severity="error">Не удалось загрузить заказы на сборке</Alert>
-        }
+        )}
 
-        {ordersQuery.isLoading &&
-            <Box sx={{display: "flex", justifyContent: "center", p: 4}}>
-                <CircularProgress/>
-            </Box>
-        }
+        {ordersQuery.isLoading && (
+          <Box sx={{display: "flex", justifyContent: "center", p: 4}}>
+            <CircularProgress />
+          </Box>
+        )}
 
-        {orders.length === 0 && !ordersQuery.isLoading &&
-            <Box sx={{p: 4, textAlign: "center"}}>
-                <Typography color="text.secondary">Нет заказов на сборке</Typography>
-            </Box>
-        }
+        {orders.length === 0 && !ordersQuery.isLoading && (
+          <Box sx={{p: 4, textAlign: "center"}}>
+            <Typography color="text.secondary">Нет заказов на сборке</Typography>
+          </Box>
+        )}
 
         {orders.map((order) => {
           const tasks = order.assemblyTasks;

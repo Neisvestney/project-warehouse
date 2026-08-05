@@ -408,12 +408,12 @@ Neither body accepts a `name`: the account name comes from the marketplace (`com
 **Key DTOs:**
 
 `MarketplaceAccountSummaryDto`: `{ id, type, name, isActive, syncIntervalMinutes, lastSyncAt?, lastSyncStatus?, lastSyncError?, warehouseCount, cardCount, unmappedCardCount }`
-`MarketplaceAccountDto`: `{ id, type, name, isActive, externalClientId?, companyLegalName?, inn?, ogrn?, ownershipForm?, apiKeyMask, apiKeyUpdatedAt?, credentialsUnreadable, capabilities, syncIntervalMinutes, lastSyncAt?, lastSyncStatus?, lastSyncError?, createdAt, createdById?, createdByName?, warehouseCount, unmappedWarehouseCount, cardCount, unmappedCardCount }`
+`MarketplaceAccountDto`: `{ id, type, name, isActive, externalClientId?, companyLegalName?, inn?, ogrn?, ownershipForm?, apiKeyLast4, apiKeyUpdatedAt?, credentialsUnreadable, capabilities, syncIntervalMinutes, lastSyncAt?, lastSyncStatus?, lastSyncError?, createdAt, createdById?, createdByName?, warehouseCount, unmappedWarehouseCount, cardCount, unmappedCardCount }`
 `MarketplaceWarehouseDto`: `{ id, marketplaceAccountId, externalId, name, kind, externalStatus?, address?, isArchived, warehouseId?, warehouseName?, syncedAt }`
 `MarketplaceCardDto`: `{ id, marketplaceAccountId, externalId, sku?, offerId, name, barcodes, primaryImageUrl?, price?, currencyCode?, isArchived, catalogItemId?, catalogItemFullName?, catalogItemArticle?, mappingSource?, mappedAt?, isMappedToArchivedItem, syncedAt }`
 `MarketplaceSyncRunDto`: `{ id, marketplaceAccountId, scope, status, startedAt, finishedAt?, triggeredById?, triggeredByName?, warehousesProcessed, cardsProcessed, cardsCreated, cardsUpdated, cardsArchived, autoMapped, error? }`
 
-**The API key never leaves the server.** `MarketplaceAccountDto` has no key field at all — only `apiKeyMask` (`••••1234`) and `apiKeyUpdatedAt`. `credentialsUnreadable` is computed per request by attempting to decrypt the stored key; it turns `true` when the Data Protection key ring has been lost.
+**The API key never leaves the server.** `MarketplaceAccountDto` has no key field at all — only `apiKeyLast4` (the key tail; the client renders it as `••••1234`) and `apiKeyUpdatedAt`. `credentialsUnreadable` is computed per request by attempting to decrypt the stored key; it turns `true` when the Data Protection key ring has been lost.
 
 **`lastSyncError` / `MarketplaceSyncRunDto.error` are `AppFieldError`**, not strings: `{ code, detail, args? }`, the same shape used inside `AppProblemDetails`. Clients render from `code` + `args` (`marketplaceStatus`, `marketplaceResponse`, `accountId`) — `detail` is developer-facing English.
 

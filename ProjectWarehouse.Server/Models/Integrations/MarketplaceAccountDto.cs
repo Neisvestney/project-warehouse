@@ -22,8 +22,8 @@ public class MarketplaceAccountDto : IHasIdentity
     public string? Ogrn { get; init; }
     public string? OwnershipForm { get; init; }
 
-    /// <summary>Rendered as ••••1234.</summary>
-    public string ApiKeyMask { get; init; } = null!;
+    /// <summary>Key tail only — the client renders the mask.</summary>
+    public string ApiKeyLast4 { get; init; } = null!;
     public DateTime? ApiKeyUpdatedAt { get; init; }
 
     /// <summary>The stored key can no longer be decrypted — the key ring was lost. Probed, not stored.</summary>

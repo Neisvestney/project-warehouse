@@ -530,9 +530,9 @@ export type MarketplaceAccountDto = {
   ogrn?: null | string;
   ownershipForm?: null | string;
   /**
-   * Rendered as ••••1234.
+   * Key tail only — the client renders the mask.
    */
-  apiKeyMask: string;
+  apiKeyLast4: string;
   apiKeyUpdatedAt?: null | string;
   /**
    * The stored key can no longer be decrypted — the key ring was lost. Probed, not stored.
