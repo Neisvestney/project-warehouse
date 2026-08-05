@@ -10,6 +10,7 @@ public class MarketplaceWarehouseDto : IHasIdentity
     public string ExternalId { get; init; } = null!;
     public string Name { get; init; } = null!;
     public MarketplaceWarehouseKind Kind { get; init; }
+    public MarketplaceWarehouseStatus Status { get; init; }
     public string? ExternalStatus { get; init; }
     public string? Address { get; init; }
     public bool IsArchived { get; init; }

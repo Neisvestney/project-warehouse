@@ -1,6 +1,7 @@
 import React from "react";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import PeopleIcon from "@mui/icons-material/People";
+import StorefrontIcon from "@mui/icons-material/Storefront";
 import {createHasAccess} from "@/layouts/SidebarPage/createHasAccess.ts";
 import {createFirstPageUrl} from "@/layouts/SidebarPage/createFirstPageUrl.ts";
 import type {SectionConfig} from "@/layouts/SidebarPage/SidebarPage.tsx";
@@ -9,6 +10,9 @@ import UsersPage from "@/pages/UsersPage/UsersPage.tsx";
 import UserViewPage from "@/pages/UsersPage/pages/UserViewPage/UserViewPage.tsx";
 import UserEditPage from "@/pages/UsersPage/pages/UserEditPage/UserEditPage.tsx";
 import UserCreatePage from "@/pages/UsersPage/pages/UserCreatePage/UserCreatePage.tsx";
+import MarketplacesSettingsPage from "./pages/MarketplacesSettingsPage/MarketplacesSettingsPage.tsx";
+import MarketplaceAccountCreatePage from "./pages/MarketplacesSettingsPage/pages/MarketplaceAccountCreatePage/MarketplaceAccountCreatePage.tsx";
+import MarketplaceAccountPage from "./pages/MarketplacesSettingsPage/pages/MarketplaceAccountPage/MarketplaceAccountPage.tsx";
 
 export const settingsSections: SectionConfig[] = [
   {
@@ -28,6 +32,17 @@ export const settingsSections: SectionConfig[] = [
       {path: "new", component: UserCreatePage},
       {path: ":id/edit", component: UserEditPage},
       {path: ":id", component: UserViewPage},
+    ],
+  },
+  {
+    label: "Маркетплейсы",
+    path: "integrations",
+    icon: <StorefrontIcon fontSize="small" />,
+    component: MarketplacesSettingsPage,
+    requiredPermission: "integrations.view",
+    subroutes: [
+      {path: "new", component: MarketplaceAccountCreatePage},
+      {path: ":id", component: MarketplaceAccountPage},
     ],
   },
 ];

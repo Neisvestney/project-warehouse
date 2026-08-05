@@ -60,6 +60,48 @@ import type {
   InventoryItemsGetAllUnitsData,
   InventoryItemsGetAllUnitsErrors,
   InventoryItemsGetAllUnitsResponses,
+  MarketplacesAutoMapCardsData,
+  MarketplacesAutoMapCardsErrors,
+  MarketplacesAutoMapCardsResponses,
+  MarketplacesCreateAccountData,
+  MarketplacesCreateAccountErrors,
+  MarketplacesCreateAccountResponses,
+  MarketplacesDeleteAccountData,
+  MarketplacesDeleteAccountErrors,
+  MarketplacesDeleteAccountResponses,
+  MarketplacesGetAccountData,
+  MarketplacesGetAccountErrors,
+  MarketplacesGetAccountResponses,
+  MarketplacesGetAccountsData,
+  MarketplacesGetAccountsErrors,
+  MarketplacesGetAccountsResponses,
+  MarketplacesGetCardsData,
+  MarketplacesGetCardsErrors,
+  MarketplacesGetCardsResponses,
+  MarketplacesGetSyncRunsData,
+  MarketplacesGetSyncRunsErrors,
+  MarketplacesGetSyncRunsResponses,
+  MarketplacesGetUnmappedCountData,
+  MarketplacesGetUnmappedCountErrors,
+  MarketplacesGetUnmappedCountResponses,
+  MarketplacesGetWarehousesData,
+  MarketplacesGetWarehousesErrors,
+  MarketplacesGetWarehousesResponses,
+  MarketplacesSetCardMappingData,
+  MarketplacesSetCardMappingErrors,
+  MarketplacesSetCardMappingResponses,
+  MarketplacesSetWarehouseMappingData,
+  MarketplacesSetWarehouseMappingErrors,
+  MarketplacesSetWarehouseMappingResponses,
+  MarketplacesStartSyncData,
+  MarketplacesStartSyncErrors,
+  MarketplacesStartSyncResponses,
+  MarketplacesTestConnectionData,
+  MarketplacesTestConnectionErrors,
+  MarketplacesTestConnectionResponses,
+  MarketplacesUpdateAccountData,
+  MarketplacesUpdateAccountErrors,
+  MarketplacesUpdateAccountResponses,
   OrdersAddBoxData,
   OrdersAddBoxErrors,
   OrdersAddBoxResponses,
@@ -561,6 +603,217 @@ export const inventoryItemsGetAllUnits = <ThrowOnError extends boolean = false>(
     InventoryItemsGetAllUnitsErrors,
     ThrowOnError
   >({url: "/api/inventory-items/units", ...options});
+
+/**
+ * List marketplace accounts (paginated, searchable).
+ */
+export const marketplacesGetAccounts = <ThrowOnError extends boolean = false>(
+  options?: Options<MarketplacesGetAccountsData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    MarketplacesGetAccountsResponses,
+    MarketplacesGetAccountsErrors,
+    ThrowOnError
+  >({url: "/api/integrations/marketplaces/accounts", ...options});
+
+/**
+ * Connects a marketplace account. The key is encrypted on write and never returned.
+ */
+export const marketplacesCreateAccount = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplacesCreateAccountData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    MarketplacesCreateAccountResponses,
+    MarketplacesCreateAccountErrors,
+    ThrowOnError
+  >({
+    url: "/api/integrations/marketplaces/accounts",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Disconnects an account, cascading to its synced warehouses, cards and run history.
+ */
+export const marketplacesDeleteAccount = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplacesDeleteAccountData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<
+    MarketplacesDeleteAccountResponses,
+    MarketplacesDeleteAccountErrors,
+    ThrowOnError
+  >({url: "/api/integrations/marketplaces/accounts/{id}", ...options});
+
+/**
+ * Account with aggregates. Probes the stored key so the UI can warn about a lost key ring.
+ */
+export const marketplacesGetAccount = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplacesGetAccountData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    MarketplacesGetAccountResponses,
+    MarketplacesGetAccountErrors,
+    ThrowOnError
+  >({url: "/api/integrations/marketplaces/accounts/{id}", ...options});
+
+/**
+ * Updates an account. An empty `apiKey` keeps the stored one.
+ */
+export const marketplacesUpdateAccount = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplacesUpdateAccountData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    MarketplacesUpdateAccountResponses,
+    MarketplacesUpdateAccountErrors,
+    ThrowOnError
+  >({
+    url: "/api/integrations/marketplaces/accounts/{id}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Checks credentials without saving. When the body carries an apiKey the route id is ignored,
+ * so a key can be verified before the account exists.
+ */
+export const marketplacesTestConnection = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplacesTestConnectionData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    MarketplacesTestConnectionResponses,
+    MarketplacesTestConnectionErrors,
+    ThrowOnError
+  >({
+    url: "/api/integrations/marketplaces/accounts/{id}/test-connection",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Queues a sync and returns 202 immediately — poll the run for progress.
+ */
+export const marketplacesStartSync = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplacesStartSyncData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    MarketplacesStartSyncResponses,
+    MarketplacesStartSyncErrors,
+    ThrowOnError
+  >({
+    url: "/api/integrations/marketplaces/accounts/{id}/sync",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Sync history for an account, newest first (paginated).
+ */
+export const marketplacesGetSyncRuns = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplacesGetSyncRunsData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    MarketplacesGetSyncRunsResponses,
+    MarketplacesGetSyncRunsErrors,
+    ThrowOnError
+  >({url: "/api/integrations/marketplaces/accounts/{id}/sync-runs", ...options});
+
+/**
+ * Marketplace warehouses of an account with their WMS mapping (paginated, searchable).
+ */
+export const marketplacesGetWarehouses = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplacesGetWarehousesData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    MarketplacesGetWarehousesResponses,
+    MarketplacesGetWarehousesErrors,
+    ThrowOnError
+  >({url: "/api/integrations/marketplaces/accounts/{id}/warehouses", ...options});
+
+/**
+ * Maps a marketplace warehouse to a WMS warehouse. Null clears the mapping.
+ */
+export const marketplacesSetWarehouseMapping = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplacesSetWarehouseMappingData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    MarketplacesSetWarehouseMappingResponses,
+    MarketplacesSetWarehouseMappingErrors,
+    ThrowOnError
+  >({
+    url: "/api/integrations/marketplaces/warehouses/{id}/mapping",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Marketplace cards of an account with their catalog mapping (paginated, searchable, filterable).
+ */
+export const marketplacesGetCards = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplacesGetCardsData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    MarketplacesGetCardsResponses,
+    MarketplacesGetCardsErrors,
+    ThrowOnError
+  >({url: "/api/integrations/marketplaces/accounts/{id}/cards", ...options});
+
+/**
+ * Maps a card to a catalog item. Null clears the mapping.
+ */
+export const marketplacesSetCardMapping = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplacesSetCardMappingData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    MarketplacesSetCardMappingResponses,
+    MarketplacesSetCardMappingErrors,
+    ThrowOnError
+  >({
+    url: "/api/integrations/marketplaces/cards/{id}/mapping",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Matches still-unmapped cards to catalog items by article, then by barcode. Existing mappings are left alone.
+ */
+export const marketplacesAutoMapCards = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplacesAutoMapCardsData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    MarketplacesAutoMapCardsResponses,
+    MarketplacesAutoMapCardsErrors,
+    ThrowOnError
+  >({url: "/api/integrations/marketplaces/accounts/{id}/cards/auto-map", ...options});
+
+/**
+ * Unmapped card count across all active accounts — feeds the sidebar badge.
+ */
+export const marketplacesGetUnmappedCount = <ThrowOnError extends boolean = false>(
+  options?: Options<MarketplacesGetUnmappedCountData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    MarketplacesGetUnmappedCountResponses,
+    MarketplacesGetUnmappedCountErrors,
+    ThrowOnError
+  >({url: "/api/integrations/marketplaces/accounts/unmapped-count", ...options});
 
 export const ordersGetAll = <ThrowOnError extends boolean = false>(
   options?: Options<OrdersGetAllData, ThrowOnError>,

@@ -123,7 +123,8 @@ try
 
         options.AddSchemaTransformer((schema, context, _) =>
         {
-            var type = context.JsonTypeInfo.Type;
+            // Nullable<TEnum> is not IsEnum — without unwrapping, nullable enum properties stay integer
+            var type = Nullable.GetUnderlyingType(context.JsonTypeInfo.Type) ?? context.JsonTypeInfo.Type;
             if (!type.IsEnum) return Task.CompletedTask;
 
             schema.Enum = Enum.GetNames(type)
