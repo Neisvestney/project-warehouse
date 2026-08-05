@@ -186,7 +186,7 @@ public class OrdersController(
     [HttpGet("assembly")]
     [Authorize]
     [ProducesResponseType<List<OrderDetailsDto>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAllAssembly(CancellationToken ct = default)
+    public async Task<IActionResult> GetAllAssembly([FromQuery] Guid? warehouseId = null, CancellationToken ct = default)
     {
         var (canView, canViewAssigned, assignedIds) = await GetViewAccessAsync(ct);
         var canAssemble = User.HasClaim("permission", Permissions.Orders.AssembleAssigned);
@@ -229,6 +229,9 @@ public class OrdersController(
             .Where(o => o.Status == OrderStatus.Assembly)
             .Where(o => o.AssemblyTasks.Any(t => t.AssignedToId == userId))
             .AsSplitQuery();
+        
+        if (warehouseId is not null)
+            query = query.Where(o => o.WarehouseId == warehouseId);
 
         if (!canView && assignedIds is not null)
             query = query.Where(o => assignedIds.Contains(o.WarehouseId));

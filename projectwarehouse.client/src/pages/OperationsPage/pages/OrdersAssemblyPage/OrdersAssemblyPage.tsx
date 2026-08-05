@@ -9,6 +9,11 @@ import AssemblyOrderAccordion from "./AssemblyOrderAccordion";
 import AssemblyOrderInline from "./AssemblyOrderInline";
 import {checkBatchEligibility, hasRemainingWork} from "./batchEligibility";
 import BatchAssemblyDialog, {type SelectedTaskInfo} from "./BatchAssemblyDialog";
+import PageGenericHeader from "@/components/PageGenericHeader.tsx";
+import AppBreadcrumbs from "@/components/AppBreadcrumbs.tsx";
+import FiltersBar from "@/components/FiltersBar.tsx";
+import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState.ts";
+import WarehousesSelect from "@/components/WarehousesSelect.tsx";
 
 function OrdersAssemblyPage() {
   const canFulfill = useHasPermission(
@@ -16,7 +21,15 @@ function OrdersAssemblyPage() {
     "any",
   );
 
-  const ordersQuery = useQuery(ordersGetAllAssemblyOptions());
+  const [warehouseId, setWarehouseId] = useSyncedWithQueryState(
+    "warehouse",
+    (q) => (typeof q === "string" ? q : null),
+    (v) => v,
+  );
+
+  const ordersQuery = useQuery(ordersGetAllAssemblyOptions({
+    query: {warehouseId: warehouseId ?? undefined}
+  }));
 
   const orders = useMemo<OrderDetailsDto[]>(() => ordersQuery.data ?? [], [ordersQuery.data]);
 
@@ -66,45 +79,57 @@ function OrdersAssemblyPage() {
     return result;
   }, [selectedTaskIds, orders]);
 
-  if (ordersQuery.isLoading) {
-    return (
-      <Box sx={{display: "flex", justifyContent: "center", p: 4}}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (ordersQuery.isError) {
-    return <Alert severity="error">Не удалось загрузить заказы на сборке</Alert>;
-  }
-
-  if (orders.length === 0) {
-    return (
-      <Box sx={{p: 4, textAlign: "center"}}>
-        <Typography color="text.secondary">Нет заказов на сборке</Typography>
-      </Box>
-    );
-  }
-
   return (
     <CatalogItemDrawerHost>
       <Stack spacing={2}>
-        <Stack direction="row" sx={{alignItems: "center", justifyContent: "space-between"}}>
-          <Typography variant="h6">Сборка заказов</Typography>
-
-          {canFulfill && (
-            <Stack direction="row" spacing={1}>
-              <Button size="small" variant="outlined" onClick={handleSelectAllEligible}>
-                Выбрать все доступные для массовой сборки
-              </Button>
-              {selectedTaskIds.size >= 1 && (
-                <Button size="small" variant="contained" onClick={() => setBatchDialogOpen(true)}>
-                  Собрать выбранные ({selectedTaskIds.size})
+        <AppBreadcrumbs
+          path={[
+            {name: "Операции", link: "/operations"},
+            {name: "Сборка заказов"},
+          ]}
+        />
+        <PageGenericHeader 
+          title={"Сборка заказов"}
+          right={<>
+            {canFulfill && (
+              <Stack direction="row" spacing={1}>
+                <Button size="small" variant="outlined" onClick={handleSelectAllEligible}>
+                  Выбрать все доступные для массовой сборки
                 </Button>
-              )}
-            </Stack>
-          )}
-        </Stack>
+                {selectedTaskIds.size >= 1 && (
+                  <Button size="small" variant="contained" onClick={() => setBatchDialogOpen(true)}>
+                    Собрать выбранные ({selectedTaskIds.size})
+                  </Button>
+                )}
+              </Stack>
+            )}
+          </>}
+        />
+        <FiltersBar>
+          <WarehousesSelect
+            value={warehouseId}
+            onChange={setWarehouseId}
+            sx={{flexBasis: 200}}
+            size="small"
+            textFieldProps={{label: "Склад"}}
+          />
+        </FiltersBar>
+
+        {ordersQuery.isError && 
+          <Alert severity="error">Не удалось загрузить заказы на сборке</Alert>
+        }
+
+        {ordersQuery.isLoading &&
+            <Box sx={{display: "flex", justifyContent: "center", p: 4}}>
+                <CircularProgress/>
+            </Box>
+        }
+
+        {orders.length === 0 && !ordersQuery.isLoading &&
+            <Box sx={{p: 4, textAlign: "center"}}>
+                <Typography color="text.secondary">Нет заказов на сборке</Typography>
+            </Box>
+        }
 
         {orders.map((order) => {
           const tasks = order.assemblyTasks;
