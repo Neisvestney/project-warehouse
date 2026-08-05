@@ -40,6 +40,7 @@ import TaskAltIcon from "@mui/icons-material/TaskAlt";
 import BlockIcon from "@mui/icons-material/Block";
 import SaveIcon from "@mui/icons-material/Save";
 import {useSnackbar} from "notistack";
+import {pluralCount} from "@/utils/pluralUtils";
 
 const ALL_REASONS: WriteoffReason[] = ["loss", "defect", "other"];
 
@@ -140,12 +141,11 @@ function EditInfoForm({
 }
 
 function pluralItems(n: number): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod100 >= 11 && mod100 <= 19) return `${n} позиций будут удалены`;
-  if (mod10 === 1) return `${n} позиция будет удалена`;
-  if (mod10 >= 2 && mod10 <= 4) return `${n} позиции будут удалены`;
-  return `${n} позиций будут удалены`;
+  return pluralCount(n, {
+    one: "позиция будет удалена",
+    few: "позиции будут удалены",
+    many: "позиций будут удалены",
+  });
 }
 
 function WriteoffPage() {

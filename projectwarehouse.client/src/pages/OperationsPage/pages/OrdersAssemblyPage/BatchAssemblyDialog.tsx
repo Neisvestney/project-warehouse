@@ -31,6 +31,7 @@ import {useDefaultStorageNode} from "@/hooks/useDefaultStorageNode";
 import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
 import {BundleTreeForm, VariationForm} from "./AddFulfillmentDialog";
 import {getRemainingQty} from "./batchEligibility";
+import {NOUNS, pluralCount} from "@/utils/pluralUtils";
 
 interface SelectedTaskInfo {
   orderId: string;
@@ -178,7 +179,7 @@ function BundleGroupForm({group, onChange}: BundleGroupFormProps) {
     <Stack spacing={2}>
       <Typography variant="body2">
         <strong>{group.catalogItemName}</strong> — собрать ОДИН раз, состав скопируется для{" "}
-        {group.taskComponents.length} заданий
+        {pluralCount(group.taskComponents.length, TASKS_GENITIVE)}
       </Typography>
       <BundleTreeForm
         catalogItemId={group.catalogItemId}
@@ -188,6 +189,9 @@ function BundleGroupForm({group, onChange}: BundleGroupFormProps) {
     </Stack>
   );
 }
+
+// после «для» задание встаёт в родительный падеж
+const TASKS_GENITIVE = {one: "задания", few: "заданий", many: "заданий"};
 
 // ─── Variation group form ──────────────────────────────────────────────────
 
@@ -202,7 +206,7 @@ function VariationGroupForm({group, fulfillment, onFulfillmentChange}: Variation
     <Stack spacing={2}>
       <Typography variant="body2">
         <strong>{group.catalogItemName}</strong> — выбрать вариант ОДИН раз для{" "}
-        {group.taskComponents.length} заданий
+        {pluralCount(group.taskComponents.length, TASKS_GENITIVE)}
       </Typography>
       <VariationForm
         catalogItemId={group.catalogItemId}
@@ -385,7 +389,7 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Массовая сборка ({selectedTasks.length} заданий)</DialogTitle>
+      <DialogTitle>Массовая сборка ({pluralCount(selectedTasks.length, NOUNS.task)})</DialogTitle>
       <DialogContent>
         <Stack spacing={3} sx={{mt: 1}}>
           {groups.length === 0 && (
