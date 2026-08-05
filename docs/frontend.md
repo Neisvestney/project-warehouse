@@ -294,6 +294,8 @@ src/
     ├── parseJwt.ts              # Decode JWT payload without verification
     ├── permissionLabels.ts      # Human-readable labels for permission enum values
     ├── printUtils.ts            # openPrintPage(items) helper — builds URL and opens /print in a new tab
+    ├── barcodeUtils.ts          # Entity-tagged barcode payloads: formatEntityBarcode(entity, id) / parseEntityBarcode(raw)
+    ├── clipboardUtils.ts        # copyToClipboard(text) — navigator.clipboard with execCommand fallback
     ├── appEntityUtils.tsx       # entitiesTypes registry (user/roles/warehouse/receipt → icon, typeName, linkTemplate); resolveEntity(entity) → {link, typeName, icon, ...entity}
     ├── fetchWithTimeout.ts      # fetchWithTimeout(url, options, timeoutMs) — fetch wrapper with AbortController timeout
     ├── interpolateArgs.ts       # interpolateArgs(template, args) — replaces {key} placeholders in a string
@@ -380,6 +382,19 @@ To open the print page programmatically use `openPrintPage(items)` from `@/utils
 
 Example URL: `/print?item=DataMatrix:ABC123|Товар А&item=EAN13:5901234123457&item=Code128:HELLO&item=QR:test`
 
+#### Barcode payload format
+
+Barcodes printed for app entities carry an entity tag so a scanner can tell what was scanned. Built with `formatEntityBarcode(entity, id)` from `@/utils/barcodeUtils` and read back with `parseEntityBarcode(raw)` → `{entity, id} | null`.
+
+Format: `pw:<entityCode>:<guid>`
+
+| Entity | Code | Example |
+| --- | --- | --- |
+| `storagePlaceNode` | `spn` | `pw:spn:3f2a1b6c-…` |
+| `catalogItem` | `ci` | `pw:ci:9d4e…` (printed from `CatalogItemDrawer`) |
+
+Parsing is strict: an untagged bare GUID is **not** accepted. Labels printed before this format was introduced must be reprinted.
+
 ### `UsersPage`
 Server-side paginated, searchable, and filterable table of users. Requires `users.view` permission. State is stored in URL params (`?search=`, `?role=`, `?page=`, `?pageSize=`) using `useDebouncedSyncedWithQueryState` + `useSyncedWithQueryState` + `usePaginatedParams`. The search field updates instantly without lag; the URL and API call update after a 300 ms debounce. A roles filter (`RolesSelect`) is shown in a `FiltersBar` below the header. Rows are clickable and navigate to `UserViewPage`.
 
@@ -461,7 +476,7 @@ Warehouse detail page with a pan/zoom Konva canvas showing storage place rectang
 
 **"Остатки" button** is a `Link` to `/storage/warehouses/:id/inventory`.
 
-**"Этикетки" button** fetches `GET /api/warehouses/{id}/print`, then calls `openPrintPage` with all nodes as `DataMatrix` labels (value = node ID, label = full path joined by ` / `). A `CircularProgress` spinner replaces the print icon while the request is in-flight.
+**"Этикетки" button** fetches `GET /api/warehouses/{id}/print`, then calls `openPrintPage` with all nodes as `DataMatrix` labels (value = `formatEntityBarcode("storagePlaceNode", node.id)` → `pw:spn:<guid>`, label = full path joined by ` / `). A `CircularProgress` spinner replaces the print icon while the request is in-flight. `StoragePlaceDrawer` has its own "Этикетки" button printing only that place's nodes in the same format.
 
 **"Редактировать" button** navigates to `WarehouseEditPage` (`/storage/warehouses/:id/edit`).
 
@@ -582,6 +597,13 @@ Props: `{ itemId: string | null; onClose: () => void; onOpenItem?: (id: string) 
 
 Edit is hidden for items with `groupId` (managed by parent group — shown as an info alert).
 
+**Header actions** (left of the close button, available in both view and edit mode, and for items managed by a group):
+- **Скопировать GUID** — copies the raw item id via `copyToClipboard` (`utils/clipboardUtils.ts`: `navigator.clipboard` with a hidden-textarea + `execCommand` fallback for insecure origins / the Capacitor shell), then reports the result with a notistack snackbar.
+- **Печать этикетки** — opens `PrintLabelDialog`: choose the payload and the number of copies (1–200), then `openPrintPage` with the item repeated N times.
+  - *Внутренний код* — `DataMatrix` with `pw:ci:<guid>` (see [barcode payload format](#barcode-payload-format))
+  - *Штрихкод товара* — the item's own `barcode` field; disabled when empty. Encoded as `EAN13` for 12–13 digit values, otherwise `Code128`, since bwip-js rejects non-numeric EAN13 payloads.
+  - Label caption for both: `fullName · article`.
+
 **Convention:** wherever a catalog item name is rendered — table cell, card headline, drawer row — it should be a `CatalogItemLink` that opens this drawer. When building a new page or drawer that shows catalog items, add the open-drawer affordance as part of the initial implementation, not as a follow-up. State always goes through `useDrawerSearchParamsState`, so «назад» closes the drawer; only the param name differs:
 
 - **Page, single link owner** → `useDrawerSearchParamsState("catalogItem")` plus a local `<CatalogItemDrawer>`. The opened item lands in the URL and stays deep-linkable (`ItemsBasePage`, `ReceiptItemsSection`, `WriteoffItemsSection`). `CatalogPage` predates the convention and uses `"item"` for its own row drawer — its param is page-local and must not be confused with the shared `"catalogItem"` name.
@@ -684,6 +706,22 @@ Orchestrates the full camera scan loop:
 4. Emits decoded barcodes via `onScan` callback
 
 Scan interval is configurable (4–25 FPS equivalent).
+
+### `StorageNodePickerContent`
+Shared body of the storage-node picker dialogs (`components/shared/StorageNodePickerContent.tsx`). Takes `warehouseId`, `open`, and `onSelect(node: SelectedNode)`; four tabs:
+
+| Tab | Behaviour |
+|---|---|
+| Карта | `WarehouseCanvas`; clicking a storage place selects it and jumps to the Схема tab |
+| Схема | Storage place `Select` + `StoragePlaceNodeTree` scoped to the selected place (parent nodes are not selectable) |
+| Камера | `ScannerBlock` |
+| Сканер | Hint text; the hardware scanner is bound globally via `useHardwareScanner` while `open` |
+
+**Scanning is warehouse-wide, not limited to the storage place chosen in the Схема tab.** The picker loads `GET /api/warehouses/{id}/print` (`warehousesGetByIdForPrintOptions`) while open, which returns every node of the warehouse as `{id, name: string[]}` (full path, root-first). A scan is resolved with `parseEntityBarcode`; only `storagePlaceNode` payloads are accepted, anything else fails with an inline `Alert`. On a hit the picker calls `onSelect` with the node's full path and also switches the Схема `Select` to the owning storage place, matched by the path root (`name[0]`) — the print DTO carries no storage place id, so places sharing a name inside one warehouse can switch the dropdown to the wrong one (cosmetic only; the selected node is still correct).
+
+Each failed scan bumps a `scanKey` that remounts `ScannerBlock` so the camera re-arms.
+
+A scan that arrives before the node list has loaded does **not** report "не найдено" — it shows «Ячейки склада ещё загружаются, повторите сканирование» instead. If the list request failed, the scan triggers a `refetch` and asks the user to scan again.
 
 ### `MainAppBar`
 Top navigation bar. Logo/title + mobile hamburger menu with permission-filtered links. Nav entries: **Склад** (`/storage/*`, requires warehouses.view or warehouses.view_assigned), **Каталог** (`/catalog`, requires catalog.view), **Операции** (`/operations/*`, always visible), **Настройки** (`/settings/*`, requires at least one settings permission).

@@ -26,6 +26,7 @@ import {green} from "@mui/material/colors";
 import StoragePlaceDrawer from "@/pages/WarehousesPage/pages/WarehouseViewPage/StoragePlaceDrawer.tsx";
 import PrintIcon from "@mui/icons-material/Print";
 import {openPrintPage} from "@/utils/printUtils.ts";
+import {formatEntityBarcode} from "@/utils/barcodeUtils.ts";
 import {useHasPermission} from "@/hooks/usePermission.ts";
 import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState.ts";
 import {WarehouseCanvas} from "@/features/warehouse";
@@ -50,7 +51,7 @@ function WarehouseViewPage() {
       openPrintPage(
         data.map((node) => ({
           type: "DataMatrix" as const,
-          value: node.id,
+          value: formatEntityBarcode("storagePlaceNode", node.id),
           label: formatStoragePlaceNodeName(node.name),
         })),
       );
