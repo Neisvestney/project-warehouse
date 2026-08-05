@@ -831,6 +831,7 @@ public class OrdersController(
 
         var component = await db.AssemblyTaskBoxComponents
             .Include(c => c.AssemblyTaskBox).ThenInclude(b => b.OrderBox)
+            .Include(c => c.AssemblyTaskBox).ThenInclude(b => b.Components)
             .Include(c => c.Fulfillments)
             .FirstOrDefaultAsync(c => c.Id == cid && c.AssemblyTaskBoxId == tbid && c.AssemblyTaskBox.AssemblyTaskId == taskId, ct);
         if (component is null)
