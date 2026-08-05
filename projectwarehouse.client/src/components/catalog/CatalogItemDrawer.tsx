@@ -2,6 +2,7 @@ import {useEffect, useMemo, useState} from "react";
 import type {Control, UseFormSetValue} from "react-hook-form";
 import {Controller, useFieldArray, useForm, useWatch} from "react-hook-form";
 import {useMutation, useQueries, useQuery, useQueryClient} from "@tanstack/react-query";
+import {useSnackbar} from "notistack";
 import {
   Alert,
   Autocomplete,
@@ -9,11 +10,17 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   Drawer,
   FormControlLabel,
   IconButton,
   MenuItem,
+  Radio,
+  RadioGroup,
   Select,
   Stack,
   Switch,
@@ -28,9 +35,11 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import PrintIcon from "@mui/icons-material/Print";
 import {
   catalogCreateTagMutation,
   catalogDeleteMutation,
@@ -56,6 +65,10 @@ import {useHasPermission} from "@/hooks/usePermission";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {useDebounce} from "@/hooks/useDebounce";
 import {isNotFoundError} from "@/utils/errorUtils";
+import {copyToClipboard} from "@/utils/clipboardUtils";
+import {formatEntityBarcode} from "@/utils/barcodeUtils";
+import {openPrintPage, type PrintItem} from "@/utils/printUtils";
+import type {BarcodeType} from "@/pages/PrintPage/BarcodeLabel";
 
 const DRAWER_WIDTH = 1000;
 
@@ -919,6 +932,87 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
   );
 }
 
+// ─── PrintLabelDialog ─────────────────────────────────────────────────────────
+
+type LabelKind = "internal" | "barcode";
+
+/** bwip-js rejects EAN13 payloads that are not 12–13 digits, so anything else prints as Code128. */
+function barcodeTypeFor(barcode: string): BarcodeType {
+  return /^\d{12,13}$/.test(barcode) ? "EAN13" : "Code128";
+}
+
+function PrintLabelDialog({
+  item,
+  open,
+  onClose,
+}: {
+  item: CatalogItemDto;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [kind, setKind] = useState<LabelKind>("internal");
+  const [copies, setCopies] = useState(1);
+  const [prevOpen, setPrevOpen] = useState(open);
+
+  if (prevOpen !== open) {
+    setPrevOpen(open);
+    if (open) {
+      setKind("internal");
+      setCopies(1);
+    }
+  }
+
+  const label = item.article ? `${item.fullName} · ${item.article}` : item.fullName;
+
+  const handlePrint = () => {
+    const printItem: PrintItem =
+      kind === "internal"
+        ? {type: "DataMatrix", value: formatEntityBarcode("catalogItem", item.id), label}
+        : {type: barcodeTypeFor(item.barcode!), value: item.barcode!, label};
+    openPrintPage(Array.from({length: copies}, () => printItem));
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>Печать этикетки</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{pt: 1}}>
+          <RadioGroup value={kind} onChange={(e) => setKind(e.target.value as LabelKind)}>
+            <FormControlLabel
+              value="internal"
+              control={<Radio size="small" />}
+              label="Внутренний код (DataMatrix)"
+            />
+            <FormControlLabel
+              value="barcode"
+              control={<Radio size="small" />}
+              disabled={!item.barcode}
+              label={
+                item.barcode ? `Штрихкод товара — ${item.barcode}` : "Штрихкод товара — не заполнен"
+              }
+            />
+          </RadioGroup>
+          <TextField
+            label="Количество копий"
+            type="number"
+            size="small"
+            value={copies}
+            onChange={(e) => setCopies(Math.max(1, Math.min(200, Number(e.target.value) || 1)))}
+            slotProps={{htmlInput: {min: 1, max: 200}}}
+          />
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Отмена</Button>
+        <Button variant="contained" startIcon={<PrintIcon />} onClick={handlePrint}>
+          Печать
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 // ─── CatalogItemDrawer ────────────────────────────────────────────────────────
 
 export interface CatalogItemDrawerProps {
@@ -930,14 +1024,17 @@ export interface CatalogItemDrawerProps {
 export function CatalogItemDrawer({itemId, onClose, onOpenItem}: CatalogItemDrawerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [printOpen, setPrintOpen] = useState(false);
   const [prevItemId, setPrevItemId] = useState(itemId);
   const canEdit = useHasPermission("catalog.edit");
   const queryClient = useQueryClient();
+  const {enqueueSnackbar} = useSnackbar();
 
   if (prevItemId !== itemId) {
     setPrevItemId(itemId);
     setIsEditing(false);
     setDeleteOpen(false);
+    setPrintOpen(false);
   }
 
   const {data} = useQuery({
@@ -957,7 +1054,16 @@ export function CatalogItemDrawer({itemId, onClose, onOpenItem}: CatalogItemDraw
   const handleClose = () => {
     setIsEditing(false);
     setDeleteOpen(false);
+    setPrintOpen(false);
     onClose();
+  };
+
+  const handleCopyId = async () => {
+    if (!data) return;
+    const copied = await copyToClipboard(data.id);
+    enqueueSnackbar(copied ? "GUID скопирован" : "Не удалось скопировать GUID", {
+      variant: copied ? "success" : "error",
+    });
   };
 
   const handleOpenItem = onOpenItem
@@ -1001,9 +1107,25 @@ export function CatalogItemDrawer({itemId, onClose, onOpenItem}: CatalogItemDraw
             {data?.fullName ?? ""}
           </Typography>
         </Stack>
-        <IconButton onClick={handleClose} size="small">
-          <CloseIcon />
-        </IconButton>
+        <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
+          <Tooltip title="Скопировать GUID">
+            <span>
+              <IconButton size="small" disabled={!data} onClick={handleCopyId}>
+                <ContentCopyIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="Печать этикетки">
+            <span>
+              <IconButton size="small" disabled={!data} onClick={() => setPrintOpen(true)}>
+                <PrintIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <IconButton onClick={handleClose} size="small">
+            <CloseIcon />
+          </IconButton>
+        </Stack>
       </Stack>
       <Divider />
 
@@ -1029,6 +1151,10 @@ export function CatalogItemDrawer({itemId, onClose, onOpenItem}: CatalogItemDraw
       >
         <Typography>Позиция «{data?.fullName}» будет удалена безвозвратно.</Typography>
       </ConfirmDialog>
+
+      {data && (
+        <PrintLabelDialog item={data} open={printOpen} onClose={() => setPrintOpen(false)} />
+      )}
     </Drawer>
   );
 }

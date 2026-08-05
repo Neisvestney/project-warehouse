@@ -15,6 +15,7 @@ import {green} from "@mui/material/colors";
 import {useQuery} from "@tanstack/react-query";
 import {
   storagePlacesGetNodesOptions,
+  warehousesGetByIdForPrintOptions,
   warehousesGetByIdOptions,
   warehousesGetDefaultNodeOptions,
 } from "@/api/@tanstack/react-query.gen";
@@ -22,6 +23,7 @@ import StoragePlaceNodeTree from "@/features/warehouse/StoragePlaceNodeTree";
 import WarehouseCanvas from "@/features/warehouse/WarehouseCanvas";
 import ScannerBlock from "@/components/ScannerBlock/ScannerBlock";
 import {useHardwareScanner} from "@/hooks/useHardwareScanner";
+import {parseEntityBarcode} from "@/utils/barcodeUtils";
 import {buildNodePath, formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import type {SelectedNode} from "@/components/shared/nodePathUtils";
 
@@ -48,7 +50,10 @@ function StorageNodePickerContent({warehouseId, onSelect, open}: StorageNodePick
     meta: {suppressGlobalError: true},
   });
 
-  const storagePlaces = warehouseQuery.data?.storagePlaces ?? [];
+  const storagePlaces = useMemo(
+    () => warehouseQuery.data?.storagePlaces ?? [],
+    [warehouseQuery.data],
+  );
   const effectiveStoragePlaceId = selectedStoragePlaceId || storagePlaces[0]?.id || "";
   const selectedStoragePlace = storagePlaces.find((sp) => sp.id === effectiveStoragePlaceId);
 
@@ -65,23 +70,57 @@ function StorageNodePickerContent({warehouseId, onSelect, open}: StorageNodePick
     [nodes],
   );
 
+  const {
+    data: allNodes,
+    isError: allNodesIsError,
+    refetch: refetchAllNodes,
+  } = useQuery({
+    ...warehousesGetByIdForPrintOptions({path: {id: warehouseId}}),
+    enabled: open,
+    meta: {suppressGlobalError: true},
+  });
+
   const handleSelectByBarcode = useCallback(
     (barcode: string) => {
-      const scanned = barcode.trim();
-      const found = nodes.find((n) => n.id === scanned);
-      if (!found) {
-        setScanError(`Ячейка не найдена: ${scanned}`);
+      const failScan = (message: string) => {
+        setScanError(message);
         setScanKey((k) => k + 1);
+      };
+
+      const parsed = parseEntityBarcode(barcode);
+      if (!parsed) {
+        failScan(`Неизвестный штрих-код: ${barcode.trim()}`);
         return;
       }
-      const storagePlaceName = selectedStoragePlace?.name ?? "";
-      onSelect({
-        nodeId: found.id,
-        nodePath: buildNodePath(nodes, found.id, storagePlaceName),
-      });
+      if (parsed.entity !== "storagePlaceNode") {
+        failScan("Этот штрих-код не относится к ячейке хранения");
+        return;
+      }
+
+      if (!allNodes) {
+        if (allNodesIsError) {
+          void refetchAllNodes();
+          failScan("Не удалось загрузить ячейки склада, повторите сканирование");
+        } else {
+          failScan("Ячейки склада ещё загружаются, повторите сканирование");
+        }
+        return;
+      }
+
+      const found = allNodes.find((n) => n.id === parsed.id);
+      if (!found) {
+        failScan(`Ячейка не найдена: ${parsed.id}`);
+        return;
+      }
+
+      // print DTO carries only the path, so the owning place is resolved by its name (path root)
+      const owningPlace = storagePlaces.find((sp) => sp.name === found.name[0]);
+      if (owningPlace) setSelectedStoragePlaceId(owningPlace.id);
+
+      onSelect({nodeId: found.id, nodePath: found.name});
       setScanError(null);
     },
-    [nodes, selectedStoragePlace, onSelect],
+    [allNodes, allNodesIsError, refetchAllNodes, storagePlaces, onSelect],
   );
 
   useHardwareScanner(
@@ -172,55 +211,51 @@ function StorageNodePickerContent({warehouseId, onSelect, open}: StorageNodePick
 
       {activeTab !== "canvas" && (
         <Box sx={{px: 2, pt: 1.5, pb: 1}}>
-          {storagePlaces.length === 0 ? (
-            <Typography color="text.secondary">Нет мест хранения</Typography>
-          ) : (
-            <>
-              <Select
-                value={effectiveStoragePlaceId}
-                onChange={(e) => setSelectedStoragePlaceId(e.target.value)}
-                size="small"
-                fullWidth
-                sx={{mb: 1.5}}
-              >
-                {storagePlaces.map((sp) => (
-                  <MenuItem key={sp.id} value={sp.id}>
-                    {sp.name}
-                  </MenuItem>
-                ))}
-              </Select>
+          {scanError && (
+            <Alert severity="error" sx={{mb: 1.5}} onClose={() => setScanError(null)}>
+              {scanError}
+            </Alert>
+          )}
 
-              {scanError && (
-                <Alert severity="error" sx={{mb: 1.5}} onClose={() => setScanError(null)}>
-                  {scanError}
-                </Alert>
-              )}
+          {activeTab === "schema" &&
+            (storagePlaces.length === 0 ? (
+              <Typography color="text.secondary">Нет мест хранения</Typography>
+            ) : (
+              <>
+                <Select
+                  value={effectiveStoragePlaceId}
+                  onChange={(e) => setSelectedStoragePlaceId(e.target.value)}
+                  size="small"
+                  fullWidth
+                  sx={{mb: 1.5}}
+                >
+                  {storagePlaces.map((sp) => (
+                    <MenuItem key={sp.id} value={sp.id}>
+                      {sp.name}
+                    </MenuItem>
+                  ))}
+                </Select>
 
-              {activeTab === "schema" && (
                 <StoragePlaceNodeTree
                   nodes={nodes}
                   isLoading={nodesQuery.isLoading}
                   onSelect={handleNodeSelect}
                 />
-              )}
+              </>
+            ))}
 
-              {activeTab === "camera" && (
-                <Box sx={{height: 300}}>
-                  <ScannerBlock
-                    key={scanKey}
-                    onScanned={(barcode) => handleSelectByBarcode(barcode)}
-                  />
-                </Box>
-              )}
+          {activeTab === "camera" && (
+            <Box sx={{height: 300}}>
+              <ScannerBlock key={scanKey} onScanned={(barcode) => handleSelectByBarcode(barcode)} />
+            </Box>
+          )}
 
-              {activeTab === "hardware" && (
-                <Box sx={{py: 4, textAlign: "center"}}>
-                  <Typography color="text.secondary">
-                    Наведите аппаратный сканер на штрих-код ячейки
-                  </Typography>
-                </Box>
-              )}
-            </>
+          {activeTab === "hardware" && (
+            <Box sx={{py: 4, textAlign: "center"}}>
+              <Typography color="text.secondary">
+                Наведите аппаратный сканер на штрих-код ячейки
+              </Typography>
+            </Box>
           )}
         </Box>
       )}

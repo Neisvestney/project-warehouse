@@ -31,6 +31,7 @@ import {type NodeOrderItem, type StoragePlaceDto, type StoragePlaceNodeDto} from
 import {useState, useRef, useEffect} from "react";
 import {StoragePlaceNodeTree} from "@/features/warehouse";
 import {openPrintPage} from "@/utils/printUtils.ts";
+import {formatEntityBarcode} from "@/utils/barcodeUtils.ts";
 import AddIcon from "@mui/icons-material/Add";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
@@ -220,8 +221,8 @@ function StoragePlaceDrawer({open, storagePlace, warehouseId, onClose}: StorageP
     openPrintPage(
       nodes.map((x) => ({
         type: "DataMatrix",
-        value: x.id,
-        label: `${storagePlace?.name} - ${buildPath(x)}`,
+        value: formatEntityBarcode("storagePlaceNode", x.id),
+        label: `${storagePlace?.name} / ${buildPath(x)}`,
       })),
     );
   };
