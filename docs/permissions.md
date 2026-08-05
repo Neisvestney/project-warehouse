@@ -86,6 +86,23 @@ That's it. `Permissions.All` picks up new constants automatically via reflection
 | `catalog.view` | `Permissions.Catalog.View` |
 | `catalog.edit` | `Permissions.Catalog.Edit` |
 
+### Integrations (`integrations.*`)
+| Permission | Constant |
+|-----------|----------|
+| `integrations.view` | `Permissions.Integrations.View` |
+| `integrations.edit` | `Permissions.Integrations.Edit` |
+| `integrations.map` | `Permissions.Integrations.Map` |
+
+`edit` and `map` are split on purpose: a merchandiser maps cards and warehouses and triggers syncs, while touching
+API keys (create/update/delete an account, test a connection) stays with administrators.
+
+**Grant `integrations.map` together with `catalog.view` and `warehouses.view`.** The mapping pickers are the shared
+`CatalogItemsSelect` / `WarehousesSelect` components, which read `/api/catalog/for-select` and `/api/warehouses`;
+without those two permissions the dropdowns return 403 and the mapping screens are unusable.
+
+There are no `_assigned` variants: a marketplace account belongs to the shop as a whole rather than to a warehouse,
+so scoping by `AssignedWarehouses` would be meaningless.
+
 ## RBAC + Direct Permissions
 
 A user's **effective permissions** = union of:

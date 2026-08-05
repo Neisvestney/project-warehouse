@@ -97,3 +97,5 @@ nunit-*.xml
 *.local.json
 
 publish
+# Data Protection key ring (dev)
+keys/

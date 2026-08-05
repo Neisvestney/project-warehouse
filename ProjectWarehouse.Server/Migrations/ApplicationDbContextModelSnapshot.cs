@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
+using ProjectWarehouse.Server.Models;
 
 #nullable disable
 
@@ -19,7 +20,7 @@ namespace ProjectWarehouse.Server.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.8")
+                .HasAnnotation("ProductVersion", "10.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -609,6 +610,240 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasDiscriminator<string>("Discriminator").HasValue("ItemsGroup");
 
                     b.UseTphMappingStrategy();
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ApiKeyLast4")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ApiKeyProtected")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ApiKeyUpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CompanyLegalName")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ExternalClientId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Inn")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastSyncAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<AppFieldError>("LastSyncError")
+                        .HasColumnType("jsonb");
+
+                    b.Property<int?>("LastSyncStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Ogrn")
+                        .HasColumnType("text");
+
+                    b.Property<string>("OwnershipForm")
+                        .HasColumnType("text");
+
+                    b.Property<int>("SyncIntervalMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("Type");
+
+                    b.ToTable("MarketplaceAccounts");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceCard", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.PrimitiveCollection<string>("Barcodes")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid?>("CatalogItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CurrencyCode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("MappedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("MappingSource")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("MarketplaceAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("OfferId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal?>("Price")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("PrimaryImageUrl")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Sku")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("SyncedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CatalogItemId");
+
+                    b.HasIndex("MarketplaceAccountId", "ExternalId")
+                        .IsUnique();
+
+                    b.HasIndex("MarketplaceAccountId", "OfferId");
+
+                    b.ToTable("MarketplaceCards");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceSyncRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AutoMapped")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CardsArchived")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CardsCreated")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CardsProcessed")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CardsUpdated")
+                        .HasColumnType("integer");
+
+                    b.Property<AppFieldError>("Error")
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime?>("FinishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MarketplaceAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Scope")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TriggeredById")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("WarehousesProcessed")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TriggeredById");
+
+                    b.HasIndex("MarketplaceAccountId", "StartedAt")
+                        .IsDescending(false, true);
+
+                    b.ToTable("MarketplaceSyncRuns");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceWarehouse", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Address")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ExternalStatus")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("MarketplaceAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("SyncedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("MarketplaceAccountId", "ExternalId")
+                        .IsUnique();
+
+                    b.ToTable("MarketplaceWarehouses");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Order", b =>
@@ -1387,6 +1622,70 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("CatalogItem");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceAccount", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CreatedBy");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceCard", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.MarketplaceAccount", "MarketplaceAccount")
+                        .WithMany("Cards")
+                        .HasForeignKey("MarketplaceAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CatalogItem");
+
+                    b.Navigation("MarketplaceAccount");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceSyncRun", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.MarketplaceAccount", "MarketplaceAccount")
+                        .WithMany("SyncRuns")
+                        .HasForeignKey("MarketplaceAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", "TriggeredBy")
+                        .WithMany()
+                        .HasForeignKey("TriggeredById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("MarketplaceAccount");
+
+                    b.Navigation("TriggeredBy");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceWarehouse", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.MarketplaceAccount", "MarketplaceAccount")
+                        .WithMany("Warehouses")
+                        .HasForeignKey("MarketplaceAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("MarketplaceAccount");
+
+                    b.Navigation("Warehouse");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Order", b =>
                 {
                     b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", "CreatedBy")
@@ -1720,6 +2019,15 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("VariationMembers");
 
                     b.Navigation("VariationMemberships");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceAccount", b =>
+                {
+                    b.Navigation("Cards");
+
+                    b.Navigation("SyncRuns");
+
+                    b.Navigation("Warehouses");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Order", b =>

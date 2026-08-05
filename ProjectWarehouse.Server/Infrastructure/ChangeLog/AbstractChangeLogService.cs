@@ -5,6 +5,7 @@ using KellermanSoftware.CompareNetObjects;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using ProjectWarehouse.Server.Domain;
+using ProjectWarehouse.Server.Models;
 
 namespace ProjectWarehouse.Server.Infrastructure.ChangeLog;
 
@@ -34,7 +35,11 @@ public abstract class AbstractChangeLogService : IChangeLogService
                 {
                     { typeof(IHasIdentity), new[] { "Id" } },
                     { typeof(IHasNullableIdentity), new[] { "Id" } },
-                }
+                },
+                // CompareNETObjects cannot walk IReadOnlyDictionary<string, object> and throws
+                // ("Indexer must have a corresponding Count property"). Code and Detail still diff,
+                // and Detail already embeds the code, so nothing meaningful is lost.
+                MembersToIgnore = { $"{nameof(AppFieldError)}.{nameof(AppFieldError.Args)}" },
             }
         };
 

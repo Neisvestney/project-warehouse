@@ -132,6 +132,30 @@ catalog item name and the node breadcrumb on the failure path. `path` is the bre
 Russian message from these args and falls back to the plain per-code message when they are absent
 (`errorCodeArgMessages` in `src/utils/errorUtils.ts`).
 
+### Marketplaces
+| Code | When | `args` |
+|------|------|--------|
+| `marketplaceAccountNotFound` | Marketplace account ID not found | `{ accountId: string }` when raised from a sync run |
+| `marketplaceWarehouseNotFound` | Marketplace warehouse ID not found | — |
+| `marketplaceCardNotFound` | Marketplace card ID not found | — |
+| `marketplaceCredentialsInvalid` | The marketplace rejected `Client-Id` / `Api-Key` (401/403) | `{ marketplaceStatus: number, marketplaceResponse?: string }` |
+| `marketplaceCredentialsUnreadable` | The stored key could not be decrypted — the Data Protection key ring was lost | — |
+| `marketplaceClientIdRequired` | The provider declares `requiresClientId` and none was supplied | — |
+| `marketplaceApiError` | The marketplace returned an error or is unreachable (502 over HTTP) | `{ marketplaceStatus: number, marketplaceResponse?: string }` |
+| `marketplaceSyncAlreadyRunning` | A sync is already running for this account (409) | — |
+| `marketplaceSyncInterrupted` | A run left in `running` by an application shutdown, reconciled on the next start | — |
+| `marketplaceCardMappingTypeNotAllowed` | Attempt to map a card to a `ProductGroup` | — |
+| `marketplaceCardMappingArchivedItem` | The target catalog item is archived. Only checked when **setting** a mapping — an item archived afterwards keeps its mapping | — |
+
+`marketplaceResponse` is the marketplace's response body, truncated to 2000 characters — it is what makes a
+rejection debuggable after the fact, so it is persisted with the failed sync run rather than only logged.
+Request headers are never included anywhere in these errors — that is where the API key travels.
+
+The last four codes are also persisted, not just returned: `MarketplaceSyncRun.Error` and
+`MarketplaceAccount.LastSyncError` store a whole `AppFieldError` in a `jsonb` column, so a failed run keeps its
+machine-readable `code` and `args` instead of a prose string. `ErrorCode` is serialized there as its **integer**
+value (Npgsql's serializer, not the MVC one), which is why the enum may only ever be appended to.
+
 ### Validation
 | Code | When | `args` |
 |------|------|--------|
