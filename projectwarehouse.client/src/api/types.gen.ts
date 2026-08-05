@@ -2527,7 +2527,9 @@ export type OrdersGetAllResponse = OrdersGetAllResponses[keyof OrdersGetAllRespo
 export type OrdersGetAllAssemblyData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    warehouseId?: string;
+  };
   url: "/api/orders/assembly";
 };
 
