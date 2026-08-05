@@ -97,6 +97,13 @@ public class AppMapperProfile : Profile
                 { "article", r.Article },
             }));
         
+        CreateMap<MarketplaceAccount, AppEntity>()
+            .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.MarketplaceAccount))
+            .ForMember(x => x.AdditionalFields, opt => opt.MapFrom(r => new Dictionary<string, object>
+            {
+                { "type", r.Type },
+            }));
+        
         CreateMap<ApplicationUser, AppEntity>()
             .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.User))
             .ForMember(x => x.Name, opt => opt.MapFrom(ci => ci.FullName))
@@ -113,6 +120,9 @@ public class AppMapperProfile : Profile
             .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
         
         CreateMap<CatalogItem, AppEntityWithSearchString>()
+            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
+        
+        CreateMap<MarketplaceAccount, AppEntityWithSearchString>()
             .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
         
         CreateMap<ApplicationUser, AppEntityWithSearchString>()

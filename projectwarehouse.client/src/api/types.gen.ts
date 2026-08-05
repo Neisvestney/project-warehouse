@@ -172,6 +172,24 @@ export type BatchFulfillResponse = {
   failedItems: Array<BatchFulfillFailedItem>;
 };
 
+export type BatchSelfAssignFailedItem = {
+  orderId: string;
+  /**
+   * Null when the order itself could not be loaded.
+   */
+  orderNumber?: null | number;
+  error: AppFieldError;
+};
+
+export type BatchSelfAssignRequest = {
+  orderIds: Array<string>;
+};
+
+export type BatchSelfAssignResponse = {
+  assignedOrderIds: Array<string>;
+  failedItems: Array<BatchSelfAssignFailedItem>;
+};
+
 export type BatchStandardPlacementItemRequest = {
   itemId: string;
   count: number;
@@ -2783,6 +2801,37 @@ export type OrdersSelfAssignResponses = {
 };
 
 export type OrdersSelfAssignResponse = OrdersSelfAssignResponses[keyof OrdersSelfAssignResponses];
+
+export type OrdersBatchSelfAssignData = {
+  body: BatchSelfAssignRequest;
+  path?: never;
+  query?: never;
+  url: "/api/orders/batch-self-assign";
+};
+
+export type OrdersBatchSelfAssignErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type OrdersBatchSelfAssignError =
+  OrdersBatchSelfAssignErrors[keyof OrdersBatchSelfAssignErrors];
+
+export type OrdersBatchSelfAssignResponses = {
+  /**
+   * OK
+   */
+  200: BatchSelfAssignResponse;
+};
+
+export type OrdersBatchSelfAssignResponse =
+  OrdersBatchSelfAssignResponses[keyof OrdersBatchSelfAssignResponses];
 
 export type OrdersAddBoxData = {
   body: CreateOrderBoxRequest;

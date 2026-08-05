@@ -1,4 +1,10 @@
-import type {AppEntity, AppEntityType, CatalogItemType, ReceiptStatus} from "@/api";
+import type {
+  AppEntity,
+  AppEntityType,
+  CatalogItemType,
+  MarketplaceType,
+  ReceiptStatus,
+} from "@/api";
 import type {SchedulerEventColor} from "@mui/x-scheduler/models";
 import {interpolateArgs} from "@/utils/interpolateArgs.ts";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
@@ -10,10 +16,14 @@ import QuestionMarkIcon from "@mui/icons-material/QuestionMark";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import React from "react";
-import {Typography} from "@mui/material";
+import {Chip, Typography} from "@mui/material";
 import ReceiptStatusChip from "@/components/receipts/ReceiptStatusChip.tsx";
 import {formatReceiptNumber} from "@/components/receipts/receiptUtils.ts";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip.tsx";
+import {
+  MARKETPLACE_TYPE_COLORS,
+  MARKETPLACE_TYPE_LABELS,
+} from "@/pages/SettingsPage/pages/MarketplacesSettingsPage/marketplaceUtils.ts";
 
 type EntityTypeConfig = {
   linkTemplate: string;
@@ -156,6 +166,17 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     linkTemplate: "/settings/integrations/{id}",
     typeName: "Аккаунт маркетплейса",
     icon: <StorefrontIcon />,
+    renderAdditionalCardContent: (e) => (
+      <>
+        {e.additionalFields?.type && (
+          <Chip
+            size={"small"}
+            label={MARKETPLACE_TYPE_LABELS[e.additionalFields.type as MarketplaceType]}
+            color={MARKETPLACE_TYPE_COLORS[e.additionalFields.type as MarketplaceType]}
+          />
+        )}
+      </>
+    ),
   },
   // Карточка не имеет своей страницы, а AppEntity для неё не несёт id аккаунта — ссылку не построить
   marketplaceCard: {

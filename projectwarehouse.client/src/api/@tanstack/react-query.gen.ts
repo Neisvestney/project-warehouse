@@ -47,6 +47,7 @@ import {
   ordersAddComponent,
   ordersAddFulfillment,
   ordersBatchFulfill,
+  ordersBatchSelfAssign,
   ordersCreateAssemblyTask,
   ordersCreateDirect,
   ordersDelete,
@@ -230,6 +231,9 @@ import type {
   OrdersBatchFulfillData,
   OrdersBatchFulfillError,
   OrdersBatchFulfillResponse,
+  OrdersBatchSelfAssignData,
+  OrdersBatchSelfAssignError,
+  OrdersBatchSelfAssignResponse,
   OrdersCreateAssemblyTaskData,
   OrdersCreateAssemblyTaskError,
   OrdersCreateAssemblyTaskResponse,
@@ -1956,6 +1960,30 @@ export const ordersSelfAssignMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await ordersSelfAssign({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const ordersBatchSelfAssignMutation = (
+  options?: Partial<Options<OrdersBatchSelfAssignData>>,
+): UseMutationOptions<
+  OrdersBatchSelfAssignResponse,
+  OrdersBatchSelfAssignError,
+  Options<OrdersBatchSelfAssignData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersBatchSelfAssignResponse,
+    OrdersBatchSelfAssignError,
+    Options<OrdersBatchSelfAssignData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersBatchSelfAssign({
         ...options,
         ...fnOptions,
         throwOnError: true,
