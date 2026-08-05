@@ -5,7 +5,7 @@ import {
   MARKETPLACE_TYPE_LABELS,
   formatApiKeyMask,
   formatDateTime,
-  MARKETPLACE_TYPE_COLORS
+  MARKETPLACE_TYPE_COLORS,
 } from "../../marketplaceUtils";
 import type {MarketplaceAccountDto} from "@/api/types.gen";
 

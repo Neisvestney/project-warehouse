@@ -28,7 +28,7 @@ import type {
 import SelectNodeModal, {type SelectedNode} from "@/components/receipts/SelectNodeModal";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {useDefaultStorageNode} from "@/hooks/useDefaultStorageNode";
-import {resolveErrorMessage} from "@/utils/errorUtils";
+import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
 import {BundleTreeForm, VariationForm} from "./AddFulfillmentDialog";
 import {getRemainingQty} from "./batchEligibility";
 
@@ -320,7 +320,7 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
       setFailedItems(data.failedItems);
       if (data.failedItems.length === 0) onClose();
     },
-    onError: () => setSubmitError("Ошибка при отправке запроса"),
+    onError: (error) => setSubmitError(extractErrorMessage(error)),
     onSettled: () => {
       submittingRef.current = false;
     },

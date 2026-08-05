@@ -41,7 +41,7 @@ import SelectNodeModal, {type SelectedNode} from "@/components/receipts/SelectNo
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {useDebounce} from "@/hooks/useDebounce";
 import {useDefaultStorageNode} from "@/hooks/useDefaultStorageNode";
-import {resolveErrorMessage} from "@/utils/errorUtils";
+import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
 
 // ─── Node field (display + pick, no manual typing) ─────────────────────────
 
@@ -684,7 +684,7 @@ function AddFulfillmentDialog({
       queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: orderId}})});
       onClose();
     },
-    onError: () => setError("Не удалось добавить фулфилмент"),
+    onError: (error) => setError(extractErrorMessage(error)),
     onSettled: () => {
       submittingRef.current = false;
     },
@@ -702,7 +702,7 @@ function AddFulfillmentDialog({
         setFailedItems(data.failedItems);
       }
     },
-    onError: () => setError("Не удалось добавить фулфилмент"),
+    onError: (error) => setError(extractErrorMessage(error)),
     onSettled: () => {
       submittingRef.current = false;
     },
