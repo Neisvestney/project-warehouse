@@ -264,6 +264,7 @@ export type {
   JsonElement,
   LoginRequest,
   MarketplaceAccountDto,
+  MarketplaceAccountShortSummaryDto,
   MarketplaceAccountSortBy,
   MarketplaceAccountSummaryDto,
   MarketplaceCapabilities,

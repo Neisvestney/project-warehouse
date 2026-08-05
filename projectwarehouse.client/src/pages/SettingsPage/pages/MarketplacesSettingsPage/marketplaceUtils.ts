@@ -15,6 +15,12 @@ export const MARKETPLACE_TYPE_LABELS: Record<MarketplaceType, string> = {
   wildberries: "Wildberries",
 };
 
+export const MARKETPLACE_TYPE_COLORS: Record<MarketplaceType, "ozon" | "wb"> = {
+  ozon: "ozon",
+  wildberries: "wb",
+};
+
+
 export const SYNC_STATUS_LABELS: Record<MarketplaceSyncStatus, string> = {
   running: "Синхронизация",
   success: "Синхронизировано",

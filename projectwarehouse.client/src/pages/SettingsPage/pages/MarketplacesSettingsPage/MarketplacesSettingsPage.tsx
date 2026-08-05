@@ -31,7 +31,7 @@ import DataTableContainer from "@/components/DataTableContainer";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
 import MarketplaceStatusChip from "./components/MarketplaceStatusChip";
-import {MARKETPLACE_TYPE_LABELS, formatDateTime} from "./marketplaceUtils";
+import {MARKETPLACE_TYPE_LABELS, formatDateTime, MARKETPLACE_TYPE_COLORS} from "./marketplaceUtils";
 import type {MarketplaceAccountSortBy, MarketplaceType} from "@/api/types.gen";
 
 const SORT_COLUMNS: {key: MarketplaceAccountSortBy; label: string}[] = [
@@ -192,7 +192,7 @@ function MarketplacesSettingsPage() {
                   onClick={() => navigate(`/settings/integrations/${account.id}`)}
                 >
                   <TableCell>{account.name}</TableCell>
-                  <TableCell>{MARKETPLACE_TYPE_LABELS[account.type]}</TableCell>
+                  <TableCell><Chip size={"small"} label={MARKETPLACE_TYPE_LABELS[account.type]} color={MARKETPLACE_TYPE_COLORS[account.type]}/></TableCell>
                   <TableCell>
                     <MarketplaceStatusChip status={account.lastSyncStatus} />
                   </TableCell>

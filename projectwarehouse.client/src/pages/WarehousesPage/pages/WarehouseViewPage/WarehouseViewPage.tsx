@@ -3,6 +3,7 @@ import {Link, useParams} from "react-router";
 import {
   Box,
   Button,
+  Chip,
   CircularProgress,
   Divider,
   Paper,
@@ -31,6 +32,7 @@ import {useHasPermission} from "@/hooks/usePermission.ts";
 import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState.ts";
 import {WarehouseCanvas} from "@/features/warehouse";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
+import {MARKETPLACE_TYPE_COLORS} from "@/pages/SettingsPage/pages/MarketplacesSettingsPage/marketplaceUtils.ts";
 
 function WarehouseViewPage() {
   const [isPrinting, setIsPrinting] = useState(false);
@@ -179,6 +181,23 @@ function WarehouseViewPage() {
                   {defaultNodePath ?? "—"}
                 </Typography>
               )}
+            </Stack>
+          )}
+          {warehouse.marketplaceAccounts.length > 0 && (
+            <Stack spacing={0.25}>
+              <Typography variant="caption" color="text.secondary">
+                Привязано к складам маркетплейсов
+              </Typography>
+               <Stack spacing={1} direction="row">
+                 {warehouse.marketplaceAccounts.map((account) => <Chip 
+                   component={Link}
+                   to={`/settings/integrations/${account.id}?tab=warehouses`}
+                   color={MARKETPLACE_TYPE_COLORS[account.type]}
+                   onClick={() => {}}
+                   label={account.name}
+                   size="small"
+                 />)}
+               </Stack>
             </Stack>
           )}
         </Stack>
