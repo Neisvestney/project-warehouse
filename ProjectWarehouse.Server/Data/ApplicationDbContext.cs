@@ -45,6 +45,11 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<Writeoff> Writeoffs => Set<Writeoff>();
     public DbSet<WriteoffItem> WriteoffItems => Set<WriteoffItem>();
 
+    public DbSet<MarketplaceAccount> MarketplaceAccounts => Set<MarketplaceAccount>();
+    public DbSet<MarketplaceWarehouse> MarketplaceWarehouses => Set<MarketplaceWarehouse>();
+    public DbSet<MarketplaceCard> MarketplaceCards => Set<MarketplaceCard>();
+    public DbSet<MarketplaceSyncRun> MarketplaceSyncRuns => Set<MarketplaceSyncRun>();
+
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderMarketplaceItem> OrderMarketplaceItems => Set<OrderMarketplaceItem>();
     public DbSet<OrderBox> OrderBoxes => Set<OrderBox>();
@@ -459,6 +464,80 @@ public class ApplicationDbContext : IdentityDbContext<
                 .HasForeignKey(x => x.UnitInventoryItemId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<MarketplaceAccount>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.CreatedBy)
+                .WithMany()
+                .HasForeignKey(x => x.CreatedById)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(x => x.Type);
+        });
+
+        builder.Entity<MarketplaceWarehouse>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.MarketplaceAccount)
+                .WithMany(x => x.Warehouses)
+                .HasForeignKey(x => x.MarketplaceAccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Restrict, not SetNull: deleting a mapped WMS warehouse must be blocked, not silently unmapped
+            e.HasOne(x => x.Warehouse)
+                .WithMany()
+                .HasForeignKey(x => x.WarehouseId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.ExternalId }).IsUnique();
+            e.HasIndex(x => x.WarehouseId);
+        });
+
+        builder.Entity<MarketplaceCard>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.MarketplaceAccount)
+                .WithMany(x => x.Cards)
+                .HasForeignKey(x => x.MarketplaceAccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.CatalogItem)
+                .WithMany()
+                .HasForeignKey(x => x.CatalogItemId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.Property(x => x.Price).HasPrecision(18, 2);
+
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.ExternalId }).IsUnique();
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.OfferId });
+            e.HasIndex(x => x.CatalogItemId);
+        });
+
+        builder.Entity<MarketplaceSyncRun>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.MarketplaceAccount)
+                .WithMany(x => x.SyncRuns)
+                .HasForeignKey(x => x.MarketplaceAccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.TriggeredBy)
+                .WithMany()
+                .HasForeignKey(x => x.TriggeredById)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.StartedAt })
+                .IsDescending(false, true);
         });
 
         // Npgsql requires DateTime values with Kind=Utc for "timestamp with time zone" columns.

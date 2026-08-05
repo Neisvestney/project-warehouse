@@ -217,3 +217,77 @@ _listUpdater.UpdateList(
 - Use the index-based overload only when the client always sends the full ordered list and position is meaningful.
 - Use the identity-based overload for named/identified child collections where partial updates or reordering may occur.
 - Call `SaveChangesAsync` after `UpdateList` — the method mutates the tracked collection but does not save.
+
+---
+
+## Background work: queue + worker + advisory lock
+
+Introduced by the marketplaces module — the first place in the project that does work outside a request.
+Use this shape whenever an endpoint must answer immediately but the work takes minutes.
+
+**Never `Task.Run`.** It is not tied to the host lifetime, so a container stop drops in-flight work silently.
+
+1. **A bounded `Channel<T>` behind an interface** (`Integrations/Sync/MarketplaceSyncQueue.cs`).
+   `SingleReader = true` serializes the work; `FullMode = Wait` applies backpressure instead of dropping requests.
+2. **A `BackgroundService` that drains it** (`MarketplaceSyncWorker.cs`), creating **its own DI scope per item** —
+   the request scope is long gone by then, so nothing scoped may be captured from it.
+3. **Reconcile on startup.** A job row left in a `running` state by a crash blocks the resource forever, because
+   both the UI guard and the scheduler refuse to start a second one. The worker's first action is to fail every
+   stale `running` row with a dedicated error code (`marketplaceSyncInterrupted`). Roll back any denormalized
+   summary alongside it (`MarketplaceAccount.LastSyncStatus` / `LastSyncError` / `LastSyncAt`) — reconciling only
+   the job row leaves the parent entity advertising the outcome of the run before the one that died.
+4. **Cross-process exclusivity via a PostgreSQL advisory lock** (`PostgresAdvisoryLock.cs`).
+   The lock is **session-scoped**, and Npgsql runs `DISCARD ALL` when a pooled connection is returned — which
+   releases it. So it must be taken on a **dedicated `NpgsqlConnection` from the injected `NpgsqlDataSource`**
+   and held for the whole run, never on the request's `DbContext` connection.
+   That idle connection also needs `Keepalive` in the connection string, or a NAT/firewall may drop the session
+   and silently free the lock.
+5. **Persist failures structurally.** Store an `AppFieldError` in a `jsonb` column rather than a message string, so
+   the client renders from `code` + `args`. Note the enum is serialized there as an integer by Npgsql's serializer,
+   not as the camelCase string the MVC options produce — such an `ErrorCode` enum may only be appended to.
+
+The request side keeps a cheap `AnyAsync(... == Running)` check purely for UX (`409`); the advisory lock is what
+actually guarantees exclusivity.
+
+**Scheduling** uses Quartz with an in-memory job store and one `[DisallowConcurrentExecution]` *scanning* job that
+picks whatever is due (`MarketplaceSyncScanJob.cs`), rather than a trigger per entity — the schedule then needs no
+mutation when an interval changes, and a restart cannot lose it.
+
+## Ambient state for `IHttpClientFactory` handlers
+
+A `DelegatingHandler` cannot read a **scoped** service written by the caller: `IHttpClientFactory` builds and caches
+handler chains in its own DI scope, so the handler gets a different instance than the one the caller wrote to.
+
+When a single `HttpClient` serves several tenants — so credentials cannot live on `DefaultRequestHeaders` — carry
+them in an **`AsyncLocal`** exposed by a singleton (`Integrations/Ozon/MarketplaceRequestContext.cs`), and open a
+scope around the call:
+
+```csharp
+using var _ = requestContext.Use(credentials);
+await client.PingAsync(ct);
+```
+
+The ambient value flows into the handler regardless of DI scoping. `Use` returns an `IDisposable` that restores the
+previous value rather than clearing it, so nested calls behave.
+
+**The scope does not survive a `yield return`.** An `AsyncLocal` write propagates *down* through awaits but never
+back *up* to the caller, and an async iterator hands control back at every yield: the consumer's execution context
+is restored, and the next `MoveNextAsync` resumes the body without re-running the assignment. Opening the scope at
+the top of an `async IAsyncEnumerable` therefore covers the first page only — every later page reaches the handler
+with nothing in scope. Step the enumerator manually and re-enter the scope around each move:
+
+```csharp
+var pages = client.GetCardsAsync(ct).GetAsyncEnumerator(ct);
+while (true)
+{
+    bool hasNext;
+    {
+        using var _ = requestContext.Use(credentials);
+        hasNext = await pages.MoveNextAsync();
+    }
+    if (!hasNext) yield break;
+    yield return pages.Current;
+}
+```
+
+Plain `async` methods that page in a loop are unaffected — the whole loop runs under one execution context.

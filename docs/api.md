@@ -362,3 +362,59 @@ The `catalogItemId` filter is used by the frontend drawer to list all instances 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/api/permissions` | Bearer | All defined permission strings |
+---
+
+## Marketplaces — `/api/integrations/marketplaces`
+
+| Method | Path | Permission | Description |
+|--------|------|------------|-------------|
+| GET | `/accounts` | `integrations.view` | List accounts (`Paginated<MarketplaceAccountSummaryDto>`), supports `searchString`, `type`, `isActive`, `sortBy` (`name`\|`createdAt`\|`lastSyncAt`, default `name`), `sortOrder` |
+| GET | `/accounts/unmapped-count` | `integrations.view` | `{ count }` — unmapped, non-archived cards across all **active** accounts; feeds the sidebar badge |
+| GET | `/accounts/{id}` | `integrations.view` | Account with aggregates (`MarketplaceAccountDto`) |
+| POST | `/accounts` | `integrations.edit` | Create account; returns `201` and queues an initial `all` sync when `isActive` |
+| PUT | `/accounts/{id}` | `integrations.edit` | Update account; an empty `apiKey` keeps the stored key |
+| DELETE | `/accounts/{id}` | `integrations.edit` | Delete account; cascades to its warehouses, cards and sync runs |
+| POST | `/accounts/{id}/test-connection` | `integrations.edit` | Verify credentials without saving |
+| POST | `/accounts/{id}/sync` | `integrations.map` | Queue a sync → `202` + `{ syncRunId }` |
+| GET | `/accounts/{id}/sync-runs` | `integrations.view` | Run history (`Paginated<MarketplaceSyncRunDto>`), newest first |
+| GET | `/accounts/{id}/warehouses` | `integrations.view` | Marketplace warehouses, supports `includeArchived`, `sortBy` (`name`\|`kind`\|`syncedAt`), `sortOrder` |
+| PUT | `/warehouses/{id}/mapping` | `integrations.map` | Map to a WMS warehouse |
+| GET | `/accounts/{id}/cards` | `integrations.view` | Cards, supports `searchString`, `mappingState`, `includeArchived`, `sortBy` (`name`\|`offerId`\|`price`\|`syncedAt`), `sortOrder` |
+| PUT | `/cards/{id}/mapping` | `integrations.map` | Map to a catalog item |
+| POST | `/accounts/{id}/cards/auto-map` | `integrations.map` | Auto-map the whole account → `{ mapped, remaining }` |
+
+**`POST /accounts` body (`CreateMarketplaceAccountRequest`):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | `MarketplaceType` | `ozon` (only provider implemented) |
+| `clientId` | `string?` | Required when the provider declares `requiresClientId` (Ozon does) |
+| `apiKey` | `string` | Write-only; stored encrypted, never returned |
+| `syncIntervalMinutes` | `int?` | 1…10080, defaults to `Marketplaces:DefaultSyncIntervalMinutes` |
+| `isActive` | `bool` | Inactive accounts are skipped by the scheduler |
+
+`PUT /accounts/{id}` takes the same shape minus `type`; `apiKey` there is optional and an empty value means "keep the current key".
+
+Neither body accepts a `name`: the account name comes from the marketplace (`company.name` for Ozon) and every sync overwrites it, along with `companyLegalName`, `inn`, `ogrn` and `ownershipForm`. Until the first sync lands, `name` holds a placeholder built from the marketplace and the key mask (`Ozon ••••1234`).
+
+**`POST /accounts/{id}/test-connection` body (`TestConnectionRequest`):** `{ type?, clientId?, apiKey? }`. When `apiKey` is present the route `{id}` is ignored entirely, so a key can be checked before the account exists — the path segment may be any string. Otherwise the saved credentials of `{id}` are used.
+
+**Mapping bodies:** `PUT /warehouses/{id}/mapping` takes `{ warehouseId: Guid? }`, `PUT /cards/{id}/mapping` takes `{ catalogItemId: Guid? }`. `null` clears the mapping.
+
+**`mappingState` values:** `all` (default), `unmapped`, `mapped`, `archivedItem` (mapped to a catalog item that has since been archived).
+
+**Enum values:** `MarketplaceType`: `ozon`, `wildberries` (reserved). `MarketplaceWarehouseKind`: `unknown`, `fbs`, `rfbs`, `express`, `fbo`. `MarketplaceMappingSource`: `manual`, `autoOfferId`, `autoBarcode`. `MarketplaceSyncScope`: `warehouses`, `cards`, `all`. `MarketplaceSyncStatus`: `running`, `success`, `failed`, `canceled` (reserved, unused).
+
+**Key DTOs:**
+
+`MarketplaceAccountSummaryDto`: `{ id, type, name, isActive, syncIntervalMinutes, lastSyncAt?, lastSyncStatus?, lastSyncError?, warehouseCount, cardCount, unmappedCardCount }`
+`MarketplaceAccountDto`: `{ id, type, name, isActive, externalClientId?, companyLegalName?, inn?, ogrn?, ownershipForm?, apiKeyMask, apiKeyUpdatedAt?, credentialsUnreadable, capabilities, syncIntervalMinutes, lastSyncAt?, lastSyncStatus?, lastSyncError?, createdAt, createdById?, createdByName?, warehouseCount, unmappedWarehouseCount, cardCount, unmappedCardCount }`
+`MarketplaceWarehouseDto`: `{ id, marketplaceAccountId, externalId, name, kind, externalStatus?, address?, isArchived, warehouseId?, warehouseName?, syncedAt }`
+`MarketplaceCardDto`: `{ id, marketplaceAccountId, externalId, sku?, offerId, name, barcodes, primaryImageUrl?, price?, currencyCode?, isArchived, catalogItemId?, catalogItemFullName?, catalogItemArticle?, mappingSource?, mappedAt?, isMappedToArchivedItem, syncedAt }`
+`MarketplaceSyncRunDto`: `{ id, marketplaceAccountId, scope, status, startedAt, finishedAt?, triggeredById?, triggeredByName?, warehousesProcessed, cardsProcessed, cardsCreated, cardsUpdated, cardsArchived, autoMapped, error? }`
+
+**The API key never leaves the server.** `MarketplaceAccountDto` has no key field at all — only `apiKeyMask` (`••••1234`) and `apiKeyUpdatedAt`. `credentialsUnreadable` is computed per request by attempting to decrypt the stored key; it turns `true` when the Data Protection key ring has been lost.
+
+**`lastSyncError` / `MarketplaceSyncRunDto.error` are `AppFieldError`**, not strings: `{ code, detail, args? }`, the same shape used inside `AppProblemDetails`. Clients render from `code` + `args` (`marketplaceStatus`, `marketplaceResponse`, `accountId`) — `detail` is developer-facing English.
+
+Errors: `marketplaceAccountNotFound`, `marketplaceWarehouseNotFound`, `marketplaceCardNotFound`, `marketplaceCredentialsInvalid`, `marketplaceCredentialsUnreadable`, `marketplaceClientIdRequired`, `marketplaceApiError`, `marketplaceSyncAlreadyRunning`, `marketplaceCardMappingTypeNotAllowed`, `marketplaceCardMappingArchivedItem`, `marketplaceSyncInterrupted`.

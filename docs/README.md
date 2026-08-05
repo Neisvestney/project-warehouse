@@ -6,7 +6,7 @@ A warehouse management web app with barcode/QR scanning (PWA), user management, 
 
 ```
 projectwarehouse.client/   React 19 + TypeScript PWA (Vite)
-ProjectWarehouse.Server/   ASP.NET Core 9 REST API
+ProjectWarehouse.Server/   ASP.NET Core 10 REST API
   ├── Controllers/         HTTP layer
   ├── Services/            Business logic
   ├── Domain/              EF Core entities
@@ -16,7 +16,7 @@ ProjectWarehouse.Server/   ASP.NET Core 9 REST API
   └── Migrations/          EF Core migrations
 ```
 
-**Backend:** ASP.NET Core 9, Entity Framework Core, PostgreSQL, ASP.NET Core Identity, JWT Bearer auth  
+**Backend:** ASP.NET Core 10, Entity Framework Core, PostgreSQL, ASP.NET Core Identity, JWT Bearer auth  
 **Frontend:** React 19, TypeScript 6, Vite 8, MUI v9, React Router v7, PWA (vite-plugin-pwa), zxing-wasm
 
 ## Docs Index
@@ -40,7 +40,7 @@ ProjectWarehouse.Server/   ASP.NET Core 9 REST API
 
 ### Prerequisites
 
-- .NET 9 SDK
+- .NET 10 SDK
 - Node.js 20+
 - PostgreSQL (local or via Docker)
 

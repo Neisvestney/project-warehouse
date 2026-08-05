@@ -36,6 +36,7 @@
 | `POST /v2/warehouse/list` | `WarehouseListV2` | Список складов FBS/rFBS | Пагинация по `cursor` + `limit` |
 | `POST /v3/product/list` | `ProductAPI_GetProductList` | Список товаров (идентификаторы) | `limit` 1…1000, пагинация по `last_id` |
 | `POST /v3/product/info/list` | `ProductAPI_GetProductInfoList` | Полные данные карточек по идентификаторам | Пакет до 1000 идентификаторов |
+| `POST /v1/seller/info` | `SellerAPI_SellerInfo` | Название магазина и реквизиты продавца | Тела запроса нет |
 
 > **Ограничение:** `POST /v1/warehouse/list` помечен в спецификации как устаревающий с датой отключения 7 апреля 2026 года. Использовать только `/v2/warehouse/list`.
 
@@ -72,6 +73,19 @@ created_at         — string
 updated_at         — string
 ```
 
+Поля ответа `/v1/seller/info` (объект `company`), релевантные WMS:
+
+```
+name               — string, название магазина на Ozon → MarketplaceAccount.Name
+legal_name         — string, полное наименование юрлица
+inn                — string
+ogrn               — string
+ownership_form     — string, форма собственности
+country / currency / tax_system — не сохраняются
+```
+
+Соседние объекты ответа — `ratings` и `subscription` — намеренно игнорируются: это метрики продавца, а не реквизиты, и меняются они постоянно.
+
 `POST /v3/product/list` возвращает только `offer_id`, `product_id`, `sku`, `archived`, `has_fbo_stocks`, `has_fbs_stocks` — этого недостаточно для карточки, поэтому список всегда догружается методом `/v3/product/info/list`.
 
 ### Методы для будущих этапов
@@ -84,7 +98,6 @@ updated_at         — string
 | `POST /v2/product/info/stocks-by-warehouse/fbs` | Остатки FBS по складам |
 | `POST /v4/posting/fbs/list`, `POST /v3/posting/fbs/get` | Отправления FBS |
 | `POST /v3/posting/fbo/list` | Отправления FBO |
-| `POST /v1/seller/info` | Информация о продавце (для отображения названия магазина) |
 
 ---
 
@@ -99,11 +112,9 @@ updated_at         — string
 ```
 tools/marketplaces/ozon/
   ├── ozon-swagger.raw.json        — выгруженная спецификация Ozon (не коммитится)
-  ├── paths.whitelist.json         — список используемых путей
-  ├── trim-spec.ps1                — обрезка спецификации
-  ├── ozon-openapi.trimmed.json    — результат обрезки (коммитится)
-  ├── ozon.nswag                   — конфигурация NSwag
-  └── generate-client.ps1          — обрезка + запуск NSwag
+  ├── paths.whitelist.json         — список используемых путей + зарезервированные
+  ├── generate-client.cs           — выгрузка, обрезка, санитайзинг, генерация
+  └── ozon-openapi.trimmed.json    — результат обрезки (коммитится)
 
 ProjectWarehouse.Server/Integrations/
   ├── Abstractions/                — провайдер-нейтральные контракты и модели
@@ -111,22 +122,66 @@ ProjectWarehouse.Server/Integrations/
   │   ├── Generated/OzonApiClient.g.cs   — вывод NSwag (коммитится)
   │   ├── OzonClient.cs                  — обёртка: пагинация, ошибки, маппинг
   │   ├── OzonAuthHandler.cs             — DelegatingHandler, подстановка заголовков
+  │   ├── MarketplaceRequestContext.cs   — ambient-учётка для хендлера
   │   └── OzonMarketplaceProvider.cs     — реализация IMarketplaceProvider
-  └── Sync/                        — сервис синхронизации, Quartz-джоб
+  └── Sync/
+      ├── MarketplaceSyncQueue.cs        — bounded Channel заявок
+      ├── MarketplaceSyncWorker.cs       — BackgroundService + реконсиляция при старте
+      ├── PostgresAdvisoryLock.cs        — лок на выделенном соединении
+      └── MarketplaceSyncScanJob.cs      — Quartz-джоб
+
+Services/MarketplaceSyncService.cs      — склады, карточки, автосопоставление
 ```
 
-**Шаг 1 — выгрузка.** `docs.ozon.ru` отдаёт `swagger.json` только браузероподобным клиентам: `curl` без корректных заголовков получает петлю редиректов (`?__rr=N`) либо `403`. Скрипт выгрузки задаёт `User-Agent`, `Accept` и `Referer`; при неудаче спецификация выгружается вручную. Именно поэтому **обрезанная спецификация коммитится в репозиторий** — сборка не должна зависеть от доступности `docs.ozon.ru`.
+Весь конвейер — один **file-based-скрипт C#** (`dotnet run generate-client.cs`), возможность .NET 10 запускать одиночный `.cs`-файл без проекта и без `.csproj`. Зависимости объявляются директивами прямо в файле:
 
-**Шаг 2 — обрезка** (`trim-spec.ps1`):
+```csharp
+#!/usr/bin/env dotnet
+#:package NSwag.CodeGeneration.CSharp@14.*
+
+using System.Text.Json.Nodes;
+// ...
+```
+
+Подключается библиотека `NSwag.CodeGeneration.CSharp`, а не консольный `NSwag.ConsoleCore`: последний — это CLI-пакет, вызвать его из скрипта можно только запуском отдельного процесса. Генерация выполняется в процессе через `OpenApiDocument.FromFileAsync` + `CSharpClientGenerator`, поэтому отдельного `ozon.nswag` нет — настройки живут прямо в скрипте, в том же файле, что и логика обрезки.
+
+Почему не PowerShell:
+
+- Обрезка спецификации — это обход графа `$ref` с транзитивным замыканием. `System.Text.Json.Nodes` даёт для этого нормальную мутабельную модель документа; в PowerShell то же самое пишется через `ConvertFrom-Json -AsHashtable` и рекурсию по хеш-таблицам, что заметно многословнее и хуже читается.
+- Скрипт живёт в одном языке с остальным репозиторием — правит его тот же человек, что и сервер.
+- Дополнительный инструментарий не нужен: .NET 10 SDK и так обязателен, проект собирается под `net10.0`.
+- NSwag подключается директивой `#:package`, а не заранее установленным глобальным инструментом, — версия генератора зафиксирована в том же файле, что и логика.
+
+Если скрипт со временем разрастётся, `dotnet project convert` превращает его в обычный проект без переписывания.
+
+**Шаг 1 — выгрузка** (`--fetch`). `docs.ozon.ru` отдаёт `swagger.json` только браузероподобным клиентам: `curl` без корректных заголовков получает петлю редиректов (`?__rr=N`) либо `403`. Скрипт задаёт `User-Agent`, `Accept` и `Referer` на `HttpClient`; при неудаче спецификация выгружается вручную из браузера в `ozon-swagger.raw.json`. Именно поэтому **обрезанная спецификация коммитится в репозиторий** — сборка не должна зависеть ни от доступности `docs.ozon.ru`, ни от того, пропустит ли он запрос.
+
+> **Проверено на практике:** заголовков недостаточно — защита завязана не только на них. `HttpClient` получает `403`, `curl` с полным набором браузерных заголовков — петлю редиректов до исчерпания лимита. Рабочий путь один: открыть URL в браузере и сохранить ответ. `--fetch` оставлен на случай, если Ozon ослабит защиту; при неудаче скрипт печатает инструкцию и выходит с кодом 1, не затирая существующий raw-файл.
+
+**Шаг 2 — обрезка:**
 
 1. Оставить только пути из `paths.whitelist.json`.
 2. Удалить из каждой операции параметры `Client-Id` и `Api-Key` (`$ref` на `#/components/parameters/*`).
 3. Транзитивно собрать из оставшихся операций все достижимые `components.schemas`, остальное выбросить.
 4. Прописать `servers[0].url = "https://api-seller.ozon.ru"` — исходное значение `//api-seller.ozon.ru` без схемы NSwag разбирает некорректно.
+5. **Санитайзинг.** Спека объявляет себя как OpenAPI 3.0.0, но содержит наследие Swagger 2.0, которое NJsonSchema не переваривает:
+   - `required: true` булевым внутри схемы свойства (в 3.0 это массив имён на объекте-владельце) — падение при разборе;
+   - схемы массивов с `items`, но **без** `"type": "array"` — молча генерируются как `object?` вместо типизированной коллекции (задевает `productv3GetProductListResponseResult.items` и фильтры запроса).
 
-Результат — файл на десятки килобайт вместо 3.4 МБ.
+   Санитайзер обходит документ **по позициям схем** (`schema`, `schemas`, затем `properties`/`items`/`allOf`/…), а не рекурсией по всем узлам: слепой обход принял бы `properties`-словарь за схему всякий раз, когда у объекта есть свойство с именем `items` или `type` — в спеке Ozon есть и то, и другое.
 
-**Шаг 3 — генерация** (`ozon.nswag`, `OpenApiToCSharpClient`):
+Результат — файл на ~96 КБ вместо 3.4 МБ (459 путей → 3).
+
+Запуск:
+
+```
+dotnet run tools/marketplaces/ozon/generate-client.cs -- --fetch   # выгрузить, обрезать, сгенерировать
+dotnet run tools/marketplaces/ozon/generate-client.cs              # обрезать и сгенерировать из raw-файла
+```
+
+Разделитель `--` обязателен: без него `dotnet` разберёт `--fetch` как собственный аргумент.
+
+**Шаг 3 — генерация** (`CSharpClientGeneratorSettings` внутри скрипта):
 
 | Настройка | Значение | Причина |
 |-----------|----------|---------|
@@ -144,45 +199,59 @@ ProjectWarehouse.Server/Integrations/
 | `exceptionClass` | `OzonApiException` | Единая точка перехвата |
 | `classStyle` | `Poco` | Никакого `INotifyPropertyChanged` |
 
-NSwag запускается **вручную** скриптом, вывод коммитится. Это зеркалит подход фронтенда (`npm run generate-api` + закоммиченный `src/api`) и сохраняет детерминированность и офлайн-собираемость. Сгенерированный файл исключается из анализаторов через `.editorconfig` в папке `Generated/`.
+`generateUpdateJsonSerializerSettingsMethod` оставлен включённым: с `false` NSwag убирает объявление partial-метода, но оставляет его вызов в конструкторе — сгенерированный файл не компилируется. Заодно это единственная точка, куда можно дошить недостающее поведение — рукописный `Integrations/Ozon/OzonApiClientSerialization.cs` реализует два partial-хука:
+
+- `UpdateJsonSerializerSettings` — добавляет конвертер строковых enum'ов. NSwag для enum'а **внутри коллекции** конвертер не вешает (оставляет в коде `TODO(system.text.json): Add ItemConverterType...`), поэтому `working_days: ["MONDAY"]` падал с «The JSON value could not be converted». Конвертер терпимый: неизвестное значение схлопывается в значение по умолчанию, а не роняет страницу — Ozon расширяет свои enum'ы без предупреждения, а обрезанная спека в репозитории это снимок.
+- `Initialize` — включает `ReadResponseAsString`. По умолчанию NSwag читает тело потоком и кладёт в `OzonApiException.Response` **пустую строку**; в результате отказ Ozon доезжал до `MarketplaceSyncRun.Error` голым кодом статуса, без причины. Буферизовать только ошибки нельзя: `ReadObjectResponseAsync` объявлен в сгенерированной половине класса, переопределить его из своей partial-половины невозможно.
+
+Генерация запускается **вручную** через `generate-client.cs`, вывод коммитится. Это зеркалит подход фронтенда (`npm run generate-api` + закоммиченный `src/api`) и сохраняет детерминированность и офлайн-собираемость. Сгенерированный файл исключается из анализаторов через `.editorconfig` в папке `Generated/`.
 
 **Шаг 4 — обёртка.** Сгенерированный клиент наружу модуля не выходит. `OzonClient : IOzonClient` предоставляет доменно-осмысленные операции и берёт на себя то, чего в сгенерированном коде нет:
 
 ```
 IOzonClient
   Task<IReadOnlyList<OzonWarehouse>> GetWarehousesAsync(ct)
-      — цикл по cursor до исчерпания
+      — цикл по cursor до исчерпания, limit 200
   IAsyncEnumerable<IReadOnlyList<OzonProductCard>> GetCardsAsync(ct)
-      — цикл по last_id (limit 1000) + догрузка /v3/product/info/list пакетами по 1000
-  Task<OzonPingResult> PingAsync(ct)
+      — цикл по last_id + догрузка /v3/product/info/list теми же пакетами
+  Task PingAsync(ct)
       — /v2/warehouse/list с limit=1, проверка учётных данных
 ```
+
+Размеры страниц ограничены сверху самой спекой, а сгенерированный клиент их не валидирует: `/v2/warehouse/list` отвергает `limit > 200` (`maximum: 200` в схеме запроса), `/v3/product/list` допускает до 1000. Превышение возвращается как `400` от Ozon, а не как ошибка компиляции.
 
 ### Аутентификация и устойчивость
 
 Заголовки `Client-Id` / `Api-Key` вырезаны из спецификации, поэтому подставляются транспортом. Один `HttpClient` обслуживает несколько аккаунтов, значит учётные данные нельзя фиксировать в `DefaultRequestHeaders`.
 
 ```
-services.AddHttpClient<IOzonApiClient, OzonApiClient>(c =>
-    {
-        c.BaseAddress = new Uri(options.BaseUrl);
-        c.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
-    })
+services.AddHttpClient<IOzonApiClient, OzonApiClient>(c => c.BaseAddress = new Uri(options.BaseUrl))
     .AddHttpMessageHandler<OzonAuthHandler>()
-    .AddStandardResilienceHandler();
+    .AddStandardResilienceHandler(r =>
+    {
+        r.AttemptTimeout.Timeout = ozonTimeout;
+        r.TotalRequestTimeout.Timeout = ozonTimeout * 3;
+        r.CircuitBreaker.SamplingDuration = ozonTimeout * 6;
+    });
 ```
 
-`OzonAuthHandler` читает учётные данные из scoped-объекта `MarketplaceRequestContext`, который заполняется сервисом синхронизации перед вызовом провайдера. Контекст скоупный, а не `AsyncLocal`, — каждый запуск синхронизации выполняется в собственном DI-скоупе.
+`HttpClient.Timeout` **не задаётся**: при подключённом resilience-хендлере он мёртвый код — таймауты хендлера срабатывают раньше. Настраивать их приходится явно, иначе действуют дефолты (10 с на попытку, 30 с суммарно), которые режут медленные ответы Ozon. Ограничение хендлера: `AttemptTimeout ≤ SamplingDuration / 2`, иначе валидация роняет приложение на старте.
+
+`OzonAuthHandler` читает учётные данные из `MarketplaceRequestContext`. Контекст — **синглтон поверх `AsyncLocal`**, а не scoped-сервис: `IHttpClientFactory` собирает и кеширует цепочки хендлеров в собственном DI-скоупе, поэтому scoped-контекст, внедрённый в хендлер, — **другой экземпляр**, не тот, в который писал провайдер. Ambient-значение долетает независимо от скоупов. Одна оговорка: **через `yield return` скоуп не живёт**. Запись в `AsyncLocal` протекает вниз по `await`'ам, но не наверх к вызывающему, а асинхронный итератор на каждом yield возвращает управление потребителю — следующий `MoveNextAsync` продолжает тело уже в его контексте, не выполняя присваивание повторно. Поэтому в `FetchCardsAsync` скоуп открывается не в начале метода, а вокруг каждого шага энумератора, иначе учётные данные видит только первая страница. Обычные `async`-методы с постраничным циклом (например `FetchWarehousesAsync`) этим не затронуты. Один `HttpClient` обслуживает несколько аккаунтов, значит фиксировать заголовки в `DefaultRequestHeaders` в любом случае нельзя.
 
 `AddStandardResilienceHandler` (`Microsoft.Extensions.Http.Resilience`) даёт таймауты, ретраи с экспоненциальной задержкой и circuit breaker. Ozon отвечает `429` при превышении лимитов метода — обработчик уважает `Retry-After`; сверх этого сервис синхронизации выдерживает настраиваемую паузу между страницами.
 
+Сгенерированный `OzonApiException` наружу модуля тоже не выходит: провайдер заворачивает его в провайдер-нейтральный `MarketplaceApiException` (`StatusCode`, усечённое до 2000 символов тело ответа, готовый набор `Args`). Ни сервис синхронизации, ни контроллер не ссылаются на сгенерированные типы.
+
 ### Новые пакеты
 
-| Пакет | Назначение |
-|-------|------------|
-| `NSwag.MSBuild` или `NSwag.ConsoleCore` (dev-only) | Генерация клиента |
-| `Microsoft.Extensions.Http.Resilience` | Ретраи, таймауты, circuit breaker |
-| `Quartz.Extensions.Hosting` | Планировщик синхронизации |
+| Пакет | Куда | Назначение |
+|-------|------|------------|
+| `Microsoft.Extensions.Http.Resilience` | `ProjectWarehouse.Server.csproj` | Ретраи, таймауты, circuit breaker |
+| `Quartz.Extensions.Hosting` | `ProjectWarehouse.Server.csproj` | Планировщик синхронизации |
+| `NSwag.CodeGeneration.CSharp` | директива `#:package` в `generate-client.cs` | Генерация клиента |
+
+`NSwag.CodeGeneration.CSharp` в зависимости сервера **не попадает** — он нужен только скрипту генерации и объявлен внутри него. Серверный проект собирается без него.
 
 `IHttpClientFactory`, фоновых воркеров и Data Protection в проекте до этого не было — модуль вводит всё три.
 
@@ -200,7 +269,9 @@ services.AddDataProtection()
     .SetApplicationName("ProjectWarehouse");
 ```
 
-Кольцо ключей монтируется томом в `docker-compose` (`/keys`). Утрата тома означает невозможность расшифровать сохранённые ключи — их придётся ввести заново; на этот случай `MarketplaceAccount.ApiKeyProtected` расшифровывается лениво, а ошибка расшифровки переводит аккаунт в статус `CredentialsUnreadable` с понятным сообщением в UI, а не в `500`.
+Кольцо ключей монтируется томом в `docker-compose` (`/keys`). В `Dockerfile` каталог создаётся и передаётся `$APP_UID` **до** переключения пользователя — иначе том монтируется root-owned и приложение не может писать кольцо.
+
+Утрата тома означает невозможность расшифровать сохранённые ключи — их придётся ввести заново; на этот случай `MarketplaceAccount.ApiKeyProtected` расшифровывается лениво. Отдельного статуса `CredentialsUnreadable` **нет**: `TryUnprotect` возвращает `false`, вызывающий ставит `LastSyncStatus = Failed` и `LastSyncError` с кодом `marketplaceCredentialsUnreadable`, а эндпоинт детали аккаунта отдаёт вычисляемый флаг `credentialsUnreadable` (дешёвая проба при каждом чтении, в БД не хранится). Наружу это `422`, а не `500`.
 
 Шифрование выполняет отдельный сервис, **не** `ValueConverter`:
 
@@ -230,24 +301,30 @@ IMarketplaceCredentialProtector
 MarketplaceAccount : IHasIdentity
 ├── Id                    — Guid
 ├── Type                  — MarketplaceType (Ozon | Wildberries)
-├── Name                  — string, произвольное название магазина
+├── Name                  — string, название магазина по данным маркетплейса (заполняется синхронизацией)
 ├── IsActive              — bool, выключенный аккаунт не синхронизируется
 ├── ExternalClientId      — string?, Client-Id Ozon (для WB не заполняется)
+├── CompanyLegalName      — string?, наименование юрлица  ─┐
+├── Inn                   — string?                        │ реквизиты продавца,
+├── Ogrn                  — string?                        │ заполняются синхронизацией
+├── OwnershipForm         — string?, форма собственности   ─┘
 ├── ApiKeyProtected       — string, шифротекст
 ├── ApiKeyLast4           — string, хвост ключа для маски
 ├── ApiKeyUpdatedAt       — DateTime?
 ├── SyncIntervalMinutes   — int, периодичность фоновой синхронизации
 ├── LastSyncAt            — DateTime?
 ├── LastSyncStatus        — MarketplaceSyncStatus?
-├── LastSyncError         — string?
+├── LastSyncError         — AppFieldError? (jsonb)
 ├── CreatedAt             — DateTime
 ├── CreatedById           — Guid? → ApplicationUser (SetNull)
 ├── Warehouses            — MarketplaceWarehouse[]
 ├── Cards                 — MarketplaceCard[]
 └── SyncRuns              — MarketplaceSyncRun[]
 
-[Projectable] SearchString => Name + " " + ExternalClientId
+[Projectable] SearchString => Name + " " + ExternalClientId + " " + CompanyLegalName + " " + Inn
 ```
+
+**Название аккаунта руками не вводится.** Ни `POST /accounts`, ни `PUT /accounts/{id}` поля `name` не принимают: его источник — `company.name` из `/v1/seller/info`, и каждая синхронизация его перезаписывает. Между созданием аккаунта и первым успешным запуском в поле лежит заглушка вида `Ozon ••••1234` (тип маркетплейса + маска ключа) — аккаунт обязан быть отображаемым в списке сразу. Пустое имя от маркетплейса заглушку не затирает.
 
 ### Склад маркетплейса (`MarketplaceWarehouse`)
 
@@ -319,10 +396,20 @@ MarketplaceSyncRun : IHasIdentity
 ├── CardsUpdated          — int
 ├── CardsArchived         — int
 ├── AutoMapped            — int
-└── Error                 — string?
+└── Error                 — AppFieldError? (jsonb)
 
 Индекс: (MarketplaceAccountId, StartedAt DESC)
 ```
+
+**Ошибки хранятся структурно, а не строкой.** `Error` и `LastSyncError` — это `AppFieldError` (`{ Code, Detail, Args }`), тот же тип, что лежит внутри `AppProblemDetails.Errors`. Что это даёт:
+
+- фронт получает машиночитаемый `code` и рисует нужное действие, а не парсит текст;
+- `Args` уносит контекст (`marketplaceStatus`, `marketplaceResponse`, `accountId`) без склейки в сообщение;
+- тип уже есть в сгенерированном TS-клиенте — он часть `AppProblemDetails`, отдельной работы на фронте не нужно.
+
+Собирать **только** через `AppProblems.MakeError(code, message, args)` — он же проставляет `Detail` в каноническом формате `"camelCaseCode: message"`. Текст `Detail` — англоязычный, для разработчика; локализация делается на фронте по `code` + `args`.
+
+> **Нюанс сериализации.** jsonb пишет сериализатор Npgsql (`EnableDynamicJson()`), а не MVC-шный с `JsonStringEnumConverter`. Значит `ErrorCode` внутри колонки лежит **числом**, а наружу через DTO уезжает camelCase-строкой. Следствие: значения `ErrorCode` можно только **дописывать в конец** — вставка в середину переинтерпретирует уже записанные ошибки.
 
 ### Перечисления
 
@@ -358,7 +445,8 @@ IMarketplaceProvider
 ├── MarketplaceCapabilities Capabilities { get; }
 ├── Task<CredentialsValidationResult> ValidateAsync(MarketplaceCredentials, ct)
 ├── Task<IReadOnlyList<ExternalWarehouse>> FetchWarehousesAsync(MarketplaceCredentials, ct)
-└── IAsyncEnumerable<IReadOnlyList<ExternalCard>> FetchCardsAsync(MarketplaceCredentials, ct)
+├── IAsyncEnumerable<IReadOnlyList<ExternalCard>> FetchCardsAsync(MarketplaceCredentials, ct)
+└── Task<ExternalSellerInfo> FetchSellerInfoAsync(MarketplaceCredentials, ct)
 
 MarketplaceCredentials  — record (string? ClientId, string ApiKey)
 ExternalWarehouse       — record (string ExternalId, string Name, MarketplaceWarehouseKind Kind,
@@ -367,8 +455,13 @@ ExternalCard            — record (string ExternalId, string? Sku, string Offer
                                   IReadOnlyList<string> Barcodes, string? ImageUrl,
                                   decimal? Price, string? Currency, bool IsArchived)
 
-MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, StockPush
+ExternalSellerInfo      — record (string? Name, string? LegalName, string? Inn,
+                                  string? Ogrn, string? OwnershipForm)
+
+MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, StockPush, SellerInfo
 ```
+
+Все поля `ExternalSellerInfo` необязательные: площадка может отдавать лишь часть реквизитов, а у самозанятого нет ОГРН. `FetchSellerInfoAsync` вызывается только у провайдеров, объявивших флаг `SellerInfo`.
 
 `IMarketplaceProviderRegistry.Get(MarketplaceType)` резолвит провайдера. `Capabilities` управляет UI: у аккаунта Ozon вкладки «Склады» и «Карточки» активны, вкладка «Заказы» появится, когда провайдер объявит `Orders`.
 
@@ -386,10 +479,24 @@ MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, StockPush
 
 ### Общие правила
 
+- **Работа выполняется вне запроса.** `POST /sync` отвечает `202` сразу, значит синхронизация не может жить в скоупе запроса. Заявки идут в bounded `Channel` (`MarketplaceSyncQueue`, ёмкость 200, `SingleReader`), их разбирает `BackgroundService` (`MarketplaceSyncWorker`), создавая **свой DI-скоуп на каждый запуск**. `Task.Run` не годится: он не привязан к lifetime приложения, и незавершённые запуски при остановке контейнера теряются молча.
+- **Реконсиляция при старте.** Запуск, оставшийся в статусе `Running` после падения, вечно блокирует аккаунт — и UI-проверка, и планировщик отказываются стартовать второй. Первое действие воркера — перевести все зависшие `Running` в `Failed` с кодом `marketplaceSyncInterrupted` и тем же `AppFieldError` откатить сводку затронутых аккаунтов (`LastSyncStatus`, `LastSyncError`, `LastSyncAt`), иначе аккаунт продолжит показывать исход предыдущего, доупавшего запуска.
 - Один активный запуск на аккаунт. Гонка «кнопка в UI против Quartz» исключается advisory-локом PostgreSQL (`pg_try_advisory_lock` по хэшу `MarketplaceAccountId`). При занятом локе запрос получает `409 marketplaceSyncAlreadyRunning`.
+  Лок **сессионный**, а Npgsql на возврате соединения в пул выполняет `DISCARD ALL`, который его снимает. Поэтому лок берётся на **выделенном `NpgsqlConnection`** из внедрённого `NpgsqlDataSource` и держится весь запуск, а не на соединении request-скоупного `DbContext`. Простаивающему соединению нужен `Keepalive=30` в строке подключения, иначе NAT или файрвол может тихо оборвать сессию и освободить лок.
+  Проверка `AnyAsync(Status == Running)` в контроллере — это UX-подсказка ради быстрого `409`, гарантию даёт именно лок.
 - Запуск создаёт `MarketplaceSyncRun` в статусе `Running` в отдельной транзакции и коммитит её сразу — прогресс должен быть виден в UI до окончания работы.
 - Ошибка провайдера переводит запуск в `Failed`, пишет сообщение в `Error` и `MarketplaceAccount.LastSyncError`. Уже сохранённые страницы не откатываются: частичная синхронизация полезнее полного отката.
 - Синхронизация **не пишет в changelog** — тысячи автоматических изменений затопили бы журнал. В журнал попадают только запуск и итог (`sync.started` / `sync.finished` на аккаунте) и ручные действия пользователя.
+
+### Реквизиты продавца
+
+Выполняется **первым шагом любого запуска и вне зависимости от `Scope`** — это один дешёвый запрос, и именно он даёт аккаунту имя. Шаг пропускается, если провайдер не объявил флаг `SellerInfo`.
+
+1. `FetchSellerInfoAsync` → `MarketplaceAccount.Name`, `CompanyLegalName`, `Inn`, `Ogrn`, `OwnershipForm`.
+2. Пустое `name` от маркетплейса **не перезаписывает** текущее — иначе аккаунт пропал бы из всех списков.
+3. Остальные реквизиты пишутся как есть, включая `null`: реквизит, исчезнувший у продавца, должен исчезнуть и в WMS.
+
+Изменения реквизитов попадают в changelog как диф `sync.finished` на аккаунте — отдельного действия для них нет.
 
 ### Склады
 
@@ -418,7 +525,9 @@ MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, StockPush
 2. **По штрихкоду.** Если по артикулу совпадения нет — любой из `Barcodes` карточки сравнивается с `CatalogItem.Barcode`. Ровно один кандидат → `MappingSource = AutoBarcode`.
 3. Ноль кандидатов или больше одного → карточка остаётся несопоставленной. Неоднозначность разрешает человек.
 
-Автосопоставление по штрихкоду до `Variation` и `Bundle` не дотягивается: поля `Barcode` у этих типов нет (см. [items-specification.md](items-specification.md#fields-by-type)) — только у `Standard`, `Unit` и `ProductGroup`. Карточка, за которой стоит вариация, сопоставляется либо по артикулу самой вариации, либо вручную.
+Автосопоставление по штрихкоду до `Variation` и `Bundle` не дотягивается — кандидаты фильтруются явным `Type ∈ { Standard, Unit }`. По соглашению `Barcode` у этих типов не заполняется (см. [items-specification.md](items-specification.md#fields-by-type)), но **схема этого не гарантирует**: `CatalogItem.Barcode` — обычная nullable-строка у всех пяти типов, ограничение нигде не enforced. Полагаться на `null` нельзя, поэтому фильтр по типу задаётся явно. Карточка, за которой стоит вариация, сопоставляется либо по артикулу самой вариации, либо вручную.
+
+Аналогично `Article`: он **non-nullable у всех типов**, null-проверок при сравнении с `OfferId` не требуется.
 
 Отдельный риск неоднозначности: если артикул вариации совпадает с артикулом одного из её же членов, кандидатов окажется два и автосопоставление корректно откажется выбирать. Это сознательное поведение — угадывание уровня привязки здесь дороже ручного разбора.
 
@@ -484,6 +593,7 @@ Quartz регистрируется с in-memory хранилищем задач
 | `GET` | `/accounts/{id}/cards` | `integrations.view` | Карточки (поиск, `mappingState` = `all`/`unmapped`/`mapped`/`archivedItem`, `includeArchived`) |
 | `PUT` | `/cards/{id}/mapping` | `integrations.map` | Привязка карточки, `{ catalogItemId }`, `null` — снять |
 | `POST` | `/accounts/{id}/cards/auto-map` | `integrations.map` | Автосопоставление по всему аккаунту |
+| `GET` | `/accounts/unmapped-count` | `integrations.view` | `{ count }` несопоставленных карточек по всем активным аккаунтам — источник данных для бейджа в сайдбаре |
 
 `test-connection` вызывается и для несохранённого аккаунта: тело запроса может содержать `clientId` и `apiKey` напрямую, тогда `{id}` игнорируется. Это позволяет проверить ключ до создания записи.
 
@@ -499,6 +609,8 @@ public static class Integrations
 ```
 
 Разделение `Edit` и `Map` намеренное: сопоставлять карточки и запускать синхронизацию должен уметь товаровед, а трогать API-ключи — только администратор. Добавление констант в `Infrastructure/Permissions.cs` автоматически регистрирует политики авторизации, попадает в `/api/permissions` и в enum `PermissionName` сгенерированного TS-клиента.
+
+> **`integrations.map` выдаётся в связке с `catalog.view` и `warehouses.view`.** Ячейки привязки — это переиспользуемые `CatalogItemsSelect` и `WarehousesSelect`, которые ходят в `/api/catalog/for-select` и `/api/warehouses`. Без этих двух прав выпадашки получают `403`, и экраны привязки неработоспособны. Расширять авторизацию чужих контроллеров ради интеграций сочтено неоправданным.
 
 > **Ограничение:** права модуля интеграций **не** имеют `_assigned`-вариантов. Аккаунт маркетплейса относится к магазину целиком, а не к конкретному складу, поэтому скоупинг по `AssignedWarehouses` здесь бессмысленен.
 
@@ -516,20 +628,28 @@ public static class Integrations
 | `marketplaceSyncAlreadyRunning` | 409 | По аккаунту уже идёт синхронизация |
 | `marketplaceCardMappingTypeNotAllowed` | 422 | Попытка привязать карточку к `ProductGroup` |
 | `marketplaceCardMappingArchivedItem` | 422 | Целевая позиция каталога в архиве |
+| `marketplaceSyncInterrupted` | — | Запуск прерван остановкой приложения; проставляется реконсиляцией при старте, наружу по HTTP не отдаётся |
+| `marketplaceWarehouseNotFound` | 404 | Склад маркетплейса не найден |
+| `marketplaceCardNotFound` | 404 | Карточка маркетплейса не найдена |
+
+Значения `ErrorCode` для этой секции дописываются **только в конец** enum'а — они персистятся числом в jsonb-колонках `Error` и `LastSyncError`.
 
 ### Changelog
 
-Добавляются значения `AppEntityType`: `MarketplaceAccount`, `MarketplaceCard`.
+Добавляются значения `AppEntityType`: `MarketplaceAccount`, `MarketplaceCard`. **Только в конец enum'а** — он персистится в `ChangeLogEntry.EntityType` как `int`, и вставка в середину молча переинтерпретировала бы все существующие записи журнала.
 
 | Действие | `action` | `actionData` |
 |----------|----------|--------------|
 | Создание аккаунта | `account.created` | `{ marketplace }` |
+| Изменение аккаунта | `account.updated` | `{ marketplace }` |
 | Ротация ключа | `account.key_rotated` | `{ marketplace }` — без значений ключа |
-| Запуск синхронизации | `sync.started` | `{ scope, syncRunId, trigger }` |
+| Удаление аккаунта | `account.deleted` | `{ marketplace }` |
 | Итог синхронизации | `sync.finished` | `{ syncRunId, status, cardsCreated, cardsArchived, autoMapped }` |
 | Ручная привязка карточки | `mapping.set` | `{ catalogItemId, source: "manual" }` |
 | Снятие привязки | `mapping.cleared` | — |
-| Автосопоставление | `mapping.auto` | `{ matched, source }` |
+| Автосопоставление | `mapping.auto` | `{ matched, remaining }` |
+
+**Записи `sync.started` нет.** `AbstractChangeLogService` пишет запись только при непустом диффе `before`/`after`, а старт синхронизации сам по себе состояние аккаунта не меняет — запись либо не создалась бы вовсе, либо пришлось бы подделывать тип `Added`. Факт запуска и так виден в `MarketplaceSyncRun` со статусом `Running`, который создаётся и коммитится сразу; в журнал попадает итог. По той же причине `mapping.auto` пишется через дифф аккаунта (меняется `unmappedCardCount`) — прогон, не сопоставивший ничего, записи не создаёт.
 
 Фоновая синхронизация выполняется без пользователя — `ChangeLogEntry.UserId` остаётся `null`, что схема допускает.
 
@@ -571,7 +691,16 @@ src/pages/SettingsPage/pages/MarketplacesSettingsPage/
 
 Существующие компоненты переиспользуются: `WarehousesSelect`, `CatalogItemsSelect`, `CatalogItemLink`, `DataTableContainer`, `FiltersBar`, `SearchInput`, `PageGenericHeader`, `ConfirmDialog`.
 
-После добавления эндпоинтов на бэкенде — `npm run generate-api` (backend должен быть запущен). Новое право требует строки в `src/utils/permissionLabels.ts`, иначе `npm run typecheck` упадёт: тип там исчерпывающий по `PermissionName`.
+После добавления эндпоинтов на бэкенде — `npm run generate-api` (backend должен быть запущен). Дальше `npm run typecheck` **ожидаемо упадёт в двух местах** — оба типа исчерпывающие:
+
+- `src/utils/permissionLabels.ts` — `Record<PermissionName, string>`, нужны три новых права;
+- `src/utils/appEntityUtils.tsx` — `Record<AppEntityType, EntityTypeConfig>`, нужны `marketplaceAccount` и `marketplaceCard`.
+
+Ошибки `lastSyncError` и `syncRun.error` приходят как `AppFieldError` (`{ code, detail, args? }`) — тот же тип, что внутри `AppProblemDetails`, он уже сгенерирован. Текст берётся по `code` + `args` через существующий `errorCodeArgMessages` в `src/utils/errorUtils.ts`; поле `detail` англоязычное и в UI не показывается.
+
+Вкладок в приложении пока нет ни одной (`<Tabs>` используется только в мобильной навигации `SidebarLayout` и в пикере `StorageNodePickerContent`) — страница аккаунта вводит этот паттерн.
+
+Бейджа-счётчика в сайдбаре тоже нет: `SectionConfig` не имеет соответствующего поля, а `settingsConfig.tsx` — обычный модульный массив и хуки вызывать не может. Счётчик придётся передавать **компонентом** (`badge?: React.ComponentType`), который сам дёргает `/accounts/unmapped-count`; `toNavItems` уже фильтрует секции по `requiredPermission`, так что бейдж и его запрос смонтируются только у тех, кому можно.
 
 Счётчики активного запуска обновляются по событиям `marketplace.sync.progress` и `marketplace.sync.finished` — транспорт и схема описаны в [realtime-specification.md](realtime-specification.md). Опрос `/sync-runs` через `refetchInterval` остаётся запасным механизмом и включается, только когда стрим не установлен: замерший экран из-за проблем с транспортом недопустим.
 
@@ -645,23 +774,29 @@ volumes:
 
 ### Реализовано
 
-Ничего. Спецификация описывает модуль целиком с нуля.
+**Бэкенд целиком.** Существующие швы в домене, на которые модуль опирается: `Order.MarketplaceOrderId`, `OrderMarketplaceItem.MarketplaceCardId`, `OrderType.FBS` / `OrderType.FBO` (идентификаторы в коде — заглавными).
 
-Существующие швы в домене, на которые модуль опирается: `Order.MarketplaceOrderId`, `OrderMarketplaceItem.MarketplaceCardId`, `OrderType.Fbs` / `OrderType.Fbo`.
+| Шаг | Статус |
+|-----|--------|
+| 1. Конвейер генерации: `paths.whitelist.json`, `generate-client.cs`, сгенерированный `OzonApiClient` | ✓ |
+| 2. `Integrations/Abstractions` — провайдер-контракты, канонические модели, `MarketplaceApiException` | ✓ |
+| 3. Домен + миграция `AddMarketplaces` | ✓ |
+| 4. Data Protection, `IMarketplaceCredentialProtector`, `MarketplaceRequestContext`, `OzonAuthHandler` | ✓ |
+| 5. `OzonClient` + `OzonMarketplaceProvider` | ✓ |
+| 6. `MarketplaceSyncService`, очередь + воркер, advisory-лок, автосопоставление | ✓ |
+| 7. Quartz `MarketplaceSyncScanJob` | ✓ |
+| 8. `Permissions.Integrations`, коды ошибок, `AppEntityType`, changelog-сервисы, DTO, `AppMapperProfile` | ✓ |
+| 9. `MarketplacesController` | ✓ |
+| 10. Фронтенд: раздел настроек, вкладки, компоненты привязки, бейдж | — не начат |
+| 11. Документация | ✓ (кроме [frontend.md](frontend.md) — ждёт шага 10) |
 
-### Порядок реализации
+Регенерация TS-клиента (`npm run generate-api`) выполняется вместе с шагом 10.
 
-1. Конвейер генерации клиента: whitelist, `trim-spec.ps1`, `ozon.nswag`, сгенерированный `OzonApiClient`.
-2. `Integrations/Abstractions` — провайдер-контракты и канонические модели.
-3. Домен + миграция: `MarketplaceAccount`, `MarketplaceWarehouse`, `MarketplaceCard`, `MarketplaceSyncRun`.
-4. Data Protection, `IMarketplaceCredentialProtector`, `MarketplaceRequestContext`, `OzonAuthHandler`.
-5. `OzonClient` + `OzonMarketplaceProvider`.
-6. `MarketplaceSyncService` — склады, карточки, автосопоставление, advisory-лок.
-7. Quartz `MarketplaceSyncScanJob`.
-8. `Permissions.Integrations`, коды ошибок, `AppEntityType`, changelog-сервисы, `AppMapperProfile`.
-9. `MarketplacesController`, регенерация TS-клиента.
-10. Фронтенд: раздел настроек, вкладки, компоненты привязки.
-11. Документация: обновление этого файла по факту, строка в [api.md](api.md), [errors.md](errors.md), [permissions.md](permissions.md), [frontend.md](frontend.md).
+### Проверено вручную
+
+Через Scalar и прямые HTTP-вызовы, с заведомо неверным ключом: `test-connection` → `502 marketplaceApiError` с `args.marketplaceStatus`; `POST /sync` → мгновенный `202` + `syncRunId`; фоновый воркер берёт advisory-лок, ходит в реальный Ozon, кладёт структурированный `AppFieldError` в jsonb и зеркалит его в `LastSyncError`; `sync-runs`, `warehouses`, `cards`, `auto-map`, `unmapped-count` отвечают; changelog получает `account.created` и `sync.finished`; `DELETE` каскадно чистит аккаунт.
+
+Синхронизация с боевым ключом Ozon (реальные склады и карточки, автосопоставление, архивация по `SyncedAt`) **не проверялась** — нужен настоящий аккаунт продавца.
 
 ### Отложено
 
@@ -685,6 +820,9 @@ volumes:
 | Карточка привязана к архивной позиции | Привязка **сохраняется**, показывается чипом «Привязана к архивному товару» | `[Projectable] IsMappedToArchivedItem` + значение фильтра `archivedItem` |
 | Остаток карточки, привязанной к `Variation` | **Сумма** остатков по членам вариации | Завышает доступность, если ревизии не полностью взаимозаменяемы; принято осознанно |
 | Отмена запущенной синхронизации | **Не нужна** в первой версии | Значение `MarketplaceSyncStatus.Canceled` остаётся зарезервированным и в UI не используется |
+| Хранение ошибок запуска | **`AppFieldError` в jsonb**, а не строка | Фронт локализует по `code` + `args`; `ErrorCode` можно только дописывать в конец |
+| Клиент Ozon | **Генерация NSwag**, библиотекой в процессе, без `.nswag`-конфига | Следующие методы бесплатны; ценой — санитайзер для Swagger-2.0-наследия в спеке Ozon |
+| Живые счётчики синхронизации | **Опрос** `/sync-runs`; SSE отложен | Бэкенд ничего не публикует; переход на realtime — подмена одного хука на фронте |
 
 ---
 

@@ -96,6 +96,20 @@ public enum ErrorCode
     AssemblyComponentAlreadyFulfilled,
     CatalogItemNotVariationMember,
 
+    // Marketplaces
+    // Persisted as int inside MarketplaceSyncRun.Error / MarketplaceAccount.LastSyncError jsonb — append only.
+    MarketplaceAccountNotFound,
+    MarketplaceCredentialsInvalid,
+    MarketplaceCredentialsUnreadable,
+    MarketplaceClientIdRequired,
+    MarketplaceApiError,
+    MarketplaceSyncAlreadyRunning,
+    MarketplaceSyncInterrupted,
+    MarketplaceCardMappingTypeNotAllowed,
+    MarketplaceCardMappingArchivedItem,
+    MarketplaceWarehouseNotFound,
+    MarketplaceCardNotFound,
+
     // Routing
     RouteNotFound,
 

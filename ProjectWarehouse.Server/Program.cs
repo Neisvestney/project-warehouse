@@ -9,6 +9,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
@@ -19,8 +20,14 @@ using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Marketplaces;
+using ProjectWarehouse.Server.Integrations.Abstractions;
+using ProjectWarehouse.Server.Integrations.Ozon;
+using ProjectWarehouse.Server.Integrations.Ozon.Generated;
+using ProjectWarehouse.Server.Integrations.Sync;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
+using ProjectWarehouse.Server.Models.Integrations;
 using ProjectWarehouse.Server.Models.Roles;
 using ProjectWarehouse.Server.Models.Users;
 using ProjectWarehouse.Server.Models.Receipts;
@@ -28,6 +35,7 @@ using ProjectWarehouse.Server.Models.Warehouses;
 using ProjectWarehouse.Server.Models.Writeoffs;
 using ProjectWarehouse.Server.Services;
 using Microsoft.Extensions.Options;
+using Quartz;
 using Scalar.AspNetCore;
 using Serilog;
 
@@ -149,24 +157,73 @@ try
         });
     });
 
-    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
     {
-        var connStr = builder.Configuration.GetConnectionString("DefaultConnection")!;
+        var csb = new NpgsqlConnectionStringBuilder(connectionString);
         var pgPassword = builder.Configuration["POSTGRES_PASSWORD"];
-        if (!string.IsNullOrEmpty(pgPassword))
-        {
-            var csb = new NpgsqlConnectionStringBuilder(connStr);
-            if (string.IsNullOrEmpty(csb.Password))
-                csb.Password = pgPassword;
-            connStr = csb.ConnectionString;
-        }
+        if (!string.IsNullOrEmpty(pgPassword) && string.IsNullOrEmpty(csb.Password))
+            csb.Password = pgPassword;
+        // marketplace sync holds an advisory lock on an idle connection for minutes
+        if (csb.KeepAlive == 0)
+            csb.KeepAlive = 30;
+        connectionString = csb.ConnectionString;
+    }
 
-        var dataSource = new NpgsqlDataSourceBuilder(connStr)
-            .EnableDynamicJson()
-            .Build();
+    var dataSource = new NpgsqlDataSourceBuilder(connectionString)
+        .EnableDynamicJson()
+        .Build();
 
-        options.UseNpgsql(dataSource).UseProjectables();
+    builder.Services.AddSingleton(dataSource);
+    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+        options.UseNpgsql(dataSource).UseProjectables());
+
+    builder.Services.Configure<MarketplacesOptions>(
+        builder.Configuration.GetSection(MarketplacesOptions.SectionName));
+    var marketplacesOptions = builder.Configuration.GetSection(MarketplacesOptions.SectionName)
+        .Get<MarketplacesOptions>() ?? new MarketplacesOptions();
+
+    Directory.CreateDirectory(marketplacesOptions.KeyRingPath);
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(marketplacesOptions.KeyRingPath))
+        .SetApplicationName("ProjectWarehouse");
+
+    builder.Services.AddScoped<IMarketplaceCredentialProtector, MarketplaceCredentialProtector>();
+
+    // singleton: the state is ambient (AsyncLocal), and the auth handler lives in IHttpClientFactory's own scope
+    builder.Services.AddSingleton<MarketplaceRequestContext>();
+    builder.Services.AddTransient<OzonAuthHandler>();
+    builder.Services.AddScoped<IOzonClient, OzonClient>();
+    builder.Services.AddScoped<IMarketplaceProvider, OzonMarketplaceProvider>();
+    builder.Services.AddScoped<IMarketplaceProviderRegistry, MarketplaceProviderRegistry>();
+
+    // in-memory job store, consistent with the project's existing single-node assumption
+    builder.Services.AddQuartz(q =>
+    {
+        var jobKey = new JobKey(MarketplaceSyncScanJob.Key);
+        q.AddJob<MarketplaceSyncScanJob>(jobKey);
+        q.AddTrigger(t => t
+            .ForJob(jobKey)
+            .WithIdentity(MarketplaceSyncScanJob.Key + "-trigger")
+            .WithCronSchedule(marketplacesOptions.SyncScanCron));
     });
+    builder.Services.AddQuartzHostedService(o => o.WaitForJobsToComplete = true);
+
+    builder.Services.AddSingleton<IMarketplaceSyncQueue, MarketplaceSyncQueue>();
+    builder.Services.AddHostedService<MarketplaceSyncWorker>();
+    builder.Services.AddScoped<IMarketplaceSyncService, MarketplaceSyncService>();
+
+    var ozonTimeout = TimeSpan.FromSeconds(marketplacesOptions.Ozon.TimeoutSeconds);
+    builder.Services.AddHttpClient<IOzonApiClient, OzonApiClient>(c =>
+            c.BaseAddress = new Uri(marketplacesOptions.Ozon.BaseUrl))
+        .AddHttpMessageHandler<OzonAuthHandler>()
+        .AddStandardResilienceHandler(r =>
+        {
+            // the handler's own timeouts win over HttpClient.Timeout; its defaults (10s per attempt)
+            // cut off Ozon's slower endpoints, and SamplingDuration must be >= 2x AttemptTimeout
+            r.AttemptTimeout.Timeout = ozonTimeout;
+            r.TotalRequestTimeout.Timeout = ozonTimeout * 3;
+            r.CircuitBreaker.SamplingDuration = ozonTimeout * 6;
+        });
 
     builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
         {
@@ -292,6 +349,8 @@ try
     builder.Services.AddScoped<IChangeLogService<RolesListDto>, RolesListDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<ReceiptDto>, ReceiptDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<WriteoffDto>, WriteoffDtoChangelogService>();
+    builder.Services.AddScoped<IChangeLogService<MarketplaceAccountDto>, MarketplaceAccountDtoChangelogService>();
+    builder.Services.AddScoped<IChangeLogService<MarketplaceCardDto>, MarketplaceCardDtoChangelogService>();
     builder.Services.AddScoped<IInventoryService, InventoryService>();
     builder.Services.AddScoped<ICatalogService, CatalogService>();
     builder.Services.AddScoped<IUserQueryFilterService, UserQueryFilterService>();

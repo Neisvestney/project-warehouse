@@ -28,9 +28,13 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=projectwarehouse;Username=postgres;Password=${POSTGRES_PASSWORD};Maximum Pool Size=200
       - Jwt__SecretKey=${Jwt__SecretKey}
       - Seed__AdminPassword=${Seed__AdminPassword}
+    volumes:
+      - dataprotection_keys:/keys
     depends_on:
       postgres:
         condition: service_healthy
 
 volumes:
   postgres_data:
+  # Losing this volume makes every stored marketplace Api-Key undecryptable — back it up alongside the DB.
+  dataprotection_keys:
