@@ -422,6 +422,71 @@ public class OrdersController(
         return Ok(mapper.Map<OrderDetailsDto>(full));
     }
 
+    // ── POST /api/orders/batch-self-assign ────────────────────────────────────
+
+    [HttpPost("batch-self-assign")]
+    [Authorize]
+    [ProducesResponseType<BatchSelfAssignResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> BatchSelfAssign(
+        [FromBody] BatchSelfAssignRequest request, CancellationToken ct = default)
+    {
+        if (!User.HasClaim("permission", Permissions.Orders.SelfAssign))
+            return Forbidden();
+
+        var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
+        if (assignedIds is null)
+            return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+
+        var assignedOrderIds = new List<Guid>();
+        var failedItems      = new List<BatchSelfAssignFailedItem>();
+
+        void Fail(Guid orderId, ErrorCode code, string message, int? number = null) =>
+            failedItems.Add(new BatchSelfAssignFailedItem
+            {
+                OrderId     = orderId,
+                OrderNumber = number,
+                Error       = AppProblems.MakeError(code, message),
+            });
+
+        foreach (var orderId in request.OrderIds.Distinct())
+        {
+            var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
+            if (order is null)
+            {
+                Fail(orderId, ErrorCode.OrderNotFound, "Order not found.");
+                continue;
+            }
+
+            if (!assignedIds.Contains(order.WarehouseId))
+            {
+                Fail(orderId, ErrorCode.OrderNotAssignedToWarehouse,
+                    "You are not assigned to the warehouse of this order.", order.Number);
+                continue;
+            }
+
+            try
+            {
+                await orders.SelfAssignOrderAsync(order, userId.Value, ct);
+                assignedOrderIds.Add(orderId);
+            }
+            catch (ValidationException ex)
+            {
+                Fail(orderId, ex.ErrorCode, ex.Message, order.Number);
+            }
+        }
+
+        return Ok(new BatchSelfAssignResponse
+        {
+            AssignedOrderIds = assignedOrderIds,
+            FailedItems      = failedItems,
+        });
+    }
+
     // ── POST /api/orders/{id}/boxes ───────────────────────────────────────────
 
     [HttpPost("{id:guid}/boxes")]

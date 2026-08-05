@@ -65,6 +65,15 @@ public class UserQueryFilterService(ApplicationDbContext db) : IUserQueryFilterS
         return Task.FromResult(result);
     }
 
+    public Task<IQueryable<MarketplaceAccount>> GetMarketplaceAccountsAsync(ClaimsPrincipal user, CancellationToken ct = default)
+    {
+        IQueryable<MarketplaceAccount> result = user.HasClaim("permission", Permissions.Integrations.View)
+            ? db.MarketplaceAccounts
+            : db.MarketplaceAccounts.Take(0);
+
+        return Task.FromResult(result);
+    }
+
     private async Task<HashSet<Guid>?> GetAssignedWarehouseIdsAsync(ClaimsPrincipal user, CancellationToken ct)
     {
         var raw = user.FindFirstValue(JwtRegisteredClaimNames.Sub);

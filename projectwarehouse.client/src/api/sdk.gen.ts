@@ -114,6 +114,9 @@ import type {
   OrdersBatchFulfillData,
   OrdersBatchFulfillErrors,
   OrdersBatchFulfillResponses,
+  OrdersBatchSelfAssignData,
+  OrdersBatchSelfAssignErrors,
+  OrdersBatchSelfAssignResponses,
   OrdersCreateAssemblyTaskData,
   OrdersCreateAssemblyTaskErrors,
   OrdersCreateAssemblyTaskResponses,
@@ -898,6 +901,22 @@ export const ordersSelfAssign = <ThrowOnError extends boolean = false>(
   (options.client ?? client).post<OrdersSelfAssignResponses, OrdersSelfAssignErrors, ThrowOnError>({
     url: "/api/orders/{id}/self-assign",
     ...options,
+  });
+
+export const ordersBatchSelfAssign = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersBatchSelfAssignData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    OrdersBatchSelfAssignResponses,
+    OrdersBatchSelfAssignErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/batch-self-assign",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 
 export const ordersAddBox = <ThrowOnError extends boolean = false>(

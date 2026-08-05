@@ -172,7 +172,20 @@ function SingleSelect({
       isOptionEqualToValue={(o, v) => o.id === v.id}
       filterOptions={(x) => x}
       loading={searchQuery.isLoading || getByIdQuery.isLoading}
-      renderInput={(params) => <TextField {...params} label={label} {...textFieldProps} />}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label={label}
+          {...textFieldProps}
+          slotProps={{
+            ...params.slotProps,
+            input: {
+              ...params.slotProps?.input,
+              startAdornment: value ? <></> : undefined,
+            },
+          }}
+        />
+      )}
     />
   );
 }

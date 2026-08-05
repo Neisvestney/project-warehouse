@@ -1,5 +1,6 @@
 import {useState} from "react";
 import {
+  Alert,
   Button,
   Checkbox,
   CircularProgress,
@@ -23,9 +24,9 @@ import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import {useQuery, useMutation, useQueryClient} from "@tanstack/react-query";
 import {Link as RouterLink, useNavigate} from "react-router";
 import {
+  ordersBatchSelfAssignMutation,
   ordersGetAllOptions,
   ordersGetAllQueryKey,
-  ordersSelfAssignMutation,
 } from "@/api/@tanstack/react-query.gen";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
@@ -42,8 +43,9 @@ import TableRowEmpty from "@/components/TableRowEmpty";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import OrderStatusChip from "./OrderStatusChip";
 import {ORDER_STATUS_LABELS, formatOrderNumber} from "./orderUtils";
-import type {OrderSortBy, OrderStatus, OrderType} from "@/api/types.gen";
+import type {BatchSelfAssignFailedItem, OrderSortBy, OrderStatus, OrderType} from "@/api/types.gen";
 import {pluralCount} from "@/utils/pluralUtils";
+import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
 
 const SORT_COLUMNS: {key: OrderSortBy; label: string}[] = [
   {key: "number", label: "#"},
@@ -83,7 +85,8 @@ function OrdersListPage({
   const canSelfAssign = useHasPermission("orders.self_assign");
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [selfAssigning, setSelfAssigning] = useState(false);
+  const [failedItems, setFailedItems] = useState<BatchSelfAssignFailedItem[]>([]);
+  const [selfAssignError, setSelfAssignError] = useState<string | null>(null);
 
   const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
     "search",
@@ -125,8 +128,19 @@ function OrdersListPage({
   );
 
   const selfAssignMutation = useMutation({
-    ...ordersSelfAssignMutation(),
+    ...ordersBatchSelfAssignMutation(),
     meta: {suppressGlobalError: true},
+    // Awaited so isPending covers the refetch and the button cannot re-send stale ids
+    onSuccess: async (data) => {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        data.assignedOrderIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      setFailedItems(data.failedItems);
+      await queryClient.invalidateQueries({queryKey: ordersGetAllQueryKey()});
+    },
+    onError: (error) => setSelfAssignError(extractErrorMessage(error)),
   });
 
   const selectedConfirmedIds =
@@ -135,18 +149,10 @@ function OrdersListPage({
 
   const showBulkBar = canSelfAssign && selectedConfirmedIds.length > 0;
 
-  async function handleSelfAssignSelected() {
-    setSelfAssigning(true);
-    for (const id of selectedConfirmedIds) {
-      try {
-        await selfAssignMutation.mutateAsync({path: {id}});
-      } catch {
-        // continue with others on failure
-      }
-    }
-    setSelectedIds(new Set());
-    queryClient.invalidateQueries({queryKey: ordersGetAllQueryKey()});
-    setSelfAssigning(false);
+  function handleSelfAssignSelected() {
+    setFailedItems([]);
+    setSelfAssignError(null);
+    selfAssignMutation.mutate({body: {orderIds: selectedConfirmedIds}});
   }
 
   function toggleSelect(id: string) {
@@ -248,15 +254,39 @@ function OrdersListPage({
             variant="contained"
             color="inherit"
             startIcon={
-              selfAssigning ? <CircularProgress size={14} color="inherit" /> : <AssignmentIndIcon />
+              selfAssignMutation.isPending ? (
+                <CircularProgress size={14} color="inherit" />
+              ) : (
+                <AssignmentIndIcon />
+              )
             }
-            disabled={selfAssigning}
+            disabled={selfAssignMutation.isPending}
             onClick={handleSelfAssignSelected}
             sx={{color: "primary.main", bgcolor: "white"}}
           >
             Взять на себя
           </Button>
         </Toolbar>
+      )}
+
+      {failedItems.length > 0 && (
+        <Alert severity="error" onClose={() => setFailedItems([])}>
+          <Typography variant="body2" sx={{mb: 0.5}}>
+            Часть заказов не удалось взять на себя:
+          </Typography>
+          {failedItems.map((f) => (
+            <Typography key={f.orderId} variant="caption" sx={{display: "block"}}>
+              • {f.orderNumber != null ? formatOrderNumber(f.orderNumber) : "Заказ"}:{" "}
+              {resolveErrorMessage(f.error)}
+            </Typography>
+          ))}
+        </Alert>
+      )}
+
+      {selfAssignError && (
+        <Alert severity="error" onClose={() => setSelfAssignError(null)}>
+          {selfAssignError}
+        </Alert>
       )}
 
       <DataTableContainer
@@ -266,6 +296,7 @@ function OrdersListPage({
         onPageChange={setPage}
         rowsPerPage={pageSize}
         onRowsPerPageChange={setPageSize}
+        rowsPerPageOptions={[10, 20, 50, 100, 200]}
       >
         <Table size="small">
           <TableHead>

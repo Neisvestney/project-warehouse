@@ -11,8 +11,6 @@ public enum AppEntityType
     Receipt,
     Writeoff,
     Order,
-
-    // Persisted as int — append only, never reorder.
     MarketplaceAccount,
     MarketplaceCard,
 }
