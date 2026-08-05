@@ -17,6 +17,7 @@ public class Warehouse : IHasIdentity
     public ICollection<WarehouseLayoutElement> LayoutObjects { get; set; } = [];
 
     public ICollection<ApplicationUser> AssignedUsers { get; set; } = [];
+    public ICollection<MarketplaceWarehouse> MarketplaceWarehouses { get; set; } = [];
     
     [Projectable]
     public string SearchString => Name;

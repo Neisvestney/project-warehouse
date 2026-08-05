@@ -552,6 +552,13 @@ export type MarketplaceAccountDto = {
   unmappedCardCount: number;
 };
 
+export type MarketplaceAccountShortSummaryDto = {
+  id: string;
+  type: MarketplaceType;
+  name: string;
+  isActive: boolean;
+};
+
 export type MarketplaceAccountSortBy = "name" | "createdAt" | "lastSyncAt";
 
 export type MarketplaceAccountSummaryDto = {
@@ -1278,6 +1285,7 @@ export type WarehouseDto = {
   defaultStoragePlaceNodeId?: null | string;
   storagePlaces: Array<StoragePlaceDto>;
   layoutObjects: Array<WarehouseLayoutElementDto>;
+  marketplaceAccounts: Array<MarketplaceAccountShortSummaryDto>;
   totalItemsCount: number;
 };
 

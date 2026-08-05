@@ -490,7 +490,7 @@ public class ApplicationDbContext : IdentityDbContext<
 
             // Restrict, not SetNull: deleting a mapped WMS warehouse must be blocked, not silently unmapped
             e.HasOne(x => x.Warehouse)
-                .WithMany()
+                .WithMany(x => x.MarketplaceWarehouses)
                 .HasForeignKey(x => x.WarehouseId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.Restrict);

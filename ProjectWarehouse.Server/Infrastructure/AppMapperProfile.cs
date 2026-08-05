@@ -58,7 +58,10 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.ItemsGroups, opt => opt.MapFrom(s => s.ItemsGroups))
             .ForMember(d => d.UnitItemsCount,
                 opt => opt.MapFrom(s => s.InventoryItems.OfType<UnitInventoryItem>().Count()));
-        CreateMap<Warehouse, WarehouseDto>();
+        CreateMap<Warehouse, WarehouseDto>()
+            .ForMember(x => x.MarketplaceAccounts, opt => opt.MapFrom(w =>
+                w.MarketplaceWarehouses.Select(mw => mw.MarketplaceAccount).Distinct()
+            ));
         CreateMap<Warehouse, WarehouseSummaryDto>()
             .ForMember(d => d.StoragePlaceCount, opt => opt.MapFrom(s => s.StoragePlaces.Count));
 
@@ -213,6 +216,8 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.CardCount, opt => opt.MapFrom(s => s.Cards.Count))
             .ForMember(d => d.UnmappedCardCount,
                 opt => opt.MapFrom(s => s.Cards.Count(c => c.CatalogItemId == null && !c.IsArchived)));
+        
+        CreateMap<MarketplaceAccount, MarketplaceAccountShortSummaryDto>();
 
         CreateMap<MarketplaceAccount, MarketplaceAccountDto>()
             .ForMember(d => d.ApiKeyMask, opt => opt.MapFrom(s => "••••" + s.ApiKeyLast4))
