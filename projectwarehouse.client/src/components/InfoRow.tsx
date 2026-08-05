@@ -3,7 +3,7 @@ import {Stack, Typography} from "@mui/material";
 
 export interface InfoRowProps {
   label: string;
-  value: string;
+  value: string | React.ReactNode;
 }
 
 function InfoRow({label, value}: InfoRowProps) {

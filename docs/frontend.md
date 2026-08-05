@@ -254,15 +254,37 @@ src/
 │   │                   └── WriteoffPage.tsx   # Writeoff detail: metadata edit, status transitions, items
 │   └── SettingsPage/
 │       ├── SettingsPage.tsx     # Sections declaration only — drives routes + sidebar nav for /settings/*
-│       ├── settingsConfig.tsx   # settingsSections (Роли + Сотрудники), hasSettingsAccess, getSettingsFirstPageUrl
+│       ├── settingsConfig.tsx   # settingsSections (Роли + Сотрудники + Маркетплейсы), hasSettingsAccess, getSettingsFirstPageUrl
 │       └── pages/
-│           └── RolesSettingsPage/
-│               ├── RolesSettingsPage.tsx   # Role-permission matrix table (observer, data fetching, QueryError on initial load, header buttons)
-│               ├── RolesTable.tsx          # Sticky matrix table with @dnd-kit sortable columns
-│               ├── RoleColumnHeader.tsx    # Header cell: drag handle + name + edit/delete actions
-│               ├── RenameRoleDialog.tsx    # MUI Dialog for renaming a role (used via showModal)
-│               ├── RolesStoreContext.tsx   # React context + provider for RolesStore
-│               └── rolesStore.ts          # MobX store: EditableRole class + RolesStore
+│           ├── RolesSettingsPage/
+│           │   ├── RolesSettingsPage.tsx   # Role-permission matrix table (observer, data fetching, QueryError on initial load, header buttons)
+│           │   ├── RolesTable.tsx          # Sticky matrix table with @dnd-kit sortable columns
+│           │   ├── RoleColumnHeader.tsx    # Header cell: drag handle + name + edit/delete actions
+│           │   ├── RenameRoleDialog.tsx    # MUI Dialog for renaming a role (used via showModal)
+│           │   ├── RolesStoreContext.tsx   # React context + provider for RolesStore
+│           │   └── rolesStore.ts          # MobX store: EditableRole class + RolesStore
+│           └── MarketplacesSettingsPage/
+│               ├── MarketplacesSettingsPage.tsx  # Marketplace account list (search, type/active filters, sort)
+│               ├── marketplaceUtils.ts           # Enum label maps, getWarehouseStatus, hasCapability([Flags] parser), date/duration/price formatters
+│               ├── components/
+│               │   ├── MarketplaceStatusChip.tsx # MarketplaceSyncStatus → coloured chip
+│               │   ├── CardMappingChip.tsx       # «архивный товар» / «вручную» / «авто (артикул|штрихкод)»
+│               │   ├── CardImage.tsx             # Card thumbnail, opens the full image in a new tab on click
+│               │   ├── WarehouseStatusChip.tsx   # MarketplaceWarehouseStatus → chip, raw status in a tooltip
+│               │   ├── SyncErrorAlert.tsx        # AppFieldError → localized alert + raw marketplace response
+│               │   └── TestConnectionButton.tsx  # Credential probe, works before the account exists
+│               └── pages/
+│                   ├── MarketplaceAccountCreatePage/
+│                   │   └── MarketplaceAccountCreatePage.tsx
+│                   └── MarketplaceAccountPage/
+│                       ├── MarketplaceAccountPage.tsx  # Account shell: header actions, <Tabs>, running-sync polling
+│                       ├── AccountOverviewTab.tsx      # Connection, seller details, synced-data counters
+│                       ├── AccountWarehousesTab.tsx    # Warehouse table + inline WarehousesSelect mapping
+│                       ├── AccountCardsTab.tsx         # Card table, mapping filters, auto-map button
+│                       ├── AccountSyncRunsTab.tsx      # Run history with expandable error rows
+│                       ├── EditAccountDialog.tsx       # Interval, active flag, key rotation
+│                       ├── DeleteAccountDialog.tsx     # ConfirmDialog wrapper
+│                       └── CardMappingDialog.tsx       # Card preview + CatalogItemsSelect mapping editor
 │
 ├── api/                         # Auto-generated — run `npm run generate-api` to refresh
 │   ├── client/                  # Bundled fetch client (from @hey-api/openapi-ts)
@@ -296,7 +318,7 @@ src/
     ├── printUtils.ts            # openPrintPage(items) helper — builds URL and opens /print in a new tab
     ├── barcodeUtils.ts          # Entity-tagged barcode payloads: formatEntityBarcode(entity, id) / parseEntityBarcode(raw)
     ├── clipboardUtils.ts        # copyToClipboard(text) — navigator.clipboard with execCommand fallback
-    ├── appEntityUtils.tsx       # entitiesTypes registry (user/roles/warehouse/receipt → icon, typeName, linkTemplate); resolveEntity(entity) → {link, typeName, icon, ...entity}
+    ├── appEntityUtils.tsx       # entitiesTypes registry (user/roles/warehouse/receipt/marketplaceAccount/marketplaceCard → icon, typeName, linkTemplate); resolveEntity(entity) → {link, typeName, icon, ...entity}
     ├── fetchWithTimeout.ts      # fetchWithTimeout(url, options, timeoutMs) — fetch wrapper with AbortController timeout
     ├── interpolateArgs.ts       # interpolateArgs(template, args) — replaces {key} placeholders in a string
     └── useInstallPrompt.ts      # Hook: beforeinstallprompt event
@@ -350,7 +372,12 @@ src/
 /settings/employees/new                                        →   UserCreatePage                  (users.create)
 /settings/employees/:id                                        →   UserViewPage                    (users.view)
 /settings/employees/:id/edit                                   →   UserEditPage                    (users.edit_profile)
+/settings/integrations                                         →   MarketplacesSettingsPage        (integrations.view)
+/settings/integrations/new                                     →   MarketplaceAccountCreatePage    (integrations.view)
+/settings/integrations/:id                                     →   MarketplaceAccountPage          (integrations.view)
 ```
+
+> **Convention:** subroutes carry no `requiredPermission` of their own — `SidebarPage` only gates the section route. Sub-pages that need a stronger right (`integrations.edit`, `integrations.map`) hide their actions with `useHasPermission`, and the server enforces it regardless.
 
 ## Pages
 
@@ -492,6 +519,31 @@ Drag-and-drop sortable tree component used exclusively in `StoragePlaceDrawer` e
 Paginated, searchable table of all item groups aggregated across the entire warehouse. Requires `warehouses.view`. State in URL params (`?search=`, `?page=`, `?pageSize=`). Also fetches the warehouse by ID (cached from `WarehouseViewPage`) for the breadcrumb name.
 
 Columns: **Название**, **Артикул**, **Характеристика**, **Штрихкод** (characteristic barcode falling back to catalog item barcode), **Количество** (shown as a `Chip`), and an action column with an `OpenInNew` icon button linking to `/catalog?item={catalogItemId}` — opens the catalog drawer directly on the item.
+
+### `MarketplacesSettingsPage` (Маркетплейсы)
+Server-side paginated, searchable, sortable list of marketplace accounts at `/settings/integrations`. Requires `integrations.view`. State in URL params (`?search=`, `?type=`, `?active=`, `?sortBy=`, `?sortOrder=`, `?page=`, `?pageSize=`). Columns: **Магазин**, **Площадка**, **Статус** (`MarketplaceStatusChip`), **Синхронизация** (last sync timestamp), **Складов**, **Карточек**, **Не сопоставлено** (warning chip when > 0), **Активен**. Sortable columns are **Магазин** and **Синхронизация** only — the backend `MarketplaceAccountSortBy` accepts nothing else. The **Подключить магазин** button requires `integrations.edit`. Rows navigate to `MarketplaceAccountPage`.
+
+### `MarketplaceAccountCreatePage`
+RHF form at `/settings/integrations/new`: площадка (Ozon only for now), **Client-Id**, **Api-Key** (`type="password"`), **Интервал синхронизации** (1…10080, default 30), and a **Синхронизировать по расписанию** switch.
+
+**There is no name field** — `MarketplaceAccount.Name` comes from the marketplace's own seller info and is overwritten by every sync; until the first run the server stores a `Ozon ••••1234` placeholder. An inline `Alert` says so, otherwise the missing field reads as a bug.
+
+`TestConnectionButton` probes the credentials before the record exists (the route id is ignored when the body carries an `apiKey`). On submit the server enqueues the first sync itself when the account is active, so the client does not call `/sync` after creating.
+
+> **Note:** `input[type=number]` hands RHF a string. Numeric fields are coerced with `Number(...)` at submit — the API rejects `"30"` for an `int`.
+
+### `MarketplaceAccountPage`
+Account shell at `/settings/integrations/:id`. Same error handling as `UserViewPage` (`<NotFound />` on 404, `<QueryError />` otherwise, refetch errors suppressed). Header shows the sync status chip plus **Синхронизировать** (a `Menu` picking scope: Всё / Склады / Карточки, requires `integrations.map`), **Изменить** and **Удалить** (both `integrations.edit`).
+
+Four tabs — **Обзор**, **Склады**, **Карточки**, **История** — live on a single route with the active tab in `?tab=` (see the tabbed-page convention under URL State Hooks). The Склады and Карточки tabs are hidden unless the account's `capabilities` declare them; a `?tab=` pointing at a hidden tab falls back to Обзор. Only the active tab is mounted, so background tabs hold no queries.
+
+While `lastSyncStatus === "running"`, the account query and the run-history query poll at 3 s and stop on their own afterwards. This is the single place to swap for a live subscription once a realtime client exists (see [realtime-specification.md](realtime-specification.md)).
+
+Tabs:
+- **Обзор** — connection details, seller details (юрлицо, ИНН, ОГРН, форма собственности), synced-data counters, `SyncErrorAlert` for `lastSyncError`, and a hard error alert when `credentialsUnreadable` (the Data Protection key ring was lost and the key must be re-entered).
+- **Склады** — sortable table with an inline `WarehousesSelect` per row saving on change; unmapped rows carry a warning icon, the Seller API status renders as a `WarehouseStatusChip`. `?archived=` toggles archived warehouses.
+- **Карточки** — image, название, артикул, цена, обновлена, SKU, позиция каталога, `CardMappingChip`. Filters in URL (`?search=`, `?mappingState=`, `?archived=`); **`mappingState` defaults to `unmapped`** because that is the working list. **Сопоставить автоматически** runs account-wide auto-mapping and reports «Сопоставлено N, требует ручного разбора M». Clicking a row opens `CardMappingDialog` (requires `integrations.map`); a mapped row's catalog cell is a `CatalogItemLink` opening `CatalogItemDrawer` (the tab is wrapped in `CatalogItemDrawerHost`, drawer state in `?catalogItem=`). The thumbnail is a `CardImage` — opens the full-size marketplace image in a new tab.
+- **История** — run history; rows carrying an error expand into a `SyncErrorAlert`. `MarketplaceSyncStatus.canceled` is reserved and never produced by the current backend.
 
 ### `NodeDetails`
 Panel rendered inside `StoragePlaceDialog` for the selected node. Fetches `StoragePlaceNodeDetailsDto` via `GET /api/storagePlaces/{id}/nodes/{nodeId}`. Displays and edits the node's item groups:
@@ -891,6 +943,41 @@ Generic confirmation dialog with a loading spinner on the confirm button. Blocks
 
 Props: `open`, `onClose`, `title`, `children?` (body), `onConfirm`, `isPending?`, `confirmText?` (default `"Подтвердить"`), `confirmColor?` (default `"primary"`), `maxWidth?` (default `"xs"`).
 
+### `MarketplaceStatusChip`
+Coloured chip for `MarketplaceSyncStatus` (`running` → info, `success` → success, `failed` → error, `canceled` → default). Renders «Не синхронизировался» when the status is `null` — a freshly created account has none.
+
+Props: `status: MarketplaceSyncStatus | null | undefined`.
+
+### `CardMappingChip`
+Mapping badge for a marketplace card. `isMappedToArchivedItem` wins over the source and renders a warning chip «Привязана к архивному товару»; otherwise the source is shown as «вручную» / «авто (артикул)» / «авто (штрихкод)». Renders nothing for an unmapped card.
+
+Props: `card: MarketplaceCardDto`.
+
+### `CardImage`
+Marketplace card thumbnail. Without a `src` it is a plain letter `Avatar`; with one it becomes an `<a target="_blank">` to the full-size image, marked by a tooltip and a hover overlay with an open-in-new icon, and stops click propagation so it does not also trigger the surrounding row. Used in the cards table (40 px) and in `CardMappingDialog` (72 px).
+
+Props: `src?: string | null`, `name: string`, `size?: number` (default 40).
+
+### `WarehouseStatusChip`
+Renders the marketplace-agnostic `MarketplaceWarehouseDto.status`: `active` → «Активный» (success), `inactive` → «Не активный» (default), `unavailable` → «Недоступен» (warning). The per-marketplace wording is collapsed into these three server-side (see [marketplaces-specification.md](marketplaces-specification.md)); `externalStatus` still travels along and shows up as a tooltip so «почему недоступен» stays answerable. Labels live in `WAREHOUSE_STATUS_LABELS` (`marketplaceUtils.ts`).
+
+Props: `status: MarketplaceWarehouseStatus`, `externalStatus?: string | null`.
+
+### `SyncErrorAlert`
+Renders an `AppFieldError` (from `MarketplaceSyncRunDto.error` or `MarketplaceAccountDto.lastSyncError`) as a localized alert. The message comes from `resolveErrorMessage` (`code` + `args`); the English `detail` is never displayed. When `args.marketplaceResponse` is present it is appended as a monospace block — that is the raw marketplace body, already truncated server-side.
+
+Props: `error: AppFieldError | null | undefined`, `title?`.
+
+### `TestConnectionButton`
+Probes marketplace credentials without saving them and renders the verdict inline. Passing `accountId="new"` works before the account exists — the server ignores the route id when the body carries an `apiKey`. Disabled until a key is typed.
+
+Props: `accountId`, `type`, `clientId`, `apiKey`, `disabled?`.
+
+### `marketplaceUtils`
+Label maps for every marketplace enum (`MARKETPLACE_TYPE_LABELS`, `SYNC_STATUS_LABELS`, `SYNC_SCOPE_LABELS`, `WAREHOUSE_KIND_LABELS`, `MAPPING_SOURCE_LABELS`, `MAPPING_STATE_LABELS`) plus `formatDateTime`, `formatDuration`, `formatPrice`.
+
+`hasCapability(capabilities, flag)` exists because `MarketplaceCapabilities` is a **`[Flags]` enum**: `JsonStringEnumConverter` sends a combination as one comma-separated string (`"warehouses, cards, sellerInfo"`), which the generated union of single values does not describe. Never compare `capabilities` with `===`.
+
 ### `ObservableForm<TFieldValues>`
 A class that creates a bidirectional bridge between a **react-hook-form** instance and **MobX**. It holds `_data` — a MobX observable snapshot of the form values — and keeps it in sync with the RHF form in both directions via a `watch` subscription (RHF → MobX) and a MobX `reaction` (MobX → RHF). A `_syncing` flag prevents feedback loops.
 
@@ -1012,6 +1099,32 @@ const [search, setSearch] = useSyncedWithQueryState(
   (q) => (typeof q === "string" ? q : ""),
   (v) => v || null,
 );
+```
+
+#### Tabbed detail pages
+
+Tabs inside a detail page are **not** separate routes — they are a `<Tabs>` plus one `useSyncedWithQueryState` entry, so the page loads its entity once and every tab's own filter/sort/page params share the same URL. `toQuery` returns `null` for the default tab to keep the canonical URL clean. Introduced by `MarketplaceAccountPage`; reuse it rather than adding `:id/<tab>` subroutes.
+
+```typescript
+const TAB_KEYS = ["overview", "warehouses", "cards", "runs"] as const;
+type TabKey = (typeof TAB_KEYS)[number];
+
+const [tab, setTab] = useSyncedWithQueryState<TabKey>(
+  "tab",
+  (q) => (TAB_KEYS.includes(q as TabKey) ? (q as TabKey) : "overview"),
+  (v) => (v === "overview" ? null : v),
+);
+```
+
+Render tabs conditionally (`{tab === "cards" && <CardsTab />}`) so inactive tabs hold no queries, and validate the value against what is actually available — a deep link can name a tab the current entity does not have.
+
+Because the tabs share one URL they also share param names, so switching tabs must clear every tab-scoped param (`search`, `page`, `pageSize`, `sortBy`, `sortOrder`, `archived`, and page-specific ones) — otherwise `page=2` from one tab lands the next on an empty page. `setParam` from `useSearchParamsContext` batches all same-tick calls into one `replace` navigation, so clearing the list and setting `tab` costs a single history entry:
+
+```typescript
+const changeTab = (next: TabKey) => {
+  for (const key of TAB_SCOPED_PARAMS) setParam(key, null);
+  setTab(next);
+};
 ```
 
 ### `useDebouncedSyncedWithQueryState(key, fromQuery, toQuery, delay?)`

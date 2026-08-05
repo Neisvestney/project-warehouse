@@ -12,6 +12,9 @@ public class MarketplaceWarehouse : IHasIdentity
     public string ExternalId { get; set; } = null!;
     public string Name { get; set; } = null!;
     public MarketplaceWarehouseKind Kind { get; set; }
+    public MarketplaceWarehouseStatus Status { get; set; }
+
+    /// <summary>Raw marketplace status kept for diagnostics — <see cref="Status"/> is what the UI acts on.</summary>
     public string? ExternalStatus { get; set; }
     public string? Address { get; set; }
 

@@ -107,6 +107,18 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   assemblyTaskQuantityExceedsAvailable: "Запрошенное количество превышает доступное",
   assemblyComponentAlreadyFulfilled: "Компонент уже полностью укомплектован",
   catalogItemNotVariationMember: "Выбранный вариант не входит в эту вариацию",
+  marketplaceAccountNotFound: "Аккаунт маркетплейса не найден",
+  marketplaceCredentialsInvalid: "Маркетплейс отклонил Client-Id или Api-Key",
+  marketplaceCredentialsUnreadable:
+    "Не удалось расшифровать сохранённый Api-Key — введите ключ заново",
+  marketplaceClientIdRequired: "Для этой площадки требуется Client-Id",
+  marketplaceApiError: "Маркетплейс вернул ошибку или недоступен",
+  marketplaceSyncAlreadyRunning: "По этому аккаунту уже идёт синхронизация",
+  marketplaceSyncInterrupted: "Синхронизация прервана остановкой приложения",
+  marketplaceCardMappingTypeNotAllowed: "К карточке нельзя привязать позицию этого типа",
+  marketplaceCardMappingArchivedItem: "Нельзя привязать карточку к архивной позиции каталога",
+  marketplaceWarehouseNotFound: "Склад маркетплейса не найден",
+  marketplaceCardNotFound: "Карточка маркетплейса не найдена",
 };
 
 /** Richer variants used only when the server supplied every placeholder in args. */
@@ -115,6 +127,9 @@ const errorCodeArgMessages: Partial<Record<ErrorCode, string>> = {
     "Недостаточно «{itemName}» в {path}: требуется {requested}, доступно {available} (не хватает {missing})",
   writeoffInsufficientInventory:
     "Недостаточно «{itemName}» в {path}: требуется {requested}, доступно {available} (не хватает {missing})",
+  marketplaceApiError: "Маркетплейс вернул ошибку {marketplaceStatus}",
+  marketplaceCredentialsInvalid:
+    "Маркетплейс отклонил Client-Id или Api-Key (код {marketplaceStatus})",
 };
 
 export function resolveErrorMessage(error: AppFieldError): string {

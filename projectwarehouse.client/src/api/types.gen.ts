@@ -53,7 +53,9 @@ export type AppEntityType =
   | "storagePlaceNode"
   | "receipt"
   | "writeoff"
-  | "order";
+  | "order"
+  | "marketplaceAccount"
+  | "marketplaceCard";
 
 export type AppFieldError = {
   code: ErrorCode;
@@ -133,6 +135,11 @@ export type AssemblyTaskDto = {
 };
 
 export type AssemblyTaskStatus = "pending" | "inProgress" | "done";
+
+export type AutoMapResponse = {
+  mapped: number;
+  remaining: number;
+};
 
 export type BatchFulfillFailedItem = {
   orderId: string;
@@ -300,6 +307,17 @@ export type CreateDirectOrderRequest = {
   plannedShipmentAt?: null | string;
 };
 
+export type CreateMarketplaceAccountRequest = {
+  type: MarketplaceType;
+  /**
+   * Required when the provider declares RequiresClientId.
+   */
+  clientId?: null | string;
+  apiKey: string;
+  syncIntervalMinutes?: null | number;
+  isActive: boolean;
+};
+
 export type CreateOrderBoxRequest = {
   label?: null | string;
 };
@@ -437,6 +455,17 @@ export type ErrorCode =
   | "assemblyTaskQuantityExceedsAvailable"
   | "assemblyComponentAlreadyFulfilled"
   | "catalogItemNotVariationMember"
+  | "marketplaceAccountNotFound"
+  | "marketplaceCredentialsInvalid"
+  | "marketplaceCredentialsUnreadable"
+  | "marketplaceClientIdRequired"
+  | "marketplaceApiError"
+  | "marketplaceSyncAlreadyRunning"
+  | "marketplaceSyncInterrupted"
+  | "marketplaceCardMappingTypeNotAllowed"
+  | "marketplaceCardMappingArchivedItem"
+  | "marketplaceWarehouseNotFound"
+  | "marketplaceCardNotFound"
   | "routeNotFound"
   | "required"
   | "tooShort"
@@ -483,6 +512,151 @@ export type LoginRequest = {
   username: string;
   password: string;
 };
+
+/**
+ * Has no API key field at all — there is physically nothing to leak. The UI gets a mask instead.
+ */
+export type MarketplaceAccountDto = {
+  id: string;
+  type: MarketplaceType;
+  /**
+   * Reported by the marketplace, not editable. A placeholder until the first sync.
+   */
+  name: string;
+  isActive: boolean;
+  externalClientId?: null | string;
+  companyLegalName?: null | string;
+  inn?: null | string;
+  ogrn?: null | string;
+  ownershipForm?: null | string;
+  /**
+   * Rendered as ••••1234.
+   */
+  apiKeyMask: string;
+  apiKeyUpdatedAt?: null | string;
+  /**
+   * The stored key can no longer be decrypted — the key ring was lost. Probed, not stored.
+   */
+  credentialsUnreadable: boolean;
+  capabilities: MarketplaceCapabilities;
+  syncIntervalMinutes: number;
+  lastSyncAt?: null | string;
+  lastSyncStatus?: null | MarketplaceSyncStatus;
+  lastSyncError?: null | AppFieldError;
+  createdAt: string;
+  createdById?: null | string;
+  createdByName?: null | string;
+  warehouseCount: number;
+  unmappedWarehouseCount: number;
+  cardCount: number;
+  unmappedCardCount: number;
+};
+
+export type MarketplaceAccountSortBy = "name" | "createdAt" | "lastSyncAt";
+
+export type MarketplaceAccountSummaryDto = {
+  id: string;
+  type: MarketplaceType;
+  name: string;
+  isActive: boolean;
+  syncIntervalMinutes: number;
+  lastSyncAt?: null | string;
+  lastSyncStatus?: null | MarketplaceSyncStatus;
+  lastSyncError?: null | AppFieldError;
+  warehouseCount: number;
+  cardCount: number;
+  unmappedCardCount: number;
+};
+
+export type MarketplaceCapabilities =
+  | "none"
+  | "warehouses"
+  | "cards"
+  | "orders"
+  | "stockPush"
+  | "sellerInfo";
+
+export type MarketplaceCardDto = {
+  id: string;
+  marketplaceAccountId: string;
+  externalId: string;
+  sku?: null | string;
+  offerId: string;
+  name: string;
+  barcodes: Array<string>;
+  primaryImageUrl?: null | string;
+  price?: null | number;
+  currencyCode?: null | string;
+  isArchived: boolean;
+  catalogItemId?: null | string;
+  catalogItemFullName?: null | string;
+  catalogItemArticle?: null | string;
+  mappingSource?: null | MarketplaceMappingSource;
+  mappedAt?: null | string;
+  /**
+   * The mapping survived the catalog item being archived — shown as a chip in the list.
+   */
+  isMappedToArchivedItem: boolean;
+  syncedAt: string;
+};
+
+/**
+ * Mapping-state filter for the cards tab.
+ */
+export type MarketplaceCardMappingState = "all" | "unmapped" | "mapped" | "archivedItem";
+
+export type MarketplaceCardSortBy = "name" | "offerId" | "price" | "syncedAt";
+
+export type MarketplaceMappingSource = "manual" | "autoOfferId" | "autoBarcode";
+
+export type MarketplaceSyncRunDto = {
+  id: string;
+  marketplaceAccountId: string;
+  scope: MarketplaceSyncScope;
+  status: MarketplaceSyncStatus;
+  startedAt: string;
+  finishedAt?: null | string;
+  triggeredById?: null | string;
+  triggeredByName?: null | string;
+  warehousesProcessed: number;
+  cardsProcessed: number;
+  cardsCreated: number;
+  cardsUpdated: number;
+  cardsArchived: number;
+  autoMapped: number;
+  error?: null | AppFieldError;
+};
+
+export type MarketplaceSyncScope = "warehouses" | "cards" | "all";
+
+export type MarketplaceSyncStatus = "running" | "success" | "failed" | "canceled";
+
+export type MarketplaceType = "ozon" | "wildberries";
+
+export type MarketplaceWarehouseDto = {
+  id: string;
+  marketplaceAccountId: string;
+  externalId: string;
+  name: string;
+  kind: MarketplaceWarehouseKind;
+  status: MarketplaceWarehouseStatus;
+  externalStatus?: null | string;
+  address?: null | string;
+  isArchived: boolean;
+  warehouseId?: null | string;
+  warehouseName?: null | string;
+  syncedAt: string;
+};
+
+export type MarketplaceWarehouseKind = "unknown" | "fbs" | "rfbs" | "express" | "fbo";
+
+export type MarketplaceWarehouseSortBy = "name" | "kind" | "syncedAt";
+
+/**
+ * Marketplace-agnostic warehouse availability. Providers collapse their own status vocabulary into
+ * these three; anything unrecognised (or missing) becomes MarketplaceWarehouseStatus.Unavailable, which is why it is 0.
+ */
+export type MarketplaceWarehouseStatus = "unavailable" | "active" | "inactive";
 
 export type MeResponse = {
   id: string;
@@ -602,6 +776,46 @@ export type PaginatedOfInventoryItemSummaryDto = {
   hasPreviousPage: boolean;
 };
 
+export type PaginatedOfMarketplaceAccountSummaryDto = {
+  items: Array<MarketplaceAccountSummaryDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
+export type PaginatedOfMarketplaceCardDto = {
+  items: Array<MarketplaceCardDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
+export type PaginatedOfMarketplaceSyncRunDto = {
+  items: Array<MarketplaceSyncRunDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
+export type PaginatedOfMarketplaceWarehouseDto = {
+  items: Array<MarketplaceWarehouseDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
 export type PaginatedOfOrderSummaryDto = {
   items: Array<OrderSummaryDto>;
   total: number;
@@ -695,7 +909,10 @@ export type PermissionName =
   | "orders.view_assigned"
   | "orders.edit_assigned"
   | "orders.assemble_assigned"
-  | "orders.self_assign";
+  | "orders.self_assign"
+  | "integrations.view"
+  | "integrations.edit"
+  | "integrations.map";
 
 export type ProductGroupChildRequest = {
   id?: null | string;
@@ -806,7 +1023,29 @@ export type RoleWithPermissionsDto = {
   permissions: Array<string>;
 };
 
+/**
+ * Null clears the mapping.
+ */
+export type SetCardMappingRequest = {
+  catalogItemId?: null | string;
+};
+
+/**
+ * Null clears the mapping.
+ */
+export type SetWarehouseMappingRequest = {
+  warehouseId?: null | string;
+};
+
 export type SortOrder = "asc" | "desc";
+
+export type StartSyncRequest = {
+  scope: MarketplaceSyncScope;
+};
+
+export type StartSyncResponse = {
+  syncRunId: string;
+};
 
 export type StoragePlaceDto = {
   id: string;
@@ -858,6 +1097,20 @@ export type StoragePlaceNodePrintDto = {
   name: Array<string>;
 };
 
+/**
+ * When ApiKey is supplied the route id is ignored, so a key can be checked before the account exists.
+ */
+export type TestConnectionRequest = {
+  type?: null | MarketplaceType;
+  clientId?: null | string;
+  apiKey?: null | string;
+};
+
+export type TestConnectionResponse = {
+  isValid: boolean;
+  message?: null | string;
+};
+
 export type TokenResponse = {
   accessToken: string;
   refreshToken: string;
@@ -905,6 +1158,13 @@ export type UnitInventoryItemSortBy =
   | "storagePlaceName"
   | "nodeName";
 
+/**
+ * Feeds the sidebar badge — a count query, never a card listing.
+ */
+export type UnmappedCardsCountDto = {
+  count: number;
+};
+
 export type UpdateAssemblyTaskBoxComponentRequest = {
   quantity: number;
 };
@@ -925,6 +1185,16 @@ export type UpdateCatalogItemRequest = {
   memberIds: Array<string>;
   components: Array<BundleComponentRequest>;
   children: Array<ProductGroupChildRequest>;
+};
+
+export type UpdateMarketplaceAccountRequest = {
+  clientId?: null | string;
+  /**
+   * Write-only. Empty or absent means "keep the current key".
+   */
+  apiKey?: null | string;
+  syncIntervalMinutes: number;
+  isActive: boolean;
 };
 
 export type UpdateOrderBoxRequest = {
@@ -1734,6 +2004,487 @@ export type InventoryItemsGetAllUnitsResponses = {
 
 export type InventoryItemsGetAllUnitsResponse =
   InventoryItemsGetAllUnitsResponses[keyof InventoryItemsGetAllUnitsResponses];
+
+export type MarketplacesGetAccountsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    page?: number;
+    pageSize?: number;
+    searchString?: string;
+    type?: MarketplaceType;
+    isActive?: boolean;
+    sortBy?: MarketplaceAccountSortBy;
+    sortOrder?: SortOrder;
+  };
+  url: "/api/integrations/marketplaces/accounts";
+};
+
+export type MarketplacesGetAccountsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesGetAccountsError =
+  MarketplacesGetAccountsErrors[keyof MarketplacesGetAccountsErrors];
+
+export type MarketplacesGetAccountsResponses = {
+  /**
+   * OK
+   */
+  200: PaginatedOfMarketplaceAccountSummaryDto;
+};
+
+export type MarketplacesGetAccountsResponse =
+  MarketplacesGetAccountsResponses[keyof MarketplacesGetAccountsResponses];
+
+export type MarketplacesCreateAccountData = {
+  body: CreateMarketplaceAccountRequest;
+  path?: never;
+  query?: never;
+  url: "/api/integrations/marketplaces/accounts";
+};
+
+export type MarketplacesCreateAccountErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesCreateAccountError =
+  MarketplacesCreateAccountErrors[keyof MarketplacesCreateAccountErrors];
+
+export type MarketplacesCreateAccountResponses = {
+  /**
+   * Created
+   */
+  201: MarketplaceAccountDto;
+};
+
+export type MarketplacesCreateAccountResponse =
+  MarketplacesCreateAccountResponses[keyof MarketplacesCreateAccountResponses];
+
+export type MarketplacesDeleteAccountData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/integrations/marketplaces/accounts/{id}";
+};
+
+export type MarketplacesDeleteAccountErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesDeleteAccountError =
+  MarketplacesDeleteAccountErrors[keyof MarketplacesDeleteAccountErrors];
+
+export type MarketplacesDeleteAccountResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type MarketplacesDeleteAccountResponse =
+  MarketplacesDeleteAccountResponses[keyof MarketplacesDeleteAccountResponses];
+
+export type MarketplacesGetAccountData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/integrations/marketplaces/accounts/{id}";
+};
+
+export type MarketplacesGetAccountErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesGetAccountError =
+  MarketplacesGetAccountErrors[keyof MarketplacesGetAccountErrors];
+
+export type MarketplacesGetAccountResponses = {
+  /**
+   * OK
+   */
+  200: MarketplaceAccountDto;
+};
+
+export type MarketplacesGetAccountResponse =
+  MarketplacesGetAccountResponses[keyof MarketplacesGetAccountResponses];
+
+export type MarketplacesUpdateAccountData = {
+  body: UpdateMarketplaceAccountRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/integrations/marketplaces/accounts/{id}";
+};
+
+export type MarketplacesUpdateAccountErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesUpdateAccountError =
+  MarketplacesUpdateAccountErrors[keyof MarketplacesUpdateAccountErrors];
+
+export type MarketplacesUpdateAccountResponses = {
+  /**
+   * OK
+   */
+  200: MarketplaceAccountDto;
+};
+
+export type MarketplacesUpdateAccountResponse =
+  MarketplacesUpdateAccountResponses[keyof MarketplacesUpdateAccountResponses];
+
+export type MarketplacesTestConnectionData = {
+  body: TestConnectionRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/integrations/marketplaces/accounts/{id}/test-connection";
+};
+
+export type MarketplacesTestConnectionErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesTestConnectionError =
+  MarketplacesTestConnectionErrors[keyof MarketplacesTestConnectionErrors];
+
+export type MarketplacesTestConnectionResponses = {
+  /**
+   * OK
+   */
+  200: TestConnectionResponse;
+};
+
+export type MarketplacesTestConnectionResponse =
+  MarketplacesTestConnectionResponses[keyof MarketplacesTestConnectionResponses];
+
+export type MarketplacesStartSyncData = {
+  body: StartSyncRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/integrations/marketplaces/accounts/{id}/sync";
+};
+
+export type MarketplacesStartSyncErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesStartSyncError =
+  MarketplacesStartSyncErrors[keyof MarketplacesStartSyncErrors];
+
+export type MarketplacesStartSyncResponses = {
+  /**
+   * Accepted
+   */
+  202: StartSyncResponse;
+};
+
+export type MarketplacesStartSyncResponse =
+  MarketplacesStartSyncResponses[keyof MarketplacesStartSyncResponses];
+
+export type MarketplacesGetSyncRunsData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: {
+    page?: number;
+    pageSize?: number;
+  };
+  url: "/api/integrations/marketplaces/accounts/{id}/sync-runs";
+};
+
+export type MarketplacesGetSyncRunsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesGetSyncRunsError =
+  MarketplacesGetSyncRunsErrors[keyof MarketplacesGetSyncRunsErrors];
+
+export type MarketplacesGetSyncRunsResponses = {
+  /**
+   * OK
+   */
+  200: PaginatedOfMarketplaceSyncRunDto;
+};
+
+export type MarketplacesGetSyncRunsResponse =
+  MarketplacesGetSyncRunsResponses[keyof MarketplacesGetSyncRunsResponses];
+
+export type MarketplacesGetWarehousesData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: {
+    page?: number;
+    pageSize?: number;
+    includeArchived?: boolean;
+    sortBy?: MarketplaceWarehouseSortBy;
+    sortOrder?: SortOrder;
+  };
+  url: "/api/integrations/marketplaces/accounts/{id}/warehouses";
+};
+
+export type MarketplacesGetWarehousesErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesGetWarehousesError =
+  MarketplacesGetWarehousesErrors[keyof MarketplacesGetWarehousesErrors];
+
+export type MarketplacesGetWarehousesResponses = {
+  /**
+   * OK
+   */
+  200: PaginatedOfMarketplaceWarehouseDto;
+};
+
+export type MarketplacesGetWarehousesResponse =
+  MarketplacesGetWarehousesResponses[keyof MarketplacesGetWarehousesResponses];
+
+export type MarketplacesSetWarehouseMappingData = {
+  body: SetWarehouseMappingRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/integrations/marketplaces/warehouses/{id}/mapping";
+};
+
+export type MarketplacesSetWarehouseMappingErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesSetWarehouseMappingError =
+  MarketplacesSetWarehouseMappingErrors[keyof MarketplacesSetWarehouseMappingErrors];
+
+export type MarketplacesSetWarehouseMappingResponses = {
+  /**
+   * OK
+   */
+  200: MarketplaceWarehouseDto;
+};
+
+export type MarketplacesSetWarehouseMappingResponse =
+  MarketplacesSetWarehouseMappingResponses[keyof MarketplacesSetWarehouseMappingResponses];
+
+export type MarketplacesGetCardsData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: {
+    page?: number;
+    pageSize?: number;
+    searchString?: string;
+    mappingState?: MarketplaceCardMappingState;
+    includeArchived?: boolean;
+    sortBy?: MarketplaceCardSortBy;
+    sortOrder?: SortOrder;
+  };
+  url: "/api/integrations/marketplaces/accounts/{id}/cards";
+};
+
+export type MarketplacesGetCardsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesGetCardsError =
+  MarketplacesGetCardsErrors[keyof MarketplacesGetCardsErrors];
+
+export type MarketplacesGetCardsResponses = {
+  /**
+   * OK
+   */
+  200: PaginatedOfMarketplaceCardDto;
+};
+
+export type MarketplacesGetCardsResponse =
+  MarketplacesGetCardsResponses[keyof MarketplacesGetCardsResponses];
+
+export type MarketplacesSetCardMappingData = {
+  body: SetCardMappingRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/integrations/marketplaces/cards/{id}/mapping";
+};
+
+export type MarketplacesSetCardMappingErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesSetCardMappingError =
+  MarketplacesSetCardMappingErrors[keyof MarketplacesSetCardMappingErrors];
+
+export type MarketplacesSetCardMappingResponses = {
+  /**
+   * OK
+   */
+  200: MarketplaceCardDto;
+};
+
+export type MarketplacesSetCardMappingResponse =
+  MarketplacesSetCardMappingResponses[keyof MarketplacesSetCardMappingResponses];
+
+export type MarketplacesAutoMapCardsData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/integrations/marketplaces/accounts/{id}/cards/auto-map";
+};
+
+export type MarketplacesAutoMapCardsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesAutoMapCardsError =
+  MarketplacesAutoMapCardsErrors[keyof MarketplacesAutoMapCardsErrors];
+
+export type MarketplacesAutoMapCardsResponses = {
+  /**
+   * OK
+   */
+  200: AutoMapResponse;
+};
+
+export type MarketplacesAutoMapCardsResponse =
+  MarketplacesAutoMapCardsResponses[keyof MarketplacesAutoMapCardsResponses];
+
+export type MarketplacesGetUnmappedCountData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/integrations/marketplaces/accounts/unmapped-count";
+};
+
+export type MarketplacesGetUnmappedCountErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesGetUnmappedCountError =
+  MarketplacesGetUnmappedCountErrors[keyof MarketplacesGetUnmappedCountErrors];
+
+export type MarketplacesGetUnmappedCountResponses = {
+  /**
+   * OK
+   */
+  200: UnmappedCardsCountDto;
+};
+
+export type MarketplacesGetUnmappedCountResponse =
+  MarketplacesGetUnmappedCountResponses[keyof MarketplacesGetUnmappedCountResponses];
 
 export type OrdersGetAllData = {
   body?: never;

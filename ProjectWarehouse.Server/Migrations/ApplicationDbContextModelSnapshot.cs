@@ -830,6 +830,9 @@ namespace ProjectWarehouse.Server.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("SyncedAt")
                         .HasColumnType("timestamp with time zone");
 

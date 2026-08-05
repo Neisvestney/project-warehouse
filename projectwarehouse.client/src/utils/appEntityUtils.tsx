@@ -7,6 +7,8 @@ import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import InventoryIcon from "@mui/icons-material/Inventory";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import QuestionMarkIcon from "@mui/icons-material/QuestionMark";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import React from "react";
 import {Typography} from "@mui/material";
 import ReceiptStatusChip from "@/components/receipts/ReceiptStatusChip.tsx";
@@ -149,6 +151,17 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
         )}
       </>
     ),
+  },
+  marketplaceAccount: {
+    linkTemplate: "/settings/integrations/{id}",
+    typeName: "Аккаунт маркетплейса",
+    icon: <StorefrontIcon />,
+  },
+  // Карточка не имеет своей страницы, а AppEntity для неё не несёт id аккаунта — ссылку не построить
+  marketplaceCard: {
+    linkTemplate: "no-link",
+    typeName: "Карточка маркетплейса",
+    icon: <LocalOfferIcon />,
   },
 };
 

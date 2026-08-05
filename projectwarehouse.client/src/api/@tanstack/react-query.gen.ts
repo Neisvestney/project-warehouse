@@ -28,6 +28,20 @@ import {
   eventsGetEvents,
   inventoryItemsGetAll,
   inventoryItemsGetAllUnits,
+  marketplacesAutoMapCards,
+  marketplacesCreateAccount,
+  marketplacesDeleteAccount,
+  marketplacesGetAccount,
+  marketplacesGetAccounts,
+  marketplacesGetCards,
+  marketplacesGetSyncRuns,
+  marketplacesGetUnmappedCount,
+  marketplacesGetWarehouses,
+  marketplacesSetCardMapping,
+  marketplacesSetWarehouseMapping,
+  marketplacesStartSync,
+  marketplacesTestConnection,
+  marketplacesUpdateAccount,
   type Options,
   ordersAddBox,
   ordersAddComponent,
@@ -162,6 +176,48 @@ import type {
   InventoryItemsGetAllUnitsData,
   InventoryItemsGetAllUnitsError,
   InventoryItemsGetAllUnitsResponse,
+  MarketplacesAutoMapCardsData,
+  MarketplacesAutoMapCardsError,
+  MarketplacesAutoMapCardsResponse,
+  MarketplacesCreateAccountData,
+  MarketplacesCreateAccountError,
+  MarketplacesCreateAccountResponse,
+  MarketplacesDeleteAccountData,
+  MarketplacesDeleteAccountError,
+  MarketplacesDeleteAccountResponse,
+  MarketplacesGetAccountData,
+  MarketplacesGetAccountError,
+  MarketplacesGetAccountResponse,
+  MarketplacesGetAccountsData,
+  MarketplacesGetAccountsError,
+  MarketplacesGetAccountsResponse,
+  MarketplacesGetCardsData,
+  MarketplacesGetCardsError,
+  MarketplacesGetCardsResponse,
+  MarketplacesGetSyncRunsData,
+  MarketplacesGetSyncRunsError,
+  MarketplacesGetSyncRunsResponse,
+  MarketplacesGetUnmappedCountData,
+  MarketplacesGetUnmappedCountError,
+  MarketplacesGetUnmappedCountResponse,
+  MarketplacesGetWarehousesData,
+  MarketplacesGetWarehousesError,
+  MarketplacesGetWarehousesResponse,
+  MarketplacesSetCardMappingData,
+  MarketplacesSetCardMappingError,
+  MarketplacesSetCardMappingResponse,
+  MarketplacesSetWarehouseMappingData,
+  MarketplacesSetWarehouseMappingError,
+  MarketplacesSetWarehouseMappingResponse,
+  MarketplacesStartSyncData,
+  MarketplacesStartSyncError,
+  MarketplacesStartSyncResponse,
+  MarketplacesTestConnectionData,
+  MarketplacesTestConnectionError,
+  MarketplacesTestConnectionResponse,
+  MarketplacesUpdateAccountData,
+  MarketplacesUpdateAccountError,
+  MarketplacesUpdateAccountResponse,
   OrdersAddBoxData,
   OrdersAddBoxError,
   OrdersAddBoxResponse,
@@ -1131,6 +1187,566 @@ export const inventoryItemsGetAllUnitsInfiniteOptions = (
       queryKey: inventoryItemsGetAllUnitsInfiniteQueryKey(options),
     },
   );
+
+export const marketplacesGetAccountsQueryKey = (options?: Options<MarketplacesGetAccountsData>) =>
+  createQueryKey("marketplacesGetAccounts", options);
+
+/**
+ * List marketplace accounts (paginated, searchable).
+ */
+export const marketplacesGetAccountsOptions = (options?: Options<MarketplacesGetAccountsData>) =>
+  queryOptions<
+    MarketplacesGetAccountsResponse,
+    MarketplacesGetAccountsError,
+    MarketplacesGetAccountsResponse,
+    ReturnType<typeof marketplacesGetAccountsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await marketplacesGetAccounts({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: marketplacesGetAccountsQueryKey(options),
+  });
+
+export const marketplacesGetAccountsInfiniteQueryKey = (
+  options?: Options<MarketplacesGetAccountsData>,
+): QueryKey<Options<MarketplacesGetAccountsData>> =>
+  createQueryKey("marketplacesGetAccounts", options, true);
+
+/**
+ * List marketplace accounts (paginated, searchable).
+ */
+export const marketplacesGetAccountsInfiniteOptions = (
+  options?: Options<MarketplacesGetAccountsData>,
+) =>
+  infiniteQueryOptions<
+    MarketplacesGetAccountsResponse,
+    MarketplacesGetAccountsError,
+    InfiniteData<MarketplacesGetAccountsResponse>,
+    QueryKey<Options<MarketplacesGetAccountsData>>,
+    | number
+    | Pick<QueryKey<Options<MarketplacesGetAccountsData>>[0], "body" | "headers" | "path" | "query">
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({pageParam, queryKey, signal}) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<MarketplacesGetAccountsData>>[0],
+          "body" | "headers" | "path" | "query"
+        > =
+          typeof pageParam === "object"
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const {data} = await marketplacesGetAccounts({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: marketplacesGetAccountsInfiniteQueryKey(options),
+    },
+  );
+
+/**
+ * Connects a marketplace account. The key is encrypted on write and never returned.
+ */
+export const marketplacesCreateAccountMutation = (
+  options?: Partial<Options<MarketplacesCreateAccountData>>,
+): UseMutationOptions<
+  MarketplacesCreateAccountResponse,
+  MarketplacesCreateAccountError,
+  Options<MarketplacesCreateAccountData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    MarketplacesCreateAccountResponse,
+    MarketplacesCreateAccountError,
+    Options<MarketplacesCreateAccountData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await marketplacesCreateAccount({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Disconnects an account, cascading to its synced warehouses, cards and run history.
+ */
+export const marketplacesDeleteAccountMutation = (
+  options?: Partial<Options<MarketplacesDeleteAccountData>>,
+): UseMutationOptions<
+  MarketplacesDeleteAccountResponse,
+  MarketplacesDeleteAccountError,
+  Options<MarketplacesDeleteAccountData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    MarketplacesDeleteAccountResponse,
+    MarketplacesDeleteAccountError,
+    Options<MarketplacesDeleteAccountData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await marketplacesDeleteAccount({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const marketplacesGetAccountQueryKey = (options: Options<MarketplacesGetAccountData>) =>
+  createQueryKey("marketplacesGetAccount", options);
+
+/**
+ * Account with aggregates. Probes the stored key so the UI can warn about a lost key ring.
+ */
+export const marketplacesGetAccountOptions = (options: Options<MarketplacesGetAccountData>) =>
+  queryOptions<
+    MarketplacesGetAccountResponse,
+    MarketplacesGetAccountError,
+    MarketplacesGetAccountResponse,
+    ReturnType<typeof marketplacesGetAccountQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await marketplacesGetAccount({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: marketplacesGetAccountQueryKey(options),
+  });
+
+/**
+ * Updates an account. An empty `apiKey` keeps the stored one.
+ */
+export const marketplacesUpdateAccountMutation = (
+  options?: Partial<Options<MarketplacesUpdateAccountData>>,
+): UseMutationOptions<
+  MarketplacesUpdateAccountResponse,
+  MarketplacesUpdateAccountError,
+  Options<MarketplacesUpdateAccountData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    MarketplacesUpdateAccountResponse,
+    MarketplacesUpdateAccountError,
+    Options<MarketplacesUpdateAccountData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await marketplacesUpdateAccount({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Checks credentials without saving. When the body carries an apiKey the route id is ignored,
+ * so a key can be verified before the account exists.
+ */
+export const marketplacesTestConnectionMutation = (
+  options?: Partial<Options<MarketplacesTestConnectionData>>,
+): UseMutationOptions<
+  MarketplacesTestConnectionResponse,
+  MarketplacesTestConnectionError,
+  Options<MarketplacesTestConnectionData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    MarketplacesTestConnectionResponse,
+    MarketplacesTestConnectionError,
+    Options<MarketplacesTestConnectionData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await marketplacesTestConnection({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Queues a sync and returns 202 immediately — poll the run for progress.
+ */
+export const marketplacesStartSyncMutation = (
+  options?: Partial<Options<MarketplacesStartSyncData>>,
+): UseMutationOptions<
+  MarketplacesStartSyncResponse,
+  MarketplacesStartSyncError,
+  Options<MarketplacesStartSyncData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    MarketplacesStartSyncResponse,
+    MarketplacesStartSyncError,
+    Options<MarketplacesStartSyncData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await marketplacesStartSync({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const marketplacesGetSyncRunsQueryKey = (options: Options<MarketplacesGetSyncRunsData>) =>
+  createQueryKey("marketplacesGetSyncRuns", options);
+
+/**
+ * Sync history for an account, newest first (paginated).
+ */
+export const marketplacesGetSyncRunsOptions = (options: Options<MarketplacesGetSyncRunsData>) =>
+  queryOptions<
+    MarketplacesGetSyncRunsResponse,
+    MarketplacesGetSyncRunsError,
+    MarketplacesGetSyncRunsResponse,
+    ReturnType<typeof marketplacesGetSyncRunsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await marketplacesGetSyncRuns({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: marketplacesGetSyncRunsQueryKey(options),
+  });
+
+export const marketplacesGetSyncRunsInfiniteQueryKey = (
+  options: Options<MarketplacesGetSyncRunsData>,
+): QueryKey<Options<MarketplacesGetSyncRunsData>> =>
+  createQueryKey("marketplacesGetSyncRuns", options, true);
+
+/**
+ * Sync history for an account, newest first (paginated).
+ */
+export const marketplacesGetSyncRunsInfiniteOptions = (
+  options: Options<MarketplacesGetSyncRunsData>,
+) =>
+  infiniteQueryOptions<
+    MarketplacesGetSyncRunsResponse,
+    MarketplacesGetSyncRunsError,
+    InfiniteData<MarketplacesGetSyncRunsResponse>,
+    QueryKey<Options<MarketplacesGetSyncRunsData>>,
+    | number
+    | Pick<QueryKey<Options<MarketplacesGetSyncRunsData>>[0], "body" | "headers" | "path" | "query">
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({pageParam, queryKey, signal}) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<MarketplacesGetSyncRunsData>>[0],
+          "body" | "headers" | "path" | "query"
+        > =
+          typeof pageParam === "object"
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const {data} = await marketplacesGetSyncRuns({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: marketplacesGetSyncRunsInfiniteQueryKey(options),
+    },
+  );
+
+export const marketplacesGetWarehousesQueryKey = (
+  options: Options<MarketplacesGetWarehousesData>,
+) => createQueryKey("marketplacesGetWarehouses", options);
+
+/**
+ * Marketplace warehouses of an account with their WMS mapping (paginated, searchable).
+ */
+export const marketplacesGetWarehousesOptions = (options: Options<MarketplacesGetWarehousesData>) =>
+  queryOptions<
+    MarketplacesGetWarehousesResponse,
+    MarketplacesGetWarehousesError,
+    MarketplacesGetWarehousesResponse,
+    ReturnType<typeof marketplacesGetWarehousesQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await marketplacesGetWarehouses({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: marketplacesGetWarehousesQueryKey(options),
+  });
+
+export const marketplacesGetWarehousesInfiniteQueryKey = (
+  options: Options<MarketplacesGetWarehousesData>,
+): QueryKey<Options<MarketplacesGetWarehousesData>> =>
+  createQueryKey("marketplacesGetWarehouses", options, true);
+
+/**
+ * Marketplace warehouses of an account with their WMS mapping (paginated, searchable).
+ */
+export const marketplacesGetWarehousesInfiniteOptions = (
+  options: Options<MarketplacesGetWarehousesData>,
+) =>
+  infiniteQueryOptions<
+    MarketplacesGetWarehousesResponse,
+    MarketplacesGetWarehousesError,
+    InfiniteData<MarketplacesGetWarehousesResponse>,
+    QueryKey<Options<MarketplacesGetWarehousesData>>,
+    | number
+    | Pick<
+        QueryKey<Options<MarketplacesGetWarehousesData>>[0],
+        "body" | "headers" | "path" | "query"
+      >
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({pageParam, queryKey, signal}) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<MarketplacesGetWarehousesData>>[0],
+          "body" | "headers" | "path" | "query"
+        > =
+          typeof pageParam === "object"
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const {data} = await marketplacesGetWarehouses({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: marketplacesGetWarehousesInfiniteQueryKey(options),
+    },
+  );
+
+/**
+ * Maps a marketplace warehouse to a WMS warehouse. Null clears the mapping.
+ */
+export const marketplacesSetWarehouseMappingMutation = (
+  options?: Partial<Options<MarketplacesSetWarehouseMappingData>>,
+): UseMutationOptions<
+  MarketplacesSetWarehouseMappingResponse,
+  MarketplacesSetWarehouseMappingError,
+  Options<MarketplacesSetWarehouseMappingData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    MarketplacesSetWarehouseMappingResponse,
+    MarketplacesSetWarehouseMappingError,
+    Options<MarketplacesSetWarehouseMappingData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await marketplacesSetWarehouseMapping({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const marketplacesGetCardsQueryKey = (options: Options<MarketplacesGetCardsData>) =>
+  createQueryKey("marketplacesGetCards", options);
+
+/**
+ * Marketplace cards of an account with their catalog mapping (paginated, searchable, filterable).
+ */
+export const marketplacesGetCardsOptions = (options: Options<MarketplacesGetCardsData>) =>
+  queryOptions<
+    MarketplacesGetCardsResponse,
+    MarketplacesGetCardsError,
+    MarketplacesGetCardsResponse,
+    ReturnType<typeof marketplacesGetCardsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await marketplacesGetCards({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: marketplacesGetCardsQueryKey(options),
+  });
+
+export const marketplacesGetCardsInfiniteQueryKey = (
+  options: Options<MarketplacesGetCardsData>,
+): QueryKey<Options<MarketplacesGetCardsData>> =>
+  createQueryKey("marketplacesGetCards", options, true);
+
+/**
+ * Marketplace cards of an account with their catalog mapping (paginated, searchable, filterable).
+ */
+export const marketplacesGetCardsInfiniteOptions = (options: Options<MarketplacesGetCardsData>) =>
+  infiniteQueryOptions<
+    MarketplacesGetCardsResponse,
+    MarketplacesGetCardsError,
+    InfiniteData<MarketplacesGetCardsResponse>,
+    QueryKey<Options<MarketplacesGetCardsData>>,
+    | number
+    | Pick<QueryKey<Options<MarketplacesGetCardsData>>[0], "body" | "headers" | "path" | "query">
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({pageParam, queryKey, signal}) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<MarketplacesGetCardsData>>[0],
+          "body" | "headers" | "path" | "query"
+        > =
+          typeof pageParam === "object"
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const {data} = await marketplacesGetCards({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: marketplacesGetCardsInfiniteQueryKey(options),
+    },
+  );
+
+/**
+ * Maps a card to a catalog item. Null clears the mapping.
+ */
+export const marketplacesSetCardMappingMutation = (
+  options?: Partial<Options<MarketplacesSetCardMappingData>>,
+): UseMutationOptions<
+  MarketplacesSetCardMappingResponse,
+  MarketplacesSetCardMappingError,
+  Options<MarketplacesSetCardMappingData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    MarketplacesSetCardMappingResponse,
+    MarketplacesSetCardMappingError,
+    Options<MarketplacesSetCardMappingData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await marketplacesSetCardMapping({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Matches still-unmapped cards to catalog items by article, then by barcode. Existing mappings are left alone.
+ */
+export const marketplacesAutoMapCardsMutation = (
+  options?: Partial<Options<MarketplacesAutoMapCardsData>>,
+): UseMutationOptions<
+  MarketplacesAutoMapCardsResponse,
+  MarketplacesAutoMapCardsError,
+  Options<MarketplacesAutoMapCardsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    MarketplacesAutoMapCardsResponse,
+    MarketplacesAutoMapCardsError,
+    Options<MarketplacesAutoMapCardsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await marketplacesAutoMapCards({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const marketplacesGetUnmappedCountQueryKey = (
+  options?: Options<MarketplacesGetUnmappedCountData>,
+) => createQueryKey("marketplacesGetUnmappedCount", options);
+
+/**
+ * Unmapped card count across all active accounts — feeds the sidebar badge.
+ */
+export const marketplacesGetUnmappedCountOptions = (
+  options?: Options<MarketplacesGetUnmappedCountData>,
+) =>
+  queryOptions<
+    MarketplacesGetUnmappedCountResponse,
+    MarketplacesGetUnmappedCountError,
+    MarketplacesGetUnmappedCountResponse,
+    ReturnType<typeof marketplacesGetUnmappedCountQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await marketplacesGetUnmappedCount({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: marketplacesGetUnmappedCountQueryKey(options),
+  });
 
 export const ordersGetAllQueryKey = (options?: Options<OrdersGetAllData>) =>
   createQueryKey("ordersGetAll", options);

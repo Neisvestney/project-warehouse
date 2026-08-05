@@ -8,7 +8,10 @@ using ProjectWarehouse.Server.Integrations.Ozon.Generated;
 
 namespace ProjectWarehouse.Server.Integrations.Ozon;
 
-public class OzonClient(IOzonApiClient api, IOptions<MarketplacesOptions> options) : IOzonClient
+public class OzonClient(
+    IOzonApiClient api,
+    IOptions<MarketplacesOptions> options,
+    ILogger<OzonClient> logger) : IOzonClient
 {
     // spec caps: /v2/warehouse/list rejects limit > 200; /v3/product/list allows up to 1000
     private const int WarehousePageSize = 200;
@@ -38,6 +41,7 @@ public class OzonClient(IOzonApiClient api, IOptions<MarketplacesOptions> option
                     externalId.ToString(CultureInfo.InvariantCulture),
                     warehouse.Name ?? externalId.ToString(CultureInfo.InvariantCulture),
                     ToKind(warehouse),
+                    ToStatus(warehouse.Status),
                     warehouse.Status,
                     warehouse.Address_info?.Address));
             }
@@ -112,6 +116,26 @@ public class OzonClient(IOzonApiClient api, IOptions<MarketplacesOptions> option
             { Is_rfbs: true } => MarketplaceWarehouseKind.Rfbs,
             _ => MarketplaceWarehouseKind.Fbs,
         };
+
+    /// <summary>Ozon warehouse states as shown in the seller cabinet. Anything else is treated as unusable.</summary>
+    private MarketplaceWarehouseStatus ToStatus(string? status)
+    {
+        switch (status)
+        {
+            case "created":
+                return MarketplaceWarehouseStatus.Active;
+            case "disabled":
+                return MarketplaceWarehouseStatus.Inactive;
+            // known-unusable states are expected; anything else means Ozon extended the vocabulary
+            case "new" or "disabled_due_to_limit" or "blocked" or "error":
+                return MarketplaceWarehouseStatus.Unavailable;
+            default:
+                logger.LogWarning(
+                    "Ozon returned an unknown warehouse status {OzonWarehouseStatus}, treating it as unavailable",
+                    status ?? "<null>");
+                return MarketplaceWarehouseStatus.Unavailable;
+        }
+    }
 
     private static ExternalCard? ToExternalCard(V3GetProductInfoListResponseItem item)
     {

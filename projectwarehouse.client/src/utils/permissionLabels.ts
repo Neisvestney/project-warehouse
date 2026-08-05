@@ -34,6 +34,9 @@ const permissionLabels: Record<PermissionName, string> = {
   "orders.edit_assigned": "Редактирование заказов назначенных складов",
   "orders.assemble_assigned": "Сборка заказов назначенных складов",
   "orders.self_assign": "Взять заказ на себя",
+  "integrations.view": "Просмотр интеграций с маркетплейсами",
+  "integrations.edit": "Управление подключениями маркетплейсов",
+  "integrations.map": "Сопоставление складов и карточек маркетплейсов",
 };
 
 export function getPermissionLabel(permission: PermissionName | string): string {

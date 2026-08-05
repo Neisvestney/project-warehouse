@@ -335,7 +335,8 @@ MarketplaceWarehouse : IHasIdentity
 ├── ExternalId            — string, warehouse_id маркетплейса
 ├── Name                  — string
 ├── Kind                  — MarketplaceWarehouseKind (Fbs | Rfbs | Express | Fbo | Unknown)
-├── ExternalStatus        — string?, статус в кабинете продавца
+├── Status                — MarketplaceWarehouseStatus (Active | Inactive | Unavailable)
+├── ExternalStatus        — string?, статус площадки как есть, только для диагностики
 ├── Address               — string?
 ├── IsArchived            — bool, склад исчез из выдачи API
 ├── WarehouseId           — Guid? → Warehouse (Restrict) — привязка к складу WMS
@@ -450,7 +451,7 @@ IMarketplaceProvider
 
 MarketplaceCredentials  — record (string? ClientId, string ApiKey)
 ExternalWarehouse       — record (string ExternalId, string Name, MarketplaceWarehouseKind Kind,
-                                  string? Status, string? Address)
+                                  MarketplaceWarehouseStatus Status, string? RawStatus, string? Address)
 ExternalCard            — record (string ExternalId, string? Sku, string OfferId, string Name,
                                   IReadOnlyList<string> Barcodes, string? ImageUrl,
                                   decimal? Price, string? Currency, bool IsArchived)
@@ -501,7 +502,9 @@ MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, StockPush, Se
 ### Склады
 
 1. `FetchWarehousesAsync` — полный список (складов у продавца единицы, пагинация исчерпывается за один-два запроса).
-2. Upsert по `(MarketplaceAccountId, ExternalId)`: обновляются `Name`, `Kind`, `ExternalStatus`, `Address`, `SyncedAt`.
+2. Upsert по `(MarketplaceAccountId, ExternalId)`: обновляются `Name`, `Kind`, `Status`, `ExternalStatus`, `Address`, `SyncedAt`.
+
+   `Status` — площадко-независимое состояние (`Active` / `Inactive` / `Unavailable`), схлопывание словаря площадки делает провайдер, а не сервис синхронизации: `ExternalWarehouse` приезжает уже с нормализованным `Status` и сырым `RawStatus`. Для Ozon: `created` → `Active`, `disabled` → `Inactive`, всё остальное (`new`, `disabled_due_to_limit`, `blocked`, `error`, незнакомое, `null`) → `Unavailable`. Поэтому `Unavailable = 0` — незнакомый статус не должен выглядеть рабочим складом. Статус вне известного словаря пишется в лог `LogWarning` — иначе расширение словаря площадкой прошло бы незамеченным.
 3. Склады, не встреченные в выдаче, получают `IsArchived = true`. Удаления нет — архивный склад может быть привязан к `Warehouse`, и удаление порвало бы привязку.
 4. Ранее заархивированный склад, снова появившийся в выдаче, получает `IsArchived = false` с сохранением привязки.
 
@@ -662,7 +665,7 @@ public static class Integrations
 ```
 {
   path: "integrations",
-  label: "Интеграции",
+  label: "Маркетплейсы",
   icon: <StorefrontIcon />,
   component: MarketplacesSettingsPage,
   requiredPermission: "integrations.view",
@@ -691,18 +694,25 @@ src/pages/SettingsPage/pages/MarketplacesSettingsPage/
 
 Существующие компоненты переиспользуются: `WarehousesSelect`, `CatalogItemsSelect`, `CatalogItemLink`, `DataTableContainer`, `FiltersBar`, `SearchInput`, `PageGenericHeader`, `ConfirmDialog`.
 
-После добавления эндпоинтов на бэкенде — `npm run generate-api` (backend должен быть запущен). Дальше `npm run typecheck` **ожидаемо упадёт в двух местах** — оба типа исчерпывающие:
+После добавления эндпоинтов на бэкенде — `npm run generate-api` (backend должен быть запущен). Дальше `npm run typecheck` падает **в трёх местах** — все три типа исчерпывающие:
 
 - `src/utils/permissionLabels.ts` — `Record<PermissionName, string>`, нужны три новых права;
-- `src/utils/appEntityUtils.tsx` — `Record<AppEntityType, EntityTypeConfig>`, нужны `marketplaceAccount` и `marketplaceCard`.
+- `src/utils/appEntityUtils.tsx` — `Record<AppEntityType, EntityTypeConfig>`, нужны `marketplaceAccount` и `marketplaceCard`;
+- `src/utils/errorUtils.ts` — `errorCodeMessages: Record<ErrorCode, string>`, нужны все 11 новых кодов.
+
+У `marketplaceCard` ссылки нет (`linkTemplate: "no-link"`): собственной страницы у карточки не существует, а маппинга `MarketplaceCard → AppEntity` в `AppMapperProfile` нет вовсе — эти два значения `AppEntityType` используются только как `ChangeLogEntry.EntityType`.
+
+> **Найдено при реализации: nullable enum'ы уезжали в схему числом.** Трансформер enum-схем в `Program.cs` проверял `type.IsEnum`, а у nullable-свойства `context.JsonTypeInfo.Type` — это `Nullable<TEnum>`, для которого `IsEnum` равен `false`. В результате `MarketplaceSyncStatus` и `MarketplaceMappingSource` уезжали в OpenAPI как `integer`, и сгенерированный клиент объявлял их `= number`, хотя рантайм отдавал camelCase-строки. Исправлено разворотом `Nullable.GetUnderlyingType` перед проверкой; правка общая и чинит любой будущий nullable enum.
+
+> **`MarketplaceCapabilities` — `[Flags]`.** `JsonStringEnumConverter` шлёт комбинацию одной строкой (`"warehouses, cards, sellerInfo"`), а сгенерированный тип — union одиночных значений. Сравнивать через `===` нельзя; на фронте есть `hasCapability()`, разбирающий строку. Если понадобится честная типизация — отдавать список строк из DTO.
 
 Ошибки `lastSyncError` и `syncRun.error` приходят как `AppFieldError` (`{ code, detail, args? }`) — тот же тип, что внутри `AppProblemDetails`, он уже сгенерирован. Текст берётся по `code` + `args` через существующий `errorCodeArgMessages` в `src/utils/errorUtils.ts`; поле `detail` англоязычное и в UI не показывается.
 
-Вкладок в приложении пока нет ни одной (`<Tabs>` используется только в мобильной навигации `SidebarLayout` и в пикере `StorageNodePickerContent`) — страница аккаунта вводит этот паттерн.
+Вкладок в приложении до этого не было ни одной (`<Tabs>` использовался только в мобильной навигации `SidebarLayout` и в пикере `StorageNodePickerContent`) — страница аккаунта вводит этот паттерн: один маршрут `:id`, активная вкладка в `?tab=` через `useSyncedWithQueryState`, неактивные вкладки не смонтированы. Зафиксирован в [frontend.md](frontend.md).
 
-Бейджа-счётчика в сайдбаре тоже нет: `SectionConfig` не имеет соответствующего поля, а `settingsConfig.tsx` — обычный модульный массив и хуки вызывать не может. Счётчик придётся передавать **компонентом** (`badge?: React.ComponentType`), который сам дёргает `/accounts/unmapped-count`; `toNavItems` уже фильтрует секции по `requiredPermission`, так что бейдж и его запрос смонтируются только у тех, кому можно.
+**Бейдж-счётчик в сайдбаре отложен.** `SectionConfig` не имеет соответствующего поля, а `settingsConfig.tsx` — обычный модульный массив и хуки вызывать не может. Счётчик пришлось бы передавать **компонентом** (`badge?: React.ComponentType`), который сам дёргает `/accounts/unmapped-count`, и протаскивать его через `toNavItems` в `SidebarNavLeafItem` и в оба места отрисовки внутри `SidebarLayout` — то есть править общий layout ради одного раздела. Решено не трогать: эндпоинт `/accounts/unmapped-count` реализован, но фронтом пока не используется, а число несопоставленных видно в списке аккаунтов и на вкладке «Обзор».
 
-Счётчики активного запуска обновляются по событиям `marketplace.sync.progress` и `marketplace.sync.finished` — транспорт и схема описаны в [realtime-specification.md](realtime-specification.md). Опрос `/sync-runs` через `refetchInterval` остаётся запасным механизмом и включается, только когда стрим не установлен: замерший экран из-за проблем с транспортом недопустим.
+Счётчики активного запуска пока обновляются **опросом**: пока `lastSyncStatus == Running`, запросы аккаунта и `/sync-runs` идут с `refetchInterval` в 3 с и сами останавливаются по завершении. Realtime-клиента в проекте нет вообще ([realtime-specification.md](realtime-specification.md), раздел «Реализовано» — пусто), поэтому события `marketplace.sync.progress` и `marketplace.sync.finished` подключаются позже подменой этого одного места.
 
 ---
 
@@ -710,7 +720,7 @@ src/pages/SettingsPage/pages/MarketplacesSettingsPage/
 
 ### Шаг 1 — Подключение магазина
 
-1. Администратор открывает «Настройки» → «Интеграции» → «Подключить магазин».
+1. Администратор открывает «Настройки» → «Маркетплейсы» → «Подключить магазин».
 2. Выбирает площадку (Ozon), вводит название магазина, `Client-Id` и `Api-Key`, задаёт интервал синхронизации (по умолчанию 30 минут).
 3. Нажимает «Проверить подключение» — бэкенд дёргает `/v2/warehouse/list` с `limit = 1`. Успех подтверждается зелёной плашкой, ошибка — `marketplaceCredentialsInvalid` с текстом от маркетплейса.
 4. Сохраняет. Ключ шифруется, наружу больше не отдаётся — в интерфейсе видна только маска `••••1234`.
@@ -738,7 +748,7 @@ src/pages/SettingsPage/pages/MarketplacesSettingsPage/
 ### Шаг 5 — Повседневная работа
 
 - Quartz синхронизирует активные аккаунты по интервалу. Новые карточки приезжают несопоставленными.
-- В сайдбаре у раздела «Интеграции» отображается бейдж с количеством несопоставленных карточек по всем активным аккаунтам.
+- В сайдбаре у раздела «Маркетплейсы» отображается бейдж с количеством несопоставленных карточек по всем активным аккаунтам.
 - Ручной запуск синхронизации доступен кнопкой в любой момент; повторный запуск при активном — `409`.
 - Аккаунт можно деактивировать (`IsActive = false`) — фоновая синхронизация прекращается, все данные и привязки сохраняются. Удаление аккаунта каскадно удаляет склады и карточки и блокируется, если карточки участвуют в заказах.
 
@@ -787,10 +797,8 @@ volumes:
 | 7. Quartz `MarketplaceSyncScanJob` | ✓ |
 | 8. `Permissions.Integrations`, коды ошибок, `AppEntityType`, changelog-сервисы, DTO, `AppMapperProfile` | ✓ |
 | 9. `MarketplacesController` | ✓ |
-| 10. Фронтенд: раздел настроек, вкладки, компоненты привязки, бейдж | — не начат |
-| 11. Документация | ✓ (кроме [frontend.md](frontend.md) — ждёт шага 10) |
-
-Регенерация TS-клиента (`npm run generate-api`) выполняется вместе с шагом 10.
+| 10. Фронтенд: раздел настроек, вкладки, компоненты привязки | ✓ (бейдж в сайдбаре отложен) |
+| 11. Документация | ✓ |
 
 ### Проверено вручную
 
@@ -823,6 +831,8 @@ volumes:
 | Хранение ошибок запуска | **`AppFieldError` в jsonb**, а не строка | Фронт локализует по `code` + `args`; `ErrorCode` можно только дописывать в конец |
 | Клиент Ozon | **Генерация NSwag**, библиотекой в процессе, без `.nswag`-конфига | Следующие методы бесплатны; ценой — санитайзер для Swagger-2.0-наследия в спеке Ozon |
 | Живые счётчики синхронизации | **Опрос** `/sync-runs`; SSE отложен | Бэкенд ничего не публикует; переход на realtime — подмена одного хука на фронте |
+| Бейдж несопоставленных в сайдбаре | **Отложен** | Требует поля `badge` в общем `SectionConfig` и правок `SidebarLayout` ради одного раздела; `/accounts/unmapped-count` реализован, но не используется |
+| Вкладки на странице аккаунта | **`<Tabs>` + `?tab=`**, а не отдельные маршруты | Аккаунт грузится один раз, фильтры вкладок живут в тех же query-параметрах |
 
 ---
 

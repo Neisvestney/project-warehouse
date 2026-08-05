@@ -165,7 +165,8 @@ public class MarketplaceSyncService(
 
             warehouse.Name = item.Name;
             warehouse.Kind = item.Kind;
-            warehouse.ExternalStatus = item.Status;
+            warehouse.Status = item.Status;
+            warehouse.ExternalStatus = item.RawStatus;
             warehouse.Address = item.Address;
             warehouse.IsArchived = false;
             warehouse.SyncedAt = now;
