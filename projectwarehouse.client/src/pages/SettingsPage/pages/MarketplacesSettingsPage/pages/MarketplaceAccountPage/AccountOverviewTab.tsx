@@ -1,7 +1,12 @@
 import {Alert, Chip, Paper, Stack, Typography} from "@mui/material";
 import InfoRow from "@/components/InfoRow";
 import SyncErrorAlert from "../../components/SyncErrorAlert";
-import {MARKETPLACE_TYPE_LABELS, formatDateTime} from "../../marketplaceUtils";
+import {
+  MARKETPLACE_TYPE_LABELS,
+  formatApiKeyMask,
+  formatDateTime,
+  MARKETPLACE_TYPE_COLORS
+} from "../../marketplaceUtils";
 import type {MarketplaceAccountDto} from "@/api/types.gen";
 
 interface AccountOverviewTabProps {
@@ -29,13 +34,12 @@ function AccountOverviewTab({account}: AccountOverviewTabProps) {
             value={
               <Chip
                 label={MARKETPLACE_TYPE_LABELS[account.type]}
+                color={MARKETPLACE_TYPE_COLORS[account.type]}
                 size="small"
-                variant={"outlined"}
               />
             }
           />
           <InfoRow label="Client-Id" value={account.externalClientId ?? "—"} />
-          <InfoRow label="Api-Key" value={account.apiKeyMask} />
           <InfoRow label="Ключ обновлён" value={formatDateTime(account.apiKeyUpdatedAt)} />
           <InfoRow label="Интервал, мин" value={String(account.syncIntervalMinutes)} />
           <Stack direction="row" spacing={1} sx={{alignItems: "baseline"}}>

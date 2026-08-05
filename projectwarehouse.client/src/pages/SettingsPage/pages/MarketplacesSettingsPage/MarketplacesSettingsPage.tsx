@@ -192,7 +192,13 @@ function MarketplacesSettingsPage() {
                   onClick={() => navigate(`/settings/integrations/${account.id}`)}
                 >
                   <TableCell>{account.name}</TableCell>
-                  <TableCell><Chip size={"small"} label={MARKETPLACE_TYPE_LABELS[account.type]} color={MARKETPLACE_TYPE_COLORS[account.type]}/></TableCell>
+                  <TableCell>
+                    <Chip
+                      size={"small"}
+                      label={MARKETPLACE_TYPE_LABELS[account.type]}
+                      color={MARKETPLACE_TYPE_COLORS[account.type]}
+                    />
+                  </TableCell>
                   <TableCell>
                     <MarketplaceStatusChip status={account.lastSyncStatus} />
                   </TableCell>

@@ -20,6 +20,7 @@ import {
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
 import TestConnectionButton from "../../components/TestConnectionButton";
+import {formatApiKeyMask} from "../../marketplaceUtils";
 import type {MarketplaceAccountDto} from "@/api/types.gen";
 
 type EditFormValues = {
@@ -107,7 +108,7 @@ function EditAccountDialog({open, account, onClose}: EditAccountDialogProps) {
             name="apiKey"
             label="Новый Api-Key"
             type="password"
-            helperText={`Текущий ключ ${account.apiKeyMask}. Оставьте пустым, чтобы не менять`}
+            helperText={`Текущий ключ ${formatApiKeyMask(account.apiKeyLast4)}. Оставьте пустым, чтобы не менять`}
             disabled={mutation.isPending}
             fullWidth
           />
