@@ -376,6 +376,7 @@ public class MarketplacesController(
         [FromQuery] bool includeArchived = false,
         [FromQuery] MarketplaceCardSortBy sortBy = MarketplaceCardSortBy.Name,
         [FromQuery] SortOrder sortOrder = SortOrder.Asc,
+        [FromQuery] Guid? catalogItemId = null,
         CancellationToken ct = default)
     {
         var query = db.MarketplaceCards
@@ -384,6 +385,11 @@ public class MarketplacesController(
 
         if (!includeArchived)
             query = query.Where(c => !c.IsArchived);
+
+        if (catalogItemId is not null)
+        {
+            query = query.Where(c => c.CatalogItemId == catalogItemId);
+        }
 
         query = mappingState switch
         {

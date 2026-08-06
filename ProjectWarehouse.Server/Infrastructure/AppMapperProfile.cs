@@ -43,7 +43,10 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.Components, opt => opt.MapFrom(s => s.BundleComponents))
             .ForMember(d => d.VariationIds, opt => opt.MapFrom(s => s.VariationMemberships.Select(m => m.VariationId).ToList()))
             .ForMember(d => d.MemberIds, opt => opt.MapFrom(s => s.VariationMembers.Select(m => m.ItemId).ToList()))
-            .ForMember(d => d.Children, opt => opt.MapFrom(s => s.GroupChildren));
+            .ForMember(d => d.Children, opt => opt.MapFrom(s => s.GroupChildren))
+            .ForMember(x => x.MarketplaceAccounts, opt => opt.MapFrom(w =>
+                w.MarketplaceCards.Select(mw => mw.MarketplaceAccount).Distinct()
+            ));
         CreateMap<CatalogItem, CatalogItemSummaryDto>();
         CreateMap<CatalogItem, CatalogItemSelectDto>();
         CreateMap<CatalogItem, NodeCatalogItemDto>();

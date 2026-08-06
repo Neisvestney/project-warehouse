@@ -1,5 +1,6 @@
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Models.Integrations;
 
 namespace ProjectWarehouse.Server.Models.Catalog;
 
@@ -20,6 +21,7 @@ public class CatalogItemDto : IHasIdentity
     public IReadOnlyList<BundleComponentDto> Components { get; init; } = [];
     public IReadOnlyList<Guid> VariationIds { get; init; } = [];
     public IReadOnlyList<Guid> MemberIds { get; init; } = [];
+    public IReadOnlyList<MarketplaceAccountShortSummaryDto> MarketplaceAccounts { get; init; } = [];
 
     // ProductGroup only
     public IReadOnlyList<CatalogItemDto> Children { get; init; } = [];

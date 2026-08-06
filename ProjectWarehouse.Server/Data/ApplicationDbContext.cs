@@ -510,7 +510,7 @@ public class ApplicationDbContext : IdentityDbContext<
                 .OnDelete(DeleteBehavior.Cascade);
 
             e.HasOne(x => x.CatalogItem)
-                .WithMany()
+                .WithMany(x => x.MarketplaceCards)
                 .HasForeignKey(x => x.CatalogItemId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.Restrict);

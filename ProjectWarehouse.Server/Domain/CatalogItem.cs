@@ -24,6 +24,7 @@ public class CatalogItem : IHasIdentity
     public ICollection<BundleComponent> BundleComponents { get; set; } = [];
 
     public ICollection<CatalogItemTag> Tags { get; set; } = [];
+    public ICollection<MarketplaceCard> MarketplaceCards { get; set; } = [];
 
     [Projectable] public string FullName => Group != null ? Group.Name + " " + Name : Name;
 
