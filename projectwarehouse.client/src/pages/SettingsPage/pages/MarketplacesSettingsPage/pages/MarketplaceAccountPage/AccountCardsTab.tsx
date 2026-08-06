@@ -87,10 +87,16 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
     (v) => (v ? "true" : null),
   );
 
+  const [catalogItemIdFilter, setCatalogItemIdFilter] = useSyncedWithQueryState(
+      "catalogItemId",
+      (q) => (typeof q === "string" ? q : null),
+      (v) => v || null,
+  );
+
   const {sortBy, sortOrder, handleSortClick} = useTableSort(SORT_COLUMNS, "name");
 
   const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams(
-    {searchString: searchString || undefined},
+    {searchString: searchString || undefined, catalogItemId: catalogItemIdFilter || undefined},
     [searchString],
     {mappingState, includeArchived, sortBy, sortOrder},
     [mappingState, includeArchived, sortBy, sortOrder],
@@ -163,6 +169,11 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
           </Button>
         )}
       </FiltersBar>
+      {catalogItemIdFilter && (
+          <Stack spacing={1} direction={"row"}>
+            <Chip color={"info"} label={"Применен фильтр по позиции каталога"} onDelete={() => setCatalogItemIdFilter(null)}/>
+          </Stack>
+      )}
       <DataTableContainer
         isFetching={isFetching}
         count={data?.total ?? 0}

@@ -230,6 +230,7 @@ export type CatalogItemDto = {
   components: Array<BundleComponentDto>;
   variationIds: Array<string>;
   memberIds: Array<string>;
+  marketplaceAccounts: Array<MarketplaceAccountShortSummaryDto>;
   children: Array<CatalogItemDto>;
 };
 
@@ -2387,6 +2388,7 @@ export type MarketplacesGetCardsData = {
     includeArchived?: boolean;
     sortBy?: MarketplaceCardSortBy;
     sortOrder?: SortOrder;
+    catalogItemId?: string;
   };
   url: "/api/integrations/marketplaces/accounts/{id}/cards";
 };

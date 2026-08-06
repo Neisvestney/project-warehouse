@@ -69,6 +69,8 @@ import {copyToClipboard} from "@/utils/clipboardUtils";
 import {formatEntityBarcode} from "@/utils/barcodeUtils";
 import {openPrintPage, type PrintItem} from "@/utils/printUtils";
 import type {BarcodeType} from "@/pages/PrintPage/BarcodeLabel";
+import {MARKETPLACE_TYPE_COLORS} from "@/pages/SettingsPage/pages/MarketplacesSettingsPage/marketplaceUtils.ts";
+import {Link} from "react-router";
 
 const DRAWER_WIDTH = 1000;
 
@@ -353,6 +355,29 @@ function ViewMode({
               ))}
             </Box>
           </>
+        )}
+
+        {/* Marketplaces Accounts */}
+        {data.marketplaceAccounts.length > 0 && (
+            <>
+              <Divider />
+              <Stack spacing={1}>
+                <Typography variant="subtitle2">Привзязан к карточкам</Typography>
+                <Box sx={{display: "flex", flexWrap: "wrap", gap: 0.5}}>
+                  {data.marketplaceAccounts.map((account) => (
+                      <Chip
+                          component={Link}
+                          to={`/settings/integrations/${account.id}?tab=cards&catalogItemId=${data.id}&mappingState=all`}
+                          key={account.id} 
+                          label={account.name}
+                          size="small"
+                          color={MARKETPLACE_TYPE_COLORS[account.type]} 
+                          onClick={() => {}}
+                      />
+                  ))}
+                </Box>
+              </Stack>
+            </>
         )}
 
         {/* Variations (Standard/Unit) */}

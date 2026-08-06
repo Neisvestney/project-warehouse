@@ -340,6 +340,7 @@ public class CatalogController(
             .Include(c => c.VariationMembers)
             .Include(c => c.GroupChildren).ThenInclude(child => child.Tags)
             .Include(c => c.GroupChildren).ThenInclude(child => child.VariationMemberships)
+            .Include(c => c.MarketplaceCards).ThenInclude(child => child.MarketplaceAccount)
             .FirstOrDefaultAsync(c => c.Id == id, ct);
 
     private async Task<IActionResult?> ValidateGroupId(Guid? groupId, CancellationToken ct)
