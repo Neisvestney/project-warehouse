@@ -1,5 +1,9 @@
 import {Avatar, Box, Tooltip} from "@mui/material";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import ZoomInIcon from "@mui/icons-material/ZoomIn";
+import {useModal} from "@/hooks/useModal";
+import FileImage from "@/components/files/FileImage";
+import FileViewerModal from "@/components/files/viewer/FileViewerModal";
+import {viewableUrl} from "@/components/files/viewer/viewableFile";
 
 interface CardImageProps {
   src?: string | null;
@@ -7,24 +11,26 @@ interface CardImageProps {
   size?: number;
 }
 
+/** Marketplace card thumbnail — the one place in the app where the image lives on a foreign host. */
 function CardImage({src, name, size = 40}: CardImageProps) {
-  const avatar = (
-    <Avatar variant="rounded" src={src ?? undefined} sx={{width: size, height: size}}>
+  const {showModal} = useModal();
+
+  const fallback = (
+    <Avatar variant="rounded" sx={{width: size, height: size}}>
       {name.charAt(0)}
     </Avatar>
   );
 
-  if (!src) return avatar;
+  if (!src) return fallback;
 
   return (
     <Tooltip title="Открыть изображение">
       <Box
-        component="a"
-        href={src}
-        target="_blank"
-        rel="noopener noreferrer"
         // строка карточки кликабельна сама по себе — клик по картинке до неё доходить не должен
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          void showModal(FileViewerModal, {files: [viewableUrl(src, {name})]});
+        }}
         sx={{
           position: "relative",
           display: "block",
@@ -32,10 +38,11 @@ function CardImage({src, name, size = 40}: CardImageProps) {
           height: size,
           borderRadius: 1,
           overflow: "hidden",
+          cursor: "pointer",
           "&:hover .card-image-overlay": {opacity: 1},
         }}
       >
-        {avatar}
+        <FileImage source={viewableUrl(src, {name})} style={{height: "100%"}} fallback={fallback} />
         <Box
           className="card-image-overlay"
           sx={{
@@ -50,7 +57,7 @@ function CardImage({src, name, size = 40}: CardImageProps) {
             transition: "opacity 0.15s",
           }}
         >
-          <OpenInNewIcon sx={{fontSize: Math.round(size / 2.5)}} />
+          <ZoomInIcon sx={{fontSize: Math.round(size / 2.5)}} />
         </Box>
       </Box>
     </Tooltip>

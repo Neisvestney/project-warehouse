@@ -21,4 +21,7 @@ public class ProductGroupChildRequest
     public bool IsArchived { get; init; }
 
     public IReadOnlyList<Guid> Tags { get; init; } = [];
+
+    public Guid? MainImageFileId { get; init; }
+    public IReadOnlyList<CatalogItemImageRequest> Images { get; init; } = [];
 }

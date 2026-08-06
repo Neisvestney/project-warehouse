@@ -63,6 +63,24 @@ src/
 │       └── index.ts
 │
 ├── components/
+│   ├── files/
+│   │   ├── FileImage.tsx               # <img> that fetches its own authorized preview, lazily
+│   │   ├── fileUtils.ts                # formatFileSize, nearestThumbnailWidth, content-type guessing
+│   │   ├── hooks/
+│   │   │   ├── useFileUpload.ts        # POST /api/files, returns a ready DataFileDto
+│   │   │   └── useFileBlobUrl.ts       # blob → object URL, cached by React Query (id + width)
+│   │   ├── inputs/                     # Pure pickers: AddFileInput (button), AreaFileInput (drop zone)
+│   │   ├── views/                      # Pure displays: RowFileView, ImagePreviewFileView, ImageCardFileView, FileTypeIcon
+│   │   ├── controls/                   # The only layer that talks to the API
+│   │   │   ├── SingleFileControl.tsx   # One DataFileDto | null
+│   │   │   └── FileListControl.tsx     # A list of DataFileDto
+│   │   └── viewer/
+│   │       ├── FileViewerModal.tsx     # Gallery modal; opened via showModal
+│   │       ├── viewableFile.ts         # ViewableFile: our file or an external URL
+│   │       ├── useViewableSource.ts    # Resolves either kind into one shape
+│   │       ├── ImageFileRenderer.tsx   # Zoom + pan, hand-rolled
+│   │       ├── PdfFileRenderer.tsx     # Browser viewer in an iframe; falls back on native/external
+│   │       └── UnsupportedFileRenderer.tsx
 │   ├── catalog/
 │   │   ├── CatalogItemDrawer.tsx        # Reusable right-drawer: view + edit any catalog item (all types)
 │   │   ├── CatalogItemDrawerHost.tsx    # One CatalogItemDrawer per page, open fn shared via context
@@ -254,8 +272,12 @@ src/
 │   │                   └── WriteoffPage.tsx   # Writeoff detail: metadata edit, status transitions, items
 │   └── SettingsPage/
 │       ├── SettingsPage.tsx     # Sections declaration only — drives routes + sidebar nav for /settings/*
-│       ├── settingsConfig.tsx   # settingsSections (Роли + Сотрудники + Маркетплейсы), hasSettingsAccess, getSettingsFirstPageUrl
+│       ├── settingsConfig.tsx   # settingsSections (Роли + Сотрудники + Маркетплейсы + Хранилище), hasSettingsAccess, getSettingsFirstPageUrl
 │       └── pages/
+│           ├── StorageSettingsPage/
+│           │   ├── StorageSettingsPage.tsx  # Tab shell (?tab=files|database)
+│           │   ├── FilesTab.tsx             # File storage usage: counters, disk bar, by-type and largest-file tables
+│           │   └── DatabaseTab.tsx          # DB size grouped by AppEntityType, expandable to tables
 │           ├── RolesSettingsPage/
 │           │   ├── RolesSettingsPage.tsx   # Role-permission matrix table (observer, data fetching, QueryError on initial load, header buttons)
 │           │   ├── RolesTable.tsx          # Sticky matrix table with @dnd-kit sortable columns
@@ -375,6 +397,7 @@ src/
 /settings/integrations                                         →   MarketplacesSettingsPage        (integrations.view)
 /settings/integrations/new                                     →   MarketplaceAccountCreatePage    (integrations.view)
 /settings/integrations/:id                                     →   MarketplaceAccountPage          (integrations.view)
+/settings/storage                                              →   StorageSettingsPage             (system.view)
 ```
 
 > **Convention:** subroutes carry no `requiredPermission` of their own — `SidebarPage` only gates the section route. Sub-pages that need a stronger right (`integrations.edit`, `integrations.map`) hide their actions with `useHasPermission`, and the server enforces it regardless.
@@ -523,6 +546,30 @@ Columns: **Название**, **Артикул**, **Характеристик�
 ### `MarketplacesSettingsPage` (Маркетплейсы)
 Server-side paginated, searchable, sortable list of marketplace accounts at `/settings/integrations`. Requires `integrations.view`. State in URL params (`?search=`, `?type=`, `?active=`, `?sortBy=`, `?sortOrder=`, `?page=`, `?pageSize=`). Columns: **Магазин**, **Площадка**, **Статус** (`MarketplaceStatusChip`), **Синхронизация** (last sync timestamp), **Складов**, **Карточек**, **Не сопоставлено** (warning chip when > 0), **Активен**. Sortable columns are **Магазин** and **Синхронизация** only — the backend `MarketplaceAccountSortBy` accepts nothing else. The **Подключить магазин** button requires `integrations.edit`. Rows navigate to `MarketplaceAccountPage`.
 
+### `StorageSettingsPage` (Хранилище)
+`/settings/storage`, requires `system.view`. A shell with two tabs kept in `?tab=` via
+`useSyncedWithQueryState`; each tab fetches only when it is shown, so the DB catalog query is not paid for by
+someone looking at files.
+
+**`FilesTab`** — read-only view of `GET /api/system/storage`: a row of counter cards (файлов, общий объём, кэш
+превью, не привязано), a determinate `LinearProgress` for disk usage that turns warning above 75 % and error
+above 90 %, a by-content-type table with an inline bar per row, and the ten largest files — their names open
+`FileViewerModal`.
+
+**`DatabaseTab`** — `GET /api/system/database`: counters (размер БД, из них таблицы, индексы, строк), then one
+expandable row per `AppEntityType` listing the tables inside it. Labels and icons come from `entitiesTypes` in
+`utils/appEntityUtils.tsx` rather than a second list — that `Record<AppEntityType, …>` is exhaustive, so a new
+entity type fails `typecheck` until it is named. `unknown` is rendered as «Прочее». Row counts are planner
+estimates and print «—» when a table has never been analysed; never present them as exact.
+
+No chart library is used and none should be added for this: four numbers do not justify the dependency at the
+`chrome >= 49` build target, and a table with inline bars reads better than a pie chart anyway.
+
+There is deliberately no «run the collector now» button — collection is scheduled, and the orphan card says when
+files go. Disk figures are cached server-side; the page shows «по состоянию на …» from `diskStatsAt`.
+
+> Not to be confused with `StoragePage` («Места хранения»), which is about warehouse storage places.
+
 ### `MarketplaceAccountCreatePage`
 RHF form at `/settings/integrations/new`: площадка (Ozon only for now), **Client-Id**, **Api-Key** (`type="password"`), **Интервал синхронизации** (1…10080, default 30), and a **Синхронизировать по расписанию** switch.
 
@@ -626,6 +673,83 @@ interface StoragePlaceNodeTreeProps {
 ```
 
 ## Key Components
+
+### Files subsystem (`components/files/`)
+
+Three layers, plus a viewer. `FileInput` and `FileView` are pure components that know nothing about the API;
+`FileControl` is the **only** layer that calls it. Compose them by passing the other two in as props:
+
+```tsx
+<SingleFileControl value={value} onChange={onChange} View={ImageCardFileView} Input={AddFileInput} accept="image/*" />
+```
+
+A control is a controlled component over a `DataFileDto`, **not** over a `File`: picking a file uploads it
+immediately (`POST /api/files`) and hands the form a ready DTO, so the form only ever stores an identifier.
+That is upload-first in practice; files nothing ends up referencing are collected server-side. Wire it with
+`Controller` like any other field.
+
+> **The clock is running on an open form.** A file uploaded and left unsaved past `OrphanTtlHours` (48 h) is
+> collected, and the save then fails with `dataFileNotFound`.
+
+`SingleFileControl` keeps its own hidden `<input type="file">` for the view's replace action, so a filled
+control can be re-picked without deleting first. `FileListControl` uploads a batch sequentially and keeps its
+own `failures` list — the upload hook holds only the last error, and a batch needs one message per file name.
+
+**Reordering.** `FileListControl` takes `sortable` and wraps its views in `@dnd-kit` (`rectSortingStrategy` for
+a wrapping row, `verticalListSortingStrategy` for a column). Position *is* the value: the control just calls
+`onChange` with a reordered array, and the owner decides what that means — for catalog images
+`mapImagesToRequest` turns the index into `order`. The whole tile is the drag handle, since a photo grid is
+dragged by the photo; `PointerSensor` with `activationConstraint: {distance: 5}` keeps a tap opening the viewer
+instead of starting a drag. Listeners live on a wrapper inside the control, never in `FileViewProps` — the views
+stay pure. The wrapper only exists while `sortable` is on, so unsorted lists lay out exactly as before.
+
+### `FileImage`
+
+Behaves like an `<img>` but takes a file instead of a `src` and handles authorization, preview size and object
+URL lifetime itself. Used wherever an image is just an image: catalog thumbnails, previews inside the viewer's
+filmstrip, marketplace card avatars.
+
+Images cannot use a plain `<img src="/api/files/…">` — the bearer token is injected by the request interceptor
+in `services/apiClient.ts`, and an `src` attribute carries no `Authorization` header. So content is fetched as a
+`Blob` and turned into an object URL. The consequence is **no browser HTTP cache**; React Query replaces it,
+keyed by id + width, so the same image in a list and in the modal is fetched once.
+
+> **Object URLs are revoked on a deferred tick, not synchronously.** StrictMode runs an effect's setup, cleanup
+> and setup again on mount, and the URL comes from a `useMemo` that the second setup does not re-run. Revoking
+> in the cleanup therefore killed a URL nothing would recreate — visible as a viewer that showed the image the
+> first time and rendered a broken `blob:` request every time after, once React Query had the blob cached at
+> mount. The revoke is queued in a module-level map and cancelled if a setup follows immediately.
+
+- **Lazy by default** via `IntersectionObserver` — a catalog page would otherwise fire a request per row. Where
+  the observer is missing (oldest targeted WebViews) it degrades to eager loading, not to a blank box.
+- **`previewWidth: "auto"`** measures the container, multiplies by `devicePixelRatio` and rounds **up** to an
+  allowed width; the endpoint rejects arbitrary values.
+- **Space is reserved** from `imageWidth`/`imageHeight` using a padding-top percentage box — CSS `aspect-ratio`
+  is unsupported at the `chrome >= 49` build target.
+- **External sources** go straight to `src` with `referrerPolicy="no-referrer"`, no request and no resize. An
+  `http:` URL on an `https:` page is rejected up front, since the browser would block it silently.
+
+Props: `source: ViewableFile | DataFileDto | string | null`, `previewWidth?: number | "auto"`, `lazy?: boolean` (default true), `fallback?: ReactNode`, plus `<img>` attributes.
+
+### `FileViewerModal`
+
+Gallery modal opened through `useModal().showModal`. It is **not tied to the files subsystem**: a `ViewableFile`
+is either one of our files (`viewable(dto)`) or an external link (`viewableUrl(url)`), and mixed lists are fine —
+a product photo and a marketplace card image scroll in one gallery. `useViewableSource` collapses both kinds into
+one shape so the renderers never branch on the source.
+
+```ts
+await showModal(FileViewerModal, {files: item.images.map((i) => viewable(i.file)), initialIndex: 2});
+```
+
+Arrows, the counter and the filmstrip appear only for more than one file. `Esc` closes, `←`/`→` navigate.
+Renderers are tried in order: image → PDF → unsupported. Images support wheel zoom and drag pan (hand-rolled —
+there is no lightbox library here); an `onError` drops to the unsupported card, which is also the degradation
+path for an external link that turned out not to be an image.
+
+For external sources the metadata line is blank (we have none) but keeps its height so the toolbar does not jump,
+the delete button is hidden, and «Скачать» becomes «Открыть в новой вкладке» — the browser ignores `download` on
+a cross-origin link.
 
 ### `CatalogItemDrawer`
 
@@ -954,7 +1078,7 @@ Mapping badge for a marketplace card. `isMappedToArchivedItem` wins over the sou
 Props: `card: MarketplaceCardDto`.
 
 ### `CardImage`
-Marketplace card thumbnail. Without a `src` it is a plain letter `Avatar`; with one it becomes an `<a target="_blank">` to the full-size image, marked by a tooltip and a hover overlay with an open-in-new icon, and stops click propagation so it does not also trigger the surrounding row. Used in the cards table (40 px) and in `CardMappingDialog` (72 px).
+Marketplace card thumbnail — the one place in the app where the image lives on a foreign host. Without a `src` it is a plain letter `Avatar`; with one it wraps `FileImage` (external source, so a direct `src` with `referrerPolicy="no-referrer"` and no resize) under a tooltip and a hover overlay, and opens `FileViewerModal` on click rather than a new tab. Click propagation is stopped so it does not also trigger the surrounding row. Used in the cards table (40 px) and in `CardMappingDialog` (72 px).
 
 Props: `src?: string | null`, `name: string`, `size?: number` (default 40).
 

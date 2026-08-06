@@ -8,7 +8,7 @@ Tracks every mutation of key entities (create / update / delete) with a before/a
 Domain/
   ChangeLogEntry.cs          — EF entity stored in DB
   ChangeLogDiff.cs           — one field diff (path, from, to)
-  AppEntityType.cs           — enum of tracked entity types
+  AppEntityType.cs           — enum of tracked entity types (append-only: persisted as int in ChangeLogEntry.EntityType)
 
 Infrastructure/ChangeLog/
   AbstractChangeLogService.cs           — base logic: diffing, serialization, interfaces
@@ -57,6 +57,9 @@ ChangeLogEntry {
     string?         Action              // optional: machine-readable reason for the change
     string?         ActionData          // optional: structured context for that reason (jsonb)
 }
+
+// AppEntityType.ChangeLog and .InventoryItem exist only so the storage statistics page can name
+// their tables; nothing writes an entry with them. Not every value is a tracked entity.
 
 ChangeLogDiff {
     string   Path   // dotted property path, e.g. "ItemsGroups[0].Count"

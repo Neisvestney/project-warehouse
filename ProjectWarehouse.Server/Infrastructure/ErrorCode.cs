@@ -126,4 +126,13 @@ public enum ErrorCode
     PasswordAtLeastOneLowercase,
     PasswordInvalid,
     ValidationError,
+
+    // DataFiles
+    DataFileNotFound,
+    DataFileEmpty,
+    DataFileTooLarge,
+    DataFileTypeNotAllowed,
+    DataFileNotAnImage,
+    DataFileWidthNotAllowed,
+    DataFileStorageError,
 }

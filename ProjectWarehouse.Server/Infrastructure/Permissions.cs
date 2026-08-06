@@ -94,6 +94,15 @@ public static class Permissions
     /// Map is split from Edit so a merchandiser can map cards and run syncs without touching API keys.
     /// Grant Map together with catalog.view and warehouses.view — the mapping pickers read both.
     /// </summary>
+    /// <summary>
+    /// Instance-wide technical readouts, not a business area. No Manage counterpart until something
+    /// actually needs one — an unused permission is a checkbox in the roles matrix that grants nothing.
+    /// </summary>
+    public static class System
+    {
+        public const string View = "system.view";
+    }
+
     public static class Integrations
     {
         public const string View = "integrations.view";

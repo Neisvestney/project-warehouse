@@ -93,6 +93,15 @@ That's it. `Permissions.All` picks up new constants automatically via reflection
 | `integrations.edit` | `Permissions.Integrations.Edit` |
 | `integrations.map` | `Permissions.Integrations.Map` |
 
+### System (`system.*`)
+| Permission | Constant |
+|-----------|----------|
+| `system.view` | `Permissions.System.View` |
+
+Instance-wide technical readouts (the «Хранилище» settings section), not a business area. There is deliberately no `system.manage`: nothing needs it yet, and an unused permission is a checkbox in the roles matrix that grants nothing. Add it together with the first action that requires it.
+
+Uploading and reading files needs no permission of its own — see [api.md](api.md#files--apifiles).
+
 `edit` and `map` are split on purpose: a merchandiser maps cards and warehouses and triggers syncs, while touching
 API keys (create/update/delete an account, test a connection) stays with administrators.
 
@@ -148,7 +157,7 @@ The `Admin` role:
 - Cannot be deleted via `DELETE /api/roles/{id}` (returns 403)
 - Cannot be renamed via `PUT /api/roles/{id}` (returns 403)
 
-When new permissions are added to the code, they are **not** automatically added to the Admin role after the first seed. Re-seed manually or add a migration step if needed.
+New permissions added to the code **are** granted to the Admin role automatically: `DbSeeder.SeedAsync` runs on every startup and inserts `Permissions.All.Except(existing)` for that role. No migration step is needed.
 
 ## Token Invalidation on Permission Change
 

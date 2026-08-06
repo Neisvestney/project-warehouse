@@ -1,5 +1,5 @@
 import {useEffect, useMemo, useState} from "react";
-import type {Control, UseFormSetValue} from "react-hook-form";
+import type {Control, FieldPath, UseFormSetValue} from "react-hook-form";
 import {Controller, useFieldArray, useForm, useWatch} from "react-hook-form";
 import {useMutation, useQueries, useQuery, useQueryClient} from "@tanstack/react-query";
 import {useSnackbar} from "notistack";
@@ -53,8 +53,17 @@ import type {
   CatalogItemDto,
   CatalogItemSelectDto,
   CatalogItemTagDto,
+  DataFileDto,
   UpdateCatalogItemRequest,
 } from "@/api/types.gen";
+import FileImage from "@/components/files/FileImage";
+import FileListControl from "@/components/files/controls/FileListControl";
+import SingleFileControl from "@/components/files/controls/SingleFileControl";
+import AddFileInput from "@/components/files/inputs/AddFileInput";
+import ImageCardFileView from "@/components/files/views/ImageCardFileView";
+import ImagePreviewFileView from "@/components/files/views/ImagePreviewFileView";
+import FileViewerModal from "@/components/files/viewer/FileViewerModal";
+import {viewable} from "@/components/files/viewer/viewableFile";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -62,6 +71,7 @@ import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
 import {FormTextField} from "@/components/form/FormTextField";
 import {useHasPermission} from "@/hooks/usePermission";
+import {useModal} from "@/hooks/useModal";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {useDebounce} from "@/hooks/useDebounce";
 import {isNotFoundError} from "@/utils/errorUtils";
@@ -82,6 +92,12 @@ type ComponentValue = {
   quantity: number;
 };
 
+type ImageValue = {
+  /** Id of the join row, absent until the image is saved with the item. */
+  entityId?: string;
+  file: DataFileDto;
+};
+
 type ChildValue = {
   entityId?: string;
   type: "standard" | "unit";
@@ -91,6 +107,8 @@ type ChildValue = {
   description: string;
   notes: string;
   tags: CatalogItemTagDto[];
+  mainImage: DataFileDto | null;
+  images: ImageValue[];
 };
 
 type CatalogItemFormValues = {
@@ -104,6 +122,8 @@ type CatalogItemFormValues = {
   members: CatalogItemSelectDto[];
   components: ComponentValue[];
   children: ChildValue[];
+  mainImage: DataFileDto | null;
+  images: ImageValue[];
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -125,6 +145,15 @@ function toPartialSelectDto(
   type: CatalogItemSelectDto["type"] = "standard",
 ): CatalogItemSelectDto {
   return {id, type, name: fullName, fullName, article: "", isArchived: false};
+}
+
+/** Order is the array index, so a drag-reorder needs no extra state. */
+function mapImagesToRequest(images: ImageValue[]) {
+  return images.map((image, index) => ({
+    id: image.entityId ?? null,
+    fileId: image.file.id,
+    order: index,
+  }));
 }
 
 function mapFormToRequest(values: CatalogItemFormValues): UpdateCatalogItemRequest {
@@ -151,8 +180,76 @@ function mapFormToRequest(values: CatalogItemFormValues): UpdateCatalogItemReque
       notes: c.notes || null,
       isArchived: values.isArchived,
       tags: c.tags.map((t) => t.id),
+      mainImageFileId: c.mainImage?.id ?? null,
+      images: mapImagesToRequest(c.images),
     })),
+    mainImageFileId: values.mainImage?.id ?? null,
+    images: mapImagesToRequest(values.images),
   };
+}
+
+// ─── ImagesFields ─────────────────────────────────────────────────────────────
+
+/**
+ * Main image plus gallery. Used both for the item itself and for each product group child, so the
+ * field names are passed in; the two casts are the price of one shared component.
+ */
+function ImagesFields({
+  control,
+  disabled,
+  mainName,
+  listName,
+  compact,
+}: {
+  control: Control<CatalogItemFormValues>;
+  disabled?: boolean;
+  mainName: FieldPath<CatalogItemFormValues>;
+  listName: FieldPath<CatalogItemFormValues>;
+  compact?: boolean;
+}) {
+  return (
+    <Stack direction={compact ? "column" : "row"} spacing={2} sx={{alignItems: "flex-start"}}>
+      <Controller
+        control={control}
+        name={mainName}
+        render={({field}) => (
+          <SingleFileControl
+            value={field.value as DataFileDto | null}
+            onChange={field.onChange}
+            View={ImageCardFileView}
+            Input={AddFileInput}
+            accept="image/*"
+            disabled={disabled}
+            inputLabel="Главное фото"
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name={listName}
+        render={({field}) => {
+          const images = (field.value ?? []) as ImageValue[];
+          return (
+            <FileListControl
+              value={images.map((i) => i.file)}
+              // keep entityId for files that were already saved, so the join row is updated, not recreated
+              onChange={(files) =>
+                field.onChange(
+                  files.map((file) => images.find((i) => i.file.id === file.id) ?? {file}),
+                )
+              }
+              View={ImagePreviewFileView}
+              Input={AddFileInput}
+              accept="image/*"
+              disabled={disabled}
+              sortable
+              inputLabel="Добавить фото"
+            />
+          );
+        }}
+      />
+    </Stack>
+  );
 }
 
 // ─── TagsAutocomplete ─────────────────────────────────────────────────────────
@@ -257,6 +354,48 @@ function LabeledRow({label, children}: {label: string; children: React.ReactNode
   );
 }
 
+/** Read-only image strip. The inherited marker matters: without it there is no way to tell an
+ *  item's own photo from the group's. */
+function ItemImagesView({item}: {item: CatalogItemDto}) {
+  const {showModal} = useModal();
+
+  const gallery = [...(item.mainImage ? [item.mainImage] : []), ...item.images.map((i) => i.file)];
+  if (gallery.length === 0) return null;
+
+  const inherited = !!item.mainImage && !item.mainImageFileId;
+
+  return (
+    <Stack spacing={0.5}>
+      <Stack direction="row" spacing={1} sx={{flexWrap: "wrap", gap: 1}}>
+        {gallery.map((file, index) => (
+          <Box
+            key={file.id}
+            onClick={() =>
+              showModal(FileViewerModal, {files: gallery.map(viewable), initialIndex: index})
+            }
+            sx={{
+              width: 96,
+              height: 96,
+              borderRadius: 1,
+              overflow: "hidden",
+              border: "1px solid",
+              borderColor: "divider",
+              cursor: "pointer",
+            }}
+          >
+            <FileImage source={file} previewWidth={192} style={{height: "100%"}} />
+          </Box>
+        ))}
+      </Stack>
+      {inherited && (
+        <Typography variant="caption" color="text.secondary">
+          Главное фото унаследовано от группы
+        </Typography>
+      )}
+    </Stack>
+  );
+}
+
 function ViewMode({
   itemId,
   onEdit,
@@ -304,6 +443,8 @@ function ViewMode({
   return (
     <Box sx={{overflowY: "auto", px: 2, py: 2, flex: 1}}>
       <Stack spacing={2}>
+        <ItemImagesView item={data} />
+
         {/* Basic fields */}
         <Stack spacing={1}>
           {data.isArchived && (
@@ -672,6 +813,12 @@ function ChildRow({
           onChange={(v) => setValue(`children.${index}.tags`, v)}
           disabled={isPending}
         />
+        <ImagesFields
+          control={control}
+          disabled={isPending}
+          mainName={`children.${index}.mainImage`}
+          listName={`children.${index}.images`}
+        />
       </Stack>
     </Box>
   );
@@ -708,6 +855,8 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
       members: [],
       components: [],
       children: [],
+      mainImage: null,
+      images: [],
     },
   });
   const {setApiError} = useRhfApiErrors(form);
@@ -739,7 +888,12 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
         description: c.description ?? "",
         notes: c.notes ?? "",
         tags: [...c.tags],
+        // a child's own image only — an inherited one must not be saved back as its own
+        mainImage: c.mainImageFileId ? (c.mainImage ?? null) : null,
+        images: c.images.map((i) => ({entityId: i.id, file: i.file})),
       })),
+      mainImage: data.mainImageFileId ? (data.mainImage ?? null) : null,
+      images: data.images.map((i) => ({entityId: i.id, file: i.file})),
     });
     // memberQueries changes reference each render — intentionally excluded
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -841,6 +995,17 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
           minRows={2}
           disabled={isPending}
         />
+        <Divider textAlign="left">
+          <Typography variant="caption" color="text.secondary">
+            Изображения
+          </Typography>
+        </Divider>
+        <ImagesFields
+          control={control}
+          disabled={isPending}
+          mainName="mainImage"
+          listName="images"
+        />
         <Controller
           control={control}
           name="isArchived"
@@ -922,6 +1087,8 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
                     description: "",
                     notes: "",
                     tags: [],
+                    mainImage: null,
+                    images: [],
                   })
                 }
                 disabled={isPending}

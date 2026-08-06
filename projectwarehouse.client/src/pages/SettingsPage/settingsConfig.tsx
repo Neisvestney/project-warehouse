@@ -2,6 +2,7 @@ import React from "react";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import PeopleIcon from "@mui/icons-material/People";
 import StorefrontIcon from "@mui/icons-material/Storefront";
+import StorageIcon from "@mui/icons-material/Storage";
 import {createHasAccess} from "@/layouts/SidebarPage/createHasAccess.ts";
 import {createFirstPageUrl} from "@/layouts/SidebarPage/createFirstPageUrl.ts";
 import type {SectionConfig} from "@/layouts/SidebarPage/SidebarPage.tsx";
@@ -13,6 +14,7 @@ import UserCreatePage from "@/pages/UsersPage/pages/UserCreatePage/UserCreatePag
 import MarketplacesSettingsPage from "./pages/MarketplacesSettingsPage/MarketplacesSettingsPage.tsx";
 import MarketplaceAccountCreatePage from "./pages/MarketplacesSettingsPage/pages/MarketplaceAccountCreatePage/MarketplaceAccountCreatePage.tsx";
 import MarketplaceAccountPage from "./pages/MarketplacesSettingsPage/pages/MarketplaceAccountPage/MarketplaceAccountPage.tsx";
+import StorageSettingsPage from "./pages/StorageSettingsPage/StorageSettingsPage.tsx";
 
 export const settingsSections: SectionConfig[] = [
   {
@@ -44,6 +46,13 @@ export const settingsSections: SectionConfig[] = [
       {path: "new", component: MarketplaceAccountCreatePage},
       {path: ":id", component: MarketplaceAccountPage},
     ],
+  },
+  {
+    label: "Хранилище",
+    path: "storage",
+    icon: <StorageIcon fontSize="small" />,
+    component: StorageSettingsPage,
+    requiredPermission: "system.view",
   },
 ];
 

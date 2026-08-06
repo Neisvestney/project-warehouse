@@ -119,6 +119,13 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   marketplaceCardMappingArchivedItem: "Нельзя привязать карточку к архивной позиции каталога",
   marketplaceWarehouseNotFound: "Склад маркетплейса не найден",
   marketplaceCardNotFound: "Карточка маркетплейса не найдена",
+  dataFileNotFound: "Файл не найден — возможно, форма была открыта слишком долго",
+  dataFileEmpty: "Файл пустой",
+  dataFileTooLarge: "Файл слишком большой",
+  dataFileTypeNotAllowed: "Этот тип файла загружать нельзя",
+  dataFileNotAnImage: "Превью доступно только для изображений",
+  dataFileWidthNotAllowed: "Недопустимый размер превью",
+  dataFileStorageError: "Не удалось сохранить файл",
 };
 
 /** Richer variants used only when the server supplied every placeholder in args. */
@@ -130,6 +137,9 @@ const errorCodeArgMessages: Partial<Record<ErrorCode, string>> = {
   marketplaceApiError: "Маркетплейс вернул ошибку {marketplaceStatus}",
   marketplaceCredentialsInvalid:
     "Маркетплейс отклонил Client-Id или Api-Key (код {marketplaceStatus})",
+  dataFileTooLarge: "Файл слишком большой — максимум {maxBytes} байт",
+  dataFileTypeNotAllowed: "Этот тип файла загружать нельзя. Допустимые: {allowed}",
+  dataFileWidthNotAllowed: "Недопустимый размер превью. Допустимые: {allowed}",
 };
 
 export function resolveErrorMessage(error: AppFieldError): string {

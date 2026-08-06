@@ -15,4 +15,7 @@ public class CreateCatalogItemRequest
     public string Article { get; init; } = null!;
 
     public string? Barcode { get; init; }
+
+    /// <summary>Additional images are edited afterwards in the item drawer.</summary>
+    public Guid? MainImageFileId { get; init; }
 }

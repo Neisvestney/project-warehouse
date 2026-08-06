@@ -19,7 +19,8 @@ public class CatalogController(
     ApplicationDbContext db,
     IMapper mapper,
     IChangeLogService<CatalogItemDto> changeLog,
-    ICatalogService catalogService) : AppControllerBase
+    ICatalogService catalogService,
+    IDataFileBindingService fileBinding) : AppControllerBase
 {
     /// <summary>List all catalog item tags, optionally filtered by name.</summary>
     [HttpGet("tags")]
@@ -157,6 +158,10 @@ public class CatalogController(
             Barcode = request.Barcode,
         };
 
+        var imageProblem = await fileBinding.BindSingleAsync(
+            request.MainImageFileId, v => item.MainImageFileId = v, "mainImageFileId", ct);
+        if (imageProblem is not null) return Problem(imageProblem);
+
         db.CatalogItems.Add(item);
         await db.SaveChangesAsync(ct);
 
@@ -184,11 +189,13 @@ public class CatalogController(
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCatalogItemRequest request, CancellationToken ct = default)
     {
         var item = await db.CatalogItems
+            .AsSplitQuery()
             .Include(c => c.Group)
             .Include(c => c.Tags)
             .Include(c => c.BundleComponents).ThenInclude(bc => bc.Component)
             .Include(c => c.VariationMemberships)
             .Include(c => c.VariationMembers)
+            .Include(c => c.Images)
             .FirstOrDefaultAsync(c => c.Id == id, ct);
 
         if (item is null)
@@ -215,6 +222,13 @@ public class CatalogController(
         item.Tags.Clear();
         foreach (var tag in newTags)
             item.Tags.Add(tag);
+
+        var imageProblem =
+            await fileBinding.BindSingleAsync(request.MainImageFileId,
+                v => item.MainImageFileId = v, "mainImageFileId", ct)
+            ?? await fileBinding.BindListAsync(request.Images, item.Images, db.CatalogItemImages,
+                setOwner: img => img.CatalogItemId = item.Id, field: "images", ct);
+        if (imageProblem is not null) return Problem(imageProblem);
 
         switch (item.Type)
         {
@@ -331,15 +345,28 @@ public class CatalogController(
         return NoContent();
     }
 
+    private async Task<AppProblemDetails?> BindChildImagesAsync(
+        ProductGroupChildRequest request, CatalogItem child, CancellationToken ct) =>
+        await fileBinding.BindSingleAsync(request.MainImageFileId,
+            v => child.MainImageFileId = v, "children.mainImageFileId", ct)
+        ?? await fileBinding.BindListAsync(request.Images, child.Images, db.CatalogItemImages,
+            setOwner: img => img.CatalogItemId = child.Id, field: "children.images", ct);
+
+    // nine collection includes in one query multiply into each other; images pushed it over the edge
     private Task<CatalogItem?> LoadItemWithDetailsAsync(Guid id, CancellationToken ct) =>
         db.CatalogItems
-            .Include(c => c.Group)
+            .AsSplitQuery()
+            .Include(c => c.Group).ThenInclude(g => g!.MainImageFile).ThenInclude(f => f!.CreatedBy)
             .Include(c => c.Tags)
             .Include(c => c.BundleComponents).ThenInclude(bc => bc.Component).ThenInclude(comp => comp.Group)
             .Include(c => c.VariationMemberships)
             .Include(c => c.VariationMembers)
+            .Include(c => c.MainImageFile).ThenInclude(f => f!.CreatedBy)
+            .Include(c => c.Images).ThenInclude(i => i.DataFile).ThenInclude(f => f.CreatedBy)
             .Include(c => c.GroupChildren).ThenInclude(child => child.Tags)
             .Include(c => c.GroupChildren).ThenInclude(child => child.VariationMemberships)
+            .Include(c => c.GroupChildren).ThenInclude(child => child.MainImageFile).ThenInclude(f => f!.CreatedBy)
+            .Include(c => c.GroupChildren).ThenInclude(child => child.Images).ThenInclude(i => i.DataFile)
             .Include(c => c.MarketplaceCards).ThenInclude(child => child.MarketplaceAccount)
             .FirstOrDefaultAsync(c => c.Id == id, ct);
 
@@ -451,6 +478,7 @@ public class CatalogController(
             .Where(c => c.GroupId == groupId)
             .Include(c => c.Tags)
             .Include(c => c.VariationMemberships)
+            .Include(c => c.Images)
             .ToListAsync(ct);
         var existingById = existingChildren.ToDictionary(c => c.Id);
 
@@ -561,6 +589,9 @@ public class CatalogController(
                 existing.Tags.Clear();
                 foreach (var tag in childTags)
                     existing.Tags.Add(tag);
+
+                var childImageProblem = await BindChildImagesAsync(req, existing, ct);
+                if (childImageProblem is not null) return Problem(childImageProblem);
             }
             else
             {
@@ -579,6 +610,10 @@ public class CatalogController(
                     GroupId = groupId,
                     Tags = childTags
                 };
+
+                var childImageProblem = await BindChildImagesAsync(req, newChild, ct);
+                if (childImageProblem is not null) return Problem(childImageProblem);
+
                 db.CatalogItems.Add(newChild);
             }
         }

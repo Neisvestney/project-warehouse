@@ -459,6 +459,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<bool>("IsArchived")
                         .HasColumnType("boolean");
 
+                    b.Property<Guid?>("MainImageFileId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -473,7 +476,33 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("GroupId");
 
+                    b.HasIndex("MainImageFileId");
+
                     b.ToTable("CatalogItems");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CatalogItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DataFileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DataFileId");
+
+                    b.HasIndex("CatalogItemId", "Order");
+
+                    b.ToTable("CatalogItemImages");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemTag", b =>
@@ -552,6 +581,54 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("ChangeLogEntries");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.DataFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("ImageHeight")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ImageWidth")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("StorageKey")
+                        .IsUnique();
+
+                    b.ToTable("DataFiles");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.InventoryItem", b =>
@@ -1563,7 +1640,33 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasForeignKey("GroupId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("ProjectWarehouse.Server.Domain.DataFile", "MainImageFile")
+                        .WithMany()
+                        .HasForeignKey("MainImageFileId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Group");
+
+                    b.Navigation("MainImageFile");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemImage", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
+                        .WithMany("Images")
+                        .HasForeignKey("CatalogItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.DataFile", "DataFile")
+                        .WithMany()
+                        .HasForeignKey("DataFileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CatalogItem");
+
+                    b.Navigation("DataFile");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemVariationMember", b =>
@@ -1593,6 +1696,16 @@ namespace ProjectWarehouse.Server.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.DataFile", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CreatedBy");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.InventoryItem", b =>
@@ -1637,7 +1750,7 @@ namespace ProjectWarehouse.Server.Migrations
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceCard", b =>
                 {
                     b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
-                        .WithMany()
+                        .WithMany("MarketplaceCards")
                         .HasForeignKey("CatalogItemId")
                         .OnDelete(DeleteBehavior.Restrict);
 
@@ -2017,6 +2130,10 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("BundleComponents");
 
                     b.Navigation("GroupChildren");
+
+                    b.Navigation("Images");
+
+                    b.Navigation("MarketplaceCards");
 
                     b.Navigation("VariationMembers");
 

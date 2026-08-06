@@ -1,7 +1,8 @@
 # REST API Reference
 
 Base URL: `https://localhost:7095` (dev) / configured host (prod)  
-All requests/responses use `application/json`.  
+All requests/responses use `application/json`, except the file endpoints — see [Files](#files--apifiles),
+which take `multipart/form-data` and return raw byte streams.  
 Error format: see [errors.md](errors.md).  
 Permission strings: see [permissions.md](permissions.md).
 
@@ -309,6 +310,15 @@ All item removals execute in a single DB transaction. If any operation fails, no
 - `id` present → update existing child
 - existing child not in the list → delete
 
+**Images** (`POST` accepts `mainImageFileId` only; `PUT` and each product group child accept both):
+- `mainImageFileId: Guid?` — the item's own main image
+- `images: [{ id: Guid?, fileId: Guid, order: number }]` — gallery; `id: null` creates the link, an existing
+  link missing from the list is removed. Removing a link does not delete the file; the GC does that later.
+- `CatalogItemDto.mainImage` is the **effective** image: the item's own, otherwise the parent group's, the same
+  way `description` and `notes` inherit. `mainImageFileId` stays null when the shown image is inherited — that
+  pair is how the UI tells "own" from "inherited". The `images` list is never inherited.
+- 422 `dataFileNotFound` — a referenced file does not exist (see [errors.md](errors.md))
+
 **Duplicate validation** (both `POST` and `PUT`):
 - 422 `catalogItemArticleDuplicate` — field `article`
 - 422 `catalogItemBarcodeDuplicate` — field `barcode`
@@ -354,6 +364,59 @@ Returns: `Paginated<UnitInventoryItemDto>`
 The `catalogItemId` filter is used by the frontend drawer to list all instances of a clicked catalog item.
 
 **`UnitInventoryItemDto`**: `{ id: Guid, sku: string, catalogItem: CatalogItemSummaryDto, warehouseId: Guid, warehouseName: string, storagePlaceId: Guid, storagePlaceName: string, nodeId: Guid, nodeName: string }`
+
+---
+
+## Files — `/api/files`
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/files` | Bearer | Upload one file (`multipart/form-data`, field `file`) → `DataFileDto` |
+| GET | `/api/files/{id}` | Bearer | Metadata → `DataFileDto` |
+| GET | `/api/files/{id}/content` | Bearer | The original bytes |
+| GET | `/api/files/{id}/thumbnail?width=` | Bearer | Downscaled preview, images only, always `image/webp` |
+
+**`DataFileDto`**: `{ id: Guid, originalFileName: string, contentType: string, sizeBytes: number, imageWidth: number?, imageHeight: number?, isImage: bool, createdById: Guid?, createdByUserName: string?, createdAt: DateTime }`
+
+No permission beyond `[Authorize]`: the right to attach a file is the right to edit the owning entity, and
+that is already checked on the entity's own endpoint. See [data-files-specification.md](data-files-specification.md)
+for the known limitation this leaves.
+
+**There is no delete endpoint.** The only way to remove a file is to drop the reference to it, after which the
+garbage collector takes it. That makes "entity points at a deleted file" unreachable.
+
+`width` must be one of `DataFiles:ThumbnailWidths` (default `64, 128, 256, 512, 1024`); arbitrary values are
+rejected so the disk cache cannot be flooded. An original narrower than the request is returned as-is.
+
+Responses carry `X-Content-Type-Options: nosniff`, an `ETag` derived from the ID (content at an ID is
+immutable), and support range requests. Only `image/jpeg|png|webp|gif` and `application/pdf` are served
+inline; everything else gets `Content-Disposition: attachment`. `image/svg+xml` is allow-listed nowhere —
+an SVG is a scriptable document and inline from our own origin it is stored XSS.
+
+---
+
+## System — `/api/system`
+
+| Method | Path | Permission | Description |
+|--------|------|------------|-------------|
+| GET | `/api/system/storage` | `system.view` | File storage usage → `StorageStatsDto` |
+| GET | `/api/system/database` | `system.view` | Database size by entity type → `DatabaseStatsDto` |
+
+**`StorageStatsDto`**: `{ fileCount, totalSizeBytes, byContentType: [{ contentType, count, sizeBytes }], largestFiles: [{ id, originalFileName, contentType, sizeBytes, createdAt }], orphanCount, orphanSizeBytes, orphanDueCount, orphanDueSizeBytes, thumbnailCacheSizeBytes, orphanTtlHours, diskStatsAt: DateTime?, disk: { mountPoint, totalBytes, freeBytes, usedBytes }? }`
+
+`orphanCount` is every file no foreign key points at; `orphanDueCount` is the subset already past
+`OrphanTtlHours` — what the next GC run will actually take. `disk` is null when the mount point could not be
+resolved. `thumbnailCacheSizeBytes` and `disk` come from a disk walk cached for `DataFiles:StatsCacheSeconds`;
+`diskStatsAt` says when they were measured.
+
+**`DatabaseStatsDto`**: `{ totalSizeBytes, tablesSizeBytes, byEntityType: [{ entityType: AppEntityType, sizeBytes, tableSizeBytes, indexSizeBytes, rowEstimate: long?, tables: [{ name, sizeBytes, tableSizeBytes, indexSizeBytes, rowEstimate: long? }] }] }`
+
+Sizes come from `pg_total_relation_size` (heap + TOAST + indexes) over `pg_class`, so `totalSizeBytes`
+(`pg_database_size`) exceeds `tablesSizeBytes` by Postgres' own catalogs. `rowEstimate` is
+`pg_class.reltuples` — the planner's estimate, **not** a count; it is null for a table that has never been
+analysed, and null for a group where no table has. Grouping is `Infrastructure/EntityTypeTables.cs`, which
+maps CLR entity types to `AppEntityType` and reads table names off the EF model; anything unmapped falls into
+`unknown` and is shown as «Прочее».
 
 ---
 

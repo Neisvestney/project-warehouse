@@ -61,6 +61,19 @@ export const PREDEFINED_SERVERS: ServerConfig[] = [
 
 ---
 
+## Ограничения WebView
+
+**PDF не рендерится.** WebView Android 7 на АТОЛ Smart Slim не отображает PDF ни в `<iframe>`, ни в `<object>` —
+показывает пустую рамку без какого-либо события ошибки. Поэтому `PdfFileRenderer` проверяет
+`Capacitor.isNativePlatform()` и вместо просмотрщика подставляет `UnsupportedFileRenderer` с кнопкой скачивания,
+которая передаёт файл системному приложению.
+
+Изображения в WebView работают штатно, включая масштабирование и перетаскивание в `FileViewerModal`.
+
+Прочие оговорки по целевому браузеру (`chrome >= 49`) — в [frontend.md](frontend.md).
+
+---
+
 ## Плагин аппаратного сканера АТОЛ E3
 
 ### Настройка на устройстве

@@ -1,8 +1,8 @@
 ﻿FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 USER root
 RUN apt-get update && apt-get install -y libgssapi-krb5-2 && rm -rf /var/lib/apt/lists/*
-# Data Protection key ring: the mounted volume is root-owned otherwise and the app cannot write it
-RUN mkdir -p /keys && chown $APP_UID:$APP_UID /keys
+# Data Protection key ring and file storage: the mounted volumes are root-owned otherwise and the app cannot write them
+RUN mkdir -p /keys /data/files && chown -R $APP_UID:$APP_UID /keys /data/files
 USER $APP_UID
 WORKDIR /app
 EXPOSE 8080
