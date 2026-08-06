@@ -3,7 +3,6 @@ import InfoRow from "@/components/InfoRow";
 import SyncErrorAlert from "../../components/SyncErrorAlert";
 import {
   MARKETPLACE_TYPE_LABELS,
-  formatApiKeyMask,
   formatDateTime,
   MARKETPLACE_TYPE_COLORS,
 } from "../../marketplaceUtils";
