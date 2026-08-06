@@ -29,15 +29,13 @@ services:
       - Jwt__SecretKey=${Jwt__SecretKey}
       - Seed__AdminPassword=${Seed__AdminPassword}
     volumes:
-      - dataprotection_keys:/keys
-      - datafiles_storage:/data/files
+      # Losing these makes every stored marketplace Api-Key undecryptable — back up alongside the DB.
+      - ./ProjectWarehouse.Server/keys:/keys
+      # Not self-contained: without a DB dump the file names on disk map to nothing.
+      - ./ProjectWarehouse.Server/.localdata:/data
     depends_on:
       postgres:
         condition: service_healthy
 
 volumes:
   postgres_data:
-  # Losing this volume makes every stored marketplace Api-Key undecryptable — back it up alongside the DB.
-  dataprotection_keys:
-  # Not self-contained: without a DB dump the file names on disk map to nothing. Back it up together with the DB.
-  datafiles_storage:
