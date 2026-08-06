@@ -20,10 +20,19 @@ public sealed class PostgresAdvisoryLock : IAsyncDisposable
         _key = key;
     }
 
+    /// <summary>
+    /// Marketplace-sync overload. Key-compatible with the pre-generalisation version: during a
+    /// rolling deploy old and new instances must hash the same string or both would sync at once.
+    /// </summary>
+    public static Task<PostgresAdvisoryLock?> TryAcquireAsync(
+        NpgsqlDataSource dataSource, Guid resource, CancellationToken ct) =>
+        TryAcquireAsync(dataSource, "marketplace-sync:", resource.ToString("N"), ct);
+
     /// <summary>Returns null when another session already holds the lock.</summary>
-    public static async Task<PostgresAdvisoryLock?> TryAcquireAsync(NpgsqlDataSource dataSource, Guid resource, CancellationToken ct)
+    public static async Task<PostgresAdvisoryLock?> TryAcquireAsync(
+        NpgsqlDataSource dataSource, string scope, string resource, CancellationToken ct)
     {
-        var key = ToKey(resource);
+        var key = ToKey(scope + resource);
         var connection = await dataSource.OpenConnectionAsync(ct);
         try
         {
@@ -61,10 +70,7 @@ public sealed class PostgresAdvisoryLock : IAsyncDisposable
         }
     }
 
-    // The advisory key space is per-database and this module is its only user, so a plain hash is safe.
-    private static long ToKey(Guid resource)
-    {
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes("marketplace-sync:" + resource.ToString("N")));
-        return BitConverter.ToInt64(hash, 0);
-    }
+    // The advisory key space is per-database, and the scope prefix keeps unrelated users apart.
+    private static long ToKey(string resource) =>
+        BitConverter.ToInt64(SHA256.HashData(Encoding.UTF8.GetBytes(resource)), 0);
 }

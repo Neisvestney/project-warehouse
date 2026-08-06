@@ -156,6 +156,21 @@ The last four codes are also persisted, not just returned: `MarketplaceSyncRun.E
 machine-readable `code` and `args` instead of a prose string. `ErrorCode` is serialized there as its **integer**
 value (Npgsql's serializer, not the MVC one), which is why the enum may only ever be appended to.
 
+### DataFiles
+| Code | When | `args` |
+|------|------|--------|
+| `dataFileNotFound` | File ID not found. Also returned when an entity is saved with a reference to a file the GC already collected — a form left open longer than `OrphanTtlHours` | — |
+| `dataFileEmpty` | No file in the request, or zero bytes | — |
+| `dataFileTooLarge` | Larger than `DataFiles:MaxFileSizeBytes` | `{ maxBytes: number }` |
+| `dataFileTypeNotAllowed` | The declared content type is not allow-listed, or does not match what the leading bytes look like | `{ allowed: string }` |
+| `dataFileNotAnImage` | A preview was requested for a non-image, or the image could not be decoded | — |
+| `dataFileWidthNotAllowed` | `?width=` is not one of `DataFiles:ThumbnailWidths` | `{ allowed: string }` |
+| `dataFileStorageError` | Bytes were stored but the metadata row could not be written; the bytes are removed again | — |
+
+`dataFileNotFound` on a **save** is the expected failure mode of upload-first, not a bug: the file was
+uploaded, the form sat open past the TTL, and the collector took it. It is raised by an explicit existence
+check rather than by the foreign key, because a raw `23503` would surface as a 500 that the client cannot render.
+
 ### Validation
 | Code | When | `args` |
 |------|------|--------|

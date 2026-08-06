@@ -26,8 +26,11 @@ public class ApplicationDbContext : IdentityDbContext<
 
     public DbSet<ChangeLogEntry> ChangeLogEntries => Set<ChangeLogEntry>();
 
+    public DbSet<DataFile> DataFiles => Set<DataFile>();
+
     public DbSet<CatalogItem> CatalogItems => Set<CatalogItem>();
     public DbSet<CatalogItemTag> CatalogItemTags => Set<CatalogItemTag>();
+    public DbSet<CatalogItemImage> CatalogItemImages => Set<CatalogItemImage>();
     public DbSet<CatalogItemVariationMember> CatalogItemVariationMembers => Set<CatalogItemVariationMember>();
     public DbSet<BundleComponent> BundleComponents => Set<BundleComponent>();
 
@@ -115,6 +118,30 @@ public class ApplicationDbContext : IdentityDbContext<
             e.HasMany(x => x.Tags)
                 .WithMany(x => x.Items)
                 .UsingEntity("CatalogItemTagLinks");
+
+            // Restrict, never Cascade: deleting a file must not delete the item that uses it
+            e.HasOne(x => x.MainImageFile)
+                .WithMany()
+                .HasForeignKey(x => x.MainImageFileId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<CatalogItemImage>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.CatalogItem)
+                .WithMany(x => x.Images)
+                .HasForeignKey(x => x.CatalogItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.DataFile)
+                .WithMany()
+                .HasForeignKey(x => x.DataFileId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(x => new { x.CatalogItemId, x.Order });
         });
 
         builder.Entity<CatalogItemVariationMember>(e =>
@@ -539,6 +566,24 @@ public class ApplicationDbContext : IdentityDbContext<
 
             e.HasIndex(x => new { x.MarketplaceAccountId, x.StartedAt })
                 .IsDescending(false, true);
+        });
+
+        builder.Entity<DataFile>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.Property(x => x.StorageKey).HasMaxLength(256);
+            e.Property(x => x.OriginalFileName).HasMaxLength(256);
+            e.Property(x => x.ContentType).HasMaxLength(128);
+
+            e.HasIndex(x => x.StorageKey).IsUnique();
+            e.HasIndex(x => x.CreatedAt);
+
+            e.HasOne(x => x.CreatedBy)
+                .WithMany()
+                .HasForeignKey(x => x.CreatedById)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Npgsql requires DateTime values with Kind=Utc for "timestamp with time zone" columns.

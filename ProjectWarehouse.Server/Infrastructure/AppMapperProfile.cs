@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Text.Json;
 using AutoMapper;
 using ProjectWarehouse.Server.Domain;
@@ -5,6 +6,7 @@ using ProjectWarehouse.Server.Models.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
 using ProjectWarehouse.Server.Models.Events;
+using ProjectWarehouse.Server.Models.Files;
 using ProjectWarehouse.Server.Models.Integrations;
 using ProjectWarehouse.Server.Models.Inventory;
 using ProjectWarehouse.Server.Models.Receipts;
@@ -18,6 +20,48 @@ namespace ProjectWarehouse.Server.Infrastructure;
 
 public class AppMapperProfile : Profile
 {
+    /// <summary>
+    /// Main image with group inheritance, mirroring EffectiveDescription/EffectiveNotes.
+    /// </summary>
+    /// <remarks>
+    /// Written as a conditional that builds the DTO on both branches rather than as a
+    /// <c>[Projectable]</c> coalescing two navigations: branches returning a non-entity type are
+    /// unambiguously translated to CASE WHEN by EF, and the same expression stays correct when
+    /// AutoMapper runs it in memory instead of translating it.
+    /// </remarks>
+    private static readonly Expression<Func<CatalogItem, DataFileDto?>> EffectiveMainImage = s =>
+        s.MainImageFile != null
+            ? new DataFileDto
+            {
+                Id = s.MainImageFile.Id,
+                OriginalFileName = s.MainImageFile.OriginalFileName,
+                ContentType = s.MainImageFile.ContentType,
+                SizeBytes = s.MainImageFile.SizeBytes,
+                ImageWidth = s.MainImageFile.ImageWidth,
+                ImageHeight = s.MainImageFile.ImageHeight,
+                IsImage = s.MainImageFile.ContentType.StartsWith("image/"),
+                CreatedById = s.MainImageFile.CreatedById,
+                CreatedByUserName = s.MainImageFile.CreatedBy != null ? s.MainImageFile.CreatedBy.UserName : null,
+                CreatedAt = s.MainImageFile.CreatedAt,
+            }
+            : s.Group != null && s.Group.MainImageFile != null
+                ? new DataFileDto
+                {
+                    Id = s.Group.MainImageFile.Id,
+                    OriginalFileName = s.Group.MainImageFile.OriginalFileName,
+                    ContentType = s.Group.MainImageFile.ContentType,
+                    SizeBytes = s.Group.MainImageFile.SizeBytes,
+                    ImageWidth = s.Group.MainImageFile.ImageWidth,
+                    ImageHeight = s.Group.MainImageFile.ImageHeight,
+                    IsImage = s.Group.MainImageFile.ContentType.StartsWith("image/"),
+                    CreatedById = s.Group.MainImageFile.CreatedById,
+                    CreatedByUserName = s.Group.MainImageFile.CreatedBy != null
+                        ? s.Group.MainImageFile.CreatedBy.UserName
+                        : null,
+                    CreatedAt = s.Group.MainImageFile.CreatedAt,
+                }
+                : null;
+
     public AppMapperProfile()
     {
         CreateMap<ApplicationRole, RoleDto>();
@@ -46,8 +90,20 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.Children, opt => opt.MapFrom(s => s.GroupChildren))
             .ForMember(x => x.MarketplaceAccounts, opt => opt.MapFrom(w =>
                 w.MarketplaceCards.Select(mw => mw.MarketplaceAccount).Distinct()
-            ));
-        CreateMap<CatalogItem, CatalogItemSummaryDto>();
+            ))
+            .ForMember(d => d.MainImage, opt => opt.MapFrom(EffectiveMainImage))
+            .ForMember(d => d.Images, opt => opt.MapFrom(s => s.Images.OrderBy(i => i.Order)));
+
+        CreateMap<CatalogItemImage, CatalogItemImageDto>()
+            .ForMember(d => d.File, opt => opt.MapFrom(s => s.DataFile));
+
+        // the list updater creates new links through the mapper; Id is the join row's own key
+        CreateMap<CatalogItemImageRequest, CatalogItemImage>()
+            .ForMember(d => d.Id, opt => opt.Ignore())
+            .ForMember(d => d.DataFileId, opt => opt.MapFrom(s => s.FileId));
+
+        CreateMap<CatalogItem, CatalogItemSummaryDto>()
+            .ForMember(d => d.MainImage, opt => opt.MapFrom(EffectiveMainImage));
         CreateMap<CatalogItem, CatalogItemSelectDto>();
         CreateMap<CatalogItem, NodeCatalogItemDto>();
 
@@ -255,6 +311,10 @@ public class AppMapperProfile : Profile
         CreateMap<MarketplaceSyncRun, MarketplaceSyncRunDto>()
             .ForMember(d => d.TriggeredByName,
                 opt => opt.MapFrom(s => s.TriggeredBy != null ? s.TriggeredBy.UserName : null));
+
+        CreateMap<DataFile, DataFileDto>()
+            .ForMember(d => d.CreatedByUserName,
+                opt => opt.MapFrom(s => s.CreatedBy != null ? s.CreatedBy.UserName : null));
 
         CreateMap<ChangeLogEntry, ChangeLogEntryDto>()
             .ForMember(d => d.UserName, opt => opt.MapFrom(s => s.User != null ? s.User.UserName : "deleted"))

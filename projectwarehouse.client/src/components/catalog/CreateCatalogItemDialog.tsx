@@ -16,7 +16,10 @@ import {
   Stack,
 } from "@mui/material";
 import {catalogCreateMutation, catalogGetAllQueryKey} from "@/api/@tanstack/react-query.gen";
-import type {CatalogItemType} from "@/api/types.gen";
+import type {CatalogItemType, DataFileDto} from "@/api/types.gen";
+import SingleFileControl from "@/components/files/controls/SingleFileControl";
+import AddFileInput from "@/components/files/inputs/AddFileInput";
+import ImageCardFileView from "@/components/files/views/ImageCardFileView";
 import {CATALOG_ITEM_TYPE_CONFIG} from "@/features/catalog";
 import {FormTextField} from "@/components/form/FormTextField";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
@@ -26,6 +29,7 @@ type CreateFormValues = {
   name: string;
   article: string;
   barcode: string;
+  mainImage: DataFileDto | null;
 };
 
 const CREATABLE_TYPES: CatalogItemType[] = [
@@ -46,7 +50,7 @@ export function CreateCatalogItemDialog({open, onClose, onCreated}: CreateCatalo
   const queryClient = useQueryClient();
 
   const form = useForm<CreateFormValues>({
-    defaultValues: {type: "standard", name: "", article: "", barcode: ""},
+    defaultValues: {type: "standard", name: "", article: "", barcode: "", mainImage: null},
   });
   const {setApiError} = useRhfApiErrors(form);
   const {control, formState, reset} = form;
@@ -77,6 +81,7 @@ export function CreateCatalogItemDialog({open, onClose, onCreated}: CreateCatalo
         name: values.name,
         article: values.article,
         barcode: values.barcode || null,
+        mainImageFileId: values.mainImage?.id ?? null,
       },
     });
   });
@@ -128,6 +133,21 @@ export function CreateCatalogItemDialog({open, onClose, onCreated}: CreateCatalo
             size="small"
             fullWidth
             disabled={isPending}
+          />
+          <Controller
+            control={control}
+            name="mainImage"
+            render={({field}) => (
+              <SingleFileControl
+                value={field.value}
+                onChange={field.onChange}
+                View={ImageCardFileView}
+                Input={AddFileInput}
+                accept="image/*"
+                disabled={isPending}
+                inputLabel="Главное фото"
+              />
+            )}
           />
           {formState.errors.root && <Alert severity="error">{formState.errors.root.message}</Alert>}
         </Stack>

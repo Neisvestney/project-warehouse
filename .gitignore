@@ -99,3 +99,4 @@ nunit-*.xml
 publish
 # Data Protection key ring (dev)
 keys/
+.localdata/

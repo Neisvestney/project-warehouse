@@ -1,5 +1,6 @@
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Models.Files;
 using ProjectWarehouse.Server.Models.Integrations;
 
 namespace ProjectWarehouse.Server.Models.Catalog;
@@ -22,6 +23,15 @@ public class CatalogItemDto : IHasIdentity
     public IReadOnlyList<Guid> VariationIds { get; init; } = [];
     public IReadOnlyList<Guid> MemberIds { get; init; } = [];
     public IReadOnlyList<MarketplaceAccountShortSummaryDto> MarketplaceAccounts { get; init; } = [];
+
+    /// <summary>The item's own main image, absent when the image shown is inherited from the group.</summary>
+    public Guid? MainImageFileId { get; init; }
+
+    /// <summary>Effective main image: the item's own, otherwise the group's.</summary>
+    public DataFileDto? MainImage { get; init; }
+
+    /// <summary>Additional images. Unlike <see cref="MainImage"/> these are never inherited.</summary>
+    public IReadOnlyList<CatalogItemImageDto> Images { get; init; } = [];
 
     // ProductGroup only
     public IReadOnlyList<CatalogItemDto> Children { get; init; } = [];

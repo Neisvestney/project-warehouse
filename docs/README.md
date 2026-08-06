@@ -16,7 +16,7 @@ ProjectWarehouse.Server/   ASP.NET Core 10 REST API
   └── Migrations/          EF Core migrations
 ```
 
-**Backend:** ASP.NET Core 10, Entity Framework Core, PostgreSQL, ASP.NET Core Identity, JWT Bearer auth  
+**Backend:** ASP.NET Core 10, Entity Framework Core, PostgreSQL, ASP.NET Core Identity, JWT Bearer auth, Quartz, SixLabors.ImageSharp  
 **Frontend:** React 19, TypeScript 6, Vite 8, MUI v9, React Router v7, PWA (vite-plugin-pwa), zxing-wasm
 
 ## Docs Index
@@ -35,6 +35,11 @@ ProjectWarehouse.Server/   ASP.NET Core 10 REST API
 | [orders-specification.md](orders-specification.md) | Orders system — FBS, FBO, Direct, assembly tasks, status flows |
 | [marketplaces-specification.md](marketplaces-specification.md) | Marketplace integrations — Ozon Seller API, client codegen, credential storage, warehouse/card sync & mapping |
 | [realtime-specification.md](realtime-specification.md) | Real-time updates — SSE transport, event schema, advisory edit locks |
+| [data-files-specification.md](data-files-specification.md) | File storage — upload, local/S3 abstraction, FK attachments, orphan GC, viewer components |
+
+> **Licence note.** Image resizing uses **SixLabors.ImageSharp 3.x**, which is under the Six Labors Split
+> License: free for organizations under $1M annual revenue, commercial licence required above it. Revisit this
+> if that threshold is crossed; the alternative is SkiaSharp (MIT), which needs native Linux assets in the image.
 
 ## Local Dev Setup
 

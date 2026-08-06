@@ -55,7 +55,9 @@ export type AppEntityType =
   | "writeoff"
   | "order"
   | "marketplaceAccount"
-  | "marketplaceCard";
+  | "marketplaceCard"
+  | "changeLog"
+  | "inventoryItem";
 
 export type AppFieldError = {
   code: ErrorCode;
@@ -231,7 +233,35 @@ export type CatalogItemDto = {
   variationIds: Array<string>;
   memberIds: Array<string>;
   marketplaceAccounts: Array<MarketplaceAccountShortSummaryDto>;
+  /**
+   * The item's own main image, absent when the image shown is inherited from the group.
+   */
+  mainImageFileId?: null | string;
+  mainImage?: null | DataFileDto;
+  /**
+   * Additional images. Unlike DataFileDto? CatalogItemDto.MainImage these are never inherited.
+   */
+  images: Array<CatalogItemImageDto>;
   children: Array<CatalogItemDto>;
+};
+
+/**
+ * IHasIdentity matters here: the changelog's compare logic matches collection elements by Id
+ * rather than by position, so reordering images does not read as a full rewrite.
+ */
+export type CatalogItemImageDto = {
+  id: string;
+  file: DataFileDto;
+  order: number;
+};
+
+export type CatalogItemImageRequest = {
+  /**
+   * Null for an image not yet attached to the item.
+   */
+  id?: null | string;
+  fileId: string;
+  order: number;
 };
 
 export type CatalogItemSelectDto = {
@@ -252,6 +282,7 @@ export type CatalogItemSummaryDto = {
   barcode?: null | string;
   isArchived: boolean;
   tags: Array<CatalogItemTagDto>;
+  mainImage?: null | DataFileDto;
 };
 
 export type CatalogItemTagDto = {
@@ -294,6 +325,12 @@ export type ChangePasswordRequest = {
   newPassword: string;
 };
 
+export type ContentTypeStatDto = {
+  contentType: string;
+  count: number;
+  sizeBytes: number;
+};
+
 export type CreateAssemblyTaskBoxComponentRequest = {
   catalogItemId: string;
   quantity: number;
@@ -314,6 +351,10 @@ export type CreateCatalogItemRequest = {
   name: string;
   article: string;
   barcode?: null | string;
+  /**
+   * Additional images are edited afterwards in the item drawer.
+   */
+  mainImageFileId?: null | string;
 };
 
 export type CreateCatalogItemTagRequest = {
@@ -393,6 +434,53 @@ export type CreateWriteoffRequest = {
   reason: WriteoffReason;
   warehouseId: string;
   notes?: null | string;
+};
+
+export type DatabaseStatsDto = {
+  /**
+   * Everything the database occupies, including catalogs — always at least the table sum.
+   */
+  totalSizeBytes: number;
+  /**
+   * Sum of the groups below. Smaller than long DatabaseStatsDto.TotalSizeBytes by system overhead.
+   */
+  tablesSizeBytes: number;
+  byEntityType: Array<EntityTypeStatDto>;
+};
+
+/**
+ * File metadata. `StorageKey` is deliberately absent — it is an internal storage detail.
+ */
+export type DataFileDto = {
+  id: string;
+  originalFileName: string;
+  contentType: string;
+  sizeBytes: number;
+  imageWidth?: null | number;
+  imageHeight?: null | number;
+  isImage: boolean;
+  createdById?: null | string;
+  createdByUserName?: null | string;
+  createdAt: string;
+};
+
+export type DiskSpaceDto = {
+  mountPoint: string;
+  totalBytes: number;
+  freeBytes: number;
+  usedBytes: number;
+};
+
+export type EntityTypeStatDto = {
+  entityType: AppEntityType;
+  sizeBytes: number;
+  tableSizeBytes: number;
+  indexSizeBytes: number;
+  /**
+   * Null when no table in the group has been analysed yet — a zero would read as "empty".
+   */
+  rowEstimate?: null | number;
+  tables: Array<TableStatDto>;
 };
 
 export type ErrorCode =
@@ -497,7 +585,14 @@ export type ErrorCode =
   | "passwordAtLeastOneUppercase"
   | "passwordAtLeastOneLowercase"
   | "passwordInvalid"
-  | "validationError";
+  | "validationError"
+  | "dataFileNotFound"
+  | "dataFileEmpty"
+  | "dataFileTooLarge"
+  | "dataFileTypeNotAllowed"
+  | "dataFileNotAnImage"
+  | "dataFileWidthNotAllowed"
+  | "dataFileStorageError";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -510,6 +605,8 @@ export type ExecuteTransferRequest = {
   toNodeId: string;
   items: Array<TransferItemRequest>;
 };
+
+export type IFormFile = Blob | File;
 
 export type InventoryItemSortBy = "name" | "fullName" | "article" | "type" | "count";
 
@@ -526,6 +623,14 @@ export type ItemsGroupDto = {
 };
 
 export type JsonElement = unknown;
+
+export type LargestFileDto = {
+  id: string;
+  originalFileName: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+};
 
 export type LoginRequest = {
   username: string;
@@ -936,6 +1041,7 @@ export type PermissionName =
   | "orders.edit_assigned"
   | "orders.assemble_assigned"
   | "orders.self_assign"
+  | "system.view"
   | "integrations.view"
   | "integrations.edit"
   | "integrations.map";
@@ -950,6 +1056,8 @@ export type ProductGroupChildRequest = {
   notes?: null | string;
   isArchived: boolean;
   tags: Array<string>;
+  mainImageFileId?: null | string;
+  images: Array<CatalogItemImageRequest>;
 };
 
 export type QuickAddReceiptItemRequest = {
@@ -1123,6 +1231,44 @@ export type StoragePlaceNodePrintDto = {
   name: Array<string>;
 };
 
+export type StorageStatsDto = {
+  fileCount: number;
+  totalSizeBytes: number;
+  byContentType: Array<ContentTypeStatDto>;
+  largestFiles: Array<LargestFileDto>;
+  /**
+   * Files no foreign key points at, including those still inside the orphan TTL.
+   */
+  orphanCount: number;
+  orphanSizeBytes: number;
+  /**
+   * Subset of the above already past the TTL — what the next GC run will take.
+   */
+  orphanDueCount: number;
+  orphanDueSizeBytes: number;
+  thumbnailCacheSizeBytes: number;
+  orphanTtlHours: number;
+  /**
+   * When the cached disk figures were taken. Null when computed on this request.
+   */
+  diskStatsAt?: null | string;
+  disk?: null | DiskSpaceDto;
+};
+
+export type TableStatDto = {
+  name: string;
+  /**
+   * Table plus TOAST plus indexes — what the table really costs on disk.
+   */
+  sizeBytes: number;
+  tableSizeBytes: number;
+  indexSizeBytes: number;
+  /**
+   * Planner estimate from `pg_class.reltuples`, not a count. Null before the first ANALYZE.
+   */
+  rowEstimate?: null | number;
+};
+
 /**
  * When ApiKey is supplied the route id is ignored, so a key can be checked before the account exists.
  */
@@ -1207,6 +1353,8 @@ export type UpdateCatalogItemRequest = {
   notes?: null | string;
   isArchived: boolean;
   tags: Array<string>;
+  mainImageFileId?: null | string;
+  images: Array<CatalogItemImageRequest>;
   groupId?: null | string;
   memberIds: Array<string>;
   components: Array<BundleComponentRequest>;
@@ -1948,6 +2096,148 @@ export type EventsGetEventsResponses = {
 };
 
 export type EventsGetEventsResponse = EventsGetEventsResponses[keyof EventsGetEventsResponses];
+
+export type FilesUploadData = {
+  body: {
+    file?: IFormFile;
+  };
+  path?: never;
+  query?: never;
+  url: "/api/files";
+};
+
+export type FilesUploadErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type FilesUploadError = FilesUploadErrors[keyof FilesUploadErrors];
+
+export type FilesUploadResponses = {
+  /**
+   * OK
+   */
+  200: DataFileDto;
+};
+
+export type FilesUploadResponse = FilesUploadResponses[keyof FilesUploadResponses];
+
+export type FilesGetByIdData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/files/{id}";
+};
+
+export type FilesGetByIdErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type FilesGetByIdError = FilesGetByIdErrors[keyof FilesGetByIdErrors];
+
+export type FilesGetByIdResponses = {
+  /**
+   * OK
+   */
+  200: DataFileDto;
+};
+
+export type FilesGetByIdResponse = FilesGetByIdResponses[keyof FilesGetByIdResponses];
+
+export type FilesGetContentData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/files/{id}/content";
+};
+
+export type FilesGetContentErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type FilesGetContentError = FilesGetContentErrors[keyof FilesGetContentErrors];
+
+export type FilesGetContentResponses = {
+  /**
+   * OK
+   */
+  200: unknown;
+};
+
+export type FilesGetThumbnailData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: {
+    width?: number;
+  };
+  url: "/api/files/{id}/thumbnail";
+};
+
+export type FilesGetThumbnailErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type FilesGetThumbnailError = FilesGetThumbnailErrors[keyof FilesGetThumbnailErrors];
+
+export type FilesGetThumbnailResponses = {
+  /**
+   * OK
+   */
+  200: unknown;
+};
 
 export type InventoryItemsGetAllData = {
   body?: never;
@@ -4525,6 +4815,68 @@ export type StoragePlacesReorderNodesResponses = {
 
 export type StoragePlacesReorderNodesResponse =
   StoragePlacesReorderNodesResponses[keyof StoragePlacesReorderNodesResponses];
+
+export type SystemGetStorageStatsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/system/storage";
+};
+
+export type SystemGetStorageStatsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type SystemGetStorageStatsError =
+  SystemGetStorageStatsErrors[keyof SystemGetStorageStatsErrors];
+
+export type SystemGetStorageStatsResponses = {
+  /**
+   * OK
+   */
+  200: StorageStatsDto;
+};
+
+export type SystemGetStorageStatsResponse =
+  SystemGetStorageStatsResponses[keyof SystemGetStorageStatsResponses];
+
+export type SystemGetDatabaseStatsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/system/database";
+};
+
+export type SystemGetDatabaseStatsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type SystemGetDatabaseStatsError =
+  SystemGetDatabaseStatsErrors[keyof SystemGetDatabaseStatsErrors];
+
+export type SystemGetDatabaseStatsResponses = {
+  /**
+   * OK
+   */
+  200: DatabaseStatsDto;
+};
+
+export type SystemGetDatabaseStatsResponse =
+  SystemGetDatabaseStatsResponses[keyof SystemGetDatabaseStatsResponses];
 
 export type TransfersExecuteData = {
   body: ExecuteTransferRequest;

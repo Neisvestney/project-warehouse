@@ -20,6 +20,7 @@ using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Files;
 using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Integrations.Ozon;
@@ -188,6 +189,29 @@ try
         .PersistKeysToFileSystem(new DirectoryInfo(marketplacesOptions.KeyRingPath))
         .SetApplicationName("ProjectWarehouse");
 
+    builder.Services.Configure<DataFilesOptions>(
+        builder.Configuration.GetSection(DataFilesOptions.SectionName));
+    // Configuration binding APPENDS to an array that already has defaults instead of replacing it,
+    // so a section repeating the defaults silently doubles every entry.
+    builder.Services.PostConfigure<DataFilesOptions>(o =>
+    {
+        o.ThumbnailWidths = o.ThumbnailWidths.Distinct().OrderBy(w => w).ToArray();
+        o.AllowedContentTypes = o.AllowedContentTypes.Distinct().ToArray();
+    });
+
+    var dataFilesOptions = builder.Configuration.GetSection(DataFilesOptions.SectionName)
+        .Get<DataFilesOptions>() ?? new DataFilesOptions();
+
+    // the mounted volume is root-owned until the app touches it; both subtrees must exist before the first upload
+    Directory.CreateDirectory(Path.Combine(dataFilesOptions.StorageRoot, "files"));
+    Directory.CreateDirectory(Path.Combine(dataFilesOptions.StorageRoot, "thumbs"));
+
+    builder.Services.AddScoped<IFileStorage, LocalFileStorage>();
+    builder.Services.AddScoped<IDataFileBindingService, DataFileBindingService>();
+    builder.Services.AddScoped<IStorageStatsService, StorageStatsService>();
+    builder.Services.AddScoped<IDatabaseStatsService, DatabaseStatsService>();
+    builder.Services.AddMemoryCache();
+
     builder.Services.AddScoped<IMarketplaceCredentialProtector, MarketplaceCredentialProtector>();
 
     // singleton: the state is ambient (AsyncLocal), and the auth handler lives in IHttpClientFactory's own scope
@@ -206,6 +230,13 @@ try
             .ForJob(jobKey)
             .WithIdentity(MarketplaceSyncScanJob.Key + "-trigger")
             .WithCronSchedule(marketplacesOptions.SyncScanCron));
+
+        var gcKey = new JobKey(DataFilesGcJob.Key);
+        q.AddJob<DataFilesGcJob>(gcKey);
+        q.AddTrigger(t => t
+            .ForJob(gcKey)
+            .WithIdentity(DataFilesGcJob.Key + "-trigger")
+            .WithCronSchedule(dataFilesOptions.GcCron));
     });
     builder.Services.AddQuartzHostedService(o => o.WaitForJobsToComplete = true);
 

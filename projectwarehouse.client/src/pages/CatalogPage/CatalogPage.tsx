@@ -1,5 +1,6 @@
 import {useState} from "react";
 import {
+  Box,
   Button,
   Checkbox,
   Chip,
@@ -21,6 +22,8 @@ import {
   MenuItem,
 } from "@mui/material";
 import ArchiveIcon from "@mui/icons-material/Archive";
+import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
+import FileImage from "@/components/files/FileImage";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import StarIcon from "@mui/icons-material/Star";
 import {useQuery} from "@tanstack/react-query";
@@ -185,6 +188,7 @@ function CatalogPage() {
           <Table size="small">
             <TableHead>
               <TableRow>
+                <TableCell sx={{width: 56}} />
                 {SORTABLE_COLUMNS.map(({key, label}) => (
                   <TableCell key={key}>
                     <TableSortLabel
@@ -201,9 +205,9 @@ function CatalogPage() {
             </TableHead>
             <TableBody>
               {isLoading ? (
-                <TableRowLoader colSpan={5} />
+                <TableRowLoader colSpan={6} />
               ) : data?.items.length === 0 ? (
-                <TableRowEmpty colSpan={5} message="Позиции не найдены" />
+                <TableRowEmpty colSpan={6} message="Позиции не найдены" />
               ) : (
                 data?.items.map((item) => (
                   <TableRow
@@ -217,6 +221,36 @@ function CatalogPage() {
                     }}
                     onClick={() => openDrawer(item.id)}
                   >
+                    <TableCell sx={{width: 56}}>
+                      <Box
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 1,
+                          overflow: "hidden",
+                          bgcolor: "action.hover",
+                        }}
+                      >
+                        <FileImage
+                          source={item.mainImage}
+                          previewWidth={64}
+                          style={{height: "100%"}}
+                          fallback={
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: "100%",
+                                height: "100%",
+                              }}
+                            >
+                              <ImageOutlinedIcon fontSize="small" color="disabled" />
+                            </Box>
+                          }
+                        />
+                      </Box>
+                    </TableCell>
                     <TableCell sx={{width: 120}}>
                       <CatalogItemTypeChip type={item.type} />
                     </TableCell>

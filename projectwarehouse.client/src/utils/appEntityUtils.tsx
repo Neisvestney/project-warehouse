@@ -15,6 +15,8 @@ import AssignmentIcon from "@mui/icons-material/Assignment";
 import QuestionMarkIcon from "@mui/icons-material/QuestionMark";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
+import HistoryIcon from "@mui/icons-material/History";
+import Inventory2Icon from "@mui/icons-material/Inventory2";
 import React from "react";
 import {Chip, Typography} from "@mui/material";
 import ReceiptStatusChip from "@/components/receipts/ReceiptStatusChip.tsx";
@@ -183,6 +185,18 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     linkTemplate: "no-link",
     typeName: "Карточка маркетплейса",
     icon: <LocalOfferIcon />,
+  },
+  // Сам журнал изменений. Не сущность, за которой ходят на страницу — заведён ради статистики хранилища
+  changeLog: {
+    linkTemplate: "no-link",
+    typeName: "История изменений",
+    icon: <HistoryIcon />,
+  },
+  // Тоже только ради статистики: у остатков нет своей страницы, их смотрят через склад или товар
+  inventoryItem: {
+    linkTemplate: "no-link",
+    typeName: "Остатки",
+    icon: <Inventory2Icon />,
   },
 };
 

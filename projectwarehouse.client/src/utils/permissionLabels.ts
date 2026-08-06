@@ -37,6 +37,7 @@ const permissionLabels: Record<PermissionName, string> = {
   "integrations.view": "Просмотр интеграций с маркетплейсами",
   "integrations.edit": "Управление подключениями маркетплейсов",
   "integrations.map": "Сопоставление складов и карточек маркетплейсов",
+  "system.view": "Просмотр системных показателей и хранилища",
 };
 
 export function getPermissionLabel(permission: PermissionName | string): string {

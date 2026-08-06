@@ -17,6 +17,9 @@ public class UpdateCatalogItemRequest
 
     public IReadOnlyList<Guid> Tags { get; init; } = [];
 
+    public Guid? MainImageFileId { get; init; }
+    public IReadOnlyList<CatalogItemImageRequest> Images { get; init; } = [];
+
     // Standard / Unit only
     public Guid? GroupId { get; init; }
 

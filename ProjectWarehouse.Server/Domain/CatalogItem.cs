@@ -24,6 +24,13 @@ public class CatalogItem : IHasIdentity
     public ICollection<BundleComponent> BundleComponents { get; set; } = [];
 
     public ICollection<CatalogItemTag> Tags { get; set; } = [];
+
+    public Guid? MainImageFileId { get; set; }
+    public DataFile? MainImageFile { get; set; }
+
+    // List<>, not ICollection<>: the identity-based IListUpdater overload takes List<T>
+    public List<CatalogItemImage> Images { get; set; } = [];
+
     public ICollection<MarketplaceCard> MarketplaceCards { get; set; } = [];
 
     [Projectable] public string FullName => Group != null ? Group.Name + " " + Name : Name;

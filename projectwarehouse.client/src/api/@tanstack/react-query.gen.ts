@@ -26,6 +26,10 @@ import {
   commonContentGetHomePageContent,
   commonContentGlobalSearch,
   eventsGetEvents,
+  filesGetById,
+  filesGetContent,
+  filesGetThumbnail,
+  filesUpload,
   inventoryItemsGetAll,
   inventoryItemsGetAllUnits,
   marketplacesAutoMapCards,
@@ -96,6 +100,8 @@ import {
   storagePlacesGetNodes,
   storagePlacesReorderNodes,
   storagePlacesUpdateNode,
+  systemGetDatabaseStats,
+  systemGetStorageStats,
   transfersExecute,
   usersChangePassword,
   usersCreate,
@@ -171,6 +177,16 @@ import type {
   EventsGetEventsData,
   EventsGetEventsError,
   EventsGetEventsResponse,
+  FilesGetByIdData,
+  FilesGetByIdError,
+  FilesGetByIdResponse,
+  FilesGetContentData,
+  FilesGetContentError,
+  FilesGetThumbnailData,
+  FilesGetThumbnailError,
+  FilesUploadData,
+  FilesUploadError,
+  FilesUploadResponse,
   InventoryItemsGetAllData,
   InventoryItemsGetAllError,
   InventoryItemsGetAllResponse,
@@ -378,6 +394,12 @@ import type {
   StoragePlacesUpdateNodeData,
   StoragePlacesUpdateNodeError,
   StoragePlacesUpdateNodeResponse,
+  SystemGetDatabaseStatsData,
+  SystemGetDatabaseStatsError,
+  SystemGetDatabaseStatsResponse,
+  SystemGetStorageStatsData,
+  SystemGetStorageStatsError,
+  SystemGetStorageStatsResponse,
   TransfersExecuteData,
   TransfersExecuteError,
   TransfersExecuteResponse,
@@ -1034,6 +1056,105 @@ export const eventsGetEventsOptions = (options?: Options<EventsGetEventsData>) =
       return data;
     },
     queryKey: eventsGetEventsQueryKey(options),
+  });
+
+/**
+ * Upload a file.
+ *
+ * The file exists independently of any entity and is removed by the garbage collector unless a
+ * reference to it appears within OrphanTtlHours.
+ */
+export const filesUploadMutation = (
+  options?: Partial<Options<FilesUploadData>>,
+): UseMutationOptions<FilesUploadResponse, FilesUploadError, Options<FilesUploadData>> => {
+  const mutationOptions: UseMutationOptions<
+    FilesUploadResponse,
+    FilesUploadError,
+    Options<FilesUploadData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await filesUpload({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const filesGetByIdQueryKey = (options: Options<FilesGetByIdData>) =>
+  createQueryKey("filesGetById", options);
+
+/**
+ * Get file metadata.
+ */
+export const filesGetByIdOptions = (options: Options<FilesGetByIdData>) =>
+  queryOptions<
+    FilesGetByIdResponse,
+    FilesGetByIdError,
+    FilesGetByIdResponse,
+    ReturnType<typeof filesGetByIdQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await filesGetById({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: filesGetByIdQueryKey(options),
+  });
+
+export const filesGetContentQueryKey = (options: Options<FilesGetContentData>) =>
+  createQueryKey("filesGetContent", options);
+
+/**
+ * Download the original file.
+ */
+export const filesGetContentOptions = (options: Options<FilesGetContentData>) =>
+  queryOptions<unknown, FilesGetContentError, unknown, ReturnType<typeof filesGetContentQueryKey>>({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await filesGetContent({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: filesGetContentQueryKey(options),
+  });
+
+export const filesGetThumbnailQueryKey = (options: Options<FilesGetThumbnailData>) =>
+  createQueryKey("filesGetThumbnail", options);
+
+/**
+ * Get a downscaled preview of an image.
+ *
+ * Only widths from ThumbnailWidths are accepted — arbitrary values would let anyone inflate the
+ * disk cache with ?width=1,2,3,… Results are cached on disk and dropped by the GC with the original.
+ */
+export const filesGetThumbnailOptions = (options: Options<FilesGetThumbnailData>) =>
+  queryOptions<
+    unknown,
+    FilesGetThumbnailError,
+    unknown,
+    ReturnType<typeof filesGetThumbnailQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await filesGetThumbnail({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: filesGetThumbnailQueryKey(options),
   });
 
 export const inventoryItemsGetAllQueryKey = (options?: Options<InventoryItemsGetAllData>) =>
@@ -3142,6 +3263,60 @@ export const storagePlacesReorderNodesMutation = (
   };
   return mutationOptions;
 };
+
+export const systemGetStorageStatsQueryKey = (options?: Options<SystemGetStorageStatsData>) =>
+  createQueryKey("systemGetStorageStats", options);
+
+/**
+ * File storage usage: counts, sizes, orphans and free disk space.
+ *
+ * Disk figures are cached for DataFiles:StatsCacheSeconds; see `diskStatsAt`.
+ */
+export const systemGetStorageStatsOptions = (options?: Options<SystemGetStorageStatsData>) =>
+  queryOptions<
+    SystemGetStorageStatsResponse,
+    SystemGetStorageStatsError,
+    SystemGetStorageStatsResponse,
+    ReturnType<typeof systemGetStorageStatsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await systemGetStorageStats({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: systemGetStorageStatsQueryKey(options),
+  });
+
+export const systemGetDatabaseStatsQueryKey = (options?: Options<SystemGetDatabaseStatsData>) =>
+  createQueryKey("systemGetDatabaseStats", options);
+
+/**
+ * Database size broken down by the entity type each table belongs to.
+ *
+ * Row counts are planner estimates from pg_class, not exact counts.
+ */
+export const systemGetDatabaseStatsOptions = (options?: Options<SystemGetDatabaseStatsData>) =>
+  queryOptions<
+    SystemGetDatabaseStatsResponse,
+    SystemGetDatabaseStatsError,
+    SystemGetDatabaseStatsResponse,
+    ReturnType<typeof systemGetDatabaseStatsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await systemGetDatabaseStats({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: systemGetDatabaseStatsQueryKey(options),
+  });
 
 /**
  * Execute an atomic inventory transfer between two storage nodes.
