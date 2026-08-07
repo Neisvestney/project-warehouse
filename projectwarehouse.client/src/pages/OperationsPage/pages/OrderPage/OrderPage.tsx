@@ -251,12 +251,12 @@ function OrderPage() {
         </Paper>
 
         {order.marketplaceItems.length > 0 && (
-            <Paper sx={{p: 3}}>
-              <Typography variant="subtitle1" sx={{fontWeight: 600, mb: 2}}>
-                Состав заказа на маркетплейсе
-              </Typography>
-              <OrderMarketplaceItemsSection order={order} />
-            </Paper>
+          <Paper sx={{p: 3}}>
+            <Typography variant="subtitle1" sx={{fontWeight: 600, mb: 2}}>
+              Состав заказа на маркетплейсе
+            </Typography>
+            <OrderMarketplaceItemsSection order={order} />
+          </Paper>
         )}
 
         <Paper sx={{p: 3}}>

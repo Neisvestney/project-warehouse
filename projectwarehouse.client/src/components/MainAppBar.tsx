@@ -86,20 +86,47 @@ function MainAppBar({}: AppBarProps) {
 
   useEffect(() => {
     let lastShiftTime = 0;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Shift" && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        const now = Date.now();
-        if (now - lastShiftTime < 500) {
-          e.preventDefault();
-          setSearchOpen(true);
-          lastShiftTime = 0;
-        } else {
-          lastShiftTime = now;
-        }
+    let dirty = false;
+
+    const reset = () => {
+      lastShiftTime = 0;
+      dirty = false;
+    };
+
+    // Считаем нажатие только по keyup и только если между down и up ничего больше
+    // не жали — иначе Shift+Alt (смена раскладки) и Shift+буква ложно срабатывают.
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Shift") {
+        dirty = e.repeat || e.ctrlKey || e.metaKey || e.altKey;
+        return;
+      }
+      lastShiftTime = 0;
+      dirty = true;
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key !== "Shift") return;
+      if (dirty || e.ctrlKey || e.metaKey || e.altKey) {
+        reset();
+        return;
+      }
+      const now = Date.now();
+      if (now - lastShiftTime < 500) {
+        setSearchOpen(true);
+        lastShiftTime = 0;
+      } else {
+        lastShiftTime = now;
       }
     };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", reset);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", reset);
+    };
   }, []);
 
   const avatarLetter = user?.username?.[0]?.toUpperCase() ?? "?";
