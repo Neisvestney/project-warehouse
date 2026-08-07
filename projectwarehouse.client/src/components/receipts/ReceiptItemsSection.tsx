@@ -149,7 +149,7 @@ function ReceivedCountInput({
     ...receiptsUpdateReceivedCountMutation(),
     meta: {suppressGlobalError: true},
     onSuccess: (data) => {
-      queryClient.resetQueries({queryKey});
+      queryClient.invalidateQueries({queryKey});
       onUpdateItem(data)
     },
     onError: (err) => enqueueSnackbar(extractErrorMessage(err), {variant: "error"}),
