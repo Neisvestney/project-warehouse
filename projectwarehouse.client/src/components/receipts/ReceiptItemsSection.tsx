@@ -30,11 +30,11 @@ import EditIcon from "@mui/icons-material/Edit";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import SearchIcon from "@mui/icons-material/Search";
-import {useMutation, useQuery} from "@tanstack/react-query";
+import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {useSnackbar} from "notistack";
 import {
   catalogGetAllOptions,
-  receiptsDeletePlacementMutation,
+  receiptsDeletePlacementMutation, receiptsGetByIdOptions,
   receiptsQuickAddItemMutation,
   receiptsUpdateReceivedCountMutation,
 } from "@/api/@tanstack/react-query.gen";
@@ -142,10 +142,16 @@ function ReceivedCountInput({
       : "",
   );
 
+  const queryKey = receiptsGetByIdOptions({path: {id: receiptId}}).queryKey;
+  const queryClient = useQueryClient();
+
   const mutation = useMutation({
     ...receiptsUpdateReceivedCountMutation(),
     meta: {suppressGlobalError: true},
-    onSuccess: (data) => onUpdateItem(data),
+    onSuccess: (data) => {
+      queryClient.resetQueries({queryKey});
+      onUpdateItem(data)
+    },
     onError: (err) => enqueueSnackbar(extractErrorMessage(err), {variant: "error"}),
   });
 
