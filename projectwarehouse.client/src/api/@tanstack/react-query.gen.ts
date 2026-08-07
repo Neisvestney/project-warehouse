@@ -38,12 +38,15 @@ import {
   marketplacesGetAccount,
   marketplacesGetAccounts,
   marketplacesGetCards,
+  marketplacesGetOrderSyncTargets,
   marketplacesGetSyncRuns,
+  marketplacesGetSyncRunsByIds,
   marketplacesGetUnmappedCount,
   marketplacesGetWarehouses,
   marketplacesSetCardMapping,
   marketplacesSetWarehouseMapping,
   marketplacesStartSync,
+  marketplacesSyncOrders,
   marketplacesTestConnection,
   marketplacesUpdateAccount,
   type Options,
@@ -59,6 +62,7 @@ import {
   ordersGetAll,
   ordersGetAllAssembly,
   ordersGetById,
+  ordersGetLabels,
   ordersGetTaskMoveTargets,
   ordersMoveTaskComponent,
   ordersRemoveBox,
@@ -211,6 +215,12 @@ import type {
   MarketplacesGetCardsData,
   MarketplacesGetCardsError,
   MarketplacesGetCardsResponse,
+  MarketplacesGetOrderSyncTargetsData,
+  MarketplacesGetOrderSyncTargetsError,
+  MarketplacesGetOrderSyncTargetsResponse,
+  MarketplacesGetSyncRunsByIdsData,
+  MarketplacesGetSyncRunsByIdsError,
+  MarketplacesGetSyncRunsByIdsResponse,
   MarketplacesGetSyncRunsData,
   MarketplacesGetSyncRunsError,
   MarketplacesGetSyncRunsResponse,
@@ -229,6 +239,9 @@ import type {
   MarketplacesStartSyncData,
   MarketplacesStartSyncError,
   MarketplacesStartSyncResponse,
+  MarketplacesSyncOrdersData,
+  MarketplacesSyncOrdersError,
+  MarketplacesSyncOrdersResponse,
   MarketplacesTestConnectionData,
   MarketplacesTestConnectionError,
   MarketplacesTestConnectionResponse,
@@ -271,6 +284,8 @@ import type {
   OrdersGetByIdData,
   OrdersGetByIdError,
   OrdersGetByIdResponse,
+  OrdersGetLabelsData,
+  OrdersGetLabelsError,
   OrdersGetTaskMoveTargetsData,
   OrdersGetTaskMoveTargetsError,
   OrdersGetTaskMoveTargetsResponse,
@@ -1618,6 +1633,91 @@ export const marketplacesGetSyncRunsInfiniteOptions = (
     },
   );
 
+export const marketplacesGetSyncRunsByIdsQueryKey = (
+  options?: Options<MarketplacesGetSyncRunsByIdsData>,
+) => createQueryKey("marketplacesGetSyncRunsByIds", options);
+
+/**
+ * Runs by id, for polling several accounts from one dialog.
+ *
+ * Unknown ids are simply absent from the response — the caller knows what it asked for.
+ */
+export const marketplacesGetSyncRunsByIdsOptions = (
+  options?: Options<MarketplacesGetSyncRunsByIdsData>,
+) =>
+  queryOptions<
+    MarketplacesGetSyncRunsByIdsResponse,
+    MarketplacesGetSyncRunsByIdsError,
+    MarketplacesGetSyncRunsByIdsResponse,
+    ReturnType<typeof marketplacesGetSyncRunsByIdsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await marketplacesGetSyncRunsByIds({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: marketplacesGetSyncRunsByIdsQueryKey(options),
+  });
+
+export const marketplacesGetOrderSyncTargetsQueryKey = (
+  options?: Options<MarketplacesGetOrderSyncTargetsData>,
+) => createQueryKey("marketplacesGetOrderSyncTargets", options);
+
+/**
+ * Accounts that can import orders — the source list for the sync dialog.
+ */
+export const marketplacesGetOrderSyncTargetsOptions = (
+  options?: Options<MarketplacesGetOrderSyncTargetsData>,
+) =>
+  queryOptions<
+    MarketplacesGetOrderSyncTargetsResponse,
+    MarketplacesGetOrderSyncTargetsError,
+    MarketplacesGetOrderSyncTargetsResponse,
+    ReturnType<typeof marketplacesGetOrderSyncTargetsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await marketplacesGetOrderSyncTargets({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: marketplacesGetOrderSyncTargetsQueryKey(options),
+  });
+
+/**
+ * Queues order sync for several accounts at once; each account succeeds or fails on its own.
+ */
+export const marketplacesSyncOrdersMutation = (
+  options?: Partial<Options<MarketplacesSyncOrdersData>>,
+): UseMutationOptions<
+  MarketplacesSyncOrdersResponse,
+  MarketplacesSyncOrdersError,
+  Options<MarketplacesSyncOrdersData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    MarketplacesSyncOrdersResponse,
+    MarketplacesSyncOrdersError,
+    Options<MarketplacesSyncOrdersData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await marketplacesSyncOrders({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
 export const marketplacesGetWarehousesQueryKey = (
   options: Options<MarketplacesGetWarehousesData>,
 ) => createQueryKey("marketplacesGetWarehouses", options);
@@ -2081,6 +2181,32 @@ export const ordersSelfAssignMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await ordersSelfAssign({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Marketplace labels for the given orders, merged into one printable PDF.
+ *
+ * Lives here rather than under integrations because it is invoked from the order list and is
+ * scoped by warehouse like every other order operation.
+ */
+export const ordersGetLabelsMutation = (
+  options?: Partial<Options<OrdersGetLabelsData>>,
+): UseMutationOptions<unknown, OrdersGetLabelsError, Options<OrdersGetLabelsData>> => {
+  const mutationOptions: UseMutationOptions<
+    unknown,
+    OrdersGetLabelsError,
+    Options<OrdersGetLabelsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersGetLabels({
         ...options,
         ...fnOptions,
         throwOnError: true,

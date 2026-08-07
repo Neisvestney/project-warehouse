@@ -1102,6 +1102,33 @@ Label maps for every marketplace enum (`MARKETPLACE_TYPE_LABELS`, `SYNC_STATUS_L
 
 `hasCapability(capabilities, flag)` exists because `MarketplaceCapabilities` is a **`[Flags]` enum**: `JsonStringEnumConverter` sends a combination as one comma-separated string (`"warehouses, cards, sellerInfo"`), which the generated union of single values does not describe. Never compare `capabilities` with `===`.
 
+### `OrdersListPage` slots
+The orders list is shared by FBS, FBO and Direct, so type-specific behaviour arrives as props rather than an
+internal `type === "fbs"` branch: `headerActions?: ReactNode`, `bulkActions?: (selectedIds: string[]) => ReactNode`
+and `extraColumns?: {key, label, render}[]`. That keeps marketplace imports — and the `integrations.map`
+permission — out of the pages that have nothing to do with marketplaces.
+
+`bulkActions` receives **every** selected id, not just the confirmed ones self-assign cares about, and the
+selection toolbar appears whenever something is selected and either action set applies. Adding an
+`extraColumns` entry also widens the loader/empty-row `colSpan`, which is computed rather than hard-coded.
+
+### `src/components/orders/marketplace/`
+FBS-only pieces: `SyncOrdersButton` / `SyncOrdersDialog` / `SyncOrdersAccountAccordion` / `SkippedOrdersList`
+(the import dialog and its per-account results), `DownloadLabelsButton`, `MarketplaceOrderStatusChip`, and
+`marketplaceOrderUtils` for the label and colour maps. The maps live here rather than in
+`MarketplacesSettingsPage/marketplaceUtils` so the operations tree never imports from the settings tree.
+
+### Downloading a generated file
+`saveBlob(blob, fileName)` in `utils/downloadUtils.ts` — `createObjectURL` plus an anchor with `download`.
+It is the only save mechanism the app has, and it is also correct on native: the WebView cannot render a PDF
+inline, so handing the file to the system app is the documented behaviour ([native-client.md](native-client.md)).
+No `Capacitor.isNativePlatform()` branch is needed at the call site.
+
+Binary endpoints are called through the generated SDK function directly with `parseAs: "blob"` (the
+generator's response types for binary responses are unreliable — same reason as `useFileBlobUrl`). That makes
+the **error** body a Blob too, so `resolveErrorMessage` cannot read it: unwrap it with
+`parseProblemFromBlob(error)` from `utils/blobErrorUtils.ts` first.
+
 ### `pluralUtils`
 Русская плюрализация счётчиков. Формы выбирает `Intl.PluralRules("ru-RU")`, а не ручная арифметика по `% 10` / `% 100`.
 

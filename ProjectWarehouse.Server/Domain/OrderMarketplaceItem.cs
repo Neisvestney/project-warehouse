@@ -9,6 +9,8 @@ public class OrderMarketplaceItem : IHasIdentity
     public Guid OrderId { get; set; }
     public Order Order { get; set; } = null!;
 
-    public string MarketplaceCardId { get; set; } = null!;
+    public Guid? MarketplaceCardId { get; set; }
+    public MarketplaceCard? MarketplaceCard { get; set; }
+
     public int Quantity { get; set; }
 }

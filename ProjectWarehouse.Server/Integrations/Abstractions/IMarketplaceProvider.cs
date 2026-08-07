@@ -24,4 +24,25 @@ public interface IMarketplaceProvider
 
     /// <summary>Only called when the provider declares <see cref="MarketplaceCapabilities.SellerInfo"/>.</summary>
     Task<ExternalSellerInfo> FetchSellerInfoAsync(MarketplaceCredentials credentials, CancellationToken ct);
+
+    /// <summary>
+    /// Postings that are packed on the marketplace side and awaiting handover — the only ones WMS
+    /// imports. Yields pages for the same reason as <see cref="FetchCardsAsync"/>.
+    /// </summary>
+    IAsyncEnumerable<IReadOnlyList<ExternalPosting>> FetchActivePostingsAsync(
+        MarketplaceCredentials credentials, CancellationToken ct);
+
+    /// <summary>
+    /// Postings the marketplace no longer knows are <b>omitted</b> from the result rather than thrown:
+    /// one dead posting must not fail a whole run.
+    /// </summary>
+    Task<IReadOnlyList<ExternalPostingStatus>> FetchPostingStatusesAsync(
+        MarketplaceCredentials credentials, IReadOnlyList<string> postingNumbers, CancellationToken ct);
+
+    /// <summary>
+    /// Takes a list because marketplaces print in batches. Batch sizing and the "retry one at a time"
+    /// rule live in the label service — the provider just answers for whatever it was given.
+    /// </summary>
+    Task<ExternalLabelDocument> FetchLabelDocumentAsync(
+        MarketplaceCredentials credentials, IReadOnlyList<string> postingNumbers, CancellationToken ct);
 }

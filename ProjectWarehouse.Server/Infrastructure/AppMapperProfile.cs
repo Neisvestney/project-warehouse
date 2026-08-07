@@ -239,6 +239,10 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
             .ForMember(d => d.CreatedByName, opt => opt.MapFrom(s => s.CreatedBy != null ? s.CreatedBy.FullName : null));
 
+        CreateMap<MarketplaceOrder, MarketplaceOrderDto>()
+            .ForMember(d => d.MarketplaceAccountName, opt => opt.MapFrom(s => s.MarketplaceAccount.Name))
+            .ForMember(d => d.MarketplaceType, opt => opt.MapFrom(s => s.MarketplaceAccount.Type));
+
         CreateMap<OrderBox, OrderBoxDto>();
 
         CreateMap<OrderBoxComponent, OrderBoxComponentDto>()
@@ -310,7 +314,11 @@ public class AppMapperProfile : Profile
 
         CreateMap<MarketplaceSyncRun, MarketplaceSyncRunDto>()
             .ForMember(d => d.TriggeredByName,
-                opt => opt.MapFrom(s => s.TriggeredBy != null ? s.TriggeredBy.UserName : null));
+                opt => opt.MapFrom(s => s.TriggeredBy != null ? s.TriggeredBy.UserName : null))
+            // The jsonb column is null on every run that skipped nothing, and ProjectTo would emit a
+            // bare .ToList() over it. Collapsing null to empty here keeps the DTO honest either way.
+            .ForMember(d => d.SkippedOrders,
+                opt => opt.MapFrom(s => s.SkippedOrders ?? new List<SkippedOrderInfo>()));
 
         CreateMap<DataFile, DataFileDto>()
             .ForMember(d => d.CreatedByUserName,

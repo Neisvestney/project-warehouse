@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Orders;
 using ProjectWarehouse.Server.Services;
@@ -19,6 +20,7 @@ public class OrdersController(
     ApplicationDbContext db,
     IMapper mapper,
     IOrderService orders,
+    IMarketplaceLabelService labels,
     ICatalogService catalog) : AppControllerBase
 {
     // ── Base query helpers ────────────────────────────────────────────────────
@@ -26,7 +28,9 @@ public class OrdersController(
     private IQueryable<Order> BaseQuery() =>
         db.Orders
             .Include(o => o.Warehouse)
-            .Include(o => o.CreatedBy);
+            .Include(o => o.CreatedBy)
+            // details are mapped in memory, so the marketplace block silently vanishes without this
+            .Include(o => o.MarketplaceOrder).ThenInclude(m => m!.MarketplaceAccount);
 
     private IQueryable<Order> DetailsQuery() =>
         BaseQuery()
@@ -421,6 +425,84 @@ public class OrdersController(
         var full = await LoadOrderDetailsAsync(id, ct);
         return Ok(mapper.Map<OrderDetailsDto>(full));
     }
+
+    // ── POST /api/orders/labels ───────────────────────────────────────────────
+
+    /// <summary>Marketplace labels for the given orders, merged into one printable PDF.</summary>
+    /// <remarks>
+    /// Lives here rather than under integrations because it is invoked from the order list and is
+    /// scoped by warehouse like every other order operation.
+    /// </remarks>
+    [HttpPost("labels")]
+    [Authorize]
+    [Produces("application/pdf", "application/problem+json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> GetLabels([FromBody] OrderLabelsRequest request, CancellationToken ct = default)
+    {
+        var orderIds = request.OrderIds.Distinct().ToList();
+        if (orderIds.Count == 0)
+            return UnprocessableEntity(nameof(request.OrderIds), ErrorCode.Required, "No orders were requested.");
+
+        if (orderIds.Count > MaxLabelOrders)
+            return UnprocessableEntity(nameof(request.OrderIds), ErrorCode.OutOfRange,
+                $"At most {MaxLabelOrders} labels can be printed at once.",
+                new Dictionary<string, object> { ["max"] = MaxLabelOrders });
+
+        var (canView, canViewAssigned, assignedIds) = await GetViewAccessAsync(ct);
+        if (!canView && !canViewAssigned)
+            return Forbidden();
+
+        if (!canView)
+        {
+            if (assignedIds is null)
+                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+
+            var outside = await db.Orders
+                .AnyAsync(o => orderIds.Contains(o.Id) && !assignedIds.Contains(o.WarehouseId), ct);
+
+            if (outside)
+                return Forbidden(ErrorCode.OrderNotAssignedToWarehouse,
+                    "Some of the orders belong to a warehouse you are not assigned to.");
+        }
+
+        LabelBundle bundle;
+        try
+        {
+            bundle = await labels.BuildAsync(orderIds, GetCurrentUserId(), ct);
+        }
+        catch (ValidationException ex)
+        {
+            return UnprocessableEntity(ex);
+        }
+        catch (MarketplaceApiException ex)
+        {
+            return Problem(AppProblems.Root(StatusCodes.Status502BadGateway,
+                ErrorCode.MarketplaceApiError, ex.Message, ex.Args));
+        }
+
+        if (bundle.NonMarketplaceOrderIds.Count > 0)
+            return UnprocessableEntity(nameof(request.OrderIds), ErrorCode.MarketplaceOrderNotFromMarketplace,
+                "Some of the orders did not come from a marketplace.",
+                new Dictionary<string, object> { ["orderIds"] = bundle.NonMarketplaceOrderIds });
+
+        if (bundle.NotReadyPostingNumbers.Count > 0)
+            // count travels separately: the client interpolates a scalar, an array does not pluralize
+            return Problem(AppProblems.Root(StatusCodes.Status409Conflict, ErrorCode.MarketplaceLabelNotReady,
+                "The marketplace has not produced all of the labels yet.",
+                new Dictionary<string, object>
+                {
+                    ["postingNumbers"] = bundle.NotReadyPostingNumbers,
+                    ["count"] = bundle.NotReadyPostingNumbers.Count,
+                }));
+
+        // a MemoryStream, because PdfDocument.Save needs a seekable target and Response.Body is not one
+        return File(new MemoryStream(bundle.Pdf!), "application/pdf", "labels.pdf");
+    }
+
+    /// <summary>A print job bigger than this is a misclick, not a shift's work.</summary>
+    private const int MaxLabelOrders = 200;
 
     // ── POST /api/orders/batch-self-assign ────────────────────────────────────
 

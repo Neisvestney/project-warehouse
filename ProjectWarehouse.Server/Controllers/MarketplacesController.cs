@@ -184,6 +184,11 @@ public class MarketplacesController(
         if (account is null)
             return NotFound(ErrorCode.MarketplaceAccountNotFound, "Marketplace account not found.");
 
+        // Without this pre-check the Restrict FK raises a raw 23503 and the client gets an unrenderable 500
+        if (await db.MarketplaceOrders.AnyAsync(o => o.MarketplaceAccountId == id, ct))
+            return Conflict(ErrorCode.MarketplaceAccountHasOrders,
+                "The account has imported orders and cannot be deleted.");
+
         var before = await ToDetailDtoAsync(account, ct);
 
         db.MarketplaceAccounts.Remove(account);
@@ -298,6 +303,149 @@ public class MarketplacesController(
             .ToPaginatedAsync(page, pageSize, ct);
 
         return Ok(paginated);
+    }
+
+    /// <summary>Runs by id, for polling several accounts from one dialog.</summary>
+    /// <remarks>Unknown ids are simply absent from the response — the caller knows what it asked for.</remarks>
+    [HttpGet("sync-runs")]
+    [Authorize(Policy = Permissions.Integrations.View)]
+    [ProducesResponseType<List<MarketplaceSyncRunDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSyncRunsByIds([FromQuery] Guid[] ids, CancellationToken ct)
+    {
+        if (ids.Length > MaxBatchAccounts)
+            return UnprocessableEntity(nameof(ids), ErrorCode.OutOfRange,
+                $"At most {MaxBatchAccounts} runs can be requested at once.",
+                new Dictionary<string, object> { ["max"] = MaxBatchAccounts });
+
+        if (ids.Length == 0)
+            return Ok(new List<MarketplaceSyncRunDto>());
+
+        var runs = await db.MarketplaceSyncRuns
+            .Where(r => ids.Contains(r.Id))
+            .ProjectTo<MarketplaceSyncRunDto>(mapper.ConfigurationProvider)
+            .ToListAsync(ct);
+
+        return Ok(runs);
+    }
+
+    // ---------- order sync ----------
+
+    /// <summary>Accounts that can import orders — the source list for the sync dialog.</summary>
+    [HttpGet("accounts/order-sync-targets")]
+    [Authorize(Policy = Permissions.Integrations.Map)]
+    [ProducesResponseType<List<MarketplaceOrderSyncTargetDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetOrderSyncTargets(CancellationToken ct)
+    {
+        var accounts = await db.MarketplaceAccounts
+            .Where(a => a.IsActive)
+            .OrderBy(a => a.Name)
+            .Select(a => new
+            {
+                Dto = new MarketplaceOrderSyncTargetDto
+                {
+                    Id = a.Id,
+                    Name = a.Name,
+                    Type = a.Type,
+                    IsSyncRunning = a.SyncRuns.Any(r => r.Status == MarketplaceSyncStatus.Running),
+                    MappedWarehouseCount = a.Warehouses.Count(w => !w.IsArchived && w.WarehouseId != null),
+                    UnmappedWarehouseCount = a.Warehouses.Count(w => !w.IsArchived && w.WarehouseId == null),
+                    UnmappedCardCount = a.Cards.Count(c => !c.IsArchived && c.CatalogItemId == null),
+                },
+                a.Type,
+                a.ApiKeyProtected,
+            })
+            .ToListAsync(ct);
+
+        // capabilities and key readability are provider/runtime facts, so they resolve after the query
+        var targets = new List<MarketplaceOrderSyncTargetDto>();
+        foreach (var row in accounts)
+        {
+            if (!providers.TryGet(row.Type, out var provider)
+                || !provider.Capabilities.HasFlag(MarketplaceCapabilities.Orders))
+                continue;
+
+            row.Dto.Capabilities = provider.Capabilities;
+            row.Dto.CredentialsUnreadable = !protector.TryUnprotect(row.ApiKeyProtected, out _);
+            targets.Add(row.Dto);
+        }
+
+        return Ok(targets);
+    }
+
+    /// <summary>Queues order sync for several accounts at once; each account succeeds or fails on its own.</summary>
+    [HttpPost("accounts/sync-orders")]
+    [Authorize(Policy = Permissions.Integrations.Map)]
+    [ProducesResponseType<SyncOrdersResponse>(StatusCodes.Status202Accepted)]
+    public async Task<IActionResult> SyncOrders([FromBody] SyncOrdersRequest request, CancellationToken ct)
+    {
+        var accountIds = request.AccountIds.Distinct().ToList();
+        if (accountIds.Count > MaxBatchAccounts)
+            return UnprocessableEntity(nameof(request.AccountIds), ErrorCode.OutOfRange,
+                $"At most {MaxBatchAccounts} accounts can be synced at once.",
+                new Dictionary<string, object> { ["max"] = MaxBatchAccounts });
+
+        var accounts = await db.MarketplaceAccounts
+            .Where(a => accountIds.Contains(a.Id))
+            .ToDictionaryAsync(a => a.Id, ct);
+
+        var running = await db.MarketplaceSyncRuns
+            .Where(r => accountIds.Contains(r.MarketplaceAccountId) && r.Status == MarketplaceSyncStatus.Running)
+            .Select(r => r.MarketplaceAccountId)
+            .ToListAsync(ct);
+
+        var started = new List<SyncOrdersStartedItem>();
+        var failed = new List<SyncOrdersFailedItem>();
+
+        void Fail(Guid accountId, string? name, ErrorCode code, string message) =>
+            failed.Add(new SyncOrdersFailedItem
+            {
+                AccountId = accountId,
+                AccountName = name,
+                Error = AppProblems.MakeError(code, message),
+            });
+
+        foreach (var accountId in accountIds)
+        {
+            if (!accounts.TryGetValue(accountId, out var account))
+            {
+                Fail(accountId, null, ErrorCode.MarketplaceAccountNotFound, "Marketplace account not found.");
+                continue;
+            }
+
+            if (!account.IsActive)
+            {
+                Fail(accountId, account.Name, ErrorCode.MarketplaceAccountInactive, "The account is disabled.");
+                continue;
+            }
+
+            if (!providers.TryGet(account.Type, out var provider)
+                || !provider.Capabilities.HasFlag(MarketplaceCapabilities.Orders))
+            {
+                Fail(accountId, account.Name, ErrorCode.MarketplaceOrdersNotSupported,
+                    "This marketplace provider does not support order sync.");
+                continue;
+            }
+
+            if (!protector.TryUnprotect(account.ApiKeyProtected, out _))
+            {
+                Fail(accountId, account.Name, ErrorCode.MarketplaceCredentialsUnreadable,
+                    "The stored API key can no longer be decrypted.");
+                continue;
+            }
+
+            if (running.Contains(accountId))
+            {
+                Fail(accountId, account.Name, ErrorCode.MarketplaceSyncAlreadyRunning,
+                    "A sync is already running for this account.");
+                continue;
+            }
+
+            var runId = await EnqueueSyncAsync(account, MarketplaceSyncScope.Orders, ct);
+            started.Add(new SyncOrdersStartedItem { AccountId = accountId, SyncRunId = runId });
+        }
+
+        return StatusCode(StatusCodes.Status202Accepted,
+            new SyncOrdersResponse { Items = started, FailedItems = failed });
     }
 
     // ---------- warehouses ----------
@@ -503,6 +651,9 @@ public class MarketplacesController(
     }
 
     // ---------- helpers ----------
+
+    /// <summary>A dialog with more accounts than this is a mistake, not a use case.</summary>
+    private const int MaxBatchAccounts = 50;
 
     private async Task<Guid> EnqueueSyncAsync(MarketplaceAccount account, MarketplaceSyncScope scope, CancellationToken ct)
     {

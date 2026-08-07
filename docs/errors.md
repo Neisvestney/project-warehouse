@@ -167,6 +167,29 @@ value (Npgsql's serializer, not the MVC one), which is why the enum may only eve
 | `dataFileWidthNotAllowed` | `?width=` is not one of `DataFiles:ThumbnailWidths` | `{ allowed: string }` |
 | `dataFileStorageError` | Bytes were stored but the metadata row could not be written; the bytes are removed again | — |
 
+### FBS order sync
+
+Appended at the very end of `ErrorCode`, not to the marketplace block above: these values persist as ints
+inside the `Error`, `LastSyncError` and `SkippedOrders` jsonb columns, so inserting into the middle of the
+enum would reinterpret errors already stored.
+
+| Code | When | `args` |
+|------|------|--------|
+| `marketplaceOrdersNotSupported` | The account's provider does not declare `orders` (or `labels`) | — |
+| `marketplaceAccountHasOrders` | Deleting an account that has imported postings | — |
+| `marketplaceAccountInactive` | A disabled account was ticked in the sync dialog; only in `failedItems` | — |
+| `marketplaceLabelNotReady` | The marketplace has not printed some of the requested labels yet | `{ postingNumbers: string[], count: number }` |
+| `marketplaceOrderNotFromMarketplace` | A label was requested for an order with no `MarketplaceOrder` | `{ orderIds: Guid[] }` |
+| `marketplaceOrderCardNotMapped` | Posting skipped: an item has no card, or the card is not mapped to a catalog item. Only inside `SkippedOrders` | `{ offerIds: string }` |
+| `marketplaceOrderWarehouseNotMapped` | Posting skipped: its warehouse is not mapped to a WMS warehouse. Only inside `SkippedOrders` | — |
+
+`count` on `marketplaceLabelNotReady` duplicates the length of `postingNumbers` on purpose: the client's
+`interpolateArgs` needs a scalar to pluralize, and an array does not.
+
+A skipped posting is never silent. It is counted in `MarketplaceSyncRun.OrdersSkipped` and, for the first
+100, described in `SkippedOrders` — an order that vanishes quietly is discovered at the warehouse when it
+is already too late to ship.
+
 `dataFileNotFound` on a **save** is the expected failure mode of upload-first, not a bug: the file was
 uploaded, the form sat open past the TTL, and the collector took it. It is raised by an explicit existence
 check rather than by the foreign key, because a raw `23503` would surface as a 500 that the client cannot render.

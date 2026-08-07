@@ -37,6 +37,8 @@ public class MarketplaceSyncScanJob(
             {
                 Id = Guid.NewGuid(),
                 MarketplaceAccountId = accountId,
+                // All excludes Orders by design: importing orders unattended would pile up skips
+                // nobody looks at. They are pulled from the FBS page by hand.
                 Scope = MarketplaceSyncScope.All,
                 Status = MarketplaceSyncStatus.Running,
                 StartedAt = DateTime.UtcNow,

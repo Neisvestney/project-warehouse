@@ -23,5 +23,13 @@ public class MarketplaceSyncRunDto : IHasIdentity
     public int CardsArchived { get; init; }
     public int AutoMapped { get; init; }
 
+    public int OrdersProcessed { get; init; }
+    public int OrdersCreated { get; init; }
+    public int OrdersUpdated { get; init; }
+    public int OrdersSkipped { get; init; }
+
+    /// <summary>Capped at 100; <see cref="OrdersSkipped"/> is the true total. Empty, never null.</summary>
+    public IReadOnlyList<SkippedOrderInfo> SkippedOrders { get; init; } = [];
+
     public AppFieldError? Error { get; init; }
 }

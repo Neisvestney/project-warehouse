@@ -26,6 +26,7 @@ public class FilesController(
     ApplicationDbContext db,
     IMapper mapper,
     IFileStorage storage,
+    IDataFileFactory dataFiles,
     IOptions<DataFilesOptions> options,
     ILogger<FilesController> logger) : AppControllerBase
 {
@@ -95,35 +96,14 @@ public class FilesController(
             content.Position = 0;
         }
 
-        var id = Guid.NewGuid();
-        var now = DateTime.UtcNow;
-        var storageKey = $"{now:yyyy}/{now:MM}/{now:dd}/{id}{FileSignatures.ExtensionFor(declaredType)}";
-
-        await storage.SaveAsync(storageKey, content, ct);
-
-        var dataFile = new DataFile
-        {
-            Id = id,
-            StorageKey = storageKey,
-            OriginalFileName = SanitizeFileName(file.FileName),
-            ContentType = declaredType,
-            SizeBytes = file.Length,
-            ImageWidth = imageWidth,
-            ImageHeight = imageHeight,
-            CreatedById = GetCurrentUserId(),
-            CreatedAt = now,
-        };
-
+        DataFile dataFile;
         try
         {
-            db.DataFiles.Add(dataFile);
-            await db.SaveChangesAsync(ct);
+            dataFile = await dataFiles.CreateAsync(content, declaredType, SanitizeFileName(file.FileName),
+                file.Length, GetCurrentUserId(), imageWidth, imageHeight, ct);
         }
-        catch (Exception ex)
+        catch (DataFileStorageException)
         {
-            // bytes without a row are invisible to the GC, which only scans the table — drop them now
-            logger.LogError(ex, "Failed to persist metadata for {StorageKey}; removing the stored bytes", storageKey);
-            await storage.DeleteAsync(storageKey, CancellationToken.None);
             return UnprocessableEntity("file", ErrorCode.DataFileStorageError, "Failed to store the file.");
         }
 

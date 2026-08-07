@@ -50,6 +50,7 @@ public static class EntityTypeTables
         [typeof(WriteoffItem)] = AppEntityType.Writeoff,
 
         [typeof(Order)] = AppEntityType.Order,
+        [typeof(MarketplaceOrder)] = AppEntityType.Order,
         [typeof(OrderMarketplaceItem)] = AppEntityType.Order,
         [typeof(OrderBox)] = AppEntityType.Order,
         [typeof(OrderBoxComponent)] = AppEntityType.Order,

@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure.Marketplaces;
@@ -16,6 +18,10 @@ public class OzonClient(
     // spec caps: /v2/warehouse/list rejects limit > 200; /v3/product/list allows up to 1000
     private const int WarehousePageSize = 200;
     private const int CardPageSize = 200;
+    private const int PostingPageSize = 100;
+
+    /// <summary>The only posting state WMS imports — see the FBS section of the marketplaces spec.</summary>
+    private const string AwaitingDeliver = "awaiting_deliver";
 
     private readonly OzonOptions _options = options.Value.Ozon;
 
@@ -102,6 +108,195 @@ public class OzonClient(
             Trim(company?.Inn),
             Trim(company?.Ogrn),
             Trim(company?.Ownership_form));
+    }
+
+    public async IAsyncEnumerable<IReadOnlyList<ExternalPosting>> GetActivePostingsAsync(
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        string? cursor = null;
+
+        // Ozon demands a cutoff (or delivering_date) window and answers 400 without one, even though its
+        // spec marks no filter field as required. Cutoff is the assembly deadline, so the window is kept
+        // wide on purpose — see OzonOptions.CutoffWindowPastDays.
+        var now = DateTimeOffset.UtcNow;
+        var cutoffFrom = now.AddDays(-_options.CutoffWindowPastDays);
+        var cutoffTo = now.AddDays(_options.CutoffWindowFutureDays);
+
+        do
+        {
+            var response = await api.PostingFbsUnfulfilledListAsync(
+                new PostingFbsUnfulfilledListRequest
+                {
+                    Limit = PostingPageSize,
+                    Cursor = cursor,
+                    // oldest first, so pages stay stable while new postings keep arriving
+                    Sort_dir = PostingFbsUnfulfilledListRequestSortDirEnum.ASC,
+                    Filter = new PostingFbsUnfulfilledListRequestFilter
+                    {
+                        Statuses = [AwaitingDeliver],
+                        Cutoff_from = cutoffFrom,
+                        Cutoff_to = cutoffTo,
+                    },
+                }, ct);
+
+            var postings = (response.Postings ?? [])
+                .Select(ToExternalPosting)
+                .OfType<ExternalPosting>()
+                .ToList();
+
+            if (postings.Count > 0)
+                yield return postings;
+
+            cursor = response.Has_next == true ? response.Cursor : null;
+            if (!string.IsNullOrEmpty(cursor))
+                await DelayBetweenPagesAsync(ct);
+        } while (!string.IsNullOrEmpty(cursor));
+    }
+
+    public async Task<ExternalPostingStatus?> GetPostingStatusAsync(string postingNumber, CancellationToken ct)
+    {
+        V3FbsPostingDetail? posting;
+        try
+        {
+            posting = (await api.PostingAPI_GetFbsPostingV3Async(
+                new Postingv3GetFbsPostingRequest { Posting_number = postingNumber }, ct)).Result;
+        }
+        catch (OzonApiException ex) when (ex.StatusCode == 404)
+        {
+            logger.LogWarning("Ozon no longer knows posting {PostingNumber}", postingNumber);
+            return null;
+        }
+
+        if (posting is null)
+            return null;
+
+        return new ExternalPostingStatus(
+            posting.Posting_number ?? postingNumber,
+            ToOrderStatus(posting.Status),
+            posting.Status,
+            posting.Substatus,
+            posting.Tracking_number);
+    }
+
+    public async Task<ExternalLabelDocument> GetPackageLabelAsync(
+        IReadOnlyList<string> postingNumbers, CancellationToken ct)
+    {
+        using var response = await api.PostingAPI_PostingFBSPackageLabelAsync(
+            new PostingPostingFBSPackageLabelRequest { Posting_number = [.. postingNumbers] }, ct);
+
+        using var buffer = new MemoryStream();
+        await response.Stream.CopyToAsync(buffer, ct);
+        var bytes = buffer.ToArray();
+
+        return ReadLabelPayload(bytes, postingNumbers);
+    }
+
+    /// <summary>
+    /// The spec declares this response as `application/pdf` yet types it as a JSON envelope, so neither
+    /// declaration is trusted: the bytes decide. A 200 carrying nothing is Ozon's cheapest way of saying
+    /// "not yet".
+    /// </summary>
+    private ExternalLabelDocument ReadLabelPayload(byte[] bytes, IReadOnlyList<string> postingNumbers)
+    {
+        if (bytes.Length == 0)
+            return NotReady();
+
+        if (bytes.Length >= 4 && bytes[0] == '%' && bytes[1] == 'P' && bytes[2] == 'D' && bytes[3] == 'F')
+            return new ExternalLabelDocument(true, postingNumbers, "application/pdf", bytes);
+
+        var text = Encoding.UTF8.GetString(bytes);
+        if (text.TrimStart().StartsWith('{'))
+        {
+            var envelope = JsonSerializer.Deserialize<LabelEnvelope>(text, LabelEnvelopeOptions);
+
+            if (!string.IsNullOrWhiteSpace(envelope?.File_content))
+                return new ExternalLabelDocument(
+                    true,
+                    postingNumbers,
+                    envelope.Content_type ?? "application/pdf",
+                    DecodeFileContent(envelope.File_content));
+
+            if (OzonLabelHeuristics.LooksNotReady(text))
+                return NotReady();
+        }
+
+        throw new MarketplaceApiException(
+            "Ozon returned an unrecognized label payload.", null, Truncate(text));
+
+        ExternalLabelDocument NotReady()
+        {
+            logger.LogInformation("Ozon has not produced labels for {Count} posting(s) yet", postingNumbers.Count);
+            return new ExternalLabelDocument(false, postingNumbers, null, null);
+        }
+    }
+
+    private byte[] DecodeFileContent(string fileContent)
+    {
+        try
+        {
+            return Convert.FromBase64String(fileContent);
+        }
+        catch (FormatException)
+        {
+            // the spec's own example inlines a raw PDF into this string rather than base64
+            logger.LogWarning("Ozon label file_content is not base64; treating it as raw bytes");
+            return Encoding.UTF8.GetBytes(fileContent);
+        }
+    }
+
+    private static string Truncate(string text) => text[..Math.Min(text.Length, 2000)];
+
+    private static readonly JsonSerializerOptions LabelEnvelopeOptions = new() { PropertyNameCaseInsensitive = true };
+
+    private sealed record LabelEnvelope(string? File_content, string? File_name, string? Content_type);
+
+    private ExternalPosting? ToExternalPosting(PostingFbsUnfulfilledListResponsePostings posting)
+    {
+        if (string.IsNullOrWhiteSpace(posting.Posting_number))
+            return null;
+
+        return new ExternalPosting(
+            posting.Posting_number,
+            posting.Order_number,
+            ToOrderStatus(posting.Status),
+            posting.Status,
+            posting.Substatus,
+            posting.Delivery_method?.Warehouse_id?.ToString(CultureInfo.InvariantCulture),
+            posting.Delivery_method?.Name,
+            // the generated type is DateTimeOffset; the DbContext converter only fixes Unspecified kinds
+            posting.Shipment_date?.UtcDateTime,
+            posting.In_process_at?.UtcDateTime,
+            posting.Tracking_number,
+            posting.Multi_box_qty is > 0 ? posting.Multi_box_qty.Value : 1,
+            (posting.Products ?? [])
+                .Select(p => new ExternalPostingItem(
+                    p.Sku?.ToString(CultureInfo.InvariantCulture),
+                    p.Offer_id ?? "",
+                    p.Name ?? "",
+                    p.Quantity ?? 0))
+                .ToList());
+    }
+
+    /// <summary>Ozon posting states collapsed to the WMS vocabulary. Unknown values are logged, not guessed.</summary>
+    private MarketplaceOrderStatus ToOrderStatus(string? status)
+    {
+        switch (status)
+        {
+            case AwaitingDeliver:
+                return MarketplaceOrderStatus.AwaitingDeliver;
+            case "delivering" or "driver_pickup" or "sent_by_seller":
+                return MarketplaceOrderStatus.Delivering;
+            case "delivered":
+                return MarketplaceOrderStatus.Delivered;
+            case "cancelled" or "not_accepted":
+                return MarketplaceOrderStatus.Cancelled;
+            case "arbitration" or "client_arbitration":
+                return MarketplaceOrderStatus.Arbitration;
+            default:
+                logger.LogWarning(
+                    "Ozon returned an unknown posting status {OzonPostingStatus}", status ?? "<null>");
+                return MarketplaceOrderStatus.Unknown;
+        }
     }
 
     private static string? Trim(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

@@ -95,6 +95,12 @@ import type {
   MarketplacesGetCardsData,
   MarketplacesGetCardsErrors,
   MarketplacesGetCardsResponses,
+  MarketplacesGetOrderSyncTargetsData,
+  MarketplacesGetOrderSyncTargetsErrors,
+  MarketplacesGetOrderSyncTargetsResponses,
+  MarketplacesGetSyncRunsByIdsData,
+  MarketplacesGetSyncRunsByIdsErrors,
+  MarketplacesGetSyncRunsByIdsResponses,
   MarketplacesGetSyncRunsData,
   MarketplacesGetSyncRunsErrors,
   MarketplacesGetSyncRunsResponses,
@@ -113,6 +119,9 @@ import type {
   MarketplacesStartSyncData,
   MarketplacesStartSyncErrors,
   MarketplacesStartSyncResponses,
+  MarketplacesSyncOrdersData,
+  MarketplacesSyncOrdersErrors,
+  MarketplacesSyncOrdersResponses,
   MarketplacesTestConnectionData,
   MarketplacesTestConnectionErrors,
   MarketplacesTestConnectionResponses,
@@ -155,6 +164,9 @@ import type {
   OrdersGetByIdData,
   OrdersGetByIdErrors,
   OrdersGetByIdResponses,
+  OrdersGetLabelsData,
+  OrdersGetLabelsErrors,
+  OrdersGetLabelsResponses,
   OrdersGetTaskMoveTargetsData,
   OrdersGetTaskMoveTargetsErrors,
   OrdersGetTaskMoveTargetsResponses,
@@ -810,6 +822,51 @@ export const marketplacesGetSyncRuns = <ThrowOnError extends boolean = false>(
   >({url: "/api/integrations/marketplaces/accounts/{id}/sync-runs", ...options});
 
 /**
+ * Runs by id, for polling several accounts from one dialog.
+ *
+ * Unknown ids are simply absent from the response — the caller knows what it asked for.
+ */
+export const marketplacesGetSyncRunsByIds = <ThrowOnError extends boolean = false>(
+  options?: Options<MarketplacesGetSyncRunsByIdsData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    MarketplacesGetSyncRunsByIdsResponses,
+    MarketplacesGetSyncRunsByIdsErrors,
+    ThrowOnError
+  >({url: "/api/integrations/marketplaces/sync-runs", ...options});
+
+/**
+ * Accounts that can import orders — the source list for the sync dialog.
+ */
+export const marketplacesGetOrderSyncTargets = <ThrowOnError extends boolean = false>(
+  options?: Options<MarketplacesGetOrderSyncTargetsData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    MarketplacesGetOrderSyncTargetsResponses,
+    MarketplacesGetOrderSyncTargetsErrors,
+    ThrowOnError
+  >({url: "/api/integrations/marketplaces/accounts/order-sync-targets", ...options});
+
+/**
+ * Queues order sync for several accounts at once; each account succeeds or fails on its own.
+ */
+export const marketplacesSyncOrders = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplacesSyncOrdersData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    MarketplacesSyncOrdersResponses,
+    MarketplacesSyncOrdersErrors,
+    ThrowOnError
+  >({
+    url: "/api/integrations/marketplaces/accounts/sync-orders",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
  * Marketplace warehouses of an account with their WMS mapping (paginated, searchable).
  */
 export const marketplacesGetWarehouses = <ThrowOnError extends boolean = false>(
@@ -978,6 +1035,24 @@ export const ordersSelfAssign = <ThrowOnError extends boolean = false>(
   (options.client ?? client).post<OrdersSelfAssignResponses, OrdersSelfAssignErrors, ThrowOnError>({
     url: "/api/orders/{id}/self-assign",
     ...options,
+  });
+
+/**
+ * Marketplace labels for the given orders, merged into one printable PDF.
+ *
+ * Lives here rather than under integrations because it is invoked from the order list and is
+ * scoped by warehouse like every other order operation.
+ */
+export const ordersGetLabels = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersGetLabelsData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<OrdersGetLabelsResponses, OrdersGetLabelsErrors, ThrowOnError>({
+    url: "/api/orders/labels",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 
 export const ordersBatchSelfAssign = <ThrowOnError extends boolean = false>(

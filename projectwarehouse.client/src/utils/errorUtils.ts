@@ -126,6 +126,13 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   dataFileNotAnImage: "Превью доступно только для изображений",
   dataFileWidthNotAllowed: "Недопустимый размер превью",
   dataFileStorageError: "Не удалось сохранить файл",
+  marketplaceOrdersNotSupported: "Эта площадка не поддерживает синхронизацию заказов",
+  marketplaceAccountHasOrders: "По аккаунту импортированы заказы — сначала удалите их",
+  marketplaceAccountInactive: "Аккаунт отключён",
+  marketplaceLabelNotReady: "Маркетплейс ещё не сформировал этикетки — попробуйте через минуту",
+  marketplaceOrderNotFromMarketplace: "Среди выбранных есть заказ не с маркетплейса",
+  marketplaceOrderCardNotMapped: "Товар заказа не привязан к позиции каталога",
+  marketplaceOrderWarehouseNotMapped: "Склад отправления не привязан к складу WMS",
 };
 
 /** Richer variants used only when the server supplied every placeholder in args. */
@@ -140,6 +147,9 @@ const errorCodeArgMessages: Partial<Record<ErrorCode, string>> = {
   dataFileTooLarge: "Файл слишком большой — максимум {maxBytes} байт",
   dataFileTypeNotAllowed: "Этот тип файла загружать нельзя. Допустимые: {allowed}",
   dataFileWidthNotAllowed: "Недопустимый размер превью. Допустимые: {allowed}",
+  marketplaceLabelNotReady:
+    "Маркетплейс ещё не сформировал этикетки для {count} заказов — попробуйте через минуту",
+  marketplaceOrderCardNotMapped: "Товары не привязаны к каталогу: {offerIds}",
 };
 
 export function resolveErrorMessage(error: AppFieldError): string {

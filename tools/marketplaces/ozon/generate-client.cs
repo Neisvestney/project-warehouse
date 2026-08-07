@@ -83,8 +83,11 @@ static async Task FetchAsync(string rawPath)
 static void Trim(string rawPath, string trimmedPath, string whitelistPath)
 {
     var root = JsonNode.Parse(File.ReadAllText(rawPath))!.AsObject();
-    var whitelist = JsonNode.Parse(File.ReadAllText(whitelistPath))!.AsObject()["include"]!
+    var whitelistDocument = JsonNode.Parse(File.ReadAllText(whitelistPath))!.AsObject();
+    var whitelist = whitelistDocument["include"]!
         .AsArray().Select(n => n!.GetValue<string>()).ToHashSet();
+    var binaryResponses = whitelistDocument["binaryResponses"]?
+        .AsArray().Select(n => n!.GetValue<string>()).ToHashSet() ?? [];
 
     var allPaths = root["paths"]!.AsObject();
     var keptPaths = new JsonObject();
@@ -97,6 +100,11 @@ static void Trim(string rawPath, string trimmedPath, string whitelistPath)
 
     foreach (var operation in keptPaths.SelectMany(p => p.Value!.AsObject()).Select(o => o.Value).OfType<JsonObject>())
         StripCredentialParameters(operation);
+
+    // Before CollectReachableComponents, so the replaced envelope schema drops out of the trim
+    foreach (var path in binaryResponses)
+        foreach (var operation in keptPaths[path]!.AsObject().Select(o => o.Value).OfType<JsonObject>())
+            NormalizeBinaryResponse(path, operation);
 
     var reachable = CollectReachableComponents(keptPaths, root);
 
@@ -122,6 +130,7 @@ static void Trim(string rawPath, string trimmedPath, string whitelistPath)
     };
 
     Sanitize(trimmed);
+    FlattenDottedSchemaNames(trimmed);
 
     File.WriteAllText(trimmedPath, trimmed.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     Console.WriteLine($"Trimmed {allPaths.Count} paths -> {keptPaths.Count}, " +
@@ -169,6 +178,17 @@ static void SanitizeSchema(JsonNode node)
     if (schema["required"] is JsonValue required && required.TryGetValue<bool>(out _))
         schema.Remove("required");
 
+    // Ozon writes prose into `type` in places (v3PostingProductDetail.jw_uin: "array of strings").
+    // Printing every rewrite is deliberate: a silent fix is how the next such landmine gets missed.
+    if (schema["type"] is JsonValue type && type.TryGetValue<string>(out var typeName)
+        && !Oas.SchemaTypes.Contains(typeName))
+    {
+        Console.WriteLine($"  type: \"{typeName}\" is not a JSON Schema type -> rewritten");
+        schema.Remove("type");
+        if (typeName.Contains("array", StringComparison.OrdinalIgnoreCase) && schema["items"] is null)
+            schema["items"] = new JsonObject { ["type"] = "string" };
+    }
+
     if (schema["items"] is JsonObject && !schema.ContainsKey("type"))
         schema["type"] = "array";
 
@@ -184,6 +204,108 @@ static void SanitizeSchema(JsonNode node)
         if (schema[key] is JsonArray branches)
             foreach (var branch in branches.OfType<JsonNode>())
                 SanitizeSchema(branch);
+}
+
+/// <summary>
+/// Renames dotted component schemas (`posting.v4.…SortDir.Enum`) to a flat PascalCase name.
+/// NJsonSchema types them by the last dot-segment, so every `….Enum` becomes `Enum` and NSwag pulls
+/// them apart with positional suffixes — `Enum2`, `Products2` — that shift whenever the spec changes.
+/// A generated type called `Enum` also shadows `System.Enum` inside the generated namespace.
+/// </summary>
+static void FlattenDottedSchemaNames(JsonObject trimmed)
+{
+    var schemas = trimmed["components"]?["schemas"]?.AsObject();
+    if (schemas is null)
+        return;
+
+    var taken = schemas.Select(s => s.Key).Where(k => !k.Contains('.')).ToHashSet(StringComparer.Ordinal);
+    var renames = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    foreach (var name in schemas.Select(s => s.Key).Where(k => k.Contains('.')).OrderBy(k => k, StringComparer.Ordinal))
+    {
+        var segments = name.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        var full = string.Concat(segments.Select(Pascal));
+        // Leading "posting" / "v4" segments are namespace noise; keep them only to break a tie
+        var candidate = string.Concat(segments.SkipWhile(IsNoise).Select(Pascal));
+
+        if (candidate.Length == 0 || !taken.Add(candidate))
+        {
+            candidate = full;
+            for (var i = 2; !taken.Add(candidate); i++)
+                candidate = full + i;
+        }
+        renames[name] = candidate;
+    }
+
+    if (renames.Count == 0)
+        return;
+
+    var renamed = new JsonObject();
+    foreach (var (key, value) in schemas.ToArray())
+    {
+        schemas.Remove(key);
+        renamed[renames.GetValueOrDefault(key, key)] = value;
+    }
+    trimmed["components"]!.AsObject()["schemas"] = renamed;
+
+    RewriteReferences(trimmed, renames);
+    Console.WriteLine($"  flattened {renames.Count} dotted schema name(s)");
+
+    static bool IsNoise(string segment) =>
+        segment.All(char.IsLower) || (segment.Length > 1 && segment[0] is 'v' && segment[1..].All(char.IsAsciiDigit));
+
+    static string Pascal(string segment) =>
+        segment.Length == 0 ? segment : char.ToUpperInvariant(segment[0]) + segment[1..];
+}
+
+static void RewriteReferences(JsonNode node, Dictionary<string, string> renames)
+{
+    switch (node)
+    {
+        case JsonObject o:
+            foreach (var (key, value) in o.ToArray())
+            {
+                if (key == "$ref" && value is JsonValue v && v.GetValue<string>() is { } reference
+                    && reference.StartsWith("#/components/schemas/", StringComparison.Ordinal)
+                    && renames.TryGetValue(reference["#/components/schemas/".Length..], out var target))
+                    o[key] = "#/components/schemas/" + target;
+                else if (value is not null)
+                    RewriteReferences(value, renames);
+            }
+            break;
+        case JsonArray a:
+            foreach (var item in a.OfType<JsonNode>())
+                RewriteReferences(item, renames);
+            break;
+    }
+}
+
+/// <summary>
+/// Ozon declares the label response under `application/pdf` but hands it a JSON-object schema
+/// (`file_content` / `file_name` / `content_type`). The two disagree and neither can be trusted, so
+/// the success response is forced to a plain binary stream: NSwag then deterministically generates
+/// `Task&lt;FileResponse&gt;` and the wrapper decides what actually arrived by sniffing the bytes.
+/// Error responses stay JSON — they really are.
+/// </summary>
+static void NormalizeBinaryResponse(string path, JsonObject operation)
+{
+    if (operation["responses"] is not JsonObject responses)
+        return;
+
+    foreach (var (status, response) in responses)
+    {
+        if (!status.StartsWith('2') || response is not JsonObject { } r || r["content"] is not JsonObject content)
+            continue;
+
+        foreach (var (mediaType, _) in content.ToArray())
+        {
+            content[mediaType] = new JsonObject
+            {
+                ["schema"] = new JsonObject { ["type"] = "string", ["format"] = "binary" },
+            };
+            Console.WriteLine($"  binary: {path} {status} {mediaType} -> string/binary");
+        }
+    }
 }
 
 static void StripCredentialParameters(JsonObject operation)
@@ -298,6 +420,9 @@ static async Task GenerateAsync(string trimmedPath, string outputPath)
 
 static class Oas
 {
+    public static readonly HashSet<string> SchemaTypes =
+        ["object", "array", "string", "integer", "number", "boolean", "null"];
+
     public static readonly HashSet<string> SchemaKeywords =
     [
         "$ref", "additionalProperties", "allOf", "anyOf", "default", "deprecated", "description",
