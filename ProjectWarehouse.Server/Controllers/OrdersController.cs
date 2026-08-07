@@ -54,6 +54,8 @@ public class OrdersController(
             .Include(o => o.AssemblyTasks).ThenInclude(t => t.Boxes)
                 .ThenInclude(tb => tb.Components).ThenInclude(c => c.Fulfillments)
                 .ThenInclude(f => f.CreatedBy)
+            .Include(o => o.MarketplaceItems)
+                .ThenInclude(i => i.MarketplaceCard).ThenInclude(c => c.CatalogItem)
             .AsSplitQuery();
 
     private async Task<Dictionary<Guid, StoragePlaceNode>> LoadWarehouseNodesAsync(

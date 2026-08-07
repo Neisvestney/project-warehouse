@@ -417,6 +417,7 @@ export type {
   OrderBoxDto,
   OrderDetailsDto,
   OrderLabelsRequest,
+  OrderMarketplaceItemDto,
   OrdersAddBoxData,
   OrdersAddBoxError,
   OrdersAddBoxErrors,

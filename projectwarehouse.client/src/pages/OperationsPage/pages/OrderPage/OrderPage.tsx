@@ -30,6 +30,7 @@ import UndoIcon from "@mui/icons-material/Undo";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import BlockIcon from "@mui/icons-material/Block";
 import {useSnackbar} from "notistack";
+import OrderMarketplaceItemsSection from "@/pages/OperationsPage/pages/OrderPage/OrderMarketplaceItemsSection.tsx";
 
 function OrderPage() {
   const {id} = useParams<{id: string}>();
@@ -248,6 +249,15 @@ function OrderPage() {
             <OrderMetaSection order={order} canEdit={canEdit} />
           </Stack>
         </Paper>
+
+        {order.marketplaceItems.length > 0 && (
+            <Paper sx={{p: 3}}>
+              <Typography variant="subtitle1" sx={{fontWeight: 600, mb: 2}}>
+                Состав заказа на маркетплейсе
+              </Typography>
+              <OrderMarketplaceItemsSection order={order} />
+            </Paper>
+        )}
 
         <Paper sx={{p: 3}}>
           <Typography variant="subtitle1" sx={{fontWeight: 600, mb: 2}}>

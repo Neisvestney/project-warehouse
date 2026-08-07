@@ -822,9 +822,9 @@ export type MarketplaceSyncRunDto = {
   ordersUpdated: number;
   ordersSkipped: number;
   /**
-   * Capped at 100; int MarketplaceSyncRunDto.OrdersSkipped is the true total.
+   * Capped at 100; int MarketplaceSyncRunDto.OrdersSkipped is the true total. Empty, never null.
    */
-  skippedOrders?: null | Array<SkippedOrderInfo>;
+  skippedOrders: Array<SkippedOrderInfo>;
   error?: null | AppFieldError;
 };
 
@@ -922,12 +922,19 @@ export type OrderDetailsDto = {
   warehouseName: string;
   createdByName?: null | string;
   marketplaceOrder?: null | MarketplaceOrderDto;
+  marketplaceItems: Array<OrderMarketplaceItemDto>;
   boxes: Array<OrderBoxDto>;
   assemblyTasks: Array<AssemblyTaskDto>;
 };
 
 export type OrderLabelsRequest = {
   orderIds: Array<string>;
+};
+
+export type OrderMarketplaceItemDto = {
+  id: string;
+  marketplaceCard?: null | MarketplaceCardDto;
+  quantity: number;
 };
 
 export type OrderSortBy = "number" | "status" | "createdAt" | "plannedShipmentAt" | "warehouseName";
