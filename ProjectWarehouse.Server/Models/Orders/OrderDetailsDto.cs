@@ -15,6 +15,7 @@ public class OrderDetailsDto
     public string WarehouseName { get; init; } = null!;
     public string? CreatedByName { get; init; }
     public MarketplaceOrderDto? MarketplaceOrder { get; init; }
+    public IReadOnlyList<OrderMarketplaceItemDto> MarketplaceItems { get; init; } = [];
     public IReadOnlyList<OrderBoxDto> Boxes { get; init; } = [];
     public IReadOnlyList<AssemblyTaskDto> AssemblyTasks { get; init; } = [];
 }

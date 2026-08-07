@@ -242,6 +242,8 @@ public class AppMapperProfile : Profile
         CreateMap<MarketplaceOrder, MarketplaceOrderDto>()
             .ForMember(d => d.MarketplaceAccountName, opt => opt.MapFrom(s => s.MarketplaceAccount.Name))
             .ForMember(d => d.MarketplaceType, opt => opt.MapFrom(s => s.MarketplaceAccount.Type));
+        
+        CreateMap<OrderMarketplaceItem, OrderMarketplaceItemDto>();
 
         CreateMap<OrderBox, OrderBoxDto>();
 

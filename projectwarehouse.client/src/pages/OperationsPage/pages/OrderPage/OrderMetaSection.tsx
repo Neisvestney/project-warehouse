@@ -1,5 +1,5 @@
 import {type ReactNode, useState} from "react";
-import {Alert, Box, Button, Stack, Typography} from "@mui/material";
+import {Alert, Box, Button, Stack, Typography, Chip} from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import {useForm} from "react-hook-form";
@@ -9,9 +9,10 @@ import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
 import type {OrderDetailsDto} from "@/api/types.gen";
 import MarketplaceOrderStatusChip from "@/components/orders/marketplace/MarketplaceOrderStatusChip";
-import {MARKETPLACE_LABELS} from "@/components/orders/marketplace/marketplaceOrderUtils";
 import {format} from "date-fns";
 import {ru} from "date-fns/locale";
+import {MARKETPLACE_TYPE_COLORS} from "@/pages/SettingsPage/pages/MarketplacesSettingsPage/marketplaceUtils.ts";
+import {Link} from "react-router";
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -167,14 +168,22 @@ function OrderMetaSection({order, canEdit}: OrderMetaSectionProps) {
           </MetaRow>
 
           <MetaRow label="Магазин">
-            <Typography variant="body2">
-              {order.marketplaceOrder.marketplaceAccountName} ·{" "}
-              {MARKETPLACE_LABELS[order.marketplaceOrder.marketplaceType]}
-            </Typography>
+            <Box>
+              <Chip
+                  component={Link}
+                  to={`/settings/integrations/${order.marketplaceOrder.marketplaceAccountId}`}
+                  size={"small"}
+                  label={order.marketplaceOrder.marketplaceAccountName} 
+                  color={MARKETPLACE_TYPE_COLORS[order.marketplaceOrder.marketplaceType]}
+                  onClick={() => {}}
+              />
+            </Box>
           </MetaRow>
 
           <MetaRow label="Статус на площадке">
-            <MarketplaceOrderStatusChip value={order.marketplaceOrder} />
+            <Box>
+              <MarketplaceOrderStatusChip value={order.marketplaceOrder} />
+            </Box>
           </MetaRow>
 
           {order.marketplaceOrder.trackingNumber && (
