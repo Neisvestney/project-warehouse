@@ -592,7 +592,14 @@ export type ErrorCode =
   | "dataFileTypeNotAllowed"
   | "dataFileNotAnImage"
   | "dataFileWidthNotAllowed"
-  | "dataFileStorageError";
+  | "dataFileStorageError"
+  | "marketplaceOrdersNotSupported"
+  | "marketplaceAccountHasOrders"
+  | "marketplaceAccountInactive"
+  | "marketplaceLabelNotReady"
+  | "marketplaceOrderNotFromMarketplace"
+  | "marketplaceOrderCardNotMapped"
+  | "marketplaceOrderWarehouseNotMapped";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -705,7 +712,8 @@ export type MarketplaceCapabilities =
   | "cards"
   | "orders"
   | "stockPush"
-  | "sellerInfo";
+  | "sellerInfo"
+  | "labels";
 
 export type MarketplaceCardDto = {
   id: string;
@@ -740,6 +748,60 @@ export type MarketplaceCardSortBy = "name" | "offerId" | "price" | "syncedAt";
 
 export type MarketplaceMappingSource = "manual" | "autoOfferId" | "autoBarcode";
 
+/**
+ * Marketplace side of an order, inlined into the order DTOs — the entity has no page of its own.
+ */
+export type MarketplaceOrderDto = {
+  marketplaceAccountId: string;
+  marketplaceAccountName: string;
+  marketplaceType: MarketplaceType;
+  postingNumber: string;
+  externalOrderNumber?: null | string;
+  status: MarketplaceOrderStatus;
+  rawStatus?: null | string;
+  rawSubstatus?: null | string;
+  shipmentDate?: null | string;
+  inProcessAt?: null | string;
+  trackingNumber?: null | string;
+  deliveryMethodName?: null | string;
+  multiBoxQty: number;
+  /**
+   * Set once the label has been printed; downloadable through /api/files/{id}/content.
+   */
+  labelFileId?: null | string;
+  labelFetchedAt?: null | string;
+  labelError?: null | AppFieldError;
+  statusSyncedAt: string;
+};
+
+/**
+ * Normalized posting state. Collapsing the marketplace's own vocabulary is the provider's job.
+ * Unknown = 0 for the same reason as MarketplaceWarehouseStatus.Unavailable: an unrecognized state
+ * must not look like a working one.
+ */
+export type MarketplaceOrderStatus =
+  | "unknown"
+  | "awaitingDeliver"
+  | "delivering"
+  | "delivered"
+  | "cancelled"
+  | "arbitration";
+
+/**
+ * An account offered in the "sync orders" dialog.
+ */
+export type MarketplaceOrderSyncTargetDto = {
+  id: string;
+  name: string;
+  type: MarketplaceType;
+  capabilities: MarketplaceCapabilities;
+  credentialsUnreadable: boolean;
+  isSyncRunning: boolean;
+  mappedWarehouseCount: number;
+  unmappedWarehouseCount: number;
+  unmappedCardCount: number;
+};
+
 export type MarketplaceSyncRunDto = {
   id: string;
   marketplaceAccountId: string;
@@ -755,10 +817,18 @@ export type MarketplaceSyncRunDto = {
   cardsUpdated: number;
   cardsArchived: number;
   autoMapped: number;
+  ordersProcessed: number;
+  ordersCreated: number;
+  ordersUpdated: number;
+  ordersSkipped: number;
+  /**
+   * Capped at 100; int MarketplaceSyncRunDto.OrdersSkipped is the true total.
+   */
+  skippedOrders?: null | Array<SkippedOrderInfo>;
   error?: null | AppFieldError;
 };
 
-export type MarketplaceSyncScope = "warehouses" | "cards" | "all";
+export type MarketplaceSyncScope = "warehouses" | "cards" | "all" | "orders";
 
 export type MarketplaceSyncStatus = "running" | "success" | "failed" | "canceled";
 
@@ -851,9 +921,13 @@ export type OrderDetailsDto = {
   warehouseId: string;
   warehouseName: string;
   createdByName?: null | string;
-  marketplaceOrderId?: null | string;
+  marketplaceOrder?: null | MarketplaceOrderDto;
   boxes: Array<OrderBoxDto>;
   assemblyTasks: Array<AssemblyTaskDto>;
+};
+
+export type OrderLabelsRequest = {
+  orderIds: Array<string>;
 };
 
 export type OrderSortBy = "number" | "status" | "createdAt" | "plannedShipmentAt" | "warehouseName";
@@ -873,6 +947,7 @@ export type OrderSummaryDto = {
   createdByName?: null | string;
   boxCount: number;
   componentCount: number;
+  marketplaceOrder?: null | MarketplaceOrderDto;
 };
 
 export type OrderType = "fbs" | "fbo" | "direct";
@@ -1171,6 +1246,22 @@ export type SetWarehouseMappingRequest = {
   warehouseId?: null | string;
 };
 
+/**
+ * Why a posting did not become an order. Lives in Models for the same reason as
+ * AppFieldError: the entity stores it as jsonb and the DTO hands it out unchanged.
+ */
+export type SkippedOrderInfo = {
+  postingNumber: string;
+  /**
+   * Same vocabulary as ErrorCode AppFieldError.Code — persisted as a number, append only.
+   */
+  reason: ErrorCode;
+  /**
+   * Seller articles that caused the skip; empty when the warehouse was the problem.
+   */
+  offerIds: Array<string>;
+};
+
 export type SortOrder = "asc" | "desc";
 
 export type StartSyncRequest = {
@@ -1253,6 +1344,30 @@ export type StorageStatsDto = {
    */
   diskStatsAt?: null | string;
   disk?: null | DiskSpaceDto;
+};
+
+export type SyncOrdersFailedItem = {
+  accountId: string;
+  accountName?: null | string;
+  error: AppFieldError;
+};
+
+export type SyncOrdersRequest = {
+  accountIds: Array<string>;
+};
+
+/**
+ * Partial success, same shape as the order batch endpoints: one rejected account must not sink the
+ * other four the user ticked.
+ */
+export type SyncOrdersResponse = {
+  items: Array<SyncOrdersStartedItem>;
+  failedItems: Array<SyncOrdersFailedItem>;
+};
+
+export type SyncOrdersStartedItem = {
+  accountId: string;
+  syncRunId: string;
 };
 
 export type TableStatDto = {
@@ -2593,6 +2708,101 @@ export type MarketplacesGetSyncRunsResponses = {
 export type MarketplacesGetSyncRunsResponse =
   MarketplacesGetSyncRunsResponses[keyof MarketplacesGetSyncRunsResponses];
 
+export type MarketplacesGetSyncRunsByIdsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    ids?: Array<string>;
+  };
+  url: "/api/integrations/marketplaces/sync-runs";
+};
+
+export type MarketplacesGetSyncRunsByIdsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesGetSyncRunsByIdsError =
+  MarketplacesGetSyncRunsByIdsErrors[keyof MarketplacesGetSyncRunsByIdsErrors];
+
+export type MarketplacesGetSyncRunsByIdsResponses = {
+  /**
+   * OK
+   */
+  200: Array<MarketplaceSyncRunDto>;
+};
+
+export type MarketplacesGetSyncRunsByIdsResponse =
+  MarketplacesGetSyncRunsByIdsResponses[keyof MarketplacesGetSyncRunsByIdsResponses];
+
+export type MarketplacesGetOrderSyncTargetsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/integrations/marketplaces/accounts/order-sync-targets";
+};
+
+export type MarketplacesGetOrderSyncTargetsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesGetOrderSyncTargetsError =
+  MarketplacesGetOrderSyncTargetsErrors[keyof MarketplacesGetOrderSyncTargetsErrors];
+
+export type MarketplacesGetOrderSyncTargetsResponses = {
+  /**
+   * OK
+   */
+  200: Array<MarketplaceOrderSyncTargetDto>;
+};
+
+export type MarketplacesGetOrderSyncTargetsResponse =
+  MarketplacesGetOrderSyncTargetsResponses[keyof MarketplacesGetOrderSyncTargetsResponses];
+
+export type MarketplacesSyncOrdersData = {
+  body: SyncOrdersRequest;
+  path?: never;
+  query?: never;
+  url: "/api/integrations/marketplaces/accounts/sync-orders";
+};
+
+export type MarketplacesSyncOrdersErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesSyncOrdersError =
+  MarketplacesSyncOrdersErrors[keyof MarketplacesSyncOrdersErrors];
+
+export type MarketplacesSyncOrdersResponses = {
+  /**
+   * Accepted
+   */
+  202: SyncOrdersResponse;
+};
+
+export type MarketplacesSyncOrdersResponse =
+  MarketplacesSyncOrdersResponses[keyof MarketplacesSyncOrdersResponses];
+
 export type MarketplacesGetWarehousesData = {
   body?: never;
   path: {
@@ -3093,6 +3303,41 @@ export type OrdersSelfAssignResponses = {
 };
 
 export type OrdersSelfAssignResponse = OrdersSelfAssignResponses[keyof OrdersSelfAssignResponses];
+
+export type OrdersGetLabelsData = {
+  body: OrderLabelsRequest;
+  path?: never;
+  query?: never;
+  url: "/api/orders/labels";
+};
+
+export type OrdersGetLabelsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type OrdersGetLabelsError = OrdersGetLabelsErrors[keyof OrdersGetLabelsErrors];
+
+export type OrdersGetLabelsResponses = {
+  /**
+   * OK
+   */
+  200: unknown;
+};
 
 export type OrdersBatchSelfAssignData = {
   body: BatchSelfAssignRequest;

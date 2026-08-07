@@ -820,7 +820,75 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("MarketplaceAccountId", "OfferId");
 
+                    b.HasIndex("MarketplaceAccountId", "Sku");
+
                     b.ToTable("MarketplaceCards");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceOrder", b =>
+                {
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DeliveryMethodName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ExternalOrderNumber")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("InProcessAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<AppFieldError>("LabelError")
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime?>("LabelFetchedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("LabelFileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MarketplaceAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("MultiBoxQty")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PostingNumber")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RawStatus")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RawSubstatus")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ShipmentDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("StatusSyncedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("SyncedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TrackingNumber")
+                        .HasColumnType("text");
+
+                    b.HasKey("OrderId");
+
+                    b.HasIndex("LabelFileId");
+
+                    b.HasIndex("MarketplaceAccountId", "PostingNumber")
+                        .IsUnique();
+
+                    b.HasIndex("MarketplaceAccountId", "Status");
+
+                    b.ToTable("MarketplaceOrders");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceSyncRun", b =>
@@ -853,8 +921,23 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<Guid>("MarketplaceAccountId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("OrdersCreated")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OrdersProcessed")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OrdersSkipped")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OrdersUpdated")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Scope")
                         .HasColumnType("integer");
+
+                    b.Property<IList<SkippedOrderInfo>>("SkippedOrders")
+                        .HasColumnType("jsonb");
 
                     b.Property<DateTime>("StartedAt")
                         .HasColumnType("timestamp with time zone");
@@ -938,9 +1021,6 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<Guid?>("CreatedById")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("MarketplaceOrderId")
-                        .HasColumnType("text");
-
                     b.Property<string>("Notes")
                         .HasColumnType("text");
 
@@ -1023,9 +1103,8 @@ namespace ProjectWarehouse.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("MarketplaceCardId")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid?>("MarketplaceCardId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uuid");
@@ -1034,6 +1113,8 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("MarketplaceCardId");
 
                     b.HasIndex("OrderId");
 
@@ -1765,6 +1846,32 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("MarketplaceAccount");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceOrder", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.DataFile", "LabelFile")
+                        .WithMany()
+                        .HasForeignKey("LabelFileId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.MarketplaceAccount", "MarketplaceAccount")
+                        .WithMany("Orders")
+                        .HasForeignKey("MarketplaceAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Order", "Order")
+                        .WithOne("MarketplaceOrder")
+                        .HasForeignKey("ProjectWarehouse.Server.Domain.MarketplaceOrder", "OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("LabelFile");
+
+                    b.Navigation("MarketplaceAccount");
+
+                    b.Navigation("Order");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceSyncRun", b =>
                 {
                     b.HasOne("ProjectWarehouse.Server.Domain.MarketplaceAccount", "MarketplaceAccount")
@@ -1851,11 +1958,18 @@ namespace ProjectWarehouse.Server.Migrations
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.OrderMarketplaceItem", b =>
                 {
+                    b.HasOne("ProjectWarehouse.Server.Domain.MarketplaceCard", "MarketplaceCard")
+                        .WithMany()
+                        .HasForeignKey("MarketplaceCardId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("ProjectWarehouse.Server.Domain.Order", "Order")
                         .WithMany("MarketplaceItems")
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("MarketplaceCard");
 
                     b.Navigation("Order");
                 });
@@ -2144,6 +2258,8 @@ namespace ProjectWarehouse.Server.Migrations
                 {
                     b.Navigation("Cards");
 
+                    b.Navigation("Orders");
+
                     b.Navigation("SyncRuns");
 
                     b.Navigation("Warehouses");
@@ -2156,6 +2272,8 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("Boxes");
 
                     b.Navigation("MarketplaceItems");
+
+                    b.Navigation("MarketplaceOrder");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.OrderBox", b =>

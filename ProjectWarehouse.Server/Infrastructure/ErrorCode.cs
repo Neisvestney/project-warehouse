@@ -135,4 +135,15 @@ public enum ErrorCode
     DataFileNotAnImage,
     DataFileWidthNotAllowed,
     DataFileStorageError,
+
+    // FBS order sync. Deliberately not filed with the marketplace block above: these values are
+    // persisted as ints in the Error / LastSyncError / SkippedOrders jsonb columns, so inserting into
+    // the middle of the enum would silently reinterpret every error already stored.
+    MarketplaceOrdersNotSupported,
+    MarketplaceAccountHasOrders,
+    MarketplaceAccountInactive,
+    MarketplaceLabelNotReady,
+    MarketplaceOrderNotFromMarketplace,
+    MarketplaceOrderCardNotMapped,
+    MarketplaceOrderWarehouseNotMapped,
 }

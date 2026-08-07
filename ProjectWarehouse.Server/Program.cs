@@ -16,11 +16,13 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using PdfSharp.Fonts;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Infrastructure.Files;
+using ProjectWarehouse.Server.Infrastructure.Labels;
 using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Integrations.Ozon;
@@ -184,6 +186,14 @@ try
     var marketplacesOptions = builder.Configuration.GetSection(MarketplacesOptions.SectionName)
         .Get<MarketplacesOptions>() ?? new MarketplacesOptions();
 
+    // GlobalFontSettings is a static global and must be set before the first XFont is constructed.
+    // Windows fonts are switched off so a dev box behaves like the fontless Linux container.
+    GlobalFontSettings.UseWindowsFontsUnderWindows = false;
+    GlobalFontSettings.FontResolver ??= new EmbeddedLabelFontResolver(
+        marketplacesOptions.Labels.FontResourceName,
+        LoggerFactory.Create(b => b.AddSerilog()).CreateLogger<EmbeddedLabelFontResolver>());
+    builder.Services.AddSingleton<LabelPdfComposer>();
+
     Directory.CreateDirectory(marketplacesOptions.KeyRingPath);
     builder.Services.AddDataProtection()
         .PersistKeysToFileSystem(new DirectoryInfo(marketplacesOptions.KeyRingPath))
@@ -208,6 +218,7 @@ try
 
     builder.Services.AddScoped<IFileStorage, LocalFileStorage>();
     builder.Services.AddScoped<IDataFileBindingService, DataFileBindingService>();
+    builder.Services.AddScoped<IDataFileFactory, DataFileFactory>();
     builder.Services.AddScoped<IStorageStatsService, StorageStatsService>();
     builder.Services.AddScoped<IDatabaseStatsService, DatabaseStatsService>();
     builder.Services.AddMemoryCache();
@@ -243,6 +254,8 @@ try
     builder.Services.AddSingleton<IMarketplaceSyncQueue, MarketplaceSyncQueue>();
     builder.Services.AddHostedService<MarketplaceSyncWorker>();
     builder.Services.AddScoped<IMarketplaceSyncService, MarketplaceSyncService>();
+    builder.Services.AddScoped<IMarketplaceOrderSyncService, MarketplaceOrderSyncService>();
+    builder.Services.AddScoped<IMarketplaceLabelService, MarketplaceLabelService>();
 
     var ozonTimeout = TimeSpan.FromSeconds(marketplacesOptions.Ozon.TimeoutSeconds);
     builder.Services.AddHttpClient<IOzonApiClient, OzonApiClient>(c =>

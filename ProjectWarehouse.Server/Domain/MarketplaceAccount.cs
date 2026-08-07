@@ -46,6 +46,9 @@ public class MarketplaceAccount : IHasIdentity
     public ICollection<MarketplaceCard> Cards { get; set; } = [];
     public ICollection<MarketplaceSyncRun> SyncRuns { get; set; } = [];
 
+    /// <summary>Imported postings. Their presence blocks deleting the account.</summary>
+    public ICollection<MarketplaceOrder> Orders { get; set; } = [];
+
     [Projectable]
     public string SearchString =>
         Name + " " + (ExternalClientId ?? "") + " " + (CompanyLegalName ?? "") + " " + (Inn ?? "");

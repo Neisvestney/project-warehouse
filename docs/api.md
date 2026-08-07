@@ -436,7 +436,7 @@ maps CLR entity types to `AppEntityType` and reads table names off the EF model;
 | GET | `/accounts/{id}` | `integrations.view` | Account with aggregates (`MarketplaceAccountDto`) |
 | POST | `/accounts` | `integrations.edit` | Create account; returns `201` and queues an initial `all` sync when `isActive` |
 | PUT | `/accounts/{id}` | `integrations.edit` | Update account; an empty `apiKey` keeps the stored key |
-| DELETE | `/accounts/{id}` | `integrations.edit` | Delete account; cascades to its warehouses, cards and sync runs |
+| DELETE | `/accounts/{id}` | `integrations.edit` | Delete account; cascades to its warehouses, cards and sync runs. `409 marketplaceAccountHasOrders` when postings were imported |
 | POST | `/accounts/{id}/test-connection` | `integrations.edit` | Verify credentials without saving |
 | POST | `/accounts/{id}/sync` | `integrations.map` | Queue a sync → `202` + `{ syncRunId }` |
 | GET | `/accounts/{id}/sync-runs` | `integrations.view` | Run history (`Paginated<MarketplaceSyncRunDto>`), newest first |
@@ -445,6 +445,36 @@ maps CLR entity types to `AppEntityType` and reads table names off the EF model;
 | GET | `/accounts/{id}/cards` | `integrations.view` | Cards, supports `searchString`, `mappingState`, `includeArchived`, `sortBy` (`name`\|`offerId`\|`price`\|`syncedAt`), `sortOrder` |
 | PUT | `/cards/{id}/mapping` | `integrations.map` | Map to a catalog item |
 | POST | `/accounts/{id}/cards/auto-map` | `integrations.map` | Auto-map the whole account → `{ mapped, remaining }` |
+| GET | `/sync-runs?ids=` | `integrations.view` | Runs by id (max 50), for polling several accounts from one dialog; unknown ids are simply absent |
+| GET | `/accounts/order-sync-targets` | `integrations.map` | Active accounts whose provider declares `orders`, with mapping-gap counts for the dialog's warnings |
+| POST | `/accounts/sync-orders` | `integrations.map` | Queue FBS order sync for up to 50 accounts → `202 { items, failedItems }` |
+
+**`POST /accounts/sync-orders`** takes `{ accountIds: Guid[] }` and reports partial success the same way
+as `batch-self-assign`: `items[{ accountId, syncRunId }]` for the runs that started, `failedItems[{ accountId,
+accountName, error }]` for the accounts rejected up front (not found, inactive, no `orders` capability,
+unreadable key, a run already in flight). `403` is only ever returned for the request as a whole.
+
+Note the rejection can also arrive the other way: the controller's `running` check is a cheap guard, while
+the authoritative advisory lock lives in the worker and surfaces as a run that ends up `failed` with
+`marketplaceSyncAlreadyRunning` in its error. Clients must render both.
+
+### Labels — `POST /api/orders/labels`
+
+Lives on the orders controller, not here: labels are requested from the order list and are scoped by
+warehouse like every other order operation (`orders.view`, or `orders.view_assigned` limited to the
+caller's warehouses).
+
+| | |
+|---|---|
+| Request | `{ orderIds: Guid[] }`, at most 200 |
+| `200` | `application/pdf` — one merged document, in the order the ids were sent |
+| `409` | `marketplaceLabelNotReady`, `args.postingNumbers` and `args.count` |
+| `422` | `marketplaceOrderNotFromMarketplace` (`args.orderIds`), or `outOfRange` / `required` |
+| `502` | `marketplaceApiError` |
+
+All or nothing: if any requested label is not ready the file is withheld entirely. A batch of 30 quietly
+arriving with 28 labels means two unshipped boxes. Per-posting labels are cached in `DataFile`, so a
+repeat call does not touch the marketplace; the merged document is not stored.
 
 **`POST /accounts` body (`CreateMarketplaceAccountRequest`):**
 

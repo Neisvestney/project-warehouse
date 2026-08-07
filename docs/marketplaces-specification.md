@@ -11,9 +11,13 @@
 3. Синхронизация карточек товаров маркетплейса и их привязка к `CatalogItem`.
 4. Наблюдаемость — история запусков синхронизации, статусы, ошибки.
 
-Синхронизация заказов (FBS/FBO) и обратная выгрузка остатков в маркетплейс в первую версию не входят — см. раздел «Отложено». Схема данных проектируется так, чтобы обе задачи подключались добавлением сущностей, а не переделкой существующих.
+Вторая версия добавляет пятую задачу:
 
-> **Контекст:** домен заказов уже содержит швы под маркетплейс — `Order.MarketplaceOrderId` и `OrderMarketplaceItem.MarketplaceCardId` (см. [orders-specification.md](orders-specification.md)). `MarketplaceCardId` — строковый внешний идентификатор без внешнего ключа; сущность `MarketplaceCard`, вводимая этой спецификацией, становится целью этой ссылки.
+5. **Синхронизация заказов FBS** — импорт отправлений маркетплейса в заказы WMS, отслеживание их статуса на площадке и печать этикеток с артикулами WMS. См. раздел [«Синхронизация заказов FBS»](#синхронизация-заказов-fbs).
+
+Синхронизация заказов FBO и обратная выгрузка остатков в маркетплейс не входят ни в одну из версий — см. раздел «Отложено». Схема данных проектируется так, чтобы обе задачи подключались добавлением сущностей, а не переделкой существующих.
+
+> **Контекст:** домен заказов содержал швы под маркетплейс — `Order.MarketplaceOrderId` и `OrderMarketplaceItem.MarketplaceCardId` (см. [orders-specification.md](orders-specification.md)). Синхронизация заказов оба шва переделывает: `MarketplaceOrderId` заменяется выделенной сущностью `MarketplaceOrder`, а `MarketplaceCardId` из строки без внешнего ключа становится настоящим FK на `MarketplaceCard`. Обоснование — в разделе [«Заказ маркетплейса»](#заказ-маркетплейса-marketplaceorder).
 
 ---
 
@@ -37,6 +41,9 @@
 | `POST /v3/product/list` | `ProductAPI_GetProductList` | Список товаров (идентификаторы) | `limit` 1…1000, пагинация по `last_id` |
 | `POST /v3/product/info/list` | `ProductAPI_GetProductInfoList` | Полные данные карточек по идентификаторам | Пакет до 1000 идентификаторов |
 | `POST /v1/seller/info` | `SellerAPI_SellerInfo` | Название магазина и реквизиты продавца | Тела запроса нет |
+| `POST /v4/posting/fbs/unfulfilled/list` | `PostingFbsUnfulfilledList` | Отправления FBS, не переданные в доставку | Пагинация по `cursor` + `limit` 1…100 |
+| `POST /v3/posting/fbs/get` | `PostingAPI_GetFbsPostingV3` | Одно отправление по `posting_number` | Одно отправление за запрос |
+| `POST /v2/posting/fbs/package-label` | `PostingAPI_PostingFBSPackageLabel` | PDF с этикетками отправлений | Не больше 20 номеров за запрос; только статус `awaiting_deliver` |
 
 > **Ограничение:** `POST /v1/warehouse/list` помечен в спецификации как устаревающий с датой отключения 7 апреля 2026 года. Использовать только `/v2/warehouse/list`.
 
@@ -88,16 +95,49 @@ country / currency / tax_system — не сохраняются
 
 `POST /v3/product/list` возвращает только `offer_id`, `product_id`, `sku`, `archived`, `has_fbo_stocks`, `has_fbs_stocks` — этого недостаточно для карточки, поэтому список всегда догружается методом `/v3/product/info/list`.
 
+Поля ответа `/v4/posting/fbs/unfulfilled/list` (элемент `postings[]`), релевантные WMS:
+
+```
+posting_number      — string, номер отправления — первичный внешний идентификатор
+order_number        — string, номер заказа, к которому относится отправление
+status              — string, статус отправления
+substatus           — string, подстатус
+in_process_at       — date-time, начало обработки отправления
+shipment_date       — date-time, до какого времени нужно собрать → PlannedShipmentAt
+tracking_number     — string
+multi_box_qty       — int, количество коробок
+is_multibox         — bool
+delivery_method     — { id, name, warehouse_id, warehouse, tpl_provider }
+products[]          — { sku, offer_id, name, quantity, price, product_color }
+```
+
+`/v3/posting/fbs/get` отдаёт то же самое в `result` (тип `v3FbsPostingDetail`) плюс `cancellation` — причину отмены.
+
+> **Найдено при реализации: спецификация сама себе противоречит по ответу `/v2/posting/fbs/package-label`.** Ответ 200 объявлен под media type `application/pdf`, но со схемой JSON-объекта `{ file_content (format: byte), file_name, content_type }`; ошибки при этом честно `application/json` → `rpcStatus`. Верить нельзя ни тому, ни другому, поэтому схема успешного ответа принудительно нормализуется в `type: string, format: binary` на шаге обрезки (ключ `binaryResponses` в whitelist-е) — NSwag тогда детерминированно генерирует `Task<FileResponse>`, а **что именно приехало, решают байты**: префикс `%PDF` → готовый PDF, первый непробельный байт `{` → JSON-конверт с base64, пустое тело → «ещё не готово». Один PDF на всю пачку отправлений.
+
+> **Найдено при реализации: в `products[]` отправления нет `product_id`.** Ни `posting.v4...Postings.Products`, ни `v3PostingProductDetail` его не содержат — только `sku` и `offer_id`. А `MarketplaceCard.ExternalId` — это именно `product_id`. Поэтому позиция отправления сопоставляется с карточкой **по `Sku`, затем по `OfferId`**; ради этого заведён индекс `(MarketplaceAccountId, Sku)`.
+
+### Как Ozon представляет цвета и размеры
+
+Отдельной сущности «вариант товара» в API **нет**. Каждый цвет и каждый размер — это самостоятельный товар со своим `product_id`, `offer_id` и `sku`; объединение их в одну карточку на витрине чисто визуальное:
+
+- `/v3/product/info/list` отдаёт `model_info: { model_id, count }` — `model_id` общий у всех товаров, объединённых на одной карточке, `count` — сколько их;
+- значения цвета и размера лежат в характеристиках товара (`/v4/product/info/attributes` → `attributes[] { id, values[] }`), а какой `attribute_id` означает «Цвет», а какой «Размер», зависит от типа товара и выясняется через `/v1/description-category/attribute`;
+- в отправлении FBS цвет приезжает готовой строкой в `products[].product_color`.
+
+**Следствие для WMS: модель менять не нужно.** Раз каждый цвет/размер — отдельный товар со своим `offer_id`, он естественно ложится на одну `MarketplaceCard`, а та привязывается к своему `CatalogItem`. `ModelId` и характеристики **не сохраняются**: группировка карточек по модели в UI и разбор атрибутов дали бы ещё один постраничный обход всего каталога Ozon плюс справочник категорий, а рабочего сценария за этим нет.
+
 ### Методы для будущих этапов
 
-Не генерируются в первой версии, но зарезервированы в whitelist-е спецификации:
+Не генерируются, но зарезервированы в whitelist-е спецификации:
 
 | Метод | Назначение |
 |-------|------------|
 | `POST /v2/products/stocks` | Обновление остатков в Ozon |
 | `POST /v2/product/info/stocks-by-warehouse/fbs` | Остатки FBS по складам |
-| `POST /v4/posting/fbs/list`, `POST /v3/posting/fbs/get` | Отправления FBS |
 | `POST /v3/posting/fbo/list` | Отправления FBO |
+
+`POST /v4/posting/fbs/list` в whitelist **не входит**: его фильтр требует `since` и `to` (`required: ["since", "to"]`), то есть заставляет держать окно по датам и рисковать пропущенными заказами на его границе. Та же выборка без обязательного окна доступна через `/v4/posting/fbs/unfulfilled/list` — см. [«Обнаружение отправлений»](#обнаружение-отправлений).
 
 ---
 
@@ -380,6 +420,46 @@ MarketplaceCard : IHasIdentity
 
 **Сырой ответ маркетплейса не сохраняется.** Хранить `jsonb` с полным объектом карточки на десятках тысяч строк — заметный рост таблицы ради редких разборов инцидентов. Провайдер отображает ответ в `ExternalCard` и выбрасывает остальное; если в будущем понадобится новое поле — оно добавляется колонкой и заполняется следующей полной синхронизацией, которая и так идёт по расписанию.
 
+### Заказ маркетплейса (`MarketplaceOrder`)
+
+Расширение заказа WMS данными площадки. Отдельной страницы и списка у сущности нет — она всегда читается вместе с `Order` и инлайнится в его DTO.
+
+```
+MarketplaceOrder
+├── OrderId               — Guid → Order (Cascade), одновременно первичный ключ
+├── MarketplaceAccountId  — Guid → MarketplaceAccount (Restrict)
+├── PostingNumber         — string, номер отправления
+├── ExternalOrderNumber   — string?, номер заказа площадки, к которому относится отправление
+├── Status                — MarketplaceOrderStatus, нормализованный статус
+├── RawStatus             — string?, статус площадки как есть  ─┐ только диагностика
+├── RawSubstatus          — string?, подстатус как есть         ─┘
+├── ShipmentDate          — DateTime?, до какого времени собрать
+├── InProcessAt           — DateTime?, начало обработки на площадке
+├── TrackingNumber        — string?
+├── DeliveryMethodName    — string?
+├── MultiBoxQty           — int
+├── LabelFileId           — Guid? → DataFile (Restrict)
+├── LabelFetchedAt        — DateTime?
+├── LabelError            — AppFieldError? (jsonb)
+├── StatusSyncedAt        — DateTime, когда последний раз сверялся статус
+└── SyncedAt              — DateTime
+
+Уникальный индекс: (MarketplaceAccountId, PostingNumber)
+Индексы: (MarketplaceAccountId, Status)
+```
+
+**Первичный ключ общий с `Order` (shared primary key).** Связь строго 1:1, отдельный `Guid Id` не нужен ни для чего: сущность не адресуется по HTTP и не появляется ни в одном списке. `IHasIdentity` она **не реализует** — интерфейс подразумевает самостоятельный объект с changelog-историей, а история изменений здесь ведётся на `Order`.
+
+**Почему выделенная сущность, а не поля на `Order`.** Полей четырнадцать, и у прямых заказов все они `null` — `Order` обслуживает три типа заказов и обрастать площадочными атрибутами не должен. Решающий довод другой: чтобы сходить за этикеткой, нужно знать, **чьими ключами** идти, а места под `MarketplaceAccountId` в домене заказов не было вовсе.
+
+**`Order.MarketplaceOrderId` удаляется.** Строковое поле дублировало бы `PostingNumber`, а два источника одного и того же номера рано или поздно разъедутся. Следствия:
+
+- `Order.SearchString` становится `Number + " " + Notes + " " + MarketplaceOrder.PostingNumber` — поиск по номеру отправления сохраняется ценой `LEFT JOIN`;
+- `MarketplaceOrder` попадает в `Include`/`ProjectTo` заказа, а `MarketplaceOrderId` уходит из `OrderDto` и `OrderListItemDto`, уступая место вложенному `MarketplaceOrderDto`;
+- **FBO, когда до него дойдут руки, обязан ездить через ту же сущность** — другого места под номер отправления в домене не осталось. Это плюс: одна точка на обе схемы.
+
+**`OrderMarketplaceItem.MarketplaceCardId` становится настоящим FK** `Guid? → MarketplaceCard (Restrict)`. Прежнее обоснование строковой ссылки — «заказ может приехать с карточкой, которой ещё нет в WMS» — снимается правилом [«заказ с непривязанным товаром не синхронизируется»](#непривязанные-товары-и-склады): к моменту создания заказа карточка гарантированно существует и привязана к каталогу. Строковый вариант вдобавок был неоднозначен — `ExternalId` уникален только в рамках аккаунта, а аккаунта в заказе раньше не хранилось.
+
 ### Запуск синхронизации (`MarketplaceSyncRun`)
 
 ```
@@ -397,10 +477,19 @@ MarketplaceSyncRun : IHasIdentity
 ├── CardsUpdated          — int
 ├── CardsArchived         — int
 ├── AutoMapped            — int
+├── OrdersProcessed       — int  ─┐
+├── OrdersCreated         — int   │ заполняются только при Scope = Orders
+├── OrdersUpdated         — int   │
+├── OrdersSkipped         — int  ─┘
+├── SkippedOrders         — jsonb SkippedOrderInfo[]?  — почему заказы не создались
 └── Error                 — AppFieldError? (jsonb)
 
 Индекс: (MarketplaceAccountId, StartedAt DESC)
 ```
+
+`SkippedOrderInfo` — `{ PostingNumber, Reason, OfferIds[] }`, где `Reason` — тот же `ErrorCode`, что и в `AppFieldError` (`marketplaceOrderCardNotMapped` или `marketplaceOrderWarehouseNotMapped`). Список **ограничен первыми 100 записями**; сколько заказов пропущено всего, говорит `OrdersSkipped`. Без потолка прогон по магазину с неразобранным каталогом раздул бы одну строку таблицы на мегабайты, а UI всё равно не показывает больше сотни.
+
+Пропуск заказа обязан быть виден. Молча не создать заказ — худший вариант отказа: на складе о нём узнают в момент, когда отгружать уже поздно. Поэтому причина пропуска сохраняется структурно и показывается в модалке синхронизации сразу по завершении прогона.
 
 **Ошибки хранятся структурно, а не строкой.** `Error` и `LastSyncError` — это `AppFieldError` (`{ Code, Detail, Args }`), тот же тип, что лежит внутри `AppProblemDetails.Errors`. Что это даёт:
 
@@ -419,20 +508,30 @@ MarketplaceSyncRun : IHasIdentity
 | `MarketplaceType` | `Ozon = 0`, `Wildberries = 1` |
 | `MarketplaceWarehouseKind` | `Unknown = 0`, `Fbs = 1`, `Rfbs = 2`, `Express = 3`, `Fbo = 4` |
 | `MarketplaceMappingSource` | `Manual = 0`, `AutoOfferId = 1`, `AutoBarcode = 2` |
-| `MarketplaceSyncScope` | `Warehouses = 0`, `Cards = 1`, `All = 2` |
+| `MarketplaceSyncScope` | `Warehouses = 0`, `Cards = 1`, `All = 2`, `Orders = 3` |
 | `MarketplaceSyncStatus` | `Running = 0`, `Success = 1`, `Failed = 2`, `Canceled = 3` |
+| `MarketplaceOrderStatus` | `Unknown = 0`, `AwaitingDeliver = 1`, `Delivering = 2`, `Delivered = 3`, `Cancelled = 4`, `Arbitration = 5` |
+
+`MarketplaceSyncScope.Orders` дописан **в конец** — значение персистится числом в `MarketplaceSyncRun.Scope`. Заказы намеренно не входят в `All`: складам и карточкам хватает фонового интервала, а заказы запускаются отдельным пользовательским действием (см. [«Планировщик и запуск»](#планировщик-и-запуск)).
+
+`MarketplaceOrderStatus` — нормализованный набор состояний, схлопывать словарь площадки обязан **провайдер**, как это уже сделано для `MarketplaceWarehouseStatus`. Для Ozon: `awaiting_deliver` → `AwaitingDeliver`; `delivering`, `driver_pickup`, `sent_by_seller` → `Delivering`; `delivered` → `Delivered`; `cancelled`, `not_accepted` → `Cancelled`; `arbitration`, `client_arbitration` → `Arbitration`; всё незнакомое → `Unknown` с `LogWarning`. `Unknown = 0` по той же причине, что `MarketplaceWarehouseStatus.Unavailable = 0`: неизвестное состояние не должно выглядеть рабочим.
 
 ### Связь с существующим доменом
 
 ```
-MarketplaceWarehouse.WarehouseId   ──> Warehouse.Id       (Restrict)
-MarketplaceCard.CatalogItemId      ──> CatalogItem.Id     (Restrict)
-OrderMarketplaceItem.MarketplaceCardId ─ ─> MarketplaceCard.ExternalId  (строковая ссылка, без FK)
+MarketplaceWarehouse.WarehouseId       ──> Warehouse.Id       (Restrict)
+MarketplaceCard.CatalogItemId          ──> CatalogItem.Id     (Restrict)
+MarketplaceOrder.OrderId               ──> Order.Id           (Cascade, он же PK)
+MarketplaceOrder.MarketplaceAccountId  ──> MarketplaceAccount (Restrict)
+MarketplaceOrder.LabelFileId           ──> DataFile.Id        (Restrict)
+OrderMarketplaceItem.MarketplaceCardId ──> MarketplaceCard.Id (Restrict)
 ```
 
-`Restrict` на обеих привязках: удаление склада или позиции каталога, на которую ссылается карточка маркетплейса, должно явно блокироваться, а не тихо обнулять маппинг.
+`Restrict` на привязках склада и карточки: удаление склада или позиции каталога, на которую ссылается карточка маркетплейса, должно явно блокироваться, а не тихо обнулять маппинг.
 
-Связь `OrderMarketplaceItem → MarketplaceCard` остаётся строковой и без внешнего ключа до этапа синхронизации заказов: заказ может приехать с карточкой, которой ещё нет в WMS, и жёсткий FK сделал бы такой заказ несохраняемым.
+`Restrict` на `MarketplaceOrder.MarketplaceAccountId` меняет поведение удаления аккаунта: раньше `DELETE /accounts/{id}` каскадно сносил склады и карточки, теперь аккаунт с импортированными заказами удалить нельзя — `409 marketplaceAccountHasOrders`. Каскад здесь означал бы удаление заказов вместе с историей сборки и движениями остатков.
+
+`Restrict` на `LabelFileId` — общее правило подсистемы файлов ([data-files-specification.md](data-files-specification.md#правила-ondelete)): ссылка на `DataFile` всегда через настоящий FK и всегда `Restrict`, иначе сборщик мусора посчитает файл осиротевшим.
 
 ---
 
@@ -447,7 +546,10 @@ IMarketplaceProvider
 ├── Task<CredentialsValidationResult> ValidateAsync(MarketplaceCredentials, ct)
 ├── Task<IReadOnlyList<ExternalWarehouse>> FetchWarehousesAsync(MarketplaceCredentials, ct)
 ├── IAsyncEnumerable<IReadOnlyList<ExternalCard>> FetchCardsAsync(MarketplaceCredentials, ct)
-└── Task<ExternalSellerInfo> FetchSellerInfoAsync(MarketplaceCredentials, ct)
+├── Task<ExternalSellerInfo> FetchSellerInfoAsync(MarketplaceCredentials, ct)
+├── IAsyncEnumerable<IReadOnlyList<ExternalPosting>> FetchActivePostingsAsync(MarketplaceCredentials, ct)
+├── Task<IReadOnlyList<ExternalPostingStatus>> FetchPostingStatusesAsync(MarketplaceCredentials, IReadOnlyList<string> postingNumbers, ct)
+└── Task<ExternalLabelDocument> FetchLabelDocumentAsync(MarketplaceCredentials, IReadOnlyList<string> postingNumbers, ct)
 
 MarketplaceCredentials  — record (string? ClientId, string ApiKey)
 ExternalWarehouse       — record (string ExternalId, string Name, MarketplaceWarehouseKind Kind,
@@ -459,12 +561,35 @@ ExternalCard            — record (string ExternalId, string? Sku, string Offer
 ExternalSellerInfo      — record (string? Name, string? LegalName, string? Inn,
                                   string? Ogrn, string? OwnershipForm)
 
-MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, StockPush, SellerInfo
+ExternalPosting         — record (string PostingNumber, string? ExternalOrderNumber,
+                                  MarketplaceOrderStatus Status, string? RawStatus, string? RawSubstatus,
+                                  string? WarehouseExternalId, string? DeliveryMethodName,
+                                  DateTime? ShipmentDate, DateTime? InProcessAt,
+                                  string? TrackingNumber, int MultiBoxQty,
+                                  IReadOnlyList<ExternalPostingItem> Items)
+
+ExternalPostingItem     — record (string? Sku, string OfferId, string Name, int Quantity)
+
+ExternalPostingStatus   — record (string PostingNumber, MarketplaceOrderStatus Status,
+                                  string? RawStatus, string? RawSubstatus, string? TrackingNumber)
+
+ExternalLabelDocument   — record (bool IsReady, IReadOnlyList<string> PostingNumbers,
+                                  string? ContentType, byte[]? Content)
+
+MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, Labels, StockPush, SellerInfo
 ```
+
+**`ExternalPostingItem` не несёт ссылки на карточку** — в отправлении нет `product_id` (см. раздел исходных данных). Разрешение позиции в `MarketplaceCard` по `Sku`, затем по `OfferId`, делает сервис синхронизации.
+
+`ExternalLabelDocument.IsReady = false` — это **не ошибка**, а штатный ответ «площадка ещё не сформировала этикетку». Ozon прямо рекомендует запрашивать этикетку через 45–60 секунд после сборки отправления и отвечает `The next postings aren't ready`. Провайдер распознаёт этот случай и возвращает `IsReady = false` вместо `MarketplaceApiException` — иначе временная неготовность выглядела бы как отказ интеграции. Распознавание живёт в одном общем хелпере, потому что Ozon сообщает о неготовности **двумя способами**: и как 200 с JSON-телом, и как 400/409.
+
+`ExternalLabelDocument` несёт `ContentType`, потому что формат этикетки у площадок разный: Ozon отдаёт PDF, Wildberries — растровый или SVG-стикер. Сборщик итогового файла обязан уметь и то, и другое: PDF-страницы берутся как есть, картинка заворачивается в страницу. *(Формат стикеров WB по их спецификации не проверялся — уточняется при подключении провайдера.)*
+
+**Документ отдаётся на всю пачку целиком, а не по отправлению.** Первоначально контракт задумывался как `IReadOnlyList<ExternalLabel>` — по записи на отправление, — но это заставило бы провайдера резать PDF, то есть тащить туда PDFsharp, хотя та же спецификация помещает нарезку и пачки в сервис. Провайдер отвечает ровно за то, что вернула площадка; страницы отправлениям сопоставляет сервис — см. [«Получение этикеток»](#получение-этикеток).
 
 Все поля `ExternalSellerInfo` необязательные: площадка может отдавать лишь часть реквизитов, а у самозанятого нет ОГРН. `FetchSellerInfoAsync` вызывается только у провайдеров, объявивших флаг `SellerInfo`.
 
-`IMarketplaceProviderRegistry.Get(MarketplaceType)` резолвит провайдера. `Capabilities` управляет UI: у аккаунта Ozon вкладки «Склады» и «Карточки» активны, вкладка «Заказы» появится, когда провайдер объявит `Orders`.
+`IMarketplaceProviderRegistry.Get(MarketplaceType)` резолвит провайдера. `Capabilities` управляет UI: аккаунт без флага `Orders` не предлагается в модалке синхронизации заказов, без флага `Labels` — не даёт скачивать этикетки.
 
 Различия площадок закрываются на уровне провайдера, а не схемы:
 
@@ -577,6 +702,139 @@ Quartz регистрируется с in-memory хранилищем задач
 
 ---
 
+## Синхронизация заказов FBS
+
+### Главный принцип
+
+**Синхронизируются только отправления в статусе `awaiting_deliver` и в статусах, наступающих после него.** Это принципиальное ограничение, из которого следует всё остальное:
+
+- `awaiting_deliver` наступает после того, как отправление собрано и разбито на упаковки **на стороне площадки**. WMS в этом не участвует и метод `/v4/posting/fbs/ship` не вызывает — заказ приезжает уже разделённым и с известным `multi_box_qty`.
+- Этикетку Ozon печатает **только** для `awaiting_deliver`. Ограничившись этим статусом, мы получаем заказы, для которых этикетка доступна сразу, а не «когда-нибудь».
+- Отправления в `awaiting_packaging` и более ранних состояниях в WMS не попадают вовсе — собирать их нечем, они ещё не сформированы.
+
+**Статус на площадке идёт параллельно статусу WMS и никогда его не двигает.** Заказ создаётся в `OrderStatus.Confirmed` — то есть готовым к сборке — и дальше живёт по своей статусной машине ([orders-specification.md](orders-specification.md)). `MarketplaceOrder.Status` обновляется синхронизацией независимо и служит информацией для человека, а не триггером. Автоматических переходов между двумя статусными машинами нет ни в одну сторону: ни отмена на площадке не откатывает сборку, ни отгрузка в WMS не сообщается площадке.
+
+### Обнаружение отправлений
+
+Источник новых заказов — `POST /v4/posting/fbs/unfulfilled/list` с фильтром `statuses: ["awaiting_deliver"]`, курсорная пагинация, `limit` 100.
+
+Именно `unfulfilled/list`, а не `/v4/posting/fbs/list`: у второго фильтр требует `since` и `to`, то есть вынуждает держать скользящее окно по датам. Окно — это либо пропущенный заказ на границе, либо перевыборка всей истории каждый прогон. У `unfulfilled/list` обязательных полей фильтра нет вовсе, а сама выдача уже ограничена отправлениями, не переданными в доставку, — ровно то, что нам нужно.
+
+Каждое отправление проверяется по уникальному индексу `(MarketplaceAccountId, PostingNumber)`. Известное — пропускается (его состояние обновит следующий шаг), новое — проходит проверки и создаёт заказ.
+
+### Догон статусов
+
+Заказы, ушедшие из `awaiting_deliver`, **из выдачи `unfulfilled/list` исчезают**, и отличить «отгружено» от «отменено» по факту исчезновения невозможно. Поэтому вторым шагом прогона идёт точечная сверка: для всех `MarketplaceOrder` аккаунта, чей `Status` ещё не финальный (`Delivered` / `Cancelled`), вызывается `POST /v3/posting/fbs/get` по `PostingNumber`.
+
+Запрос поштучный, зато список короткий — это открытые заказы склада, десятки, а не тысячи. Обновляются `Status`, `RawStatus`, `RawSubstatus`, `TrackingNumber`, `StatusSyncedAt`.
+
+Выборка дополнительно ограничена условием **`StatusSyncedAt < run.StartedAt`**. Без него фаза обнаружения только что обновила ровно эти отправления, а фаза догона тут же сходила бы за ними по одному HTTP-вызову на каждый открытый заказ — каждый прогон, впустую.
+
+Отправление, которого площадка уже не знает (404), из ответа **опускается**, а не роняет прогон: ему всё равно проставляется `StatusSyncedAt`, чтобы оно не опрашивалось вечно, и пишется `LogWarning`. Последний известный статус сохраняется.
+
+Отмена на площадке заказ WMS **не трогает**: ни статус, ни задания на сборку, ни фулфилменты. Она поднимает в интерфейсе предупреждение «отменён на маркетплейсе» на строке списка и на странице заказа — дальше решает человек. Автоматический откат сборки означал бы возврат остатков по заказу, который, возможно, уже физически упакован.
+
+### Непривязанные товары и склады
+
+Заказ **не создаётся**, если выполнено хотя бы одно условие:
+
+1. Любой товар отправления не имеет карточки в WMS либо его карточка не привязана к `CatalogItem` → `marketplaceOrderCardNotMapped`.
+2. Склад отправления (`delivery_method.warehouse_id`) не найден среди `MarketplaceWarehouse` аккаунта либо его `WarehouseId` не заполнен → `marketplaceOrderWarehouseNotMapped`.
+
+Первое условие — требование пользователя: заказ с неизвестным товаром бесполезен, собрать его нечем. Второе — техническое: `Order.WarehouseId` обязателен, и угадывать склад нельзя.
+
+Пропуск **всегда наблюдаем**. Каждый пропущенный заказ попадает в `MarketplaceSyncRun.SkippedOrders` с номером отправления, причиной и списком `offer_id`, из-за которых он не прошёл, и показывается в модалке синхронизации отдельным блоком. Заказ, пропавший молча, обнаруживается на складе в момент, когда отгружать уже поздно, — этого допускать нельзя.
+
+Пропуск не запоминается: на следующем прогоне отправление снова придёт из `unfulfilled/list`, и если товар за это время привязали — заказ создастся. Отдельной сущности «отложенный заказ» не заводится.
+
+### Создание заказа
+
+```
+Order
+├── Type              = FBS
+├── Status            = Confirmed
+├── Number            — из последовательности БД, как у всех заказов
+├── WarehouseId       — MarketplaceWarehouse(delivery_method.warehouse_id).WarehouseId
+├── PlannedShipmentAt = shipment_date отправления
+├── CreatedById       = null — заказ создан интеграцией; кто запустил прогон, видно в MarketplaceSyncRun.TriggeredById
+├── MarketplaceItems  — по одному на products[]: FK карточки + Quantity
+├── MarketplaceOrder  — заполняется целиком из ExternalPosting
+└── Boxes             — одна коробка со всеми позициями
+```
+
+**Коробка всегда одна, даже когда `multi_box_qty > 1`.** Заказ создаётся с одной коробкой, а сборщик разносит позиции по коробкам на странице сборки, где механика создания коробок и перемещения компонентов уже есть ([orders-specification.md](orders-specification.md#управление-коробками-во-время-сборки)). `MultiBoxQty` сохраняется как подсказка «упаковок должно получиться столько».
+
+Восстанавливать раскладку из данных площадки нечего — у Ozon «много коробок» бывает двух разных видов, и ни один из них не описывает, что в какую упаковку положено:
+
+- **Разделение заказа на отправления.** Заказ площадки (`order_number`) распадается на несколько `posting_number`, каждое — самостоятельное грузоместо со своей этикеткой и своим статусом. Родословная видна в `parent_posting_number` и `related_postings`. Для WMS это вообще не особый случай: раз единица импорта — отправление, заказ из трёх упаковок приезжает тремя заказами WMS. Это же и главный довод в пользу `posting_number` как единицы.
+- **Многокоробочный товар** (`is_multibox`, `multi_box_qty`) — один крупногабаритный товар, физически едущий в нескольких коробках. Отправление при этом остаётся одно. Флаг `is_multibox = true` означает не «здесь много коробок», а «количество коробок ещё не передано площадке методом `/v3/posting/multiboxqty/set`»; этот метод в спецификации Ozon отнесён к схеме rFBS Агрегатор.
+
+Оба механизма отрабатывают **до** `awaiting_deliver`, то есть до того, как отправление попадает в WMS: к моменту импорта заказ уже разделён, а `multi_box_qty` уже проставлен. Писать в площадку по этому поводу не нужно ничего.
+
+Компонент коробки — это `CatalogItem`, к которому привязана карточка, с количеством из отправления. Позиции схлопываются в один компонент суммой количеств **по `CatalogItemId`, а не по карточке**: `MarketplaceCard.CatalogItemId` — связь N:1, и две разные карточки, указывающие на одну позицию каталога, иначе дали бы в одной коробке два компонента с одинаковым `CatalogItemId`. Тип компонента наследуется от привязки: `Bundle` собирается по дереву, `Variation` разрешается сборщиком в конкретный вариант через уже существующий `AssemblyFulfillment.ResolvedCatalogItemId`.
+
+### Повторная синхронизация
+
+Существующий заказ **никогда не пересоздаётся и не перестраивается**. Обновляются только поля `MarketplaceOrder` (статус, трек-номер, `ShipmentDate`, `StatusSyncedAt`) и, если `ShipmentDate` изменился, `Order.PlannedShipmentAt`.
+
+Состав заказа, коробки, задания на сборку и фулфилменты синхронизация не трогает никогда — они могут быть уже частично собраны. Это то же правило, что зафиксировано для FBS в [orders-specification.md](orders-specification.md#fbs--специфика).
+
+### Планировщик и запуск
+
+Заказы синхронизируются **только вручную** — кнопкой «Синхронизировать заказы» на `/operations/orders/fbs`. В фоновый `MarketplaceSyncScanJob` они не входят, и `Scope = All` их не включает.
+
+Причина: фоновый скан рассчитан на десятки минут между прогонами, а заказы нужны либо прямо сейчас (кладовщик пришёл на смену), либо не нужны совсем. Автоматический импорт заказов вдобавок означал бы создание заказов без участия человека при неразобранном каталоге — с горой пропусков, которые никто не увидит. Фоновая синхронизация заказов вынесена в «Отложено».
+
+Запуск подчиняется тому же advisory-локу на аккаунт, что и остальные прогоны: если по аккаунту уже идёт синхронизация карточек, запуск заказов по нему получает `marketplaceSyncAlreadyRunning`. Это **не роняет весь запрос** — см. [`POST /accounts/sync-orders`](#api).
+
+### Получение этикеток
+
+Этикетки тянутся **лениво**, по требованию пользователя, а не при синхронизации. Импорт заказов не должен упираться в скорость печати на стороне площадки, а этикетка нужна в момент упаковки, а не в момент приезда заказа.
+
+Алгоритм `POST /api/orders/labels { orderIds }`:
+
+1. Заказы группируются по `MarketplaceAccountId` — учётные данные у каждого свои.
+2. У кого `LabelFileId` уже заполнен, тот берётся из `DataFile`, площадка не дёргается.
+3. **Нарезка гибридная.** Отправления с `MultiBoxQty <= 1` запрашиваются пачками по 20 (`LabelBatchSize`, предел `/v2/posting/fbs/package-label`) — там страница строго одна, и соответствие по порядку запроса гарантировано. Отправления с `MultiBoxQty > 1` запрашиваются **по одному**, и весь ответ целиком становится этикеткой этого отправления, сколько бы страниц в нём ни было.
+
+   > **Почему так.** Спецификация Ozon не говорит, печатает ли многокоробочное отправление одну страницу или по странице на коробку — это остаётся [открытым вопросом](#открытые-вопросы) до проверки на живом магазине. Поштучный запрос делает ответ на него **безразличным**: неизвестное число страниц не может сдвинуть пачку и наклеить артикулы одного заказа на коробку другого.
+4. Ozon отвечает на пачку по принципу «всё или ничего»: неготовность одного отправления рушит всю пачку. Поэтому неудачная пачка **повторяется поштучно** — иначе один неготовый заказ лишил бы этикеток девятнадцать готовых.
+5. У готовой пачки число страниц сверяется с числом отправлений. **Расхождение — не повод угадывать:** пачка выбрасывается и перезапрашивается поштучно, в лог уходит предупреждение с обоими числами. Это же и сигнал, что Ozon поменял поведение. Соответствие страниц отправлениям больше держать не на чем, а перепутанная этикетка хуже двадцати лишних HTTP-вызовов.
+6. На каждую страницу наносятся артикулы (ниже), результат сохраняется отдельным `DataFile`, ссылка пишется в `MarketplaceOrder.LabelFileId` и `LabelFetchedAt`.
+
+   > Строка `DataFile` коммитится **до** записи `LabelFileId`. Смерть запроса между ними оставляет осиротевший файл, который сборщик мусора подберёт через `OrphanTtlHours`, — состояние самоисцеляется, транзакция не нужна.
+7. Отправление, по которому пришло `IsReady = false`, получает `LabelError` с кодом `marketplaceLabelNotReady`; `LabelFileId` остаётся пустым.
+
+**Если хотя бы одна этикетка из запрошенных не готова — файл не отдаётся вовсе.** Ответ — `409 marketplaceLabelNotReady` со списком номеров отправлений в `args`, интерфейс показывает «Ozon ещё не сформировал этикетки для N заказов, попробуйте через минуту». Частичный PDF здесь опаснее отказа: пачка на 30 заказов, тихо приехавшая с 28 этикетками, приводит к двум неотгруженным коробкам.
+
+Когда готовы все — страницы склеиваются в один PDF **в порядке заказов в запросе** и отдаются потоком. Склейка как `DataFile` не сохраняется: это одноразовый артефакт печати, и в хранилище он был бы мусором, который потом разгребает GC. Кэшируются только постраничные этикетки.
+
+### Артикулы на этикетке
+
+На страницу наносится текст **вдоль верхнего края**, столбиком, не более трёх строк:
+
+```
+ART-001 ×3
+ART-042
+ART-777 ×2
++2
+```
+
+Правила:
+
+- строка — это артикул `CatalogItem`, привязанного к карточке позиции;
+- количество дописывается через `×`, если оно больше единицы;
+- позиций больше трёх — печатаются первые три, четвёртой строкой идёт `+N` с числом оставшихся;
+- порядок строк — тот же, что в отправлении.
+
+Реализация — **PDFsharp** (лицензия MIT): открывает готовый PDF площадки, рисует поверх страницы через `XGraphics`, и он же склеивает итоговый файл. **Поворот не применяется** — Ozon отдаёт этикетку уже развёрнутой в том виде, в каком она печатается, и текст просто следует за страницей. Генераторы вроде QuestPDF здесь не подходят — они рисуют документ с нуля и не умеют накладывать содержимое на чужую страницу.
+
+> **Шрифт вшивается в сборку embedded-ресурсом.** В Linux-контейнере системных шрифтов нет вообще, а артикулы могут быть кириллическими. Без вшитого шрифта этикетки уедут в печать с квадратиками вместо букв, и узнают об этом на складе, а не в CI.
+
+Этикетка — **снимок на момент печати**. Если карточку впоследствии перепривязали к другой позиции каталога, сохранённая этикетка не перегенерируется: она уже наклеена на коробку, и расхождение с текущей привязкой честнее, чем подмена задним числом.
+
+---
+
 ## API
 
 Префикс — `api/integrations/marketplaces`. Ответы, пагинация и ошибки — по общим правилам проекта (`Paginated<T>`, `AppProblemDetails`).
@@ -597,6 +855,40 @@ Quartz регистрируется с in-memory хранилищем задач
 | `PUT` | `/cards/{id}/mapping` | `integrations.map` | Привязка карточки, `{ catalogItemId }`, `null` — снять |
 | `POST` | `/accounts/{id}/cards/auto-map` | `integrations.map` | Автосопоставление по всему аккаунту |
 | `GET` | `/accounts/unmapped-count` | `integrations.view` | `{ count }` несопоставленных карточек по всем активным аккаунтам — источник данных для бейджа в сайдбаре |
+| `GET` | `/accounts/order-sync-targets` | `integrations.map` | Аккаунты, доступные для синхронизации заказов, — источник данных для модалки |
+| `POST` | `/accounts/sync-orders` | `integrations.map` | Запуск синхронизации заказов по нескольким аккаунтам, тело `{ accountIds }` → `202` |
+| `GET` | `/sync-runs` | `integrations.view` | Прогоны по списку идентификаторов, `?ids=` — один опрос на всю модалку |
+
+Этикетки живут в контроллере заказов, а не интеграций, — они запрашиваются из списка заказов и скоупятся по складу вместе с остальными операциями над заказами:
+
+| Метод | Путь | Право | Назначение |
+|-------|------|-------|------------|
+| `POST` | `api/orders/labels` | `orders.view` / `orders.view_assigned` | Склеенный PDF этикеток по `{ orderIds }` |
+
+### `POST /accounts/sync-orders`
+
+```
+Запрос:  { accountIds: Guid[] }
+Ответ:   202 { items: [{ accountId, syncRunId }],
+               failedItems: [{ accountId, accountName, error: AppFieldError }] }
+```
+
+Семантика частичного успеха — та же, что у [`batch-self-assign`](orders-specification.md#массовый-захват-post-apiordersbatch-self-assign) и `batch-fulfill`: занятый локом или неактивный аккаунт попадает в `failedItems`, остальные стартуют. Валить весь запрос из-за одного аккаунта, по которому в этот момент идёт фоновая синхронизация карточек, нельзя — пользователь отметил пять магазинов и ждёт пять результатов.
+
+`403` возвращается только на уровне всего запроса — при отсутствии права `integrations.map`.
+
+`GET /sync-runs?ids=` отдаёт прогоны без привязки к аккаунту в пути — модалка следит сразу за несколькими. Существующий `GET /accounts/{id}/sync-runs` остаётся: он про историю одного аккаунта.
+
+### `POST api/orders/labels`
+
+```
+Запрос:  { orderIds: Guid[] }
+Ответ:   200 application/pdf — склеенный файл
+         409 marketplaceLabelNotReady — args.postingNumbers[] с номерами неготовых отправлений
+         422 marketplaceOrderNotFromMarketplace — в списке есть заказ без MarketplaceOrder
+```
+
+Ответ либо файл целиком, либо отказ: частичной выдачи нет по причинам, разобранным в [«Получение этикеток»](#получение-этикеток).
 
 `test-connection` вызывается и для несохранённого аккаунта: тело запроса может содержать `clientId` и `apiKey` напрямую, тогда `{id}` игнорируется. Это позволяет проверить ключ до создания записи.
 
@@ -634,8 +926,17 @@ public static class Integrations
 | `marketplaceSyncInterrupted` | — | Запуск прерван остановкой приложения; проставляется реконсиляцией при старте, наружу по HTTP не отдаётся |
 | `marketplaceWarehouseNotFound` | 404 | Склад маркетплейса не найден |
 | `marketplaceCardNotFound` | 404 | Карточка маркетплейса не найдена |
+| `marketplaceOrdersNotSupported` | 422 | Провайдер аккаунта не объявил `Orders` |
+| `marketplaceAccountHasOrders` | 409 | Удаление аккаунта, по которому импортированы заказы |
+| `marketplaceAccountInactive` | — | Аккаунт отключён; только в `failedItems` у `sync-orders` |
+| `marketplaceLabelNotReady` | 409 | Площадка ещё не сформировала этикетки; `args.postingNumbers` — по каким, `args.count` — сколько |
+| `marketplaceOrderNotFromMarketplace` | 422 | Запрошена этикетка для заказа без `MarketplaceOrder` |
+| `marketplaceOrderCardNotMapped` | — | Заказ пропущен: товар без привязки к каталогу. Только в `SkippedOrders`, наружу по HTTP не отдаётся |
+| `marketplaceOrderWarehouseNotMapped` | — | Заказ пропущен: склад отправления не привязан к складу WMS. Только в `SkippedOrders` |
 
-Значения `ErrorCode` для этой секции дописываются **только в конец** enum'а — они персистятся числом в jsonb-колонках `Error` и `LastSyncError`.
+Значения `ErrorCode` для этой секции дописываются **в самый конец** enum'а — не в маркетплейсный блок к родне. Они персистятся числом в jsonb-колонках `Error`, `LastSyncError` и `SkippedOrders`, поэтому вставка в середину молча переинтерпретировала бы уже сохранённые ошибки. В файле над блоком стоит комментарий с этим объяснением.
+
+`args.count` у `marketplaceLabelNotReady` дублирует длину `postingNumbers` намеренно: клиентский `interpolateArgs` подставляет скаляр, а массив не склоняется.
 
 ### Changelog
 
@@ -647,7 +948,7 @@ public static class Integrations
 | Изменение аккаунта | `account.updated` | `{ marketplace }` |
 | Ротация ключа | `account.key_rotated` | `{ marketplace }` — без значений ключа |
 | Удаление аккаунта | `account.deleted` | `{ marketplace }` |
-| Итог синхронизации | `sync.finished` | `{ syncRunId, status, cardsCreated, cardsArchived, autoMapped }` |
+| Итог синхронизации | `sync.finished` | `{ syncRunId, scope, status, cardsCreated, cardsArchived, autoMapped, ordersCreated, ordersUpdated, ordersSkipped }` |
 | Ручная привязка карточки | `mapping.set` | `{ catalogItemId, source: "manual" }` |
 | Снятие привязки | `mapping.cleared` | — |
 | Автосопоставление | `mapping.auto` | `{ matched, remaining }` |
@@ -655,6 +956,8 @@ public static class Integrations
 **Записи `sync.started` нет.** `AbstractChangeLogService` пишет запись только при непустом диффе `before`/`after`, а старт синхронизации сам по себе состояние аккаунта не меняет — запись либо не создалась бы вовсе, либо пришлось бы подделывать тип `Added`. Факт запуска и так виден в `MarketplaceSyncRun` со статусом `Running`, который создаётся и коммитится сразу; в журнал попадает итог. По той же причине `mapping.auto` пишется через дифф аккаунта (меняется `unmappedCardCount`) — прогон, не сопоставивший ничего, записи не создаёт.
 
 Фоновая синхронизация выполняется без пользователя — `ChangeLogEntry.UserId` остаётся `null`, что схема допускает.
+
+**Заказы, созданные синхронизацией, в changelog не пишутся** — по тому же правилу «синхронизация не пишет в журнал». Прогон на сотню заказов затопил бы журнал сотней записей `Added`, не несущих информации сверх той, что уже есть в `sync.finished` и в самих заказах. Получение этикетки тоже не логируется: это чтение с площадки, а не изменение заказа.
 
 ---
 
@@ -700,6 +1003,10 @@ src/pages/SettingsPage/pages/MarketplacesSettingsPage/
 - `src/utils/appEntityUtils.tsx` — `Record<AppEntityType, EntityTypeConfig>`, нужны `marketplaceAccount` и `marketplaceCard`;
 - `src/utils/errorUtils.ts` — `errorCodeMessages: Record<ErrorCode, string>`, нужны все 11 новых кодов.
 
+Синхронизация заказов добавила **четвёртое** такое место, которого в этом списке не было: `SYNC_SCOPE_LABELS: Record<MarketplaceSyncScope, string>` в `marketplaceUtils.ts` — новое значение `orders` ломает его так же. Плюс семь новых кодов ошибок в `errorCodeMessages` и новый `Record<MarketplaceOrderStatus, …>` в `marketplaceOrderUtils.ts`. Прав при этом не добавилось, `AppEntityType` тоже: `MarketplaceOrder` на бэкенде отображается в `AppEntityType.Order`.
+
+Список `SYNC_SCOPES` на странице аккаунта намеренно **не** получил `orders` — заказы тянутся только со страницы FBS; в коде рядом стоит комментарий, иначе это «починят».
+
 У `marketplaceCard` ссылки нет (`linkTemplate: "no-link"`): собственной страницы у карточки не существует, а маппинга `MarketplaceCard → AppEntity` в `AppMapperProfile` нет вовсе — эти два значения `AppEntityType` используются только как `ChangeLogEntry.EntityType`.
 
 > **Найдено при реализации: nullable enum'ы уезжали в схему числом.** Трансформер enum-схем в `Program.cs` проверял `type.IsEnum`, а у nullable-свойства `context.JsonTypeInfo.Type` — это `Nullable<TEnum>`, для которого `IsEnum` равен `false`. В результате `MarketplaceSyncStatus` и `MarketplaceMappingSource` уезжали в OpenAPI как `integer`, и сгенерированный клиент объявлял их `= number`, хотя рантайм отдавал camelCase-строки. Исправлено разворотом `Nullable.GetUnderlyingType` перед проверкой; правка общая и чинит любой будущий nullable enum.
@@ -713,6 +1020,48 @@ src/pages/SettingsPage/pages/MarketplacesSettingsPage/
 **Бейдж-счётчик в сайдбаре отложен.** `SectionConfig` не имеет соответствующего поля, а `settingsConfig.tsx` — обычный модульный массив и хуки вызывать не может. Счётчик пришлось бы передавать **компонентом** (`badge?: React.ComponentType`), который сам дёргает `/accounts/unmapped-count`, и протаскивать его через `toNavItems` в `SidebarNavLeafItem` и в оба места отрисовки внутри `SidebarLayout` — то есть править общий layout ради одного раздела. Решено не трогать: эндпоинт `/accounts/unmapped-count` реализован, но фронтом пока не используется, а число несопоставленных видно в списке аккаунтов и на вкладке «Обзор».
 
 Счётчики активного запуска пока обновляются **опросом**: пока `lastSyncStatus == Running`, запросы аккаунта и `/sync-runs` идут с `refetchInterval` в 3 с и сами останавливаются по завершении. Realtime-клиента в проекте нет вообще ([realtime-specification.md](realtime-specification.md), раздел «Реализовано» — пусто), поэтому события `marketplace.sync.progress` и `marketplace.sync.finished` подключаются позже подменой этого одного места.
+
+### Заказы FBS
+
+Раздел заказов маркетплейс о себе почти ничего не знает — вся площадочная механика собрана в двух местах на `/operations/orders/fbs`.
+
+```
+src/components/orders/
+├── OrdersListPage.tsx                     — существующий, получает три слота для FBS
+└── marketplace/
+    ├── SyncOrdersButton.tsx               — кнопка и состояние модалки
+    ├── SyncOrdersDialog.tsx               — выбор аккаунтов, запуск, прогресс, итоги
+    ├── SyncOrdersAccountAccordion.tsx     — один аккаунт: статус прогона, счётчики, пропуски
+    ├── SkippedOrdersList.tsx              — что не приехало и почему
+    ├── DownloadLabelsButton.tsx           — действие над выделенными строками
+    ├── MarketplaceOrderStatusChip.tsx     — статус на площадке, в списке и на странице заказа
+    └── marketplaceOrderUtils.ts           — метки и цвета статусов
+
+src/utils/
+├── downloadUtils.ts                       — saveBlob
+└── blobErrorUtils.ts                      — parseProblemFromBlob
+```
+
+**Слоты, а не ветка по типу.** `OrdersListPage` обслуживает все три типа заказов, поэтому FBS-специфика приходит пропсами — `headerActions`, `bulkActions(selectedIds)` и `extraColumns` — и общий компонент не тянет ни импортов интеграций, ни права `integrations.map` в Direct и FBO. `marketplaceOrderUtils.ts` живёт в дереве операций, а не в настройках, по той же причине.
+
+Две правки в общем компоненте, которые эти слоты потребовали:
+
+- `colSpan` у пустой строки и лоадера был захардкожен восьмёркой — стал вычисляемым;
+- `showBulkBar` опирался только на self-assign, а этикетки нужны при любом выделении. Условие стало `selectedIds.size > 0 && (showSelfAssign || bulkActions != null)`; без слагаемого про `bulkActions` панель начала бы появляться пустой на Direct и FBO.
+
+**Модалка синхронизации.** Открывается кнопкой «Синхронизировать заказы» (право `integrations.map`). Содержимое:
+
+1. Список аккаунтов из `/accounts/order-sync-targets` с чекбоксами, плюс кнопки-ярлыки **«Все Ozon»** и **«Все WB»** — они отмечают все аккаунты соответствующей площадки. Кнопка площадки, у которой нет ни одного подходящего аккаунта, не рисуется.
+2. По нажатию «Синхронизировать» уходит один `POST /accounts/sync-orders`, модалка переключается в режим прогресса и не закрывается.
+3. Прогресс — **аккордеон на аккаунт**. Заголовок несёт статус прогона и сводку («создано 12, обновлено 3, пропущено 2»), раскрытое тело — полные счётчики, ошибку прогона и список пропущенных заказов с причинами. Аккаунты из `failedItems` показываются сразу свёрнутыми с ошибкой вместо счётчиков.
+4. Опрос — один `GET /sync-runs?ids=` с `refetchInterval` 2 с, пока хоть один прогон в статусе `Running`. Тот же временный механизм, что на вкладке «Обзор», и та же точка подмены при появлении SSE.
+5. По завершении всех прогонов модалка остаётся открытой (итоги и пропуски нужно прочитать) и инвалидирует список заказов.
+
+**Скачивание этикеток.** Выделение строк в `OrdersListPage` уже есть — его ввёл массовый self-assign. Кнопка «Скачать этикетки» шлёт `POST api/orders/labels` и сохраняет ответ как файл. На `409 marketplaceLabelNotReady` файл не скачивается, а показывается сообщение с числом неготовых отправлений и предложением повторить через минуту — код и `args.postingNumbers` разбираются существующим `resolveErrorMessage`.
+
+Ответ здесь — поток PDF, а не JSON, поэтому вызывается напрямую сгенерированная SDK-функция с `parseAs: "blob"` (тот же приём, что в `useFileBlobUrl` — типы генератора для бинарных эндпоинтов ненадёжны). С `parseAs: "blob"` **тело ошибки тоже приезжает Blob'ом**, и `resolveErrorMessage` его не видит, поэтому заведён переиспользуемый `parseProblemFromBlob`.
+
+Сохранение — `saveBlob`: `createObjectURL` плюс якорь с `download`. Это единственный механизм сохранения в приложении, и на нативной сборке он же правильный: WebView не рисует PDF в iframe, поэтому файл отдаётся системному приложению ([native-client.md](native-client.md)). Ветка `Capacitor.isNativePlatform()` здесь не нужна, и предпросмотр склеенного PDF внутри приложения не делается.
 
 ---
 
@@ -750,7 +1099,16 @@ src/pages/SettingsPage/pages/MarketplacesSettingsPage/
 - Quartz синхронизирует активные аккаунты по интервалу. Новые карточки приезжают несопоставленными.
 - В сайдбаре у раздела «Маркетплейсы» отображается бейдж с количеством несопоставленных карточек по всем активным аккаунтам.
 - Ручной запуск синхронизации доступен кнопкой в любой момент; повторный запуск при активном — `409`.
-- Аккаунт можно деактивировать (`IsActive = false`) — фоновая синхронизация прекращается, все данные и привязки сохраняются. Удаление аккаунта каскадно удаляет склады и карточки и блокируется, если карточки участвуют в заказах.
+- Аккаунт можно деактивировать (`IsActive = false`) — фоновая синхронизация прекращается, все данные и привязки сохраняются. Удаление аккаунта каскадно удаляет склады и карточки и блокируется, если по нему импортированы заказы.
+
+### Шаг 6 — Заказы FBS
+
+1. Кладовщик открывает «Операции» → «Заказы» → «FBS» и жмёт «Синхронизировать заказы».
+2. В модалке отмечает магазины — поштучно или кнопкой «Все OZON».
+3. Модалка показывает по аккордеону на магазин: сколько заказов создано, обновлено, пропущено. Пропущенные раскрываются списком с причиной — «товар `ART-77` не привязан к каталогу».
+4. Созданные заказы появляются в таблице сразу в статусе «Подтверждён» и дальше идут обычным путём: задания на сборку, сборка, отгрузка.
+5. Перед упаковкой кладовщик отмечает нужные строки и жмёт «Скачать этикетки» — приходит один PDF, по странице на заказ, с артикулами WMS вдоль левого края. Если площадка ещё не всё сформировала, интерфейс просит подождать минуту.
+6. Статус на площадке виден чипом в отдельной колонке и обновляется на следующей синхронизации. Заказ, отменённый на маркетплейсе, подсвечивается — решение по нему принимает человек.
 
 ---
 
@@ -764,10 +1122,19 @@ src/pages/SettingsPage/pages/MarketplacesSettingsPage/
   "Ozon": {
     "BaseUrl": "https://api-seller.ozon.ru",
     "TimeoutSeconds": 60,
-    "PageDelayMs": 200
+    "PageDelayMs": 200,
+    "LabelBatchSize": 20
+  },
+  "Labels": {
+    "MaxArticlesOnLabel": 3,
+    "FontResourceName": "ProjectWarehouse.Server.Resources.Fonts.LabelFont.ttf",
+    "FontSize": 8,
+    "Margin": 6
   }
 }
 ```
+
+`LabelBatchSize` вынесен в конфигурацию, но потолок в 20 задан самим Ozon — значение выше вернётся ошибкой площадки, а не ошибкой валидации.
 
 В `docker-compose.yml` и `docker-compose.prod.yml` добавляется том для кольца ключей Data Protection:
 
@@ -800,16 +1167,52 @@ volumes:
 | 10. Фронтенд: раздел настроек, вкладки, компоненты привязки | ✓ (бейдж в сайдбаре отложен) |
 | 11. Документация | ✓ |
 
+**Синхронизация заказов FBS — реализована.**
+
+| Шаг | Содержание | Статус |
+|-----|------------|--------|
+| 1 | Whitelist `+ /v4/posting/fbs/unfulfilled/list`, `/v3/posting/fbs/get`, `/v2/posting/fbs/package-label`; нормализация бинарного ответа и санитайзер невалидного `type`; перегенерация `OzonApiClient` (4 → 7 операций) | ✓ |
+| 2 | `Abstractions`: `ExternalPosting`, `ExternalPostingItem`, `ExternalPostingStatus`, `ExternalLabelDocument`, `MarketplaceOrderStatus`, флаг `Labels` | ✓ |
+| 3 | `OzonClient` + `OzonMarketplaceProvider`: постраничная выборка отправлений, поштучная сверка статусов, определение формата этикетки по байтам, распознавание «ещё не готово» на обоих путях | ✓ |
+| 4 | Домен: `MarketplaceOrder`, счётчики и `SkippedOrders` в `MarketplaceSyncRun`, `Orders` в `MarketplaceSyncScope`. Миграция `AddMarketplaceOrders` | ✓ |
+| 5 | `MarketplaceOrderSyncService`, подключённый к `MarketplaceSyncService` по `Scope = Orders` | ✓ |
+| 6 | Этикетки: PDFsharp, вшитый шрифт, `LabelPdfComposer`, `IDataFileFactory`, `MarketplaceLabelService` | ✓ |
+| 7 | API: `order-sync-targets`, `sync-orders`, `sync-runs?ids=`, `api/orders/labels`, предпроверка `DELETE`. Семь новых кодов ошибок | ✓ |
+| 8 | Фронтенд: слоты в `OrdersListPage`, модалка с аккордеонами, скачивание этикеток, чип статуса площадки | ✓ |
+| 9 | Документация | ✓ |
+
+**Нужно знать о конвейере генерации.** Новые пути притащили две проблемы, обе решены в `generate-client.cs`:
+
+- NJsonSchema типизирует схему по **последнему сегменту** имени после точки, поэтому `posting.v4.…SortDir.Enum` и `posting.v3.FbsPosting.Container.CargoType.Enum` обе становились `Enum`, а NSwag разводил их суффиксами `Enum2` / `Enum3` — по порядку объявления, то есть имена типов поехали бы от любого обновления спеки. Вдобавок сгенерированный `enum Enum` перекрывал `System.Enum` внутри своего неймспейса и ронял сборку. Теперь точечные имена схем **сплющиваются** в плоский PascalCase (`PostingFbsUnfulfilledListRequestSortDirEnum`), а ссылки переписываются.
+- `v3PostingProductDetail.jw_uin` объявлен как `"type": "array of strings"` — такого типа в JSON Schema нет. Санитайзер вычищает любой недопустимый `type`, печатая каждую правку в консоль.
+
+**Шрифт этикеток** — Roboto Mono (Apache 2.0), `ProjectWarehouse.Server/Resources/Fonts/LabelFont.ttf`, вшит `EmbeddedResource` с явным `LogicalName`. Моноширинный удобен для артикулов; кириллица и знак `×` в наборе проверены. Отсутствие ресурса не роняет приложение на старте — пишется `LogError`, а падает только генерация этикеток.
+
 ### Проверено вручную
 
 Через Scalar и прямые HTTP-вызовы, с заведомо неверным ключом: `test-connection` → `502 marketplaceApiError` с `args.marketplaceStatus`; `POST /sync` → мгновенный `202` + `syncRunId`; фоновый воркер берёт advisory-лок, ходит в реальный Ozon, кладёт структурированный `AppFieldError` в jsonb и зеркалит его в `LastSyncError`; `sync-runs`, `warehouses`, `cards`, `auto-map`, `unmapped-count` отвечают; changelog получает `account.created` и `sync.finished`; `DELETE` каскадно чистит аккаунт.
 
 Синхронизация с боевым ключом Ozon (реальные склады и карточки, автосопоставление, архивация по `SyncedAt`) **не проверялась** — нужен настоящий аккаунт продавца.
 
+По заказам FBS проверено без обращения к площадке: трансляция `Order.SearchString` через зависимую навигацию (`LEFT JOIN` + `CASE WHEN … IS NOT NULL`, всё под `COALESCE`, так что `ILIKE` не получает `NULL`); миграция применяется на живой БД; jsonb-коллекция `SkippedOrders` легла скалярным свойством, а не владеемой сущностью; конвейер PDF — нарезка, наложение текста, склейка и встраивание кириллического сабсета шрифта — прогнан на синтетическом трёхстраничном документе; приложение стартует, OpenAPI отдаёт все четыре новых эндпоинта, TypeScript и линтер чистые.
+
+**Требует проверки на живом магазине** (по порядку, каждый пункт что-то закрывает):
+
+1. Прогон `scope = orders` без привязок — курсорная пагинация, скоуп учётных данных на каждом шаге энумератора, наблюдаемость пропусков.
+2. Привязать склад и карточки одного отправления, повторить — **сопоставление по `Sku` против `OfferId`**, номер заказа от БД, одна коробка, группировка компонентов.
+3. Повтор без изменений — идемпотентность и то, что условие `StatusSyncedAt` действительно снимает лишние вызовы `/v3/posting/fbs/get`.
+4. `POST /api/orders/labels` на один заказ, **с печатью** — сырой PDF против base64-конверта, положение текста и отступ, кириллица вместо квадратиков, кеш в `LabelFileId`.
+5. Этикетка отправления, только что появившегося или уже ушедшего из `awaiting_deliver`, — **проводная форма «ещё не готово»**; после этого лишние ветви распознавания можно убрать.
+6. Отправление с `multi_box_qty > 1` — одна страница или страница на коробку (см. открытые вопросы).
+7. 25 однокоробочных отправлений одним запросом, одно заведомо неготовое, — чанки по 20, сверка числа страниц, поштучный повтор, отказ целиком с верным `postingNumbers`.
+8. Отгрузка и отмена на площадке — словарь статусов: собрать `LogWarning` о незнакомых значениях и расширить карту по факту.
+
 ### Отложено
 
-- **Синхронизация заказов FBS** — `/v4/posting/fbs/list`, `/v3/posting/fbs/get`. Создание `Order` с `Type = Fbs`, заполнение `MarketplaceOrderId` и `MarketplaceItems`; при повторной синхронизации обновляются только метаданные и нераспознанные позиции, статус и задания на сборку не трогаются (правило зафиксировано в [orders-specification.md](orders-specification.md)).
-- **Синхронизация заказов FBO** — `/v3/posting/fbo/list`.
+- **Фоновая синхронизация заказов** — заказы тянутся только вручную из модалки. Автоматический импорт по расписанию потребует политики для пропущенных заказов, которую сейчас отрабатывает человек, глядя в итоги прогона.
+- **Отправление заказа на площадку** — `/v4/posting/fbs/ship`, сборка и разбиение отправления силами WMS. Это перевернуло бы флоу: заказы приходили бы в `awaiting_packaging`, а этикетка становилась бы доступной только после того, как WMS сообщит площадке состав упаковок.
+- **Синхронизация заказов FBO** — `/v3/posting/fbo/list`. Схема готова: `MarketplaceOrder` рассчитана на оба типа.
+- **Реакция на отмену заказа площадкой** — сейчас только предупреждение в интерфейсе. Автоматический откат сборки с возвратом остатков требует политики для уже упакованных заказов.
 - **Выгрузка остатков в маркетплейс** — `/v2/products/stocks`. Требует однозначной привязки склада: остаток по `CatalogItem` агрегируется в рамках `Warehouse`, привязанного к складу маркетплейса. Для виртуальных целей маппинга остаток вычисляется, а не читается напрямую: `Variation` → сумма остатков по членам вариации, `Bundle` → минимум по компонентам с учётом их количеств. Обход дерева здесь тот же, что уже делает `ICatalogService.ComputeContainsUnitAsync`.
 - **Wildberries** — второй провайдер. Схема БД изменений не требует; нужны `WildberriesMarketplaceProvider`, конвейер генерации его клиента и учёт того, что `ClientId` там не используется.
 - **Обновление цен** — `/v1/product/import/prices`.
@@ -833,9 +1236,36 @@ volumes:
 | Живые счётчики синхронизации | **Опрос** `/sync-runs`; SSE отложен | Бэкенд ничего не публикует; переход на realtime — подмена одного хука на фронте |
 | Бейдж несопоставленных в сайдбаре | **Отложен** | Требует поля `badge` в общем `SectionConfig` и правок `SidebarLayout` ради одного раздела; `/accounts/unmapped-count` реализован, но не используется |
 | Вкладки на странице аккаунта | **`<Tabs>` + `?tab=`**, а не отдельные маршруты | Аккаунт грузится один раз, фильтры вкладок живут в тех же query-параметрах |
+| Какие отправления тянем | **Только `awaiting_deliver` и статусы после него** | WMS не собирает отправление на площадке; этикетка доступна сразу |
+| Метод выборки заказов | **`/v4/posting/fbs/unfulfilled/list`**, а не `/v4/posting/fbs/list` | У второго `since`/`to` обязательны — окно по датам с риском пропусков на границе |
+| Отслеживание статуса после `awaiting_deliver` | **Поштучный `/v3/posting/fbs/get`** по незакрытым заказам | Из `unfulfilled/list` такие отправления исчезают, и «отгружено» неотличимо от «отменено» |
+| Связь двух статусных машин | **Полностью независимы** | Заказ создаётся в `Confirmed`; отмена на площадке — предупреждение, а не откат сборки |
+| Заказ с непривязанным товаром | **Не создаётся**, причина пишется в `SkippedOrders` | Пропуск обязан быть виден: молча пропавший заказ обнаруживается на отгрузке |
+| Единица заказа | **Отправление** (`posting_number`), а не заказ площадки | Этикетка, сборка и отгрузка живут на отправлении |
+| `Order.MarketplaceOrderId` | **Удаляется**, заменяется `MarketplaceOrder.PostingNumber` | `SearchString` получает `LEFT JOIN`; зато один источник номера и есть где хранить аккаунт |
+| `OrderMarketplaceItem.MarketplaceCardId` | **Настоящий FK** на `MarketplaceCard` | Правило «непривязанное не синхронизируем» гарантирует существование карточки |
+| Коробки при `multi_box_qty > 1` | **Одна коробка**, разбиение делает сборщик | Площадка не сообщает, что в какой упаковке — восстановить разбиение нечем |
+| Момент получения этикетки | **Лениво, по кнопке** | Импорт не упирается в скорость печати площадки; этикетка нужна при упаковке |
+| Неготовая этикетка в пачке | **Отказ целиком**, `409` со списком номеров | Частичный PDF на 28 из 30 заказов даёт две неотгруженные коробки |
+| Хранение этикеток | Постранично в **`DataFile`**, склейка не сохраняется | Кэш от повторных вызовов площадки; склейка — одноразовый артефакт печати |
+| Библиотека PDF | **PDFsharp** (MIT), шрифт embedded-ресурсом | Умеет рисовать поверх чужой страницы и склеивать; в контейнере системных шрифтов нет |
+| Нарезка этикеток при мультибоксе | **Гибрид**: пачки по 20 для однокоробочных, поштучно при `MultiBoxQty > 1` | Делает открытый вопрос «одна страница или страница на коробку» безвредным |
+| Ссылка позиции отправления на карточку | **По `Sku`, затем `OfferId`** | В `products[]` нет `product_id`, а `MarketplaceCard.ExternalId` — это он |
+| Контракт этикеток у провайдера | **Документ на всю пачку**, не список по отправлению | Иначе провайдеру пришлось бы резать PDF, хотя нарезка живёт в сервисе |
+| Схлопывание позиций в компонент | **По `CatalogItemId`**, не по карточке | Две карточки могут смотреть в одну позицию каталога |
+| Слоты для FBS в общем списке заказов | **Явные пропсы** `headerActions` / `bulkActions` / `extraColumns` | Общий `OrdersListPage` не тянет импорты интеграций в Direct и FBO |
+| Цвета и размеры Ozon | **Модель не меняется**, `model_id` и атрибуты не сохраняются | Каждый вариант — отдельный товар со своим `offer_id`, он и так ложится на одну `MarketplaceCard` |
 
 ---
 
 ## Открытые вопросы
 
-На момент написания открытых вопросов по модулю не осталось — все зафиксированы в разделе выше.
+Требуют проверки на живом магазине Ozon:
+
+- **Страничность этикетки многокоробочного отправления** — одна страница или по странице на коробку. Спецификация Ozon молчит. На корректность это уже не влияет: такие отправления запрашиваются поштучно, и `LabelFileId` спокойно хранит многостраничный PDF.
+- **Проводная форма ответа `package-label`** — сырой PDF, JSON-конверт с base64 или пустое тело, и каким кодом приходит «ещё не готово». Обёртка обрабатывает все варианты; после проверки лишние ветви можно убрать.
+
+Требуют проверки при подключении Wildberries:
+
+- **Формат стикера WB.** `ExternalLabelDocument` спроектирован с полем `ContentType` в расчёте на то, что WB отдаёт растровый или SVG-стикер, а не PDF. По спецификации Wildberries это **не проверялось** — если формат окажется другим, меняется только сборка итогового файла, контракт провайдера остаётся.
+- **Словарь статусов WB** и то, во что схлопывается `MarketplaceOrderStatus` для их схемы поставок.

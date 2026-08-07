@@ -23,13 +23,16 @@ public class Order : IHasIdentity
     public Guid? CreatedById { get; set; }
     public ApplicationUser? CreatedBy { get; set; }
 
-    /// <summary>Only populated for FBS and FBO orders.</summary>
-    public string? MarketplaceOrderId { get; set; }
+    /// <summary>Marketplace side of the order; null for Direct. Shares this order's primary key.</summary>
+    public MarketplaceOrder? MarketplaceOrder { get; set; }
 
     public ICollection<OrderMarketplaceItem> MarketplaceItems { get; set; } = [];
     public ICollection<OrderBox> Boxes { get; set; } = [];
     public ICollection<AssemblyTask> AssemblyTasks { get; set; } = [];
 
+    // The ternary is load-bearing: SearchExtensions splices this body straight into EF.Functions.ILike,
+    // and ILIKE(NULL, …) is NULL — a bare concatenation would drop every Direct and FBO order from search.
     [Projectable]
-    public string SearchString => Number + " " + Notes + " " + MarketplaceOrderId;
+    public string SearchString =>
+        Number + " " + Notes + " " + (MarketplaceOrder != null ? MarketplaceOrder.PostingNumber : "");
 }

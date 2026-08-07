@@ -28,6 +28,18 @@ public class MarketplaceSyncRun : IHasIdentity
     public int CardsArchived { get; set; }
     public int AutoMapped { get; set; }
 
+    // filled only when Scope is Orders
+    public int OrdersProcessed { get; set; }
+    public int OrdersCreated { get; set; }
+    public int OrdersUpdated { get; set; }
+    public int OrdersSkipped { get; set; }
+
+    /// <summary>
+    /// First 100 skipped postings with their reason; <see cref="OrdersSkipped"/> holds the true total.
+    /// A silent skip is the worst failure mode here — it surfaces at the warehouse when it is too late.
+    /// </summary>
+    [Column(TypeName = "jsonb")] public IList<SkippedOrderInfo>? SkippedOrders { get; set; }
+
     // ErrorCode lands in jsonb as a number — Npgsql serializes it, not the MVC options that stringify enums
     [Column(TypeName = "jsonb")] public AppFieldError? Error { get; set; }
 }

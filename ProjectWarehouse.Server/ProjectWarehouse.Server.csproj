@@ -20,6 +20,7 @@
   <ItemGroup>
     <PackageReference Include="CompareNETObjects" Version="4.84.0" />
     <PackageReference Include="DotNetEnv" Version="3.*" />
+    <PackageReference Include="PDFsharp" Version="6.2.4" />
   </ItemGroup>
 
   <ItemGroup>
@@ -55,6 +56,13 @@
     <Content Include="..\.dockerignore">
       <Link>.dockerignore</Link>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Label overlay font. The Linux container ships no system fonts and articles may be Cyrillic,
+         so it is embedded. LogicalName is explicit so it cannot drift with RootNamespace. -->
+    <EmbeddedResource Include="Resources\Fonts\LabelFont.ttf"
+                      LogicalName="ProjectWarehouse.Server.Resources.Fonts.LabelFont.ttf" />
   </ItemGroup>
 
 </Project>

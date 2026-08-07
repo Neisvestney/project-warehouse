@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useState, type ReactNode} from "react";
 import {
   Alert,
   Button,
@@ -43,7 +43,13 @@ import TableRowEmpty from "@/components/TableRowEmpty";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import OrderStatusChip from "./OrderStatusChip";
 import {ORDER_STATUS_LABELS, formatOrderNumber} from "./orderUtils";
-import type {BatchSelfAssignFailedItem, OrderSortBy, OrderStatus, OrderType} from "@/api/types.gen";
+import type {
+  BatchSelfAssignFailedItem,
+  OrderSortBy,
+  OrderStatus,
+  OrderSummaryDto,
+  OrderType,
+} from "@/api/types.gen";
 import {pluralCount} from "@/utils/pluralUtils";
 import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
 
@@ -64,12 +70,23 @@ const ALL_STATUSES: OrderStatus[] = [
   "canceled",
 ];
 
+export interface OrdersListExtraColumn {
+  key: string;
+  label: string;
+  render: (order: OrderSummaryDto) => ReactNode;
+}
+
 interface OrdersListPageProps {
   type: OrderType;
   title: string;
   breadcrumbName: string;
   breadcrumbLink: string;
   createLink?: string;
+  /** Rendered in the page header. Keeps marketplace specifics out of this shared component. */
+  headerActions?: ReactNode;
+  /** Extra buttons for the selection toolbar. Receives every selected id, not just confirmed ones. */
+  bulkActions?: (selectedIds: string[]) => ReactNode;
+  extraColumns?: OrdersListExtraColumn[];
 }
 
 function OrdersListPage({
@@ -78,6 +95,9 @@ function OrdersListPage({
   breadcrumbName,
   breadcrumbLink,
   createLink,
+  headerActions,
+  bulkActions,
+  extraColumns,
 }: OrdersListPageProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -147,7 +167,10 @@ function OrdersListPage({
     data?.items.filter((o) => selectedIds.has(o.id) && o.status === "confirmed").map((o) => o.id) ??
     [];
 
-  const showBulkBar = canSelfAssign && selectedConfirmedIds.length > 0;
+  const showSelfAssign = canSelfAssign && selectedConfirmedIds.length > 0;
+  // the bulkActions term keeps the bar hidden on Direct and FBO, which pass no extra actions
+  const showBulkBar = selectedIds.size > 0 && (showSelfAssign || bulkActions != null);
+  const columnCount = 8 + (extraColumns?.length ?? 0);
 
   function handleSelfAssignSelected() {
     setFailedItems([]);
@@ -192,6 +215,7 @@ function OrdersListPage({
             <IconButton color="inherit" onClick={() => refetch()}>
               <RefreshIcon />
             </IconButton>
+            {headerActions}
             {createLink && canCreate && (
               <Button
                 variant="outlined"
@@ -243,29 +267,32 @@ function OrdersListPage({
           }}
         >
           <Typography variant="body2" sx={{flexGrow: 1}}>
-            {pluralCount(selectedConfirmedIds.length, {
-              one: "подтверждённый заказ выбран",
-              few: "подтверждённых заказа выбрано",
-              many: "подтверждённых заказов выбрано",
+            {pluralCount(selectedIds.size, {
+              one: "заказ выбран",
+              few: "заказа выбрано",
+              many: "заказов выбрано",
             })}
           </Typography>
-          <Button
-            size="small"
-            variant="contained"
-            color="inherit"
-            startIcon={
-              selfAssignMutation.isPending ? (
-                <CircularProgress size={14} color="inherit" />
-              ) : (
-                <AssignmentIndIcon />
-              )
-            }
-            disabled={selfAssignMutation.isPending}
-            onClick={handleSelfAssignSelected}
-            sx={{color: "primary.main", bgcolor: "white"}}
-          >
-            Взять на себя
-          </Button>
+          {bulkActions?.([...selectedIds])}
+          {showSelfAssign && (
+            <Button
+              size="small"
+              variant="contained"
+              color="inherit"
+              startIcon={
+                selfAssignMutation.isPending ? (
+                  <CircularProgress size={14} color="inherit" />
+                ) : (
+                  <AssignmentIndIcon />
+                )
+              }
+              disabled={selfAssignMutation.isPending}
+              onClick={handleSelfAssignSelected}
+              sx={{color: "primary.main", bgcolor: "white"}}
+            >
+              Взять на себя ({selectedConfirmedIds.length})
+            </Button>
+          )}
         </Toolbar>
       )}
 
@@ -320,15 +347,18 @@ function OrdersListPage({
                   </TableSortLabel>
                 </TableCell>
               ))}
+              {extraColumns?.map(({key, label}) => (
+                <TableCell key={key}>{label}</TableCell>
+              ))}
               <TableCell>Заметки</TableCell>
               <TableCell>Коробок</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {isLoading ? (
-              <TableRowLoader colSpan={8} />
+              <TableRowLoader colSpan={columnCount} />
             ) : data?.items.length === 0 ? (
-              <TableRowEmpty colSpan={8} message="Заказы не найдены" />
+              <TableRowEmpty colSpan={columnCount} message="Заказы не найдены" />
             ) : (
               data?.items.map((order) => (
                 <TableRow
@@ -364,6 +394,9 @@ function OrdersListPage({
                       : "—"}
                   </TableCell>
                   <TableCell>{new Date(order.createdAt).toLocaleDateString("ru-RU")}</TableCell>
+                  {extraColumns?.map(({key, render}) => (
+                    <TableCell key={key}>{render(order)}</TableCell>
+                  ))}
                   <TableCell>
                     <Tooltip title={order.notes ?? ""} disableHoverListener={!order.notes}>
                       <Typography

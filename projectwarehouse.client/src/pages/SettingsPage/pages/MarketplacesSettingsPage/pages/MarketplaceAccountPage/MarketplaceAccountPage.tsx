@@ -42,6 +42,7 @@ import type {MarketplaceSyncScope} from "@/api/types.gen";
 const TAB_KEYS = ["overview", "warehouses", "cards", "runs"] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
+// "orders" отсутствует намеренно: заказы тянутся только вручную со страницы FBS
 const SYNC_SCOPES: MarketplaceSyncScope[] = ["all", "warehouses", "cards"];
 
 /**

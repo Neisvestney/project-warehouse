@@ -13,7 +13,8 @@ public class OzonMarketplaceProvider(
     public MarketplaceType Type => MarketplaceType.Ozon;
 
     public MarketplaceCapabilities Capabilities =>
-        MarketplaceCapabilities.Warehouses | MarketplaceCapabilities.Cards | MarketplaceCapabilities.SellerInfo;
+        MarketplaceCapabilities.Warehouses | MarketplaceCapabilities.Cards | MarketplaceCapabilities.SellerInfo
+        | MarketplaceCapabilities.Orders | MarketplaceCapabilities.Labels;
 
     public bool RequiresClientId => true;
 
@@ -99,10 +100,97 @@ public class OzonMarketplaceProvider(
         }
     }
 
+    public async IAsyncEnumerable<IReadOnlyList<ExternalPosting>> FetchActivePostingsAsync(
+        MarketplaceCredentials credentials, [EnumeratorCancellation] CancellationToken ct)
+    {
+        var pages = client.GetActivePostingsAsync(ct).GetAsyncEnumerator(ct);
+        try
+        {
+            while (true)
+            {
+                bool hasNext;
+                try
+                {
+                    // Same reason as FetchCardsAsync: an AsyncLocal written inside an async iterator does
+                    // not survive the yield, so the scope is opened around every move.
+                    using var _ = requestContext.Use(credentials);
+                    hasNext = await pages.MoveNextAsync();
+                }
+                catch (OzonApiException ex)
+                {
+                    throw Wrap(ex);
+                }
+
+                if (!hasNext)
+                    yield break;
+
+                yield return pages.Current;
+            }
+        }
+        finally
+        {
+            await pages.DisposeAsync();
+        }
+    }
+
+    public async Task<IReadOnlyList<ExternalPostingStatus>> FetchPostingStatusesAsync(
+        MarketplaceCredentials credentials, IReadOnlyList<string> postingNumbers, CancellationToken ct)
+    {
+        // a plain async method, so one scope covers the whole loop
+        using var _ = requestContext.Use(credentials);
+
+        var statuses = new List<ExternalPostingStatus>(postingNumbers.Count);
+        try
+        {
+            foreach (var postingNumber in postingNumbers)
+            {
+                // postings Ozon has forgotten come back null and are simply left out
+                if (await client.GetPostingStatusAsync(postingNumber, ct) is { } status)
+                    statuses.Add(status);
+            }
+        }
+        catch (OzonApiException ex)
+        {
+            throw Wrap(ex);
+        }
+
+        return statuses;
+    }
+
+    public async Task<ExternalLabelDocument> FetchLabelDocumentAsync(
+        MarketplaceCredentials credentials, IReadOnlyList<string> postingNumbers, CancellationToken ct)
+    {
+        using var _ = requestContext.Use(credentials);
+        try
+        {
+            return await client.GetPackageLabelAsync(postingNumbers, ct);
+        }
+        catch (OzonApiException ex) when (OzonLabelHeuristics.LooksNotReady(ex.Response))
+        {
+            // Ozon also reports "not printed yet" as a rejection, not only as a 200 with a JSON body
+            logger.LogInformation(
+                "Ozon rejected the label request for {Count} posting(s) as not ready ({Status})",
+                postingNumbers.Count, ex.StatusCode);
+            return new ExternalLabelDocument(false, postingNumbers, null, null);
+        }
+        catch (OzonApiException ex)
+        {
+            throw Wrap(ex);
+        }
+    }
+
     private static MarketplaceApiException Wrap(OzonApiException ex) =>
         new(Describe(ex), ex.StatusCode, Body(ex), ex);
 
-    private static string Describe(OzonApiException ex) => $"Ozon responded with {ex.StatusCode}.";
+    /// <summary>
+    /// A 2xx here means the call succeeded and <i>we</i> failed to read it, so the generated client's own
+    /// message plus the JSON path from the inner exception is the whole diagnosis — "Ozon responded with
+    /// 200" would send the reader hunting on the wrong side of the wire.
+    /// </summary>
+    private static string Describe(OzonApiException ex) =>
+        ex.StatusCode is >= 200 and < 300
+            ? $"{ex.Message} {ex.InnerException?.Message}".Trim()
+            : $"Ozon responded with {ex.StatusCode}.";
 
     /// <summary>Response body only, truncated. The Api-Key travels in request headers and must never surface.</summary>
     private static string? Body(OzonApiException ex) =>

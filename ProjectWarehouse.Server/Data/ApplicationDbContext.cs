@@ -52,6 +52,7 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<MarketplaceWarehouse> MarketplaceWarehouses => Set<MarketplaceWarehouse>();
     public DbSet<MarketplaceCard> MarketplaceCards => Set<MarketplaceCard>();
     public DbSet<MarketplaceSyncRun> MarketplaceSyncRuns => Set<MarketplaceSyncRun>();
+    public DbSet<MarketplaceOrder> MarketplaceOrders => Set<MarketplaceOrder>();
 
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderMarketplaceItem> OrderMarketplaceItems => Set<OrderMarketplaceItem>();
@@ -362,6 +363,12 @@ public class ApplicationDbContext : IdentityDbContext<
                 .WithMany(x => x.MarketplaceItems)
                 .HasForeignKey(x => x.OrderId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.MarketplaceCard)
+                .WithMany()
+                .HasForeignKey(x => x.MarketplaceCardId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<OrderBox>(e =>
@@ -546,6 +553,8 @@ public class ApplicationDbContext : IdentityDbContext<
 
             e.HasIndex(x => new { x.MarketplaceAccountId, x.ExternalId }).IsUnique();
             e.HasIndex(x => new { x.MarketplaceAccountId, x.OfferId });
+            // postings carry sku, never product_id, so order sync resolves cards through this index
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.Sku });
             e.HasIndex(x => x.CatalogItemId);
         });
 
@@ -566,6 +575,38 @@ public class ApplicationDbContext : IdentityDbContext<
 
             e.HasIndex(x => new { x.MarketplaceAccountId, x.StartedAt })
                 .IsDescending(false, true);
+
+            // Explicit, unlike the single AppFieldError above: a collection of a complex type is also a
+            // candidate for EF's owned-collection discovery, and [Column] alone does not settle that.
+            e.Property(x => x.SkippedOrders).HasColumnType("jsonb");
+        });
+
+        builder.Entity<MarketplaceOrder>(e =>
+        {
+            // Shared primary key with Order: strictly 1:1, never addressed on its own
+            e.HasKey(x => x.OrderId);
+            e.Property(x => x.OrderId).ValueGeneratedNever();
+
+            e.HasOne(x => x.Order)
+                .WithOne(x => x.MarketplaceOrder)
+                .HasForeignKey<MarketplaceOrder>(x => x.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Restrict: cascading here would delete orders along with their assembly history and
+            // stock movements. The controller turns the conflict into 409 marketplaceAccountHasOrders.
+            e.HasOne(x => x.MarketplaceAccount)
+                .WithMany(x => x.Orders)
+                .HasForeignKey(x => x.MarketplaceAccountId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.LabelFile)
+                .WithMany()
+                .HasForeignKey(x => x.LabelFileId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.PostingNumber }).IsUnique();
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.Status });
         });
 
         builder.Entity<DataFile>(e =>

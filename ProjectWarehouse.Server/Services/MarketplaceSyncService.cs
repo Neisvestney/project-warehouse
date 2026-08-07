@@ -19,6 +19,7 @@ public class MarketplaceSyncService(
     IMarketplaceProviderRegistry providers,
     IMarketplaceCredentialProtector protector,
     IChangeLogService<MarketplaceAccountDto> changeLog,
+    IMarketplaceOrderSyncService orderSync,
     IMapper mapper,
     ILogger<MarketplaceSyncService> logger) : IMarketplaceSyncService
 {
@@ -70,6 +71,16 @@ public class MarketplaceSyncService(
             if (run.Scope is MarketplaceSyncScope.Cards or MarketplaceSyncScope.All)
                 await SyncCardsAsync(provider, credentials, account, run, ct);
 
+            // Orders are outside All on purpose — they only ever run from an explicit user action
+            if (run.Scope is MarketplaceSyncScope.Orders)
+            {
+                if (!provider.Capabilities.HasFlag(MarketplaceCapabilities.Orders))
+                    throw new ValidationException("accountId", ErrorCode.MarketplaceOrdersNotSupported,
+                        "This marketplace provider does not support order sync.");
+
+                await orderSync.SyncOrdersAsync(provider, credentials, account, run, ct);
+            }
+
             run.Status = MarketplaceSyncStatus.Success;
             run.Error = null;
             run.FinishedAt = DateTime.UtcNow;
@@ -84,6 +95,12 @@ public class MarketplaceSyncService(
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             throw;
+        }
+        catch (ValidationException ex)
+        {
+            // without this arm the generic handler below would relabel it as marketplaceApiError
+            await FailAsync(run, account, ex.ErrorCode, ex.Message, ct);
+            await LogFinishedAsync(before, account, run);
         }
         catch (MarketplaceApiException ex)
         {
@@ -111,10 +128,14 @@ public class MarketplaceSyncService(
             new
             {
                 syncRunId = run.Id,
+                scope = run.Scope,
                 status = run.Status,
                 cardsCreated = run.CardsCreated,
                 cardsArchived = run.CardsArchived,
                 autoMapped = run.AutoMapped,
+                ordersCreated = run.OrdersCreated,
+                ordersUpdated = run.OrdersUpdated,
+                ordersSkipped = run.OrdersSkipped,
             });
 
     /// <summary>

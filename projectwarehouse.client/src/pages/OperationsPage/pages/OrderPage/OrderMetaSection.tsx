@@ -8,6 +8,8 @@ import {ordersGetByIdQueryKey, ordersUpdateMutation} from "@/api/@tanstack/react
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
 import type {OrderDetailsDto} from "@/api/types.gen";
+import MarketplaceOrderStatusChip from "@/components/orders/marketplace/MarketplaceOrderStatusChip";
+import {MARKETPLACE_LABELS} from "@/components/orders/marketplace/marketplaceOrderUtils";
 import {format} from "date-fns";
 import {ru} from "date-fns/locale";
 
@@ -156,10 +158,46 @@ function OrderMetaSection({order, canEdit}: OrderMetaSectionProps) {
         <Typography variant="body2">{order.notes || "—"}</Typography>
       </MetaRow>
 
-      {order.marketplaceOrderId && (
-        <MetaRow label="ID маркетплейса">
-          <Typography variant="body2">{order.marketplaceOrderId}</Typography>
-        </MetaRow>
+      {order.marketplaceOrder && (
+        <>
+          <MetaRow label="Отправление">
+            <Typography variant="body2" sx={{fontFamily: "monospace"}}>
+              {order.marketplaceOrder.postingNumber}
+            </Typography>
+          </MetaRow>
+
+          <MetaRow label="Магазин">
+            <Typography variant="body2">
+              {order.marketplaceOrder.marketplaceAccountName} ·{" "}
+              {MARKETPLACE_LABELS[order.marketplaceOrder.marketplaceType]}
+            </Typography>
+          </MetaRow>
+
+          <MetaRow label="Статус на площадке">
+            <MarketplaceOrderStatusChip value={order.marketplaceOrder} />
+          </MetaRow>
+
+          {order.marketplaceOrder.trackingNumber && (
+            <MetaRow label="Трек-номер">
+              <Typography variant="body2" sx={{fontFamily: "monospace"}}>
+                {order.marketplaceOrder.trackingNumber}
+              </Typography>
+            </MetaRow>
+          )}
+
+          <MetaRow label="Статус сверен">
+            <Typography variant="body2">
+              {formatDate(order.marketplaceOrder.statusSyncedAt)}
+            </Typography>
+          </MetaRow>
+
+          {order.marketplaceOrder.status === "cancelled" && (
+            <Alert severity="warning">
+              Заказ отменён на маркетплейсе. Сборка в WMS не откатывается автоматически — решение
+              принимает человек.
+            </Alert>
+          )}
+        </>
       )}
 
       {canEdit && (
