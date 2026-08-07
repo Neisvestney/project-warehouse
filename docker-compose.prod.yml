@@ -7,7 +7,9 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      - "5433:5432"
+    networks:
+      - projectwarehouse
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -19,9 +21,11 @@ services:
     restart: unless-stopped
 
   projectwarehouse.server:
-    image: ${REGISTRY_HOST}/projectwarehouse.server:${IMAGE_TAG:-latest}
+    image: ${REGISTRY_HOST:-local}/projectwarehouse.server:${IMAGE_TAG:-latest}
     ports:
       - "4587:8080"
+    networks:
+      - projectwarehouse
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=projectwarehouse;Username=postgres;Password=${POSTGRES_PASSWORD};Maximum Pool Size=200
       - Jwt__SecretKey=${Jwt__SecretKey}
@@ -33,6 +37,10 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+
+networks:
+  projectwarehouse:
+    driver: bridge
 
 volumes:
   postgres_data:
