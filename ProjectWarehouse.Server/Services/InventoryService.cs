@@ -371,4 +371,47 @@ public class InventoryService(
         await changeLog.CompareAndSaveToChangelog(fromBefore, fromAfter, action);
         await changeLog.CompareAndSaveToChangelog(toBefore, toAfter, action);
     }
+
+    // ── Reads ────────────────────────────────────────────────────────────────
+
+    public async Task<Dictionary<Guid, int>> GetCurrentStockAsync(
+        IReadOnlyCollection<Guid> warehouseIds,
+        Guid? warehouseId,
+        Guid? storagePlaceId,
+        Guid? nodeId,
+        IReadOnlyCollection<Guid>? catalogItemIds,
+        CancellationToken ct = default)
+    {
+        var groups = db.StoragePlacesNodesItemsGroups
+            .Where(g => warehouseIds.Contains(g.StoragePlaceNode.RootStoragePlace.WarehouseId))
+            .Where(g => warehouseId == null || g.StoragePlaceNode.RootStoragePlace.WarehouseId == warehouseId)
+            .Where(g => storagePlaceId == null || g.StoragePlaceNode.RootStoragePlaceId == storagePlaceId)
+            .Where(g => nodeId == null || g.StoragePlaceNodeId == nodeId);
+        if (catalogItemIds != null)
+            groups = groups.Where(g => catalogItemIds.Contains(g.CatalogItemId));
+
+        var items = db.InventoryItems
+            .Where(i => i.StoragePlaceNodeId != null)
+            .Where(i => warehouseIds.Contains(i.StoragePlaceNode!.RootStoragePlace.WarehouseId))
+            .Where(i => warehouseId == null || i.StoragePlaceNode!.RootStoragePlace.WarehouseId == warehouseId)
+            .Where(i => storagePlaceId == null || i.StoragePlaceNode!.RootStoragePlaceId == storagePlaceId)
+            .Where(i => nodeId == null || i.StoragePlaceNodeId == nodeId);
+        if (catalogItemIds != null)
+            items = items.Where(i => catalogItemIds.Contains(i.CatalogItemId));
+
+        var groupTotals = await groups
+            .GroupBy(g => g.CatalogItemId)
+            .Select(g => new { g.Key, Count = g.Sum(x => x.Count) })
+            .ToDictionaryAsync(x => x.Key, x => x.Count, ct);
+
+        var itemTotals = await items
+            .GroupBy(i => i.CatalogItemId)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count, ct);
+
+        var result = new Dictionary<Guid, int>(groupTotals);
+        foreach (var (id, count) in itemTotals)
+            result[id] = result.GetValueOrDefault(id) + count;
+        return result;
+    }
 }

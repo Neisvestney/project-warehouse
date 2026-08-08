@@ -1366,6 +1366,10 @@ export type StockMovementGroupBy =
 
 export type StockMovementPivotCellDto = {
   catalogItemId: string;
+  /**
+   * On-hand quantity at the end of this day, ignoring the Action/Direction/User filters.
+   */
+  balance: number;
   inQuantity: number;
   outQuantity: number;
   transferInQuantity: number;
@@ -1380,6 +1384,10 @@ export type StockMovementPivotCellDto = {
 export type StockMovementPivotColumnDto = {
   catalogItemId: string;
   catalogItem: CatalogItemSummaryDto;
+  /**
+   * On-hand quantity at the end of DateOnly StockMovementPivotDto.To, ignoring the Action/Direction/User filters.
+   */
+  balance: number;
   inQuantity: number;
   outQuantity: number;
   transferInQuantity: number;
@@ -1417,6 +1425,10 @@ export type StockMovementPivotRowDto = {
   date: string;
   cells: Array<StockMovementPivotCellDto>;
   total: StockMovementTotalsDto;
+  /**
+   * On-hand quantity, summed over every item matching the filter, at the end of this day.
+   */
+  balance: number;
 };
 
 /**
