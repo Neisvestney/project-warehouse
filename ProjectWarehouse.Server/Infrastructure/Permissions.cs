@@ -47,6 +47,16 @@ public static class Permissions
         public const string View = "changelog.view";
     }
 
+    /// <summary>
+    /// Stock movement reports. Split from <see cref="Warehouses"/> because the breakdown by user makes
+    /// this a supervisory readout, not just another view of inventory.
+    /// </summary>
+    public static class Statistics
+    {
+        public const string View         = "statistics.view";
+        public const string ViewAssigned = "statistics.view_assigned";
+    }
+
     public static class Transfers
     {
         public const string Execute         = "transfers.execute";

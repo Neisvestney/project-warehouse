@@ -42,6 +42,8 @@ public static class EntityTypeTables
 
         [typeof(ChangeLogEntry)] = AppEntityType.ChangeLog,
 
+        [typeof(StockMovement)] = AppEntityType.StockMovement,
+
         [typeof(Receipt)] = AppEntityType.Receipt,
         [typeof(ReceiptItem)] = AppEntityType.Receipt,
         [typeof(ReceiptItemPlacement)] = AppEntityType.Receipt,

@@ -37,6 +37,8 @@ const permissionLabels: Record<PermissionName, string> = {
   "integrations.view": "Просмотр интеграций с маркетплейсами",
   "integrations.edit": "Управление подключениями маркетплейсов",
   "integrations.map": "Сопоставление складов и карточек маркетплейсов",
+  "statistics.view": "Просмотр статистики по всем складам",
+  "statistics.view_assigned": "Просмотр статистики назначенных складов",
   "system.view": "Просмотр системных показателей и хранилища",
 };
 

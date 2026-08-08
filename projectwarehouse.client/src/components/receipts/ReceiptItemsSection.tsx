@@ -34,7 +34,8 @@ import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {useSnackbar} from "notistack";
 import {
   catalogGetAllOptions,
-  receiptsDeletePlacementMutation, receiptsGetByIdOptions,
+  receiptsDeletePlacementMutation,
+  receiptsGetByIdOptions,
   receiptsQuickAddItemMutation,
   receiptsUpdateReceivedCountMutation,
 } from "@/api/@tanstack/react-query.gen";
@@ -150,7 +151,7 @@ function ReceivedCountInput({
     meta: {suppressGlobalError: true},
     onSuccess: (data) => {
       queryClient.invalidateQueries({queryKey});
-      onUpdateItem(data)
+      onUpdateItem(data);
     },
     onError: (err) => enqueueSnackbar(extractErrorMessage(err), {variant: "error"}),
   });

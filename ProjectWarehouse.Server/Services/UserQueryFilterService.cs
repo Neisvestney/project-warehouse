@@ -74,6 +74,22 @@ public class UserQueryFilterService(ApplicationDbContext db) : IUserQueryFilterS
         return Task.FromResult(result);
     }
 
+    public async Task<IQueryable<StockMovement>> GetStockMovementsAsync(ClaimsPrincipal user, CancellationToken ct = default)
+    {
+        if (user.HasClaim("permission", Permissions.Statistics.View))
+            return db.StockMovements;
+
+        if (user.HasClaim("permission", Permissions.Statistics.ViewAssigned))
+        {
+            var assignedIds = await GetAssignedWarehouseIdsAsync(user, ct);
+            // A movement whose warehouse was deleted belongs to no assignment and stays with full-view users
+            if (assignedIds != null)
+                return db.StockMovements.Where(m => m.WarehouseId != null && assignedIds.Contains(m.WarehouseId.Value));
+        }
+
+        return db.StockMovements.Take(0);
+    }
+
     private async Task<HashSet<Guid>?> GetAssignedWarehouseIdsAsync(ClaimsPrincipal user, CancellationToken ct)
     {
         var raw = user.FindFirstValue(JwtRegisteredClaimNames.Sub);

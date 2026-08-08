@@ -57,7 +57,8 @@ export type AppEntityType =
   | "marketplaceAccount"
   | "marketplaceCard"
   | "changeLog"
-  | "inventoryItem";
+  | "inventoryItem"
+  | "stockMovement";
 
 export type AppFieldError = {
   code: ErrorCode;
@@ -1049,6 +1050,16 @@ export type PaginatedOfReceiptSummaryDto = {
   hasPreviousPage: boolean;
 };
 
+export type PaginatedOfStockMovementDto = {
+  items: Array<StockMovementDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
 export type PaginatedOfUnitInventoryItemDto = {
   items: Array<UnitInventoryItemDto>;
   total: number;
@@ -1106,6 +1117,8 @@ export type PermissionName =
   | "catalog.view"
   | "catalog.edit"
   | "changelog.view"
+  | "statistics.view"
+  | "statistics.view_assigned"
   | "transfers.execute"
   | "transfers.execute_assigned"
   | "writeoffs.view"
@@ -1277,6 +1290,146 @@ export type StartSyncRequest = {
 
 export type StartSyncResponse = {
   syncRunId: string;
+};
+
+/**
+ * One row of a grouped report. Guid? StockMovementBreakdownItemDto.Key is null when grouping by action, and also
+ * for rows whose referenced entity has since been deleted.
+ */
+export type StockMovementBreakdownItemDto = {
+  key?: null | string;
+  label?: null | string;
+  inQuantity: number;
+  outQuantity: number;
+  transferInQuantity: number;
+  transferOutQuantity: number;
+  movementsCount: number;
+  net: number;
+};
+
+export type StockMovementDailyPointDto = {
+  date: string;
+  inQuantity: number;
+  outQuantity: number;
+  transferInQuantity: number;
+  transferOutQuantity: number;
+  movementsCount: number;
+  net: number;
+};
+
+/**
+ * IReadOnlyList&lt;StockMovementDailyPointDto&gt; StockMovementDailySeriesDto.Items covers every day of the range, including the empty ones — a chart
+ * should not have to reconstruct the gaps.
+ */
+export type StockMovementDailySeriesDto = {
+  from: string;
+  to: string;
+  items: Array<StockMovementDailyPointDto>;
+  totals: StockMovementTotalsDto;
+};
+
+/**
+ * Which way stock crossed the boundary of a node. Transfers are kept apart from real receipts and
+ * issues: a move between two nodes produces a StockMovementDirection.TransferOut and a StockMovementDirection.TransferIn
+ * row, and counting those as In/Out would inflate both totals for stock that never left the company.
+ */
+export type StockMovementDirection = "in" | "out" | "transferIn" | "transferOut";
+
+/**
+ * A single journal row, for drilling into a day of the chart.
+ */
+export type StockMovementDto = {
+  id: string;
+  createdAt: string;
+  direction: StockMovementDirection;
+  action: string;
+  quantity: number;
+  catalogItemId: string;
+  catalogItem: CatalogItemSummaryDto;
+  warehouseId?: null | string;
+  warehouseName?: null | string;
+  storagePlaceId?: null | string;
+  storagePlaceName?: null | string;
+  storagePlaceNodeId?: null | string;
+  storagePlaceNodeName?: null | string;
+  userId?: null | string;
+  userName?: null | string;
+};
+
+export type StockMovementGroupBy =
+  | "action"
+  | "catalogItem"
+  | "warehouse"
+  | "storagePlace"
+  | "node"
+  | "user";
+
+export type StockMovementPivotCellDto = {
+  catalogItemId: string;
+  inQuantity: number;
+  outQuantity: number;
+  transferInQuantity: number;
+  transferOutQuantity: number;
+  movementsCount: number;
+  net: number;
+};
+
+/**
+ * A column of the pivot — one catalog item, with its totals for the whole range.
+ */
+export type StockMovementPivotColumnDto = {
+  catalogItemId: string;
+  catalogItem: CatalogItemSummaryDto;
+  inQuantity: number;
+  outQuantity: number;
+  transferInQuantity: number;
+  transferOutQuantity: number;
+  movementsCount: number;
+  net: number;
+};
+
+/**
+ * Dates down, catalog items across.
+ */
+export type StockMovementPivotDto = {
+  from: string;
+  to: string;
+  /**
+   * Ordered by total quantity moved, descending.
+   */
+  columns: Array<StockMovementPivotColumnDto>;
+  /**
+   * One entry per day of the range, empty days included.
+   */
+  rows: Array<StockMovementPivotRowDto>;
+  totals: StockMovementTotalsDto;
+  /**
+   * True when items were left out because the column limit was reached.
+   */
+  hasMoreColumns: boolean;
+};
+
+/**
+ * One day. IReadOnlyList&lt;StockMovementPivotCellDto&gt; StockMovementPivotRowDto.Cells is sparse — days where an item did not move carry no cell at all;
+ * StockMovementTotalsDto StockMovementPivotRowDto.Total covers every item matching the filter, including ones cut from the columns.
+ */
+export type StockMovementPivotRowDto = {
+  date: string;
+  cells: Array<StockMovementPivotCellDto>;
+  total: StockMovementTotalsDto;
+};
+
+/**
+ * Quantities summed per direction. int StockMovementTotalsDto.Net counts transfers too, because at node
+ * or storage-place level a transfer really does change what is on the shelf.
+ */
+export type StockMovementTotalsDto = {
+  inQuantity: number;
+  outQuantity: number;
+  transferInQuantity: number;
+  transferOutQuantity: number;
+  movementsCount: number;
+  net: number;
 };
 
 export type StoragePlaceDto = {
@@ -4826,6 +4979,241 @@ export type RolesGetByIdResponses = {
 };
 
 export type RolesGetByIdResponse = RolesGetByIdResponses[keyof RolesGetByIdResponses];
+
+export type StatisticsGetDailyData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Inclusive first day, in the caller's time zone. Defaults to 29 days before DateOnly? StockMovementFilterRequest.To.
+     */
+    From?: string;
+    /**
+     * Inclusive last day, in the caller's time zone. Defaults to today.
+     */
+    To?: string;
+    /**
+     * Offset of the caller's time zone from UTC. A day boundary is meaningless without it — a warehouse
+     * in UTC+3 would see an evening shift's work land on the next day.
+     */
+    UtcOffsetMinutes?: number;
+    WarehouseId?: string;
+    StoragePlaceId?: string;
+    NodeId?: string;
+    UserId?: string;
+    /**
+     * Catalog items to keep. Empty means all — in the pivot that also means the columns are picked by volume.
+     */
+    CatalogItemIds?: Array<string>;
+    /**
+     * Action constants to keep (`receipt.placement_added`, `transfer.standard`, …). Empty means all.
+     */
+    Actions?: Array<string>;
+    Directions?: Array<StockMovementDirection>;
+  };
+  url: "/api/statistics/stock-movements/daily";
+};
+
+export type StatisticsGetDailyErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type StatisticsGetDailyError = StatisticsGetDailyErrors[keyof StatisticsGetDailyErrors];
+
+export type StatisticsGetDailyResponses = {
+  /**
+   * OK
+   */
+  200: StockMovementDailySeriesDto;
+};
+
+export type StatisticsGetDailyResponse =
+  StatisticsGetDailyResponses[keyof StatisticsGetDailyResponses];
+
+export type StatisticsGetPivotData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Inclusive first day, in the caller's time zone. Defaults to 29 days before DateOnly? StockMovementFilterRequest.To.
+     */
+    From?: string;
+    /**
+     * Inclusive last day, in the caller's time zone. Defaults to today.
+     */
+    To?: string;
+    /**
+     * Offset of the caller's time zone from UTC. A day boundary is meaningless without it — a warehouse
+     * in UTC+3 would see an evening shift's work land on the next day.
+     */
+    UtcOffsetMinutes?: number;
+    WarehouseId?: string;
+    StoragePlaceId?: string;
+    NodeId?: string;
+    UserId?: string;
+    /**
+     * Catalog items to keep. Empty means all — in the pivot that also means the columns are picked by volume.
+     */
+    CatalogItemIds?: Array<string>;
+    /**
+     * Action constants to keep (`receipt.placement_added`, `transfer.standard`, …). Empty means all.
+     */
+    Actions?: Array<string>;
+    Directions?: Array<StockMovementDirection>;
+    columnLimit?: number;
+  };
+  url: "/api/statistics/stock-movements/pivot";
+};
+
+export type StatisticsGetPivotErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type StatisticsGetPivotError = StatisticsGetPivotErrors[keyof StatisticsGetPivotErrors];
+
+export type StatisticsGetPivotResponses = {
+  /**
+   * OK
+   */
+  200: StockMovementPivotDto;
+};
+
+export type StatisticsGetPivotResponse =
+  StatisticsGetPivotResponses[keyof StatisticsGetPivotResponses];
+
+export type StatisticsGetBreakdownData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Inclusive first day, in the caller's time zone. Defaults to 29 days before DateOnly? StockMovementFilterRequest.To.
+     */
+    From?: string;
+    /**
+     * Inclusive last day, in the caller's time zone. Defaults to today.
+     */
+    To?: string;
+    /**
+     * Offset of the caller's time zone from UTC. A day boundary is meaningless without it — a warehouse
+     * in UTC+3 would see an evening shift's work land on the next day.
+     */
+    UtcOffsetMinutes?: number;
+    WarehouseId?: string;
+    StoragePlaceId?: string;
+    NodeId?: string;
+    UserId?: string;
+    /**
+     * Catalog items to keep. Empty means all — in the pivot that also means the columns are picked by volume.
+     */
+    CatalogItemIds?: Array<string>;
+    /**
+     * Action constants to keep (`receipt.placement_added`, `transfer.standard`, …). Empty means all.
+     */
+    Actions?: Array<string>;
+    Directions?: Array<StockMovementDirection>;
+    groupBy?: StockMovementGroupBy;
+    limit?: number;
+  };
+  url: "/api/statistics/stock-movements/breakdown";
+};
+
+export type StatisticsGetBreakdownErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type StatisticsGetBreakdownError =
+  StatisticsGetBreakdownErrors[keyof StatisticsGetBreakdownErrors];
+
+export type StatisticsGetBreakdownResponses = {
+  /**
+   * OK
+   */
+  200: Array<StockMovementBreakdownItemDto>;
+};
+
+export type StatisticsGetBreakdownResponse =
+  StatisticsGetBreakdownResponses[keyof StatisticsGetBreakdownResponses];
+
+export type StatisticsGetMovementsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Inclusive first day, in the caller's time zone. Defaults to 29 days before DateOnly? StockMovementFilterRequest.To.
+     */
+    From?: string;
+    /**
+     * Inclusive last day, in the caller's time zone. Defaults to today.
+     */
+    To?: string;
+    /**
+     * Offset of the caller's time zone from UTC. A day boundary is meaningless without it — a warehouse
+     * in UTC+3 would see an evening shift's work land on the next day.
+     */
+    UtcOffsetMinutes?: number;
+    WarehouseId?: string;
+    StoragePlaceId?: string;
+    NodeId?: string;
+    UserId?: string;
+    /**
+     * Catalog items to keep. Empty means all — in the pivot that also means the columns are picked by volume.
+     */
+    CatalogItemIds?: Array<string>;
+    /**
+     * Action constants to keep (`receipt.placement_added`, `transfer.standard`, …). Empty means all.
+     */
+    Actions?: Array<string>;
+    Directions?: Array<StockMovementDirection>;
+    page?: number;
+    pageSize?: number;
+  };
+  url: "/api/statistics/stock-movements";
+};
+
+export type StatisticsGetMovementsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type StatisticsGetMovementsError =
+  StatisticsGetMovementsErrors[keyof StatisticsGetMovementsErrors];
+
+export type StatisticsGetMovementsResponses = {
+  /**
+   * OK
+   */
+  200: PaginatedOfStockMovementDto;
+};
+
+export type StatisticsGetMovementsResponse =
+  StatisticsGetMovementsResponses[keyof StatisticsGetMovementsResponses];
 
 export type StoragePlacesGetNodesData = {
   body?: never;

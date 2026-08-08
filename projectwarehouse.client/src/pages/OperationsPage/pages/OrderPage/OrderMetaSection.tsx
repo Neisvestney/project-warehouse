@@ -170,12 +170,12 @@ function OrderMetaSection({order, canEdit}: OrderMetaSectionProps) {
           <MetaRow label="Магазин">
             <Box>
               <Chip
-                  component={Link}
-                  to={`/settings/integrations/${order.marketplaceOrder.marketplaceAccountId}`}
-                  size={"small"}
-                  label={order.marketplaceOrder.marketplaceAccountName} 
-                  color={MARKETPLACE_TYPE_COLORS[order.marketplaceOrder.marketplaceType]}
-                  onClick={() => {}}
+                component={Link}
+                to={`/settings/integrations/${order.marketplaceOrder.marketplaceAccountId}`}
+                size={"small"}
+                label={order.marketplaceOrder.marketplaceAccountName}
+                color={MARKETPLACE_TYPE_COLORS[order.marketplaceOrder.marketplaceType]}
+                onClick={() => {}}
               />
             </Box>
           </MetaRow>

@@ -8,6 +8,7 @@ import SidebarLayout, {
   type SidebarNavItem,
   type SidebarNavLeafItem,
 } from "@/layouts/SidebarLayout/SidebarLayout.tsx";
+import {hasSectionPermission, isSectionVisible} from "./sectionVisibility.ts";
 
 export interface SectionSubroute {
   path: string;
@@ -19,7 +20,8 @@ export interface SectionConfig {
   path: string;
   icon?: React.ReactElement;
   component?: React.ComponentType;
-  requiredPermission?: PermissionName;
+  /** An array means any one of them is enough. */
+  requiredPermission?: PermissionName | PermissionName[];
   showIf?: () => boolean;
   subroutes?: SectionSubroute[];
   children?: Omit<SectionConfig, "children">[];
@@ -28,16 +30,6 @@ export interface SectionConfig {
 export interface SidebarPageProps {
   sections: SectionConfig[];
   basePath: string;
-}
-
-function isSectionVisible(
-  s: Pick<SectionConfig, "requiredPermission" | "showIf">,
-  permissions: PermissionName[],
-): boolean {
-  return (
-    (!s.requiredPermission || permissions.includes(s.requiredPermission)) &&
-    (!s.showIf || s.showIf())
-  );
 }
 
 function toNavItems(
@@ -90,9 +82,7 @@ function ProtectedRoute({
   permissions: PermissionName[];
 }) {
   return !section.component ||
-    ("requiredPermission" in section &&
-      section.requiredPermission &&
-      !permissions.includes(section.requiredPermission)) ? (
+    ("requiredPermission" in section && !hasSectionPermission(section, permissions)) ? (
     <AccessDenied />
   ) : (
     <section.component />

@@ -22,4 +22,7 @@ public enum AppEntityType
 
     /// <summary>Stock rows. Like <see cref="ChangeLog"/>, present for statistics rather than for a page.</summary>
     InventoryItem,
+
+    /// <summary>The stock movement journal. Present for storage statistics, nothing writes a changelog entry with it.</summary>
+    StockMovement,
 }

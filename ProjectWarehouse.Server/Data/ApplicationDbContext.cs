@@ -41,6 +41,8 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<StoragePlaceNode> StoragePlacesNodes => Set<StoragePlaceNode>();
     public DbSet<StoragePlaceNodeItemsGroup> StoragePlacesNodesItemsGroups => Set<StoragePlaceNodeItemsGroup>();
 
+    public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+
     public DbSet<Receipt> Receipts => Set<Receipt>();
     public DbSet<ReceiptItem> ReceiptItems => Set<ReceiptItem>();
     public DbSet<ReceiptItemPlacement> ReceiptItemPlacements => Set<ReceiptItemPlacement>();
@@ -188,6 +190,39 @@ public class ApplicationDbContext : IdentityDbContext<
                 .WithMany(x => x.ItemsGroups)
                 .HasForeignKey(x => x.StoragePlaceNodeId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<StockMovement>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.Property(x => x.Action).HasMaxLength(64);
+
+            e.HasOne(x => x.CatalogItem)
+                .WithMany()
+                .HasForeignKey(x => x.CatalogItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Location and author are audit references — deleting a warehouse must not erase its history
+            e.HasOne(x => x.StoragePlaceNode)
+                .WithMany()
+                .HasForeignKey(x => x.StoragePlaceNodeId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.StoragePlace)
+                .WithMany()
+                .HasForeignKey(x => x.StoragePlaceId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.Warehouse)
+                .WithMany()
+                .HasForeignKey(x => x.WarehouseId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         builder.Entity<InventoryItem>(e =>
