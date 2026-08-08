@@ -14,7 +14,8 @@ namespace ProjectWarehouse.Server.Services;
 public class StockStatisticsService(
     ApplicationDbContext db,
     IMapper mapper,
-    IUserQueryFilterService userFilter) : IStockStatisticsService
+    IUserQueryFilterService userFilter,
+    IInventoryService inventoryService) : IStockStatisticsService
 {
     private const int DefaultDays = 30;
     private const int MaxDays = 366;
@@ -72,6 +73,8 @@ public class StockStatisticsService(
     {
         var (query, from, to) = await BuildAsync(user, filter, ct);
         var offsetMinutes = filter.UtcOffsetMinutes;
+        var toUtc = DateTime.SpecifyKind(
+            to.AddDays(1).ToDateTime(TimeOnly.MinValue) - TimeSpan.FromMinutes(offsetMinutes), DateTimeKind.Utc);
 
         // One extra row only to learn whether anything was cut off
         var columnRows = await query
@@ -122,7 +125,54 @@ public class StockStatisticsService(
         // Row totals cover every item the filter matched, not only the items that made it into a column
         var totalsByDate = await GroupByDayAsync(query, offsetMinutes, ct);
 
-        var rows = EachDay(from, to)
+        // Balance ignores Action/Direction/User — those only narrow what's *displayed*, but every
+        // movement, shown or not, moved real stock and has to count toward what's on the shelf.
+        var stockScope = await BuildStockScopeAsync(user, filter, ct);
+        var tailQuery = stockScope.Where(m => m.CreatedAt >= toUtc);
+
+        var tailNetByItem = await tailQuery
+            .Where(m => columnIds.Contains(m.CatalogItemId))
+            .GroupBy(m => m.CatalogItemId)
+            .Select(g => new
+            {
+                g.Key,
+                Net = g.Sum(m => m.Direction == StockMovementDirection.In || m.Direction == StockMovementDirection.TransferIn
+                    ? m.Quantity
+                    : -m.Quantity),
+            })
+            .ToDictionaryAsync(x => x.Key, x => x.Net, ct);
+
+        var tailNetTotal = await tailQuery.SumAsync(
+            m => m.Direction == StockMovementDirection.In || m.Direction == StockMovementDirection.TransferIn
+                ? m.Quantity
+                : -m.Quantity, ct);
+
+        var currentStockByItem = await GetCurrentStockAsync(user, filter, columnIds, ct);
+        var currentStockTotal = (await GetCurrentStockAsync(
+            user, filter, filter.CatalogItemIds is { Length: > 0 } ids ? ids : null, ct)).Values.Sum();
+
+        var days = EachDay(from, to).ToList();
+        var itemBalanceByDay = new Dictionary<DateOnly, Dictionary<Guid, int>>();
+        var totalBalanceByDay = new Dictionary<DateOnly, int>();
+
+        var runningItemSuffix = tailNetByItem.ToDictionary(x => x.Key, x => x.Value);
+        var runningTotalSuffix = tailNetTotal;
+        for (var i = days.Count - 1; i >= 0; i--)
+        {
+            var day = days[i];
+
+            itemBalanceByDay[day] = columnIds.ToDictionary(
+                id => id,
+                id => currentStockByItem.GetValueOrDefault(id) - runningItemSuffix.GetValueOrDefault(id));
+            totalBalanceByDay[day] = currentStockTotal - runningTotalSuffix;
+
+            foreach (var c in cellsByDate.GetValueOrDefault(day) ?? [])
+                runningItemSuffix[c.CatalogItemId] = runningItemSuffix.GetValueOrDefault(c.CatalogItemId) + c.Net;
+            if (totalsByDate.TryGetValue(day, out var dayTotal))
+                runningTotalSuffix += dayTotal.Net;
+        }
+
+        var rows = days
             .Select(day => new StockMovementPivotRowDto
             {
                 Date = day,
@@ -135,9 +185,11 @@ public class StockStatisticsService(
                         TransferInQuantity = c.TransferInQuantity,
                         TransferOutQuantity = c.TransferOutQuantity,
                         MovementsCount = c.MovementsCount,
+                        Balance = itemBalanceByDay[day].GetValueOrDefault(c.CatalogItemId),
                     })
                     .ToList(),
                 Total = totalsByDate.GetValueOrDefault(day) ?? new StockMovementTotalsDto(),
+                Balance = totalBalanceByDay[day],
             })
             .ToList();
 
@@ -156,6 +208,7 @@ public class StockStatisticsService(
                     TransferInQuantity = c.TransferInQuantity,
                     TransferOutQuantity = c.TransferOutQuantity,
                     MovementsCount = c.MovementsCount,
+                    Balance = itemBalanceByDay[to].GetValueOrDefault(c.CatalogItemId),
                 })
                 .ToList(),
             Rows = rows,
@@ -263,6 +316,43 @@ public class StockStatisticsService(
             .ToListAsync(ct);
 
         return rows.ToDictionary(r => DateOnly.FromDateTime(r.Date), StockMovementTotalsDto (r) => r);
+    }
+
+    /// <summary>
+    /// Same movements as <see cref="BuildAsync"/> but without the Action/Direction/User/date filters —
+    /// those only decide what's *shown*, and would otherwise throw off a running stock balance.
+    /// </summary>
+    private async Task<IQueryable<StockMovement>> BuildStockScopeAsync(
+        ClaimsPrincipal user,
+        StockMovementFilterRequest filter,
+        CancellationToken ct)
+    {
+        var query = (await userFilter.GetStockMovementsAsync(user, ct))
+            .Where(m => filter.WarehouseId == null || m.WarehouseId == filter.WarehouseId)
+            .Where(m => filter.StoragePlaceId == null || m.StoragePlaceId == filter.StoragePlaceId)
+            .Where(m => filter.NodeId == null || m.StoragePlaceNodeId == filter.NodeId);
+
+        if (filter.CatalogItemIds is { Length: > 0 } catalogItemIds)
+            query = query.Where(m => catalogItemIds.Contains(m.CatalogItemId));
+
+        return query;
+    }
+
+    /// <summary>Current on-hand quantity per catalog item, scoped to the same location filters and to the
+    /// warehouses <paramref name="user"/> may see. <paramref name="restrictToIds"/> narrows further, or
+    /// pass null to cover every item the location filter matches.</summary>
+    private async Task<Dictionary<Guid, int>> GetCurrentStockAsync(
+        ClaimsPrincipal user,
+        StockMovementFilterRequest filter,
+        IReadOnlyCollection<Guid>? restrictToIds,
+        CancellationToken ct)
+    {
+        var warehouseIds = await (await userFilter.GetWarehousesAsync(user, ct))
+            .Select(w => w.Id)
+            .ToListAsync(ct);
+
+        return await inventoryService.GetCurrentStockAsync(
+            warehouseIds, filter.WarehouseId, filter.StoragePlaceId, filter.NodeId, restrictToIds, ct);
     }
 
     /// <summary>

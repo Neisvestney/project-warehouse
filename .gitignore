@@ -100,3 +100,4 @@ publish
 # Data Protection key ring (dev)
 keys/
 .localdata/
+backups/

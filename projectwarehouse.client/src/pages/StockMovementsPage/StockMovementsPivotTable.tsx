@@ -63,9 +63,11 @@ const stickyColumnSx = {
 function MovementCell({
   totals,
   showTransfers,
+  balance,
 }: {
   totals: StockMovementTotalsDto | undefined;
   showTransfers: boolean;
+  balance?: number;
 }) {
   const hasDirect = !!totals && (totals.inQuantity > 0 || totals.outQuantity > 0);
   const hasTransfers =
@@ -75,6 +77,7 @@ function MovementCell({
     return (
       <Typography variant="body2" sx={{color: "text.disabled"}}>
         —
+        {balance}
       </Typography>
     );
   }
@@ -103,6 +106,7 @@ function MovementCell({
           ⇄ +{totals!.transferInQuantity} −{totals!.transferOutQuantity}
         </Typography>
       )}
+      {balance}
     </Stack>
   );
 }
@@ -199,26 +203,26 @@ function StockMovementsPivotTable({
                 Итого за день
               </TableCell>
             </TableRow>
-            <TableRow>
-              <TableCell sx={{...stickyColumnSx, zIndex: 4, top: HEADER_ROW_HEIGHT}}>
-                <Typography variant="body2" sx={{fontWeight: 500}}>
-                  Итого
-                </Typography>
-                {loadedRangeLabel && (
-                  <Typography variant="caption" sx={{color: "text.secondary"}}>
-                    {loadedRangeLabel}
-                  </Typography>
-                )}
-              </TableCell>
-              {columns.map((item) => (
-                <TableCell key={item.id} align="center" sx={{top: HEADER_ROW_HEIGHT}}>
-                  <MovementCell totals={columnTotals.get(item.id)} showTransfers={showTransfers} />
-                </TableCell>
-              ))}
-              <TableCell align="center" sx={{top: HEADER_ROW_HEIGHT}}>
-                <MovementCell totals={grandTotal} showTransfers={showTransfers} />
-              </TableCell>
-            </TableRow>
+            {/*<TableRow>*/}
+            {/*  <TableCell sx={{...stickyColumnSx, zIndex: 4, top: HEADER_ROW_HEIGHT}}>*/}
+            {/*    <Typography variant="body2" sx={{fontWeight: 500}}>*/}
+            {/*      Итого*/}
+            {/*    </Typography>*/}
+            {/*    {loadedRangeLabel && (*/}
+            {/*      <Typography variant="caption" sx={{color: "text.secondary"}}>*/}
+            {/*        {loadedRangeLabel}*/}
+            {/*      </Typography>*/}
+            {/*    )}*/}
+            {/*  </TableCell>*/}
+            {/*  {columns.map((item) => (*/}
+            {/*    <TableCell key={item.id} align="center" sx={{top: HEADER_ROW_HEIGHT}}>*/}
+            {/*      <MovementCell totals={columnTotals.get(item.id)} showTransfers={showTransfers} />*/}
+            {/*    </TableCell>*/}
+            {/*  ))}*/}
+            {/*  <TableCell align="center" sx={{top: HEADER_ROW_HEIGHT}}>*/}
+            {/*    <MovementCell totals={grandTotal} showTransfers={showTransfers} />*/}
+            {/*  </TableCell>*/}
+            {/*</TableRow>*/}
           </TableHead>
           <TableBody>
             {isLoading ? (
@@ -243,7 +247,7 @@ function StockMovementsPivotTable({
                     </TableCell>
                     {columns.map((item) => (
                       <TableCell key={item.id} align="center">
-                        <MovementCell totals={cells.get(item.id)} showTransfers={showTransfers} />
+                        <MovementCell totals={cells.get(item.id)} showTransfers={showTransfers} balance={cells.get(item.id)?.balance} />
                       </TableCell>
                     ))}
                     <TableCell align="center">

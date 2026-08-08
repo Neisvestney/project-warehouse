@@ -7,11 +7,17 @@ public class StockMovementPivotColumnDto : StockMovementTotalsDto
 {
     public Guid CatalogItemId { get; init; }
     public CatalogItemSummaryDto CatalogItem { get; init; } = null!;
+
+    /// <summary>On-hand quantity at the end of <see cref="StockMovementPivotDto.To"/>, ignoring the Action/Direction/User filters.</summary>
+    public int Balance { get; init; }
 }
 
 public class StockMovementPivotCellDto : StockMovementTotalsDto
 {
     public Guid CatalogItemId { get; init; }
+
+    /// <summary>On-hand quantity at the end of this day, ignoring the Action/Direction/User filters.</summary>
+    public int Balance { get; init; }
 }
 
 /// <summary>
@@ -23,6 +29,9 @@ public class StockMovementPivotRowDto
     public DateOnly Date { get; init; }
     public IReadOnlyList<StockMovementPivotCellDto> Cells { get; init; } = [];
     public StockMovementTotalsDto Total { get; init; } = new();
+
+    /// <summary>On-hand quantity, summed over every item matching the filter, at the end of this day.</summary>
+    public int Balance { get; init; }
 }
 
 /// <summary>Dates down, catalog items across.</summary>
