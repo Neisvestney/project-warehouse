@@ -32,6 +32,7 @@ export default observer(function RolesSettingsPage() {
     isRefetchError: rolesIsRefetchError,
   } = useQuery({
     ...rolesGetAllOptions(),
+    gcTime: 0,
     meta: {suppressGlobalError: true},
   });
   const {
