@@ -10,4 +10,5 @@ public interface IUserQueryFilterService
     Task<IQueryable<ApplicationUser>> GetUsersAsync(ClaimsPrincipal user, CancellationToken ct = default);
     Task<IQueryable<CatalogItem>> GetCatalogItemsAsync(ClaimsPrincipal user, CancellationToken ct = default);
     Task<IQueryable<MarketplaceAccount>> GetMarketplaceAccountsAsync(ClaimsPrincipal user, CancellationToken ct = default);
+    Task<IQueryable<StockMovement>> GetStockMovementsAsync(ClaimsPrincipal user, CancellationToken ct = default);
 }

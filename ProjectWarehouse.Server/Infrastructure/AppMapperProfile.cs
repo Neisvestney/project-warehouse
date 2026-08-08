@@ -11,6 +11,7 @@ using ProjectWarehouse.Server.Models.Integrations;
 using ProjectWarehouse.Server.Models.Inventory;
 using ProjectWarehouse.Server.Models.Receipts;
 using ProjectWarehouse.Server.Models.Roles;
+using ProjectWarehouse.Server.Models.Statistics;
 using ProjectWarehouse.Server.Models.Writeoffs;
 using ProjectWarehouse.Server.Models.Users;
 using ProjectWarehouse.Server.Models.Warehouses;
@@ -131,6 +132,12 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.StoragePlaceName, opt => opt.MapFrom(s => s.StoragePlaceNode!.RootStoragePlace.Name))
             .ForMember(d => d.WarehouseId, opt => opt.MapFrom(s => s.StoragePlaceNode!.RootStoragePlace.WarehouseId))
             .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.StoragePlaceNode!.RootStoragePlace.Warehouse.Name));
+
+        CreateMap<StockMovement, StockMovementDto>()
+            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse!.Name))
+            .ForMember(d => d.StoragePlaceName, opt => opt.MapFrom(s => s.StoragePlace!.Name))
+            .ForMember(d => d.StoragePlaceNodeName, opt => opt.MapFrom(s => s.StoragePlaceNode!.Name))
+            .ForMember(d => d.UserName, opt => opt.MapFrom(s => s.User!.FullName));
 
         CreateMap<Warehouse, AppEntity>()
             .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Warehouse))

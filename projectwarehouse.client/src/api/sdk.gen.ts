@@ -272,6 +272,18 @@ import type {
   RolesUpdateAllData,
   RolesUpdateAllErrors,
   RolesUpdateAllResponses,
+  StatisticsGetBreakdownData,
+  StatisticsGetBreakdownErrors,
+  StatisticsGetBreakdownResponses,
+  StatisticsGetDailyData,
+  StatisticsGetDailyErrors,
+  StatisticsGetDailyResponses,
+  StatisticsGetMovementsData,
+  StatisticsGetMovementsErrors,
+  StatisticsGetMovementsResponses,
+  StatisticsGetPivotData,
+  StatisticsGetPivotErrors,
+  StatisticsGetPivotResponses,
   StoragePlacesAddNodeData,
   StoragePlacesAddNodeErrors,
   StoragePlacesAddNodeResponses,
@@ -1592,6 +1604,63 @@ export const rolesGetById = <ThrowOnError extends boolean = false>(
     url: "/api/roles/{id}",
     ...options,
   });
+
+/**
+ * Daily in/out/transfer totals over a date range.
+ *
+ * Every day of the range is present, including empty ones. Days are cut in the caller's time zone —
+ * pass `utcOffsetMinutes`, or an evening shift lands on the wrong day. Defaults to the last 30 days;
+ * the range may not exceed 366 days.
+ */
+export const statisticsGetDaily = <ThrowOnError extends boolean = false>(
+  options?: Options<StatisticsGetDailyData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    StatisticsGetDailyResponses,
+    StatisticsGetDailyErrors,
+    ThrowOnError
+  >({url: "/api/statistics/stock-movements/daily", ...options});
+
+/**
+ * Pivot: one row per day, one column per catalog item, in/out in each cell.
+ *
+ * Columns are the `columnLimit` items that moved the most over the range (pass
+ * `catalogItemIds` to pin them instead). Cells are sparse — a day with no movement of an item
+ * carries no cell. Row totals cover every item the filter matched, so they stay correct even when
+ * `hasMoreColumns` is true.
+ */
+export const statisticsGetPivot = <ThrowOnError extends boolean = false>(
+  options?: Options<StatisticsGetPivotData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    StatisticsGetPivotResponses,
+    StatisticsGetPivotErrors,
+    ThrowOnError
+  >({url: "/api/statistics/stock-movements/pivot", ...options});
+
+/**
+ * Same totals, grouped by one dimension instead of by day.
+ */
+export const statisticsGetBreakdown = <ThrowOnError extends boolean = false>(
+  options?: Options<StatisticsGetBreakdownData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    StatisticsGetBreakdownResponses,
+    StatisticsGetBreakdownErrors,
+    ThrowOnError
+  >({url: "/api/statistics/stock-movements/breakdown", ...options});
+
+/**
+ * Raw movement rows behind the numbers, newest first.
+ */
+export const statisticsGetMovements = <ThrowOnError extends boolean = false>(
+  options?: Options<StatisticsGetMovementsData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    StatisticsGetMovementsResponses,
+    StatisticsGetMovementsErrors,
+    ThrowOnError
+  >({url: "/api/statistics/stock-movements", ...options});
 
 /**
  * Get a flat list of all nodes for a storage place.

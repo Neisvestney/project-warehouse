@@ -400,6 +400,7 @@ try
     builder.Services.AddScoped<ICatalogService, CatalogService>();
     builder.Services.AddScoped<IUserQueryFilterService, UserQueryFilterService>();
     builder.Services.AddScoped<IOrderService, OrderService>();
+    builder.Services.AddScoped<IStockStatisticsService, StockStatisticsService>();
     var app = builder.Build();
 
     using (var scope = app.Services.CreateScope())

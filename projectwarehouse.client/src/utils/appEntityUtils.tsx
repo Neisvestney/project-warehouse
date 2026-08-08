@@ -17,6 +17,7 @@ import StorefrontIcon from "@mui/icons-material/Storefront";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import HistoryIcon from "@mui/icons-material/History";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
+import SwapVertIcon from "@mui/icons-material/SwapVert";
 import React from "react";
 import {Chip, Typography} from "@mui/material";
 import ReceiptStatusChip from "@/components/receipts/ReceiptStatusChip.tsx";
@@ -197,6 +198,11 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     linkTemplate: "no-link",
     typeName: "Остатки",
     icon: <Inventory2Icon />,
+  },
+  stockMovement: {
+    linkTemplate: "/storage/stock-movements",
+    typeName: "Движения товаров",
+    icon: <SwapVertIcon />,
   },
 };
 

@@ -98,6 +98,10 @@ import {
   rolesGetById,
   rolesSearch,
   rolesUpdateAll,
+  statisticsGetBreakdown,
+  statisticsGetDaily,
+  statisticsGetMovements,
+  statisticsGetPivot,
   storagePlacesAddNode,
   storagePlacesDeleteNode,
   storagePlacesGetNodeDetails,
@@ -391,6 +395,18 @@ import type {
   RolesUpdateAllData,
   RolesUpdateAllError,
   RolesUpdateAllResponse,
+  StatisticsGetBreakdownData,
+  StatisticsGetBreakdownError,
+  StatisticsGetBreakdownResponse,
+  StatisticsGetDailyData,
+  StatisticsGetDailyError,
+  StatisticsGetDailyResponse,
+  StatisticsGetMovementsData,
+  StatisticsGetMovementsError,
+  StatisticsGetMovementsResponse,
+  StatisticsGetPivotData,
+  StatisticsGetPivotError,
+  StatisticsGetPivotResponse,
   StoragePlacesAddNodeData,
   StoragePlacesAddNodeError,
   StoragePlacesAddNodeResponse,
@@ -3212,6 +3228,162 @@ export const rolesGetByIdOptions = (options: Options<RolesGetByIdData>) =>
     },
     queryKey: rolesGetByIdQueryKey(options),
   });
+
+export const statisticsGetDailyQueryKey = (options?: Options<StatisticsGetDailyData>) =>
+  createQueryKey("statisticsGetDaily", options);
+
+/**
+ * Daily in/out/transfer totals over a date range.
+ *
+ * Every day of the range is present, including empty ones. Days are cut in the caller's time zone —
+ * pass `utcOffsetMinutes`, or an evening shift lands on the wrong day. Defaults to the last 30 days;
+ * the range may not exceed 366 days.
+ */
+export const statisticsGetDailyOptions = (options?: Options<StatisticsGetDailyData>) =>
+  queryOptions<
+    StatisticsGetDailyResponse,
+    StatisticsGetDailyError,
+    StatisticsGetDailyResponse,
+    ReturnType<typeof statisticsGetDailyQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await statisticsGetDaily({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: statisticsGetDailyQueryKey(options),
+  });
+
+export const statisticsGetPivotQueryKey = (options?: Options<StatisticsGetPivotData>) =>
+  createQueryKey("statisticsGetPivot", options);
+
+/**
+ * Pivot: one row per day, one column per catalog item, in/out in each cell.
+ *
+ * Columns are the `columnLimit` items that moved the most over the range (pass
+ * `catalogItemIds` to pin them instead). Cells are sparse — a day with no movement of an item
+ * carries no cell. Row totals cover every item the filter matched, so they stay correct even when
+ * `hasMoreColumns` is true.
+ */
+export const statisticsGetPivotOptions = (options?: Options<StatisticsGetPivotData>) =>
+  queryOptions<
+    StatisticsGetPivotResponse,
+    StatisticsGetPivotError,
+    StatisticsGetPivotResponse,
+    ReturnType<typeof statisticsGetPivotQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await statisticsGetPivot({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: statisticsGetPivotQueryKey(options),
+  });
+
+export const statisticsGetBreakdownQueryKey = (options?: Options<StatisticsGetBreakdownData>) =>
+  createQueryKey("statisticsGetBreakdown", options);
+
+/**
+ * Same totals, grouped by one dimension instead of by day.
+ */
+export const statisticsGetBreakdownOptions = (options?: Options<StatisticsGetBreakdownData>) =>
+  queryOptions<
+    StatisticsGetBreakdownResponse,
+    StatisticsGetBreakdownError,
+    StatisticsGetBreakdownResponse,
+    ReturnType<typeof statisticsGetBreakdownQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await statisticsGetBreakdown({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: statisticsGetBreakdownQueryKey(options),
+  });
+
+export const statisticsGetMovementsQueryKey = (options?: Options<StatisticsGetMovementsData>) =>
+  createQueryKey("statisticsGetMovements", options);
+
+/**
+ * Raw movement rows behind the numbers, newest first.
+ */
+export const statisticsGetMovementsOptions = (options?: Options<StatisticsGetMovementsData>) =>
+  queryOptions<
+    StatisticsGetMovementsResponse,
+    StatisticsGetMovementsError,
+    StatisticsGetMovementsResponse,
+    ReturnType<typeof statisticsGetMovementsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await statisticsGetMovements({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: statisticsGetMovementsQueryKey(options),
+  });
+
+export const statisticsGetMovementsInfiniteQueryKey = (
+  options?: Options<StatisticsGetMovementsData>,
+): QueryKey<Options<StatisticsGetMovementsData>> =>
+  createQueryKey("statisticsGetMovements", options, true);
+
+/**
+ * Raw movement rows behind the numbers, newest first.
+ */
+export const statisticsGetMovementsInfiniteOptions = (
+  options?: Options<StatisticsGetMovementsData>,
+) =>
+  infiniteQueryOptions<
+    StatisticsGetMovementsResponse,
+    StatisticsGetMovementsError,
+    InfiniteData<StatisticsGetMovementsResponse>,
+    QueryKey<Options<StatisticsGetMovementsData>>,
+    | number
+    | Pick<QueryKey<Options<StatisticsGetMovementsData>>[0], "body" | "headers" | "path" | "query">
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({pageParam, queryKey, signal}) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<StatisticsGetMovementsData>>[0],
+          "body" | "headers" | "path" | "query"
+        > =
+          typeof pageParam === "object"
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const {data} = await statisticsGetMovements({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: statisticsGetMovementsInfiniteQueryKey(options),
+    },
+  );
 
 export const storagePlacesGetNodesQueryKey = (options: Options<StoragePlacesGetNodesData>) =>
   createQueryKey("storagePlacesGetNodes", options);

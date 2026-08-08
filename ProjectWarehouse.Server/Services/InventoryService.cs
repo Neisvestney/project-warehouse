@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
@@ -11,6 +13,7 @@ namespace ProjectWarehouse.Server.Services;
 public class InventoryService(
     ApplicationDbContext db,
     IMapper mapper,
+    IHttpContextAccessor httpContextAccessor,
     IChangeLogService<StoragePlaceNodeDetailsDto> changeLog) : IInventoryService
 {
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -72,14 +75,77 @@ public class InventoryService(
         return nodeById;
     }
 
+    // ── Stock movement journal ────────────────────────────────────────────────
+
+    private readonly Dictionary<Guid, (Guid StoragePlaceId, Guid WarehouseId)> _locationByNode = [];
+
+    private async Task<(Guid StoragePlaceId, Guid WarehouseId)?> GetNodeLocationAsync(Guid nodeId, CancellationToken ct)
+    {
+        if (_locationByNode.TryGetValue(nodeId, out var cached)) return cached;
+
+        var location = await db.StoragePlacesNodes
+            .Where(n => n.Id == nodeId)
+            .Select(n => new { n.RootStoragePlaceId, n.RootStoragePlace.WarehouseId })
+            .FirstOrDefaultAsync(ct);
+
+        if (location is null) return null;
+
+        var resolved = (location.RootStoragePlaceId, location.WarehouseId);
+        _locationByNode[nodeId] = resolved;
+        return resolved;
+    }
+
+    /// <summary>
+    /// Queues a journal row for the current stock change. Added to the context but not saved — the
+    /// caller saves it together with the change itself, so a movement can never exist without it.
+    /// </summary>
+    private async Task RecordMovementAsync(
+        Guid nodeId,
+        Guid catalogItemId,
+        int quantity,
+        StockMovementDirection direction,
+        string action,
+        CancellationToken ct)
+    {
+        var location = await GetNodeLocationAsync(nodeId, ct);
+
+        db.StockMovements.Add(new StockMovement
+        {
+            Id                 = Guid.NewGuid(),
+            CreatedAt          = DateTime.UtcNow,
+            Direction          = direction,
+            Action             = action,
+            Quantity           = quantity,
+            CatalogItemId      = catalogItemId,
+            StoragePlaceNodeId = nodeId,
+            StoragePlaceId     = location?.StoragePlaceId,
+            WarehouseId        = location?.WarehouseId,
+            UserId             = GetCurrentUserId(),
+        });
+    }
+
+    private Guid? GetCurrentUserId() =>
+        Guid.TryParse(httpContextAccessor.HttpContext?.User.FindFirstValue(JwtRegisteredClaimNames.Sub), out var id)
+            ? id
+            : null;
+
     // ── Standard items ────────────────────────────────────────────────────────
 
-    public async Task AddStandardItemsToNodeAsync(
+    public Task AddStandardItemsToNodeAsync(
         Guid nodeId,
         Guid catalogItemId,
         int count,
         string action = InventoryActions.AddStandardItems,
-        CancellationToken ct = default)
+        CancellationToken ct = default) =>
+        AddStandardCoreAsync(nodeId, catalogItemId, count, action, StockMovementDirection.In, ct);
+
+    private async Task AddStandardCoreAsync(
+        Guid nodeId,
+        Guid catalogItemId,
+        int count,
+        string action,
+        StockMovementDirection direction,
+        CancellationToken ct)
     {
         if (count <= 0)
             throw new ArgumentOutOfRangeException(nameof(count), count,
@@ -103,18 +169,28 @@ public class InventoryService(
         }
 
         group.Count += count;
+        await RecordMovementAsync(nodeId, catalogItemId, count, direction, action, ct);
         await db.SaveChangesAsync(ct);
 
         var after = await SnapshotNodeAsync(nodeId, ct);
         await changeLog.CompareAndSaveToChangelog(before, after, action);
     }
 
-    public async Task RemoveStandardItemsFromNodeAsync(
+    public Task RemoveStandardItemsFromNodeAsync(
         Guid nodeId,
         Guid catalogItemId,
         int count,
         string action = InventoryActions.RemoveStandardItems,
-        CancellationToken ct = default)
+        CancellationToken ct = default) =>
+        RemoveStandardCoreAsync(nodeId, catalogItemId, count, action, StockMovementDirection.Out, ct);
+
+    private async Task RemoveStandardCoreAsync(
+        Guid nodeId,
+        Guid catalogItemId,
+        int count,
+        string action,
+        StockMovementDirection direction,
+        CancellationToken ct)
     {
         if (count <= 0)
             throw new ArgumentOutOfRangeException(nameof(count), count,
@@ -129,6 +205,7 @@ public class InventoryService(
             throw await BuildInsufficientInventoryExceptionAsync(nodeId, catalogItemId, group?.Count ?? 0, count, ct);
 
         group.Count -= count;
+        await RecordMovementAsync(nodeId, catalogItemId, count, direction, action, ct);
         await db.SaveChangesAsync(ct);
 
         var after = await SnapshotNodeAsync(nodeId, ct);
@@ -173,6 +250,7 @@ public class InventoryService(
         var before = await SnapshotNodeAsync(nodeId, ct);
 
         var item = await CreateUnitItemAsync(nodeId, catalogItemId, inventoryNumber, ct);
+        await RecordMovementAsync(nodeId, catalogItemId, 1, StockMovementDirection.In, action, ct);
         await db.SaveChangesAsync(ct);
 
         var after = await SnapshotNodeAsync(nodeId, ct);
@@ -198,6 +276,7 @@ public class InventoryService(
         var before = await SnapshotNodeAsync(nodeId, ct);
 
         db.InventoryItems.Remove(item);
+        await RecordMovementAsync(nodeId, item.CatalogItemId, 1, StockMovementDirection.Out, action, ct);
         await db.SaveChangesAsync(ct);
 
         var after = await SnapshotNodeAsync(nodeId, ct);
@@ -221,6 +300,7 @@ public class InventoryService(
         var before = await SnapshotNodeAsync(nodeId, ct);
 
         item.StoragePlaceNodeId = null;
+        await RecordMovementAsync(nodeId, item.CatalogItemId, 1, StockMovementDirection.Out, action, ct);
         await db.SaveChangesAsync(ct);
 
         var after = await SnapshotNodeAsync(nodeId, ct);
@@ -243,6 +323,7 @@ public class InventoryService(
         var before = await SnapshotNodeAsync(nodeId, ct);
 
         item.StoragePlaceNodeId = nodeId;
+        await RecordMovementAsync(nodeId, item.CatalogItemId, 1, StockMovementDirection.In, action, ct);
         await db.SaveChangesAsync(ct);
 
         var after = await SnapshotNodeAsync(nodeId, ct);
@@ -259,8 +340,8 @@ public class InventoryService(
         string action = InventoryActions.MoveStandardItems,
         CancellationToken ct = default)
     {
-        await RemoveStandardItemsFromNodeAsync(fromNodeId, catalogItemId, count, action, ct);
-        await AddStandardItemsToNodeAsync(toNodeId, catalogItemId, count, action, ct);
+        await RemoveStandardCoreAsync(fromNodeId, catalogItemId, count, action, StockMovementDirection.TransferOut, ct);
+        await AddStandardCoreAsync(toNodeId, catalogItemId, count, action, StockMovementDirection.TransferIn, ct);
     }
 
     public async Task MoveUnitItemAsync(
@@ -280,6 +361,8 @@ public class InventoryService(
         var toBefore   = await SnapshotNodeAsync(toNodeId, ct);
 
         item.StoragePlaceNodeId = toNodeId;
+        await RecordMovementAsync(fromNodeId, item.CatalogItemId, 1, StockMovementDirection.TransferOut, action, ct);
+        await RecordMovementAsync(toNodeId, item.CatalogItemId, 1, StockMovementDirection.TransferIn, action, ct);
         await db.SaveChangesAsync(ct);
 
         var fromAfter = await SnapshotNodeAsync(fromNodeId, ct);

@@ -1,0 +1,119 @@
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Models;
+using ProjectWarehouse.Server.Models.Statistics;
+using ProjectWarehouse.Server.Services;
+
+namespace ProjectWarehouse.Server.Controllers;
+
+[Route("api/statistics")]
+public class StatisticsController(IStockStatisticsService statistics) : AppControllerBase
+{
+    /// <summary>Daily in/out/transfer totals over a date range.</summary>
+    /// <remarks>
+    /// Every day of the range is present, including empty ones. Days are cut in the caller's time zone —
+    /// pass <c>utcOffsetMinutes</c>, or an evening shift lands on the wrong day. Defaults to the last 30 days;
+    /// the range may not exceed 366 days.
+    /// </remarks>
+    [HttpGet("stock-movements/daily")]
+    [Authorize]
+    [ProducesResponseType<StockMovementDailySeriesDto>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetDaily(
+        [FromQuery] StockMovementFilterRequest filter,
+        CancellationToken ct = default)
+    {
+        if (CheckAccess() is { } forbidden) return forbidden;
+
+        try
+        {
+            return Ok(await statistics.GetDailySeriesAsync(User, filter, ct));
+        }
+        catch (Infrastructure.ValidationException ex)
+        {
+            return UnprocessableEntity(ex);
+        }
+    }
+
+    /// <summary>Pivot: one row per day, one column per catalog item, in/out in each cell.</summary>
+    /// <remarks>
+    /// Columns are the <c>columnLimit</c> items that moved the most over the range (pass
+    /// <c>catalogItemIds</c> to pin them instead). Cells are sparse — a day with no movement of an item
+    /// carries no cell. Row totals cover every item the filter matched, so they stay correct even when
+    /// <c>hasMoreColumns</c> is true.
+    /// </remarks>
+    [HttpGet("stock-movements/pivot")]
+    [Authorize]
+    [ProducesResponseType<StockMovementPivotDto>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPivot(
+        [FromQuery] StockMovementFilterRequest filter,
+        [FromQuery][Range(1, 200)] int columnLimit = 20,
+        CancellationToken ct = default)
+    {
+        if (CheckAccess() is { } forbidden) return forbidden;
+
+        try
+        {
+            return Ok(await statistics.GetPivotAsync(User, filter, columnLimit, ct));
+        }
+        catch (Infrastructure.ValidationException ex)
+        {
+            return UnprocessableEntity(ex);
+        }
+    }
+
+    /// <summary>Same totals, grouped by one dimension instead of by day.</summary>
+    [HttpGet("stock-movements/breakdown")]
+    [Authorize]
+    [ProducesResponseType<IReadOnlyList<StockMovementBreakdownItemDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetBreakdown(
+        [FromQuery] StockMovementFilterRequest filter,
+        [FromQuery] StockMovementGroupBy groupBy = StockMovementGroupBy.Action,
+        [FromQuery][Range(1, 200)] int limit = 20,
+        CancellationToken ct = default)
+    {
+        if (CheckAccess() is { } forbidden) return forbidden;
+
+        try
+        {
+            return Ok(await statistics.GetBreakdownAsync(User, filter, groupBy, limit, ct));
+        }
+        catch (Infrastructure.ValidationException ex)
+        {
+            return UnprocessableEntity(ex);
+        }
+    }
+
+    /// <summary>Raw movement rows behind the numbers, newest first.</summary>
+    [HttpGet("stock-movements")]
+    [Authorize]
+    [ProducesResponseType<Paginated<StockMovementDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMovements(
+        [FromQuery] StockMovementFilterRequest filter,
+        [FromQuery][Range(1, int.MaxValue)] int page = 1,
+        [FromQuery][Range(1, 200)] int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        if (CheckAccess() is { } forbidden) return forbidden;
+
+        try
+        {
+            return Ok(await statistics.GetMovementsAsync(User, filter, page, pageSize, ct));
+        }
+        catch (Infrastructure.ValidationException ex)
+        {
+            return UnprocessableEntity(ex);
+        }
+    }
+
+    /// <summary>
+    /// Either permission is enough to reach the endpoints; which warehouses the rows come from is then
+    /// decided by <see cref="IUserQueryFilterService"/>.
+    /// </summary>
+    private ObjectResult? CheckAccess() =>
+        User.HasClaim("permission", Permissions.Statistics.View) ||
+        User.HasClaim("permission", Permissions.Statistics.ViewAssigned)
+            ? null
+            : Forbidden();
+}
