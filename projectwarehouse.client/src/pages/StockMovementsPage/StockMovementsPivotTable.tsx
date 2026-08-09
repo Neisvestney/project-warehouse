@@ -77,6 +77,7 @@ function MovementCell({
     return (
       <Typography variant="body2" sx={{color: "text.disabled"}}>
         —
+        <br/>
         {balance}
       </Typography>
     );
