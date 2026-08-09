@@ -97,6 +97,15 @@ public class StockStatisticsService(
         if (hasMoreColumns) columnRows.RemoveAt(columnRows.Count - 1);
 
         var columnIds = columnRows.Select(c => c.CatalogItemId).ToList();
+        if (filter.CatalogItemIds is not null)
+        {
+            var unaddedColumnIds = filter.CatalogItemIds.Except(columnIds).ToList();
+            while (columnIds.Count < columnLimit && unaddedColumnIds.Count > 0)
+            {
+                columnIds.Add(unaddedColumnIds[0]);
+                unaddedColumnIds.RemoveAt(0);
+            }
+        }
 
         var catalogItems = await db.CatalogItems
             .Where(ci => columnIds.Contains(ci.Id))
@@ -122,6 +131,30 @@ public class StockStatisticsService(
             .GroupBy(c => DateOnly.FromDateTime(c.Date))
             .ToDictionary(g => g.Key, g => g.ToList());
 
+        if (filter.CatalogItemIds is not null)
+        {
+            foreach (DateOnly day in EachDay(from, to))
+            {
+                if (!cellsByDate.TryGetValue(day, out var value))
+                {
+                    value = new List<DayItemRow>();
+                    cellsByDate[day] = value;
+                }
+
+                foreach (var catalogItemId in filter.CatalogItemIds)
+                {
+                    if (!value.Any(x => x.CatalogItemId == catalogItemId))
+                    {
+                        value.Add(new DayItemRow()
+                        {
+                            CatalogItemId = catalogItemId,
+                            Date = toUtc,
+                        });
+                    }
+                }
+            }
+        }
+
         // Row totals cover every item the filter matched, not only the items that made it into a column
         var totalsByDate = await GroupByDayAsync(query, offsetMinutes, ct);
 
@@ -130,6 +163,8 @@ public class StockStatisticsService(
         var stockScope = await BuildStockScopeAsync(user, filter, ct);
         var tailQuery = stockScope.Where(m => m.CreatedAt >= toUtc);
 
+        var a = await tailQuery.ToListAsync();
+        
         var tailNetByItem = await tailQuery
             .Where(m => columnIds.Contains(m.CatalogItemId))
             .GroupBy(m => m.CatalogItemId)
