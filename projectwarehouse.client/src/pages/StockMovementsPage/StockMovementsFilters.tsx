@@ -80,11 +80,12 @@ function StockMovementsFilters({
     <FiltersBar sx={{alignItems: "flex-start"}}>
       <CatalogItemsSelect
         multiple
+        fullWidth
         size="small"
         sx={{minWidth: 320, flexGrow: 1}}
         value={items}
         // At least one item must stay selected — it is what the columns are made of
-        onChange={(items) => items.length > 0 && setCatalogItemIds(items.map((item) => item.id))}
+        onChange={(items) => setCatalogItemIds(items.map((item) => item.id))}
         clearIcon={null}
       />
 
@@ -195,27 +196,27 @@ function StockMovementsFilters({
       {/*  </Select>*/}
       {/*</FormControl>*/}
 
-      {/*<FormControl size="small" sx={{minWidth: 180}}>*/}
-      {/*  <InputLabel>Операция</InputLabel>*/}
-      {/*  <Select*/}
-      {/*    multiple*/}
-      {/*    label="Операция"*/}
-      {/*    value={filter.actions}*/}
-      {/*    onChange={(e) => setActions(e.target.value as string[])}*/}
-      {/*    renderValue={(selected) =>*/}
-      {/*      selected.length === 1*/}
-      {/*        ? STOCK_MOVEMENT_ACTIONS.find((a) => a.value === selected[0])?.label*/}
-      {/*        : `${selected.length} операции`*/}
-      {/*    }*/}
-      {/*  >*/}
-      {/*    {STOCK_MOVEMENT_ACTIONS.map(({value, label}) => (*/}
-      {/*      <MenuItem key={value} value={value}>*/}
-      {/*        <Checkbox size="small" checked={filter.actions.includes(value)} />*/}
-      {/*        <ListItemText primary={label} />*/}
-      {/*      </MenuItem>*/}
-      {/*    ))}*/}
-      {/*  </Select>*/}
-      {/*</FormControl>*/}
+      <FormControl size="small" sx={{minWidth: 180}}>
+        <InputLabel>Операция</InputLabel>
+        <Select
+          multiple
+          label="Операция"
+          value={filter.actions}
+          onChange={(e) => setActions(e.target.value as string[])}
+          renderValue={(selected) =>
+            selected.length === 1
+              ? STOCK_MOVEMENT_ACTIONS.find((a) => a.value === selected[0])?.label
+              : `${selected.length} операции`
+          }
+        >
+          {STOCK_MOVEMENT_ACTIONS.map(({value, label}) => (
+            <MenuItem key={value} value={value}>
+              <Checkbox size="small" checked={filter.actions.includes(value)} />
+              <ListItemText primary={label} />
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
 
       <FormControlLabel
         control={

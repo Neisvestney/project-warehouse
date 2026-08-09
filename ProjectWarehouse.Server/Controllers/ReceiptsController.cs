@@ -472,6 +472,13 @@ public class ReceiptsController(
         var catalogItemId = item!.CatalogItemId;
         var warehouseId = receipt!.WarehouseId;
 
+        var action = receipt.Reason switch
+        {
+            ReceiptReason.NewGoods => InventoryActions.NewGoods,
+            ReceiptReason.Return => InventoryActions.ReturnStock,
+            _ => InventoryActions.UnknownAction
+        };
+
         var nodeById = await LoadWarehouseNodesAsync(warehouseId, ct);
         var itemBefore = mapper.Map<ReceiptItemDto>(item, opts => opts.Items["nodeById"] = nodeById);
 
@@ -484,6 +491,7 @@ public class ReceiptsController(
                 request.StoragePlaceNodeId,
                 catalogItemId,
                 request.Count,
+                action: action,
                 ct: ct);
 
             db.ReceiptItemPlacements.Add(new ReceiptItemPlacement
@@ -542,6 +550,13 @@ public class ReceiptsController(
         var receiptItemsById = receipt.Items
             .Where(i => requestItemIds.Contains(i.Id))
             .ToDictionary(i => i.Id);
+        
+        var action = receipt.Reason switch
+        {
+            ReceiptReason.NewGoods => InventoryActions.NewGoods,
+            ReceiptReason.Return => InventoryActions.ReturnStock,
+            _ => InventoryActions.UnknownAction
+        };
 
         foreach (var req in request.Items)
         {
@@ -573,6 +588,7 @@ public class ReceiptsController(
                         request.StoragePlaceNodeId,
                         item.CatalogItemId,
                         req.Count,
+                        action: action,
                         ct: ct);
 
                     db.ReceiptItemPlacements.Add(new ReceiptItemPlacement
@@ -623,6 +639,13 @@ public class ReceiptsController(
         var catalogItemId = item!.CatalogItemId;
         var warehouseId = receipt!.WarehouseId;
 
+        var action = receipt!.Reason switch
+        {
+            ReceiptReason.NewGoods => InventoryActions.NewGoods,
+            ReceiptReason.Return => InventoryActions.ReturnStock,
+            _ => InventoryActions.UnknownAction
+        };
+        
         var nodeById = await LoadWarehouseNodesAsync(warehouseId, ct);
         var itemBefore = mapper.Map<ReceiptItemDto>(item, opts => opts.Items["nodeById"] = nodeById);
 
@@ -639,6 +662,7 @@ public class ReceiptsController(
                     request.StoragePlaceNodeId,
                     catalogItemId,
                     request.UnitItem.InventoryNumber,
+                    action: action,
                     ct: ct);
 
                 db.ReceiptItemPlacements.Add(new ReceiptItemPlacement
@@ -716,12 +740,14 @@ public class ReceiptsController(
                     await inventory.RemoveUnitItemAsync(
                         placement.UnitInventoryItemId.Value,
                         placement.StoragePlaceNodeId,
+                        action: InventoryActions.CancelledPlacement,
                         ct: ct);
                 else if (placement.Count > 0)
                     await inventory.RemoveStandardItemsFromNodeAsync(
                         placement.StoragePlaceNodeId,
                         itemEntity.CatalogItemId,
                         placement.Count,
+                        action: InventoryActions.CancelledPlacement,
                         ct: ct);
 
                 db.ReceiptItemPlacements.Remove(placement);

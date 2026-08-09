@@ -110,16 +110,14 @@ public class TransfersController(
                             request.ToNodeId,
                             item.CatalogItemId.Value,
                             item.Count!.Value,
-                            TransferActions.TransferStandard,
-                            ct);
+                            ct: ct);
                     }
                     else if (item.UnitItemId.HasValue)
                     {
                         await inventory.MoveUnitItemAsync(
                             item.UnitItemId.Value,
                             request.ToNodeId,
-                            TransferActions.TransferUnit,
-                            ct);
+                            ct: ct);
                     }
                 }
 

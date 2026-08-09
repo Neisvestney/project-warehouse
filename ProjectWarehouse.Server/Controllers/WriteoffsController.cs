@@ -435,6 +435,7 @@ public class WriteoffsController(
                             item.SourceNodeId,
                             item.CatalogItemId.Value,
                             item.Count,
+                            action: InventoryActions.WrittenOff,
                             ct: ct);
                     }
                     else if (item.UnitInventoryItemId.HasValue)
@@ -442,6 +443,7 @@ public class WriteoffsController(
                         await inventory.RemoveUnitItemAsync(
                             item.UnitInventoryItemId.Value,
                             item.SourceNodeId,
+                            action: InventoryActions.WrittenOff,
                             ct: ct);
                     }
                 }

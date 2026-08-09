@@ -135,7 +135,7 @@ public class InventoryService(
         Guid nodeId,
         Guid catalogItemId,
         int count,
-        string action = InventoryActions.AddStandardItems,
+        string action = InventoryActions.UnknownAction,
         CancellationToken ct = default) =>
         AddStandardCoreAsync(nodeId, catalogItemId, count, action, StockMovementDirection.In, ct);
 
@@ -180,7 +180,7 @@ public class InventoryService(
         Guid nodeId,
         Guid catalogItemId,
         int count,
-        string action = InventoryActions.RemoveStandardItems,
+        string action = InventoryActions.UnknownAction,
         CancellationToken ct = default) =>
         RemoveStandardCoreAsync(nodeId, catalogItemId, count, action, StockMovementDirection.Out, ct);
 
@@ -244,7 +244,7 @@ public class InventoryService(
         Guid nodeId,
         Guid catalogItemId,
         string inventoryNumber,
-        string action = InventoryActions.AddUnitItem,
+        string action = InventoryActions.UnknownAction,
         CancellationToken ct = default)
     {
         var before = await SnapshotNodeAsync(nodeId, ct);
@@ -262,7 +262,7 @@ public class InventoryService(
     public async Task RemoveUnitItemAsync(
         Guid unitItemId,
         Guid expectedNodeId,
-        string action = InventoryActions.RemoveUnitItem,
+        string action = InventoryActions.UnknownAction,
         CancellationToken ct = default)
     {
         var item = await db.InventoryItems.OfType<UnitInventoryItem>()
@@ -286,7 +286,7 @@ public class InventoryService(
     public async Task DetachUnitItemAsync(
         Guid unitItemId,
         Guid expectedNodeId,
-        string action = InventoryActions.RemoveUnitItem,
+        string action = InventoryActions.UnknownAction,
         CancellationToken ct = default)
     {
         var item = await db.InventoryItems.OfType<UnitInventoryItem>()
@@ -310,7 +310,7 @@ public class InventoryService(
     public async Task ReattachUnitItemAsync(
         Guid unitItemId,
         Guid nodeId,
-        string action = InventoryActions.AddUnitItem,
+        string action = InventoryActions.UnknownAction,
         CancellationToken ct = default)
     {
         var item = await db.InventoryItems.OfType<UnitInventoryItem>()
@@ -337,7 +337,7 @@ public class InventoryService(
         Guid toNodeId,
         Guid catalogItemId,
         int count,
-        string action = InventoryActions.MoveStandardItems,
+        string action = InventoryActions.MoveStock,
         CancellationToken ct = default)
     {
         await RemoveStandardCoreAsync(fromNodeId, catalogItemId, count, action, StockMovementDirection.TransferOut, ct);
@@ -347,7 +347,7 @@ public class InventoryService(
     public async Task MoveUnitItemAsync(
         Guid unitItemId,
         Guid toNodeId,
-        string action = InventoryActions.MoveUnitItem,
+        string action = InventoryActions.MoveStock,
         CancellationToken ct = default)
     {
         var item = await db.InventoryItems.OfType<UnitInventoryItem>()
