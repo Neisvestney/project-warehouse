@@ -163,7 +163,24 @@ public class StockStatisticsService(
         var stockScope = await BuildStockScopeAsync(user, filter, ct);
         var tailQuery = stockScope.Where(m => m.CreatedAt >= toUtc);
 
-        var a = await tailQuery.ToListAsync();
+        var stockScopeCells = await stockScope
+            .Where(m => columnIds.Contains(m.CatalogItemId))
+            .GroupBy(m => new { Date = m.CreatedAt.AddMinutes(offsetMinutes).Date, m.CatalogItemId })
+            .Select(g => new DayItemRow
+            {
+                Date = g.Key.Date,
+                CatalogItemId = g.Key.CatalogItemId,
+                InQuantity = g.Sum(m => m.Direction == StockMovementDirection.In ? m.Quantity : 0),
+                OutQuantity = g.Sum(m => m.Direction == StockMovementDirection.Out ? m.Quantity : 0),
+                TransferInQuantity = g.Sum(m => m.Direction == StockMovementDirection.TransferIn ? m.Quantity : 0),
+                TransferOutQuantity = g.Sum(m => m.Direction == StockMovementDirection.TransferOut ? m.Quantity : 0),
+                MovementsCount = g.Count(),
+            })
+            .ToListAsync(ct);
+
+        var stockScopeCellsByDate = stockScopeCells
+            .GroupBy(c => DateOnly.FromDateTime(c.Date))
+            .ToDictionary(g => g.Key, g => g.ToList());
         
         var tailNetByItem = await tailQuery
             .Where(m => columnIds.Contains(m.CatalogItemId))
@@ -201,7 +218,7 @@ public class StockStatisticsService(
                 id => currentStockByItem.GetValueOrDefault(id) - runningItemSuffix.GetValueOrDefault(id));
             totalBalanceByDay[day] = currentStockTotal - runningTotalSuffix;
 
-            foreach (var c in cellsByDate.GetValueOrDefault(day) ?? [])
+            foreach (var c in stockScopeCellsByDate.GetValueOrDefault(day) ?? [])
                 runningItemSuffix[c.CatalogItemId] = runningItemSuffix.GetValueOrDefault(c.CatalogItemId) + c.Net;
             if (totalsByDate.TryGetValue(day, out var dayTotal))
                 runningTotalSuffix += dayTotal.Net;
