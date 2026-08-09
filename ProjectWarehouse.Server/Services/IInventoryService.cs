@@ -16,7 +16,7 @@ public interface IInventoryService
         Guid nodeId,
         Guid catalogItemId,
         int count,
-        string action = InventoryActions.AddStandardItems,
+        string action = InventoryActions.UnknownAction,
         CancellationToken ct = default);
 
     /// <summary>
@@ -27,7 +27,7 @@ public interface IInventoryService
         Guid nodeId,
         Guid catalogItemId,
         int count,
-        string action = InventoryActions.RemoveStandardItems,
+        string action = InventoryActions.UnknownAction,
         CancellationToken ct = default);
 
     // ── Unit items (serialised, one per physical unit) ───────────────────────
@@ -52,7 +52,7 @@ public interface IInventoryService
         Guid nodeId,
         Guid catalogItemId,
         string inventoryNumber,
-        string action = InventoryActions.AddUnitItem,
+        string action = InventoryActions.UnknownAction,
         CancellationToken ct = default);
 
     /// <summary>
@@ -63,7 +63,7 @@ public interface IInventoryService
     Task RemoveUnitItemAsync(
         Guid unitItemId,
         Guid expectedNodeId,
-        string action = InventoryActions.RemoveUnitItem,
+        string action = InventoryActions.UnknownAction,
         CancellationToken ct = default);
 
     /// <summary>
@@ -75,7 +75,7 @@ public interface IInventoryService
     Task DetachUnitItemAsync(
         Guid unitItemId,
         Guid expectedNodeId,
-        string action = InventoryActions.RemoveUnitItem,
+        string action = InventoryActions.UnknownAction,
         CancellationToken ct = default);
 
     /// <summary>
@@ -85,7 +85,7 @@ public interface IInventoryService
     Task ReattachUnitItemAsync(
         Guid unitItemId,
         Guid nodeId,
-        string action = InventoryActions.AddUnitItem,
+        string action = InventoryActions.UnknownAction,
         CancellationToken ct = default);
 
     // ── Movement ─────────────────────────────────────────────────────────────
@@ -95,13 +95,13 @@ public interface IInventoryService
         Guid toNodeId,
         Guid catalogItemId,
         int count,
-        string action = InventoryActions.MoveStandardItems,
+        string action = InventoryActions.MoveStock,
         CancellationToken ct = default);
 
     Task MoveUnitItemAsync(
         Guid unitItemId,
         Guid toNodeId,
-        string action = InventoryActions.MoveUnitItem,
+        string action = InventoryActions.MoveStock,
         CancellationToken ct = default);
 
     // ── Reads ────────────────────────────────────────────────────────────────

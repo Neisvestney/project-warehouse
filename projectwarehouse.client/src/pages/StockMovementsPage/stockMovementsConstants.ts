@@ -5,14 +5,13 @@ import type {StockMovementDirection} from "@/api/types.gen";
  * whose callers either take the default or pass a `TransferActions` constant.
  */
 export const STOCK_MOVEMENT_ACTIONS: {value: string; label: string}[] = [
-  {value: "inventory.add_standard", label: "Добавление товара"},
-  {value: "inventory.remove_standard", label: "Изъятие товара"},
-  {value: "inventory.add_unit", label: "Добавление экземпляра"},
-  {value: "inventory.remove_unit", label: "Изъятие экземпляра"},
-  {value: "inventory.move_standard", label: "Внутреннее перемещение товара"},
-  {value: "inventory.move_unit", label: "Внутреннее перемещение экземпляра"},
-  {value: "transfer.standard", label: "Перемещение товара"},
-  {value: "transfer.unit", label: "Перемещение экземпляра"},
+  {value: "inventory.new_goods", label: "Добавление нового товара"},
+  {value: "inventory.return_stock", label: "Возвраты"},
+  {value: "inventory.written_off", label: "Списания"},
+  {value: "inventory.spent_on_order", label: "Заказы"},
+  {value: "inventory.move_stock", label: "Перемещение товара"},
+  {value: "inventory.canceled_fulfillment", label: "Отмена фулфилментов"},
+  {value: "inventory.canceled_placement", label: "Отмена размещений (приёмка)"},
 ];
 
 export const STOCK_MOVEMENT_DIRECTIONS: {value: StockMovementDirection; label: string}[] = [

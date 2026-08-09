@@ -3,10 +3,12 @@ namespace ProjectWarehouse.Server.Infrastructure;
 /// <summary>Named action constants used in ChangeLog entries produced by InventoryService.</summary>
 public static class InventoryActions
 {
-    public const string AddStandardItems    = "inventory.add_standard";
-    public const string RemoveStandardItems = "inventory.remove_standard";
-    public const string AddUnitItem         = "inventory.add_unit";
-    public const string RemoveUnitItem      = "inventory.remove_unit";
-    public const string MoveStandardItems   = "inventory.move_standard";
-    public const string MoveUnitItem        = "inventory.move_unit";
+    public const string UnknownAction        = "inventory.unknown_action";
+    public const string MoveStock            = "inventory.move_stock";
+    public const string NewGoods             = "inventory.new_goods";
+    public const string ReturnStock          = "inventory.return_stock";
+    public const string WrittenOff           = "inventory.written_off";
+    public const string SpentOnOrder         = "inventory.spent_on_order";
+    public const string CancelledFulfillment = "inventory.canceled_fulfillment";
+    public const string CancelledPlacement   = "inventory.canceled_placement";
 }

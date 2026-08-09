@@ -556,7 +556,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                 request.SourceNodeId.Value,
                 fulfillment.ResolvedCatalogItemId!.Value,
                 request.Quantity,
-                InventoryActions.RemoveStandardItems,
+                InventoryActions.SpentOnOrder,
                 ct);
 
             await tx.CommitAsync(ct);
@@ -591,7 +591,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
             await inventory.DetachUnitItemAsync(
                 request.UnitInventoryItemId!.Value,
                 request.SourceNodeId.Value,
-                InventoryActions.RemoveUnitItem,
+                InventoryActions.SpentOnOrder,
                 ct);
 
             await tx.CommitAsync(ct);
@@ -646,7 +646,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                     await inventory.DetachUnitItemAsync(
                         bundleComp.UnitInventoryItemId.Value,
                         bundleComp.SourceNodeId,
-                        InventoryActions.RemoveUnitItem,
+                        InventoryActions.SpentOnOrder,
                         ct);
                 }
                 else
@@ -655,7 +655,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                         bundleComp.SourceNodeId,
                         bundleComp.CatalogItemId,
                         bundleComp.Quantity,
-                        InventoryActions.RemoveStandardItems,
+                        InventoryActions.SpentOnOrder,
                         ct);
                 }
             }
@@ -688,7 +688,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                     await inventory.ReattachUnitItemAsync(
                         comp.UnitInventoryItemId.Value,
                         comp.SourceNodeId,
-                        InventoryActions.AddUnitItem,
+                        InventoryActions.CancelledFulfillment,
                         ct);
                 }
                 else if (!string.IsNullOrEmpty(comp.UnitInventoryNumber))
@@ -699,7 +699,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                         comp.SourceNodeId,
                         comp.CatalogItemId,
                         comp.UnitInventoryNumber,
-                        InventoryActions.AddUnitItem,
+                        InventoryActions.CancelledFulfillment,
                         ct);
                 }
                 else
@@ -708,7 +708,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                         comp.SourceNodeId,
                         comp.CatalogItemId,
                         comp.Quantity,
-                        InventoryActions.AddStandardItems,
+                        InventoryActions.CancelledFulfillment,
                         ct);
                 }
             }
@@ -719,7 +719,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
             await inventory.ReattachUnitItemAsync(
                 fulfillment.UnitInventoryItemId.Value,
                 fulfillment.SourceNodeId!.Value,
-                InventoryActions.AddUnitItem,
+                InventoryActions.CancelledFulfillment,
                 ct);
         }
         else if (!string.IsNullOrEmpty(fulfillment.UnitInventoryNumber))
@@ -730,7 +730,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                 fulfillment.SourceNodeId!.Value,
                 RestoreTargetCatalogItemId(fulfillment),
                 fulfillment.UnitInventoryNumber,
-                InventoryActions.AddUnitItem,
+                InventoryActions.CancelledFulfillment,
                 ct);
         }
         else if (fulfillment.Quantity > 0 && fulfillment.SourceNodeId.HasValue)
@@ -740,7 +740,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                 fulfillment.SourceNodeId.Value,
                 RestoreTargetCatalogItemId(fulfillment),
                 fulfillment.Quantity,
-                InventoryActions.AddStandardItems,
+                InventoryActions.CancelledFulfillment,
                 ct);
         }
     }
