@@ -16,7 +16,7 @@ function SyncErrorAlert({
   const response = error.args?.["marketplaceResponse"];
 
   return (
-    <Alert severity="error">
+    <Alert severity="error" sx={{my: 2}}>
       <AlertTitle>{title}</AlertTitle>
       {resolveErrorMessage(error)}
       {typeof response === "string" && response && (
