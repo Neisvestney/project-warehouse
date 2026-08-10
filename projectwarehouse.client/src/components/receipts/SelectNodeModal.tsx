@@ -10,9 +10,10 @@ interface SelectNodeModalProps {
   onClose: () => void;
   warehouseId: string;
   onSelect: (node: SelectedNode) => void;
+  catalogItemId?: string;
 }
 
-function SelectNodeModal({open, onClose, warehouseId, onSelect}: SelectNodeModalProps) {
+function SelectNodeModal({open, onClose, warehouseId, onSelect, catalogItemId}: SelectNodeModalProps) {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{pb: 0}}>
@@ -26,7 +27,7 @@ function SelectNodeModal({open, onClose, warehouseId, onSelect}: SelectNodeModal
         </Stack>
       </DialogTitle>
       <DialogContent sx={{p: 0}}>
-        <StorageNodePickerContent warehouseId={warehouseId} onSelect={onSelect} open={open} />
+        <StorageNodePickerContent warehouseId={warehouseId} onSelect={onSelect} open={open} catalogItemId={catalogItemId} />
       </DialogContent>
     </Dialog>
   );

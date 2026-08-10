@@ -36,9 +36,10 @@ interface StorageNodePickerContentProps {
   onSelect: (node: SelectedNode) => void;
   /** Controls hardware scanner activation — pass the dialog's `open` state. */
   open: boolean;
+  catalogItemId?: string;
 }
 
-function StorageNodePickerContent({warehouseId, onSelect, open}: StorageNodePickerContentProps) {
+function StorageNodePickerContent({warehouseId, onSelect, open, catalogItemId}: StorageNodePickerContentProps) {
   const [activeTab, setActiveTab] = useState<TabId>("canvas");
   const [selectedStoragePlaceId, setSelectedStoragePlaceId] = useState<string>("");
   const [scanError, setScanError] = useState<string | null>(null);
@@ -58,7 +59,7 @@ function StorageNodePickerContent({warehouseId, onSelect, open}: StorageNodePick
   const selectedStoragePlace = storagePlaces.find((sp) => sp.id === effectiveStoragePlaceId);
 
   const nodesQuery = useQuery({
-    ...storagePlacesGetNodesOptions({path: {id: effectiveStoragePlaceId}}),
+    ...storagePlacesGetNodesOptions({path: {id: effectiveStoragePlaceId}, query: {catalogItemId}}),
     enabled: open && !!effectiveStoragePlaceId,
     meta: {suppressGlobalError: true},
   });

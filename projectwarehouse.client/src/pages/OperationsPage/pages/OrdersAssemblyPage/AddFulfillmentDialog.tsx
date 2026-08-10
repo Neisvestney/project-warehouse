@@ -52,9 +52,10 @@ interface NodeFieldProps {
   nodePath: string | null;
   onSelect: (node: SelectedNode) => void;
   onClear?: () => void;
+  catalogItemId?: string;
 }
 
-function NodeField({label, warehouseId, nodePath, onSelect, onClear}: NodeFieldProps) {
+function NodeField({label, warehouseId, nodePath, onSelect, onClear, catalogItemId}: NodeFieldProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -95,6 +96,7 @@ function NodeField({label, warehouseId, nodePath, onSelect, onClear}: NodeFieldP
           onSelect(node);
           setOpen(false);
         }}
+        catalogItemId={catalogItemId}
       />
     </Stack>
   );
@@ -117,9 +119,10 @@ interface StandardFormProps {
   maxQuantity?: number;
   value: {sourceNodeId: string | null; nodePath: string | null; quantity: number};
   onChange: (v: {sourceNodeId: string | null; nodePath: string | null; quantity: number}) => void;
+  catalogItemId?: string;
 }
 
-function StandardForm({warehouseId, maxQuantity, value, onChange}: StandardFormProps) {
+function StandardForm({warehouseId, maxQuantity, value, onChange, catalogItemId}: StandardFormProps) {
   return (
     <Stack spacing={2}>
       <NodeField
@@ -133,6 +136,7 @@ function StandardForm({warehouseId, maxQuantity, value, onChange}: StandardFormP
             nodePath: formatStoragePlaceNodeName(node.nodePath),
           })
         }
+        catalogItemId={catalogItemId}
       />
       <ClampedIntegerField
         label="Количество"
@@ -209,6 +213,7 @@ function UnitForm({catalogItemId, warehouseId, onChange}: UnitFormProps) {
           setNodeFilter({id: node.nodeId, path: formatStoragePlaceNodeName(node.nodePath)})
         }
         onClear={() => setNodeFilter(null)}
+        catalogItemId={catalogItemId}
       />
     </Stack>
   );
@@ -292,6 +297,7 @@ function BundleSlotForm({
         warehouseId={warehouseId}
         nodePath={effectiveNode ? formatStoragePlaceNodeName(effectiveNode.nodePath) : null}
         onSelect={(node) => setOverrideNode(node)}
+        catalogItemId={catalogItemId}
       />
     );
   }
@@ -619,6 +625,7 @@ function SubFulfillmentForm({
           }
           setQuantity(v.quantity);
         }}
+        catalogItemId={catalogItemId}
       />
     );
   }
