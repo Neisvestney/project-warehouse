@@ -41,10 +41,12 @@ function NodeSelector({
   node,
   onSelect,
   warehouseId,
+  catalogItemId,
 }: {
   node: SelectedNode | null;
   onSelect: (node: SelectedNode) => void;
   warehouseId: string;
+  catalogItemId?: string;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -65,6 +67,7 @@ function NodeSelector({
         </Button>
       </Stack>
       <SelectNodeModal
+        catalogItemId={catalogItemId}
         open={open}
         onClose={() => setOpen(false)}
         warehouseId={warehouseId}

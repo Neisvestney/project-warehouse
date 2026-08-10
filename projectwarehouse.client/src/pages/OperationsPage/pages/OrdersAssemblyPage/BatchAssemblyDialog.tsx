@@ -102,9 +102,10 @@ interface NodePickerRowProps {
   warehouseId: string;
   value: {nodeId: string | null; nodePath: string | null};
   onChange: (node: SelectedNode) => void;
+  catalogItemId?: string;
 }
 
-function NodePickerRow({label, warehouseId, value, onChange}: NodePickerRowProps) {
+function NodePickerRow({label, warehouseId, value, onChange, catalogItemId}: NodePickerRowProps) {
   const [open, setOpen] = useState(false);
   return (
     <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
@@ -117,7 +118,7 @@ function NodePickerRow({label, warehouseId, value, onChange}: NodePickerRowProps
       >
         {value.nodePath ?? "Не выбрано"}
       </Typography>
-      <Button size="small" startIcon={<LocationOnIcon />} onClick={() => setOpen(true)}>
+      <Button variant={"outlined"} size="small" startIcon={<LocationOnIcon />} onClick={() => setOpen(true)}>
         Выбрать
       </Button>
       <SelectNodeModal
@@ -128,6 +129,7 @@ function NodePickerRow({label, warehouseId, value, onChange}: NodePickerRowProps
           onChange(node);
           setOpen(false);
         }}
+        catalogItemId={catalogItemId}
       />
     </Stack>
   );
@@ -164,6 +166,7 @@ function StandardGroupForm({group, value, onChange}: StandardGroupFormProps) {
         onChange={(node) =>
           onChange({nodeId: node.nodeId, nodePath: formatStoragePlaceNodeName(node.nodePath)})
         }
+        catalogItemId={group.catalogItemId}
       />
     </Stack>
   );

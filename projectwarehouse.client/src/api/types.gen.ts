@@ -5232,7 +5232,9 @@ export type StoragePlacesGetNodesData = {
   path: {
     id: string;
   };
-  query?: never;
+  query?: {
+    catalogItemId?: string;
+  };
   url: "/api/storagePlaces/{id}/nodes";
 };
 

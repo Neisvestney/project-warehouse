@@ -24,12 +24,12 @@ public class StoragePlacesController(
     [Authorize(Policy = Permissions.Warehouses.View)]
     [ProducesResponseType<StoragePlaceNodeDto[]>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetNodes(Guid id, CancellationToken ct = default)
+    public async Task<IActionResult> GetNodes(Guid id, [FromQuery] Guid? catalogItemId = null, CancellationToken ct = default)
     {
         if (!await db.StoragePlaces.AnyAsync(sp => sp.Id == id, ct))
             return NotFound(ErrorCode.StoragePlaceNotFound, "Storage place not found.");
 
-        var nodes = await GetFlatNodesAsync(id, ct);
+        var nodes = await GetFlatNodesAsync(id, catalogItemId, ct);
         return Ok(nodes);
     }
 
@@ -80,7 +80,7 @@ public class StoragePlacesController(
         await db.Entry(node).Collection(n => n.ItemsGroups).LoadAsync(ct);
         await changeLog.CompareAndSaveToChangelog(null, mapper.Map<StoragePlaceNodeDetailsDto>(node));
 
-        return Ok(await GetFlatNodesAsync(id, ct));
+        return Ok(await GetFlatNodesAsync(id, ct: ct));
     }
 
     /// <summary>Update a node's name or parent.</summary>
@@ -139,7 +139,7 @@ public class StoragePlacesController(
 
         await changeLog.CompareAndSaveToChangelog(beforeNodeDto, mapper.Map<StoragePlaceNodeDetailsDto>(node));
 
-        return Ok(await GetFlatNodesAsync(id, ct));
+        return Ok(await GetFlatNodesAsync(id, ct: ct));
     }
 
     /// <summary>Delete a node. Fails if the node has children — delete them first.</summary>
@@ -182,7 +182,7 @@ public class StoragePlacesController(
 
         await changeLog.CompareAndSaveToChangelog(nodeDto, null);
 
-        return Ok(await GetFlatNodesAsync(id, ct));
+        return Ok(await GetFlatNodesAsync(id, ct: ct));
     }
 
     /// <summary>Get a node by ID.</summary>
@@ -255,17 +255,28 @@ public class StoragePlacesController(
             node.Order = orderMap[node.Id];
 
         await db.SaveChangesAsync(ct);
-        return Ok(await GetFlatNodesAsync(id, ct));
+        return Ok(await GetFlatNodesAsync(id, ct: ct));
     }
 
-    private async Task<StoragePlaceNodeDto[]> GetFlatNodesAsync(Guid storagePlaceId, CancellationToken ct)
+    private async Task<StoragePlaceNodeDto[]> GetFlatNodesAsync(Guid storagePlaceId, Guid? catalogItemId = null, CancellationToken ct = default)
     {
-        return await db.StoragePlacesNodes
+        var query = db.StoragePlacesNodes
             .Where(n => n.RootStoragePlaceId == storagePlaceId)
             .OrderBy(n => n.Order)
             .ThenBy(n => n.Name)
-            .ProjectTo<StoragePlaceNodeDto>(mapper.ConfigurationProvider)
-            .ToArrayAsync(ct);
+            .Select(n => new StoragePlaceNodeDto()
+            {
+                Id = n.Id,
+                Name = n.Name,
+                ParentNodeId = n.ParentNodeId,
+                Order = n.Order,
+                TotalItemsCount = catalogItemId == null
+                    ? n.TotalItemsCount
+                    : n.ItemsGroups.Where(g => g.CatalogItemId == catalogItemId).Sum(g => g.Count) +
+                      n.InventoryItems.Count(i => i.CatalogItemId == catalogItemId),
+            });
+        
+        return await query.ToArrayAsync(ct);
     }
 
     private static HashSet<Guid> GetSubtreeIds(IReadOnlyList<StoragePlaceNode> all, Guid rootId)
