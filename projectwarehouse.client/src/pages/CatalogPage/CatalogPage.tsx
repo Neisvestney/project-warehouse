@@ -2,10 +2,8 @@ import {useState} from "react";
 import {
   Box,
   Button,
-  Checkbox,
   Chip,
   IconButton,
-  ListItemText,
   Stack,
   Table,
   TableBody,
@@ -16,10 +14,6 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Typography,
-  FormControl,
-  Select,
-  InputLabel,
-  MenuItem,
 } from "@mui/material";
 import ArchiveIcon from "@mui/icons-material/Archive";
 import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
@@ -28,8 +22,8 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import StarIcon from "@mui/icons-material/Star";
 import {useQuery} from "@tanstack/react-query";
 import {catalogGetAllOptions} from "@/api/@tanstack/react-query.gen";
-import {type CatalogItemType, type CatalogSortBy} from "@/api/types.gen";
-import {CATALOG_ITEM_TYPE_CONFIG, CATALOG_ITEM_TYPES} from "@/features/catalog";
+import {type CatalogSortBy} from "@/api/types.gen";
+import {CATALOG_ITEM_TYPES, useCatalogTypesFilter} from "@/features/catalog";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
@@ -48,9 +42,8 @@ import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState.ts"
 import {useHasPermission} from "@/hooks/usePermission";
 import AddIcon from "@mui/icons-material/Add";
 import FiltersBar from "@/components/FiltersBar.tsx";
-import {NOUNS, pluralCount} from "@/utils/pluralUtils";
-
-const DEFAULT_ITEM_TYPES = CATALOG_ITEM_TYPES;
+import CatalogTypesFilter from "@/components/catalog/CatalogTypesFilter";
+import CatalogTagsFilter from "@/components/catalog/CatalogTagsFilter";
 
 const SORTABLE_COLUMNS: {key: CatalogSortBy; label: string}[] = [
   {key: "type", label: "Тип"},
@@ -72,20 +65,12 @@ function CatalogPage() {
 
   const {sortBy, sortOrder, handleSortClick} = useTableSort(SORTABLE_COLUMNS, "name");
 
-  const [itemTypes, setItemTypes] = useSyncedWithQueryState<CatalogItemType[]>(
-    "types",
-    (q) => {
-      if (!q) return DEFAULT_ITEM_TYPES;
-      const parsed = q
-        .split(",")
-        .filter((p) => CATALOG_ITEM_TYPES.includes(p as CatalogItemType)) as CatalogItemType[];
-      return parsed.length > 0 ? parsed : DEFAULT_ITEM_TYPES;
-    },
-    (v) => {
-      const isDefault =
-        v.length === DEFAULT_ITEM_TYPES.length && DEFAULT_ITEM_TYPES.every((t) => v.includes(t));
-      return isDefault ? null : v.join(",") || null;
-    },
+  const [itemTypes, setItemTypes] = useCatalogTypesFilter();
+
+  const [tagIds, setTagIds] = useSyncedWithQueryState<string[]>(
+    "tags",
+    (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
+    (v) => v.join(",") || null,
   );
 
   const [isArchived, setIsArchived] = useSyncedWithQueryState<boolean | null>(
@@ -102,14 +87,23 @@ function CatalogPage() {
       sortBy,
       sortOrder,
       itemTypes: itemTypes.length < CATALOG_ITEM_TYPES.length ? itemTypes : undefined,
+      tagIds: tagIds.length > 0 ? tagIds : undefined,
       isArchived: isArchived ?? undefined,
     },
-    [searchString, sortBy, sortOrder, itemTypes, isArchived],
+    [searchString, sortBy, sortOrder, itemTypes, tagIds, isArchived],
   );
 
-  const {data, isLoading, isFetching, refetch} = useQuery(
-    catalogGetAllOptions({query: fetchParams}),
-  );
+  // Empty type selection can't be expressed server-side (no types == no filter), so match nothing here
+  const noItemTypes = itemTypes.length === 0;
+
+  const {
+    data: queryData,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({...catalogGetAllOptions({query: fetchParams}), enabled: !noItemTypes});
+
+  const data = noItemTypes ? undefined : queryData;
 
   return (
     <>
@@ -138,28 +132,13 @@ function CatalogPage() {
           <SearchInput value={inputValue} onChange={setInputValue} />
         </PageGenericHeader>
         <FiltersBar>
-          <FormControl size="small" sx={{minWidth: 150}}>
-            <InputLabel>Тип</InputLabel>
-            <Select
-              multiple
-              label="Тип"
-              value={itemTypes}
-              onChange={(e) => setItemTypes(e.target.value as CatalogItemType[])}
-              renderValue={(selected) => {
-                if (selected.length === CATALOG_ITEM_TYPES.length) return "Все";
-                if (selected.length === 0) return "Нет";
-                if (selected.length === 1) return CATALOG_ITEM_TYPE_CONFIG[selected[0]].label;
-                return pluralCount(selected.length, NOUNS.itemType);
-              }}
-            >
-              {CATALOG_ITEM_TYPES.map((type) => (
-                <MenuItem key={type} value={type}>
-                  <Checkbox checked={itemTypes.includes(type)} size="small" />
-                  <ListItemText primary={CATALOG_ITEM_TYPE_CONFIG[type].label} />
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <CatalogTypesFilter value={itemTypes} onChange={setItemTypes} />
+
+          <CatalogTagsFilter
+            value={tagIds}
+            onChange={setTagIds}
+            sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
+          />
 
           <ToggleButtonGroup
             exclusive
@@ -206,7 +185,7 @@ function CatalogPage() {
             <TableBody>
               {isLoading ? (
                 <TableRowLoader colSpan={6} />
-              ) : data?.items.length === 0 ? (
+              ) : (data?.items.length ?? 0) === 0 ? (
                 <TableRowEmpty colSpan={6} message="Позиции не найдены" />
               ) : (
                 data?.items.map((item) => (

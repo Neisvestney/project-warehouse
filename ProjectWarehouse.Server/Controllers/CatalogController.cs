@@ -61,6 +61,7 @@ public class CatalogController(
         [FromQuery] CatalogSortBy sortBy = CatalogSortBy.Name,
         [FromQuery] SortOrder sortOrder = SortOrder.Asc,
         [FromQuery] IReadOnlyList<CatalogItemType>? itemTypes = null,
+        [FromQuery] IReadOnlyList<Guid>? tagIds = null,
         [FromQuery] bool? isArchived = null,
         CancellationToken ct = default)
     {
@@ -71,6 +72,11 @@ public class CatalogController(
         if (itemTypes != null && itemTypes.Count > 0)
         {
             baseQuery = baseQuery.Where(c => itemTypes.Contains(c.Type));
+        }
+
+        if (tagIds != null && tagIds.Count > 0)
+        {
+            baseQuery = baseQuery.Where(c => c.Tags.Any(t => tagIds.Contains(t.Id)));
         }
 
         if (isArchived != null)
@@ -97,13 +103,18 @@ public class CatalogController(
     }
 
     /// <summary>Get a flat list of catalog items for use in select/autocomplete controls.</summary>
-    /// <remarks>Returns at most 50 items. Excludes product-group children. Optionally filtered by types.</remarks>
+    /// <remarks>
+    /// Optionally filtered by types and tags. Returns at most <paramref name="take"/> items.
+    /// Unlike <see cref="GetAll"/>, product-group children are included.
+    /// </remarks>
     [HttpGet("for-select")]
     [Authorize(Policy = Permissions.Catalog.View)]
     [ProducesResponseType<IReadOnlyList<CatalogItemSelectDto>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetForSelect(
         [FromQuery] string? searchString = null,
         [FromQuery] IReadOnlyList<CatalogItemType>? types = null,
+        [FromQuery] IReadOnlyList<Guid>? tagIds = null,
+        [FromQuery][Range(1, 200)] int take = 10,
         CancellationToken ct = default)
     {
         var query = db.CatalogItems
@@ -112,11 +123,14 @@ public class CatalogController(
         if (types != null && types.Count > 0)
             query = query.Where(c => types.Contains(c.Type));
 
+        if (tagIds != null && tagIds.Count > 0)
+            query = query.Where(c => c.Tags.Any(t => tagIds.Contains(t.Id)));
+
         var items = await query
             .OrderBy(c => c.IsArchived)
             .ThenBy(c => c.Name)
             .ThenBy(c => c.Id)
-            .Take(10)
+            .Take(take)
             .ProjectTo<CatalogItemSelectDto>(mapper.ConfigurationProvider)
             .ToListAsync(ct);
 
