@@ -6,7 +6,7 @@ public class WriteoffDto
 {
     public Guid Id { get; init; }
     public int Number { get; init; }
-    public string Name { get; init; } = null!;
+    public string? Name { get; init; }
     public WriteoffReason Reason { get; init; }
     public WriteoffStatus Status { get; init; }
     public string? Notes { get; init; }

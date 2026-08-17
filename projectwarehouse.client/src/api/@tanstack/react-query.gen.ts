@@ -103,6 +103,19 @@ import {
   statisticsGetDaily,
   statisticsGetMovements,
   statisticsGetPivot,
+  stocktakesCancel,
+  stocktakesCreate,
+  stocktakesDelete,
+  stocktakesFinish,
+  stocktakesGetAll,
+  stocktakesGetById,
+  stocktakesGetDifferences,
+  stocktakesGetNodeStock,
+  stocktakesRevert,
+  stocktakesStart,
+  stocktakesSyncNodeItems,
+  stocktakesSyncNodes,
+  stocktakesUpdate,
   storagePlacesAddNode,
   storagePlacesDeleteNode,
   storagePlacesGetNodeDetails,
@@ -411,6 +424,45 @@ import type {
   StatisticsGetPivotData,
   StatisticsGetPivotError,
   StatisticsGetPivotResponse,
+  StocktakesCancelData,
+  StocktakesCancelError,
+  StocktakesCancelResponse,
+  StocktakesCreateData,
+  StocktakesCreateError,
+  StocktakesCreateResponse,
+  StocktakesDeleteData,
+  StocktakesDeleteError,
+  StocktakesDeleteResponse,
+  StocktakesFinishData,
+  StocktakesFinishError,
+  StocktakesFinishResponse,
+  StocktakesGetAllData,
+  StocktakesGetAllError,
+  StocktakesGetAllResponse,
+  StocktakesGetByIdData,
+  StocktakesGetByIdError,
+  StocktakesGetByIdResponse,
+  StocktakesGetDifferencesData,
+  StocktakesGetDifferencesError,
+  StocktakesGetDifferencesResponse,
+  StocktakesGetNodeStockData,
+  StocktakesGetNodeStockError,
+  StocktakesGetNodeStockResponse,
+  StocktakesRevertData,
+  StocktakesRevertError,
+  StocktakesRevertResponse,
+  StocktakesStartData,
+  StocktakesStartError,
+  StocktakesStartResponse,
+  StocktakesSyncNodeItemsData,
+  StocktakesSyncNodeItemsError,
+  StocktakesSyncNodeItemsResponse,
+  StocktakesSyncNodesData,
+  StocktakesSyncNodesError,
+  StocktakesSyncNodesResponse,
+  StocktakesUpdateData,
+  StocktakesUpdateError,
+  StocktakesUpdateResponse,
   StoragePlacesAddNodeData,
   StoragePlacesAddNodeError,
   StoragePlacesAddNodeResponse,
@@ -3418,6 +3470,396 @@ export const statisticsGetMovementsInfiniteOptions = (
       queryKey: statisticsGetMovementsInfiniteQueryKey(options),
     },
   );
+
+export const stocktakesGetAllQueryKey = (options?: Options<StocktakesGetAllData>) =>
+  createQueryKey("stocktakesGetAll", options);
+
+/**
+ * List stocktakes with pagination, filtering, and search.
+ */
+export const stocktakesGetAllOptions = (options?: Options<StocktakesGetAllData>) =>
+  queryOptions<
+    StocktakesGetAllResponse,
+    StocktakesGetAllError,
+    StocktakesGetAllResponse,
+    ReturnType<typeof stocktakesGetAllQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await stocktakesGetAll({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: stocktakesGetAllQueryKey(options),
+  });
+
+export const stocktakesGetAllInfiniteQueryKey = (
+  options?: Options<StocktakesGetAllData>,
+): QueryKey<Options<StocktakesGetAllData>> => createQueryKey("stocktakesGetAll", options, true);
+
+/**
+ * List stocktakes with pagination, filtering, and search.
+ */
+export const stocktakesGetAllInfiniteOptions = (options?: Options<StocktakesGetAllData>) =>
+  infiniteQueryOptions<
+    StocktakesGetAllResponse,
+    StocktakesGetAllError,
+    InfiniteData<StocktakesGetAllResponse>,
+    QueryKey<Options<StocktakesGetAllData>>,
+    number | Pick<QueryKey<Options<StocktakesGetAllData>>[0], "body" | "headers" | "path" | "query">
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({pageParam, queryKey, signal}) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<StocktakesGetAllData>>[0],
+          "body" | "headers" | "path" | "query"
+        > =
+          typeof pageParam === "object"
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const {data} = await stocktakesGetAll({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: stocktakesGetAllInfiniteQueryKey(options),
+    },
+  );
+
+/**
+ * Create a new stocktake in Draft status.
+ */
+export const stocktakesCreateMutation = (
+  options?: Partial<Options<StocktakesCreateData>>,
+): UseMutationOptions<
+  StocktakesCreateResponse,
+  StocktakesCreateError,
+  Options<StocktakesCreateData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StocktakesCreateResponse,
+    StocktakesCreateError,
+    Options<StocktakesCreateData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stocktakesCreate({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Delete a stocktake. Only allowed in Draft status.
+ */
+export const stocktakesDeleteMutation = (
+  options?: Partial<Options<StocktakesDeleteData>>,
+): UseMutationOptions<
+  StocktakesDeleteResponse,
+  StocktakesDeleteError,
+  Options<StocktakesDeleteData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StocktakesDeleteResponse,
+    StocktakesDeleteError,
+    Options<StocktakesDeleteData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stocktakesDelete({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const stocktakesGetByIdQueryKey = (options: Options<StocktakesGetByIdData>) =>
+  createQueryKey("stocktakesGetById", options);
+
+/**
+ * Get full stocktake details including counted nodes and their items.
+ */
+export const stocktakesGetByIdOptions = (options: Options<StocktakesGetByIdData>) =>
+  queryOptions<
+    StocktakesGetByIdResponse,
+    StocktakesGetByIdError,
+    StocktakesGetByIdResponse,
+    ReturnType<typeof stocktakesGetByIdQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await stocktakesGetById({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: stocktakesGetByIdQueryKey(options),
+  });
+
+/**
+ * Update stocktake name and notes. Allowed while the document is still open.
+ */
+export const stocktakesUpdateMutation = (
+  options?: Partial<Options<StocktakesUpdateData>>,
+): UseMutationOptions<
+  StocktakesUpdateResponse,
+  StocktakesUpdateError,
+  Options<StocktakesUpdateData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StocktakesUpdateResponse,
+    StocktakesUpdateError,
+    Options<StocktakesUpdateData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stocktakesUpdate({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Replace the set of counted cells. Cells already in scope keep their counted items; dropping a
+ * cell discards its lines.
+ */
+export const stocktakesSyncNodesMutation = (
+  options?: Partial<Options<StocktakesSyncNodesData>>,
+): UseMutationOptions<
+  StocktakesSyncNodesResponse,
+  StocktakesSyncNodesError,
+  Options<StocktakesSyncNodesData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StocktakesSyncNodesResponse,
+    StocktakesSyncNodesError,
+    Options<StocktakesSyncNodesData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stocktakesSyncNodes({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const stocktakesGetNodeStockQueryKey = (options: Options<StocktakesGetNodeStockData>) =>
+  createQueryKey("stocktakesGetNodeStock", options);
+
+/**
+ * Live stock of one cell in the scope, used to pre-populate the counting screen. Served here
+ * rather than through the inventory endpoints so counting does not require warehouse permissions.
+ */
+export const stocktakesGetNodeStockOptions = (options: Options<StocktakesGetNodeStockData>) =>
+  queryOptions<
+    StocktakesGetNodeStockResponse,
+    StocktakesGetNodeStockError,
+    StocktakesGetNodeStockResponse,
+    ReturnType<typeof stocktakesGetNodeStockQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await stocktakesGetNodeStock({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: stocktakesGetNodeStockQueryKey(options),
+  });
+
+/**
+ * Replace the counted lines of one cell. Scoped to a single cell so accordions save independently.
+ */
+export const stocktakesSyncNodeItemsMutation = (
+  options?: Partial<Options<StocktakesSyncNodeItemsData>>,
+): UseMutationOptions<
+  StocktakesSyncNodeItemsResponse,
+  StocktakesSyncNodeItemsError,
+  Options<StocktakesSyncNodeItemsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StocktakesSyncNodeItemsResponse,
+    StocktakesSyncNodeItemsError,
+    Options<StocktakesSyncNodeItemsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stocktakesSyncNodeItems({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Start counting. Draft → InProgress.
+ */
+export const stocktakesStartMutation = (
+  options?: Partial<Options<StocktakesStartData>>,
+): UseMutationOptions<
+  StocktakesStartResponse,
+  StocktakesStartError,
+  Options<StocktakesStartData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StocktakesStartResponse,
+    StocktakesStartError,
+    Options<StocktakesStartData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stocktakesStart({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Return to scope editing. InProgress → Draft. Counted lines are kept.
+ */
+export const stocktakesRevertMutation = (
+  options?: Partial<Options<StocktakesRevertData>>,
+): UseMutationOptions<
+  StocktakesRevertResponse,
+  StocktakesRevertError,
+  Options<StocktakesRevertData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StocktakesRevertResponse,
+    StocktakesRevertError,
+    Options<StocktakesRevertData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stocktakesRevert({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Cancel the stocktake without touching stock.
+ */
+export const stocktakesCancelMutation = (
+  options?: Partial<Options<StocktakesCancelData>>,
+): UseMutationOptions<
+  StocktakesCancelResponse,
+  StocktakesCancelError,
+  Options<StocktakesCancelData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StocktakesCancelResponse,
+    StocktakesCancelError,
+    Options<StocktakesCancelData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stocktakesCancel({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const stocktakesGetDifferencesQueryKey = (options: Options<StocktakesGetDifferencesData>) =>
+  createQueryKey("stocktakesGetDifferences", options);
+
+/**
+ * What finishing would do, computed against live stock without mutating anything. The finish
+ * endpoint applies the very same plan.
+ */
+export const stocktakesGetDifferencesOptions = (options: Options<StocktakesGetDifferencesData>) =>
+  queryOptions<
+    StocktakesGetDifferencesResponse,
+    StocktakesGetDifferencesError,
+    StocktakesGetDifferencesResponse,
+    ReturnType<typeof stocktakesGetDifferencesQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await stocktakesGetDifferences({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: stocktakesGetDifferencesQueryKey(options),
+  });
+
+/**
+ * Apply the count: bring live stock in line with what was counted. InProgress → Finished.
+ * Stock present in a counted cell but absent from the document is treated as counted zero.
+ */
+export const stocktakesFinishMutation = (
+  options?: Partial<Options<StocktakesFinishData>>,
+): UseMutationOptions<
+  StocktakesFinishResponse,
+  StocktakesFinishError,
+  Options<StocktakesFinishData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StocktakesFinishResponse,
+    StocktakesFinishError,
+    Options<StocktakesFinishData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stocktakesFinish({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 export const storagePlacesGetNodesQueryKey = (options: Options<StoragePlacesGetNodesData>) =>
   createQueryKey("storagePlacesGetNodes", options);

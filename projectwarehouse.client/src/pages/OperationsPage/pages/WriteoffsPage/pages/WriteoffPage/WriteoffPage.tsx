@@ -59,7 +59,7 @@ function EditInfoForm({
 }) {
   const form = useForm<EditInfoFormValues>({
     defaultValues: {
-      name: writeoff.name,
+      name: writeoff.name ?? "",
       reason: writeoff.reason,
       notes: writeoff.notes ?? "",
     },
@@ -76,7 +76,7 @@ function EditInfoForm({
   const onSubmit = form.handleSubmit((values) => {
     mutation.mutate({
       path: {id: writeoff.id},
-      body: {name: values.name, reason: values.reason, notes: values.notes || null},
+      body: {name: values.name || null, reason: values.reason, notes: values.notes || null},
     });
   });
 
@@ -87,7 +87,6 @@ function EditInfoForm({
           control={form.control}
           name="name"
           label="Название"
-          rules={{required: "Обязательное поле"}}
           disabled={mutation.isPending}
           fullWidth
         />
@@ -239,7 +238,7 @@ function WriteoffPage() {
         title={
           <Stack direction="row" spacing={1.5} sx={{alignItems: "center"}}>
             <Typography variant="h5" component="span">
-              {writeoff.name}
+              {writeoff.name || "—"}
             </Typography>
             <WriteoffStatusChip status={writeoff.status} />
           </Stack>

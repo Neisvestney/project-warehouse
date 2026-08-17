@@ -54,7 +54,7 @@ function WriteoffCreatePage() {
     if (!values.warehouseId) return;
     mutation.mutate({
       body: {
-        name: values.name,
+        name: values.name || null,
         reason: values.reason,
         warehouseId: values.warehouseId,
         notes: values.notes || null,
@@ -75,7 +75,6 @@ function WriteoffCreatePage() {
               control={form.control}
               name="name"
               label="Название"
-              rules={{required: "Обязательное поле"}}
               disabled={mutation.isPending}
               fullWidth
               autoFocus

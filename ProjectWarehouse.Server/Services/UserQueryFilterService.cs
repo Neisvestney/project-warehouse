@@ -47,6 +47,21 @@ public class UserQueryFilterService(ApplicationDbContext db) : IUserQueryFilterS
         return db.Receipts.Take(0);
     }
 
+    public async Task<IQueryable<Stocktake>> GetStocktakesAsync(ClaimsPrincipal user, CancellationToken ct = default)
+    {
+        if (user.HasClaim("permission", Permissions.Stocktakes.View))
+            return db.Stocktakes;
+
+        if (user.HasClaim("permission", Permissions.Stocktakes.ViewAssigned))
+        {
+            var assignedIds = await GetAssignedWarehouseIdsAsync(user, ct);
+            if (assignedIds != null)
+                return db.Stocktakes.Where(x => assignedIds.Contains(x.WarehouseId));
+        }
+
+        return db.Stocktakes.Take(0);
+    }
+
     public Task<IQueryable<ApplicationUser>> GetUsersAsync(ClaimsPrincipal user, CancellationToken ct = default)
     {
         IQueryable<ApplicationUser> result = user.HasClaim("permission", Permissions.Users.View)

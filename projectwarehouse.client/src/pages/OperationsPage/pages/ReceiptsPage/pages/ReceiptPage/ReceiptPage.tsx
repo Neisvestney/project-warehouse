@@ -64,7 +64,7 @@ function EditInfoForm({
 }) {
   const form = useForm<EditInfoFormValues>({
     defaultValues: {
-      name: receipt.name,
+      name: receipt.name ?? "",
       reason: receipt.reason,
       notes: receipt.notes ?? "",
       plannedDeliveryDate: receipt.plannedDeliveryDate ?? "",
@@ -83,7 +83,7 @@ function EditInfoForm({
     mutation.mutate({
       path: {id: receipt.id},
       body: {
-        name: values.name,
+        name: values.name || null,
         reason: values.reason,
         notes: values.notes || null,
         plannedDeliveryDate: values.plannedDeliveryDate || null,
@@ -98,7 +98,6 @@ function EditInfoForm({
           control={form.control}
           name="name"
           label="Название"
-          rules={{required: "Обязательное поле"}}
           disabled={mutation.isPending}
           fullWidth
         />
@@ -264,7 +263,7 @@ function ReceiptPage() {
         title={
           <Stack direction="row" spacing={1.5} sx={{alignItems: "center"}}>
             <Typography variant="h5" component="span">
-              {receipt.name}
+              {receipt.name || "—"}
             </Typography>
             <ReceiptStatusChip status={receipt.status} />
           </Stack>

@@ -51,6 +51,10 @@ public static class EntityTypeTables
         [typeof(Writeoff)] = AppEntityType.Writeoff,
         [typeof(WriteoffItem)] = AppEntityType.Writeoff,
 
+        [typeof(Stocktake)] = AppEntityType.Stocktake,
+        [typeof(StocktakeNode)] = AppEntityType.Stocktake,
+        [typeof(StocktakeItem)] = AppEntityType.Stocktake,
+
         [typeof(Order)] = AppEntityType.Order,
         [typeof(MarketplaceOrder)] = AppEntityType.Order,
         [typeof(OrderMarketplaceItem)] = AppEntityType.Order,

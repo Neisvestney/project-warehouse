@@ -146,4 +146,16 @@ public enum ErrorCode
     MarketplaceOrderNotFromMarketplace,
     MarketplaceOrderCardNotMapped,
     MarketplaceOrderWarehouseNotMapped,
+
+    // Stocktakes
+    StocktakeNotFound,
+    StocktakeInvalidStatusTransition,
+    StocktakeNotAssignedToWarehouse,
+    StocktakeHasNoNodes,
+    StocktakeNodeNotFound,
+    StocktakeNodeAlreadyInProgress,
+    StocktakeUnitCountedTwice,
+    StocktakeUnitItemInAnotherWarehouse,
+    StocktakeUnitItemDetached,
+    StocktakeConcurrentModification,
 }

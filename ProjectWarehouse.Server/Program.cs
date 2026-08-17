@@ -35,6 +35,7 @@ using ProjectWarehouse.Server.Models.Roles;
 using ProjectWarehouse.Server.Models.Users;
 using ProjectWarehouse.Server.Models.Receipts;
 using ProjectWarehouse.Server.Models.Warehouses;
+using ProjectWarehouse.Server.Models.Stocktakes;
 using ProjectWarehouse.Server.Models.Writeoffs;
 using ProjectWarehouse.Server.Services;
 using Microsoft.Extensions.Options;
@@ -394,6 +395,7 @@ try
     builder.Services.AddScoped<IChangeLogService<RolesListDto>, RolesListDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<ReceiptDto>, ReceiptDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<WriteoffDto>, WriteoffDtoChangelogService>();
+    builder.Services.AddScoped<IChangeLogService<StocktakeDto>, StocktakeDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<MarketplaceAccountDto>, MarketplaceAccountDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<MarketplaceCardDto>, MarketplaceCardDtoChangelogService>();
     builder.Services.AddScoped<IInventoryService, InventoryService>();
@@ -401,6 +403,7 @@ try
     builder.Services.AddScoped<IUserQueryFilterService, UserQueryFilterService>();
     builder.Services.AddScoped<IOrderService, OrderService>();
     builder.Services.AddScoped<IStockStatisticsService, StockStatisticsService>();
+    builder.Services.AddScoped<IStocktakeDiffCalculator, StocktakeDiffCalculator>();
     var app = builder.Build();
 
     using (var scope = app.Services.CreateScope())

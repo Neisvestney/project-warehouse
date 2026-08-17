@@ -287,6 +287,45 @@ import type {
   StatisticsGetPivotData,
   StatisticsGetPivotErrors,
   StatisticsGetPivotResponses,
+  StocktakesCancelData,
+  StocktakesCancelErrors,
+  StocktakesCancelResponses,
+  StocktakesCreateData,
+  StocktakesCreateErrors,
+  StocktakesCreateResponses,
+  StocktakesDeleteData,
+  StocktakesDeleteErrors,
+  StocktakesDeleteResponses,
+  StocktakesFinishData,
+  StocktakesFinishErrors,
+  StocktakesFinishResponses,
+  StocktakesGetAllData,
+  StocktakesGetAllErrors,
+  StocktakesGetAllResponses,
+  StocktakesGetByIdData,
+  StocktakesGetByIdErrors,
+  StocktakesGetByIdResponses,
+  StocktakesGetDifferencesData,
+  StocktakesGetDifferencesErrors,
+  StocktakesGetDifferencesResponses,
+  StocktakesGetNodeStockData,
+  StocktakesGetNodeStockErrors,
+  StocktakesGetNodeStockResponses,
+  StocktakesRevertData,
+  StocktakesRevertErrors,
+  StocktakesRevertResponses,
+  StocktakesStartData,
+  StocktakesStartErrors,
+  StocktakesStartResponses,
+  StocktakesSyncNodeItemsData,
+  StocktakesSyncNodeItemsErrors,
+  StocktakesSyncNodeItemsResponses,
+  StocktakesSyncNodesData,
+  StocktakesSyncNodesErrors,
+  StocktakesSyncNodesResponses,
+  StocktakesUpdateData,
+  StocktakesUpdateErrors,
+  StocktakesUpdateResponses,
   StoragePlacesAddNodeData,
   StoragePlacesAddNodeErrors,
   StoragePlacesAddNodeResponses,
@@ -1678,6 +1717,181 @@ export const statisticsGetMovements = <ThrowOnError extends boolean = false>(
     StatisticsGetMovementsErrors,
     ThrowOnError
   >({url: "/api/statistics/stock-movements", ...options});
+
+/**
+ * List stocktakes with pagination, filtering, and search.
+ */
+export const stocktakesGetAll = <ThrowOnError extends boolean = false>(
+  options?: Options<StocktakesGetAllData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<StocktakesGetAllResponses, StocktakesGetAllErrors, ThrowOnError>({
+    url: "/api/stocktakes",
+    ...options,
+  });
+
+/**
+ * Create a new stocktake in Draft status.
+ */
+export const stocktakesCreate = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesCreateData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<StocktakesCreateResponses, StocktakesCreateErrors, ThrowOnError>({
+    url: "/api/stocktakes",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete a stocktake. Only allowed in Draft status.
+ */
+export const stocktakesDelete = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesDeleteData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<
+    StocktakesDeleteResponses,
+    StocktakesDeleteErrors,
+    ThrowOnError
+  >({url: "/api/stocktakes/{id}", ...options});
+
+/**
+ * Get full stocktake details including counted nodes and their items.
+ */
+export const stocktakesGetById = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesGetByIdData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<StocktakesGetByIdResponses, StocktakesGetByIdErrors, ThrowOnError>(
+    {url: "/api/stocktakes/{id}", ...options},
+  );
+
+/**
+ * Update stocktake name and notes. Allowed while the document is still open.
+ */
+export const stocktakesUpdate = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesUpdateData, ThrowOnError>,
+) =>
+  (options.client ?? client).patch<StocktakesUpdateResponses, StocktakesUpdateErrors, ThrowOnError>(
+    {
+      url: "/api/stocktakes/{id}",
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    },
+  );
+
+/**
+ * Replace the set of counted cells. Cells already in scope keep their counted items; dropping a
+ * cell discards its lines.
+ */
+export const stocktakesSyncNodes = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesSyncNodesData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    StocktakesSyncNodesResponses,
+    StocktakesSyncNodesErrors,
+    ThrowOnError
+  >({
+    url: "/api/stocktakes/{id}/nodes",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Live stock of one cell in the scope, used to pre-populate the counting screen. Served here
+ * rather than through the inventory endpoints so counting does not require warehouse permissions.
+ */
+export const stocktakesGetNodeStock = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesGetNodeStockData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    StocktakesGetNodeStockResponses,
+    StocktakesGetNodeStockErrors,
+    ThrowOnError
+  >({url: "/api/stocktakes/{id}/nodes/{nodeId}/stock", ...options});
+
+/**
+ * Replace the counted lines of one cell. Scoped to a single cell so accordions save independently.
+ */
+export const stocktakesSyncNodeItems = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesSyncNodeItemsData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    StocktakesSyncNodeItemsResponses,
+    StocktakesSyncNodeItemsErrors,
+    ThrowOnError
+  >({
+    url: "/api/stocktakes/{id}/nodes/{nodeId}/items",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Start counting. Draft → InProgress.
+ */
+export const stocktakesStart = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesStartData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<StocktakesStartResponses, StocktakesStartErrors, ThrowOnError>({
+    url: "/api/stocktakes/{id}/start",
+    ...options,
+  });
+
+/**
+ * Return to scope editing. InProgress → Draft. Counted lines are kept.
+ */
+export const stocktakesRevert = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesRevertData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<StocktakesRevertResponses, StocktakesRevertErrors, ThrowOnError>({
+    url: "/api/stocktakes/{id}/revert",
+    ...options,
+  });
+
+/**
+ * Cancel the stocktake without touching stock.
+ */
+export const stocktakesCancel = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesCancelData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<StocktakesCancelResponses, StocktakesCancelErrors, ThrowOnError>({
+    url: "/api/stocktakes/{id}/cancel",
+    ...options,
+  });
+
+/**
+ * What finishing would do, computed against live stock without mutating anything. The finish
+ * endpoint applies the very same plan.
+ */
+export const stocktakesGetDifferences = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesGetDifferencesData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    StocktakesGetDifferencesResponses,
+    StocktakesGetDifferencesErrors,
+    ThrowOnError
+  >({url: "/api/stocktakes/{id}/differences", ...options});
+
+/**
+ * Apply the count: bring live stock in line with what was counted. InProgress → Finished.
+ * Stock present in a counted cell but absent from the document is treated as counted zero.
+ */
+export const stocktakesFinish = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesFinishData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<StocktakesFinishResponses, StocktakesFinishErrors, ThrowOnError>({
+    url: "/api/stocktakes/{id}/finish",
+    ...options,
+  });
 
 /**
  * Get a flat list of all nodes for a storage place.

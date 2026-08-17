@@ -118,6 +118,16 @@ Error with structured arguments (e.g. password too short):
 | `receiptItemsOverplaced` | Finish blocked: some items with `receivedCount` have more placements than the received count |
 | `assemblyComponentAlreadyFulfilled` | Adding a fulfillment (single or batch) to an `AssemblyTaskBoxComponent` that is already fully fulfilled — guards against double-submit re-processing the same request |
 | `catalogItemNotVariationMember` | The item picked for a Variation component is not one of its members (nested variations are walked through). Field `resolvedCatalogItemId` for Standard/Bundle, `unitInventoryItemId` for Unit — there the item's own catalog entry is checked |
+| `stocktakeNotFound` | Stocktake ID not found |
+| `stocktakeInvalidStatusTransition` | Operation not allowed for the current stocktake status (edit lines outside InProgress, delete outside Draft, finish outside InProgress, cancel from a terminal status) |
+| `stocktakeNotAssignedToWarehouse` | Current user is not assigned to the stocktake's warehouse (assigned permission check) |
+| `stocktakeHasNoNodes` | Start or finish blocked: no cells selected |
+| `stocktakeNodeNotFound` | The storage node is not part of this stocktake's scope |
+| `stocktakeNodeAlreadyInProgress` | The cell is already in the scope of another Draft/InProgress stocktake — two open counts would fight at finish. `args: { nodeId: string }` |
+| `stocktakeUnitCountedTwice` | The same serial is claimed found in two cells of one document, which makes the finish order ambiguous. `args: { inventoryNumber: string }` |
+| `stocktakeUnitItemInAnotherWarehouse` | A counted serial is booked in a different warehouse — a cross-warehouse move is a transfer decision, not a count. `args: { inventoryNumber: string }` |
+| `stocktakeUnitItemDetached` | A found serial is detached and held by an active assembly fulfillment; reattaching it would steal it from the order being assembled |
+| `stocktakeConcurrentModification` | Stock changed while the stocktake was being finished (a serial left its expected node) — the transaction rolled back, nothing was applied |
 
 ### Inventory
 | Code | When | `args` |

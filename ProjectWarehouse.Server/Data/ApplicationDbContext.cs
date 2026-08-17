@@ -50,6 +50,10 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<Writeoff> Writeoffs => Set<Writeoff>();
     public DbSet<WriteoffItem> WriteoffItems => Set<WriteoffItem>();
 
+    public DbSet<Stocktake> Stocktakes => Set<Stocktake>();
+    public DbSet<StocktakeNode> StocktakeNodes => Set<StocktakeNode>();
+    public DbSet<StocktakeItem> StocktakeItems => Set<StocktakeItem>();
+
     public DbSet<MarketplaceAccount> MarketplaceAccounts => Set<MarketplaceAccount>();
     public DbSet<MarketplaceWarehouse> MarketplaceWarehouses => Set<MarketplaceWarehouse>();
     public DbSet<MarketplaceCard> MarketplaceCards => Set<MarketplaceCard>();
@@ -364,6 +368,61 @@ public class ApplicationDbContext : IdentityDbContext<
                 .WithMany()
                 .HasForeignKey(x => x.CatalogItemId)
                 .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.UnitInventoryItem)
+                .WithMany()
+                .HasForeignKey(x => x.UnitInventoryItemId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<Stocktake>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Number).ValueGeneratedOnAdd();
+            e.HasIndex(x => x.Number).IsUnique();
+
+            e.HasOne(x => x.Warehouse)
+                .WithMany()
+                .HasForeignKey(x => x.WarehouseId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.CreatedBy)
+                .WithMany()
+                .HasForeignKey(x => x.CreatedById)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<StocktakeNode>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.StocktakeId, x.StoragePlaceNodeId }).IsUnique();
+
+            e.HasOne(x => x.Stocktake)
+                .WithMany(x => x.Nodes)
+                .HasForeignKey(x => x.StocktakeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.StoragePlaceNode)
+                .WithMany()
+                .HasForeignKey(x => x.StoragePlaceNodeId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<StocktakeItem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.InventoryNumber).HasMaxLength(128);
+
+            e.HasOne(x => x.StocktakeNode)
+                .WithMany(x => x.Items)
+                .HasForeignKey(x => x.StocktakeNodeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.CatalogItem)
+                .WithMany()
+                .HasForeignKey(x => x.CatalogItemId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             e.HasOne(x => x.UnitInventoryItem)
