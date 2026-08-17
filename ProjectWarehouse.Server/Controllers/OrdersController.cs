@@ -150,6 +150,9 @@ public class OrdersController(
         [FromQuery] Guid? warehouseId = null,
         [FromQuery] OrderType? type = null,
         [FromQuery] OrderStatus? status = null,
+        [FromQuery] MarketplaceType? marketplaceType = null,
+        [FromQuery] Guid? marketplaceAccountId = null,
+        [FromQuery] MarketplaceOrderStatus? marketplaceStatus = null,
         [FromQuery] OrderSortBy sortBy = OrderSortBy.Number,
         [FromQuery] SortOrder sortOrder = SortOrder.Desc,
         CancellationToken ct = default)
@@ -168,6 +171,12 @@ public class OrdersController(
             .Where(o => warehouseId == null || o.WarehouseId == warehouseId)
             .Where(o => type == null || o.Type == type)
             .Where(o => status == null || o.Status == status)
+            .Where(o => marketplaceType == null ||
+                        (o.MarketplaceOrder != null && o.MarketplaceOrder.MarketplaceAccount.Type == marketplaceType))
+            .Where(o => marketplaceAccountId == null ||
+                        (o.MarketplaceOrder != null && o.MarketplaceOrder.MarketplaceAccountId == marketplaceAccountId))
+            .Where(o => marketplaceStatus == null ||
+                        (o.MarketplaceOrder != null && o.MarketplaceOrder.Status == marketplaceStatus))
             .Where(o => assignedIds == null || assignedIds.Contains(o.WarehouseId))
             .WhereMatchesSearch(o => o.SearchString, searchString);
 

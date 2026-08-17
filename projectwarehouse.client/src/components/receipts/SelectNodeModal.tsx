@@ -13,7 +13,13 @@ interface SelectNodeModalProps {
   catalogItemId?: string;
 }
 
-function SelectNodeModal({open, onClose, warehouseId, onSelect, catalogItemId}: SelectNodeModalProps) {
+function SelectNodeModal({
+  open,
+  onClose,
+  warehouseId,
+  onSelect,
+  catalogItemId,
+}: SelectNodeModalProps) {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{pb: 0}}>
@@ -27,7 +33,12 @@ function SelectNodeModal({open, onClose, warehouseId, onSelect, catalogItemId}: 
         </Stack>
       </DialogTitle>
       <DialogContent sx={{p: 0}}>
-        <StorageNodePickerContent warehouseId={warehouseId} onSelect={onSelect} open={open} catalogItemId={catalogItemId} />
+        <StorageNodePickerContent
+          warehouseId={warehouseId}
+          onSelect={onSelect}
+          open={open}
+          catalogItemId={catalogItemId}
+        />
       </DialogContent>
     </Dialog>
   );

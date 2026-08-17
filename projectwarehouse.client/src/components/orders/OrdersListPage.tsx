@@ -42,9 +42,16 @@ import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import OrderStatusChip from "./OrderStatusChip";
+import MarketplaceOrderFilters from "./marketplace/MarketplaceOrderFilters";
+import {
+  ALL_MARKETPLACE_ORDER_STATUSES,
+  ALL_MARKETPLACE_TYPES,
+} from "./marketplace/marketplaceOrderUtils";
 import {ORDER_STATUS_LABELS, formatOrderNumber} from "./orderUtils";
 import type {
   BatchSelfAssignFailedItem,
+  MarketplaceOrderStatus,
+  MarketplaceType,
   OrderSortBy,
   OrderStatus,
   OrderSummaryDto,
@@ -87,6 +94,10 @@ interface OrdersListPageProps {
   /** Extra buttons for the selection toolbar. Receives every selected id, not just confirmed ones. */
   bulkActions?: (selectedIds: string[]) => ReactNode;
   extraColumns?: OrdersListExtraColumn[];
+  /** Marketplace / account / posting-status filters. Meaningless on Direct orders. */
+  marketplaceFilters?: boolean;
+  /** FBO trades the notes column for the posting number. */
+  showNotes?: boolean;
 }
 
 function OrdersListPage({
@@ -98,6 +109,8 @@ function OrdersListPage({
   headerActions,
   bulkActions,
   extraColumns,
+  marketplaceFilters,
+  showNotes = true,
 }: OrdersListPageProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -126,6 +139,29 @@ function OrdersListPage({
     (v) => v || null,
   );
 
+  const [marketplaceType, setMarketplaceType] = useSyncedWithQueryState<MarketplaceType | "">(
+    "marketplace",
+    (q) => (ALL_MARKETPLACE_TYPES.includes(q as MarketplaceType) ? (q as MarketplaceType) : ""),
+    (v) => v || null,
+  );
+
+  const [marketplaceAccountId, setMarketplaceAccountId] = useSyncedWithQueryState(
+    "account",
+    (q) => (typeof q === "string" ? q : null),
+    (v) => v,
+  );
+
+  const [marketplaceStatus, setMarketplaceStatus] = useSyncedWithQueryState<
+    MarketplaceOrderStatus | ""
+  >(
+    "mpStatus",
+    (q) =>
+      ALL_MARKETPLACE_ORDER_STATUSES.includes(q as MarketplaceOrderStatus)
+        ? (q as MarketplaceOrderStatus)
+        : "",
+    (v) => v || null,
+  );
+
   const {sortBy, sortOrder, handleSortClick} = useTableSort(SORT_COLUMNS, "number", {
     defaultSortOrder: "desc",
   });
@@ -137,11 +173,32 @@ function OrdersListPage({
       type,
       warehouseId: warehouseId ?? undefined,
       status: (status as OrderStatus) || undefined,
+      marketplaceType: marketplaceFilters
+        ? (marketplaceType as MarketplaceType) || undefined
+        : undefined,
+      marketplaceAccountId: marketplaceFilters ? (marketplaceAccountId ?? undefined) : undefined,
+      marketplaceStatus: marketplaceFilters
+        ? (marketplaceStatus as MarketplaceOrderStatus) || undefined
+        : undefined,
       sortBy,
       sortOrder,
     },
-    [warehouseId, status, sortBy, sortOrder],
+    [
+      warehouseId,
+      status,
+      marketplaceType,
+      marketplaceAccountId,
+      marketplaceStatus,
+      sortBy,
+      sortOrder,
+    ],
   );
+
+  // the account list is scoped to the marketplace, so a stale id must not survive the switch
+  function handleMarketplaceTypeChange(value: MarketplaceType | "") {
+    setMarketplaceType(value);
+    setMarketplaceAccountId(null);
+  }
 
   const {data, isLoading, isFetching, refetch} = useQuery(
     ordersGetAllOptions({query: fetchParams}),
@@ -170,7 +227,7 @@ function OrdersListPage({
   const showSelfAssign = canSelfAssign && selectedConfirmedIds.length > 0;
   // the bulkActions term keeps the bar hidden on Direct and FBO, which pass no extra actions
   const showBulkBar = selectedIds.size > 0 && (showSelfAssign || bulkActions != null);
-  const columnCount = 8 + (extraColumns?.length ?? 0);
+  const columnCount = (showNotes ? 8 : 7) + (extraColumns?.length ?? 0);
 
   function handleSelfAssignSelected() {
     setFailedItems([]);
@@ -254,6 +311,16 @@ function OrdersListPage({
             </MenuItem>
           ))}
         </Select>
+        {marketplaceFilters && (
+          <MarketplaceOrderFilters
+            type={marketplaceType}
+            onTypeChange={handleMarketplaceTypeChange}
+            accountId={marketplaceAccountId}
+            onAccountChange={setMarketplaceAccountId}
+            status={marketplaceStatus}
+            onStatusChange={setMarketplaceStatus}
+          />
+        )}
       </FiltersBar>
 
       {showBulkBar && (
@@ -350,7 +417,7 @@ function OrdersListPage({
               {extraColumns?.map(({key, label}) => (
                 <TableCell key={key}>{label}</TableCell>
               ))}
-              <TableCell>Заметки</TableCell>
+              {showNotes && <TableCell>Заметки</TableCell>}
               <TableCell>Коробок</TableCell>
             </TableRow>
           </TableHead>
@@ -397,17 +464,19 @@ function OrdersListPage({
                   {extraColumns?.map(({key, render}) => (
                     <TableCell key={key}>{render(order)}</TableCell>
                   ))}
-                  <TableCell>
-                    <Tooltip title={order.notes ?? ""} disableHoverListener={!order.notes}>
-                      <Typography
-                        variant="body2"
-                        noWrap
-                        sx={{maxWidth: 200, display: "inline-block"}}
-                      >
-                        {order.notes ?? "—"}
-                      </Typography>
-                    </Tooltip>
-                  </TableCell>
+                  {showNotes && (
+                    <TableCell>
+                      <Tooltip title={order.notes ?? ""} disableHoverListener={!order.notes}>
+                        <Typography
+                          variant="body2"
+                          noWrap
+                          sx={{maxWidth: 200, display: "inline-block"}}
+                        >
+                          {order.notes ?? "—"}
+                        </Typography>
+                      </Tooltip>
+                    </TableCell>
+                  )}
                   <TableCell>{order.boxCount}</TableCell>
                 </TableRow>
               ))

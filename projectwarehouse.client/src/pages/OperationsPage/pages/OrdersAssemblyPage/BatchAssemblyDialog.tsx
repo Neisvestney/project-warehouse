@@ -118,7 +118,12 @@ function NodePickerRow({label, warehouseId, value, onChange, catalogItemId}: Nod
       >
         {value.nodePath ?? "Не выбрано"}
       </Typography>
-      <Button variant={"outlined"} size="small" startIcon={<LocationOnIcon />} onClick={() => setOpen(true)}>
+      <Button
+        variant={"outlined"}
+        size="small"
+        startIcon={<LocationOnIcon />}
+        onClick={() => setOpen(true)}
+      >
         Выбрать
       </Button>
       <SelectNodeModal

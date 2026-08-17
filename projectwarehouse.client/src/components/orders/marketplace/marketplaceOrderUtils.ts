@@ -11,6 +11,15 @@ export const MARKETPLACE_ORDER_STATUS_LABELS: Record<MarketplaceOrderStatus, str
   arbitration: "Арбитраж",
 };
 
+export const ALL_MARKETPLACE_ORDER_STATUSES: MarketplaceOrderStatus[] = [
+  "awaitingDeliver",
+  "delivering",
+  "delivered",
+  "cancelled",
+  "arbitration",
+  "unknown",
+];
+
 export const MARKETPLACE_ORDER_STATUS_COLORS: Record<MarketplaceOrderStatus, ChipProps["color"]> = {
   unknown: "default",
   awaitingDeliver: "info",
@@ -24,6 +33,8 @@ export const MARKETPLACE_LABELS: Record<MarketplaceType, string> = {
   ozon: "Ozon",
   wildberries: "Wildberries",
 };
+
+export const ALL_MARKETPLACE_TYPES: MarketplaceType[] = ["ozon", "wildberries"];
 
 export const RUN_STATUS_LABELS: Record<MarketplaceSyncStatus, string> = {
   running: "Выполняется",

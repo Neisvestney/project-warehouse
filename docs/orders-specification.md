@@ -386,6 +386,7 @@ Draft → Confirmed → Assembly → Assembled → Shipped
 - Содержит `MarketplaceOrder` и список `MarketplaceItems`.
 - Список коробок формирует администратор вручную.
 - `PlannedShipmentAt` **обязательно**.
+- В таблице списка вместо колонки «Заметки» показывается номер отправления (`MarketplaceOrder.PostingNumber`).
 - После сборки отгрузка означает передачу коробок маркетплейсу. Остатки списываются в момент добавления Fulfillments — аналогично FBS и Direct.
 
 ### Прямые — специфика
@@ -450,6 +451,7 @@ Draft → Confirmed → Assembly → Assembled → Shipped
 - Self-assign: сотрудник самостоятельно берёт Confirmed заказ (право `orders.self_assign`), в том числе массово одним запросом `POST /api/orders/batch-self-assign`
 - Права: `orders.view`, `orders.edit`, `orders.view_assigned`, `orders.edit_assigned`, `orders.assemble_assigned`, `orders.self_assign`
 - FBS: импорт заказов с маркетплейса, статус площадки в списке и на странице заказа, печать этикеток с артикулами WMS (см. [marketplaces-specification.md](marketplaces-specification.md#синхронизация-заказов-fbs))
+- Фильтры списка `GET /api/orders`: `warehouseId`, `type`, `status`, а для маркетплейсных заказов — `marketplaceType`, `marketplaceAccountId`, `marketplaceStatus`. Любой из трёх последних отсекает заказы без `MarketplaceOrder`, поэтому на Direct они не используются
 
 ### Отложено
 

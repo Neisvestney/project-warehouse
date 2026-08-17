@@ -77,7 +77,7 @@ function MovementCell({
     return (
       <Typography variant="body2" sx={{color: "text.disabled"}}>
         —
-        <br/>
+        <br />
         {balance}
       </Typography>
     );
@@ -248,7 +248,11 @@ function StockMovementsPivotTable({
                     </TableCell>
                     {columns.map((item) => (
                       <TableCell key={item.id} align="center">
-                        <MovementCell totals={cells.get(item.id)} showTransfers={showTransfers} balance={cells.get(item.id)?.balance} />
+                        <MovementCell
+                          totals={cells.get(item.id)}
+                          showTransfers={showTransfers}
+                          balance={cells.get(item.id)?.balance}
+                        />
                       </TableCell>
                     ))}
                     <TableCell align="center">

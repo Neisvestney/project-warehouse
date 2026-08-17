@@ -1105,17 +1105,31 @@ Label maps for every marketplace enum (`MARKETPLACE_TYPE_LABELS`, `SYNC_STATUS_L
 ### `OrdersListPage` slots
 The orders list is shared by FBS, FBO and Direct, so type-specific behaviour arrives as props rather than an
 internal `type === "fbs"` branch: `headerActions?: ReactNode`, `bulkActions?: (selectedIds: string[]) => ReactNode`
-and `extraColumns?: {key, label, render}[]`. That keeps marketplace imports — and the `integrations.map`
-permission — out of the pages that have nothing to do with marketplaces.
+`extraColumns?: {key, label, render}[]`, `marketplaceFilters?: boolean` and `showNotes?: boolean`. That keeps
+marketplace imports — and the `integrations.map` permission — out of the pages that have nothing to do with
+marketplaces.
 
 `bulkActions` receives **every** selected id, not just the confirmed ones self-assign cares about, and the
 selection toolbar appears whenever something is selected and either action set applies. Adding an
-`extraColumns` entry also widens the loader/empty-row `colSpan`, which is computed rather than hard-coded.
+`extraColumns` entry also widens the loader/empty-row `colSpan`, which is computed rather than hard-coded —
+as does dropping the notes column with `showNotes={false}` (FBO trades it for the posting number).
+
+`marketplaceFilters` renders `MarketplaceOrderFilters` (marketplace / account / posting status) and is the only
+thing that puts `marketplaceType`, `marketplaceAccountId` and `marketplaceStatus` into the query — Direct never
+sends them. The three filters live in the URL as `marketplace`, `account` and `mpStatus`; `status` stays the WMS
+status. Marketplace and account are cascaded: the account list is fetched scoped to the selected marketplace, so
+switching marketplace clears the account id in the same tick (`setParam` batches both into one navigation).
+
+The account picker never falls back to "Все аккаунты" while it is uncertain: `keepPreviousData` holds the old
+list through the refetch, and on a deep link that carries `account=` before the first list arrives the Select
+renders a temporary "Загрузка…" item for that id. Collapsing to the empty value would show a filter the URL and
+the request do not agree with.
 
 ### `src/components/orders/marketplace/`
 FBS-only pieces: `SyncOrdersButton` / `SyncOrdersDialog` / `SyncOrdersAccountAccordion` / `SkippedOrdersList`
-(the import dialog and its per-account results), `DownloadLabelsButton`, `MarketplaceOrderStatusChip`, and
-`marketplaceOrderUtils` for the label and colour maps. The maps live here rather than in
+(the import dialog and its per-account results), `DownloadLabelsButton`, `MarketplaceOrderStatusChip`,
+`MarketplaceOrderFilters` (shared by FBS and FBO, reads `/accounts/short` so a warehouse role without
+`integrations.view` still gets the account picker), and `marketplaceOrderUtils` for the label and colour maps. The maps live here rather than in
 `MarketplacesSettingsPage/marketplaceUtils` so the operations tree never imports from the settings tree.
 
 ### Downloading a generated file
