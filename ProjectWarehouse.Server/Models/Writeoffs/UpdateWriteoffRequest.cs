@@ -6,9 +6,8 @@ namespace ProjectWarehouse.Server.Models.Writeoffs;
 
 public class UpdateWriteoffRequest
 {
-    [Required]
-    [StringLength(256, MinimumLength = 1)]
-    public string Name { get; init; } = null!;
+    [StringLength(256)]
+    public string? Name { get; init; }
 
     [JsonRequired]
     public WriteoffReason Reason { get; init; }

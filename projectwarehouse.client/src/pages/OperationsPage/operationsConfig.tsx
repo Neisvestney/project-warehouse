@@ -3,6 +3,7 @@ import MoveToInboxIcon from "@mui/icons-material/MoveToInbox";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import DeleteSweepIcon from "@mui/icons-material/DeleteSweep";
+import FactCheckIcon from "@mui/icons-material/FactCheck";
 import AssemblyIcon from "@mui/icons-material/Handyman";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
@@ -17,6 +18,9 @@ import TransfersPage from "./pages/TransfersPage/TransfersPage.tsx";
 import WriteoffsPage from "./pages/WriteoffsPage/WriteoffsPage.tsx";
 import WriteoffCreatePage from "./pages/WriteoffsPage/pages/WriteoffCreatePage/WriteoffCreatePage.tsx";
 import WriteoffPage from "./pages/WriteoffsPage/pages/WriteoffPage/WriteoffPage.tsx";
+import StocktakesPage from "./pages/StocktakesPage/StocktakesPage.tsx";
+import StocktakeCreatePage from "./pages/StocktakesPage/pages/StocktakeCreatePage/StocktakeCreatePage.tsx";
+import StocktakePage from "./pages/StocktakesPage/pages/StocktakePage/StocktakePage.tsx";
 import OrdersDirectPage from "./pages/OrdersDirectPage/OrdersDirectPage.tsx";
 import OrdersFbsPage from "./pages/OrdersFbsPage/OrdersFbsPage.tsx";
 import OrdersFboPage from "./pages/OrdersFboPage/OrdersFboPage.tsx";
@@ -82,6 +86,16 @@ export const operationsSections: SectionConfig[] = [
     subroutes: [
       {path: "new", component: WriteoffCreatePage},
       {path: ":id", component: WriteoffPage},
+    ],
+  },
+  {
+    label: "Инвентаризации",
+    path: "stocktakes",
+    icon: <FactCheckIcon fontSize="small" />,
+    component: StocktakesPage,
+    subroutes: [
+      {path: "new", component: StocktakeCreatePage},
+      {path: ":id", component: StocktakePage},
     ],
   },
 ];

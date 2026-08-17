@@ -12,6 +12,9 @@ export const STOCK_MOVEMENT_ACTIONS: {value: string; label: string}[] = [
   {value: "inventory.move_stock", label: "Перемещение товара"},
   {value: "inventory.canceled_fulfillment", label: "Отмена фулфилментов"},
   {value: "inventory.canceled_placement", label: "Отмена размещений (приёмка)"},
+  {value: "inventory.stocktake_surplus", label: "Инвентаризация — излишки"},
+  {value: "inventory.stocktake_shortage", label: "Инвентаризация — недостачи"},
+  {value: "inventory.stocktake_relocation", label: "Инвентаризация — перемещение"},
 ];
 
 export const STOCK_MOVEMENT_DIRECTIONS: {value: StockMovementDirection; label: string}[] = [

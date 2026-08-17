@@ -210,7 +210,7 @@ function ReceiptsPage() {
                   <TableCell sx={{fontFamily: "monospace"}}>
                     {formatReceiptNumber(receipt.number)}
                   </TableCell>
-                  <TableCell>{receipt.name}</TableCell>
+                  <TableCell>{receipt.name || "—"}</TableCell>
                   <TableCell>
                     <ReceiptStatusChip status={receipt.status} />
                   </TableCell>

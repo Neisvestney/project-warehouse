@@ -248,7 +248,7 @@ All items are moved in a single DB transaction — any failure rolls back the en
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | `string` | ✓ | Display name (max 256) |
+| `name` | `string?` | — | Display name (max 256). Omitted/empty → stored as `null`. |
 | `reason` | `WriteoffReason` | ✓ | `loss` \| `defect` \| `other` |
 | `warehouseId` | `Guid` | ✓ | Target warehouse |
 | `notes` | `string?` | — | Free-text notes (max 2048) |
@@ -269,7 +269,7 @@ Each element represents one inventory line. Exactly one item type discriminator 
 
 **Key DTOs:**
 
-`WriteoffSummaryDto`: `{ id, number, name, reason, status, warehouseId, warehouseName, itemsCount, createdAt }`
+`WriteoffSummaryDto`: `{ id, number, name?, reason, status, warehouseId, warehouseName, itemsCount, createdAt }`
 
 `WriteoffDto`: same as summary + `notes?` + `items: WriteoffItemDto[]`
 
@@ -291,6 +291,116 @@ All item removals execute in a single DB transaction. If any operation fails, no
 **Permission notes:**
 - `writeoffs.view` / `writeoffs.edit` — access all warehouses
 - `writeoffs.view_assigned` / `writeoffs.edit_assigned` — restricted to user's assigned warehouses
+
+---
+
+## Stocktakes — `/api/stocktakes`
+
+| Method | Path | Permission | Description |
+|--------|------|------------|-------------|
+| GET | `/api/stocktakes` | `stocktakes.view` or `stocktakes.view_assigned` | List stocktakes (paginated) |
+| GET | `/api/stocktakes/{id}` | `stocktakes.view` or `stocktakes.view_assigned` | Get full stocktake with nodes and counted items |
+| POST | `/api/stocktakes` | `stocktakes.edit` or `stocktakes.edit_assigned` | Create stocktake in Draft status |
+| PATCH | `/api/stocktakes/{id}` | `stocktakes.edit` or `stocktakes.edit_assigned` | Update name/notes (Draft or InProgress) |
+| DELETE | `/api/stocktakes/{id}` | `stocktakes.edit` or `stocktakes.edit_assigned` | Delete stocktake (Draft only) |
+| PUT | `/api/stocktakes/{id}/nodes` | `stocktakes.edit` or `stocktakes.edit_assigned` | Replace the counted-cells scope (Draft or InProgress) |
+| GET | `/api/stocktakes/{id}/nodes/{nodeId}/stock` | `stocktakes.view` or `stocktakes.view_assigned` | Live stock of one cell in scope, used to pre-populate the counting screen |
+| PUT | `/api/stocktakes/{id}/nodes/{nodeId}/items` | `stocktakes.edit` or `stocktakes.edit_assigned` | Replace the counted lines of one cell (InProgress only) |
+| POST | `/api/stocktakes/{id}/start` | `stocktakes.edit` or `stocktakes.edit_assigned` | Begin counting (Draft → InProgress) |
+| POST | `/api/stocktakes/{id}/revert` | `stocktakes.edit` or `stocktakes.edit_assigned` | Return to scope editing (InProgress → Draft), counted lines are kept |
+| GET | `/api/stocktakes/{id}/differences` | `stocktakes.view` or `stocktakes.view_assigned` | Preview of what finishing would do — read-only |
+| POST | `/api/stocktakes/{id}/finish` | `stocktakes.edit` or `stocktakes.edit_assigned` | Apply the count to live stock (InProgress → Finished) |
+| POST | `/api/stocktakes/{id}/cancel` | `stocktakes.edit` or `stocktakes.edit_assigned` | Cancel without touching stock (Draft/InProgress → Canceled) |
+
+**Query parameters for `GET /api/stocktakes`:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `page` | `int` | Page number (default 1) |
+| `pageSize` | `int` | Items per page (default 20, max 200) |
+| `searchString` | `string?` | Search in number, name, notes |
+| `warehouseId` | `Guid?` | Filter by warehouse |
+| `status` | `StocktakeStatus?` | Filter by status |
+| `sortBy` | `StocktakeSortBy` | Sort field (default `number`) |
+| `sortOrder` | `asc`\|`desc` | Sort direction (default `desc`) |
+
+**`CreateStocktakeRequest`:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | `string?` | — | Display name (max 256). Omitted/empty → stored as `null`. |
+| `warehouseId` | `Guid` | ✓ | Target warehouse |
+| `notes` | `string?` | — | Free-text notes (max 2048) |
+
+**`UpdateStocktakeRequest`:** `name`, `notes` (no `warehouseId` — the warehouse is fixed at creation).
+
+**`PUT /api/stocktakes/{id}/nodes` body — `SyncStocktakeNodesRequest`:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `nodeIds` | `Guid[]` | Full desired scope. Cells already in scope keep their counted lines; dropped cells lose theirs (cascade) |
+
+Validation: every node must belong to the stocktake's warehouse (422 `storagePlaceNodeNotFound` on `nodeIds[i]`), no duplicates (422 `validationError`), and no node may already be in the scope of another Draft/InProgress stocktake (422 `stocktakeNodeAlreadyInProgress`, `args.nodeId`).
+
+**`PUT /api/stocktakes/{id}/nodes/{nodeId}/items` body — `StocktakeItemRequest[]`:**
+
+Replaces all lines of that one cell. Scoped per cell so accordions save independently.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `kind` | `StocktakeItemKind` | `standard` \| `unit` |
+| `catalogItemId` | `Guid` | Required for both kinds |
+| `countedQuantity` | `int` | Standard: `>= 0`. Unit: `0` (not found) or `1` (found) |
+| `inventoryNumber` | `string?` | Required for `unit` (1..128), must be absent for `standard` |
+| `unitInventoryItemId` | `Guid?` | Optional hint — the server re-resolves the serial by `(catalogItemId, inventoryNumber)` anyway |
+| `notes` | `string?` | Line-level notes (max 2048) |
+
+Validation (field prefix `items[i]`): the catalog item must exist and its type must match `kind`; no duplicate `catalogItemId` among standard lines; no duplicate `(catalogItemId, inventoryNumber)` among unit lines; a resolved serial must belong to this warehouse (422 `stocktakeUnitItemInAnotherWarehouse`) and must not already be claimed found in another cell of the same document (422 `stocktakeUnitCountedTwice`).
+
+**Key DTOs:**
+
+`StocktakeSummaryDto`: `{ id, number, name?, status, warehouseId, warehouseName, nodesCount, itemsCount, createdAt, startedAt?, finishedAt? }`
+
+`StocktakeDto`: same as summary + `notes?` + `nodes: StocktakeNodeDto[]`
+
+`StocktakeNodeDto`: `{ id, storagePlaceNodeId, nodePath: string[], items: StocktakeItemDto[] }`
+
+`StocktakeItemDto`: `{ id, kind, catalogItemId, catalogItem?, catalogItemName, countedQuantity, inventoryNumber?, unitInventoryItemId?, notes?, appliedDelta? }` — `appliedDelta` is the stock change actually applied at finish (positive surplus, negative shortage, `null` until finished). Finished documents must be read from it, never from live stock.
+
+`StocktakeNodeStockDto`: `{ storagePlaceNodeId, nodePath: string[], standard: [{ catalogItemId, catalogItem?, catalogItemName, expected }], units: [{ unitInventoryItemId, inventoryNumber, catalogItemId, catalogItem?, catalogItemName }] }`
+
+`StocktakeDifferencesDto`: `{ nodes: StocktakeNodeDifferencesDto[], totalSurplusQuantity, totalShortageQuantity, totalRelocations, hasDifferences, problems: StocktakeProblemDto[] }`
+
+`StocktakeDifferenceLineDto`: `{ kind, catalogItemId, catalogItemName, inventoryNumber?, expected, counted, delta, resolution, missingFromDocument, currentNodeId?, currentNodePath? }`
+
+`StocktakeProblemDto`: `{ storagePlaceNodeId, code, message }` — while non-empty, finishing is refused.
+
+**`StocktakeStatus` values:** `draft`, `inProgress`, `finished`, `canceled`  
+**`StocktakeItemKind` values:** `standard`, `unit`  
+**`StocktakeDifferenceResolution` values:** `noChange`, `surplus`, `shortage`, `relocation`, `createUnit`, `detachUnit`, `reattachUnit`  
+**`StocktakeSortBy` values:** `number` (default), `name`, `status`, `createdAt`, `warehouseName`
+
+**`POST /api/stocktakes/{id}/finish` behaviour:**
+
+The cell is authoritative: stock present in a counted cell but absent from the document is treated as counted zero and written off. `GET /{id}/differences` flags those lines with `missingFromDocument` — the UI only finishes through that preview. Such positions are also materialised into the document as lines with `countedQuantity = 0` and a filled `appliedDelta`, so the finished document accounts for the whole correction.
+
+Expected quantities are recomputed from live stock inside the transaction (nothing is snapshotted at count time). Everything runs in a single transaction under an execution strategy; the aggregate is reloaded and the plan rebuilt inside the retry lambda. Order of operations: relocations → detaches → reattach/create → standard adjustments.
+
+Possible 422 errors:
+
+- `stocktakeInvalidStatusTransition` — not in InProgress
+- `stocktakeHasNoNodes` — empty scope
+- `stocktakeUnitItemInAnotherWarehouse`, `stocktakeUnitItemDetached` — blocked by the plan, nothing applied
+- `insufficientInventory` — stock changed under the count (carries `args`, see [errors.md](errors.md#inventory))
+- `stocktakeConcurrentModification` — a serial left its expected cell mid-finish; the transaction rolled back
+- `unitInventoryItemNotFound`, `storagePlaceNodeNotFound`, `unitInventoryItemNumberDuplicate`
+
+**Stock movement actions written by finish:** `inventory.stocktake_surplus` (`In`), `inventory.stocktake_shortage` (`Out`), `inventory.stocktake_relocation` (`TransferOut` + `TransferIn`). Kept separate from receipts and write-offs so statistics do not mix corrections with real goods flow.
+
+**Permission notes:**
+- `stocktakes.view` / `stocktakes.edit` — access all warehouses
+- `stocktakes.view_assigned` / `stocktakes.edit_assigned` — restricted to user's assigned warehouses
+- The counting screen needs no warehouse permissions: per-cell stock is served by `GET /{id}/nodes/{nodeId}/stock` rather than by the inventory endpoints
 
 ---
 

@@ -50,14 +50,16 @@ public class CommonContentController(IMapper mapper, IUserQueryFilterService que
         var catalogQueryable = await queryFilter.GetCatalogItemsAsync(User, ct);
         var marketplacesAccountsQueryable = await queryFilter.GetMarketplaceAccountsAsync(User, ct);
         var usersQueryable = await queryFilter.GetUsersAsync(User, ct);
+        var stocktakesQueryable = await queryFilter.GetStocktakesAsync(User, ct);
 
         var warehousesResults = await Search(warehousesQueryable, searchString, ct);
         var receiptsResults = await Search(receiptsQueryable, searchString, ct);
         var catalogResults = await Search(catalogQueryable, searchString, ct);
         var marketplacesAccountsResults = await Search(marketplacesAccountsQueryable, searchString, ct);
         var usersResults = await Search(usersQueryable, searchString, ct);
+        var stocktakesResults = await Search(stocktakesQueryable, searchString, ct);
 
-        return Ok(warehousesResults.Union(receiptsResults).Union(catalogResults).Union(marketplacesAccountsResults).Union(usersResults).Take(10));
+        return Ok(warehousesResults.Union(receiptsResults).Union(catalogResults).Union(marketplacesAccountsResults).Union(usersResults).Union(stocktakesResults).Take(10));
     }
 
 

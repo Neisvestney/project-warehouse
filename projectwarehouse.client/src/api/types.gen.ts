@@ -58,7 +58,8 @@ export type AppEntityType =
   | "marketplaceCard"
   | "changeLog"
   | "inventoryItem"
-  | "stockMovement";
+  | "stockMovement"
+  | "stocktake";
 
 export type AppFieldError = {
   code: ErrorCode;
@@ -384,7 +385,7 @@ export type CreateOrderBoxRequest = {
 };
 
 export type CreateReceiptRequest = {
-  name: string;
+  name?: null | string;
   reason: ReceiptReason;
   warehouseId: string;
   notes?: null | string;
@@ -394,6 +395,12 @@ export type CreateReceiptRequest = {
 export type CreateStandardPlacementRequest = {
   storagePlaceNodeId: string;
   count: number;
+};
+
+export type CreateStocktakeRequest = {
+  name?: null | string;
+  warehouseId: string;
+  notes?: null | string;
 };
 
 export type CreateStoragePlaceNodeRequest = {
@@ -431,7 +438,7 @@ export type CreateWarehouseRequest = {
 };
 
 export type CreateWriteoffRequest = {
-  name: string;
+  name?: null | string;
   reason: WriteoffReason;
   warehouseId: string;
   notes?: null | string;
@@ -600,7 +607,17 @@ export type ErrorCode =
   | "marketplaceLabelNotReady"
   | "marketplaceOrderNotFromMarketplace"
   | "marketplaceOrderCardNotMapped"
-  | "marketplaceOrderWarehouseNotMapped";
+  | "marketplaceOrderWarehouseNotMapped"
+  | "stocktakeNotFound"
+  | "stocktakeInvalidStatusTransition"
+  | "stocktakeNotAssignedToWarehouse"
+  | "stocktakeHasNoNodes"
+  | "stocktakeNodeNotFound"
+  | "stocktakeNodeAlreadyInProgress"
+  | "stocktakeUnitCountedTwice"
+  | "stocktakeUnitItemInAnotherWarehouse"
+  | "stocktakeUnitItemDetached"
+  | "stocktakeConcurrentModification";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -1060,6 +1077,16 @@ export type PaginatedOfStockMovementDto = {
   hasPreviousPage: boolean;
 };
 
+export type PaginatedOfStocktakeSummaryDto = {
+  items: Array<StocktakeSummaryDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
 export type PaginatedOfUnitInventoryItemDto = {
   items: Array<UnitInventoryItemDto>;
   total: number;
@@ -1125,6 +1152,10 @@ export type PermissionName =
   | "writeoffs.edit"
   | "writeoffs.view_assigned"
   | "writeoffs.edit_assigned"
+  | "stocktakes.view"
+  | "stocktakes.edit"
+  | "stocktakes.view_assigned"
+  | "stocktakes.edit_assigned"
   | "receipts.view"
   | "receipts.edit"
   | "receipts.view_assigned"
@@ -1162,7 +1193,7 @@ export type QuickAddReceiptItemRequest = {
 export type ReceiptDto = {
   id: string;
   number: number;
-  name: string;
+  name?: null | string;
   reason: ReceiptReason;
   status: ReceiptStatus;
   notes?: null | string;
@@ -1224,7 +1255,7 @@ export type ReceiptStatus = "draft" | "planned" | "processing" | "finished" | "c
 export type ReceiptSummaryDto = {
   id: string;
   number: number;
-  name: string;
+  name?: null | string;
   reason: ReceiptReason;
   status: ReceiptStatus;
   warehouseId: string;
@@ -1444,6 +1475,167 @@ export type StockMovementTotalsDto = {
   net: number;
 };
 
+export type StocktakeDifferenceLineDto = {
+  kind: StocktakeItemKind;
+  catalogItemId: string;
+  catalogItemName: string;
+  inventoryNumber?: null | string;
+  expected: number;
+  counted: number;
+  delta: number;
+  resolution: StocktakeDifferenceResolution;
+  /**
+   * Stock sitting in the cell that the document says nothing about — it will be written off.
+   */
+  missingFromDocument: boolean;
+  /**
+   * Where the serial currently lives. Set only for StocktakeDifferenceResolution.Relocation.
+   */
+  currentNodeId?: null | string;
+  currentNodePath?: null | Array<string>;
+};
+
+/**
+ * What finishing the document will do to a single position.
+ */
+export type StocktakeDifferenceResolution =
+  | "noChange"
+  | "surplus"
+  | "shortage"
+  | "relocation"
+  | "createUnit"
+  | "detachUnit"
+  | "reattachUnit";
+
+/**
+ * Preview of what finishing the document would do. Produced by the same calculator the finish
+ * operation runs, so the two can never disagree.
+ */
+export type StocktakeDifferencesDto = {
+  nodes: Array<StocktakeNodeDifferencesDto>;
+  totalSurplusQuantity: number;
+  totalShortageQuantity: number;
+  totalRelocations: number;
+  hasDifferences: boolean;
+  /**
+   * Blockers. While this is non-empty the document cannot be finished.
+   */
+  problems: Array<StocktakeProblemDto>;
+};
+
+export type StocktakeDto = {
+  id: string;
+  number: number;
+  name?: null | string;
+  status: StocktakeStatus;
+  notes?: null | string;
+  createdAt: string;
+  startedAt?: null | string;
+  finishedAt?: null | string;
+  warehouseId: string;
+  warehouseName: string;
+  nodes: Array<StocktakeNodeDto>;
+};
+
+export type StocktakeItemDto = {
+  id: string;
+  kind: StocktakeItemKind;
+  catalogItemId: string;
+  catalogItem?: null | CatalogItemSummaryDto;
+  catalogItemName: string;
+  countedQuantity: number;
+  inventoryNumber?: null | string;
+  unitInventoryItemId?: null | string;
+  notes?: null | string;
+  /**
+   * Stock change applied when the document was finished. Null until then.
+   */
+  appliedDelta?: null | number;
+};
+
+export type StocktakeItemKind = "standard" | "unit";
+
+export type StocktakeItemRequest = {
+  kind: StocktakeItemKind;
+  catalogItemId: string;
+  /**
+   * Counted amount. For StocktakeItemKind.Unit lines only 0 or 1 is meaningful.
+   */
+  countedQuantity: number;
+  /**
+   * Required for unit lines, must be absent for standard ones.
+   */
+  inventoryNumber?: null | string;
+  /**
+   * Optional hint; the server re-resolves the serial by number anyway.
+   */
+  unitInventoryItemId?: null | string;
+  notes?: null | string;
+};
+
+export type StocktakeNodeDifferencesDto = {
+  storagePlaceNodeId: string;
+  nodePath: Array<string>;
+  lines: Array<StocktakeDifferenceLineDto>;
+};
+
+export type StocktakeNodeDto = {
+  id: string;
+  storagePlaceNodeId: string;
+  nodePath: Array<string>;
+  items: Array<StocktakeItemDto>;
+};
+
+export type StocktakeNodeStandardStockDto = {
+  catalogItemId: string;
+  catalogItem?: null | CatalogItemSummaryDto;
+  catalogItemName: string;
+  expected: number;
+};
+
+/**
+ * Live stock of one node in the scope, used to pre-populate the counting screen. Standard goods and
+ * serials come in one response so the accordion can render without a second round trip.
+ */
+export type StocktakeNodeStockDto = {
+  storagePlaceNodeId: string;
+  nodePath: Array<string>;
+  standard: Array<StocktakeNodeStandardStockDto>;
+  units: Array<StocktakeNodeUnitStockDto>;
+};
+
+export type StocktakeNodeUnitStockDto = {
+  unitInventoryItemId: string;
+  inventoryNumber: string;
+  catalogItemId: string;
+  catalogItem?: null | CatalogItemSummaryDto;
+  catalogItemName: string;
+};
+
+export type StocktakeProblemDto = {
+  storagePlaceNodeId: string;
+  code: ErrorCode;
+  message: string;
+};
+
+export type StocktakeSortBy = "number" | "name" | "status" | "createdAt" | "warehouseName";
+
+export type StocktakeStatus = "draft" | "inProgress" | "finished" | "canceled";
+
+export type StocktakeSummaryDto = {
+  id: string;
+  number: number;
+  name?: null | string;
+  status: StocktakeStatus;
+  warehouseId: string;
+  warehouseName: string;
+  nodesCount: number;
+  itemsCount: number;
+  createdAt: string;
+  startedAt?: null | string;
+  finishedAt?: null | string;
+};
+
 export type StoragePlaceDto = {
   id: string;
   name: string;
@@ -1540,6 +1732,13 @@ export type SyncOrdersResponse = {
 export type SyncOrdersStartedItem = {
   accountId: string;
   syncRunId: string;
+};
+
+export type SyncStocktakeNodesRequest = {
+  /**
+   * The full desired scope. Nodes already present keep their counted items.
+   */
+  nodeIds: Array<string>;
 };
 
 export type TableStatDto = {
@@ -1668,7 +1867,7 @@ export type UpdateOrderRequest = {
 };
 
 export type UpdateReceiptRequest = {
-  name: string;
+  name?: null | string;
   reason: ReceiptReason;
   notes?: null | string;
   plannedDeliveryDate?: null | string;
@@ -1683,6 +1882,11 @@ export type UpdateRoleItem = {
   name: string;
   order: number;
   permissions: Array<string>;
+};
+
+export type UpdateStocktakeRequest = {
+  name?: null | string;
+  notes?: null | string;
 };
 
 export type UpdateStoragePlaceNodeRequest = {
@@ -1710,7 +1914,7 @@ export type UpdateWarehouseRequest = {
 };
 
 export type UpdateWriteoffRequest = {
-  name: string;
+  name?: null | string;
   reason: WriteoffReason;
   notes?: null | string;
 };
@@ -1775,7 +1979,7 @@ export type WarehouseSummaryDto = {
 export type WriteoffDto = {
   id: string;
   number: number;
-  name: string;
+  name?: null | string;
   reason: WriteoffReason;
   status: WriteoffStatus;
   notes?: null | string;
@@ -1818,7 +2022,7 @@ export type WriteoffStatus = "draft" | "finished" | "canceled";
 export type WriteoffSummaryDto = {
   id: string;
   number: number;
-  name: string;
+  name?: null | string;
   reason: WriteoffReason;
   status: WriteoffStatus;
   warehouseId: string;
@@ -5266,6 +5470,503 @@ export type StatisticsGetMovementsResponses = {
 
 export type StatisticsGetMovementsResponse =
   StatisticsGetMovementsResponses[keyof StatisticsGetMovementsResponses];
+
+export type StocktakesGetAllData = {
+  body?: never;
+  path?: never;
+  query?: {
+    page?: number;
+    pageSize?: number;
+    searchString?: string;
+    warehouseId?: string;
+    status?: StocktakeStatus;
+    sortBy?: StocktakeSortBy;
+    sortOrder?: SortOrder;
+  };
+  url: "/api/stocktakes";
+};
+
+export type StocktakesGetAllErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type StocktakesGetAllError = StocktakesGetAllErrors[keyof StocktakesGetAllErrors];
+
+export type StocktakesGetAllResponses = {
+  /**
+   * OK
+   */
+  200: PaginatedOfStocktakeSummaryDto;
+};
+
+export type StocktakesGetAllResponse = StocktakesGetAllResponses[keyof StocktakesGetAllResponses];
+
+export type StocktakesCreateData = {
+  body: CreateStocktakeRequest;
+  path?: never;
+  query?: never;
+  url: "/api/stocktakes";
+};
+
+export type StocktakesCreateErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StocktakesCreateError = StocktakesCreateErrors[keyof StocktakesCreateErrors];
+
+export type StocktakesCreateResponses = {
+  /**
+   * Created
+   */
+  201: StocktakeDto;
+};
+
+export type StocktakesCreateResponse = StocktakesCreateResponses[keyof StocktakesCreateResponses];
+
+export type StocktakesDeleteData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/stocktakes/{id}";
+};
+
+export type StocktakesDeleteErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StocktakesDeleteError = StocktakesDeleteErrors[keyof StocktakesDeleteErrors];
+
+export type StocktakesDeleteResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type StocktakesDeleteResponse = StocktakesDeleteResponses[keyof StocktakesDeleteResponses];
+
+export type StocktakesGetByIdData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/stocktakes/{id}";
+};
+
+export type StocktakesGetByIdErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type StocktakesGetByIdError = StocktakesGetByIdErrors[keyof StocktakesGetByIdErrors];
+
+export type StocktakesGetByIdResponses = {
+  /**
+   * OK
+   */
+  200: StocktakeDto;
+};
+
+export type StocktakesGetByIdResponse =
+  StocktakesGetByIdResponses[keyof StocktakesGetByIdResponses];
+
+export type StocktakesUpdateData = {
+  body: UpdateStocktakeRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/stocktakes/{id}";
+};
+
+export type StocktakesUpdateErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StocktakesUpdateError = StocktakesUpdateErrors[keyof StocktakesUpdateErrors];
+
+export type StocktakesUpdateResponses = {
+  /**
+   * OK
+   */
+  200: StocktakeDto;
+};
+
+export type StocktakesUpdateResponse = StocktakesUpdateResponses[keyof StocktakesUpdateResponses];
+
+export type StocktakesSyncNodesData = {
+  body: SyncStocktakeNodesRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/stocktakes/{id}/nodes";
+};
+
+export type StocktakesSyncNodesErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StocktakesSyncNodesError = StocktakesSyncNodesErrors[keyof StocktakesSyncNodesErrors];
+
+export type StocktakesSyncNodesResponses = {
+  /**
+   * OK
+   */
+  200: StocktakeDto;
+};
+
+export type StocktakesSyncNodesResponse =
+  StocktakesSyncNodesResponses[keyof StocktakesSyncNodesResponses];
+
+export type StocktakesGetNodeStockData = {
+  body?: never;
+  path: {
+    id: string;
+    nodeId: string;
+  };
+  query?: never;
+  url: "/api/stocktakes/{id}/nodes/{nodeId}/stock";
+};
+
+export type StocktakesGetNodeStockErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type StocktakesGetNodeStockError =
+  StocktakesGetNodeStockErrors[keyof StocktakesGetNodeStockErrors];
+
+export type StocktakesGetNodeStockResponses = {
+  /**
+   * OK
+   */
+  200: StocktakeNodeStockDto;
+};
+
+export type StocktakesGetNodeStockResponse =
+  StocktakesGetNodeStockResponses[keyof StocktakesGetNodeStockResponses];
+
+export type StocktakesSyncNodeItemsData = {
+  body: Array<StocktakeItemRequest>;
+  path: {
+    id: string;
+    nodeId: string;
+  };
+  query?: never;
+  url: "/api/stocktakes/{id}/nodes/{nodeId}/items";
+};
+
+export type StocktakesSyncNodeItemsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StocktakesSyncNodeItemsError =
+  StocktakesSyncNodeItemsErrors[keyof StocktakesSyncNodeItemsErrors];
+
+export type StocktakesSyncNodeItemsResponses = {
+  /**
+   * OK
+   */
+  200: StocktakeDto;
+};
+
+export type StocktakesSyncNodeItemsResponse =
+  StocktakesSyncNodeItemsResponses[keyof StocktakesSyncNodeItemsResponses];
+
+export type StocktakesStartData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/stocktakes/{id}/start";
+};
+
+export type StocktakesStartErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StocktakesStartError = StocktakesStartErrors[keyof StocktakesStartErrors];
+
+export type StocktakesStartResponses = {
+  /**
+   * OK
+   */
+  200: StocktakeDto;
+};
+
+export type StocktakesStartResponse = StocktakesStartResponses[keyof StocktakesStartResponses];
+
+export type StocktakesRevertData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/stocktakes/{id}/revert";
+};
+
+export type StocktakesRevertErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StocktakesRevertError = StocktakesRevertErrors[keyof StocktakesRevertErrors];
+
+export type StocktakesRevertResponses = {
+  /**
+   * OK
+   */
+  200: StocktakeDto;
+};
+
+export type StocktakesRevertResponse = StocktakesRevertResponses[keyof StocktakesRevertResponses];
+
+export type StocktakesCancelData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/stocktakes/{id}/cancel";
+};
+
+export type StocktakesCancelErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StocktakesCancelError = StocktakesCancelErrors[keyof StocktakesCancelErrors];
+
+export type StocktakesCancelResponses = {
+  /**
+   * OK
+   */
+  200: StocktakeDto;
+};
+
+export type StocktakesCancelResponse = StocktakesCancelResponses[keyof StocktakesCancelResponses];
+
+export type StocktakesGetDifferencesData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/stocktakes/{id}/differences";
+};
+
+export type StocktakesGetDifferencesErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type StocktakesGetDifferencesError =
+  StocktakesGetDifferencesErrors[keyof StocktakesGetDifferencesErrors];
+
+export type StocktakesGetDifferencesResponses = {
+  /**
+   * OK
+   */
+  200: StocktakeDifferencesDto;
+};
+
+export type StocktakesGetDifferencesResponse =
+  StocktakesGetDifferencesResponses[keyof StocktakesGetDifferencesResponses];
+
+export type StocktakesFinishData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/stocktakes/{id}/finish";
+};
+
+export type StocktakesFinishErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StocktakesFinishError = StocktakesFinishErrors[keyof StocktakesFinishErrors];
+
+export type StocktakesFinishResponses = {
+  /**
+   * OK
+   */
+  200: StocktakeDto;
+};
+
+export type StocktakesFinishResponse = StocktakesFinishResponses[keyof StocktakesFinishResponses];
 
 export type StoragePlacesGetNodesData = {
   body?: never;

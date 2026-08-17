@@ -12,6 +12,7 @@ using ProjectWarehouse.Server.Models.Inventory;
 using ProjectWarehouse.Server.Models.Receipts;
 using ProjectWarehouse.Server.Models.Roles;
 using ProjectWarehouse.Server.Models.Statistics;
+using ProjectWarehouse.Server.Models.Stocktakes;
 using ProjectWarehouse.Server.Models.Writeoffs;
 using ProjectWarehouse.Server.Models.Users;
 using ProjectWarehouse.Server.Models.Warehouses;
@@ -236,6 +237,28 @@ public class AppMapperProfile : Profile
         CreateMap<Writeoff, AppEntityWithSearchString>()
             .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
 
+        CreateMap<Stocktake, StocktakeSummaryDto>()
+            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
+            .ForMember(d => d.NodesCount, opt => opt.MapFrom(s => s.Nodes.Count))
+            .ForMember(d => d.ItemsCount, opt => opt.MapFrom(s => s.Nodes.Sum(n => n.Items.Count)));
+        CreateMap<Stocktake, StocktakeDto>()
+            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name));
+        CreateMap<StocktakeNode, StocktakeNodeDto>()
+            .ForMember(d => d.NodePath, opt => opt.MapFrom<StocktakeNodePathResolver>());
+        CreateMap<StocktakeItem, StocktakeItemDto>()
+            .ForMember(d => d.CatalogItemName, opt => opt.MapFrom(s => s.CatalogItem.Name));
+
+        CreateMap<Stocktake, AppEntity>()
+            .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Stocktake))
+            .ForMember(x => x.AdditionalFields, opt => opt.MapFrom(r => new Dictionary<string, object>
+            {
+                { "number", r.Number },
+                { "status", r.Status },
+            }));
+
+        CreateMap<Stocktake, AppEntityWithSearchString>()
+            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
+
         CreateMap<Order, OrderSummaryDto>()
             .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
             .ForMember(d => d.CreatedByName, opt => opt.MapFrom(s => s.CreatedBy != null ? s.CreatedBy.FullName : null))
@@ -362,6 +385,27 @@ public class WriteoffItemNodePathResolver : IValueResolver<WriteoffItem, Writeof
             return StoragePlaceNodeHelper.BuildPath(source.SourceNode, nodeById);
 
         return [source.SourceNode.RootStoragePlace.Name, source.SourceNode.Name];
+    }
+}
+
+/// <summary>
+/// Builds the breadcrumb for a <see cref="StocktakeNode"/>. Same <c>nodeById</c> convention as
+/// <see cref="NodePathResolver"/>.
+/// </summary>
+public class StocktakeNodePathResolver : IValueResolver<StocktakeNode, StocktakeNodeDto, string[]>
+{
+    public string[] Resolve(
+        StocktakeNode source,
+        StocktakeNodeDto destination,
+        string[] destMember,
+        ResolutionContext context)
+    {
+        if (context.TryGetItems(out var items)
+            && items.TryGetValue("nodeById", out var obj)
+            && obj is IReadOnlyDictionary<Guid, StoragePlaceNode> nodeById)
+            return StoragePlaceNodeHelper.BuildPath(source.StoragePlaceNode, nodeById);
+
+        return [source.StoragePlaceNode.RootStoragePlace.Name, source.StoragePlaceNode.Name];
     }
 }
 

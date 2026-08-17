@@ -96,6 +96,16 @@ src/
 │   │   ├── AddPlacementDialog.tsx      # Dialog: place items at a node (standard / unit / assembled-bundle)
 │   │   ├── SelectNodeModal.tsx         # Modal for selecting a storage place node (warehouse schema or tree)
 │   │   └── receiptUtils.ts            # RECEIPT_REASON_LABELS, formatReceiptNumber helpers
+│   ├── stocktakes/
+│   │   ├── StocktakeStatusChip.tsx      # MUI Chip for StocktakeStatus (color per status)
+│   │   ├── StocktakeNodesSection.tsx    # Draft body: scope list, add via SelectNodeModal, remove with ConfirmDialog
+│   │   ├── StocktakeCountingSection.tsx # InProgress body: one accordion per cell + "показать расхождения"
+│   │   ├── StocktakeNodeAccordion.tsx   # The counting editor for one cell — lazy stock fetch, merged rows, per-cell save
+│   │   ├── StocktakeAddItemModal.tsx    # Dialog for adding a surplus position (unit → inventory number, else quantity)
+│   │   ├── StocktakeDifferencesDialog.tsx # Preview of what finishing will do; the only path to POST /finish
+│   │   ├── StocktakeResultSection.tsx   # Terminal body: read-only, rendered from appliedDelta
+│   │   ├── stocktakeDraft.ts            # DraftRow, buildDraftRows (live stock ⊕ saved lines), draftToRequest
+│   │   └── stocktakeUtils.ts            # STOCKTAKE_STATUS_LABELS, DIFFERENCE_RESOLUTION_LABELS, formatStocktakeNumber, deltaColor
 │   ├── inventory/
 │   │   ├── ItemsBasePage.tsx        # Reusable inventory table: search, filters (types/tags/archive/warehouse), pagination, row-click drawers
 │   │   └── UnitItemsDrawer.tsx      # Bottom drawer: paginated list of individual UnitInventoryItem instances for a clicked catalog item
@@ -266,13 +276,20 @@ src/
 │   │       │           └── ReceiptPage.tsx    # Receipt detail: metadata edit, status transitions, items + placements
 │   │       ├── TransfersPage/
 │   │       │   └── TransfersPage.tsx         # Перемещения: pick source/target location, execute transfer
-│   │       └── WriteoffsPage/
-│   │           ├── WriteoffsPage.tsx         # Paginated, searchable, sortable list of writeoffs (списания)
+│   │       ├── WriteoffsPage/
+│   │       │   ├── WriteoffsPage.tsx         # Paginated, searchable, sortable list of writeoffs (списания)
+│   │       │   └── pages/
+│   │       │       ├── WriteoffCreatePage/
+│   │       │       │   └── WriteoffCreatePage.tsx # RHF form for creating a new writeoff
+│   │       │       └── WriteoffPage/
+│   │       │           └── WriteoffPage.tsx   # Writeoff detail: metadata edit, status transitions, items
+│   │       └── StocktakesPage/
+│   │           ├── StocktakesPage.tsx         # Paginated, searchable, sortable list of stocktakes (инвентаризации)
 │   │           └── pages/
-│   │               ├── WriteoffCreatePage/
-│   │               │   └── WriteoffCreatePage.tsx # RHF form for creating a new writeoff
-│   │               └── WriteoffPage/
-│   │                   └── WriteoffPage.tsx   # Writeoff detail: metadata edit, status transitions, items
+│   │               ├── StocktakeCreatePage/
+│   │               │   └── StocktakeCreatePage.tsx # RHF form for creating a new stocktake
+│   │               └── StocktakePage/
+│   │                   └── StocktakePage.tsx   # Stocktake detail: swaps its body by status (scope / counting / result)
 │   └── SettingsPage/
 │       ├── SettingsPage.tsx     # Sections declaration only — drives routes + sidebar nav for /settings/*
 │       ├── settingsConfig.tsx   # settingsSections (Роли + Сотрудники + Маркетплейсы + Хранилище), hasSettingsAccess, getSettingsFirstPageUrl
@@ -389,6 +406,9 @@ src/
 /operations/writeoffs     →   WriteoffsPage
 /operations/writeoffs/new →   WriteoffCreatePage
 /operations/writeoffs/:id →   WriteoffPage
+/operations/stocktakes     →   StocktakesPage
+/operations/stocktakes/new →   StocktakeCreatePage
+/operations/stocktakes/:id →   StocktakePage
 
 /settings/*               → MainLayout > SettingsPage    (SidebarPage)
 /settings                 →   redirect to first accessible section
@@ -491,6 +511,31 @@ Detail page for a single receipt (`/operations/receipts/:id`). Shows receipt met
 - `canceled` → read-only, no actions
 
 **`ReceiptItemsSection`:** per-item collapsible panel. Shows `receivedCount` field (editable in Processing status via PATCH `.../received-count`). Placements table lists node path + count/SKU per placement with a delete button (Processing only). **Разместить** button opens `AddPlacementDialog`.
+
+### `StocktakesPage` (Инвентаризации)
+Server-side paginated, searchable, sortable list of stocktakes. State in URL params (`?search=`, `?warehouse=`, `?status=`, `?page=`, `?pageSize=`, `?sortBy=`, `?sortOrder=`). Columns: **№** (`ИНВ-00001`), **Название**, **Статус** (`StocktakeStatusChip`), **Склад**, **Создано**, **Ячеек**, **Позиций**. Rows navigate to `StocktakePage`. **Новая инвентаризация** is shown for `stocktakes.edit` / `stocktakes.edit_assigned`.
+
+### `StocktakeCreatePage`
+RHF form: name (required), warehouse (required, via `WarehousesSelect`), notes. No reason field — a stocktake has none. On success navigates to the created document.
+
+### `StocktakePage`
+Detail page (`/operations/stocktakes/:id`) whose **body swaps with the status**, because the three phases are genuinely different screens:
+
+- `draft` → `StocktakeNodesSection` — the scope. Cells are added via the shared `SelectNodeModal` and removed through a `ConfirmDialog` that warns when counted lines would be discarded. Every change PUTs the full id list.
+- `inProgress` → `StocktakeCountingSection` — one `StocktakeNodeAccordion` per cell plus **Показать расхождения**.
+- `finished` / `canceled` → `StocktakeResultSection` — read-only, rendered from `appliedDelta` and never from live stock.
+
+Action buttons by status: `draft` → **Начать** / **Отменить** / **Удалить**; `inProgress` → **Завершить** (opens `StocktakeDifferencesDialog`) / **В черновик** / **Отменить**; terminal → none. All mutations return the full `StocktakeDto` and are written into the cache with `setQueryData`.
+
+**`StocktakeNodeAccordion` (the counting editor).** Cell stock is fetched lazily (`enabled: expanded`) from `GET /api/stocktakes/{id}/nodes/{nodeId}/stock` — the stocktake-owned endpoint, so counting needs no warehouse permissions.
+
+Displayed rows are **derived, never stored in an effect**: `useMemo` merges live stock with the already-saved lines, then applies three pieces of local state — `edits` (per-row overrides), `added` (surpluses), `removed` (keys). A refetch therefore refreshes the baseline without discarding what the operator typed, and `dirty` is simply "any of the three is non-empty". `buildDraftRows` (in `stocktakeDraft.ts`) implements the merge: every live position defaults to *counted = expected* so only discrepancies need touching, and saved lines with no live counterpart are appended — those are surpluses entered earlier.
+
+Standard rows use `ClampedIntegerField` with an explicit **`min={0}`** — the component defaults to `min = 1`, which would make a zero count impossible to enter. Unit rows are a «Найден» checkbox (unchecked ⇒ `countedQuantity = 0`). Only rows with `expected === 0` can be deleted; pre-populated rows are set to zero instead, so "искали — нет" stays an explicit finding.
+
+Each accordion saves independently (`PUT .../nodes/{nodeId}/items`), so two operators can count different cells without clobbering each other.
+
+**`StocktakeDifferencesDialog`** is the only path to `POST /finish`. It renders `GET /{id}/differences`: totals, a per-cell table with a «Что будет сделано» column, `missingFromDocument` rows highlighted and labelled «нет в документе — будет списано», and a `problems` block that disables the finish button. This is deliberate — the cell-is-authoritative rule is destructive by omission and must never be applied blind.
 
 ### `CatalogPage`
 Server-side paginated, searchable list of catalog items. Requires `catalog.view` or `receipts.process_assigned`. State in URL params (`?search=`, `?page=`, `?pageSize=`, `?types=` comma-separated `CatalogItemType`, `?tags=` comma-separated tag GUIDs). Clicking a row opens `CatalogItemDrawer` (right-side MUI Drawer); the selected item ID is stored in `?item=` query param via `useDrawerSearchParamsState`. Columns: **Тип** (`CatalogItemTypeChip`), **Название** (fullName + archive icon if isArchived), **Артикул**, **Штрихкод**.
@@ -840,7 +885,7 @@ Content is passed as children because the composition differs per call site (chi
 </CatalogItemLink>
 ```
 
-Used by `ItemsBasePage` (name + archive icon), `CatalogPage` (name + archive icon), `ReceiptItemsSection` (chip + name), `WriteoffItemsSection` (chip + name; falls back to plain text when `catalogItemId` is null), `FulfillmentsDrawer` (card headline, resolved variant row, bundle component rows), `OrderComponentsTable` / `AssemblyTaskAccordionItem` / `AssemblyTaskAccordion` (component name, via `useOpenCatalogItem()`).
+Used by `ItemsBasePage` (name + archive icon), `CatalogPage` (name + archive icon), `ReceiptItemsSection` (chip + name), `WriteoffItemsSection` (chip + name; falls back to plain text when `catalogItemId` is null), `StocktakeNodeAccordion` / `StocktakeResultSection` (name + inventory number), `FulfillmentsDrawer` (card headline, resolved variant row, bundle component rows), `OrderComponentsTable` / `AssemblyTaskAccordionItem` / `AssemblyTaskAccordion` (component name, via `useOpenCatalogItem()`).
 
 ### `CatalogItemTypeChip`
 
@@ -1414,7 +1459,7 @@ const [selectedId, openDrawer, closeDrawer] = useDrawerSearchParamsState("item")
 - `CatalogPage` — `?item=` param, opens `CatalogItemDrawer`
 - `WarehouseViewPage` — `?storagePlace=` param, opens `StoragePlaceDialog`
 - `ItemsBasePage` — `?catalogItem=`, `?unitCatalogItem=`, `?bundleCatalogItem=` params for the three inventory drawers
-- `ReceiptItemsSection`, `WriteoffItemsSection` — `?catalogItem=`, opens `CatalogItemDrawer`
+- `ReceiptItemsSection`, `WriteoffItemsSection`, `StocktakeCountingSection`, `StocktakeResultSection` — `?catalogItem=`, opens `CatalogItemDrawer`
 - `CatalogItemDrawerHost` — `?catalogItem=`, one drawer per page shared via context (`OrderPage`, `OrdersAssemblyPage`)
 - `FulfillmentsDrawer` — `?fulfillmentCatalogItem=`, an ephemeral param (see [`stripEphemeralSearchParams()`](#stripephemeralsearchparams))
 

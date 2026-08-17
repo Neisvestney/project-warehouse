@@ -71,6 +71,14 @@ public static class Permissions
         public const string EditAssigned = "writeoffs.edit_assigned";
     }
 
+    public static class Stocktakes
+    {
+        public const string View         = "stocktakes.view";
+        public const string Edit         = "stocktakes.edit";
+        public const string ViewAssigned = "stocktakes.view_assigned";
+        public const string EditAssigned = "stocktakes.edit_assigned";
+    }
+
     public static class Receipts
     {
         public const string View            = "receipts.view";

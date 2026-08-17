@@ -209,7 +209,7 @@ function WriteoffsPage() {
                   <TableCell sx={{fontFamily: "monospace"}}>
                     {formatWriteoffNumber(writeoff.number)}
                   </TableCell>
-                  <TableCell>{writeoff.name}</TableCell>
+                  <TableCell>{writeoff.name || "—"}</TableCell>
                   <TableCell>
                     <WriteoffStatusChip status={writeoff.status} />
                   </TableCell>

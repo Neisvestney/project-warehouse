@@ -118,6 +118,20 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
       </>
     ),
   },
+  stocktake: {
+    linkTemplate: "/operations/stocktakes/{id}",
+    typeName: "Инвентаризация",
+    icon: <AssignmentIcon />,
+    renderAdditionalCardContent: (e) => (
+      <>
+        {e.additionalFields?.number && (
+          <Typography sx={{fontFamily: "monospace"}}>
+            ИНВ-{String(e.additionalFields.number as number).padStart(5, "0")}
+          </Typography>
+        )}
+      </>
+    ),
+  },
   order: {
     linkTemplate: "/operations/orders/{id}",
     typeName: "Заказ",

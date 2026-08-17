@@ -6,9 +6,8 @@ namespace ProjectWarehouse.Server.Models.Receipts;
 
 public class CreateReceiptRequest
 {
-    [Required]
     [MaxLength(256)]
-    public string Name { get; init; } = null!;
+    public string? Name { get; init; }
 
     [JsonRequired]
     public ReceiptReason Reason { get; init; }

@@ -1134,7 +1134,6 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Name")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Notes")
@@ -1321,6 +1320,118 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("StockMovements");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Stocktake", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("FinishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Number")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Number"));
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("Number")
+                        .IsUnique();
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("Stocktakes");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.StocktakeItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("AppliedDelta")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("CatalogItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("CountedQuantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("InventoryNumber")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("StocktakeNodeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("UnitInventoryItemId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CatalogItemId");
+
+                    b.HasIndex("StocktakeNodeId");
+
+                    b.HasIndex("UnitInventoryItemId");
+
+                    b.ToTable("StocktakeItems");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.StocktakeNode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("StocktakeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("StoragePlaceNodeId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoragePlaceNodeId");
+
+                    b.HasIndex("StocktakeId", "StoragePlaceNodeId")
+                        .IsUnique();
+
+                    b.ToTable("StocktakeNodes");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlace", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1436,7 +1547,6 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Name")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Notes")
@@ -2150,6 +2260,69 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("Warehouse");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Stocktake", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.StocktakeItem", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.StocktakeNode", "StocktakeNode")
+                        .WithMany("Items")
+                        .HasForeignKey("StocktakeNodeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.UnitInventoryItem", "UnitInventoryItem")
+                        .WithMany()
+                        .HasForeignKey("UnitInventoryItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CatalogItem");
+
+                    b.Navigation("StocktakeNode");
+
+                    b.Navigation("UnitInventoryItem");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.StocktakeNode", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.Stocktake", "Stocktake")
+                        .WithMany("Nodes")
+                        .HasForeignKey("StocktakeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.StoragePlaceNode", "StoragePlaceNode")
+                        .WithMany()
+                        .HasForeignKey("StoragePlaceNodeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Stocktake");
+
+                    b.Navigation("StoragePlaceNode");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlace", b =>
                 {
                     b.HasOne("ProjectWarehouse.Server.Domain.Warehouse", "Warehouse")
@@ -2380,6 +2553,16 @@ namespace ProjectWarehouse.Server.Migrations
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.ReceiptItem", b =>
                 {
                     b.Navigation("Placements");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Stocktake", b =>
+                {
+                    b.Navigation("Nodes");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.StocktakeNode", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlace", b =>

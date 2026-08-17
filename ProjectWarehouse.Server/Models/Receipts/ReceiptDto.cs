@@ -6,7 +6,7 @@ public class ReceiptDto
 {
     public Guid Id { get; init; }
     public int Number { get; init; }
-    public string Name { get; init; } = null!;
+    public string? Name { get; init; }
     public ReceiptReason Reason { get; init; }
     public ReceiptStatus Status { get; init; }
     public string? Notes { get; init; }

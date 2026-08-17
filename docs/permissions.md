@@ -80,6 +80,20 @@ That's it. `Permissions.All` picks up new constants automatically via reflection
 
 `writeoffs.view` перекрывает `writeoffs.view_assigned`, `writeoffs.edit` перекрывает `writeoffs.edit_assigned`.
 
+### Stocktakes (`stocktakes.*`)
+| Permission | Constant | Scope |
+|-----------|----------|-------|
+| `stocktakes.view` | `Permissions.Stocktakes.View` | All warehouses |
+| `stocktakes.edit` | `Permissions.Stocktakes.Edit` | All warehouses |
+| `stocktakes.view_assigned` | `Permissions.Stocktakes.ViewAssigned` | Only user's assigned warehouses |
+| `stocktakes.edit_assigned` | `Permissions.Stocktakes.EditAssigned` | Only user's assigned warehouses |
+
+`stocktakes.view` перекрывает `stocktakes.view_assigned`, `stocktakes.edit` перекрывает `stocktakes.edit_assigned`.
+
+Складских прав экран пересчёта не требует: остаток ячейки отдаёт `GET /api/stocktakes/{id}/nodes/{nodeId}/stock`, а не эндпоинты инвентаря (которые требуют `warehouses.view`). Роль «только инвентаризация» работоспособна без доступа к складам.
+
+Права новые, поэтому после деплоя существующим ролям их надо выдать вручную — `Permissions.All` собирается рефлексией, и `DbSeeder` раздаёт всё только роли Admin.
+
 ### Catalog (`catalog.*`)
 | Permission | Constant |
 |-----------|----------|
