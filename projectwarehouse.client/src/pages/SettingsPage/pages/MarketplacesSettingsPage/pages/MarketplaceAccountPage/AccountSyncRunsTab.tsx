@@ -49,7 +49,7 @@ function AccountSyncRunsTab({accountId, isRunning}: AccountSyncRunsTabProps) {
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell/>
+            <TableCell />
             <TableCell>Начат</TableCell>
             <TableCell>Длительность</TableCell>
             <TableCell>Объём</TableCell>
@@ -63,9 +63,9 @@ function AccountSyncRunsTab({accountId, isRunning}: AccountSyncRunsTabProps) {
         </TableHead>
         <TableBody>
           {isLoading ? (
-            <TableRowLoader colSpan={9}/>
+            <TableRowLoader colSpan={9} />
           ) : data?.items.length === 0 ? (
-            <TableRowEmpty colSpan={9} message="Синхронизаций ещё не было"/>
+            <TableRowEmpty colSpan={9} message="Синхронизаций ещё не было" />
           ) : (
             data?.items.map((run) => (
               <Fragment key={run.id}>
@@ -77,9 +77,9 @@ function AccountSyncRunsTab({accountId, isRunning}: AccountSyncRunsTabProps) {
                         onClick={() => setExpandedId(expandedId === run.id ? null : run.id)}
                       >
                         {expandedId === run.id ? (
-                          <KeyboardArrowUpIcon/>
+                          <KeyboardArrowUpIcon />
                         ) : (
-                          <KeyboardArrowDownIcon/>
+                          <KeyboardArrowDownIcon />
                         )}
                       </IconButton>
                     )}
@@ -88,17 +88,23 @@ function AccountSyncRunsTab({accountId, isRunning}: AccountSyncRunsTabProps) {
                   <TableCell>{formatDuration(run.startedAt, run.finishedAt)}</TableCell>
                   <TableCell>{SYNC_SCOPE_LABELS[run.scope]}</TableCell>
                   <TableCell>
-                    <MarketplaceStatusChip status={run.status}/>
+                    <MarketplaceStatusChip status={run.status} />
                   </TableCell>
-                  <TableCell>{["warehouse", "all"].includes(run.scope) ? run.warehousesProcessed : "—"}</TableCell>
+                  <TableCell>
+                    {["warehouse", "all"].includes(run.scope) ? run.warehousesProcessed : "—"}
+                  </TableCell>
                   <TableCell sx={{whiteSpace: "pre-wrap"}}>
-                    {["cards", "all"].includes(run.scope) ? `${run.cardsProcessed}\n(+${run.cardsCreated} / ~${run.cardsUpdated} / −${run.cardsArchived})` : "—"}
+                    {["cards", "all"].includes(run.scope)
+                      ? `${run.cardsProcessed}\n(+${run.cardsCreated} / ~${run.cardsUpdated} / −${run.cardsArchived})`
+                      : "—"}
                   </TableCell>
                   <TableCell>
                     {["cards", "all"].includes(run.scope) ? run.autoMapped : "—"}
                   </TableCell>
                   <TableCell sx={{whiteSpace: "pre-wrap"}}>
-                    {["orders"].includes(run.scope) ? `${run.ordersProcessed}\n(+${run.ordersCreated}) / ~${run.ordersUpdated} / >${run.ordersSkipped}` : "—"}
+                    {["orders"].includes(run.scope)
+                      ? `${run.ordersProcessed}\n(+${run.ordersCreated}) / ~${run.ordersUpdated} / >${run.ordersSkipped}`
+                      : "—"}
                   </TableCell>
                   <TableCell>{run.triggeredByName ?? "Планировщик"}</TableCell>
                 </TableRow>
@@ -106,7 +112,7 @@ function AccountSyncRunsTab({accountId, isRunning}: AccountSyncRunsTabProps) {
                   <TableRow>
                     <TableCell sx={{py: 0, borderBottom: "none"}} colSpan={10}>
                       <Collapse in={expandedId === run.id} unmountOnExit>
-                        <SyncErrorAlert error={run.error} title="Запуск завершился ошибкой"/>
+                        <SyncErrorAlert error={run.error} title="Запуск завершился ошибкой" />
                       </Collapse>
                     </TableCell>
                   </TableRow>

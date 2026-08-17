@@ -4,12 +4,22 @@ import DownloadLabelsButton from "@/components/orders/marketplace/DownloadLabels
 import MarketplaceOrderStatusChip from "@/components/orders/marketplace/MarketplaceOrderStatusChip";
 import SyncOrdersButton from "@/components/orders/marketplace/SyncOrdersButton";
 import {useHasPermission} from "@/hooks/usePermission";
+import {Typography} from "@mui/material";
 
 const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
   {
     key: "marketplaceStatus",
     label: "Статус на площадке",
     render: (order) => <MarketplaceOrderStatusChip value={order.marketplaceOrder} />,
+  },
+  {
+    key: "postingNumber",
+    label: "Номер отправления",
+    render: (order) => (
+      <Typography variant="body2" sx={{fontFamily: "monospace"}}>
+        {order.marketplaceOrder?.postingNumber ?? "—"}
+      </Typography>
+    ),
   },
 ];
 
@@ -24,7 +34,9 @@ function OrdersFbsPage() {
       breadcrumbLink="/operations/orders/fbs"
       headerActions={canSync ? <SyncOrdersButton /> : null}
       bulkActions={(ids) => <DownloadLabelsButton orderIds={ids} />}
+      marketplaceFilters
       extraColumns={EXTRA_COLUMNS}
+      showNotes={false}
     />
   );
 }

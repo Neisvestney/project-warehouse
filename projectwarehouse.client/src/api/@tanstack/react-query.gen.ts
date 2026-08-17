@@ -37,6 +37,7 @@ import {
   marketplacesDeleteAccount,
   marketplacesGetAccount,
   marketplacesGetAccounts,
+  marketplacesGetAccountsShort,
   marketplacesGetCards,
   marketplacesGetOrderSyncTargets,
   marketplacesGetSyncRuns,
@@ -216,6 +217,9 @@ import type {
   MarketplacesGetAccountsData,
   MarketplacesGetAccountsError,
   MarketplacesGetAccountsResponse,
+  MarketplacesGetAccountsShortData,
+  MarketplacesGetAccountsShortError,
+  MarketplacesGetAccountsShortResponse,
   MarketplacesGetCardsData,
   MarketplacesGetCardsError,
   MarketplacesGetCardsResponse,
@@ -1442,6 +1446,35 @@ export const marketplacesCreateAccountMutation = (
   };
   return mutationOptions;
 };
+
+export const marketplacesGetAccountsShortQueryKey = (
+  options?: Options<MarketplacesGetAccountsShortData>,
+) => createQueryKey("marketplacesGetAccountsShort", options);
+
+/**
+ * Id/name/type only, for filter dropdowns. Open to any authenticated user on purpose: the orders
+ * pages filter by account, and a picker there must not require integrations.view.
+ */
+export const marketplacesGetAccountsShortOptions = (
+  options?: Options<MarketplacesGetAccountsShortData>,
+) =>
+  queryOptions<
+    MarketplacesGetAccountsShortResponse,
+    MarketplacesGetAccountsShortError,
+    MarketplacesGetAccountsShortResponse,
+    ReturnType<typeof marketplacesGetAccountsShortQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await marketplacesGetAccountsShort({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: marketplacesGetAccountsShortQueryKey(options),
+  });
 
 /**
  * Disconnects an account, cascading to its synced warehouses, cards and run history.

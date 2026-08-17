@@ -55,7 +55,14 @@ interface NodeFieldProps {
   catalogItemId?: string;
 }
 
-function NodeField({label, warehouseId, nodePath, onSelect, onClear, catalogItemId}: NodeFieldProps) {
+function NodeField({
+  label,
+  warehouseId,
+  nodePath,
+  onSelect,
+  onClear,
+  catalogItemId,
+}: NodeFieldProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -122,7 +129,13 @@ interface StandardFormProps {
   catalogItemId?: string;
 }
 
-function StandardForm({warehouseId, maxQuantity, value, onChange, catalogItemId}: StandardFormProps) {
+function StandardForm({
+  warehouseId,
+  maxQuantity,
+  value,
+  onChange,
+  catalogItemId,
+}: StandardFormProps) {
   return (
     <Stack spacing={2}>
       <NodeField

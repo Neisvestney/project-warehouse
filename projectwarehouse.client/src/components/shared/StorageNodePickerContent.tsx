@@ -39,7 +39,12 @@ interface StorageNodePickerContentProps {
   catalogItemId?: string;
 }
 
-function StorageNodePickerContent({warehouseId, onSelect, open, catalogItemId}: StorageNodePickerContentProps) {
+function StorageNodePickerContent({
+  warehouseId,
+  onSelect,
+  open,
+  catalogItemId,
+}: StorageNodePickerContentProps) {
   const [activeTab, setActiveTab] = useState<TabId>("canvas");
   const [selectedStoragePlaceId, setSelectedStoragePlaceId] = useState<string>("");
   const [scanError, setScanError] = useState<string | null>(null);

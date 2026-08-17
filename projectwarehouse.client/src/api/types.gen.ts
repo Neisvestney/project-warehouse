@@ -2679,6 +2679,39 @@ export type MarketplacesCreateAccountResponses = {
 export type MarketplacesCreateAccountResponse =
   MarketplacesCreateAccountResponses[keyof MarketplacesCreateAccountResponses];
 
+export type MarketplacesGetAccountsShortData = {
+  body?: never;
+  path?: never;
+  query?: {
+    type?: MarketplaceType;
+  };
+  url: "/api/integrations/marketplaces/accounts/short";
+};
+
+export type MarketplacesGetAccountsShortErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesGetAccountsShortError =
+  MarketplacesGetAccountsShortErrors[keyof MarketplacesGetAccountsShortErrors];
+
+export type MarketplacesGetAccountsShortResponses = {
+  /**
+   * OK
+   */
+  200: Array<MarketplaceAccountShortSummaryDto>;
+};
+
+export type MarketplacesGetAccountsShortResponse =
+  MarketplacesGetAccountsShortResponses[keyof MarketplacesGetAccountsShortResponses];
+
 export type MarketplacesDeleteAccountData = {
   body?: never;
   path: {
@@ -3196,6 +3229,9 @@ export type OrdersGetAllData = {
     warehouseId?: string;
     type?: OrderType;
     status?: OrderStatus;
+    marketplaceType?: MarketplaceType;
+    marketplaceAccountId?: string;
+    marketplaceStatus?: MarketplaceOrderStatus;
     sortBy?: OrderSortBy;
     sortOrder?: SortOrder;
   };

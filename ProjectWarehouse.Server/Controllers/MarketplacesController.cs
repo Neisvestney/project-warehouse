@@ -68,6 +68,31 @@ public class MarketplacesController(
         return Ok(paginated);
     }
 
+    /// <summary>
+    /// Id/name/type only, for filter dropdowns. Open to any authenticated user on purpose: the orders
+    /// pages filter by account, and a picker there must not require integrations.view.
+    /// </summary>
+    [HttpGet("accounts/short")]
+    [Authorize]
+    [ProducesResponseType<List<MarketplaceAccountShortSummaryDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAccountsShort(
+        [FromQuery] MarketplaceType? type = null,
+        CancellationToken ct = default)
+    {
+        var query = db.MarketplaceAccounts.AsQueryable();
+
+        if (type is not null)
+            query = query.Where(a => a.Type == type);
+
+        var accounts = await query
+            .OrderBy(a => a.Name)
+            .ThenBy(a => a.Id)
+            .ProjectTo<MarketplaceAccountShortSummaryDto>(mapper.ConfigurationProvider)
+            .ToListAsync(ct);
+
+        return Ok(accounts);
+    }
+
     /// <summary>Account with aggregates. Probes the stored key so the UI can warn about a lost key ring.</summary>
     [HttpGet("accounts/{id:guid}")]
     [Authorize(Policy = Permissions.Integrations.View)]

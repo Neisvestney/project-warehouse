@@ -92,6 +92,9 @@ import type {
   MarketplacesGetAccountsData,
   MarketplacesGetAccountsErrors,
   MarketplacesGetAccountsResponses,
+  MarketplacesGetAccountsShortData,
+  MarketplacesGetAccountsShortErrors,
+  MarketplacesGetAccountsShortResponses,
   MarketplacesGetCardsData,
   MarketplacesGetCardsErrors,
   MarketplacesGetCardsResponses,
@@ -738,6 +741,19 @@ export const marketplacesCreateAccount = <ThrowOnError extends boolean = false>(
       ...options.headers,
     },
   });
+
+/**
+ * Id/name/type only, for filter dropdowns. Open to any authenticated user on purpose: the orders
+ * pages filter by account, and a picker there must not require integrations.view.
+ */
+export const marketplacesGetAccountsShort = <ThrowOnError extends boolean = false>(
+  options?: Options<MarketplacesGetAccountsShortData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    MarketplacesGetAccountsShortResponses,
+    MarketplacesGetAccountsShortErrors,
+    ThrowOnError
+  >({url: "/api/integrations/marketplaces/accounts/short", ...options});
 
 /**
  * Disconnects an account, cascading to its synced warehouses, cards and run history.

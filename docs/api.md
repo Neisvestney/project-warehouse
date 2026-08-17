@@ -433,6 +433,7 @@ maps CLR entity types to `AppEntityType` and reads table names off the EF model;
 |--------|------|------------|-------------|
 | GET | `/accounts` | `integrations.view` | List accounts (`Paginated<MarketplaceAccountSummaryDto>`), supports `searchString`, `type`, `isActive`, `sortBy` (`name`\|`createdAt`\|`lastSyncAt`, default `name`), `sortOrder` |
 | GET | `/accounts/unmapped-count` | `integrations.view` | `{ count }` — unmapped, non-archived cards across all **active** accounts; feeds the sidebar badge |
+| GET | `/accounts/short` | authenticated | `MarketplaceAccountShortSummaryDto[]` (id, type, name, isActive) sorted by name, optional `type` filter. Deliberately not behind `integrations.view` — the FBS/FBO order filters need account names |
 | GET | `/accounts/{id}` | `integrations.view` | Account with aggregates (`MarketplaceAccountDto`) |
 | POST | `/accounts` | `integrations.edit` | Create account; returns `201` and queues an initial `all` sync when `isActive` |
 | PUT | `/accounts/{id}` | `integrations.edit` | Update account; an empty `apiKey` keeps the stored key |
