@@ -1,5 +1,6 @@
-import {useMemo} from "react";
+import {useMemo, useState} from "react";
 import {
+  Button,
   Checkbox,
   FormControl,
   FormControlLabel,
@@ -19,10 +20,13 @@ import {
 import type {CatalogItemSelectDto, StockMovementDirection} from "@/api/types.gen";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
 import FiltersBar from "@/components/FiltersBar";
+import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import {buildNodePath, formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {useHasPermission} from "@/hooks/usePermission";
+import {PHYSICAL_CATALOG_ITEMS} from "@/features/catalog";
 import {STOCK_MOVEMENT_ACTIONS, STOCK_MOVEMENT_DIRECTIONS} from "./stockMovementsConstants";
 import type {useStockMovementsFilters} from "./useStockMovementsFilters";
+import AddItemsByTagDialog from "./AddItemsByTagDialog";
 
 type StockMovementsFiltersProps = ReturnType<typeof useStockMovementsFilters> & {
   /** Resolved DTOs for `filter.catalogItemIds`, in the same order. */
@@ -45,6 +49,7 @@ function StockMovementsFilters({
   setDirections,
 }: StockMovementsFiltersProps) {
   const canViewUsers = useHasPermission("users.view");
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
 
   const {data: warehouses} = useQuery(warehousesGetAllOptions({query: {pageSize: 200}}));
 
@@ -83,10 +88,33 @@ function StockMovementsFilters({
         fullWidth
         size="small"
         sx={{minWidth: 320, flexGrow: 1}}
+        types={PHYSICAL_CATALOG_ITEMS}
         value={items}
         // At least one item must stay selected — it is what the columns are made of
         onChange={(items) => setCatalogItemIds(items.map((item) => item.id))}
         clearIcon={null}
+      />
+
+      <Button
+        size="small"
+        variant="outlined"
+        startIcon={<LocalOfferIcon />}
+        onClick={() => setTagDialogOpen(true)}
+        sx={{flexShrink: 0, height: 40}}
+      >
+        По тегу
+      </Button>
+
+      <AddItemsByTagDialog
+        open={tagDialogOpen}
+        onClose={() => setTagDialogOpen(false)}
+        types={PHYSICAL_CATALOG_ITEMS}
+        onAdd={(added) =>
+          setCatalogItemIds([
+            ...filter.catalogItemIds,
+            ...added.map((item) => item.id).filter((id) => !filter.catalogItemIds.includes(id)),
+          ])
+        }
       />
 
       <TextField

@@ -840,7 +840,8 @@ export const catalogGetForSelectQueryKey = (options?: Options<CatalogGetForSelec
 /**
  * Get a flat list of catalog items for use in select/autocomplete controls.
  *
- * Returns at most 50 items. Excludes product-group children. Optionally filtered by types.
+ * Optionally filtered by types and tags. Returns at most take items.
+ * Unlike Task&lt;IActionResult&gt; CatalogController.GetAll(int page = 1, int pageSize = 20, string? searchString = null, CatalogSortBy sortBy = CatalogSortBy.Name, SortOrder sortOrder = SortOrder.Asc, IReadOnlyList&lt;CatalogItemType&gt;? itemTypes = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, bool? isArchived = null, CancellationToken ct = default(CancellationToken)), product-group children are included.
  */
 export const catalogGetForSelectOptions = (options?: Options<CatalogGetForSelectData>) =>
   queryOptions<
@@ -1200,7 +1201,7 @@ export const inventoryItemsGetAllQueryKey = (options?: Options<InventoryItemsGet
  *
  * Returns one row per distinct CatalogItem with a total Count summed across both item kinds
  * (Standard, Unit). Supports filtering by warehouse, storage place, node,
- * catalog item type, and archive state.
+ * catalog item types, tags (OR semantics), and archive state.
  */
 export const inventoryItemsGetAllOptions = (options?: Options<InventoryItemsGetAllData>) =>
   queryOptions<
@@ -1231,7 +1232,7 @@ export const inventoryItemsGetAllInfiniteQueryKey = (
  *
  * Returns one row per distinct CatalogItem with a total Count summed across both item kinds
  * (Standard, Unit). Supports filtering by warehouse, storage place, node,
- * catalog item type, and archive state.
+ * catalog item types, tags (OR semantics), and archive state.
  */
 export const inventoryItemsGetAllInfiniteOptions = (options?: Options<InventoryItemsGetAllData>) =>
   infiniteQueryOptions<

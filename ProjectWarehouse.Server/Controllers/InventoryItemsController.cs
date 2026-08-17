@@ -22,7 +22,7 @@ public class InventoryItemsController(
     /// <remarks>
     /// Returns one row per distinct CatalogItem with a total Count summed across both item kinds
     /// (Standard, Unit). Supports filtering by warehouse, storage place, node,
-    /// catalog item type, and archive state.
+    /// catalog item types, tags (OR semantics), and archive state.
     /// </remarks>
     [HttpGet]
     [Authorize]
@@ -34,7 +34,8 @@ public class InventoryItemsController(
         [FromQuery] Guid? warehouseId = null,
         [FromQuery] Guid? storagePlaceId = null,
         [FromQuery] Guid? nodeId = null,
-        [FromQuery] CatalogItemType? catalogItemType = null,
+        [FromQuery] IReadOnlyList<CatalogItemType>? catalogItemTypes = null,
+        [FromQuery] IReadOnlyList<Guid>? tagIds = null,
         [FromQuery] bool? isArchived = null,
         [FromQuery] InventoryItemSortBy sortBy = InventoryItemSortBy.Name,
         [FromQuery] SortOrder sortOrder = SortOrder.Asc,
@@ -54,11 +55,18 @@ public class InventoryItemsController(
                 return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
         }
 
-        var baseQuery = db.CatalogItems
+        var catalogQuery = db.CatalogItems
             .Include(ci => ci.Group)
-            .Where(ci => catalogItemType == null || ci.Type == catalogItemType)
             .Where(ci => isArchived == null || ci.IsArchived == isArchived)
-            .WhereMatchesSearch(ci => ci.SearchString, searchString)
+            .WhereMatchesSearch(ci => ci.SearchString, searchString);
+
+        if (catalogItemTypes != null && catalogItemTypes.Count > 0)
+            catalogQuery = catalogQuery.Where(ci => catalogItemTypes.Contains(ci.Type));
+
+        if (tagIds != null && tagIds.Count > 0)
+            catalogQuery = catalogQuery.Where(ci => ci.Tags.Any(t => tagIds.Contains(t.Id)));
+
+        var baseQuery = catalogQuery
             .Select(ci => new
             {
                 CatalogItem = ci,

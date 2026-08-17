@@ -24,12 +24,8 @@ import {
   inventoryItemsGetAllOptions,
   warehousesGetAllOptions,
 } from "@/api/@tanstack/react-query.gen";
-import {
-  type CatalogItemType,
-  type InventoryItemSortBy,
-  type InventoryItemSummaryDto,
-} from "@/api/types.gen";
-import {CATALOG_ITEM_TYPE_CONFIG, CATALOG_ITEM_TYPES} from "@/features/catalog";
+import {type InventoryItemSortBy, type InventoryItemSummaryDto} from "@/api/types.gen";
+import {PHYSICAL_CATALOG_ITEMS, useCatalogTypesFilter} from "@/features/catalog";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
@@ -41,6 +37,8 @@ import FiltersBar from "@/components/FiltersBar";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
+import CatalogTypesFilter from "@/components/catalog/CatalogTypesFilter";
+import CatalogTagsFilter from "@/components/catalog/CatalogTagsFilter";
 import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
 import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
 import {UnitItemsDrawer} from "@/components/inventory/UnitItemsDrawer";
@@ -70,10 +68,12 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
 
   const {sortBy, sortOrder, handleSortClick} = useTableSort(SORTABLE_COLUMNS, "name");
 
-  const [itemType, setItemType] = useSyncedWithQueryState<CatalogItemType | null>(
-    "type",
-    (q) => (CATALOG_ITEM_TYPES.includes(q as CatalogItemType) ? (q as CatalogItemType) : null),
-    (v) => v ?? null,
+  const [itemTypes, setItemTypes] = useCatalogTypesFilter("types", PHYSICAL_CATALOG_ITEMS);
+
+  const [tagIds, setTagIds] = useSyncedWithQueryState<string[]>(
+    "tags",
+    (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
+    (v) => v.join(",") || null,
   );
 
   const [isArchived, setIsArchived] = useSyncedWithQueryState<boolean | null>(
@@ -98,7 +98,8 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
       warehouseId: effectiveWarehouseId,
       storagePlaceId,
       nodeId,
-      catalogItemType: itemType ?? undefined,
+      catalogItemTypes: itemTypes.length < PHYSICAL_CATALOG_ITEMS.length ? itemTypes : undefined,
+      tagIds: tagIds.length > 0 ? tagIds : undefined,
       isArchived: isArchived ?? undefined,
       sortBy,
       sortOrder,
@@ -108,16 +109,25 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
       effectiveWarehouseId,
       storagePlaceId,
       nodeId,
-      itemType,
+      itemTypes,
+      tagIds,
       isArchived,
       sortBy,
       sortOrder,
     ],
   );
 
-  const {data, isLoading, isFetching, refetch} = useQuery(
-    inventoryItemsGetAllOptions({query: fetchParams}),
-  );
+  // Empty type selection can't be expressed server-side (no types == no filter), so match nothing here
+  const noItemTypes = itemTypes.length === 0;
+
+  const {
+    data: queryData,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({...inventoryItemsGetAllOptions({query: fetchParams}), enabled: !noItemTypes});
+
+  const data = noItemTypes ? undefined : queryData;
 
   const {data: warehousesData} = useQuery({
     ...warehousesGetAllOptions({query: {pageSize: 200}}),
@@ -169,21 +179,17 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
             </FormControl>
           )}
 
-          <FormControl size="small" sx={{minWidth: 150}}>
-            <InputLabel>Тип</InputLabel>
-            <Select
-              label="Тип"
-              value={itemType ?? ""}
-              onChange={(e) => setItemType((e.target.value as CatalogItemType) || null)}
-            >
-              <MenuItem value="">Все типы</MenuItem>
-              {CATALOG_ITEM_TYPES.map((type) => (
-                <MenuItem key={type} value={type}>
-                  {CATALOG_ITEM_TYPE_CONFIG[type].label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <CatalogTypesFilter
+            value={itemTypes}
+            onChange={setItemTypes}
+            options={PHYSICAL_CATALOG_ITEMS}
+          />
+
+          <CatalogTagsFilter
+            value={tagIds}
+            onChange={setTagIds}
+            sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
+          />
 
           <ToggleButtonGroup
             exclusive
@@ -229,7 +235,7 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
             <TableBody>
               {isLoading ? (
                 <TableRowLoader colSpan={4} />
-              ) : data?.items.length === 0 ? (
+              ) : (data?.items.length ?? 0) === 0 ? (
                 <TableRowEmpty colSpan={4} message="Позиции не найдены" />
               ) : (
                 data?.items.map((row) => {

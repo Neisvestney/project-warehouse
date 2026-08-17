@@ -86,7 +86,9 @@ src/
 │   │   ├── CatalogItemDrawerHost.tsx    # One CatalogItemDrawer per page, open fn shared via context
 │   │   ├── CatalogItemDrawerContext.ts  # Context + useOpenCatalogItem() for the host
 │   │   ├── CatalogItemLink.tsx          # Clickable catalog item label with hover OpenInNew icon
-│   │   └── CatalogItemTypeChip.tsx      # MUI Chip mapping CatalogItemType → label + color
+│   │   ├── CatalogItemTypeChip.tsx      # MUI Chip mapping CatalogItemType → label + color
+│   │   ├── CatalogTypesFilter.tsx       # Multiselect type filter (Select + checkboxes + SelectAllHeader)
+│   │   └── CatalogTagsFilter.tsx        # Multiselect tag filter (Autocomplete over GET /api/catalog/tags)
 │   ├── receipts/
 │   │   ├── ReceiptStatusChip.tsx       # MUI Chip for ReceiptStatus (color per status)
 │   │   ├── ReceiptItemsSection.tsx     # Collapsible per-item section: planned/received counts + placements table
@@ -95,7 +97,7 @@ src/
 │   │   ├── SelectNodeModal.tsx         # Modal for selecting a storage place node (warehouse schema or tree)
 │   │   └── receiptUtils.ts            # RECEIPT_REASON_LABELS, formatReceiptNumber helpers
 │   ├── inventory/
-│   │   ├── ItemsBasePage.tsx        # Reusable inventory table: search, filters (type/archive/warehouse), pagination, row-click drawers
+│   │   ├── ItemsBasePage.tsx        # Reusable inventory table: search, filters (types/tags/archive/warehouse), pagination, row-click drawers
 │   │   └── UnitItemsDrawer.tsx      # Bottom drawer: paginated list of individual UnitInventoryItem instances for a clicked catalog item
 │   ├── CatalogItemsSelect.tsx   # Autocomplete for catalog items; single (id/dto) or multi (dto[]) mode; supports type filter
 │   ├── form/
@@ -124,6 +126,7 @@ src/
 │   ├── PageGenericHeader.tsx    # Page header: title + filters + action buttons
 │   ├── SearchInput.tsx          # TextField with search icon; extends TextFieldProps (omits onChange/value)
 │   ├── FiltersBar.tsx           # Filters row: FilterAlt icon + "Фильтры:" label + children slot; extends StackProps
+│   ├── SelectAllHeader.tsx      # "Выбрать все"/"Снять выбор" row for multiselect Select menus and Autocomplete paper slot
 │   ├── DataTableContainer.tsx   # Paper + LinearProgress + TableContainer + TablePagination; extends PaperProps
 │   ├── TableRowLoader.tsx       # Full-width TableRow with CircularProgress for loading state
 │   ├── TableRowEmpty.tsx        # Full-width TableRow with message text for empty state
@@ -490,9 +493,16 @@ Detail page for a single receipt (`/operations/receipts/:id`). Shows receipt met
 **`ReceiptItemsSection`:** per-item collapsible panel. Shows `receivedCount` field (editable in Processing status via PATCH `.../received-count`). Placements table lists node path + count/SKU per placement with a delete button (Processing only). **Разместить** button opens `AddPlacementDialog`.
 
 ### `CatalogPage`
-Server-side paginated, searchable list of catalog items. Requires `catalog.view` or `receipts.process_assigned`. State in URL params (`?search=`, `?page=`, `?pageSize=`, `?types=` comma-separated `CatalogItemType`). Clicking a row opens `CatalogItemDrawer` (right-side MUI Drawer); the selected item ID is stored in `?item=` query param via `useDrawerSearchParamsState`. Columns: **Тип** (`CatalogItemTypeChip`), **Название** (fullName + archive icon if isArchived), **Артикул**, **Штрихкод**.
+Server-side paginated, searchable list of catalog items. Requires `catalog.view` or `receipts.process_assigned`. State in URL params (`?search=`, `?page=`, `?pageSize=`, `?types=` comma-separated `CatalogItemType`, `?tags=` comma-separated tag GUIDs). Clicking a row opens `CatalogItemDrawer` (right-side MUI Drawer); the selected item ID is stored in `?item=` query param via `useDrawerSearchParamsState`. Columns: **Тип** (`CatalogItemTypeChip`), **Название** (fullName + archive icon if isArchived), **Артикул**, **Штрихкод**.
 
-**Type filter** — multiselect `Select` with `Checkbox` per item; default is all types (URL param omitted when default is active). `renderValue` shows "Все" for all 5, `"N типов"` for 2+, or the single type label. `DEFAULT_ITEM_TYPES` constant holds the default selection.
+Filters are the shared [`CatalogTypesFilter`](#catalogtypesfilter--catalogtagsfilter) (all 5 types) and [`CatalogTagsFilter`](#catalogtypesfilter--catalogtagsfilter). An empty type selection disables the list query — the server can't express "no types match", so the page renders the empty state locally.
+
+### `StockMovementsPage`
+Pivot table of stock movements at `/storage/stock-movements`. Filter state lives in URL params via `useStockMovementsFilters` (`?items=` comma-separated catalog item ids, `?from=`, `?to=`, `?warehouse=`, `?place=`, `?node=`, `?user=`, `?actions=`, `?transfers=`); ids are resolved back into DTOs by `useCatalogItemsByIds`.
+
+**Catalog item selector** — `CatalogItemsSelect` restricted to `STOCK_MOVEMENT_ITEM_TYPES` (`standard` + `unit`; groups, variations and bundles never hold stock). The selected items are what the pivot columns are made of, so the clear icon is disabled.
+
+**«По тегу» button** — opens `AddItemsByTagDialog`: pick one or more tags (`CatalogTagsFilter`), the dialog queries `GET /api/catalog/for-select` with `tagIds` + `types` + `take=200`, previews the match count and appends the found ids to the current selection (duplicates skipped). It's a one-shot action — the tag itself is not persisted in the URL. A warning is shown when the result hits the 200-item cap.
 
 ### `InventoryPage`
 Global stock overview at `/inventory`. Uses `ItemsBasePage` without any ID props, so the warehouse filter Select is shown. Requires `warehouses.view` or `warehouses.view_assigned`.
@@ -510,7 +520,8 @@ Stock overview scoped to a single storage place node at `/warehouses/:warehouseI
 Reusable inventory table component (`components/inventory/ItemsBasePage.tsx`). Accepts `warehouseId?`, `storagePlaceId?`, `nodeId?` as scope constraints.
 
 - **Warehouse filter Select** — shown only when `warehouseId` prop is not provided; fetches all warehouses (`pageSize: 200`); URL-synced via `?warehouse=`
-- **Type filter** — `catalogItemType` Select using `CATALOG_ITEM_TYPE_CONFIG`; URL-synced via `?type=`
+- **Type filter** — `CatalogTypesFilter` limited to `PHYSICAL_CATALOG_ITEMS` (только `standard` + `unit`); URL-synced via `?types=` through `useCatalogTypesFilter`
+- **Tag filter** — `CatalogTagsFilter`; URL-synced via `?tags=` (comma-separated tag GUIDs), sent as `tagIds`
 - **Archive filter** — ToggleButtonGroup (Активные / Архивные) for `isArchived`; URL-synced via `?archived=`
 - **Search** — debounced via `useDebouncedSyncedWithQueryState("search")`
 - **Table columns:** Тип (`CatalogItemTypeChip`), Название (`CatalogItemLink` with fullName + archive icon), Артикул, Количество
@@ -607,12 +618,19 @@ Shared catalog domain constants consumed by components and pages.
 
 ```ts
 CATALOG_ITEM_TYPE_CONFIG: Record<CatalogItemType, {label: string; color: ChipProps["color"]}>
-CATALOG_ITEM_TYPES: CatalogItemType[]   // all types in declaration order
+CATALOG_ITEM_TYPES: CatalogItemType[]      // all types in declaration order
+PHYSICAL_CATALOG_ITEMS: CatalogItemType[]  // ["standard", "unit"] — the only types that hold stock
 ```
 
-`CATALOG_ITEM_TYPE_CONFIG` maps every `CatalogItemType` to a human-readable Russian label and a MUI chip color. Used by `CatalogItemTypeChip`, `CatalogPage` (filter Select), and `CreateCatalogItemDialog` (creation Select). `CATALOG_ITEM_TYPES` is derived from the config keys and guarantees the two stay in sync.
+`CATALOG_ITEM_TYPE_CONFIG` maps every `CatalogItemType` to a human-readable Russian label and a MUI chip color. Used by `CatalogItemTypeChip`, `CatalogTypesFilter`, and `CreateCatalogItemDialog` (creation Select). `CATALOG_ITEM_TYPES` is derived from the config keys and guarantees the two stay in sync.
+
+`PHYSICAL_CATALOG_ITEMS` is the type set for anything stock-related — `ItemsBasePage`'s type filter and `StockMovementsFilters` (both its `CatalogItemsSelect` and the by-tag dialog) restrict themselves to it, since groups, variations and bundles never hold inventory of their own.
 
 When adding a new type to the backend OpenAPI schema, update only this file — all consumers update automatically.
+
+#### `useCatalogTypesFilter.ts`
+
+`useCatalogTypesFilter(key = "types", options = CATALOG_ITEM_TYPES)` — URL-synced multiselect type state; see [`CatalogTypesFilter`](#catalogtypesfilter--catalogtagsfilter) for the semantics of the `none` marker.
 
 ### `src/features/warehouse/`
 
@@ -843,6 +861,18 @@ Props: `type: CatalogItemType` + all `ChipProps` except `label`/`color`.
 <CatalogItemTypeChip type="bundle" size="medium" />
 ```
 
+### `CatalogTypesFilter` / `CatalogTagsFilter`
+
+Shared filter controls used by `CatalogPage` and `ItemsBasePage` (`components/catalog/`).
+
+**`CatalogTypesFilter`** — multiselect `Select` with a `Checkbox` per type. `options` defaults to `CATALOG_ITEM_TYPES`; inventory pages pass `PHYSICAL_CATALOG_ITEMS` (`standard` + `unit`, the only types that hold stock). `renderValue` shows "Все" for the full set, "Нет" for none, `"N типов"` for 2+, or the single type label.
+
+**`CatalogTagsFilter`** — multiselect `Autocomplete` over the full tag list (`GET /api/catalog/tags`, filtered client-side). Value and `onChange` are tag ID arrays; chips resolve their names from the loaded list. Also used inside `AddItemsByTagDialog`.
+
+Both pin a `SelectAllHeader` (**Выбрать все** / **Снять выбор**) above the options — injected as the `Select` menu's first child and via the `Autocomplete` `paper` slot. It swallows `mousedown` and every `keydown` except `Escape`/`Tab`, so the dropdown stays open and its arrow-key navigation doesn't hijack the buttons.
+
+**URL state** — `useCatalogTypesFilter(key?, options?)` (`features/catalog/`) keeps the type selection in a query param. The full `options` set is the default and is omitted from the URL; an empty selection is stored as `none` (`NO_ITEM_TYPES`), because serializing it to `null` would drop the param and read back as "all types". Tag IDs are plain comma-separated values via `useSyncedWithQueryState`.
+
 ### `CatalogItemsSelect`
 
 Autocomplete for catalog items (`components/CatalogItemsSelect.tsx`). Supports single and multi selection.
@@ -851,9 +881,9 @@ Autocomplete for catalog items (`components/CatalogItemsSelect.tsx`). Supports s
 
 **Multi mode** — value and onChange work with `CatalogItemSummaryDto[]`.
 
-Both modes debounce the search input (300 ms), fetch via `catalogGetAllOptions`, and cache selected items so they survive search changes.
+Both modes debounce the search input (300 ms), fetch via `catalogGetForSelectOptions`, and cache selected items so they survive search changes.
 
-Optional `types?: CatalogItemType[]` prop for client-side filtering by item type.
+Optional `types?: CatalogItemType[]` prop — passed straight to the endpoint as the `types` query param (server-side filtering).
 
 ```tsx
 // Single

@@ -76,7 +76,7 @@ function StandardAccordion({
 
   const query = useQuery({
     ...inventoryItemsGetAllOptions({
-      query: {nodeId, page, pageSize: PAGE_SIZE, catalogItemType: "standard"},
+      query: {nodeId, page, pageSize: PAGE_SIZE, catalogItemTypes: ["standard"]},
     }),
     enabled: open && expanded,
     meta: {suppressGlobalError: true},

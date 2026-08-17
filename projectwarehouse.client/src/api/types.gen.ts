@@ -2048,6 +2048,7 @@ export type CatalogGetAllData = {
     sortBy?: CatalogSortBy;
     sortOrder?: SortOrder;
     itemTypes?: Array<CatalogItemType>;
+    tagIds?: Array<string>;
     isArchived?: boolean;
   };
   url: "/api/catalog";
@@ -2114,6 +2115,8 @@ export type CatalogGetForSelectData = {
   query?: {
     searchString?: string;
     types?: Array<CatalogItemType>;
+    tagIds?: Array<string>;
+    take?: number;
   };
   url: "/api/catalog/for-select";
 };
@@ -2536,7 +2539,8 @@ export type InventoryItemsGetAllData = {
     warehouseId?: string;
     storagePlaceId?: string;
     nodeId?: string;
-    catalogItemType?: CatalogItemType;
+    catalogItemTypes?: Array<CatalogItemType>;
+    tagIds?: Array<string>;
     isArchived?: boolean;
     sortBy?: InventoryItemSortBy;
     sortOrder?: SortOrder;

@@ -298,7 +298,8 @@ All item removals execute in a single DB transaction. If any operation fails, no
 
 | Method | Path | Permission | Description |
 |--------|------|------------|-------------|
-| GET | `/api/catalog` | `catalog.view` | List catalog items paginated (`Paginated<CatalogItemSummaryDto>`), supports `searchString`, `sortBy` (`name`\|`article`\|`barcode`\|`type`, default `name`), `sortOrder` (`asc`\|`desc`, default `asc`), `itemTypes` (repeatable `CatalogItemType`, omit for all); archived items always sorted last |
+| GET | `/api/catalog` | `catalog.view` | List catalog items paginated (`Paginated<CatalogItemSummaryDto>`), supports `searchString`, `sortBy` (`name`\|`article`\|`barcode`\|`type`, default `name`), `sortOrder` (`asc`\|`desc`, default `asc`), `itemTypes` (repeatable `CatalogItemType`, omit for all), `tagIds` (repeatable `Guid`, OR semantics — item matches if it has any of the listed tags; own tags only, group children are not considered), `isArchived`; archived items always sorted last |
+| GET | `/api/catalog/for-select` | `catalog.view` | Flat list for select/autocomplete controls (`CatalogItemSelectDto`), supports `searchString`, `types` (repeatable `CatalogItemType`), `tagIds` (repeatable `Guid`, OR semantics), `take` (1..200, default 10); unlike `GET /api/catalog` it does include product-group children |
 | GET | `/api/catalog/{id}` | `catalog.view` | Get full catalog item details (`CatalogItemDto`) |
 | GET | `/api/catalog/tags` | `catalog.view` | List tags (ordered by name), supports `search` query param |
 | POST | `/api/catalog` | `catalog.edit` | Create catalog item |
@@ -350,7 +351,7 @@ All item removals execute in a single DB transaction. If any operation fails, no
 `view_assigned` limits results to warehouses assigned to the current user.
 
 ### `GET /api/inventory-items` — GetAll
-Query params: `page`, `pageSize`, `searchString?`, `warehouseId?`, `storagePlaceId?`, `nodeId?`, `catalogItemType?` (CatalogItemType), `isArchived?` (bool)  
+Query params: `page`, `pageSize`, `searchString?`, `warehouseId?`, `storagePlaceId?`, `nodeId?`, `catalogItemTypes?` (repeatable `CatalogItemType`, omit for all), `tagIds?` (repeatable `Guid`, OR semantics), `isArchived?` (bool)  
 Returns: `Paginated<InventoryItemSummaryDto>`
 
 Items from both storage mechanisms (StoragePlaceNodeItemsGroup for standard items, UnitInventoryItem) are counted separately per `CatalogItemId` and merged. The result is one row per catalog item with `Count` = total across all locations within the applied filters.
