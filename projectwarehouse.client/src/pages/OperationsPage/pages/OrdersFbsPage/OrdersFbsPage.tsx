@@ -4,6 +4,7 @@ import DownloadLabelsButton from "@/components/orders/marketplace/DownloadLabels
 import MarketplaceOrderStatusChip from "@/components/orders/marketplace/MarketplaceOrderStatusChip";
 import SyncOrdersButton from "@/components/orders/marketplace/SyncOrdersButton";
 import {useHasPermission} from "@/hooks/usePermission";
+import {formatPostingNumber} from "@/utils/postingNumberUtils";
 import {Typography} from "@mui/material";
 
 const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
@@ -15,9 +16,10 @@ const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
   {
     key: "postingNumber",
     label: "Номер отправления",
+    align: "right",
     render: (order) => (
       <Typography variant="body2" sx={{fontFamily: "monospace"}}>
-        {order.marketplaceOrder?.postingNumber ?? "—"}
+        {formatPostingNumber(order.marketplaceOrder?.postingNumber) ?? "—"}
       </Typography>
     ),
   },

@@ -468,6 +468,12 @@ Format: `pw:<entityCode>:<guid>`
 
 Parsing is strict: an untagged bare GUID is **not** accepted. Labels printed before this format was introduced must be reprinted.
 
+#### Номер отправления
+
+`formatPostingNumber(postingNumber)` from `@/utils/postingNumberUtils` returns a `ReactNode` where the last 4 digits of the first segment are bold and slightly larger — that's the part warehouse staff actually reads off a label. `0132298262-0184-1` → `013229**8262**-0184-1`, `43468002-0359-1` → `4346**8002**-0359-1`, `1234567890` → `123456**7890**`. Strings that don't start with at least 4 digits are returned unchanged; `null`/`undefined`/`""` give `null`.
+
+Used everywhere a posting number is rendered: the `postingNumber` extra column in `OrdersFbsPage`, the **Отправление** row in `OrderMetaSection`, and the failure list in `SkippedOrdersList` (there it sits inside the existing `<b>`, so the whole number stays bold and the 4 digits only gain the size bump).
+
 ### `UsersPage`
 Server-side paginated, searchable, and filterable table of users. Requires `users.view` permission. State is stored in URL params (`?search=`, `?role=`, `?page=`, `?pageSize=`) using `useDebouncedSyncedWithQueryState` + `useSyncedWithQueryState` + `usePaginatedParams`. The search field updates instantly without lag; the URL and API call update after a 300 ms debounce. A roles filter (`RolesSelect`) is shown in a `FiltersBar` below the header. Rows are clickable and navigate to `UserViewPage`.
 
