@@ -8,6 +8,7 @@ using ProjectWarehouse.Server.Infrastructure.Labels;
 using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Models;
+using ProjectWarehouse.Server.Models.Orders;
 
 namespace ProjectWarehouse.Server.Services;
 
@@ -23,7 +24,8 @@ public class MarketplaceLabelService(
 {
     private readonly MarketplacesOptions _options = options.Value;
 
-    public async Task<LabelBundle> BuildAsync(IReadOnlyList<Guid> orderIds, Guid? userId, CancellationToken ct)
+    public async Task<LabelBundle> BuildAsync(IReadOnlyList<Guid> orderIds, OrderLabelsGrouping grouping,
+        Guid? userId, CancellationToken ct)
     {
         var orders = await db.Orders
             .Where(o => orderIds.Contains(o.Id))
@@ -34,7 +36,17 @@ public class MarketplaceLabelService(
         var nonMarketplace = orderIds.Where(id => !orders.TryGetValue(id, out var o) || o.MarketplaceOrder is null)
             .ToList();
         if (nonMarketplace.Count > 0)
-            return new LabelBundle(null, [], nonMarketplace);
+            return new LabelBundle(null, [], nonMarketplace, []);
+
+        // The marketplace only prints labels for awaiting_deliver, so anything else has to already be
+        // cached — a stored label reprints at any status, its posting having been packed long ago.
+        var notAwaitingDeliver = orderIds
+            .Select(id => orders[id].MarketplaceOrder!)
+            .Where(mo => mo.LabelFileId is null && mo.Status != MarketplaceOrderStatus.AwaitingDeliver)
+            .Select(mo => mo.PostingNumber)
+            .ToList();
+        if (notAwaitingDeliver.Count > 0)
+            return new LabelBundle(null, [], [], notAwaitingDeliver);
 
         var notReady = new List<string>();
         var documents = new Dictionary<Guid, byte[]>();
@@ -43,12 +55,32 @@ public class MarketplaceLabelService(
             await BuildForAccountAsync(group.Key, [.. group], documents, notReady, userId, ct);
 
         if (notReady.Count > 0)
-            return new LabelBundle(null, notReady, []);
+            return new LabelBundle(null, notReady, [], []);
 
-        // merged in the caller's order, so the printed stack matches the list on screen
-        var merged = LabelPdfComposer.Merge([.. orderIds.Select(id => documents[id])]);
-        return new LabelBundle(merged, [], []);
+        var order = OrderPages(orderIds, orders, grouping);
+        var merged = LabelPdfComposer.Merge([.. order.Select(id => documents[id])]);
+        return new LabelBundle(merged, [], [], []);
     }
+
+    /// <summary>
+    /// Default is the caller's order, so the printed stack matches the list on screen. Grouped by article,
+    /// orders with an identical set of articles print back to back — the packer takes one pile of identical
+    /// goods and works through it instead of walking the shelves per label.
+    /// </summary>
+    private static IReadOnlyList<Guid> OrderPages(IReadOnlyList<Guid> orderIds,
+        IReadOnlyDictionary<Guid, Order> orders, OrderLabelsGrouping grouping)
+    {
+        if (grouping != OrderLabelsGrouping.Article)
+            return orderIds;
+
+        // OrderBy is stable, so inside a group the caller's order survives
+        return [.. orderIds.OrderBy(id => ArticleKey(orders[id]), StringComparer.Ordinal)];
+    }
+
+    private static string ArticleKey(Order order) =>
+        string.Join('\n', BuildArticles(order)
+            .Select(a => $"{a.Article} {a.Quantity}")
+            .OrderBy(s => s, StringComparer.Ordinal));
 
     private async Task BuildForAccountAsync(Guid accountId, IReadOnlyList<Order> orders,
         Dictionary<Guid, byte[]> documents, List<string> notReady, Guid? userId, CancellationToken ct)

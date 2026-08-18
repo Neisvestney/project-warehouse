@@ -617,7 +617,8 @@ export type ErrorCode =
   | "stocktakeUnitCountedTwice"
   | "stocktakeUnitItemInAnotherWarehouse"
   | "stocktakeUnitItemDetached"
-  | "stocktakeConcurrentModification";
+  | "stocktakeConcurrentModification"
+  | "marketplaceOrderNotAwaitingDeliver";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -945,8 +946,14 @@ export type OrderDetailsDto = {
   assemblyTasks: Array<AssemblyTaskDto>;
 };
 
+/**
+ * How the merged label stack is ordered.
+ */
+export type OrderLabelsGrouping = "none" | "article";
+
 export type OrderLabelsRequest = {
   orderIds: Array<string>;
+  grouping: OrderLabelsGrouping;
 };
 
 export type OrderMarketplaceItemDto = {

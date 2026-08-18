@@ -158,4 +158,7 @@ public enum ErrorCode
     StocktakeUnitItemInAnotherWarehouse,
     StocktakeUnitItemDetached,
     StocktakeConcurrentModification,
+
+    // Marketplaces, appended: the enum is persisted as ints, so new codes only go at the end.
+    MarketplaceOrderNotAwaitingDeliver,
 }

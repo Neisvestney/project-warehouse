@@ -481,7 +481,7 @@ public class OrdersController(
         LabelBundle bundle;
         try
         {
-            bundle = await labels.BuildAsync(orderIds, GetCurrentUserId(), ct);
+            bundle = await labels.BuildAsync(orderIds, request.Grouping, GetCurrentUserId(), ct);
         }
         catch (ValidationException ex)
         {
@@ -497,6 +497,15 @@ public class OrdersController(
             return UnprocessableEntity(nameof(request.OrderIds), ErrorCode.MarketplaceOrderNotFromMarketplace,
                 "Some of the orders did not come from a marketplace.",
                 new Dictionary<string, object> { ["orderIds"] = bundle.NonMarketplaceOrderIds });
+
+        if (bundle.NotAwaitingDeliverPostingNumbers.Count > 0)
+            return UnprocessableEntity(nameof(request.OrderIds), ErrorCode.MarketplaceOrderNotAwaitingDeliver,
+                "A label that is not stored yet can only be printed for a posting awaiting shipment.",
+                new Dictionary<string, object>
+                {
+                    ["postingNumbers"] = bundle.NotAwaitingDeliverPostingNumbers,
+                    ["count"] = bundle.NotAwaitingDeliverPostingNumbers.Count,
+                });
 
         if (bundle.NotReadyPostingNumbers.Count > 0)
             // count travels separately: the client interpolates a scalar, an array does not pluralize

@@ -1208,10 +1208,31 @@ the request do not agree with.
 
 ### `src/components/orders/marketplace/`
 FBS-only pieces: `SyncOrdersButton` / `SyncOrdersDialog` / `SyncOrdersAccountAccordion` / `SkippedOrdersList`
-(the import dialog and its per-account results), `DownloadLabelsButton`, `MarketplaceOrderStatusChip`,
+(the import dialog and its per-account results), `DownloadLabelsButton` / `DownloadLabelsDialog` /
+`DownloadOrderLabelButton` / `LabelsErrorDialog` / `useDownloadLabels`, `MarketplaceOrderStatusChip`,
 `MarketplaceOrderFilters` (shared by FBS and FBO, reads `/accounts/short` so a warehouse role without
 `integrations.view` still gets the account picker), and `marketplaceOrderUtils` for the label and colour maps. The maps live here rather than in
 `MarketplacesSettingsPage/marketplaceUtils` so the operations tree never imports from the settings tree.
+
+Этикетки скачиваются из двух мест, и обоим нужен один и тот же запрос, поэтому вызов живёт в хуке
+`useDownloadLabels`: он дёргает `ordersGetLabels` с `parseAs: "blob"`, распаковывает ошибку через
+`parseProblemFromBlob` и отдаёт её структурой `{message, postingNumbers}`. Компоненты остаются разметкой.
+
+Печать заполняет `LabelFileId`, а от него зависит доступность кнопок, поэтому после удачного скачивания
+хук инвалидирует список заказов и карточки всех напечатанных — иначе кнопка гасла бы до ручного обновления.
+
+- `DownloadLabelsButton` — массовая кнопка в панели выделения списка FBS. Открывает `DownloadLabelsDialog`
+  с выбором «Группировать по» (`Не группировать` / `По артикулам`; выбор переживает перезагрузку в
+  `localStorage`, ключ `orders-labels-grouping`) и шлёт **все** выделенные заказы: знать заранее, есть ли
+  у заказа сохранённая этикетка, кнопка может, но фильтровать выбор за пользователя — нет; отказ придёт
+  с сервера понятным сообщением.
+- `DownloadOrderLabelButton` — кнопка в шапке страницы FBS-заказа. Группировать одному заказу нечего,
+  поэтому модалки нет. Кнопка видна всегда, но гаснет, когда `labelFileId` пуст и статус не
+  `awaitingDeliver`, — с подсказкой почему.
+- `LabelsErrorDialog` — отказ показывается модалкой, а не снекбаром: и `marketplaceLabelNotReady`, и
+  `marketplaceOrderNotAwaitingDeliver` приносят в `args.postingNumbers` список отправлений, а список из
+  тридцати номеров в снекбар не влезает и уезжает по таймауту раньше, чем его перепишут. Последняя ошибка
+  держится в состоянии до конца анимации закрытия, иначе модалка пустеет на глазах.
 
 ### Downloading a generated file
 `saveBlob(blob, fileName)` in `utils/downloadUtils.ts` — `createObjectURL` plus an anchor with `download`.
@@ -1251,6 +1272,24 @@ pluralCount(n, {
 Слово в косвенном падеже (например после «для» — «для 2 **заданий**») в `NOUNS` не кладём: там только именительный. Такие формы объявляй константой рядом с местом использования (см. `TASKS_GENITIVE` в `BatchAssemblyDialog.tsx`).
 
 Не трогаем сокращения — `шт.`, `поз.`, `комп.`, `м`, `мин`: они не склоняются.
+
+#### Плюрализация в шаблонах ошибок
+Тексты ошибок — это строки в `errorCodeMessages` / `errorCodeArgMessages`, вызвать `pluralCount` там негде,
+поэтому формы объявляются прямо в плейсхолдере, а разворачивает их `interpolateArgs`:
+
+```ts
+"{count}"                              // → "3"           — значение как есть
+"{count:заказа|заказов|заказов}"       // → "3 заказов"    — pluralCount с формами one|few|many
+```
+
+Падеж живёт в шаблоне, а не в словаре: «для 1 **заказа**» и «1 **заказ**» — разные формы одного слова, и
+`NOUNS` (именительный падеж) для косвенных не годится. Формы после двоеточия — произвольные строки, так что
+согласовывать можно и целую фразу.
+
+`hasAllArgs` читает имя ключа из той же регулярки, поэтому длинный вариант сообщения по-прежнему включается
+только когда сервер прислал все аргументы. Сломанная директива (меньше трёх форм) деградирует до голого
+значения, а не роняет рендер. Сокращения (`симв.`) плюрализации по-прежнему не требуют — склоняются только
+полные слова.
 
 ### `ObservableForm<TFieldValues>`
 A class that creates a bidirectional bridge between a **react-hook-form** instance and **MobX**. It holds `_data` — a MobX observable snapshot of the form values — and keeps it in sync with the RHF form in both directions via a `watch` subscription (RHF → MobX) and a MobX `reaction` (MobX → RHF). A `_syncing` flag prevents feedback loops.
