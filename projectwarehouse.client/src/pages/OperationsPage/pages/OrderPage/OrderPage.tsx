@@ -19,6 +19,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import {CatalogItemDrawerHost} from "@/components/catalog/CatalogItemDrawerHost";
 import OrderStatusChip from "@/components/orders/OrderStatusChip";
 import OrderTypeChip from "@/components/orders/OrderTypeChip";
+import DownloadOrderLabelButton from "@/components/orders/marketplace/DownloadOrderLabelButton";
 import {ORDER_TYPE_LABELS, formatBoxLabel, formatOrderNumber} from "@/components/orders/orderUtils";
 import OrderMetaSection from "./OrderMetaSection";
 import OrderBoxesSection from "./OrderBoxesSection";
@@ -108,9 +109,11 @@ function OrderPage() {
   }
 
   const actionPending = transitionMutation.isPending || selfAssignMutation.isPending;
+  const marketplaceOrder = order.type === "fbs" ? order.marketplaceOrder : null;
   const hasActions =
     (canSelfAssign && order.status === "confirmed") ||
-    (canEdit && order.status !== "canceled" && order.status !== "shipped");
+    (canEdit && order.status !== "canceled" && order.status !== "shipped") ||
+    marketplaceOrder != null;
 
   return (
     <CatalogItemDrawerHost>
@@ -137,6 +140,13 @@ function OrderPage() {
           right={
             hasActions ? (
               <Stack direction="row" spacing={1} sx={{flexWrap: "wrap"}}>
+                {marketplaceOrder != null && (
+                  <DownloadOrderLabelButton
+                    orderId={order.id}
+                    marketplaceOrder={marketplaceOrder}
+                  />
+                )}
+
                 {canSelfAssign && order.status === "confirmed" && (
                   <Button
                     variant="outlined"

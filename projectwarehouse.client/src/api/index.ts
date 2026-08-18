@@ -440,6 +440,7 @@ export type {
   OrderBoxComponentDto,
   OrderBoxDto,
   OrderDetailsDto,
+  OrderLabelsGrouping,
   OrderLabelsRequest,
   OrderMarketplaceItemDto,
   OrdersAddBoxData,

@@ -190,6 +190,7 @@ enum would reinterpret errors already stored.
 | `marketplaceAccountInactive` | A disabled account was ticked in the sync dialog; only in `failedItems` | — |
 | `marketplaceLabelNotReady` | The marketplace has not printed some of the requested labels yet | `{ postingNumbers: string[], count: number }` |
 | `marketplaceOrderNotFromMarketplace` | A label was requested for an order with no `MarketplaceOrder` | `{ orderIds: Guid[] }` |
+| `marketplaceOrderNotAwaitingDeliver` | A label with no cached file was requested for a posting that is not awaiting shipment | `{ postingNumbers: string[], count: number }` |
 | `marketplaceOrderCardNotMapped` | Posting skipped: an item has no card, or the card is not mapped to a catalog item. Only inside `SkippedOrders` | `{ offerIds: string }` |
 | `marketplaceOrderWarehouseNotMapped` | Posting skipped: its warehouse is not mapped to a WMS warehouse. Only inside `SkippedOrders` | — |
 

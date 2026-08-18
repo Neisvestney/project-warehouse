@@ -142,6 +142,8 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   marketplaceAccountInactive: "Аккаунт отключён",
   marketplaceLabelNotReady: "Маркетплейс ещё не сформировал этикетки — попробуйте через минуту",
   marketplaceOrderNotFromMarketplace: "Среди выбранных есть заказ не с маркетплейса",
+  marketplaceOrderNotAwaitingDeliver:
+    "Этикетка ещё не скачана, а отправление уже не ожидает отгрузки",
   marketplaceOrderCardNotMapped: "Товар заказа не привязан к позиции каталога",
   marketplaceOrderWarehouseNotMapped: "Склад отправления не привязан к складу WMS",
 };
@@ -155,11 +157,13 @@ const errorCodeArgMessages: Partial<Record<ErrorCode, string>> = {
   marketplaceApiError: "Маркетплейс вернул ошибку {marketplaceStatus}",
   marketplaceCredentialsInvalid:
     "Маркетплейс отклонил Client-Id или Api-Key (код {marketplaceStatus})",
-  dataFileTooLarge: "Файл слишком большой — максимум {maxBytes} байт",
+  dataFileTooLarge: "Файл слишком большой — максимум {maxBytes:байт|байта|байт}",
   dataFileTypeNotAllowed: "Этот тип файла загружать нельзя. Допустимые: {allowed}",
   dataFileWidthNotAllowed: "Недопустимый размер превью. Допустимые: {allowed}",
   marketplaceLabelNotReady:
-    "Маркетплейс ещё не сформировал этикетки для {count} заказов — попробуйте через минуту",
+    "Маркетплейс ещё не сформировал этикетки для {count:заказа|заказов|заказов} — попробуйте через минуту",
+  marketplaceOrderNotAwaitingDeliver:
+    "Для {count:заказа|заказов|заказов} этикетка не скачана, а отправление уже не ожидает отгрузки",
   marketplaceOrderCardNotMapped: "Товары не привязаны к каталогу: {offerIds}",
 };
 
