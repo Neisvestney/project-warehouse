@@ -421,3 +421,47 @@ stored value, so a new member had to be appended at the end even when it belonge
 - **Never renumber an existing member** — that silently reinterprets every row already stored.
 - Reordering member *declarations* is free and has no effect on data. Order for readability.
 - `[Flags]` enums keep powers of two; new flags take the next unused bit.
+
+---
+
+## Access rules: one predicate per entity type
+
+Whether a user may see or edit an object is answered in exactly one place — an `EntityAccessRule<T>` registered in
+`Infrastructure/Access/EntityAccessRegistry`. Controllers never read `permission` claims and never load the
+assigned-warehouse set themselves.
+
+### Pattern
+
+The rule owns a predicate; callers apply it at whichever level they need:
+
+```csharp
+private EntityAccessRule<Writeoff> Rule => access.For<Writeoff>();
+
+// list — prelude answers 403/401, the query answers "which rows"
+if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+    return error;
+var accessible = await Rule.QueryAsync(User, AccessLevel.View, ct);
+
+// single object — load first, then judge
+if (AccessError(await Rule.CheckAsync(User, AccessLevel.Edit, writeoff, ct)) is { } denied)
+    return denied;
+
+// create — the object does not exist yet, only the warehouse from the request does
+if (AccessError(await Rule.CheckWarehouseAsync(User, AccessLevel.Edit, request.WarehouseId, ct)) is { } denied)
+    return denied;
+```
+
+`AccessError` (on `AppControllerBase`) turns an `AccessVerdict` into the right response — `401` for an unusable
+token, `403` with the entity's own `*NotAssignedToWarehouse` code otherwise — or `null` when access is granted.
+
+### Rules
+
+- `PrecheckAsync` before loading, `CheckAsync` after. Skipping the prelude turns a 403 into an empty list; skipping
+  the post-load check leaks objects from other warehouses.
+- A list endpoint starts from `QueryAsync` and appends its own `Include`/`Where`. Never re-apply an
+  `assignedIds.Contains(...)` filter on top — the rule already did it.
+- The "no access" branch returns `Where(_ => false)`, not `Take(0)`, so callers can still chain `Include`.
+- Action permissions (`orders.self_assign`, `receipts.process_assigned`, `transfers.*`) are not access rules —
+  they authorise an operation, not a view of an object, and stay in the controller.
+
+See [permissions.md](permissions.md#where-access-is-checked) for the layer table and how to register a new rule.

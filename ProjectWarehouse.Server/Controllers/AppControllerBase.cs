@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Models;
 
 namespace ProjectWarehouse.Server.Controllers;
@@ -74,15 +75,11 @@ public abstract class AppControllerBase : ControllerBase
         return Guid.TryParse(raw, out var id) ? id : null;
     }
 
-    protected async Task<HashSet<Guid>?> GetCurrentUserAssignedWarehouseIdsAsync(ApplicationDbContext db, CancellationToken ct)
+    /// <summary>Null when access is granted; otherwise the response matching the refusal reason.</summary>
+    protected IActionResult? AccessError(AccessVerdict verdict) => verdict.Denial switch
     {
-        var userId = GetCurrentUserId();
-        if (userId is null) return null;
-        var ids = await db.Users
-            .Where(u => u.Id == userId.Value)
-            .SelectMany(u => u.AssignedWarehouses)
-            .Select(w => w.Id)
-            .ToListAsync(ct);
-        return [..ids];
-    }
+        AccessDenial.None => null,
+        AccessDenial.TokenInvalid => Unauthorized(verdict.Code, verdict.Message),
+        _ => Forbidden(verdict.Code, verdict.Message),
+    };
 }

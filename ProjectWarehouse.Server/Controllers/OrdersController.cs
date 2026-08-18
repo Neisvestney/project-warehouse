@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Orders;
@@ -21,8 +22,20 @@ public class OrdersController(
     IMapper mapper,
     IOrderService orders,
     IMarketplaceLabelService labels,
+    EntityAccessRegistry access,
+    AccessScope scope,
     ICatalogService catalog) : AppControllerBase
 {
+    private EntityAccessRule<Order> Rule => access.For<Order>();
+
+    /// <summary>
+    /// Browsing the order list needs a view permission of its own. The access rule also admits
+    /// <c>assemble_assigned</c> — an assembler must be able to read the orders they work on — but that
+    /// permission alone has never opened the order list, and widening it here is not part of this change.
+    /// </summary>
+    private bool CanBrowseOrders =>
+        AccessScope.Has(User, Permissions.Orders.View) || AccessScope.Has(User, Permissions.Orders.ViewAssigned);
+
     // ── Base query helpers ────────────────────────────────────────────────────
 
     private IQueryable<Order> BaseQuery() =>
@@ -67,55 +80,33 @@ public class OrdersController(
 
     // ── Access helpers ────────────────────────────────────────────────────────
 
-    private async Task<(bool canView, bool canViewAssigned, HashSet<Guid>? assignedIds)>
-        GetViewAccessAsync(CancellationToken ct)
-    {
-        var canView         = User.HasClaim("permission", Permissions.Orders.View);
-        var canViewAssigned = User.HasClaim("permission", Permissions.Orders.ViewAssigned);
-
-        if (!canView && !canViewAssigned)
-            return (false, false, null);
-
-        HashSet<Guid>? assignedIds = null;
-        if (!canView)
-            assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-
-        return (canView, canViewAssigned, assignedIds);
-    }
-
     private async Task<(Order? order, IActionResult? error)> LoadOrderWithEditAccessAsync(
         Guid id, CancellationToken ct, bool fullDetails = false)
     {
-        var canEdit         = User.HasClaim("permission", Permissions.Orders.Edit);
-        var canEditAssigned = User.HasClaim("permission", Permissions.Orders.EditAssigned);
-
-        if (!canEdit && !canEditAssigned)
-            return (null, Forbidden());
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } prelude)
+            return (null, prelude);
 
         var query  = fullDetails ? DetailsQuery() : BaseQuery();
         var order  = await query.FirstOrDefaultAsync(o => o.Id == id, ct);
         if (order is null)
             return (null, NotFound(ErrorCode.OrderNotFound, "Order not found."));
 
-        if (canEditAssigned && !canEdit)
-        {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-            if (assignedIds is null)
-                return (null, Unauthorized(ErrorCode.TokenInvalid, "Invalid token."));
-            if (!assignedIds.Contains(order.WarehouseId))
-                return (null, Forbidden(ErrorCode.OrderNotAssignedToWarehouse,
-                    "You are not assigned to the warehouse of this order."));
-        }
+        if (AccessError(await Rule.CheckAsync(User, AccessLevel.Edit, order, ct)) is { } denied)
+            return (null, denied);
 
         return (order, null);
     }
 
+    /// <summary>
+    /// Assembly is warehouse-bound for everyone, including holders of the unscoped <c>orders.edit</c> —
+    /// physically picking stock requires being assigned to the warehouse it sits in.
+    /// </summary>
     private async Task<(Order? order, IActionResult? error)> LoadOrderWithAssembleAccessAsync(
         Guid id, CancellationToken ct, bool fullDetails = false)
     {
-        var canAssemble = User.HasClaim("permission", Permissions.Orders.AssembleAssigned);
-        var canEdit     = User.HasClaim("permission", Permissions.Orders.Edit)
-                       || User.HasClaim("permission", Permissions.Orders.EditAssigned);
+        var canAssemble = AccessScope.Has(User, Permissions.Orders.AssembleAssigned);
+        var canEdit     = AccessScope.Has(User, Permissions.Orders.Edit)
+                       || AccessScope.Has(User, Permissions.Orders.EditAssigned);
 
         if (!canAssemble && !canEdit)
             return (null, Forbidden());
@@ -125,7 +116,7 @@ public class OrdersController(
         if (order is null)
             return (null, NotFound(ErrorCode.OrderNotFound, "Order not found."));
 
-        var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
+        var assignedIds = await scope.GetAssignedWarehouseIdsAsync(User, ct);
         if (assignedIds is null)
             return (null, Unauthorized(ErrorCode.TokenInvalid, "Invalid token."));
         if (!assignedIds.Contains(order.WarehouseId))
@@ -157,14 +148,15 @@ public class OrdersController(
         [FromQuery] SortOrder sortOrder = SortOrder.Desc,
         CancellationToken ct = default)
     {
-        var (canView, canViewAssigned, assignedIds) = await GetViewAccessAsync(ct);
-        if (!canView && !canViewAssigned)
+        if (!CanBrowseOrders)
             return Forbidden();
 
-        if (!canView && assignedIds is null)
-            return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
 
-        var baseQuery = db.Orders
+        var accessible = await Rule.QueryAsync(User, AccessLevel.View, ct);
+
+        var baseQuery = accessible
             .Include(o => o.Warehouse)
             .Include(o => o.CreatedBy)
             .Include(o => o.Boxes).ThenInclude(b => b.Components)
@@ -177,7 +169,6 @@ public class OrdersController(
                         (o.MarketplaceOrder != null && o.MarketplaceOrder.MarketplaceAccountId == marketplaceAccountId))
             .Where(o => marketplaceStatus == null ||
                         (o.MarketplaceOrder != null && o.MarketplaceOrder.Status == marketplaceStatus))
-            .Where(o => assignedIds == null || assignedIds.Contains(o.WarehouseId))
             .WhereMatchesSearch(o => o.SearchString, searchString);
 
         var query = sortBy switch
@@ -203,20 +194,16 @@ public class OrdersController(
     [ProducesResponseType<List<OrderDetailsDto>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAllAssembly([FromQuery] Guid? warehouseId = null, CancellationToken ct = default)
     {
-        var (canView, canViewAssigned, assignedIds) = await GetViewAccessAsync(ct);
-        var canAssemble = User.HasClaim("permission", Permissions.Orders.AssembleAssigned);
-
-        if (!canView && !canViewAssigned && !canAssemble)
-            return Forbidden();
-
-        if (!canView && assignedIds is null)
-            return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
 
         var userId = GetCurrentUserId();
         if (userId is null)
             return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
 
-        var query = db.Orders
+        var accessible = await Rule.QueryAsync(User, AccessLevel.View, ct);
+
+        var query = accessible
             .Include(o => o.Warehouse)
             .Include(o => o.CreatedBy)
             .Include(o => o.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
@@ -248,9 +235,6 @@ public class OrdersController(
         if (warehouseId is not null)
             query = query.Where(o => o.WarehouseId == warehouseId);
 
-        if (!canView && assignedIds is not null)
-            query = query.Where(o => assignedIds.Contains(o.WarehouseId));
-
         var result = await query.ToListAsync(ct);
         var nodeById = await LoadWarehouseNodesAsync(
             result.Select(o => o.WarehouseId).Distinct().ToList(), ct);
@@ -277,19 +261,18 @@ public class OrdersController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct = default)
     {
-        var (canView, canViewAssigned, assignedIds) = await GetViewAccessAsync(ct);
-        if (!canView && !canViewAssigned)
+        if (!CanBrowseOrders)
             return Forbidden();
 
-        if (!canView && assignedIds is null)
-            return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } prelude)
+            return prelude;
 
         var order = await DetailsQuery().FirstOrDefaultAsync(o => o.Id == id, ct);
         if (order is null)
             return NotFound(ErrorCode.OrderNotFound, "Order not found.");
 
-        if (assignedIds is not null && !assignedIds.Contains(order.WarehouseId))
-            return Forbidden();
+        if (AccessError(await Rule.CheckAsync(User, AccessLevel.View, order, ct)) is { } denied)
+            return denied;
 
         var nodeById = await LoadWarehouseNodesAsync([order.WarehouseId], ct);
         return Ok(mapper.Map<OrderDetailsDto>(order, opts => opts.Items["nodeById"] = nodeById));
@@ -303,25 +286,15 @@ public class OrdersController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> CreateDirect([FromBody] CreateDirectOrderRequest request, CancellationToken ct = default)
     {
-        var canEdit         = User.HasClaim("permission", Permissions.Orders.Edit);
-        var canEditAssigned = User.HasClaim("permission", Permissions.Orders.EditAssigned);
-
-        if (!canEdit && !canEditAssigned)
-            return Forbidden();
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
 
         var warehouse = await db.Warehouses.FindAsync([request.WarehouseId], ct);
         if (warehouse is null)
             return UnprocessableEntity("warehouseId", ErrorCode.WarehouseNotFound, "Warehouse not found.");
 
-        if (canEditAssigned && !canEdit)
-        {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-            if (assignedIds is null)
-                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
-            if (!assignedIds.Contains(request.WarehouseId))
-                return Forbidden(ErrorCode.OrderNotAssignedToWarehouse,
-                    "You are not assigned to the warehouse of this order.");
-        }
+        if (AccessError(await Rule.CheckWarehouseAsync(User, AccessLevel.Edit, request.WarehouseId, ct)) is { } denied)
+            return denied;
 
         var order = await orders.CreateDirectOrderAsync(request, GetCurrentUserId(), ct);
 
@@ -408,7 +381,7 @@ public class OrdersController(
         if (!User.HasClaim("permission", Permissions.Orders.SelfAssign))
             return Forbidden();
 
-        var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
+        var assignedIds = await scope.GetAssignedWarehouseIdsAsync(User, ct);
         if (assignedIds is null)
             return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
 
@@ -461,15 +434,18 @@ public class OrdersController(
                 $"At most {MaxLabelOrders} labels can be printed at once.",
                 new Dictionary<string, object> { ["max"] = MaxLabelOrders });
 
-        var (canView, canViewAssigned, assignedIds) = await GetViewAccessAsync(ct);
-        if (!canView && !canViewAssigned)
+        if (!CanBrowseOrders)
             return Forbidden();
 
-        if (!canView)
-        {
-            if (assignedIds is null)
-                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
 
+        var narrowing = await scope.GetWarehouseNarrowingAsync(User, Permissions.Orders.View, ct);
+        if (AccessError(narrowing.Verdict) is { } tokenError)
+            return tokenError;
+
+        if (narrowing.Ids is { } assignedIds)
+        {
             var outside = await db.Orders
                 .AnyAsync(o => orderIds.Contains(o.Id) && !assignedIds.Contains(o.WarehouseId), ct);
 
@@ -536,7 +512,7 @@ public class OrdersController(
         if (!User.HasClaim("permission", Permissions.Orders.SelfAssign))
             return Forbidden();
 
-        var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
+        var assignedIds = await scope.GetAssignedWarehouseIdsAsync(User, ct);
         if (assignedIds is null)
             return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
 
@@ -618,7 +594,7 @@ public class OrdersController(
 
         var assignedIds = canEdit
             ? null
-            : await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
+            : await scope.GetAssignedWarehouseIdsAsync(User, ct);
 
         if (assignedIds is not null && !assignedIds.Contains(order.WarehouseId))
             return Forbidden(ErrorCode.OrderNotAssignedToWarehouse, "You are not assigned to this order's warehouse.");
@@ -1125,7 +1101,7 @@ public class OrdersController(
         if (!canAssemble && !canEdit)
             return Forbidden();
 
-        var assignedWarehouseIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
+        var assignedWarehouseIds = await scope.GetAssignedWarehouseIdsAsync(User, ct);
         if (assignedWarehouseIds is null)
             return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
 

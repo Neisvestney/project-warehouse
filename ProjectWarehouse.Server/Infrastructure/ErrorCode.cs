@@ -36,6 +36,8 @@ public enum ErrorCode
     CatalogItemCharacteristicDuplicate = 24,
     WarehouseHasItems = 25,
     StoragePlaceHasItems = 26,
+    WarehouseNotAssigned = 127,
+    StoragePlaceNotAssignedToWarehouse = 128,
     CatalogItemIsInUse = 27,
     CatalogItemIsImmutable = 28,
     CatalogItemArticleDuplicate = 29,
@@ -54,6 +56,7 @@ public enum ErrorCode
 
     // Transfers
     TransferSameNode = 40,
+    TransferNotAssignedToWarehouse = 129,
 
     // Writeoffs
     WriteoffNotFound = 41,

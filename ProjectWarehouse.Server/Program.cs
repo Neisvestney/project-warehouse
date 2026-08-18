@@ -20,6 +20,7 @@ using PdfSharp.Fonts;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Infrastructure.Files;
 using ProjectWarehouse.Server.Infrastructure.Labels;
@@ -400,6 +401,9 @@ try
     builder.Services.AddScoped<IChangeLogService<MarketplaceCardDto>, MarketplaceCardDtoChangelogService>();
     builder.Services.AddScoped<IInventoryService, InventoryService>();
     builder.Services.AddScoped<ICatalogService, CatalogService>();
+    builder.Services.AddScoped<AccessScope>();
+    builder.Services.AddScoped<EntityAccessRegistry>();
+    builder.Services.AddScoped<IEntityAccessService, EntityAccessService>();
     builder.Services.AddScoped<IUserQueryFilterService, UserQueryFilterService>();
     builder.Services.AddScoped<IOrderService, OrderService>();
     builder.Services.AddScoped<IStockStatisticsService, StockStatisticsService>();

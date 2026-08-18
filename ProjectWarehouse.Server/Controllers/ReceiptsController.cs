@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Receipts;
@@ -20,8 +21,12 @@ public class ReceiptsController(
     ApplicationDbContext db,
     IMapper mapper,
     IInventoryService inventory,
+    EntityAccessRegistry access,
+    AccessScope scope,
     IChangeLogService<ReceiptDto> changeLog) : AppControllerBase
 {
+    private EntityAccessRule<Receipt> Rule => access.For<Receipt>();
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private IQueryable<Receipt> BaseQuery(bool includeItems = false)
@@ -44,34 +49,13 @@ public class ReceiptsController(
         return q;
     }
 
-    private async Task<(bool canView, bool canViewAssigned, HashSet<Guid>? assignedIds, bool processingOnly)>
-        GetViewAccessAsync(CancellationToken ct)
-    {
-        var canView         = User.HasClaim("permission", Permissions.Receipts.View);
-        var canViewAssigned = User.HasClaim("permission", Permissions.Receipts.ViewAssigned);
-        var canProcess      = User.HasClaim("permission", Permissions.Receipts.ProcessAssigned);
-
-        if (!canView && !canViewAssigned && !canProcess)
-            return (false, false, null, false);
-
-        HashSet<Guid>? assignedIds = null;
-        if (!canView)
-            assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-
-        // processingOnly=true: user has ProcessAssigned but no broader view permission.
-        // They may only see receipts in Processing status for their assigned warehouses.
-        var processingOnly = canProcess && !canView && !canViewAssigned;
-
-        return (canView, canViewAssigned, assignedIds, processingOnly);
-    }
-
     private async Task<(bool canProcess, HashSet<Guid>? assignedIds)>
         GetProcessAccessAsync(CancellationToken ct)
     {
-        if (!User.HasClaim("permission", Permissions.Receipts.ProcessAssigned))
+        if (!AccessScope.Has(User, Permissions.Receipts.ProcessAssigned))
             return (false, null);
 
-        var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
+        var assignedIds = await scope.GetAssignedWarehouseIdsAsync(User, ct);
         return (true, assignedIds);
     }
 
@@ -92,22 +76,17 @@ public class ReceiptsController(
         [FromQuery] SortOrder sortOrder = SortOrder.Desc,
         CancellationToken ct = default)
     {
-        var (canView, canViewAssigned, assignedIds, processingOnly) = await GetViewAccessAsync(ct);
-        if (!canView && !canViewAssigned && !processingOnly)
-            return Forbidden();
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
 
-        // assignedIds is null when canView==true (not needed) or when the token is invalid.
-        if (!canView && assignedIds is null)
-            return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+        var accessible = await Rule.QueryAsync(User, AccessLevel.View, ct);
 
-        var baseQuery = db.Receipts
+        var baseQuery = accessible
             .Include(r => r.Warehouse)
             .Include(r => r.Items)
             .Where(r => warehouseId == null || r.WarehouseId == warehouseId)
             .Where(r => status == null || r.Status == status)
             .Where(r => reason == null || r.Reason == reason)
-            .Where(r => assignedIds == null || assignedIds.Contains(r.WarehouseId))
-            .Where(r => !processingOnly || r.Status == ReceiptStatus.Processing)
             .WhereMatchesSearch(r => r.SearchString, searchString);
 
         var query = sortBy switch
@@ -136,9 +115,8 @@ public class ReceiptsController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct = default)
     {
-        var (canView, canViewAssigned, assignedIds, processingOnly) = await GetViewAccessAsync(ct);
-        if (!canView && !canViewAssigned && !processingOnly)
-            return Forbidden();
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } prelude)
+            return prelude;
 
         var receipt = await BaseQuery(includeItems: true)
             .FirstOrDefaultAsync(r => r.Id == id, ct);
@@ -146,14 +124,8 @@ public class ReceiptsController(
         if (receipt is null)
             return NotFound(ErrorCode.ReceiptNotFound, "Receipt not found.");
 
-        if (!canView && assignedIds is null)
-            return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
-
-        if (assignedIds is not null && !assignedIds.Contains(receipt.WarehouseId))
-            return Forbidden();
-
-        if (processingOnly && receipt.Status != ReceiptStatus.Processing)
-            return Forbidden();
+        if (AccessError(await Rule.CheckAsync(User, AccessLevel.View, receipt, ct)) is { } denied)
+            return denied;
 
         var nodeById = await LoadWarehouseNodesAsync(receipt.WarehouseId, ct);
         return Ok(mapper.Map<ReceiptDto>(receipt, opts => opts.Items["nodeById"] = nodeById));
@@ -168,25 +140,15 @@ public class ReceiptsController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Create([FromBody] CreateReceiptRequest request, CancellationToken ct = default)
     {
-        var canEdit         = User.HasClaim("permission", Permissions.Receipts.Edit);
-        var canEditAssigned = User.HasClaim("permission", Permissions.Receipts.EditAssigned);
-
-        if (!canEdit && !canEditAssigned)
-            return Forbidden();
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
 
         var warehouse = await db.Warehouses.FindAsync([request.WarehouseId], ct);
         if (warehouse is null)
             return UnprocessableEntity("warehouseId", ErrorCode.WarehouseNotFound, "Warehouse not found.");
 
-        if (canEditAssigned && !canEdit)
-        {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-            if (assignedIds is null)
-                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
-            if (!assignedIds.Contains(request.WarehouseId))
-                return Forbidden(ErrorCode.ReceiptNotAssignedToWarehouse,
-                    "You are not assigned to the warehouse of this receipt.");
-        }
+        if (AccessError(await Rule.CheckWarehouseAsync(User, AccessLevel.Edit, request.WarehouseId, ct)) is { } denied)
+            return denied;
 
         var receipt = new Receipt
         {
@@ -956,25 +918,15 @@ public class ReceiptsController(
     private async Task<(Receipt? receipt, IActionResult? error)> LoadReceiptWithEditAccessAsync(
         Guid id, CancellationToken ct, bool includeItems = false)
     {
-        var canEdit         = User.HasClaim("permission", Permissions.Receipts.Edit);
-        var canEditAssigned = User.HasClaim("permission", Permissions.Receipts.EditAssigned);
-
-        if (!canEdit && !canEditAssigned)
-            return (null, Forbidden());
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } prelude)
+            return (null, prelude);
 
         var receipt = await BaseQuery(includeItems).FirstOrDefaultAsync(r => r.Id == id, ct);
         if (receipt is null)
             return (null, NotFound(ErrorCode.ReceiptNotFound, "Receipt not found."));
 
-        if (canEditAssigned && !canEdit)
-        {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-            if (assignedIds is null)
-                return (null, Unauthorized(ErrorCode.TokenInvalid, "Invalid token."));
-            if (!assignedIds.Contains(receipt.WarehouseId))
-                return (null, Forbidden(ErrorCode.ReceiptNotAssignedToWarehouse,
-                    "You are not assigned to the warehouse of this receipt."));
-        }
+        if (AccessError(await Rule.CheckAsync(User, AccessLevel.Edit, receipt, ct)) is { } denied)
+            return (null, denied);
 
         return (receipt, null);
     }

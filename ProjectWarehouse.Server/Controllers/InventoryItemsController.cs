@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
 using ProjectWarehouse.Server.Models.Inventory;
@@ -16,7 +17,9 @@ namespace ProjectWarehouse.Server.Controllers;
 [Route("api/inventory-items")]
 public class InventoryItemsController(
     ApplicationDbContext db,
-    IMapper mapper) : AppControllerBase
+    IMapper mapper,
+    EntityAccessRegistry access,
+    AccessScope scope) : AppControllerBase
 {
     /// <summary>List all inventory items aggregated by catalog item.</summary>
     /// <remarks>
@@ -41,19 +44,15 @@ public class InventoryItemsController(
         [FromQuery] SortOrder sortOrder = SortOrder.Asc,
         CancellationToken ct = default)
     {
-        var canViewAll = User.HasClaim("permission", Permissions.Warehouses.View);
-        var canViewAssigned = User.HasClaim("permission", Permissions.Warehouses.ViewAssigned);
+        // Inventory has no permissions of its own — it is scoped by the warehouse the stock sits in
+        if (AccessError(await access.For<Warehouse>().PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
 
-        if (!canViewAll && !canViewAssigned)
-            return Forbidden();
+        var narrowing = await scope.GetWarehouseNarrowingAsync(User, Permissions.Warehouses.View, ct);
+        if (AccessError(narrowing.Verdict) is { } tokenError)
+            return tokenError;
 
-        HashSet<Guid>? assignedIds = null;
-        if (!canViewAll)
-        {
-            assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-            if (assignedIds is null)
-                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
-        }
+        var assignedIds = narrowing.Ids;
 
         var catalogQuery = db.CatalogItems
             .Include(ci => ci.Group)
@@ -134,19 +133,15 @@ public class InventoryItemsController(
         [FromQuery] SortOrder sortOrder = SortOrder.Asc,
         CancellationToken ct = default)
     {
-        var canViewAll = User.HasClaim("permission", Permissions.Warehouses.View);
-        var canViewAssigned = User.HasClaim("permission", Permissions.Warehouses.ViewAssigned);
+        // Inventory has no permissions of its own — it is scoped by the warehouse the stock sits in
+        if (AccessError(await access.For<Warehouse>().PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
 
-        if (!canViewAll && !canViewAssigned)
-            return Forbidden();
+        var narrowing = await scope.GetWarehouseNarrowingAsync(User, Permissions.Warehouses.View, ct);
+        if (AccessError(narrowing.Verdict) is { } tokenError)
+            return tokenError;
 
-        HashSet<Guid>? assignedIds = null;
-        if (!canViewAll)
-        {
-            assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-            if (assignedIds is null)
-                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
-        }
+        var assignedIds = narrowing.Ids;
 
         var unitBaseQuery = db.InventoryItems.OfType<UnitInventoryItem>()
             .Where(u => u.StoragePlaceNodeId != null)

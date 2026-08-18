@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Transfers;
 using ProjectWarehouse.Server.Services;
@@ -12,6 +13,7 @@ namespace ProjectWarehouse.Server.Controllers;
 [Route("api/transfers")]
 public class TransfersController(
     ApplicationDbContext db,
+    AccessScope scope,
     IInventoryService inventory) : AppControllerBase
 {
     /// <summary>Execute an atomic inventory transfer between two storage nodes.</summary>
@@ -28,10 +30,10 @@ public class TransfersController(
         [FromBody] ExecuteTransferRequest request,
         CancellationToken ct = default)
     {
-        var canExecute         = User.HasClaim("permission", Permissions.Transfers.Execute);
-        var canExecuteAssigned = User.HasClaim("permission", Permissions.Transfers.ExecuteAssigned);
-
-        if (!canExecute && !canExecuteAssigned)
+        // Transfers have their own permission family and no entity of their own, so there is no access rule —
+        // only the assigned-warehouse narrowing is shared.
+        if (!AccessScope.Has(User, Permissions.Transfers.Execute)
+            && !AccessScope.Has(User, Permissions.Transfers.ExecuteAssigned))
             return Forbidden();
 
         if (request.FromNodeId == request.ToNodeId)
@@ -79,18 +81,18 @@ public class TransfersController(
                 "Destination storage place node not found.");
 
         // For assigned-only users, both warehouses must be in their assigned set
-        if (!canExecute && canExecuteAssigned)
-        {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-            if (assignedIds is null)
-                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+        var narrowing = await scope.GetWarehouseNarrowingAsync(User, Permissions.Transfers.Execute, ct);
+        if (AccessError(narrowing.Verdict) is { } error)
+            return error;
 
+        if (narrowing.Ids is { } assignedIds)
+        {
             if (!assignedIds.Contains(fromNodeWarehouseId.Value))
-                return Forbidden(ErrorCode.PermissionDenied,
+                return Forbidden(ErrorCode.TransferNotAssignedToWarehouse,
                     "You are not assigned to the source warehouse.");
 
             if (!assignedIds.Contains(toNodeWarehouseId.Value))
-                return Forbidden(ErrorCode.PermissionDenied,
+                return Forbidden(ErrorCode.TransferNotAssignedToWarehouse,
                     "You are not assigned to the destination warehouse.");
         }
 

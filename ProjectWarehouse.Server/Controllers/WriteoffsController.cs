@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Writeoffs;
@@ -19,8 +20,11 @@ public class WriteoffsController(
     ApplicationDbContext db,
     IMapper mapper,
     IInventoryService inventory,
+    EntityAccessRegistry access,
     IChangeLogService<WriteoffDto> changeLog) : AppControllerBase
 {
+    private EntityAccessRule<Writeoff> Rule => access.For<Writeoff>();
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private IQueryable<Writeoff> BaseQuery(bool includeItems = false)
@@ -43,47 +47,25 @@ public class WriteoffsController(
         return q;
     }
 
-    private async Task<(bool canView, bool canViewAssigned, HashSet<Guid>? assignedIds)>
-        GetViewAccessAsync(CancellationToken ct)
+    private async Task<(Writeoff? writeoff, IActionResult? error)> LoadWriteoffWithAccessAsync(
+        Guid id, AccessLevel level, CancellationToken ct, bool includeItems = false)
     {
-        var canView         = User.HasClaim("permission", Permissions.Writeoffs.View);
-        var canViewAssigned = User.HasClaim("permission", Permissions.Writeoffs.ViewAssigned);
-
-        if (!canView && !canViewAssigned)
-            return (false, false, null);
-
-        HashSet<Guid>? assignedIds = null;
-        if (!canView)
-            assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-
-        return (canView, canViewAssigned, assignedIds);
-    }
-
-    private async Task<(Writeoff? writeoff, IActionResult? error)> LoadWriteoffWithEditAccessAsync(
-        Guid id, CancellationToken ct, bool includeItems = false)
-    {
-        var canEdit         = User.HasClaim("permission", Permissions.Writeoffs.Edit);
-        var canEditAssigned = User.HasClaim("permission", Permissions.Writeoffs.EditAssigned);
-
-        if (!canEdit && !canEditAssigned)
-            return (null, Forbidden());
+        if (AccessError(await Rule.PrecheckAsync(User, level, ct)) is { } prelude)
+            return (null, prelude);
 
         var writeoff = await BaseQuery(includeItems).FirstOrDefaultAsync(w => w.Id == id, ct);
         if (writeoff is null)
             return (null, NotFound(ErrorCode.WriteoffNotFound, "Write-off not found."));
 
-        if (canEditAssigned && !canEdit)
-        {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-            if (assignedIds is null)
-                return (null, Unauthorized(ErrorCode.TokenInvalid, "Invalid token."));
-            if (!assignedIds.Contains(writeoff.WarehouseId))
-                return (null, Forbidden(ErrorCode.WriteoffNotAssignedToWarehouse,
-                    "You are not assigned to the warehouse of this write-off."));
-        }
+        if (AccessError(await Rule.CheckAsync(User, level, writeoff, ct)) is { } denied)
+            return (null, denied);
 
         return (writeoff, null);
     }
+
+    private Task<(Writeoff? writeoff, IActionResult? error)> LoadWriteoffWithEditAccessAsync(
+        Guid id, CancellationToken ct, bool includeItems = false) =>
+        LoadWriteoffWithAccessAsync(id, AccessLevel.Edit, ct, includeItems);
 
     private async Task<Dictionary<Guid, StoragePlaceNode>> LoadWarehouseNodesAsync(
         Guid warehouseId, CancellationToken ct) =>
@@ -112,20 +94,17 @@ public class WriteoffsController(
         [FromQuery] SortOrder sortOrder = SortOrder.Desc,
         CancellationToken ct = default)
     {
-        var (canView, canViewAssigned, assignedIds) = await GetViewAccessAsync(ct);
-        if (!canView && !canViewAssigned)
-            return Forbidden();
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
 
-        if (!canView && assignedIds is null)
-            return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+        var accessible = await Rule.QueryAsync(User, AccessLevel.View, ct);
 
-        var baseQuery = db.Writeoffs
+        var baseQuery = accessible
             .Include(w => w.Warehouse)
             .Include(w => w.Items)
             .Where(w => warehouseId == null || w.WarehouseId == warehouseId)
             .Where(w => status == null || w.Status == status)
             .Where(w => reason == null || w.Reason == reason)
-            .Where(w => assignedIds == null || assignedIds.Contains(w.WarehouseId))
             .WhereMatchesSearch(w => w.SearchString, searchString);
 
         var query = sortBy switch
@@ -153,23 +132,10 @@ public class WriteoffsController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct = default)
     {
-        var (canView, canViewAssigned, assignedIds) = await GetViewAccessAsync(ct);
-        if (!canView && !canViewAssigned)
-            return Forbidden();
+        var (writeoff, error) = await LoadWriteoffWithAccessAsync(id, AccessLevel.View, ct, includeItems: true);
+        if (error is not null) return error;
 
-        if (!canView && assignedIds is null)
-            return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
-
-        var writeoff = await BaseQuery(includeItems: true)
-            .FirstOrDefaultAsync(w => w.Id == id, ct);
-
-        if (writeoff is null)
-            return NotFound(ErrorCode.WriteoffNotFound, "Write-off not found.");
-
-        if (assignedIds is not null && !assignedIds.Contains(writeoff.WarehouseId))
-            return Forbidden();
-
-        var nodeById = await LoadWarehouseNodesAsync(writeoff.WarehouseId, ct);
+        var nodeById = await LoadWarehouseNodesAsync(writeoff!.WarehouseId, ct);
         return Ok(MapWithNodes(writeoff, nodeById));
     }
 
@@ -182,25 +148,15 @@ public class WriteoffsController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Create([FromBody] CreateWriteoffRequest request, CancellationToken ct = default)
     {
-        var canEdit         = User.HasClaim("permission", Permissions.Writeoffs.Edit);
-        var canEditAssigned = User.HasClaim("permission", Permissions.Writeoffs.EditAssigned);
-
-        if (!canEdit && !canEditAssigned)
-            return Forbidden();
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
 
         var warehouse = await db.Warehouses.FindAsync([request.WarehouseId], ct);
         if (warehouse is null)
             return UnprocessableEntity("warehouseId", ErrorCode.WarehouseNotFound, "Warehouse not found.");
 
-        if (canEditAssigned && !canEdit)
-        {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-            if (assignedIds is null)
-                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
-            if (!assignedIds.Contains(request.WarehouseId))
-                return Forbidden(ErrorCode.WriteoffNotAssignedToWarehouse,
-                    "You are not assigned to the warehouse of this write-off.");
-        }
+        if (AccessError(await Rule.CheckWarehouseAsync(User, AccessLevel.Edit, request.WarehouseId, ct)) is { } denied)
+            return denied;
 
         var writeoff = new Writeoff
         {

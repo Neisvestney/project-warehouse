@@ -108,6 +108,9 @@ Error with structured arguments (e.g. password too short):
 | `unitInventoryItemNotFound` | Unit inventory item ID not found (or already deleted) |
 | `inventoryItemMovedToAnotherNodeAfterPlacementCreated` | Item was moved to a different node after the placement was created — refresh and retry |
 | `transferSameNode` | `fromNodeId` and `toNodeId` are the same node |
+| `transferNotAssignedToWarehouse` | Current user is not assigned to the source or the destination warehouse (assigned permission check); the message names which side |
+| `warehouseNotAssigned` | Current user is not assigned to this warehouse (assigned permission check) |
+| `storagePlaceNotAssignedToWarehouse` | Current user is not assigned to the warehouse the storage place belongs to (assigned permission check) |
 | `receiptNotFound` | Receipt ID not found |
 | `receiptInvalidStatusTransition` | Operation not allowed for the current receipt status |
 | `receiptHasPlacements` | Revert/cancel blocked because one or more items already have placements |
