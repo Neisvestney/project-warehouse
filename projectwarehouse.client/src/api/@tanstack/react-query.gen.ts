@@ -3796,7 +3796,7 @@ export const stocktakesToDraftMutation = (
 };
 
 /**
- * Start counting. Draft → InProgress.
+ * Start counting. Draft or Planned → InProgress.
  */
 export const stocktakesStartMutation = (
   options?: Partial<Options<StocktakesStartData>>,

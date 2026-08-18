@@ -463,7 +463,7 @@ return File(stream, contentTypeForResponse, downloadFileName, enableRangeProcess
 
 ## Коды ошибок
 
-Дописываются в конец `ErrorCode` (значения enum сохраняются в `jsonb` как целые — секции только дополняются):
+Добавляются в секцию `ErrorCode` по смыслу — значения проставлены явно, поэтому новый код получает следующий свободный номер, а не следующую позицию (см. [«Enums: pinned values, free ordering»](backend-patterns.md#enums-pinned-values-free-ordering)):
 
 ```csharp
 // DataFiles

@@ -2,6 +2,6 @@ namespace ProjectWarehouse.Server.Domain;
 
 public enum WarehouseLayoutObjectType
 {
-    Wall,
-    Passage
+    Wall = 0,
+    Passage = 1,
 }

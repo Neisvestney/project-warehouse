@@ -390,3 +390,34 @@ while (true)
 ```
 
 Plain `async` methods that page in a loop are unaffected — the whole loop runs under one execution context.
+
+---
+
+## Enums: pinned values, free ordering
+
+Every enum in `Domain/`, `Models/` and `Infrastructure/` declares its numeric values explicitly:
+
+```csharp
+public enum ReceiptStatus
+{
+    Draft = 0,
+    Planned = 1,
+    Processing = 2,
+    Finished = 3,
+    Canceled = 4,
+}
+```
+
+### Why
+
+Enums are serialized as camelCase strings by MVC (`JsonStringEnumConverter` in `Program.cs`), but stored
+as `int` — by EF in entity columns, and by the Npgsql serializer inside `jsonb` payloads such as
+`MarketplaceSyncRun.Error` or `MarketplaceAccount.LastSyncError`. With implicit values, position *is* the
+stored value, so a new member had to be appended at the end even when it belonged in the middle.
+
+### Rules
+
+- New members take the next free number, **not** the next position. Declare them where they belong logically.
+- **Never renumber an existing member** — that silently reinterprets every row already stored.
+- Reordering member *declarations* is free and has no effect on data. Order for readability.
+- `[Flags]` enums keep powers of two; new flags take the next unused bit.

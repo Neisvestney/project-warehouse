@@ -499,7 +499,7 @@ MarketplaceSyncRun : IHasIdentity
 
 Собирать **только** через `AppProblems.MakeError(code, message, args)` — он же проставляет `Detail` в каноническом формате `"camelCaseCode: message"`. Текст `Detail` — англоязычный, для разработчика; локализация делается на фронте по `code` + `args`.
 
-> **Нюанс сериализации.** jsonb пишет сериализатор Npgsql (`EnableDynamicJson()`), а не MVC-шный с `JsonStringEnumConverter`. Значит `ErrorCode` внутри колонки лежит **числом**, а наружу через DTO уезжает camelCase-строкой. Следствие: значения `ErrorCode` можно только **дописывать в конец** — вставка в середину переинтерпретирует уже записанные ошибки.
+> **Нюанс сериализации.** jsonb пишет сериализатор Npgsql (`EnableDynamicJson()`), а не MVC-шный с `JsonStringEnumConverter`. Значит `ErrorCode` внутри колонки лежит **числом**, а наружу через DTO уезжает camelCase-строкой. Следствие: номера `ErrorCode` **проставлены явно и не перенумеровываются** — новый код берёт следующий свободный номер и объявляется там, где ему место по смыслу; менять номер у существующего значит переинтерпретировать уже записанные ошибки.
 
 ### Перечисления
 
@@ -508,11 +508,11 @@ MarketplaceSyncRun : IHasIdentity
 | `MarketplaceType` | `Ozon = 0`, `Wildberries = 1` |
 | `MarketplaceWarehouseKind` | `Unknown = 0`, `Fbs = 1`, `Rfbs = 2`, `Express = 3`, `Fbo = 4` |
 | `MarketplaceMappingSource` | `Manual = 0`, `AutoOfferId = 1`, `AutoBarcode = 2` |
-| `MarketplaceSyncScope` | `Warehouses = 0`, `Cards = 1`, `All = 2`, `Orders = 3` |
+| `MarketplaceSyncScope` | `Warehouses = 0`, `Cards = 1`, `Orders = 3`, `All = 2` |
 | `MarketplaceSyncStatus` | `Running = 0`, `Success = 1`, `Failed = 2`, `Canceled = 3` |
 | `MarketplaceOrderStatus` | `Unknown = 0`, `AwaitingDeliver = 1`, `Delivering = 2`, `Delivered = 3`, `Cancelled = 4`, `Arbitration = 5` |
 
-`MarketplaceSyncScope.Orders` дописан **в конец** — значение персистится числом в `MarketplaceSyncRun.Scope`. Заказы намеренно не входят в `All`: складам и карточкам хватает фонового интервала, а заказы запускаются отдельным пользовательским действием (см. [«Планировщик и запуск»](#планировщик-и-запуск)).
+`MarketplaceSyncScope.Orders` имеет номер `3` — значение персистится числом в `MarketplaceSyncRun.Scope` и не перенумеровывается. Заказы намеренно не входят в `All`: складам и карточкам хватает фонового интервала, а заказы запускаются отдельным пользовательским действием (см. [«Планировщик и запуск»](#планировщик-и-запуск)).
 
 `MarketplaceOrderStatus` — нормализованный набор состояний, схлопывать словарь площадки обязан **провайдер**, как это уже сделано для `MarketplaceWarehouseStatus`. Для Ozon: `awaiting_deliver` → `AwaitingDeliver`; `delivering`, `driver_pickup`, `sent_by_seller` → `Delivering`; `delivered` → `Delivered`; `cancelled`, `not_accepted` → `Cancelled`; `arbitration`, `client_arbitration` → `Arbitration`; всё незнакомое → `Unknown` с `LogWarning`. `Unknown = 0` по той же причине, что `MarketplaceWarehouseStatus.Unavailable = 0`: неизвестное состояние не должно выглядеть рабочим.
 
@@ -945,13 +945,13 @@ public static class Integrations
 | `marketplaceOrderCardNotMapped` | — | Заказ пропущен: товар без привязки к каталогу. Только в `SkippedOrders`, наружу по HTTP не отдаётся |
 | `marketplaceOrderWarehouseNotMapped` | — | Заказ пропущен: склад отправления не привязан к складу WMS. Только в `SkippedOrders` |
 
-Значения `ErrorCode` для этой секции дописываются **в самый конец** enum'а — не в маркетплейсный блок к родне. Они персистятся числом в jsonb-колонках `Error`, `LastSyncError` и `SkippedOrders`, поэтому вставка в середину молча переинтерпретировала бы уже сохранённые ошибки. В файле над блоком стоит комментарий с этим объяснением.
+Значения `ErrorCode` для этой секции объявлены в маркетплейсном блоке, к родне, и сохраняют номера, полученные при добавлении (109–115, 126). Они персистятся числом в jsonb-колонках `Error`, `LastSyncError` и `SkippedOrders`, поэтому перенумерация молча переинтерпретировала бы уже сохранённые ошибки; порядок объявления при этом свободен (см. [«Enums: pinned values, free ordering»](backend-patterns.md#enums-pinned-values-free-ordering)).
 
 `args.count` у `marketplaceLabelNotReady` дублирует длину `postingNumbers` намеренно: клиентский `interpolateArgs` подставляет скаляр, а массив не склоняется.
 
 ### Changelog
 
-Добавляются значения `AppEntityType`: `MarketplaceAccount`, `MarketplaceCard`. **Только в конец enum'а** — он персистится в `ChangeLogEntry.EntityType` как `int`, и вставка в середину молча переинтерпретировала бы все существующие записи журнала.
+Добавляются значения `AppEntityType`: `MarketplaceAccount = 9`, `MarketplaceCard = 10`. Номера проставлены явно и **не перенумеровываются** — enum персистится в `ChangeLogEntry.EntityType` как `int`, и смена номера молча переинтерпретировала бы все существующие записи журнала.
 
 | Действие | `action` | `actionData` |
 |----------|----------|--------------|
@@ -1242,7 +1242,7 @@ volumes:
 | Карточка привязана к архивной позиции | Привязка **сохраняется**, показывается чипом «Привязана к архивному товару» | `[Projectable] IsMappedToArchivedItem` + значение фильтра `archivedItem` |
 | Остаток карточки, привязанной к `Variation` | **Сумма** остатков по членам вариации | Завышает доступность, если ревизии не полностью взаимозаменяемы; принято осознанно |
 | Отмена запущенной синхронизации | **Не нужна** в первой версии | Значение `MarketplaceSyncStatus.Canceled` остаётся зарезервированным и в UI не используется |
-| Хранение ошибок запуска | **`AppFieldError` в jsonb**, а не строка | Фронт локализует по `code` + `args`; `ErrorCode` можно только дописывать в конец |
+| Хранение ошибок запуска | **`AppFieldError` в jsonb**, а не строка | Фронт локализует по `code` + `args`; номера `ErrorCode` пиннятся и не перенумеровываются |
 | Клиент Ozon | **Генерация NSwag**, библиотекой в процессе, без `.nswag`-конфига | Следующие методы бесплатны; ценой — санитайзер для Swagger-2.0-наследия в спеке Ozon |
 | Живые счётчики синхронизации | **Опрос** `/sync-runs`; SSE отложен | Бэкенд ничего не публикует; переход на realtime — подмена одного хука на фронте |
 | Бейдж несопоставленных в сайдбаре | **Отложен** | Требует поля `badge` в общем `SectionConfig` и правок `SidebarLayout` ради одного раздела; `/accounts/unmapped-count` реализован, но не используется |
