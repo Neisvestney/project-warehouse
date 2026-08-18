@@ -112,9 +112,11 @@ import {
   stocktakesGetDifferences,
   stocktakesGetNodeStock,
   stocktakesRevert,
+  stocktakesSchedule,
   stocktakesStart,
   stocktakesSyncNodeItems,
   stocktakesSyncNodes,
+  stocktakesToDraft,
   stocktakesUpdate,
   storagePlacesAddNode,
   storagePlacesDeleteNode,
@@ -451,6 +453,9 @@ import type {
   StocktakesRevertData,
   StocktakesRevertError,
   StocktakesRevertResponse,
+  StocktakesScheduleData,
+  StocktakesScheduleError,
+  StocktakesScheduleResponse,
   StocktakesStartData,
   StocktakesStartError,
   StocktakesStartResponse,
@@ -460,6 +465,9 @@ import type {
   StocktakesSyncNodesData,
   StocktakesSyncNodesError,
   StocktakesSyncNodesResponse,
+  StocktakesToDraftData,
+  StocktakesToDraftError,
+  StocktakesToDraftResponse,
   StocktakesUpdateData,
   StocktakesUpdateError,
   StocktakesUpdateResponse,
@@ -1127,6 +1135,12 @@ export const commonContentGlobalSearchOptions = (
 export const eventsGetEventsQueryKey = (options?: Options<EventsGetEventsData>) =>
   createQueryKey("eventsGetEvents", options);
 
+/**
+ * Calendar events: planned receipts and stocktakes.
+ *
+ * Days are cut in the caller's time zone — pass `utcOffsetMinutes`, or a stocktake finished in the
+ * evening lands on the wrong day. Same convention as StatisticsController.
+ */
 export const eventsGetEventsOptions = (options?: Options<EventsGetEventsData>) =>
   queryOptions<
     EventsGetEventsResponse,
@@ -3540,7 +3554,7 @@ export const stocktakesGetAllInfiniteOptions = (options?: Options<StocktakesGetA
   );
 
 /**
- * Create a new stocktake in Draft status.
+ * Create a new stocktake. Always starts in Draft status.
  */
 export const stocktakesCreateMutation = (
   options?: Partial<Options<StocktakesCreateData>>,
@@ -3567,7 +3581,7 @@ export const stocktakesCreateMutation = (
 };
 
 /**
- * Delete a stocktake. Only allowed in Draft status.
+ * Delete a stocktake. Only allowed in Planned or Draft status.
  */
 export const stocktakesDeleteMutation = (
   options?: Partial<Options<StocktakesDeleteData>>,
@@ -3619,7 +3633,8 @@ export const stocktakesGetByIdOptions = (options: Options<StocktakesGetByIdData>
   });
 
 /**
- * Update stocktake name and notes. Allowed while the document is still open.
+ * Update stocktake name, notes, type and planned date. Allowed while the document is still open;
+ * type and planned date freeze once counting has started.
  */
 export const stocktakesUpdateMutation = (
   options?: Partial<Options<StocktakesUpdateData>>,
@@ -3716,6 +3731,60 @@ export const stocktakesSyncNodeItemsMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await stocktakesSyncNodeItems({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Put a scheduled document on the calendar. Draft → Planned.
+ */
+export const stocktakesScheduleMutation = (
+  options?: Partial<Options<StocktakesScheduleData>>,
+): UseMutationOptions<
+  StocktakesScheduleResponse,
+  StocktakesScheduleError,
+  Options<StocktakesScheduleData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StocktakesScheduleResponse,
+    StocktakesScheduleError,
+    Options<StocktakesScheduleData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stocktakesSchedule({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Return a scheduled document to work. Planned → Draft.
+ */
+export const stocktakesToDraftMutation = (
+  options?: Partial<Options<StocktakesToDraftData>>,
+): UseMutationOptions<
+  StocktakesToDraftResponse,
+  StocktakesToDraftError,
+  Options<StocktakesToDraftData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StocktakesToDraftResponse,
+    StocktakesToDraftError,
+    Options<StocktakesToDraftData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stocktakesToDraft({
         ...options,
         ...fnOptions,
         throwOnError: true,

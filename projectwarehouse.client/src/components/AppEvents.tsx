@@ -27,11 +27,8 @@ const ru = {
 };
 import {eventsGetEventsOptions} from "@/api/@tanstack/react-query.gen";
 import {resolveEntity} from "@/utils/appEntityUtils";
+import {currentUtcOffsetMinutes, toDateOnly} from "@/utils/dateOnly";
 import type React from "react";
-
-function toDateOnly(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 export interface AppEventsProps {}
 
@@ -52,7 +49,11 @@ function AppEvents({}: AppEventsProps) {
     data = [],
     isLoading,
     isError,
-  } = useQuery(eventsGetEventsOptions({query: {startDate, endDate}}));
+  } = useQuery(
+    eventsGetEventsOptions({
+      query: {startDate, endDate, utcOffsetMinutes: currentUtcOffsetMinutes()},
+    }),
+  );
 
   const resolved = useMemo(() => data.map((dto) => resolveEntity(dto.appEntity)), [data]);
 

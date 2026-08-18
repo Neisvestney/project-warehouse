@@ -21,7 +21,7 @@ import type {
 } from "@/api/types.gen";
 import TableRowEmpty from "@/components/TableRowEmpty";
 import TableRowLoader from "@/components/TableRowLoader";
-import {formatDateOnly, formatWeekday, isWeekend} from "./dateOnly";
+import {formatDateOnly, formatWeekday, isWeekend} from "@/utils/dateOnly";
 
 const EMPTY_TOTALS: StockMovementTotalsDto = {
   inQuantity: 0,

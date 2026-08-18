@@ -11,6 +11,7 @@ import {
   TableHead,
   TableRow,
   TableSortLabel,
+  Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
@@ -33,9 +34,11 @@ import WarehousesSelect from "@/components/WarehousesSelect";
 import StocktakeStatusChip from "@/components/stocktakes/StocktakeStatusChip";
 import {
   STOCKTAKE_STATUS_LABELS,
+  STOCKTAKE_TYPE_LABELS,
   formatStocktakeNumber,
 } from "@/components/stocktakes/stocktakeUtils";
 import type {StocktakeSortBy, StocktakeStatus} from "@/api/types.gen";
+import {parseDateOnly} from "@/utils/dateOnly";
 
 const SORT_COLUMNS: {key: StocktakeSortBy; label: string}[] = [
   {key: "number", label: "#"},
@@ -45,7 +48,7 @@ const SORT_COLUMNS: {key: StocktakeSortBy; label: string}[] = [
   {key: "createdAt", label: "Создано"},
 ];
 
-const ALL_STATUSES: StocktakeStatus[] = ["draft", "inProgress", "finished", "canceled"];
+const ALL_STATUSES: StocktakeStatus[] = ["planned", "draft", "inProgress", "finished", "canceled"];
 
 function StocktakesPage() {
   const navigate = useNavigate();
@@ -162,15 +165,16 @@ function StocktakesPage() {
                   </TableSortLabel>
                 </TableCell>
               ))}
+              <TableCell>Тип</TableCell>
               <TableCell>Ячеек</TableCell>
               <TableCell>Позиций</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {isLoading ? (
-              <TableRowLoader colSpan={7} />
+              <TableRowLoader colSpan={8} />
             ) : data?.items.length === 0 ? (
-              <TableRowEmpty colSpan={7} message="Инвентаризации не найдены" />
+              <TableRowEmpty colSpan={8} message="Инвентаризации не найдены" />
             ) : (
               data?.items.map((stocktake) => (
                 <TableRow
@@ -192,6 +196,14 @@ function StocktakesPage() {
                   </TableCell>
                   <TableCell>{stocktake.warehouseName}</TableCell>
                   <TableCell>{new Date(stocktake.createdAt).toLocaleDateString("ru-RU")}</TableCell>
+                  <TableCell>
+                    {STOCKTAKE_TYPE_LABELS[stocktake.type]}
+                    {stocktake.plannedDate && (
+                      <Typography variant="caption" color="text.secondary" sx={{display: "block"}}>
+                        {parseDateOnly(stocktake.plannedDate).toLocaleDateString("ru-RU")}
+                      </Typography>
+                    )}
+                  </TableCell>
                   <TableCell>
                     {stocktake.nodesCount > 0 ? (
                       <Chip label={stocktake.nodesCount} size="small" />

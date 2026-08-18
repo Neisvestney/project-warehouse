@@ -38,6 +38,7 @@ import ReceiptStatusChip from "@/components/receipts/ReceiptStatusChip";
 import ReceiptItemsSection from "@/components/receipts/ReceiptItemsSection";
 import {RECEIPT_REASON_LABELS, formatReceiptNumber} from "@/components/receipts/receiptUtils";
 import type {ReceiptDto, ReceiptReason} from "@/api/types.gen";
+import {parseDateOnly} from "@/utils/dateOnly";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ScheduleSendIcon from "@mui/icons-material/ScheduleSend";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
@@ -383,7 +384,7 @@ function ReceiptPage() {
                 label="Дата поставки"
                 value={
                   receipt.plannedDeliveryDate
-                    ? new Date(receipt.plannedDeliveryDate).toLocaleDateString("ru-RU")
+                    ? parseDateOnly(receipt.plannedDeliveryDate).toLocaleDateString("ru-RU")
                     : "—"
                 }
               />

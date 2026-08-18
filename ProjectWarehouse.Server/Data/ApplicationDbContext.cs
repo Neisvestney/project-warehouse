@@ -415,6 +415,9 @@ public class ApplicationDbContext : IdentityDbContext<
             e.HasKey(x => x.Id);
             e.Property(x => x.InventoryNumber).HasMaxLength(128);
 
+            // Every cell save looks a serial up across all counts; without this it seq-scans the whole history
+            e.HasIndex(x => x.InventoryNumber);
+
             e.HasOne(x => x.StocktakeNode)
                 .WithMany(x => x.Items)
                 .HasForeignKey(x => x.StocktakeNodeId)

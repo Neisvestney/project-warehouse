@@ -105,7 +105,7 @@ src/
 │   │   ├── StocktakeDifferencesDialog.tsx # Preview of what finishing will do; the only path to POST /finish
 │   │   ├── StocktakeResultSection.tsx   # Terminal body: read-only, rendered from appliedDelta
 │   │   ├── stocktakeDraft.ts            # DraftRow, buildDraftRows (live stock ⊕ saved lines), draftToRequest
-│   │   └── stocktakeUtils.ts            # STOCKTAKE_STATUS_LABELS, DIFFERENCE_RESOLUTION_LABELS, formatStocktakeNumber, deltaColor
+│   │   └── stocktakeUtils.ts            # STOCKTAKE_STATUS_LABELS, STOCKTAKE_TYPE_LABELS, DIFFERENCE_RESOLUTION_LABELS, formatStocktakeNumber, deltaColor
 │   ├── inventory/
 │   │   ├── ItemsBasePage.tsx        # Reusable inventory table: search, filters (types/tags/archive/warehouse), pagination, row-click drawers
 │   │   └── UnitItemsDrawer.tsx      # Bottom drawer: paginated list of individual UnitInventoryItem instances for a clicked catalog item
@@ -363,6 +363,7 @@ src/
     ├── appEntityUtils.tsx       # entitiesTypes registry (user/roles/warehouse/receipt/marketplaceAccount/marketplaceCard → icon, typeName, linkTemplate); resolveEntity(entity) → {link, typeName, icon, ...entity}
     ├── fetchWithTimeout.ts      # fetchWithTimeout(url, options, timeoutMs) — fetch wrapper with AbortController timeout
     ├── interpolateArgs.ts       # interpolateArgs(template, args) — replaces {key} placeholders in a string
+    ├── dateOnly.ts              # Helpers over the API's `yyyy-MM-dd` strings, kept in local time: toDateOnly, parseDateOnly, addDays, formatDateOnly, formatWeekday, isWeekend, currentUtcOffsetMinutes
     └── useInstallPrompt.ts      # Hook: beforeinstallprompt event
 ```
 
@@ -519,19 +520,19 @@ Detail page for a single receipt (`/operations/receipts/:id`). Shows receipt met
 **`ReceiptItemsSection`:** per-item collapsible panel. Shows `receivedCount` field (editable in Processing status via PATCH `.../received-count`). Placements table lists node path + count/SKU per placement with a delete button (Processing only). **Разместить** button opens `AddPlacementDialog`.
 
 ### `StocktakesPage` (Инвентаризации)
-Server-side paginated, searchable, sortable list of stocktakes. State in URL params (`?search=`, `?warehouse=`, `?status=`, `?page=`, `?pageSize=`, `?sortBy=`, `?sortOrder=`). Columns: **№** (`ИНВ-00001`), **Название**, **Статус** (`StocktakeStatusChip`), **Склад**, **Создано**, **Ячеек**, **Позиций**. Rows navigate to `StocktakePage`. **Новая инвентаризация** is shown for `stocktakes.edit` / `stocktakes.edit_assigned`.
+Server-side paginated, searchable, sortable list of stocktakes. State in URL params (`?search=`, `?warehouse=`, `?status=`, `?page=`, `?pageSize=`, `?sortBy=`, `?sortOrder=`). Columns: **№** (`ИНВ-00001`), **Название**, **Статус** (`StocktakeStatusChip`), **Склад**, **Создано**, **Тип** (плановая/внеплановая + плановая дата под ним), **Ячеек**, **Позиций**. Rows navigate to `StocktakePage`. **Новая инвентаризация** is shown for `stocktakes.edit` / `stocktakes.edit_assigned`.
 
 ### `StocktakeCreatePage`
-RHF form: name (required), warehouse (required, via `WarehousesSelect`), notes. No reason field — a stocktake has none. On success navigates to the created document.
+RHF form: name (required), warehouse (required, via `WarehousesSelect`), type (`Внеплановая` / `Плановая`), planned date (shown only for `Плановая`, required there), notes. No reason field — a stocktake has none. On success navigates to the created document.
 
 ### `StocktakePage`
 Detail page (`/operations/stocktakes/:id`) whose **body swaps with the status**, because the three phases are genuinely different screens:
 
-- `draft` → `StocktakeNodesSection` — the scope. Cells are added via the shared `SelectNodeModal` and removed through a `ConfirmDialog` that warns when counted lines would be discarded. Every change PUTs the full id list.
+- `planned` / `draft` → `StocktakeNodesSection` — the scope. Cells are added via the shared `SelectNodeModal` and removed through a `ConfirmDialog` that warns when counted lines would be discarded. Every change PUTs the full id list. A cell already in another stocktake's scope is accepted here — the overlap is only rejected against a running count, by `POST /start` and by scope edits on an already-started document. Both 422s surface through the snackbar.
 - `inProgress` → `StocktakeCountingSection` — one `StocktakeNodeAccordion` per cell plus **Показать расхождения**.
 - `finished` / `canceled` → `StocktakeResultSection` — read-only, rendered from `appliedDelta` and never from live stock.
 
-Action buttons by status: `draft` → **Начать** / **Отменить** / **Удалить**; `inProgress` → **Завершить** (opens `StocktakeDifferencesDialog`) / **В черновик** / **Отменить**; terminal → none. All mutations return the full `StocktakeDto` and are written into the cache with `setQueryData`.
+Action buttons by status: `draft` and `planned` both get **Начать** (`POST /start`) / **Отменить** / **Удалить**; `draft` additionally gets **Запланировать** (`POST /schedule`) when the type is `scheduled` and a planned date is set, and `planned` gets **Вернуть в черновик** (`POST /to-draft`). **Начать** and **Запланировать** are disabled until at least one node is in scope; `inProgress` → **Завершить** (opens `StocktakeDifferencesDialog`) / **В черновик** / **Отменить**; terminal → none. All mutations return the full `StocktakeDto` and are written into the cache with `setQueryData`.
 
 **`StocktakeNodeAccordion` (the counting editor).** Cell stock is fetched lazily (`enabled: expanded`) from `GET /api/stocktakes/{id}/nodes/{nodeId}/stock` — the stocktake-owned endpoint, so counting needs no warehouse permissions.
 
@@ -542,6 +543,12 @@ Standard rows use `ClampedIntegerField` with an explicit **`min={0}`** — the c
 Each accordion saves independently (`PUT .../nodes/{nodeId}/items`), so two operators can count different cells without clobbering each other.
 
 **`StocktakeDifferencesDialog`** is the only path to `POST /finish`. It renders `GET /{id}/differences`: totals, a per-cell table with a «Что будет сделано» column, `missingFromDocument` rows highlighted and labelled «нет в документе — будет списано», and a `problems` block that disables the finish button. This is deliberate — the cell-is-authoritative rule is destructive by omission and must never be applied blind.
+
+### Date-only values
+
+The API's `DateOnly` fields travel as `yyyy-MM-dd` strings. Never feed those to `new Date(...)` — the built-in parser reads a bare date as **UTC midnight**, so anyone west of UTC sees the previous day. Use `parseDateOnly` (or `formatDateOnly`) from `@/utils/dateOnly`, which builds the date in local time.
+
+The mirror case is server-side day cutting: an endpoint that turns a `DateTime` into a day (statistics, the calendar) takes a `utcOffsetMinutes` query param, supplied by `currentUtcOffsetMinutes()`. Without it an evening operation lands on the wrong day.
 
 ### `CatalogPage`
 Server-side paginated, searchable list of catalog items. Requires `catalog.view` or `receipts.process_assigned`. State in URL params (`?search=`, `?page=`, `?pageSize=`, `?types=` comma-separated `CatalogItemType`, `?tags=` comma-separated tag GUIDs). Clicking a row opens `CatalogItemDrawer` (right-side MUI Drawer); the selected item ID is stored in `?item=` query param via `useDrawerSearchParamsState`. Columns: **Тип** (`CatalogItemTypeChip`), **Название** (fullName + archive icon if isArchived), **Артикул**, **Штрихкод**.

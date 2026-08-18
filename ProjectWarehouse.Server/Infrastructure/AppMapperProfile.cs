@@ -248,6 +248,18 @@ public class AppMapperProfile : Profile
         CreateMap<StocktakeItem, StocktakeItemDto>()
             .ForMember(d => d.CatalogItemName, opt => opt.MapFrom(s => s.CatalogItem.Name));
 
+        // Scheduled documents sit on their planned date until finished, then move to the day of the fact.
+        // Callers must keep out stocktakes with neither date and pass offsetMinutes — see EventsController.
+        var offsetMinutes = 0;
+        CreateMap<Stocktake, EventDto>()
+            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x))
+            .ForMember(x => x.StartDate, opt => opt.MapFrom(x => x.FinishedAt != null
+                ? DateOnly.FromDateTime(x.FinishedAt.Value.AddMinutes(offsetMinutes))
+                : x.PlannedDate!.Value))
+            .ForMember(x => x.EndDate, opt => opt.MapFrom(x => x.FinishedAt != null
+                ? DateOnly.FromDateTime(x.FinishedAt.Value.AddMinutes(offsetMinutes))
+                : x.PlannedDate!.Value));
+
         CreateMap<Stocktake, AppEntity>()
             .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Stocktake))
             .ForMember(x => x.AdditionalFields, opt => opt.MapFrom(r => new Dictionary<string, object>

@@ -123,8 +123,8 @@ Error with structured arguments (e.g. password too short):
 | `stocktakeNotAssignedToWarehouse` | Current user is not assigned to the stocktake's warehouse (assigned permission check) |
 | `stocktakeHasNoNodes` | Start or finish blocked: no cells selected |
 | `stocktakeNodeNotFound` | The storage node is not part of this stocktake's scope |
-| `stocktakeNodeAlreadyInProgress` | The cell is already in the scope of another Draft/InProgress stocktake — two open counts would fight at finish. `args: { nodeId: string }` |
-| `stocktakeUnitCountedTwice` | The same serial is claimed found in two cells of one document, which makes the finish order ambiguous. `args: { inventoryNumber: string }` |
+| `stocktakeNodeAlreadyInProgress` | The cell is already being counted in another **InProgress** stocktake — two running counts would fight at finish. Raised by `POST /start`, and by `PUT /nodes` when the scope of an already-started stocktake grows; a cell may sit in any number of Draft/Planned scopes. `args: { nodeId: string }` |
+| `stocktakeUnitCountedTwice` | The same serial is claimed found twice — either in two cells of one document, or in another **InProgress** stocktake, where the finish order would decide where the unit lands and leave a phantom shortage in the loser. Checked on `PUT /nodes/{nodeId}/items`, surpluses included; `stocktakeUnitItemInAnotherWarehouse` takes precedence when both apply. `args: { inventoryNumber: string, stocktakeId?: string, stocktakeNumber?: number }` — the id is there so the UI can link the conflicting document for whoever has access to it |
 | `stocktakeUnitItemInAnotherWarehouse` | A counted serial is booked in a different warehouse — a cross-warehouse move is a transfer decision, not a count. `args: { inventoryNumber: string }` |
 | `stocktakeUnitItemDetached` | A found serial is detached and held by an active assembly fulfillment; reattaching it would steal it from the order being assembled |
 | `stocktakeConcurrentModification` | Stock changed while the stocktake was being finished (a serial left its expected node) — the transaction rolled back, nothing was applied |

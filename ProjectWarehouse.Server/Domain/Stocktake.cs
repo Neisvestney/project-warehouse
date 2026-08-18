@@ -12,6 +12,11 @@ public class Stocktake : IHasIdentity
 
     public string? Name { get; set; }
     public StocktakeStatus Status { get; set; } = StocktakeStatus.Draft;
+    public StocktakeType Type { get; set; } = StocktakeType.Unscheduled;
+
+    /// <summary>Only meaningful for <see cref="StocktakeType.Scheduled"/>; cleared otherwise.</summary>
+    public DateOnly? PlannedDate { get; set; }
+
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? StartedAt { get; set; }

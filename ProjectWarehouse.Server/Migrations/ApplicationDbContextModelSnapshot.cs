@@ -1347,10 +1347,16 @@ namespace ProjectWarehouse.Server.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Number"));
 
+                    b.Property<DateOnly?>("PlannedDate")
+                        .HasColumnType("date");
+
                     b.Property<DateTime?>("StartedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Type")
                         .HasColumnType("integer");
 
                     b.Property<Guid>("WarehouseId")
@@ -1402,6 +1408,8 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CatalogItemId");
+
+                    b.HasIndex("InventoryNumber");
 
                     b.HasIndex("StocktakeNodeId");
 

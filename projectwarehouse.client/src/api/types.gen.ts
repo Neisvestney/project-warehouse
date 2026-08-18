@@ -400,6 +400,11 @@ export type CreateStandardPlacementRequest = {
 export type CreateStocktakeRequest = {
   name?: null | string;
   warehouseId: string;
+  type: StocktakeType;
+  /**
+   * Required when the type is Scheduled, ignored otherwise.
+   */
+  plannedDate?: null | string;
   notes?: null | string;
 };
 
@@ -1535,6 +1540,8 @@ export type StocktakeDto = {
   number: number;
   name?: null | string;
   status: StocktakeStatus;
+  type: StocktakeType;
+  plannedDate?: null | string;
   notes?: null | string;
   createdAt: string;
   startedAt?: null | string;
@@ -1627,13 +1634,15 @@ export type StocktakeProblemDto = {
 
 export type StocktakeSortBy = "number" | "name" | "status" | "createdAt" | "warehouseName";
 
-export type StocktakeStatus = "draft" | "inProgress" | "finished" | "canceled";
+export type StocktakeStatus = "draft" | "inProgress" | "finished" | "canceled" | "planned";
 
 export type StocktakeSummaryDto = {
   id: string;
   number: number;
   name?: null | string;
   status: StocktakeStatus;
+  type: StocktakeType;
+  plannedDate?: null | string;
   warehouseId: string;
   warehouseName: string;
   nodesCount: number;
@@ -1642,6 +1651,8 @@ export type StocktakeSummaryDto = {
   startedAt?: null | string;
   finishedAt?: null | string;
 };
+
+export type StocktakeType = "unscheduled" | "scheduled";
 
 export type StoragePlaceDto = {
   id: string;
@@ -1894,6 +1905,11 @@ export type UpdateRoleItem = {
 export type UpdateStocktakeRequest = {
   name?: null | string;
   notes?: null | string;
+  type?: null | StocktakeType;
+  /**
+   * Required when the type is Scheduled, ignored otherwise.
+   */
+  plannedDate?: null | string;
 };
 
 export type UpdateStoragePlaceNodeRequest = {
@@ -2572,6 +2588,7 @@ export type EventsGetEventsData = {
   query?: {
     startDate?: string;
     endDate?: string;
+    utcOffsetMinutes?: number;
   };
   url: "/api/events";
 };
@@ -5781,6 +5798,86 @@ export type StocktakesSyncNodeItemsResponses = {
 
 export type StocktakesSyncNodeItemsResponse =
   StocktakesSyncNodeItemsResponses[keyof StocktakesSyncNodeItemsResponses];
+
+export type StocktakesScheduleData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/stocktakes/{id}/schedule";
+};
+
+export type StocktakesScheduleErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StocktakesScheduleError = StocktakesScheduleErrors[keyof StocktakesScheduleErrors];
+
+export type StocktakesScheduleResponses = {
+  /**
+   * OK
+   */
+  200: StocktakeDto;
+};
+
+export type StocktakesScheduleResponse =
+  StocktakesScheduleResponses[keyof StocktakesScheduleResponses];
+
+export type StocktakesToDraftData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/stocktakes/{id}/to-draft";
+};
+
+export type StocktakesToDraftErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StocktakesToDraftError = StocktakesToDraftErrors[keyof StocktakesToDraftErrors];
+
+export type StocktakesToDraftResponses = {
+  /**
+   * OK
+   */
+  200: StocktakeDto;
+};
+
+export type StocktakesToDraftResponse =
+  StocktakesToDraftResponses[keyof StocktakesToDraftResponses];
 
 export type StocktakesStartData = {
   body?: never;

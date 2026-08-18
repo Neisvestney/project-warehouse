@@ -8,6 +8,8 @@ public class StocktakeSummaryDto
     public int Number { get; init; }
     public string? Name { get; init; }
     public StocktakeStatus Status { get; init; }
+    public StocktakeType Type { get; init; }
+    public DateOnly? PlannedDate { get; init; }
     public Guid WarehouseId { get; init; }
     public string WarehouseName { get; init; } = null!;
     public int NodesCount { get; init; }
