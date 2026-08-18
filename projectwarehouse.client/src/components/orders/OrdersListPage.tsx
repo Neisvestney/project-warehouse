@@ -11,6 +11,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  type TableCellProps,
   TableHead,
   TableRow,
   TableSortLabel,
@@ -81,6 +82,7 @@ export interface OrdersListExtraColumn {
   key: string;
   label: string;
   render: (order: OrderSummaryDto) => ReactNode;
+  align?: TableCellProps["align"];
 }
 
 interface OrdersListPageProps {
@@ -414,8 +416,10 @@ function OrdersListPage({
                   </TableSortLabel>
                 </TableCell>
               ))}
-              {extraColumns?.map(({key, label}) => (
-                <TableCell key={key}>{label}</TableCell>
+              {extraColumns?.map(({key, label, align}) => (
+                <TableCell key={key} align={align}>
+                  {label}
+                </TableCell>
               ))}
               {showNotes && <TableCell>Заметки</TableCell>}
               <TableCell>Коробок</TableCell>
@@ -461,8 +465,10 @@ function OrdersListPage({
                       : "—"}
                   </TableCell>
                   <TableCell>{new Date(order.createdAt).toLocaleDateString("ru-RU")}</TableCell>
-                  {extraColumns?.map(({key, render}) => (
-                    <TableCell key={key}>{render(order)}</TableCell>
+                  {extraColumns?.map(({key, render, align}) => (
+                    <TableCell key={key} align={align}>
+                      {render(order)}
+                    </TableCell>
                   ))}
                   {showNotes && (
                     <TableCell>

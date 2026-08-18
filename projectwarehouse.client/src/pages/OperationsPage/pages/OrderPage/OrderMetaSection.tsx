@@ -13,6 +13,7 @@ import {format} from "date-fns";
 import {ru} from "date-fns/locale";
 import {MARKETPLACE_TYPE_COLORS} from "@/pages/SettingsPage/pages/MarketplacesSettingsPage/marketplaceUtils.ts";
 import {Link} from "react-router";
+import {formatPostingNumber} from "@/utils/postingNumberUtils";
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -163,7 +164,7 @@ function OrderMetaSection({order, canEdit}: OrderMetaSectionProps) {
         <>
           <MetaRow label="Отправление">
             <Typography variant="body2" sx={{fontFamily: "monospace"}}>
-              {order.marketplaceOrder.postingNumber}
+              {formatPostingNumber(order.marketplaceOrder.postingNumber)}
             </Typography>
           </MetaRow>
 

@@ -1,6 +1,7 @@
 import {Stack, Typography} from "@mui/material";
 import type {SkippedOrderInfo} from "@/api/types.gen";
 import {resolveErrorMessage} from "@/utils/errorUtils";
+import {formatPostingNumber} from "@/utils/postingNumberUtils";
 
 interface SkippedOrdersListProps {
   items: SkippedOrderInfo[];
@@ -16,7 +17,7 @@ function SkippedOrdersList({items, total}: SkippedOrdersListProps) {
       <Typography variant="subtitle2">Не импортированы</Typography>
       {items.map((item) => (
         <Typography key={item.postingNumber} variant="caption" sx={{display: "block"}}>
-          • <b>{item.postingNumber}</b>:{" "}
+          • <b>{formatPostingNumber(item.postingNumber)}</b>:{" "}
           {resolveErrorMessage({
             code: item.reason,
             detail: "",
