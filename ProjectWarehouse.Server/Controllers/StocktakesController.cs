@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
@@ -21,8 +22,11 @@ public class StocktakesController(
     IMapper mapper,
     IInventoryService inventory,
     IStocktakeDiffCalculator diffCalculator,
+    EntityAccessRegistry access,
     IChangeLogService<StocktakeDto> changeLog) : AppControllerBase
 {
+    private EntityAccessRule<Stocktake> Rule => access.For<Stocktake>();
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private IQueryable<Stocktake> BaseQuery(bool includeItems = false)
@@ -48,67 +52,29 @@ public class StocktakesController(
         return q;
     }
 
-    private async Task<(bool canView, bool canViewAssigned, HashSet<Guid>? assignedIds)>
-        GetViewAccessAsync(CancellationToken ct)
+    private async Task<(Stocktake? stocktake, IActionResult? error)> LoadStocktakeWithAccessAsync(
+        Guid id, AccessLevel level, CancellationToken ct, bool includeItems = false)
     {
-        var canView         = User.HasClaim("permission", Permissions.Stocktakes.View);
-        var canViewAssigned = User.HasClaim("permission", Permissions.Stocktakes.ViewAssigned);
-
-        if (!canView && !canViewAssigned)
-            return (false, false, null);
-
-        HashSet<Guid>? assignedIds = null;
-        if (!canView)
-            assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-
-        return (canView, canViewAssigned, assignedIds);
-    }
-
-    private async Task<(Stocktake? stocktake, IActionResult? error)> LoadStocktakeWithViewAccessAsync(
-        Guid id, CancellationToken ct, bool includeItems = false)
-    {
-        var (canView, canViewAssigned, assignedIds) = await GetViewAccessAsync(ct);
-        if (!canView && !canViewAssigned)
-            return (null, Forbidden());
-
-        if (!canView && assignedIds is null)
-            return (null, Unauthorized(ErrorCode.TokenInvalid, "Invalid token."));
+        if (AccessError(await Rule.PrecheckAsync(User, level, ct)) is { } prelude)
+            return (null, prelude);
 
         var stocktake = await BaseQuery(includeItems).FirstOrDefaultAsync(s => s.Id == id, ct);
         if (stocktake is null)
             return (null, NotFound(ErrorCode.StocktakeNotFound, "Stocktake not found."));
 
-        if (assignedIds is not null && !assignedIds.Contains(stocktake.WarehouseId))
-            return (null, Forbidden());
+        if (AccessError(await Rule.CheckAsync(User, level, stocktake, ct)) is { } denied)
+            return (null, denied);
 
         return (stocktake, null);
     }
 
-    private async Task<(Stocktake? stocktake, IActionResult? error)> LoadStocktakeWithEditAccessAsync(
-        Guid id, CancellationToken ct, bool includeItems = false)
-    {
-        var canEdit         = User.HasClaim("permission", Permissions.Stocktakes.Edit);
-        var canEditAssigned = User.HasClaim("permission", Permissions.Stocktakes.EditAssigned);
+    private Task<(Stocktake? stocktake, IActionResult? error)> LoadStocktakeWithViewAccessAsync(
+        Guid id, CancellationToken ct, bool includeItems = false) =>
+        LoadStocktakeWithAccessAsync(id, AccessLevel.View, ct, includeItems);
 
-        if (!canEdit && !canEditAssigned)
-            return (null, Forbidden());
-
-        var stocktake = await BaseQuery(includeItems).FirstOrDefaultAsync(s => s.Id == id, ct);
-        if (stocktake is null)
-            return (null, NotFound(ErrorCode.StocktakeNotFound, "Stocktake not found."));
-
-        if (canEditAssigned && !canEdit)
-        {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-            if (assignedIds is null)
-                return (null, Unauthorized(ErrorCode.TokenInvalid, "Invalid token."));
-            if (!assignedIds.Contains(stocktake.WarehouseId))
-                return (null, Forbidden(ErrorCode.StocktakeNotAssignedToWarehouse,
-                    "You are not assigned to the warehouse of this stocktake."));
-        }
-
-        return (stocktake, null);
-    }
+    private Task<(Stocktake? stocktake, IActionResult? error)> LoadStocktakeWithEditAccessAsync(
+        Guid id, CancellationToken ct, bool includeItems = false) =>
+        LoadStocktakeWithAccessAsync(id, AccessLevel.Edit, ct, includeItems);
 
     private async Task<Dictionary<Guid, StoragePlaceNode>> LoadWarehouseNodesAsync(
         Guid warehouseId, CancellationToken ct) =>
@@ -173,17 +139,14 @@ public class StocktakesController(
         [FromQuery] SortOrder sortOrder = SortOrder.Desc,
         CancellationToken ct = default)
     {
-        var (canView, canViewAssigned, assignedIds) = await GetViewAccessAsync(ct);
-        if (!canView && !canViewAssigned)
-            return Forbidden();
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
 
-        if (!canView && assignedIds is null)
-            return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+        var accessible = await Rule.QueryAsync(User, AccessLevel.View, ct);
 
-        var baseQuery = db.Stocktakes
+        var baseQuery = accessible
             .Where(s => warehouseId == null || s.WarehouseId == warehouseId)
             .Where(s => status == null || s.Status == status)
-            .Where(s => assignedIds == null || assignedIds.Contains(s.WarehouseId))
             .WhereMatchesSearch(s => s.SearchString, searchString);
 
         var query = sortBy switch
@@ -233,25 +196,15 @@ public class StocktakesController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Create([FromBody] CreateStocktakeRequest request, CancellationToken ct = default)
     {
-        var canEdit         = User.HasClaim("permission", Permissions.Stocktakes.Edit);
-        var canEditAssigned = User.HasClaim("permission", Permissions.Stocktakes.EditAssigned);
-
-        if (!canEdit && !canEditAssigned)
-            return Forbidden();
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
 
         var warehouse = await db.Warehouses.FindAsync([request.WarehouseId], ct);
         if (warehouse is null)
             return UnprocessableEntity("warehouseId", ErrorCode.WarehouseNotFound, "Warehouse not found.");
 
-        if (canEditAssigned && !canEdit)
-        {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-            if (assignedIds is null)
-                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
-            if (!assignedIds.Contains(request.WarehouseId))
-                return Forbidden(ErrorCode.StocktakeNotAssignedToWarehouse,
-                    "You are not assigned to the warehouse of this stocktake.");
-        }
+        if (AccessError(await Rule.CheckWarehouseAsync(User, AccessLevel.Edit, request.WarehouseId, ct)) is { } denied)
+            return denied;
 
         var isScheduled = request.Type == StocktakeType.Scheduled;
 

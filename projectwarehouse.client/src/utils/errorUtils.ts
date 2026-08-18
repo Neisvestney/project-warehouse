@@ -95,6 +95,9 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   inventoryItemNodeMismatch: "Товар больше не находится в ожидаемой ячейке. Обновите страницу",
   unitInventoryItemNumberDuplicate: "Инвентарный номер уже используется для этого товара",
   transferSameNode: "Источник и назначение не могут быть одной ячейкой",
+  transferNotAssignedToWarehouse: "Вы не привязаны к этому складу",
+  warehouseNotAssigned: "Вы не привязаны к этому складу",
+  storagePlaceNotAssignedToWarehouse: "Место хранения относится к другому складу",
   unitInventoryItemNotFound: "Единичный товар не найден",
   inventoryItemMovedToAnotherNodeAfterPlacementCreated:
     "Товар был перемещён в другую ячейку после создания размещения",

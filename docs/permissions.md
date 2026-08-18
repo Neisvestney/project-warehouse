@@ -58,6 +58,12 @@ That's it. `Permissions.All` picks up new constants automatically via reflection
 
 `warehouses.view` и `warehouses.view_assigned` можно назначать одновременно — `view` всегда перекрывает `view_assigned`. Аналогично для `edit` / `edit_assigned`.
 
+Эти же права скоупят всё, что физически лежит на складе и не имеет собственных прав: инвентарь
+(`/api/inventory-items`) и места хранения с ячейками (`/api/storagePlaces`). Ячейки раньше требовали
+безусловного `warehouses.edit` и `_assigned`-вариант игнорировали — теперь пользователь с
+`warehouses.edit_assigned` правит ячейки своих складов и получает `storagePlaceNotAssignedToWarehouse` на чужих.
+Ролям, у которых есть только `_assigned`-права, это открывает раздел ячеек, который им раньше был недоступен.
+
 ### Receipts (`receipts.*`)
 | Permission | Constant | Scope |
 |-----------|----------|-------|
@@ -125,6 +131,50 @@ without those two permissions the dropdowns return 403 and the mapping screens a
 
 There are no `_assigned` variants: a marketplace account belongs to the shop as a whole rather than to a warehouse,
 so scoping by `AssignedWarehouses` would be meaningless.
+
+## Where Access Is Checked
+
+Three layers, one predicate. All per-object checks go through **`Infrastructure/Access/`**; nothing hand-rolls a claim
+pair plus an assigned-warehouse lookup any more.
+
+| Layer | Used by | Call |
+|---|---|---|
+| Row filter | lists, global search, calendar (`IUserQueryFilterService`) | `rule.QueryAsync(user, level)` → `IQueryable<T>` |
+| Loaded entity | controllers, before update/delete | `rule.CheckAsync(user, level, entity)` → `AccessVerdict` |
+| Warehouse only | `Create`, where the entity does not exist yet | `rule.CheckWarehouseAsync(user, level, warehouseId)` |
+| Permission only | the prelude of a list endpoint (403/401 instead of an empty page) | `rule.PrecheckAsync(user, level)` |
+| By id | realtime `watch` and lock acquisition (`IEntityAccessService`) | `rule.CanAsync(user, level, id)` → `bool` |
+
+`AccessVerdict` carries the refusal reason and the entity's own error code, so a controller writes
+`AccessError(verdict)` instead of choosing between `PermissionDenied`, `*NotAssignedToWarehouse` and `TokenInvalid`
+by hand. The refusal for "not your warehouse" is now the same code on the view and the edit path.
+
+`AccessScope` is scoped to the request and memoises the assigned-warehouse set — it used to be re-queried by every
+individual check. Where a query cannot be expressed as a rule predicate (inventory counts nested in subqueries,
+a transfer spanning two warehouses), ask it for a `WarehouseNarrowing` instead: it separates "sees everything"
+from "unusable token" so the caller does not have to re-read the permission to tell them apart.
+
+### Adding a rule for a new entity
+
+Register it in `EntityAccessRegistry` — that constructor is the entire entity-type → permission map:
+
+```csharp
+new WarehouseScopedRule<Writeoff>(db, scope, AppEntityType.Writeoff,
+    viewAll: [Permissions.Writeoffs.View],   viewAssigned: [Permissions.Writeoffs.ViewAssigned],
+    editAll: [Permissions.Writeoffs.Edit],   editAssigned: [Permissions.Writeoffs.EditAssigned],
+    warehouse: w => w.WarehouseId,
+    ErrorCode.WriteoffNotAssignedToWarehouse,
+    "You are not assigned to the warehouse of this write-off.")
+```
+
+Use `SimpleAccessRule<T>` when the entity has no warehouse scope (catalog, users, roles, marketplace accounts).
+Permissions are lists because several can behave identically — `orders.assemble_assigned` grants the same view as
+`orders.view_assigned`. An entity type with **no** registered rule is inaccessible: realtime cannot subscribe to it
+and every filter returns nothing.
+
+Permissions that authorise an *action* rather than access to an object — `orders.self_assign`,
+`orders.assemble_assigned`, `receipts.process_assigned`, `transfers.*`, `users.manage_*` — stay in their controllers.
+They are not "may this user see this object".
 
 ## RBAC + Direct Permissions
 

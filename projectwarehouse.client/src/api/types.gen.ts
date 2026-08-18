@@ -623,7 +623,10 @@ export type ErrorCode =
   | "stocktakeUnitItemInAnotherWarehouse"
   | "stocktakeUnitItemDetached"
   | "stocktakeConcurrentModification"
-  | "marketplaceOrderNotAwaitingDeliver";
+  | "marketplaceOrderNotAwaitingDeliver"
+  | "warehouseNotAssigned"
+  | "storagePlaceNotAssignedToWarehouse"
+  | "transferNotAssignedToWarehouse";
 
 export type EventDto = {
   appEntity: AppEntity;

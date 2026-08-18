@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Warehouses;
@@ -16,18 +17,42 @@ namespace ProjectWarehouse.Server.Controllers;
 public class StoragePlacesController(
     ApplicationDbContext db,
     IMapper mapper,
+    EntityAccessRegistry access,
     IChangeLogService<StoragePlaceNodeDetailsDto> changeLog) : AppControllerBase
 {
+    /// <summary>
+    /// Existence and access in one step. Storage places carry no permissions of their own — they are
+    /// scoped by the warehouse they belong to, <c>warehouses.*_assigned</c> included.
+    /// </summary>
+    private async Task<IActionResult?> CheckStoragePlaceAccessAsync(
+        Guid storagePlaceId, AccessLevel level, CancellationToken ct)
+    {
+        var rule = access.For<StoragePlaceNode>();
+
+        if (AccessError(await rule.PrecheckAsync(User, level, ct)) is { } prelude)
+            return prelude;
+
+        var warehouseId = await db.StoragePlaces
+            .Where(sp => sp.Id == storagePlaceId)
+            .Select(sp => (Guid?)sp.WarehouseId)
+            .FirstOrDefaultAsync(ct);
+
+        if (warehouseId is null)
+            return NotFound(ErrorCode.StoragePlaceNotFound, "Storage place not found.");
+
+        return AccessError(await rule.CheckWarehouseAsync(User, level, warehouseId.Value, ct));
+    }
+
     /// <summary>Get a flat list of all nodes for a storage place.</summary>
     /// <remarks>Returns <c>StoragePlaceNodeDto[]</c> ordered by order then name — id, name, parentNodeId (null = root), order.</remarks>
     [HttpGet("{id:guid}/nodes")]
-    [Authorize(Policy = Permissions.Warehouses.View)]
+    [Authorize]
     [ProducesResponseType<StoragePlaceNodeDto[]>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetNodes(Guid id, [FromQuery] Guid? catalogItemId = null, CancellationToken ct = default)
     {
-        if (!await db.StoragePlaces.AnyAsync(sp => sp.Id == id, ct))
-            return NotFound(ErrorCode.StoragePlaceNotFound, "Storage place not found.");
+        if (await CheckStoragePlaceAccessAsync(id, AccessLevel.View, ct) is { } error)
+            return error;
 
         var nodes = await GetFlatNodesAsync(id, catalogItemId, ct);
         return Ok(nodes);
@@ -40,7 +65,7 @@ public class StoragePlacesController(
     /// Returns 422 <c>storagePlaceNodeNotFound</c> (field: <c>parentNodeId</c>) if the parent does not belong to this storage place.
     /// </remarks>
     [HttpPost("{id:guid}/nodes")]
-    [Authorize(Policy = Permissions.Warehouses.Edit)]
+    [Authorize]
     [ProducesResponseType<StoragePlaceNodeDto[]>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
@@ -49,8 +74,8 @@ public class StoragePlacesController(
         [FromBody] CreateStoragePlaceNodeRequest request,
         CancellationToken ct = default)
     {
-        if (!await db.StoragePlaces.AnyAsync(sp => sp.Id == id, ct))
-            return NotFound(ErrorCode.StoragePlaceNotFound, "Storage place not found.");
+        if (await CheckStoragePlaceAccessAsync(id, AccessLevel.Edit, ct) is { } error)
+            return error;
 
         if (request.ParentNodeId is not null)
         {
@@ -90,7 +115,7 @@ public class StoragePlacesController(
     /// Returns 422 <c>storagePlaceNodeCyclicParent</c> (field: <c>parentNodeId</c>) if the new parent is a descendant of this node or the node itself.
     /// </remarks>
     [HttpPut("{id:guid}/nodes/{nodeId:guid}")]
-    [Authorize(Policy = Permissions.Warehouses.Edit)]
+    [Authorize]
     [ProducesResponseType<StoragePlaceNodeDto[]>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
@@ -100,8 +125,8 @@ public class StoragePlacesController(
         [FromBody] UpdateStoragePlaceNodeRequest request,
         CancellationToken ct = default)
     {
-        if (!await db.StoragePlaces.AnyAsync(sp => sp.Id == id, ct))
-            return NotFound(ErrorCode.StoragePlaceNotFound, "Storage place not found.");
+        if (await CheckStoragePlaceAccessAsync(id, AccessLevel.Edit, ct) is { } error)
+            return error;
 
         var allNodes = await db.StoragePlacesNodes
             .Where(n => n.RootStoragePlaceId == id)
@@ -145,14 +170,14 @@ public class StoragePlacesController(
     /// <summary>Delete a node. Fails if the node has children — delete them first.</summary>
     /// <remarks>Returns the updated flat list on success.</remarks>
     [HttpDelete("{id:guid}/nodes/{nodeId:guid}")]
-    [Authorize(Policy = Permissions.Warehouses.Edit)]
+    [Authorize]
     [ProducesResponseType<StoragePlaceNodeDto[]>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> DeleteNode(Guid id, Guid nodeId, CancellationToken ct = default)
     {
-        if (!await db.StoragePlaces.AnyAsync(sp => sp.Id == id, ct))
-            return NotFound(ErrorCode.StoragePlaceNotFound, "Storage place not found.");
+        if (await CheckStoragePlaceAccessAsync(id, AccessLevel.Edit, ct) is { } error)
+            return error;
 
         var node = await db.StoragePlacesNodes
             .Include(n => n.ItemsGroups)
@@ -187,13 +212,13 @@ public class StoragePlacesController(
 
     /// <summary>Get a node by ID.</summary>
     [HttpGet("{id:guid}/nodes/{nodeId:guid}")]
-    [Authorize(Policy = Permissions.Warehouses.View)]
+    [Authorize]
     [ProducesResponseType<StoragePlaceNodeDetailsDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetNodeDetails(Guid id, Guid nodeId, CancellationToken ct = default)
     {
-        if (!await db.StoragePlaces.AnyAsync(sp => sp.Id == id, ct))
-            return NotFound(ErrorCode.StoragePlaceNotFound, "Storage place not found.");
+        if (await CheckStoragePlaceAccessAsync(id, AccessLevel.View, ct) is { } error)
+            return error;
 
         var allNodes = await db.StoragePlacesNodes
             .Where(n => n.RootStoragePlaceId == id)
@@ -218,7 +243,7 @@ public class StoragePlacesController(
     /// Returns 422 <c>storagePlaceNodeNotFound</c> if any nodeId does not belong to this storage place.
     /// </remarks>
     [HttpPut("{id:guid}/nodes/reorder")]
-    [Authorize(Policy = Permissions.Warehouses.Edit)]
+    [Authorize]
     [ProducesResponseType<StoragePlaceNodeDto[]>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
@@ -227,8 +252,8 @@ public class StoragePlacesController(
         [FromBody] IReadOnlyList<NodeOrderItem> items,
         CancellationToken ct = default)
     {
-        if (!await db.StoragePlaces.AnyAsync(sp => sp.Id == id, ct))
-            return NotFound(ErrorCode.StoragePlaceNotFound, "Storage place not found.");
+        if (await CheckStoragePlaceAccessAsync(id, AccessLevel.Edit, ct) is { } error)
+            return error;
 
         var requestedIds = items.Select(x => x.NodeId).ToHashSet();
         var nodes = await db.StoragePlacesNodes

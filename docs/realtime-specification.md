@@ -191,12 +191,18 @@ POST /api/realtime/unwatch   — { entityType, entityId, connectionId }
 ```csharp
 public interface IEntityAccessService
 {
-    Task<bool> CanViewAsync(AppEntityType entityType, Guid entityId, ClaimsPrincipal user);
-    Task<bool> CanEditAsync(AppEntityType entityType, Guid entityId, ClaimsPrincipal user);
+    Task<bool> CanViewAsync(AppEntityType entityType, Guid entityId, ClaimsPrincipal user, CancellationToken ct = default);
+    Task<bool> CanEditAsync(AppEntityType entityType, Guid entityId, ClaimsPrincipal user, CancellationToken ct = default);
 }
 ```
 
-`CanEdit` используется захватом блокировки — требование «то же право, что и редактирование объекта» перестаёт быть продублированным в контроллере блокировок. Неизвестный `AppEntityType` даёт `false`: подписка на то, чего инфраструктура не знает, невозможна.
+**Реализовано.** Сервис — тонкий фасад над `Infrastructure/Access/EntityAccessRegistry`, где живёт карта «тип сущности → право» целиком; тем же реестром пользуются фильтры списков и пообъектные проверки в контроллерах (см. [permissions.md](permissions.md#where-access-is-checked)). `AppEntityType` без зарегистрированного правила даёт `false`: подписка на то, чего инфраструктура не знает, невозможна.
+
+`CanEdit` используется захватом блокировки — требование «то же право, что и редактирование объекта» перестаёт быть продублированным в контроллере блокировок.
+
+**`CanEdit(Order)` — это `orders.edit | orders.edit_assigned`, без `orders.assemble_assigned`.** У заказа несколько `AssemblyTask`, каждое со своим `AssignedToId`: одновременная работа нескольких сборщиков — штатный сценарий, а не гонка. Эксклюзивная блокировка показала бы им ложное «редактирует Иванов» на обычной параллельной сборке. `CanView(Order)`, напротив, `assemble_assigned` включает — сборщик обязан иметь возможность подписаться на заказ, который собирает.
+
+Отсюда следствие для экрана сборки (`/operations/assembly`): он берёт `useEntityWatch`, но **не** `useEditLock`. Двум сборщикам как раз нужно видеть фулфилменты друг друга через `entity.changed`.
 
 Подписка снимается при `unwatch`, при обрыве стрима (вместе с блокировками этого соединения) и при закрытии соединения по истечении токена. Захват блокировки подписку **не заменяет**: страницу объекта открывают и те, кто её не редактирует.
 
@@ -408,7 +414,9 @@ useRealtimeEvent("marketplace.sync.progress", (e) => {
 
 ### Реализовано
 
-Ничего. Существующий `EventsController` (`api/events`) к этой подсистеме отношения не имеет — он отдаёт события календаря для `@mui/x-scheduler`.
+`IEntityAccessService` (шаг 5, часть) — вместе с общей инфраструктурой доступа `Infrastructure/Access/`, на которую переведены `IUserQueryFilterService` и пообъектные проверки во всех контроллерах. Это была предварительная работа: без неё `watch` и захват блокировки не на что опереть.
+
+Остальное — ничего. Существующий `EventsController` (`api/events`) к этой подсистеме отношения не имеет — он отдаёт события календаря для `@mui/x-scheduler`.
 
 Готовое основание: `src/api/core/serverSentEvents.gen.ts` от `@hey-api/openapi-ts`, интерцепторы авторизации в `src/services/apiClient.ts`, `AppEntityType` как универсальный ключ объекта, `Permissions` для проверки прав при подписке.
 
@@ -418,7 +426,7 @@ useRealtimeEvent("marketplace.sync.progress", (e) => {
 2. `RealtimeController.Stream` — SSE-эндпоинт, keep-alive, закрытие по истечении токена.
 3. Описание эндпоинта в OpenAPI, регенерация TS-клиента, **проверка того, как `@hey-api/openapi-ts` разворачивает `oneOf`-payload**.
 4. `RealtimeProvider`, `useRealtimeEvent`, переподключение, обработка `resume` в Capacitor.
-5. `IEntityAccessService`, `EntityWatchRegistry`, эндпоинты `watch`/`unwatch`, `RealtimeAddress.ToWatchers`, хук `useEntityWatch`.
+5. ~~`IEntityAccessService`~~ (готово), `EntityWatchRegistry`, эндпоинты `watch`/`unwatch`, `RealtimeAddress.ToWatchers`, хук `useEntityWatch`.
 6. Публикация событий синхронизации маркетплейсов, подписка на аккаунт на вкладке «Обзор» и в модалке синхронизации заказов, отключение `refetchInterval` при живой подписке.
 7. Публикация `entity.changed` из `AbstractChangeLogService`, исключение автора изменения.
 8. `EditLockStore`, эндпоинты блокировок, снятие блокировок и подписок по обрыву стрима.

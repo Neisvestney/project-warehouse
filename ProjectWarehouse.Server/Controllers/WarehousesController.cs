@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Warehouses;
@@ -19,8 +20,11 @@ namespace ProjectWarehouse.Server.Controllers;
 public class WarehousesController(
     ApplicationDbContext db,
     IMapper mapper,
+    EntityAccessRegistry access,
     IChangeLogService<WarehouseDto> changeLog) : AppControllerBase
 {
+    private EntityAccessRule<Warehouse> Rule => access.For<Warehouse>();
+
     /// <summary>List all warehouses (paginated, optionally filtered by name).</summary>
     /// <remarks>
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c> (optional).
@@ -36,21 +40,11 @@ public class WarehousesController(
         [FromQuery] string? searchString = null,
         CancellationToken ct = default)
     {
-        var canViewAll = User.HasClaim("permission", Permissions.Warehouses.View);
-        var canViewAssigned = User.HasClaim("permission", Permissions.Warehouses.ViewAssigned);
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
 
-        if (!canViewAll && !canViewAssigned)
-            return Forbidden();
-
-        var query = db.Warehouses.WhereMatchesSearch(w => w.SearchString, searchString);
-
-        if (!canViewAll)
-        {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-            if (assignedIds is null)
-                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
-            query = query.Where(w => assignedIds.Contains(w.Id));
-        }
+        var accessible = await Rule.QueryAsync(User, AccessLevel.View, ct);
+        var query = accessible.WhereMatchesSearch(w => w.SearchString, searchString);
 
         var paginated = await query
             .OrderBy(w => w.Name)
@@ -68,20 +62,8 @@ public class WarehousesController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct = default)
     {
-        var canViewAll = User.HasClaim("permission", Permissions.Warehouses.View);
-        var canViewAssigned = User.HasClaim("permission", Permissions.Warehouses.ViewAssigned);
-
-        if (!canViewAll && !canViewAssigned)
-            return Forbidden();
-
-        if (!canViewAll)
-        {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-            if (assignedIds is null)
-                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
-            if (!assignedIds.Contains(id))
-                return Forbidden();
-        }
+        if (AccessError(await Rule.CheckWarehouseAsync(User, AccessLevel.View, id, ct)) is { } error)
+            return error;
 
         var warehouse = await db.Warehouses
             .ProjectTo<WarehouseDto>(mapper.ConfigurationProvider)
@@ -101,20 +83,8 @@ public class WarehousesController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetByIdForPrint(Guid id, CancellationToken ct = default)
     {
-        var canViewAll = User.HasClaim("permission", Permissions.Warehouses.View);
-        var canViewAssigned = User.HasClaim("permission", Permissions.Warehouses.ViewAssigned);
-
-        if (!canViewAll && !canViewAssigned)
-            return Forbidden();
-
-        if (!canViewAll)
-        {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-            if (assignedIds is null)
-                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
-            if (!assignedIds.Contains(id))
-                return Forbidden();
-        }
+        if (AccessError(await Rule.CheckWarehouseAsync(User, AccessLevel.View, id, ct)) is { } error)
+            return error;
 
         var warehouseExists = await db.Warehouses.AnyAsync(w => w.Id == id, ct);
         if (!warehouseExists)
@@ -148,20 +118,8 @@ public class WarehousesController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetDefaultNode(Guid id, CancellationToken ct = default)
     {
-        var canViewAll = User.HasClaim("permission", Permissions.Warehouses.View);
-        var canViewAssigned = User.HasClaim("permission", Permissions.Warehouses.ViewAssigned);
-
-        if (!canViewAll && !canViewAssigned)
-            return Forbidden();
-
-        if (!canViewAll)
-        {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-            if (assignedIds is null)
-                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
-            if (!assignedIds.Contains(id))
-                return Forbidden();
-        }
+        if (AccessError(await Rule.CheckWarehouseAsync(User, AccessLevel.View, id, ct)) is { } error)
+            return error;
 
         var defaultNodeId = await db.Warehouses
             .Where(w => w.Id == id)
@@ -252,20 +210,8 @@ public class WarehousesController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateWarehouseRequest request, CancellationToken ct = default)
     {
-        var canEditAll = User.HasClaim("permission", Permissions.Warehouses.Edit);
-        var canEditAssigned = User.HasClaim("permission", Permissions.Warehouses.EditAssigned);
-
-        if (!canEditAll && !canEditAssigned)
-            return Forbidden();
-
-        if (!canEditAll)
-        {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-            if (assignedIds is null)
-                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
-            if (!assignedIds.Contains(id))
-                return Forbidden();
-        }
+        if (AccessError(await Rule.CheckWarehouseAsync(User, AccessLevel.Edit, id, ct)) is { } error)
+            return error;
 
         var warehouse = await db.Warehouses
             .Include(w => w.StoragePlaces)
@@ -394,20 +340,8 @@ public class WarehousesController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct = default)
     {
-        var canEditAll = User.HasClaim("permission", Permissions.Warehouses.Edit);
-        var canEditAssigned = User.HasClaim("permission", Permissions.Warehouses.EditAssigned);
-
-        if (!canEditAll && !canEditAssigned)
-            return Forbidden();
-
-        if (!canEditAll)
-        {
-            var assignedIds = await GetCurrentUserAssignedWarehouseIdsAsync(db, ct);
-            if (assignedIds is null)
-                return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
-            if (!assignedIds.Contains(id))
-                return Forbidden();
-        }
+        if (AccessError(await Rule.CheckWarehouseAsync(User, AccessLevel.Edit, id, ct)) is { } error)
+            return error;
 
         var warehouseBeforeDto = await db.Warehouses
             .ProjectTo<WarehouseDto>(mapper.ConfigurationProvider)

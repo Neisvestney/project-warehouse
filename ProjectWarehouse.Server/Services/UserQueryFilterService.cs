@@ -1,121 +1,36 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using Microsoft.EntityFrameworkCore;
-using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
-using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.Access;
 
 namespace ProjectWarehouse.Server.Services;
 
-public class UserQueryFilterService(ApplicationDbContext db) : IUserQueryFilterService
+/// <summary>
+/// Row-level filters for lists, search and the calendar. Every method is the View predicate of the
+/// entity's access rule — the same one that answers per-object checks in controllers.
+/// </summary>
+public class UserQueryFilterService(EntityAccessRegistry registry) : IUserQueryFilterService
 {
-    public async Task<IQueryable<Warehouse>> GetWarehousesAsync(ClaimsPrincipal user, CancellationToken ct = default)
-    {
-        if (user.HasClaim("permission", Permissions.Warehouses.View))
-            return db.Warehouses.AsQueryable();
+    public Task<IQueryable<Warehouse>> GetWarehousesAsync(ClaimsPrincipal user, CancellationToken ct = default) =>
+        View<Warehouse>(user, ct);
 
-        if (user.HasClaim("permission", Permissions.Warehouses.ViewAssigned))
-        {
-            var assignedIds = await GetAssignedWarehouseIdsAsync(user, ct);
-            if (assignedIds != null)
-                return db.Warehouses.Where(x => assignedIds.Contains(x.Id));
-        }
+    public Task<IQueryable<Receipt>> GetReceiptsAsync(ClaimsPrincipal user, CancellationToken ct = default) =>
+        View<Receipt>(user, ct);
 
-        return db.Warehouses.Take(0);
-    }
+    public Task<IQueryable<Stocktake>> GetStocktakesAsync(ClaimsPrincipal user, CancellationToken ct = default) =>
+        View<Stocktake>(user, ct);
 
-    public async Task<IQueryable<Receipt>> GetReceiptsAsync(ClaimsPrincipal user, CancellationToken ct = default)
-    {
-        var canViewAll = user.HasClaim("permission", Permissions.Receipts.View);
-        var canViewAssigned = user.HasClaim("permission", Permissions.Receipts.ViewAssigned);
-        var canProcess = user.HasClaim("permission", Permissions.Receipts.ProcessAssigned);
+    public Task<IQueryable<ApplicationUser>> GetUsersAsync(ClaimsPrincipal user, CancellationToken ct = default) =>
+        View<ApplicationUser>(user, ct);
 
-        if (canViewAll)
-            return db.Receipts;
+    public Task<IQueryable<CatalogItem>> GetCatalogItemsAsync(ClaimsPrincipal user, CancellationToken ct = default) =>
+        View<CatalogItem>(user, ct);
 
-        if (canViewAssigned || canProcess)
-        {
-            var assignedIds = await GetAssignedWarehouseIdsAsync(user, ct);
-            if (assignedIds != null)
-            {
-                return db.Receipts
-                    .Where(x => assignedIds.Contains(x.WarehouseId))
-                    .Where(x => canViewAssigned || (x.Status == ReceiptStatus.Processing && canProcess));
-            }
-        }
+    public Task<IQueryable<MarketplaceAccount>> GetMarketplaceAccountsAsync(ClaimsPrincipal user, CancellationToken ct = default) =>
+        View<MarketplaceAccount>(user, ct);
 
-        return db.Receipts.Take(0);
-    }
+    public Task<IQueryable<StockMovement>> GetStockMovementsAsync(ClaimsPrincipal user, CancellationToken ct = default) =>
+        View<StockMovement>(user, ct);
 
-    public async Task<IQueryable<Stocktake>> GetStocktakesAsync(ClaimsPrincipal user, CancellationToken ct = default)
-    {
-        if (user.HasClaim("permission", Permissions.Stocktakes.View))
-            return db.Stocktakes;
-
-        if (user.HasClaim("permission", Permissions.Stocktakes.ViewAssigned))
-        {
-            var assignedIds = await GetAssignedWarehouseIdsAsync(user, ct);
-            if (assignedIds != null)
-                return db.Stocktakes.Where(x => assignedIds.Contains(x.WarehouseId));
-        }
-
-        return db.Stocktakes.Take(0);
-    }
-
-    public Task<IQueryable<ApplicationUser>> GetUsersAsync(ClaimsPrincipal user, CancellationToken ct = default)
-    {
-        IQueryable<ApplicationUser> result = user.HasClaim("permission", Permissions.Users.View)
-            ? db.Users
-            : db.Users.Take(0);
-
-        return Task.FromResult(result);
-    }
-
-    public Task<IQueryable<CatalogItem>> GetCatalogItemsAsync(ClaimsPrincipal user, CancellationToken ct = default)
-    {
-        IQueryable<CatalogItem> result = user.HasClaim("permission", Permissions.Catalog.View)
-            ? db.CatalogItems
-            : db.CatalogItems.Take(0);
-
-        return Task.FromResult(result);
-    }
-
-    public Task<IQueryable<MarketplaceAccount>> GetMarketplaceAccountsAsync(ClaimsPrincipal user, CancellationToken ct = default)
-    {
-        IQueryable<MarketplaceAccount> result = user.HasClaim("permission", Permissions.Integrations.View)
-            ? db.MarketplaceAccounts
-            : db.MarketplaceAccounts.Take(0);
-
-        return Task.FromResult(result);
-    }
-
-    public async Task<IQueryable<StockMovement>> GetStockMovementsAsync(ClaimsPrincipal user, CancellationToken ct = default)
-    {
-        if (user.HasClaim("permission", Permissions.Statistics.View))
-            return db.StockMovements;
-
-        if (user.HasClaim("permission", Permissions.Statistics.ViewAssigned))
-        {
-            var assignedIds = await GetAssignedWarehouseIdsAsync(user, ct);
-            // A movement whose warehouse was deleted belongs to no assignment and stays with full-view users
-            if (assignedIds != null)
-                return db.StockMovements.Where(m => m.WarehouseId != null && assignedIds.Contains(m.WarehouseId.Value));
-        }
-
-        return db.StockMovements.Take(0);
-    }
-
-    private async Task<HashSet<Guid>?> GetAssignedWarehouseIdsAsync(ClaimsPrincipal user, CancellationToken ct)
-    {
-        var raw = user.FindFirstValue(JwtRegisteredClaimNames.Sub);
-        if (!Guid.TryParse(raw, out var userId)) return null;
-
-        var ids = await db.Users
-            .Where(u => u.Id == userId)
-            .SelectMany(u => u.AssignedWarehouses)
-            .Select(w => w.Id)
-            .ToListAsync(ct);
-
-        return [..ids];
-    }
+    private Task<IQueryable<T>> View<T>(ClaimsPrincipal user, CancellationToken ct) where T : class =>
+        registry.For<T>().QueryAsync(user, AccessLevel.View, ct);
 }
