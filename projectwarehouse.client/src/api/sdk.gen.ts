@@ -1873,7 +1873,7 @@ export const stocktakesToDraft = <ThrowOnError extends boolean = false>(
   >({url: "/api/stocktakes/{id}/to-draft", ...options});
 
 /**
- * Start counting. Draft → InProgress.
+ * Start counting. Draft or Planned → InProgress.
  */
 export const stocktakesStart = <ThrowOnError extends boolean = false>(
   options: Options<StocktakesStartData, ThrowOnError>,

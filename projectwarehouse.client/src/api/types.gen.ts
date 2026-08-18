@@ -496,6 +496,10 @@ export type EntityTypeStatDto = {
   tables: Array<TableStatDto>;
 };
 
+/**
+ * Persisted as ints in jsonb error payloads (MarketplaceSyncRun.Error, MarketplaceAccount.LastSyncError,
+ * SkippedOrders): values are pinned, so members may be reordered freely but never renumbered.
+ */
 export type ErrorCode =
   | "invalidCredentials"
   | "tokenOutdated"

@@ -164,7 +164,8 @@ Request headers are never included anywhere in these errors — that is where th
 The last four codes are also persisted, not just returned: `MarketplaceSyncRun.Error` and
 `MarketplaceAccount.LastSyncError` store a whole `AppFieldError` in a `jsonb` column, so a failed run keeps its
 machine-readable `code` and `args` instead of a prose string. `ErrorCode` is serialized there as its **integer**
-value (Npgsql's serializer, not the MVC one), which is why the enum may only ever be appended to.
+value (Npgsql's serializer, not the MVC one), which is why its numbers are pinned explicitly: a new code takes the
+next free number and is declared where it belongs, but an existing member is never renumbered.
 
 ### DataFiles
 | Code | When | `args` |
@@ -179,9 +180,9 @@ value (Npgsql's serializer, not the MVC one), which is why the enum may only eve
 
 ### FBS order sync
 
-Appended at the very end of `ErrorCode`, not to the marketplace block above: these values persist as ints
-inside the `Error`, `LastSyncError` and `SkippedOrders` jsonb columns, so inserting into the middle of the
-enum would reinterpret errors already stored.
+Declared with the marketplace block in `ErrorCode`, keeping the numbers they were first assigned: these values
+persist as ints inside the `Error`, `LastSyncError` and `SkippedOrders` jsonb columns, so renumbering one would
+reinterpret errors already stored.
 
 | Code | When | `args` |
 |------|------|--------|

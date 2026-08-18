@@ -2,6 +2,6 @@ namespace ProjectWarehouse.Server.Models;
 
 public enum SortOrder
 {
-    Asc,
-    Desc,
+    Asc = 0,
+    Desc = 1,
 }

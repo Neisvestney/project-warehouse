@@ -2,9 +2,9 @@ namespace ProjectWarehouse.Server.Models.Inventory;
 
 public enum InventoryItemSortBy
 {
-    Name,
-    FullName,
-    Article,
-    Type,
-    Count,
+    Name = 0,
+    FullName = 1,
+    Article = 2,
+    Type = 3,
+    Count = 4,
 }

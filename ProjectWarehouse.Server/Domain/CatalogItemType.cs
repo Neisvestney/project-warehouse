@@ -6,5 +6,5 @@ public enum CatalogItemType
     Unit = 1,
     ProductGroup = 2,
     Variation = 3,
-    Bundle = 4
+    Bundle = 4,
 }

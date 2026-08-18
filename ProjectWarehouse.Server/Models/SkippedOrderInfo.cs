@@ -10,7 +10,7 @@ public class SkippedOrderInfo
 {
     public string PostingNumber { get; set; } = null!;
 
-    /// <summary>Same vocabulary as <see cref="AppFieldError.Code"/> — persisted as a number, append only.</summary>
+    /// <summary>Same vocabulary as <see cref="AppFieldError.Code"/> — persisted as a number, so codes are never renumbered.</summary>
     public ErrorCode Reason { get; set; }
 
     /// <summary>Seller articles that caused the skip; empty when the warehouse was the problem.</summary>

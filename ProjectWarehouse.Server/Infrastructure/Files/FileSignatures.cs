@@ -2,14 +2,14 @@ namespace ProjectWarehouse.Server.Infrastructure.Files;
 
 public enum FileFamily
 {
-    Unknown,
-    Jpeg,
-    Png,
-    Webp,
-    Gif,
-    Pdf,
-    Zip,
-    Text,
+    Unknown = 0,
+    Jpeg = 1,
+    Png = 2,
+    Webp = 3,
+    Gif = 4,
+    Pdf = 5,
+    Zip = 6,
+    Text = 7,
 }
 
 /// <summary>
