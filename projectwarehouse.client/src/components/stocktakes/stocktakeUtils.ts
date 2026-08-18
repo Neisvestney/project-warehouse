@@ -1,10 +1,16 @@
-import type {StocktakeDifferenceResolution, StocktakeStatus} from "@/api/types.gen";
+import type {StocktakeDifferenceResolution, StocktakeStatus, StocktakeType} from "@/api/types.gen";
 
 export const STOCKTAKE_STATUS_LABELS: Record<StocktakeStatus, string> = {
+  planned: "Запланирована",
   draft: "Черновик",
   inProgress: "В процессе",
   finished: "Завершена",
   canceled: "Отменена",
+};
+
+export const STOCKTAKE_TYPE_LABELS: Record<StocktakeType, string> = {
+  unscheduled: "Внеплановая",
+  scheduled: "Плановая",
 };
 
 export const DIFFERENCE_RESOLUTION_LABELS: Record<StocktakeDifferenceResolution, string> = {

@@ -117,6 +117,31 @@ public class StocktakesController(
             .Include(n => n.RootStoragePlace)
             .ToDictionaryAsync(n => n.Id, ct);
 
+    /// <summary>
+    /// Two counts running over one cell would fight each other at finish — the second one to apply
+    /// overwrites the first with quantities measured before it. Checked wherever a cell can end up
+    /// in a running count: at start, and when the scope of an InProgress document grows.
+    /// </summary>
+    private async Task<IActionResult?> FindNodeCountedElsewhereAsync(
+        Guid stocktakeId, IReadOnlyCollection<Guid> nodeIds, CancellationToken ct)
+    {
+        if (nodeIds.Count == 0) return null;
+
+        var busy = await db.StocktakeNodes
+            .Where(n => nodeIds.Contains(n.StoragePlaceNodeId)
+                        && n.StocktakeId != stocktakeId
+                        && n.Stocktake.Status == StocktakeStatus.InProgress)
+            .OrderBy(n => n.StoragePlaceNode.Name)
+            .Select(n => new { n.StoragePlaceNodeId, n.StoragePlaceNode.Name })
+            .FirstOrDefaultAsync(ct);
+
+        return busy is null
+            ? null
+            : UnprocessableEntity("root", ErrorCode.StocktakeNodeAlreadyInProgress,
+                $"Storage node '{busy.Name}' is already being counted in another stocktake.",
+                new Dictionary<string, object> { ["nodeId"] = busy.StoragePlaceNodeId });
+    }
+
     private StocktakeDto MapWithNodes(Stocktake stocktake, Dictionary<Guid, StoragePlaceNode> nodeById) =>
         mapper.Map<StocktakeDto>(stocktake, opts => opts.Items["nodeById"] = nodeById);
 
@@ -163,7 +188,14 @@ public class StocktakesController(
 
         var query = sortBy switch
         {
-            StocktakeSortBy.Status        => baseQuery.Sort(s => s.Status, sortOrder).ThenBy(s => s.Id),
+            // Planned is numbered last in the enum to keep stored values stable, so order it explicitly
+            StocktakeSortBy.Status => baseQuery
+                .Sort(s => s.Status == StocktakeStatus.Planned    ? 0
+                         : s.Status == StocktakeStatus.Draft      ? 1
+                         : s.Status == StocktakeStatus.InProgress ? 2
+                         : s.Status == StocktakeStatus.Finished   ? 3
+                         : 4, sortOrder)
+                .ThenBy(s => s.Id),
             StocktakeSortBy.CreatedAt     => baseQuery.Sort(s => s.CreatedAt, sortOrder).ThenBy(s => s.Id),
             StocktakeSortBy.WarehouseName => baseQuery.Sort(s => s.Warehouse.Name, sortOrder).ThenBy(s => s.Id),
             StocktakeSortBy.Name          => baseQuery.Sort(s => s.Name, sortOrder).ThenBy(s => s.Id),
@@ -194,7 +226,7 @@ public class StocktakesController(
 
     // ── POST create ───────────────────────────────────────────────────────────
 
-    /// <summary>Create a new stocktake in Draft status.</summary>
+    /// <summary>Create a new stocktake. Always starts in Draft status.</summary>
     [HttpPost]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status201Created)]
@@ -221,6 +253,12 @@ public class StocktakesController(
                     "You are not assigned to the warehouse of this stocktake.");
         }
 
+        var isScheduled = request.Type == StocktakeType.Scheduled;
+
+        if (isScheduled && request.PlannedDate is null)
+            return UnprocessableEntity("plannedDate", ErrorCode.ValidationError,
+                "Planned date is required for a scheduled stocktake.");
+
         var stocktake = new Stocktake
         {
             Id          = Guid.NewGuid(),
@@ -230,6 +268,8 @@ public class StocktakesController(
             CreatedById = GetCurrentUserId(),
             CreatedAt   = DateTime.UtcNow,
             Status      = StocktakeStatus.Draft,
+            Type        = request.Type,
+            PlannedDate = isScheduled ? request.PlannedDate : null,
         };
 
         db.Stocktakes.Add(stocktake);
@@ -245,7 +285,10 @@ public class StocktakesController(
 
     // ── PATCH update ──────────────────────────────────────────────────────────
 
-    /// <summary>Update stocktake name and notes. Allowed while the document is still open.</summary>
+    /// <summary>
+    /// Update stocktake name, notes, type and planned date. Allowed while the document is still open;
+    /// type and planned date freeze once counting has started.
+    /// </summary>
     [HttpPatch("{id:guid}")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
@@ -257,14 +300,39 @@ public class StocktakesController(
         var (stocktake, error) = await LoadStocktakeWithEditAccessAsync(id, ct, includeItems: true);
         if (error is not null) return error;
 
-        if (stocktake!.Status is not (StocktakeStatus.Draft or StocktakeStatus.InProgress))
+        if (stocktake!.Status is not (StocktakeStatus.Planned or StocktakeStatus.Draft or StocktakeStatus.InProgress))
             return UnprocessableEntity("root", ErrorCode.StocktakeInvalidStatusTransition,
                 "Stocktake can only be updated while it is open.");
+
+        var sendsPlanning = request.Type is not null || request.PlannedDate is not null;
+
+        if (sendsPlanning && stocktake.Status is not (StocktakeStatus.Planned or StocktakeStatus.Draft))
+            return UnprocessableEntity("type", ErrorCode.StocktakeInvalidStatusTransition,
+                "Planning can only be changed while the stocktake is Planned or Draft.");
+
+        // plannedDate belongs to type — patching it alone would leave the pair ambiguous
+        if (sendsPlanning && request.Type is null)
+            return UnprocessableEntity("type", ErrorCode.ValidationError,
+                "Planned date cannot be changed without sending the type.");
+
+        if (sendsPlanning && request.Type == StocktakeType.Scheduled && request.PlannedDate is null)
+            return UnprocessableEntity("plannedDate", ErrorCode.ValidationError,
+                "Planned date is required for a scheduled stocktake.");
 
         var before = await BuildDtoAsync(stocktake, ct);
 
         stocktake.Name  = request.Name;
         stocktake.Notes = request.Notes;
+
+        if (sendsPlanning)
+        {
+            stocktake.Type        = request.Type!.Value;
+            stocktake.PlannedDate = request.Type == StocktakeType.Scheduled ? request.PlannedDate : null;
+
+            // Planned only makes sense for a scheduled document
+            if (stocktake.Status == StocktakeStatus.Planned && request.Type != StocktakeType.Scheduled)
+                stocktake.Status = StocktakeStatus.Draft;
+        }
 
         await db.SaveChangesAsync(ct);
 
@@ -276,7 +344,7 @@ public class StocktakesController(
 
     // ── DELETE ────────────────────────────────────────────────────────────────
 
-    /// <summary>Delete a stocktake. Only allowed in Draft status.</summary>
+    /// <summary>Delete a stocktake. Only allowed in Planned or Draft status.</summary>
     [HttpDelete("{id:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -287,9 +355,9 @@ public class StocktakesController(
         var (stocktake, error) = await LoadStocktakeWithEditAccessAsync(id, ct, includeItems: true);
         if (error is not null) return error;
 
-        if (stocktake!.Status != StocktakeStatus.Draft)
+        if (stocktake!.Status is not (StocktakeStatus.Planned or StocktakeStatus.Draft))
             return UnprocessableEntity("root", ErrorCode.StocktakeInvalidStatusTransition,
-                "Only Draft stocktakes can be deleted.");
+                "Only Planned or Draft stocktakes can be deleted.");
 
         var dto = await BuildDtoAsync(stocktake, ct);
 
@@ -318,7 +386,7 @@ public class StocktakesController(
         var (stocktake, error) = await LoadStocktakeWithEditAccessAsync(id, ct, includeItems: true);
         if (error is not null) return error;
 
-        if (stocktake!.Status is not (StocktakeStatus.Draft or StocktakeStatus.InProgress))
+        if (stocktake!.Status is not (StocktakeStatus.Planned or StocktakeStatus.Draft or StocktakeStatus.InProgress))
             return UnprocessableEntity("root", ErrorCode.StocktakeInvalidStatusTransition,
                 "Scope can only be changed while the stocktake is open.");
 
@@ -338,22 +406,13 @@ public class StocktakesController(
                 return UnprocessableEntity($"nodeIds[{i}]", ErrorCode.StoragePlaceNodeNotFound,
                     $"Storage node '{requestedIds[i]}' not found in this warehouse.");
 
-        // Two open stocktakes over one cell would fight each other at finish
+        // A cell may sit in several drafts at once — only two running counts clash
         var addedIds = requestedIds.Except(stocktake.Nodes.Select(n => n.StoragePlaceNodeId)).ToList();
-        if (addedIds.Count > 0)
-        {
-            var busy = await db.StocktakeNodes
-                .Where(n => addedIds.Contains(n.StoragePlaceNodeId)
-                            && n.StocktakeId != id
-                            && (n.Stocktake.Status == StocktakeStatus.Draft
-                                || n.Stocktake.Status == StocktakeStatus.InProgress))
-                .Select(n => n.StoragePlaceNodeId)
-                .FirstOrDefaultAsync(ct);
 
-            if (busy != Guid.Empty)
-                return UnprocessableEntity("nodeIds", ErrorCode.StocktakeNodeAlreadyInProgress,
-                    $"Storage node '{busy}' is already part of another open stocktake.",
-                    new Dictionary<string, object> { ["nodeId"] = busy });
+        if (stocktake.Status == StocktakeStatus.InProgress)
+        {
+            var conflict = await FindNodeCountedElsewhereAsync(id, addedIds, ct);
+            if (conflict is not null) return conflict;
         }
 
         var before = await BuildDtoAsync(stocktake, ct);
@@ -592,15 +651,48 @@ public class StocktakesController(
             })
             .ToListAsync(ct);
 
+        // Same serial in two running counts: whichever finishes last decides where it lands, and the
+        // other document keeps a phantom shortage. Surpluses count too — both would create the unit.
+        var claimedInOtherCounts = await db.StocktakeItems
+            .Where(i => i.Kind == StocktakeItemKind.Unit
+                        && i.CountedQuantity > 0
+                        && i.InventoryNumber != null
+                        && numbers.Contains(i.InventoryNumber)
+                        && i.StocktakeNode.StocktakeId != stocktake.Id
+                        && i.StocktakeNode.Stocktake.Status == StocktakeStatus.InProgress)
+            .Select(i => new
+            {
+                i.CatalogItemId,
+                i.InventoryNumber,
+                StocktakeId = i.StocktakeNode.StocktakeId,
+                i.StocktakeNode.Stocktake.Number,
+            })
+            .ToListAsync(ct);
+
         foreach (var (catalogItemId, number) in claimed)
         {
             var unit = units.FirstOrDefault(u => u.CatalogItemId == catalogItemId && u.InventoryNumber == number);
-            if (unit is null) continue;
 
-            if (unit.WarehouseId is { } warehouseId && warehouseId != stocktake.WarehouseId)
+            // Checked before the parallel-count clash: a foreign warehouse is the more permanent reason
+            if (unit?.WarehouseId is { } warehouseId && warehouseId != stocktake.WarehouseId)
                 return UnprocessableEntity("root", ErrorCode.StocktakeUnitItemInAnotherWarehouse,
                     $"Inventory number '{number}' belongs to another warehouse.",
                     new Dictionary<string, object> { ["inventoryNumber"] = number });
+
+            var other = claimedInOtherCounts
+                .FirstOrDefault(i => i.CatalogItemId == catalogItemId && i.InventoryNumber == number);
+
+            if (other is not null)
+                return UnprocessableEntity("root", ErrorCode.StocktakeUnitCountedTwice,
+                    $"Inventory number '{number}' is already counted in stocktake #{other.Number}.",
+                    new Dictionary<string, object>
+                    {
+                        ["inventoryNumber"] = number,
+                        ["stocktakeId"]     = other.StocktakeId,
+                        ["stocktakeNumber"] = other.Number,
+                    });
+
+            if (unit is null) continue;
 
             // The same serial claimed found in two cells would make the finish order ambiguous
             var claimedElsewhere = stocktake.Nodes
@@ -628,7 +720,67 @@ public class StocktakesController(
 
     // ── Status transitions ────────────────────────────────────────────────────
 
-    /// <summary>Start counting. Draft → InProgress.</summary>
+    /// <summary>Put a scheduled document on the calendar. Draft → Planned.</summary>
+    [HttpPost("{id:guid}/schedule")]
+    [Authorize]
+    [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> Schedule(Guid id, CancellationToken ct = default)
+    {
+        var (stocktake, error) = await LoadStocktakeWithEditAccessAsync(id, ct, includeItems: true);
+        if (error is not null) return error;
+
+        if (stocktake!.Status != StocktakeStatus.Draft)
+            return UnprocessableEntity("root", ErrorCode.StocktakeInvalidStatusTransition,
+                "Only a Draft stocktake can be scheduled.");
+
+        if (stocktake.Type != StocktakeType.Scheduled || stocktake.PlannedDate is null)
+            return UnprocessableEntity("plannedDate", ErrorCode.ValidationError,
+                "Only a scheduled stocktake with a planned date can be scheduled.");
+
+        if (stocktake.Nodes.Count == 0)
+            return UnprocessableEntity("root", ErrorCode.StocktakeHasNoNodes,
+                "Select at least one storage node before scheduling.");
+
+        var before = await BuildDtoAsync(stocktake, ct);
+
+        stocktake.Status = StocktakeStatus.Planned;
+        await db.SaveChangesAsync(ct);
+
+        var after = await BuildDtoAsync(stocktake, ct);
+        await changeLog.CompareAndSaveToChangelog(before, after, StocktakeActions.Scheduled);
+
+        return Ok(after);
+    }
+
+    /// <summary>Return a scheduled document to work. Planned → Draft.</summary>
+    [HttpPost("{id:guid}/to-draft")]
+    [Authorize]
+    [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> ToDraft(Guid id, CancellationToken ct = default)
+    {
+        var (stocktake, error) = await LoadStocktakeWithEditAccessAsync(id, ct, includeItems: true);
+        if (error is not null) return error;
+
+        if (stocktake!.Status != StocktakeStatus.Planned)
+            return UnprocessableEntity("root", ErrorCode.StocktakeInvalidStatusTransition,
+                "Only a Planned stocktake can be moved to Draft.");
+
+        var before = await BuildDtoAsync(stocktake, ct);
+
+        stocktake.Status = StocktakeStatus.Draft;
+        await db.SaveChangesAsync(ct);
+
+        var after = await BuildDtoAsync(stocktake, ct);
+        await changeLog.CompareAndSaveToChangelog(before, after, StocktakeActions.MovedToDraft);
+
+        return Ok(after);
+    }
+
+    /// <summary>Start counting. Draft or Planned → InProgress.</summary>
     [HttpPost("{id:guid}/start")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
@@ -639,13 +791,17 @@ public class StocktakesController(
         var (stocktake, error) = await LoadStocktakeWithEditAccessAsync(id, ct, includeItems: true);
         if (error is not null) return error;
 
-        if (stocktake!.Status != StocktakeStatus.Draft)
+        if (stocktake!.Status is not (StocktakeStatus.Draft or StocktakeStatus.Planned))
             return UnprocessableEntity("root", ErrorCode.StocktakeInvalidStatusTransition,
-                "Only a Draft stocktake can be started.");
+                "Only a Draft or Planned stocktake can be started.");
 
         if (stocktake.Nodes.Count == 0)
             return UnprocessableEntity("root", ErrorCode.StocktakeHasNoNodes,
                 "Select at least one storage node before starting.");
+
+        var conflict = await FindNodeCountedElsewhereAsync(
+            id, stocktake.Nodes.Select(n => n.StoragePlaceNodeId).ToList(), ct);
+        if (conflict is not null) return conflict;
 
         var before = await BuildDtoAsync(stocktake, ct);
 

@@ -6,7 +6,7 @@ import type {
   StockMovementDirection,
   StockMovementPivotRowDto,
 } from "@/api/types.gen";
-import {addDays, currentUtcOffsetMinutes, todayDateOnly} from "./dateOnly";
+import {addDays, currentUtcOffsetMinutes, todayDateOnly} from "@/utils/dateOnly";
 
 export const WINDOW_DAYS = 30;
 

@@ -314,6 +314,9 @@ import type {
   StocktakesRevertData,
   StocktakesRevertErrors,
   StocktakesRevertResponses,
+  StocktakesScheduleData,
+  StocktakesScheduleErrors,
+  StocktakesScheduleResponses,
   StocktakesStartData,
   StocktakesStartErrors,
   StocktakesStartResponses,
@@ -323,6 +326,9 @@ import type {
   StocktakesSyncNodesData,
   StocktakesSyncNodesErrors,
   StocktakesSyncNodesResponses,
+  StocktakesToDraftData,
+  StocktakesToDraftErrors,
+  StocktakesToDraftResponses,
   StocktakesUpdateData,
   StocktakesUpdateErrors,
   StocktakesUpdateResponses,
@@ -661,6 +667,12 @@ export const commonContentGlobalSearch = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({url: "/api/commoncontent/search", ...options});
 
+/**
+ * Calendar events: planned receipts and stocktakes.
+ *
+ * Days are cut in the caller's time zone — pass `utcOffsetMinutes`, or a stocktake finished in the
+ * evening lands on the wrong day. Same convention as StatisticsController.
+ */
 export const eventsGetEvents = <ThrowOnError extends boolean = false>(
   options?: Options<EventsGetEventsData, ThrowOnError>,
 ) =>
@@ -1730,7 +1742,7 @@ export const stocktakesGetAll = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Create a new stocktake in Draft status.
+ * Create a new stocktake. Always starts in Draft status.
  */
 export const stocktakesCreate = <ThrowOnError extends boolean = false>(
   options: Options<StocktakesCreateData, ThrowOnError>,
@@ -1745,7 +1757,7 @@ export const stocktakesCreate = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Delete a stocktake. Only allowed in Draft status.
+ * Delete a stocktake. Only allowed in Planned or Draft status.
  */
 export const stocktakesDelete = <ThrowOnError extends boolean = false>(
   options: Options<StocktakesDeleteData, ThrowOnError>,
@@ -1767,7 +1779,8 @@ export const stocktakesGetById = <ThrowOnError extends boolean = false>(
   );
 
 /**
- * Update stocktake name and notes. Allowed while the document is still open.
+ * Update stocktake name, notes, type and planned date. Allowed while the document is still open;
+ * type and planned date freeze once counting has started.
  */
 export const stocktakesUpdate = <ThrowOnError extends boolean = false>(
   options: Options<StocktakesUpdateData, ThrowOnError>,
@@ -1834,6 +1847,30 @@ export const stocktakesSyncNodeItems = <ThrowOnError extends boolean = false>(
       ...options.headers,
     },
   });
+
+/**
+ * Put a scheduled document on the calendar. Draft → Planned.
+ */
+export const stocktakesSchedule = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesScheduleData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    StocktakesScheduleResponses,
+    StocktakesScheduleErrors,
+    ThrowOnError
+  >({url: "/api/stocktakes/{id}/schedule", ...options});
+
+/**
+ * Return a scheduled document to work. Planned → Draft.
+ */
+export const stocktakesToDraft = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesToDraftData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    StocktakesToDraftResponses,
+    StocktakesToDraftErrors,
+    ThrowOnError
+  >({url: "/api/stocktakes/{id}/to-draft", ...options});
 
 /**
  * Start counting. Draft → InProgress.

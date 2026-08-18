@@ -4,6 +4,7 @@ import type {StocktakeStatus} from "@/api/types.gen";
 import {STOCKTAKE_STATUS_LABELS} from "@/components/stocktakes/stocktakeUtils";
 
 const STATUS_COLORS: Record<StocktakeStatus, ChipProps["color"]> = {
+  planned: "warning",
   draft: "default",
   inProgress: "info",
   finished: "success",

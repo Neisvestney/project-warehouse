@@ -8,6 +8,8 @@ public class StocktakeDto
     public int Number { get; init; }
     public string? Name { get; init; }
     public StocktakeStatus Status { get; init; }
+    public StocktakeType Type { get; init; }
+    public DateOnly? PlannedDate { get; init; }
     public string? Notes { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime? StartedAt { get; init; }

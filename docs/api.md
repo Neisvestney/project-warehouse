@@ -300,17 +300,19 @@ All item removals execute in a single DB transaction. If any operation fails, no
 |--------|------|------------|-------------|
 | GET | `/api/stocktakes` | `stocktakes.view` or `stocktakes.view_assigned` | List stocktakes (paginated) |
 | GET | `/api/stocktakes/{id}` | `stocktakes.view` or `stocktakes.view_assigned` | Get full stocktake with nodes and counted items |
-| POST | `/api/stocktakes` | `stocktakes.edit` or `stocktakes.edit_assigned` | Create stocktake in Draft status |
-| PATCH | `/api/stocktakes/{id}` | `stocktakes.edit` or `stocktakes.edit_assigned` | Update name/notes (Draft or InProgress) |
-| DELETE | `/api/stocktakes/{id}` | `stocktakes.edit` or `stocktakes.edit_assigned` | Delete stocktake (Draft only) |
-| PUT | `/api/stocktakes/{id}/nodes` | `stocktakes.edit` or `stocktakes.edit_assigned` | Replace the counted-cells scope (Draft or InProgress) |
+| POST | `/api/stocktakes` | `stocktakes.edit` or `stocktakes.edit_assigned` | Create stocktake — always starts in Draft |
+| PATCH | `/api/stocktakes/{id}` | `stocktakes.edit` or `stocktakes.edit_assigned` | Update name/notes (Planned, Draft or InProgress) and type/plannedDate (Planned or Draft) |
+| DELETE | `/api/stocktakes/{id}` | `stocktakes.edit` or `stocktakes.edit_assigned` | Delete stocktake (Planned or Draft) |
+| PUT | `/api/stocktakes/{id}/nodes` | `stocktakes.edit` or `stocktakes.edit_assigned` | Replace the counted-cells scope (Planned, Draft or InProgress) |
 | GET | `/api/stocktakes/{id}/nodes/{nodeId}/stock` | `stocktakes.view` or `stocktakes.view_assigned` | Live stock of one cell in scope, used to pre-populate the counting screen |
-| PUT | `/api/stocktakes/{id}/nodes/{nodeId}/items` | `stocktakes.edit` or `stocktakes.edit_assigned` | Replace the counted lines of one cell (InProgress only) |
-| POST | `/api/stocktakes/{id}/start` | `stocktakes.edit` or `stocktakes.edit_assigned` | Begin counting (Draft → InProgress) |
-| POST | `/api/stocktakes/{id}/revert` | `stocktakes.edit` or `stocktakes.edit_assigned` | Return to scope editing (InProgress → Draft), counted lines are kept |
+| PUT | `/api/stocktakes/{id}/nodes/{nodeId}/items` | `stocktakes.edit` or `stocktakes.edit_assigned` | Replace the counted lines of one cell (InProgress only); a serial already counted in another InProgress stocktake is rejected with `stocktakeUnitCountedTwice` |
+| POST | `/api/stocktakes/{id}/schedule` | `stocktakes.edit` or `stocktakes.edit_assigned` | Put a scheduled document on the calendar (Draft → Planned). Requires `type = scheduled`, a `plannedDate` and at least one node |
+| POST | `/api/stocktakes/{id}/to-draft` | `stocktakes.edit` or `stocktakes.edit_assigned` | Return a scheduled document to work (Planned → Draft) |
+| POST | `/api/stocktakes/{id}/start` | `stocktakes.edit` or `stocktakes.edit_assigned` | Begin counting (Draft or Planned → InProgress); 422 `stocktakeNodeAlreadyInProgress` if any cell in scope is being counted elsewhere |
+| POST | `/api/stocktakes/{id}/revert` | `stocktakes.edit` or `stocktakes.edit_assigned` | Return to scope editing (InProgress → Draft, never back to Planned), counted lines are kept |
 | GET | `/api/stocktakes/{id}/differences` | `stocktakes.view` or `stocktakes.view_assigned` | Preview of what finishing would do — read-only |
 | POST | `/api/stocktakes/{id}/finish` | `stocktakes.edit` or `stocktakes.edit_assigned` | Apply the count to live stock (InProgress → Finished) |
-| POST | `/api/stocktakes/{id}/cancel` | `stocktakes.edit` or `stocktakes.edit_assigned` | Cancel without touching stock (Draft/InProgress → Canceled) |
+| POST | `/api/stocktakes/{id}/cancel` | `stocktakes.edit` or `stocktakes.edit_assigned` | Cancel without touching stock (Planned/Draft/InProgress → Canceled) |
 
 **Query parameters for `GET /api/stocktakes`:**
 
@@ -330,9 +332,13 @@ All item removals execute in a single DB transaction. If any operation fails, no
 |-------|------|----------|-------------|
 | `name` | `string?` | — | Display name (max 256). Omitted/empty → stored as `null`. |
 | `warehouseId` | `Guid` | ✓ | Target warehouse |
+| `type` | `StocktakeType` | — | `unscheduled` (default) or `scheduled` |
+| `plannedDate` | `DateOnly?` | when `scheduled` | Planned start date. Required for `scheduled`, ignored (stored as `null`) otherwise |
 | `notes` | `string?` | — | Free-text notes (max 2048) |
 
-**`UpdateStocktakeRequest`:** `name`, `notes` (no `warehouseId` — the warehouse is fixed at creation).
+**`UpdateStocktakeRequest`:** `name`, `notes`, `type?`, `plannedDate?` (no `warehouseId` — the warehouse is fixed at creation).
+
+`type` is optional: omit both planning fields and the planning is left untouched, send `type` and both `type` and `plannedDate` are rewritten (`plannedDate` is required when `type` is `scheduled`). Sending `plannedDate` without `type` is a 422 — the pair is patched together or not at all. Sending either field while the document is InProgress is also a 422; switching a Planned document to `unscheduled` moves it back to Draft.
 
 **`PUT /api/stocktakes/{id}/nodes` body — `SyncStocktakeNodesRequest`:**
 
@@ -340,7 +346,7 @@ All item removals execute in a single DB transaction. If any operation fails, no
 |-------|------|-------------|
 | `nodeIds` | `Guid[]` | Full desired scope. Cells already in scope keep their counted lines; dropped cells lose theirs (cascade) |
 
-Validation: every node must belong to the stocktake's warehouse (422 `storagePlaceNodeNotFound` on `nodeIds[i]`), no duplicates (422 `validationError`), and no node may already be in the scope of another Draft/InProgress stocktake (422 `stocktakeNodeAlreadyInProgress`, `args.nodeId`).
+Validation: every node must belong to the stocktake's warehouse (422 `storagePlaceNodeNotFound` on `nodeIds[i]`) and no duplicates (422 `validationError`). A cell may sit in the scope of any number of Draft/Planned stocktakes at once. Overlap is rejected only against a **running** count: 422 `stocktakeNodeAlreadyInProgress` (`args.nodeId`) when this stocktake is already InProgress and an added cell is being counted elsewhere — the same check `POST /start` runs over the whole scope.
 
 **`PUT /api/stocktakes/{id}/nodes/{nodeId}/items` body — `StocktakeItemRequest[]`:**
 
@@ -359,7 +365,7 @@ Validation (field prefix `items[i]`): the catalog item must exist and its type m
 
 **Key DTOs:**
 
-`StocktakeSummaryDto`: `{ id, number, name?, status, warehouseId, warehouseName, nodesCount, itemsCount, createdAt, startedAt?, finishedAt? }`
+`StocktakeSummaryDto`: `{ id, number, name?, status, type, plannedDate?, warehouseId, warehouseName, nodesCount, itemsCount, createdAt, startedAt?, finishedAt? }`
 
 `StocktakeDto`: same as summary + `notes?` + `nodes: StocktakeNodeDto[]`
 
@@ -375,7 +381,8 @@ Validation (field prefix `items[i]`): the catalog item must exist and its type m
 
 `StocktakeProblemDto`: `{ storagePlaceNodeId, code, message }` — while non-empty, finishing is refused.
 
-**`StocktakeStatus` values:** `draft`, `inProgress`, `finished`, `canceled`  
+**`StocktakeStatus` values:** `planned`, `draft`, `inProgress`, `finished`, `canceled` — `planned` has the same capabilities as `draft` and only marks a scheduled document parked on the calendar; Draft ↔ Planned is a free two-way transition  
+**`StocktakeType` values:** `unscheduled`, `scheduled`  
 **`StocktakeItemKind` values:** `standard`, `unit`  
 **`StocktakeDifferenceResolution` values:** `noChange`, `surplus`, `shortage`, `relocation`, `createUnit`, `detachUnit`, `reattachUnit`  
 **`StocktakeSortBy` values:** `number` (default), `name`, `status`, `createdAt`, `warehouseName`
@@ -401,6 +408,23 @@ Possible 422 errors:
 - `stocktakes.view` / `stocktakes.edit` — access all warehouses
 - `stocktakes.view_assigned` / `stocktakes.edit_assigned` — restricted to user's assigned warehouses
 - The counting screen needs no warehouse permissions: per-cell stock is served by `GET /{id}/nodes/{nodeId}/stock` rather than by the inventory endpoints
+
+---
+
+## Events — `/api/events`
+
+| Method | Path | Permission | Description |
+|--------|------|------------|-------------|
+| GET | `/api/events` | authenticated | Calendar events for `@mui/x-scheduler`, filtered by the caller's warehouse access |
+
+**Query parameters:** `startDate`, `endDate` (`DateOnly?`) — inclusive bounds on the event date; `utcOffsetMinutes` (`int`, default 0) — the caller's offset, used to cut a finished stocktake's `finishedAt` into a day the same way the user sees it. Same convention as `/api/statistics/stock-movements/*`.
+
+`EventDto`: `{ appEntity: AppEntity, startDate: DateOnly, endDate: DateOnly }` — single-day events, so both dates are equal.
+
+Sources:
+
+- **Receipts** with a `plannedDeliveryDate`, excluding `draft` and `canceled` — placed on the planned delivery date.
+- **Stocktakes** — a document with a `finishedAt` sits on it; otherwise it must be `scheduled` and neither `canceled` nor `draft`, and sits on its `plannedDate`. So an unscheduled stocktake appears only once finished, and a scheduled one only after it has been put on the calendar with `/schedule`.
 
 ---
 

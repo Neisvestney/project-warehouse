@@ -37,6 +37,7 @@ import {
   formatReceiptNumber,
 } from "@/components/receipts/receiptUtils";
 import type {ReceiptReason, ReceiptSortBy, ReceiptStatus} from "@/api/types.gen";
+import {parseDateOnly} from "@/utils/dateOnly";
 
 const SORT_COLUMNS: {key: ReceiptSortBy; label: string}[] = [
   {key: "number", label: "#"},
@@ -218,7 +219,7 @@ function ReceiptsPage() {
                   <TableCell>{new Date(receipt.createdAt).toLocaleDateString("ru-RU")}</TableCell>
                   <TableCell>
                     {receipt.plannedDeliveryDate
-                      ? new Date(receipt.plannedDeliveryDate).toLocaleDateString("ru-RU")
+                      ? parseDateOnly(receipt.plannedDeliveryDate).toLocaleDateString("ru-RU")
                       : "—"}
                   </TableCell>
                   <TableCell>{RECEIPT_REASON_LABELS[receipt.reason]}</TableCell>

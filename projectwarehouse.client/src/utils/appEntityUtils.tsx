@@ -4,6 +4,7 @@ import type {
   CatalogItemType,
   MarketplaceType,
   ReceiptStatus,
+  StocktakeStatus,
 } from "@/api";
 import type {SchedulerEventColor} from "@mui/x-scheduler/models";
 import {interpolateArgs} from "@/utils/interpolateArgs.ts";
@@ -22,6 +23,8 @@ import React from "react";
 import {Chip, Typography} from "@mui/material";
 import ReceiptStatusChip from "@/components/receipts/ReceiptStatusChip.tsx";
 import {formatReceiptNumber} from "@/components/receipts/receiptUtils.ts";
+import StocktakeStatusChip from "@/components/stocktakes/StocktakeStatusChip.tsx";
+import {formatStocktakeNumber} from "@/components/stocktakes/stocktakeUtils.ts";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip.tsx";
 import {
   MARKETPLACE_TYPE_COLORS,
@@ -122,12 +125,31 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     linkTemplate: "/operations/stocktakes/{id}",
     typeName: "Инвентаризация",
     icon: <AssignmentIcon />,
+    getStatusColor: (e) => {
+      const statusColors: Record<StocktakeStatus, SchedulerEventColor> = {
+        planned: "blue",
+        draft: "grey",
+        inProgress: "amber",
+        finished: "green",
+        canceled: "red",
+      };
+      const status = e.additionalFields?.status as StocktakeStatus | undefined;
+      return status != null ? statusColors[status] : "teal";
+    },
+    getEventCalendarTitle: (e) => {
+      const number = e.additionalFields?.number as number | undefined;
+      const prefix = number != null ? formatStocktakeNumber(number) : null;
+      return [prefix, e.name].filter(Boolean).join(" — ");
+    },
     renderAdditionalCardContent: (e) => (
       <>
         {e.additionalFields?.number && (
           <Typography sx={{fontFamily: "monospace"}}>
-            ИНВ-{String(e.additionalFields.number as number).padStart(5, "0")}
+            {formatStocktakeNumber(e.additionalFields.number as number)}
           </Typography>
+        )}
+        {e.additionalFields?.status && (
+          <StocktakeStatusChip status={e.additionalFields.status as StocktakeStatus} />
         )}
       </>
     ),

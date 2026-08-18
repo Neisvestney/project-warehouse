@@ -1,7 +1,17 @@
 import {useState} from "react";
 import {Link as RouterLink, useNavigate, useParams} from "react-router";
-import {Alert, Box, Button, CircularProgress, Paper, Stack, Typography} from "@mui/material";
-import {useForm} from "react-hook-form";
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  MenuItem,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
+import {Controller, useForm, useWatch} from "react-hook-form";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
   stocktakesCancelMutation,
@@ -9,6 +19,8 @@ import {
   stocktakesGetByIdOptions,
   stocktakesRevertMutation,
   stocktakesStartMutation,
+  stocktakesScheduleMutation,
+  stocktakesToDraftMutation,
   stocktakesUpdateMutation,
 } from "@/api/@tanstack/react-query.gen";
 import {extractErrorMessage, isNotFoundError} from "@/utils/errorUtils";
@@ -26,9 +38,12 @@ import StocktakeNodesSection from "@/components/stocktakes/StocktakeNodesSection
 import StocktakeCountingSection from "@/components/stocktakes/StocktakeCountingSection";
 import StocktakeResultSection from "@/components/stocktakes/StocktakeResultSection";
 import StocktakeDifferencesDialog from "@/components/stocktakes/StocktakeDifferencesDialog";
-import {formatStocktakeNumber} from "@/components/stocktakes/stocktakeUtils";
-import type {StocktakeDto} from "@/api/types.gen";
+import {STOCKTAKE_TYPE_LABELS, formatStocktakeNumber} from "@/components/stocktakes/stocktakeUtils";
+import type {StocktakeDto, StocktakeType} from "@/api/types.gen";
+import {parseDateOnly} from "@/utils/dateOnly";
 import DeleteIcon from "@mui/icons-material/Delete";
+import EventIcon from "@mui/icons-material/Event";
+import EditNoteIcon from "@mui/icons-material/EditNote";
 import EditIcon from "@mui/icons-material/Edit";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import TaskAltIcon from "@mui/icons-material/TaskAlt";
@@ -40,6 +55,8 @@ import {useSnackbar} from "notistack";
 interface EditInfoFormValues {
   name: string;
   notes: string;
+  type: StocktakeType;
+  plannedDate: string;
 }
 
 function EditInfoForm({
@@ -53,9 +70,13 @@ function EditInfoForm({
     defaultValues: {
       name: stocktake.name ?? "",
       notes: stocktake.notes ?? "",
+      type: stocktake.type,
+      plannedDate: stocktake.plannedDate ?? "",
     },
   });
   const {setApiError} = useRhfApiErrors(form);
+  const type = useWatch({control: form.control, name: "type"});
+  const canEditPlanning = stocktake.status === "planned" || stocktake.status === "draft";
 
   const mutation = useMutation({
     ...stocktakesUpdateMutation(),
@@ -67,7 +88,17 @@ function EditInfoForm({
   const onSubmit = form.handleSubmit((values) => {
     mutation.mutate({
       path: {id: stocktake.id},
-      body: {name: values.name || null, notes: values.notes || null},
+      body: {
+        name: values.name || null,
+        notes: values.notes || null,
+        // planning is frozen once counting starts — don't send it at all then
+        ...(canEditPlanning
+          ? {
+              type: values.type,
+              plannedDate: values.type === "scheduled" ? values.plannedDate || null : null,
+            }
+          : {}),
+      },
     });
   });
 
@@ -81,6 +112,33 @@ function EditInfoForm({
           disabled={mutation.isPending}
           fullWidth
         />
+        {canEditPlanning && (
+          <Controller
+            control={form.control}
+            name="type"
+            render={({field}) => (
+              <TextField {...field} select label="Тип" disabled={mutation.isPending} fullWidth>
+                {(Object.keys(STOCKTAKE_TYPE_LABELS) as StocktakeType[]).map((t) => (
+                  <MenuItem key={t} value={t}>
+                    {STOCKTAKE_TYPE_LABELS[t]}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+          />
+        )}
+        {canEditPlanning && type === "scheduled" && (
+          <FormTextField
+            control={form.control}
+            name="plannedDate"
+            rules={{required: "Обязательное поле"}}
+            label="Плановая дата"
+            type="date"
+            disabled={mutation.isPending}
+            fullWidth
+            slotProps={{inputLabel: {shrink: true}}}
+          />
+        )}
         <FormTextField
           control={form.control}
           name="notes"
@@ -145,6 +203,20 @@ function StocktakePage() {
   const notifyError = (fallback: string) => (err: unknown) =>
     enqueueSnackbar(extractErrorMessage(err) || fallback, {variant: "error"});
 
+  const scheduleMutation = useMutation({
+    ...stocktakesScheduleMutation(),
+    meta: {suppressGlobalError: true},
+    onSuccess: updateLocal,
+    onError: notifyError("Не удалось запланировать инвентаризацию"),
+  });
+
+  const toDraftMutation = useMutation({
+    ...stocktakesToDraftMutation(),
+    meta: {suppressGlobalError: true},
+    onSuccess: updateLocal,
+    onError: notifyError("Не удалось вернуть инвентаризацию в черновик"),
+  });
+
   const startMutation = useMutation({
     ...stocktakesStartMutation(),
     meta: {suppressGlobalError: true},
@@ -188,10 +260,14 @@ function StocktakePage() {
     return isNotFoundError(error) ? <NotFound /> : <QueryError error={error} />;
   if (!stocktake) return <NotFound />;
 
+  const isPlanned = stocktake.status === "planned";
   const isDraft = stocktake.status === "draft";
   const isInProgress = stocktake.status === "inProgress";
   const isTerminal = stocktake.status === "finished" || stocktake.status === "canceled";
+  const canSchedule = isDraft && stocktake.type === "scheduled" && !!stocktake.plannedDate;
   const actionPending =
+    scheduleMutation.isPending ||
+    toDraftMutation.isPending ||
     startMutation.isPending ||
     revertMutation.isPending ||
     cancelMutation.isPending ||
@@ -217,7 +293,7 @@ function StocktakePage() {
         right={
           canEdit && !isTerminal ? (
             <Stack direction="row" spacing={1}>
-              {isDraft && (
+              {(isDraft || isPlanned) && (
                 <Button
                   variant="contained"
                   disabled={actionPending || stocktake.nodes.length === 0}
@@ -226,6 +302,28 @@ function StocktakePage() {
                   loading={startMutation.isPending}
                 >
                   Начать
+                </Button>
+              )}
+              {canSchedule && (
+                <Button
+                  variant="outlined"
+                  disabled={actionPending || stocktake.nodes.length === 0}
+                  onClick={() => scheduleMutation.mutate({path: {id: stocktake.id}})}
+                  startIcon={<EventIcon />}
+                  loading={scheduleMutation.isPending}
+                >
+                  Запланировать
+                </Button>
+              )}
+              {isPlanned && (
+                <Button
+                  variant="outlined"
+                  disabled={actionPending}
+                  onClick={() => toDraftMutation.mutate({path: {id: stocktake.id}})}
+                  startIcon={<EditNoteIcon />}
+                  loading={toDraftMutation.isPending}
+                >
+                  Вернуть в черновик
                 </Button>
               )}
               {isInProgress && (
@@ -259,7 +357,7 @@ function StocktakePage() {
               >
                 Отменить
               </Button>
-              {isDraft && (
+              {(isPlanned || isDraft) && (
                 <Button
                   color="error"
                   variant="outlined"
@@ -296,6 +394,17 @@ function StocktakePage() {
                   {stocktake.warehouseName}
                 </Typography>
               </Stack>
+              <InfoRow label="Тип" value={STOCKTAKE_TYPE_LABELS[stocktake.type]} />
+              {stocktake.type === "scheduled" && (
+                <InfoRow
+                  label="Плановая дата"
+                  value={
+                    stocktake.plannedDate
+                      ? parseDateOnly(stocktake.plannedDate).toLocaleDateString("ru-RU")
+                      : "—"
+                  }
+                />
+              )}
               <InfoRow
                 label="Создано"
                 value={new Date(stocktake.createdAt).toLocaleString("ru-RU")}
@@ -339,7 +448,9 @@ function StocktakePage() {
         </Stack>
       </Paper>
 
-      {isDraft && <StocktakeNodesSection stocktake={stocktake} onUpdated={updateLocal} />}
+      {(isPlanned || isDraft) && (
+        <StocktakeNodesSection stocktake={stocktake} onUpdated={updateLocal} />
+      )}
       {isInProgress && (
         <StocktakeCountingSection
           stocktake={stocktake}
