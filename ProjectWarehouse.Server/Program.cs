@@ -25,6 +25,7 @@ using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Infrastructure.Files;
 using ProjectWarehouse.Server.Infrastructure.Labels;
 using ProjectWarehouse.Server.Infrastructure.Marketplaces;
+using ProjectWarehouse.Server.Infrastructure.Realtime;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Integrations.Ozon;
 using ProjectWarehouse.Server.Integrations.Ozon.Generated;
@@ -386,6 +387,9 @@ try
     builder.Services.AddScoped<ITokenService, TokenService>();
     builder.Services.AddScoped<IPermissionService, PermissionService>();
     builder.Services.AddSingleton<SecurityVersionStore>();
+    builder.Services.AddSingleton<RealtimeConnectionManager>();
+    builder.Services.AddSingleton<EntityWatchRegistry>();
+    builder.Services.AddSingleton<IRealtimeNotifier, RealtimeNotifier>();
     builder.Services.AddAutoMapper(typeof(Program).Assembly);
 
     builder.Services.AddScoped<IChangeLogService, AppChangeLogService>();

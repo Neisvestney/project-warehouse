@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {
   Alert,
   Button,
@@ -28,10 +28,13 @@ import type {
   SyncOrdersStartedItem,
 } from "@/api/types.gen";
 import {extractErrorMessage} from "@/utils/errorUtils";
+import {byOperation} from "@/utils/queryKeys";
+import {useEntityWatchMany} from "@/hooks/useEntityWatch";
+import {useRealtimeEvent} from "@/hooks/useRealtimeEvent";
 import SyncOrdersAccountAccordion from "./SyncOrdersAccountAccordion";
 import {MARKETPLACE_LABELS} from "./marketplaceOrderUtils";
 
-/** Same temporary mechanism as the account overview tab; one place to swap once SSE exists. */
+/** Fallback poll: runs only while the SSE subscriptions on the picked accounts aren't live. */
 const RUNNING_POLL_MS = 2000;
 
 const SHORTCUT_TYPES: MarketplaceType[] = ["ozon", "wildberries"];
@@ -58,11 +61,35 @@ function SyncOrdersDialog({open, onClose}: SyncOrdersDialogProps) {
   const isRunningPhase = started.length > 0 || failed.length > 0;
   const runIds = started.map((s) => s.syncRunId);
 
+  // Account ids are known from the targets list before the run starts, so the subscription is in
+  // place by the time the first event fires. Started accounts are kept in the set as well —
+  // unticking a box mid-run must not drop the subscription that reports its progress.
+  const watchedIds = useMemo(
+    () => (open ? [...new Set([...selected, ...started.map((s) => s.accountId)])] : []),
+    [open, selected, started],
+  );
+
+  const refreshRuns = useCallback(() => {
+    void queryClient.invalidateQueries({queryKey: byOperation("marketplacesGetSyncRunsByIds")});
+  }, [queryClient]);
+
+  const {isWatching} = useEntityWatchMany("marketplaceAccount", watchedIds, refreshRuns);
+
   const {data: runs} = useQuery({
     ...marketplacesGetSyncRunsByIdsOptions({query: {ids: runIds}}),
     enabled: open && runIds.length > 0,
     refetchInterval: (query) =>
-      query.state.data?.some((r) => r.status === "running") ? RUNNING_POLL_MS : false,
+      !isWatching && query.state.data?.some((r) => r.status === "running")
+        ? RUNNING_POLL_MS
+        : false,
+  });
+
+  useRealtimeEvent("marketplaceSyncProgress", (_event, payload) => {
+    if (watchedIds.includes(payload.accountId)) refreshRuns();
+  });
+
+  useRealtimeEvent("marketplaceSyncFinished", (_event, payload) => {
+    if (watchedIds.includes(payload.accountId)) refreshRuns();
   });
 
   const anyRunning = runs?.some((r) => r.status === "running") ?? runIds.length > 0;

@@ -156,6 +156,9 @@ src/
 │   ├── Modal/
 │   │   ├── ModalContext.ts      # Context: open/close modals imperatively
 │   │   └── ModalProvider.tsx    # Renders active modals, wires modalService
+│   ├── Realtime/
+│   │   ├── RealtimeContext.ts       # Context: connectionId, isConnected, subscribe, watch, isWatching
+│   │   └── RealtimeProvider.tsx     # The single SSE stream: own reconnect loop, event dispatch, watch registry
 │   ├── SearchParams/
 │   │   ├── SearchParamsContext.ts   # Context + useSearchParamsContext hook
 │   │   └── SearchParamsProvider.tsx # Batched URL search params provider
@@ -164,7 +167,7 @@ src/
 │
 ├── layouts/
 │   ├── MainLayout/
-│   │   └── MainLayout.tsx       # Shell with MainAppBar + <Outlet />
+│   │   └── MainLayout.tsx       # Shell with MainAppBar + <Outlet />; hosts RealtimeProvider
 │   ├── SidebarLayout/
 │   │   └── SidebarLayout.tsx    # Visual layout: left sidebar (desktop) / top tabs (mobile) + children slot
 │   └── SidebarPage/
@@ -182,7 +185,10 @@ src/
 │   ├── useDebouncedSyncedWithQueryState.ts   # Local state + debounce + URL sync in one hook
 │   ├── useParamsState.ts                     # Merge debounced + immediate params for API queries
 │   ├── usePaginatedParams.ts                 # Pagination wrapper: page/pageSize from URL + page reset
-│   └── useDrawerSearchParamsState.ts         # Drawer/dialog open state via URL param; supports back-button close
+│   ├── useDrawerSearchParamsState.ts         # Drawer/dialog open state via URL param; supports back-button close
+│   ├── useRealtime.ts                        # RealtimeContext consumer
+│   ├── useRealtimeEvent.ts                   # Subscribe to one realtime event type, payload narrowed by envelope type
+│   └── useEntityWatch.ts                     # useEntityWatch / useEntityWatchMany — watch objects for the component's lifetime
 │
 ├── pages/
 │   ├── HomePage/
@@ -364,6 +370,7 @@ src/
     ├── fetchWithTimeout.ts      # fetchWithTimeout(url, options, timeoutMs) — fetch wrapper with AbortController timeout
     ├── interpolateArgs.ts       # interpolateArgs(template, args) — replaces {key} placeholders in a string
     ├── dateOnly.ts              # Helpers over the API's `yyyy-MM-dd` strings, kept in local time: toDateOnly, parseDateOnly, addDays, formatDateOnly, formatWeekday, isWeekend, currentUtcOffsetMinutes
+    ├── queryKeys.ts             # byOperation(id, match?) — invalidation filter matching every variant of a generated operation key
     └── useInstallPrompt.ts      # Hook: beforeinstallprompt event
 ```
 
@@ -1524,6 +1531,80 @@ const [selectedId, openDrawer, closeDrawer] = useDrawerSearchParamsState("item")
 ### `InstallPrompt` / `UpdatePrompt`
 PWA lifecycle UI. `InstallPrompt` triggers `beforeinstallprompt`. `UpdatePrompt` calls `updateServiceWorker()` from `ServiceWorkerContext` when a new SW version is available.
 
+## Realtime
+
+Server-sent events delivered over one stream per tab (`GET /api/realtime/stream`). Events are **hints to
+refetch, not a source of truth**: a handler invalidates a query and the usual REST call brings the fresh state.
+Ordering isn't guaranteed, a lost event isn't fatal, and reconnection replays nothing.
+Protocol and server side: [realtime-specification.md](realtime-specification.md).
+
+### `RealtimeProvider`
+
+Mounted in `MainLayout`, owns the only stream in the app. Holds the connection, dispatches events to
+subscribers, and keeps the registry of watched objects.
+
+**Reconnection is hand-rolled, on purpose.** The generated SSE client (`src/api/core/serverSentEvents.gen.ts`)
+retries on *errors*, but exits its loop when the server closes the stream cleanly — which is exactly what
+happens every time the access token expires. Its attempt counter also never resets, so backoff would keep
+growing across a long session. The provider therefore passes `sseMaxRetryAttempts: 1` and runs its own loop:
+1 s doubling to 30 s with jitter, reset to 1 s on every `connectionReady`.
+
+Requests go through `client.sse.get`, so `apiClient.ts` request interceptors run on each connect and every
+reconnect carries a fresh `Authorization` header. Response and error interceptors do **not** run for SSE, so
+the provider stops explicitly on the `auth:clear` / `auth:refreshTokenInvalid` window events.
+
+`document.visibilitychange` (on `visible`) and `window.online` reconnect the stream immediately — this covers
+Capacitor resume without pulling in `@capacitor/app`. The provider does **not** refetch anything there:
+TanStack's own `focusManager`/`onlineManager` listen to those exact two events, `staleTime` is 0 across the
+app, so every active query already refetches on its own. Re-invalidating would only duplicate that and would
+override the few queries that deliberately set a `staleTime`.
+
+### `useRealtimeEvent(type, handler)`
+
+```typescript
+useRealtimeEvent("marketplaceSyncProgress", (_event, payload) => {
+  if (payload.accountId === id) refreshAccountData();
+});
+```
+
+`handler` receives the envelope and the payload already narrowed to the variant for `type`. The generator emits
+the payload's own discriminator as optional, so `payload.type` cannot narrow the union — the envelope `type` is
+the reliable discriminator, and `RealtimeEventPayloadFor<T>` maps it to the payload shape. The handler is kept
+in a ref, so an inline arrow doesn't cause re-subscription.
+
+### `useEntityWatch(entityType, entityId, onWatched?)` / `useEntityWatchMany(entityType, entityIds, onWatched?)`
+
+Subscribes the connection to an object for the component's lifetime and unsubscribes on unmount. Required even
+on read-only pages — an object's events reach only the connections that asked for them. `useEntityWatchMany`
+takes several ids at once (`SyncOrdersDialog` watches every picked account).
+
+Subscriptions are ref-counted in the provider, so a page and a dialog watching the same object don't cancel
+each other out. Failures are silent by design: `403` means no view permission and `422` means the connection
+already died — in both cases the polling fallback keeps the screen alive, and a fresh connection re-sends the
+watch.
+
+**Subscribed → refetch.** `onWatched` fires after every confirmed `watch`, including re-subscription after a
+reconnect, and the page invalidates its queries there. Without it, anything that changed between the action and
+the subscription being registered would be lost: a run that finished while `watch` was still in flight would
+leave `Running` on screen forever.
+
+**Polling stays as a fallback.** `isWatching` is true only when every requested subscription is confirmed, and
+pages gate `refetchInterval` on it (`MarketplaceAccountPage`, `AccountSyncRunsTab`, `SyncOrdersDialog`). The
+condition is "no stream **or** no confirmed subscription", not just "stream dropped" — a transport problem must
+never leave the user staring at a frozen screen.
+
+### Invalidating by operation
+
+Generated query keys are one object — `[{_id, baseUrl, path?, query?}]` — so a filter built from a subset of
+those fields partially matches every variant of an operation, including paginated ones whose `query` differs
+per page. `byOperation(id, match?)` from `@/utils/queryKeys` builds it:
+
+```typescript
+void queryClient.invalidateQueries({
+  queryKey: byOperation("marketplacesGetSyncRuns", {path: {id: accountId}}),
+});
+```
+
 ## Form Hooks
 
 ### `useRhfApiErrors<T extends FieldValues>(form)`
@@ -1576,7 +1657,14 @@ ServiceWorkerContext.Provider
                           └── Suspense
                                 └── ProtectedRoutes
                                       └── Routes (lazy pages)
+                                            └── MainLayout
+                                                  └── RealtimeProvider
+                                                        └── SearchParamsProvider
 ```
+
+`RealtimeProvider` sits in `MainLayout` rather than next to `AuthProvider`: the stream is only useful for an
+authenticated user browsing the app. `/scanner` and `/print` are protected but live outside `MainLayout`, so they
+have no stream — neither page consumes realtime events.
 
 ## PWA
 

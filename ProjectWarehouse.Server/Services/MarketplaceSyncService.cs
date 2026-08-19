@@ -8,6 +8,7 @@ using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Integrations.Sync;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Realtime;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Integrations;
 
@@ -20,6 +21,7 @@ public class MarketplaceSyncService(
     IMarketplaceCredentialProtector protector,
     IChangeLogService<MarketplaceAccountDto> changeLog,
     IMarketplaceOrderSyncService orderSync,
+    IRealtimeNotifier realtime,
     IMapper mapper,
     ILogger<MarketplaceSyncService> logger) : IMarketplaceSyncService
 {
@@ -91,6 +93,7 @@ public class MarketplaceSyncService(
             await db.SaveChangesAsync(ct);
 
             await LogFinishedAsync(before, account, run);
+            await realtime.PublishFinishedAsync(run, ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -200,6 +203,7 @@ public class MarketplaceSyncService(
 
         run.WarehousesProcessed = external.Count;
         await db.SaveChangesAsync(ct);
+        await realtime.PublishProgressAsync(run, ct);
     }
 
     private async Task SyncCardsAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
@@ -251,6 +255,8 @@ public class MarketplaceSyncService(
 
             run.AutoMapped += await AutoMapAsync(fresh, ct);
             await db.SaveChangesAsync(ct);
+
+            await realtime.PublishProgressAsync(run, ct);
         }
 
         // Only after a clean pass: a partial run would archive half the catalog.
@@ -365,5 +371,8 @@ public class MarketplaceSyncService(
         }
 
         await db.SaveChangesAsync(ct);
+
+        // Every failure arm funnels through here, so this is the only place the failed event needs to be raised.
+        await realtime.PublishFinishedAsync(run, ct);
     }
 }

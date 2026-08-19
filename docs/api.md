@@ -2,7 +2,8 @@
 
 Base URL: `https://localhost:7095` (dev) / configured host (prod)  
 All requests/responses use `application/json`, except the file endpoints — see [Files](#files--apifiles),
-which take `multipart/form-data` and return raw byte streams.  
+which take `multipart/form-data` and return raw byte streams, and the realtime stream — see
+[Realtime](#realtime--apirealtime), which returns `text/event-stream`.  
 Error format: see [errors.md](errors.md).  
 Permission strings: see [permissions.md](permissions.md).
 
@@ -425,6 +426,51 @@ Sources:
 
 - **Receipts** with a `plannedDeliveryDate`, excluding `draft` and `canceled` — placed on the planned delivery date.
 - **Stocktakes** — a document with a `finishedAt` sits on it; otherwise it must be `scheduled` and neither `canceled` nor `draft`, and sits on its `plannedDate`. So an unscheduled stocktake appears only once finished, and a scheduled one only after it has been put on the calendar with `/schedule`.
+
+---
+
+## Realtime — `/api/realtime`
+
+Server-sent events, the transport behind live updates. Design and rationale:
+[realtime-specification.md](realtime-specification.md).
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/realtime/stream` | Bearer | The event stream, `text/event-stream` |
+| POST | `/api/realtime/watch` | Bearer | Subscribe the connection to one object's events |
+| POST | `/api/realtime/unwatch` | Bearer | Drop the subscription |
+
+**Stream.** One per tab — HTTP/1.1 caps a browser at six connections per origin. The first message is
+`connectionReady` carrying the `connectionId` that `watch`/`unwatch` address. An SSE comment `:ping` goes out
+every 20 seconds so proxies do not drop a silent connection. The server closes the stream when the access
+token expires; the client reconnects with a refreshed one.
+
+**`RealtimeEvent`**: `{ id: Guid, at: DateTime, type: RealtimeEventType, payload }`. `payload` is a
+discriminated union keyed by its own `type` property, mirroring the envelope's:
+
+| `type` | `payload` |
+|--------|-----------|
+| `connectionReady` | `{ connectionId }` |
+| `marketplaceSyncProgress` | `{ accountId, syncRunId }` |
+| `marketplaceSyncFinished` | `{ accountId, syncRunId, status: MarketplaceSyncStatus }` |
+
+Progress carries no counters on purpose: the event is a hint to refetch, and the counters live in
+`/sync-runs`. Sync events are addressed to the watchers of `marketplaceAccount`, not of the run — the account
+id is known before a run exists, so runs started by the scheduler or another user are visible too.
+
+**Watch.** Body `{ connectionId, entityType: AppEntityType, entityId }` for both endpoints, `204` on success.
+The right to view the object is checked once, here, through `IEntityAccessService`; an `AppEntityType` with no
+rule in `EntityAccessRegistry` is never subscribable. Both are idempotent, so the client re-sends `watch` after
+every reconnect — and must invalidate the object's queries once it returns, since anything that changed before
+the subscription registered produced no event for this connection.
+
+422 `realtimeConnectionUnknown` — `connectionId` does not exist, is already closed, or belongs to another user
+(field: `connectionId`).
+403 `permissionDenied` — no right to view the object, or the entity type has no access rule.
+
+The client swallows both silently: `422` resolves itself when the next `connectionReady` re-sends the watch,
+and `403` leaves the page on its polling fallback. Neither deserves a toast on a subscription the user never
+asked for explicitly.
 
 ---
 

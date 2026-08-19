@@ -20,21 +20,23 @@ import MarketplaceStatusChip from "../../components/MarketplaceStatusChip";
 import SyncErrorAlert from "../../components/SyncErrorAlert";
 import {SYNC_SCOPE_LABELS, formatDateTime, formatDuration} from "../../marketplaceUtils";
 
+/** Запасной опрос: работает, только пока страница не подписана на аккаунт по SSE. */
 const RUNNING_POLL_MS = 3000;
 
 interface AccountSyncRunsTabProps {
   accountId: string;
   isRunning: boolean;
+  isLive: boolean;
 }
 
-function AccountSyncRunsTab({accountId, isRunning}: AccountSyncRunsTabProps) {
+function AccountSyncRunsTab({accountId, isRunning, isLive}: AccountSyncRunsTabProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams({}, [], {}, []);
 
   const {data, isLoading, isFetching} = useQuery({
     ...marketplacesGetSyncRunsOptions({path: {id: accountId}, query: fetchParams}),
-    refetchInterval: isRunning ? RUNNING_POLL_MS : false,
+    refetchInterval: !isLive && isRunning ? RUNNING_POLL_MS : false,
   });
 
   return (
