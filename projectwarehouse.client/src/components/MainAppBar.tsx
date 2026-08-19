@@ -6,7 +6,6 @@ import {
   Box,
   IconButton,
   Menu,
-  Avatar,
   Button,
   MenuItem,
   Tooltip,
@@ -20,6 +19,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import GlobalSearchModal from "@/components/GlobalSearch/GlobalSearchModal";
 import {Link, useNavigate} from "react-router";
 import {useAuth} from "@/hooks/useAuth";
+import UserAvatar from "@/components/UserAvatar";
 import type {PermissionName} from "@/api";
 import {getSettingsFirstPageUrl, hasSettingsAccess} from "@/pages/SettingsPage/settingsConfig.tsx";
 import {getStorageFirstPageUrl} from "@/pages/StoragePage/storageConfig.tsx";
@@ -128,8 +128,6 @@ function MainAppBar({}: AppBarProps) {
       window.removeEventListener("blur", reset);
     };
   }, []);
-
-  const avatarLetter = user?.username?.[0]?.toUpperCase() ?? "?";
 
   const filteredPages = pages
     .filter((page) => {
@@ -295,9 +293,13 @@ function MainAppBar({}: AppBarProps) {
               <SearchIcon />
             </IconButton>
             <Box sx={{flexGrow: 0}}>
-              <Tooltip title={user?.username ?? ""}>
+              <Tooltip title={user?.fullName ?? ""}>
                 <IconButton onClick={handleOpenUserMenu} sx={{p: 0}}>
-                  <Avatar sx={{width: 32, height: 32, fontSize: 14}}>{avatarLetter}</Avatar>
+                  <UserAvatar
+                    userId={user?.id}
+                    name={user?.fullName}
+                    sx={{width: 32, height: 32, fontSize: 14}}
+                  />
                 </IconButton>
               </Tooltip>
               <Menu

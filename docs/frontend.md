@@ -146,6 +146,7 @@ src/
 │   ├── QueryError.tsx           # Generic query error placeholder (5xx, network)
 │   ├── EditLockBanner.tsx       # "N is editing this object" — a warning, blocks nothing
 │   ├── EntityViewers.tsx        # Avatars of everyone else looking at the object right now
+│   ├── UserAvatar.tsx           # MUI Avatar tinted by user id (see `userColor`), initial as the letter
 │   ├── StaleDataBanner.tsx      # "Data may be out of date" + Обновить
 │   └── QueryErrorHandler.tsx    # TanStack Query global error boundary
 │
@@ -376,6 +377,7 @@ src/
     ├── fetchWithTimeout.ts      # fetchWithTimeout(url, options, timeoutMs) — fetch wrapper with AbortController timeout
     ├── interpolateArgs.ts       # interpolateArgs(template, args) — replaces {key} placeholders in a string
     ├── dateOnly.ts              # Helpers over the API's `yyyy-MM-dd` strings, kept in local time: toDateOnly, parseDateOnly, addDays, formatDateOnly, formatWeekday, isWeekend, currentUtcOffsetMinutes
+    ├── userColor.ts             # userColor(userId) — deterministic HSL background color per user id
     ├── queryKeys.ts             # byOperation(id, match?) — invalidation filter matching every variant of a generated operation key
     └── useInstallPrompt.ts      # Hook: beforeinstallprompt event
 ```
@@ -1611,7 +1613,7 @@ seeded from the `watch` response and replaced by each `entityPresenceChanged`. T
 must already be subscribed through `useEntityWatch` or `useEditLock`, and presence disappears together with the
 subscription.
 
-`EntityViewers` renders it as an `AvatarGroup` with a tooltip per person. `PageGenericHeader` takes it as
+`EntityViewers` renders it as an `AvatarGroup` of `UserAvatar`s with a tooltip per person. `PageGenericHeader` takes it as
 `viewersOf={{entityType, entityId}}` and puts it next to the title, so a page adds presence in one line; the
 catalog drawer and the card-mapping dialog place the component by hand.
 
@@ -1686,6 +1688,17 @@ so a scope change by someone else refetches straight away.
 Returns `{isOwner, heldBy, isLoading}` alongside the staleness fields. `isOwner === false` with a `heldBy`
 renders `EditLockBanner` — **a warning only**: fields stay enabled, saving is not blocked, and `PUT` does not
 check the lock. `409 editLockHeld` is never surfaced as an error; its `args` become the banner.
+
+### `UserAvatar`
+
+`<UserAvatar userId={...} name={...} />` — a MUI `Avatar` whose background is derived from the user id, so the
+same person keeps the same color in presence avatars, the app bar and anywhere else. The letter is the first
+character of `name`, `?` when there is none. Accepts every `Avatar` prop except `children`; `sx` is merged, so
+sizing still works (`sx={{width: 32, height: 32}}`).
+
+The color comes from `userColor(userId)` in `utils/userColor.ts`: FNV-1a over the id → hue, fixed
+`55% 45%` saturation/lightness, which keeps white text readable on every hue. A missing id falls back to
+`grey.500`. Use `userColor` directly when something other than an avatar needs the same per-user tint.
 
 ### `EditLockBanner` / `StaleDataBanner`
 

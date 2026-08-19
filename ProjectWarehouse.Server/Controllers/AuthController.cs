@@ -96,6 +96,7 @@ public class AuthController(
         {
             Id = me.Id,
             Username = me.UserName!,
+            FullName = me.FullName,
             Email = me.Email,
             FirstName = me.FirstName,
             LastName = me.LastName,

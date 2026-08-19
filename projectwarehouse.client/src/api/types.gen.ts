@@ -908,6 +908,7 @@ export type MarketplaceWarehouseStatus = "unavailable" | "active" | "inactive";
 export type MeResponse = {
   id: string;
   username: string;
+  fullName: string;
   email?: null | string;
   firstName?: null | string;
   lastName?: null | string;
