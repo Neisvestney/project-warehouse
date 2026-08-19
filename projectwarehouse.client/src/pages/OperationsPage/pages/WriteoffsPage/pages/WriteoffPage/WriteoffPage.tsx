@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useCallback, useState} from "react";
 import {Link as RouterLink, useNavigate, useParams} from "react-router";
 import {
   Alert,
@@ -24,7 +24,11 @@ import {extractErrorMessage, isNotFoundError} from "@/utils/errorUtils";
 import {useHasPermission} from "@/hooks/usePermission";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
+import {byOperation} from "@/utils/queryKeys";
+import {useEditLock} from "@/hooks/useEditLock";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import EditLockBanner from "@/components/EditLockBanner";
+import StaleDataBanner from "@/components/StaleDataBanner";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
@@ -153,6 +157,7 @@ function WriteoffPage() {
   const queryClient = useQueryClient();
   const {enqueueSnackbar} = useSnackbar();
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingItems, setIsEditingItems] = useState(false);
   const [finishOpen, setFinishOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -167,6 +172,7 @@ function WriteoffPage() {
     isError,
     isRefetchError,
     error,
+    dataUpdatedAt,
   } = useQuery({
     ...queryOptions,
     gcTime: 0,
@@ -176,6 +182,23 @@ function WriteoffPage() {
   const updateLocal = (updated: WriteoffDto) => {
     queryClient.setQueryData(queryOptions.queryKey, updated);
   };
+
+  // Mutations write the DTO straight back, so refreshing has to invalidate rather than reuse that path.
+  const refreshWriteoff = useCallback(() => {
+    void queryClient.invalidateQueries({
+      queryKey: byOperation("writeoffsGetById", {path: {id: id!}}),
+    });
+  }, [queryClient, id]);
+
+  // Editing the items counts too — that editor is a longer sitting than the info form it sits under.
+  const isEditingAnything = isEditing || isEditingItems;
+
+  const lock = useEditLock("writeoff", id, {
+    isDirty: isEditingAnything,
+    dataUpdatedAt,
+    onRefresh: refreshWriteoff,
+    enabled: isEditingAnything && canEdit,
+  });
 
   const finishMutation = useMutation({
     ...writeoffsFinishMutation(),
@@ -228,6 +251,14 @@ function WriteoffPage() {
 
   return (
     <Stack spacing={2}>
+      <EditLockBanner heldBy={lock.heldBy} />
+      <StaleDataBanner
+        isStale={!lock.heldBy && lock.isStale}
+        staleBy={lock.staleBy}
+        onRefresh={lock.refresh}
+        onDismiss={lock.dismissStale}
+      />
+
       <AppBreadcrumbs
         path={[
           {name: "Списания", link: "/operations/writeoffs"},
@@ -235,6 +266,7 @@ function WriteoffPage() {
         ]}
       />
       <PageGenericHeader
+        viewersOf={{entityType: "writeoff", entityId: id}}
         title={
           <Stack direction="row" spacing={1.5} sx={{alignItems: "center"}}>
             <Typography variant="h5" component="span">
@@ -330,7 +362,7 @@ function WriteoffPage() {
         </Stack>
       </Paper>
 
-      <WriteoffItemsSection writeoff={writeoff} />
+      <WriteoffItemsSection writeoff={writeoff} onEditingChange={setIsEditingItems} />
 
       <ConfirmDialog
         open={finishOpen}

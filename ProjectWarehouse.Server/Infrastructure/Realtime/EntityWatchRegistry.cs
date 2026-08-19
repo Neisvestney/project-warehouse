@@ -31,12 +31,15 @@ public class EntityWatchRegistry
         Remove(_byConnection, connectionId, key);
     }
 
-    public void RemoveConnection(Guid connectionId)
+    /// <summary>Returns what the connection was watching — presence has to be republished for each.</summary>
+    public IReadOnlyCollection<EntityWatchKey> RemoveConnection(Guid connectionId)
     {
-        if (!_byConnection.TryRemove(connectionId, out var keys)) return;
+        if (!_byConnection.TryRemove(connectionId, out var keys)) return [];
 
         foreach (var key in keys)
             Remove(_byEntity, key, connectionId);
+
+        return keys;
     }
 
     public IReadOnlyCollection<Guid> GetWatchers(AppEntityType entityType, Guid entityId) =>

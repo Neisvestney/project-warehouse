@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useCallback, useState} from "react";
 import {Link as RouterLink, useParams} from "react-router";
 import {
   Box,
@@ -14,7 +14,9 @@ import EditIcon from "@mui/icons-material/Edit";
 import {getPermissionLabel} from "@/utils/permissionLabels";
 import LockResetIcon from "@mui/icons-material/LockReset";
 import DeleteIcon from "@mui/icons-material/Delete";
-import {useQuery} from "@tanstack/react-query";
+import {useQuery, useQueryClient} from "@tanstack/react-query";
+import {byOperation} from "@/utils/queryKeys";
+import {useStaleData} from "@/hooks/useStaleData";
 import {usersGetByIdOptions} from "@/api/@tanstack/react-query.gen";
 import {isNotFoundError} from "@/utils/errorUtils";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
@@ -28,6 +30,7 @@ import {useHasPermission} from "@/hooks/usePermission.ts";
 
 function UserViewPage() {
   const {id} = useParams<{id: string}>();
+  const queryClient = useQueryClient();
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -41,10 +44,18 @@ function UserViewPage() {
     isError,
     isRefetchError,
     error,
+    dataUpdatedAt,
   } = useQuery({
     ...usersGetByIdOptions({path: {id: id!}}),
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
   });
+
+  // Read-only, so there is nothing to lose: the warning never becomes a banner, the data just reloads.
+  const refreshUser = useCallback(() => {
+    void queryClient.invalidateQueries({queryKey: byOperation("usersGetById", {path: {id: id!}})});
+  }, [queryClient, id]);
+
+  useStaleData("user", id, {dataUpdatedAt, onRefresh: refreshUser});
 
   if (isLoading) {
     return (
@@ -68,6 +79,7 @@ function UserViewPage() {
         ]}
       />
       <PageGenericHeader
+        viewersOf={{entityType: "user", entityId: id}}
         title={user.username}
         right={
           <>

@@ -144,6 +144,7 @@ pair plus an assigned-warehouse lookup any more.
 | Warehouse only | `Create`, where the entity does not exist yet | `rule.CheckWarehouseAsync(user, level, warehouseId)` |
 | Permission only | the prelude of a list endpoint (403/401 instead of an empty page) | `rule.PrecheckAsync(user, level)` |
 | By id | realtime `watch` and lock acquisition (`IEntityAccessService`) | `rule.CanAsync(user, level, id)` → `bool` |
+| By empty id | the same, for entities versioned as a whole (roles) | `rule.PrecheckAsync(user, level).Allowed` |
 
 `AccessVerdict` carries the refusal reason and the entity's own error code, so a controller writes
 `AccessError(verdict)` instead of choosing between `PermissionDenied`, `*NotAssignedToWarehouse` and `TokenInvalid`

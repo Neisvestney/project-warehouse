@@ -4,7 +4,9 @@ import type {
   AppEntityType,
   RealtimeEvent,
   RealtimeEventPayloadConnectionReadyPayload,
+  RealtimeEventPayloadEntityPresenceChangedPayload,
   RealtimeEventType,
+  RealtimeViewer,
 } from "@/api/types.gen";
 import RealtimeContext, {type RealtimeContextValue} from "@/contexts/Realtime/RealtimeContext";
 
@@ -13,9 +15,12 @@ const MAX_RETRY_MS = 30_000;
 
 type EventHandler = (event: RealtimeEvent) => void;
 
-interface WatchEntry {
+interface WatchTarget {
   entityType: AppEntityType;
   entityId: string;
+}
+
+interface WatchEntry extends WatchTarget {
   refCount: number;
   confirmed: boolean;
   /** Connection a `watch` is in flight for — a boolean here would block re-sending on reconnect. */
@@ -28,44 +33,109 @@ const watchKey = (entityType: AppEntityType, entityId: string) => `${entityType}
 export function RealtimeProvider({children}: {children: ReactNode}) {
   const [connectionId, setConnectionId] = useState<string | null>(null);
   const [confirmedKeys, setConfirmedKeys] = useState<ReadonlySet<string>>(() => new Set());
+  const [presence, setPresence] = useState<ReadonlyMap<string, readonly RealtimeViewer[]>>(
+    () => new Map(),
+  );
 
   const connectionIdRef = useRef<string | null>(null);
   const handlersRef = useRef(new Map<RealtimeEventType, Set<EventHandler>>());
   const watchesRef = useRef(new Map<string, WatchEntry>());
 
-  const sendWatch = useCallback(async (entry: WatchEntry) => {
+  const sendWatch = useCallback(async (entries: WatchEntry[]) => {
     const connection = connectionIdRef.current;
-    if (!connection || entry.confirmed || entry.pendingFor === connection) return;
+    // An entry unregistered within the same batch is dropped here: sending it would race its unwatch.
+    const pending = entries.filter(
+      (e) =>
+        watchesRef.current.get(watchKey(e.entityType, e.entityId)) === e &&
+        !e.confirmed &&
+        e.pendingFor !== connection,
+    );
+    if (!connection || pending.length === 0) return;
 
-    entry.pendingFor = connection;
+    pending.forEach((e) => (e.pendingFor = connection));
     try {
-      const {error} = await realtimeWatch({
-        body: {connectionId: connection, entityType: entry.entityType, entityId: entry.entityId},
+      const {data, error} = await realtimeWatch({
+        body: {
+          connectionId: connection,
+          entities: pending.map((e) => ({entityType: e.entityType, entityId: e.entityId})),
+        },
       });
-      // 403 means no view permission, 422 means the connection already died — in both cases the
-      // page keeps its polling fallback, and a fresh connection re-sends the watch.
-      if (error !== undefined) return;
+      // 422 means the connection already died; a fresh one re-sends the whole batch. Entities the user
+      // may not view are simply missing from `watched`, and those pages keep their polling fallback.
+      if (error !== undefined || data === undefined) return;
       if (connectionIdRef.current !== connection) return;
 
-      const key = watchKey(entry.entityType, entry.entityId);
-      if (watchesRef.current.get(key) !== entry) return;
+      const confirmed: string[] = [];
+      for (const {entityType, entityId} of data.watched) {
+        const key = watchKey(entityType, entityId);
+        const entry = watchesRef.current.get(key);
+        if (!entry || entry.confirmed) continue;
 
-      entry.confirmed = true;
-      setConfirmedKeys((prev) => new Set(prev).add(key));
-      entry.callbacks.forEach((cb) => cb());
+        entry.confirmed = true;
+        confirmed.push(key);
+        entry.callbacks.forEach((cb) => cb());
+      }
+
+      if (confirmed.length > 0) {
+        setConfirmedKeys((prev) => {
+          const next = new Set(prev);
+          confirmed.forEach((key) => next.add(key));
+          return next;
+        });
+      }
+
+      // Seeding from the response closes the window between subscribing and the first presence event.
+      setPresence((prev) => {
+        const next = new Map(prev);
+        for (const {entityType, entityId, viewers} of data.presence) {
+          const key = watchKey(entityType, entityId);
+          if (watchesRef.current.has(key)) next.set(key, viewers);
+        }
+        return next;
+      });
     } catch {
       // Network failure — the stream is about to drop too, and reconnecting re-sends the watch.
     } finally {
-      // A newer connection may already have claimed the entry while this request was in flight.
-      if (entry.pendingFor === connection) entry.pendingFor = null;
+      // A newer connection may already have claimed an entry while this request was in flight.
+      pending.forEach((e) => {
+        if (e.pendingFor === connection) e.pendingFor = null;
+      });
     }
   }, []);
 
   const flushWatches = useCallback(() => {
-    for (const entry of watchesRef.current.values()) {
-      void sendWatch(entry);
-    }
+    void sendWatch([...watchesRef.current.values()]);
   }, [sendWatch]);
+
+  // Mounting a screen registers one watch per visible object; sending them separately would open a
+  // request each and the browser only allows six per origin. A microtask is enough to collect a render.
+  const queuedRef = useRef<{watch: Set<WatchEntry>; unwatch: WatchTarget[]} | null>(null);
+
+  const enqueue = useCallback(
+    (op: "watch" | "unwatch", target: WatchEntry | WatchTarget) => {
+      const queue = queuedRef.current ?? {watch: new Set<WatchEntry>(), unwatch: []};
+      if (queuedRef.current === null) {
+        queuedRef.current = queue;
+        queueMicrotask(() => {
+          const {watch: toWatch, unwatch: toUnwatch} = queue;
+          queuedRef.current = null;
+
+          if (toWatch.size > 0) void sendWatch([...toWatch]);
+
+          const connection = connectionIdRef.current;
+          if (connection && toUnwatch.length > 0) {
+            void realtimeUnwatch({
+              body: {connectionId: connection, entities: toUnwatch},
+            }).catch(() => {});
+          }
+        });
+      }
+
+      if (op === "watch") queue.watch.add(target as WatchEntry);
+      else queue.unwatch.push(target as WatchTarget);
+    },
+    [sendWatch],
+  );
 
   const watch = useCallback<RealtimeContextValue["watch"]>(
     (entityType, entityId, onWatched) => {
@@ -90,7 +160,7 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
         // Joining an already-registered watch still means "subscribed → refetch" for this consumer.
         onWatched();
       } else {
-        void sendWatch(registered);
+        enqueue("watch", registered);
       }
 
       return () => {
@@ -102,6 +172,12 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
         if (current.refCount > 0) return;
 
         watchesRef.current.delete(key);
+        setPresence((prev) => {
+          if (!prev.has(key)) return prev;
+          const next = new Map(prev);
+          next.delete(key);
+          return next;
+        });
         setConfirmedKeys((prev) => {
           if (!prev.has(key)) return prev;
           const next = new Set(prev);
@@ -109,15 +185,10 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
           return next;
         });
 
-        const connection = connectionIdRef.current;
-        if (connection) {
-          void realtimeUnwatch({body: {connectionId: connection, entityType, entityId}}).catch(
-            () => {},
-          );
-        }
+        if (connectionIdRef.current) enqueue("unwatch", {entityType, entityId});
       };
     },
-    [sendWatch],
+    [enqueue],
   );
 
   const subscribe = useCallback<RealtimeContextValue["subscribe"]>((type, handler) => {
@@ -137,6 +208,17 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
     (entityType, entityId) => confirmedKeys.has(watchKey(entityType, entityId)),
     [confirmedKeys],
   );
+
+  const applyPresence = useCallback((payload: RealtimeEventPayloadEntityPresenceChangedPayload) => {
+    const key = watchKey(payload.entityType, payload.entityId);
+    setPresence((prev) => {
+      // An event for an object nobody on this tab watches any more would leak the entry back in.
+      if (!watchesRef.current.has(key)) return prev;
+      const next = new Map(prev);
+      next.set(key, payload.viewers);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     let disposed = false;
@@ -161,6 +243,7 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
       connectionIdRef.current = null;
       setConnectionId(null);
       setConfirmedKeys(new Set());
+      setPresence(new Map());
       for (const entry of watchesRef.current.values()) {
         entry.confirmed = false;
       }
@@ -199,6 +282,9 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
             setConnectionId(id);
             flushWatches();
           } else {
+            if (event.type === "entityPresenceChanged") {
+              applyPresence(event.payload as RealtimeEventPayloadEntityPresenceChangedPayload);
+            }
             dispatch(event);
           }
         }
@@ -253,11 +339,19 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("online", reconnectNow);
     };
-  }, [flushWatches]);
+  }, [applyPresence, flushWatches]);
 
   const value = useMemo<RealtimeContextValue>(
-    () => ({connectionId, isConnected: connectionId !== null, subscribe, watch, isWatching}),
-    [connectionId, subscribe, watch, isWatching],
+    () => ({
+      connectionId,
+      isConnected: connectionId !== null,
+      subscribe,
+      watch,
+      isWatching,
+      presence,
+      presenceKey: watchKey,
+    }),
+    [connectionId, subscribe, watch, isWatching, presence],
   );
 
   return <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>;

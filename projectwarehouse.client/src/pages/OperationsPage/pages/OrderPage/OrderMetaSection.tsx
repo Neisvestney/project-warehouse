@@ -127,13 +127,20 @@ function EditInfoForm({order, onDone}: {order: OrderDetailsDto; onDone: () => vo
 interface OrderMetaSectionProps {
   order: OrderDetailsDto;
   canEdit: boolean;
+  /** Lifted so the page can tell a stale-data warning apart from a silent refresh. */
+  onEditingChange?: (isEditing: boolean) => void;
 }
 
-function OrderMetaSection({order, canEdit}: OrderMetaSectionProps) {
+function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionProps) {
   const [isEditing, setIsEditing] = useState(false);
 
+  function setEditing(value: boolean) {
+    setIsEditing(value);
+    onEditingChange?.(value);
+  }
+
   if (isEditing) {
-    return <EditInfoForm order={order} onDone={() => setIsEditing(false)} />;
+    return <EditInfoForm order={order} onDone={() => setEditing(false)} />;
   }
 
   return (
@@ -212,7 +219,7 @@ function OrderMetaSection({order, canEdit}: OrderMetaSectionProps) {
 
       {canEdit && (
         <Box sx={{pt: 0.5}}>
-          <Button size="small" startIcon={<EditIcon />} onClick={() => setIsEditing(true)}>
+          <Button size="small" startIcon={<EditIcon />} onClick={() => setEditing(true)}>
             Редактировать
           </Button>
         </Box>

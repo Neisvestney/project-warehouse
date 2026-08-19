@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useCallback, useState} from "react";
 import {useParams} from "react-router";
 import {Box, Button, CircularProgress, Paper, Stack, Typography} from "@mui/material";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
@@ -11,6 +11,9 @@ import {
 import type {OrderStatus} from "@/api/types.gen";
 import {isNotFoundError} from "@/utils/errorUtils";
 import {useHasPermission} from "@/hooks/usePermission";
+import {useEditLock} from "@/hooks/useEditLock";
+import EditLockBanner from "@/components/EditLockBanner";
+import StaleDataBanner from "@/components/StaleDataBanner";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
@@ -40,11 +43,15 @@ function OrderPage() {
 
   const canEdit = useHasPermission("orders.edit");
   const canSelfAssign = useHasPermission("orders.self_assign");
+  // The lock follows the server's CanEdit(Order), which admits edit_assigned — unlike `canEdit`, which
+  // gates the unscoped editing UI.
+  const canLockOrder = useHasPermission(["orders.edit", "orders.edit_assigned"]);
   const canAssemble = useHasPermission(
     ["orders.assemble_assigned", "orders.edit", "orders.edit_assigned"],
     "any",
   );
 
+  const [isEditingMeta, setIsEditingMeta] = useState(false);
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [emptyBoxesConfirm, setEmptyBoxesConfirm] = useState<OrderStatus | null>(null);
 
@@ -52,6 +59,17 @@ function OrderPage() {
     ...ordersGetByIdOptions({path: {id: id!}}),
     gcTime: 0,
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
+  });
+
+  const refreshOrder = useCallback(() => {
+    void queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: id!}})});
+  }, [queryClient, id]);
+
+  const lock = useEditLock("order", id, {
+    isDirty: isEditingMeta,
+    dataUpdatedAt: query.dataUpdatedAt,
+    onRefresh: refreshOrder,
+    enabled: canLockOrder,
   });
 
   const transitionMutation = useMutation({
@@ -118,6 +136,14 @@ function OrderPage() {
   return (
     <CatalogItemDrawerHost>
       <Stack spacing={2}>
+        <EditLockBanner heldBy={lock.heldBy} />
+        <StaleDataBanner
+          isStale={!lock.heldBy && lock.isStale}
+          staleBy={lock.staleBy}
+          onRefresh={lock.refresh}
+          onDismiss={lock.dismissStale}
+        />
+
         <AppBreadcrumbs
           path={[
             {name: "Операции", link: "/operations"},
@@ -128,6 +154,7 @@ function OrderPage() {
         />
 
         <PageGenericHeader
+          viewersOf={{entityType: "order", entityId: id}}
           title={
             <Stack direction="row" spacing={1.5} sx={{alignItems: "center", flexWrap: "wrap"}}>
               <Typography variant="h5" component="span">
@@ -257,7 +284,7 @@ function OrderPage() {
 
         <Paper>
           <Stack spacing={1.5} sx={{p: 3}}>
-            <OrderMetaSection order={order} canEdit={canEdit} />
+            <OrderMetaSection order={order} canEdit={canEdit} onEditingChange={setIsEditingMeta} />
           </Stack>
         </Paper>
 

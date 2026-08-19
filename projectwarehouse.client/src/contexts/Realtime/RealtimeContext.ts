@@ -1,5 +1,10 @@
 import {createContext} from "react";
-import type {AppEntityType, RealtimeEvent, RealtimeEventType} from "@/api/types.gen";
+import type {
+  AppEntityType,
+  RealtimeEvent,
+  RealtimeEventType,
+  RealtimeViewer,
+} from "@/api/types.gen";
 
 export interface RealtimeContextValue {
   connectionId: string | null;
@@ -8,6 +13,9 @@ export interface RealtimeContextValue {
   /** Registers interest in an object; `onWatched` fires after every confirmed subscription. */
   watch: (entityType: AppEntityType, entityId: string, onWatched: () => void) => () => void;
   isWatching: (entityType: AppEntityType, entityId: string) => boolean;
+  /** Viewers of every watched object, keyed by `entityType:entityId`. Includes the current user. */
+  presence: ReadonlyMap<string, readonly RealtimeViewer[]>;
+  presenceKey: (entityType: AppEntityType, entityId: string) => string;
 }
 
 const RealtimeContext = createContext<RealtimeContextValue | null>(null);

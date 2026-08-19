@@ -109,6 +109,8 @@ function calcTotalPlaced(item: ReceiptItemDto): number {
 interface ReceiptItemsSectionProps {
   receipt: ReceiptDto;
   onUpdate: (updated: ReceiptDto) => void;
+  /** Lifted so the page can hold the edit lock while the items editor is open. */
+  onEditingChange?: (isEditing: boolean) => void;
 }
 
 function PlacementDisplay({placement}: {placement: ReceiptItemPlacementDto}) {
@@ -478,8 +480,16 @@ function ProcessingItemCard({
 
 const PLACEABLE_TYPES: Array<"standard" | "unit"> = ["standard", "unit"];
 
-function ReceiptItemsSection({receipt, onUpdate}: ReceiptItemsSectionProps) {
-  const [editorOpen, setEditorOpen] = useState(false);
+function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsSectionProps) {
+  const [editorOpen, setEditorOpenState] = useState(false);
+
+  const setEditorOpen = useCallback(
+    (value: boolean) => {
+      setEditorOpenState(value);
+      onEditingChange?.(value);
+    },
+    [onEditingChange],
+  );
   const [catalogItemId, setCatalogItemId] = useState<string | null>(null);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);

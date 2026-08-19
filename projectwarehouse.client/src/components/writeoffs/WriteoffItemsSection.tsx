@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useCallback, useState} from "react";
 import {
   Box,
   Button,
@@ -23,6 +23,8 @@ import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 
 interface WriteoffItemsSectionProps {
   writeoff: WriteoffDto;
+  /** Lifted so the page can hold the edit lock while the items editor is open. */
+  onEditingChange?: (isEditing: boolean) => void;
 }
 
 function itemDisplayCount(item: WriteoffDto["items"][number]): string {
@@ -64,8 +66,16 @@ function ItemNameCell({
   );
 }
 
-function WriteoffItemsSection({writeoff}: WriteoffItemsSectionProps) {
-  const [drawerOpen, setDrawerOpen] = useState(false);
+function WriteoffItemsSection({writeoff, onEditingChange}: WriteoffItemsSectionProps) {
+  const [drawerOpen, setDrawerOpenState] = useState(false);
+
+  const setDrawerOpen = useCallback(
+    (value: boolean) => {
+      setDrawerOpenState(value);
+      onEditingChange?.(value);
+    },
+    [onEditingChange],
+  );
   const [openedCatalogItemId, openCatalogDrawer, closeCatalogDrawer] =
     useDrawerSearchParamsState("catalogItem");
   const isDraft = writeoff.status === "draft";

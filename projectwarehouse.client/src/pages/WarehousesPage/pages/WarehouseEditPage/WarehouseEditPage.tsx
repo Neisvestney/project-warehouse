@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from "react";
+import {useCallback, useEffect, useRef, useState} from "react";
 import {observer} from "mobx-react-lite";
 import {Link, useParams} from "react-router";
 import {Box, Button, CircularProgress, Paper, Stack} from "@mui/material";
@@ -11,7 +11,11 @@ import {
   warehousesGetByIdQueryKey,
   warehousesUpdateMutation,
 } from "@/api/@tanstack/react-query.gen";
+import {byOperation} from "@/utils/queryKeys";
+import {useEditLock} from "@/hooks/useEditLock";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import EditLockBanner from "@/components/EditLockBanner";
+import StaleDataBanner from "@/components/StaleDataBanner";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
@@ -53,6 +57,7 @@ export default observer(function WarehouseEditPage() {
     isError,
     isRefetchError,
     error,
+    dataUpdatedAt,
   } = useQuery({
     ...warehousesGetByIdOptions({path: {id: id!}}),
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
@@ -65,6 +70,23 @@ export default observer(function WarehouseEditPage() {
     store.loadFromDto(warehouse);
     hasLoaded.current = true;
   }, [warehouse, store]);
+
+  // The store is loaded once, so a refetch alone would not reach the canvas — reloading it is what
+  // "Обновить" has to mean here.
+  const refreshWarehouse = useCallback(() => {
+    hasLoaded.current = false;
+    void queryClient.invalidateQueries({
+      queryKey: byOperation("warehousesGetById", {path: {id: id!}}),
+    });
+  }, [queryClient, id]);
+
+  // Always "dirty": the canvas holds unsaved layout the moment this page opens, and silently
+  // refetching under it would drop whatever was dragged.
+  const lock = useEditLock("warehouse", id, {
+    isDirty: true,
+    dataUpdatedAt,
+    onRefresh: refreshWarehouse,
+  });
 
   const {mutate: updateWarehouse, isPending: isSaving} = useMutation({
     ...warehousesUpdateMutation(),
@@ -101,6 +123,7 @@ export default observer(function WarehouseEditPage() {
           ]}
         />
         <PageGenericHeader
+          viewersOf={{entityType: "warehouse", entityId: id}}
           title="Редактировать склад"
           right={
             <>
@@ -134,6 +157,14 @@ export default observer(function WarehouseEditPage() {
               </Button>
             </>
           }
+        />
+
+        <EditLockBanner heldBy={lock.heldBy} />
+        <StaleDataBanner
+          isStale={!lock.heldBy && lock.isStale}
+          staleBy={lock.staleBy}
+          onRefresh={lock.refresh}
+          onDismiss={lock.dismissStale}
         />
 
         <Paper sx={{px: 3, py: 2}}>

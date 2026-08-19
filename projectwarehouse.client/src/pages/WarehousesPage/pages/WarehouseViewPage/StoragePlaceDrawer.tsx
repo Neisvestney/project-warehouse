@@ -28,7 +28,10 @@ import {
   warehousesGetByIdQueryKey,
 } from "@/api/@tanstack/react-query.gen.ts";
 import {type NodeOrderItem, type StoragePlaceDto, type StoragePlaceNodeDto} from "@/api";
-import {useState, useRef, useEffect} from "react";
+import {useState, useRef, useEffect, useCallback, useMemo} from "react";
+import {byOperation} from "@/utils/queryKeys";
+import {useEntityWatchMany} from "@/hooks/useEntityWatch";
+import {useRealtimeEvent} from "@/hooks/useRealtimeEvent";
 import {StoragePlaceNodeTree} from "@/features/warehouse";
 import {openPrintPage} from "@/utils/printUtils.ts";
 import {formatEntityBarcode} from "@/utils/barcodeUtils.ts";
@@ -89,6 +92,26 @@ function StoragePlaceDrawer({open, storagePlace, warehouseId, onClose}: StorageP
       setSelectedNodeId(nodes.filter((x) => !x.parentNodeId)[0]?.id ?? null);
     }
   }, [nodes, selectedNodeId]);
+
+  // No lock here: cells are saved the moment they are edited, so there is no unsaved state to guard —
+  // only the list has to stay current while someone else reshapes the same rack.
+  const nodeIds = useMemo(() => (open ? nodes.map((n) => n.id) : []), [open, nodes]);
+
+  const refreshNodes = useCallback(() => {
+    void queryClient.invalidateQueries({
+      queryKey: byOperation("storagePlacesGetNodes", {path: {id: storagePlace?.id ?? ""}}),
+    });
+  }, [queryClient, storagePlace?.id]);
+
+  const {isWatching} = useEntityWatchMany("storagePlaceNode", nodeIds);
+  useEffect(() => {
+    if (isWatching) refreshNodes();
+  }, [isWatching, refreshNodes]);
+
+  useRealtimeEvent("entityChanged", (_event, payload) => {
+    if (payload.entityType === "storagePlaceNode" && nodeIds.includes(payload.entityId))
+      refreshNodes();
+  });
 
   const updateNodesCache = (updatedNodes: StoragePlaceNodeDto[]) => {
     queryClient.setQueryData(

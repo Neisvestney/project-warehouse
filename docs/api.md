@@ -439,6 +439,9 @@ Server-sent events, the transport behind live updates. Design and rationale:
 | GET | `/api/realtime/stream` | Bearer | The event stream, `text/event-stream` |
 | POST | `/api/realtime/watch` | Bearer | Subscribe the connection to one object's events |
 | POST | `/api/realtime/unwatch` | Bearer | Drop the subscription |
+| POST | `/api/realtime/locks/acquire` | Bearer | Claim the object for editing |
+| POST | `/api/realtime/locks/heartbeat` | Bearer | Extend the claim |
+| POST | `/api/realtime/locks/release` | Bearer | Drop the claim |
 
 **Stream.** One per tab — HTTP/1.1 caps a browser at six connections per origin. The first message is
 `connectionReady` carrying the `connectionId` that `watch`/`unwatch` address. An SSE comment `:ping` goes out
@@ -453,24 +456,59 @@ discriminated union keyed by its own `type` property, mirroring the envelope's:
 | `connectionReady` | `{ connectionId }` |
 | `marketplaceSyncProgress` | `{ accountId, syncRunId }` |
 | `marketplaceSyncFinished` | `{ accountId, syncRunId, status: MarketplaceSyncStatus }` |
+| `entityChanged` | `{ entityType, entityId, byUserId?, byUserName? }` |
+| `editLockAcquired` | `{ entityType, entityId, userId, userName, expiresAt }` |
+| `editLockReleased` | `{ entityType, entityId, userId, userName }` |
+| `entityPresenceChanged` | `{ entityType, entityId, viewers: [{ userId, userName }] }` |
 
 Progress carries no counters on purpose: the event is a hint to refetch, and the counters live in
 `/sync-runs`. Sync events are addressed to the watchers of `marketplaceAccount`, not of the run — the account
 id is known before a run exists, so runs started by the scheduler or another user are visible too.
 
-**Watch.** Body `{ connectionId, entityType: AppEntityType, entityId }` for both endpoints, `204` on success.
-The right to view the object is checked once, here, through `IEntityAccessService`; an `AppEntityType` with no
-rule in `EntityAccessRegistry` is never subscribable. Both are idempotent, so the client re-sends `watch` after
-every reconnect — and must invalidate the object's queries once it returns, since anything that changed before
-the subscription registered produced no event for this connection.
+**Watch.** Body `{ connectionId, entities: [{ entityType: AppEntityType, entityId }] }` for both endpoints, at
+most 200 entities. `watch` answers `200 { watched: [...], presence: [...] }`, `unwatch` answers `204`.
+
+**Subscriptions are batched** because a screen subscribes per visible object: the assembly list alone would
+open a request per order at mount, against a six-per-origin cap. The client collects the watches registered
+during one render into a single call.
+
+The right to view each object is checked once, here, through `IEntityAccessService`; an `AppEntityType` with no
+rule in `EntityAccessRegistry` is never subscribable. **Refusals are per entity, not per request:** anything
+the user may not view is simply absent from `watched`, so one forbidden object does not sink the batch. Both
+endpoints are idempotent, so the client re-sends `watch` after every reconnect — and must invalidate the
+objects' queries once it returns, since anything that changed before the subscription registered produced no
+event for this connection.
 
 422 `realtimeConnectionUnknown` — `connectionId` does not exist, is already closed, or belongs to another user
 (field: `connectionId`).
-403 `permissionDenied` — no right to view the object, or the entity type has no access rule.
 
-The client swallows both silently: `422` resolves itself when the next `connectionReady` re-sends the watch,
-and `403` leaves the page on its polling fallback. Neither deserves a toast on a subscription the user never
-asked for explicitly.
+The client swallows it silently, as it does a missing entity: `422` resolves itself when the next
+`connectionReady` re-sends the batch, and an unconfirmed entity leaves its page on the polling fallback.
+Neither deserves a toast on a subscription the user never asked for explicitly.
+
+**`entityChanged`** is the staleness signal. It comes from `AbstractChangeLogService.CompareAndSaveToChangelog`
+for every entity with a registered changelog service, and from a `[PublishesEntityChanged]` action filter for
+orders, which have none. The author is excluded from the address — own edits are never announced as stale.
+
+**Presence** rides on the same subscriptions — `EntityPresenceService` turns the watch registry's connections
+into people. `entityPresenceChanged` carries the whole viewer list rather than a join/leave delta: unlike every
+other event it has nothing to refetch from, so it must be the state it announces. It is published only when the
+**deduplicated** list changes, so a second tab of the same person is silent, and `watch` seeds the initial list
+in its response — otherwise a page would show nobody until the next person came or went.
+
+**Locks.** Body `{ connectionId, entityType, entityId }` for all three — one object per call, since a lock is
+taken by a form and not by a screen; `acquire` and `heartbeat` answer
+`200 EditLockDto` (`{ entityType, entityId, userId, userName, expiresAt }`), `release` answers `204`. The lock
+is advisory: it warns, disables nothing, and `PUT` of the object never consults it. TTL is 60 seconds,
+heartbeat every 20; a lock is also dropped when its stream breaks, and a background sweep turns expiry into a
+normal `editLockReleased`. Acquiring requires the same right as editing the object
+(`IEntityAccessService.CanEditAsync`) — a lock grants no access of its own. The same user arriving from another
+connection takes the lock over rather than being refused. There is no endpoint for reading lock state: a page
+learns it from its own `acquire` response and from the two lock events.
+
+409 `editLockHeld` — held by another user; `args` carry `{ userId, userName, expiresAt }` (field: `root`).
+409 `editLockNotHeld` — `heartbeat` or `release` for a lock this connection does not hold (field: `root`).
+422 `realtimeConnectionUnknown` — as above.
 
 ---
 

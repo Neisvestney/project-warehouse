@@ -1,4 +1,4 @@
-namespace ProjectWarehouse.Server.Infrastructure.Realtime;
+﻿namespace ProjectWarehouse.Server.Infrastructure.Realtime;
 
 public class RealtimeNotifier(
     RealtimeConnectionManager connections,
@@ -27,7 +27,8 @@ public class RealtimeNotifier(
         RealtimeAddressKind.Watchers => watchRegistry
             .GetWatchers(address.EntityType, address.EntityId)
             .Select(connections.Find)
-            .OfType<RealtimeConnection>(),
+            .OfType<RealtimeConnection>()
+            .Where(c => c.UserId != address.ExceptUserId),
         RealtimeAddressKind.All => connections.All,
         _ => [],
     };

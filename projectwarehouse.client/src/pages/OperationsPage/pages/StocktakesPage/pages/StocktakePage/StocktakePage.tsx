@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useCallback, useState} from "react";
 import {Link as RouterLink, useNavigate, useParams} from "react-router";
 import {
   Alert,
@@ -27,7 +27,11 @@ import {extractErrorMessage, isNotFoundError} from "@/utils/errorUtils";
 import {useHasPermission} from "@/hooks/usePermission";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
+import {byOperation} from "@/utils/queryKeys";
+import {useEditLock} from "@/hooks/useEditLock";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import EditLockBanner from "@/components/EditLockBanner";
+import StaleDataBanner from "@/components/StaleDataBanner";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
@@ -176,6 +180,7 @@ function StocktakePage() {
   const queryClient = useQueryClient();
   const {enqueueSnackbar} = useSnackbar();
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingNodes, setIsEditingNodes] = useState(false);
   const [differencesOpen, setDifferencesOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -190,6 +195,7 @@ function StocktakePage() {
     isError,
     isRefetchError,
     error,
+    dataUpdatedAt,
   } = useQuery({
     ...queryOptions,
     gcTime: 0,
@@ -199,6 +205,24 @@ function StocktakePage() {
   const updateLocal = (updated: StocktakeDto) => {
     queryClient.setQueryData(queryOptions.queryKey, updated);
   };
+
+  // Mutations write the DTO straight back, so refreshing has to invalidate rather than reuse that path.
+  const refreshStocktake = useCallback(() => {
+    void queryClient.invalidateQueries({
+      queryKey: byOperation("stocktakesGetById", {path: {id: id!}}),
+    });
+  }, [queryClient, id]);
+
+  // Counting is deliberately not a locking mode: cells are saved one by one and several people
+  // counting different cells of the same stocktake is the normal case, not a collision.
+  const isEditingAnything = isEditing || isEditingNodes;
+
+  const lock = useEditLock("stocktake", id, {
+    isDirty: isEditingAnything,
+    dataUpdatedAt,
+    onRefresh: refreshStocktake,
+    enabled: isEditingAnything && canEdit,
+  });
 
   const notifyError = (fallback: string) => (err: unknown) =>
     enqueueSnackbar(extractErrorMessage(err) || fallback, {variant: "error"});
@@ -275,6 +299,14 @@ function StocktakePage() {
 
   return (
     <Stack spacing={2}>
+      <EditLockBanner heldBy={lock.heldBy} />
+      <StaleDataBanner
+        isStale={!lock.heldBy && lock.isStale}
+        staleBy={lock.staleBy}
+        onRefresh={lock.refresh}
+        onDismiss={lock.dismissStale}
+      />
+
       <AppBreadcrumbs
         path={[
           {name: "Инвентаризации", link: "/operations/stocktakes"},
@@ -282,6 +314,7 @@ function StocktakePage() {
         ]}
       />
       <PageGenericHeader
+        viewersOf={{entityType: "stocktake", entityId: id}}
         title={
           <Stack direction="row" spacing={1.5} sx={{alignItems: "center"}}>
             <Typography variant="h5" component="span">
@@ -449,7 +482,11 @@ function StocktakePage() {
       </Paper>
 
       {(isPlanned || isDraft) && (
-        <StocktakeNodesSection stocktake={stocktake} onUpdated={updateLocal} />
+        <StocktakeNodesSection
+          stocktake={stocktake}
+          onUpdated={updateLocal}
+          onEditingChange={setIsEditingNodes}
+        />
       )}
       {isInProgress && (
         <StocktakeCountingSection

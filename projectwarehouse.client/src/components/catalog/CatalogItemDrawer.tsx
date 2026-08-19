@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useState} from "react";
+import {useCallback, useEffect, useMemo, useState} from "react";
 import type {Control, FieldPath, UseFormSetValue} from "react-hook-form";
 import {Controller, useFieldArray, useForm, useWatch} from "react-hook-form";
 import {useMutation, useQueries, useQuery, useQueryClient} from "@tanstack/react-query";
@@ -33,6 +33,11 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import {byOperation} from "@/utils/queryKeys";
+import {useEditLock} from "@/hooks/useEditLock";
+import EditLockBanner from "@/components/EditLockBanner";
+import EntityViewers from "@/components/EntityViewers";
+import StaleDataBanner from "@/components/StaleDataBanner";
 import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -1229,10 +1234,24 @@ export function CatalogItemDrawer({itemId, onClose, onOpenItem}: CatalogItemDraw
     setPrintOpen(false);
   }
 
-  const {data} = useQuery({
+  const {data, dataUpdatedAt} = useQuery({
     ...catalogGetByIdOptions({path: {id: itemId!}}),
     enabled: !!itemId,
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
+  });
+
+  const refreshItem = useCallback(() => {
+    void queryClient.invalidateQueries({
+      queryKey: byOperation("catalogGetById", {path: {id: itemId!}}),
+    });
+  }, [queryClient, itemId]);
+
+  // The drawer opens read-only, so the lock is taken only once the user actually starts editing.
+  const lock = useEditLock("catalogItem", itemId, {
+    isDirty: isEditing,
+    dataUpdatedAt,
+    onRefresh: refreshItem,
+    enabled: isEditing && canEdit,
   });
 
   const deleteMutation = useMutation({
@@ -1298,6 +1317,7 @@ export function CatalogItemDrawer({itemId, onClose, onOpenItem}: CatalogItemDraw
           <Typography variant="h6" noWrap sx={{flex: 1}}>
             {data?.fullName ?? ""}
           </Typography>
+          {isEditing && <EntityViewers entityType="catalogItem" entityId={itemId} />}
         </Stack>
         <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
           <Tooltip title="Скопировать GUID">
@@ -1320,6 +1340,16 @@ export function CatalogItemDrawer({itemId, onClose, onOpenItem}: CatalogItemDraw
         </Stack>
       </Stack>
       <Divider />
+
+      <Box sx={{px: 2, "&:empty": {display: "none"}}}>
+        <EditLockBanner heldBy={lock.heldBy} />
+        <StaleDataBanner
+          isStale={!lock.heldBy && lock.isStale}
+          staleBy={lock.staleBy}
+          onRefresh={lock.refresh}
+          onDismiss={lock.dismissStale}
+        />
+      </Box>
 
       {itemId && !isEditing && (
         <ViewMode

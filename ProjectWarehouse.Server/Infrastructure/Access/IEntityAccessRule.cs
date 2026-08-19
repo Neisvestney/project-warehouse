@@ -14,4 +14,10 @@ public interface IEntityAccessRule
     Type ClrType { get; }
 
     Task<bool> CanAsync(ClaimsPrincipal user, AccessLevel level, Guid entityId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Verdict from permissions alone, before any object is known. Realtime needs it for collection-level
+    /// subscriptions, where there is no id to check against.
+    /// </summary>
+    Task<AccessVerdict> PrecheckAsync(ClaimsPrincipal user, AccessLevel level, CancellationToken ct = default);
 }
