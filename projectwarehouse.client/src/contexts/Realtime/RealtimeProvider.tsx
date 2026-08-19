@@ -1,5 +1,5 @@
 import {type ReactNode, useCallback, useEffect, useMemo, useRef, useState} from "react";
-import {realtimeStream, realtimeUnwatch, realtimeWatch} from "@/api/sdk.gen";
+import {realtimeHeartbeat, realtimeStream, realtimeUnwatch, realtimeWatch} from "@/api/sdk.gen";
 import type {
   AppEntityType,
   RealtimeEvent,
@@ -8,10 +8,16 @@ import type {
   RealtimeEventType,
   RealtimeViewer,
 } from "@/api/types.gen";
-import RealtimeContext, {type RealtimeContextValue} from "@/contexts/Realtime/RealtimeContext";
+import RealtimeContext, {
+  type HeldLocks,
+  type RealtimeContextValue,
+} from "@/contexts/Realtime/RealtimeContext";
 
 const INITIAL_RETRY_MS = 1000;
 const MAX_RETRY_MS = 30_000;
+const HEARTBEAT_MS = 20_000;
+
+const NO_LOCKS: HeldLocks = {keys: new Set(), at: 0};
 
 type EventHandler = (event: RealtimeEvent) => void;
 
@@ -36,6 +42,7 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
   const [presence, setPresence] = useState<ReadonlyMap<string, readonly RealtimeViewer[]>>(
     () => new Map(),
   );
+  const [heldLocks, setHeldLocks] = useState<HeldLocks>(NO_LOCKS);
 
   const connectionIdRef = useRef<string | null>(null);
   const handlersRef = useRef(new Map<RealtimeEventType, Set<EventHandler>>());
@@ -122,10 +129,16 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
 
           if (toWatch.size > 0) void sendWatch([...toWatch]);
 
+          // Navigating between two pages on the same object unwatches it and watches it right back
+          // within one tick. The server keeps one subscription per connection, so sending both would
+          // race, and an unwatch landing second drops the subscription the watch had just made.
           const connection = connectionIdRef.current;
-          if (connection && toUnwatch.length > 0) {
+          const dropped = toUnwatch.filter(
+            (e) => !watchesRef.current.has(watchKey(e.entityType, e.entityId)),
+          );
+          if (connection && dropped.length > 0) {
             void realtimeUnwatch({
-              body: {connectionId: connection, entities: toUnwatch},
+              body: {connectionId: connection, entities: dropped},
             }).catch(() => {});
           }
         });
@@ -341,6 +354,45 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
     };
   }, [applyPresence, flushWatches]);
 
+  // The stream alone does not prove the tab is alive: a proxy between the browser and the server keeps
+  // accepting writes for a tab that is gone. Without this the server never releases its locks or presence.
+  useEffect(() => {
+    if (!connectionId) return;
+
+    let disposed = false;
+    let applied = 0;
+
+    const beat = async () => {
+      const at = Date.now();
+      const {data, error} = await realtimeHeartbeat({body: {connectionId}});
+      if (disposed || error !== undefined || data === undefined) return;
+      // The visibility beat and the interval one overlap; an overtaken reply would put a lock that was
+      // already taken over back into the set, and the takeover would go unnoticed for another cycle.
+      if (at <= applied) return;
+
+      applied = at;
+      setHeldLocks({keys: new Set(data.locks.map((l) => watchKey(l.entityType, l.entityId))), at});
+    };
+
+    void beat();
+    const timer = window.setInterval(() => void beat(), HEARTBEAT_MS);
+
+    // Background tabs get their timers throttled to a minute or more, which can outlive the server's
+    // TTL — coming back has to report in at once rather than wait for the next tick.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void beat();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      // A new connection holds nothing yet, and the old list must not outlive its connection.
+      setHeldLocks(NO_LOCKS);
+    };
+  }, [connectionId]);
+
   const value = useMemo<RealtimeContextValue>(
     () => ({
       connectionId,
@@ -350,8 +402,9 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
       isWatching,
       presence,
       presenceKey: watchKey,
+      heldLocks,
     }),
-    [connectionId, subscribe, watch, isWatching, presence],
+    [connectionId, subscribe, watch, isWatching, presence, heldLocks],
   );
 
   return <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>;

@@ -79,7 +79,7 @@ import {
   ordersUpdateTaskBoxComponent,
   permissionsGetAll,
   realtimeAcquireLock,
-  realtimeHeartbeatLock,
+  realtimeHeartbeat,
   realtimeReleaseLock,
   realtimeUnwatch,
   realtimeWatch,
@@ -359,9 +359,9 @@ import type {
   RealtimeAcquireLockData,
   RealtimeAcquireLockError,
   RealtimeAcquireLockResponse,
-  RealtimeHeartbeatLockData,
-  RealtimeHeartbeatLockError,
-  RealtimeHeartbeatLockResponse,
+  RealtimeHeartbeatData,
+  RealtimeHeartbeatError,
+  RealtimeHeartbeatResponse2,
   RealtimeReleaseLockData,
   RealtimeReleaseLockError,
   RealtimeReleaseLockResponse,
@@ -2832,6 +2832,34 @@ export const realtimeUnwatchMutation = (
 };
 
 /**
+ * Keeps the connection alive. Writing to the stream proves nothing — a proxy between the browser and
+ * Kestrel keeps accepting bytes for a tab that is long gone — so the client has to say so itself.
+ */
+export const realtimeHeartbeatMutation = (
+  options?: Partial<Options<RealtimeHeartbeatData>>,
+): UseMutationOptions<
+  RealtimeHeartbeatResponse2,
+  RealtimeHeartbeatError,
+  Options<RealtimeHeartbeatData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    RealtimeHeartbeatResponse2,
+    RealtimeHeartbeatError,
+    Options<RealtimeHeartbeatData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await realtimeHeartbeat({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
  * Claims the object for editing. The lock is advisory: it warns other users and blocks no write,
  * which is why `PUT` of the object never consults it.
  */
@@ -2849,33 +2877,6 @@ export const realtimeAcquireLockMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await realtimeAcquireLock({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
- * Extends the lock. Missing it means it expired or moved to another connection.
- */
-export const realtimeHeartbeatLockMutation = (
-  options?: Partial<Options<RealtimeHeartbeatLockData>>,
-): UseMutationOptions<
-  RealtimeHeartbeatLockResponse,
-  RealtimeHeartbeatLockError,
-  Options<RealtimeHeartbeatLockData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    RealtimeHeartbeatLockResponse,
-    RealtimeHeartbeatLockError,
-    Options<RealtimeHeartbeatLockData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const {data} = await realtimeHeartbeatLock({
         ...options,
         ...fnOptions,
         throwOnError: true,

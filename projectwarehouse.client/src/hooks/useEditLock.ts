@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useLayoutEffect, useRef, useState} from "react";
-import {realtimeAcquireLock, realtimeHeartbeatLock, realtimeReleaseLock} from "@/api/sdk.gen";
+import {realtimeAcquireLock, realtimeReleaseLock} from "@/api/sdk.gen";
 import type {AppEntityType} from "@/api/types.gen";
 import {useAuth} from "@/hooks/useAuth";
 import {useRealtime} from "@/hooks/useRealtime";
@@ -12,7 +12,8 @@ import {
 } from "@/hooks/useStaleData";
 import {firstFieldError, isAppProblemDetails} from "@/utils/errorUtils";
 
-const HEARTBEAT_MS = 20_000;
+/** Retry cadence while somebody else holds the object; holding it needs no poll of its own. */
+const RETRY_MS = 20_000;
 
 export interface UseEditLockOptions extends Omit<UseStaleDataOptions, "enabled"> {
   /**
@@ -37,7 +38,7 @@ export function useEditLock(
   entityId: string | null | undefined,
   {enabled = true, ...staleOptions}: UseEditLockOptions,
 ): UseEditLockResult {
-  const {connectionId} = useRealtime();
+  const {connectionId, heldLocks, presenceKey} = useRealtime();
   const {user} = useAuth();
 
   const [isOwner, setIsOwner] = useState(false);
@@ -48,12 +49,15 @@ export function useEditLock(
 
   const active = enabled && !!entityId && !!connectionId;
 
+  // Mirrors the state for the closures below. Bound to `isOwner` rather than every render: unrelated
+  // renders would otherwise undo a hand-off written straight to the ref.
   const isOwnerRef = useRef(false);
   useLayoutEffect(() => {
     isOwnerRef.current = isOwner;
-  });
+  }, [isOwner]);
 
   const acquireRef = useRef<(() => void) | null>(null);
+  const [acquiredAt, setAcquiredAt] = useState(0);
 
   useEffect(() => {
     if (!active) return;
@@ -68,6 +72,7 @@ export function useEditLock(
 
       setIsLoading(false);
       if (error === undefined) {
+        setAcquiredAt(Date.now());
         isOwnerRef.current = true;
         setIsOwner(true);
         setHeldBy(null);
@@ -85,20 +90,17 @@ export function useEditLock(
     acquireRef.current = () => void acquire();
     void acquire();
 
-    // A failed heartbeat means the lock expired or moved elsewhere; re-acquiring is what recovers it.
+    // Keeping the lock is the connection heartbeat's job now; this only waits out the current holder.
     const timer = window.setInterval(() => {
-      if (!isOwnerRef.current) {
-        void acquire();
-        return;
-      }
-      void realtimeHeartbeatLock({body}).then(({error}) => {
-        if (!disposed && error !== undefined) void acquire();
-      });
-    }, HEARTBEAT_MS);
+      if (!isOwnerRef.current) void acquire();
+    }, RETRY_MS);
 
+    // The state goes too, not just the ref: coming back to the same object with stale ownership would
+    // read as a takeover on the next heartbeat and fire a second acquire behind the first.
     const release = () => {
       if (!isOwnerRef.current) return;
       isOwnerRef.current = false;
+      setIsOwner(false);
       void realtimeReleaseLock({body}).catch(() => {});
     };
 
@@ -121,32 +123,42 @@ export function useEditLock(
       }).catch(() => {});
     };
 
-    // Background tabs get their timers throttled to a minute or more, which outlives the 60 s TTL —
-    // coming back has to renew immediately rather than wait for the next tick.
-    const renewOnVisible = () => {
+    // Release events only arrive while the stream is up, so a tab returning from the background has to
+    // ask rather than assume the object is still taken.
+    const retryOnVisible = () => {
       if (document.visibilityState !== "visible") return;
-      if (!isOwnerRef.current) {
-        void acquire();
-        return;
-      }
-      void realtimeHeartbeatLock({body}).then(({error}) => {
-        if (!disposed && error !== undefined) void acquire();
-      });
+      if (!isOwnerRef.current) void acquire();
     };
 
     window.addEventListener("beforeunload", releaseOnUnload);
-    document.addEventListener("visibilitychange", renewOnVisible);
+    document.addEventListener("visibilitychange", retryOnVisible);
 
     return () => {
       disposed = true;
       acquireRef.current = null;
       window.clearInterval(timer);
       window.removeEventListener("beforeunload", releaseOnUnload);
-      document.removeEventListener("visibilitychange", renewOnVisible);
+      document.removeEventListener("visibilitychange", retryOnVisible);
       release();
     };
     // A new connectionId means the server already dropped the old lock — re-acquire under the new one.
   }, [active, connectionId, entityType, entityId]);
+
+  // Another tab of the same user takes the lock over silently — that raises no event this page would
+  // accept, so the heartbeat no longer listing it is the only sign. `at` discards a reply that was
+  // already in flight when the lock was taken.
+  const takenOver =
+    active &&
+    isOwner &&
+    heldLocks.at > acquiredAt &&
+    !heldLocks.keys.has(presenceKey(entityType, entityId!));
+
+  useEffect(() => {
+    if (!takenOver) return;
+
+    isOwnerRef.current = false;
+    acquireRef.current?.();
+  }, [takenOver]);
 
   const matches = useCallback(
     (payloadType: AppEntityType, payloadId: string) =>
@@ -174,5 +186,5 @@ export function useEditLock(
     if (!isOwnerRef.current) acquireRef.current?.();
   });
 
-  return {...stale, isOwner: active && isOwner, heldBy, isLoading};
+  return {...stale, isOwner: active && isOwner && !takenOver, heldBy, isLoading};
 }

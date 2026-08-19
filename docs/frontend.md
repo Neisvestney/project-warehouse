@@ -160,7 +160,7 @@ src/
 │   │   ├── ModalContext.ts      # Context: open/close modals imperatively
 │   │   └── ModalProvider.tsx    # Renders active modals, wires modalService
 │   ├── Realtime/
-│   │   ├── RealtimeContext.ts       # Context: connectionId, isConnected, subscribe, watch, isWatching, presence
+│   │   ├── RealtimeContext.ts       # Context: connectionId, isConnected, subscribe, watch, isWatching, presence, heldLocks
 │   │   └── RealtimeProvider.tsx     # The single SSE stream: own reconnect loop, event dispatch, watch registry
 │   ├── SearchParams/
 │   │   ├── SearchParamsContext.ts   # Context + useSearchParamsContext hook
@@ -194,7 +194,7 @@ src/
 │   ├── useEntityWatch.ts                     # useEntityWatch / useEntityWatchMany — watch objects for the component's lifetime
 │   ├── useEntityPresence.ts                  # Who else is looking at the object right now
 │   ├── useStaleData.ts                       # "Data may be out of date" flag from entityChanged / editLockReleased
-│   └── useEditLock.ts                        # Advisory edit lock: acquire, heartbeat, release + useStaleData
+│   └── useEditLock.ts                        # Advisory edit lock: acquire, release + useStaleData
 │
 ├── pages/
 │   ├── HomePage/
@@ -1652,10 +1652,14 @@ otherwise get no warning either.
 ### `useEditLock(entityType, entityId, {isDirty, dataUpdatedAt, onRefresh, enabled})`
 
 Claims the object while it is being edited, on top of `useStaleData` (whose whole result it re-exports).
-Acquires on mount, heartbeats every 20 s, releases on unmount and on `beforeunload`, and re-acquires under the
-new `connectionId` after a reconnect — the server dropped the old lock when the stream broke. Returning to a
-backgrounded tab renews immediately: browsers throttle timers there past the 60 s TTL. The unload release goes
-out as a `keepalive` fetch, since a normal one is cancelled and `sendBeacon` cannot carry the bearer header.
+Acquires on mount, releases on unmount and on `beforeunload`, and re-acquires under the new `connectionId`
+after a reconnect — the server dropped the old lock when the stream broke. Holding it needs no heartbeat of its
+own: a lock lives as long as its connection, which `RealtimeProvider` keeps alive for all of them. The hook only
+watches the lock list that heartbeat answers with, to notice a takeover by another tab of the same user — that
+case raises no event this page would accept. Its own 20 s interval is just a retry while somebody else holds the
+object, and a tab returning from the background retries at once, since release events only arrive while the
+stream is up. The unload release goes out as a `keepalive` fetch, since a normal one is cancelled and
+`sendBeacon` cannot carry the bearer header.
 
 ```typescript
 const lock = useEditLock("writeoff", id, {

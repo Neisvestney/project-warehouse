@@ -392,7 +392,7 @@ try
     builder.Services.AddSingleton<EntityPresenceService>();
     builder.Services.AddSingleton<IRealtimeNotifier, RealtimeNotifier>();
     builder.Services.AddSingleton<EditLockStore>();
-    builder.Services.AddHostedService<EditLockSweeper>();
+    builder.Services.AddHostedService<RealtimeConnectionReaper>();
     builder.Services.AddAutoMapper(typeof(Program).Assembly);
 
     builder.Services.AddScoped<IChangeLogService, AppChangeLogService>();

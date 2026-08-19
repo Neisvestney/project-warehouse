@@ -17,12 +17,11 @@ public static class EditLockEvents
                     EntityId = @lock.EntityId,
                     UserId = @lock.UserId,
                     UserName = @lock.UserName,
-                    ExpiresAt = @lock.ExpiresAt,
                 },
             }, ct);
 
     /// <summary>
-    /// Nobody is excluded here: a lock dropped by a sweep or a broken stream has to reach the holder's
+    /// Nobody is excluded here: a lock dropped by a broken stream has to reach the holder's
     /// remaining tabs too, and the client tells its own release apart by the user id in the payload.
     /// </summary>
     public static ValueTask PublishLockReleasedAsync(this IRealtimeNotifier notifier, EditLock @lock,

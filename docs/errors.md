@@ -214,8 +214,8 @@ check rather than by the foreign key, because a raw `23503` would surface as a 5
 | Code | When | `args` |
 |------|------|--------|
 | `realtimeConnectionUnknown` | `watch` or a lock command for a `connectionId` that does not exist, is already closed, or belongs to another user (field: `connectionId`) | — |
-| `editLockHeld` | `locks/acquire` for an object another user is editing (field: `root`) | `{ userId: string, userName: string, expiresAt: string }` |
-| `editLockNotHeld` | `locks/heartbeat` or `locks/release` for a lock this connection does not hold — it expired, or moved to another connection (field: `root`) | — |
+| `editLockHeld` | `locks/acquire` for an object another user is editing (field: `root`) | `{ userId: string, userName: string }` |
+| `editLockNotHeld` | `locks/release` for a lock this connection does not hold — its stream closed, or it moved to another connection (field: `root`) | — |
 
 `unwatch` never raises it for a missing connection: a client unsubscribing after its stream already dropped
 has nothing left to undo, and an error there would only fire on every page it leaves. It is still raised when
