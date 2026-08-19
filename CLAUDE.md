@@ -3,4 +3,5 @@ Use rider mcp to start and stop dev frontend and backend servers for testing and
 Project uses MUI v9 that has some breaking changes.  
 When planning new features or code edits add docs writing as final step.  
 Check typescript with `npm run typecheck` command (run from `projectwarehouse.client`; uses TypeScript 7 / native Go compiler) to catch any compilation errors.  
-After you edited any of frontend code run prettier and linter: `npm run prettier:fix` and `eslint:fix` in `projectwarehouse.client` directory.
+After you edited any of frontend code run prettier and linter: `npm run prettier:fix` and `eslint:fix` in `projectwarehouse.client` directory.  
+Editing files via `sed`/`python` heredocs is fine, but mind the traps: a non-matching pattern exits 0 and silently changes nothing (verify with `grep` after, or assert on the replacement), quote heredocs as `<<'EOF'` so `$`, backticks and `\` survive, watch encoding on Cyrillic/non-ASCII content, and escape regex metacharacters in `sed` patterns. When a replacement is multiline or full of such characters, just use Edit — it fails loudly instead.
