@@ -209,6 +209,20 @@ is already too late to ship.
 uploaded, the form sat open past the TTL, and the collector took it. It is raised by an explicit existence
 check rather than by the foreign key, because a raw `23503` would surface as a 500 that the client cannot render.
 
+### Realtime
+
+| Code | When | `args` |
+|------|------|--------|
+| `realtimeConnectionUnknown` | `watch` for a `connectionId` that does not exist, is already closed, or belongs to another user (field: `connectionId`) | — |
+
+`unwatch` never raises it for a missing connection: a client unsubscribing after its stream already dropped
+has nothing left to undo, and an error there would only fire on every page it leaves. It is still raised when
+the connection exists but belongs to someone else.
+
+Refusing a subscription for lack of rights reuses `permissionDenied` (403) rather than a realtime-specific
+code. `IEntityAccessService` collapses the reason to a bool, and telling "no such object" apart from "no
+right to it" is exactly what a subscription endpoint must not leak.
+
 ### Validation
 | Code | When | `args` |
 |------|------|--------|

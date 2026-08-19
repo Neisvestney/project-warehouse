@@ -2,13 +2,16 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.Realtime;
 using ProjectWarehouse.Server.Integrations.Abstractions;
+using ProjectWarehouse.Server.Integrations.Sync;
 using ProjectWarehouse.Server.Models;
 
 namespace ProjectWarehouse.Server.Services;
 
 public class MarketplaceOrderSyncService(
     ApplicationDbContext db,
+    IRealtimeNotifier realtime,
     ILogger<MarketplaceOrderSyncService> logger) : IMarketplaceOrderSyncService
 {
     /// <summary>
@@ -77,6 +80,7 @@ public class MarketplaceOrderSyncService(
 
             // per page, so the sync modal's counters advance while the run is still going
             await db.SaveChangesAsync(ct);
+            await realtime.PublishProgressAsync(run, ct);
         }
     }
 

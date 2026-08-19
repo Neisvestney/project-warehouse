@@ -78,6 +78,8 @@ import {
   ordersUpdateComponent,
   ordersUpdateTaskBoxComponent,
   permissionsGetAll,
+  realtimeUnwatch,
+  realtimeWatch,
   receiptsAddStandardPlacement,
   receiptsAddStandardPlacementBatch,
   receiptsAddUnitPlacement,
@@ -351,6 +353,12 @@ import type {
   PermissionsGetAllData,
   PermissionsGetAllError,
   PermissionsGetAllResponse,
+  RealtimeUnwatchData,
+  RealtimeUnwatchError,
+  RealtimeUnwatchResponse,
+  RealtimeWatchData,
+  RealtimeWatchError,
+  RealtimeWatchResponse,
   ReceiptsAddStandardPlacementBatchData,
   ReceiptsAddStandardPlacementBatchError,
   ReceiptsAddStandardPlacementBatchResponse,
@@ -2759,6 +2767,56 @@ export const permissionsGetAllOptions = (options?: Options<PermissionsGetAllData
     },
     queryKey: permissionsGetAllQueryKey(options),
   });
+
+/**
+ * Subscribes the connection to one object's events. The right to view it is checked here, once.
+ */
+export const realtimeWatchMutation = (
+  options?: Partial<Options<RealtimeWatchData>>,
+): UseMutationOptions<RealtimeWatchResponse, RealtimeWatchError, Options<RealtimeWatchData>> => {
+  const mutationOptions: UseMutationOptions<
+    RealtimeWatchResponse,
+    RealtimeWatchError,
+    Options<RealtimeWatchData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await realtimeWatch({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * No permission check: dropping a subscription is always allowed.
+ */
+export const realtimeUnwatchMutation = (
+  options?: Partial<Options<RealtimeUnwatchData>>,
+): UseMutationOptions<
+  RealtimeUnwatchResponse,
+  RealtimeUnwatchError,
+  Options<RealtimeUnwatchData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    RealtimeUnwatchResponse,
+    RealtimeUnwatchError,
+    Options<RealtimeUnwatchData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await realtimeUnwatch({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 export const receiptsGetAllQueryKey = (options?: Options<ReceiptsGetAllData>) =>
   createQueryKey("receiptsGetAll", options);

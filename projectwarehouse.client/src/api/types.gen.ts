@@ -624,6 +624,7 @@ export type ErrorCode =
   | "stocktakeUnitItemDetached"
   | "stocktakeConcurrentModification"
   | "marketplaceOrderNotAwaitingDeliver"
+  | "realtimeConnectionUnknown"
   | "warehouseNotAssigned"
   | "storagePlaceNotAssignedToWarehouse"
   | "transferNotAssignedToWarehouse";
@@ -1203,6 +1204,67 @@ export type ProductGroupChildRequest = {
 
 export type QuickAddReceiptItemRequest = {
   catalogItemId: string;
+};
+
+export type RealtimeEvent = {
+  id: string;
+  at: string;
+  payload: RealtimeEventPayload;
+  /**
+   * Derived from the payload so the envelope and the discriminator cannot disagree.
+   */
+  type: RealtimeEventType;
+};
+
+/**
+ * Discriminator strings must match the camelCase wire names of RealtimeEventType —
+ * the client narrows the union by the same value it filters events with.
+ */
+export type RealtimeEventPayload =
+  | ({
+      type?: "connectionReady";
+    } & RealtimeEventPayloadConnectionReadyPayload)
+  | ({
+      type?: "marketplaceSyncProgress";
+    } & RealtimeEventPayloadMarketplaceSyncProgressPayload)
+  | ({
+      type?: "marketplaceSyncFinished";
+    } & RealtimeEventPayloadMarketplaceSyncFinishedPayload);
+
+export type RealtimeEventPayloadConnectionReadyPayload = {
+  type: "connectionReady" | "marketplaceSyncProgress" | "marketplaceSyncFinished";
+  connectionId: string;
+};
+
+export type RealtimeEventPayloadMarketplaceSyncFinishedPayload = {
+  type: "connectionReady" | "marketplaceSyncProgress" | "marketplaceSyncFinished";
+  accountId: string;
+  syncRunId: string;
+  status: MarketplaceSyncStatus;
+};
+
+/**
+ * Carries no counters on purpose: the event is a hint to refetch, and every counter added to
+ * MarketplaceSyncRun would otherwise change the event schema too.
+ */
+export type RealtimeEventPayloadMarketplaceSyncProgressPayload = {
+  type: "connectionReady" | "marketplaceSyncProgress" | "marketplaceSyncFinished";
+  accountId: string;
+  syncRunId: string;
+};
+
+export type RealtimeEventType =
+  | "connectionReady"
+  | "marketplaceSyncProgress"
+  | "marketplaceSyncFinished";
+
+export type RealtimeWatchRequest = {
+  /**
+   * From the connectionReady event of the stream this subscription belongs to.
+   */
+  connectionId: string;
+  entityType: AppEntityType;
+  entityId: string;
 };
 
 export type ReceiptDto = {
@@ -4462,6 +4524,93 @@ export type PermissionsGetAllResponses = {
 
 export type PermissionsGetAllResponse =
   PermissionsGetAllResponses[keyof PermissionsGetAllResponses];
+
+export type RealtimeStreamData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/realtime/stream";
+};
+
+export type RealtimeStreamErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type RealtimeStreamError = RealtimeStreamErrors[keyof RealtimeStreamErrors];
+
+export type RealtimeStreamResponses = {
+  /**
+   * OK
+   */
+  200: RealtimeEvent;
+};
+
+export type RealtimeStreamResponse = RealtimeStreamResponses[keyof RealtimeStreamResponses];
+
+export type RealtimeWatchData = {
+  body: RealtimeWatchRequest;
+  path?: never;
+  query?: never;
+  url: "/api/realtime/watch";
+};
+
+export type RealtimeWatchErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type RealtimeWatchError = RealtimeWatchErrors[keyof RealtimeWatchErrors];
+
+export type RealtimeWatchResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type RealtimeWatchResponse = RealtimeWatchResponses[keyof RealtimeWatchResponses];
+
+export type RealtimeUnwatchData = {
+  body: RealtimeWatchRequest;
+  path?: never;
+  query?: never;
+  url: "/api/realtime/unwatch";
+};
+
+export type RealtimeUnwatchErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type RealtimeUnwatchError = RealtimeUnwatchErrors[keyof RealtimeUnwatchErrors];
+
+export type RealtimeUnwatchResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type RealtimeUnwatchResponse = RealtimeUnwatchResponses[keyof RealtimeUnwatchResponses];
 
 export type ReceiptsGetAllData = {
   body?: never;

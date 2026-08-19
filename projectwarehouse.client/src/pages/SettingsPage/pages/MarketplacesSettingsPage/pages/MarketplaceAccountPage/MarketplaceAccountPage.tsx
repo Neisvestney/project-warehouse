@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useCallback, useState} from "react";
 import {useParams} from "react-router";
 import {
   Box,
@@ -24,20 +24,23 @@ import {extractErrorMessage, isNotFoundError} from "@/utils/errorUtils";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {useSearchParamsContext} from "@/contexts/SearchParams/SearchParamsContext";
 import {useHasPermission} from "@/hooks/usePermission";
+import {useEntityWatch} from "@/hooks/useEntityWatch";
+import {useRealtimeEvent} from "@/hooks/useRealtimeEvent";
+import {byOperation} from "@/utils/queryKeys";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
 import {CatalogItemDrawerHost} from "@/components/catalog/CatalogItemDrawerHost";
 import QueryError from "@/components/QueryError";
 import MarketplaceStatusChip from "../../components/MarketplaceStatusChip";
-import {SYNC_SCOPE_LABELS, hasCapability} from "../../marketplaceUtils";
+import {SYNC_SCOPE_LABELS, SYNC_STATUS_LABELS, hasCapability} from "../../marketplaceUtils";
 import AccountOverviewTab from "./AccountOverviewTab";
 import AccountWarehousesTab from "./AccountWarehousesTab";
 import AccountCardsTab from "./AccountCardsTab";
 import AccountSyncRunsTab from "./AccountSyncRunsTab";
 import EditAccountDialog from "./EditAccountDialog";
 import DeleteAccountDialog from "./DeleteAccountDialog";
-import type {MarketplaceSyncScope} from "@/api/types.gen";
+import type {MarketplaceSyncScope, MarketplaceSyncStatus} from "@/api/types.gen";
 
 const TAB_KEYS = ["overview", "warehouses", "cards", "runs"] as const;
 type TabKey = (typeof TAB_KEYS)[number];
@@ -60,8 +63,15 @@ const TAB_SCOPED_PARAMS = [
   "catalogItem",
 ];
 
-/** Пока идёт запуск, счётчики тянем опросом — realtime-транспорта на клиенте пока нет. */
+/** Запасной опрос: включается, только пока real-time-подписка на аккаунт не подтверждена. */
 const RUNNING_POLL_MS = 3000;
+
+const FINISHED_VARIANTS: Record<MarketplaceSyncStatus, "success" | "error" | "warning"> = {
+  running: "warning", // недостижим: событие finished с этим статусом не приходит
+  success: "success",
+  failed: "error",
+  canceled: "warning",
+};
 
 function MarketplaceAccountPage() {
   const {id} = useParams<{id: string}>();
@@ -89,6 +99,18 @@ function MarketplaceAccountPage() {
   };
 
   const accountQueryOptions = marketplacesGetAccountOptions({path: {id: id!}});
+
+  const refreshAccountData = useCallback(() => {
+    void queryClient.invalidateQueries({
+      queryKey: byOperation("marketplacesGetAccount", {path: {id: id!}}),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: byOperation("marketplacesGetSyncRuns", {path: {id: id!}}),
+    });
+  }, [queryClient, id]);
+
+  const {isWatching} = useEntityWatch("marketplaceAccount", id, refreshAccountData);
+
   const {
     data: account,
     isLoading,
@@ -99,7 +121,19 @@ function MarketplaceAccountPage() {
     ...accountQueryOptions,
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
     refetchInterval: (query) =>
-      query.state.data?.lastSyncStatus === "running" ? RUNNING_POLL_MS : false,
+      !isWatching && query.state.data?.lastSyncStatus === "running" ? RUNNING_POLL_MS : false,
+  });
+
+  useRealtimeEvent("marketplaceSyncProgress", (_event, payload) => {
+    if (payload.accountId === id) refreshAccountData();
+  });
+
+  useRealtimeEvent("marketplaceSyncFinished", (_event, payload) => {
+    if (payload.accountId !== id) return;
+    refreshAccountData();
+    enqueueSnackbar(`Синхронизация: ${SYNC_STATUS_LABELS[payload.status].toLowerCase()}`, {
+      variant: FINISHED_VARIANTS[payload.status],
+    });
   });
 
   const syncMutation = useMutation({
@@ -219,6 +253,7 @@ function MarketplaceAccountPage() {
         <AccountSyncRunsTab
           accountId={account.id}
           isRunning={account.lastSyncStatus === "running"}
+          isLive={isWatching}
         />
       )}
 

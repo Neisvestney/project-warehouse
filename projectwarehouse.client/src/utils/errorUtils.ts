@@ -149,6 +149,7 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
     "Этикетка ещё не скачана, а отправление уже не ожидает отгрузки",
   marketplaceOrderCardNotMapped: "Товар заказа не привязан к позиции каталога",
   marketplaceOrderWarehouseNotMapped: "Склад отправления не привязан к складу WMS",
+  realtimeConnectionUnknown: "Соединение обновлений разорвано — переподключаемся",
 };
 
 /** Richer variants used only when the server supplied every placeholder in args. */

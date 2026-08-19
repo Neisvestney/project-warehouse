@@ -159,4 +159,7 @@ public enum ErrorCode
     StocktakeUnitItemInAnotherWarehouse = 123,
     StocktakeUnitItemDetached = 124,
     StocktakeConcurrentModification = 125,
+
+    // Realtime
+    RealtimeConnectionUnknown = 130,
 }

@@ -212,6 +212,16 @@ import type {
   PermissionsGetAllData,
   PermissionsGetAllErrors,
   PermissionsGetAllResponses,
+  RealtimeStreamData,
+  RealtimeStreamErrors,
+  RealtimeStreamResponse,
+  RealtimeStreamResponses,
+  RealtimeUnwatchData,
+  RealtimeUnwatchErrors,
+  RealtimeUnwatchResponses,
+  RealtimeWatchData,
+  RealtimeWatchErrors,
+  RealtimeWatchResponses,
   ReceiptsAddStandardPlacementBatchData,
   ReceiptsAddStandardPlacementBatchErrors,
   ReceiptsAddStandardPlacementBatchResponses,
@@ -1380,6 +1390,48 @@ export const permissionsGetAll = <ThrowOnError extends boolean = false>(
     PermissionsGetAllErrors,
     ThrowOnError
   >({url: "/api/permissions", ...options});
+
+/**
+ * The event stream. One per tab: HTTP/1.1 caps a browser at six connections per origin and a
+ * hanging stream occupies one of them.
+ */
+export const realtimeStream = <ThrowOnError extends boolean = false>(
+  options?: Options<RealtimeStreamData, ThrowOnError, RealtimeStreamResponse>,
+) =>
+  (options?.client ?? client).sse.get<RealtimeStreamResponses, RealtimeStreamErrors, ThrowOnError>({
+    url: "/api/realtime/stream",
+    ...options,
+  });
+
+/**
+ * Subscribes the connection to one object's events. The right to view it is checked here, once.
+ */
+export const realtimeWatch = <ThrowOnError extends boolean = false>(
+  options: Options<RealtimeWatchData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<RealtimeWatchResponses, RealtimeWatchErrors, ThrowOnError>({
+    url: "/api/realtime/watch",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * No permission check: dropping a subscription is always allowed.
+ */
+export const realtimeUnwatch = <ThrowOnError extends boolean = false>(
+  options: Options<RealtimeUnwatchData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<RealtimeUnwatchResponses, RealtimeUnwatchErrors, ThrowOnError>({
+    url: "/api/realtime/unwatch",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
 
 /**
  * List receipts with pagination, filtering, and search.
