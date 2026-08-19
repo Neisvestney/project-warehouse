@@ -21,6 +21,8 @@ public sealed class RealtimeConnection : IDisposable
 
     private readonly CancellationTokenSource _abort = new();
 
+    private long _lastSeenTicks = DateTime.UtcNow.Ticks;
+
     public required Guid Id { get; init; }
 
     public required Guid UserId { get; init; }
@@ -30,6 +32,14 @@ public sealed class RealtimeConnection : IDisposable
     public ChannelReader<RealtimeEvent> Reader => _events.Reader;
 
     public CancellationToken Aborted => _abort.Token;
+
+    /// <summary>
+    /// Last client heartbeat. The stream itself proves nothing: a proxy that outlives the browser keeps
+    /// the socket open and writes to it keep succeeding, so liveness has to come from the client asking.
+    /// </summary>
+    public DateTime LastSeenAt => new(Interlocked.Read(ref _lastSeenTicks), DateTimeKind.Utc);
+
+    public void Touch() => Interlocked.Exchange(ref _lastSeenTicks, DateTime.UtcNow.Ticks);
 
     /// <summary>False when the buffer is full — the client is not keeping up and the stream is closed.</summary>
     public bool TryEnqueue(RealtimeEvent evt) => _events.Writer.TryWrite(evt);

@@ -33,6 +33,19 @@ public class RealtimeConnectionManager
 
     public RealtimeConnection? Find(Guid connectionId) => _connections.GetValueOrDefault(connectionId);
 
+    /// <summary>
+    /// Aborts everything that stopped heartbeating. Only aborts: cancelling the stream is what makes it
+    /// run its own teardown, and that already releases the locks, the presence and the registry entry.
+    /// </summary>
+    public void AbortStale(TimeSpan ttl)
+    {
+        var cutoff = DateTime.UtcNow - ttl;
+
+        foreach (var connection in _connections.Values)
+            if (connection.LastSeenAt < cutoff)
+                connection.Abort();
+    }
+
     public IEnumerable<RealtimeConnection> All => _connections.Values;
 
     public IEnumerable<RealtimeConnection> ByUser(Guid userId) =>

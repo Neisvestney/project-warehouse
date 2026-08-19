@@ -5,14 +5,12 @@ using ProjectWarehouse.Server.Domain;
 namespace ProjectWarehouse.Server.Infrastructure.Realtime;
 
 /// <summary>
-/// In-memory edit locks. A lock lives tens of seconds and never outlives the process, so persisting it
-/// would only buy a steady stream of heartbeat writes. The reverse index mirrors
+/// In-memory edit locks. A lock never outlives the connection that took it, so it needs no expiry of
+/// its own — anything still in here belongs to a live stream. The reverse index mirrors
 /// <see cref="EntityWatchRegistry"/>: a dropped stream must release its locks without walking them all.
 /// </summary>
 public class EditLockStore
 {
-    public static readonly TimeSpan Ttl = TimeSpan.FromSeconds(60);
-
     private readonly ConcurrentDictionary<EntityWatchKey, EditLock> _locks = new();
     private readonly ConcurrentDictionary<Guid, ImmutableHashSet<EntityWatchKey>> _byConnection = new();
 
@@ -27,14 +25,13 @@ public class EditLockStore
 
         while (true)
         {
-            var now = DateTime.UtcNow;
-            var fresh = new EditLock(entityType, entityId, userId, userName, connectionId, now, now + Ttl);
+            var fresh = new EditLock(entityType, entityId, userId, userName, connectionId, DateTime.UtcNow);
 
             if (_locks.TryGetValue(key, out var existing))
             {
-                if (existing.ExpiresAt > now && existing.UserId != userId) return (existing, false);
+                if (existing.UserId != userId) return (existing, false);
 
-                fresh = fresh with { AcquiredAt = existing.UserId == userId ? existing.AcquiredAt : now };
+                fresh = fresh with { AcquiredAt = existing.AcquiredAt };
                 if (!_locks.TryUpdate(key, fresh, existing)) continue;
 
                 if (existing.ConnectionId != connectionId) Detach(existing.ConnectionId, key);
@@ -49,21 +46,20 @@ public class EditLockStore
         }
     }
 
-    /// <summary>Extends a lock held by this very connection. Anything else is "not held".</summary>
-    public EditLock? Heartbeat(AppEntityType entityType, Guid entityId, Guid connectionId)
+    /// <summary>
+    /// Everything this connection currently holds. The heartbeat answers with it so a client whose lock
+    /// was taken over by another tab of the same user notices — that case raises no event it would see.
+    /// </summary>
+    public IReadOnlyCollection<EditLock> ByConnection(Guid connectionId)
     {
-        var key = new EntityWatchKey(entityType, entityId);
+        if (!_byConnection.TryGetValue(connectionId, out var keys)) return [];
 
-        while (_locks.TryGetValue(key, out var existing))
-        {
-            var now = DateTime.UtcNow;
-            if (existing.ConnectionId != connectionId || existing.ExpiresAt <= now) return null;
+        var held = new List<EditLock>();
+        foreach (var key in keys)
+            if (_locks.TryGetValue(key, out var existing) && existing.ConnectionId == connectionId)
+                held.Add(existing);
 
-            var extended = existing with { ExpiresAt = now + Ttl };
-            if (_locks.TryUpdate(key, extended, existing)) return extended;
-        }
-
-        return null;
+        return held;
     }
 
     public EditLock? Release(AppEntityType entityType, Guid entityId, Guid connectionId)
@@ -102,27 +98,6 @@ public class EditLockStore
         }
 
         return released;
-    }
-
-    /// <summary>
-    /// Drops locks past their TTL. Without a sweep a tab killed by a dead battery would leave someone
-    /// else's banner up until they reload the page — expiry alone raises no event.
-    /// </summary>
-    public IReadOnlyCollection<EditLock> SweepExpired()
-    {
-        var now = DateTime.UtcNow;
-        var expired = new List<EditLock>();
-
-        foreach (var (key, existing) in _locks)
-        {
-            if (existing.ExpiresAt > now) continue;
-            if (!_locks.TryRemove(new KeyValuePair<EntityWatchKey, EditLock>(key, existing))) continue;
-
-            Detach(existing.ConnectionId, key);
-            expired.Add(existing);
-        }
-
-        return expired;
     }
 
     private void Attach(Guid connectionId, EntityWatchKey key) =>

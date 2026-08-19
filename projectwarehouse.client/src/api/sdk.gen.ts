@@ -215,9 +215,9 @@ import type {
   RealtimeAcquireLockData,
   RealtimeAcquireLockErrors,
   RealtimeAcquireLockResponses,
-  RealtimeHeartbeatLockData,
-  RealtimeHeartbeatLockErrors,
-  RealtimeHeartbeatLockResponses,
+  RealtimeHeartbeatData,
+  RealtimeHeartbeatErrors,
+  RealtimeHeartbeatResponses,
   RealtimeReleaseLockData,
   RealtimeReleaseLockErrors,
   RealtimeReleaseLockResponses,
@@ -1444,6 +1444,26 @@ export const realtimeUnwatch = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Keeps the connection alive. Writing to the stream proves nothing — a proxy between the browser and
+ * Kestrel keeps accepting bytes for a tab that is long gone — so the client has to say so itself.
+ */
+export const realtimeHeartbeat = <ThrowOnError extends boolean = false>(
+  options: Options<RealtimeHeartbeatData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    RealtimeHeartbeatResponses,
+    RealtimeHeartbeatErrors,
+    ThrowOnError
+  >({
+    url: "/api/realtime/heartbeat",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
  * Claims the object for editing. The lock is advisory: it warns other users and blocks no write,
  * which is why `PUT` of the object never consults it.
  */
@@ -1456,25 +1476,6 @@ export const realtimeAcquireLock = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/api/realtime/locks/acquire",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-
-/**
- * Extends the lock. Missing it means it expired or moved to another connection.
- */
-export const realtimeHeartbeatLock = <ThrowOnError extends boolean = false>(
-  options: Options<RealtimeHeartbeatLockData, ThrowOnError>,
-) =>
-  (options.client ?? client).post<
-    RealtimeHeartbeatLockResponses,
-    RealtimeHeartbeatLockErrors,
-    ThrowOnError
-  >({
-    url: "/api/realtime/locks/heartbeat",
     ...options,
     headers: {
       "Content-Type": "application/json",

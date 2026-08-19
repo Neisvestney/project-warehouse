@@ -485,14 +485,13 @@ export type DiskSpaceDto = {
 };
 
 /**
- * What the client needs to render "being edited by …" and to schedule its next heartbeat.
+ * What the client needs to render "being edited by …".
  */
 export type EditLockDto = {
   entityType: AppEntityType;
   entityId: string;
   userId: string;
   userName: string;
-  expiresAt: string;
 };
 
 export type EntityPresenceDto = {
@@ -1292,7 +1291,6 @@ export type RealtimeEventPayloadEditLockAcquiredPayload = {
   entityId: string;
   userId: string;
   userName: string;
-  expiresAt: string;
 };
 
 /**
@@ -1393,6 +1391,21 @@ export type RealtimeEventType =
   | "editLockAcquired"
   | "editLockReleased"
   | "entityPresenceChanged";
+
+/**
+ * One heartbeat for the whole connection: everything it holds lives and dies with it.
+ */
+export type RealtimeHeartbeatRequest = {
+  connectionId: string;
+};
+
+export type RealtimeHeartbeatResponse = {
+  /**
+   * The locks still held. A client compares it against what it thinks it owns — a lock taken over by
+   * another tab of the same user simply stops being listed, and no event announces that.
+   */
+  locks: Array<EditLockDto>;
+};
 
 /**
  * Locks stay one object per call — they are taken by a form, not by a screen.
@@ -4785,6 +4798,40 @@ export type RealtimeUnwatchResponses = {
 
 export type RealtimeUnwatchResponse = RealtimeUnwatchResponses[keyof RealtimeUnwatchResponses];
 
+export type RealtimeHeartbeatData = {
+  body: RealtimeHeartbeatRequest;
+  path?: never;
+  query?: never;
+  url: "/api/realtime/heartbeat";
+};
+
+export type RealtimeHeartbeatErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type RealtimeHeartbeatError = RealtimeHeartbeatErrors[keyof RealtimeHeartbeatErrors];
+
+export type RealtimeHeartbeatResponses = {
+  /**
+   * OK
+   */
+  200: RealtimeHeartbeatResponse;
+};
+
+export type RealtimeHeartbeatResponse2 =
+  RealtimeHeartbeatResponses[keyof RealtimeHeartbeatResponses];
+
 export type RealtimeAcquireLockData = {
   body: RealtimeLockRequest;
   path?: never;
@@ -4822,41 +4869,6 @@ export type RealtimeAcquireLockResponses = {
 
 export type RealtimeAcquireLockResponse =
   RealtimeAcquireLockResponses[keyof RealtimeAcquireLockResponses];
-
-export type RealtimeHeartbeatLockData = {
-  body: RealtimeLockRequest;
-  path?: never;
-  query?: never;
-  url: "/api/realtime/locks/heartbeat";
-};
-
-export type RealtimeHeartbeatLockErrors = {
-  /**
-   * Unauthorized
-   */
-  401: AppProblemDetails;
-  /**
-   * Forbidden
-   */
-  403: AppProblemDetails;
-  /**
-   * Conflict
-   */
-  409: AppProblemDetails;
-};
-
-export type RealtimeHeartbeatLockError =
-  RealtimeHeartbeatLockErrors[keyof RealtimeHeartbeatLockErrors];
-
-export type RealtimeHeartbeatLockResponses = {
-  /**
-   * OK
-   */
-  200: EditLockDto;
-};
-
-export type RealtimeHeartbeatLockResponse =
-  RealtimeHeartbeatLockResponses[keyof RealtimeHeartbeatLockResponses];
 
 export type RealtimeReleaseLockData = {
   body: RealtimeLockRequest;

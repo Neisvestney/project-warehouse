@@ -136,6 +136,28 @@ public class RealtimeController(
         return NoContent();
     }
 
+    /// <summary>
+    /// Keeps the connection alive. Writing to the stream proves nothing — a proxy between the browser and
+    /// Kestrel keeps accepting bytes for a tab that is long gone — so the client has to say so itself.
+    /// </summary>
+    [HttpPost("heartbeat")]
+    [Authorize]
+    [ProducesResponseType<RealtimeHeartbeatResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public IActionResult Heartbeat(RealtimeHeartbeatRequest request)
+    {
+        var connection = connections.Find(request.ConnectionId);
+        if (connection is null || connection.UserId != GetCurrentUserId())
+            return UnknownConnection();
+
+        connection.Touch();
+
+        return Ok(new RealtimeHeartbeatResponse
+        {
+            Locks = locks.ByConnection(connection.Id).Select(EditLockDto.From).ToList(),
+        });
+    }
+
     // ── Edit locks ────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -166,7 +188,6 @@ public class RealtimeController(
                 {
                     ["userId"] = held.UserId,
                     ["userName"] = held.UserName,
-                    ["expiresAt"] = held.ExpiresAt,
                 }));
 
         // Same race as in Watch: the stream may have dropped while the access check ran.
@@ -180,23 +201,6 @@ public class RealtimeController(
 
         await realtime.PublishLockAcquiredAsync(held, ct);
         return Ok(EditLockDto.From(held));
-    }
-
-    /// <summary>Extends the lock. Missing it means it expired or moved to another connection.</summary>
-    [HttpPost("locks/heartbeat")]
-    [Authorize]
-    [ProducesResponseType<EditLockDto>(StatusCodes.Status200OK)]
-    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
-    public IActionResult HeartbeatLock(RealtimeLockRequest request)
-    {
-        var connection = connections.Find(request.ConnectionId);
-        if (connection is null || connection.UserId != GetCurrentUserId())
-            return UnknownConnection();
-
-        var extended = locks.Heartbeat(request.EntityType, request.EntityId, connection.Id);
-        return extended is null
-            ? Conflict(ErrorCode.EditLockNotHeld, "This connection does not hold the lock.")
-            : Ok(EditLockDto.From(extended));
     }
 
     [HttpPost("locks/release")]

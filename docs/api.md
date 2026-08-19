@@ -439,8 +439,8 @@ Server-sent events, the transport behind live updates. Design and rationale:
 | GET | `/api/realtime/stream` | Bearer | The event stream, `text/event-stream` |
 | POST | `/api/realtime/watch` | Bearer | Subscribe the connection to one object's events |
 | POST | `/api/realtime/unwatch` | Bearer | Drop the subscription |
+| POST | `/api/realtime/heartbeat` | Bearer | Report the connection alive |
 | POST | `/api/realtime/locks/acquire` | Bearer | Claim the object for editing |
-| POST | `/api/realtime/locks/heartbeat` | Bearer | Extend the claim |
 | POST | `/api/realtime/locks/release` | Bearer | Drop the claim |
 
 **Stream.** One per tab — HTTP/1.1 caps a browser at six connections per origin. The first message is
@@ -457,7 +457,7 @@ discriminated union keyed by its own `type` property, mirroring the envelope's:
 | `marketplaceSyncProgress` | `{ accountId, syncRunId }` |
 | `marketplaceSyncFinished` | `{ accountId, syncRunId, status: MarketplaceSyncStatus }` |
 | `entityChanged` | `{ entityType, entityId, byUserId?, byUserName? }` |
-| `editLockAcquired` | `{ entityType, entityId, userId, userName, expiresAt }` |
+| `editLockAcquired` | `{ entityType, entityId, userId, userName }` |
 | `editLockReleased` | `{ entityType, entityId, userId, userName }` |
 | `entityPresenceChanged` | `{ entityType, entityId, viewers: [{ userId, userName }] }` |
 
@@ -496,18 +496,25 @@ other event it has nothing to refetch from, so it must be the state it announces
 **deduplicated** list changes, so a second tab of the same person is silent, and `watch` seeds the initial list
 in its response — otherwise a page would show nobody until the next person came or went.
 
-**Locks.** Body `{ connectionId, entityType, entityId }` for all three — one object per call, since a lock is
-taken by a form and not by a screen; `acquire` and `heartbeat` answer
-`200 EditLockDto` (`{ entityType, entityId, userId, userName, expiresAt }`), `release` answers `204`. The lock
-is advisory: it warns, disables nothing, and `PUT` of the object never consults it. TTL is 60 seconds,
-heartbeat every 20; a lock is also dropped when its stream breaks, and a background sweep turns expiry into a
+**Heartbeat.** Body `{ connectionId }`, answers `200 { locks: EditLockDto[] }`. Writing to the stream proves
+nothing about the client: a proxy between the browser and Kestrel outlives the tab and keeps accepting bytes, so
+`RequestAborted` never fires and the stream would hang forever with its presence and locks still registered. The
+client reports in every 20 seconds instead, and a background reaper aborts anything silent for 90 — which makes
+the stream run its ordinary teardown. The listed locks are how a page notices its lock was taken over by another
+tab of the same user, which raises no event it would accept.
+
+**Locks.** Body `{ connectionId, entityType, entityId }` for both — one object per call, since a lock is
+taken by a form and not by a screen; `acquire` answers
+`200 EditLockDto` (`{ entityType, entityId, userId, userName }`), `release` answers `204`. The lock
+is advisory: it warns, disables nothing, and `PUT` of the object never consults it. A lock has no expiry of its
+own — it lives exactly as long as the connection that took it, and the stream's teardown releases it as a
 normal `editLockReleased`. Acquiring requires the same right as editing the object
 (`IEntityAccessService.CanEditAsync`) — a lock grants no access of its own. The same user arriving from another
 connection takes the lock over rather than being refused. There is no endpoint for reading lock state: a page
 learns it from its own `acquire` response and from the two lock events.
 
-409 `editLockHeld` — held by another user; `args` carry `{ userId, userName, expiresAt }` (field: `root`).
-409 `editLockNotHeld` — `heartbeat` or `release` for a lock this connection does not hold (field: `root`).
+409 `editLockHeld` — held by another user; `args` carry `{ userId, userName }` (field: `root`).
+409 `editLockNotHeld` — `release` for a lock this connection does not hold (field: `root`).
 422 `realtimeConnectionUnknown` — as above.
 
 ---

@@ -3,7 +3,7 @@ using ProjectWarehouse.Server.Infrastructure.Realtime;
 
 namespace ProjectWarehouse.Server.Models.Realtime;
 
-/// <summary>What the client needs to render "being edited by …" and to schedule its next heartbeat.</summary>
+/// <summary>What the client needs to render "being edited by …".</summary>
 public class EditLockDto
 {
     public required AppEntityType EntityType { get; init; }
@@ -14,14 +14,11 @@ public class EditLockDto
 
     public required string UserName { get; init; }
 
-    public required DateTime ExpiresAt { get; init; }
-
     public static EditLockDto From(EditLock @lock) => new()
     {
         EntityType = @lock.EntityType,
         EntityId = @lock.EntityId,
         UserId = @lock.UserId,
         UserName = @lock.UserName,
-        ExpiresAt = @lock.ExpiresAt,
     };
 }
