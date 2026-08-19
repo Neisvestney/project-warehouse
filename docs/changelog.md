@@ -42,6 +42,14 @@ Infrastructure/
 
 The diff is skipped entirely if `before == after` — no unnecessary rows.
 
+**Every written entry also publishes a realtime `entityChanged`** to the object's watchers, addressed past the
+author so nobody is told their own save made the screen stale. The publication sits here rather than in each
+controller for three reasons: the method already takes `(entityType, entityId)` — the exact key watchers are
+addressed by — it already knows the acting user, and it does not write when the comparison found nothing, so a
+save that changed nothing raises no event either. Entities without a changelog service are not covered; orders
+publish the same event from a `[PublishesEntityChanged]` action filter instead. See
+[realtime-specification.md](realtime-specification.md).
+
 ## Domain Model
 
 ```csharp

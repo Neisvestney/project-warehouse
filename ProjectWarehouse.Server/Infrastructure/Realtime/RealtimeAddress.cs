@@ -1,4 +1,4 @@
-using ProjectWarehouse.Server.Domain;
+﻿using ProjectWarehouse.Server.Domain;
 
 namespace ProjectWarehouse.Server.Infrastructure.Realtime;
 
@@ -15,12 +15,14 @@ public enum RealtimeAddressKind
 /// </summary>
 public readonly record struct RealtimeAddress
 {
-    private RealtimeAddress(RealtimeAddressKind kind, Guid userId, AppEntityType entityType, Guid entityId)
+    private RealtimeAddress(RealtimeAddressKind kind, Guid userId, AppEntityType entityType, Guid entityId,
+        Guid? exceptUserId = null)
     {
         Kind = kind;
         UserId = userId;
         EntityType = entityType;
         EntityId = entityId;
+        ExceptUserId = exceptUserId;
     }
 
     public RealtimeAddressKind Kind { get; }
@@ -31,11 +33,14 @@ public readonly record struct RealtimeAddress
 
     public Guid EntityId { get; }
 
+    /// <summary>Connections of this user are skipped — an author is not told about their own change.</summary>
+    public Guid? ExceptUserId { get; }
+
     public static RealtimeAddress ToUser(Guid userId) =>
         new(RealtimeAddressKind.User, userId, AppEntityType.Unknown, Guid.Empty);
 
-    public static RealtimeAddress ToWatchers(AppEntityType entityType, Guid entityId) =>
-        new(RealtimeAddressKind.Watchers, Guid.Empty, entityType, entityId);
+    public static RealtimeAddress ToWatchers(AppEntityType entityType, Guid entityId, Guid? exceptUserId = null) =>
+        new(RealtimeAddressKind.Watchers, Guid.Empty, entityType, entityId, exceptUserId);
 
     public static RealtimeAddress ToAll() =>
         new(RealtimeAddressKind.All, Guid.Empty, AppEntityType.Unknown, Guid.Empty);

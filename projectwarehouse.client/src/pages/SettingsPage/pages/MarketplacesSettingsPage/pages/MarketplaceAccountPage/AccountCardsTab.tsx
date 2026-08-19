@@ -107,7 +107,7 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
     path: {id: accountId},
     query: fetchParams,
   });
-  const {data, isLoading, isFetching} = useQuery(listQueryOptions);
+  const {data, isLoading, isFetching, dataUpdatedAt} = useQuery(listQueryOptions);
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({queryKey: listQueryOptions.queryKey});
@@ -264,6 +264,7 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
         card={editingCard}
         onClose={() => setEditingCard(null)}
         onSaved={invalidate}
+        dataUpdatedAt={dataUpdatedAt}
       />
     </Stack>
   );

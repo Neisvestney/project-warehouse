@@ -1,4 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Features;
@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.Realtime;
+using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Realtime;
 using ProjectWarehouse.Server.Services;
 
@@ -14,7 +15,9 @@ namespace ProjectWarehouse.Server.Controllers;
 [Route("api/realtime")]
 public class RealtimeController(
     RealtimeConnectionManager connections,
-    EntityWatchRegistry watchRegistry,
+    EntityPresenceService presence,
+    EditLockStore locks,
+    IRealtimeNotifier realtime,
     IEntityAccessService entityAccess,
     IOptions<JsonOptions> jsonOptions) : AppControllerBase
 {
@@ -40,7 +43,7 @@ public class RealtimeController(
         // Without this Kestrel buffers the response and events arrive in batches.
         HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
 
-        var connection = connections.Register(userId.Value, User.Identity?.Name ?? string.Empty);
+        var connection = connections.Register(userId.Value, User.GetDisplayName());
 
         using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(ct, connection.Aborted);
 
@@ -63,50 +66,154 @@ public class RealtimeController(
         }
         finally
         {
+            // Released before the registry is cleared so the events still reach this object's watchers.
+            foreach (var released in locks.ReleaseByConnection(connection.Id))
+                await realtime.PublishLockReleasedAsync(released, CancellationToken.None);
+
             connections.Remove(connection.Id);
-            watchRegistry.RemoveConnection(connection.Id);
+            await presence.RemoveConnectionAsync(connection.Id, connection.UserId, CancellationToken.None);
         }
 
         return new EmptyResult();
     }
 
-    /// <summary>Subscribes the connection to one object's events. The right to view it is checked here, once.</summary>
+    /// <summary>
+    /// Subscribes the connection to a batch of objects. The right to view each is checked here, once;
+    /// the ones that pass come back in the response, the rest are simply absent.
+    /// </summary>
     [HttpPost("watch")]
     [Authorize]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<RealtimeWatchResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Watch(RealtimeWatchRequest request, CancellationToken ct)
     {
         var connection = connections.Find(request.ConnectionId);
         if (connection is null || connection.UserId != GetCurrentUserId())
             return UnknownConnection();
 
-        if (!await entityAccess.CanViewAsync(request.EntityType, request.EntityId, User, ct))
-            return Forbidden();
+        var watched = new List<RealtimeEntityRef>();
+        foreach (var entity in request.Entities.DistinctBy(e => (e.EntityType, e.EntityId)))
+        {
+            if (!await entityAccess.CanViewAsync(entity.EntityType, entity.EntityId, User, ct)) continue;
 
-        watchRegistry.Watch(connection.Id, request.EntityType, request.EntityId);
+            await presence.WatchAsync(connection.Id, entity.EntityType, entity.EntityId, ct);
+            watched.Add(entity);
+        }
 
-        // The stream may have dropped while the access check ran, after its own cleanup already passed —
-        // without this the subscription would sit in the registry forever with nobody to remove it.
+        // The stream may have dropped while the access checks ran, after its own cleanup already passed —
+        // without this the subscriptions would sit in the registry forever with nobody to remove them.
         if (connections.Find(request.ConnectionId) is null)
         {
-            watchRegistry.RemoveConnection(connection.Id);
+            await presence.RemoveConnectionAsync(connection.Id, connection.UserId, ct);
             return UnknownConnection();
         }
 
-        return NoContent();
+        return Ok(new RealtimeWatchResponse
+        {
+            Watched = watched,
+            Presence = watched.Select(e => new EntityPresenceDto
+            {
+                EntityType = e.EntityType,
+                EntityId = e.EntityId,
+                Viewers = presence.GetViewers(e.EntityType, e.EntityId),
+            }).ToList(),
+        });
     }
 
     /// <summary>No permission check: dropping a subscription is always allowed.</summary>
     [HttpPost("unwatch")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    public IActionResult Unwatch(RealtimeWatchRequest request)
+    public async Task<IActionResult> Unwatch(RealtimeWatchRequest request, CancellationToken ct)
     {
         var connection = connections.Find(request.ConnectionId);
         if (connection is not null && connection.UserId != GetCurrentUserId())
             return UnknownConnection();
 
-        watchRegistry.Unwatch(request.ConnectionId, request.EntityType, request.EntityId);
+        foreach (var entity in request.Entities)
+            await presence.UnwatchAsync(request.ConnectionId, entity.EntityType, entity.EntityId, ct);
+
+        return NoContent();
+    }
+
+    // ── Edit locks ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Claims the object for editing. The lock is advisory: it warns other users and blocks no write,
+    /// which is why <c>PUT</c> of the object never consults it.
+    /// </summary>
+    [HttpPost("locks/acquire")]
+    [Authorize]
+    [ProducesResponseType<EditLockDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> AcquireLock(RealtimeLockRequest request, CancellationToken ct)
+    {
+        var connection = connections.Find(request.ConnectionId);
+        if (connection is null || connection.UserId != GetCurrentUserId())
+            return UnknownConnection();
+
+        // The same right that editing the object needs — a lock grants no access of its own.
+        if (!await entityAccess.CanEditAsync(request.EntityType, request.EntityId, User, ct))
+            return Forbidden();
+
+        var (held, acquired) = locks.Acquire(request.EntityType, request.EntityId, connection.UserId,
+            connection.UserName, connection.Id);
+
+        if (!acquired)
+            return Problem(AppProblems.Root(StatusCodes.Status409Conflict, ErrorCode.EditLockHeld,
+                "The object is being edited by another user.", new Dictionary<string, object>
+                {
+                    ["userId"] = held.UserId,
+                    ["userName"] = held.UserName,
+                    ["expiresAt"] = held.ExpiresAt,
+                }));
+
+        // Same race as in Watch: the stream may have dropped while the access check ran.
+        if (connections.Find(request.ConnectionId) is null)
+        {
+            foreach (var orphaned in locks.ReleaseByConnection(connection.Id))
+                await realtime.PublishLockReleasedAsync(orphaned, ct);
+
+            return UnknownConnection();
+        }
+
+        await realtime.PublishLockAcquiredAsync(held, ct);
+        return Ok(EditLockDto.From(held));
+    }
+
+    /// <summary>Extends the lock. Missing it means it expired or moved to another connection.</summary>
+    [HttpPost("locks/heartbeat")]
+    [Authorize]
+    [ProducesResponseType<EditLockDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
+    public IActionResult HeartbeatLock(RealtimeLockRequest request)
+    {
+        var connection = connections.Find(request.ConnectionId);
+        if (connection is null || connection.UserId != GetCurrentUserId())
+            return UnknownConnection();
+
+        var extended = locks.Heartbeat(request.EntityType, request.EntityId, connection.Id);
+        return extended is null
+            ? Conflict(ErrorCode.EditLockNotHeld, "This connection does not hold the lock.")
+            : Ok(EditLockDto.From(extended));
+    }
+
+    [HttpPost("locks/release")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ReleaseLock(RealtimeLockRequest request, CancellationToken ct)
+    {
+        var connection = connections.Find(request.ConnectionId);
+        if (connection is null || connection.UserId != GetCurrentUserId())
+            return UnknownConnection();
+
+        var released = locks.Release(request.EntityType, request.EntityId, connection.Id);
+        if (released is null)
+            return Conflict(ErrorCode.EditLockNotHeld, "This connection does not hold the lock.");
+
+        await realtime.PublishLockReleasedAsync(released, ct);
         return NoContent();
     }
 

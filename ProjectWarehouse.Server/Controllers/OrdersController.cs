@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using AutoMapper;
 using ValidationException = ProjectWarehouse.Server.Infrastructure.ValidationException;
 using AutoMapper.QueryableExtensions;
@@ -9,6 +9,7 @@ using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.Access;
+using ProjectWarehouse.Server.Infrastructure.Realtime;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Orders;
@@ -17,6 +18,8 @@ using ProjectWarehouse.Server.Services;
 namespace ProjectWarehouse.Server.Controllers;
 
 [Route("api/orders")]
+// Orders have no changelog service, so staleness events come from the filter instead of one.
+[PublishesEntityChanged(AppEntityType.Order)]
 public class OrdersController(
     ApplicationDbContext db,
     IMapper mapper,
@@ -24,6 +27,7 @@ public class OrdersController(
     IMarketplaceLabelService labels,
     EntityAccessRegistry access,
     AccessScope scope,
+    IRealtimeNotifier realtime,
     ICatalogService catalog) : AppControllerBase
 {
     private EntityAccessRule<Order> Rule => access.For<Order>();
@@ -557,6 +561,10 @@ public class OrdersController(
                 Fail(orderId, ex.ErrorCode, ex.Message, order.Number);
             }
         }
+
+        // The route carries no id, so the filter cannot see which orders this touched.
+        foreach (var orderId in assignedOrderIds)
+            await realtime.PublishEntityChangedAsync(AppEntityType.Order, orderId, User, ct);
 
         return Ok(new BatchSelfAssignResponse
         {
@@ -1107,6 +1115,7 @@ public class OrdersController(
 
         var completedTaskIds = new List<string>();
         var failedItems      = new List<BatchFulfillFailedItem>();
+        var changedOrderIds  = new HashSet<Guid>();
 
         void Fail(BatchFulfillItemRequest item, ErrorCode code, string message,
             IReadOnlyDictionary<string, object>? args = null, string catalogItemName = "") =>
@@ -1167,6 +1176,7 @@ public class OrdersController(
 
                     await orders.AddFulfillmentAsync(component, item.Fulfillment, GetCurrentUserId(), ct);
                     attemptedTaskIds.Add(item.TaskId);
+                    changedOrderIds.Add(order.Id);
                 }
                 catch (ValidationException ex)
                 {
@@ -1226,6 +1236,9 @@ public class OrdersController(
                 }
             }
         }
+
+        foreach (var orderId in changedOrderIds)
+            await realtime.PublishEntityChangedAsync(AppEntityType.Order, orderId, User, ct);
 
         return Ok(new BatchFulfillResponse
         {

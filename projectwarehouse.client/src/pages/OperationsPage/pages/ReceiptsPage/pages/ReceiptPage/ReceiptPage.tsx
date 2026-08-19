@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useCallback, useState} from "react";
 import {Link as RouterLink, useNavigate, useParams} from "react-router";
 import {
   Alert,
@@ -29,6 +29,10 @@ import {useHasPermission} from "@/hooks/usePermission";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import {byOperation} from "@/utils/queryKeys";
+import EditLockBanner from "@/components/EditLockBanner";
+import StaleDataBanner from "@/components/StaleDataBanner";
+import {useEditLock} from "@/hooks/useEditLock";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
@@ -165,6 +169,7 @@ function ReceiptPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingItems, setIsEditingItems] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [startProcessingOpen, setStartProcessingOpen] = useState(false);
@@ -179,6 +184,7 @@ function ReceiptPage() {
     isError,
     isRefetchError,
     error,
+    dataUpdatedAt,
   } = useQuery({
     ...receiptsGetByIdOptions({path: {id: id!}}),
     gcTime: 0,
@@ -188,6 +194,23 @@ function ReceiptPage() {
   const updateLocalReceipt = (updated: ReceiptDto) => {
     queryClient.setQueryData(queryKey, updated);
   };
+
+  // Mutations write the DTO straight back, so refreshing has to invalidate rather than reuse that path.
+  const refreshReceipt = useCallback(() => {
+    void queryClient.invalidateQueries({
+      queryKey: byOperation("receiptsGetById", {path: {id: id!}}),
+    });
+  }, [queryClient, id]);
+
+  // Editing the items counts too — that editor is a longer sitting than the info form it sits under.
+  const isEditingAnything = isEditing || isEditingItems;
+
+  const lock = useEditLock("receipt", id, {
+    isDirty: isEditingAnything,
+    dataUpdatedAt,
+    onRefresh: refreshReceipt,
+    enabled: isEditingAnything && canEdit,
+  });
 
   const planMutation = useMutation({
     ...receiptsPlanMutation(),
@@ -254,6 +277,14 @@ function ReceiptPage() {
 
   return (
     <Stack spacing={2}>
+      <EditLockBanner heldBy={lock.heldBy} />
+      <StaleDataBanner
+        isStale={!lock.heldBy && lock.isStale}
+        staleBy={lock.staleBy}
+        onRefresh={lock.refresh}
+        onDismiss={lock.dismissStale}
+      />
+
       <AppBreadcrumbs
         path={[
           {name: "Приемки", link: "/operations/receipts"},
@@ -261,6 +292,7 @@ function ReceiptPage() {
         ]}
       />
       <PageGenericHeader
+        viewersOf={{entityType: "receipt", entityId: id}}
         title={
           <Stack direction="row" spacing={1.5} sx={{alignItems: "center"}}>
             <Typography variant="h5" component="span">
@@ -450,7 +482,11 @@ function ReceiptPage() {
 
       <Paper>
         <Box sx={{p: 3}}>
-          <ReceiptItemsSection receipt={receipt} onUpdate={updateLocalReceipt} />
+          <ReceiptItemsSection
+            receipt={receipt}
+            onUpdate={updateLocalReceipt}
+            onEditingChange={setIsEditingItems}
+          />
         </Box>
       </Paper>
 

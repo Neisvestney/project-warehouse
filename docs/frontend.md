@@ -144,6 +144,9 @@ src/
 │   ├── AccessDenied.tsx         # 403 access denied placeholder
 │   ├── NotFound.tsx             # 404 not found placeholder
 │   ├── QueryError.tsx           # Generic query error placeholder (5xx, network)
+│   ├── EditLockBanner.tsx       # "N is editing this object" — a warning, blocks nothing
+│   ├── EntityViewers.tsx        # Avatars of everyone else looking at the object right now
+│   ├── StaleDataBanner.tsx      # "Data may be out of date" + Обновить
 │   └── QueryErrorHandler.tsx    # TanStack Query global error boundary
 │
 ├── configuration/
@@ -157,7 +160,7 @@ src/
 │   │   ├── ModalContext.ts      # Context: open/close modals imperatively
 │   │   └── ModalProvider.tsx    # Renders active modals, wires modalService
 │   ├── Realtime/
-│   │   ├── RealtimeContext.ts       # Context: connectionId, isConnected, subscribe, watch, isWatching
+│   │   ├── RealtimeContext.ts       # Context: connectionId, isConnected, subscribe, watch, isWatching, presence
 │   │   └── RealtimeProvider.tsx     # The single SSE stream: own reconnect loop, event dispatch, watch registry
 │   ├── SearchParams/
 │   │   ├── SearchParamsContext.ts   # Context + useSearchParamsContext hook
@@ -188,7 +191,10 @@ src/
 │   ├── useDrawerSearchParamsState.ts         # Drawer/dialog open state via URL param; supports back-button close
 │   ├── useRealtime.ts                        # RealtimeContext consumer
 │   ├── useRealtimeEvent.ts                   # Subscribe to one realtime event type, payload narrowed by envelope type
-│   └── useEntityWatch.ts                     # useEntityWatch / useEntityWatchMany — watch objects for the component's lifetime
+│   ├── useEntityWatch.ts                     # useEntityWatch / useEntityWatchMany — watch objects for the component's lifetime
+│   ├── useEntityPresence.ts                  # Who else is looking at the object right now
+│   ├── useStaleData.ts                       # "Data may be out of date" flag from entityChanged / editLockReleased
+│   └── useEditLock.ts                        # Advisory edit lock: acquire, heartbeat, release + useStaleData
 │
 ├── pages/
 │   ├── HomePage/
@@ -1579,9 +1585,14 @@ on read-only pages — an object's events reach only the connections that asked 
 takes several ids at once (`SyncOrdersDialog` watches every picked account).
 
 Subscriptions are ref-counted in the provider, so a page and a dialog watching the same object don't cancel
-each other out. Failures are silent by design: `403` means no view permission and `422` means the connection
-already died — in both cases the polling fallback keeps the screen alive, and a fresh connection re-sends the
-watch.
+each other out. Failures are silent by design: an entity missing from the response means no view permission
+and `422` means the connection already died — in both cases the polling fallback keeps the screen alive, and a
+fresh connection re-sends the watch.
+
+**One request per render, not per object.** The provider collects every `watch`/`unwatch` registered during a
+render into a microtask and sends one batched call — the assembly screen registers a watch per visible order,
+and a request each would blow through the six-per-origin cap on its own. An entry registered and dropped
+within the same batch is skipped rather than raced against its own unwatch.
 
 **Subscribed → refetch.** `onWatched` fires after every confirmed `watch`, including re-subscription after a
 reconnect, and the page invalidates its queries there. Without it, anything that changed between the action and
@@ -1592,6 +1603,105 @@ leave `Running` on screen forever.
 pages gate `refetchInterval` on it (`MarketplaceAccountPage`, `AccountSyncRunsTab`, `SyncOrdersDialog`). The
 condition is "no stream **or** no confirmed subscription", not just "stream dropped" — a transport problem must
 never leave the user staring at a frozen screen.
+
+### `useEntityPresence(entityType, entityId)`
+
+Returns everyone **else** currently looking at the object — the provider keeps the list per watched key,
+seeded from the `watch` response and replaced by each `entityPresenceChanged`. The hook only reads it: the page
+must already be subscribed through `useEntityWatch` or `useEditLock`, and presence disappears together with the
+subscription.
+
+`EntityViewers` renders it as an `AvatarGroup` with a tooltip per person. `PageGenericHeader` takes it as
+`viewersOf={{entityType, entityId}}` and puts it next to the title, so a page adds presence in one line; the
+catalog drawer and the card-mapping dialog place the component by hand.
+
+Where it shows: order, receipt, writeoff, stocktake, warehouse, employee and roles pages, both the edit and the
+view variants, plus the card-mapping dialog. In the catalog drawer only in edit mode. Screens that watch many
+objects at once — assembly, storage nodes, the sync dialog — deliberately show nothing: a row of avatars per
+table row is noise, not information.
+
+Names come from the stream connection, which reads them off the token's `given_name`/`family_name` claims —
+the same full name `EditLockBanner` and `StaleDataBanner` show, never the login.
+
+### `useStaleData(entityType, entityId, {isDirty, dataUpdatedAt, onRefresh})`
+
+Warns that the object on screen may have been saved by someone else. Subscribes with `useEntityWatch` and
+listens to two triggers: `entityChanged` (the precise one — the object really was written) and
+`editLockReleased` from another user (the fallback, for edits that produced no changelog entry).
+
+```typescript
+const stale = useStaleData("receipt", id, {
+  isDirty: isEditing,
+  dataUpdatedAt,
+  onRefresh: refreshReceipt,
+});
+```
+
+An untouched form is refreshed silently — `isDirty === false` means there is nothing to lose, and a banner
+there would be noise. A modified one gets `StaleDataBanner`: auto-refreshing it would erase what the user
+typed, which is the very loss the warning is about.
+
+**The flag clears itself.** `isStale` is `dataUpdatedAt < staleAt`, not a boolean the hook has to reset:
+TanStack refetches every active query on focus and `staleTime` is 0 app-wide, so a read that landed after the
+event has already answered the warning. The page passes `dataUpdatedAt` from its own `useQuery` for this.
+
+It exists separately from `useEditLock` because a page can hold an editable form without being allowed to
+lock the object — `CanEdit(Order)` excludes `orders.assemble_assigned`, so an assembler gets no lock and would
+otherwise get no warning either.
+
+### `useEditLock(entityType, entityId, {isDirty, dataUpdatedAt, onRefresh, enabled})`
+
+Claims the object while it is being edited, on top of `useStaleData` (whose whole result it re-exports).
+Acquires on mount, heartbeats every 20 s, releases on unmount and on `beforeunload`, and re-acquires under the
+new `connectionId` after a reconnect — the server dropped the old lock when the stream broke. Returning to a
+backgrounded tab renews immediately: browsers throttle timers there past the 60 s TTL. The unload release goes
+out as a `keepalive` fetch, since a normal one is cancelled and `sendBeacon` cannot carry the bearer header.
+
+```typescript
+const lock = useEditLock("writeoff", id, {
+  isDirty: isEditing,
+  dataUpdatedAt,
+  onRefresh: refreshWriteoff,
+  enabled: isEditing && canEdit,
+});
+```
+
+`enabled` gates only the claim, never the subscription: pages with an explicit edit mode (receipt, writeoff,
+catalog drawer) take the lock when the user starts editing, so simply reading an object does not show everyone
+else a false "being edited by …". The order page has no such mode and locks on mount.
+
+On receipts and writeoffs that means **either** editor — the info form or the items drawer. The sections lift
+their open state through `onEditingChange`, and the page ORs them: the items editor is the longer sitting of
+the two, and leaving it unlocked would have missed the collision it exists to prevent.
+
+Stocktakes do the same for the info form and the scope picker, but **counting is not a locking mode**: cells
+are saved one at a time and several people counting different cells of one stocktake is the normal case, not a
+collision — the same reasoning that keeps the assembly screen lock-free. Counting still watches the stocktake,
+so a scope change by someone else refetches straight away.
+
+Returns `{isOwner, heldBy, isLoading}` alongside the staleness fields. `isOwner === false` with a `heldBy`
+renders `EditLockBanner` — **a warning only**: fields stay enabled, saving is not blocked, and `PUT` does not
+check the lock. `409 editLockHeld` is never surfaced as an error; its `args` become the banner.
+
+### `EditLockBanner` / `StaleDataBanner`
+
+Mutually exclusive, rendered in the same slot at the top of the page: the lock banner while someone else holds
+the object, the staleness banner ("… сохранил изменения. Данные могли устареть" plus «Обновить») once it is
+released. Wired on the order, receipt, writeoff pages and in the catalog item drawer.
+
+Wired with a lock: order, receipt, writeoff, stocktake, warehouse edit and user edit pages, the roles screen,
+the catalog item drawer and the card mapping dialog. Watch-only, no lock: `/operations/assembly`, stocktake
+counting, and the storage place drawer — parallel work there is normal, or the edits save immediately and
+there is no unsaved state to guard.
+
+**Read-only pages take `useStaleData` too** (warehouse and user view). With no form, `isDirty` is always false,
+so the hook refetches silently and no banner ever appears — but without it a page left open shows someone
+else's edit only after the tab loses and regains focus, which may be never.
+
+Two pages need a note. The **warehouse editor** passes `isDirty: true` unconditionally — the canvas holds
+unsaved layout from the moment it opens — and its `onRefresh` also resets the "loaded once" flag, since
+invalidating the query alone would never reach the mobx store. The **roles screen** has no per-object id at
+all: roles are versioned as one object, so it subscribes under the all-zero guid the changelog uses.
 
 ### Invalidating by operation
 

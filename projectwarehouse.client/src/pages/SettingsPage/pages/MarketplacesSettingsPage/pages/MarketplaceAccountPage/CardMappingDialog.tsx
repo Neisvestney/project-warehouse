@@ -1,4 +1,4 @@
-import {useEffect, useState} from "react";
+import {useCallback, useEffect, useState} from "react";
 import {
   Alert,
   Button,
@@ -13,7 +13,11 @@ import {
 import {useMutation} from "@tanstack/react-query";
 import {marketplacesSetCardMappingMutation} from "@/api/@tanstack/react-query.gen";
 import {extractErrorMessage} from "@/utils/errorUtils";
+import {useEditLock} from "@/hooks/useEditLock";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
+import EditLockBanner from "@/components/EditLockBanner";
+import EntityViewers from "@/components/EntityViewers";
+import StaleDataBanner from "@/components/StaleDataBanner";
 import CardImage from "../../components/CardImage";
 import type {CatalogItemType, MarketplaceCardDto} from "@/api/types.gen";
 
@@ -24,9 +28,11 @@ interface CardMappingDialogProps {
   card: MarketplaceCardDto | null;
   onClose: () => void;
   onSaved: () => Promise<void> | void;
+  /** `dataUpdatedAt` of the card list this dialog was opened from. */
+  dataUpdatedAt: number;
 }
 
-function CardMappingDialog({card, onClose, onSaved}: CardMappingDialogProps) {
+function CardMappingDialog({card, onClose, onSaved, dataUpdatedAt}: CardMappingDialogProps) {
   const [catalogItemId, setCatalogItemId] = useState<string | null>(null);
 
   // Сброс на текущую привязку при смене карточки — правка состояния в рендере, а не эффектом
@@ -55,6 +61,17 @@ function CardMappingDialog({card, onClose, onSaved}: CardMappingDialogProps) {
     mutation.mutate({path: {id: card.id}, body: {catalogItemId: value}});
   };
 
+  const refreshCard = useCallback(() => void onSaved(), [onSaved]);
+
+  // The dialog being open is the edit mode; a picked-but-unsaved mapping is what must not be
+  // overwritten silently.
+  const lock = useEditLock("marketplaceCard", card?.id, {
+    isDirty: !!card && catalogItemId !== (card.catalogItemId ?? null),
+    dataUpdatedAt,
+    onRefresh: refreshCard,
+    enabled: !!card,
+  });
+
   return (
     <Dialog
       open={!!card}
@@ -62,9 +79,22 @@ function CardMappingDialog({card, onClose, onSaved}: CardMappingDialogProps) {
       maxWidth="sm"
       fullWidth
     >
-      <DialogTitle>Привязка карточки</DialogTitle>
+      <DialogTitle>
+        <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+          <span>Привязка карточки</span>
+          <EntityViewers entityType="marketplaceCard" entityId={card?.id} />
+        </Stack>
+      </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{pt: 1}}>
+          <EditLockBanner heldBy={lock.heldBy} />
+          <StaleDataBanner
+            isStale={!lock.heldBy && lock.isStale}
+            staleBy={lock.staleBy}
+            onRefresh={lock.refresh}
+            onDismiss={lock.dismissStale}
+          />
+
           {card && (
             <Stack direction="row" spacing={2} sx={{alignItems: "center"}}>
               <CardImage src={card.primaryImageUrl} name={card.name} size={72} />

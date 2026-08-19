@@ -1,10 +1,11 @@
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text.Json;
 using KellermanSoftware.CompareNetObjects;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using ProjectWarehouse.Server.Domain;
+using ProjectWarehouse.Server.Infrastructure.Realtime;
 using ProjectWarehouse.Server.Models;
 
 namespace ProjectWarehouse.Server.Infrastructure.ChangeLog;
@@ -12,11 +13,14 @@ namespace ProjectWarehouse.Server.Infrastructure.ChangeLog;
 public abstract class AbstractChangeLogService : IChangeLogService
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IRealtimeNotifier _realtime;
     private readonly JsonSerializerOptions _jsonOptions;
 
-    public AbstractChangeLogService(IHttpContextAccessor httpContextAccessor, IOptions<JsonOptions> jsonOptions)
+    public AbstractChangeLogService(IHttpContextAccessor httpContextAccessor, IRealtimeNotifier realtime,
+        IOptions<JsonOptions> jsonOptions)
     {
         _httpContextAccessor = httpContextAccessor;
+        _realtime = realtime;
         _jsonOptions = jsonOptions.Value.JsonSerializerOptions;
     }
 
@@ -53,7 +57,7 @@ public abstract class AbstractChangeLogService : IChangeLogService
             : null;
     }
 
-    public Task CompareAndSaveToChangelog(AppEntityType entityType, Guid entityId, object? before, object? after, CompareLogic? logicOverride = null, string? action = null, object? actionData = null)
+    public async Task CompareAndSaveToChangelog(AppEntityType entityType, Guid entityId, object? before, object? after, CompareLogic? logicOverride = null, string? action = null, object? actionData = null)
     {
         var changeLogEntry = new ChangeLogEntry
         {
@@ -84,7 +88,7 @@ public abstract class AbstractChangeLogService : IChangeLogService
             var logic = logicOverride ?? GetCompareLogic();
             var diff = logic.Compare(before, after);
 
-            if (diff.AreEqual) return Task.CompletedTask;
+            if (diff.AreEqual) return;
 
             changeLogEntry.ChangeLogEntryType = ChangeLogEntryType.Modified;
             changeLogEntry.Snapshot = JsonSerializer.Serialize(before, _jsonOptions);
@@ -99,7 +103,11 @@ public abstract class AbstractChangeLogService : IChangeLogService
                 }).Reverse().ToList();
         }
 
-        return AddNewEntry(changeLogEntry);
+        await AddNewEntry(changeLogEntry);
+
+        // Watchers of the object are told only after the write went through, and never the author.
+        await _realtime.PublishEntityChangedAsync(entityType, entityId, changeLogEntry.UserId,
+            _httpContextAccessor.HttpContext?.User.GetDisplayName());
     }
 
     public IQueryable<ChangeLogEntry> GetChangelog(AppEntityType entityType, Guid entityId)

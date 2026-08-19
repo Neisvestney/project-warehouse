@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useCallback, useState} from "react";
 import {Link, useParams} from "react-router";
 import {
   Box,
@@ -12,6 +12,8 @@ import {
   Typography,
 } from "@mui/material";
 import {useQuery, useQueryClient} from "@tanstack/react-query";
+import {byOperation} from "@/utils/queryKeys";
+import {useStaleData} from "@/hooks/useStaleData";
 import {
   warehousesGetByIdForPrintOptions,
   warehousesGetByIdOptions,
@@ -72,10 +74,20 @@ function WarehouseViewPage() {
     isError,
     isRefetchError,
     error,
+    dataUpdatedAt,
   } = useQuery({
     ...warehousesGetByIdOptions({path: {id: id!}}),
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
   });
+
+  // Read-only, so there is nothing to lose: the warning never becomes a banner, the data just reloads.
+  const refreshWarehouse = useCallback(() => {
+    void queryClient.invalidateQueries({
+      queryKey: byOperation("warehousesGetById", {path: {id: id!}}),
+    });
+  }, [queryClient, id]);
+
+  useStaleData("warehouse", id, {dataUpdatedAt, onRefresh: refreshWarehouse});
 
   const defaultNodeId = warehouse?.defaultStoragePlaceNodeId;
 
@@ -113,6 +125,7 @@ function WarehouseViewPage() {
         ]}
       />
       <PageGenericHeader
+        viewersOf={{entityType: "warehouse", entityId: id}}
         title={warehouse.name}
         right={
           <>

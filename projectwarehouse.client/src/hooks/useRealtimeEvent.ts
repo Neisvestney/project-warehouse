@@ -2,6 +2,10 @@ import {useEffect, useLayoutEffect, useRef} from "react";
 import type {
   RealtimeEvent,
   RealtimeEventPayloadConnectionReadyPayload,
+  RealtimeEventPayloadEditLockAcquiredPayload,
+  RealtimeEventPayloadEditLockReleasedPayload,
+  RealtimeEventPayloadEntityChangedPayload,
+  RealtimeEventPayloadEntityPresenceChangedPayload,
   RealtimeEventPayloadMarketplaceSyncFinishedPayload,
   RealtimeEventPayloadMarketplaceSyncProgressPayload,
   RealtimeEventType,
@@ -16,7 +20,15 @@ export type RealtimeEventPayloadFor<T extends RealtimeEventType> = T extends "co
     ? RealtimeEventPayloadMarketplaceSyncProgressPayload
     : T extends "marketplaceSyncFinished"
       ? RealtimeEventPayloadMarketplaceSyncFinishedPayload
-      : never;
+      : T extends "entityChanged"
+        ? RealtimeEventPayloadEntityChangedPayload
+        : T extends "editLockAcquired"
+          ? RealtimeEventPayloadEditLockAcquiredPayload
+          : T extends "editLockReleased"
+            ? RealtimeEventPayloadEditLockReleasedPayload
+            : T extends "entityPresenceChanged"
+              ? RealtimeEventPayloadEntityPresenceChangedPayload
+              : never;
 
 export function useRealtimeEvent<T extends RealtimeEventType>(
   type: T,

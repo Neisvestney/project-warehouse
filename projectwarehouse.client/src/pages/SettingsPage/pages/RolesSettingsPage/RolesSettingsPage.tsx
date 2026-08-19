@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from "react";
+import {useCallback, useEffect, useRef, useState} from "react";
 import {observer} from "mobx-react-lite";
 import {Button, CircularProgress, Stack} from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
@@ -10,13 +10,19 @@ import {
   rolesGetAllQueryKey,
   rolesUpdateAllMutation,
 } from "@/api/@tanstack/react-query.gen";
+import {useEditLock} from "@/hooks/useEditLock";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs.tsx";
+import EditLockBanner from "@/components/EditLockBanner";
+import StaleDataBanner from "@/components/StaleDataBanner";
 import PageGenericHeader from "@/components/PageGenericHeader.tsx";
 import {useHasPermission} from "@/hooks/usePermission";
 import {RolesStore} from "./rolesStore";
 import {RolesStoreProvider} from "./RolesStoreContext.tsx";
 import RolesTable from "./RolesTable.tsx";
 import QueryError from "@/components/QueryError.tsx";
+
+/** The changelog stores roles as a single object keyed by an empty guid. */
+const ROLES_ENTITY_ID = "00000000-0000-0000-0000-000000000000";
 
 export default observer(function RolesSettingsPage() {
   const [store] = useState(() => new RolesStore());
@@ -30,6 +36,7 @@ export default observer(function RolesSettingsPage() {
     error: rolesError,
     isError: rolesIsError,
     isRefetchError: rolesIsRefetchError,
+    dataUpdatedAt: rolesUpdatedAt,
   } = useQuery({
     ...rolesGetAllOptions(),
     gcTime: 0,
@@ -57,6 +64,19 @@ export default observer(function RolesSettingsPage() {
     }
   }, [rolesData, permissionsData, store]);
 
+  const refreshRoles = useCallback(() => {
+    void queryClient.invalidateQueries({queryKey: rolesGetAllQueryKey()});
+  }, [queryClient]);
+
+  // Roles are versioned as one object: the changelog records them under an empty id, and that is the
+  // key both the event and the subscription use.
+  const lock = useEditLock("roles", ROLES_ENTITY_ID, {
+    isDirty: store.isDirty,
+    dataUpdatedAt: rolesUpdatedAt,
+    onRefresh: refreshRoles,
+    enabled: canEdit,
+  });
+
   const {mutate: saveRoles, isPending: isSaving} = useMutation({
     ...rolesUpdateAllMutation(),
     onSuccess: (data) => {
@@ -78,6 +98,7 @@ export default observer(function RolesSettingsPage() {
     <Stack spacing={2}>
       <AppBreadcrumbs path={[{name: "Настройки", link: "/settings"}, {name: "Роли"}]} />
       <PageGenericHeader
+        viewersOf={{entityType: "roles", entityId: ROLES_ENTITY_ID}}
         title="Роли"
         right={
           canEdit ? (
@@ -110,6 +131,14 @@ export default observer(function RolesSettingsPage() {
           ) : undefined
         }
       />
+      <EditLockBanner heldBy={lock.heldBy} />
+      <StaleDataBanner
+        isStale={!lock.heldBy && lock.isStale}
+        staleBy={lock.staleBy}
+        onRefresh={lock.refresh}
+        onDismiss={lock.dismissStale}
+      />
+
       <RolesStoreProvider store={store} canEdit={canEdit}>
         <RolesTable isLoading={isLoading} />
       </RolesStoreProvider>

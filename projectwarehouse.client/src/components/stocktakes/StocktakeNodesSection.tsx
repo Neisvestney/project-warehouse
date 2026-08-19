@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useCallback, useState} from "react";
 import {
   Alert,
   Button,
@@ -26,12 +26,26 @@ import type {StocktakeDto, StocktakeNodeDto} from "@/api/types.gen";
 interface StocktakeNodesSectionProps {
   stocktake: StocktakeDto;
   onUpdated: (updated: StocktakeDto) => void;
+  /** Lifted so the page can hold the edit lock while the scope is being changed. */
+  onEditingChange?: (isEditing: boolean) => void;
 }
 
-function StocktakeNodesSection({stocktake, onUpdated}: StocktakeNodesSectionProps) {
+function StocktakeNodesSection({
+  stocktake,
+  onUpdated,
+  onEditingChange,
+}: StocktakeNodesSectionProps) {
   const {enqueueSnackbar} = useSnackbar();
   const canEdit = useHasPermission(["stocktakes.edit", "stocktakes.edit_assigned"]);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerOpen, setPickerOpenState] = useState(false);
+
+  const setPickerOpen = useCallback(
+    (value: boolean) => {
+      setPickerOpenState(value);
+      onEditingChange?.(value);
+    },
+    [onEditingChange],
+  );
   const [nodeToRemove, setNodeToRemove] = useState<StocktakeNodeDto | null>(null);
 
   const mutation = useMutation({

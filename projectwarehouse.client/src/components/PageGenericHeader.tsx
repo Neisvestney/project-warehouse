@@ -1,26 +1,35 @@
 import React from "react";
 import {Box, css, Stack, styled, Typography} from "@mui/material";
+import type {AppEntityType} from "@/api/types.gen";
+import EntityViewers from "@/components/EntityViewers";
 
 export interface PageGenericHeaderProps {
   title: React.ReactNode;
   children?: React.ReactNode;
   right?: React.ReactNode;
+  /** Shows who else is looking at the object. The page still has to be subscribed to the stream. */
+  viewersOf?: {entityType: AppEntityType; entityId: string | null | undefined};
 }
 
-function PageGenericHeader({title, children, right}: PageGenericHeaderProps) {
+function PageGenericHeader({title, children, right, viewersOf}: PageGenericHeaderProps) {
   return (
     <PageGenericHeaderUi>
-      <Typography
-        variant="h5"
+      <Stack
+        direction="row"
+        spacing={1}
         sx={{
+          alignItems: "center",
           flexBasis: {
             md: 300,
           },
           flexShrink: 1,
         }}
       >
-        {title}
-      </Typography>
+        <Typography variant="h5" sx={{minWidth: 0}}>
+          {title}
+        </Typography>
+        {viewersOf && <EntityViewers {...viewersOf} />}
+      </Stack>
       <Box sx={{flexGrow: 1, flexShrink: 0}}>
         <MiddleContentWrapper>{children ?? <span></span>}</MiddleContentWrapper>
       </Box>

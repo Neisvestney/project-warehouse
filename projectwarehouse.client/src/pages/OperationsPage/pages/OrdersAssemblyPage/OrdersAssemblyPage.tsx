@@ -1,10 +1,13 @@
-import {useMemo, useState} from "react";
+import {useCallback, useEffect, useMemo, useState} from "react";
 import {Alert, Box, Button, CircularProgress, IconButton, Stack, Typography} from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import {useQuery} from "@tanstack/react-query";
+import {useQuery, useQueryClient} from "@tanstack/react-query";
 import {ordersGetAllAssemblyOptions} from "@/api/@tanstack/react-query.gen";
 import type {OrderDetailsDto} from "@/api/types.gen";
 import {useHasPermission} from "@/hooks/usePermission";
+import {useEntityWatchMany} from "@/hooks/useEntityWatch";
+import {useRealtimeEvent} from "@/hooks/useRealtimeEvent";
+import {byOperation} from "@/utils/queryKeys";
 import {CatalogItemDrawerHost} from "@/components/catalog/CatalogItemDrawerHost";
 import AssemblyOrderAccordion from "./AssemblyOrderAccordion";
 import AssemblyOrderInline from "./AssemblyOrderInline";
@@ -36,6 +39,25 @@ function OrdersAssemblyPage() {
   });
 
   const orders = useMemo<OrderDetailsDto[]>(() => ordersQuery.data ?? [], [ordersQuery.data]);
+
+  // No edit lock here on purpose: several assemblers on one order is the normal case, and they need
+  // to see each other's fulfillments instead of a "being edited" banner.
+  const queryClient = useQueryClient();
+  const orderIds = useMemo(() => orders.map((o) => o.id), [orders]);
+  const refreshAssembly = useCallback(() => {
+    void queryClient.invalidateQueries({queryKey: byOperation("ordersGetAllAssembly")});
+  }, [queryClient]);
+
+  // One refetch per completed subscription set, not one per order: the callback form of
+  // useEntityWatchMany fires per id and would invalidate the same key N times on mount.
+  const {isWatching} = useEntityWatchMany("order", orderIds);
+  useEffect(() => {
+    if (isWatching) refreshAssembly();
+  }, [isWatching, refreshAssembly]);
+
+  useRealtimeEvent("entityChanged", (_event, payload) => {
+    if (payload.entityType === "order" && orderIds.includes(payload.entityId)) refreshAssembly();
+  });
 
   const [isManualRefetching, setIsManualRefetching] = useState(false);
   const showLoading = ordersQuery.isLoading || isManualRefetching;

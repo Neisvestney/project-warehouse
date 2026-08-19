@@ -1,4 +1,4 @@
-namespace ProjectWarehouse.Server.Infrastructure;
+﻿namespace ProjectWarehouse.Server.Infrastructure;
 
 // Persisted as ints in jsonb error payloads (MarketplaceSyncRun.Error, MarketplaceAccount.LastSyncError,
 // SkippedOrders): values are pinned, so members may be reordered freely but never renumbered.
@@ -162,4 +162,6 @@ public enum ErrorCode
 
     // Realtime
     RealtimeConnectionUnknown = 130,
+    EditLockHeld = 131,
+    EditLockNotHeld = 132,
 }

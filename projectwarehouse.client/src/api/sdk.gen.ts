@@ -212,6 +212,15 @@ import type {
   PermissionsGetAllData,
   PermissionsGetAllErrors,
   PermissionsGetAllResponses,
+  RealtimeAcquireLockData,
+  RealtimeAcquireLockErrors,
+  RealtimeAcquireLockResponses,
+  RealtimeHeartbeatLockData,
+  RealtimeHeartbeatLockErrors,
+  RealtimeHeartbeatLockResponses,
+  RealtimeReleaseLockData,
+  RealtimeReleaseLockErrors,
+  RealtimeReleaseLockResponses,
   RealtimeStreamData,
   RealtimeStreamErrors,
   RealtimeStreamResponse,
@@ -1404,7 +1413,8 @@ export const realtimeStream = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Subscribes the connection to one object's events. The right to view it is checked here, once.
+ * Subscribes the connection to a batch of objects. The right to view each is checked here, once;
+ * the ones that pass come back in the response, the rest are simply absent.
  */
 export const realtimeWatch = <ThrowOnError extends boolean = false>(
   options: Options<RealtimeWatchData, ThrowOnError>,
@@ -1426,6 +1436,61 @@ export const realtimeUnwatch = <ThrowOnError extends boolean = false>(
 ) =>
   (options.client ?? client).post<RealtimeUnwatchResponses, RealtimeUnwatchErrors, ThrowOnError>({
     url: "/api/realtime/unwatch",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Claims the object for editing. The lock is advisory: it warns other users and blocks no write,
+ * which is why `PUT` of the object never consults it.
+ */
+export const realtimeAcquireLock = <ThrowOnError extends boolean = false>(
+  options: Options<RealtimeAcquireLockData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    RealtimeAcquireLockResponses,
+    RealtimeAcquireLockErrors,
+    ThrowOnError
+  >({
+    url: "/api/realtime/locks/acquire",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Extends the lock. Missing it means it expired or moved to another connection.
+ */
+export const realtimeHeartbeatLock = <ThrowOnError extends boolean = false>(
+  options: Options<RealtimeHeartbeatLockData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    RealtimeHeartbeatLockResponses,
+    RealtimeHeartbeatLockErrors,
+    ThrowOnError
+  >({
+    url: "/api/realtime/locks/heartbeat",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+export const realtimeReleaseLock = <ThrowOnError extends boolean = false>(
+  options: Options<RealtimeReleaseLockData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    RealtimeReleaseLockResponses,
+    RealtimeReleaseLockErrors,
+    ThrowOnError
+  >({
+    url: "/api/realtime/locks/release",
     ...options,
     headers: {
       "Content-Type": "application/json",

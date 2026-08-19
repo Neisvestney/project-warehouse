@@ -78,6 +78,9 @@ import {
   ordersUpdateComponent,
   ordersUpdateTaskBoxComponent,
   permissionsGetAll,
+  realtimeAcquireLock,
+  realtimeHeartbeatLock,
+  realtimeReleaseLock,
   realtimeUnwatch,
   realtimeWatch,
   receiptsAddStandardPlacement,
@@ -353,12 +356,21 @@ import type {
   PermissionsGetAllData,
   PermissionsGetAllError,
   PermissionsGetAllResponse,
+  RealtimeAcquireLockData,
+  RealtimeAcquireLockError,
+  RealtimeAcquireLockResponse,
+  RealtimeHeartbeatLockData,
+  RealtimeHeartbeatLockError,
+  RealtimeHeartbeatLockResponse,
+  RealtimeReleaseLockData,
+  RealtimeReleaseLockError,
+  RealtimeReleaseLockResponse,
   RealtimeUnwatchData,
   RealtimeUnwatchError,
   RealtimeUnwatchResponse,
   RealtimeWatchData,
   RealtimeWatchError,
-  RealtimeWatchResponse,
+  RealtimeWatchResponse2,
   ReceiptsAddStandardPlacementBatchData,
   ReceiptsAddStandardPlacementBatchError,
   ReceiptsAddStandardPlacementBatchResponse,
@@ -2769,13 +2781,14 @@ export const permissionsGetAllOptions = (options?: Options<PermissionsGetAllData
   });
 
 /**
- * Subscribes the connection to one object's events. The right to view it is checked here, once.
+ * Subscribes the connection to a batch of objects. The right to view each is checked here, once;
+ * the ones that pass come back in the response, the rest are simply absent.
  */
 export const realtimeWatchMutation = (
   options?: Partial<Options<RealtimeWatchData>>,
-): UseMutationOptions<RealtimeWatchResponse, RealtimeWatchError, Options<RealtimeWatchData>> => {
+): UseMutationOptions<RealtimeWatchResponse2, RealtimeWatchError, Options<RealtimeWatchData>> => {
   const mutationOptions: UseMutationOptions<
-    RealtimeWatchResponse,
+    RealtimeWatchResponse2,
     RealtimeWatchError,
     Options<RealtimeWatchData>
   > = {
@@ -2808,6 +2821,85 @@ export const realtimeUnwatchMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await realtimeUnwatch({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Claims the object for editing. The lock is advisory: it warns other users and blocks no write,
+ * which is why `PUT` of the object never consults it.
+ */
+export const realtimeAcquireLockMutation = (
+  options?: Partial<Options<RealtimeAcquireLockData>>,
+): UseMutationOptions<
+  RealtimeAcquireLockResponse,
+  RealtimeAcquireLockError,
+  Options<RealtimeAcquireLockData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    RealtimeAcquireLockResponse,
+    RealtimeAcquireLockError,
+    Options<RealtimeAcquireLockData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await realtimeAcquireLock({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Extends the lock. Missing it means it expired or moved to another connection.
+ */
+export const realtimeHeartbeatLockMutation = (
+  options?: Partial<Options<RealtimeHeartbeatLockData>>,
+): UseMutationOptions<
+  RealtimeHeartbeatLockResponse,
+  RealtimeHeartbeatLockError,
+  Options<RealtimeHeartbeatLockData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    RealtimeHeartbeatLockResponse,
+    RealtimeHeartbeatLockError,
+    Options<RealtimeHeartbeatLockData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await realtimeHeartbeatLock({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const realtimeReleaseLockMutation = (
+  options?: Partial<Options<RealtimeReleaseLockData>>,
+): UseMutationOptions<
+  RealtimeReleaseLockResponse,
+  RealtimeReleaseLockError,
+  Options<RealtimeReleaseLockData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    RealtimeReleaseLockResponse,
+    RealtimeReleaseLockError,
+    Options<RealtimeReleaseLockData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await realtimeReleaseLock({
         ...options,
         ...fnOptions,
         throwOnError: true,

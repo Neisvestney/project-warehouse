@@ -150,6 +150,8 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   marketplaceOrderCardNotMapped: "Товар заказа не привязан к позиции каталога",
   marketplaceOrderWarehouseNotMapped: "Склад отправления не привязан к складу WMS",
   realtimeConnectionUnknown: "Соединение обновлений разорвано — переподключаемся",
+  editLockHeld: "Объект сейчас редактирует другой пользователь",
+  editLockNotHeld: "Блокировка редактирования уже снята",
 };
 
 /** Richer variants used only when the server supplied every placeholder in args. */
@@ -164,6 +166,7 @@ const errorCodeArgMessages: Partial<Record<ErrorCode, string>> = {
   dataFileTooLarge: "Файл слишком большой — максимум {maxBytes:байт|байта|байт}",
   dataFileTypeNotAllowed: "Этот тип файла загружать нельзя. Допустимые: {allowed}",
   dataFileWidthNotAllowed: "Недопустимый размер превью. Допустимые: {allowed}",
+  editLockHeld: "Объект сейчас редактирует {userName}",
   marketplaceLabelNotReady:
     "Маркетплейс ещё не сформировал этикетки для {count:заказа|заказов|заказов} — попробуйте через минуту",
   marketplaceOrderNotAwaitingDeliver:

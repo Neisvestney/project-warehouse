@@ -1,4 +1,4 @@
-import {useEffect} from "react";
+import {useCallback, useEffect} from "react";
 import {useNavigate, useParams} from "react-router";
 import {
   Alert,
@@ -27,7 +27,11 @@ import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {useHasPermission} from "@/hooks/usePermission";
 import {FormTextField} from "@/components/form/FormTextField";
 import {isNotFoundError} from "@/utils/errorUtils";
+import {byOperation} from "@/utils/queryKeys";
+import {useEditLock} from "@/hooks/useEditLock";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import EditLockBanner from "@/components/EditLockBanner";
+import StaleDataBanner from "@/components/StaleDataBanner";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
@@ -85,6 +89,18 @@ function UserEditPage() {
     );
   }, [userQuery.data, reset]);
 
+  const refreshUser = useCallback(() => {
+    void queryClient.invalidateQueries({queryKey: byOperation("usersGetById", {path: {id: id!}})});
+  }, [queryClient, id]);
+
+  // A refetch keeps dirty fields (`keepDirtyValues` above), so an untouched form can be refreshed
+  // silently and only a modified one needs the banner.
+  const lock = useEditLock("user", id, {
+    isDirty: form.formState.isDirty,
+    dataUpdatedAt: userQuery.dataUpdatedAt,
+    onRefresh: refreshUser,
+  });
+
   const mutation = useMutation({
     ...usersUpdateMutation(),
     meta: {suppressGlobalError: true},
@@ -138,7 +154,18 @@ function UserEditPage() {
           {name: "Редактировать"},
         ]}
       />
-      <PageGenericHeader title={`Редактировать: ${user.username}`} />
+      <PageGenericHeader
+        viewersOf={{entityType: "user", entityId: id}}
+        title={`Редактировать: ${user.username}`}
+      />
+
+      <EditLockBanner heldBy={lock.heldBy} />
+      <StaleDataBanner
+        isStale={!lock.heldBy && lock.isStale}
+        staleBy={lock.staleBy}
+        onRefresh={lock.refresh}
+        onDismiss={lock.dismissStale}
+      />
 
       <Paper>
         <Box component="form" onSubmit={onSubmit} sx={{p: 3}}>

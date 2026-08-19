@@ -484,6 +484,23 @@ export type DiskSpaceDto = {
   usedBytes: number;
 };
 
+/**
+ * What the client needs to render "being edited by …" and to schedule its next heartbeat.
+ */
+export type EditLockDto = {
+  entityType: AppEntityType;
+  entityId: string;
+  userId: string;
+  userName: string;
+  expiresAt: string;
+};
+
+export type EntityPresenceDto = {
+  entityType: AppEntityType;
+  entityId: string;
+  viewers: Array<RealtimeViewer>;
+};
+
 export type EntityTypeStatDto = {
   entityType: AppEntityType;
   sizeBytes: number;
@@ -624,10 +641,12 @@ export type ErrorCode =
   | "stocktakeUnitItemDetached"
   | "stocktakeConcurrentModification"
   | "marketplaceOrderNotAwaitingDeliver"
-  | "realtimeConnectionUnknown"
   | "warehouseNotAssigned"
   | "storagePlaceNotAssignedToWarehouse"
-  | "transferNotAssignedToWarehouse";
+  | "transferNotAssignedToWarehouse"
+  | "realtimeConnectionUnknown"
+  | "editLockHeld"
+  | "editLockNotHeld";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -1206,6 +1225,11 @@ export type QuickAddReceiptItemRequest = {
   catalogItemId: string;
 };
 
+export type RealtimeEntityRef = {
+  entityType: AppEntityType;
+  entityId: string;
+};
+
 export type RealtimeEvent = {
   id: string;
   at: string;
@@ -1229,15 +1253,116 @@ export type RealtimeEventPayload =
     } & RealtimeEventPayloadMarketplaceSyncProgressPayload)
   | ({
       type?: "marketplaceSyncFinished";
-    } & RealtimeEventPayloadMarketplaceSyncFinishedPayload);
+    } & RealtimeEventPayloadMarketplaceSyncFinishedPayload)
+  | ({
+      type?: "entityChanged";
+    } & RealtimeEventPayloadEntityChangedPayload)
+  | ({
+      type?: "editLockAcquired";
+    } & RealtimeEventPayloadEditLockAcquiredPayload)
+  | ({
+      type?: "editLockReleased";
+    } & RealtimeEventPayloadEditLockReleasedPayload)
+  | ({
+      type?: "entityPresenceChanged";
+    } & RealtimeEventPayloadEntityPresenceChangedPayload);
 
 export type RealtimeEventPayloadConnectionReadyPayload = {
-  type: "connectionReady" | "marketplaceSyncProgress" | "marketplaceSyncFinished";
+  type:
+    | "connectionReady"
+    | "marketplaceSyncProgress"
+    | "marketplaceSyncFinished"
+    | "entityChanged"
+    | "editLockAcquired"
+    | "editLockReleased"
+    | "entityPresenceChanged";
   connectionId: string;
 };
 
+export type RealtimeEventPayloadEditLockAcquiredPayload = {
+  type:
+    | "connectionReady"
+    | "marketplaceSyncProgress"
+    | "marketplaceSyncFinished"
+    | "entityChanged"
+    | "editLockAcquired"
+    | "editLockReleased"
+    | "entityPresenceChanged";
+  entityType: AppEntityType;
+  entityId: string;
+  userId: string;
+  userName: string;
+  expiresAt: string;
+};
+
+/**
+ * The holder travels along even though releasing needs no identity: this event is the fallback
+ * staleness trigger, and the client must tell its own release apart from someone else's.
+ */
+export type RealtimeEventPayloadEditLockReleasedPayload = {
+  type:
+    | "connectionReady"
+    | "marketplaceSyncProgress"
+    | "marketplaceSyncFinished"
+    | "entityChanged"
+    | "editLockAcquired"
+    | "editLockReleased"
+    | "entityPresenceChanged";
+  entityType: AppEntityType;
+  entityId: string;
+  userId: string;
+  userName: string;
+};
+
+/**
+ * Published from the changelog service, so it only fires when a comparison actually found changes.
+ * The author is excluded from the address — own edits must not be announced as stale.
+ */
+export type RealtimeEventPayloadEntityChangedPayload = {
+  type:
+    | "connectionReady"
+    | "marketplaceSyncProgress"
+    | "marketplaceSyncFinished"
+    | "entityChanged"
+    | "editLockAcquired"
+    | "editLockReleased"
+    | "entityPresenceChanged";
+  entityType: AppEntityType;
+  entityId: string;
+  byUserId?: null | string;
+  byUserName?: null | string;
+};
+
+/**
+ * The whole viewer list, not a join/leave delta: presence has nothing to refetch from, so the event
+ * carries the state it announces instead of hinting at it.
+ */
+export type RealtimeEventPayloadEntityPresenceChangedPayload = {
+  type:
+    | "connectionReady"
+    | "marketplaceSyncProgress"
+    | "marketplaceSyncFinished"
+    | "entityChanged"
+    | "editLockAcquired"
+    | "editLockReleased"
+    | "entityPresenceChanged";
+  entityType: AppEntityType;
+  entityId: string;
+  /**
+   * Deduplicated by user — several tabs of one person are one viewer.
+   */
+  viewers: Array<RealtimeViewer>;
+};
+
 export type RealtimeEventPayloadMarketplaceSyncFinishedPayload = {
-  type: "connectionReady" | "marketplaceSyncProgress" | "marketplaceSyncFinished";
+  type:
+    | "connectionReady"
+    | "marketplaceSyncProgress"
+    | "marketplaceSyncFinished"
+    | "entityChanged"
+    | "editLockAcquired"
+    | "editLockReleased"
+    | "entityPresenceChanged";
   accountId: string;
   syncRunId: string;
   status: MarketplaceSyncStatus;
@@ -1248,7 +1373,14 @@ export type RealtimeEventPayloadMarketplaceSyncFinishedPayload = {
  * MarketplaceSyncRun would otherwise change the event schema too.
  */
 export type RealtimeEventPayloadMarketplaceSyncProgressPayload = {
-  type: "connectionReady" | "marketplaceSyncProgress" | "marketplaceSyncFinished";
+  type:
+    | "connectionReady"
+    | "marketplaceSyncProgress"
+    | "marketplaceSyncFinished"
+    | "entityChanged"
+    | "editLockAcquired"
+    | "editLockReleased"
+    | "entityPresenceChanged";
   accountId: string;
   syncRunId: string;
 };
@@ -1256,15 +1388,52 @@ export type RealtimeEventPayloadMarketplaceSyncProgressPayload = {
 export type RealtimeEventType =
   | "connectionReady"
   | "marketplaceSyncProgress"
-  | "marketplaceSyncFinished";
+  | "marketplaceSyncFinished"
+  | "entityChanged"
+  | "editLockAcquired"
+  | "editLockReleased"
+  | "entityPresenceChanged";
 
-export type RealtimeWatchRequest = {
-  /**
-   * From the connectionReady event of the stream this subscription belongs to.
-   */
+/**
+ * Locks stay one object per call — they are taken by a form, not by a screen.
+ */
+export type RealtimeLockRequest = {
   connectionId: string;
   entityType: AppEntityType;
   entityId: string;
+};
+
+/**
+ * One person looking at an object, however many tabs they have open.
+ */
+export type RealtimeViewer = {
+  userId: string;
+  userName: string;
+};
+
+/**
+ * Subscriptions come in batches: a screen listing thirty orders would otherwise open thirty requests
+ * the moment it mounts, and the browser caps them at six per origin.
+ */
+export type RealtimeWatchRequest = {
+  /**
+   * From the connectionReady event of the stream these subscriptions belong to.
+   */
+  connectionId: string;
+  entities: Array<RealtimeEntityRef>;
+};
+
+/**
+ * Only the entities the user may actually view. Anything missing was refused, and the client leaves
+ * those on their polling fallback instead of treating the whole batch as failed.
+ */
+export type RealtimeWatchResponse = {
+  watched: Array<RealtimeEntityRef>;
+  /**
+   * Who is looking at each watched object right now. Seeding from the response closes the window
+   * between subscribing and the first entityPresenceChanged event.
+   */
+  presence: Array<EntityPresenceDto>;
 };
 
 export type ReceiptDto = {
@@ -4570,18 +4739,22 @@ export type RealtimeWatchErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
 };
 
 export type RealtimeWatchError = RealtimeWatchErrors[keyof RealtimeWatchErrors];
 
 export type RealtimeWatchResponses = {
   /**
-   * No Content
+   * OK
    */
-  204: void;
+  200: RealtimeWatchResponse;
 };
 
-export type RealtimeWatchResponse = RealtimeWatchResponses[keyof RealtimeWatchResponses];
+export type RealtimeWatchResponse2 = RealtimeWatchResponses[keyof RealtimeWatchResponses];
 
 export type RealtimeUnwatchData = {
   body: RealtimeWatchRequest;
@@ -4611,6 +4784,113 @@ export type RealtimeUnwatchResponses = {
 };
 
 export type RealtimeUnwatchResponse = RealtimeUnwatchResponses[keyof RealtimeUnwatchResponses];
+
+export type RealtimeAcquireLockData = {
+  body: RealtimeLockRequest;
+  path?: never;
+  query?: never;
+  url: "/api/realtime/locks/acquire";
+};
+
+export type RealtimeAcquireLockErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type RealtimeAcquireLockError = RealtimeAcquireLockErrors[keyof RealtimeAcquireLockErrors];
+
+export type RealtimeAcquireLockResponses = {
+  /**
+   * OK
+   */
+  200: EditLockDto;
+};
+
+export type RealtimeAcquireLockResponse =
+  RealtimeAcquireLockResponses[keyof RealtimeAcquireLockResponses];
+
+export type RealtimeHeartbeatLockData = {
+  body: RealtimeLockRequest;
+  path?: never;
+  query?: never;
+  url: "/api/realtime/locks/heartbeat";
+};
+
+export type RealtimeHeartbeatLockErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+};
+
+export type RealtimeHeartbeatLockError =
+  RealtimeHeartbeatLockErrors[keyof RealtimeHeartbeatLockErrors];
+
+export type RealtimeHeartbeatLockResponses = {
+  /**
+   * OK
+   */
+  200: EditLockDto;
+};
+
+export type RealtimeHeartbeatLockResponse =
+  RealtimeHeartbeatLockResponses[keyof RealtimeHeartbeatLockResponses];
+
+export type RealtimeReleaseLockData = {
+  body: RealtimeLockRequest;
+  path?: never;
+  query?: never;
+  url: "/api/realtime/locks/release";
+};
+
+export type RealtimeReleaseLockErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+};
+
+export type RealtimeReleaseLockError = RealtimeReleaseLockErrors[keyof RealtimeReleaseLockErrors];
+
+export type RealtimeReleaseLockResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type RealtimeReleaseLockResponse =
+  RealtimeReleaseLockResponses[keyof RealtimeReleaseLockResponses];
 
 export type ReceiptsGetAllData = {
   body?: never;

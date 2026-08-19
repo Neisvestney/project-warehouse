@@ -213,15 +213,23 @@ check rather than by the foreign key, because a raw `23503` would surface as a 5
 
 | Code | When | `args` |
 |------|------|--------|
-| `realtimeConnectionUnknown` | `watch` for a `connectionId` that does not exist, is already closed, or belongs to another user (field: `connectionId`) | — |
+| `realtimeConnectionUnknown` | `watch` or a lock command for a `connectionId` that does not exist, is already closed, or belongs to another user (field: `connectionId`) | — |
+| `editLockHeld` | `locks/acquire` for an object another user is editing (field: `root`) | `{ userId: string, userName: string, expiresAt: string }` |
+| `editLockNotHeld` | `locks/heartbeat` or `locks/release` for a lock this connection does not hold — it expired, or moved to another connection (field: `root`) | — |
 
 `unwatch` never raises it for a missing connection: a client unsubscribing after its stream already dropped
 has nothing left to undo, and an error there would only fire on every page it leaves. It is still raised when
 the connection exists but belongs to someone else.
 
-Refusing a subscription for lack of rights reuses `permissionDenied` (403) rather than a realtime-specific
-code. `IEntityAccessService` collapses the reason to a bool, and telling "no such object" apart from "no
-right to it" is exactly what a subscription endpoint must not leak.
+A refused subscription raises no error at all: `watch` takes a batch, so an entity the user may not view is
+just missing from the `watched` list — one forbidden object must not sink the whole request. That also keeps
+"no such object" indistinguishable from "no right to it", which is exactly what a subscription endpoint must
+not leak. A refused **lock** still answers `permissionDenied` (403), since it addresses a single object the
+caller asked for by name.
+
+`editLockHeld` never reaches a snackbar: the client turns it into the "being edited by …" banner, which is
+the whole point of the code carrying the holder in `args`. `editLockNotHeld` is swallowed entirely — the hook
+answers it by re-acquiring.
 
 ### Validation
 | Code | When | `args` |

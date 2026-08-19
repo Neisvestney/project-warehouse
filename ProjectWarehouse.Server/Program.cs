@@ -1,4 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Reflection;
 using DotNetEnv;
 using Npgsql;
@@ -389,7 +389,10 @@ try
     builder.Services.AddSingleton<SecurityVersionStore>();
     builder.Services.AddSingleton<RealtimeConnectionManager>();
     builder.Services.AddSingleton<EntityWatchRegistry>();
+    builder.Services.AddSingleton<EntityPresenceService>();
     builder.Services.AddSingleton<IRealtimeNotifier, RealtimeNotifier>();
+    builder.Services.AddSingleton<EditLockStore>();
+    builder.Services.AddHostedService<EditLockSweeper>();
     builder.Services.AddAutoMapper(typeof(Program).Assembly);
 
     builder.Services.AddScoped<IChangeLogService, AppChangeLogService>();
