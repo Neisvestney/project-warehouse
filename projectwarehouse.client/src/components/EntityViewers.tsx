@@ -1,6 +1,7 @@
-import {Avatar, AvatarGroup, Tooltip} from "@mui/material";
+import {AvatarGroup, Tooltip} from "@mui/material";
 import type {AppEntityType} from "@/api/types.gen";
 import {useEntityPresence} from "@/hooks/useEntityPresence";
+import UserAvatar from "@/components/UserAvatar";
 
 interface EntityViewersProps {
   entityType: AppEntityType;
@@ -32,7 +33,7 @@ function EntityViewers({entityType, entityId}: EntityViewersProps) {
     >
       {viewers.map((viewer) => (
         <Tooltip key={viewer.userId} title={`${viewer.userName} просматривает этот объект`}>
-          <Avatar>{viewer.userName[0]?.toUpperCase() ?? "?"}</Avatar>
+          <UserAvatar userId={viewer.userId} name={viewer.userName} />
         </Tooltip>
       ))}
     </AvatarGroup>
