@@ -395,11 +395,16 @@ Draft → Confirmed → Assembly → Assembled → Shipped
 
 Это право опциональное — по умолчанию перевод `Confirmed → Assembly` и создание заданий остаётся за администратором.
 
+Захват ограничен складами, назначенными пользователю (`orderNotAssignedToWarehouse`). Исключение — держатели
+безобластного `orders.view`: они и так видят все заказы, поэтому сужение по складам к ним не применяется. Проверка
+идёт через общий `AccessScope.GetWarehouseNarrowingAsync(User, Permissions.Orders.View)` — тот же механизм, что у
+списка заказов и печати этикеток.
+
 #### Массовый захват (`POST /api/orders/batch-self-assign`)
 
 Несколько заказов берутся на себя **одним** запросом `BatchSelfAssignRequest { orderIds }`, а не серией одиночных `POST /api/orders/{id}/self-assign`.
 
-Семантика — частичный успех, как у [`batch-fulfill`](#ошибки-в-ответе-batch-fulfill): эндпоинт всегда отвечает `200` с `BatchSelfAssignResponse { assignedOrderIds, failedItems }`. Каждый заказ проверяется независимо (существование, принадлежность к назначенному складу, статус `Confirmed`), упавшие попадают в `failedItems` как `{ orderId, orderNumber, error: AppFieldError }` — структурная ошибка с настоящим `ErrorCode`. `403` возвращается только на уровне всего запроса — при отсутствии права `orders.self_assign`.
+Семантика — частичный успех, как у [`batch-fulfill`](#ошибки-в-ответе-batch-fulfill): эндпоинт всегда отвечает `200` с `BatchSelfAssignResponse { assignedOrderIds, failedItems }`. Каждый заказ проверяется независимо (существование, принадлежность к назначенному складу — кроме держателей безобластного `orders.view`, статус `Confirmed`), упавшие попадают в `failedItems` как `{ orderId, orderNumber, error: AppFieldError }` — структурная ошибка с настоящим `ErrorCode`. `403` возвращается только на уровне всего запроса — при отсутствии права `orders.self_assign`.
 
 ---
 

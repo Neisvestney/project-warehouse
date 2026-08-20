@@ -439,7 +439,8 @@ public class OrdersController(
     /// <summary>Take a Confirmed order for yourself: moves it to Assembly and creates one task with all of its boxes, assigned to the caller.</summary>
     /// <remarks>
     /// Requires <c>orders.self_assign</c> and an assignment to the order's warehouse — otherwise 403, with
-    /// <c>orderNotAssignedToWarehouse</c> in the latter case. Returns 422 <c>orderNotConfirmed</c> if the order
+    /// <c>orderNotAssignedToWarehouse</c> in the latter case. The warehouse check is skipped for holders of the
+    /// unscoped <c>orders.view</c>, who see every order anyway. Returns 422 <c>orderNotConfirmed</c> if the order
     /// is in any other status, 404 <c>orderNotFound</c> if it does not exist.
     /// </remarks>
     [HttpPost("{id:guid}/self-assign")]
@@ -452,15 +453,15 @@ public class OrdersController(
         if (!User.HasClaim("permission", Permissions.Orders.SelfAssign))
             return Forbidden();
 
-        var assignedIds = await scope.GetAssignedWarehouseIdsAsync(User, ct);
-        if (assignedIds is null)
-            return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+        var narrowing = await scope.GetWarehouseNarrowingAsync(User, Permissions.Orders.View, ct);
+        if (AccessError(narrowing.Verdict) is { } tokenError)
+            return tokenError;
 
         var order = await DetailsQuery().FirstOrDefaultAsync(o => o.Id == id, ct);
         if (order is null)
             return NotFound(ErrorCode.OrderNotFound, "Order not found.");
 
-        if (!assignedIds.Contains(order.WarehouseId))
+        if (narrowing.Ids is { } assignedIds && !assignedIds.Contains(order.WarehouseId))
             return Forbidden(ErrorCode.OrderNotAssignedToWarehouse,
                 "You are not assigned to the warehouse of this order.");
 
@@ -600,6 +601,7 @@ public class OrdersController(
     /// real error code (<c>orderNotFound</c>, <c>orderNotAssignedToWarehouse</c>, <c>orderNotConfirmed</c>, …).
     /// There is no transaction: already-assigned orders stay assigned when later ones fail.
     /// 403 is returned only for the request as a whole, when <c>orders.self_assign</c> is missing.
+    /// Holders of the unscoped <c>orders.view</c> are not narrowed to their assigned warehouses.
     /// The route carries no id, so realtime change events are published explicitly for each assigned order.
     /// </remarks>
     [HttpPost("batch-self-assign")]
@@ -612,9 +614,9 @@ public class OrdersController(
         if (!User.HasClaim("permission", Permissions.Orders.SelfAssign))
             return Forbidden();
 
-        var assignedIds = await scope.GetAssignedWarehouseIdsAsync(User, ct);
-        if (assignedIds is null)
-            return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+        var narrowing = await scope.GetWarehouseNarrowingAsync(User, Permissions.Orders.View, ct);
+        if (AccessError(narrowing.Verdict) is { } tokenError)
+            return tokenError;
 
         var userId = GetCurrentUserId();
         if (userId is null)
@@ -640,7 +642,7 @@ public class OrdersController(
                 continue;
             }
 
-            if (!assignedIds.Contains(order.WarehouseId))
+            if (narrowing.Ids is { } assignedIds && !assignedIds.Contains(order.WarehouseId))
             {
                 Fail(orderId, ErrorCode.OrderNotAssignedToWarehouse,
                     "You are not assigned to the warehouse of this order.", order.Number);

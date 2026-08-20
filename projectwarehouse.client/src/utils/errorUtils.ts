@@ -107,7 +107,7 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   orderNotAssembly: "Заказ должен быть в статусе Сборка",
   orderInvalidStatusTransition: "Недопустимый переход статуса заказа",
   orderHasFulfillments: "У заказа есть фулфилменты",
-  orderNotAssignedToWarehouse: "Заказ не привязан к этому складу",
+  orderNotAssignedToWarehouse: "Вы не назначены на склад заказа",
   orderBoxNotFound: "Коробка заказа не найдена",
   orderBoxComponentNotFound: "Компонент коробки не найден",
   assemblyTaskNotFound: "Задание на сборку не найдено",
