@@ -32,13 +32,16 @@ export interface UseEditLockResult extends UseStaleDataResult {
 /**
  * Claims the object while the user edits it. The lock is advisory — nothing is disabled and saving is
  * never blocked; it only makes a collision visible before it happens.
+ *
+ * A second tab of the same user joins the lock rather than taking it over, so ownership here never
+ * changes behind the page's back — only another user holding the object can keep it from being claimed.
  */
 export function useEditLock(
   entityType: AppEntityType,
   entityId: string | null | undefined,
   {enabled = true, ...staleOptions}: UseEditLockOptions,
 ): UseEditLockResult {
-  const {connectionId, heldLocks, presenceKey} = useRealtime();
+  const {connectionId} = useRealtime();
   const {user} = useAuth();
 
   const [isOwner, setIsOwner] = useState(false);
@@ -50,14 +53,13 @@ export function useEditLock(
   const active = enabled && !!entityId && !!connectionId;
 
   // Mirrors the state for the closures below. Bound to `isOwner` rather than every render: unrelated
-  // renders would otherwise undo a hand-off written straight to the ref.
+  // renders would otherwise undo a release written straight to the ref during teardown.
   const isOwnerRef = useRef(false);
   useLayoutEffect(() => {
     isOwnerRef.current = isOwner;
   }, [isOwner]);
 
   const acquireRef = useRef<(() => void) | null>(null);
-  const [acquiredAt, setAcquiredAt] = useState(0);
 
   useEffect(() => {
     if (!active) return;
@@ -72,7 +74,6 @@ export function useEditLock(
 
       setIsLoading(false);
       if (error === undefined) {
-        setAcquiredAt(Date.now());
         isOwnerRef.current = true;
         setIsOwner(true);
         setHeldBy(null);
@@ -98,7 +99,7 @@ export function useEditLock(
     }, RETRY_MS);
 
     // The state goes too, not just the ref: coming back to the same object with stale ownership would
-    // read as a takeover on the next heartbeat and fire a second acquire behind the first.
+    // skip the acquire and leave the page claiming a lock the server no longer has.
     const release = () => {
       if (!isOwnerRef.current) return;
       isOwnerRef.current = false;
@@ -146,22 +147,6 @@ export function useEditLock(
     // A new connectionId means the server already dropped the old lock — re-acquire under the new one.
   }, [active, connectionId, entityType, entityId]);
 
-  // Another tab of the same user takes the lock over silently — that raises no event this page would
-  // accept, so the heartbeat no longer listing it is the only sign. `at` discards a reply that was
-  // already in flight when the lock was taken.
-  const takenOver =
-    active &&
-    isOwner &&
-    heldLocks.at > acquiredAt &&
-    !heldLocks.keys.has(presenceKey(entityType, entityId!));
-
-  useEffect(() => {
-    if (!takenOver) return;
-
-    isOwnerRef.current = false;
-    acquireRef.current?.();
-  }, [takenOver]);
-
   const matches = useCallback(
     (payloadType: AppEntityType, payloadId: string) =>
       !!entityId && payloadType === entityType && payloadId === entityId,
@@ -184,9 +169,9 @@ export function useEditLock(
     if (payload.userId === user?.id) return;
 
     setHeldBy(null);
-    // The object just became free — take it rather than waiting for the next heartbeat tick.
+    // The object just became free — take it rather than waiting for the next retry tick.
     if (!isOwnerRef.current) acquireRef.current?.();
   });
 
-  return {...stale, isOwner: active && isOwner && !takenOver, heldBy, isLoading};
+  return {...stale, isOwner: active && isOwner, heldBy, isLoading};
 }

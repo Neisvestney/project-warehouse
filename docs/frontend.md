@@ -161,8 +161,12 @@ src/
 │   │   ├── ModalContext.ts      # Context: open/close modals imperatively
 │   │   └── ModalProvider.tsx    # Renders active modals, wires modalService
 │   ├── Realtime/
-│   │   ├── RealtimeContext.ts       # Context: connectionId, isConnected, subscribe, watch, isWatching, presence, heldLocks
-│   │   └── RealtimeProvider.tsx     # The single SSE stream: own reconnect loop, event dispatch, watch registry
+│   │   ├── RealtimeContext.ts       # Context: connectionId, isConnected, subscribe, watch, isWatching, presence
+│   │   ├── RealtimeProvider.tsx     # Wires the three hooks below; owns connectionId and event dispatch
+│   │   ├── useRealtimeStream.ts     # The single SSE stream: connect loop, backoff, background thresholds
+│   │   ├── useWatchRegistry.ts      # Watched objects, batched watch/unwatch, presence
+│   │   ├── useHeartbeat.ts          # Connection heartbeat; answers whether this tab still holds a lock
+│   │   └── watchKey.ts              # `entityType:entityId`, the key all three share
 │   ├── SearchParams/
 │   │   ├── SearchParamsContext.ts   # Context + useSearchParamsContext hook
 │   │   └── SearchParamsProvider.tsx # Batched URL search params provider
@@ -1551,21 +1555,31 @@ Protocol and server side: [realtime-specification.md](realtime-specification.md)
 
 ### `RealtimeProvider`
 
-Mounted in `MainLayout`, owns the only stream in the app. Holds the connection, dispatches events to
-subscribers, and keeps the registry of watched objects.
+Mounted in `MainLayout`. The provider itself is wiring: it owns `connectionId`, dispatches events to
+subscribers, and hands the rest to three hooks beside it — `useRealtimeStream` (the connection),
+`useWatchRegistry` (what this tab is subscribed to, plus presence), `useHeartbeat` (liveness).
+
+They are split because their lifetimes differ: the connection dies and comes back, the registry outlives it
+(the pages behind it are still mounted), the heartbeat is bound to one `connectionId`. The background
+thresholds are the one place all three meet, and they live entirely in `useRealtimeStream` — the registry's
+`pause` and the heartbeat's `beat` arrive there as **parameters**. Threading them through refs instead is what
+would make this a tangle.
+
+The registry takes the connection as a **ref**, not a value: `connectionReady` produces a new id and
+re-registers every subscription in that same tick, long before React re-renders with it.
 
 **Reconnection is hand-rolled, on purpose.** The generated SSE client (`src/api/core/serverSentEvents.gen.ts`)
 retries on *errors*, but exits its loop when the server closes the stream cleanly — which is exactly what
 happens every time the access token expires. Its attempt counter also never resets, so backoff would keep
-growing across a long session. The provider therefore passes `sseMaxRetryAttempts: 1` and runs its own loop:
+growing across a long session. `useRealtimeStream` therefore passes `sseMaxRetryAttempts: 1` and runs its own loop:
 1 s doubling to 30 s with jitter, reset to 1 s on every `connectionReady`.
 
 Requests go through `client.sse.get`, so `apiClient.ts` request interceptors run on each connect and every
 reconnect carries a fresh `Authorization` header. Response and error interceptors do **not** run for SSE, so
-the provider stops explicitly on the `auth:clear` / `auth:refreshTokenInvalid` window events.
+the hook stops explicitly on the `auth:clear` / `auth:refreshTokenInvalid` window events.
 
 `document.visibilitychange` (on `visible`) and `window.online` reconnect the stream immediately — this covers
-Capacitor resume without pulling in `@capacitor/app`. The provider does **not** refetch anything there:
+Capacitor resume without pulling in `@capacitor/app`. Nothing is refetched there:
 TanStack's own `focusManager`/`onlineManager` listen to those exact two events, `staleTime` is 0 across the
 app, so every active query already refetches on its own. Re-invalidating would only duplicate that and would
 override the few queries that deliberately set a `staleTime`.
@@ -1672,12 +1686,15 @@ otherwise get no warning either.
 Claims the object while it is being edited, on top of `useStaleData` (whose whole result it re-exports).
 Acquires on mount, releases on unmount and on `beforeunload`, and re-acquires under the new `connectionId`
 after a reconnect — the server dropped the old lock when the stream broke. Holding it needs no heartbeat of its
-own: a lock lives as long as its connection, which `RealtimeProvider` keeps alive for all of them. The hook only
-watches the lock list that heartbeat answers with, to notice a takeover by another tab of the same user — that
-case raises no event this page would accept. Its own 20 s interval is just a retry while somebody else holds the
-object; it skips its tick while the tab is hidden — nobody there is waiting to edit — and a tab returning from
-the background retries at once, since release events only arrive while the stream is up. The unload release goes out as a `keepalive` fetch, since a normal one is cancelled and
-`sendBeacon` cannot carry the bearer header.
+own: a lock lives as long as the connections holding it, which `RealtimeProvider` keeps alive for all of them.
+
+**Ownership never changes behind the page's back.** A second tab of the same user *joins* the lock rather than
+taking it over, so between acquiring and releasing there is nothing for the hook to watch — only another user
+holding the object can keep it from being claimed. Its own 20 s interval is just a retry while that other user
+holds it; it skips its tick while the tab is hidden — nobody there is waiting to edit — and a tab returning
+from the background retries at once, since release events only arrive while the stream is up. The unload
+release goes out as a `keepalive` fetch, since a normal one is cancelled and `sendBeacon` cannot carry the
+bearer header.
 
 ```typescript
 const lock = useEditLock("writeoff", id, {
