@@ -16,6 +16,8 @@ import RealtimeContext, {
 const INITIAL_RETRY_MS = 1000;
 const MAX_RETRY_MS = 30_000;
 const HEARTBEAT_MS = 20_000;
+const IDLE_UNWATCH_MS = 20_000;
+const IDLE_DISCONNECT_MS = 120_000;
 
 const NO_LOCKS: HeldLocks = {keys: new Set(), at: 0};
 
@@ -47,8 +49,12 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
   const connectionIdRef = useRef<string | null>(null);
   const handlersRef = useRef(new Map<RealtimeEventType, Set<EventHandler>>());
   const watchesRef = useRef(new Map<string, WatchEntry>());
+  const watchesPausedRef = useRef(false);
+  /** Set by the heartbeat effect; resolves to whether the server still lists a lock for this tab. */
+  const beatRef = useRef<(() => Promise<boolean | null>) | null>(null);
 
   const sendWatch = useCallback(async (entries: WatchEntry[]) => {
+    if (watchesPausedRef.current) return;
     const connection = connectionIdRef.current;
     // An entry unregistered within the same batch is dropped here: sending it would race its unwatch.
     const pending = entries.filter(
@@ -70,7 +76,7 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
       // 422 means the connection already died; a fresh one re-sends the whole batch. Entities the user
       // may not view are simply missing from `watched`, and those pages keep their polling fallback.
       if (error !== undefined || data === undefined) return;
-      if (connectionIdRef.current !== connection) return;
+      if (connectionIdRef.current !== connection || watchesPausedRef.current) return;
 
       const confirmed: string[] = [];
       for (const {entityType, entityId} of data.watched) {
@@ -111,8 +117,33 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
   }, []);
 
   const flushWatches = useCallback(() => {
+    watchesPausedRef.current = false;
     void sendWatch([...watchesRef.current.values()]);
   }, [sendWatch]);
+
+  // A backgrounded tab drops its subscriptions but keeps the entries: the pages behind it are still
+  // mounted, and coming back re-registers everything as if the stream had reconnected.
+  const pauseWatches = useCallback(({notifyServer}: {notifyServer: boolean}) => {
+    if (watchesPausedRef.current) return;
+    watchesPausedRef.current = true;
+
+    const entries = [...watchesRef.current.values()];
+    for (const entry of entries) {
+      entry.confirmed = false;
+      entry.pendingFor = null;
+    }
+    setConfirmedKeys(new Set());
+    setPresence(new Map());
+
+    const connection = connectionIdRef.current;
+    if (!notifyServer || !connection || entries.length === 0) return;
+    void realtimeUnwatch({
+      body: {
+        connectionId: connection,
+        entities: entries.map((e) => ({entityType: e.entityType, entityId: e.entityId})),
+      },
+    }).catch(() => {});
+  }, []);
 
   // Mounting a screen registers one watch per visible object; sending them separately would open a
   // request each and the browser only allows six per origin. A microtask is enough to collect a render.
@@ -236,8 +267,11 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
   useEffect(() => {
     let disposed = false;
     let stopped = false;
+    let idleStopped = false;
     let retryDelay = INITIAL_RETRY_MS;
     let retryTimer: number | null = null;
+    let idleWatchTimer: number | null = null;
+    let idleStreamTimer: number | null = null;
     let controller: AbortController | null = null;
 
     const dispatch = (event: RealtimeEvent) => {
@@ -262,8 +296,14 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
       }
     };
 
+    const clearRetryTimer = () => {
+      if (retryTimer === null) return;
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    };
+
     const scheduleReconnect = () => {
-      if (disposed || stopped || retryTimer !== null) return;
+      if (disposed || stopped || idleStopped || retryTimer !== null) return;
       const delay = retryDelay + Math.random() * 300;
       retryDelay = Math.min(retryDelay * 2, MAX_RETRY_MS);
       retryTimer = window.setTimeout(() => {
@@ -275,7 +315,7 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
     // The generated SSE client stops its own loop when the server closes the stream cleanly —
     // exactly what happens when the access token expires — so reconnection lives here instead.
     const connect = async () => {
-      if (disposed || stopped || controller) return;
+      if (disposed || stopped || idleStopped || controller) return;
       if (!localStorage.getItem("accessToken")) {
         scheduleReconnect();
         return;
@@ -309,32 +349,73 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
       if (disposed) return;
 
       dropConnection();
-      if (!current.signal.aborted) scheduleReconnect();
+      // No `signal.aborted` check: every deliberate abort already sets one of the flags
+      // `scheduleReconnect` guards on. Testing the signal instead would strand the stream when the tab
+      // comes back during the unwind of an idle abort — the flag is cleared by then, the loop is not.
+      scheduleReconnect();
     };
 
     const reconnectNow = () => {
-      if (disposed || stopped || controller) return;
-      if (retryTimer !== null) {
-        clearTimeout(retryTimer);
-        retryTimer = null;
-      }
+      if (disposed || stopped || idleStopped || controller) return;
+      clearRetryTimer();
       retryDelay = INITIAL_RETRY_MS;
       void connect();
     };
 
     const stop = () => {
       stopped = true;
-      if (retryTimer !== null) {
-        clearTimeout(retryTimer);
-        retryTimer = null;
-      }
+      clearRetryTimer();
       controller?.abort();
+    };
+
+    const clearIdleTimers = () => {
+      if (idleWatchTimer !== null) clearTimeout(idleWatchTimer);
+      if (idleStreamTimer !== null) clearTimeout(idleStreamTimer);
+      idleWatchTimer = idleStreamTimer = null;
+    };
+
+    // A hidden tab has nobody looking at it, but the server still counts it as a viewer and keeps its
+    // locks. Two steps out: subscriptions first, then the stream itself — which is what frees the locks.
+    const startIdleTimers = () => {
+      clearIdleTimers();
+
+      idleWatchTimer = window.setTimeout(() => {
+        idleWatchTimer = null;
+        // Holding a lock means the tab is still the editor of something. Unsubscribing it would blind
+        // it to changes on an object it is about to save over, so it keeps watching until the stream
+        // goes. The heartbeat answer is the truth here — locally held state can be a cycle behind.
+        void beatRef
+          .current?.()
+          .then((holdsLocks) => {
+            if (holdsLocks !== false || document.visibilityState === "visible") return;
+            pauseWatches({notifyServer: true});
+          })
+          .catch(() => {});
+      }, IDLE_UNWATCH_MS);
+
+      idleStreamTimer = window.setTimeout(() => {
+        idleStreamTimer = null;
+        idleStopped = true;
+        clearRetryTimer();
+        // Dropping the stream is how the locks and the presence go: the server releases everything the
+        // connection held. Nothing to unwatch by hand, so the pause is local only.
+        pauseWatches({notifyServer: false});
+        controller?.abort();
+      }, IDLE_DISCONNECT_MS);
     };
 
     // Only the stream is restored here: TanStack's own focusManager/onlineManager already refetch
     // every active query on these same two events, and staleTime is 0 across the app.
     const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") reconnectNow();
+      if (document.visibilityState !== "visible") {
+        startIdleTimers();
+        return;
+      }
+
+      clearIdleTimers();
+      idleStopped = false;
+      if (connectionIdRef.current) flushWatches();
+      reconnectNow();
     };
 
     window.addEventListener("auth:clear", stop);
@@ -343,16 +424,18 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
     window.addEventListener("online", reconnectNow);
 
     void connect();
+    if (document.visibilityState !== "visible") startIdleTimers();
 
     return () => {
       disposed = true;
       stop();
+      clearIdleTimers();
       window.removeEventListener("auth:clear", stop);
       window.removeEventListener("auth:refreshTokenInvalid", stop);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("online", reconnectNow);
     };
-  }, [applyPresence, flushWatches]);
+  }, [applyPresence, flushWatches, pauseWatches]);
 
   // The stream alone does not prove the tab is alive: a proxy between the browser and the server keeps
   // accepting writes for a tab that is gone. Without this the server never releases its locks or presence.
@@ -362,18 +445,21 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
     let disposed = false;
     let applied = 0;
 
-    const beat = async () => {
+    const beat = async (): Promise<boolean | null> => {
       const at = Date.now();
       const {data, error} = await realtimeHeartbeat({body: {connectionId}});
-      if (disposed || error !== undefined || data === undefined) return;
+      if (disposed || error !== undefined || data === undefined) return null;
+      const holdsLocks = data.locks.length > 0;
       // The visibility beat and the interval one overlap; an overtaken reply would put a lock that was
       // already taken over back into the set, and the takeover would go unnoticed for another cycle.
-      if (at <= applied) return;
+      if (at <= applied) return holdsLocks;
 
       applied = at;
       setHeldLocks({keys: new Set(data.locks.map((l) => watchKey(l.entityType, l.entityId))), at});
+      return holdsLocks;
     };
 
+    beatRef.current = beat;
     void beat();
     const timer = window.setInterval(() => void beat(), HEARTBEAT_MS);
 
@@ -386,6 +472,7 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
 
     return () => {
       disposed = true;
+      if (beatRef.current === beat) beatRef.current = null;
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
       // A new connection holds nothing yet, and the old list must not outlive its connection.
