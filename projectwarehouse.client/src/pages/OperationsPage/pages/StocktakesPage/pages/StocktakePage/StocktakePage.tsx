@@ -312,9 +312,9 @@ function StocktakePage() {
           {name: "Инвентаризации", link: "/operations/stocktakes"},
           {name: formatStocktakeNumber(stocktake.number)},
         ]}
+        viewersOf={{entityType: "stocktake", entityId: id}}
       />
       <PageGenericHeader
-        viewersOf={{entityType: "stocktake", entityId: id}}
         title={
           <Stack direction="row" spacing={1.5} sx={{alignItems: "center"}}>
             <Typography variant="h5" component="span">

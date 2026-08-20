@@ -96,9 +96,11 @@ export default observer(function RolesSettingsPage() {
 
   return (
     <Stack spacing={2}>
-      <AppBreadcrumbs path={[{name: "Настройки", link: "/settings"}, {name: "Роли"}]} />
-      <PageGenericHeader
+      <AppBreadcrumbs
+        path={[{name: "Настройки", link: "/settings"}, {name: "Роли"}]}
         viewersOf={{entityType: "roles", entityId: ROLES_ENTITY_ID}}
+      />
+      <PageGenericHeader
         title="Роли"
         right={
           canEdit ? (

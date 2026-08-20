@@ -132,7 +132,7 @@ src/
 │   ├── MainAppBar.tsx           # Top nav bar with logo and links
 │   ├── InstallPrompt.tsx        # PWA "Add to Home Screen" prompt
 │   ├── UpdatePrompt.tsx         # Service worker update banner
-│   ├── AppBreadcrumbs.tsx       # Page breadcrumb trail
+│   ├── AppBreadcrumbs.tsx       # Page breadcrumb trail + viewers/right slot
 │   ├── PageGenericHeader.tsx    # Page header: title + filters + action buttons
 │   ├── SearchInput.tsx          # TextField with search icon; extends TextFieldProps (omits onChange/value)
 │   ├── FiltersBar.tsx           # Filters row: FilterAlt icon + "Фильтры:" label + children slot; extends StackProps
@@ -1100,17 +1100,20 @@ Simple label + value row used in detail views (`UserViewPage`, `MyProfilePage`).
 Props: `label: string`, `value: string`. The label column is fixed at 160 px.
 
 ### `AppBreadcrumbs`
-Renders a MUI `Breadcrumbs` trail from an array of `{ name, link? }` objects. Items with a `link` render as React Router `<Link>`; the last item is plain text. Used at the top of every page.
+Renders a MUI `Breadcrumbs` trail from an array of `{ name, link? }` objects. Items with a `link` render as React Router `<Link>`; the last item is plain text. Used at the top of every page. `viewersOf` appends `EntityViewers` right after the trail; `right` is a free slot pushed to the far end of the row.
 
 ```tsx
-<AppBreadcrumbs path={[
-  {name: "Пользователи", link: "/users"},
-  {name: user.username, link: `/users/${id}`},
-  {name: "Редактировать"},
-]} />
+<AppBreadcrumbs
+  path={[
+    {name: "Пользователи", link: "/users"},
+    {name: user.username, link: `/users/${id}`},
+    {name: "Редактировать"},
+  ]}
+  viewersOf={{entityType: "user", entityId: id}}
+/>
 ```
 
-Props: `path: Array<{ name: string; link?: string }>`.
+Props: `path: Array<{ name: string; link?: string }>`, `viewersOf?: {entityType: AppEntityType; entityId: string | null | undefined}`, `right?: React.ReactNode`.
 
 ### `PageGenericHeader`
 Three-zone page header: title (`h5`, left), optional middle slot for search/filters, optional right slot for action buttons. On mobile (`< md`) all zones stack vertically.
@@ -1613,9 +1616,11 @@ seeded from the `watch` response and replaced by each `entityPresenceChanged`. T
 must already be subscribed through `useEntityWatch` or `useEditLock`, and presence disappears together with the
 subscription.
 
-`EntityViewers` renders it as an `AvatarGroup` of `UserAvatar`s with a tooltip per person. `PageGenericHeader` takes it as
-`viewersOf={{entityType, entityId}}` and puts it next to the title, so a page adds presence in one line; the
-catalog drawer and the card-mapping dialog place the component by hand.
+`EntityViewers` renders it as an `AvatarGroup` of `UserAvatar`s with a tooltip per person; a new avatar pops in
+with a short CSS keyframe (avatars are keyed by user, so existing ones do not replay it), leaving is instant. `AppBreadcrumbs` takes it as
+`viewersOf={{entityType, entityId}}` and puts it right after the path, so a page adds presence in one line; the
+same component also has a `right` slot for anything that should sit at the far end of the breadcrumbs row. The
+catalog drawer and the card-mapping dialog place `EntityViewers` by hand.
 
 Where it shows: order, receipt, writeoff, stocktake, warehouse, employee and roles pages, both the edit and the
 view variants, plus the card-mapping dialog. In the catalog drawer only in edit mode. Screens that watch many

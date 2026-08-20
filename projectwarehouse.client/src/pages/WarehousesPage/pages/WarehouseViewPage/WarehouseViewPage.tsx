@@ -123,9 +123,9 @@ function WarehouseViewPage() {
           {name: warehouse.name},
           {name: "Просмотр"},
         ]}
+        viewersOf={{entityType: "warehouse", entityId: id}}
       />
       <PageGenericHeader
-        viewersOf={{entityType: "warehouse", entityId: id}}
         title={warehouse.name}
         right={
           <>

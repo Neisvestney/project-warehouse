@@ -264,9 +264,9 @@ function WriteoffPage() {
           {name: "Списания", link: "/operations/writeoffs"},
           {name: formatWriteoffNumber(writeoff.number)},
         ]}
+        viewersOf={{entityType: "writeoff", entityId: id}}
       />
       <PageGenericHeader
-        viewersOf={{entityType: "writeoff", entityId: id}}
         title={
           <Stack direction="row" spacing={1.5} sx={{alignItems: "center"}}>
             <Typography variant="h5" component="span">
