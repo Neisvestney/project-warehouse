@@ -152,10 +152,7 @@ public class RealtimeController(
 
         connection.Touch();
 
-        return Ok(new RealtimeHeartbeatResponse
-        {
-            Locks = locks.ByConnection(connection.Id).Select(EditLockDto.From).ToList(),
-        });
+        return Ok(new RealtimeHeartbeatResponse { HoldsLocks = locks.Holds(connection.Id) });
     }
 
     // ── Edit locks ────────────────────────────────────────────────────────────
@@ -179,8 +176,8 @@ public class RealtimeController(
         if (!await entityAccess.CanEditAsync(request.EntityType, request.EntityId, User, ct))
             return Forbidden();
 
-        var (held, acquired) = locks.Acquire(request.EntityType, request.EntityId, connection.UserId,
-            connection.UserName, connection.Id);
+        var (held, acquired, firstHolder) = locks.Acquire(request.EntityType, request.EntityId,
+            connection.UserId, connection.UserName, connection.Id);
 
         if (!acquired)
             return Problem(AppProblems.Root(StatusCodes.Status409Conflict, ErrorCode.EditLockHeld,
@@ -199,7 +196,10 @@ public class RealtimeController(
             return UnknownConnection();
         }
 
-        await realtime.PublishLockAcquiredAsync(held, ct);
+        // Only the empty → held transition is news. A second tab of the same person joins the holders,
+        // and their colleagues were already told who is editing.
+        if (firstHolder) await realtime.PublishLockAcquiredAsync(held, ct);
+
         return Ok(EditLockDto.From(held));
     }
 
@@ -213,11 +213,14 @@ public class RealtimeController(
         if (connection is null || connection.UserId != GetCurrentUserId())
             return UnknownConnection();
 
-        var released = locks.Release(request.EntityType, request.EntityId, connection.Id);
-        if (released is null)
+        var (held, emptied) = locks.Release(request.EntityType, request.EntityId, connection.Id);
+        if (!held)
             return Conflict(ErrorCode.EditLockNotHeld, "This connection does not hold the lock.");
 
-        await realtime.PublishLockReleasedAsync(released, ct);
+        // Announced only once the last tab of this user let go: saying it earlier would tell watchers the
+        // object is free while it is still being edited in another tab.
+        if (emptied is { } gone) await realtime.PublishLockReleasedAsync(gone, ct);
+
         return NoContent();
     }
 

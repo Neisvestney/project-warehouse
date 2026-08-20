@@ -215,7 +215,7 @@ check rather than by the foreign key, because a raw `23503` would surface as a 5
 |------|------|--------|
 | `realtimeConnectionUnknown` | `watch` or a lock command for a `connectionId` that does not exist, is already closed, or belongs to another user (field: `connectionId`) | — |
 | `editLockHeld` | `locks/acquire` for an object another user is editing (field: `root`) | `{ userId: string, userName: string }` |
-| `editLockNotHeld` | `locks/release` for a lock this connection does not hold — its stream closed, or it moved to another connection (field: `root`) | — |
+| `editLockNotHeld` | `locks/release` for a lock this connection does not hold — its stream closed and took the lock with it, or it never claimed that object (field: `root`) | — |
 
 `unwatch` never raises it for a missing connection: a client unsubscribing after its stream already dropped
 has nothing left to undo, and an error there would only fire on every page it leaves. It is still raised when
@@ -228,8 +228,8 @@ not leak. A refused **lock** still answers `permissionDenied` (403), since it ad
 caller asked for by name.
 
 `editLockHeld` never reaches a snackbar: the client turns it into the "being edited by …" banner, which is
-the whole point of the code carrying the holder in `args`. `editLockNotHeld` is swallowed entirely — the hook
-answers it by re-acquiring.
+the whole point of the code carrying the holder in `args`. `editLockNotHeld` is swallowed entirely: it only
+ever comes back from giving a lock up, and it means the server had already let go of it.
 
 ### Validation
 | Code | When | `args` |

@@ -16,16 +16,6 @@ export interface RealtimeContextValue {
   /** Viewers of every watched object, keyed by `entityType:entityId`. Includes the current user. */
   presence: ReadonlyMap<string, readonly RealtimeViewer[]>;
   presenceKey: (entityType: AppEntityType, entityId: string) => string;
-  /**
-   * Edit locks the connection still holds, from the last heartbeat. `at` is when that heartbeat was
-   * sent, so a lock taken after it is not expected in `keys` yet.
-   */
-  heldLocks: HeldLocks;
-}
-
-export interface HeldLocks {
-  keys: ReadonlySet<string>;
-  at: number;
 }
 
 const RealtimeContext = createContext<RealtimeContextValue | null>(null);

@@ -437,8 +437,8 @@ Server-sent events, the transport behind live updates. Design and rationale:
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/api/realtime/stream` | Bearer | The event stream, `text/event-stream` |
-| POST | `/api/realtime/watch` | Bearer | Subscribe the connection to one object's events |
-| POST | `/api/realtime/unwatch` | Bearer | Drop the subscription |
+| POST | `/api/realtime/watch` | Bearer | Subscribe the connection to a batch of objects |
+| POST | `/api/realtime/unwatch` | Bearer | Drop a batch of subscriptions |
 | POST | `/api/realtime/heartbeat` | Bearer | Report the connection alive |
 | POST | `/api/realtime/locks/acquire` | Bearer | Claim the object for editing |
 | POST | `/api/realtime/locks/release` | Bearer | Drop the claim |
@@ -496,22 +496,28 @@ other event it has nothing to refetch from, so it must be the state it announces
 **deduplicated** list changes, so a second tab of the same person is silent, and `watch` seeds the initial list
 in its response — otherwise a page would show nobody until the next person came or went.
 
-**Heartbeat.** Body `{ connectionId }`, answers `200 { locks: EditLockDto[] }`. Writing to the stream proves
+**Heartbeat.** Body `{ connectionId }`, answers `200 { holdsLocks: bool }`. Writing to the stream proves
 nothing about the client: a proxy between the browser and Kestrel outlives the tab and keeps accepting bytes, so
 `RequestAborted` never fires and the stream would hang forever with its presence and locks still registered. The
 client reports in every 20 seconds instead, and a background reaper aborts anything silent for 90 — which makes
-the stream run its ordinary teardown. The listed locks are how a page notices its lock was taken over by another
-tab of the same user, which raises no event it would accept.
+the stream run its ordinary teardown. `holdsLocks` serves one caller: a backgrounded tab drops its subscriptions
+after twenty seconds unless it is still editing something, and this is how it finds that out. The objects
+themselves are not listed — a lock can no longer be taken away, so the client has nothing to compare against.
 
 **Locks.** Body `{ connectionId, entityType, entityId }` for both — one object per call, since a lock is
 taken by a form and not by a screen; `acquire` answers
 `200 EditLockDto` (`{ entityType, entityId, userId, userName }`), `release` answers `204`. The lock
 is advisory: it warns, disables nothing, and `PUT` of the object never consults it. A lock has no expiry of its
-own — it lives exactly as long as the connection that took it, and the stream's teardown releases it as a
-normal `editLockReleased`. Acquiring requires the same right as editing the object
-(`IEntityAccessService.CanEditAsync`) — a lock grants no access of its own. The same user arriving from another
-connection takes the lock over rather than being refused. There is no endpoint for reading lock state: a page
-learns it from its own `acquire` response and from the two lock events.
+own — it lives as long as the connections holding it, and the last one going away releases it as a normal
+`editLockReleased`. Acquiring requires the same right as editing the object
+(`IEntityAccessService.CanEditAsync`) — a lock grants no access of its own.
+
+An object is held by one **user** but by any number of their connections at once: the same person arriving from
+another tab joins the holders rather than taking the lock over, which is what keeps two tabs of one person from
+grabbing it back from each other every heartbeat. The events therefore mark transitions of that set, not
+operations — `editLockAcquired` when it goes from empty to held, `editLockReleased` when the last holder
+leaves. There is no endpoint for reading lock state: a page learns it from its own `acquire` response and from
+the two lock events.
 
 409 `editLockHeld` — held by another user; `args` carry `{ userId, userName }` (field: `root`).
 409 `editLockNotHeld` — `release` for a lock this connection does not hold (field: `root`).

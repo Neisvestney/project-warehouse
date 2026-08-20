@@ -9,8 +9,9 @@ public class RealtimeHeartbeatRequest
 public class RealtimeHeartbeatResponse
 {
     /// <summary>
-    /// The locks still held. A client compares it against what it thinks it owns — a lock taken over by
-    /// another tab of the same user simply stops being listed, and no event announces that.
+    /// Whether this connection still holds any edit lock. A tab that is editing keeps its subscriptions
+    /// while backgrounded instead of dropping them after twenty seconds, and this is how it finds out.
+    /// The objects themselves are not listed: nobody asks, since a lock can no longer be taken away.
     /// </summary>
-    public required IReadOnlyList<EditLockDto> Locks { get; init; }
+    public required bool HoldsLocks { get; init; }
 }
