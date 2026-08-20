@@ -21,6 +21,7 @@ export const storageSections: SectionConfig[] = [
     path: "warehouses",
     icon: <WarehouseIcon fontSize="small" />,
     component: WarehousesPage,
+    requiredPermission: ["warehouses.view", "warehouses.view_assigned"],
     subroutes: [
       {path: "new", component: WarehouseNewPage},
       {path: ":id/edit", component: WarehouseEditPage},
@@ -41,6 +42,7 @@ export const storageSections: SectionConfig[] = [
     path: "inventory",
     icon: <InventoryIcon fontSize="small" />,
     component: InventoryPage,
+    requiredPermission: ["warehouses.view", "warehouses.view_assigned"],
   },
   {
     label: "Движения товаров",
