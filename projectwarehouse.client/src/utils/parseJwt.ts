@@ -13,6 +13,7 @@ export function parseJwtUser(): JwtUser | null {
     return {
       id: payload.sub,
       username: payload.name,
+      fullName: payload.name,
       email: payload.email ?? null,
       firstName: payload.given_name ?? null,
       lastName: payload.family_name ?? null,
