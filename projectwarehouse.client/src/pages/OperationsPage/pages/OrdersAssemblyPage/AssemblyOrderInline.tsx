@@ -5,6 +5,7 @@ import OrderTypeChip from "@/components/orders/OrderTypeChip";
 import {formatOrderNumber} from "@/components/orders/orderUtils";
 import AssemblyOrderBoxesSection from "./AssemblyOrderBoxesSection";
 import AssemblyTaskAccordion from "./AssemblyTaskAccordion";
+import {formatPostingNumber} from "@/utils/postingNumberUtils.tsx";
 
 interface AssemblyOrderInlineProps {
   order: OrderDetailsDto;
@@ -40,6 +41,9 @@ function AssemblyOrderInline({
         </Typography>
         <OrderTypeChip type={order.type} />
         <Chip label={order.warehouseName} size="small" variant="outlined" />
+        {order.marketplaceOrder && 
+            <Typography variant={"body2"}>{formatPostingNumber(order.marketplaceOrder.postingNumber)}</Typography>
+        }
       </Stack>
       <AssemblyOrderBoxesSection order={order} canManage={canFulfill} />
       <Divider sx={{mb: 1}} />

@@ -16,6 +16,7 @@ import AssemblyTaskAccordion from "./AssemblyTaskAccordion";
 import {formatOrderNumber} from "@/components/orders/orderUtils";
 import {checkBatchEligibility} from "./batchEligibility";
 import {NOUNS, pluralCount} from "@/utils/pluralUtils";
+import {formatPostingNumber} from "@/utils/postingNumberUtils.tsx";
 
 interface AssemblyOrderAccordionProps {
   order: OrderDetailsDto;
@@ -60,6 +61,9 @@ function AssemblyOrderAccordion({
           <Typography variant="caption" color="text.secondary" sx={{ml: "auto"}}>
             {pluralCount(tasks.length, NOUNS.task)}
           </Typography>
+          {order.marketplaceOrder &&
+              <Typography variant={"body2"}>{formatPostingNumber(order.marketplaceOrder.postingNumber)}</Typography>
+          }
         </Stack>
       </AccordionSummary>
 
