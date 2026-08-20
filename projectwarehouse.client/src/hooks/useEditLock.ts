@@ -91,7 +91,9 @@ export function useEditLock(
     void acquire();
 
     // Keeping the lock is the connection heartbeat's job now; this only waits out the current holder.
+    // A hidden tab stops asking: nobody is waiting to edit, and `retryOnVisible` catches up on return.
     const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
       if (!isOwnerRef.current) void acquire();
     }, RETRY_MS);
 

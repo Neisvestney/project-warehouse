@@ -1570,6 +1570,17 @@ TanStack's own `focusManager`/`onlineManager` listen to those exact two events, 
 app, so every active query already refetches on its own. Re-invalidating would only duplicate that and would
 override the few queries that deliberately set a `staleTime`.
 
+**A backgrounded tab gives up in two steps.** 20 s hidden → `unwatch` on everything it watched: no more events,
+and it drops out of everyone's presence. 2 min hidden → the stream is aborted, which is what makes the server
+release this connection's locks (the heartbeat stops with the `connectionId`). "Hidden" is
+`document.visibilityState`, not focus — a half-covered window is still being read.
+
+The 20 s step sends an off-cycle heartbeat first and only unwatches when the answer lists **no locks**: a tab
+that holds one is still an editor, and unsubscribing it would leave it blind to changes on the very object it
+is about to save over. Coming back needs no new machinery — the watch entries survive the pause, only losing
+their `confirmed` flag, so the return re-registers them down the same path a reconnect takes, and
+`useEditLock` re-acquires under the new `connectionId` exactly as it does after a dropped stream.
+
 ### `useRealtimeEvent(type, handler)`
 
 ```typescript
@@ -1664,8 +1675,8 @@ after a reconnect — the server dropped the old lock when the stream broke. Hol
 own: a lock lives as long as its connection, which `RealtimeProvider` keeps alive for all of them. The hook only
 watches the lock list that heartbeat answers with, to notice a takeover by another tab of the same user — that
 case raises no event this page would accept. Its own 20 s interval is just a retry while somebody else holds the
-object, and a tab returning from the background retries at once, since release events only arrive while the
-stream is up. The unload release goes out as a `keepalive` fetch, since a normal one is cancelled and
+object; it skips its tick while the tab is hidden — nobody there is waiting to edit — and a tab returning from
+the background retries at once, since release events only arrive while the stream is up. The unload release goes out as a `keepalive` fetch, since a normal one is cancelled and
 `sendBeacon` cannot carry the bearer header.
 
 ```typescript
