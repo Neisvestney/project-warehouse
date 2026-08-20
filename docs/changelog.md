@@ -2,31 +2,6 @@
 
 Tracks every mutation of key entities (create / update / delete) with a before/after diff, a snapshot, and the identity of the user who made the change.
 
-## File Map
-
-```
-Domain/
-  ChangeLogEntry.cs          — EF entity stored in DB
-  ChangeLogDiff.cs           — one field diff (path, from, to)
-  AppEntityType.cs           — enum of tracked entity types (values pinned: persisted as int in ChangeLogEntry.EntityType)
-
-Infrastructure/ChangeLog/
-  AbstractChangeLogService.cs           — base logic: diffing, serialization, interfaces
-  AppChangeLogService.cs                — concrete EF implementation (writes to DB)
-  UserDetailDtoChangelogService.cs      — typed wrapper for UserDetailDto
-  CatalogItemDtoChangelogService.cs     — typed wrapper for CatalogItemDto
-  WarehouseDtoChangelogService.cs       — typed wrapper for WarehouseDto
-  StoragePlaceNodeDetailsDtoChangelogService.cs
-  RolesListDtoChangelogService.cs       — tracks the whole roles list as one object
-  StocktakeDtoChangelogService.cs       — typed wrapper for StocktakeDto
-
-Models/ChangeLog/
-  ChangeLogEntryDto.cs       — API response shape
-
-Infrastructure/
-  IHasIdentity.cs            — interface for objects with a stable Guid Id (entities and DTOs)
-```
-
 ## How It Works
 
 1. **Before a mutation** — capture a DTO snapshot of the current state (`before`).
@@ -50,32 +25,11 @@ save that changed nothing raises no event either. Entities without a changelog s
 publish the same event from a `[PublishesEntityChanged]` action filter instead. See
 [realtime-specification.md](realtime-specification.md).
 
-## Domain Model
+## Domain Model Notes
 
-```csharp
-ChangeLogEntry {
-    Guid            Id
-    AppEntityType   EntityType          // which kind of entity
-    Guid            EntityId            // primary key of the entity
-    ChangeLogEntryType ChangeLogEntryType  // Added / Modified / Deleted
-    IList<ChangeLogDiff> Diffs          // per-field diffs (jsonb)
-    string?         Snapshot            // full serialized state (before for Modified/Deleted, after for Added)
-    string?         Context             // full serialized state after for Modified
-    Guid?           UserId              // null if user was deleted (SetNull FK)
-    DateTime        CreatedAt
-    string?         Action              // optional: machine-readable reason for the change
-    string?         ActionData          // optional: structured context for that reason (jsonb)
-}
+`ChangeLogEntry.Snapshot` and `Context` are asymmetric on purpose: `Snapshot` holds the *before* state for `Modified`/`Deleted` but the *after* state for `Added` (there is no before), while `Context` holds the *after* state and is only filled for `Modified`.
 
-// AppEntityType.ChangeLog and .InventoryItem exist only so the storage statistics page can name
-// their tables; nothing writes an entry with them. Not every value is a tracked entity.
-
-ChangeLogDiff {
-    string   Path   // dotted property path, e.g. "ItemsGroups[0].Count"
-    object?  From
-    object?  To
-}
-```
+`AppEntityType.ChangeLog` and `.InventoryItem` exist only so the storage statistics page can name their tables — nothing ever writes an entry with them. Not every enum value is a tracked entity.
 
 ## Action and ActionData
 

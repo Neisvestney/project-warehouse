@@ -18,6 +18,11 @@ public class EventsController(ApplicationDbContext db, IMapper mapper, IUserQuer
     /// <remarks>
     /// Days are cut in the caller's time zone — pass <c>utcOffsetMinutes</c>, or a stocktake finished in the
     /// evening lands on the wrong day. Same convention as StatisticsController.
+    /// Query params: <c>startDate</c>, <c>endDate</c> (both optional, inclusive), <c>utcOffsetMinutes</c>
+    /// (default 0). Canceled documents and receipt drafts are never returned.
+    /// Rows are narrowed to what the caller may see by <see cref="IUserQueryFilterService"/> rather than by an
+    /// up-front permission check, so a user with no receipt or stocktake access gets an empty list, not a 403.
+    /// The endpoint produces no error code of its own.
     /// </remarks>
     [HttpGet]
     [Authorize]

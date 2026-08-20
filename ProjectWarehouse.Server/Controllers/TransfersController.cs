@@ -21,6 +21,25 @@ public class TransfersController(
     /// All items are moved in a single transaction — if any item fails, the entire transfer is rolled back.
     /// Transfer type is determined by which field of each <see cref="TransferItemRequest"/> is populated:
     /// <c>catalogItemId + count</c> → Standard; <c>unitItemId</c> → Unit.
+    /// Requires <c>transfers.execute</c> or <c>transfers.execute_assigned</c>; with the assigned variant only,
+    /// <b>both</b> the source and the destination warehouse must be in the caller's assigned set.
+    /// Error codes:
+    /// <list type="bullet">
+    ///   <item>403 <c>permissionDenied</c> — neither transfer permission</item>
+    ///   <item>403 <c>transferNotAssignedToWarehouse</c> — assigned-only caller, and the source or the
+    ///         destination warehouse is outside their set; the message names which side</item>
+    ///   <item>422 <c>transferSameNode</c> (field <c>fromNodeId</c>) — source and destination are the same node</item>
+    ///   <item>422 <c>storagePlaceNodeNotFound</c> (fields <c>fromNodeId</c>, <c>toNodeId</c>, or <c>root</c>
+    ///         when raised inside the transaction) — the node does not exist</item>
+    ///   <item>422 <c>insufficientInventory</c> (field <c>items</c>) — not enough Standard items in the source node;
+    ///         args <c>{ itemName, requested, available, missing, path }</c>, <c>path</c> being the node breadcrumb</item>
+    ///   <item>422 <c>unitInventoryItemNotFound</c> (field <c>items</c>) — the unit item does not exist or was already removed</item>
+    ///   <item>422 <c>validationError</c> — empty <c>items</c>, an item with both or neither of
+    ///         <c>catalogItemId</c>/<c>unitItemId</c> (field <c>items[i]</c>), or a non-positive
+    ///         <c>count</c> for a Standard item (field <c>items[i].count</c>)</item>
+    /// </list>
+    /// The inventory errors surface from <c>IInventoryService</c> through catch blocks, so hitting one rolls
+    /// the whole transfer back — no partial movement is ever committed.
     /// </remarks>
     [HttpPost]
     [Authorize]

@@ -23,6 +23,10 @@ public class CatalogController(
     IDataFileBindingService fileBinding) : AppControllerBase
 {
     /// <summary>List all catalog item tags, optionally filtered by name.</summary>
+    /// <remarks>
+    /// Query params: <c>search</c> (optional). Not paginated — ordered by name.
+    /// Requires <c>catalog.view</c>. No error codes beyond 403 <c>permissionDenied</c>.
+    /// </remarks>
     [HttpGet("tags")]
     [Authorize(Policy = Permissions.Catalog.View)]
     [ProducesResponseType<IReadOnlyList<CatalogItemTagDto>>(StatusCodes.Status200OK)]
@@ -38,6 +42,11 @@ public class CatalogController(
     }
 
     /// <summary>Create a new catalog item tag.</summary>
+    /// <remarks>
+    /// Requires <c>catalog.edit</c>. Body: <c>CreateCatalogItemTagRequest</c> — name (trimmed before saving).
+    /// Names are not checked for uniqueness, so this endpoint has no error codes of its own beyond 403
+    /// <c>permissionDenied</c> and the generic model-binding 422s (<c>required</c>, <c>tooLong</c>).
+    /// </remarks>
     [HttpPost("tags")]
     [Authorize(Policy = Permissions.Catalog.Edit)]
     [ProducesResponseType<CatalogItemTagDto>(StatusCodes.Status201Created)]
@@ -51,6 +60,14 @@ public class CatalogController(
     }
 
     /// <summary>List all catalog items (paginated, optionally filtered by name).</summary>
+    /// <remarks>
+    /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
+    /// <c>sortBy</c> (default <c>Name</c>), <c>sortOrder</c> (default <c>Asc</c>), <c>itemTypes</c>,
+    /// <c>tagIds</c>, <c>isArchived</c>. Archived items always sort last, whatever <c>sortBy</c> says.
+    /// Product-group children (<c>groupId != null</c>) are excluded — this is the catalog tree, and a child is
+    /// reached through its group. Use <see cref="GetForSelect"/> when children must be pickable.
+    /// Requires <c>catalog.view</c>. No error codes beyond 403 <c>permissionDenied</c>.
+    /// </remarks>
     [HttpGet]
     [Authorize(Policy = Permissions.Catalog.View)]
     [ProducesResponseType<Paginated<CatalogItemSummaryDto>>(StatusCodes.Status200OK)]
@@ -104,8 +121,10 @@ public class CatalogController(
 
     /// <summary>Get a flat list of catalog items for use in select/autocomplete controls.</summary>
     /// <remarks>
-    /// Optionally filtered by types and tags. Returns at most <paramref name="take"/> items.
-    /// Unlike <see cref="GetAll"/>, product-group children are included.
+    /// Query params: <c>searchString</c>, <c>types</c>, <c>tagIds</c>, <c>take</c> (default 10, max 200).
+    /// Unlike <see cref="GetAll"/>, product-group children are included — a picker must be able to reach them.
+    /// Archived items are returned too, sorted last.
+    /// Requires <c>catalog.view</c>. No error codes beyond 403 <c>permissionDenied</c>.
     /// </remarks>
     [HttpGet("for-select")]
     [Authorize(Policy = Permissions.Catalog.View)]
@@ -138,6 +157,10 @@ public class CatalogController(
     }
 
     /// <summary>Get a catalog item by ID.</summary>
+    /// <remarks>
+    /// Requires <c>catalog.view</c>. Works for product-group children as well as top-level items.
+    /// Returns 404 <c>catalogItemNotFound</c> if the item does not exist.
+    /// </remarks>
     [HttpGet("{id:guid}")]
     [Authorize(Policy = Permissions.Catalog.View)]
     [ProducesResponseType<CatalogItemDto>(StatusCodes.Status200OK)]
@@ -153,6 +176,18 @@ public class CatalogController(
     }
 
     /// <summary>Create a new catalog item.</summary>
+    /// <remarks>
+    /// Requires <c>catalog.edit</c>. Body: <c>CreateCatalogItemRequest</c> — type, name, article, barcode and
+    /// an optional <c>mainImageFileId</c>. <c>type</c> is fixed at creation: it can never be changed later
+    /// (<c>catalogItemIsImmutable</c>). Type-specific structure — group, variations, components, children —
+    /// is set through <c>PUT /api/catalog/{id}</c>.
+    /// Error codes:
+    /// <list type="bullet">
+    ///   <item>422 <c>catalogItemArticleDuplicate</c> (field <c>article</c>) — another item already has this article</item>
+    ///   <item>422 <c>catalogItemBarcodeDuplicate</c> (field <c>barcode</c>) — another item already has this barcode</item>
+    ///   <item>422 <c>dataFileNotFound</c> (field <c>mainImageFileId</c>) — the uploaded file was collected before the form was saved</item>
+    /// </list>
+    /// </remarks>
     [HttpPost]
     [Authorize(Policy = Permissions.Catalog.Edit)]
     [ProducesResponseType<CatalogItemDto>(StatusCodes.Status201Created)]
@@ -188,11 +223,36 @@ public class CatalogController(
 
     /// <summary>Update a catalog item.</summary>
     /// <remarks>
-    /// Type-specific fields:
+    /// Requires <c>catalog.edit</c>. Type-specific fields:
     /// <list type="bullet">
     ///   <item><b>Standard / Unit</b>: <c>groupId</c>, <c>variationIds</c> (full replace)</item>
     ///   <item><b>Variation</b>: <c>memberIds</c> (full replace)</item>
     ///   <item><b>Bundle</b>: <c>components</c> — <c>id: null</c> creates, <c>id</c> present updates, missing existing entries are deleted</item>
+    ///   <item><b>ProductGroup</b>: <c>children</c> — full-replace sync: <c>id: null</c> creates a child,
+    ///         <c>id</c> present updates it, and a child omitted from the list is <b>deleted</b>. Children
+    ///         inherit the group's tags and <c>isArchived</c>, and may only be Standard or Unit</item>
+    /// </list>
+    /// Images: <c>mainImageFileId</c> plus <c>images[{ id, fileId, order }]</c> — the list is a full replace
+    /// (<c>id: null</c> adds a link, an omitted link is removed); the same pair applies per product-group child.
+    /// Error codes:
+    /// <list type="bullet">
+    ///   <item>404 <c>catalogItemNotFound</c> — no such item</item>
+    ///   <item>422 <c>catalogItemManagedByGroup</c> (field <c>root</c>) — the item is a product-group child; edit it through its group</item>
+    ///   <item>422 <c>catalogItemArticleDuplicate</c> / <c>catalogItemBarcodeDuplicate</c> (fields <c>article</c>, <c>barcode</c>,
+    ///         or <c>children[i].article</c> / <c>children[i].barcode</c>) — collides with another item, or with another entry of the same request</item>
+    ///   <item>422 <c>catalogItemGroupInvalid</c> — <c>groupId</c> is not an existing ProductGroup, or a
+    ///         <c>children[i].type</c> is neither Standard nor Unit</item>
+    ///   <item>422 <c>catalogItemVariationInvalid</c> (field <c>memberIds[i]</c>) — the member does not exist or is not Standard/Unit/Bundle</item>
+    ///   <item>422 <c>catalogItemComponentInvalid</c> (field <c>components[i].componentId</c>) — the component does not exist
+    ///         or its type may not be used as a bundle component</item>
+    ///   <item>422 <c>catalogItemComponentNotFound</c> (field <c>components[i].id</c>) — the component row does not belong to this bundle</item>
+    ///   <item>422 <c>catalogItemNotFound</c> (field <c>children[i].id</c>) — the child does not belong to this product group</item>
+    ///   <item>422 <c>catalogItemIsImmutable</c> (field <c>children[i].type</c>) — a child's type cannot be changed</item>
+    ///   <item>422 <c>catalogItemCircularDependency</c> (field <c>root</c>) — the submitted components/members would
+    ///         close a cycle in the Bundle↔Variation nesting graph</item>
+    ///   <item>422 <c>dataFileNotFound</c> (fields <c>mainImageFileId</c>, <c>images</c>,
+    ///         <c>children.mainImageFileId</c>, <c>children.images</c>) — a referenced upload no longer exists</item>
+    ///   <item>409 <c>catalogItemIsInUse</c> — a child removed from <c>children</c> is still stored in a warehouse</item>
     /// </list>
     /// </remarks>
     [HttpPut("{id:guid}")]
@@ -319,7 +379,13 @@ public class CatalogController(
     }
 
     /// <summary>Delete a catalog item.</summary>
-    /// <remarks>Returns 409 <c>catalogItemIsInUse</c> if the item is currently stored in any warehouse.</remarks>
+    /// <remarks>
+    /// Requires <c>catalog.edit</c>. Deleting a ProductGroup deletes its children with it, and the in-use
+    /// check covers them too.
+    /// Returns 404 <c>catalogItemNotFound</c> if no such item, and 409 <c>catalogItemIsInUse</c> if the item
+    /// (or one of its group children) is stored in any warehouse — as a node item group or as a unit
+    /// inventory item.
+    /// </remarks>
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = Permissions.Catalog.Edit)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

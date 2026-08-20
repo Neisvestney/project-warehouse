@@ -49,7 +49,16 @@ public class FilesController(
     /// <summary>Upload a file.</summary>
     /// <remarks>
     /// The file exists independently of any entity and is removed by the garbage collector unless a
-    /// reference to it appears within OrphanTtlHours.
+    /// reference to it appears within <c>DataFiles:OrphanTtlHours</c>.
+    /// Body: <c>multipart/form-data</c> with a single <c>file</c> part; the request itself is capped at 32 MB.
+    /// Every error is a 422 bound to the <c>file</c> field:
+    /// <list type="bullet">
+    ///   <item><c>dataFileEmpty</c> — no file part, or zero bytes</item>
+    ///   <item><c>dataFileTooLarge</c> — over <c>DataFiles:MaxFileSizeBytes</c>; <c>args</c>: <c>maxBytes</c></item>
+    ///   <item><c>dataFileTypeNotAllowed</c> — the declared content type is not in <c>DataFiles:AllowedContentTypes</c>, does not match the leading bytes, or the declared image could not be decoded; <c>args</c>: <c>allowed</c> (comma-separated list)</item>
+    ///   <item><c>dataFileStorageError</c> — the bytes were written but the metadata row was not; the bytes are removed again</item>
+    /// </list>
+    /// Requires authentication only.
     /// </remarks>
     [HttpPost]
     [Authorize]
@@ -112,6 +121,10 @@ public class FilesController(
     }
 
     /// <summary>Get file metadata.</summary>
+    /// <remarks>
+    /// Returns 404 <c>dataFileNotFound</c> — for an unknown id, and equally for one the GC already collected
+    /// because no entity referenced it in time. Requires authentication only; there is no per-file access check.
+    /// </remarks>
     [HttpGet("{id:guid}")]
     [Authorize]
     [ProducesResponseType<DataFileDto>(StatusCodes.Status200OK)]
@@ -129,6 +142,14 @@ public class FilesController(
     }
 
     /// <summary>Download the original file.</summary>
+    /// <remarks>
+    /// Returns 404 <c>dataFileNotFound</c> for an unknown id and for a row whose bytes are missing from
+    /// storage (logged as an error — that state means the two halves drifted apart).
+    /// Responses carry <c>X-Content-Type-Options: nosniff</c> and an id-derived ETag, and support range
+    /// requests. Only <c>image/jpeg</c>, <c>image/png</c>, <c>image/webp</c>, <c>image/gif</c> and
+    /// <c>application/pdf</c> are served inline; everything else gets
+    /// <c>Content-Disposition: attachment</c> — notably SVG, which would otherwise be stored XSS.
+    /// </remarks>
     [HttpGet("{id:guid}/content")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -150,8 +171,17 @@ public class FilesController(
 
     /// <summary>Get a downscaled preview of an image.</summary>
     /// <remarks>
-    /// Only widths from ThumbnailWidths are accepted — arbitrary values would let anyone inflate the
-    /// disk cache with ?width=1,2,3,… Results are cached on disk and dropped by the GC with the original.
+    /// Only widths from <c>DataFiles:ThumbnailWidths</c> are accepted — arbitrary values would let anyone
+    /// inflate the disk cache with ?width=1,2,3,… Results are cached on disk and dropped by the GC with the
+    /// original. Query param: <c>width</c> (required, must be on the allow-list). Previews are always WebP,
+    /// and an original no wider than the request is streamed as-is instead of being upscaled.
+    /// Errors:
+    /// <list type="bullet">
+    ///   <item>422 <c>dataFileWidthNotAllowed</c> on <c>width</c>; <c>args</c>: <c>allowed</c> (comma-separated widths)</item>
+    ///   <item>404 <c>dataFileNotFound</c> — unknown id, or the row's bytes are missing from storage</item>
+    ///   <item>422 <c>dataFileNotAnImage</c> on <c>id</c> — the stored content type is not <c>image/*</c>, or the image could not be decoded</item>
+    /// </list>
+    /// Responses carry <c>nosniff</c> and an ETag derived from id + width, as on the content endpoint.
     /// </remarks>
     [HttpGet("{id:guid}/thumbnail")]
     [Authorize]

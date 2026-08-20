@@ -198,7 +198,9 @@ public class WarehousesController(
     ///   <item><c>id</c> present — update existing storage place</item>
     ///   <item>existing storage place not in the list — delete</item>
     /// </list>
-    /// Returns 422 <c>storagePlaceNotFound</c> if any provided ID does not belong to this warehouse.
+    /// Returns 422 <c>storagePlaceNotFound</c> if any provided ID does not belong to this warehouse — including
+    /// for <c>defaultStoragePlaceNodeId</c>, which must reference a node of this warehouse. Deleting the
+    /// referenced node clears the field via cascade.
     /// Requires <c>warehouses.edit</c> or <c>warehouses.edit_assigned</c> (assigned warehouses only).
     /// </remarks>
     [HttpPut("{id:guid}")]

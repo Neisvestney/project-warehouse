@@ -20,6 +20,10 @@ public class ChangelogController(ApplicationDbContext db, IMapper mapper) : AppC
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200),
     /// <c>entityType</c> (optional), <c>changeLogEntryType</c> (optional).
     /// Returns <c>Paginated&lt;ChangeLogEntryDto&gt;</c> ordered by <c>createdAt</c> descending.
+    /// Requires <c>changelog.view</c> — the log spans every entity type and is not narrowed by assigned
+    /// warehouses, so the permission is the only gate.
+    /// No error codes beyond 403 <c>permissionDenied</c>; an unparseable <c>entityType</c> or
+    /// <c>changeLogEntryType</c> is a model-binding 422 (<c>invalidFormat</c>).
     /// </remarks>
     [HttpGet]
     [Authorize(Policy = Permissions.ChangeLog.View)]

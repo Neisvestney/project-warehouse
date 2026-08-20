@@ -135,6 +135,16 @@ public class OrdersController(
 
     // ── GET /api/orders ───────────────────────────────────────────────────────
 
+    /// <summary>List orders (paginated, filtered, sorted).</summary>
+    /// <remarks>
+    /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
+    /// <c>warehouseId</c>, <c>type</c>, <c>status</c>, <c>marketplaceType</c>, <c>marketplaceAccountId</c>,
+    /// <c>marketplaceStatus</c>, <c>sortBy</c> (default <c>Number</c>), <c>sortOrder</c> (default <c>Desc</c>).
+    /// Any of the three marketplace filters also excludes orders without a <c>MarketplaceOrder</c>, so they
+    /// never match Direct orders.
+    /// Requires <c>orders.view</c> or <c>orders.view_assigned</c>; <c>orders.assemble_assigned</c> alone does
+    /// not open the list (403).
+    /// </remarks>
     [HttpGet]
     [Authorize]
     [ProducesResponseType<Paginated<OrderSummaryDto>>(StatusCodes.Status200OK)]
@@ -193,6 +203,16 @@ public class OrdersController(
 
     // ── GET /api/orders/assembly ──────────────────────────────────────────────
 
+    /// <summary>The current user's personal assembly worklist: full details of Assembly-status orders that have a task assigned to them.</summary>
+    /// <remarks>
+    /// Query params: <c>warehouseId</c> (optional). Not paginated — returns a plain list.
+    /// Only orders in <c>Assembly</c> status with at least one <c>AssemblyTask</c> assigned to the caller are
+    /// returned, and each order carries only that caller's own tasks; other assemblers' tasks are filtered out.
+    /// Every task box component is annotated with <c>containsUnit</c>, computed by walking the Bundle/Variation
+    /// tree — the client uses it to exclude such tasks from batch assembly.
+    /// Requires view access to orders (<c>orders.view</c>, <c>orders.view_assigned</c> or
+    /// <c>orders.assemble_assigned</c>).
+    /// </remarks>
     [HttpGet("assembly")]
     [Authorize]
     [ProducesResponseType<List<OrderDetailsDto>>(StatusCodes.Status200OK)]
@@ -259,6 +279,12 @@ public class OrdersController(
 
     // ── GET /api/orders/{id} ──────────────────────────────────────────────────
 
+    /// <summary>Get full order details — boxes, components, assembly tasks with their fulfillments, and marketplace data.</summary>
+    /// <remarks>
+    /// Returns 404 <c>orderNotFound</c> if the order does not exist.
+    /// Requires <c>orders.view</c> or <c>orders.view_assigned</c>; <c>orders.assemble_assigned</c> alone does
+    /// not open the order page (403).
+    /// </remarks>
     [HttpGet("{id:guid}")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
@@ -284,6 +310,13 @@ public class OrdersController(
 
     // ── POST /api/orders/direct ───────────────────────────────────────────────
 
+    /// <summary>Create a Direct (non-marketplace) order in Draft status.</summary>
+    /// <remarks>
+    /// Body: <c>CreateDirectOrderRequest</c> — warehouseId (required), notes, plannedShipmentAt.
+    /// The order is created empty; boxes and components are added afterwards.
+    /// Returns 422 <c>warehouseNotFound</c> for an unknown warehouse.
+    /// Requires <c>orders.edit</c>, or <c>orders.edit_assigned</c> for the target warehouse.
+    /// </remarks>
     [HttpPost("direct")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status201Created)]
@@ -308,6 +341,12 @@ public class OrdersController(
 
     // ── PUT /api/orders/{id} ──────────────────────────────────────────────────
 
+    /// <summary>Update an order's notes and planned shipment date.</summary>
+    /// <remarks>
+    /// Body: <c>UpdateOrderRequest</c> — only <c>notes</c> and <c>plannedShipmentAt</c> are writable here;
+    /// composition and status are changed through their own endpoints. Allowed in any status.
+    /// Returns 404 <c>orderNotFound</c>. Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
     [HttpPut("{id:guid}")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
@@ -325,6 +364,11 @@ public class OrdersController(
 
     // ── DELETE /api/orders/{id} ───────────────────────────────────────────────
 
+    /// <summary>Delete an order. Only allowed in Draft status.</summary>
+    /// <remarks>
+    /// Returns 422 <c>orderNotDraft</c> for any other status, 404 <c>orderNotFound</c> if it does not exist.
+    /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
     [HttpDelete("{id:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -349,6 +393,22 @@ public class OrdersController(
 
     // ── PUT /api/orders/{id}/status ───────────────────────────────────────────
 
+    /// <summary>Move the order to another status.</summary>
+    /// <remarks>
+    /// Body: <c>TransitionOrderStatusRequest</c> — <c>targetStatus</c>. Allowed transitions:
+    /// <list type="bullet">
+    ///   <item>Draft → Confirmed | Canceled</item>
+    ///   <item>Confirmed → Draft | Assembly | Canceled</item>
+    ///   <item>Assembly → Confirmed | Canceled</item>
+    ///   <item>Assembled → Shipped</item>
+    /// </list>
+    /// Anything else is 422 <c>orderInvalidStatusTransition</c>. Assembly → Confirmed is additionally refused
+    /// when any assembly task is already <c>Done</c>; otherwise it deletes every assembly task of the order and
+    /// restores the inventory of their fulfillments. Cancelling is refused with 422 <c>orderHasFulfillments</c>
+    /// while any fulfillment still exists. Assembled is reached automatically when the last task completes, not
+    /// through this endpoint. Returns 404 <c>orderNotFound</c>.
+    /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
     [HttpPut("{id:guid}/status")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
@@ -375,6 +435,12 @@ public class OrdersController(
 
     // ── POST /api/orders/{id}/self-assign ─────────────────────────────────────
 
+    /// <summary>Take a Confirmed order for yourself: moves it to Assembly and creates one task with all of its boxes, assigned to the caller.</summary>
+    /// <remarks>
+    /// Requires <c>orders.self_assign</c> and an assignment to the order's warehouse — otherwise 403, with
+    /// <c>orderNotAssignedToWarehouse</c> in the latter case. Returns 422 <c>orderNotConfirmed</c> if the order
+    /// is in any other status, 404 <c>orderNotFound</c> if it does not exist.
+    /// </remarks>
     [HttpPost("{id:guid}/self-assign")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
@@ -420,6 +486,25 @@ public class OrdersController(
     /// <remarks>
     /// Lives here rather than under integrations because it is invoked from the order list and is
     /// scoped by warehouse like every other order operation.
+    /// Body: <c>orderIds</c> (deduplicated, at most <see cref="MaxLabelOrders"/>) and an optional
+    /// <c>grouping</c>. Answers <c>application/pdf</c> — one merged document in the order the ids were sent.
+    /// <para>All or nothing: if any requested label is missing the file is withheld entirely. A batch of 30
+    /// quietly arriving with 28 labels means two unshipped boxes.</para>
+    /// <list type="bullet">
+    ///   <item>422 <c>required</c> — empty <c>orderIds</c></item>
+    ///   <item>422 <c>outOfRange</c> (<c>args.max</c>) — more than <see cref="MaxLabelOrders"/> requested</item>
+    ///   <item>403 <c>orderNotAssignedToWarehouse</c> — an order lies outside the caller's warehouses</item>
+    ///   <item>422 <c>marketplaceOrderNotFromMarketplace</c> (<c>args.orderIds</c>) — an order has no posting</item>
+    ///   <item>422 <c>marketplaceOrderNotAwaitingDeliver</c> (<c>args.postingNumbers</c>, <c>args.count</c>) —
+    ///     a label is not stored yet and its posting is not awaiting shipment</item>
+    ///   <item>409 <c>marketplaceLabelNotReady</c> (<c>args.postingNumbers</c>, <c>args.count</c>) — the
+    ///     marketplace has not produced every label yet</item>
+    ///   <item>502 <c>marketplaceApiError</c> (<c>args.marketplaceStatus</c>, <c>args.marketplaceResponse</c>)</item>
+    /// </list>
+    /// <c>count</c> travels beside <c>postingNumbers</c> because the client interpolates a scalar to pluralize;
+    /// an array cannot. Per-posting labels are cached in <c>DataFile</c>, so a repeat call does not hit the
+    /// marketplace; the merged document itself is not stored.
+    /// Requires <c>orders.view</c>, or <c>orders.view_assigned</c> limited to the caller's warehouses.
     /// </remarks>
     [HttpPost("labels")]
     [Authorize]
@@ -506,6 +591,16 @@ public class OrdersController(
 
     // ── POST /api/orders/batch-self-assign ────────────────────────────────────
 
+    /// <summary>Self-assign several orders in one request, with partial-success semantics.</summary>
+    /// <remarks>
+    /// Body: <c>BatchSelfAssignRequest</c> — <c>orderIds</c> (duplicates are collapsed). Each order is checked
+    /// independently and always answers 200 with <c>BatchSelfAssignResponse</c>: successful ids in
+    /// <c>assignedOrderIds</c>, the rest in <c>failedItems</c> as <c>{ orderId, orderNumber, error }</c> with the
+    /// real error code (<c>orderNotFound</c>, <c>orderNotAssignedToWarehouse</c>, <c>orderNotConfirmed</c>, …).
+    /// There is no transaction: already-assigned orders stay assigned when later ones fail.
+    /// 403 is returned only for the request as a whole, when <c>orders.self_assign</c> is missing.
+    /// The route carries no id, so realtime change events are published explicitly for each assigned order.
+    /// </remarks>
     [HttpPost("batch-self-assign")]
     [Authorize]
     [ProducesResponseType<BatchSelfAssignResponse>(StatusCodes.Status200OK)]
@@ -575,6 +670,16 @@ public class OrdersController(
 
     // ── POST /api/orders/{id}/boxes ───────────────────────────────────────────
 
+    /// <summary>Add an empty box to the order.</summary>
+    /// <remarks>
+    /// Body: <c>CreateOrderBoxRequest</c> — <c>label</c>.
+    /// Allowed in Draft, Confirmed and Assembly; any other status is 422 <c>orderInvalidStatusTransition</c>.
+    /// Permission depends on status: in Draft/Confirmed <c>orders.edit</c> / <c>orders.edit_assigned</c> or
+    /// <c>orders.assemble_assigned</c> is enough, but in Assembly only <c>orders.assemble_assigned</c> is
+    /// accepted — during assembly boxes are managed by the assembler, not the admin page.
+    /// Callers without the unscoped <c>orders.edit</c> must be assigned to the order's warehouse
+    /// (403 <c>orderNotAssignedToWarehouse</c>). Returns 404 <c>orderNotFound</c>.
+    /// </remarks>
     [HttpPost("{id:guid}/boxes")]
     [Authorize]
     [ProducesResponseType<OrderBoxDto>(StatusCodes.Status201Created)]
@@ -613,6 +718,13 @@ public class OrdersController(
 
     // ── PUT /api/orders/{id}/boxes/{boxId} ────────────────────────────────────
 
+    /// <summary>Rename a box.</summary>
+    /// <remarks>
+    /// Body: <c>UpdateOrderBoxRequest</c> — <c>label</c>; the box contents are not touched, and no status
+    /// restriction applies (the label stays editable even during Assembly).
+    /// Returns 404 <c>orderNotFound</c> or <c>orderBoxNotFound</c>.
+    /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
     [HttpPut("{id:guid}/boxes/{boxId:guid}")]
     [Authorize]
     [ProducesResponseType<OrderBoxDto>(StatusCodes.Status200OK)]
@@ -632,6 +744,13 @@ public class OrdersController(
 
     // ── DELETE /api/orders/{id}/boxes/{boxId} ─────────────────────────────────
 
+    /// <summary>Delete a box. Only an empty box can be deleted.</summary>
+    /// <remarks>
+    /// Returns 422 <c>validationError</c> if the box still has components, 404 <c>orderNotFound</c> or
+    /// <c>orderBoxNotFound</c>.
+    /// Requires <c>orders.edit</c> / <c>orders.edit_assigned</c> or <c>orders.assemble_assigned</c>; while the
+    /// order is in Assembly only <c>orders.assemble_assigned</c> is accepted.
+    /// </remarks>
     [HttpDelete("{id:guid}/boxes/{boxId:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -672,6 +791,14 @@ public class OrdersController(
 
     // ── POST /api/orders/{id}/boxes/{boxId}/components ────────────────────────
 
+    /// <summary>Add a catalog item to a box, or overwrite its quantity if the box already holds that item.</summary>
+    /// <remarks>
+    /// Body: <c>UpsertOrderBoxComponentRequest</c> — <c>catalogItemId</c>, <c>quantity</c>. Upsert: an existing
+    /// component for the same catalog item has its quantity replaced rather than summed.
+    /// Allowed only in Draft or Confirmed — otherwise 422 <c>orderInvalidStatusTransition</c>.
+    /// Returns 422 <c>catalogItemNotFound</c>, 404 <c>orderNotFound</c> or <c>orderBoxNotFound</c>.
+    /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
     [HttpPost("{id:guid}/boxes/{boxId:guid}/components")]
     [Authorize]
     [ProducesResponseType<OrderBoxComponentDto>(StatusCodes.Status201Created)]
@@ -705,6 +832,13 @@ public class OrdersController(
 
     // ── PUT /api/orders/{id}/boxes/{boxId}/components/{cid} ──────────────────
 
+    /// <summary>Change a box component's catalog item and quantity.</summary>
+    /// <remarks>
+    /// Body: <c>UpsertOrderBoxComponentRequest</c>. Allowed only in Draft or Confirmed — otherwise 422
+    /// <c>orderInvalidStatusTransition</c>. Returns 422 <c>catalogItemNotFound</c> when switching to an unknown
+    /// item, 404 <c>orderNotFound</c>, <c>orderBoxNotFound</c> or <c>orderBoxComponentNotFound</c>.
+    /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
     [HttpPut("{id:guid}/boxes/{boxId:guid}/components/{cid:guid}")]
     [Authorize]
     [ProducesResponseType<OrderBoxComponentDto>(StatusCodes.Status200OK)]
@@ -748,6 +882,12 @@ public class OrdersController(
 
     // ── DELETE /api/orders/{id}/boxes/{boxId}/components/{cid} ───────────────
 
+    /// <summary>Remove a component from a box.</summary>
+    /// <remarks>
+    /// Allowed only in Draft or Confirmed — otherwise 422 <c>orderInvalidStatusTransition</c>.
+    /// Returns 404 <c>orderNotFound</c> or <c>orderBoxComponentNotFound</c>.
+    /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
     [HttpDelete("{id:guid}/boxes/{boxId:guid}/components/{cid:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -774,6 +914,18 @@ public class OrdersController(
 
     // ── POST /api/orders/{id}/assembly-tasks ──────────────────────────────────
 
+    /// <summary>Create an assembly task assigned to one employee, carrying a chosen split of the order's boxes and components.</summary>
+    /// <remarks>
+    /// Body: <c>CreateAssemblyTaskRequest</c> — <c>assignedToId</c>, <c>boxes[]</c> with
+    /// <c>orderBoxId</c> and <c>components[]</c> (<c>catalogItemId</c>, <c>quantity</c>). The task starts as
+    /// <c>Pending</c>. One order box may be split across several tasks, but the sum of a catalog item's
+    /// quantities over all tasks may not exceed the quantity in the order box.
+    /// Errors: 422 <c>orderNotAssembly</c> if the order is not in Assembly, 422 <c>orderBoxNotFound</c> for a box
+    /// outside this order, 422 <c>orderBoxComponentNotFound</c> for an item absent from the box, 422
+    /// <c>assemblyTaskQuantityExceedsAvailable</c> when the requested quantity exceeds what other tasks left
+    /// free. Returns 404 <c>orderNotFound</c>.
+    /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
     [HttpPost("{id:guid}/assembly-tasks")]
     [Authorize]
     [ProducesResponseType<AssemblyTaskDto>(StatusCodes.Status201Created)]
@@ -805,6 +957,13 @@ public class OrdersController(
 
     // ── PUT /api/orders/{id}/assembly-tasks/{taskId} ──────────────────────────
 
+    /// <summary>Reassign an assembly task to another employee.</summary>
+    /// <remarks>
+    /// Body: <c>UpdateAssemblyTaskRequest</c> — <c>assignedToId</c>; the task's boxes and components are not
+    /// changed here. Returns 422 <c>assemblyTaskAlreadyDone</c> once the task is <c>Done</c>, 404
+    /// <c>orderNotFound</c> or <c>assemblyTaskNotFound</c>.
+    /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
     [HttpPut("{id:guid}/assembly-tasks/{taskId:guid}")]
     [Authorize]
     [ProducesResponseType<AssemblyTaskDto>(StatusCodes.Status200OK)]
@@ -837,6 +996,13 @@ public class OrdersController(
 
     // ── DELETE /api/orders/{id}/assembly-tasks/{taskId} ───────────────────────
 
+    /// <summary>Delete an assembly task, restoring the inventory of any fulfillments it already had.</summary>
+    /// <remarks>
+    /// Only possible while the order is in Assembly — otherwise 422 <c>assemblyTaskNotDeletable</c>.
+    /// Deletion cascades to the task's boxes, components and fulfillments; picked stock is returned to its source
+    /// nodes first. Returns 404 <c>orderNotFound</c> or <c>assemblyTaskNotFound</c>.
+    /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
     [HttpDelete("{id:guid}/assembly-tasks/{taskId:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -863,6 +1029,21 @@ public class OrdersController(
 
     // ── PUT /api/orders/{id}/assembly-tasks/{taskId}/status ───────────────────
 
+    /// <summary>Move an assembly task to another status.</summary>
+    /// <remarks>
+    /// Body: <c>TransitionAssemblyTaskStatusRequest</c> — <c>targetStatus</c>. Allowed transitions:
+    /// <list type="bullet">
+    ///   <item>Pending → InProgress</item>
+    ///   <item>InProgress → Done</item>
+    ///   <item>InProgress → Pending</item>
+    /// </list>
+    /// Anything else is 422 <c>orderInvalidStatusTransition</c>. Completing the last remaining task of an
+    /// Assembly-status order moves the order itself to <c>Assembled</c>. Fulfillment completeness is not checked
+    /// here — a task can be marked Done with components left unfulfilled.
+    /// Returns 404 <c>orderNotFound</c> or <c>assemblyTaskNotFound</c>.
+    /// Requires <c>orders.assemble_assigned</c>, <c>orders.edit</c> or <c>orders.edit_assigned</c>, plus an
+    /// assignment to the order's warehouse in every case (403 <c>orderNotAssignedToWarehouse</c>).
+    /// </remarks>
     [HttpPut("{id:guid}/assembly-tasks/{taskId:guid}/status")]
     [Authorize]
     [ProducesResponseType<AssemblyTaskDto>(StatusCodes.Status200OK)]
@@ -895,6 +1076,15 @@ public class OrdersController(
 
     // ── PUT .../boxes/{tbid}/components/{cid} (admin edit during assembly) ────
 
+    /// <summary>Change the quantity a task must assemble for one of its box components.</summary>
+    /// <remarks>
+    /// Body: <c>UpdateAssemblyTaskBoxComponentRequest</c> — <c>quantity</c>. Admin-side correction of the split
+    /// while assembly is running: allowed only in Assembly status, otherwise 422 <c>orderNotAssembly</c>.
+    /// The new quantity may not exceed what the order box has left after the other tasks' allocations (this
+    /// task's own current value is excluded from that sum) — 422 <c>assemblyTaskQuantityExceedsAvailable</c>.
+    /// Returns 404 <c>orderNotFound</c> or <c>assemblyTaskBoxComponentNotFound</c>.
+    /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
     [HttpPut("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}")]
     [Authorize]
     [ProducesResponseType<AssemblyTaskBoxComponentDto>(StatusCodes.Status200OK)]
@@ -934,6 +1124,12 @@ public class OrdersController(
 
     // ── GET .../boxes/{tbid}/components/{cid}/move-targets (assembler only) ───
 
+    /// <summary>List the order boxes a task component can be moved into — every box of the order except the one it currently sits in.</summary>
+    /// <remarks>
+    /// Only available in Assembly status (422 <c>orderNotAssembly</c>) and only to holders of
+    /// <c>orders.assemble_assigned</c> assigned to the order's warehouse — <c>orders.edit</c> alone gets 403.
+    /// Returns 404 <c>orderNotFound</c> or <c>assemblyTaskBoxComponentNotFound</c>.
+    /// </remarks>
     [HttpGet("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}/move-targets")]
     [Authorize]
     [ProducesResponseType<IReadOnlyList<OrderBoxDto>>(StatusCodes.Status200OK)]
@@ -963,6 +1159,20 @@ public class OrdersController(
 
     // ── POST .../boxes/{tbid}/components/{cid}/move (assembler only) ──────────
 
+    /// <summary>Move part or all of this task's allocation of a component into another box, or into a newly created one.</summary>
+    /// <remarks>
+    /// Body: <c>MoveTaskBoxComponentRequest</c> — <c>quantity</c> plus exactly one of <c>targetBoxId</c> or
+    /// <c>newBoxLabel</c> (422 <c>validationError</c> if both or neither are given).
+    /// The task's own component split and the order's overall composition are updated by the same amount at
+    /// once; other tasks holding the same box/item are untouched. The movable amount is this task's unfulfilled
+    /// remainder (<c>quantity</c> minus already confirmed fulfillments), not the box's total — 422
+    /// <c>outOfRange</c> otherwise. A task box left empty by the move is deleted.
+    /// Further errors: 422 <c>orderBoxNotFound</c> for a target box that does not exist or belongs to another
+    /// order, 422 <c>validationError</c> if the target equals the source box, 422 <c>orderNotAssembly</c>
+    /// outside Assembly status, 404 <c>orderNotFound</c> or <c>assemblyTaskBoxComponentNotFound</c>.
+    /// Requires <c>orders.assemble_assigned</c> and an assignment to the order's warehouse; <c>orders.edit</c>
+    /// alone gets 403.
+    /// </remarks>
     [HttpPost("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}/move")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
@@ -1003,6 +1213,28 @@ public class OrdersController(
 
     // ── POST .../fulfillments ─────────────────────────────────────────────────
 
+    /// <summary>Record that a task component was picked, deducting the stock from the warehouse immediately.</summary>
+    /// <remarks>
+    /// Body: <c>AddFulfillmentRequest</c> — exactly one of three shapes must be filled:
+    /// <list type="bullet">
+    ///   <item>Standard — <c>sourceNodeId</c> + <c>quantity</c></item>
+    ///   <item>Unit — <c>unitInventoryItemId</c></item>
+    ///   <item>Bundle — <c>bundleComponents[]</c>, one entry per resolved leaf</item>
+    /// </list>
+    /// Anything else is 422 <c>assemblyFulfillmentInvalidType</c>. For a <c>Variation</c> component the client
+    /// must also send <c>resolvedCatalogItemId</c> (422 <c>required</c>), which is verified to be a member of the
+    /// variation; in the Unit case it is taken from the instance instead.
+    /// Inventory moves on write: Standard decrements the node's count, Unit detaches the instance. A Unit or
+    /// Bundle fulfillment always counts as exactly one unit of progress, so N identical bundles need N
+    /// fulfillments.
+    /// Errors: 422 <c>assemblyComponentAlreadyFulfilled</c> when the component is already complete (re-checked
+    /// against fresh state to absorb duplicate submits), 422 <c>insufficientInventory</c>,
+    /// <c>unitInventoryItemNotFound</c>, <c>inventoryItemNodeMismatch</c>, <c>catalogItemNotFound</c>,
+    /// 422 <c>orderNotAssembly</c> outside Assembly status, 404 <c>orderNotFound</c> or
+    /// <c>assemblyTaskBoxComponentNotFound</c>.
+    /// Requires <c>orders.assemble_assigned</c>, <c>orders.edit</c> or <c>orders.edit_assigned</c>, plus an
+    /// assignment to the order's warehouse in every case.
+    /// </remarks>
     [HttpPost("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}/fulfillments")]
     [Authorize]
     [ProducesResponseType<AssemblyFulfillmentDto>(StatusCodes.Status201Created)]
@@ -1062,6 +1294,15 @@ public class OrdersController(
 
     // ── DELETE .../fulfillments/{fid} ─────────────────────────────────────────
 
+    /// <summary>Undo a fulfillment, returning the picked stock to its source node.</summary>
+    /// <remarks>
+    /// Standard rows increment the node count back, Unit rows reattach the instance, Bundle rows restore every
+    /// leaf. No status guard: this works whatever status the order is in.
+    /// Returns 404 <c>orderNotFound</c> or <c>assemblyFulfillmentNotFound</c> (the fulfillment must belong to the
+    /// component, task box and task named in the route).
+    /// Requires <c>orders.assemble_assigned</c>, <c>orders.edit</c> or <c>orders.edit_assigned</c>, plus an
+    /// assignment to the order's warehouse in every case.
+    /// </remarks>
     [HttpDelete("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}/fulfillments/{fid:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -1096,6 +1337,26 @@ public class OrdersController(
 
     // ── POST /api/orders/assembly-tasks/batch-fulfill ─────────────────────────
 
+    /// <summary>Record many fulfillments across several orders and tasks in one request, with partial-success semantics.</summary>
+    /// <remarks>
+    /// Body: <c>BatchFulfillRequest</c> — <c>items[]</c> (<c>orderId</c>, <c>taskId</c>, <c>taskBoxId</c>,
+    /// <c>componentId</c>, <c>fulfillment</c>) and <c>autoCompleteTasks</c>. Items are processed grouped by
+    /// order; the same <c>componentId</c> may appear several times, which is how N identical bundles are picked.
+    /// Always answers 200 with <c>BatchFulfillResponse</c>: each failure lands in <c>failedItems</c> as
+    /// <c>{ orderId, componentId, catalogItemName, error }</c> carrying the real error code
+    /// (<c>orderNotFound</c>, <c>orderNotAssignedToWarehouse</c>, <c>orderNotAssembly</c>,
+    /// <c>assemblyTaskBoxComponentNotFound</c>, <c>insufficientInventory</c>, <c>unitInventoryItemNotFound</c>,
+    /// <c>inventoryItemNodeMismatch</c>, <c>assemblyComponentAlreadyFulfilled</c>, …), while successful items are
+    /// committed and stay committed. There is no overall transaction.
+    /// With <c>autoCompleteTasks: false</c> task statuses are never touched and <c>completedTaskIds</c> comes back
+    /// empty. With <c>true</c>, every touched task is advanced Pending → InProgress, and InProgress → Done only
+    /// when all of its components are fully fulfilled; only genuinely completed tasks are listed in
+    /// <c>completedTaskIds</c>. That step is best-effort — failures there are swallowed and do not fail the
+    /// request. Completing the last task still auto-moves the order to <c>Assembled</c>.
+    /// 403 is returned only for the request as a whole, when neither <c>orders.assemble_assigned</c> nor
+    /// <c>orders.edit</c> / <c>orders.edit_assigned</c> is held; warehouse assignment is then checked per order.
+    /// The route carries no id, so realtime change events are published explicitly for each affected order.
+    /// </remarks>
     [HttpPost("assembly-tasks/batch-fulfill")]
     [Authorize]
     [ProducesResponseType<BatchFulfillResponse>(StatusCodes.Status200OK)]

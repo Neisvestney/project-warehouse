@@ -44,7 +44,17 @@ public class StoragePlacesController(
     }
 
     /// <summary>Get a flat list of all nodes for a storage place.</summary>
-    /// <remarks>Returns <c>StoragePlaceNodeDto[]</c> ordered by order then name — id, name, parentNodeId (null = root), order.</remarks>
+    /// <remarks>
+    /// Returns <c>StoragePlaceNodeDto[]</c> ordered by order then name — id, name, parentNodeId (null = root), order.
+    /// Query params: <c>catalogItemId</c> (optional) — narrows <c>totalItemsCount</c> to that catalog item
+    /// instead of the node's whole content.
+    /// Storage places carry no permissions of their own: access is <c>warehouses.view</c> or
+    /// <c>warehouses.view_assigned</c> on the owning warehouse.
+    /// Returns 404 <c>storagePlaceNotFound</c> if the storage place does not exist, 403 <c>permissionDenied</c>
+    /// without any warehouse view permission, and 403 <c>storagePlaceNotAssignedToWarehouse</c> when the caller
+    /// only holds the <c>_assigned</c> variant and is not assigned to the owning warehouse. A token with no
+    /// usable <c>sub</c> claim gives 401 <c>tokenInvalid</c>. The same access errors apply to every endpoint below.
+    /// </remarks>
     [HttpGet("{id:guid}/nodes")]
     [Authorize]
     [ProducesResponseType<StoragePlaceNodeDto[]>(StatusCodes.Status200OK)]
@@ -62,7 +72,14 @@ public class StoragePlacesController(
     /// <remarks>
     /// Body: <c>CreateStoragePlaceNodeRequest</c> — name (required), parentNodeId (optional, null = root node).
     /// Returns the updated flat list.
-    /// Returns 422 <c>storagePlaceNodeNotFound</c> (field: <c>parentNodeId</c>) if the parent does not belong to this storage place.
+    /// Requires <c>warehouses.edit</c> or <c>warehouses.edit_assigned</c> on the owning warehouse.
+    /// Error codes:
+    /// <list type="bullet">
+    ///   <item>404 <c>storagePlaceNotFound</c> — no such storage place</item>
+    ///   <item>403 <c>permissionDenied</c> / <c>storagePlaceNotAssignedToWarehouse</c> — no edit access to the warehouse</item>
+    ///   <item>422 <c>storagePlaceNodeNotFound</c> (field <c>parentNodeId</c>) — the parent does not belong to this storage place</item>
+    ///   <item>422 <c>storagePlaceNodeParentHasItems</c> (field <c>root</c>) — the parent already holds items; a node stores items or children, not both</item>
+    /// </list>
     /// </remarks>
     [HttpPost("{id:guid}/nodes")]
     [Authorize]
@@ -112,7 +129,15 @@ public class StoragePlacesController(
     /// <remarks>
     /// Body: <c>UpdateStoragePlaceNodeRequest</c> — name (required), parentNodeId (nullable, null = root node).
     /// Returns the updated flat list.
-    /// Returns 422 <c>storagePlaceNodeCyclicParent</c> (field: <c>parentNodeId</c>) if the new parent is a descendant of this node or the node itself.
+    /// Requires <c>warehouses.edit</c> or <c>warehouses.edit_assigned</c> on the owning warehouse.
+    /// Error codes:
+    /// <list type="bullet">
+    ///   <item>404 <c>storagePlaceNotFound</c> — no such storage place</item>
+    ///   <item>404 <c>storagePlaceNodeNotFound</c> — the node does not belong to this storage place</item>
+    ///   <item>403 <c>permissionDenied</c> / <c>storagePlaceNotAssignedToWarehouse</c> — no edit access to the warehouse</item>
+    ///   <item>422 <c>storagePlaceNodeNotFound</c> (field <c>parentNodeId</c>) — the new parent is not in this storage place</item>
+    ///   <item>422 <c>storagePlaceNodeCyclicParent</c> (field <c>parentNodeId</c>) — the new parent is the node itself or one of its descendants</item>
+    /// </list>
     /// </remarks>
     [HttpPut("{id:guid}/nodes/{nodeId:guid}")]
     [Authorize]
@@ -168,7 +193,18 @@ public class StoragePlacesController(
     }
 
     /// <summary>Delete a node. Fails if the node has children — delete them first.</summary>
-    /// <remarks>Returns the updated flat list on success.</remarks>
+    /// <remarks>
+    /// Returns the updated flat list on success.
+    /// Requires <c>warehouses.edit</c> or <c>warehouses.edit_assigned</c> on the owning warehouse.
+    /// Error codes:
+    /// <list type="bullet">
+    ///   <item>404 <c>storagePlaceNotFound</c> — no such storage place</item>
+    ///   <item>404 <c>storagePlaceNodeNotFound</c> — the node does not belong to this storage place</item>
+    ///   <item>403 <c>permissionDenied</c> / <c>storagePlaceNotAssignedToWarehouse</c> — no edit access to the warehouse</item>
+    ///   <item>422 <c>storagePlaceNodeHasChildren</c> (field <c>root</c>) — the node still has child nodes; delete them first</item>
+    ///   <item>422 <c>storagePlaceNodeHasItems</c> (field <c>root</c>) — the node holds a non-empty item group or a unit inventory item</item>
+    /// </list>
+    /// </remarks>
     [HttpDelete("{id:guid}/nodes/{nodeId:guid}")]
     [Authorize]
     [ProducesResponseType<StoragePlaceNodeDto[]>(StatusCodes.Status200OK)]
@@ -211,6 +247,13 @@ public class StoragePlacesController(
     }
 
     /// <summary>Get a node by ID.</summary>
+    /// <remarks>
+    /// <c>name</c> is the full breadcrumb path, not the node's own name.
+    /// Requires <c>warehouses.view</c> or <c>warehouses.view_assigned</c> on the owning warehouse.
+    /// Returns 404 <c>storagePlaceNotFound</c> or 404 <c>storagePlaceNodeNotFound</c> when the node does not
+    /// belong to this storage place, and 403 <c>permissionDenied</c> /
+    /// <c>storagePlaceNotAssignedToWarehouse</c> without view access.
+    /// </remarks>
     [HttpGet("{id:guid}/nodes/{nodeId:guid}")]
     [Authorize]
     [ProducesResponseType<StoragePlaceNodeDetailsDto>(StatusCodes.Status200OK)]
@@ -240,7 +283,14 @@ public class StoragePlacesController(
     /// <remarks>
     /// Body: <c>NodeOrderItem[]</c> — nodeId + order pairs.
     /// Only the nodes included in the list are updated; others are unchanged.
-    /// Returns 422 <c>storagePlaceNodeNotFound</c> if any nodeId does not belong to this storage place.
+    /// Requires <c>warehouses.edit</c> or <c>warehouses.edit_assigned</c> on the owning warehouse.
+    /// Error codes:
+    /// <list type="bullet">
+    ///   <item>404 <c>storagePlaceNotFound</c> — no such storage place</item>
+    ///   <item>403 <c>permissionDenied</c> / <c>storagePlaceNotAssignedToWarehouse</c> — no edit access to the warehouse</item>
+    ///   <item>422 <c>storagePlaceNodeNotFound</c> — a nodeId does not belong to this storage place. The field path
+    ///         is the request-array index, <c>[i].nodeId</c>, and every offending index is reported at once</item>
+    /// </list>
     /// </remarks>
     [HttpPut("{id:guid}/nodes/reorder")]
     [Authorize]

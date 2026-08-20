@@ -33,6 +33,11 @@ public class MarketplacesController(
     // ---------- accounts ----------
 
     /// <summary>List marketplace accounts (paginated, searchable).</summary>
+    /// <remarks>
+    /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
+    /// <c>type</c>, <c>isActive</c>, <c>sortBy</c> (default <c>Name</c>), <c>sortOrder</c> (default <c>Asc</c>).
+    /// Requires <c>integrations.view</c>; 403 <c>permissionDenied</c> otherwise.
+    /// </remarks>
     [HttpGet("accounts")]
     [Authorize(Policy = Permissions.Integrations.View)]
     [ProducesResponseType<Paginated<MarketplaceAccountSummaryDto>>(StatusCodes.Status200OK)]
@@ -72,6 +77,11 @@ public class MarketplacesController(
     /// Id/name/type only, for filter dropdowns. Open to any authenticated user on purpose: the orders
     /// pages filter by account, and a picker there must not require integrations.view.
     /// </summary>
+    /// <remarks>
+    /// Query params: <c>type</c> (optional). Authentication is the only requirement, so the sole error this
+    /// endpoint can produce is a 401 from the auth layer — <c>tokenInvalid</c> when the <c>sub</c> claim is
+    /// unusable, otherwise a bare 401 with no body.
+    /// </remarks>
     [HttpGet("accounts/short")]
     [Authorize]
     [ProducesResponseType<List<MarketplaceAccountShortSummaryDto>>(StatusCodes.Status200OK)]
@@ -94,6 +104,11 @@ public class MarketplacesController(
     }
 
     /// <summary>Account with aggregates. Probes the stored key so the UI can warn about a lost key ring.</summary>
+    /// <remarks>
+    /// An unreadable key is reported as <c>credentialsUnreadable: true</c> on the DTO, not as an error —
+    /// the account still has to be viewable and editable so the key can be entered again.
+    /// Returns 404 <c>marketplaceAccountNotFound</c>. Requires <c>integrations.view</c>.
+    /// </remarks>
     [HttpGet("accounts/{id:guid}")]
     [Authorize(Policy = Permissions.Integrations.View)]
     [ProducesResponseType<MarketplaceAccountDto>(StatusCodes.Status200OK)]
@@ -110,6 +125,17 @@ public class MarketplacesController(
     }
 
     /// <summary>Connects a marketplace account. The key is encrypted on write and never returned.</summary>
+    /// <remarks>
+    /// Body: <c>CreateMarketplaceAccountRequest</c> — <c>type</c>, <c>apiKey</c>, <c>clientId</c>,
+    /// <c>isActive</c>, <c>syncIntervalMinutes</c> (defaults to <c>Marketplaces:DefaultSyncIntervalMinutes</c>).
+    /// An active account is enqueued for a full sync right away, so its first errors surface on the run, not here.
+    /// Errors:
+    /// <list type="bullet">
+    ///   <item>422 <c>marketplaceApiError</c> on <c>type</c> — no provider is registered for that marketplace</item>
+    ///   <item>422 <c>marketplaceClientIdRequired</c> on <c>clientId</c> — the provider declares <c>requiresClientId</c> and none was supplied</item>
+    /// </list>
+    /// Requires <c>integrations.edit</c>.
+    /// </remarks>
     [HttpPost("accounts")]
     [Authorize(Policy = Permissions.Integrations.Edit)]
     [ProducesResponseType<MarketplaceAccountDto>(StatusCodes.Status201Created)]
@@ -154,6 +180,15 @@ public class MarketplacesController(
     }
 
     /// <summary>Updates an account. An empty <c>apiKey</c> keeps the stored one.</summary>
+    /// <remarks>
+    /// The account type is fixed at creation and is not part of the request. Errors:
+    /// <list type="bullet">
+    ///   <item>404 <c>marketplaceAccountNotFound</c></item>
+    ///   <item>422 <c>marketplaceClientIdRequired</c> on <c>clientId</c> — the provider declares <c>requiresClientId</c> and none was supplied</item>
+    /// </list>
+    /// The new key is not verified here — use <c>POST accounts/{id}/test-connection</c> for that.
+    /// Requires <c>integrations.edit</c>.
+    /// </remarks>
     [HttpPut("accounts/{id:guid}")]
     [Authorize(Policy = Permissions.Integrations.Edit)]
     [ProducesResponseType<MarketplaceAccountDto>(StatusCodes.Status200OK)]
@@ -197,6 +232,11 @@ public class MarketplacesController(
     }
 
     /// <summary>Disconnects an account, cascading to its synced warehouses, cards and run history.</summary>
+    /// <remarks>
+    /// Returns 404 <c>marketplaceAccountNotFound</c>, or 409 <c>marketplaceAccountHasOrders</c> when any
+    /// posting was imported through it — those orders are warehouse history and outlive the connection.
+    /// Requires <c>integrations.edit</c>.
+    /// </remarks>
     [HttpDelete("accounts/{id:guid}")]
     [Authorize(Policy = Permissions.Integrations.Edit)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -229,6 +269,21 @@ public class MarketplacesController(
     /// Checks credentials without saving. When the body carries an apiKey the route id is ignored,
     /// so a key can be verified before the account exists.
     /// </summary>
+    /// <remarks>
+    /// Body: <c>TestConnectionRequest</c> — <c>apiKey</c>, <c>clientId</c>, <c>type</c> (default <c>Ozon</c>).
+    /// With an <c>apiKey</c> the route id may be any string (the UI passes <c>"new"</c>); without one it must
+    /// parse as a GUID of an existing account. Errors:
+    /// <list type="bullet">
+    ///   <item>422 <c>marketplaceApiError</c> on <c>type</c> — no provider is registered for that marketplace</item>
+    ///   <item>422 <c>marketplaceClientIdRequired</c> on <c>clientId</c></item>
+    ///   <item>404 <c>marketplaceAccountNotFound</c> — id is unparsable or unknown (only on the stored-key path)</item>
+    ///   <item>422 <c>marketplaceCredentialsUnreadable</c> on <c>root</c> — the stored key cannot be decrypted (Data Protection key ring lost)</item>
+    ///   <item>422 <c>marketplaceCredentialsInvalid</c> on <c>apiKey</c> — the marketplace rejected the credentials (401/403); <c>args</c>: <c>marketplaceStatus</c>, optional <c>marketplaceResponse</c></item>
+    ///   <item>502 <c>marketplaceApiError</c> on <c>root</c> — the marketplace errored or is unreachable; <c>args</c>: <c>marketplaceStatus</c>, optional <c>marketplaceResponse</c></item>
+    /// </list>
+    /// <c>marketplaceResponse</c> is the marketplace's body truncated to 2000 characters; request headers,
+    /// where the key travels, never appear in these errors. Requires <c>integrations.edit</c>.
+    /// </remarks>
     [HttpPost("accounts/{id}/test-connection")]
     [Authorize(Policy = Permissions.Integrations.Edit)]
     [ProducesResponseType<TestConnectionResponse>(StatusCodes.Status200OK)]
@@ -286,6 +341,29 @@ public class MarketplacesController(
     // ---------- sync ----------
 
     /// <summary>Queues a sync and returns 202 immediately — poll the run for progress.</summary>
+    /// <remarks>
+    /// Body: <c>StartSyncRequest</c> — <c>scope</c> (<c>All</c>, <c>Warehouses</c>, <c>Cards</c>, <c>Orders</c>).
+    /// Answers 202 with <c>StartSyncResponse.syncRunId</c>; poll it through <c>GET sync-runs?ids=</c>.
+    /// Errors returned by this call:
+    /// <list type="bullet">
+    ///   <item>404 <c>marketplaceAccountNotFound</c></item>
+    ///   <item>409 <c>marketplaceSyncAlreadyRunning</c> — a run for this account is still <c>Running</c></item>
+    /// </list>
+    /// A rejection can arrive two ways and a client must handle both: this cheap 409 guard, or a run that is
+    /// accepted here and then ends <c>Failed</c> carrying <c>marketplaceSyncAlreadyRunning</c> because the
+    /// worker's Postgres advisory lock was already taken. Codes a failed run can carry in
+    /// <c>MarketplaceSyncRun.Error</c> (and in <c>MarketplaceAccount.LastSyncError</c>):
+    /// <list type="bullet">
+    ///   <item><c>marketplaceAccountNotFound</c> — the account was deleted between enqueue and run; <c>args</c>: <c>accountId</c></item>
+    ///   <item><c>marketplaceSyncAlreadyRunning</c> — the advisory lock is held by another run</item>
+    ///   <item><c>marketplaceCredentialsUnreadable</c> — the stored key cannot be decrypted</item>
+    ///   <item><c>marketplaceCredentialsInvalid</c> — the marketplace rejected the credentials; <c>args</c>: <c>marketplaceStatus</c>, optional <c>marketplaceResponse</c></item>
+    ///   <item><c>marketplaceOrdersNotSupported</c> — <c>Orders</c> scope on a provider without the <c>Orders</c> capability</item>
+    ///   <item><c>marketplaceApiError</c> — any other marketplace or unexpected failure; <c>args</c>: <c>marketplaceStatus</c>, optional <c>marketplaceResponse</c> when it came from the API</item>
+    ///   <item><c>marketplaceSyncInterrupted</c> — the run was left <c>Running</c> by an application shutdown and reconciled on the next start</item>
+    /// </list>
+    /// Requires <c>integrations.map</c>.
+    /// </remarks>
     [HttpPost("accounts/{id:guid}/sync")]
     [Authorize(Policy = Permissions.Integrations.Map)]
     [ProducesResponseType<StartSyncResponse>(StatusCodes.Status202Accepted)]
@@ -312,6 +390,17 @@ public class MarketplacesController(
     }
 
     /// <summary>Sync history for an account, newest first (paginated).</summary>
+    /// <remarks>
+    /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200). An unknown account id
+    /// yields an empty page rather than a 404. A failed run carries its machine-readable <c>error</c>
+    /// (code + args) — see <c>POST accounts/{id}/sync</c> for the codes. An <c>Orders</c>-scope run also
+    /// reports per-posting skips in <c>skippedOrders</c> (first 100, counted in full by <c>ordersSkipped</c>):
+    /// <list type="bullet">
+    ///   <item><c>marketplaceOrderWarehouseNotMapped</c> — the posting's marketplace warehouse has no WMS mapping</item>
+    ///   <item><c>marketplaceOrderCardNotMapped</c> — an item has no card, or its card is unmapped; the offending <c>offerIds</c> travel with the entry</item>
+    /// </list>
+    /// Requires <c>integrations.view</c>.
+    /// </remarks>
     [HttpGet("accounts/{id:guid}/sync-runs")]
     [Authorize(Policy = Permissions.Integrations.View)]
     [ProducesResponseType<Paginated<MarketplaceSyncRunDto>>(StatusCodes.Status200OK)]
@@ -331,7 +420,13 @@ public class MarketplacesController(
     }
 
     /// <summary>Runs by id, for polling several accounts from one dialog.</summary>
-    /// <remarks>Unknown ids are simply absent from the response — the caller knows what it asked for.</remarks>
+    /// <remarks>
+    /// Query param: <c>ids</c> (repeatable, at most 50; an empty list answers 200 with an empty array).
+    /// Unknown ids are simply absent from the response — the caller knows what it asked for.
+    /// Returns 422 <c>outOfRange</c> on <c>ids</c> above the limit, <c>args</c>: <c>max</c>.
+    /// Run payloads carry the same <c>error</c> and <c>skippedOrders</c> codes as <c>GET accounts/{id}/sync-runs</c>.
+    /// Requires <c>integrations.view</c>.
+    /// </remarks>
     [HttpGet("sync-runs")]
     [Authorize(Policy = Permissions.Integrations.View)]
     [ProducesResponseType<List<MarketplaceSyncRunDto>>(StatusCodes.Status200OK)]
@@ -356,6 +451,12 @@ public class MarketplacesController(
     // ---------- order sync ----------
 
     /// <summary>Accounts that can import orders — the source list for the sync dialog.</summary>
+    /// <remarks>
+    /// Only active accounts whose provider declares the <c>Orders</c> capability are listed; an unreadable
+    /// key is surfaced as <c>credentialsUnreadable</c> on the row instead of dropping it, so the dialog can
+    /// explain why the account cannot be ticked. Produces no error of its own beyond
+    /// 403 <c>permissionDenied</c>. Requires <c>integrations.map</c>.
+    /// </remarks>
     [HttpGet("accounts/order-sync-targets")]
     [Authorize(Policy = Permissions.Integrations.Map)]
     [ProducesResponseType<List<MarketplaceOrderSyncTargetDto>>(StatusCodes.Status200OK)]
@@ -398,6 +499,26 @@ public class MarketplacesController(
     }
 
     /// <summary>Queues order sync for several accounts at once; each account succeeds or fails on its own.</summary>
+    /// <remarks>
+    /// Body: <c>SyncOrdersRequest</c> — <c>accountIds</c> (duplicates are collapsed, at most 50).
+    /// Each account is checked independently and the call answers 202 with <c>SyncOrdersResponse</c>:
+    /// queued accounts in <c>items</c> as <c>{ accountId, syncRunId }</c>, the rest in <c>failedItems</c> as
+    /// <c>{ accountId, accountName, error }</c> carrying the real code:
+    /// <list type="bullet">
+    ///   <item><c>marketplaceAccountNotFound</c> — the id matched no account (<c>accountName</c> is null)</item>
+    ///   <item><c>marketplaceAccountInactive</c> — the account is disabled</item>
+    ///   <item><c>marketplaceOrdersNotSupported</c> — no provider, or the provider lacks the <c>Orders</c> capability</item>
+    ///   <item><c>marketplaceCredentialsUnreadable</c> — the stored key cannot be decrypted</item>
+    ///   <item><c>marketplaceSyncAlreadyRunning</c> — a run for this account is still <c>Running</c></item>
+    /// </list>
+    /// There is no transaction: accounts queued before a later one fails stay queued.
+    /// The only whole-request errors are 422 <c>outOfRange</c> on <c>accountIds</c> above the limit
+    /// (<c>args</c>: <c>max</c>) and 403 <c>permissionDenied</c> when <c>integrations.map</c> is missing —
+    /// 403 is never per item.
+    /// A queued run can still end <c>Failed</c> with <c>marketplaceSyncAlreadyRunning</c> when the worker
+    /// loses the advisory lock, so a client that only handles the <c>failedItems</c> form misses half the cases;
+    /// the full list of run-level codes is on <c>POST accounts/{id}/sync</c>.
+    /// </remarks>
     [HttpPost("accounts/sync-orders")]
     [Authorize(Policy = Permissions.Integrations.Map)]
     [ProducesResponseType<SyncOrdersResponse>(StatusCodes.Status202Accepted)]
@@ -476,6 +597,12 @@ public class MarketplacesController(
     // ---------- warehouses ----------
 
     /// <summary>Marketplace warehouses of an account with their WMS mapping (paginated, searchable).</summary>
+    /// <remarks>
+    /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 50, max 200),
+    /// <c>includeArchived</c> (default false), <c>sortBy</c> (default <c>Name</c>), <c>sortOrder</c> (default <c>Asc</c>).
+    /// An unknown account id yields an empty page rather than a 404.
+    /// Requires <c>integrations.view</c>; 403 <c>permissionDenied</c> otherwise.
+    /// </remarks>
     [HttpGet("accounts/{id:guid}/warehouses")]
     [Authorize(Policy = Permissions.Integrations.View)]
     [ProducesResponseType<Paginated<MarketplaceWarehouseDto>>(StatusCodes.Status200OK)]
@@ -507,6 +634,14 @@ public class MarketplacesController(
     }
 
     /// <summary>Maps a marketplace warehouse to a WMS warehouse. Null clears the mapping.</summary>
+    /// <remarks>
+    /// Body: <c>SetWarehouseMappingRequest</c> — <c>warehouseId</c> (null clears). Errors:
+    /// <list type="bullet">
+    ///   <item>404 <c>marketplaceWarehouseNotFound</c></item>
+    ///   <item>422 <c>warehouseNotFound</c> on <c>warehouseId</c> — no WMS warehouse with that id</item>
+    /// </list>
+    /// Requires <c>integrations.map</c>.
+    /// </remarks>
     [HttpPut("warehouses/{id:guid}/mapping")]
     [Authorize(Policy = Permissions.Integrations.Map)]
     [ProducesResponseType<MarketplaceWarehouseDto>(StatusCodes.Status200OK)]
@@ -538,6 +673,13 @@ public class MarketplacesController(
     // ---------- cards ----------
 
     /// <summary>Marketplace cards of an account with their catalog mapping (paginated, searchable, filterable).</summary>
+    /// <remarks>
+    /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 50, max 200), <c>searchString</c>,
+    /// <c>mappingState</c> (default <c>All</c>; <c>Unmapped</c>, <c>Mapped</c>, <c>ArchivedItem</c>),
+    /// <c>includeArchived</c> (default false), <c>catalogItemId</c>, <c>sortBy</c> (default <c>Name</c>),
+    /// <c>sortOrder</c> (default <c>Asc</c>). An unknown account id yields an empty page rather than a 404.
+    /// Requires <c>integrations.view</c>; 403 <c>permissionDenied</c> otherwise.
+    /// </remarks>
     [HttpGet("accounts/{id:guid}/cards")]
     [Authorize(Policy = Permissions.Integrations.View)]
     [ProducesResponseType<Paginated<MarketplaceCardDto>>(StatusCodes.Status200OK)]
@@ -589,6 +731,17 @@ public class MarketplacesController(
     }
 
     /// <summary>Maps a card to a catalog item. Null clears the mapping.</summary>
+    /// <remarks>
+    /// Body: <c>SetCardMappingRequest</c> — <c>catalogItemId</c> (null clears). Errors:
+    /// <list type="bullet">
+    ///   <item>404 <c>marketplaceCardNotFound</c></item>
+    ///   <item>422 <c>catalogItemNotFound</c> on <c>catalogItemId</c></item>
+    ///   <item>422 <c>marketplaceCardMappingTypeNotAllowed</c> on <c>catalogItemId</c> — the target is a <c>ProductGroup</c></item>
+    ///   <item>422 <c>marketplaceCardMappingArchivedItem</c> on <c>catalogItemId</c> — the target is archived</item>
+    /// </list>
+    /// The archive check only applies when setting a mapping: an item archived afterwards keeps it.
+    /// Clearing (<c>catalogItemId: null</c>) skips all three target checks. Requires <c>integrations.map</c>.
+    /// </remarks>
     [HttpPut("cards/{id:guid}/mapping")]
     [Authorize(Policy = Permissions.Integrations.Map)]
     [ProducesResponseType<MarketplaceCardDto>(StatusCodes.Status200OK)]
@@ -638,6 +791,11 @@ public class MarketplacesController(
     }
 
     /// <summary>Matches still-unmapped cards to catalog items by article, then by barcode. Existing mappings are left alone.</summary>
+    /// <remarks>
+    /// Anything ambiguous (no candidate or more than one) is left for a human, so the operation never fails
+    /// on a card: 404 <c>marketplaceAccountNotFound</c> is the only error besides 403 <c>permissionDenied</c>.
+    /// Requires <c>integrations.map</c>.
+    /// </remarks>
     [HttpPost("accounts/{id:guid}/cards/auto-map")]
     [Authorize(Policy = Permissions.Integrations.Map)]
     [ProducesResponseType<AutoMapResponse>(StatusCodes.Status200OK)]
@@ -664,6 +822,10 @@ public class MarketplacesController(
     }
 
     /// <summary>Unmapped card count across all active accounts — feeds the sidebar badge.</summary>
+    /// <remarks>
+    /// Archived cards and cards of inactive accounts are excluded. Takes no parameters and produces no error
+    /// beyond 403 <c>permissionDenied</c>. Requires <c>integrations.view</c>.
+    /// </remarks>
     [HttpGet("accounts/unmapped-count")]
     [Authorize(Policy = Permissions.Integrations.View)]
     [ProducesResponseType<UnmappedCardsCountDto>(StatusCodes.Status200OK)]

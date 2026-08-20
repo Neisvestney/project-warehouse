@@ -80,6 +80,14 @@ public class WriteoffsController(
     // ── GET list ──────────────────────────────────────────────────────────────
 
     /// <summary>List write-offs with pagination, filtering, and search.</summary>
+    /// <remarks>
+    /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
+    /// <c>warehouseId</c>, <c>status</c>, <c>reason</c>, <c>sortBy</c> (default <c>Number</c>),
+    /// <c>sortOrder</c> (default <c>Desc</c>).
+    /// Requires <c>writeoffs.view</c> or <c>writeoffs.view_assigned</c>; without either, 403
+    /// <c>permissionDenied</c>. 401 <c>tokenInvalid</c> when an <c>_assigned</c> permission is used but the
+    /// token carries no resolvable user.
+    /// </remarks>
     [HttpGet]
     [Authorize]
     [ProducesResponseType<Paginated<WriteoffSummaryDto>>(StatusCodes.Status200OK)]
@@ -126,6 +134,11 @@ public class WriteoffsController(
     // ── GET single ────────────────────────────────────────────────────────────
 
     /// <summary>Get full write-off details including items.</summary>
+    /// <remarks>
+    /// Errors: 404 <c>writeoffNotFound</c>; 403 <c>permissionDenied</c> without a view permission, or
+    /// 403 <c>writeoffNotAssignedToWarehouse</c> when only <c>writeoffs.view_assigned</c> is held and the
+    /// document belongs to another warehouse; 401 <c>tokenInvalid</c> for an unresolvable user.
+    /// </remarks>
     [HttpGet("{id:guid}")]
     [Authorize]
     [ProducesResponseType<WriteoffDto>(StatusCodes.Status200OK)]
@@ -142,6 +155,12 @@ public class WriteoffsController(
     // ── POST create ───────────────────────────────────────────────────────────
 
     /// <summary>Create a new write-off in Draft status.</summary>
+    /// <remarks>
+    /// Body: <c>CreateWriteoffRequest</c> — warehouseId (required), name, reason, notes.
+    /// Errors: 422 <c>warehouseNotFound</c> for an unknown warehouse; 403 <c>permissionDenied</c> without
+    /// <c>writeoffs.edit</c>/<c>writeoffs.edit_assigned</c>, or 403 <c>writeoffNotAssignedToWarehouse</c>
+    /// when only <c>writeoffs.edit_assigned</c> is held and the target warehouse is not assigned.
+    /// </remarks>
     [HttpPost]
     [Authorize]
     [ProducesResponseType<WriteoffDto>(StatusCodes.Status201Created)]
@@ -184,6 +203,10 @@ public class WriteoffsController(
     // ── PATCH update ──────────────────────────────────────────────────────────
 
     /// <summary>Update write-off name, reason, notes. Only allowed in Draft status.</summary>
+    /// <remarks>
+    /// Errors: 404 <c>writeoffNotFound</c>; 422 <c>writeoffNotDraft</c> outside Draft status; 403
+    /// <c>permissionDenied</c> or <c>writeoffNotAssignedToWarehouse</c> (edit access).
+    /// </remarks>
     [HttpPatch("{id:guid}")]
     [Authorize]
     [ProducesResponseType<WriteoffDto>(StatusCodes.Status200OK)]
@@ -216,6 +239,10 @@ public class WriteoffsController(
     // ── DELETE ────────────────────────────────────────────────────────────────
 
     /// <summary>Delete a write-off. Only allowed in Draft status.</summary>
+    /// <remarks>
+    /// Errors: 404 <c>writeoffNotFound</c>; 422 <c>writeoffNotDraft</c> outside Draft status; 403
+    /// <c>permissionDenied</c> or <c>writeoffNotAssignedToWarehouse</c> (edit access).
+    /// </remarks>
     [HttpDelete("{id:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -243,6 +270,22 @@ public class WriteoffsController(
     // ── PUT items sync ────────────────────────────────────────────────────────
 
     /// <summary>Replace the full list of items to write off. Only allowed in Draft status.</summary>
+    /// <remarks>
+    /// Each line is either standard (<c>catalogItemId</c> + <c>count</c>) or unit
+    /// (<c>unitInventoryItemId</c>), never both, and carries a <c>sourceNodeId</c> in this write-off's warehouse.
+    /// Errors:
+    /// <list type="bullet">
+    ///   <item>404 <c>writeoffNotFound</c></item>
+    ///   <item>422 <c>writeoffNotDraft</c> — outside Draft status</item>
+    ///   <item>422 <c>validationError</c> — neither or both discriminators set, or two standard lines with the
+    ///     same catalog item and source node</item>
+    ///   <item>422 <c>outOfRange</c> — <c>count</c> not greater than zero</item>
+    ///   <item>422 <c>storagePlaceNodeNotFound</c> — <c>sourceNodeId</c> is not a node of this warehouse</item>
+    ///   <item>422 <c>unitInventoryItemNotFound</c> — the unit item does not sit at the given source node</item>
+    ///   <item>422 <c>catalogItemNotFound</c> — unknown catalog item</item>
+    ///   <item>403 <c>permissionDenied</c> / <c>writeoffNotAssignedToWarehouse</c> (edit access)</item>
+    /// </list>
+    /// </remarks>
     [HttpPut("{id:guid}/items")]
     [Authorize]
     [ProducesResponseType<WriteoffDto>(StatusCodes.Status200OK)]
@@ -350,6 +393,21 @@ public class WriteoffsController(
     // ── POST finish ───────────────────────────────────────────────────────────
 
     /// <summary>Finish the write-off: execute inventory removal for all items. Draft → Finished.</summary>
+    /// <remarks>
+    /// Draft status only; all removals run in one transaction, so a failure leaves stock untouched. Errors:
+    /// <list type="bullet">
+    ///   <item>404 <c>writeoffNotFound</c></item>
+    ///   <item>422 <c>writeoffNotDraft</c> — not in Draft status</item>
+    ///   <item>422 <c>writeoffHasNoItems</c> — nothing to write off</item>
+    ///   <item>422 <c>writeoffInsufficientInventory</c> — a standard line asks for more than the source node
+    ///     holds; <c>args: { itemName, requested, available, missing, path }</c>, <c>path</c> being the node
+    ///     breadcrumb joined with <c>" / "</c></item>
+    ///   <item>422 <c>inventoryItemNodeMismatch</c> — a unit item was moved out of its source node after the
+    ///     document was built</item>
+    ///   <item>422 <c>unitInventoryItemNotFound</c> — a unit item no longer exists</item>
+    ///   <item>403 <c>permissionDenied</c> / <c>writeoffNotAssignedToWarehouse</c> (edit access)</item>
+    /// </list>
+    /// </remarks>
     [HttpPost("{id:guid}/finish")]
     [Authorize]
     [ProducesResponseType<WriteoffDto>(StatusCodes.Status200OK)]
@@ -439,6 +497,10 @@ public class WriteoffsController(
     // ── POST cancel ───────────────────────────────────────────────────────────
 
     /// <summary>Cancel the write-off. Only allowed in Draft status.</summary>
+    /// <remarks>
+    /// Errors: 404 <c>writeoffNotFound</c>; 422 <c>writeoffNotDraft</c> — reused for a document already
+    /// Finished or Canceled; 403 <c>permissionDenied</c> / <c>writeoffNotAssignedToWarehouse</c> (edit access).
+    /// </remarks>
     [HttpPost("{id:guid}/cancel")]
     [Authorize]
     [ProducesResponseType<WriteoffDto>(StatusCodes.Status200OK)]

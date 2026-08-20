@@ -23,6 +23,10 @@ public class RolesController(
     IChangeLogService<RolesListDto> changeLog) : AppControllerBase
 {
     /// <summary>List all roles with their permissions.</summary>
+    /// <remarks>
+    /// Requires <c>roles.view</c>. Not paginated — ordered by <c>order</c> then name.
+    /// No error codes beyond 403 <c>permissionDenied</c>.
+    /// </remarks>
     [HttpGet]
     [Authorize(Policy = Permissions.Roles.View)]
     [ProducesResponseType<IReadOnlyList<RoleWithPermissionsDto>>(StatusCodes.Status200OK)]
@@ -36,6 +40,10 @@ public class RolesController(
     }
 
     /// <summary>Search roles by name (id + name only, max 10 results).</summary>
+    /// <remarks>
+    /// Query params: <c>searchString</c> (optional — omitted returns the first 10 by name).
+    /// Requires <c>roles.view</c>. No error codes beyond 403 <c>permissionDenied</c>.
+    /// </remarks>
     [HttpGet("search")]
     [Authorize(Policy = Permissions.Roles.View)]
     [ProducesResponseType<IReadOnlyList<RoleDto>>(StatusCodes.Status200OK)]
@@ -51,6 +59,7 @@ public class RolesController(
     }
 
     /// <summary>Get a role by ID.</summary>
+    /// <remarks>Requires <c>roles.view</c>. Returns 404 <c>roleNotFound</c> if the role does not exist.</remarks>
     [HttpGet("{id:guid}")]
     [Authorize(Policy = Permissions.Roles.View)]
     [ProducesResponseType<RoleDto>(StatusCodes.Status200OK)]
@@ -67,6 +76,25 @@ public class RolesController(
     }
 
     /// <summary>Atomically replace the entire roles collection.</summary>
+    /// <remarks>
+    /// Requires <c>roles.edit</c>. Body: <c>UpdateRoleItem[]</c> — the whole collection, not a delta:
+    /// <list type="bullet">
+    ///   <item><c>id: null</c> or <c>Guid.Empty</c> — create the role</item>
+    ///   <item><c>id</c> present — update name, order and permissions (permissions are a full replace)</item>
+    ///   <item>an existing role absent from the list — delete it</item>
+    /// </list>
+    /// Everything is applied in one transaction; affected users' permission caches are bumped afterwards.
+    /// The Admin role (normalized name <c>ADMIN</c>) is protected: it cannot be deleted, renamed, or have
+    /// permissions taken away.
+    /// Error field paths use array-index notation into the request, e.g. <c>[2].permissions[0]</c>.
+    /// Error codes:
+    /// <list type="bullet">
+    ///   <item>422 <c>permissionNotFound</c> (field <c>[i].permissions[j]</c>) — a string not in <c>Permissions.All</c>; every offender is reported</item>
+    ///   <item>422 <c>roleNotFound</c> (field <c>id</c>) — an item carries an id that does not exist</item>
+    ///   <item>403 <c>roleProtected</c> — Admin deleted, renamed, or stripped of permissions; args <c>{ roleName }</c></item>
+    ///   <item>422 <c>validationError</c> (field <c>root</c>) — Identity refused a create, update or delete (e.g. duplicate role name)</item>
+    /// </list>
+    /// </remarks>
     [HttpPut]
     [Authorize(Policy = Permissions.Roles.Edit)]
     [ProducesResponseType<IReadOnlyList<RoleWithPermissionsDto>>(StatusCodes.Status200OK)]

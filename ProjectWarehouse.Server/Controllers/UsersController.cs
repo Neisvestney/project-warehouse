@@ -34,6 +34,11 @@ public class UsersController(
             .FirstOrDefaultAsync(u => u.Id == id, ct);
 
     /// <summary>List all users (paginated).</summary>
+    /// <remarks>
+    /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
+    /// <c>role</c> (role id), <c>warehouse</c> (assigned warehouse id). Ordered by id.
+    /// Requires <c>users.view</c>; without it the request is refused with 403 <c>permissionDenied</c>.
+    /// </remarks>
     [HttpGet]
     [Authorize(Policy = Permissions.Users.View)]
     [ProducesResponseType<Paginated<UserDetailDto>>(StatusCodes.Status200OK)]
@@ -68,6 +73,12 @@ public class UsersController(
     }
 
     /// <summary>Get a user by ID.</summary>
+    /// <remarks>
+    /// Requires <c>users.view</c>, <b>except</b> when <paramref name="id"/> is the caller's own id — everyone
+    /// may read their own record, which is what makes the profile page work without the permission.
+    /// Returns 403 <c>permissionDenied</c> for someone else's id without <c>users.view</c>, and 404
+    /// <c>userNotFound</c> if the user does not exist.
+    /// </remarks>
     [HttpGet("{id:guid}")]
     [Authorize]
     [ProducesResponseType<UserDetailDto>(StatusCodes.Status200OK)]
@@ -92,6 +103,19 @@ public class UsersController(
     }
 
     /// <summary>Create a new user.</summary>
+    /// <remarks>
+    /// Requires <c>users.create</c>. Body: <c>CreateUserRequest</c> — username, password, email, firstName,
+    /// lastName. Roles, direct permissions and warehouse assignments are not set here; use
+    /// <c>PUT /api/users/{id}</c> afterwards.
+    /// Error codes:
+    /// <list type="bullet">
+    ///   <item>409 <c>userAlreadyExists</c> (field <c>username</c>) — the username is taken</item>
+    ///   <item>422 <c>passwordTooShort</c> (field <c>root</c>) — args <c>{ minimalLength }</c></item>
+    ///   <item>422 <c>passwordAtLeastOneDigit</c> / <c>passwordAtLeastOneUppercase</c> /
+    ///         <c>passwordAtLeastOneLowercase</c> (field <c>root</c>)</item>
+    ///   <item>422 <c>validationError</c> (field <c>root</c>) — any other Identity failure</item>
+    /// </list>
+    /// </remarks>
     [HttpPost]
     [Authorize(Policy = Permissions.Users.Create)]
     [ProducesResponseType<UserDetailDto>(StatusCodes.Status201Created)]
@@ -127,6 +151,26 @@ public class UsersController(
     }
 
     /// <summary>Update a user's profile, roles, and direct permissions atomically.</summary>
+    /// <remarks>
+    /// Body: <c>UpdateUserRequest</c>. <c>roleIds</c>, <c>directPermissions</c> and <c>assignedWarehouseIds</c>
+    /// are full replaces — anything omitted is removed. Profile, roles, permissions and assignments are applied
+    /// in one transaction, so a rejected part leaves nothing written.
+    /// Permissions: <c>users.edit_profile</c> to call at all; changing <c>roleIds</c> or
+    /// <c>directPermissions</c> additionally needs <c>users.manage_roles_and_permissions</c>, and changing
+    /// <c>assignedWarehouseIds</c> needs <c>users.manage_assigned_warehouses</c>. The extra permission is only
+    /// demanded when the corresponding set actually differs from the stored one, so a plain profile save with
+    /// the current roles echoed back is allowed.
+    /// A role or permission change bumps the user's <c>security_version</c>, forcing their clients to refresh.
+    /// Error codes:
+    /// <list type="bullet">
+    ///   <item>403 <c>permissionDenied</c> — roles/permissions or warehouses changed without the extra permission</item>
+    ///   <item>404 <c>userNotFound</c> — no such user</item>
+    ///   <item>422 <c>permissionNotFound</c> (field <c>directPermissions</c>) — a string not in <c>Permissions.All</c>, one error per unknown value</item>
+    ///   <item>422 <c>roleNotFound</c> (field <c>roleIds</c>) — one or more role ids do not exist</item>
+    ///   <item>422 <c>warehouseNotFound</c> (field <c>assignedWarehouseIds</c>) — one or more warehouse ids do not exist</item>
+    ///   <item>422 <c>validationError</c> (field <c>root</c>) — an Identity failure while saving the profile or role membership</item>
+    /// </list>
+    /// </remarks>
     [HttpPut("{id:guid}")]
     [Authorize(Policy = Permissions.Users.EditProfile)]
     [ProducesResponseType<UserDetailDto>(StatusCodes.Status200OK)]
@@ -265,6 +309,12 @@ public class UsersController(
     }
 
     /// <summary>Delete a user.</summary>
+    /// <remarks>
+    /// Requires <c>users.delete</c>. Evicts the user's cached security version, so their outstanding tokens
+    /// stop validating.
+    /// Returns 404 <c>userNotFound</c> if no such user, and 422 <c>validationError</c> (field <c>root</c>) if
+    /// Identity refuses the delete.
+    /// </remarks>
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = Permissions.Users.Delete)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -295,6 +345,19 @@ public class UsersController(
     }
 
     /// <summary>Reset another user's password (admin action, no current password required).</summary>
+    /// <remarks>
+    /// Requires <c>users.reset_password</c>. Bumps the target user's <c>security_version</c>, invalidating
+    /// their existing access tokens.
+    /// Error codes:
+    /// <list type="bullet">
+    ///   <item>404 <c>userNotFound</c> — no such user</item>
+    ///   <item>422 <c>passwordTooShort</c> (field <c>root</c>) — args <c>{ minimalLength }</c></item>
+    ///   <item>422 <c>passwordAtLeastOneDigit</c> / <c>passwordAtLeastOneUppercase</c> /
+    ///         <c>passwordAtLeastOneLowercase</c> (field <c>root</c>)</item>
+    ///   <item>422 <c>validationError</c> (field <c>root</c>) — any other Identity failure</item>
+    /// </list>
+    /// <c>passwordInvalid</c> cannot occur here — no current password is checked.
+    /// </remarks>
     [HttpPut("{id:guid}/password")]
     [Authorize(Policy = Permissions.Users.ResetPassword)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

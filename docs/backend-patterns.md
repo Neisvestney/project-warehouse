@@ -107,6 +107,11 @@ CreateMap<CatalogItem, CatalogItemDto>()
 
 Two overload families exist depending on whether list order is meaningful.
 
+**The wire contract this produces.** Every `PUT` built on the identity-based overload takes the *full desired
+list* and diffs it server-side: an element with `id: null` is created, an element with an `id` updates the
+existing row, and an existing row absent from the payload is deleted. Clients never send explicit deletes.
+Every `PUT` taking a child collection in this codebase follows it.
+
 ---
 
 ### Index-based overload (ordered lists)
@@ -222,7 +227,6 @@ _listUpdater.UpdateList(
 
 ## Background work: queue + worker + advisory lock
 
-Introduced by the marketplaces module — the first place in the project that does work outside a request.
 Use this shape whenever an endpoint must answer immediately but the work takes minutes.
 
 **Never `Task.Run`.** It is not tied to the host lifetime, so a container stop drops in-flight work silently.
@@ -253,30 +257,17 @@ actually guarantees exclusivity.
 picks whatever is due (`MarketplaceSyncScanJob.cs`), rather than a trigger per entity — the schedule then needs no
 mutation when an interval changes, and a restart cannot lose it.
 
-## File attachments: real FKs + GC driven by model metadata
+## File attachments: adding a new attachment point
 
-Files live in `DataFiles` and are referenced **only through real foreign keys** — a `Guid? XFileId` column for
-1:1, a join entity for 1:N. A file identifier must never be parked in `jsonb`, a string column, or an array
-without a FK: the collector sees foreign keys and nothing else, and would delete such a file as an orphan.
+The mechanism — real FKs instead of a polymorphic table, the `OnDelete` rules, and the GC that derives its
+predicate from the EF model — lives in [data-files-specification.md](data-files-specification.md). Read it before
+adding an attachment point; what follows is only the checklist.
 
-### Why FKs and not a polymorphic attachment table
-
-A `EntityFileAttachment(EntityType, EntityId, DataFileId)` table modelled on `ChangeLogEntry` was rejected: its
-`EntityId` cannot be a foreign key, so there is no referential integrity, and the collection is not an EF
-navigation — meaning it does not map through `ProjectTo` and needs a separate query and endpoint on every page.
-The FK variant costs one migration per new attachment point and breaks no existing pattern.
-
-### `OnDelete` rules
-
-| Direction | Behaviour | Why |
-|-----------|-----------|-----|
-| Join entity → owner (`CatalogItemImage` → `CatalogItem`) | `Cascade` | Ordinary child collection |
-| Any reference → `DataFile` | **`Restrict`, always** | `Cascade` would mean "deleting a file deletes the product". `SetNull` would quietly detach it. `Restrict` lets the database refuse to drop a file still in use — a second line under the GC |
-| `DataFile` → `ApplicationUser` | `SetNull` | Audit reference, as everywhere else |
-
-### Attaching from a controller
-
-Controllers never write this logic themselves — they call `IDataFileBindingService`:
+1. **1:1** — add `Guid? XFileId` + a `DataFile? X` navigation, FK `OnDelete(DeleteBehavior.Restrict)`.
+   **1:N** — add a join entity implementing `IDataFileLink`, `Cascade` to the owner, `Restrict` to `DataFile`.
+2. Add an AutoMapper map from the request element to the link entity with `Id` ignored; the request element
+   implements `IDataFileLinkRequest`.
+3. In the controller, bind through `IDataFileBindingService` — never inline the check-and-sync:
 
 ```csharp
 var problem =
@@ -287,61 +278,13 @@ var problem =
 if (problem is not null) return Problem(problem);
 ```
 
-The join entity implements `IDataFileLink` and the request element `IDataFileLinkRequest`, so the service stays
-independent of the concrete types; internally it validates existence and then syncs through the identity-based
-`IListUpdater` overload. It needs an AutoMapper map from the request to the link entity with `Id` ignored.
+4. There is **no** step for the garbage collector: it reads the foreign keys out of the EF model, so adding the FK
+   *is* registering the attachment point.
 
-**Rules**
-- Existence is checked explicitly, never left to the foreign key: a raw `23503` surfaces as a 500, while the
-  frontend can only render an `AppProblemDetails`.
-- Never inline the check-and-sync in a controller. Copying it is how one endpoint eventually ships without the
-  check.
-- Removing a link does not delete the file — the collector does, later.
+**A file identifier must never be parked in `jsonb`, a string column, or an array without a FK** — the collector
+sees foreign keys and nothing else, and would delete such a file as an orphan.
 
-### Garbage collection
-
-A file is garbage when **no foreign key points at its row**. That single condition covers both "uploaded but the
-form was never saved" and "the reference was removed later", so no controller has to call anything on save or
-delete — there is no such call to forget.
-
-`DataFileReferences.GetReferencingColumns(IModel)` derives the list of referencing table/column pairs from the EF
-model at runtime, so registering a new attachment point *is* adding the foreign key. `Distinct()` is mandatory:
-TPH maps several entity types onto one table (`InventoryItem`) and would otherwise duplicate conditions.
-Identifiers are double-quoted — they come from the model, not from user input, but Postgres folds unquoted names
-to lower case and this schema is PascalCase.
-
-`DataFilesGcJob` runs on Quartz, takes a **PostgreSQL advisory lock** (the job store is in-memory, so
-`[DisallowConcurrentExecution]` only covers one process), and issues a single
-`DELETE ... WHERE ... NOT EXISTS (...) LIMIT @batch RETURNING "StorageKey", "SizeBytes"`.
-
-**Order matters: the row first, the bytes second.** The reverse order could leave a row pointing at a file that
-no longer exists — a broken image in the UI. This way the worst case is unused bytes on disk.
-
-`OrphanTtlHours` protects freshly uploaded files and is therefore also the **hard deadline on an open form**:
-a tab left open longer than that will fail its save with `dataFileNotFound`. Do not drop it below a day.
-
-The same predicate builder backs the storage statistics endpoint, so the page and the collector can never
-disagree about what an orphan is.
-
-### Inheriting a file reference
-
-`CatalogItem.MainImage` inherits from the parent group the way `EffectiveDescription` does — but it is **not** a
-`[Projectable]`. Every `[Projectable]` in this project returns a `string` or a `bool`; one returning a navigation
-would coalesce two entity references, and whether EF folds member access over that into `CASE WHEN` is untested
-here. Worse, the same expression run in memory by `mapper.Map` silently yields null unless both navigations are
-`Include`d — a failure invisible until a screenshot looks wrong.
-
-Instead the mapper holds one shared expression that builds the DTO on **both** branches. Branches returning a
-non-entity type translate unambiguously, and the expression stays correct in memory.
-
-**A list of files is not inherited.** `s.Images.Any() ? s.Images : s.Group.Images` is a conditional over a
-collection, which EF cannot translate, and the workaround breaks on recursion into children. It is also worse
-semantically: "child has no images, so show all of the group's" makes "this variant deliberately has only a main
-photo" unsayable.
-
-The pair `mainImageFileId` (own) + `mainImage` (effective) is what lets the UI label an inherited image. Loading
-the effective value into an edit form as the item's own would silently make it own on the next save — read the
-own field when populating a form.
+## Several `Include`d collections need `AsSplitQuery()`
 
 **Attaching images to an aggregate that already has several collections needs `AsSplitQuery()`.** EF's default
 single-query mode `JOIN`s every `Include`d collection together, so the row count is their *product*.

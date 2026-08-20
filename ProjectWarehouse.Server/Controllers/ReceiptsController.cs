@@ -62,6 +62,15 @@ public class ReceiptsController(
     // ── GET list ──────────────────────────────────────────────────────────────
 
     /// <summary>List receipts with pagination, filtering, and search.</summary>
+    /// <remarks>
+    /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
+    /// <c>warehouseId</c>, <c>status</c>, <c>reason</c>, <c>sortBy</c> (default <c>Number</c>),
+    /// <c>sortOrder</c> (default <c>Desc</c>).
+    /// Requires <c>receipts.view</c> or <c>receipts.view_assigned</c>; <c>receipts.process_assigned</c> alone
+    /// also opens the list but narrows it to receipts in <c>Processing</c> status. Without any of them, 403
+    /// <c>permissionDenied</c>; 401 <c>tokenInvalid</c> when an <c>_assigned</c> permission is used but the
+    /// token carries no resolvable user.
+    /// </remarks>
     [HttpGet]
     [Authorize]
     [ProducesResponseType<Paginated<ReceiptSummaryDto>>(StatusCodes.Status200OK)]
@@ -109,6 +118,12 @@ public class ReceiptsController(
     // ── GET single ────────────────────────────────────────────────────────────
 
     /// <summary>Get full receipt details including items and placements.</summary>
+    /// <remarks>
+    /// Errors: 404 <c>receiptNotFound</c>; 403 <c>receiptNotAssignedToWarehouse</c> when only an
+    /// <c>_assigned</c> permission is held and the receipt belongs to another warehouse; 403
+    /// <c>permissionDenied</c> without a view permission, or when <c>receipts.process_assigned</c> is the only
+    /// grant and the receipt is not in <c>Processing</c>; 401 <c>tokenInvalid</c> for an unresolvable user.
+    /// </remarks>
     [HttpGet("{id:guid}")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
@@ -134,6 +149,12 @@ public class ReceiptsController(
     // ── POST create ───────────────────────────────────────────────────────────
 
     /// <summary>Create a new receipt in Draft status.</summary>
+    /// <remarks>
+    /// Body: <c>CreateReceiptRequest</c> — warehouseId (required), name, reason, notes, plannedDeliveryDate.
+    /// Errors: 422 <c>warehouseNotFound</c> for an unknown warehouse; 403 <c>permissionDenied</c> without
+    /// <c>receipts.edit</c>/<c>receipts.edit_assigned</c>, or 403 <c>receiptNotAssignedToWarehouse</c> when
+    /// only <c>receipts.edit_assigned</c> is held and the target warehouse is not assigned.
+    /// </remarks>
     [HttpPost]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status201Created)]
@@ -177,6 +198,10 @@ public class ReceiptsController(
     // ── PATCH update ──────────────────────────────────────────────────────────
 
     /// <summary>Update receipt name, reason, notes. Only allowed in Draft status.</summary>
+    /// <remarks>
+    /// Errors: 404 <c>receiptNotFound</c>; 422 <c>receiptInvalidStatusTransition</c> outside Draft status;
+    /// 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c> (edit access).
+    /// </remarks>
     [HttpPatch("{id:guid}")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
@@ -210,6 +235,10 @@ public class ReceiptsController(
     // ── DELETE ────────────────────────────────────────────────────────────────
 
     /// <summary>Delete a receipt. Only allowed in Draft status.</summary>
+    /// <remarks>
+    /// Requires the full <c>receipts.edit</c> permission — <c>receipts.edit_assigned</c> does not delete.
+    /// Errors: 404 <c>receiptNotFound</c>; 422 <c>receiptInvalidStatusTransition</c> outside Draft status.
+    /// </remarks>
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = Permissions.Receipts.Edit)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -244,6 +273,20 @@ public class ReceiptsController(
     /// Add a single catalog item to the receipt with plannedCount=0 during Processing.
     /// Used when a new item is discovered while physically receiving goods.
     /// </summary>
+    /// <remarks>
+    /// Processing status only. Requires <c>receipts.edit</c> (any warehouse) or
+    /// <c>receipts.process_assigned</c> (assigned warehouses only). Errors:
+    /// <list type="bullet">
+    ///   <item>404 <c>receiptNotFound</c></item>
+    ///   <item>422 <c>receiptInvalidStatusTransition</c> — receipt is not in Processing</item>
+    ///   <item>422 <c>catalogItemNotFound</c> — unknown catalog item</item>
+    ///   <item>422 <c>catalogItemIsImmutable</c> — the catalog item is archived</item>
+    ///   <item>422 <c>validationError</c> — the item is a ProductGroup, Variation or Bundle, or it is already
+    ///     in the receipt</item>
+    ///   <item>403 <c>permissionDenied</c> (neither permission), 403 <c>receiptNotAssignedToWarehouse</c>
+    ///     (operator, other warehouse), 401 <c>tokenInvalid</c></item>
+    /// </list>
+    /// </remarks>
     [HttpPost("{id:guid}/items/quick-add")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
@@ -300,6 +343,12 @@ public class ReceiptsController(
     // ── PUT items sync ────────────────────────────────────────────────────────
 
     /// <summary>Replace the full list of expected items. Allowed in Draft and Planned statuses.</summary>
+    /// <remarks>
+    /// Errors: 404 <c>receiptNotFound</c>; 422 <c>receiptInvalidStatusTransition</c> outside Draft or Planned;
+    /// 422 <c>validationError</c> for a <c>catalogItemId</c> repeated in the request; 422
+    /// <c>catalogItemNotFound</c> for an unknown catalog item; 403 <c>permissionDenied</c> /
+    /// <c>receiptNotAssignedToWarehouse</c> (edit access).
+    /// </remarks>
     [HttpPut("{id:guid}/items")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
@@ -373,6 +422,12 @@ public class ReceiptsController(
     // ── PATCH received count ──────────────────────────────────────────────────
 
     /// <summary>Update the actually received count for a specific item. Only in Processing status.</summary>
+    /// <remarks>
+    /// Requires <c>receipts.edit</c> or <c>receipts.process_assigned</c>. Errors: 404
+    /// <c>receiptNotFound</c>; 404 <c>receiptItemNotFound</c> when the item does not belong to this receipt;
+    /// 422 <c>receiptInvalidStatusTransition</c> outside Processing; 403 <c>permissionDenied</c> /
+    /// <c>receiptNotAssignedToWarehouse</c>; 401 <c>tokenInvalid</c>.
+    /// </remarks>
     [HttpPatch("{id:guid}/items/{itemId:guid}/received-count")]
     [Authorize]
     [ProducesResponseType<ReceiptItemDto>(StatusCodes.Status200OK)]
@@ -415,6 +470,13 @@ public class ReceiptsController(
     // ── POST placement / standard ─────────────────────────────────────────────
 
     /// <summary>Place Standard (count-based) items at a storage node. Only in Processing status.</summary>
+    /// <remarks>
+    /// Requires <c>receipts.edit</c> or <c>receipts.process_assigned</c>. The stock increase and the
+    /// placement row are written in one transaction. Errors: 404 <c>receiptNotFound</c>; 404
+    /// <c>receiptItemNotFound</c>; 422 <c>receiptInvalidStatusTransition</c> outside Processing; 422
+    /// <c>storagePlaceNodeNotFound</c> for an unknown <c>storagePlaceNodeId</c>; 403
+    /// <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c>; 401 <c>tokenInvalid</c>.
+    /// </remarks>
     [HttpPost("{id:guid}/items/{itemId:guid}/placements/standard")]
     [Authorize]
     [ProducesResponseType<ReceiptItemDto>(StatusCodes.Status200OK)]
@@ -479,6 +541,18 @@ public class ReceiptsController(
     // ── POST placement / standard / batch ────────────────────────────────────
 
     /// <summary>Place multiple Standard items at the same storage node in one transaction. Only in Processing status.</summary>
+    /// <remarks>
+    /// Requires <c>receipts.edit</c> or <c>receipts.process_assigned</c>. Errors:
+    /// <list type="bullet">
+    ///   <item>404 <c>receiptNotFound</c>; 404 <c>receiptItemNotFound</c> for an id not in this receipt</item>
+    ///   <item>422 <c>receiptInvalidStatusTransition</c> — receipt is not in Processing</item>
+    ///   <item>422 <c>storagePlaceNodeNotFound</c> — unknown node, either from the up-front check or from the
+    ///     inventory service inside the transaction</item>
+    ///   <item>422 <c>validationError</c> — an <c>itemId</c> repeated in the request, or an item whose catalog
+    ///     type is not Standard</item>
+    ///   <item>403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c>; 401 <c>tokenInvalid</c></item>
+    /// </list>
+    /// </remarks>
     [HttpPost("{id:guid}/placements/standard/batch")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
@@ -582,6 +656,14 @@ public class ReceiptsController(
     // ── POST placement / unit ─────────────────────────────────────────────────
 
     /// <summary>Place a Unit (serialised) item at a storage node. Only in Processing status.</summary>
+    /// <remarks>
+    /// Requires <c>receipts.edit</c> or <c>receipts.process_assigned</c>. Errors: 404
+    /// <c>receiptNotFound</c>; 404 <c>receiptItemNotFound</c>; 422
+    /// <c>receiptInvalidStatusTransition</c> outside Processing; 422 <c>storagePlaceNodeNotFound</c>; 422
+    /// <c>unitInventoryItemNumberDuplicate</c> on field <c>inventoryNumber</c> when the number is already used
+    /// for this catalog item — raised by the soft check, and again by the unique index when two requests race;
+    /// 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c>; 401 <c>tokenInvalid</c>.
+    /// </remarks>
     [HttpPost("{id:guid}/items/{itemId:guid}/placements/unit")]
     [Authorize]
     [ProducesResponseType<ReceiptItemDto>(StatusCodes.Status200OK)]
@@ -662,6 +744,20 @@ public class ReceiptsController(
     // ── DELETE placement ──────────────────────────────────────────────────────
 
     /// <summary>Remove a placement, reversing the inventory change. Only in Processing status.</summary>
+    /// <remarks>
+    /// Requires <c>receipts.edit</c> or <c>receipts.process_assigned</c>. Errors:
+    /// <list type="bullet">
+    ///   <item>404 <c>receiptNotFound</c>; 404 <c>receiptItemPlacementNotFound</c> when the placement does not
+    ///     belong to this item</item>
+    ///   <item>422 <c>receiptInvalidStatusTransition</c> — receipt is not in Processing</item>
+    ///   <item>422 <c>inventoryItemMovedToAnotherNodeAfterPlacementCreated</c> — the unit item was moved out of
+    ///     the placement's node since it was created</item>
+    ///   <item>422 <c>unitInventoryItemNotFound</c> — the unit item is already gone</item>
+    ///   <item>422 <c>insufficientInventory</c> — the standard stock to reverse is no longer in the node;
+    ///     <c>args: { itemName, requested, available, missing, path }</c></item>
+    ///   <item>403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c>; 401 <c>tokenInvalid</c></item>
+    /// </list>
+    /// </remarks>
     [HttpDelete("{id:guid}/items/{itemId:guid}/placements/{placementId:guid}")]
     [Authorize]
     [ProducesResponseType<ReceiptItemDto>(StatusCodes.Status200OK)]
@@ -746,6 +842,10 @@ public class ReceiptsController(
     // ── Status transitions ────────────────────────────────────────────────────
 
     /// <summary>Transition: Draft → Planned.</summary>
+    /// <remarks>
+    /// Draft status only. Errors: 404 <c>receiptNotFound</c>; 422 <c>receiptInvalidStatusTransition</c> from
+    /// any other status; 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c> (edit access).
+    /// </remarks>
     [HttpPost("{id:guid}/plan")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
@@ -755,6 +855,10 @@ public class ReceiptsController(
         TransitionAsync(id, ReceiptStatus.Draft, ReceiptStatus.Planned, ReceiptActions.Planned, ct);
 
     /// <summary>Transition: Planned → Processing.</summary>
+    /// <remarks>
+    /// Planned status only. Errors: 404 <c>receiptNotFound</c>; 422 <c>receiptInvalidStatusTransition</c> from
+    /// any other status; 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c> (edit access).
+    /// </remarks>
     [HttpPost("{id:guid}/start-processing")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
@@ -764,6 +868,13 @@ public class ReceiptsController(
         TransitionAsync(id, ReceiptStatus.Planned, ReceiptStatus.Processing, ReceiptActions.ProcessingStarted, ct);
 
     /// <summary>Transition: Processing → Finished. Validates that each item with a received count has enough placements.</summary>
+    /// <remarks>
+    /// Processing status only; items without a <c>receivedCount</c> are not checked. Errors: 404
+    /// <c>receiptNotFound</c>; 422 <c>receiptInvalidStatusTransition</c> from any other status; 422
+    /// <c>receiptItemsUnderplaced</c> when an item has fewer placed units than received; 422
+    /// <c>receiptItemsOverplaced</c> when it has more; 403 <c>permissionDenied</c> /
+    /// <c>receiptNotAssignedToWarehouse</c> (edit access).
+    /// </remarks>
     [HttpPost("{id:guid}/finish")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
@@ -816,6 +927,12 @@ public class ReceiptsController(
     }
 
     /// <summary>Revert one step back (Planned → Draft, Processing → Planned if no placements).</summary>
+    /// <remarks>
+    /// Finished reverts to Processing. Errors: 404 <c>receiptNotFound</c>; 422 <c>receiptHasPlacements</c>
+    /// when reverting from Processing while items still have placements; 422
+    /// <c>receiptInvalidStatusTransition</c> from Draft or Canceled; 403 <c>permissionDenied</c> /
+    /// <c>receiptNotAssignedToWarehouse</c> (edit access).
+    /// </remarks>
     [HttpPost("{id:guid}/revert")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
@@ -862,6 +979,11 @@ public class ReceiptsController(
     }
 
     /// <summary>Cancel the receipt. Allowed from Draft, Planned, and Processing (if no placements).</summary>
+    /// <remarks>
+    /// Errors: 404 <c>receiptNotFound</c>; 422 <c>receiptInvalidStatusTransition</c> from Finished or
+    /// Canceled; 422 <c>receiptHasPlacements</c> when cancelling from Processing while items still have
+    /// placements; 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c> (edit access).
+    /// </remarks>
     [HttpPost("{id:guid}/cancel")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]

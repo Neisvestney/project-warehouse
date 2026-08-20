@@ -126,6 +126,14 @@ public class StocktakesController(
     // ── GET list ──────────────────────────────────────────────────────────────
 
     /// <summary>List stocktakes with pagination, filtering, and search.</summary>
+    /// <remarks>
+    /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
+    /// <c>warehouseId</c>, <c>status</c>, <c>sortBy</c> (default <c>Number</c>), <c>sortOrder</c>
+    /// (default <c>Desc</c>).
+    /// Requires <c>stocktakes.view</c> or <c>stocktakes.view_assigned</c>; without either, 403
+    /// <c>permissionDenied</c>. 401 <c>tokenInvalid</c> when an <c>_assigned</c> permission is used but the
+    /// token carries no resolvable user.
+    /// </remarks>
     [HttpGet]
     [Authorize]
     [ProducesResponseType<Paginated<StocktakeSummaryDto>>(StatusCodes.Status200OK)]
@@ -175,6 +183,11 @@ public class StocktakesController(
     // ── GET single ────────────────────────────────────────────────────────────
 
     /// <summary>Get full stocktake details including counted nodes and their items.</summary>
+    /// <remarks>
+    /// Errors: 404 <c>stocktakeNotFound</c>; 403 <c>permissionDenied</c> without a view permission, or 403
+    /// <c>stocktakeNotAssignedToWarehouse</c> when only <c>stocktakes.view_assigned</c> is held and the
+    /// document belongs to another warehouse; 401 <c>tokenInvalid</c> for an unresolvable user.
+    /// </remarks>
     [HttpGet("{id:guid}")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
@@ -190,6 +203,14 @@ public class StocktakesController(
     // ── POST create ───────────────────────────────────────────────────────────
 
     /// <summary>Create a new stocktake. Always starts in Draft status.</summary>
+    /// <remarks>
+    /// Body: <c>CreateStocktakeRequest</c> — warehouseId (required), name, notes, type, plannedDate.
+    /// Errors: 422 <c>warehouseNotFound</c> for an unknown warehouse; 422 <c>validationError</c> on
+    /// <c>plannedDate</c> when <c>type</c> is <c>Scheduled</c> and no date is given; 403
+    /// <c>permissionDenied</c> without <c>stocktakes.edit</c>/<c>stocktakes.edit_assigned</c>, or 403
+    /// <c>stocktakeNotAssignedToWarehouse</c> when only the <c>_assigned</c> permission is held and the target
+    /// warehouse is not assigned.
+    /// </remarks>
     [HttpPost]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status201Created)]
@@ -242,6 +263,17 @@ public class StocktakesController(
     /// Update stocktake name, notes, type and planned date. Allowed while the document is still open;
     /// type and planned date freeze once counting has started.
     /// </summary>
+    /// <remarks>
+    /// Planned, Draft or InProgress only. Errors:
+    /// <list type="bullet">
+    ///   <item>404 <c>stocktakeNotFound</c></item>
+    ///   <item>422 <c>stocktakeInvalidStatusTransition</c> — the document is Finished or Canceled, or
+    ///     <c>type</c>/<c>plannedDate</c> is sent while it is InProgress (field <c>type</c>)</item>
+    ///   <item>422 <c>validationError</c> — <c>plannedDate</c> sent without <c>type</c>, or <c>type</c> is
+    ///     <c>Scheduled</c> with no <c>plannedDate</c></item>
+    ///   <item>403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c> (edit access)</item>
+    /// </list>
+    /// </remarks>
     [HttpPatch("{id:guid}")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
@@ -298,6 +330,10 @@ public class StocktakesController(
     // ── DELETE ────────────────────────────────────────────────────────────────
 
     /// <summary>Delete a stocktake. Only allowed in Planned or Draft status.</summary>
+    /// <remarks>
+    /// Errors: 404 <c>stocktakeNotFound</c>; 422 <c>stocktakeInvalidStatusTransition</c> outside Planned or
+    /// Draft; 403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c> (edit access).
+    /// </remarks>
     [HttpDelete("{id:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -328,6 +364,20 @@ public class StocktakesController(
     /// Replace the set of counted cells. Cells already in scope keep their counted items; dropping a
     /// cell discards its lines.
     /// </summary>
+    /// <remarks>
+    /// Planned, Draft or InProgress only. Errors:
+    /// <list type="bullet">
+    ///   <item>404 <c>stocktakeNotFound</c></item>
+    ///   <item>422 <c>stocktakeInvalidStatusTransition</c> — the document is Finished or Canceled</item>
+    ///   <item>422 <c>validationError</c> — a node id repeated in <c>nodeIds</c></item>
+    ///   <item>422 <c>storagePlaceNodeNotFound</c> — a node does not belong to this warehouse
+    ///     (field <c>nodeIds[i]</c>)</item>
+    ///   <item>422 <c>stocktakeNodeAlreadyInProgress</c> — only while InProgress, when a newly added cell is
+    ///     already being counted in another InProgress stocktake; <c>args: { nodeId }</c>. A cell may sit in
+    ///     any number of Draft or Planned scopes</item>
+    ///   <item>403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c> (edit access)</item>
+    /// </list>
+    /// </remarks>
     [HttpPut("{id:guid}/nodes")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
@@ -396,6 +446,11 @@ public class StocktakesController(
     /// Live stock of one cell in the scope, used to pre-populate the counting screen. Served here
     /// rather than through the inventory endpoints so counting does not require warehouse permissions.
     /// </summary>
+    /// <remarks>
+    /// Errors: 404 <c>stocktakeNotFound</c>; 404 <c>stocktakeNodeNotFound</c> when the cell is not in this
+    /// document's scope; 403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c> (view access);
+    /// 401 <c>tokenInvalid</c>.
+    /// </remarks>
     [HttpGet("{id:guid}/nodes/{nodeId:guid}/stock")]
     [Authorize]
     [ProducesResponseType<StocktakeNodeStockDto>(StatusCodes.Status200OK)]
@@ -457,6 +512,24 @@ public class StocktakesController(
     /// <summary>
     /// Replace the counted lines of one cell. Scoped to a single cell so accordions save independently.
     /// </summary>
+    /// <remarks>
+    /// InProgress status only. Errors:
+    /// <list type="bullet">
+    ///   <item>404 <c>stocktakeNotFound</c>; 404 <c>stocktakeNodeNotFound</c> when the cell is not in scope</item>
+    ///   <item>422 <c>stocktakeInvalidStatusTransition</c> — the document is not InProgress</item>
+    ///   <item>422 <c>catalogItemNotFound</c> — unknown <c>catalogItemId</c> (field <c>items[i].catalogItemId</c>)</item>
+    ///   <item>422 <c>validationError</c> — line kind does not match the catalog item type, a standard line
+    ///     carries an inventory number, or a standard item / inventory number is repeated in the request</item>
+    ///   <item>422 <c>outOfRange</c> — negative standard quantity, or a unit quantity outside 0..1</item>
+    ///   <item>422 <c>required</c> — a unit line without an inventory number</item>
+    ///   <item>422 <c>stocktakeUnitItemInAnotherWarehouse</c> — a claimed serial is booked in another
+    ///     warehouse; <c>args: { inventoryNumber }</c>. Takes precedence over the clash below</item>
+    ///   <item>422 <c>stocktakeUnitCountedTwice</c> — the same serial is claimed found in another InProgress
+    ///     stocktake (<c>args: { inventoryNumber, stocktakeId, stocktakeNumber }</c>) or in another cell of
+    ///     this document (<c>args: { inventoryNumber }</c>). Surpluses count too</item>
+    ///   <item>403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c> (edit access)</item>
+    /// </list>
+    /// </remarks>
     [HttpPut("{id:guid}/nodes/{nodeId:guid}/items")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
@@ -674,6 +747,13 @@ public class StocktakesController(
     // ── Status transitions ────────────────────────────────────────────────────
 
     /// <summary>Put a scheduled document on the calendar. Draft → Planned.</summary>
+    /// <remarks>
+    /// Draft status only. Errors: 404 <c>stocktakeNotFound</c>; 422
+    /// <c>stocktakeInvalidStatusTransition</c> from any other status; 422 <c>validationError</c> on
+    /// <c>plannedDate</c> when the document is not <c>Scheduled</c> or has no planned date; 422
+    /// <c>stocktakeHasNoNodes</c> when the scope is empty; 403 <c>permissionDenied</c> /
+    /// <c>stocktakeNotAssignedToWarehouse</c> (edit access).
+    /// </remarks>
     [HttpPost("{id:guid}/schedule")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
@@ -708,6 +788,11 @@ public class StocktakesController(
     }
 
     /// <summary>Return a scheduled document to work. Planned → Draft.</summary>
+    /// <remarks>
+    /// Planned status only. Errors: 404 <c>stocktakeNotFound</c>; 422
+    /// <c>stocktakeInvalidStatusTransition</c> from any other status; 403 <c>permissionDenied</c> /
+    /// <c>stocktakeNotAssignedToWarehouse</c> (edit access).
+    /// </remarks>
     [HttpPost("{id:guid}/to-draft")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
@@ -734,6 +819,13 @@ public class StocktakesController(
     }
 
     /// <summary>Start counting. Draft or Planned → InProgress.</summary>
+    /// <remarks>
+    /// Draft or Planned only. Errors: 404 <c>stocktakeNotFound</c>; 422
+    /// <c>stocktakeInvalidStatusTransition</c> from any other status; 422 <c>stocktakeHasNoNodes</c> when the
+    /// scope is empty; 422 <c>stocktakeNodeAlreadyInProgress</c> when a cell in scope is already being counted
+    /// in another InProgress stocktake, <c>args: { nodeId }</c>; 403 <c>permissionDenied</c> /
+    /// <c>stocktakeNotAssignedToWarehouse</c> (edit access).
+    /// </remarks>
     [HttpPost("{id:guid}/start")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
@@ -769,6 +861,11 @@ public class StocktakesController(
     }
 
     /// <summary>Return to scope editing. InProgress → Draft. Counted lines are kept.</summary>
+    /// <remarks>
+    /// InProgress status only. Errors: 404 <c>stocktakeNotFound</c>; 422
+    /// <c>stocktakeInvalidStatusTransition</c> from any other status; 403 <c>permissionDenied</c> /
+    /// <c>stocktakeNotAssignedToWarehouse</c> (edit access).
+    /// </remarks>
     [HttpPost("{id:guid}/revert")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
@@ -796,6 +893,11 @@ public class StocktakesController(
     }
 
     /// <summary>Cancel the stocktake without touching stock.</summary>
+    /// <remarks>
+    /// Errors: 404 <c>stocktakeNotFound</c>; 422 <c>stocktakeInvalidStatusTransition</c> from a terminal
+    /// status (Finished or Canceled); 403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c>
+    /// (edit access).
+    /// </remarks>
     [HttpPost("{id:guid}/cancel")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
@@ -826,6 +928,11 @@ public class StocktakesController(
     /// What finishing would do, computed against live stock without mutating anything. The finish
     /// endpoint applies the very same plan.
     /// </summary>
+    /// <remarks>
+    /// Read-only, so blocking conditions come back inside the plan rather than as errors. Errors: 404
+    /// <c>stocktakeNotFound</c>; 403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c>
+    /// (view access); 401 <c>tokenInvalid</c>.
+    /// </remarks>
     [HttpGet("{id:guid}/differences")]
     [Authorize]
     [ProducesResponseType<StocktakeDifferencesDto>(StatusCodes.Status200OK)]
@@ -845,6 +952,28 @@ public class StocktakesController(
     /// Apply the count: bring live stock in line with what was counted. InProgress → Finished.
     /// Stock present in a counted cell but absent from the document is treated as counted zero.
     /// </summary>
+    /// <remarks>
+    /// InProgress status only; the whole plan is applied in one transaction, so any failure leaves stock
+    /// untouched. Errors:
+    /// <list type="bullet">
+    ///   <item>404 <c>stocktakeNotFound</c></item>
+    ///   <item>422 <c>stocktakeInvalidStatusTransition</c> — the document is not InProgress</item>
+    ///   <item>422 <c>stocktakeHasNoNodes</c> — the scope is empty</item>
+    ///   <item>422 <c>stocktakeUnitItemDetached</c> — a found serial is held by an active assembly
+    ///     fulfillment; reported by the plan before anything is applied</item>
+    ///   <item>422 <c>stocktakeUnitItemInAnotherWarehouse</c> — a counted serial is booked in another
+    ///     warehouse; also reported by the plan</item>
+    ///   <item>422 <c>insufficientInventory</c> — a shortage line asks for more than the cell holds;
+    ///     <c>args: { itemName, requested, available, missing, path }</c></item>
+    ///   <item>422 <c>stocktakeConcurrentModification</c> — a serial left its expected node while the finish
+    ///     was running; the transaction rolled back</item>
+    ///   <item>422 <c>unitInventoryItemNotFound</c> — a unit item disappeared mid-flight</item>
+    ///   <item>422 <c>storagePlaceNodeNotFound</c> — a cell in scope no longer exists</item>
+    ///   <item>422 <c>unitInventoryItemNumberDuplicate</c> — a surplus serial lost the race against the unique
+    ///     index (field <c>inventoryNumber</c>)</item>
+    ///   <item>403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c> (edit access)</item>
+    /// </list>
+    /// </remarks>
     [HttpPost("{id:guid}/finish")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]

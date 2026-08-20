@@ -14,6 +14,13 @@ namespace ProjectWarehouse.Server.Controllers;
 public class CommonContentController(IMapper mapper, IUserQueryFilterService queryFilter) : AppControllerBase
 {
     /// <summary>Get list of AppEntities for home page.</summary>
+    /// <remarks>
+    /// Requires authentication only; content is narrowed per entity type by what the caller may view, so a
+    /// user without warehouse or receipt access simply gets fewer rows rather than a 403.
+    /// Returns up to 2 warehouses plus every visible receipt that is either <c>Processing</c> or a
+    /// <c>Draft</c> the caller created.
+    /// Returns 403 <c>permissionDenied</c> when the token carries no usable <c>sub</c> claim. No other error codes.
+    /// </remarks>
     [HttpGet]
     [Authorize]
     [ProducesResponseType<IReadOnlyList<AppEntity>>(StatusCodes.Status200OK)]
@@ -40,6 +47,13 @@ public class CommonContentController(IMapper mapper, IUserQueryFilterService que
 
 
     /// <summary>Global search for entities.</summary>
+    /// <remarks>
+    /// Query params: <c>searchString</c> (required). Searches warehouses, receipts, catalog items,
+    /// marketplace accounts, users and stocktakes, each already filtered to what the caller may view, then
+    /// returns at most 10 results overall (up to 10 per source before the union).
+    /// Requires authentication only — no permission opens or closes the endpoint itself.
+    /// No error codes; a missing <c>searchString</c> is a model-binding 422 (<c>required</c>).
+    /// </remarks>
     [HttpGet("search")]
     [Authorize]
     [ProducesResponseType<IReadOnlyList<AppEntity>>(StatusCodes.Status200OK)]
