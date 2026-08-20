@@ -61,9 +61,11 @@ function AssemblyOrderAccordion({
           <Typography variant="caption" color="text.secondary" sx={{ml: "auto"}}>
             {pluralCount(tasks.length, NOUNS.task)}
           </Typography>
-          {order.marketplaceOrder &&
-              <Typography variant={"body2"}>{formatPostingNumber(order.marketplaceOrder.postingNumber)}</Typography>
-          }
+          {order.marketplaceOrder && (
+            <Typography variant={"body2"}>
+              {formatPostingNumber(order.marketplaceOrder.postingNumber)}
+            </Typography>
+          )}
         </Stack>
       </AccordionSummary>
 
