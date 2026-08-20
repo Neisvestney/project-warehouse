@@ -1,746 +1,105 @@
-# REST API Reference
+# API Conventions & Authentication
 
-Base URL: `https://localhost:7095` (dev) / configured host (prod)  
-All requests/responses use `application/json`, except the file endpoints — see [Files](#files--apifiles),
-which take `multipart/form-data` and return raw byte streams, and the realtime stream — see
-[Realtime](#realtime--apirealtime), which returns `text/event-stream`.  
-Error format: see [errors.md](errors.md).  
-Permission strings: see [permissions.md](permissions.md).
+There is no hand-written endpoint reference. The endpoint list, request/response shapes and enum values are
+generated from the code and would only rot if mirrored here. Read them from:
 
-## Authentication
+| Source | What it gives |
+|--------|---------------|
+| `ProjectWarehouse.Server/Controllers/*.cs` | Routes, `[Authorize]`, required permissions, error codes — in the XML `<summary>` / `<remarks>` above each action |
+| `projectwarehouse.client/src/api/types.gen.ts` | Every DTO and enum, generated from OpenAPI and committed |
+| `projectwarehouse.client/src/api/sdk.gen.ts` | The typed client — one function per endpoint |
+| `https://localhost:7095/scalar` | Browsable OpenAPI UI (dev only, server must be running) |
 
-Endpoints marked **Bearer** require `Authorization: Bearer <accessToken>`.  
-Endpoints marked with a permission string additionally require that permission in the JWT claims.  
-See [auth.md](auth.md) for the full auth flow and token refresh.
+Behavioural rules that are *not* readable off a signature live in the domain specs — see the index in
+[README.md](README.md). This file holds only what is true of every endpoint.
 
----
+## Transport
 
-## Auth — `/api/auth`
+Base URL: `https://localhost:7095` (dev) / configured host (prod).
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/api/auth/login` | — | Get token pair |
-| POST | `/api/auth/refresh` | — | Rotate refresh token |
-| POST | `/api/auth/logout` | Bearer | Revoke refresh token |
-| PUT | `/api/auth/password` | Bearer | Change own password |
-| GET | `/api/auth/me` | Bearer | Current user info + roles + permissions |
+Requests and responses are `application/json`, with three exceptions: `/api/files` upload takes
+`multipart/form-data` and its content endpoints return raw byte streams, `POST /api/orders/labels` returns
+`application/pdf`, and `/api/realtime/stream` returns `text/event-stream`.
 
----
+Errors always use `AppProblemDetails` — see [errors.md](errors.md) for the envelope and the full code list.
 
-## Users — `/api/users`
+## Common query conventions
 
-| Method | Path | Permission | Description |
-|--------|------|------------|-------------|
-| GET | `/api/users` | `users.view` | List all users (paginated) |
-| GET | `/api/users/{id}` | `users.view` or self | Get user by ID; always allowed if `id` == current user |
-| POST | `/api/users` | `users.create` | Create user |
-| PUT | `/api/users/{id}` | `users.edit_profile` | Update profile, roles, and direct permissions atomically |
-| DELETE | `/api/users/{id}` | `users.delete` | Delete user |
-| PUT | `/api/users/{id}/password` | `users.reset_password` | Reset another user's password |
+- **Pagination**: `page` (default 1), `pageSize` (default 20, max 200) → `Paginated<T>`.
+- **Search**: `searchString` matches against the entity's precomputed `SearchString` column.
+- **Sorting**: `sortBy` (per-endpoint enum) plus `sortOrder` (`asc` | `desc`).
+- **Multi-value filters**: repeatable params (`itemTypes`, `tagIds`, `catalogItemTypes`) use OR semantics.
+- **`utcOffsetMinutes`**: the caller's offset in minutes, used where a timestamp must be cut into a calendar
+  day the way the user sees it (`/api/events`, `/api/statistics/stock-movements/*`).
 
----
+## Authorization
 
-## Roles — `/api/roles`
+Endpoints requiring authentication carry `[Authorize]` and expect `Authorization: Bearer <accessToken>`.
+Most additionally require a permission string present in the JWT claims — see
+[permissions.md](permissions.md) for the permission model and the `*_assigned` convention that narrows an
+operation to the caller's assigned warehouses.
 
-| Method | Path | Permission | Description |
-|--------|------|------------|-------------|
-| GET | `/api/roles` | `roles.view` | List all roles with permissions |
-| GET | `/api/roles/{id}` | `roles.view` | Get role by ID |
-| GET | `/api/roles/search` | `roles.view` | Search roles by name (max 10) |
-| PUT | `/api/roles` | `roles.edit` | Atomically replace the entire roles collection |
+## JWT authentication
 
----
+Access tokens are short-lived (15 min by default). Refresh tokens are long-lived (7 days), stored in the
+database, and rotated on every use: `/api/auth/refresh` revokes the presented token and issues a new pair.
+`/api/auth/logout` revokes without reissuing.
 
-## Warehouses — `/api/warehouses`
+### Access token claims
 
-| Method | Path | Permission | Description |
-|--------|------|------------|-------------|
-| GET | `/api/warehouses` | `warehouses.view` or `warehouses.view_assigned` | List warehouses; `view_assigned` returns only user's assigned warehouses |
-| GET | `/api/warehouses/{id}` | `warehouses.view` or `warehouses.view_assigned` | Get warehouse by ID; `view_assigned` returns 403 if warehouse not assigned |
-| GET | `/api/warehouses/{id}/print` | `warehouses.view` or `warehouses.view_assigned` | All nodes as `StoragePlaceNodePrintDto[]` ordered by full path (for label printing) |
-| GET | `/api/warehouses/{id}/items-groups` | `warehouses.view` or `warehouses.view_assigned` | List all item groups in a warehouse (`Paginated<ItemsGroupDto>`), supports `searchString` |
-| POST | `/api/warehouses` | `warehouses.edit` | Create warehouse |
-| PUT | `/api/warehouses/{id}` | `warehouses.edit` or `warehouses.edit_assigned` | Update warehouse and sync storage places; `edit_assigned` returns 403 if warehouse not assigned |
-| DELETE | `/api/warehouses/{id}` | `warehouses.edit` or `warehouses.edit_assigned` | Delete warehouse; `edit_assigned` returns 403 if warehouse not assigned |
+| Claim | Value |
+|-------|-------|
+| `sub` | User ID (Guid) |
+| `name` | Username |
+| `email` | Email (optional) |
+| `given_name` | First name (optional) |
+| `family_name` | Last name (optional) |
+| `security_version` | Integer version counter |
+| `permission` | One claim per permission (`"users.view"`, etc.) |
 
-`StoragePlaceNodePrintDto` shape: `{ id: Guid, name: string[] }` — `name` is the full breadcrumb path from storage place root down to the node (e.g. `["Стеллаж А", "Полка 1", "Ячейка 3"]`).
+Permissions are baked into the token, which is why changing them has to invalidate it.
 
-`WarehouseDto` includes `defaultStoragePlaceNodeId: Guid?` — the default storage place node for this warehouse. `PUT /api/warehouses/{id}` accepts `defaultStoragePlaceNodeId: Guid?`; returns 422 `storagePlaceNotFound` (field: `defaultStoragePlaceNodeId`) if the node does not belong to this warehouse. Deleting the referenced node sets this field to `null` via cascade.
+### SecurityVersion — token invalidation
 
-`GET /api/warehouses/{id}/default-node` — returns `StoragePlaceNodeDetailsDto` for the warehouse's default node (includes full breadcrumb `name: string[]`). Returns 404 `storagePlaceNodeNotFound` if no default node is set.
+`ApplicationUser.SecurityVersion` is an integer counter stored in the database and cached in
+`SecurityVersionStore` (a singleton in-memory `ConcurrentDictionary<Guid, int>`).
 
-`StoragePlaceNodeDetailsDto.name` is now `string[]` — the full breadcrumb path (e.g. `["Стеллаж А", "Полка 1", "Ячейка 3"]`). Applies to both `GET .../nodes/{nodeId}` and the new default-node endpoint.
+On every authenticated request `JwtBearerEvents.OnTokenValidated` compares the token's `security_version`
+claim against the store and calls `ctx.Fail("TOKEN_OUTDATED")` on a mismatch.
 
----
+The counter is bumped when a role's permissions change (all users holding that role), when a user's direct
+permissions change, and when a user's role assignment changes.
 
-## Storage Place Nodes — `/api/storagePlaces/{id}/nodes`
+**A failed token produces a bare 401 — there is no `AppProblemDetails` body and no `tokenOutdated` code on the
+wire.** `ErrorCode.TokenOutdated` exists in the enum and has a client-side message, but nothing emits it; do not
+write a client that branches on it.
 
-| Method | Path | Permission | Description |
-|--------|------|------------|-------------|
-| GET | `/api/storagePlaces/{id}/nodes` | `warehouses.view` | Flat list of all nodes (`StoragePlaceNodeDto[]` ordered by `order` then `name`) |
-| POST | `/api/storagePlaces/{id}/nodes` | `warehouses.edit` | Add node, returns updated flat list |
-| PUT | `/api/storagePlaces/{id}/nodes/reorder` | `warehouses.edit` | Bulk-update `order` for a set of nodes (`NodeOrderItem[]`), returns updated flat list |
-| PUT | `/api/storagePlaces/{id}/nodes/{nodeId}` | `warehouses.edit` | Update node name/parent/order, returns updated flat list |
-| DELETE | `/api/storagePlaces/{id}/nodes/{nodeId}` | `warehouses.edit` | Delete node (fails with `storagePlaceNodeHasChildren` if it has children), returns updated flat list |
-| GET | `/api/storagePlaces/{id}/nodes/{nodeId}` | `warehouses.view` | Node details including item groups (`StoragePlaceNodeDetailsDto`) |
-| PUT | `/api/storagePlaces/{id}/nodes/{nodeId}/items` | `warehouses.edit` | Atomically sync item groups for a node, returns updated `StoragePlaceNodeDetailsDto` |
+**Client behaviour** is therefore code-blind: `apiClient.ts` refreshes and replays the request once on *any* 401,
+and only clears the session when the refresh itself fails. That covers an expired token and an outdated
+`security_version` with one path, which is why distinguishing them was never needed.
 
-**Item group sync rules** (`PUT .../items` body: `NodeItemsGroupItem[]`):
-- `id: null` → create new item group
-- `id` present → update existing item group
-- existing group not in the list → delete
+**Restart behaviour**: the store starts empty; the first request per user loads the version from the DB once,
+then serves from memory for the lifetime of the process. Existing tokens survive a restart.
 
-**Reorder rules** (`PUT .../reorder` body: `NodeOrderItem[]` — `{ nodeId, order }`):
-- Only nodes included in the list are updated; others are unchanged.
-- Returns 422 `storagePlaceNodeNotFound` (field: `[i].nodeId`) if any node does not belong to this storage place.
+> ⚠️ **Single-instance only.** The in-memory dictionary is not shared across processes. Horizontal scaling
+> requires replacing `SecurityVersionStore` with a distributed cache (Redis or similar), otherwise a bump on
+> one instance leaves the others accepting the old token.
 
-Returns 422 `storagePlaceNodeItemsGroupNotFound` if any provided ID does not belong to this node.  
-Returns 422 `catalogItemCharacteristicNotFound` if any `catalogItemWithCharacteristicId` does not exist.  
-Returns 422 `catalogItemCharacteristicDuplicate` if the same `catalogItemWithCharacteristicId` appears more than once.
+### Refresh token lifecycle
 
----
+Stored in the `RefreshTokens` table with `ExpiresAt` and `RevokedAt`; `IsActive = !IsRevoked && !IsExpired`.
+Refresh sets `RevokedAt = now` on the old row and inserts a new one; logout sets `RevokedAt = now`.
 
-## Receipts — `/api/receipts`
+### Configuration
 
-Access: `receipts.view` / `receipts.view_assigned` (read), `receipts.edit` / `receipts.edit_assigned` (write), `receipts.process_assigned` (placement ops). `*_assigned` variants are restricted to warehouses assigned to the current user.
-
-### CRUD
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/api/receipts` | Bearer | List receipts paginated. Supports `searchString`, `warehouseId`, `status`, `reason`, `sortBy`, `sortOrder`. Access level determined from user permissions. |
-| GET | `/api/receipts/{id}` | Bearer | Get full receipt details including items and placements. |
-| POST | `/api/receipts` | `receipts.edit` or `receipts.edit_assigned` | Create receipt (always Draft). |
-| PATCH | `/api/receipts/{id}` | `receipts.edit` or `receipts.edit_assigned` | Update name/reason/notes. Draft status only. |
-| DELETE | `/api/receipts/{id}` | `receipts.edit` | Delete receipt. Draft status only. |
-
-### Items
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| PUT | `/api/receipts/{id}/items` | `receipts.edit` or `receipts.edit_assigned` | Atomically sync the expected items list (`ReceiptItemRequest[]`). Draft or Planned status only. Deduplicates by `catalogItemId`. |
-| POST | `/api/receipts/{id}/items/quick-add` | `receipts.edit` or `receipts.process_assigned` | Add a single catalog item to the receipt with `plannedCount=0`. Processing status only. Used when a new item is discovered while physically receiving goods. |
-| PATCH | `/api/receipts/{id}/items/{itemId}/received-count` | `receipts.edit` or `receipts.process_assigned` | Update actually received count for one item. Processing status only. |
-
-**`POST .../items/quick-add` body (`QuickAddReceiptItemRequest`):**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `catalogItemId` | `Guid` | Must exist, not archived, not virtual (`productGroup`, `variation`, `bundle`), not already in the receipt |
-
-Returns `ReceiptDto`. Errors: `catalogItemNotFound`, `catalogItemIsImmutable` (archived), `validationError` (virtual type or duplicate).
-
-### Placements
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/api/receipts/{id}/items/{itemId}/placements/standard` | `receipts.edit` or `receipts.process_assigned` | Place count-based (Standard) items at a storage node. Processing status only. |
-| POST | `/api/receipts/{id}/items/{itemId}/placements/unit` | `receipts.edit` or `receipts.process_assigned` | Place a serialised Unit item (by `inventoryNumber`) at a storage node. Processing status only. |
-| POST | `/api/receipts/{id}/placements/standard/batch` | `receipts.edit` or `receipts.process_assigned` | Place multiple Standard items at the same storage node in one transaction. Processing status only. |
-| DELETE | `/api/receipts/{id}/items/{itemId}/placements/{placementId}` | `receipts.edit` or `receipts.process_assigned` | Remove a placement, reversing the inventory change. Processing status only. |
-
-**`POST .../placements/standard/batch` body (`BatchStandardPlacementRequest`):**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `storagePlaceNodeId` | `Guid` | Target storage node |
-| `items` | `BatchStandardPlacementItemRequest[]` | One or more items to place (min 1, no duplicate `itemId`) |
-
-`BatchStandardPlacementItemRequest`: `{ itemId: Guid, count: int (≥1) }`. All items must be of type `Standard`. Returns `ReceiptDto`.
-
-### Status transitions
-
-Statuses: `Draft` → `Planned` → `Processing` → `Finished` / `Canceled`
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/api/receipts/{id}/plan` | `receipts.edit` or `receipts.edit_assigned` | Draft → Planned |
-| POST | `/api/receipts/{id}/start-processing` | `receipts.edit` or `receipts.edit_assigned` | Planned → Processing |
-| POST | `/api/receipts/{id}/finish` | `receipts.edit` or `receipts.edit_assigned` | Processing → Finished. Validates all items with `receivedCount` are fully placed (placed == receivedCount). |
-| POST | `/api/receipts/{id}/revert` | `receipts.edit` or `receipts.edit_assigned` | Go one status back: Finished→Processing, Processing→Planned (only if no placements), Planned→Draft. |
-| POST | `/api/receipts/{id}/cancel` | `receipts.edit` or `receipts.edit_assigned` | Cancel from Draft/Planned/Processing (Processing only if no placements). |
-
-**Items sync** (`PUT .../items` body: `ReceiptItemRequest[]`):
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `catalogItemId` | `Guid` | Reference to an existing `CatalogItem` |
-| `plannedCount` | `int` | Expected quantity (≥ 1) |
-| `notes` | `string?` | Optional item note |
-
-Existing items not in the list are removed. Duplicate `catalogItemId` values in the same request → 422 `validationError`.
-
-**Key DTOs:**
-
-`ReceiptSummaryDto`: `{ id, number, name?, reason, status, plannedDeliveryDate?, createdAt, warehouseId, warehouseName, totalPlannedCount, totalReceivedCount }`  
-`ReceiptDto`: `{ id, number, name?, reason, status, notes?, plannedDeliveryDate?, createdAt, warehouseId, warehouseName, totalPlannedCount, totalReceivedCount, items: ReceiptItemDto[] }`  
-`ReceiptItemDto`: `{ id, catalogItemId, catalogItem: CatalogItemSummaryDto, plannedCount, receivedCount?, notes?, placements: ReceiptItemPlacementDto[] }`  
-`ReceiptItemPlacementDto`: `{ id, storagePlaceNodeId, storagePlaceName, storagePlacePath, count, unitInventoryItem?: ... }`
-
-**`ReceiptReason` values:** `newGoods`, `return`, `other`  
-**`ReceiptStatus` values:** `draft`, `planned`, `processing`, `finished`, `canceled`  
-**`ReceiptSortBy` values:** `number` (default), `status`, `createdAt`, `warehouseName`, `name`, `plannedDeliveryDate`
-
----
-
-## Transfers — `/api/transfers`
-
-| Method | Path | Permission | Description |
-|--------|------|------------|-------------|
-| POST | `/api/transfers` | `transfers.execute` or `transfers.execute_assigned` | Execute an atomic inventory transfer between two storage nodes |
-
-**Request body (`ExecuteTransferRequest`):**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `fromNodeId` | `Guid` | Source storage place node |
-| `toNodeId` | `Guid` | Destination storage place node (must differ from `fromNodeId`) |
-| `items` | `TransferItemRequest[]` | One or more items to transfer (min 1) |
-
-**`TransferItemRequest`** — type is inferred by which field is populated:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `catalogItemId` | `Guid?` | Set for Standard items; requires `count` |
-| `count` | `int?` | Required when `catalogItemId` is set (> 0) |
-| `unitItemId` | `Guid?` | Set for Unit items |
-
-**Permission notes:**
-- `transfers.execute` — can transfer between any nodes
-- `transfers.execute_assigned` — can only transfer between nodes in warehouses assigned to the current user
-
-**Errors:**
-- `transferSameNode` — `fromNodeId` == `toNodeId`
-- `insufficientInventory` — not enough Standard items available in the source node (carries `args`, see [errors.md](errors.md#inventory))
-- `storagePlaceNodeNotFound` — source or destination node not found
-- `unitInventoryItemNotFound` — Unit item not found (or already moved)
-
-All items are moved in a single DB transaction — any failure rolls back the entire operation.
-
----
-
-## Writeoffs — `/api/writeoffs`
-
-| Method | Path | Permission | Description |
-|--------|------|------------|-------------|
-| GET | `/api/writeoffs` | `writeoffs.view` or `writeoffs.view_assigned` | List write-offs (paginated) |
-| GET | `/api/writeoffs/{id}` | `writeoffs.view` or `writeoffs.view_assigned` | Get full write-off with items |
-| POST | `/api/writeoffs` | `writeoffs.edit` or `writeoffs.edit_assigned` | Create write-off in Draft status |
-| PATCH | `/api/writeoffs/{id}` | `writeoffs.edit` or `writeoffs.edit_assigned` | Update name/reason/notes (Draft only) |
-| DELETE | `/api/writeoffs/{id}` | `writeoffs.edit` or `writeoffs.edit_assigned` | Delete write-off (Draft only) |
-| PUT | `/api/writeoffs/{id}/items` | `writeoffs.edit` or `writeoffs.edit_assigned` | Replace full items list (Draft only) |
-| POST | `/api/writeoffs/{id}/finish` | `writeoffs.edit` or `writeoffs.edit_assigned` | Execute write-off: remove items from inventory (Draft → Finished) |
-| POST | `/api/writeoffs/{id}/cancel` | `writeoffs.edit` or `writeoffs.edit_assigned` | Cancel write-off (Draft → Canceled) |
-
-**Query parameters for `GET /api/writeoffs`:**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `page` | `int` | Page number (default 1) |
-| `pageSize` | `int` | Items per page (default 20, max 200) |
-| `searchString` | `string?` | Search in number, name, notes |
-| `warehouseId` | `Guid?` | Filter by warehouse |
-| `status` | `WriteoffStatus?` | Filter by status |
-| `reason` | `WriteoffReason?` | Filter by reason |
-| `sortBy` | `WriteoffSortBy` | Sort field (default `number`) |
-| `sortOrder` | `asc`\|`desc` | Sort direction (default `desc`) |
-
-**`CreateWriteoffRequest`:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | `string?` | — | Display name (max 256). Omitted/empty → stored as `null`. |
-| `reason` | `WriteoffReason` | ✓ | `loss` \| `defect` \| `other` |
-| `warehouseId` | `Guid` | ✓ | Target warehouse |
-| `notes` | `string?` | — | Free-text notes (max 2048) |
-
-**`UpdateWriteoffRequest`:** same fields as Create (without `warehouseId`).
-
-**`PUT /api/writeoffs/{id}/items` body — `WriteoffItemRequest[]`:**
-
-Each element represents one inventory line. Exactly one item type discriminator must be set:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `sourceNodeId` | `Guid` | Storage node to remove from (must belong to write-off's warehouse) |
-| `catalogItemId` | `Guid?` | Standard item — also requires `count` |
-| `count` | `int?` | Required when `catalogItemId` is set (> 0) |
-| `unitInventoryItemId` | `Guid?` | Unit item ID (must be at `sourceNodeId`) |
-| `notes` | `string?` | Line-level notes |
-
-**Key DTOs:**
-
-`WriteoffSummaryDto`: `{ id, number, name?, reason, status, warehouseId, warehouseName, itemsCount, createdAt }`
-
-`WriteoffDto`: same as summary + `notes?` + `items: WriteoffItemDto[]`
-
-`WriteoffItemDto`: `{ id, sourceNodeId, sourceNodePath: string[], notes?, catalogItemId?, catalogItem?, count, unitInventoryItemId?, inventoryNumber?, catalogItemName }`
-
-**`WriteoffReason` values:** `loss`, `defect`, `other`  
-**`WriteoffStatus` values:** `draft`, `finished`, `canceled`  
-**`WriteoffSortBy` values:** `number` (default), `name`, `status`, `createdAt`, `warehouseName`
-
-**`POST /api/writeoffs/{id}/finish` behaviour:**
-
-All item removals execute in a single DB transaction. If any operation fails, nothing is committed. Possible 422 errors:
-
-- `writeoffNotDraft` — write-off is not in Draft status
-- `writeoffHasNoItems` — no items to write off
-- `writeoffInsufficientInventory` — not enough Standard items in the source node (carries `args`, see [errors.md](errors.md#inventory))
-- `unitInventoryItemNotFound` — Unit item not found at expected node
-
-**Permission notes:**
-- `writeoffs.view` / `writeoffs.edit` — access all warehouses
-- `writeoffs.view_assigned` / `writeoffs.edit_assigned` — restricted to user's assigned warehouses
-
----
-
-## Stocktakes — `/api/stocktakes`
-
-| Method | Path | Permission | Description |
-|--------|------|------------|-------------|
-| GET | `/api/stocktakes` | `stocktakes.view` or `stocktakes.view_assigned` | List stocktakes (paginated) |
-| GET | `/api/stocktakes/{id}` | `stocktakes.view` or `stocktakes.view_assigned` | Get full stocktake with nodes and counted items |
-| POST | `/api/stocktakes` | `stocktakes.edit` or `stocktakes.edit_assigned` | Create stocktake — always starts in Draft |
-| PATCH | `/api/stocktakes/{id}` | `stocktakes.edit` or `stocktakes.edit_assigned` | Update name/notes (Planned, Draft or InProgress) and type/plannedDate (Planned or Draft) |
-| DELETE | `/api/stocktakes/{id}` | `stocktakes.edit` or `stocktakes.edit_assigned` | Delete stocktake (Planned or Draft) |
-| PUT | `/api/stocktakes/{id}/nodes` | `stocktakes.edit` or `stocktakes.edit_assigned` | Replace the counted-cells scope (Planned, Draft or InProgress) |
-| GET | `/api/stocktakes/{id}/nodes/{nodeId}/stock` | `stocktakes.view` or `stocktakes.view_assigned` | Live stock of one cell in scope, used to pre-populate the counting screen |
-| PUT | `/api/stocktakes/{id}/nodes/{nodeId}/items` | `stocktakes.edit` or `stocktakes.edit_assigned` | Replace the counted lines of one cell (InProgress only); a serial already counted in another InProgress stocktake is rejected with `stocktakeUnitCountedTwice` |
-| POST | `/api/stocktakes/{id}/schedule` | `stocktakes.edit` or `stocktakes.edit_assigned` | Put a scheduled document on the calendar (Draft → Planned). Requires `type = scheduled`, a `plannedDate` and at least one node |
-| POST | `/api/stocktakes/{id}/to-draft` | `stocktakes.edit` or `stocktakes.edit_assigned` | Return a scheduled document to work (Planned → Draft) |
-| POST | `/api/stocktakes/{id}/start` | `stocktakes.edit` or `stocktakes.edit_assigned` | Begin counting (Draft or Planned → InProgress); 422 `stocktakeNodeAlreadyInProgress` if any cell in scope is being counted elsewhere |
-| POST | `/api/stocktakes/{id}/revert` | `stocktakes.edit` or `stocktakes.edit_assigned` | Return to scope editing (InProgress → Draft, never back to Planned), counted lines are kept |
-| GET | `/api/stocktakes/{id}/differences` | `stocktakes.view` or `stocktakes.view_assigned` | Preview of what finishing would do — read-only |
-| POST | `/api/stocktakes/{id}/finish` | `stocktakes.edit` or `stocktakes.edit_assigned` | Apply the count to live stock (InProgress → Finished) |
-| POST | `/api/stocktakes/{id}/cancel` | `stocktakes.edit` or `stocktakes.edit_assigned` | Cancel without touching stock (Planned/Draft/InProgress → Canceled) |
-
-**Query parameters for `GET /api/stocktakes`:**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `page` | `int` | Page number (default 1) |
-| `pageSize` | `int` | Items per page (default 20, max 200) |
-| `searchString` | `string?` | Search in number, name, notes |
-| `warehouseId` | `Guid?` | Filter by warehouse |
-| `status` | `StocktakeStatus?` | Filter by status |
-| `sortBy` | `StocktakeSortBy` | Sort field (default `number`) |
-| `sortOrder` | `asc`\|`desc` | Sort direction (default `desc`) |
-
-**`CreateStocktakeRequest`:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | `string?` | — | Display name (max 256). Omitted/empty → stored as `null`. |
-| `warehouseId` | `Guid` | ✓ | Target warehouse |
-| `type` | `StocktakeType` | — | `unscheduled` (default) or `scheduled` |
-| `plannedDate` | `DateOnly?` | when `scheduled` | Planned start date. Required for `scheduled`, ignored (stored as `null`) otherwise |
-| `notes` | `string?` | — | Free-text notes (max 2048) |
-
-**`UpdateStocktakeRequest`:** `name`, `notes`, `type?`, `plannedDate?` (no `warehouseId` — the warehouse is fixed at creation).
-
-`type` is optional: omit both planning fields and the planning is left untouched, send `type` and both `type` and `plannedDate` are rewritten (`plannedDate` is required when `type` is `scheduled`). Sending `plannedDate` without `type` is a 422 — the pair is patched together or not at all. Sending either field while the document is InProgress is also a 422; switching a Planned document to `unscheduled` moves it back to Draft.
-
-**`PUT /api/stocktakes/{id}/nodes` body — `SyncStocktakeNodesRequest`:**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `nodeIds` | `Guid[]` | Full desired scope. Cells already in scope keep their counted lines; dropped cells lose theirs (cascade) |
-
-Validation: every node must belong to the stocktake's warehouse (422 `storagePlaceNodeNotFound` on `nodeIds[i]`) and no duplicates (422 `validationError`). A cell may sit in the scope of any number of Draft/Planned stocktakes at once. Overlap is rejected only against a **running** count: 422 `stocktakeNodeAlreadyInProgress` (`args.nodeId`) when this stocktake is already InProgress and an added cell is being counted elsewhere — the same check `POST /start` runs over the whole scope.
-
-**`PUT /api/stocktakes/{id}/nodes/{nodeId}/items` body — `StocktakeItemRequest[]`:**
-
-Replaces all lines of that one cell. Scoped per cell so accordions save independently.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `kind` | `StocktakeItemKind` | `standard` \| `unit` |
-| `catalogItemId` | `Guid` | Required for both kinds |
-| `countedQuantity` | `int` | Standard: `>= 0`. Unit: `0` (not found) or `1` (found) |
-| `inventoryNumber` | `string?` | Required for `unit` (1..128), must be absent for `standard` |
-| `unitInventoryItemId` | `Guid?` | Optional hint — the server re-resolves the serial by `(catalogItemId, inventoryNumber)` anyway |
-| `notes` | `string?` | Line-level notes (max 2048) |
-
-Validation (field prefix `items[i]`): the catalog item must exist and its type must match `kind`; no duplicate `catalogItemId` among standard lines; no duplicate `(catalogItemId, inventoryNumber)` among unit lines; a resolved serial must belong to this warehouse (422 `stocktakeUnitItemInAnotherWarehouse`) and must not already be claimed found in another cell of the same document (422 `stocktakeUnitCountedTwice`).
-
-**Key DTOs:**
-
-`StocktakeSummaryDto`: `{ id, number, name?, status, type, plannedDate?, warehouseId, warehouseName, nodesCount, itemsCount, createdAt, startedAt?, finishedAt? }`
-
-`StocktakeDto`: same as summary + `notes?` + `nodes: StocktakeNodeDto[]`
-
-`StocktakeNodeDto`: `{ id, storagePlaceNodeId, nodePath: string[], items: StocktakeItemDto[] }`
-
-`StocktakeItemDto`: `{ id, kind, catalogItemId, catalogItem?, catalogItemName, countedQuantity, inventoryNumber?, unitInventoryItemId?, notes?, appliedDelta? }` — `appliedDelta` is the stock change actually applied at finish (positive surplus, negative shortage, `null` until finished). Finished documents must be read from it, never from live stock.
-
-`StocktakeNodeStockDto`: `{ storagePlaceNodeId, nodePath: string[], standard: [{ catalogItemId, catalogItem?, catalogItemName, expected }], units: [{ unitInventoryItemId, inventoryNumber, catalogItemId, catalogItem?, catalogItemName }] }`
-
-`StocktakeDifferencesDto`: `{ nodes: StocktakeNodeDifferencesDto[], totalSurplusQuantity, totalShortageQuantity, totalRelocations, hasDifferences, problems: StocktakeProblemDto[] }`
-
-`StocktakeDifferenceLineDto`: `{ kind, catalogItemId, catalogItemName, inventoryNumber?, expected, counted, delta, resolution, missingFromDocument, currentNodeId?, currentNodePath? }`
-
-`StocktakeProblemDto`: `{ storagePlaceNodeId, code, message }` — while non-empty, finishing is refused.
-
-**`StocktakeStatus` values:** `planned`, `draft`, `inProgress`, `finished`, `canceled` — `planned` has the same capabilities as `draft` and only marks a scheduled document parked on the calendar; Draft ↔ Planned is a free two-way transition  
-**`StocktakeType` values:** `unscheduled`, `scheduled`  
-**`StocktakeItemKind` values:** `standard`, `unit`  
-**`StocktakeDifferenceResolution` values:** `noChange`, `surplus`, `shortage`, `relocation`, `createUnit`, `detachUnit`, `reattachUnit`  
-**`StocktakeSortBy` values:** `number` (default), `name`, `status`, `createdAt`, `warehouseName`
-
-**`POST /api/stocktakes/{id}/finish` behaviour:**
-
-The cell is authoritative: stock present in a counted cell but absent from the document is treated as counted zero and written off. `GET /{id}/differences` flags those lines with `missingFromDocument` — the UI only finishes through that preview. Such positions are also materialised into the document as lines with `countedQuantity = 0` and a filled `appliedDelta`, so the finished document accounts for the whole correction.
-
-Expected quantities are recomputed from live stock inside the transaction (nothing is snapshotted at count time). Everything runs in a single transaction under an execution strategy; the aggregate is reloaded and the plan rebuilt inside the retry lambda. Order of operations: relocations → detaches → reattach/create → standard adjustments.
-
-Possible 422 errors:
-
-- `stocktakeInvalidStatusTransition` — not in InProgress
-- `stocktakeHasNoNodes` — empty scope
-- `stocktakeUnitItemInAnotherWarehouse`, `stocktakeUnitItemDetached` — blocked by the plan, nothing applied
-- `insufficientInventory` — stock changed under the count (carries `args`, see [errors.md](errors.md#inventory))
-- `stocktakeConcurrentModification` — a serial left its expected cell mid-finish; the transaction rolled back
-- `unitInventoryItemNotFound`, `storagePlaceNodeNotFound`, `unitInventoryItemNumberDuplicate`
-
-**Stock movement actions written by finish:** `inventory.stocktake_surplus` (`In`), `inventory.stocktake_shortage` (`Out`), `inventory.stocktake_relocation` (`TransferOut` + `TransferIn`). Kept separate from receipts and write-offs so statistics do not mix corrections with real goods flow.
-
-**Permission notes:**
-- `stocktakes.view` / `stocktakes.edit` — access all warehouses
-- `stocktakes.view_assigned` / `stocktakes.edit_assigned` — restricted to user's assigned warehouses
-- The counting screen needs no warehouse permissions: per-cell stock is served by `GET /{id}/nodes/{nodeId}/stock` rather than by the inventory endpoints
-
----
-
-## Events — `/api/events`
-
-| Method | Path | Permission | Description |
-|--------|------|------------|-------------|
-| GET | `/api/events` | authenticated | Calendar events for `@mui/x-scheduler`, filtered by the caller's warehouse access |
-
-**Query parameters:** `startDate`, `endDate` (`DateOnly?`) — inclusive bounds on the event date; `utcOffsetMinutes` (`int`, default 0) — the caller's offset, used to cut a finished stocktake's `finishedAt` into a day the same way the user sees it. Same convention as `/api/statistics/stock-movements/*`.
-
-`EventDto`: `{ appEntity: AppEntity, startDate: DateOnly, endDate: DateOnly }` — single-day events, so both dates are equal.
-
-Sources:
-
-- **Receipts** with a `plannedDeliveryDate`, excluding `draft` and `canceled` — placed on the planned delivery date.
-- **Stocktakes** — a document with a `finishedAt` sits on it; otherwise it must be `scheduled` and neither `canceled` nor `draft`, and sits on its `plannedDate`. So an unscheduled stocktake appears only once finished, and a scheduled one only after it has been put on the calendar with `/schedule`.
-
----
-
-## Realtime — `/api/realtime`
-
-Server-sent events, the transport behind live updates. Design and rationale:
-[realtime-specification.md](realtime-specification.md).
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/api/realtime/stream` | Bearer | The event stream, `text/event-stream` |
-| POST | `/api/realtime/watch` | Bearer | Subscribe the connection to a batch of objects |
-| POST | `/api/realtime/unwatch` | Bearer | Drop a batch of subscriptions |
-| POST | `/api/realtime/heartbeat` | Bearer | Report the connection alive |
-| POST | `/api/realtime/locks/acquire` | Bearer | Claim the object for editing |
-| POST | `/api/realtime/locks/release` | Bearer | Drop the claim |
-
-**Stream.** One per tab — HTTP/1.1 caps a browser at six connections per origin. The first message is
-`connectionReady` carrying the `connectionId` that `watch`/`unwatch` address. An SSE comment `:ping` goes out
-every 20 seconds so proxies do not drop a silent connection. The server closes the stream when the access
-token expires; the client reconnects with a refreshed one.
-
-**`RealtimeEvent`**: `{ id: Guid, at: DateTime, type: RealtimeEventType, payload }`. `payload` is a
-discriminated union keyed by its own `type` property, mirroring the envelope's:
-
-| `type` | `payload` |
-|--------|-----------|
-| `connectionReady` | `{ connectionId }` |
-| `marketplaceSyncProgress` | `{ accountId, syncRunId }` |
-| `marketplaceSyncFinished` | `{ accountId, syncRunId, status: MarketplaceSyncStatus }` |
-| `entityChanged` | `{ entityType, entityId, byUserId?, byUserName? }` |
-| `editLockAcquired` | `{ entityType, entityId, userId, userName }` |
-| `editLockReleased` | `{ entityType, entityId, userId, userName }` |
-| `entityPresenceChanged` | `{ entityType, entityId, viewers: [{ userId, userName }] }` |
-
-Progress carries no counters on purpose: the event is a hint to refetch, and the counters live in
-`/sync-runs`. Sync events are addressed to the watchers of `marketplaceAccount`, not of the run — the account
-id is known before a run exists, so runs started by the scheduler or another user are visible too.
-
-**Watch.** Body `{ connectionId, entities: [{ entityType: AppEntityType, entityId }] }` for both endpoints, at
-most 200 entities. `watch` answers `200 { watched: [...], presence: [...] }`, `unwatch` answers `204`.
-
-**Subscriptions are batched** because a screen subscribes per visible object: the assembly list alone would
-open a request per order at mount, against a six-per-origin cap. The client collects the watches registered
-during one render into a single call.
-
-The right to view each object is checked once, here, through `IEntityAccessService`; an `AppEntityType` with no
-rule in `EntityAccessRegistry` is never subscribable. **Refusals are per entity, not per request:** anything
-the user may not view is simply absent from `watched`, so one forbidden object does not sink the batch. Both
-endpoints are idempotent, so the client re-sends `watch` after every reconnect — and must invalidate the
-objects' queries once it returns, since anything that changed before the subscription registered produced no
-event for this connection.
-
-422 `realtimeConnectionUnknown` — `connectionId` does not exist, is already closed, or belongs to another user
-(field: `connectionId`).
-
-The client swallows it silently, as it does a missing entity: `422` resolves itself when the next
-`connectionReady` re-sends the batch, and an unconfirmed entity leaves its page on the polling fallback.
-Neither deserves a toast on a subscription the user never asked for explicitly.
-
-**`entityChanged`** is the staleness signal. It comes from `AbstractChangeLogService.CompareAndSaveToChangelog`
-for every entity with a registered changelog service, and from a `[PublishesEntityChanged]` action filter for
-orders, which have none. The author is excluded from the address — own edits are never announced as stale.
-
-**Presence** rides on the same subscriptions — `EntityPresenceService` turns the watch registry's connections
-into people. `entityPresenceChanged` carries the whole viewer list rather than a join/leave delta: unlike every
-other event it has nothing to refetch from, so it must be the state it announces. It is published only when the
-**deduplicated** list changes, so a second tab of the same person is silent, and `watch` seeds the initial list
-in its response — otherwise a page would show nobody until the next person came or went.
-
-**Heartbeat.** Body `{ connectionId }`, answers `200 { holdsLocks: bool }`. Writing to the stream proves
-nothing about the client: a proxy between the browser and Kestrel outlives the tab and keeps accepting bytes, so
-`RequestAborted` never fires and the stream would hang forever with its presence and locks still registered. The
-client reports in every 20 seconds instead, and a background reaper aborts anything silent for 90 — which makes
-the stream run its ordinary teardown. `holdsLocks` serves one caller: a backgrounded tab drops its subscriptions
-after twenty seconds unless it is still editing something, and this is how it finds that out. The objects
-themselves are not listed — a lock can no longer be taken away, so the client has nothing to compare against.
-
-**Locks.** Body `{ connectionId, entityType, entityId }` for both — one object per call, since a lock is
-taken by a form and not by a screen; `acquire` answers
-`200 EditLockDto` (`{ entityType, entityId, userId, userName }`), `release` answers `204`. The lock
-is advisory: it warns, disables nothing, and `PUT` of the object never consults it. A lock has no expiry of its
-own — it lives as long as the connections holding it, and the last one going away releases it as a normal
-`editLockReleased`. Acquiring requires the same right as editing the object
-(`IEntityAccessService.CanEditAsync`) — a lock grants no access of its own.
-
-An object is held by one **user** but by any number of their connections at once: the same person arriving from
-another tab joins the holders rather than taking the lock over, which is what keeps two tabs of one person from
-grabbing it back from each other every heartbeat. The events therefore mark transitions of that set, not
-operations — `editLockAcquired` when it goes from empty to held, `editLockReleased` when the last holder
-leaves. There is no endpoint for reading lock state: a page learns it from its own `acquire` response and from
-the two lock events.
-
-409 `editLockHeld` — held by another user; `args` carry `{ userId, userName }` (field: `root`).
-409 `editLockNotHeld` — `release` for a lock this connection does not hold (field: `root`).
-422 `realtimeConnectionUnknown` — as above.
-
----
-
-## Catalog — `/api/catalog`
-
-| Method | Path | Permission | Description |
-|--------|------|------------|-------------|
-| GET | `/api/catalog` | `catalog.view` | List catalog items paginated (`Paginated<CatalogItemSummaryDto>`), supports `searchString`, `sortBy` (`name`\|`article`\|`barcode`\|`type`, default `name`), `sortOrder` (`asc`\|`desc`, default `asc`), `itemTypes` (repeatable `CatalogItemType`, omit for all), `tagIds` (repeatable `Guid`, OR semantics — item matches if it has any of the listed tags; own tags only, group children are not considered), `isArchived`; archived items always sorted last |
-| GET | `/api/catalog/for-select` | `catalog.view` | Flat list for select/autocomplete controls (`CatalogItemSelectDto`), supports `searchString`, `types` (repeatable `CatalogItemType`), `tagIds` (repeatable `Guid`, OR semantics), `take` (1..200, default 10); unlike `GET /api/catalog` it does include product-group children |
-| GET | `/api/catalog/{id}` | `catalog.view` | Get full catalog item details (`CatalogItemDto`) |
-| GET | `/api/catalog/tags` | `catalog.view` | List tags (ordered by name), supports `search` query param |
-| POST | `/api/catalog` | `catalog.edit` | Create catalog item |
-| PUT | `/api/catalog/{id}` | `catalog.edit` | Update catalog item and atomically sync type-specific collections (children/components/variationIds/memberIds) |
-| DELETE | `/api/catalog/{id}` | `catalog.edit` | Delete catalog item |
-
-**Children sync rules** (ProductGroup only, `PUT /api/catalog/{id}` body: `UpdateCatalogItemRequest`):
-- `id: null` → create new child item
-- `id` present → update existing child
-- existing child not in the list → delete
-
-**Images** (`POST` accepts `mainImageFileId` only; `PUT` and each product group child accept both):
-- `mainImageFileId: Guid?` — the item's own main image
-- `images: [{ id: Guid?, fileId: Guid, order: number }]` — gallery; `id: null` creates the link, an existing
-  link missing from the list is removed. Removing a link does not delete the file; the GC does that later.
-- `CatalogItemDto.mainImage` is the **effective** image: the item's own, otherwise the parent group's, the same
-  way `description` and `notes` inherit. `mainImageFileId` stays null when the shown image is inherited — that
-  pair is how the UI tells "own" from "inherited". The `images` list is never inherited.
-- 422 `dataFileNotFound` — a referenced file does not exist (see [errors.md](errors.md))
-
-**Duplicate validation** (both `POST` and `PUT`):
-- 422 `catalogItemArticleDuplicate` — field `article`
-- 422 `catalogItemBarcodeDuplicate` — field `barcode`
-- 422 `catalogItemComponentInvalid` — a component item is of an invalid type for bundles
-- 422 `catalogItemVariationInvalid` — a variation ID is invalid or wrong type
-- 422 `catalogItemGroupInvalid` — `groupId` does not refer to a ProductGroup
-- 422 `catalogItemIsImmutable` — attempt to change a CatalogItem's type
-- 422 `catalogItemManagedByGroup` — item with `groupId` cannot be edited directly
-- 422 `catalogItemCircularDependency` — saving a Bundle or Variation would create a cycle in the Bundle↔Variation nesting graph
-
-**`CatalogItemType` values:** `standard`, `unit`, `productGroup`, `variation`, `bundle`
-
-**Key DTOs:**
-
-`CatalogItemSummaryDto`: `{ id, type, name, fullName, article, barcode?, isArchived }`  
-`CatalogItemDto`: `{ id, type, name, fullName, article, barcode?, description?, notes?, isArchived, groupId?, groupName?, tags: CatalogItemTagDto[], components: BundleComponentDto[], variationIds: Guid[], memberIds: Guid[], children: CatalogItemDto[] }`  
-`CatalogItemTagDto`: `{ id, name }`  
-`BundleComponentDto`: `{ id, componentId, componentName, quantity }`
-
----
-
-## Inventory Items — `/api/inventory-items`
-
-| Method | Path | Permission | Description |
-|--------|------|------------|-------------|
-| GET | `/api/inventory-items` | `warehouses.view` or `warehouses.view_assigned` | Paginated stock overview aggregated by catalog item |
-| GET | `/api/inventory-items/units` | `warehouses.view` or `warehouses.view_assigned` | Paginated list of individual unit inventory item instances |
-
-`view_assigned` limits results to warehouses assigned to the current user.
-
-### `GET /api/inventory-items` — GetAll
-Query params: `page`, `pageSize`, `searchString?`, `warehouseId?`, `storagePlaceId?`, `nodeId?`, `catalogItemTypes?` (repeatable `CatalogItemType`, omit for all), `tagIds?` (repeatable `Guid`, OR semantics), `isArchived?` (bool)  
-Returns: `Paginated<InventoryItemSummaryDto>`
-
-Items from both storage mechanisms (StoragePlaceNodeItemsGroup for standard items, UnitInventoryItem) are counted separately per `CatalogItemId` and merged. The result is one row per catalog item with `Count` = total across all locations within the applied filters.
-
-**`InventoryItemSummaryDto`**: `{ catalogItemId: Guid, catalogItem: CatalogItemSummaryDto, count: int }`
-
-### `GET /api/inventory-items/units` — GetAllUnits
-Query params: `page`, `pageSize`, `searchString?` (searches SKU), `warehouseId?`, `storagePlaceId?`, `nodeId?`, `catalogItemId?`  
-Returns: `Paginated<UnitInventoryItemDto>`
-
-The `catalogItemId` filter is used by the frontend drawer to list all instances of a clicked catalog item.
-
-**`UnitInventoryItemDto`**: `{ id: Guid, sku: string, catalogItem: CatalogItemSummaryDto, warehouseId: Guid, warehouseName: string, storagePlaceId: Guid, storagePlaceName: string, nodeId: Guid, nodeName: string }`
-
----
-
-## Files — `/api/files`
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/api/files` | Bearer | Upload one file (`multipart/form-data`, field `file`) → `DataFileDto` |
-| GET | `/api/files/{id}` | Bearer | Metadata → `DataFileDto` |
-| GET | `/api/files/{id}/content` | Bearer | The original bytes |
-| GET | `/api/files/{id}/thumbnail?width=` | Bearer | Downscaled preview, images only, always `image/webp` |
-
-**`DataFileDto`**: `{ id: Guid, originalFileName: string, contentType: string, sizeBytes: number, imageWidth: number?, imageHeight: number?, isImage: bool, createdById: Guid?, createdByUserName: string?, createdAt: DateTime }`
-
-No permission beyond `[Authorize]`: the right to attach a file is the right to edit the owning entity, and
-that is already checked on the entity's own endpoint. See [data-files-specification.md](data-files-specification.md)
-for the known limitation this leaves.
-
-**There is no delete endpoint.** The only way to remove a file is to drop the reference to it, after which the
-garbage collector takes it. That makes "entity points at a deleted file" unreachable.
-
-`width` must be one of `DataFiles:ThumbnailWidths` (default `64, 128, 256, 512, 1024`); arbitrary values are
-rejected so the disk cache cannot be flooded. An original narrower than the request is returned as-is.
-
-Responses carry `X-Content-Type-Options: nosniff`, an `ETag` derived from the ID (content at an ID is
-immutable), and support range requests. Only `image/jpeg|png|webp|gif` and `application/pdf` are served
-inline; everything else gets `Content-Disposition: attachment`. `image/svg+xml` is allow-listed nowhere —
-an SVG is a scriptable document and inline from our own origin it is stored XSS.
-
----
-
-## System — `/api/system`
-
-| Method | Path | Permission | Description |
-|--------|------|------------|-------------|
-| GET | `/api/system/storage` | `system.view` | File storage usage → `StorageStatsDto` |
-| GET | `/api/system/database` | `system.view` | Database size by entity type → `DatabaseStatsDto` |
-
-**`StorageStatsDto`**: `{ fileCount, totalSizeBytes, byContentType: [{ contentType, count, sizeBytes }], largestFiles: [{ id, originalFileName, contentType, sizeBytes, createdAt }], orphanCount, orphanSizeBytes, orphanDueCount, orphanDueSizeBytes, thumbnailCacheSizeBytes, orphanTtlHours, diskStatsAt: DateTime?, disk: { mountPoint, totalBytes, freeBytes, usedBytes }? }`
-
-`orphanCount` is every file no foreign key points at; `orphanDueCount` is the subset already past
-`OrphanTtlHours` — what the next GC run will actually take. `disk` is null when the mount point could not be
-resolved. `thumbnailCacheSizeBytes` and `disk` come from a disk walk cached for `DataFiles:StatsCacheSeconds`;
-`diskStatsAt` says when they were measured.
-
-**`DatabaseStatsDto`**: `{ totalSizeBytes, tablesSizeBytes, byEntityType: [{ entityType: AppEntityType, sizeBytes, tableSizeBytes, indexSizeBytes, rowEstimate: long?, tables: [{ name, sizeBytes, tableSizeBytes, indexSizeBytes, rowEstimate: long? }] }] }`
-
-Sizes come from `pg_total_relation_size` (heap + TOAST + indexes) over `pg_class`, so `totalSizeBytes`
-(`pg_database_size`) exceeds `tablesSizeBytes` by Postgres' own catalogs. `rowEstimate` is
-`pg_class.reltuples` — the planner's estimate, **not** a count; it is null for a table that has never been
-analysed, and null for a group where no table has. Grouping is `Infrastructure/EntityTypeTables.cs`, which
-maps CLR entity types to `AppEntityType` and reads table names off the EF model; anything unmapped falls into
-`unknown` and is shown as «Прочее».
-
----
-
-## Permissions — `/api/permissions`
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/api/permissions` | Bearer | All defined permission strings |
----
-
-## Marketplaces — `/api/integrations/marketplaces`
-
-| Method | Path | Permission | Description |
-|--------|------|------------|-------------|
-| GET | `/accounts` | `integrations.view` | List accounts (`Paginated<MarketplaceAccountSummaryDto>`), supports `searchString`, `type`, `isActive`, `sortBy` (`name`\|`createdAt`\|`lastSyncAt`, default `name`), `sortOrder` |
-| GET | `/accounts/unmapped-count` | `integrations.view` | `{ count }` — unmapped, non-archived cards across all **active** accounts; feeds the sidebar badge |
-| GET | `/accounts/short` | authenticated | `MarketplaceAccountShortSummaryDto[]` (id, type, name, isActive) sorted by name, optional `type` filter. Deliberately not behind `integrations.view` — the FBS/FBO order filters need account names |
-| GET | `/accounts/{id}` | `integrations.view` | Account with aggregates (`MarketplaceAccountDto`) |
-| POST | `/accounts` | `integrations.edit` | Create account; returns `201` and queues an initial `all` sync when `isActive` |
-| PUT | `/accounts/{id}` | `integrations.edit` | Update account; an empty `apiKey` keeps the stored key |
-| DELETE | `/accounts/{id}` | `integrations.edit` | Delete account; cascades to its warehouses, cards and sync runs. `409 marketplaceAccountHasOrders` when postings were imported |
-| POST | `/accounts/{id}/test-connection` | `integrations.edit` | Verify credentials without saving |
-| POST | `/accounts/{id}/sync` | `integrations.map` | Queue a sync → `202` + `{ syncRunId }` |
-| GET | `/accounts/{id}/sync-runs` | `integrations.view` | Run history (`Paginated<MarketplaceSyncRunDto>`), newest first |
-| GET | `/accounts/{id}/warehouses` | `integrations.view` | Marketplace warehouses, supports `includeArchived`, `sortBy` (`name`\|`kind`\|`syncedAt`), `sortOrder` |
-| PUT | `/warehouses/{id}/mapping` | `integrations.map` | Map to a WMS warehouse |
-| GET | `/accounts/{id}/cards` | `integrations.view` | Cards, supports `searchString`, `mappingState`, `includeArchived`, `sortBy` (`name`\|`offerId`\|`price`\|`syncedAt`), `sortOrder` |
-| PUT | `/cards/{id}/mapping` | `integrations.map` | Map to a catalog item |
-| POST | `/accounts/{id}/cards/auto-map` | `integrations.map` | Auto-map the whole account → `{ mapped, remaining }` |
-| GET | `/sync-runs?ids=` | `integrations.view` | Runs by id (max 50), for polling several accounts from one dialog; unknown ids are simply absent |
-| GET | `/accounts/order-sync-targets` | `integrations.map` | Active accounts whose provider declares `orders`, with mapping-gap counts for the dialog's warnings |
-| POST | `/accounts/sync-orders` | `integrations.map` | Queue FBS order sync for up to 50 accounts → `202 { items, failedItems }` |
-
-**`POST /accounts/sync-orders`** takes `{ accountIds: Guid[] }` and reports partial success the same way
-as `batch-self-assign`: `items[{ accountId, syncRunId }]` for the runs that started, `failedItems[{ accountId,
-accountName, error }]` for the accounts rejected up front (not found, inactive, no `orders` capability,
-unreadable key, a run already in flight). `403` is only ever returned for the request as a whole.
-
-Note the rejection can also arrive the other way: the controller's `running` check is a cheap guard, while
-the authoritative advisory lock lives in the worker and surfaces as a run that ends up `failed` with
-`marketplaceSyncAlreadyRunning` in its error. Clients must render both.
-
-### Labels — `POST /api/orders/labels`
-
-Lives on the orders controller, not here: labels are requested from the order list and are scoped by
-warehouse like every other order operation (`orders.view`, or `orders.view_assigned` limited to the
-caller's warehouses).
-
-| | |
-|---|---|
-| Request | `{ orderIds: Guid[] }`, at most 200 |
-| `200` | `application/pdf` — one merged document, in the order the ids were sent |
-| `409` | `marketplaceLabelNotReady`, `args.postingNumbers` and `args.count` |
-| `422` | `marketplaceOrderNotFromMarketplace` (`args.orderIds`), or `outOfRange` / `required` |
-| `502` | `marketplaceApiError` |
-
-All or nothing: if any requested label is not ready the file is withheld entirely. A batch of 30 quietly
-arriving with 28 labels means two unshipped boxes. Per-posting labels are cached in `DataFile`, so a
-repeat call does not touch the marketplace; the merged document is not stored.
-
-**`POST /accounts` body (`CreateMarketplaceAccountRequest`):**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `type` | `MarketplaceType` | `ozon` (only provider implemented) |
-| `clientId` | `string?` | Required when the provider declares `requiresClientId` (Ozon does) |
-| `apiKey` | `string` | Write-only; stored encrypted, never returned |
-| `syncIntervalMinutes` | `int?` | 1…10080, defaults to `Marketplaces:DefaultSyncIntervalMinutes` |
-| `isActive` | `bool` | Inactive accounts are skipped by the scheduler |
-
-`PUT /accounts/{id}` takes the same shape minus `type`; `apiKey` there is optional and an empty value means "keep the current key".
-
-Neither body accepts a `name`: the account name comes from the marketplace (`company.name` for Ozon) and every sync overwrites it, along with `companyLegalName`, `inn`, `ogrn` and `ownershipForm`. Until the first sync lands, `name` holds a placeholder built from the marketplace and the key mask (`Ozon ••••1234`).
-
-**`POST /accounts/{id}/test-connection` body (`TestConnectionRequest`):** `{ type?, clientId?, apiKey? }`. When `apiKey` is present the route `{id}` is ignored entirely, so a key can be checked before the account exists — the path segment may be any string. Otherwise the saved credentials of `{id}` are used.
-
-**Mapping bodies:** `PUT /warehouses/{id}/mapping` takes `{ warehouseId: Guid? }`, `PUT /cards/{id}/mapping` takes `{ catalogItemId: Guid? }`. `null` clears the mapping.
-
-**`mappingState` values:** `all` (default), `unmapped`, `mapped`, `archivedItem` (mapped to a catalog item that has since been archived).
-
-**Enum values:** `MarketplaceType`: `ozon`, `wildberries` (reserved). `MarketplaceWarehouseKind`: `unknown`, `fbs`, `rfbs`, `express`, `fbo`. `MarketplaceMappingSource`: `manual`, `autoOfferId`, `autoBarcode`. `MarketplaceSyncScope`: `warehouses`, `cards`, `all`. `MarketplaceSyncStatus`: `running`, `success`, `failed`, `canceled` (reserved, unused).
-
-**Key DTOs:**
-
-`MarketplaceAccountSummaryDto`: `{ id, type, name, isActive, syncIntervalMinutes, lastSyncAt?, lastSyncStatus?, lastSyncError?, warehouseCount, cardCount, unmappedCardCount }`
-`MarketplaceAccountDto`: `{ id, type, name, isActive, externalClientId?, companyLegalName?, inn?, ogrn?, ownershipForm?, apiKeyLast4, apiKeyUpdatedAt?, credentialsUnreadable, capabilities, syncIntervalMinutes, lastSyncAt?, lastSyncStatus?, lastSyncError?, createdAt, createdById?, createdByName?, warehouseCount, unmappedWarehouseCount, cardCount, unmappedCardCount }`
-`MarketplaceWarehouseDto`: `{ id, marketplaceAccountId, externalId, name, kind, externalStatus?, address?, isArchived, warehouseId?, warehouseName?, syncedAt }`
-`MarketplaceCardDto`: `{ id, marketplaceAccountId, externalId, sku?, offerId, name, barcodes, primaryImageUrl?, price?, currencyCode?, isArchived, catalogItemId?, catalogItemFullName?, catalogItemArticle?, mappingSource?, mappedAt?, isMappedToArchivedItem, syncedAt }`
-`MarketplaceSyncRunDto`: `{ id, marketplaceAccountId, scope, status, startedAt, finishedAt?, triggeredById?, triggeredByName?, warehousesProcessed, cardsProcessed, cardsCreated, cardsUpdated, cardsArchived, autoMapped, error? }`
-
-**The API key never leaves the server.** `MarketplaceAccountDto` has no key field at all — only `apiKeyLast4` (the key tail; the client renders it as `••••1234`) and `apiKeyUpdatedAt`. `credentialsUnreadable` is computed per request by attempting to decrypt the stored key; it turns `true` when the Data Protection key ring has been lost.
-
-**`lastSyncError` / `MarketplaceSyncRunDto.error` are `AppFieldError`**, not strings: `{ code, detail, args? }`, the same shape used inside `AppProblemDetails`. Clients render from `code` + `args` (`marketplaceStatus`, `marketplaceResponse`, `accountId`) — `detail` is developer-facing English.
-
-Errors: `marketplaceAccountNotFound`, `marketplaceWarehouseNotFound`, `marketplaceCardNotFound`, `marketplaceCredentialsInvalid`, `marketplaceCredentialsUnreadable`, `marketplaceClientIdRequired`, `marketplaceApiError`, `marketplaceSyncAlreadyRunning`, `marketplaceCardMappingTypeNotAllowed`, `marketplaceCardMappingArchivedItem`, `marketplaceSyncInterrupted`.
+```json
+"Jwt": {
+  "Issuer": "ProjectWarehouse",
+  "Audience": "ProjectWarehouse",
+  "AccessTokenExpirationMinutes": 15,
+  "RefreshTokenExpirationDays": 7,
+  "SecretKey": "..."
+}
+```
+
+`SecretKey` must come from an environment variable or user secrets outside development.

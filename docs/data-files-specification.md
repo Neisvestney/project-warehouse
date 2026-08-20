@@ -4,16 +4,14 @@
 
 Единая подсистема хранения и отображения пользовательских файлов: фотографии товаров, сканы договоров и накладных, акты, произвольные вложения к документам.
 
-На момент написания в проекте **нет ничего**, что работает с файлами: ни на бэкенде (`IFormFile`, `FileResult`, хранилище — отсутствуют), ни на фронтенде (`<input type="file">`, blob, object URL — отсутствуют). Подсистема проектируется с нуля.
+Подсистема состоит из:
 
-Первая версия покрывает:
-
-1. Загрузку файла отдельным запросом с немедленным получением идентификатора (upload-first).
-2. Хранилище за абстракцией `IFileStorage` с реализацией «локальный диск».
-3. Привязку файлов к сущностям **через настоящие внешние ключи** — 1:1 полем на сущности, 1:N через выделенную связующую сущность.
-4. Отдачу оригинала и превью изображений с ресайзом и дисковым кэшем.
-5. Сборку мусора (непривязанные и осиротевшие файлы) фоновой задачей Quartz.
-6. Фронтенд: три слоя компонентов (`FileInput` / `FileView` / `FileControl`) и универсальную модалку просмотра, работающую как с файлами подсистемы, так и с внешними ссылками (например, изображениями карточек Ozon).
+1. Загрузки файла отдельным запросом с немедленным получением идентификатора (upload-first).
+2. Хранилища за абстракцией `IFileStorage` с реализацией «локальный диск».
+3. Привязки файлов к сущностям **через настоящие внешние ключи** — 1:1 полем на сущности, 1:N через выделенную связующую сущность.
+4. Отдачи оригинала и превью изображений с ресайзом и дисковым кэшем.
+5. Сборки мусора (непривязанные и осиротевшие файлы) фоновой задачей Quartz.
+6. Фронтенда: три слоя компонентов и универсальная модалка просмотра, работающая как с файлами подсистемы, так и с внешними ссылками (например, изображениями карточек Ozon) — см. `frontend-components.md`.
 
 ---
 
@@ -163,70 +161,23 @@ builder.Entity<DataFile>(e =>
 
 ### Привязка 1:1
 
-Поле на сущности:
-
-```csharp
-// CatalogItem.cs
-public Guid? PhotoFileId { get; set; }
-public DataFile? PhotoFile { get; set; }
-```
-
-```csharp
-builder.Entity<CatalogItem>(e =>
-{
-    e.HasOne(x => x.PhotoFile)
-        .WithMany()
-        .HasForeignKey(x => x.PhotoFileId)
-        .OnDelete(DeleteBehavior.Restrict);
-});
-```
-
-Действующие точки привязки 1:1 — `CatalogItem.MainImageFileId` и `MarketplaceOrder.LabelFileId` (этикетка отправления, снимок на момент печати). Регистрировать новую точку в сборщике мусора не нужно: `DataFileReferences` выводит предикат осиротевших файлов из модели EF по односоставным внешним ключам на `DataFile`.
+Поле `Guid? XFileId` + навигация `DataFile? X` на сущности-владельце, FK с `OnDelete(DeleteBehavior.Restrict)`.
+Действующие точки — `CatalogItem.MainImageFileId` и `MarketplaceOrder.LabelFileId` (этикетка отправления, снимок
+на момент печати). Регистрировать новую точку в сборщике мусора не нужно: `DataFileReferences` выводит предикат
+осиротевших файлов из модели EF по односоставным внешним ключам на `DataFile`.
 
 ### Привязка 1:N
 
-Выделенная связующая сущность на каждого владельца:
-
-```csharp
-public class ReceiptDocument : IHasIdentity
-{
-    public Guid Id { get; set; }
-
-    public Guid ReceiptId { get; set; }
-    public Receipt Receipt { get; set; } = null!;
-
-    public Guid DataFileId { get; set; }
-    public DataFile DataFile { get; set; } = null!;
-
-    public int Order { get; set; }
-}
-```
-
-```csharp
-builder.Entity<ReceiptDocument>(e =>
-{
-    e.HasKey(x => x.Id);
-
-    e.HasOne(x => x.Receipt)
-        .WithMany(x => x.Documents)
-        .HasForeignKey(x => x.ReceiptId)
-        .OnDelete(DeleteBehavior.Cascade);
-
-    e.HasOne(x => x.DataFile)
-        .WithMany()
-        .HasForeignKey(x => x.DataFileId)
-        .OnDelete(DeleteBehavior.Restrict);
-
-    e.HasIndex(x => new {x.ReceiptId, x.Order});
-});
-```
+Выделенная связующая сущность на каждого владельца, реализующая `IDataFileLink` (`Id`, FK на владельца, FK на
+`DataFile`, `Order`). Действующая точка — `CatalogItemImage`. FK на владельца — `Cascade`, FK на `DataFile` —
+`Restrict`; индекс по паре «владелец + `Order`».
 
 ### Правила OnDelete
 
 | Направление | Поведение | Почему |
 |-------------|-----------|--------|
-| Связующая сущность → владелец (`ReceiptDocument` → `Receipt`) | `Cascade` | Дочерняя коллекция — общий паттерн проекта |
-| Любая ссылка → `DataFile` | **`Restrict`, всегда** | `Cascade` здесь означал бы «удаление файла удаляет накладную». `SetNull` тихо оторвал бы документ от сущности. `Restrict` даёт СУБД право заблокировать удаление ещё используемого файла — второй рубеж под GC |
+| Связующая сущность → владелец (`CatalogItemImage` → `CatalogItem`) | `Cascade` | Дочерняя коллекция — общий паттерн проекта |
+| Любая ссылка → `DataFile` | **`Restrict`, всегда** | `Cascade` здесь означал бы «удаление файла удаляет товар». `SetNull` тихо оторвал бы файл от сущности. `Restrict` даёт СУБД право заблокировать удаление ещё используемого файла — второй рубеж под GC |
 | `DataFile` → `ApplicationUser` (`CreatedBy`) | `SetNull` | Аудит-ссылка, как везде в проекте |
 
 ### Инвариант
@@ -237,65 +188,26 @@ builder.Entity<ReceiptDocument>(e =>
 
 ## Маппинг DTO
 
-`Models/Files/DataFileDto.cs`:
+`DataFileDto` не выносит `StorageKey` — это внутренняя деталь хранилища.
 
-```csharp
-public class DataFileDto : IHasIdentity
-{
-    public Guid Id { get; init; }
-    public string OriginalFileName { get; init; } = null!;
-    public string ContentType { get; init; } = null!;
-    public long SizeBytes { get; init; }
-    public int? ImageWidth { get; init; }
-    public int? ImageHeight { get; init; }
-    public bool IsImage { get; init; }
-    public Guid? CreatedById { get; init; }
-    public string? CreatedByUserName { get; init; }
-    public DateTime CreatedAt { get; init; }
-}
-```
-
-`StorageKey` в DTO **не выносится** — это внутренняя деталь хранилища.
-
-`AppMapperProfile`:
-
-```csharp
-CreateMap<DataFile, DataFileDto>()
-    .ForMember(d => d.CreatedByUserName, opt => opt.MapFrom(s => s.CreatedBy != null ? s.CreatedBy.UserName : null));
-
-CreateMap<ReceiptDocument, ReceiptDocumentDto>()
-    .ForMember(d => d.File, opt => opt.MapFrom(s => s.DataFile));
-```
-
-Файлы встраиваются прямо в DTO сущности — это и есть выигрыш FK-варианта:
-
-```csharp
-CreateMap<CatalogItem, CatalogItemDto>()
-    .ForMember(d => d.Photo, opt => opt.MapFrom(s => s.PhotoFile));
-
-CreateMap<Receipt, ReceiptDto>()
-    .ForMember(d => d.Documents, opt => opt.MapFrom(s => s.Documents.OrderBy(x => x.Order)));
-```
-
-Всё это разворачивается в SQL внутри `ProjectTo<TDto>` — дополнительных запросов и отдельного эндпоинта «дай вложения сущности X» не требуется. Фронтенд получает файлы вместе с сущностью одним запросом.
+Файлы встраиваются прямо в DTO сущности-владельца (`CatalogItemDto.mainImage`, `images`) — это и есть выигрыш
+FK-варианта: всё разворачивается в SQL внутри `ProjectTo<TDto>`, дополнительных запросов и отдельного эндпоинта
+«дай вложения сущности X» не требуется. Фронтенд получает файлы вместе с сущностью одним запросом.
 
 ### Запись со стороны сущности
 
-**1:1** — в `UpdateCatalogItemRequest` приходит `Guid? PhotoFileId`. Контроллер присваивает поле; если идентификатор указывает на несуществующий файл, СУБД вернёт нарушение FK — поэтому существование проверяется явно и отдаётся `422` с `ErrorCode.DataFileNotFound`.
+Контроллеры не пишут эту логику сами — они вызывают `IDataFileBindingService` (`BindSingleAsync` для 1:1,
+`BindListAsync` для 1:N). Внутри сервис проверяет существование файла и синхронизирует список через
+identity-перегрузку `IListUpdater` (см. [backend-patterns.md](backend-patterns.md#file-attachments-adding-a-new-attachment-point)).
 
-**1:N** — список `List<ReceiptDocumentDto>` синхронизируется через `IListUpdater` (identity-based перегрузка, см. `docs/backend-patterns.md`):
+- Существование проверяется **явно**, а не оставляется на внешний ключ: сырое нарушение `23503` вылезет как 500,
+  а фронтенд умеет отрисовать только `AppProblemDetails`. Несуществующий идентификатор → `422`
+  `ErrorCode.DataFileNotFound`.
+- Инлайнить проверку-и-синхронизацию в контроллере нельзя: скопированная логика рано или поздно уедет в эндпоинт
+  без проверки.
+- Удаление привязки из списка удаляет только связующую строку. Сам `DataFile` остаётся и станет кандидатом на
+  уборку — см. ниже.
 
-```csharp
-_listUpdater.UpdateList(
-    dto.Documents,
-    receipt.Documents,
-    db.ReceiptDocuments,
-    compare: (doc, docDto) => doc.Id == docDto.Id,
-    isNew: docDto => docDto.Id == Guid.Empty,
-    afterMap: (docDto, doc) => doc.DataFileId = docDto.File.Id);
-```
-
-Удаление вложения из списка удаляет только связующую строку. Сам `DataFile` остаётся и станет кандидатом на уборку — см. ниже.
 
 ---
 
@@ -336,8 +248,8 @@ DELETE FROM "DataFiles"
 WHERE "Id" IN (
     SELECT f."Id" FROM "DataFiles" f
     WHERE f."CreatedAt" < @cutoff
-      AND NOT EXISTS (SELECT 1 FROM "CatalogItems" x WHERE x."PhotoFileId" = f."Id")
-      AND NOT EXISTS (SELECT 1 FROM "ReceiptDocuments" x WHERE x."DataFileId" = f."Id")
+      AND NOT EXISTS (SELECT 1 FROM "CatalogItems" x WHERE x."MainImageFileId" = f."Id")
+      AND NOT EXISTS (SELECT 1 FROM "CatalogItemImages" x WHERE x."DataFileId" = f."Id")
       -- ...по одному NOT EXISTS на каждый найденный внешний ключ
     LIMIT @batchSize
 )
@@ -356,24 +268,7 @@ RETURNING "StorageKey";
 
 ### Задача
 
-`Infrastructure/Files/DataFilesGcJob.cs` — по образцу `MarketplaceSyncScanJob`:
-
-```csharp
-[DisallowConcurrentExecution]
-public class DataFilesGcJob(
-    ApplicationDbContext db,
-    IFileStorage storage,
-    IOptions<DataFilesOptions> options,
-    NpgsqlDataSource dataSource,
-    ILogger<DataFilesGcJob> logger) : IJob
-{
-    public const string Key = "data-files-gc";
-
-    public async Task Execute(IJobExecutionContext context) { /* ... */ }
-}
-```
-
-Регистрация — внутри **существующего** вызова `builder.Services.AddQuartz(...)`, вторым `AddJob`/`AddTrigger`, с cron из `DataFilesOptions.GcCron`.
+`Infrastructure/Files/DataFilesGcJob.cs` — `[DisallowConcurrentExecution]`, зарегистрирована внутри **существующего** вызова `builder.Services.AddQuartz(...)` вторым `AddJob`/`AddTrigger`, с cron из `DataFilesOptions.GcCron`.
 
 Задача берёт **advisory-lock PostgreSQL** через существующий `PostgresAdvisoryLock` на отдельном соединении из `NpgsqlDataSource`: job store у Quartz in-memory, поэтому `[DisallowConcurrentExecution]` действует только в пределах одного процесса, а два экземпляра приложения удаляли бы файлы одновременно. Требование зафиксировано в `docs/backend-patterns.md`.
 
@@ -444,8 +339,9 @@ return File(stream, contentTypeForResponse, downloadFileName, enableRangeProcess
 - Файл не изображение → `422`, `ErrorCode.DataFileNotAnImage`.
 - Результат кэшируется на диске ключом `{StorageKey}_w{width}` и переиспользуется. Кэш вычищается тем же GC вместе с оригиналом.
 - Пропорции сохраняются, увеличение не выполняется: если оригинал уже уже запрошенной ширины, отдаётся он сам.
+- Превью всегда отдаётся как `image/webp`, независимо от формата оригинала.
 
-**Библиотека ресайза.** В проекте её нет. Предлагается **SixLabors.ImageSharp** — полностью управляемый код, никаких нативных зависимостей в контейнере. Оговорка: Six Labors Split License — бесплатна для организаций с выручкой до $1 млн в год, иначе нужна коммерческая лицензия. Альтернатива без этого условия — **SkiaSharp** (MIT), но она тянет `SkiaSharp.NativeAssets.Linux` и требует системных библиотек в образе. Решение за владельцем проекта; на схему БД и контракты API выбор не влияет.
+**Библиотека ресайза** — **SixLabors.ImageSharp 3.x**: полностью управляемый код, никаких нативных зависимостей в образе (альтернатива SkiaSharp тянет `SkiaSharp.NativeAssets.Linux` и системные библиотеки). Лицензионная оговорка — см. [README.md](README.md).
 
 ---
 
@@ -463,7 +359,7 @@ return File(stream, contentTypeForResponse, downloadFileName, enableRangeProcess
 
 ## Коды ошибок
 
-Добавляются в секцию `ErrorCode` по смыслу — значения проставлены явно, поэтому новый код получает следующий свободный номер, а не следующую позицию (см. [«Enums: pinned values, free ordering»](backend-patterns.md#enums-pinned-values-free-ordering)):
+Секция `DataFiles` в `ErrorCode` — значения проставлены явно, поэтому новый код получает следующий свободный номер, а не следующую позицию (см. [«Enums: pinned values, free ordering»](backend-patterns.md#enums-pinned-values-free-ordering)):
 
 ```csharp
 // DataFiles
@@ -482,261 +378,9 @@ DataFileStorageError,
 
 ## Фронтенд
 
-Архитектура — три слоя, по образцу предыдущего проекта. Реестр сервисов загрузки (`fileServices`) не переносится: бэкенд один.
-
-```
-src/components/files/
-├── inputs/
-│   ├── AreaFileInput.tsx        зона перетаскивания
-│   └── AddFileInput.tsx         кнопка «добавить файл»
-├── FileImage.tsx                примитив: <img>, который сам грузит превью
-├── views/
-│   ├── RowFileView.tsx          строка списка: иконка, имя, размер, действия
-│   ├── ImagePreviewFileView.tsx миниатюра
-│   └── ImageCardFileView.tsx    карточка; при пустом значении работает как input
-├── controls/
-│   ├── SingleFileControl.tsx    одно значение: DataFileDto | null
-│   └── FileListControl.tsx      список значений
-├── viewer/
-│   ├── FileViewerModal.tsx
-│   ├── viewableFile.ts          общий тип источника: файл подсистемы или внешняя ссылка
-│   ├── useViewableSource.ts     разрешение источника в src + метаданные
-│   ├── ImageFileRenderer.tsx
-│   ├── PdfFileRenderer.tsx
-│   └── UnsupportedFileRenderer.tsx
-├── hooks/
-│   ├── useFileUpload.ts
-│   └── useFileBlobUrl.ts
-└── fileUtils.ts                 formatFileSize, iconForContentType, isPdf, ...
-```
-
-### Слои
-
-**`FileInput`** — чистые компоненты, про API не знают. Общие пропсы: `onChange(files: File[])`, `loading`, `error`, `accept`, `multiple`, `disabled`. Перетаскивание — на нативных событиях `onDragOver`/`onDrop`: библиотеки дропзоны в проекте нет, а `@dnd-kit` предназначен для сортировки, а не для приёма файлов.
-
-**`FileView`** — чистые компоненты отображения. Общие пропсы: `file: DataFileDto`, `loading`, `error`, `onDelete`, `onReplace`, `onOpen`. Оба слоя пригодны и вне подсистемы — для файлов, ещё не отправленных на сервер.
-
-**`FileControl`** — единственный слой, который ходит в API. Комбинирует Input и View, отдаваемые пропсами:
-
-```tsx
-<SingleFileControl value={value} onChange={onChange} View={ImageCardFileView} Input={AddFileInput} />
-```
-
-`FileControl` — **управляемый компонент над `DataFileDto`**, а не над `File`. При выборе файла он вызывает `POST /api/files` и отдаёт наружу уже готовый `DataFileDto`; форма хранит идентификатор и отправляет его вместе с сущностью. Это и есть upload-first на практике. Интеграция с `react-hook-form` — через `Controller`, как у прочих полей проекта.
-
-### Хуки
-
-Загрузка использует сгенерированный `formDataBodySerializer` (`src/api/core/bodySerializer.gen.ts`, сейчас в проекте не используется):
-
-```ts
-const upload = useMutation({
-  ...filesUploadMutation(),
-  meta: {suppressGlobalError: true},
-});
-```
-
-Чтение содержимого:
-
-```ts
-export function useFileBlobUrl(fileId: string | undefined, width?: number) {
-  const {data: blob, isLoading, error} = useQuery({
-    ...filesGetContentOptions({path: {id: fileId!}, query: {width}, parseAs: "blob"}),
-    enabled: !!fileId,
-    staleTime: Infinity,
-  });
-
-  const [url, setUrl] = useState<string>();
-  useEffect(() => {
-    if (!blob) return;
-    const objectUrl = URL.createObjectURL(blob);
-    setUrl(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [blob]);
-
-  return {url, isLoading, error};
-}
-```
-
-Почему blob, а не прямой `<img src="/api/files/…">`: токен подставляет перехватчик запросов в `apiClient.ts`, а `<img>` мимо него не проходит — атрибут `src` не несёт заголовка `Authorization`. Отсюда следствие: у картинок нет HTTP-кэша браузера, его заменяет кэш React Query (`staleTime: Infinity`, ключ = идентификатор + ширина). Object URL создаётся на каждого потребителя и освобождается при размонтировании; `createObjectURL` от одного и того же `Blob` возвращает разные URL, поэтому потребители не мешают друг другу.
-
-`parseAs: "blob"` указывается явно — вывод типа ответа генератором для бинарных эндпоинтов ненадёжен.
-
-> Альтернатива, если кэш браузера станет критичен для длинных списков с миниатюрами: короткоживущий подписанный токен в query-строке, дающий работать обычному `<img src>`. В первую версию не входит.
-
-### `FileImage` — самозагружающаяся картинка
-
-Примитив нижнего уровня: ведёт себя как `<img>`, но вместо `src` принимает файл и сам разбирается с авторизацией, размером превью и жизненным циклом object URL. Нужен везде, где картинка — это просто картинка: превью товаров в списках и таблицах, миниатюры в полосе прокрутки модалки, аватар карточки маркетплейса.
-
-Прообраз — `SelfLoadingPhoto` из предыдущего проекта; переносится идея, а не реализация (там не вызывался `revokeObjectURL`, не было отмены запроса при размонтировании, состояний загрузки и ошибки, и каждое монтирование качало файл заново).
-
-```tsx
-interface FileImageProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, "src" | "width"> {
-  /** Принимает всё, что понимает модалка просмотра, плюс сокращения: DTO или голый URL. */
-  source: ViewableFile | DataFileDto | string | null | undefined;
-  /** Ширина превью. `"auto"` — замерить контейнер и запросить ближайший допустимый размер. */
-  previewWidth?: number | "auto";
-  /** Грузить только при попадании во вьюпорт. По умолчанию включено. */
-  lazy?: boolean;
-  /** Что показать, если файла нет или он не загрузился. */
-  fallback?: ReactNode;
-}
-```
-
-Поведение:
-
-- **Ленивая загрузка** через `IntersectionObserver` — обязательна для списков каталога, иначе открытие страницы порождает сотню запросов превью. `IntersectionObserver` отсутствует в самых старых WebView целевого диапазона (`chrome >= 49`), поэтому при его отсутствии компонент грузит картинку сразу — деградация в поведение «как без ленивости», а не в пустой блок.
-- **`previewWidth: "auto"`** замеряет фактическую ширину контейнера, умножает на `devicePixelRatio` и **округляет вверх до ближайшего значения из `ThumbnailWidths`**. Округление обязательно: эндпоинт превью отвергает произвольную ширину с `DataFileWidthNotAllowed`, и передавать туда сырой результат замера нельзя.
-- **Резервирование места** по `imageWidth`/`imageHeight` из DTO (`aspect-ratio`), чтобы список не дёргался по мере подгрузки. Для внешних ссылок пропорции неизвестны — используется заданный размер контейнера.
-- **Состояния**: `<Skeleton />` во время загрузки, `fallback` при ошибке или отсутствии источника. Object URL освобождается при размонтировании — это уже обеспечивает `useFileBlobUrl`.
-- **Кэш** — общий с остальной подсистемой: React Query по ключу «идентификатор + ширина», поэтому одна и та же картинка в списке и в модалке грузится один раз.
-- **Внешние ссылки** идут прямым `src`, без запроса и без ресайза — `previewWidth` для них влияет только на вёрстку.
-
-`FileImage` — основа для `ImagePreviewFileView` и `ImageCardFileView` (они добавляют рамку, действия и открытие модалки), а также замена существующему `CardImage.tsx` в разделе маркетплейсов: тот делает ровно это для внешних URL и после появления `FileImage` становится лишним.
-
-### Универсальная модалка просмотра
-
-`FileViewerModal` открывается через существующий императивный менеджер модалок (`useModal().showModal`) — он для этого и предназначен, но пока использован в одном месте проекта.
-
-#### Источник просмотра
-
-Модалка **не привязана к подсистеме файлов**. На вход она принимает источники двух видов:
-
-```ts
-// viewableFile.ts
-export type ViewableFile =
-  | {kind: "dataFile"; file: DataFileDto}
-  | {kind: "external"; url: string; name?: string; contentType?: string};
-
-export const viewable = (file: DataFileDto): ViewableFile => ({kind: "dataFile", file});
-
-export const viewableUrl = (url: string, opts?: {name?: string; contentType?: string}): ViewableFile => ({
-  kind: "external",
-  url,
-  ...opts,
-});
-```
-
-Внешний вид нужен там, где изображение живёт не у нас: миниатюры карточек Ozon (`MarketplaceCard.primaryImageUrl` — уже отображаются компонентом `CardImage`), любые будущие ссылки на сторонние ресурсы. Смешанные списки допустимы: фото товара из нашего хранилища и картинка карточки маркетплейса могут листаться в одной галерее.
-
-```tsx
-interface FileViewerModalProps extends ModalComponentProps<null> {
-  files: ViewableFile[];
-  initialIndex?: number;
-  /** Вызывается только для источников вида `dataFile`; для внешних кнопка удаления скрыта. */
-  onDelete?: (file: DataFileDto) => void;
-}
-```
-
-```ts
-// один файл
-await showModal(FileViewerModal, {files: [viewable(file)]});
-// список с открытием на конкретном элементе
-await showModal(FileViewerModal, {files: receipt.documents.map((d) => viewable(d.file)), initialIndex: 2});
-// внешние изображения карточек маркетплейса
-await showModal(FileViewerModal, {
-  files: cards.filter((c) => c.primaryImageUrl).map((c) => viewableUrl(c.primaryImageUrl!, {name: c.name})),
-});
-```
-
-Один компонент покрывает и одиночный файл, и список — разница только в наличии навигации:
-
-| | Один файл | Список |
-|---|---|---|
-| Стрелки влево/вправо | скрыты | показаны |
-| Счётчик «3 из 7» | скрыт | показан |
-| Полоса миниатюр снизу | скрыта | показана при `files.length > 1` |
-
-#### Разрешение источника
-
-Оба вида источника приводятся к одной структуре, и дальше вся модалка работает только с ней — рендереры про `kind` не знают:
-
-```ts
-interface ResolvedViewable {
-  key: string;
-  name: string;
-  contentType?: string;
-  /** Готовый src для <img>/<iframe>: object URL для файла подсистемы, прямая ссылка для внешнего. */
-  src?: string;
-  isLoading: boolean;
-  error?: unknown;
-  /** Только для файлов подсистемы — у внешней ссылки этих данных нет. */
-  meta?: {sizeBytes: number; createdAt: string; createdByUserName?: string | null};
-  download: {mode: "blob" | "newTab"; fileName?: string};
-}
-
-function useViewableSource(item: ViewableFile): ResolvedViewable;
-```
-
-Разница между видами локализована в этом хуке:
-
-| | `dataFile` | `external` |
-|---|---|---|
-| Получение содержимого | авторизованный запрос → `Blob` → object URL (`useFileBlobUrl`) | `src` = сама ссылка, запроса нет |
-| Тип содержимого | `contentType` из DTO | `contentType` из пропса, иначе выводится из расширения в URL |
-| Состояние загрузки | из React Query | всегда `false` — грузит браузер |
-| Скачивание | `blob` | `newTab` |
-
-Хук вызывает `useQuery` безусловно и гасит его через `enabled: item.kind === "dataFile"` — условный вызов хука недопустим.
-
-Тип внешней ссылки выводится по расширению (`.jpg`, `.png`, `.webp`, `.avif`, `.gif`, `.pdf`, с учётом query-строки). Если расширения нет — источник **оптимистично считается изображением**: подавляющее большинство внешних ссылок в приложении это картинки, а если предположение неверно, `onError` у `<img>` переключит элемент на `UnsupportedFileRenderer`. Отдельного запроса ради `Content-Type` не делаем — это лишний round-trip и упирается в CORS.
-
-**Выбор способа отображения** — реестр рендереров, проверяемых по порядку; первый подошедший выигрывает:
-
-```ts
-const renderers: {
-  match: (v: ResolvedViewable) => boolean;
-  Component: ComponentType<{item: ResolvedViewable}>;
-}[] = [
-  {match: (v) => isImageContentType(v.contentType), Component: ImageFileRenderer},
-  {match: (v) => v.contentType === "application/pdf", Component: PdfFileRenderer},
-  {match: () => true, Component: UnsupportedFileRenderer},
-];
-```
-
-- **`ImageFileRenderer`** — `<img src={item.src}>`. Масштабирование колесом и перетаскивание мышью/пальцем реализуются вручную (`transform: scale/translate`): библиотеки лайтбокса в проекте нет, а задача решается парой обработчиков. Двойной тап сбрасывает масштаб — в проекте уже есть `use-double-tap`. Для файлов подсистемы место резервируется по `imageWidth`/`imageHeight` из DTO, чтобы модалка не прыгала; для внешних ссылок размеры заранее неизвестны, поэтому используется контейнер фиксированной высоты. Обработчик `onError` переключает элемент на `UnsupportedFileRenderer` — это же основной путь деградации для внешней ссылки, оказавшейся не картинкой.
-- **`PdfFileRenderer`** — `<iframe src={item.src}>` со встроенным просмотрщиком браузера. Библиотеку PDF не добавляем: `@vitejs/plugin-legacy` в проекте нацелен на `chrome >= 49`, под который современные сборки pdf.js не собираются. Для **внешних** PDF встроенный просмотрщик не используется — см. оговорки ниже.
-- **`UnsupportedFileRenderer`** — иконка по типу, имя, размер (если известен), кнопка действия: «Скачать» для файла подсистемы, «Открыть в новой вкладке» для внешней ссылки.
-
-**Тулбар:** имя, кнопки действия и, если передан `onDelete`, кнопка удаления. Размер, автор и дата загрузки берутся из `meta` и **скрываются для внешних ссылок** — этих данных у них нет; строка тулбара не должна схлопываться, поэтому блок метаданных занимает место всегда. Кнопка удаления для внешних источников не показывается: удалять там нечего. Клавиши: `Esc` — закрыть, `←`/`→` — переключение в списке.
-
-#### Оговорки по внешним ссылкам
-
-- **CORS не мешает отображению.** Мы подставляем ссылку в `src`, а не загружаем её через `fetch`, поэтому политика удалённого хоста на отображение не влияет. Обратная сторона — содержимое недоступно как `Blob`, а атрибут `download` на кросс-доменной ссылке браузер игнорирует. Поэтому «Скачать» для внешнего источника превращается в «Открыть в новой вкладке» (`target="_blank" rel="noopener noreferrer"`).
-- **`<iframe>` может быть заблокирован** заголовком `X-Frame-Options` или `Content-Security-Policy: frame-ancestors` удалённого хоста, причём **без события ошибки** — пользователь увидит пустую рамку и не поймёт, почему. Надёжно определить это из JS нельзя, поэтому для внешних PDF встроенный просмотрщик не пытаемся показывать вовсе: сразу `UnsupportedFileRenderer` с кнопкой «Открыть в новой вкладке».
-- **Смешанный контент.** Ссылка на `http://` со страницы, открытой по `https://`, блокируется браузером. Такие URL отбраковываются при нормализации и уходят в `UnsupportedFileRenderer` — молча битая картинка хуже явного сообщения.
-- **Referrer.** Внешним изображениям ставится `referrerPolicy="no-referrer"`, чтобы внутренние адреса приложения не утекали на сторонний хост.
-- **Кэш.** Внешние ссылки не проходят через React Query — их кэширует сам браузер по обычным HTTP-заголовкам.
-
-**Мобильный режим:** `fullScreen` по `useMediaQuery(theme.breakpoints.down("sm"))` — так же, как в существующих диалогах проекта.
-
-> **Ограничение нативного клиента.** WebView Android 7 (ТСД АТОЛ Smart Slim, см. [native-client.md](native-client.md)) **не рендерит PDF** ни в `<iframe>`, ни в `<object>` — покажет пустую рамку. `PdfFileRenderer` обязан определять эту среду (`Capacitor.isNativePlatform()`) и подставлять вместо просмотрщика `UnsupportedFileRenderer` с кнопкой скачивания, которая передаёт файл системному приложению. Изображения в WebView работают штатно.
+Фронтенд — см. frontend-components.md.
 
 ---
-
-## Порядок реализации
-
-1. **Хранилище и домен.** `DataFilesOptions`, `IFileStorage` + `LocalFileStorage`, сущность `DataFile`, миграция, каталог в `Dockerfile` и volume в compose-файлах.
-2. **API.** `FilesController` (загрузка, метаданные, отдача), коды ошибок, валидация по сигнатуре байтов, санитизация имени.
-3. **Превью.** Библиотека ресайза, эндпоинт миниатюр, дисковый кэш.
-4. **Сборка мусора.** `DataFilesGcJob`, построение запроса из метаданных EF, advisory-lock, регистрация в Quartz.
-5. **Фронтенд, базовый слой.** `npm run generate-api`, тип `ViewableFile`, хуки `useFileUpload` / `useFileBlobUrl`, компонент `FileImage`, переводы кодов ошибок, `fileUtils`.
-6. **Фронтенд, компоненты.** `FileInput`, `FileView`, `FileControl`.
-7. **Модалка просмотра.** Рендереры, навигация по списку, внешние ссылки, ветка нативного клиента.
-8. **Первое применение.** Фото у `CatalogItem` (1:1) и вложения у `Receipt` (1:N) — обкатка обоих видов привязки. Галерея изображений карточек Ozon и замена `CardImage` на `FileImage` — обкатка внешних источников.
-9. **Документация.** См. ниже.
-
-Шаги 1–4 и 5–7 независимы после согласования контракта API и могут идти параллельно.
-
-## Документация к обновлению
-
-| Файл | Что добавить |
-|------|--------------|
-| `docs/README.md` | Строка в индексе документации |
-| `docs/api.md` | Эндпоинты `api/files` |
-| `docs/errors.md` | Коды секции DataFiles |
-| `docs/backend-patterns.md` | Паттерн «привязка файла через FK + GC по метаданным модели» |
-| `docs/frontend.md` | Разделы по слоям компонентов, `FileImage`, модалке просмотра; обновление дерева каталогов; удаление `CardImage` из описания раздела маркетплейсов |
-| `docs/native-client.md` | Оговорка про PDF в WebView |
 
 ## Отложено
 

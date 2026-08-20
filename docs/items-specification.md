@@ -44,7 +44,7 @@ A virtual grouping of related Standard or Unit items (e.g. a clothing item with 
 
 **Naming rule:** child items that belong to a ProductGroup display their full name as `Group.Name + " " + Item.Name` (exposed as `FullName` on the DTO).
 
-**Child item management:** children are created and edited only via the ProductGroup's `children` field in Create/Update — not through the general catalog endpoints directly.
+**Child item management:** children are created and edited only via the ProductGroup's `children` field in Create/Update — not through the general catalog endpoints directly. The list is a full-replace sync — `id: null` creates a child, an `id` updates one, and a child missing from the list is deleted. See [backend-patterns.md](backend-patterns.md#updating-related-entity-lists-with-ilistupdater).
 
 **Inheritable fields:** `Description` and `Notes`. If a child has a `null` value for one of these fields, the effective value is resolved from the parent group. See [Inheritable Fields](#inheritable-fields).
 
@@ -65,8 +65,6 @@ Bundle and Variation can nest each other to arbitrary depth: a Bundle component 
 Both Bundle saves and Variation saves run a standalone circular-dependency check (`ICatalogService.EnsureNoCycleAsync`), which walks this Bundle↔Variation edge graph with a recursion-stack DFS. A cycle is rejected with `422 catalogItemCircularDependency`.
 
 ---
-
-## Fields by Type
 
 ## FullName Rule
 
@@ -152,26 +150,52 @@ A CatalogItem can have zero or more tags. Tags are a flat list with no hierarchy
 - Non-group items (no `GroupId`) have no parent to inherit from — effective value equals the stored value.
 - `IsArchived` is **not** inheritable via the null-resolution mechanism, but is **propagated** from the group to all children on every Create/Update of the ProductGroup — children always mirror the group's `IsArchived` value.
 
-**Implementation:**
+The mechanism (`Effective*` `[Projectable]` properties plus the mapper wiring that swaps them in) is described in [backend-patterns.md](backend-patterns.md#inheritable-fields-with-projectable).
 
-On `CatalogItem`:
-```csharp
-[Projectable]
-public string? EffectiveDescription => Description ?? (Group != null ? Group.Description : null);
+---
 
-[Projectable]
-public string? EffectiveNotes => Notes ?? (Group != null ? Group.Notes : null);
-```
+## Images
 
-In `AppMapperProfile`:
-```csharp
-CreateMap<CatalogItem, CatalogItemDto>()
-    .ForMember(d => d.Description, opt => opt.MapFrom(s => s.EffectiveDescription))
-    .ForMember(d => d.Notes,       opt => opt.MapFrom(s => s.EffectiveNotes))
-    ...
-```
+An item has one main image (`mainImageFileId`) and a gallery (`images: [{ id, fileId, order }]`, a link list on
+the same full-replace contract — `id: null` creates the link, an omitted link is removed). Dropping a link never
+deletes the file; the [GC](data-files-specification.md) takes it later.
 
-The `[Projectable]` attribute (EntityFrameworkCore.Projectables) allows these properties to be used both in-memory (when entities are loaded via `Include`) and in EF Core `ProjectTo` queries (translated to SQL with a LEFT JOIN on the parent row).
+`CatalogItemDto.mainImage` is the **effective** image — the item's own, otherwise the parent group's, exactly the
+way `Description` and `Notes` resolve. `mainImageFileId` stays `null` while `mainImage` is populated when the
+image is inherited, and that pair is the only way the UI distinguishes "own" from "inherited". An edit form must
+bind `mainImageFileId`, never `mainImage`, or saving would silently copy the group's image onto the child.
+
+Unlike `Description` and `Notes`, the effective main image is **not** a `[Projectable]`. Every `[Projectable]`
+here returns a `string` or a `bool`; one returning a navigation would coalesce two entity references, and whether
+EF folds member access over that into `CASE WHEN` is untested. Worse, the same expression run in memory by
+`mapper.Map` silently yields null unless both navigations are `Include`d — a failure invisible until a screenshot
+looks wrong. Instead the mapper holds one shared expression that builds the DTO on **both** branches: branches
+returning a non-entity type translate unambiguously and stay correct in memory.
+
+The gallery is **never** inherited. `s.Images.Any() ? s.Images : s.Group.Images` is a conditional over a
+collection, which EF cannot translate, and the workaround breaks on recursion into children. It is also worse
+semantically: "child has no images, so show all of the group's" makes "this variant deliberately has only a main
+photo" unsayable.
+
+`POST /api/catalog` accepts `mainImageFileId` only; `PUT` and each ProductGroup child accept both fields.
+A reference to a file that does not exist is `422 dataFileNotFound`.
+
+---
+
+## Listing and Filtering
+
+Two read endpoints with a deliberate difference:
+
+- `GET /api/catalog` — the paginated management list. It excludes ProductGroup children, which are edited
+  through their group rather than on their own.
+- `GET /api/catalog/for-select` — the flat feed behind select/autocomplete controls. It **does** include group
+  children, because a picker has to offer the concrete item that goes into a receipt or an order.
+
+`tagIds` filters with OR semantics — an item matches if it carries any of the listed tags. Only the item's own
+tags are considered; a group's tags are not walked down at query time, because the [tag copying](#tags) rule has
+already merged them into each child's own set.
+
+Archived items are always sorted last regardless of `sortBy`.
 
 ---
 

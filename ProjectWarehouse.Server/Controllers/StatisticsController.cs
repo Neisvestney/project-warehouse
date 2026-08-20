@@ -16,6 +16,14 @@ public class StatisticsController(IStockStatisticsService statistics) : AppContr
     /// Every day of the range is present, including empty ones. Days are cut in the caller's time zone —
     /// pass <c>utcOffsetMinutes</c>, or an evening shift lands on the wrong day. Defaults to the last 30 days;
     /// the range may not exceed 366 days.
+    /// Query params come from <c>StockMovementFilterRequest</c>: <c>from</c>, <c>to</c>,
+    /// <c>utcOffsetMinutes</c> (default 0, range -840..840), <c>warehouseId</c>, <c>storagePlaceId</c>,
+    /// <c>nodeId</c>, <c>userId</c>, <c>catalogItemIds</c>, <c>actions</c>, <c>directions</c>.
+    /// Requires <c>statistics.view</c> or <c>statistics.view_assigned</c> — either one grants access and the
+    /// warehouses the rows come from are narrowed afterwards; 403 <c>permissionDenied</c> when neither is held.
+    /// Returns 422 <c>outOfRange</c> on <c>from</c> when <c>from</c> is later than <c>to</c> or the range
+    /// exceeds 366 days (no <c>args</c>), and 422 <c>outOfRange</c> on <c>utcOffsetMinutes</c> from model
+    /// validation. Every statistics endpoint below shares these params and both codes.
     /// </remarks>
     [HttpGet("stock-movements/daily")]
     [Authorize]
@@ -42,6 +50,8 @@ public class StatisticsController(IStockStatisticsService statistics) : AppContr
     /// <c>catalogItemIds</c> to pin them instead). Cells are sparse — a day with no movement of an item
     /// carries no cell. Row totals cover every item the filter matched, so they stay correct even when
     /// <c>hasMoreColumns</c> is true.
+    /// Query params: the shared filter plus <c>columnLimit</c> (default 20, range 1..200).
+    /// Same access rule and the same 422 <c>outOfRange</c> range errors as <c>stock-movements/daily</c>.
     /// </remarks>
     [HttpGet("stock-movements/pivot")]
     [Authorize]
@@ -64,6 +74,11 @@ public class StatisticsController(IStockStatisticsService statistics) : AppContr
     }
 
     /// <summary>Same totals, grouped by one dimension instead of by day.</summary>
+    /// <remarks>
+    /// Query params: the shared filter plus <c>groupBy</c> (default <c>Action</c>) and <c>limit</c>
+    /// (default 20, range 1..200). Days are still cut with <c>utcOffsetMinutes</c>.
+    /// Same access rule and the same 422 <c>outOfRange</c> range errors as <c>stock-movements/daily</c>.
+    /// </remarks>
     [HttpGet("stock-movements/breakdown")]
     [Authorize]
     [ProducesResponseType<IReadOnlyList<StockMovementBreakdownItemDto>>(StatusCodes.Status200OK)]
@@ -86,6 +101,10 @@ public class StatisticsController(IStockStatisticsService statistics) : AppContr
     }
 
     /// <summary>Raw movement rows behind the numbers, newest first.</summary>
+    /// <remarks>
+    /// Query params: the shared filter plus <c>page</c> (default 1) and <c>pageSize</c> (default 20, max 200).
+    /// Same access rule and the same 422 <c>outOfRange</c> range errors as <c>stock-movements/daily</c>.
+    /// </remarks>
     [HttpGet("stock-movements")]
     [Authorize]
     [ProducesResponseType<Paginated<StockMovementDto>>(StatusCodes.Status200OK)]

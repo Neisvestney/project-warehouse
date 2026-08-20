@@ -585,6 +585,11 @@ import type {
 
 /**
  * Authenticate with username and password.
+ *
+ * Anonymous. Returns a `TokenResponse` — `accessToken` (JWT), `refreshToken` (opaque,
+ * single-use) and `expiresIn` (access token lifetime in seconds).
+ * Returns 401 `invalidCredentials` when the username is unknown or the password does not match;
+ * the two cases are deliberately indistinguishable.
  */
 export const authLoginMutation = (
   options?: Partial<Options<AuthLoginData>>,
@@ -608,6 +613,16 @@ export const authLoginMutation = (
 
 /**
  * Refresh an access token using a valid refresh token.
+ *
+ * Anonymous. Rotation: the presented refresh token is revoked the instant it is accepted and a whole new
+ * pair is returned — replaying it fails.
+ * Returns 401 `refreshTokenInvalid` for every failure mode: token unknown, already used or revoked,
+ * past its `expiresAt`, or its user deleted. The causes are not distinguished, so
+ * `refreshTokenExpired` and `refreshTokenRevoked` are never returned here.
+ * Any authenticated endpoint answers 401 when the access token is rejected: `tokenInvalid` when the
+ * `sub` claim is missing or unparseable, and a bare 401 from the JWT handler when
+ * `security_version` no longer matches (`tokenOutdated`) after a password, role or permission
+ * change. Both mean "call this endpoint", not "log out" — only a failed refresh ends the session.
  */
 export const authRefreshMutation = (
   options?: Partial<Options<AuthRefreshData>>,
@@ -631,6 +646,10 @@ export const authRefreshMutation = (
 
 /**
  * Revoke the current refresh token (logout).
+ *
+ * Requires authentication, no permission. Revokes only the refresh token in the body; the access token
+ * stays valid until it expires. Idempotent — an unknown or already-revoked token still answers 204, so
+ * logout has no error codes of its own.
  */
 export const authLogoutMutation = (
   options?: Partial<Options<AuthLogoutData>>,
@@ -654,6 +673,17 @@ export const authLogoutMutation = (
 
 /**
  * Change the current user's own password (requires current password).
+ *
+ *     Requires authentication, no permission — the caller can only change their own password.
+ * On success bumps the user's `security_version`, invalidating every access token issued earlier.
+ * Error codes (all password errors use the pseudo-field `root`):
+ * * 401 tokenInvalid — the sub claim is missing or unparseable
+ * * 404 userNotFound — the token's user no longer exists
+ * * 422 passwordInvalid — currentPassword is wrong
+ * * 422 passwordTooShort — args { minimalLength }
+ * * 422 passwordAtLeastOneDigit / passwordAtLeastOneUppercase /
+ * passwordAtLeastOneLowercase — missing character class
+ * * 422 validationError — any other Identity failure, message passed through
  */
 export const authChangeOwnPasswordMutation = (
   options?: Partial<Options<AuthChangeOwnPasswordData>>,
@@ -722,6 +752,11 @@ export const authMeQueryKey = (options?: Options<AuthMeData>) => createQueryKey(
 
 /**
  * Get the currently authenticated user's info, roles and permissions.
+ *
+ * Requires authentication, no permission. `permissions` is the effective set — role permissions
+ * unioned with direct ones — read from the database per call, not from the token's claims.
+ * Returns 401 `tokenInvalid` for a token with no usable `sub` claim, and 404
+ * `userNotFound` if the user was deleted while the token was still valid.
  */
 export const authMeOptions = (options?: Options<AuthMeData>) =>
   queryOptions<AuthMeResponse, AuthMeError, AuthMeResponse, ReturnType<typeof authMeQueryKey>>({
@@ -742,6 +777,9 @@ export const catalogGetTagsQueryKey = (options?: Options<CatalogGetTagsData>) =>
 
 /**
  * List all catalog item tags, optionally filtered by name.
+ *
+ * Query params: `search` (optional). Not paginated — ordered by name.
+ * Requires `catalog.view`. No error codes beyond 403 `permissionDenied`.
  */
 export const catalogGetTagsOptions = (options?: Options<CatalogGetTagsData>) =>
   queryOptions<
@@ -764,6 +802,10 @@ export const catalogGetTagsOptions = (options?: Options<CatalogGetTagsData>) =>
 
 /**
  * Create a new catalog item tag.
+ *
+ * Requires `catalog.edit`. Body: `CreateCatalogItemTagRequest` — name (trimmed before saving).
+ * Names are not checked for uniqueness, so this endpoint has no error codes of its own beyond 403
+ * `permissionDenied` and the generic model-binding 422s (`required`, `tooLong`).
  */
 export const catalogCreateTagMutation = (
   options?: Partial<Options<CatalogCreateTagData>>,
@@ -794,6 +836,13 @@ export const catalogGetAllQueryKey = (options?: Options<CatalogGetAllData>) =>
 
 /**
  * List all catalog items (paginated, optionally filtered by name).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
+ * `sortBy` (default `Name`), `sortOrder` (default `Asc`), `itemTypes`,
+ * `tagIds`, `isArchived`. Archived items always sort last, whatever `sortBy` says.
+ * Product-group children (`groupId != null`) are excluded — this is the catalog tree, and a child is
+ * reached through its group. Use Task&lt;IActionResult&gt; CatalogController.GetForSelect(string? searchString = null, IReadOnlyList&lt;CatalogItemType&gt;? types = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, int take = 10, CancellationToken ct = default(CancellationToken)) when children must be pickable.
+ * Requires `catalog.view`. No error codes beyond 403 `permissionDenied`.
  */
 export const catalogGetAllOptions = (options?: Options<CatalogGetAllData>) =>
   queryOptions<
@@ -854,6 +903,13 @@ export const catalogGetAllInfiniteQueryKey = (
 
 /**
  * List all catalog items (paginated, optionally filtered by name).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
+ * `sortBy` (default `Name`), `sortOrder` (default `Asc`), `itemTypes`,
+ * `tagIds`, `isArchived`. Archived items always sort last, whatever `sortBy` says.
+ * Product-group children (`groupId != null`) are excluded — this is the catalog tree, and a child is
+ * reached through its group. Use Task&lt;IActionResult&gt; CatalogController.GetForSelect(string? searchString = null, IReadOnlyList&lt;CatalogItemType&gt;? types = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, int take = 10, CancellationToken ct = default(CancellationToken)) when children must be pickable.
+ * Requires `catalog.view`. No error codes beyond 403 `permissionDenied`.
  */
 export const catalogGetAllInfiniteOptions = (options?: Options<CatalogGetAllData>) =>
   infiniteQueryOptions<
@@ -893,6 +949,15 @@ export const catalogGetAllInfiniteOptions = (options?: Options<CatalogGetAllData
 
 /**
  * Create a new catalog item.
+ *
+ *     Requires `catalog.edit`. Body: `CreateCatalogItemRequest` — type, name, article, barcode and
+ * an optional `mainImageFileId`. `type` is fixed at creation: it can never be changed later
+ * (`catalogItemIsImmutable`). Type-specific structure — group, variations, components, children —
+ * is set through `PUT /api/catalog/{id}`.
+ * Error codes:
+ * * 422 catalogItemArticleDuplicate (field article) — another item already has this article
+ * * 422 catalogItemBarcodeDuplicate (field barcode) — another item already has this barcode
+ * * 422 dataFileNotFound (field mainImageFileId) — the uploaded file was collected before the form was saved
  */
 export const catalogCreateMutation = (
   options?: Partial<Options<CatalogCreateData>>,
@@ -920,8 +985,10 @@ export const catalogGetForSelectQueryKey = (options?: Options<CatalogGetForSelec
 /**
  * Get a flat list of catalog items for use in select/autocomplete controls.
  *
- * Optionally filtered by types and tags. Returns at most take items.
- * Unlike Task&lt;IActionResult&gt; CatalogController.GetAll(int page = 1, int pageSize = 20, string? searchString = null, CatalogSortBy sortBy = CatalogSortBy.Name, SortOrder sortOrder = SortOrder.Asc, IReadOnlyList&lt;CatalogItemType&gt;? itemTypes = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, bool? isArchived = null, CancellationToken ct = default(CancellationToken)), product-group children are included.
+ * Query params: `searchString`, `types`, `tagIds`, `take` (default 10, max 200).
+ * Unlike Task&lt;IActionResult&gt; CatalogController.GetAll(int page = 1, int pageSize = 20, string? searchString = null, CatalogSortBy sortBy = CatalogSortBy.Name, SortOrder sortOrder = SortOrder.Asc, IReadOnlyList&lt;CatalogItemType&gt;? itemTypes = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, bool? isArchived = null, CancellationToken ct = default(CancellationToken)), product-group children are included — a picker must be able to reach them.
+ * Archived items are returned too, sorted last.
+ * Requires `catalog.view`. No error codes beyond 403 `permissionDenied`.
  */
 export const catalogGetForSelectOptions = (options?: Options<CatalogGetForSelectData>) =>
   queryOptions<
@@ -945,7 +1012,11 @@ export const catalogGetForSelectOptions = (options?: Options<CatalogGetForSelect
 /**
  * Delete a catalog item.
  *
- * Returns 409 `catalogItemIsInUse` if the item is currently stored in any warehouse.
+ * Requires `catalog.edit`. Deleting a ProductGroup deletes its children with it, and the in-use
+ * check covers them too.
+ * Returns 404 `catalogItemNotFound` if no such item, and 409 `catalogItemIsInUse` if the item
+ * (or one of its group children) is stored in any warehouse — as a node item group or as a unit
+ * inventory item.
  */
 export const catalogDeleteMutation = (
   options?: Partial<Options<CatalogDeleteData>>,
@@ -972,6 +1043,9 @@ export const catalogGetByIdQueryKey = (options: Options<CatalogGetByIdData>) =>
 
 /**
  * Get a catalog item by ID.
+ *
+ * Requires `catalog.view`. Works for product-group children as well as top-level items.
+ * Returns 404 `catalogItemNotFound` if the item does not exist.
  */
 export const catalogGetByIdOptions = (options: Options<CatalogGetByIdData>) =>
   queryOptions<
@@ -995,10 +1069,33 @@ export const catalogGetByIdOptions = (options: Options<CatalogGetByIdData>) =>
 /**
  * Update a catalog item.
  *
- *     Type-specific fields:
+ *     Requires `catalog.edit`. Type-specific fields:
  * * Standard / Unit: groupId, variationIds (full replace)
  * * Variation: memberIds (full replace)
  * * Bundle: components — id: null creates, id present updates, missing existing entries are deleted
+ * * ProductGroup: children — full-replace sync: id: null creates a child,
+ * id present updates it, and a child omitted from the list is deleted. Children
+ * inherit the group's tags and isArchived, and may only be Standard or Unit
+ * Images: `mainImageFileId` plus `images[{ id, fileId, order }]` — the list is a full replace
+ * (`id: null` adds a link, an omitted link is removed); the same pair applies per product-group child.
+ * Error codes:
+ * * 404 catalogItemNotFound — no such item
+ * * 422 catalogItemManagedByGroup (field root) — the item is a product-group child; edit it through its group
+ * * 422 catalogItemArticleDuplicate / catalogItemBarcodeDuplicate (fields article, barcode,
+ * or children[i].article / children[i].barcode) — collides with another item, or with another entry of the same request
+ * * 422 catalogItemGroupInvalid — groupId is not an existing ProductGroup, or a
+ * children[i].type is neither Standard nor Unit
+ * * 422 catalogItemVariationInvalid (field memberIds[i]) — the member does not exist or is not Standard/Unit/Bundle
+ * * 422 catalogItemComponentInvalid (field components[i].componentId) — the component does not exist
+ * or its type may not be used as a bundle component
+ * * 422 catalogItemComponentNotFound (field components[i].id) — the component row does not belong to this bundle
+ * * 422 catalogItemNotFound (field children[i].id) — the child does not belong to this product group
+ * * 422 catalogItemIsImmutable (field children[i].type) — a child's type cannot be changed
+ * * 422 catalogItemCircularDependency (field root) — the submitted components/members would
+ * close a cycle in the Bundle↔Variation nesting graph
+ * * 422 dataFileNotFound (fields mainImageFileId, images,
+ * children.mainImageFileId, children.images) — a referenced upload no longer exists
+ * * 409 catalogItemIsInUse — a child removed from children is still stored in a warehouse
  */
 export const catalogUpdateMutation = (
   options?: Partial<Options<CatalogUpdateData>>,
@@ -1029,6 +1126,10 @@ export const changelogGetAllQueryKey = (options?: Options<ChangelogGetAllData>) 
  * Query params: `page` (default 1), `pageSize` (default 20, max 200),
  * `entityType` (optional), `changeLogEntryType` (optional).
  * Returns `Paginated&lt;ChangeLogEntryDto&gt;` ordered by `createdAt` descending.
+ * Requires `changelog.view` — the log spans every entity type and is not narrowed by assigned
+ * warehouses, so the permission is the only gate.
+ * No error codes beyond 403 `permissionDenied`; an unparseable `entityType` or
+ * `changeLogEntryType` is a model-binding 422 (`invalidFormat`).
  */
 export const changelogGetAllOptions = (options?: Options<ChangelogGetAllData>) =>
   queryOptions<
@@ -1059,6 +1160,10 @@ export const changelogGetAllInfiniteQueryKey = (
  * Query params: `page` (default 1), `pageSize` (default 20, max 200),
  * `entityType` (optional), `changeLogEntryType` (optional).
  * Returns `Paginated&lt;ChangeLogEntryDto&gt;` ordered by `createdAt` descending.
+ * Requires `changelog.view` — the log spans every entity type and is not narrowed by assigned
+ * warehouses, so the permission is the only gate.
+ * No error codes beyond 403 `permissionDenied`; an unparseable `entityType` or
+ * `changeLogEntryType` is a model-binding 422 (`invalidFormat`).
  */
 export const changelogGetAllInfiniteOptions = (options?: Options<ChangelogGetAllData>) =>
   infiniteQueryOptions<
@@ -1102,6 +1207,12 @@ export const commonContentGetHomePageContentQueryKey = (
 
 /**
  * Get list of AppEntities for home page.
+ *
+ * Requires authentication only; content is narrowed per entity type by what the caller may view, so a
+ * user without warehouse or receipt access simply gets fewer rows rather than a 403.
+ * Returns up to 2 warehouses plus every visible receipt that is either `Processing` or a
+ * `Draft` the caller created.
+ * Returns 403 `permissionDenied` when the token carries no usable `sub` claim. No other error codes.
  */
 export const commonContentGetHomePageContentOptions = (
   options?: Options<CommonContentGetHomePageContentData>,
@@ -1130,6 +1241,12 @@ export const commonContentGlobalSearchQueryKey = (
 
 /**
  * Global search for entities.
+ *
+ * Query params: `searchString` (required). Searches warehouses, receipts, catalog items,
+ * marketplace accounts, users and stocktakes, each already filtered to what the caller may view, then
+ * returns at most 10 results overall (up to 10 per source before the union).
+ * Requires authentication only — no permission opens or closes the endpoint itself.
+ * No error codes; a missing `searchString` is a model-binding 422 (`required`).
  */
 export const commonContentGlobalSearchOptions = (
   options?: Options<CommonContentGlobalSearchData>,
@@ -1160,6 +1277,11 @@ export const eventsGetEventsQueryKey = (options?: Options<EventsGetEventsData>) 
  *
  * Days are cut in the caller's time zone — pass `utcOffsetMinutes`, or a stocktake finished in the
  * evening lands on the wrong day. Same convention as StatisticsController.
+ * Query params: `startDate`, `endDate` (both optional, inclusive), `utcOffsetMinutes`
+ * (default 0). Canceled documents and receipt drafts are never returned.
+ * Rows are narrowed to what the caller may see by IUserQueryFilterService rather than by an
+ * up-front permission check, so a user with no receipt or stocktake access gets an empty list, not a 403.
+ * The endpoint produces no error code of its own.
  */
 export const eventsGetEventsOptions = (options?: Options<EventsGetEventsData>) =>
   queryOptions<
@@ -1183,8 +1305,15 @@ export const eventsGetEventsOptions = (options?: Options<EventsGetEventsData>) =
 /**
  * Upload a file.
  *
- * The file exists independently of any entity and is removed by the garbage collector unless a
- * reference to it appears within OrphanTtlHours.
+ *     The file exists independently of any entity and is removed by the garbage collector unless a
+ * reference to it appears within `DataFiles:OrphanTtlHours`.
+ * Body: `multipart/form-data` with a single `file` part; the request itself is capped at 32 MB.
+ * Every error is a 422 bound to the `file` field:
+ * * dataFileEmpty — no file part, or zero bytes
+ * * dataFileTooLarge — over DataFiles:MaxFileSizeBytes; args: maxBytes
+ * * dataFileTypeNotAllowed — the declared content type is not in DataFiles:AllowedContentTypes, does not match the leading bytes, or the declared image could not be decoded; args: allowed (comma-separated list)
+ * * dataFileStorageError — the bytes were written but the metadata row was not; the bytes are removed again
+ * Requires authentication only.
  */
 export const filesUploadMutation = (
   options?: Partial<Options<FilesUploadData>>,
@@ -1211,6 +1340,9 @@ export const filesGetByIdQueryKey = (options: Options<FilesGetByIdData>) =>
 
 /**
  * Get file metadata.
+ *
+ * Returns 404 `dataFileNotFound` — for an unknown id, and equally for one the GC already collected
+ * because no entity referenced it in time. Requires authentication only; there is no per-file access check.
  */
 export const filesGetByIdOptions = (options: Options<FilesGetByIdData>) =>
   queryOptions<
@@ -1236,6 +1368,13 @@ export const filesGetContentQueryKey = (options: Options<FilesGetContentData>) =
 
 /**
  * Download the original file.
+ *
+ * Returns 404 `dataFileNotFound` for an unknown id and for a row whose bytes are missing from
+ * storage (logged as an error — that state means the two halves drifted apart).
+ * Responses carry `X-Content-Type-Options: nosniff` and an id-derived ETag, and support range
+ * requests. Only `image/jpeg`, `image/png`, `image/webp`, `image/gif` and
+ * `application/pdf` are served inline; everything else gets
+ * `Content-Disposition: attachment` — notably SVG, which would otherwise be stored XSS.
  */
 export const filesGetContentOptions = (options: Options<FilesGetContentData>) =>
   queryOptions<unknown, FilesGetContentError, unknown, ReturnType<typeof filesGetContentQueryKey>>({
@@ -1257,8 +1396,15 @@ export const filesGetThumbnailQueryKey = (options: Options<FilesGetThumbnailData
 /**
  * Get a downscaled preview of an image.
  *
- * Only widths from ThumbnailWidths are accepted — arbitrary values would let anyone inflate the
- * disk cache with ?width=1,2,3,… Results are cached on disk and dropped by the GC with the original.
+ *     Only widths from `DataFiles:ThumbnailWidths` are accepted — arbitrary values would let anyone
+ * inflate the disk cache with ?width=1,2,3,… Results are cached on disk and dropped by the GC with the
+ * original. Query param: `width` (required, must be on the allow-list). Previews are always WebP,
+ * and an original no wider than the request is streamed as-is instead of being upscaled.
+ * Errors:
+ * * 422 dataFileWidthNotAllowed on width; args: allowed (comma-separated widths)
+ * * 404 dataFileNotFound — unknown id, or the row's bytes are missing from storage
+ * * 422 dataFileNotAnImage on id — the stored content type is not image*, or the image could not be decoded
+ * Responses carry `nosniff` and an ETag derived from id + width, as on the content endpoint.
  */
 export const filesGetThumbnailOptions = (options: Options<FilesGetThumbnailData>) =>
   queryOptions<
@@ -1288,6 +1434,14 @@ export const inventoryItemsGetAllQueryKey = (options?: Options<InventoryItemsGet
  * Returns one row per distinct CatalogItem with a total Count summed across both item kinds
  * (Standard, Unit). Supports filtering by warehouse, storage place, node,
  * catalog item types, tags (OR semantics), and archive state.
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
+ * `warehouseId`, `storagePlaceId`, `nodeId`, `catalogItemTypes`, `tagIds`,
+ * `isArchived`, `sortBy` (default `Name`), `sortOrder` (default `Asc`).
+ * Inventory has no permission of its own: it is gated by `warehouses.view` or
+ * `warehouses.view_assigned`, and rows are then narrowed to the assigned warehouses.
+ * Errors: 403 `permissionDenied` when neither permission is held, 401 `tokenInvalid` when the
+ * token carries no usable user id. Filtering by a warehouse the caller is not assigned to is not an
+ * error — it just yields an empty page.
  */
 export const inventoryItemsGetAllOptions = (options?: Options<InventoryItemsGetAllData>) =>
   queryOptions<
@@ -1319,6 +1473,14 @@ export const inventoryItemsGetAllInfiniteQueryKey = (
  * Returns one row per distinct CatalogItem with a total Count summed across both item kinds
  * (Standard, Unit). Supports filtering by warehouse, storage place, node,
  * catalog item types, tags (OR semantics), and archive state.
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
+ * `warehouseId`, `storagePlaceId`, `nodeId`, `catalogItemTypes`, `tagIds`,
+ * `isArchived`, `sortBy` (default `Name`), `sortOrder` (default `Asc`).
+ * Inventory has no permission of its own: it is gated by `warehouses.view` or
+ * `warehouses.view_assigned`, and rows are then narrowed to the assigned warehouses.
+ * Errors: 403 `permissionDenied` when neither permission is held, 401 `tokenInvalid` when the
+ * token carries no usable user id. Filtering by a warehouse the caller is not assigned to is not an
+ * error — it just yields an empty page.
  */
 export const inventoryItemsGetAllInfiniteOptions = (options?: Options<InventoryItemsGetAllData>) =>
   infiniteQueryOptions<
@@ -1363,6 +1525,12 @@ export const inventoryItemsGetAllUnitsQueryKey = (
 
 /**
  * List all unit inventory items (individual serialized items).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`
+ * (matches the inventory number), `warehouseId`, `storagePlaceId`, `nodeId`,
+ * `catalogItemId`, `sortBy` (default `InventoryNumber`), `sortOrder` (default `Asc`).
+ * Detached units — those not sitting in a node — are excluded.
+ * Same access rule and the same 403 `permissionDenied` / 401 `tokenInvalid` as the aggregate list.
  */
 export const inventoryItemsGetAllUnitsOptions = (
   options?: Options<InventoryItemsGetAllUnitsData>,
@@ -1392,6 +1560,12 @@ export const inventoryItemsGetAllUnitsInfiniteQueryKey = (
 
 /**
  * List all unit inventory items (individual serialized items).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`
+ * (matches the inventory number), `warehouseId`, `storagePlaceId`, `nodeId`,
+ * `catalogItemId`, `sortBy` (default `InventoryNumber`), `sortOrder` (default `Asc`).
+ * Detached units — those not sitting in a node — are excluded.
+ * Same access rule and the same 403 `permissionDenied` / 401 `tokenInvalid` as the aggregate list.
  */
 export const inventoryItemsGetAllUnitsInfiniteOptions = (
   options?: Options<InventoryItemsGetAllUnitsData>,
@@ -1440,6 +1614,10 @@ export const marketplacesGetAccountsQueryKey = (options?: Options<MarketplacesGe
 
 /**
  * List marketplace accounts (paginated, searchable).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
+ * `type`, `isActive`, `sortBy` (default `Name`), `sortOrder` (default `Asc`).
+ * Requires `integrations.view`; 403 `permissionDenied` otherwise.
  */
 export const marketplacesGetAccountsOptions = (options?: Options<MarketplacesGetAccountsData>) =>
   queryOptions<
@@ -1467,6 +1645,10 @@ export const marketplacesGetAccountsInfiniteQueryKey = (
 
 /**
  * List marketplace accounts (paginated, searchable).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
+ * `type`, `isActive`, `sortBy` (default `Name`), `sortOrder` (default `Asc`).
+ * Requires `integrations.view`; 403 `permissionDenied` otherwise.
  */
 export const marketplacesGetAccountsInfiniteOptions = (
   options?: Options<MarketplacesGetAccountsData>,
@@ -1509,6 +1691,14 @@ export const marketplacesGetAccountsInfiniteOptions = (
 
 /**
  * Connects a marketplace account. The key is encrypted on write and never returned.
+ *
+ *     Body: `CreateMarketplaceAccountRequest` — `type`, `apiKey`, `clientId`,
+ * `isActive`, `syncIntervalMinutes` (defaults to `Marketplaces:DefaultSyncIntervalMinutes`).
+ * An active account is enqueued for a full sync right away, so its first errors surface on the run, not here.
+ * Errors:
+ * * 422 marketplaceApiError on type — no provider is registered for that marketplace
+ * * 422 marketplaceClientIdRequired on clientId — the provider declares requiresClientId and none was supplied
+ * Requires `integrations.edit`.
  */
 export const marketplacesCreateAccountMutation = (
   options?: Partial<Options<MarketplacesCreateAccountData>>,
@@ -1541,6 +1731,10 @@ export const marketplacesGetAccountsShortQueryKey = (
 /**
  * Id/name/type only, for filter dropdowns. Open to any authenticated user on purpose: the orders
  * pages filter by account, and a picker there must not require integrations.view.
+ *
+ * Query params: `type` (optional). Authentication is the only requirement, so the sole error this
+ * endpoint can produce is a 401 from the auth layer — `tokenInvalid` when the `sub` claim is
+ * unusable, otherwise a bare 401 with no body.
  */
 export const marketplacesGetAccountsShortOptions = (
   options?: Options<MarketplacesGetAccountsShortData>,
@@ -1565,6 +1759,10 @@ export const marketplacesGetAccountsShortOptions = (
 
 /**
  * Disconnects an account, cascading to its synced warehouses, cards and run history.
+ *
+ * Returns 404 `marketplaceAccountNotFound`, or 409 `marketplaceAccountHasOrders` when any
+ * posting was imported through it — those orders are warehouse history and outlive the connection.
+ * Requires `integrations.edit`.
  */
 export const marketplacesDeleteAccountMutation = (
   options?: Partial<Options<MarketplacesDeleteAccountData>>,
@@ -1595,6 +1793,10 @@ export const marketplacesGetAccountQueryKey = (options: Options<MarketplacesGetA
 
 /**
  * Account with aggregates. Probes the stored key so the UI can warn about a lost key ring.
+ *
+ * An unreadable key is reported as `credentialsUnreadable: true` on the DTO, not as an error —
+ * the account still has to be viewable and editable so the key can be entered again.
+ * Returns 404 `marketplaceAccountNotFound`. Requires `integrations.view`.
  */
 export const marketplacesGetAccountOptions = (options: Options<MarketplacesGetAccountData>) =>
   queryOptions<
@@ -1617,6 +1819,12 @@ export const marketplacesGetAccountOptions = (options: Options<MarketplacesGetAc
 
 /**
  * Updates an account. An empty `apiKey` keeps the stored one.
+ *
+ *     The account type is fixed at creation and is not part of the request. Errors:
+ * * 404 marketplaceAccountNotFound
+ * * 422 marketplaceClientIdRequired on clientId — the provider declares requiresClientId and none was supplied
+ * The new key is not verified here — use `POST accounts/{id}/test-connection` for that.
+ * Requires `integrations.edit`.
  */
 export const marketplacesUpdateAccountMutation = (
   options?: Partial<Options<MarketplacesUpdateAccountData>>,
@@ -1645,6 +1853,18 @@ export const marketplacesUpdateAccountMutation = (
 /**
  * Checks credentials without saving. When the body carries an apiKey the route id is ignored,
  * so a key can be verified before the account exists.
+ *
+ *     Body: `TestConnectionRequest` — `apiKey`, `clientId`, `type` (default `Ozon`).
+ * With an `apiKey` the route id may be any string (the UI passes `"new"`); without one it must
+ * parse as a GUID of an existing account. Errors:
+ * * 422 marketplaceApiError on type — no provider is registered for that marketplace
+ * * 422 marketplaceClientIdRequired on clientId
+ * * 404 marketplaceAccountNotFound — id is unparsable or unknown (only on the stored-key path)
+ * * 422 marketplaceCredentialsUnreadable on root — the stored key cannot be decrypted (Data Protection key ring lost)
+ * * 422 marketplaceCredentialsInvalid on apiKey — the marketplace rejected the credentials (401/403); args: marketplaceStatus, optional marketplaceResponse
+ * * 502 marketplaceApiError on root — the marketplace errored or is unreachable; args: marketplaceStatus, optional marketplaceResponse
+ * `marketplaceResponse` is the marketplace's body truncated to 2000 characters; request headers,
+ * where the key travels, never appear in these errors. Requires `integrations.edit`.
  */
 export const marketplacesTestConnectionMutation = (
   options?: Partial<Options<MarketplacesTestConnectionData>>,
@@ -1672,6 +1892,24 @@ export const marketplacesTestConnectionMutation = (
 
 /**
  * Queues a sync and returns 202 immediately — poll the run for progress.
+ *
+ *     Body: `StartSyncRequest` — `scope` (`All`, `Warehouses`, `Cards`, `Orders`).
+ * Answers 202 with `StartSyncResponse.syncRunId`; poll it through `GET sync-runs?ids=`.
+ * Errors returned by this call:
+ * * 404 marketplaceAccountNotFound
+ * * 409 marketplaceSyncAlreadyRunning — a run for this account is still Running
+ * A rejection can arrive two ways and a client must handle both: this cheap 409 guard, or a run that is
+ * accepted here and then ends `Failed` carrying `marketplaceSyncAlreadyRunning` because the
+ * worker's Postgres advisory lock was already taken. Codes a failed run can carry in
+ * `MarketplaceSyncRun.Error` (and in `MarketplaceAccount.LastSyncError`):
+ * * marketplaceAccountNotFound — the account was deleted between enqueue and run; args: accountId
+ * * marketplaceSyncAlreadyRunning — the advisory lock is held by another run
+ * * marketplaceCredentialsUnreadable — the stored key cannot be decrypted
+ * * marketplaceCredentialsInvalid — the marketplace rejected the credentials; args: marketplaceStatus, optional marketplaceResponse
+ * * marketplaceOrdersNotSupported — Orders scope on a provider without the Orders capability
+ * * marketplaceApiError — any other marketplace or unexpected failure; args: marketplaceStatus, optional marketplaceResponse when it came from the API
+ * * marketplaceSyncInterrupted — the run was left Running by an application shutdown and reconciled on the next start
+ * Requires `integrations.map`.
  */
 export const marketplacesStartSyncMutation = (
   options?: Partial<Options<MarketplacesStartSyncData>>,
@@ -1702,6 +1940,14 @@ export const marketplacesGetSyncRunsQueryKey = (options: Options<MarketplacesGet
 
 /**
  * Sync history for an account, newest first (paginated).
+ *
+ *     Query params: `page` (default 1), `pageSize` (default 20, max 200). An unknown account id
+ * yields an empty page rather than a 404. A failed run carries its machine-readable `error`
+ * (code + args) — see `POST accounts/{id}/sync` for the codes. An `Orders`-scope run also
+ * reports per-posting skips in `skippedOrders` (first 100, counted in full by `ordersSkipped`):
+ * * marketplaceOrderWarehouseNotMapped — the posting's marketplace warehouse has no WMS mapping
+ * * marketplaceOrderCardNotMapped — an item has no card, or its card is unmapped; the offending offerIds travel with the entry
+ * Requires `integrations.view`.
  */
 export const marketplacesGetSyncRunsOptions = (options: Options<MarketplacesGetSyncRunsData>) =>
   queryOptions<
@@ -1729,6 +1975,14 @@ export const marketplacesGetSyncRunsInfiniteQueryKey = (
 
 /**
  * Sync history for an account, newest first (paginated).
+ *
+ *     Query params: `page` (default 1), `pageSize` (default 20, max 200). An unknown account id
+ * yields an empty page rather than a 404. A failed run carries its machine-readable `error`
+ * (code + args) — see `POST accounts/{id}/sync` for the codes. An `Orders`-scope run also
+ * reports per-posting skips in `skippedOrders` (first 100, counted in full by `ordersSkipped`):
+ * * marketplaceOrderWarehouseNotMapped — the posting's marketplace warehouse has no WMS mapping
+ * * marketplaceOrderCardNotMapped — an item has no card, or its card is unmapped; the offending offerIds travel with the entry
+ * Requires `integrations.view`.
  */
 export const marketplacesGetSyncRunsInfiniteOptions = (
   options: Options<MarketplacesGetSyncRunsData>,
@@ -1776,7 +2030,11 @@ export const marketplacesGetSyncRunsByIdsQueryKey = (
 /**
  * Runs by id, for polling several accounts from one dialog.
  *
+ * Query param: `ids` (repeatable, at most 50; an empty list answers 200 with an empty array).
  * Unknown ids are simply absent from the response — the caller knows what it asked for.
+ * Returns 422 `outOfRange` on `ids` above the limit, `args`: `max`.
+ * Run payloads carry the same `error` and `skippedOrders` codes as `GET accounts/{id}/sync-runs`.
+ * Requires `integrations.view`.
  */
 export const marketplacesGetSyncRunsByIdsOptions = (
   options?: Options<MarketplacesGetSyncRunsByIdsData>,
@@ -1805,6 +2063,11 @@ export const marketplacesGetOrderSyncTargetsQueryKey = (
 
 /**
  * Accounts that can import orders — the source list for the sync dialog.
+ *
+ * Only active accounts whose provider declares the `Orders` capability are listed; an unreadable
+ * key is surfaced as `credentialsUnreadable` on the row instead of dropping it, so the dialog can
+ * explain why the account cannot be ticked. Produces no error of its own beyond
+ * 403 `permissionDenied`. Requires `integrations.map`.
  */
 export const marketplacesGetOrderSyncTargetsOptions = (
   options?: Options<MarketplacesGetOrderSyncTargetsData>,
@@ -1829,6 +2092,23 @@ export const marketplacesGetOrderSyncTargetsOptions = (
 
 /**
  * Queues order sync for several accounts at once; each account succeeds or fails on its own.
+ *
+ *     Body: `SyncOrdersRequest` — `accountIds` (duplicates are collapsed, at most 50).
+ * Each account is checked independently and the call answers 202 with `SyncOrdersResponse`:
+ * queued accounts in `items` as `{ accountId, syncRunId }`, the rest in `failedItems` as
+ * `{ accountId, accountName, error }` carrying the real code:
+ * * marketplaceAccountNotFound — the id matched no account (accountName is null)
+ * * marketplaceAccountInactive — the account is disabled
+ * * marketplaceOrdersNotSupported — no provider, or the provider lacks the Orders capability
+ * * marketplaceCredentialsUnreadable — the stored key cannot be decrypted
+ * * marketplaceSyncAlreadyRunning — a run for this account is still Running
+ * There is no transaction: accounts queued before a later one fails stay queued.
+ * The only whole-request errors are 422 `outOfRange` on `accountIds` above the limit
+ * (`args`: `max`) and 403 `permissionDenied` when `integrations.map` is missing —
+ * 403 is never per item.
+ * A queued run can still end `Failed` with `marketplaceSyncAlreadyRunning` when the worker
+ * loses the advisory lock, so a client that only handles the `failedItems` form misses half the cases;
+ * the full list of run-level codes is on `POST accounts/{id}/sync`.
  */
 export const marketplacesSyncOrdersMutation = (
   options?: Partial<Options<MarketplacesSyncOrdersData>>,
@@ -1860,6 +2140,11 @@ export const marketplacesGetWarehousesQueryKey = (
 
 /**
  * Marketplace warehouses of an account with their WMS mapping (paginated, searchable).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 50, max 200),
+ * `includeArchived` (default false), `sortBy` (default `Name`), `sortOrder` (default `Asc`).
+ * An unknown account id yields an empty page rather than a 404.
+ * Requires `integrations.view`; 403 `permissionDenied` otherwise.
  */
 export const marketplacesGetWarehousesOptions = (options: Options<MarketplacesGetWarehousesData>) =>
   queryOptions<
@@ -1887,6 +2172,11 @@ export const marketplacesGetWarehousesInfiniteQueryKey = (
 
 /**
  * Marketplace warehouses of an account with their WMS mapping (paginated, searchable).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 50, max 200),
+ * `includeArchived` (default false), `sortBy` (default `Name`), `sortOrder` (default `Asc`).
+ * An unknown account id yields an empty page rather than a 404.
+ * Requires `integrations.view`; 403 `permissionDenied` otherwise.
  */
 export const marketplacesGetWarehousesInfiniteOptions = (
   options: Options<MarketplacesGetWarehousesData>,
@@ -1932,6 +2222,11 @@ export const marketplacesGetWarehousesInfiniteOptions = (
 
 /**
  * Maps a marketplace warehouse to a WMS warehouse. Null clears the mapping.
+ *
+ *     Body: `SetWarehouseMappingRequest` — `warehouseId` (null clears). Errors:
+ * * 404 marketplaceWarehouseNotFound
+ * * 422 warehouseNotFound on warehouseId — no WMS warehouse with that id
+ * Requires `integrations.map`.
  */
 export const marketplacesSetWarehouseMappingMutation = (
   options?: Partial<Options<MarketplacesSetWarehouseMappingData>>,
@@ -1962,6 +2257,12 @@ export const marketplacesGetCardsQueryKey = (options: Options<MarketplacesGetCar
 
 /**
  * Marketplace cards of an account with their catalog mapping (paginated, searchable, filterable).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 50, max 200), `searchString`,
+ * `mappingState` (default `All`; `Unmapped`, `Mapped`, `ArchivedItem`),
+ * `includeArchived` (default false), `catalogItemId`, `sortBy` (default `Name`),
+ * `sortOrder` (default `Asc`). An unknown account id yields an empty page rather than a 404.
+ * Requires `integrations.view`; 403 `permissionDenied` otherwise.
  */
 export const marketplacesGetCardsOptions = (options: Options<MarketplacesGetCardsData>) =>
   queryOptions<
@@ -1989,6 +2290,12 @@ export const marketplacesGetCardsInfiniteQueryKey = (
 
 /**
  * Marketplace cards of an account with their catalog mapping (paginated, searchable, filterable).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 50, max 200), `searchString`,
+ * `mappingState` (default `All`; `Unmapped`, `Mapped`, `ArchivedItem`),
+ * `includeArchived` (default false), `catalogItemId`, `sortBy` (default `Name`),
+ * `sortOrder` (default `Asc`). An unknown account id yields an empty page rather than a 404.
+ * Requires `integrations.view`; 403 `permissionDenied` otherwise.
  */
 export const marketplacesGetCardsInfiniteOptions = (options: Options<MarketplacesGetCardsData>) =>
   infiniteQueryOptions<
@@ -2029,6 +2336,14 @@ export const marketplacesGetCardsInfiniteOptions = (options: Options<Marketplace
 
 /**
  * Maps a card to a catalog item. Null clears the mapping.
+ *
+ *     Body: `SetCardMappingRequest` — `catalogItemId` (null clears). Errors:
+ * * 404 marketplaceCardNotFound
+ * * 422 catalogItemNotFound on catalogItemId
+ * * 422 marketplaceCardMappingTypeNotAllowed on catalogItemId — the target is a ProductGroup
+ * * 422 marketplaceCardMappingArchivedItem on catalogItemId — the target is archived
+ * The archive check only applies when setting a mapping: an item archived afterwards keeps it.
+ * Clearing (`catalogItemId: null`) skips all three target checks. Requires `integrations.map`.
  */
 export const marketplacesSetCardMappingMutation = (
   options?: Partial<Options<MarketplacesSetCardMappingData>>,
@@ -2056,6 +2371,10 @@ export const marketplacesSetCardMappingMutation = (
 
 /**
  * Matches still-unmapped cards to catalog items by article, then by barcode. Existing mappings are left alone.
+ *
+ * Anything ambiguous (no candidate or more than one) is left for a human, so the operation never fails
+ * on a card: 404 `marketplaceAccountNotFound` is the only error besides 403 `permissionDenied`.
+ * Requires `integrations.map`.
  */
 export const marketplacesAutoMapCardsMutation = (
   options?: Partial<Options<MarketplacesAutoMapCardsData>>,
@@ -2087,6 +2406,9 @@ export const marketplacesGetUnmappedCountQueryKey = (
 
 /**
  * Unmapped card count across all active accounts — feeds the sidebar badge.
+ *
+ * Archived cards and cards of inactive accounts are excluded. Takes no parameters and produces no error
+ * beyond 403 `permissionDenied`. Requires `integrations.view`.
  */
 export const marketplacesGetUnmappedCountOptions = (
   options?: Options<MarketplacesGetUnmappedCountData>,
@@ -2112,6 +2434,17 @@ export const marketplacesGetUnmappedCountOptions = (
 export const ordersGetAllQueryKey = (options?: Options<OrdersGetAllData>) =>
   createQueryKey("ordersGetAll", options);
 
+/**
+ * List orders (paginated, filtered, sorted).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
+ * `warehouseId`, `type`, `status`, `marketplaceType`, `marketplaceAccountId`,
+ * `marketplaceStatus`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * Any of the three marketplace filters also excludes orders without a `MarketplaceOrder`, so they
+ * never match Direct orders.
+ * Requires `orders.view` or `orders.view_assigned`; `orders.assemble_assigned` alone does
+ * not open the list (403).
+ */
 export const ordersGetAllOptions = (options?: Options<OrdersGetAllData>) =>
   queryOptions<
     OrdersGetAllResponse,
@@ -2135,6 +2468,17 @@ export const ordersGetAllInfiniteQueryKey = (
   options?: Options<OrdersGetAllData>,
 ): QueryKey<Options<OrdersGetAllData>> => createQueryKey("ordersGetAll", options, true);
 
+/**
+ * List orders (paginated, filtered, sorted).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
+ * `warehouseId`, `type`, `status`, `marketplaceType`, `marketplaceAccountId`,
+ * `marketplaceStatus`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * Any of the three marketplace filters also excludes orders without a `MarketplaceOrder`, so they
+ * never match Direct orders.
+ * Requires `orders.view` or `orders.view_assigned`; `orders.assemble_assigned` alone does
+ * not open the list (403).
+ */
 export const ordersGetAllInfiniteOptions = (options?: Options<OrdersGetAllData>) =>
   infiniteQueryOptions<
     OrdersGetAllResponse,
@@ -2174,6 +2518,17 @@ export const ordersGetAllInfiniteOptions = (options?: Options<OrdersGetAllData>)
 export const ordersGetAllAssemblyQueryKey = (options?: Options<OrdersGetAllAssemblyData>) =>
   createQueryKey("ordersGetAllAssembly", options);
 
+/**
+ * The current user's personal assembly worklist: full details of Assembly-status orders that have a task assigned to them.
+ *
+ * Query params: `warehouseId` (optional). Not paginated — returns a plain list.
+ * Only orders in `Assembly` status with at least one `AssemblyTask` assigned to the caller are
+ * returned, and each order carries only that caller's own tasks; other assemblers' tasks are filtered out.
+ * Every task box component is annotated with `containsUnit`, computed by walking the Bundle/Variation
+ * tree — the client uses it to exclude such tasks from batch assembly.
+ * Requires view access to orders (`orders.view`, `orders.view_assigned` or
+ * `orders.assemble_assigned`).
+ */
 export const ordersGetAllAssemblyOptions = (options?: Options<OrdersGetAllAssemblyData>) =>
   queryOptions<
     OrdersGetAllAssemblyResponse,
@@ -2193,6 +2548,12 @@ export const ordersGetAllAssemblyOptions = (options?: Options<OrdersGetAllAssemb
     queryKey: ordersGetAllAssemblyQueryKey(options),
   });
 
+/**
+ * Delete an order. Only allowed in Draft status.
+ *
+ * Returns 422 `orderNotDraft` for any other status, 404 `orderNotFound` if it does not exist.
+ * Requires `orders.edit` or `orders.edit_assigned`.
+ */
 export const ordersDeleteMutation = (
   options?: Partial<Options<OrdersDeleteData>>,
 ): UseMutationOptions<OrdersDeleteResponse, OrdersDeleteError, Options<OrdersDeleteData>> => {
@@ -2216,6 +2577,13 @@ export const ordersDeleteMutation = (
 export const ordersGetByIdQueryKey = (options: Options<OrdersGetByIdData>) =>
   createQueryKey("ordersGetById", options);
 
+/**
+ * Get full order details — boxes, components, assembly tasks with their fulfillments, and marketplace data.
+ *
+ * Returns 404 `orderNotFound` if the order does not exist.
+ * Requires `orders.view` or `orders.view_assigned`; `orders.assemble_assigned` alone does
+ * not open the order page (403).
+ */
 export const ordersGetByIdOptions = (options: Options<OrdersGetByIdData>) =>
   queryOptions<
     OrdersGetByIdResponse,
@@ -2235,6 +2603,13 @@ export const ordersGetByIdOptions = (options: Options<OrdersGetByIdData>) =>
     queryKey: ordersGetByIdQueryKey(options),
   });
 
+/**
+ * Update an order's notes and planned shipment date.
+ *
+ * Body: `UpdateOrderRequest` — only `notes` and `plannedShipmentAt` are writable here;
+ * composition and status are changed through their own endpoints. Allowed in any status.
+ * Returns 404 `orderNotFound`. Requires `orders.edit` or `orders.edit_assigned`.
+ */
 export const ordersUpdateMutation = (
   options?: Partial<Options<OrdersUpdateData>>,
 ): UseMutationOptions<OrdersUpdateResponse, OrdersUpdateError, Options<OrdersUpdateData>> => {
@@ -2255,6 +2630,14 @@ export const ordersUpdateMutation = (
   return mutationOptions;
 };
 
+/**
+ * Create a Direct (non-marketplace) order in Draft status.
+ *
+ * Body: `CreateDirectOrderRequest` — warehouseId (required), notes, plannedShipmentAt.
+ * The order is created empty; boxes and components are added afterwards.
+ * Returns 422 `warehouseNotFound` for an unknown warehouse.
+ * Requires `orders.edit`, or `orders.edit_assigned` for the target warehouse.
+ */
 export const ordersCreateDirectMutation = (
   options?: Partial<Options<OrdersCreateDirectData>>,
 ): UseMutationOptions<
@@ -2279,6 +2662,21 @@ export const ordersCreateDirectMutation = (
   return mutationOptions;
 };
 
+/**
+ * Move the order to another status.
+ *
+ *     Body: `TransitionOrderStatusRequest` — `targetStatus`. Allowed transitions:
+ * * Draft → Confirmed | Canceled
+ * * Confirmed → Draft | Assembly | Canceled
+ * * Assembly → Confirmed | Canceled
+ * * Assembled → Shipped
+ * Anything else is 422 `orderInvalidStatusTransition`. Assembly → Confirmed is additionally refused
+ * when any assembly task is already `Done`; otherwise it deletes every assembly task of the order and
+ * restores the inventory of their fulfillments. Cancelling is refused with 422 `orderHasFulfillments`
+ * while any fulfillment still exists. Assembled is reached automatically when the last task completes, not
+ * through this endpoint. Returns 404 `orderNotFound`.
+ * Requires `orders.edit` or `orders.edit_assigned`.
+ */
 export const ordersTransitionStatusMutation = (
   options?: Partial<Options<OrdersTransitionStatusData>>,
 ): UseMutationOptions<
@@ -2303,6 +2701,13 @@ export const ordersTransitionStatusMutation = (
   return mutationOptions;
 };
 
+/**
+ * Take a Confirmed order for yourself: moves it to Assembly and creates one task with all of its boxes, assigned to the caller.
+ *
+ * Requires `orders.self_assign` and an assignment to the order's warehouse — otherwise 403, with
+ * `orderNotAssignedToWarehouse` in the latter case. Returns 422 `orderNotConfirmed` if the order
+ * is in any other status, 404 `orderNotFound` if it does not exist.
+ */
 export const ordersSelfAssignMutation = (
   options?: Partial<Options<OrdersSelfAssignData>>,
 ): UseMutationOptions<
@@ -2330,8 +2735,25 @@ export const ordersSelfAssignMutation = (
 /**
  * Marketplace labels for the given orders, merged into one printable PDF.
  *
- * Lives here rather than under integrations because it is invoked from the order list and is
+ *     Lives here rather than under integrations because it is invoked from the order list and is
  * scoped by warehouse like every other order operation.
+ * Body: `orderIds` (deduplicated, at most int OrdersController.MaxLabelOrders) and an optional
+ * `grouping`. Answers `application/pdf` — one merged document in the order the ids were sent.
+ * All or nothing: if any requested label is missing the file is withheld entirely. A batch of 30
+ * quietly arriving with 28 labels means two unshipped boxes.
+ * * 422 required — empty orderIds
+ * * 422 outOfRange (args.max) — more than int OrdersController.MaxLabelOrders requested
+ * * 403 orderNotAssignedToWarehouse — an order lies outside the caller's warehouses
+ * * 422 marketplaceOrderNotFromMarketplace (args.orderIds) — an order has no posting
+ * * 422 marketplaceOrderNotAwaitingDeliver (args.postingNumbers, args.count) —
+ * a label is not stored yet and its posting is not awaiting shipment
+ * * 409 marketplaceLabelNotReady (args.postingNumbers, args.count) — the
+ * marketplace has not produced every label yet
+ * * 502 marketplaceApiError (args.marketplaceStatus, args.marketplaceResponse)
+ * `count` travels beside `postingNumbers` because the client interpolates a scalar to pluralize;
+ * an array cannot. Per-posting labels are cached in `DataFile`, so a repeat call does not hit the
+ * marketplace; the merged document itself is not stored.
+ * Requires `orders.view`, or `orders.view_assigned` limited to the caller's warehouses.
  */
 export const ordersGetLabelsMutation = (
   options?: Partial<Options<OrdersGetLabelsData>>,
@@ -2353,6 +2775,17 @@ export const ordersGetLabelsMutation = (
   return mutationOptions;
 };
 
+/**
+ * Self-assign several orders in one request, with partial-success semantics.
+ *
+ * Body: `BatchSelfAssignRequest` — `orderIds` (duplicates are collapsed). Each order is checked
+ * independently and always answers 200 with `BatchSelfAssignResponse`: successful ids in
+ * `assignedOrderIds`, the rest in `failedItems` as `{ orderId, orderNumber, error }` with the
+ * real error code (`orderNotFound`, `orderNotAssignedToWarehouse`, `orderNotConfirmed`, …).
+ * There is no transaction: already-assigned orders stay assigned when later ones fail.
+ * 403 is returned only for the request as a whole, when `orders.self_assign` is missing.
+ * The route carries no id, so realtime change events are published explicitly for each assigned order.
+ */
 export const ordersBatchSelfAssignMutation = (
   options?: Partial<Options<OrdersBatchSelfAssignData>>,
 ): UseMutationOptions<
@@ -2377,6 +2810,17 @@ export const ordersBatchSelfAssignMutation = (
   return mutationOptions;
 };
 
+/**
+ * Add an empty box to the order.
+ *
+ * Body: `CreateOrderBoxRequest` — `label`.
+ * Allowed in Draft, Confirmed and Assembly; any other status is 422 `orderInvalidStatusTransition`.
+ * Permission depends on status: in Draft/Confirmed `orders.edit` / `orders.edit_assigned` or
+ * `orders.assemble_assigned` is enough, but in Assembly only `orders.assemble_assigned` is
+ * accepted — during assembly boxes are managed by the assembler, not the admin page.
+ * Callers without the unscoped `orders.edit` must be assigned to the order's warehouse
+ * (403 `orderNotAssignedToWarehouse`). Returns 404 `orderNotFound`.
+ */
 export const ordersAddBoxMutation = (
   options?: Partial<Options<OrdersAddBoxData>>,
 ): UseMutationOptions<OrdersAddBoxResponse, OrdersAddBoxError, Options<OrdersAddBoxData>> => {
@@ -2397,6 +2841,14 @@ export const ordersAddBoxMutation = (
   return mutationOptions;
 };
 
+/**
+ * Delete a box. Only an empty box can be deleted.
+ *
+ * Returns 422 `validationError` if the box still has components, 404 `orderNotFound` or
+ * `orderBoxNotFound`.
+ * Requires `orders.edit` / `orders.edit_assigned` or `orders.assemble_assigned`; while the
+ * order is in Assembly only `orders.assemble_assigned` is accepted.
+ */
 export const ordersRemoveBoxMutation = (
   options?: Partial<Options<OrdersRemoveBoxData>>,
 ): UseMutationOptions<
@@ -2421,6 +2873,14 @@ export const ordersRemoveBoxMutation = (
   return mutationOptions;
 };
 
+/**
+ * Rename a box.
+ *
+ * Body: `UpdateOrderBoxRequest` — `label`; the box contents are not touched, and no status
+ * restriction applies (the label stays editable even during Assembly).
+ * Returns 404 `orderNotFound` or `orderBoxNotFound`.
+ * Requires `orders.edit` or `orders.edit_assigned`.
+ */
 export const ordersUpdateBoxMutation = (
   options?: Partial<Options<OrdersUpdateBoxData>>,
 ): UseMutationOptions<
@@ -2445,6 +2905,15 @@ export const ordersUpdateBoxMutation = (
   return mutationOptions;
 };
 
+/**
+ * Add a catalog item to a box, or overwrite its quantity if the box already holds that item.
+ *
+ * Body: `UpsertOrderBoxComponentRequest` — `catalogItemId`, `quantity`. Upsert: an existing
+ * component for the same catalog item has its quantity replaced rather than summed.
+ * Allowed only in Draft or Confirmed — otherwise 422 `orderInvalidStatusTransition`.
+ * Returns 422 `catalogItemNotFound`, 404 `orderNotFound` or `orderBoxNotFound`.
+ * Requires `orders.edit` or `orders.edit_assigned`.
+ */
 export const ordersAddComponentMutation = (
   options?: Partial<Options<OrdersAddComponentData>>,
 ): UseMutationOptions<
@@ -2469,6 +2938,13 @@ export const ordersAddComponentMutation = (
   return mutationOptions;
 };
 
+/**
+ * Remove a component from a box.
+ *
+ * Allowed only in Draft or Confirmed — otherwise 422 `orderInvalidStatusTransition`.
+ * Returns 404 `orderNotFound` or `orderBoxComponentNotFound`.
+ * Requires `orders.edit` or `orders.edit_assigned`.
+ */
 export const ordersRemoveComponentMutation = (
   options?: Partial<Options<OrdersRemoveComponentData>>,
 ): UseMutationOptions<
@@ -2493,6 +2969,14 @@ export const ordersRemoveComponentMutation = (
   return mutationOptions;
 };
 
+/**
+ * Change a box component's catalog item and quantity.
+ *
+ * Body: `UpsertOrderBoxComponentRequest`. Allowed only in Draft or Confirmed — otherwise 422
+ * `orderInvalidStatusTransition`. Returns 422 `catalogItemNotFound` when switching to an unknown
+ * item, 404 `orderNotFound`, `orderBoxNotFound` or `orderBoxComponentNotFound`.
+ * Requires `orders.edit` or `orders.edit_assigned`.
+ */
 export const ordersUpdateComponentMutation = (
   options?: Partial<Options<OrdersUpdateComponentData>>,
 ): UseMutationOptions<
@@ -2517,6 +3001,19 @@ export const ordersUpdateComponentMutation = (
   return mutationOptions;
 };
 
+/**
+ * Create an assembly task assigned to one employee, carrying a chosen split of the order's boxes and components.
+ *
+ * Body: `CreateAssemblyTaskRequest` — `assignedToId`, `boxes[]` with
+ * `orderBoxId` and `components[]` (`catalogItemId`, `quantity`). The task starts as
+ * `Pending`. One order box may be split across several tasks, but the sum of a catalog item's
+ * quantities over all tasks may not exceed the quantity in the order box.
+ * Errors: 422 `orderNotAssembly` if the order is not in Assembly, 422 `orderBoxNotFound` for a box
+ * outside this order, 422 `orderBoxComponentNotFound` for an item absent from the box, 422
+ * `assemblyTaskQuantityExceedsAvailable` when the requested quantity exceeds what other tasks left
+ * free. Returns 404 `orderNotFound`.
+ * Requires `orders.edit` or `orders.edit_assigned`.
+ */
 export const ordersCreateAssemblyTaskMutation = (
   options?: Partial<Options<OrdersCreateAssemblyTaskData>>,
 ): UseMutationOptions<
@@ -2541,6 +3038,14 @@ export const ordersCreateAssemblyTaskMutation = (
   return mutationOptions;
 };
 
+/**
+ * Delete an assembly task, restoring the inventory of any fulfillments it already had.
+ *
+ * Only possible while the order is in Assembly — otherwise 422 `assemblyTaskNotDeletable`.
+ * Deletion cascades to the task's boxes, components and fulfillments; picked stock is returned to its source
+ * nodes first. Returns 404 `orderNotFound` or `assemblyTaskNotFound`.
+ * Requires `orders.edit` or `orders.edit_assigned`.
+ */
 export const ordersDeleteAssemblyTaskMutation = (
   options?: Partial<Options<OrdersDeleteAssemblyTaskData>>,
 ): UseMutationOptions<
@@ -2565,6 +3070,14 @@ export const ordersDeleteAssemblyTaskMutation = (
   return mutationOptions;
 };
 
+/**
+ * Reassign an assembly task to another employee.
+ *
+ * Body: `UpdateAssemblyTaskRequest` — `assignedToId`; the task's boxes and components are not
+ * changed here. Returns 422 `assemblyTaskAlreadyDone` once the task is `Done`, 404
+ * `orderNotFound` or `assemblyTaskNotFound`.
+ * Requires `orders.edit` or `orders.edit_assigned`.
+ */
 export const ordersUpdateAssemblyTaskMutation = (
   options?: Partial<Options<OrdersUpdateAssemblyTaskData>>,
 ): UseMutationOptions<
@@ -2589,6 +3102,20 @@ export const ordersUpdateAssemblyTaskMutation = (
   return mutationOptions;
 };
 
+/**
+ * Move an assembly task to another status.
+ *
+ *     Body: `TransitionAssemblyTaskStatusRequest` — `targetStatus`. Allowed transitions:
+ * * Pending → InProgress
+ * * InProgress → Done
+ * * InProgress → Pending
+ * Anything else is 422 `orderInvalidStatusTransition`. Completing the last remaining task of an
+ * Assembly-status order moves the order itself to `Assembled`. Fulfillment completeness is not checked
+ * here — a task can be marked Done with components left unfulfilled.
+ * Returns 404 `orderNotFound` or `assemblyTaskNotFound`.
+ * Requires `orders.assemble_assigned`, `orders.edit` or `orders.edit_assigned`, plus an
+ * assignment to the order's warehouse in every case (403 `orderNotAssignedToWarehouse`).
+ */
 export const ordersTransitionTaskStatusMutation = (
   options?: Partial<Options<OrdersTransitionTaskStatusData>>,
 ): UseMutationOptions<
@@ -2613,6 +3140,16 @@ export const ordersTransitionTaskStatusMutation = (
   return mutationOptions;
 };
 
+/**
+ * Change the quantity a task must assemble for one of its box components.
+ *
+ * Body: `UpdateAssemblyTaskBoxComponentRequest` — `quantity`. Admin-side correction of the split
+ * while assembly is running: allowed only in Assembly status, otherwise 422 `orderNotAssembly`.
+ * The new quantity may not exceed what the order box has left after the other tasks' allocations (this
+ * task's own current value is excluded from that sum) — 422 `assemblyTaskQuantityExceedsAvailable`.
+ * Returns 404 `orderNotFound` or `assemblyTaskBoxComponentNotFound`.
+ * Requires `orders.edit` or `orders.edit_assigned`.
+ */
 export const ordersUpdateTaskBoxComponentMutation = (
   options?: Partial<Options<OrdersUpdateTaskBoxComponentData>>,
 ): UseMutationOptions<
@@ -2640,6 +3177,13 @@ export const ordersUpdateTaskBoxComponentMutation = (
 export const ordersGetTaskMoveTargetsQueryKey = (options: Options<OrdersGetTaskMoveTargetsData>) =>
   createQueryKey("ordersGetTaskMoveTargets", options);
 
+/**
+ * List the order boxes a task component can be moved into — every box of the order except the one it currently sits in.
+ *
+ * Only available in Assembly status (422 `orderNotAssembly`) and only to holders of
+ * `orders.assemble_assigned` assigned to the order's warehouse — `orders.edit` alone gets 403.
+ * Returns 404 `orderNotFound` or `assemblyTaskBoxComponentNotFound`.
+ */
 export const ordersGetTaskMoveTargetsOptions = (options: Options<OrdersGetTaskMoveTargetsData>) =>
   queryOptions<
     OrdersGetTaskMoveTargetsResponse,
@@ -2659,6 +3203,21 @@ export const ordersGetTaskMoveTargetsOptions = (options: Options<OrdersGetTaskMo
     queryKey: ordersGetTaskMoveTargetsQueryKey(options),
   });
 
+/**
+ * Move part or all of this task's allocation of a component into another box, or into a newly created one.
+ *
+ * Body: `MoveTaskBoxComponentRequest` — `quantity` plus exactly one of `targetBoxId` or
+ * `newBoxLabel` (422 `validationError` if both or neither are given).
+ * The task's own component split and the order's overall composition are updated by the same amount at
+ * once; other tasks holding the same box/item are untouched. The movable amount is this task's unfulfilled
+ * remainder (`quantity` minus already confirmed fulfillments), not the box's total — 422
+ * `outOfRange` otherwise. A task box left empty by the move is deleted.
+ * Further errors: 422 `orderBoxNotFound` for a target box that does not exist or belongs to another
+ * order, 422 `validationError` if the target equals the source box, 422 `orderNotAssembly`
+ * outside Assembly status, 404 `orderNotFound` or `assemblyTaskBoxComponentNotFound`.
+ * Requires `orders.assemble_assigned` and an assignment to the order's warehouse; `orders.edit`
+ * alone gets 403.
+ */
 export const ordersMoveTaskComponentMutation = (
   options?: Partial<Options<OrdersMoveTaskComponentData>>,
 ): UseMutationOptions<
@@ -2683,6 +3242,27 @@ export const ordersMoveTaskComponentMutation = (
   return mutationOptions;
 };
 
+/**
+ * Record that a task component was picked, deducting the stock from the warehouse immediately.
+ *
+ *     Body: `AddFulfillmentRequest` — exactly one of three shapes must be filled:
+ * * Standard — sourceNodeId + quantity
+ * * Unit — unitInventoryItemId
+ * * Bundle — bundleComponents[], one entry per resolved leaf
+ * Anything else is 422 `assemblyFulfillmentInvalidType`. For a `Variation` component the client
+ * must also send `resolvedCatalogItemId` (422 `required`), which is verified to be a member of the
+ * variation; in the Unit case it is taken from the instance instead.
+ * Inventory moves on write: Standard decrements the node's count, Unit detaches the instance. A Unit or
+ * Bundle fulfillment always counts as exactly one unit of progress, so N identical bundles need N
+ * fulfillments.
+ * Errors: 422 `assemblyComponentAlreadyFulfilled` when the component is already complete (re-checked
+ * against fresh state to absorb duplicate submits), 422 `insufficientInventory`,
+ * `unitInventoryItemNotFound`, `inventoryItemNodeMismatch`, `catalogItemNotFound`,
+ * 422 `orderNotAssembly` outside Assembly status, 404 `orderNotFound` or
+ * `assemblyTaskBoxComponentNotFound`.
+ * Requires `orders.assemble_assigned`, `orders.edit` or `orders.edit_assigned`, plus an
+ * assignment to the order's warehouse in every case.
+ */
 export const ordersAddFulfillmentMutation = (
   options?: Partial<Options<OrdersAddFulfillmentData>>,
 ): UseMutationOptions<
@@ -2707,6 +3287,16 @@ export const ordersAddFulfillmentMutation = (
   return mutationOptions;
 };
 
+/**
+ * Undo a fulfillment, returning the picked stock to its source node.
+ *
+ * Standard rows increment the node count back, Unit rows reattach the instance, Bundle rows restore every
+ * leaf. No status guard: this works whatever status the order is in.
+ * Returns 404 `orderNotFound` or `assemblyFulfillmentNotFound` (the fulfillment must belong to the
+ * component, task box and task named in the route).
+ * Requires `orders.assemble_assigned`, `orders.edit` or `orders.edit_assigned`, plus an
+ * assignment to the order's warehouse in every case.
+ */
 export const ordersRemoveFulfillmentMutation = (
   options?: Partial<Options<OrdersRemoveFulfillmentData>>,
 ): UseMutationOptions<
@@ -2731,6 +3321,27 @@ export const ordersRemoveFulfillmentMutation = (
   return mutationOptions;
 };
 
+/**
+ * Record many fulfillments across several orders and tasks in one request, with partial-success semantics.
+ *
+ * Body: `BatchFulfillRequest` — `items[]` (`orderId`, `taskId`, `taskBoxId`,
+ * `componentId`, `fulfillment`) and `autoCompleteTasks`. Items are processed grouped by
+ * order; the same `componentId` may appear several times, which is how N identical bundles are picked.
+ * Always answers 200 with `BatchFulfillResponse`: each failure lands in `failedItems` as
+ * `{ orderId, componentId, catalogItemName, error }` carrying the real error code
+ * (`orderNotFound`, `orderNotAssignedToWarehouse`, `orderNotAssembly`,
+ * `assemblyTaskBoxComponentNotFound`, `insufficientInventory`, `unitInventoryItemNotFound`,
+ * `inventoryItemNodeMismatch`, `assemblyComponentAlreadyFulfilled`, …), while successful items are
+ * committed and stay committed. There is no overall transaction.
+ * With `autoCompleteTasks: false` task statuses are never touched and `completedTaskIds` comes back
+ * empty. With `true`, every touched task is advanced Pending → InProgress, and InProgress → Done only
+ * when all of its components are fully fulfilled; only genuinely completed tasks are listed in
+ * `completedTaskIds`. That step is best-effort — failures there are swallowed and do not fail the
+ * request. Completing the last task still auto-moves the order to `Assembled`.
+ * 403 is returned only for the request as a whole, when neither `orders.assemble_assigned` nor
+ * `orders.edit` / `orders.edit_assigned` is held; warehouse assignment is then checked per order.
+ * The route carries no id, so realtime change events are published explicitly for each affected order.
+ */
 export const ordersBatchFulfillMutation = (
   options?: Partial<Options<OrdersBatchFulfillData>>,
 ): UseMutationOptions<
@@ -2760,6 +3371,11 @@ export const permissionsGetAllQueryKey = (options?: Options<PermissionsGetAllDat
 
 /**
  * Get all available static permissions defined in the system.
+ *
+ * Requires authentication only — the list is the same for everyone and says nothing about the caller's
+ * own rights. It is the source of the strings accepted by `PUT /api/roles` and
+ * `PUT /api/users/{id}`; anything outside it is rejected there with `permissionNotFound`.
+ * No error codes.
  */
 export const permissionsGetAllOptions = (options?: Options<PermissionsGetAllData>) =>
   queryOptions<
@@ -2887,6 +3503,13 @@ export const realtimeAcquireLockMutation = (
   return mutationOptions;
 };
 
+/**
+ * Drops this connection's claim on the object. An object is held by one user but by any number of their
+ * connections, so `editLockReleased` is published only when the last holder leaves.
+ *
+ * Returns 409 `editLockNotHeld` when this connection does not hold the lock, and 422
+ * `realtimeConnectionUnknown` when the connection is closed or belongs to another user.
+ */
 export const realtimeReleaseLockMutation = (
   options?: Partial<Options<RealtimeReleaseLockData>>,
 ): UseMutationOptions<
@@ -2916,6 +3539,14 @@ export const receiptsGetAllQueryKey = (options?: Options<ReceiptsGetAllData>) =>
 
 /**
  * List receipts with pagination, filtering, and search.
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
+ * `warehouseId`, `status`, `reason`, `sortBy` (default `Number`),
+ * `sortOrder` (default `Desc`).
+ * Requires `receipts.view` or `receipts.view_assigned`; `receipts.process_assigned` alone
+ * also opens the list but narrows it to receipts in `Processing` status. Without any of them, 403
+ * `permissionDenied`; 401 `tokenInvalid` when an `_assigned` permission is used but the
+ * token carries no resolvable user.
  */
 export const receiptsGetAllOptions = (options?: Options<ReceiptsGetAllData>) =>
   queryOptions<
@@ -2942,6 +3573,14 @@ export const receiptsGetAllInfiniteQueryKey = (
 
 /**
  * List receipts with pagination, filtering, and search.
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
+ * `warehouseId`, `status`, `reason`, `sortBy` (default `Number`),
+ * `sortOrder` (default `Desc`).
+ * Requires `receipts.view` or `receipts.view_assigned`; `receipts.process_assigned` alone
+ * also opens the list but narrows it to receipts in `Processing` status. Without any of them, 403
+ * `permissionDenied`; 401 `tokenInvalid` when an `_assigned` permission is used but the
+ * token carries no resolvable user.
  */
 export const receiptsGetAllInfiniteOptions = (options?: Options<ReceiptsGetAllData>) =>
   infiniteQueryOptions<
@@ -2981,6 +3620,11 @@ export const receiptsGetAllInfiniteOptions = (options?: Options<ReceiptsGetAllDa
 
 /**
  * Create a new receipt in Draft status.
+ *
+ * Body: `CreateReceiptRequest` — warehouseId (required), name, reason, notes, plannedDeliveryDate.
+ * Errors: 422 `warehouseNotFound` for an unknown warehouse; 403 `permissionDenied` without
+ * `receipts.edit`/`receipts.edit_assigned`, or 403 `receiptNotAssignedToWarehouse` when
+ * only `receipts.edit_assigned` is held and the target warehouse is not assigned.
  */
 export const receiptsCreateMutation = (
   options?: Partial<Options<ReceiptsCreateData>>,
@@ -3004,6 +3648,9 @@ export const receiptsCreateMutation = (
 
 /**
  * Delete a receipt. Only allowed in Draft status.
+ *
+ * Requires the full `receipts.edit` permission — `receipts.edit_assigned` does not delete.
+ * Errors: 404 `receiptNotFound`; 422 `receiptInvalidStatusTransition` outside Draft status.
  */
 export const receiptsDeleteMutation = (
   options?: Partial<Options<ReceiptsDeleteData>>,
@@ -3030,6 +3677,11 @@ export const receiptsGetByIdQueryKey = (options: Options<ReceiptsGetByIdData>) =
 
 /**
  * Get full receipt details including items and placements.
+ *
+ * Errors: 404 `receiptNotFound`; 403 `receiptNotAssignedToWarehouse` when only an
+ * `_assigned` permission is held and the receipt belongs to another warehouse; 403
+ * `permissionDenied` without a view permission, or when `receipts.process_assigned` is the only
+ * grant and the receipt is not in `Processing`; 401 `tokenInvalid` for an unresolvable user.
  */
 export const receiptsGetByIdOptions = (options: Options<ReceiptsGetByIdData>) =>
   queryOptions<
@@ -3052,6 +3704,9 @@ export const receiptsGetByIdOptions = (options: Options<ReceiptsGetByIdData>) =>
 
 /**
  * Update receipt name, reason, notes. Only allowed in Draft status.
+ *
+ * Errors: 404 `receiptNotFound`; 422 `receiptInvalidStatusTransition` outside Draft status;
+ * 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit access).
  */
 export const receiptsUpdateMutation = (
   options?: Partial<Options<ReceiptsUpdateData>>,
@@ -3076,6 +3731,17 @@ export const receiptsUpdateMutation = (
 /**
  * Add a single catalog item to the receipt with plannedCount=0 during Processing.
  * Used when a new item is discovered while physically receiving goods.
+ *
+ *     Processing status only. Requires `receipts.edit` (any warehouse) or
+ * `receipts.process_assigned` (assigned warehouses only). Errors:
+ * * 404 receiptNotFound
+ * * 422 receiptInvalidStatusTransition — receipt is not in Processing
+ * * 422 catalogItemNotFound — unknown catalog item
+ * * 422 catalogItemIsImmutable — the catalog item is archived
+ * * 422 validationError — the item is a ProductGroup, Variation or Bundle, or it is already
+ * in the receipt
+ * * 403 permissionDenied (neither permission), 403 receiptNotAssignedToWarehouse
+ * (operator, other warehouse), 401 tokenInvalid
  */
 export const receiptsQuickAddItemMutation = (
   options?: Partial<Options<ReceiptsQuickAddItemData>>,
@@ -3103,6 +3769,11 @@ export const receiptsQuickAddItemMutation = (
 
 /**
  * Replace the full list of expected items. Allowed in Draft and Planned statuses.
+ *
+ * Errors: 404 `receiptNotFound`; 422 `receiptInvalidStatusTransition` outside Draft or Planned;
+ * 422 `validationError` for a `catalogItemId` repeated in the request; 422
+ * `catalogItemNotFound` for an unknown catalog item; 403 `permissionDenied` /
+ * `receiptNotAssignedToWarehouse` (edit access).
  */
 export const receiptsSyncItemsMutation = (
   options?: Partial<Options<ReceiptsSyncItemsData>>,
@@ -3130,6 +3801,11 @@ export const receiptsSyncItemsMutation = (
 
 /**
  * Update the actually received count for a specific item. Only in Processing status.
+ *
+ * Requires `receipts.edit` or `receipts.process_assigned`. Errors: 404
+ * `receiptNotFound`; 404 `receiptItemNotFound` when the item does not belong to this receipt;
+ * 422 `receiptInvalidStatusTransition` outside Processing; 403 `permissionDenied` /
+ * `receiptNotAssignedToWarehouse`; 401 `tokenInvalid`.
  */
 export const receiptsUpdateReceivedCountMutation = (
   options?: Partial<Options<ReceiptsUpdateReceivedCountData>>,
@@ -3157,6 +3833,12 @@ export const receiptsUpdateReceivedCountMutation = (
 
 /**
  * Place Standard (count-based) items at a storage node. Only in Processing status.
+ *
+ * Requires `receipts.edit` or `receipts.process_assigned`. The stock increase and the
+ * placement row are written in one transaction. Errors: 404 `receiptNotFound`; 404
+ * `receiptItemNotFound`; 422 `receiptInvalidStatusTransition` outside Processing; 422
+ * `storagePlaceNodeNotFound` for an unknown `storagePlaceNodeId`; 403
+ * `permissionDenied` / `receiptNotAssignedToWarehouse`; 401 `tokenInvalid`.
  */
 export const receiptsAddStandardPlacementMutation = (
   options?: Partial<Options<ReceiptsAddStandardPlacementData>>,
@@ -3184,6 +3866,15 @@ export const receiptsAddStandardPlacementMutation = (
 
 /**
  * Place multiple Standard items at the same storage node in one transaction. Only in Processing status.
+ *
+ *     Requires `receipts.edit` or `receipts.process_assigned`. Errors:
+ * * 404 receiptNotFound; 404 receiptItemNotFound for an id not in this receipt
+ * * 422 receiptInvalidStatusTransition — receipt is not in Processing
+ * * 422 storagePlaceNodeNotFound — unknown node, either from the up-front check or from the
+ * inventory service inside the transaction
+ * * 422 validationError — an itemId repeated in the request, or an item whose catalog
+ * type is not Standard
+ * * 403 permissionDenied / receiptNotAssignedToWarehouse; 401 tokenInvalid
  */
 export const receiptsAddStandardPlacementBatchMutation = (
   options?: Partial<Options<ReceiptsAddStandardPlacementBatchData>>,
@@ -3211,6 +3902,13 @@ export const receiptsAddStandardPlacementBatchMutation = (
 
 /**
  * Place a Unit (serialised) item at a storage node. Only in Processing status.
+ *
+ * Requires `receipts.edit` or `receipts.process_assigned`. Errors: 404
+ * `receiptNotFound`; 404 `receiptItemNotFound`; 422
+ * `receiptInvalidStatusTransition` outside Processing; 422 `storagePlaceNodeNotFound`; 422
+ * `unitInventoryItemNumberDuplicate` on field `inventoryNumber` when the number is already used
+ * for this catalog item — raised by the soft check, and again by the unique index when two requests race;
+ * 403 `permissionDenied` / `receiptNotAssignedToWarehouse`; 401 `tokenInvalid`.
  */
 export const receiptsAddUnitPlacementMutation = (
   options?: Partial<Options<ReceiptsAddUnitPlacementData>>,
@@ -3238,6 +3936,17 @@ export const receiptsAddUnitPlacementMutation = (
 
 /**
  * Remove a placement, reversing the inventory change. Only in Processing status.
+ *
+ *     Requires `receipts.edit` or `receipts.process_assigned`. Errors:
+ * * 404 receiptNotFound; 404 receiptItemPlacementNotFound when the placement does not
+ * belong to this item
+ * * 422 receiptInvalidStatusTransition — receipt is not in Processing
+ * * 422 inventoryItemMovedToAnotherNodeAfterPlacementCreated — the unit item was moved out of
+ * the placement's node since it was created
+ * * 422 unitInventoryItemNotFound — the unit item is already gone
+ * * 422 insufficientInventory — the standard stock to reverse is no longer in the node;
+ * args: { itemName, requested, available, missing, path }
+ * * 403 permissionDenied / receiptNotAssignedToWarehouse; 401 tokenInvalid
  */
 export const receiptsDeletePlacementMutation = (
   options?: Partial<Options<ReceiptsDeletePlacementData>>,
@@ -3265,6 +3974,9 @@ export const receiptsDeletePlacementMutation = (
 
 /**
  * Transition: Draft → Planned.
+ *
+ * Draft status only. Errors: 404 `receiptNotFound`; 422 `receiptInvalidStatusTransition` from
+ * any other status; 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit access).
  */
 export const receiptsPlanMutation = (
   options?: Partial<Options<ReceiptsPlanData>>,
@@ -3288,6 +4000,9 @@ export const receiptsPlanMutation = (
 
 /**
  * Transition: Planned → Processing.
+ *
+ * Planned status only. Errors: 404 `receiptNotFound`; 422 `receiptInvalidStatusTransition` from
+ * any other status; 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit access).
  */
 export const receiptsStartProcessingMutation = (
   options?: Partial<Options<ReceiptsStartProcessingData>>,
@@ -3315,6 +4030,12 @@ export const receiptsStartProcessingMutation = (
 
 /**
  * Transition: Processing → Finished. Validates that each item with a received count has enough placements.
+ *
+ * Processing status only; items without a `receivedCount` are not checked. Errors: 404
+ * `receiptNotFound`; 422 `receiptInvalidStatusTransition` from any other status; 422
+ * `receiptItemsUnderplaced` when an item has fewer placed units than received; 422
+ * `receiptItemsOverplaced` when it has more; 403 `permissionDenied` /
+ * `receiptNotAssignedToWarehouse` (edit access).
  */
 export const receiptsFinishMutation = (
   options?: Partial<Options<ReceiptsFinishData>>,
@@ -3338,6 +4059,11 @@ export const receiptsFinishMutation = (
 
 /**
  * Revert one step back (Planned → Draft, Processing → Planned if no placements).
+ *
+ * Finished reverts to Processing. Errors: 404 `receiptNotFound`; 422 `receiptHasPlacements`
+ * when reverting from Processing while items still have placements; 422
+ * `receiptInvalidStatusTransition` from Draft or Canceled; 403 `permissionDenied` /
+ * `receiptNotAssignedToWarehouse` (edit access).
  */
 export const receiptsRevertMutation = (
   options?: Partial<Options<ReceiptsRevertData>>,
@@ -3361,6 +4087,10 @@ export const receiptsRevertMutation = (
 
 /**
  * Cancel the receipt. Allowed from Draft, Planned, and Processing (if no placements).
+ *
+ * Errors: 404 `receiptNotFound`; 422 `receiptInvalidStatusTransition` from Finished or
+ * Canceled; 422 `receiptHasPlacements` when cancelling from Processing while items still have
+ * placements; 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit access).
  */
 export const receiptsCancelMutation = (
   options?: Partial<Options<ReceiptsCancelData>>,
@@ -3387,6 +4117,9 @@ export const rolesGetAllQueryKey = (options?: Options<RolesGetAllData>) =>
 
 /**
  * List all roles with their permissions.
+ *
+ * Requires `roles.view`. Not paginated — ordered by `order` then name.
+ * No error codes beyond 403 `permissionDenied`.
  */
 export const rolesGetAllOptions = (options?: Options<RolesGetAllData>) =>
   queryOptions<
@@ -3409,6 +4142,20 @@ export const rolesGetAllOptions = (options?: Options<RolesGetAllData>) =>
 
 /**
  * Atomically replace the entire roles collection.
+ *
+ *     Requires `roles.edit`. Body: `UpdateRoleItem[]` — the whole collection, not a delta:
+ * * id: null or Guid.Empty — create the role
+ * * id present — update name, order and permissions (permissions are a full replace)
+ * * an existing role absent from the list — delete it
+ * Everything is applied in one transaction; affected users' permission caches are bumped afterwards.
+ * The Admin role (normalized name `ADMIN`) is protected: it cannot be deleted, renamed, or have
+ * permissions taken away.
+ * Error field paths use array-index notation into the request, e.g. `[2].permissions[0]`.
+ * Error codes:
+ * * 422 permissionNotFound (field [i].permissions[j]) — a string not in Permissions.All; every offender is reported
+ * * 422 roleNotFound (field id) — an item carries an id that does not exist
+ * * 403 roleProtected — Admin deleted, renamed, or stripped of permissions; args { roleName }
+ * * 422 validationError (field root) — Identity refused a create, update or delete (e.g. duplicate role name)
  */
 export const rolesUpdateAllMutation = (
   options?: Partial<Options<RolesUpdateAllData>>,
@@ -3435,6 +4182,9 @@ export const rolesSearchQueryKey = (options?: Options<RolesSearchData>) =>
 
 /**
  * Search roles by name (id + name only, max 10 results).
+ *
+ * Query params: `searchString` (optional — omitted returns the first 10 by name).
+ * Requires `roles.view`. No error codes beyond 403 `permissionDenied`.
  */
 export const rolesSearchOptions = (options?: Options<RolesSearchData>) =>
   queryOptions<
@@ -3460,6 +4210,8 @@ export const rolesGetByIdQueryKey = (options: Options<RolesGetByIdData>) =>
 
 /**
  * Get a role by ID.
+ *
+ * Requires `roles.view`. Returns 404 `roleNotFound` if the role does not exist.
  */
 export const rolesGetByIdOptions = (options: Options<RolesGetByIdData>) =>
   queryOptions<
@@ -3489,6 +4241,14 @@ export const statisticsGetDailyQueryKey = (options?: Options<StatisticsGetDailyD
  * Every day of the range is present, including empty ones. Days are cut in the caller's time zone —
  * pass `utcOffsetMinutes`, or an evening shift lands on the wrong day. Defaults to the last 30 days;
  * the range may not exceed 366 days.
+ * Query params come from `StockMovementFilterRequest`: `from`, `to`,
+ * `utcOffsetMinutes` (default 0, range -840..840), `warehouseId`, `storagePlaceId`,
+ * `nodeId`, `userId`, `catalogItemIds`, `actions`, `directions`.
+ * Requires `statistics.view` or `statistics.view_assigned` — either one grants access and the
+ * warehouses the rows come from are narrowed afterwards; 403 `permissionDenied` when neither is held.
+ * Returns 422 `outOfRange` on `from` when `from` is later than `to` or the range
+ * exceeds 366 days (no `args`), and 422 `outOfRange` on `utcOffsetMinutes` from model
+ * validation. Every statistics endpoint below shares these params and both codes.
  */
 export const statisticsGetDailyOptions = (options?: Options<StatisticsGetDailyData>) =>
   queryOptions<
@@ -3519,6 +4279,8 @@ export const statisticsGetPivotQueryKey = (options?: Options<StatisticsGetPivotD
  * `catalogItemIds` to pin them instead). Cells are sparse — a day with no movement of an item
  * carries no cell. Row totals cover every item the filter matched, so they stay correct even when
  * `hasMoreColumns` is true.
+ * Query params: the shared filter plus `columnLimit` (default 20, range 1..200).
+ * Same access rule and the same 422 `outOfRange` range errors as `stock-movements/daily`.
  */
 export const statisticsGetPivotOptions = (options?: Options<StatisticsGetPivotData>) =>
   queryOptions<
@@ -3544,6 +4306,10 @@ export const statisticsGetBreakdownQueryKey = (options?: Options<StatisticsGetBr
 
 /**
  * Same totals, grouped by one dimension instead of by day.
+ *
+ * Query params: the shared filter plus `groupBy` (default `Action`) and `limit`
+ * (default 20, range 1..200). Days are still cut with `utcOffsetMinutes`.
+ * Same access rule and the same 422 `outOfRange` range errors as `stock-movements/daily`.
  */
 export const statisticsGetBreakdownOptions = (options?: Options<StatisticsGetBreakdownData>) =>
   queryOptions<
@@ -3569,6 +4335,9 @@ export const statisticsGetMovementsQueryKey = (options?: Options<StatisticsGetMo
 
 /**
  * Raw movement rows behind the numbers, newest first.
+ *
+ * Query params: the shared filter plus `page` (default 1) and `pageSize` (default 20, max 200).
+ * Same access rule and the same 422 `outOfRange` range errors as `stock-movements/daily`.
  */
 export const statisticsGetMovementsOptions = (options?: Options<StatisticsGetMovementsData>) =>
   queryOptions<
@@ -3596,6 +4365,9 @@ export const statisticsGetMovementsInfiniteQueryKey = (
 
 /**
  * Raw movement rows behind the numbers, newest first.
+ *
+ * Query params: the shared filter plus `page` (default 1) and `pageSize` (default 20, max 200).
+ * Same access rule and the same 422 `outOfRange` range errors as `stock-movements/daily`.
  */
 export const statisticsGetMovementsInfiniteOptions = (
   options?: Options<StatisticsGetMovementsData>,
@@ -3641,6 +4413,13 @@ export const stocktakesGetAllQueryKey = (options?: Options<StocktakesGetAllData>
 
 /**
  * List stocktakes with pagination, filtering, and search.
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
+ * `warehouseId`, `status`, `sortBy` (default `Number`), `sortOrder`
+ * (default `Desc`).
+ * Requires `stocktakes.view` or `stocktakes.view_assigned`; without either, 403
+ * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
+ * token carries no resolvable user.
  */
 export const stocktakesGetAllOptions = (options?: Options<StocktakesGetAllData>) =>
   queryOptions<
@@ -3667,6 +4446,13 @@ export const stocktakesGetAllInfiniteQueryKey = (
 
 /**
  * List stocktakes with pagination, filtering, and search.
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
+ * `warehouseId`, `status`, `sortBy` (default `Number`), `sortOrder`
+ * (default `Desc`).
+ * Requires `stocktakes.view` or `stocktakes.view_assigned`; without either, 403
+ * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
+ * token carries no resolvable user.
  */
 export const stocktakesGetAllInfiniteOptions = (options?: Options<StocktakesGetAllData>) =>
   infiniteQueryOptions<
@@ -3706,6 +4492,13 @@ export const stocktakesGetAllInfiniteOptions = (options?: Options<StocktakesGetA
 
 /**
  * Create a new stocktake. Always starts in Draft status.
+ *
+ * Body: `CreateStocktakeRequest` — warehouseId (required), name, notes, type, plannedDate.
+ * Errors: 422 `warehouseNotFound` for an unknown warehouse; 422 `validationError` on
+ * `plannedDate` when `type` is `Scheduled` and no date is given; 403
+ * `permissionDenied` without `stocktakes.edit`/`stocktakes.edit_assigned`, or 403
+ * `stocktakeNotAssignedToWarehouse` when only the `_assigned` permission is held and the target
+ * warehouse is not assigned.
  */
 export const stocktakesCreateMutation = (
   options?: Partial<Options<StocktakesCreateData>>,
@@ -3733,6 +4526,9 @@ export const stocktakesCreateMutation = (
 
 /**
  * Delete a stocktake. Only allowed in Planned or Draft status.
+ *
+ * Errors: 404 `stocktakeNotFound`; 422 `stocktakeInvalidStatusTransition` outside Planned or
+ * Draft; 403 `permissionDenied` / `stocktakeNotAssignedToWarehouse` (edit access).
  */
 export const stocktakesDeleteMutation = (
   options?: Partial<Options<StocktakesDeleteData>>,
@@ -3763,6 +4559,10 @@ export const stocktakesGetByIdQueryKey = (options: Options<StocktakesGetByIdData
 
 /**
  * Get full stocktake details including counted nodes and their items.
+ *
+ * Errors: 404 `stocktakeNotFound`; 403 `permissionDenied` without a view permission, or 403
+ * `stocktakeNotAssignedToWarehouse` when only `stocktakes.view_assigned` is held and the
+ * document belongs to another warehouse; 401 `tokenInvalid` for an unresolvable user.
  */
 export const stocktakesGetByIdOptions = (options: Options<StocktakesGetByIdData>) =>
   queryOptions<
@@ -3786,6 +4586,14 @@ export const stocktakesGetByIdOptions = (options: Options<StocktakesGetByIdData>
 /**
  * Update stocktake name, notes, type and planned date. Allowed while the document is still open;
  * type and planned date freeze once counting has started.
+ *
+ *     Planned, Draft or InProgress only. Errors:
+ * * 404 stocktakeNotFound
+ * * 422 stocktakeInvalidStatusTransition — the document is Finished or Canceled, or
+ * type/plannedDate is sent while it is InProgress (field type)
+ * * 422 validationError — plannedDate sent without type, or type is
+ * Scheduled with no plannedDate
+ * * 403 permissionDenied / stocktakeNotAssignedToWarehouse (edit access)
  */
 export const stocktakesUpdateMutation = (
   options?: Partial<Options<StocktakesUpdateData>>,
@@ -3814,6 +4622,17 @@ export const stocktakesUpdateMutation = (
 /**
  * Replace the set of counted cells. Cells already in scope keep their counted items; dropping a
  * cell discards its lines.
+ *
+ *     Planned, Draft or InProgress only. Errors:
+ * * 404 stocktakeNotFound
+ * * 422 stocktakeInvalidStatusTransition — the document is Finished or Canceled
+ * * 422 validationError — a node id repeated in nodeIds
+ * * 422 storagePlaceNodeNotFound — a node does not belong to this warehouse
+ * (field nodeIds[i])
+ * * 422 stocktakeNodeAlreadyInProgress — only while InProgress, when a newly added cell is
+ * already being counted in another InProgress stocktake; args: { nodeId }. A cell may sit in
+ * any number of Draft or Planned scopes
+ * * 403 permissionDenied / stocktakeNotAssignedToWarehouse (edit access)
  */
 export const stocktakesSyncNodesMutation = (
   options?: Partial<Options<StocktakesSyncNodesData>>,
@@ -3845,6 +4664,10 @@ export const stocktakesGetNodeStockQueryKey = (options: Options<StocktakesGetNod
 /**
  * Live stock of one cell in the scope, used to pre-populate the counting screen. Served here
  * rather than through the inventory endpoints so counting does not require warehouse permissions.
+ *
+ * Errors: 404 `stocktakeNotFound`; 404 `stocktakeNodeNotFound` when the cell is not in this
+ * document's scope; 403 `permissionDenied` / `stocktakeNotAssignedToWarehouse` (view access);
+ * 401 `tokenInvalid`.
  */
 export const stocktakesGetNodeStockOptions = (options: Options<StocktakesGetNodeStockData>) =>
   queryOptions<
@@ -3867,6 +4690,21 @@ export const stocktakesGetNodeStockOptions = (options: Options<StocktakesGetNode
 
 /**
  * Replace the counted lines of one cell. Scoped to a single cell so accordions save independently.
+ *
+ *     InProgress status only. Errors:
+ * * 404 stocktakeNotFound; 404 stocktakeNodeNotFound when the cell is not in scope
+ * * 422 stocktakeInvalidStatusTransition — the document is not InProgress
+ * * 422 catalogItemNotFound — unknown catalogItemId (field items[i].catalogItemId)
+ * * 422 validationError — line kind does not match the catalog item type, a standard line
+ * carries an inventory number, or a standard item / inventory number is repeated in the request
+ * * 422 outOfRange — negative standard quantity, or a unit quantity outside 0..1
+ * * 422 required — a unit line without an inventory number
+ * * 422 stocktakeUnitItemInAnotherWarehouse — a claimed serial is booked in another
+ * warehouse; args: { inventoryNumber }. Takes precedence over the clash below
+ * * 422 stocktakeUnitCountedTwice — the same serial is claimed found in another InProgress
+ * stocktake (args: { inventoryNumber, stocktakeId, stocktakeNumber }) or in another cell of
+ * this document (args: { inventoryNumber }). Surpluses count too
+ * * 403 permissionDenied / stocktakeNotAssignedToWarehouse (edit access)
  */
 export const stocktakesSyncNodeItemsMutation = (
   options?: Partial<Options<StocktakesSyncNodeItemsData>>,
@@ -3894,6 +4732,12 @@ export const stocktakesSyncNodeItemsMutation = (
 
 /**
  * Put a scheduled document on the calendar. Draft → Planned.
+ *
+ * Draft status only. Errors: 404 `stocktakeNotFound`; 422
+ * `stocktakeInvalidStatusTransition` from any other status; 422 `validationError` on
+ * `plannedDate` when the document is not `Scheduled` or has no planned date; 422
+ * `stocktakeHasNoNodes` when the scope is empty; 403 `permissionDenied` /
+ * `stocktakeNotAssignedToWarehouse` (edit access).
  */
 export const stocktakesScheduleMutation = (
   options?: Partial<Options<StocktakesScheduleData>>,
@@ -3921,6 +4765,10 @@ export const stocktakesScheduleMutation = (
 
 /**
  * Return a scheduled document to work. Planned → Draft.
+ *
+ * Planned status only. Errors: 404 `stocktakeNotFound`; 422
+ * `stocktakeInvalidStatusTransition` from any other status; 403 `permissionDenied` /
+ * `stocktakeNotAssignedToWarehouse` (edit access).
  */
 export const stocktakesToDraftMutation = (
   options?: Partial<Options<StocktakesToDraftData>>,
@@ -3948,6 +4796,12 @@ export const stocktakesToDraftMutation = (
 
 /**
  * Start counting. Draft or Planned → InProgress.
+ *
+ * Draft or Planned only. Errors: 404 `stocktakeNotFound`; 422
+ * `stocktakeInvalidStatusTransition` from any other status; 422 `stocktakeHasNoNodes` when the
+ * scope is empty; 422 `stocktakeNodeAlreadyInProgress` when a cell in scope is already being counted
+ * in another InProgress stocktake, `args: { nodeId }`; 403 `permissionDenied` /
+ * `stocktakeNotAssignedToWarehouse` (edit access).
  */
 export const stocktakesStartMutation = (
   options?: Partial<Options<StocktakesStartData>>,
@@ -3975,6 +4829,10 @@ export const stocktakesStartMutation = (
 
 /**
  * Return to scope editing. InProgress → Draft. Counted lines are kept.
+ *
+ * InProgress status only. Errors: 404 `stocktakeNotFound`; 422
+ * `stocktakeInvalidStatusTransition` from any other status; 403 `permissionDenied` /
+ * `stocktakeNotAssignedToWarehouse` (edit access).
  */
 export const stocktakesRevertMutation = (
   options?: Partial<Options<StocktakesRevertData>>,
@@ -4002,6 +4860,10 @@ export const stocktakesRevertMutation = (
 
 /**
  * Cancel the stocktake without touching stock.
+ *
+ * Errors: 404 `stocktakeNotFound`; 422 `stocktakeInvalidStatusTransition` from a terminal
+ * status (Finished or Canceled); 403 `permissionDenied` / `stocktakeNotAssignedToWarehouse`
+ * (edit access).
  */
 export const stocktakesCancelMutation = (
   options?: Partial<Options<StocktakesCancelData>>,
@@ -4033,6 +4895,10 @@ export const stocktakesGetDifferencesQueryKey = (options: Options<StocktakesGetD
 /**
  * What finishing would do, computed against live stock without mutating anything. The finish
  * endpoint applies the very same plan.
+ *
+ * Read-only, so blocking conditions come back inside the plan rather than as errors. Errors: 404
+ * `stocktakeNotFound`; 403 `permissionDenied` / `stocktakeNotAssignedToWarehouse`
+ * (view access); 401 `tokenInvalid`.
  */
 export const stocktakesGetDifferencesOptions = (options: Options<StocktakesGetDifferencesData>) =>
   queryOptions<
@@ -4056,6 +4922,25 @@ export const stocktakesGetDifferencesOptions = (options: Options<StocktakesGetDi
 /**
  * Apply the count: bring live stock in line with what was counted. InProgress → Finished.
  * Stock present in a counted cell but absent from the document is treated as counted zero.
+ *
+ *     InProgress status only; the whole plan is applied in one transaction, so any failure leaves stock
+ * untouched. Errors:
+ * * 404 stocktakeNotFound
+ * * 422 stocktakeInvalidStatusTransition — the document is not InProgress
+ * * 422 stocktakeHasNoNodes — the scope is empty
+ * * 422 stocktakeUnitItemDetached — a found serial is held by an active assembly
+ * fulfillment; reported by the plan before anything is applied
+ * * 422 stocktakeUnitItemInAnotherWarehouse — a counted serial is booked in another
+ * warehouse; also reported by the plan
+ * * 422 insufficientInventory — a shortage line asks for more than the cell holds;
+ * args: { itemName, requested, available, missing, path }
+ * * 422 stocktakeConcurrentModification — a serial left its expected node while the finish
+ * was running; the transaction rolled back
+ * * 422 unitInventoryItemNotFound — a unit item disappeared mid-flight
+ * * 422 storagePlaceNodeNotFound — a cell in scope no longer exists
+ * * 422 unitInventoryItemNumberDuplicate — a surplus serial lost the race against the unique
+ * index (field inventoryNumber)
+ * * 403 permissionDenied / stocktakeNotAssignedToWarehouse (edit access)
  */
 export const stocktakesFinishMutation = (
   options?: Partial<Options<StocktakesFinishData>>,
@@ -4088,6 +4973,14 @@ export const storagePlacesGetNodesQueryKey = (options: Options<StoragePlacesGetN
  * Get a flat list of all nodes for a storage place.
  *
  * Returns `StoragePlaceNodeDto[]` ordered by order then name — id, name, parentNodeId (null = root), order.
+ * Query params: `catalogItemId` (optional) — narrows `totalItemsCount` to that catalog item
+ * instead of the node's whole content.
+ * Storage places carry no permissions of their own: access is `warehouses.view` or
+ * `warehouses.view_assigned` on the owning warehouse.
+ * Returns 404 `storagePlaceNotFound` if the storage place does not exist, 403 `permissionDenied`
+ * without any warehouse view permission, and 403 `storagePlaceNotAssignedToWarehouse` when the caller
+ * only holds the `_assigned` variant and is not assigned to the owning warehouse. A token with no
+ * usable `sub` claim gives 401 `tokenInvalid`. The same access errors apply to every endpoint below.
  */
 export const storagePlacesGetNodesOptions = (options: Options<StoragePlacesGetNodesData>) =>
   queryOptions<
@@ -4111,9 +5004,14 @@ export const storagePlacesGetNodesOptions = (options: Options<StoragePlacesGetNo
 /**
  * Add a node to a storage place.
  *
- * Body: `CreateStoragePlaceNodeRequest` — name (required), parentNodeId (optional, null = root node).
+ *     Body: `CreateStoragePlaceNodeRequest` — name (required), parentNodeId (optional, null = root node).
  * Returns the updated flat list.
- * Returns 422 `storagePlaceNodeNotFound` (field: `parentNodeId`) if the parent does not belong to this storage place.
+ * Requires `warehouses.edit` or `warehouses.edit_assigned` on the owning warehouse.
+ * Error codes:
+ * * 404 storagePlaceNotFound — no such storage place
+ * * 403 permissionDenied / storagePlaceNotAssignedToWarehouse — no edit access to the warehouse
+ * * 422 storagePlaceNodeNotFound (field parentNodeId) — the parent does not belong to this storage place
+ * * 422 storagePlaceNodeParentHasItems (field root) — the parent already holds items; a node stores items or children, not both
  */
 export const storagePlacesAddNodeMutation = (
   options?: Partial<Options<StoragePlacesAddNodeData>>,
@@ -4142,7 +5040,14 @@ export const storagePlacesAddNodeMutation = (
 /**
  * Delete a node. Fails if the node has children — delete them first.
  *
- * Returns the updated flat list on success.
+ *     Returns the updated flat list on success.
+ * Requires `warehouses.edit` or `warehouses.edit_assigned` on the owning warehouse.
+ * Error codes:
+ * * 404 storagePlaceNotFound — no such storage place
+ * * 404 storagePlaceNodeNotFound — the node does not belong to this storage place
+ * * 403 permissionDenied / storagePlaceNotAssignedToWarehouse — no edit access to the warehouse
+ * * 422 storagePlaceNodeHasChildren (field root) — the node still has child nodes; delete them first
+ * * 422 storagePlaceNodeHasItems (field root) — the node holds a non-empty item group or a unit inventory item
  */
 export const storagePlacesDeleteNodeMutation = (
   options?: Partial<Options<StoragePlacesDeleteNodeData>>,
@@ -4174,6 +5079,12 @@ export const storagePlacesGetNodeDetailsQueryKey = (
 
 /**
  * Get a node by ID.
+ *
+ * `name` is the full breadcrumb path, not the node's own name.
+ * Requires `warehouses.view` or `warehouses.view_assigned` on the owning warehouse.
+ * Returns 404 `storagePlaceNotFound` or 404 `storagePlaceNodeNotFound` when the node does not
+ * belong to this storage place, and 403 `permissionDenied` /
+ * `storagePlaceNotAssignedToWarehouse` without view access.
  */
 export const storagePlacesGetNodeDetailsOptions = (
   options: Options<StoragePlacesGetNodeDetailsData>,
@@ -4199,9 +5110,15 @@ export const storagePlacesGetNodeDetailsOptions = (
 /**
  * Update a node's name or parent.
  *
- * Body: `UpdateStoragePlaceNodeRequest` — name (required), parentNodeId (nullable, null = root node).
+ *     Body: `UpdateStoragePlaceNodeRequest` — name (required), parentNodeId (nullable, null = root node).
  * Returns the updated flat list.
- * Returns 422 `storagePlaceNodeCyclicParent` (field: `parentNodeId`) if the new parent is a descendant of this node or the node itself.
+ * Requires `warehouses.edit` or `warehouses.edit_assigned` on the owning warehouse.
+ * Error codes:
+ * * 404 storagePlaceNotFound — no such storage place
+ * * 404 storagePlaceNodeNotFound — the node does not belong to this storage place
+ * * 403 permissionDenied / storagePlaceNotAssignedToWarehouse — no edit access to the warehouse
+ * * 422 storagePlaceNodeNotFound (field parentNodeId) — the new parent is not in this storage place
+ * * 422 storagePlaceNodeCyclicParent (field parentNodeId) — the new parent is the node itself or one of its descendants
  */
 export const storagePlacesUpdateNodeMutation = (
   options?: Partial<Options<StoragePlacesUpdateNodeData>>,
@@ -4230,9 +5147,14 @@ export const storagePlacesUpdateNodeMutation = (
 /**
  * Bulk-update Order for a set of nodes.
  *
- * Body: `NodeOrderItem[]` — nodeId + order pairs.
+ *     Body: `NodeOrderItem[]` — nodeId + order pairs.
  * Only the nodes included in the list are updated; others are unchanged.
- * Returns 422 `storagePlaceNodeNotFound` if any nodeId does not belong to this storage place.
+ * Requires `warehouses.edit` or `warehouses.edit_assigned` on the owning warehouse.
+ * Error codes:
+ * * 404 storagePlaceNotFound — no such storage place
+ * * 403 permissionDenied / storagePlaceNotAssignedToWarehouse — no edit access to the warehouse
+ * * 422 storagePlaceNodeNotFound — a nodeId does not belong to this storage place. The field path
+ * is the request-array index, [i].nodeId, and every offending index is reported at once
  */
 export const storagePlacesReorderNodesMutation = (
   options?: Partial<Options<StoragePlacesReorderNodesData>>,
@@ -4264,7 +5186,9 @@ export const systemGetStorageStatsQueryKey = (options?: Options<SystemGetStorage
 /**
  * File storage usage: counts, sizes, orphans and free disk space.
  *
- * Disk figures are cached for DataFiles:StatsCacheSeconds; see `diskStatsAt`.
+ * Disk figures are cached for `DataFiles:StatsCacheSeconds`; see `diskStatsAt`.
+ * Takes no parameters and is instance-wide, so the only error is 403 `permissionDenied`.
+ * Requires `system.view`.
  */
 export const systemGetStorageStatsOptions = (options?: Options<SystemGetStorageStatsData>) =>
   queryOptions<
@@ -4292,6 +5216,8 @@ export const systemGetDatabaseStatsQueryKey = (options?: Options<SystemGetDataba
  * Database size broken down by the entity type each table belongs to.
  *
  * Row counts are planner estimates from pg_class, not exact counts.
+ * Takes no parameters and is instance-wide, so the only error is 403 `permissionDenied`.
+ * Requires `system.view`.
  */
 export const systemGetDatabaseStatsOptions = (options?: Options<SystemGetDatabaseStatsData>) =>
   queryOptions<
@@ -4315,9 +5241,26 @@ export const systemGetDatabaseStatsOptions = (options?: Options<SystemGetDatabas
 /**
  * Execute an atomic inventory transfer between two storage nodes.
  *
- * All items are moved in a single transaction — if any item fails, the entire transfer is rolled back.
+ *     All items are moved in a single transaction — if any item fails, the entire transfer is rolled back.
  * Transfer type is determined by which field of each TransferItemRequest is populated:
  * `catalogItemId + count` → Standard; `unitItemId` → Unit.
+ * Requires `transfers.execute` or `transfers.execute_assigned`; with the assigned variant only,
+ * <b>both</b> the source and the destination warehouse must be in the caller's assigned set.
+ * Error codes:
+ * * 403 permissionDenied — neither transfer permission
+ * * 403 transferNotAssignedToWarehouse — assigned-only caller, and the source or the
+ * destination warehouse is outside their set; the message names which side
+ * * 422 transferSameNode (field fromNodeId) — source and destination are the same node
+ * * 422 storagePlaceNodeNotFound (fields fromNodeId, toNodeId, or root
+ * when raised inside the transaction) — the node does not exist
+ * * 422 insufficientInventory (field items) — not enough Standard items in the source node;
+ * args { itemName, requested, available, missing, path }, path being the node breadcrumb
+ * * 422 unitInventoryItemNotFound (field items) — the unit item does not exist or was already removed
+ * * 422 validationError — empty items, an item with both or neither of
+ * catalogItemId/unitItemId (field items[i]), or a non-positive
+ * count for a Standard item (field items[i].count)
+ * The inventory errors surface from `IInventoryService` through catch blocks, so hitting one rolls
+ * the whole transfer back — no partial movement is ever committed.
  */
 export const transfersExecuteMutation = (
   options?: Partial<Options<TransfersExecuteData>>,
@@ -4348,6 +5291,10 @@ export const usersGetAllQueryKey = (options?: Options<UsersGetAllData>) =>
 
 /**
  * List all users (paginated).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
+ * `role` (role id), `warehouse` (assigned warehouse id). Ordered by id.
+ * Requires `users.view`; without it the request is refused with 403 `permissionDenied`.
  */
 export const usersGetAllOptions = (options?: Options<UsersGetAllData>) =>
   queryOptions<
@@ -4374,6 +5321,10 @@ export const usersGetAllInfiniteQueryKey = (
 
 /**
  * List all users (paginated).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
+ * `role` (role id), `warehouse` (assigned warehouse id). Ordered by id.
+ * Requires `users.view`; without it the request is refused with 403 `permissionDenied`.
  */
 export const usersGetAllInfiniteOptions = (options?: Options<UsersGetAllData>) =>
   infiniteQueryOptions<
@@ -4413,6 +5364,16 @@ export const usersGetAllInfiniteOptions = (options?: Options<UsersGetAllData>) =
 
 /**
  * Create a new user.
+ *
+ *     Requires `users.create`. Body: `CreateUserRequest` — username, password, email, firstName,
+ * lastName. Roles, direct permissions and warehouse assignments are not set here; use
+ * `PUT /api/users/{id}` afterwards.
+ * Error codes:
+ * * 409 userAlreadyExists (field username) — the username is taken
+ * * 422 passwordTooShort (field root) — args { minimalLength }
+ * * 422 passwordAtLeastOneDigit / passwordAtLeastOneUppercase /
+ * passwordAtLeastOneLowercase (field root)
+ * * 422 validationError (field root) — any other Identity failure
  */
 export const usersCreateMutation = (
   options?: Partial<Options<UsersCreateData>>,
@@ -4436,6 +5397,11 @@ export const usersCreateMutation = (
 
 /**
  * Delete a user.
+ *
+ * Requires `users.delete`. Evicts the user's cached security version, so their outstanding tokens
+ * stop validating.
+ * Returns 404 `userNotFound` if no such user, and 422 `validationError` (field `root`) if
+ * Identity refuses the delete.
  */
 export const usersDeleteMutation = (
   options?: Partial<Options<UsersDeleteData>>,
@@ -4462,6 +5428,11 @@ export const usersGetByIdQueryKey = (options: Options<UsersGetByIdData>) =>
 
 /**
  * Get a user by ID.
+ *
+ * Requires `users.view`, <b>except</b> when id is the caller's own id — everyone
+ * may read their own record, which is what makes the profile page work without the permission.
+ * Returns 403 `permissionDenied` for someone else's id without `users.view`, and 404
+ * `userNotFound` if the user does not exist.
  */
 export const usersGetByIdOptions = (options: Options<UsersGetByIdData>) =>
   queryOptions<
@@ -4484,6 +5455,23 @@ export const usersGetByIdOptions = (options: Options<UsersGetByIdData>) =>
 
 /**
  * Update a user's profile, roles, and direct permissions atomically.
+ *
+ *     Body: `UpdateUserRequest`. `roleIds`, `directPermissions` and `assignedWarehouseIds`
+ * are full replaces — anything omitted is removed. Profile, roles, permissions and assignments are applied
+ * in one transaction, so a rejected part leaves nothing written.
+ * Permissions: `users.edit_profile` to call at all; changing `roleIds` or
+ * `directPermissions` additionally needs `users.manage_roles_and_permissions`, and changing
+ * `assignedWarehouseIds` needs `users.manage_assigned_warehouses`. The extra permission is only
+ * demanded when the corresponding set actually differs from the stored one, so a plain profile save with
+ * the current roles echoed back is allowed.
+ * A role or permission change bumps the user's `security_version`, forcing their clients to refresh.
+ * Error codes:
+ * * 403 permissionDenied — roles/permissions or warehouses changed without the extra permission
+ * * 404 userNotFound — no such user
+ * * 422 permissionNotFound (field directPermissions) — a string not in Permissions.All, one error per unknown value
+ * * 422 roleNotFound (field roleIds) — one or more role ids do not exist
+ * * 422 warehouseNotFound (field assignedWarehouseIds) — one or more warehouse ids do not exist
+ * * 422 validationError (field root) — an Identity failure while saving the profile or role membership
  */
 export const usersUpdateMutation = (
   options?: Partial<Options<UsersUpdateData>>,
@@ -4507,6 +5495,16 @@ export const usersUpdateMutation = (
 
 /**
  * Reset another user's password (admin action, no current password required).
+ *
+ *     Requires `users.reset_password`. Bumps the target user's `security_version`, invalidating
+ * their existing access tokens.
+ * Error codes:
+ * * 404 userNotFound — no such user
+ * * 422 passwordTooShort (field root) — args { minimalLength }
+ * * 422 passwordAtLeastOneDigit / passwordAtLeastOneUppercase /
+ * passwordAtLeastOneLowercase (field root)
+ * * 422 validationError (field root) — any other Identity failure
+ * `passwordInvalid` cannot occur here — no current password is checked.
  */
 export const usersChangePasswordMutation = (
   options?: Partial<Options<UsersChangePasswordData>>,
@@ -4699,7 +5697,9 @@ export const warehousesGetByIdOptions = (options: Options<WarehousesGetByIdData>
  * * id: null — create new storage place
  * * id present — update existing storage place
  * * existing storage place not in the list — delete
- * Returns 422 `storagePlaceNotFound` if any provided ID does not belong to this warehouse.
+ * Returns 422 `storagePlaceNotFound` if any provided ID does not belong to this warehouse — including
+ * for `defaultStoragePlaceNodeId`, which must reference a node of this warehouse. Deleting the
+ * referenced node clears the field via cascade.
  * Requires `warehouses.edit` or `warehouses.edit_assigned` (assigned warehouses only).
  */
 export const warehousesUpdateMutation = (
@@ -4784,6 +5784,13 @@ export const writeoffsGetAllQueryKey = (options?: Options<WriteoffsGetAllData>) 
 
 /**
  * List write-offs with pagination, filtering, and search.
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
+ * `warehouseId`, `status`, `reason`, `sortBy` (default `Number`),
+ * `sortOrder` (default `Desc`).
+ * Requires `writeoffs.view` or `writeoffs.view_assigned`; without either, 403
+ * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
+ * token carries no resolvable user.
  */
 export const writeoffsGetAllOptions = (options?: Options<WriteoffsGetAllData>) =>
   queryOptions<
@@ -4810,6 +5817,13 @@ export const writeoffsGetAllInfiniteQueryKey = (
 
 /**
  * List write-offs with pagination, filtering, and search.
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
+ * `warehouseId`, `status`, `reason`, `sortBy` (default `Number`),
+ * `sortOrder` (default `Desc`).
+ * Requires `writeoffs.view` or `writeoffs.view_assigned`; without either, 403
+ * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
+ * token carries no resolvable user.
  */
 export const writeoffsGetAllInfiniteOptions = (options?: Options<WriteoffsGetAllData>) =>
   infiniteQueryOptions<
@@ -4849,6 +5863,11 @@ export const writeoffsGetAllInfiniteOptions = (options?: Options<WriteoffsGetAll
 
 /**
  * Create a new write-off in Draft status.
+ *
+ * Body: `CreateWriteoffRequest` — warehouseId (required), name, reason, notes.
+ * Errors: 422 `warehouseNotFound` for an unknown warehouse; 403 `permissionDenied` without
+ * `writeoffs.edit`/`writeoffs.edit_assigned`, or 403 `writeoffNotAssignedToWarehouse`
+ * when only `writeoffs.edit_assigned` is held and the target warehouse is not assigned.
  */
 export const writeoffsCreateMutation = (
   options?: Partial<Options<WriteoffsCreateData>>,
@@ -4876,6 +5895,9 @@ export const writeoffsCreateMutation = (
 
 /**
  * Delete a write-off. Only allowed in Draft status.
+ *
+ * Errors: 404 `writeoffNotFound`; 422 `writeoffNotDraft` outside Draft status; 403
+ * `permissionDenied` or `writeoffNotAssignedToWarehouse` (edit access).
  */
 export const writeoffsDeleteMutation = (
   options?: Partial<Options<WriteoffsDeleteData>>,
@@ -4906,6 +5928,10 @@ export const writeoffsGetByIdQueryKey = (options: Options<WriteoffsGetByIdData>)
 
 /**
  * Get full write-off details including items.
+ *
+ * Errors: 404 `writeoffNotFound`; 403 `permissionDenied` without a view permission, or
+ * 403 `writeoffNotAssignedToWarehouse` when only `writeoffs.view_assigned` is held and the
+ * document belongs to another warehouse; 401 `tokenInvalid` for an unresolvable user.
  */
 export const writeoffsGetByIdOptions = (options: Options<WriteoffsGetByIdData>) =>
   queryOptions<
@@ -4928,6 +5954,9 @@ export const writeoffsGetByIdOptions = (options: Options<WriteoffsGetByIdData>) 
 
 /**
  * Update write-off name, reason, notes. Only allowed in Draft status.
+ *
+ * Errors: 404 `writeoffNotFound`; 422 `writeoffNotDraft` outside Draft status; 403
+ * `permissionDenied` or `writeoffNotAssignedToWarehouse` (edit access).
  */
 export const writeoffsUpdateMutation = (
   options?: Partial<Options<WriteoffsUpdateData>>,
@@ -4955,6 +5984,19 @@ export const writeoffsUpdateMutation = (
 
 /**
  * Replace the full list of items to write off. Only allowed in Draft status.
+ *
+ *     Each line is either standard (`catalogItemId` + `count`) or unit
+ * (`unitInventoryItemId`), never both, and carries a `sourceNodeId` in this write-off's warehouse.
+ * Errors:
+ * * 404 writeoffNotFound
+ * * 422 writeoffNotDraft — outside Draft status
+ * * 422 validationError — neither or both discriminators set, or two standard lines with the
+ * same catalog item and source node
+ * * 422 outOfRange — count not greater than zero
+ * * 422 storagePlaceNodeNotFound — sourceNodeId is not a node of this warehouse
+ * * 422 unitInventoryItemNotFound — the unit item does not sit at the given source node
+ * * 422 catalogItemNotFound — unknown catalog item
+ * * 403 permissionDenied / writeoffNotAssignedToWarehouse (edit access)
  */
 export const writeoffsSyncItemsMutation = (
   options?: Partial<Options<WriteoffsSyncItemsData>>,
@@ -4982,6 +6024,18 @@ export const writeoffsSyncItemsMutation = (
 
 /**
  * Finish the write-off: execute inventory removal for all items. Draft → Finished.
+ *
+ *     Draft status only; all removals run in one transaction, so a failure leaves stock untouched. Errors:
+ * * 404 writeoffNotFound
+ * * 422 writeoffNotDraft — not in Draft status
+ * * 422 writeoffHasNoItems — nothing to write off
+ * * 422 writeoffInsufficientInventory — a standard line asks for more than the source node
+ * holds; args: { itemName, requested, available, missing, path }, path being the node
+ * breadcrumb joined with " / "
+ * * 422 inventoryItemNodeMismatch — a unit item was moved out of its source node after the
+ * document was built
+ * * 422 unitInventoryItemNotFound — a unit item no longer exists
+ * * 403 permissionDenied / writeoffNotAssignedToWarehouse (edit access)
  */
 export const writeoffsFinishMutation = (
   options?: Partial<Options<WriteoffsFinishData>>,
@@ -5009,6 +6063,9 @@ export const writeoffsFinishMutation = (
 
 /**
  * Cancel the write-off. Only allowed in Draft status.
+ *
+ * Errors: 404 `writeoffNotFound`; 422 `writeoffNotDraft` — reused for a document already
+ * Finished or Canceled; 403 `permissionDenied` / `writeoffNotAssignedToWarehouse` (edit access).
  */
 export const writeoffsCancelMutation = (
   options?: Partial<Options<WriteoffsCancelData>>,

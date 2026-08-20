@@ -203,6 +203,14 @@ public class RealtimeController(
         return Ok(EditLockDto.From(held));
     }
 
+    /// <summary>
+    /// Drops this connection's claim on the object. An object is held by one user but by any number of their
+    /// connections, so <c>editLockReleased</c> is published only when the last holder leaves.
+    /// </summary>
+    /// <remarks>
+    /// Returns 409 <c>editLockNotHeld</c> when this connection does not hold the lock, and 422
+    /// <c>realtimeConnectionUnknown</c> when the connection is closed or belongs to another user.
+    /// </remarks>
     [HttpPost("locks/release")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

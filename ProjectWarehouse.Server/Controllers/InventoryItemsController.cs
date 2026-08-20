@@ -26,6 +26,14 @@ public class InventoryItemsController(
     /// Returns one row per distinct CatalogItem with a total Count summed across both item kinds
     /// (Standard, Unit). Supports filtering by warehouse, storage place, node,
     /// catalog item types, tags (OR semantics), and archive state.
+    /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
+    /// <c>warehouseId</c>, <c>storagePlaceId</c>, <c>nodeId</c>, <c>catalogItemTypes</c>, <c>tagIds</c>,
+    /// <c>isArchived</c>, <c>sortBy</c> (default <c>Name</c>), <c>sortOrder</c> (default <c>Asc</c>).
+    /// Inventory has no permission of its own: it is gated by <c>warehouses.view</c> or
+    /// <c>warehouses.view_assigned</c>, and rows are then narrowed to the assigned warehouses.
+    /// Errors: 403 <c>permissionDenied</c> when neither permission is held, 401 <c>tokenInvalid</c> when the
+    /// token carries no usable user id. Filtering by a warehouse the caller is not assigned to is not an
+    /// error — it just yields an empty page.
     /// </remarks>
     [HttpGet]
     [Authorize]
@@ -118,6 +126,13 @@ public class InventoryItemsController(
     }
 
     /// <summary>List all unit inventory items (individual serialized items).</summary>
+    /// <remarks>
+    /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>
+    /// (matches the inventory number), <c>warehouseId</c>, <c>storagePlaceId</c>, <c>nodeId</c>,
+    /// <c>catalogItemId</c>, <c>sortBy</c> (default <c>InventoryNumber</c>), <c>sortOrder</c> (default <c>Asc</c>).
+    /// Detached units — those not sitting in a node — are excluded.
+    /// Same access rule and the same 403 <c>permissionDenied</c> / 401 <c>tokenInvalid</c> as the aggregate list.
+    /// </remarks>
     [HttpGet("units")]
     [Authorize]
     [ProducesResponseType<Paginated<UnitInventoryItemDto>>(StatusCodes.Status200OK)]

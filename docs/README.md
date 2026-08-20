@@ -21,25 +21,49 @@ ProjectWarehouse.Server/   ASP.NET Core 10 REST API
 
 ## Docs Index
 
+**These docs describe only what the code cannot.** Endpoints, DTOs, enums, permission strings and error codes
+are read from the source — the controllers' XML `<remarks>`, `projectwarehouse.client/src/api/types.gen.ts`, and
+the Scalar UI at `/scalar`. Nothing derivable is mirrored here, because a mirror rots. What lives in these files
+is rationale, invariants, cross-cutting conventions and decisions.
+
+**Conventions and cross-cutting**
+
 | File | Contents |
 |------|----------|
-| [api.md](api.md) | REST API endpoints, request/response shapes, models |
-| [auth.md](auth.md) | JWT auth flow, token refresh, SecurityVersion invalidation |
-| [permissions.md](permissions.md) | Permission system design, available permissions, RBAC |
-| [errors.md](errors.md) | Error response format (`AppProblemDetails`), all error codes |
+| [api.md](api.md) | API conventions (pagination, filtering, `utcOffsetMinutes`), JWT auth, refresh rotation, SecurityVersion invalidation |
+| [permissions.md](permissions.md) | The `_assigned` convention, notable access rules, where access is checked, RBAC + direct permissions |
+| [errors.md](errors.md) | `AppProblemDetails` envelope, field-path conventions, persisted errors, controller helpers |
 | [validation.md](validation.md) | Validation pipeline, `[JsonRequired]`, ModelState mapping |
-| [changelog.md](changelog.md) | Changelog system: architecture, how to add tracking to new methods, Action/ActionData |
-| [backend-patterns.md](backend-patterns.md) | Recurring backend implementation patterns (search, etc.) |
-| [frontend.md](frontend.md) | Frontend architecture, pages, components, routing |
-| [technical-specification.md](technical-specification.md) | WMS operational flows — data models, APIs, UX requirements |
-| [orders-specification.md](orders-specification.md) | Orders system — FBS, FBO, Direct, assembly tasks, status flows |
-| [marketplaces-specification.md](marketplaces-specification.md) | Marketplace integrations — Ozon Seller API, client codegen, credential storage, warehouse/card sync & mapping, FBS order sync & labels |
-| [realtime-specification.md](realtime-specification.md) | Real-time updates — SSE transport, event schema, advisory edit locks |
-| [data-files-specification.md](data-files-specification.md) | File storage — upload, local/S3 abstraction, FK attachments, orphan GC, viewer components |
+| [backend-patterns.md](backend-patterns.md) | Recurring backend patterns — search, inheritable fields, list sync, background work, access rules, enums |
+| [changelog.md](changelog.md) | Changelog system — how to add tracking to a method, Action/ActionData |
 
-> **Licence note.** Image resizing uses **SixLabors.ImageSharp 3.x**, which is under the Six Labors Split
-> License: free for organizations under $1M annual revenue, commercial licence required above it. Revisit this
-> if that threshold is crossed; the alternative is SkiaSharp (MIT), which needs native Linux assets in the image.
+**Frontend**
+
+| File | Contents |
+|------|----------|
+| [frontend.md](frontend.md) | Architecture: tech stack, directory layering, routing, cross-cutting conventions, pages, providers, PWA, API client |
+| [frontend-components.md](frontend-components.md) | Component reference grouped by domain — catalog, files, marketplace, orders, warehouse, forms |
+| [frontend-state.md](frontend-state.md) | How state enters and leaves components — URL state hooks, form hooks, `ObservableForm` |
+| [frontend-realtime.md](frontend-realtime.md) | `RealtimeProvider`, subscription hooks, presence, edit-lock and stale-data UI |
+| [native-client.md](native-client.md) | Capacitor build — predefined servers, hardware scanner plugin, native caveats |
+
+**Domain specifications**
+
+| File | Contents |
+|------|----------|
+| [technical-specification.md](technical-specification.md) | WMS operational flows — receipts, transfers, write-offs, stocktakes |
+| [orders-specification.md](orders-specification.md) | Orders — FBS, FBO, Direct, assembly tasks, status flows |
+| [items-specification.md](items-specification.md) | Catalog items — types, `FullName`, inheritance, tags, images, listing rules |
+| [marketplaces-specification.md](marketplaces-specification.md) | Integration platform — Ozon Seller API, client codegen, credential storage, warehouse/card sync & mapping |
+| [marketplaces-orders-fbs-specification.md](marketplaces-orders-fbs-specification.md) | FBS order sync — posting discovery, status catch-up, order creation, label retrieval |
+| [realtime-specification.md](realtime-specification.md) | Real-time transport — SSE, event schema, watch registry, advisory edit locks |
+| [data-files-specification.md](data-files-specification.md) | File storage — upload, storage abstraction, FK attachments, orphan GC, serving rules |
+
+### Licence note
+
+Image resizing uses **SixLabors.ImageSharp 3.x**, under the Six Labors Split License: free for organizations
+under $1M annual revenue, commercial licence required above it. If that threshold is crossed, the alternative is
+SkiaSharp (MIT), which needs native Linux assets in the image.
 
 ## Local Dev Setup
 

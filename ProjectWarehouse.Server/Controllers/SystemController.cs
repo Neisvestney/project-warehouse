@@ -16,7 +16,11 @@ public class SystemController(
     IDatabaseStatsService databaseStats) : AppControllerBase
 {
     /// <summary>File storage usage: counts, sizes, orphans and free disk space.</summary>
-    /// <remarks>Disk figures are cached for DataFiles:StatsCacheSeconds; see <c>diskStatsAt</c>.</remarks>
+    /// <remarks>
+    /// Disk figures are cached for <c>DataFiles:StatsCacheSeconds</c>; see <c>diskStatsAt</c>.
+    /// Takes no parameters and is instance-wide, so the only error is 403 <c>permissionDenied</c>.
+    /// Requires <c>system.view</c>.
+    /// </remarks>
     [HttpGet("storage")]
     [Authorize(Policy = Permissions.System.View)]
     [ProducesResponseType<StorageStatsDto>(StatusCodes.Status200OK)]
@@ -24,7 +28,11 @@ public class SystemController(
         Ok(await storageStats.GetAsync(ct));
 
     /// <summary>Database size broken down by the entity type each table belongs to.</summary>
-    /// <remarks>Row counts are planner estimates from pg_class, not exact counts.</remarks>
+    /// <remarks>
+    /// Row counts are planner estimates from pg_class, not exact counts.
+    /// Takes no parameters and is instance-wide, so the only error is 403 <c>permissionDenied</c>.
+    /// Requires <c>system.view</c>.
+    /// </remarks>
     [HttpGet("database")]
     [Authorize(Policy = Permissions.System.View)]
     [ProducesResponseType<DatabaseStatsDto>(StatusCodes.Status200OK)]

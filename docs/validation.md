@@ -36,29 +36,7 @@ When the field is absent or `null` in the JSON body, STJ throws a `JsonException
 - `JsonException` with `Path != null` but type mismatch (e.g. string where Guid expected) → `ErrorCode.InvalidFormat`
 - `JsonException` with `Path == null` (entire body is malformed JSON) → `ErrorCode.InvalidJson`
 
-### 3. FluentValidation (future)
-
-When `FluentValidation.AspNetCore` is added:
-
-```csharp
-RuleFor(x => x.Username)
-    .NotEmpty()
-        .WithErrorCode(nameof(ErrorCode.Required))
-        .WithMessage("Username is required.")
-    .MaximumLength(50)
-        .WithErrorCode(nameof(ErrorCode.TooLong))
-        .WithMessage("Username must not exceed 50 characters.");
-```
-
-`WithErrorCode` sets a string value on the `ValidationFailure`. `ModelStateErrorMapper` runs `Enum.TryParse<ErrorCode>(errorMessage)` as the first check — since FV puts the error message in the ModelState error, this only works when the `WithMessage` text exactly matches an `ErrorCode` name. The correct pattern is to **use `WithErrorCode`** (not `WithMessage`) for the code, and `WithMessage` for the human text.
-
-Internally, FV with `.WithErrorCode(nameof(ErrorCode.Required))` puts:
-- `ModelError.ErrorMessage = "Username is required."` (the message)
-- The error code is in `ValidationFailure.ErrorCode` — but FV's ModelState integration only copies the message, not the code, into `ModelError.ErrorMessage`.
-
-**Workaround until FV integration is customized**: in FV validators, set `.WithMessage(nameof(ErrorCode.Required))` instead of `.WithErrorCode(...)`, so the `ErrorMessage` field contains the parseable enum name. The human-readable message can go into `WithState` or be derived client-side from the code.
-
-**Better approach (when ready)**: register a custom `IFluentValidationAutoValidationResultFactory` that reads `ValidationFailure.ErrorCode` directly and maps to `AppProblemDetails` without going through ModelState.
+FluentValidation is deliberately not used. Its ASP.NET Core integration copies only `ValidationFailure.ErrorMessage` into `ModelState`, dropping `WithErrorCode`, so every validator would have to smuggle the `ErrorCode` name through `WithMessage` (or a custom result factory would have to replace the ModelState path entirely). Data annotations plus `[JsonRequired]` cover the current needs without that.
 
 ## Field Name Normalization
 
