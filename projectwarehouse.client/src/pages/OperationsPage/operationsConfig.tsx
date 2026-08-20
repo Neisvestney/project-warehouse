@@ -40,6 +40,7 @@ export const operationsSections: SectionConfig[] = [
         path: "assembly",
         component: OrdersAssemblyPage,
         icon: <AssemblyIcon fontSize="small" />,
+        requiredPermission: ["orders.assemble_assigned", "orders.edit", "orders.edit_assigned"],
       },
       {
         label: "Прямые",
@@ -47,18 +48,21 @@ export const operationsSections: SectionConfig[] = [
         component: OrdersDirectPage,
         subroutes: [{path: "new", component: OrderDirectCreatePage}],
         icon: <StorefrontIcon fontSize="small" />,
+        requiredPermission: ["orders.view", "orders.view_assigned"],
       },
       {
         label: "FBS",
         path: "fbs",
         component: OrdersFbsPage,
         icon: <LocalShippingIcon fontSize="small" />,
+        requiredPermission: ["orders.view", "orders.view_assigned"],
       },
       {
         label: "FBO",
         path: "fbo",
         component: OrdersFboPage,
         icon: <WarehouseIcon fontSize="small" />,
+        requiredPermission: ["orders.view", "orders.view_assigned"],
       },
     ],
   },
@@ -67,6 +71,7 @@ export const operationsSections: SectionConfig[] = [
     path: "receipts",
     icon: <MoveToInboxIcon fontSize="small" />,
     component: ReceiptsPage,
+    requiredPermission: ["receipts.view", "receipts.view_assigned"],
     subroutes: [
       {path: "new", component: ReceiptCreatePage},
       {path: ":id", component: ReceiptPage},
@@ -77,12 +82,14 @@ export const operationsSections: SectionConfig[] = [
     path: "transfers",
     icon: <SwapHorizIcon fontSize="small" />,
     component: TransfersPage,
+    requiredPermission: ["transfers.execute", "transfers.execute_assigned"],
   },
   {
     label: "Списания",
     path: "writeoffs",
     icon: <DeleteSweepIcon fontSize="small" />,
     component: WriteoffsPage,
+    requiredPermission: ["writeoffs.view", "writeoffs.view_assigned"],
     subroutes: [
       {path: "new", component: WriteoffCreatePage},
       {path: ":id", component: WriteoffPage},
@@ -93,6 +100,7 @@ export const operationsSections: SectionConfig[] = [
     path: "stocktakes",
     icon: <FactCheckIcon fontSize="small" />,
     component: StocktakesPage,
+    requiredPermission: ["stocktakes.view", "stocktakes.view_assigned"],
     subroutes: [
       {path: "new", component: StocktakeCreatePage},
       {path: ":id", component: StocktakePage},
