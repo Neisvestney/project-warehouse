@@ -77,9 +77,9 @@ function UserViewPage() {
           {name: user.username},
           {name: "Просмотр"},
         ]}
+        viewersOf={{entityType: "user", entityId: id}}
       />
       <PageGenericHeader
-        viewersOf={{entityType: "user", entityId: id}}
         title={user.username}
         right={
           <>

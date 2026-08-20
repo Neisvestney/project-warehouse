@@ -151,10 +151,10 @@ function OrderPage() {
             {name: typeLabel, link: `/operations/orders/${order.type}`},
             {name: formatOrderNumber(order.number)},
           ]}
+          viewersOf={{entityType: "order", entityId: id}}
         />
 
         <PageGenericHeader
-          viewersOf={{entityType: "order", entityId: id}}
           title={
             <Stack direction="row" spacing={1.5} sx={{alignItems: "center", flexWrap: "wrap"}}>
               <Typography variant="h5" component="span">

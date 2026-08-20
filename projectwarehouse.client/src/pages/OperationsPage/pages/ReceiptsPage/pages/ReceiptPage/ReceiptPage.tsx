@@ -290,9 +290,9 @@ function ReceiptPage() {
           {name: "Приемки", link: "/operations/receipts"},
           {name: formatReceiptNumber(receipt.number)},
         ]}
+        viewersOf={{entityType: "receipt", entityId: id}}
       />
       <PageGenericHeader
-        viewersOf={{entityType: "receipt", entityId: id}}
         title={
           <Stack direction="row" spacing={1.5} sx={{alignItems: "center"}}>
             <Typography variant="h5" component="span">

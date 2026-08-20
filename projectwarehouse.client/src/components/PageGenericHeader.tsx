@@ -19,10 +19,16 @@ function PageGenericHeader({title, children, right, viewersOf}: PageGenericHeade
         spacing={1}
         sx={{
           alignItems: "center",
-          flexBasis: {
-            md: 300,
-          },
-          flexShrink: 1,
+          ...(children
+            ? {
+                flexBasis: {
+                  md: 300,
+                },
+                flexShrink: 1,
+              }
+            : {
+                flexGrow: 1,
+              }),
         }}
       >
         <Typography variant="h5" sx={{minWidth: 0}}>
@@ -30,9 +36,11 @@ function PageGenericHeader({title, children, right, viewersOf}: PageGenericHeade
         </Typography>
         {viewersOf && <EntityViewers {...viewersOf} />}
       </Stack>
-      <Box sx={{flexGrow: 1, flexShrink: 0}}>
-        <MiddleContentWrapper>{children ?? <span></span>}</MiddleContentWrapper>
-      </Box>
+      {children && (
+        <Box sx={{flexGrow: 1, flexShrink: 0}}>
+          <MiddleContentWrapper>{children ?? <span></span>}</MiddleContentWrapper>
+        </Box>
+      )}
       {right && (
         <Stack
           spacing={1}

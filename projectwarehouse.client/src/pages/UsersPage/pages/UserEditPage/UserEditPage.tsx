@@ -153,11 +153,9 @@ function UserEditPage() {
           {name: user.username, link: `/settings/employees/${id}`},
           {name: "Редактировать"},
         ]}
-      />
-      <PageGenericHeader
         viewersOf={{entityType: "user", entityId: id}}
-        title={`Редактировать: ${user.username}`}
       />
+      <PageGenericHeader title={`Редактировать: ${user.username}`} />
 
       <EditLockBanner heldBy={lock.heldBy} />
       <StaleDataBanner

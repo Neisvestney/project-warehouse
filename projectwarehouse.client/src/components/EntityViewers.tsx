@@ -40,6 +40,15 @@ function EntityViewers({entityType, entityId}: EntityViewersProps) {
   );
 }
 
-const avatarSx = {width: 28, height: 28, fontSize: 13};
+const avatarSx = {
+  width: 28,
+  height: 28,
+  fontSize: 13,
+  animation: "entityViewerPop 180ms ease-out",
+  "@keyframes entityViewerPop": {
+    from: {opacity: 0, transform: "scale(0.6)"},
+    to: {opacity: 1, transform: "scale(1)"},
+  },
+};
 
 export default EntityViewers;

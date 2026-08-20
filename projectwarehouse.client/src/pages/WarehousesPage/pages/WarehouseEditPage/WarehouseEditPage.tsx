@@ -121,9 +121,9 @@ export default observer(function WarehouseEditPage() {
             {name: warehouse.name, link: `/storage/warehouses/${id}`},
             {name: "Редактировать"},
           ]}
+          viewersOf={{entityType: "warehouse", entityId: id}}
         />
         <PageGenericHeader
-          viewersOf={{entityType: "warehouse", entityId: id}}
           title="Редактировать склад"
           right={
             <>
