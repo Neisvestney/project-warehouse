@@ -41,9 +41,11 @@ function AssemblyOrderInline({
         </Typography>
         <OrderTypeChip type={order.type} />
         <Chip label={order.warehouseName} size="small" variant="outlined" />
-        {order.marketplaceOrder && 
-            <Typography variant={"body2"}>{formatPostingNumber(order.marketplaceOrder.postingNumber)}</Typography>
-        }
+        {order.marketplaceOrder && (
+          <Typography variant={"body2"}>
+            {formatPostingNumber(order.marketplaceOrder.postingNumber)}
+          </Typography>
+        )}
       </Stack>
       <AssemblyOrderBoxesSection order={order} canManage={canFulfill} />
       <Divider sx={{mb: 1}} />
