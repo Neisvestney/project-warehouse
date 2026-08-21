@@ -19,6 +19,10 @@ Pushed updates are also kept in an *unconfirmed* map and re-applied on every fol
 router's params actually contain them. React Router commits navigations inside a transition, so a batch fired
 before the previous one committed would otherwise build on a `prev` that still misses the earlier update.
 
+The map is cleared once the URL matches the search string the last push was building — captured inside the
+updater, where the result is exactly known. From that point the URL wins again, so an external back/forward
+navigation can never be overwritten by a stale re-application.
+
 ### `useDebounce<T>(value, delay?)`
 
 Generic debounce hook. Returns the debounced copy of `value`; updates only after `delay` ms of inactivity

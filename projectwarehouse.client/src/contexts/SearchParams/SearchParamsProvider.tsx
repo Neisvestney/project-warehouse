@@ -10,13 +10,21 @@ export function SearchParamsProvider({children}: {children: ReactNode}) {
   // Updates pushed but not yet reflected in the router's params. Navigations commit inside a
   // transition, so a later batch would otherwise build on a `prev` that still misses them.
   const unconfirmedRef = useRef<Map<string, string | null>>(new Map());
+  // Search string the last pushed navigation will produce, captured while building it.
+  const expectedSearchRef = useRef<string | null>(null);
 
   // Keep ref in sync with the latest setSearchParams from React Router
   useLayoutEffect(() => {
     setSearchParamsRef.current = setSearchParams;
 
-    for (const [k, v] of unconfirmedRef.current) {
-      if (searchParams.get(k) === v) unconfirmedRef.current.delete(k);
+    // Our push landed: everything we intended is in the URL, so nothing needs re-applying.
+    // Anything the URL says after this point wins, including external back/forward navigations.
+    if (
+      expectedSearchRef.current !== null &&
+      searchParams.toString() === expectedSearchRef.current
+    ) {
+      expectedSearchRef.current = null;
+      unconfirmedRef.current.clear();
     }
   });
 
@@ -43,6 +51,7 @@ export function SearchParamsProvider({children}: {children: ReactNode}) {
                 next.set(k, v);
               }
             }
+            expectedSearchRef.current = next.toString();
             return next;
           },
           {replace: true},
