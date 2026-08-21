@@ -1,4 +1,5 @@
 using EntityFrameworkCore.Projectables;
+using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Domain;
@@ -35,4 +36,17 @@ public class Order : IHasIdentity
     [Projectable]
     public string SearchString =>
         Number + " " + Notes + " " + (MarketplaceOrder != null ? MarketplaceOrder.PostingNumber : "");
+
+    /// <summary>
+    /// Search over the order plus its contents — box labels, box component catalog items, marketplace item
+    /// cards. Not used by global search. Call through <c>WhereMatchesExtendedSearch</c>.
+    /// </summary>
+    [Projectable]
+    public bool MatchesExtendedSearch(string pattern) =>
+        EF.Functions.ILike(SearchString, pattern, SearchExtensions.EscapeChar)
+        || Boxes.Any(b => EF.Functions.ILike(b.Label ?? "", pattern, SearchExtensions.EscapeChar))
+        || Boxes.Any(b => b.Components.Any(c =>
+            EF.Functions.ILike(c.CatalogItem.SearchString, pattern, SearchExtensions.EscapeChar)))
+        || MarketplaceItems.Any(i => i.MarketplaceCard != null
+            && EF.Functions.ILike(i.MarketplaceCard.SearchString, pattern, SearchExtensions.EscapeChar));
 }

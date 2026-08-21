@@ -57,12 +57,47 @@ db.Receipts
 
 EF Projectables intercepts the `SearchString` member access during LINQ-to-SQL translation and expands it inline — the navigation is transparent to EF Core.
 
+### Searching across a collection — `WhereMatchesExtendedSearch`
+
+A `SearchString` only works while every searchable field sits on a scalar path: `WhereMatchesSearch` splices the
+expression straight into `EF.Functions.ILike`, so the result has to be one SQL scalar. **Do not try to fold a
+collection into it with `string.Join`** — EF Core 10 does not translate that into `string_agg`; the query falls
+back to client evaluation and throws at runtime (checked empirically, not assumed).
+
+Use a `[Projectable]` **predicate** over one ready-made ILIKE pattern instead, and let each collection become its
+own `EXISTS` subquery:
+
+**Domain entity** (`Order.cs`):
+```csharp
+[Projectable]
+public bool MatchesExtendedSearch(string pattern) =>
+    EF.Functions.ILike(SearchString, pattern, SearchExtensions.EscapeChar)
+    || Boxes.Any(b => EF.Functions.ILike(b.Label ?? "", pattern, SearchExtensions.EscapeChar))
+    || Boxes.Any(b => b.Components.Any(c =>
+        EF.Functions.ILike(c.CatalogItem.SearchString, pattern, SearchExtensions.EscapeChar)));
+```
+
+**Controller** (`OrdersController.cs`):
+```csharp
+query.WhereMatchesExtendedSearch((o, pattern) => o.MatchesExtendedSearch(pattern), searchString)
+```
+
+`WhereMatchesExtendedSearch` keeps the same contract as `WhereMatchesSearch` — it owns tokenization and `%`, `_`,
+`\` escaping, and substitutes the finished pattern into the predicate once per token. Semantics stay **AND across
+tokens, OR across sources**. Nested `SearchString` properties on related entities expand normally inside it.
+
+Cost: one correlated `EXISTS` per collection per token, with no index behind `ILIKE`. Fine for small or paginated
+sets; reach for `pg_trgm` or a materialized column before pointing it at a large table.
+
 ### Rules
 
 - Always use `?? ""` on nullable string fields inside `SearchString` to avoid null propagation in SQL.
 - Non-nullable string fields don't strictly need `?? ""`, but it's kept for consistency.
-- `WhereMatchesSearch` with a `null` or whitespace `searchString` is a no-op — no filter is applied.
+- `WhereMatchesSearch` with a `null` or whitespace `searchString` is a no-op — so is `WhereMatchesExtendedSearch`.
 - Token splitting is space-based; each token must appear somewhere in the concatenated string (AND across tokens).
+- Scalar fields → `SearchString` + `WhereMatchesSearch`. Anything reached through a collection →
+  `MatchesXxxSearch(pattern)` + `WhereMatchesExtendedSearch`. Never `string.Join` over a navigation.
+- Both live in `SearchExtensions`; escaping is `SearchExtensions.EscapeChar`, never a bare `"\\"` literal.
 
 ---
 
