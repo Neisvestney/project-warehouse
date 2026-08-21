@@ -33,6 +33,7 @@ import {byOperation} from "@/utils/queryKeys";
 import EditLockBanner from "@/components/EditLockBanner";
 import StaleDataBanner from "@/components/StaleDataBanner";
 import {useEditLock} from "@/hooks/useEditLock";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
@@ -181,6 +182,7 @@ function ReceiptPage() {
   const {
     data: receipt,
     isLoading,
+    isFetching,
     isError,
     isRefetchError,
     error,
@@ -276,67 +278,92 @@ function ReceiptPage() {
     deleteMutation.isPending;
 
   return (
-    <Stack spacing={2}>
-      <EditLockBanner heldBy={lock.heldBy} />
-      <StaleDataBanner
-        isStale={!lock.heldBy && lock.isStale}
-        staleBy={lock.staleBy}
-        onRefresh={lock.refresh}
-        onDismiss={lock.dismissStale}
-      />
+    <Box sx={{position: "relative"}}>
+      <LoadingOverlay open={isFetching && !isLoading && !isEditingAnything} />
+      <Stack spacing={2}>
+        <EditLockBanner heldBy={lock.heldBy} />
+        <StaleDataBanner
+          isStale={!lock.heldBy && lock.isStale}
+          staleBy={lock.staleBy}
+          onRefresh={lock.refresh}
+          onDismiss={lock.dismissStale}
+        />
 
-      <AppBreadcrumbs
-        path={[
-          {name: "Приемки", link: "/operations/receipts"},
-          {name: formatReceiptNumber(receipt.number)},
-        ]}
-        viewersOf={{entityType: "receipt", entityId: id}}
-      />
-      <PageGenericHeader
-        title={
-          <Stack direction="row" spacing={1.5} sx={{alignItems: "center"}}>
-            <Typography variant="h5" component="span">
-              {receipt.name || "—"}
-            </Typography>
-            <ReceiptStatusChip status={receipt.status} />
-          </Stack>
-        }
-        right={
-          canEdit && (!isTerminal || isFinished) ? (
-            <Stack direction="row" spacing={1}>
-              {isDraft && (
-                <>
-                  <Button
-                    variant="outlined"
-                    disabled={actionPending}
-                    onClick={() => planMutation.mutate({path: {id: receipt.id}})}
-                    startIcon={<ScheduleSendIcon />}
-                    loading={planMutation.isPending}
-                  >
-                    Запланировать
-                  </Button>
-                  <Button
-                    color="error"
-                    variant="outlined"
-                    disabled={actionPending}
-                    onClick={() => setDeleteOpen(true)}
-                    startIcon={<DeleteIcon />}
-                  >
-                    Удалить
-                  </Button>
-                </>
-              )}
-              {isPlanned && (
-                <>
+        <AppBreadcrumbs
+          path={[
+            {name: "Приемки", link: "/operations/receipts"},
+            {name: formatReceiptNumber(receipt.number)},
+          ]}
+          viewersOf={{entityType: "receipt", entityId: id}}
+        />
+        <PageGenericHeader
+          title={
+            <Stack direction="row" spacing={1.5} sx={{alignItems: "center"}}>
+              <Typography variant="h5" component="span">
+                {receipt.name || "—"}
+              </Typography>
+              <ReceiptStatusChip status={receipt.status} />
+            </Stack>
+          }
+          right={
+            canEdit && (!isTerminal || isFinished) ? (
+              <Stack direction="row" spacing={1}>
+                {isDraft && (
+                  <>
+                    <Button
+                      variant="outlined"
+                      disabled={actionPending}
+                      onClick={() => planMutation.mutate({path: {id: receipt.id}})}
+                      startIcon={<ScheduleSendIcon />}
+                      loading={planMutation.isPending}
+                    >
+                      Запланировать
+                    </Button>
+                    <Button
+                      color="error"
+                      variant="outlined"
+                      disabled={actionPending}
+                      onClick={() => setDeleteOpen(true)}
+                      startIcon={<DeleteIcon />}
+                    >
+                      Удалить
+                    </Button>
+                  </>
+                )}
+                {isPlanned && (
+                  <>
+                    <Button
+                      variant="contained"
+                      disabled={actionPending}
+                      onClick={() => setStartProcessingOpen(true)}
+                      startIcon={<PlayArrowIcon />}
+                      loading={startProcessingMutation.isPending}
+                    >
+                      Начать приёмку
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      disabled={actionPending}
+                      onClick={() => revertMutation.mutate({path: {id: receipt.id}})}
+                      startIcon={<UndoIcon />}
+                      loading={revertMutation.isPending}
+                    >
+                      Откатить
+                    </Button>
+                  </>
+                )}
+                {isProcessing && (
                   <Button
                     variant="contained"
                     disabled={actionPending}
-                    onClick={() => setStartProcessingOpen(true)}
-                    startIcon={<PlayArrowIcon />}
-                    loading={startProcessingMutation.isPending}
+                    onClick={() => finishMutation.mutate({path: {id: receipt.id}})}
+                    startIcon={<TaskAltIcon />}
+                    loading={finishMutation.isPending}
                   >
-                    Начать приёмку
+                    Завершить
                   </Button>
+                )}
+                {isFinished && (
                   <Button
                     variant="outlined"
                     disabled={actionPending}
@@ -346,189 +373,171 @@ function ReceiptPage() {
                   >
                     Откатить
                   </Button>
-                </>
-              )}
-              {isProcessing && (
-                <Button
-                  variant="contained"
-                  disabled={actionPending}
-                  onClick={() => finishMutation.mutate({path: {id: receipt.id}})}
-                  startIcon={<TaskAltIcon />}
-                  loading={finishMutation.isPending}
-                >
-                  Завершить
-                </Button>
-              )}
-              {isFinished && (
-                <Button
-                  variant="outlined"
-                  disabled={actionPending}
-                  onClick={() => revertMutation.mutate({path: {id: receipt.id}})}
-                  startIcon={<UndoIcon />}
-                  loading={revertMutation.isPending}
-                >
-                  Откатить
-                </Button>
-              )}
-              {!isDraft && !isFinished && (
-                <Button
-                  color="error"
-                  variant="outlined"
-                  disabled={actionPending}
-                  onClick={() => setCancelOpen(true)}
-                  startIcon={<BlockIcon />}
-                >
-                  Отменить
-                </Button>
-              )}
-            </Stack>
-          ) : undefined
-        }
-      />
-
-      <Paper>
-        <Stack spacing={1.5} sx={{p: 3}}>
-          {!isEditing ? (
-            <>
-              <InfoRow label="Номер" value={formatReceiptNumber(receipt.number)} />
-              <InfoRow label="Причина" value={RECEIPT_REASON_LABELS[receipt.reason]} />
-              <Stack direction="row" spacing={1} sx={{alignItems: "baseline"}}>
-                <Typography color="text.secondary" sx={{width: 160, flexShrink: 0}}>
-                  Склад
-                </Typography>
-                <Typography
-                  component={RouterLink}
-                  to={`/storage/warehouses/${receipt.warehouseId}`}
-                  sx={{
-                    color: "primary.main",
-                    textDecoration: "none",
-                    "&:hover": {textDecoration: "underline"},
-                  }}
-                >
-                  {receipt.warehouseName}
-                </Typography>
-              </Stack>
-              <InfoRow
-                label="Создана"
-                value={new Date(receipt.createdAt).toLocaleString("ru-RU")}
-              />
-              <InfoRow
-                label="Дата поставки"
-                value={
-                  receipt.plannedDeliveryDate
-                    ? parseDateOnly(receipt.plannedDeliveryDate).toLocaleDateString("ru-RU")
-                    : "—"
-                }
-              />
-              <InfoRow label="Примечания" value={receipt.notes ?? "—"} />
-              {isDraft && canEdit && (
-                <Box>
+                )}
+                {!isDraft && !isFinished && (
                   <Button
-                    startIcon={<span style={{fontSize: 16}}>✎</span>}
-                    size="small"
-                    onClick={() => setIsEditing(true)}
+                    color="error"
+                    variant="outlined"
+                    disabled={actionPending}
+                    onClick={() => setCancelOpen(true)}
+                    startIcon={<BlockIcon />}
                   >
-                    Редактировать
+                    Отменить
                   </Button>
-                </Box>
-              )}
-            </>
-          ) : (
-            <EditInfoForm
-              receipt={receipt}
-              onDone={(updated) => {
-                updateLocalReceipt(updated);
-                setIsEditing(false);
-              }}
-            />
-          )}
-        </Stack>
-      </Paper>
-
-      {(isProcessing || isTerminal) && (
-        <Paper>
-          <Stack direction="row" divider={<Divider orientation="vertical" flexItem />} sx={{p: 2}}>
-            {[
-              {label: "Запланировано", value: receipt.totalPlannedCount, color: "text.primary"},
-              {label: "Принято", value: receipt.totalReceivedCount, color: "text.primary"},
-              {
-                label: "Расхождение",
-                value:
-                  receipt.totalReceivedCount - receipt.totalPlannedCount === 0
-                    ? "0"
-                    : receipt.totalReceivedCount - receipt.totalPlannedCount > 0
-                      ? `+${receipt.totalReceivedCount - receipt.totalPlannedCount}`
-                      : String(receipt.totalReceivedCount - receipt.totalPlannedCount),
-                color:
-                  receipt.totalReceivedCount === receipt.totalPlannedCount
-                    ? "success.main"
-                    : receipt.totalReceivedCount < receipt.totalPlannedCount
-                      ? "warning.main"
-                      : "info.main",
-              },
-            ].map(({label, value, color}) => (
-              <Stack key={label} spacing={0.25} sx={{flexGrow: 1, alignItems: "center", py: 0.5}}>
-                <Typography variant="caption" color="text.secondary">
-                  {label}
-                </Typography>
-                <Typography variant="h6" sx={{color, fontWeight: 600}}>
-                  {value}
-                </Typography>
+                )}
               </Stack>
-            ))}
+            ) : undefined
+          }
+        />
+
+        <Paper>
+          <Stack spacing={1.5} sx={{p: 3}}>
+            {!isEditing ? (
+              <>
+                <InfoRow label="Номер" value={formatReceiptNumber(receipt.number)} />
+                <InfoRow label="Причина" value={RECEIPT_REASON_LABELS[receipt.reason]} />
+                <Stack direction="row" spacing={1} sx={{alignItems: "baseline"}}>
+                  <Typography color="text.secondary" sx={{width: 160, flexShrink: 0}}>
+                    Склад
+                  </Typography>
+                  <Typography
+                    component={RouterLink}
+                    to={`/storage/warehouses/${receipt.warehouseId}`}
+                    sx={{
+                      color: "primary.main",
+                      textDecoration: "none",
+                      "&:hover": {textDecoration: "underline"},
+                    }}
+                  >
+                    {receipt.warehouseName}
+                  </Typography>
+                </Stack>
+                <InfoRow
+                  label="Создана"
+                  value={new Date(receipt.createdAt).toLocaleString("ru-RU")}
+                />
+                <InfoRow
+                  label="Дата поставки"
+                  value={
+                    receipt.plannedDeliveryDate
+                      ? parseDateOnly(receipt.plannedDeliveryDate).toLocaleDateString("ru-RU")
+                      : "—"
+                  }
+                />
+                <InfoRow label="Примечания" value={receipt.notes ?? "—"} />
+                {isDraft && canEdit && (
+                  <Box>
+                    <Button
+                      startIcon={<span style={{fontSize: 16}}>✎</span>}
+                      size="small"
+                      onClick={() => setIsEditing(true)}
+                    >
+                      Редактировать
+                    </Button>
+                  </Box>
+                )}
+              </>
+            ) : (
+              <EditInfoForm
+                receipt={receipt}
+                onDone={(updated) => {
+                  updateLocalReceipt(updated);
+                  setIsEditing(false);
+                }}
+              />
+            )}
           </Stack>
         </Paper>
-      )}
 
-      <Paper>
-        <Box sx={{p: 3}}>
-          <ReceiptItemsSection
-            receipt={receipt}
-            onUpdate={updateLocalReceipt}
-            onEditingChange={setIsEditingItems}
-          />
-        </Box>
-      </Paper>
+        {(isProcessing || isTerminal) && (
+          <Paper>
+            <Stack
+              direction="row"
+              divider={<Divider orientation="vertical" flexItem />}
+              sx={{p: 2}}
+            >
+              {[
+                {label: "Запланировано", value: receipt.totalPlannedCount, color: "text.primary"},
+                {label: "Принято", value: receipt.totalReceivedCount, color: "text.primary"},
+                {
+                  label: "Расхождение",
+                  value:
+                    receipt.totalReceivedCount - receipt.totalPlannedCount === 0
+                      ? "0"
+                      : receipt.totalReceivedCount - receipt.totalPlannedCount > 0
+                        ? `+${receipt.totalReceivedCount - receipt.totalPlannedCount}`
+                        : String(receipt.totalReceivedCount - receipt.totalPlannedCount),
+                  color:
+                    receipt.totalReceivedCount === receipt.totalPlannedCount
+                      ? "success.main"
+                      : receipt.totalReceivedCount < receipt.totalPlannedCount
+                        ? "warning.main"
+                        : "info.main",
+                },
+              ].map(({label, value, color}) => (
+                <Stack key={label} spacing={0.25} sx={{flexGrow: 1, alignItems: "center", py: 0.5}}>
+                  <Typography variant="caption" color="text.secondary">
+                    {label}
+                  </Typography>
+                  <Typography variant="h6" sx={{color, fontWeight: 600}}>
+                    {value}
+                  </Typography>
+                </Stack>
+              ))}
+            </Stack>
+          </Paper>
+        )}
 
-      <ConfirmDialog
-        open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        title="Удалить приемку?"
-        confirmText="Удалить"
-        confirmColor="error"
-        onConfirm={() => deleteMutation.mutate({path: {id: receipt.id}})}
-        isPending={deleteMutation.isPending}
-      >
-        <Typography>
-          Приемка {formatReceiptNumber(receipt.number)} будет безвозвратно удалена.
-        </Typography>
-      </ConfirmDialog>
+        <Paper>
+          <Box sx={{p: 3}}>
+            <ReceiptItemsSection
+              receipt={receipt}
+              onUpdate={updateLocalReceipt}
+              onEditingChange={setIsEditingItems}
+            />
+          </Box>
+        </Paper>
 
-      <ConfirmDialog
-        open={cancelOpen}
-        onClose={() => setCancelOpen(false)}
-        title="Отменить приемку?"
-        confirmText="Отменить приемку"
-        confirmColor="error"
-        onConfirm={() => cancelMutation.mutate({path: {id: receipt.id}})}
-        isPending={cancelMutation.isPending}
-      >
-        <Typography>Статус приемки будет изменён на «Отменена».</Typography>
-      </ConfirmDialog>
+        <ConfirmDialog
+          open={deleteOpen}
+          onClose={() => setDeleteOpen(false)}
+          title="Удалить приемку?"
+          confirmText="Удалить"
+          confirmColor="error"
+          onConfirm={() => deleteMutation.mutate({path: {id: receipt.id}})}
+          isPending={deleteMutation.isPending}
+        >
+          <Typography>
+            Приемка {formatReceiptNumber(receipt.number)} будет безвозвратно удалена.
+          </Typography>
+        </ConfirmDialog>
 
-      <ConfirmDialog
-        open={startProcessingOpen}
-        onClose={() => setStartProcessingOpen(false)}
-        title="Начать приёмку?"
-        confirmText="Начать приёмку"
-        onConfirm={() => startProcessingMutation.mutate({path: {id: receipt.id}})}
-        isPending={startProcessingMutation.isPending}
-      >
-        <Typography>
-          После начала приёмки изменить список позиций будет нельзя. Продолжить?
-        </Typography>
-      </ConfirmDialog>
-    </Stack>
+        <ConfirmDialog
+          open={cancelOpen}
+          onClose={() => setCancelOpen(false)}
+          title="Отменить приемку?"
+          confirmText="Отменить приемку"
+          confirmColor="error"
+          onConfirm={() => cancelMutation.mutate({path: {id: receipt.id}})}
+          isPending={cancelMutation.isPending}
+        >
+          <Typography>Статус приемки будет изменён на «Отменена».</Typography>
+        </ConfirmDialog>
+
+        <ConfirmDialog
+          open={startProcessingOpen}
+          onClose={() => setStartProcessingOpen(false)}
+          title="Начать приёмку?"
+          confirmText="Начать приёмку"
+          onConfirm={() => startProcessingMutation.mutate({path: {id: receipt.id}})}
+          isPending={startProcessingMutation.isPending}
+        >
+          <Typography>
+            После начала приёмки изменить список позиций будет нельзя. Продолжить?
+          </Typography>
+        </ConfirmDialog>
+      </Stack>
+    </Box>
   );
 }
 

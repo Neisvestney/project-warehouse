@@ -32,6 +32,7 @@ import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
 import {CatalogItemDrawerHost} from "@/components/catalog/CatalogItemDrawerHost";
 import QueryError from "@/components/QueryError";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import MarketplaceStatusChip from "../../components/MarketplaceStatusChip";
 import {SYNC_SCOPE_LABELS, SYNC_STATUS_LABELS, hasCapability} from "../../marketplaceUtils";
 import AccountOverviewTab from "./AccountOverviewTab";
@@ -114,6 +115,7 @@ function MarketplaceAccountPage() {
   const {
     data: account,
     isLoading,
+    isFetching,
     isError,
     isRefetchError,
     error,
@@ -168,103 +170,110 @@ function MarketplaceAccountPage() {
     (tab === "warehouses" && !showWarehouses) || (tab === "cards" && !showCards) ? "overview" : tab;
 
   return (
-    <Stack spacing={2}>
-      <AppBreadcrumbs
-        path={[{name: "Маркетплейсы", link: "/settings/integrations"}, {name: account.name}]}
-      />
-      <PageGenericHeader
-        title={
-          <Stack spacing={1} direction="row" sx={{alignItems: "center"}} useFlexGap>
-            {account.name}
-            <MarketplaceStatusChip status={account.lastSyncStatus} />
-          </Stack>
-        }
-        right={
-          <>
-            {canMap && (
-              <Button
-                variant="outlined"
-                startIcon={<SyncIcon />}
-                disabled={syncMutation.isPending || account.lastSyncStatus === "running"}
-                onClick={(e) => setSyncMenuAnchor(e.currentTarget)}
-              >
-                Синхронизировать
-              </Button>
-            )}
-            {canEdit && (
-              <Button variant="outlined" startIcon={<EditIcon />} onClick={() => setEditOpen(true)}>
-                Изменить
-              </Button>
-            )}
-            {canEdit && (
-              <Button
-                variant="outlined"
-                color="error"
-                startIcon={<DeleteIcon />}
-                onClick={() => setDeleteOpen(true)}
-              >
-                Удалить
-              </Button>
-            )}
-          </>
-        }
-      />
-
-      <Menu
-        anchorEl={syncMenuAnchor}
-        open={!!syncMenuAnchor}
-        onClose={() => setSyncMenuAnchor(null)}
-      >
-        {SYNC_SCOPES.map((scope) => (
-          <MenuItem
-            key={scope}
-            onClick={() => {
-              setSyncMenuAnchor(null);
-              syncMutation.mutate({path: {id: account.id}, body: {scope}});
-            }}
-          >
-            {SYNC_SCOPE_LABELS[scope]}
-          </MenuItem>
-        ))}
-      </Menu>
-
-      <Paper>
-        <Tabs
-          value={activeTab}
-          onChange={(_, v: TabKey) => changeTab(v)}
-          variant="scrollable"
-          scrollButtons="auto"
-        >
-          <Tab value="overview" label="Обзор" />
-          {showWarehouses && <Tab value="warehouses" label="Склады" />}
-          {showCards && <Tab value="cards" label="Карточки" />}
-          <Tab value="runs" label="История" />
-        </Tabs>
-      </Paper>
-
-      {activeTab === "overview" && <AccountOverviewTab account={account} />}
-      {activeTab === "warehouses" && <AccountWarehousesTab accountId={account.id} />}
-      {activeTab === "cards" && (
-        <CatalogItemDrawerHost>
-          <AccountCardsTab accountId={account.id} />
-        </CatalogItemDrawerHost>
-      )}
-      {activeTab === "runs" && (
-        <AccountSyncRunsTab
-          accountId={account.id}
-          isRunning={account.lastSyncStatus === "running"}
-          isLive={isWatching}
+    <Box sx={{position: "relative"}}>
+      <LoadingOverlay open={isFetching && !isLoading} />
+      <Stack spacing={2}>
+        <AppBreadcrumbs
+          path={[{name: "Маркетплейсы", link: "/settings/integrations"}, {name: account.name}]}
         />
-      )}
+        <PageGenericHeader
+          title={
+            <Stack spacing={1} direction="row" sx={{alignItems: "center"}} useFlexGap>
+              {account.name}
+              <MarketplaceStatusChip status={account.lastSyncStatus} />
+            </Stack>
+          }
+          right={
+            <>
+              {canMap && (
+                <Button
+                  variant="outlined"
+                  startIcon={<SyncIcon />}
+                  disabled={syncMutation.isPending || account.lastSyncStatus === "running"}
+                  onClick={(e) => setSyncMenuAnchor(e.currentTarget)}
+                >
+                  Синхронизировать
+                </Button>
+              )}
+              {canEdit && (
+                <Button
+                  variant="outlined"
+                  startIcon={<EditIcon />}
+                  onClick={() => setEditOpen(true)}
+                >
+                  Изменить
+                </Button>
+              )}
+              {canEdit && (
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  Удалить
+                </Button>
+              )}
+            </>
+          }
+        />
 
-      <EditAccountDialog open={editOpen} account={account} onClose={() => setEditOpen(false)} />
-      <DeleteAccountDialog
-        open={deleteOpen}
-        accountId={account.id}
-        accountName={account.name}
-        onClose={() => setDeleteOpen(false)}
-      />
-    </Stack>
+        <Menu
+          anchorEl={syncMenuAnchor}
+          open={!!syncMenuAnchor}
+          onClose={() => setSyncMenuAnchor(null)}
+        >
+          {SYNC_SCOPES.map((scope) => (
+            <MenuItem
+              key={scope}
+              onClick={() => {
+                setSyncMenuAnchor(null);
+                syncMutation.mutate({path: {id: account.id}, body: {scope}});
+              }}
+            >
+              {SYNC_SCOPE_LABELS[scope]}
+            </MenuItem>
+          ))}
+        </Menu>
+
+        <Paper>
+          <Tabs
+            value={activeTab}
+            onChange={(_, v: TabKey) => changeTab(v)}
+            variant="scrollable"
+            scrollButtons="auto"
+          >
+            <Tab value="overview" label="Обзор" />
+            {showWarehouses && <Tab value="warehouses" label="Склады" />}
+            {showCards && <Tab value="cards" label="Карточки" />}
+            <Tab value="runs" label="История" />
+          </Tabs>
+        </Paper>
+
+        {activeTab === "overview" && <AccountOverviewTab account={account} />}
+        {activeTab === "warehouses" && <AccountWarehousesTab accountId={account.id} />}
+        {activeTab === "cards" && (
+          <CatalogItemDrawerHost>
+            <AccountCardsTab accountId={account.id} />
+          </CatalogItemDrawerHost>
+        )}
+        {activeTab === "runs" && (
+          <AccountSyncRunsTab
+            accountId={account.id}
+            isRunning={account.lastSyncStatus === "running"}
+            isLive={isWatching}
+          />
+        )}
+
+        <EditAccountDialog open={editOpen} account={account} onClose={() => setEditOpen(false)} />
+        <DeleteAccountDialog
+          open={deleteOpen}
+          accountId={account.id}
+          accountName={account.name}
+          onClose={() => setDeleteOpen(false)}
+        />
+      </Stack>
+    </Box>
   );
 }
 

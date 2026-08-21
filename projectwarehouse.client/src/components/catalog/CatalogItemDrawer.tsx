@@ -74,6 +74,7 @@ import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import {FormTextField} from "@/components/form/FormTextField";
 import {useHasPermission} from "@/hooks/usePermission";
 import {useModal} from "@/hooks/useModal";
@@ -414,7 +415,7 @@ function ViewMode({
   canEdit: boolean;
   onOpenItem?: (id: string) => void;
 }) {
-  const {data, isLoading, isError, isRefetchError, error} = useQuery({
+  const {data, isLoading, isFetching, isError, isRefetchError, error} = useQuery({
     ...catalogGetByIdOptions({path: {id: itemId}}),
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
   });
@@ -446,235 +447,238 @@ function ViewMode({
   const isStandardOrUnit = data.type === "standard" || data.type === "unit";
 
   return (
-    <Box sx={{overflowY: "auto", px: 2, py: 2, flex: 1}}>
-      <Stack spacing={2}>
-        <ItemImagesView item={data} />
+    <Box sx={{position: "relative", display: "flex", flex: 1, minHeight: 0}}>
+      <LoadingOverlay open={isFetching && !isLoading} />
+      <Box sx={{overflowY: "auto", px: 2, py: 2, flex: 1}}>
+        <Stack spacing={2}>
+          <ItemImagesView item={data} />
 
-        {/* Basic fields */}
-        <Stack spacing={1}>
-          {data.isArchived && (
-            <Chip label="В архиве" color="warning" size="small" sx={{alignSelf: "flex-start"}} />
-          )}
-          <LabeledRow label="Артикул">
-            <Typography variant="body2">{data.article}</Typography>
-          </LabeledRow>
-          <LabeledRow label="Штрихкод">
-            <Typography variant="body2">{data.barcode ?? "—"}</Typography>
-          </LabeledRow>
-          <LabeledRow label="Описание">
-            <Typography variant="body2" sx={{whiteSpace: "pre-wrap"}}>
-              {data.description ?? "—"}
-            </Typography>
-          </LabeledRow>
-          <LabeledRow label="Заметки">
-            <Typography variant="body2" sx={{whiteSpace: "pre-wrap"}}>
-              {data.notes ?? "—"}
-            </Typography>
-          </LabeledRow>
-          {data.groupId && (
-            <LabeledRow label="Группа">
-              <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
-                <Typography variant="body2">{data.groupName}</Typography>
-                {onOpenItem && (
-                  <Tooltip title="Открыть группу">
-                    <IconButton
-                      size="small"
-                      onClick={() => onOpenItem(data.groupId!)}
-                      sx={{p: 0.25}}
-                    >
-                      <OpenInNewIcon sx={{fontSize: 14}} />
-                    </IconButton>
-                  </Tooltip>
-                )}
-              </Stack>
+          {/* Basic fields */}
+          <Stack spacing={1}>
+            {data.isArchived && (
+              <Chip label="В архиве" color="warning" size="small" sx={{alignSelf: "flex-start"}} />
+            )}
+            <LabeledRow label="Артикул">
+              <Typography variant="body2">{data.article}</Typography>
             </LabeledRow>
-          )}
-        </Stack>
+            <LabeledRow label="Штрихкод">
+              <Typography variant="body2">{data.barcode ?? "—"}</Typography>
+            </LabeledRow>
+            <LabeledRow label="Описание">
+              <Typography variant="body2" sx={{whiteSpace: "pre-wrap"}}>
+                {data.description ?? "—"}
+              </Typography>
+            </LabeledRow>
+            <LabeledRow label="Заметки">
+              <Typography variant="body2" sx={{whiteSpace: "pre-wrap"}}>
+                {data.notes ?? "—"}
+              </Typography>
+            </LabeledRow>
+            {data.groupId && (
+              <LabeledRow label="Группа">
+                <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
+                  <Typography variant="body2">{data.groupName}</Typography>
+                  {onOpenItem && (
+                    <Tooltip title="Открыть группу">
+                      <IconButton
+                        size="small"
+                        onClick={() => onOpenItem(data.groupId!)}
+                        sx={{p: 0.25}}
+                      >
+                        <OpenInNewIcon sx={{fontSize: 14}} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Stack>
+              </LabeledRow>
+            )}
+          </Stack>
 
-        {/* Tags */}
-        {data.tags.length > 0 && (
-          <>
-            <Divider />
-            <Box sx={{display: "flex", flexWrap: "wrap", gap: 0.5}}>
-              {data.tags.map((tag) => (
-                <Chip key={tag.id} label={tag.name} size="small" variant="outlined" />
-              ))}
-            </Box>
-          </>
-        )}
-
-        {/* Marketplaces Accounts */}
-        {data.marketplaceAccounts.length > 0 && (
-          <>
-            <Divider />
-            <Stack spacing={1}>
-              <Typography variant="subtitle2">Привзязан к карточкам</Typography>
+          {/* Tags */}
+          {data.tags.length > 0 && (
+            <>
+              <Divider />
               <Box sx={{display: "flex", flexWrap: "wrap", gap: 0.5}}>
-                {data.marketplaceAccounts.map((account) => (
-                  <Chip
-                    component={Link}
-                    to={`/settings/integrations/${account.id}?tab=cards&catalogItemId=${data.id}&mappingState=all`}
-                    key={account.id}
-                    label={account.name}
-                    size="small"
-                    color={MARKETPLACE_TYPE_COLORS[account.type]}
-                    onClick={() => {}}
-                  />
+                {data.tags.map((tag) => (
+                  <Chip key={tag.id} label={tag.name} size="small" variant="outlined" />
                 ))}
               </Box>
-            </Stack>
-          </>
-        )}
+            </>
+          )}
 
-        {/* Variations (Standard/Unit) */}
-        {isStandardOrUnit && data.variationIds.length > 0 && (
-          <>
-            <Divider />
-            <Stack spacing={1}>
-              <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
-                <Typography variant="subtitle2">Состоит в вариациях</Typography>
-                <Chip label={data.variationIds.length} size="small" />
-              </Stack>
-              <Box sx={{display: "flex", flexWrap: "wrap", gap: 0.5}}>
-                {variationQueries.map((q, i) =>
-                  q.data ? (
+          {/* Marketplaces Accounts */}
+          {data.marketplaceAccounts.length > 0 && (
+            <>
+              <Divider />
+              <Stack spacing={1}>
+                <Typography variant="subtitle2">Привзязан к карточкам</Typography>
+                <Box sx={{display: "flex", flexWrap: "wrap", gap: 0.5}}>
+                  {data.marketplaceAccounts.map((account) => (
                     <Chip
-                      key={q.data.id}
-                      label={q.data.fullName}
+                      component={Link}
+                      to={`/settings/integrations/${account.id}?tab=cards&catalogItemId=${data.id}&mappingState=all`}
+                      key={account.id}
+                      label={account.name}
                       size="small"
-                      variant="outlined"
-                      onClick={onOpenItem ? () => onOpenItem(q.data!.id) : undefined}
-                      sx={{cursor: onOpenItem ? "pointer" : "default"}}
+                      color={MARKETPLACE_TYPE_COLORS[account.type]}
+                      onClick={() => {}}
                     />
-                  ) : (
-                    <Chip key={i} label="…" size="small" variant="outlined" />
-                  ),
-                )}
-              </Box>
-            </Stack>
-          </>
-        )}
-
-        {/* Members (Variation) */}
-        {data.type === "variation" && data.memberIds.length > 0 && (
-          <>
-            <Divider />
-            <Stack spacing={1}>
-              <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
-                <Typography variant="subtitle2">Участники</Typography>
-                <Chip label={data.memberIds.length} size="small" />
-              </Stack>
-              <Box sx={{display: "flex", flexWrap: "wrap", gap: 0.5}}>
-                {memberQueries.map((q, i) =>
-                  q.data ? (
-                    <Chip
-                      key={q.data.id}
-                      label={q.data.fullName}
-                      size="small"
-                      variant="outlined"
-                      onClick={onOpenItem ? () => onOpenItem(q.data!.id) : undefined}
-                      sx={{cursor: onOpenItem ? "pointer" : "default"}}
-                    />
-                  ) : (
-                    <Chip key={i} label="…" size="small" variant="outlined" />
-                  ),
-                )}
-              </Box>
-            </Stack>
-          </>
-        )}
-
-        {/* Components (Bundle) */}
-        {data.type === "bundle" && data.components.length > 0 && (
-          <>
-            <Divider />
-            <Stack spacing={1}>
-              <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
-                <Typography variant="subtitle2">Компоненты</Typography>
-                <Chip label={data.components.length} size="small" />
-              </Stack>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Позиция</TableCell>
-                    <TableCell align="right">Кол-во</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {data.components.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell>
-                        {onOpenItem ? (
-                          <Button
-                            size="small"
-                            onClick={() => onOpenItem(c.componentId)}
-                            sx={{p: 0, minWidth: 0, textTransform: "none", fontWeight: "normal"}}
-                          >
-                            {c.componentName}
-                          </Button>
-                        ) : (
-                          c.componentName
-                        )}
-                      </TableCell>
-                      <TableCell align="right">{c.quantity}</TableCell>
-                    </TableRow>
                   ))}
-                </TableBody>
-              </Table>
-            </Stack>
-          </>
-        )}
-
-        {/* Children (ProductGroup) */}
-        {data.type === "productGroup" && data.children.length > 0 && (
-          <>
-            <Divider />
-            <Stack spacing={1}>
-              <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
-                <Typography variant="subtitle2">Позиции группы</Typography>
-                <Chip label={data.children.length} size="small" />
+                </Box>
               </Stack>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Название</TableCell>
-                    <TableCell>Артикул</TableCell>
-                    <TableCell>Тип</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {data.children.map((child) => (
-                    <TableRow
-                      key={child.id}
-                      hover
-                      sx={{cursor: onOpenItem ? "pointer" : "default"}}
-                      onClick={() => onOpenItem?.(child.id)}
-                    >
-                      <TableCell>{child.name}</TableCell>
-                      <TableCell>{child.article}</TableCell>
-                      <TableCell>
-                        <CatalogItemTypeChip type={child.type} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Stack>
-          </>
-        )}
+            </>
+          )}
 
-        {/* Actions */}
-        {canEdit && !data.groupId && (
-          <Stack direction="row" spacing={1} sx={{pt: 1}}>
-            <Button size="small" startIcon={<EditIcon />} onClick={onEdit}>
-              Редактировать
-            </Button>
-            <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={onDelete}>
-              Удалить
-            </Button>
-          </Stack>
-        )}
-      </Stack>
+          {/* Variations (Standard/Unit) */}
+          {isStandardOrUnit && data.variationIds.length > 0 && (
+            <>
+              <Divider />
+              <Stack spacing={1}>
+                <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+                  <Typography variant="subtitle2">Состоит в вариациях</Typography>
+                  <Chip label={data.variationIds.length} size="small" />
+                </Stack>
+                <Box sx={{display: "flex", flexWrap: "wrap", gap: 0.5}}>
+                  {variationQueries.map((q, i) =>
+                    q.data ? (
+                      <Chip
+                        key={q.data.id}
+                        label={q.data.fullName}
+                        size="small"
+                        variant="outlined"
+                        onClick={onOpenItem ? () => onOpenItem(q.data!.id) : undefined}
+                        sx={{cursor: onOpenItem ? "pointer" : "default"}}
+                      />
+                    ) : (
+                      <Chip key={i} label="…" size="small" variant="outlined" />
+                    ),
+                  )}
+                </Box>
+              </Stack>
+            </>
+          )}
+
+          {/* Members (Variation) */}
+          {data.type === "variation" && data.memberIds.length > 0 && (
+            <>
+              <Divider />
+              <Stack spacing={1}>
+                <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+                  <Typography variant="subtitle2">Участники</Typography>
+                  <Chip label={data.memberIds.length} size="small" />
+                </Stack>
+                <Box sx={{display: "flex", flexWrap: "wrap", gap: 0.5}}>
+                  {memberQueries.map((q, i) =>
+                    q.data ? (
+                      <Chip
+                        key={q.data.id}
+                        label={q.data.fullName}
+                        size="small"
+                        variant="outlined"
+                        onClick={onOpenItem ? () => onOpenItem(q.data!.id) : undefined}
+                        sx={{cursor: onOpenItem ? "pointer" : "default"}}
+                      />
+                    ) : (
+                      <Chip key={i} label="…" size="small" variant="outlined" />
+                    ),
+                  )}
+                </Box>
+              </Stack>
+            </>
+          )}
+
+          {/* Components (Bundle) */}
+          {data.type === "bundle" && data.components.length > 0 && (
+            <>
+              <Divider />
+              <Stack spacing={1}>
+                <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+                  <Typography variant="subtitle2">Компоненты</Typography>
+                  <Chip label={data.components.length} size="small" />
+                </Stack>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Позиция</TableCell>
+                      <TableCell align="right">Кол-во</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {data.components.map((c) => (
+                      <TableRow key={c.id}>
+                        <TableCell>
+                          {onOpenItem ? (
+                            <Button
+                              size="small"
+                              onClick={() => onOpenItem(c.componentId)}
+                              sx={{p: 0, minWidth: 0, textTransform: "none", fontWeight: "normal"}}
+                            >
+                              {c.componentName}
+                            </Button>
+                          ) : (
+                            c.componentName
+                          )}
+                        </TableCell>
+                        <TableCell align="right">{c.quantity}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Stack>
+            </>
+          )}
+
+          {/* Children (ProductGroup) */}
+          {data.type === "productGroup" && data.children.length > 0 && (
+            <>
+              <Divider />
+              <Stack spacing={1}>
+                <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+                  <Typography variant="subtitle2">Позиции группы</Typography>
+                  <Chip label={data.children.length} size="small" />
+                </Stack>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Название</TableCell>
+                      <TableCell>Артикул</TableCell>
+                      <TableCell>Тип</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {data.children.map((child) => (
+                      <TableRow
+                        key={child.id}
+                        hover
+                        sx={{cursor: onOpenItem ? "pointer" : "default"}}
+                        onClick={() => onOpenItem?.(child.id)}
+                      >
+                        <TableCell>{child.name}</TableCell>
+                        <TableCell>{child.article}</TableCell>
+                        <TableCell>
+                          <CatalogItemTypeChip type={child.type} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Stack>
+            </>
+          )}
+
+          {/* Actions */}
+          {canEdit && !data.groupId && (
+            <Stack direction="row" spacing={1} sx={{pt: 1}}>
+              <Button size="small" startIcon={<EditIcon />} onClick={onEdit}>
+                Редактировать
+              </Button>
+              <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={onDelete}>
+                Удалить
+              </Button>
+            </Stack>
+          )}
+        </Stack>
+      </Box>
     </Box>
   );
 }
