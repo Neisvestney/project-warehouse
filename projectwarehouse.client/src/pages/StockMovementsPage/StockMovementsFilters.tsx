@@ -17,14 +17,14 @@ import {
   warehousesGetAllOptions,
   warehousesGetByIdOptions,
 } from "@/api/@tanstack/react-query.gen";
-import type {CatalogItemSelectDto, StockMovementDirection} from "@/api/types.gen";
+import type {CatalogItemSelectDto} from "@/api/types.gen";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
 import FiltersBar from "@/components/FiltersBar";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import {buildNodePath, formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {useHasPermission} from "@/hooks/usePermission";
 import {PHYSICAL_CATALOG_ITEMS} from "@/features/catalog";
-import {STOCK_MOVEMENT_ACTIONS, STOCK_MOVEMENT_DIRECTIONS} from "./stockMovementsConstants";
+import {STOCK_MOVEMENT_ACTIONS} from "./stockMovementsConstants";
 import type {useStockMovementsFilters} from "./useStockMovementsFilters";
 import AddItemsByTagDialog from "./AddItemsByTagDialog";
 
