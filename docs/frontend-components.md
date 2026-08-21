@@ -501,6 +501,37 @@ Helpers in `components/orders/orderAssemblyUtils.ts`:
   `AssemblyTaskBoxComponent`, so an order box component's ones have to be gathered across every assembly task
   that took on that box.
 
+### `OrdersAssemblyPage` accordions
+
+Every order in the assembly list is one `AssemblyOrderAccordion`, whatever its task count — the top level is
+always the order, so rows line up.
+
+Orders start collapsed. An order with several tasks renders one `AssemblyTaskAccordion` per task, each with its
+own summary: batch checkbox, status chip, positions progress. The order summary carries the tasks counter.
+
+An order with exactly **one** task carries that task's status chip in its own `AccordionSummary` and shows
+`fulfilled/total позиций` instead of the tasks counter. The task itself is rendered as
+`<AssemblyTaskAccordion inline />`: with `inline` the component returns just the body — boxes, component rows,
+«Начать»/«Завершить» — without an `Accordion` of its own.
+
+Every order summary opens with a batch-assembly checkbox covering all selectable tasks of that order: `checked`
+when they are all selected, MUI's `indeterminate` when only some are, disabled when the order has none.
+Toggling it calls `onTaskCheckChange` per selectable task, so the page keeps its flat `selectedTaskIds` set.
+
+Selectable means `getBatchDisabledReason(task, eligible)` in `batchEligibility.ts` returns an empty string; that
+reason is also the tooltip and disabled state of the per-task checkboxes.
+
+### `components/marketplace/MarketplaceAccountChip`
+
+The marketplace account chip: account name, colored by `MARKETPLACE_TYPE_COLORS`, linking to
+`/settings/integrations/{accountId}`. Takes `accountId` / `name` / `type` — the sources differ (an account
+object, a flattened `MarketplaceOrderDto`) — plus an optional `search` for the link's query string
+(`?tab=warehouses`, `?tab=cards&catalogItemId=…`), and passes the remaining `ChipProps` through. The click
+`stopPropagation()`s, so it stays safe inside accordion summaries and clickable rows.
+
+Call sites: `OrderMetaSection` («Магазин»), the `OrdersAssemblyPage` order row, `CatalogItemDrawer`
+(«Привязан к карточкам») and `WarehouseViewPage` («Привязано к складам маркетплейсов»).
+
 ## Warehouse & scanning
 
 ### `features/warehouse/`

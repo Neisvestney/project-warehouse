@@ -1,5 +1,5 @@
 import {type ReactNode, useState} from "react";
-import {Alert, Box, Button, Stack, Typography, Chip} from "@mui/material";
+import {Alert, Box, Button, Stack, Typography} from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import {useForm} from "react-hook-form";
@@ -11,8 +11,7 @@ import type {OrderDetailsDto} from "@/api/types.gen";
 import MarketplaceOrderStatusChip from "@/components/orders/marketplace/MarketplaceOrderStatusChip";
 import {format} from "date-fns";
 import {ru} from "date-fns/locale";
-import {MARKETPLACE_TYPE_COLORS} from "@/pages/SettingsPage/pages/MarketplacesSettingsPage/marketplaceUtils.ts";
-import {Link} from "react-router";
+import MarketplaceAccountChip from "@/components/marketplace/MarketplaceAccountChip";
 import {formatPostingNumber} from "@/utils/postingNumberUtils";
 
 function formatDate(iso: string | null | undefined): string {
@@ -177,13 +176,10 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
 
           <MetaRow label="Магазин">
             <Box>
-              <Chip
-                component={Link}
-                to={`/settings/integrations/${order.marketplaceOrder.marketplaceAccountId}`}
-                size={"small"}
-                label={order.marketplaceOrder.marketplaceAccountName}
-                color={MARKETPLACE_TYPE_COLORS[order.marketplaceOrder.marketplaceType]}
-                onClick={() => {}}
+              <MarketplaceAccountChip
+                accountId={order.marketplaceOrder.marketplaceAccountId}
+                name={order.marketplaceOrder.marketplaceAccountName}
+                type={order.marketplaceOrder.marketplaceType}
               />
             </Box>
           </MetaRow>
