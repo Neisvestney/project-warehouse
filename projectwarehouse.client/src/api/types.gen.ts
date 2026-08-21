@@ -1205,7 +1205,8 @@ export type PermissionName =
   | "system.view"
   | "integrations.view"
   | "integrations.edit"
-  | "integrations.map";
+  | "integrations.map"
+  | "integrations.sync";
 
 export type ProductGroupChildRequest = {
   id?: null | string;

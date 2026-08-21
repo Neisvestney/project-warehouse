@@ -431,7 +431,7 @@ stopped so it does not also trigger the surrounding row.
 The orders list is shared by FBS, FBO and Direct, so type-specific behaviour arrives as props rather than an
 internal `type === "fbs"` branch: `headerActions?`, `bulkActions?: (selectedIds: string[]) => ReactNode`,
 `extraColumns?: {key, label, render}[]`, `marketplaceFilters?` and `showNotes?`. That keeps marketplace imports —
-and the `integrations.map` permission — out of the pages that have nothing to do with marketplaces.
+and the `integrations.sync` permission — out of the pages that have nothing to do with marketplaces.
 
 `bulkActions` receives **every** selected id, not just the confirmed ones self-assign cares about, and the
 selection toolbar appears whenever something is selected and either action set applies. Adding an

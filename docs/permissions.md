@@ -71,11 +71,14 @@ counting-only role workable without access to warehouses.
 **Transfers have no entity**, so no rule in `EntityAccessRegistry` — the check lives in the controller and only
 the assigned-warehouse narrowing is shared.
 
-**Integrations split `edit` from `map` on purpose:** a merchandiser maps cards and warehouses and triggers syncs,
-while touching API keys (create, update, delete an account, test a connection) stays with administrators. Grant
+**Integrations split `edit`, `map` and `sync` on purpose:** a merchandiser maps cards and warehouses
+(`integrations.map`), an operator triggers imports (`integrations.sync`), while touching API keys (create, update,
+delete an account, test a connection) stays with administrators (`integrations.edit`). `sync` is separate from `map`
+so that the person who runs an order import is not thereby allowed to re-point cards and warehouses. Grant
 `integrations.map` together with `catalog.view` and `warehouses.view` — the mapping pickers are the shared
 `CatalogItemsSelect` / `WarehousesSelect` components, and without those the dropdowns 403 and the screens are
-unusable. There are no `_assigned` variants: an account belongs to the shop rather than to a warehouse.
+unusable; `integrations.sync` needs neither. There are no `_assigned` variants: an account belongs to the shop
+rather than to a warehouse.
 
 **`system.*` is instance-wide technical readout**, not a business area. There is deliberately no `system.manage`:
 an unused permission is a checkbox in the roles matrix that grants nothing. Add it with the first action needing it.

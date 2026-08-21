@@ -84,7 +84,7 @@ The route configs are the source of truth for paths and permissions: `App.tsx` f
 (`/storage/*`, `/operations/*`, `/settings/*`).
 
 > **Convention:** subroutes carry no `requiredPermission` of their own — `SidebarPage` only gates the section
-> route. Sub-pages that need a stronger right (`integrations.edit`, `integrations.map`) hide their actions with
+> route. Sub-pages that need a stronger right (`integrations.edit`, `integrations.map`, `integrations.sync`) hide their actions with
 > `useHasPermission`, and the server enforces it regardless.
 
 `/scanner` and `/print` are authenticated but live **outside** `MainLayout`, so they get no app bar, no
@@ -444,7 +444,7 @@ client does not call `/sync` after creating.
 ### `MarketplaceAccountPage`
 
 Account shell at `/settings/integrations/:id`. Header shows the sync status chip plus **Синхронизировать**
-(a `Menu` picking scope: Всё / Склады / Карточки, requires `integrations.map`), **Изменить** and **Удалить**
+(a `Menu` picking scope: Всё / Склады / Карточки, requires `integrations.sync`), **Изменить** and **Удалить**
 (both `integrations.edit`).
 
 Four tabs — **Обзор**, **Склады**, **Карточки**, **История** — live on a single route with the active tab in

@@ -1099,7 +1099,7 @@ export const marketplacesTestConnection = <ThrowOnError extends boolean = false>
  * * marketplaceOrdersNotSupported — Orders scope on a provider without the Orders capability
  * * marketplaceApiError — any other marketplace or unexpected failure; args: marketplaceStatus, optional marketplaceResponse when it came from the API
  * * marketplaceSyncInterrupted — the run was left Running by an application shutdown and reconciled on the next start
- * Requires `integrations.map`.
+ * Requires `integrations.sync`.
  */
 export const marketplacesStartSync = <ThrowOnError extends boolean = false>(
   options: Options<MarketplacesStartSyncData, ThrowOnError>,
@@ -1161,7 +1161,7 @@ export const marketplacesGetSyncRunsByIds = <ThrowOnError extends boolean = fals
  * Only active accounts whose provider declares the `Orders` capability are listed; an unreadable
  * key is surfaced as `credentialsUnreadable` on the row instead of dropping it, so the dialog can
  * explain why the account cannot be ticked. Produces no error of its own beyond
- * 403 `permissionDenied`. Requires `integrations.map`.
+ * 403 `permissionDenied`. Requires `integrations.sync`.
  */
 export const marketplacesGetOrderSyncTargets = <ThrowOnError extends boolean = false>(
   options?: Options<MarketplacesGetOrderSyncTargetsData, ThrowOnError>,
@@ -1186,7 +1186,7 @@ export const marketplacesGetOrderSyncTargets = <ThrowOnError extends boolean = f
  * * marketplaceSyncAlreadyRunning — a run for this account is still Running
  * There is no transaction: accounts queued before a later one fails stay queued.
  * The only whole-request errors are 422 `outOfRange` on `accountIds` above the limit
- * (`args`: `max`) and 403 `permissionDenied` when `integrations.map` is missing —
+ * (`args`: `max`) and 403 `permissionDenied` when `integrations.sync` is missing —
  * 403 is never per item.
  * A queued run can still end `Failed` with `marketplaceSyncAlreadyRunning` when the worker
  * loses the advisory lock, so a client that only handles the `failedItems` form misses half the cases;
@@ -1471,7 +1471,8 @@ export const ordersTransitionStatus = <ThrowOnError extends boolean = false>(
  * Take a Confirmed order for yourself: moves it to Assembly and creates one task with all of its boxes, assigned to the caller.
  *
  * Requires `orders.self_assign` and an assignment to the order's warehouse — otherwise 403, with
- * `orderNotAssignedToWarehouse` in the latter case. Returns 422 `orderNotConfirmed` if the order
+ * `orderNotAssignedToWarehouse` in the latter case. The warehouse check is skipped for holders of the
+ * unscoped `orders.view`, who see every order anyway. Returns 422 `orderNotConfirmed` if the order
  * is in any other status, 404 `orderNotFound` if it does not exist.
  */
 export const ordersSelfAssign = <ThrowOnError extends boolean = false>(
@@ -1526,6 +1527,7 @@ export const ordersGetLabels = <ThrowOnError extends boolean = false>(
  * real error code (`orderNotFound`, `orderNotAssignedToWarehouse`, `orderNotConfirmed`, …).
  * There is no transaction: already-assigned orders stay assigned when later ones fail.
  * 403 is returned only for the request as a whole, when `orders.self_assign` is missing.
+ * Holders of the unscoped `orders.view` are not narrowed to their assigned warehouses.
  * The route carries no id, so realtime change events are published explicitly for each assigned order.
  */
 export const ordersBatchSelfAssign = <ThrowOnError extends boolean = false>(

@@ -362,10 +362,10 @@ public class MarketplacesController(
     ///   <item><c>marketplaceApiError</c> — any other marketplace or unexpected failure; <c>args</c>: <c>marketplaceStatus</c>, optional <c>marketplaceResponse</c> when it came from the API</item>
     ///   <item><c>marketplaceSyncInterrupted</c> — the run was left <c>Running</c> by an application shutdown and reconciled on the next start</item>
     /// </list>
-    /// Requires <c>integrations.map</c>.
+    /// Requires <c>integrations.sync</c>.
     /// </remarks>
     [HttpPost("accounts/{id:guid}/sync")]
-    [Authorize(Policy = Permissions.Integrations.Map)]
+    [Authorize(Policy = Permissions.Integrations.Sync)]
     [ProducesResponseType<StartSyncResponse>(StatusCodes.Status202Accepted)]
     public async Task<IActionResult> StartSync(Guid id, [FromBody] StartSyncRequest request, CancellationToken ct)
     {
@@ -455,10 +455,10 @@ public class MarketplacesController(
     /// Only active accounts whose provider declares the <c>Orders</c> capability are listed; an unreadable
     /// key is surfaced as <c>credentialsUnreadable</c> on the row instead of dropping it, so the dialog can
     /// explain why the account cannot be ticked. Produces no error of its own beyond
-    /// 403 <c>permissionDenied</c>. Requires <c>integrations.map</c>.
+    /// 403 <c>permissionDenied</c>. Requires <c>integrations.sync</c>.
     /// </remarks>
     [HttpGet("accounts/order-sync-targets")]
-    [Authorize(Policy = Permissions.Integrations.Map)]
+    [Authorize(Policy = Permissions.Integrations.Sync)]
     [ProducesResponseType<List<MarketplaceOrderSyncTargetDto>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetOrderSyncTargets(CancellationToken ct)
     {
@@ -513,14 +513,14 @@ public class MarketplacesController(
     /// </list>
     /// There is no transaction: accounts queued before a later one fails stay queued.
     /// The only whole-request errors are 422 <c>outOfRange</c> on <c>accountIds</c> above the limit
-    /// (<c>args</c>: <c>max</c>) and 403 <c>permissionDenied</c> when <c>integrations.map</c> is missing —
+    /// (<c>args</c>: <c>max</c>) and 403 <c>permissionDenied</c> when <c>integrations.sync</c> is missing —
     /// 403 is never per item.
     /// A queued run can still end <c>Failed</c> with <c>marketplaceSyncAlreadyRunning</c> when the worker
     /// loses the advisory lock, so a client that only handles the <c>failedItems</c> form misses half the cases;
     /// the full list of run-level codes is on <c>POST accounts/{id}/sync</c>.
     /// </remarks>
     [HttpPost("accounts/sync-orders")]
-    [Authorize(Policy = Permissions.Integrations.Map)]
+    [Authorize(Policy = Permissions.Integrations.Sync)]
     [ProducesResponseType<SyncOrdersResponse>(StatusCodes.Status202Accepted)]
     public async Task<IActionResult> SyncOrders([FromBody] SyncOrdersRequest request, CancellationToken ct)
     {
