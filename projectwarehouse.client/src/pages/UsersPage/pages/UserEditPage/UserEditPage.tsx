@@ -99,6 +99,8 @@ function UserEditPage() {
   const lock = useEditLock("user", id, {
     isDirty: form.formState.isDirty,
     dataUpdatedAt: userQuery.dataUpdatedAt,
+    isFetching: userQuery.isFetching,
+    isLoading: userQuery.isLoading,
     onRefresh: refreshUser,
   });
 
@@ -148,9 +150,7 @@ function UserEditPage() {
 
   return (
     <Box sx={{position: "relative"}}>
-      <LoadingOverlay
-        open={userQuery.isFetching && !userQuery.isLoading && !form.formState.isDirty}
-      />
+      <LoadingOverlay open={lock.showLoadingOverlay && !form.formState.isDirty} />
       <Stack spacing={2}>
         <AppBreadcrumbs
           path={[

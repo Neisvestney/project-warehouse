@@ -69,6 +69,8 @@ function OrderPage() {
   const lock = useEditLock("order", id, {
     isDirty: isEditingMeta,
     dataUpdatedAt: query.dataUpdatedAt,
+    isFetching: query.isFetching,
+    isLoading: query.isLoading,
     onRefresh: refreshOrder,
     enabled: canLockOrder,
   });
@@ -136,7 +138,7 @@ function OrderPage() {
 
   return (
     <Box sx={{position: "relative"}}>
-      <LoadingOverlay open={query.isFetching && !query.isLoading && !isEditingMeta} />
+      <LoadingOverlay open={lock.showLoadingOverlay && !isEditingMeta} />
       <CatalogItemDrawerHost>
         <Stack spacing={2}>
           <EditLockBanner heldBy={lock.heldBy} />

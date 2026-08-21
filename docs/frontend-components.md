@@ -80,6 +80,12 @@ invalidated the query, or the tab regained focus and TanStack refetched. Not for
 </Box>
 ```
 
+Pages wired to realtime take the flag ready-made instead of assembling it: `useStaleData`/`useEditLock`
+return `showLoadingOverlay` (`isFetching && !isLoading && !isSilentRefresh`), so the page only adds its own
+conditions — `open={lock.showLoadingOverlay && !isEditingAnything}`. The `isSilentRefresh` part is what keeps
+the overlay from flashing on mount: the confirmed subscription triggers a refetch right behind the first read,
+and that one is deliberately invisible (see `useSilentRefresh` in `frontend-realtime.md`).
+
 The parent must be `position: relative` — the overlay is `position: absolute; inset: 0` and covers it whole.
 Keep it out of a spacing `Stack`: the `& > * + *` margin rule would also apply to the absolute child and push
 it off by one gap. It intentionally **blocks pointer events**, so nothing can be clicked in the moment before
