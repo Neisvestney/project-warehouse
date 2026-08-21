@@ -26,7 +26,7 @@ const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
 ];
 
 function OrdersFbsPage() {
-  const canSync = useHasPermission("integrations.map");
+  const canSync = useHasPermission("integrations.sync");
 
   return (
     <OrdersListPage

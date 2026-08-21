@@ -85,7 +85,7 @@ function MarketplaceAccountPage() {
   const [syncMenuAnchor, setSyncMenuAnchor] = useState<HTMLElement | null>(null);
 
   const canEdit = useHasPermission("integrations.edit");
-  const canMap = useHasPermission("integrations.map");
+  const canSync = useHasPermission("integrations.sync");
   const {setParam} = useSearchParamsContext();
 
   const [tab, setTab] = useSyncedWithQueryState<TabKey>(
@@ -198,7 +198,7 @@ function MarketplaceAccountPage() {
           }
           right={
             <>
-              {canMap && (
+              {canSync && (
                 <Button
                   variant="outlined"
                   startIcon={<SyncIcon />}
