@@ -2,6 +2,7 @@
 Use rider mcp to start and stop dev frontend and backend servers for testing and api gen but do not use rider mcp to simple cli commands (dotnet ef and etc).  
 Project uses MUI v9 that has some breaking changes.  
 When planning new features or code edits add docs writing as final step.  
+Docs describe the current state of the code only — never the history of a change. No "раньше было", "теперь вместо", "убрали/переименовали/перенесли", no mention of deleted components, props or layouts, no rationale of the form "чтобы не как прежде". Write as if the code had always looked this way; the diff and the changelog are where the history lives.  
 Check typescript with `npm run typecheck` command (run from `projectwarehouse.client`; uses TypeScript 7 / native Go compiler) to catch any compilation errors.  
 After you edited any of frontend code run prettier and linter: `npm run prettier:fix` and `eslint:fix` in `projectwarehouse.client` directory.  
 Editing files via `sed`/`python` heredocs is fine, but mind the traps: a non-matching pattern exits 0 and silently changes nothing (verify with `grep` after, or assert on the replacement), quote heredocs as `<<'EOF'` so `$`, backticks and `\` survive, watch encoding on Cyrillic/non-ASCII content, and escape regex metacharacters in `sed` patterns. When a replacement is multiline or full of such characters, just use Edit — it fails loudly instead.

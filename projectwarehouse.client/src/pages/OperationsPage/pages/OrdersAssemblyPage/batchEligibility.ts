@@ -14,6 +14,13 @@ export function hasRemainingWork(task: AssemblyTaskDto): boolean {
   return task.boxes.some((box) => box.components.some((c) => getRemainingQty(c) > 0));
 }
 
+/** Empty string means the task can go into batch assembly; otherwise it is the tooltip text. */
+export function getBatchDisabledReason(task: AssemblyTaskDto, eligible: boolean): string {
+  if (!eligible) return "Содержит Единичные товары";
+  if (!hasRemainingWork(task)) return "Задание полностью собрано";
+  return "";
+}
+
 function isComponentEligible(component: AssemblyTaskBoxComponentDto): boolean {
   return !component.containsUnit;
 }

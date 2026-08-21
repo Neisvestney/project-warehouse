@@ -3,7 +3,6 @@ import {Link, useParams} from "react-router";
 import {
   Box,
   Button,
-  Chip,
   CircularProgress,
   Divider,
   Paper,
@@ -35,7 +34,7 @@ import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState.ts"
 import {WarehouseCanvas} from "@/features/warehouse";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import {MARKETPLACE_TYPE_COLORS} from "@/pages/SettingsPage/pages/MarketplacesSettingsPage/marketplaceUtils.ts";
+import MarketplaceAccountChip from "@/components/marketplace/MarketplaceAccountChip";
 
 function WarehouseViewPage() {
   const [isPrinting, setIsPrinting] = useState(false);
@@ -212,13 +211,12 @@ function WarehouseViewPage() {
                 </Typography>
                 <Stack spacing={1} direction="row">
                   {warehouse.marketplaceAccounts.map((account) => (
-                    <Chip
-                      component={Link}
-                      to={`/settings/integrations/${account.id}?tab=warehouses`}
-                      color={MARKETPLACE_TYPE_COLORS[account.type]}
-                      onClick={() => {}}
-                      label={account.name}
-                      size="small"
+                    <MarketplaceAccountChip
+                      key={account.id}
+                      accountId={account.id}
+                      name={account.name}
+                      type={account.type}
+                      search="?tab=warehouses"
                     />
                   ))}
                 </Stack>

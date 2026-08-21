@@ -234,7 +234,7 @@ public class OrdersController(
 
         var query = accessible
             .Include(o => o.Warehouse)
-            .Include(o => o.MarketplaceOrder)
+            .Include(o => o.MarketplaceOrder.MarketplaceAccount)
             .Include(o => o.CreatedBy)
             .Include(o => o.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))

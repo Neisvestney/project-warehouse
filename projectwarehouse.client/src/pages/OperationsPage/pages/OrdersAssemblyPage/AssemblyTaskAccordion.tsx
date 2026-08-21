@@ -43,7 +43,7 @@ import FulfillmentsDrawer from "@/components/orders/FulfillmentsDrawer";
 import {countFulfilledQty, getTaskProgress} from "@/components/orders/orderAssemblyUtils";
 import {formatBoxLabel} from "@/components/orders/orderUtils";
 import AddFulfillmentDialog from "./AddFulfillmentDialog";
-import {hasRemainingWork} from "./batchEligibility";
+import {getBatchDisabledReason} from "./batchEligibility";
 import MoveTaskComponentDialog from "./MoveTaskComponentDialog";
 import {NOUNS, plural} from "@/utils/pluralUtils";
 
@@ -58,6 +58,16 @@ const TASK_STATUS_COLORS: Record<AssemblyTaskStatus, "default" | "warning" | "su
   inProgress: "warning",
   done: "success",
 };
+
+export function AssemblyTaskStatusChip({status}: {status: AssemblyTaskStatus}) {
+  return (
+    <Chip
+      label={TASK_STATUS_LABELS[status] ?? status}
+      color={TASK_STATUS_COLORS[status] ?? "default"}
+      size="small"
+    />
+  );
+}
 
 interface FulfillmentItemProps {
   fulfillment: AssemblyFulfillmentDto;
@@ -249,7 +259,8 @@ interface AssemblyTaskAccordionProps {
   checked?: boolean;
   onCheckChange?: (checked: boolean) => void;
   batchEligible?: boolean;
-  defaultExpanded?: boolean;
+  /** Renders only the task body: the summary row is drawn by the parent order accordion. */
+  inline?: boolean;
 }
 
 function AssemblyTaskAccordion({
@@ -261,18 +272,14 @@ function AssemblyTaskAccordion({
   checked,
   onCheckChange,
   batchEligible,
-  defaultExpanded,
+  inline,
 }: AssemblyTaskAccordionProps) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
 
   const {fulfilled: fulfilledComponents, total: totalComponents} = getTaskProgress(task);
 
-  const batchDisabledReason = !batchEligible
-    ? "Содержит Единичные товары"
-    : !hasRemainingWork(task)
-      ? "Задание полностью собрано"
-      : "";
+  const batchDisabledReason = getBatchDisabledReason(task, batchEligible ?? false);
 
   const transitionMutation = useMutation({
     ...ordersTransitionTaskStatusMutation(),
@@ -290,8 +297,71 @@ function AssemblyTaskAccordion({
     transitionMutation.mutate({path: {id: orderId, taskId: task.id}, body: {targetStatus}});
   }
 
+  const body = (
+    <Stack spacing={0.5}>
+      {error && (
+        <Alert severity="error" sx={{mb: 1}}>
+          {error}
+        </Alert>
+      )}
+
+      {task.boxes.map((box) => (
+        <Box key={box.id}>
+          <Typography variant="caption" color="text.secondary" sx={{fontWeight: 600}}>
+            {formatBoxLabel({id: box.orderBoxId, label: box.orderBoxLabel}, orderBoxes)}
+          </Typography>
+          {box.components.map((c) => (
+            <ComponentRow
+              key={c.id}
+              component={c}
+              orderId={orderId}
+              orderBoxes={orderBoxes}
+              warehouseId={warehouseId}
+              taskId={task.id}
+              taskBoxId={box.id}
+              canFulfill={canFulfill && task.status !== "done"}
+            />
+          ))}
+          <Divider sx={{my: 1}} />
+        </Box>
+      ))}
+
+      {canFulfill && (
+        <Stack direction="row" spacing={1}>
+          {task.status === "pending" && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => handleTransition("inProgress")}
+              disabled={transitionMutation.isPending}
+            >
+              Начать
+            </Button>
+          )}
+          {task.status === "inProgress" && (
+            <Button
+              size="small"
+              variant="contained"
+              color="success"
+              onClick={() => handleTransition("done")}
+              disabled={transitionMutation.isPending || fulfilledComponents < totalComponents}
+            >
+              {transitionMutation.isPending ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                "Завершить"
+              )}
+            </Button>
+          )}
+        </Stack>
+      )}
+    </Stack>
+  );
+
+  if (inline) return body;
+
   return (
-    <Accordion disableGutters defaultExpanded={defaultExpanded}>
+    <Accordion disableGutters>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Stack direction="row" sx={{alignItems: "center", gap: 1.5, flex: 1, pr: 1}}>
           {onCheckChange !== undefined && (
@@ -309,11 +379,7 @@ function AssemblyTaskAccordion({
             </Tooltip>
           )}
 
-          <Chip
-            label={TASK_STATUS_LABELS[task.status] ?? task.status}
-            color={TASK_STATUS_COLORS[task.status] ?? "default"}
-            size="small"
-          />
+          <AssemblyTaskStatusChip status={task.status} />
 
           {/*<Typography variant="body2">{task.assignedToName ?? "Не назначен"}</Typography>*/}
 
@@ -323,66 +389,7 @@ function AssemblyTaskAccordion({
         </Stack>
       </AccordionSummary>
 
-      <AccordionDetails>
-        <Stack spacing={0.5}>
-          {error && (
-            <Alert severity="error" sx={{mb: 1}}>
-              {error}
-            </Alert>
-          )}
-
-          {task.boxes.map((box) => (
-            <Box key={box.id}>
-              <Typography variant="caption" color="text.secondary" sx={{fontWeight: 600}}>
-                {formatBoxLabel({id: box.orderBoxId, label: box.orderBoxLabel}, orderBoxes)}
-              </Typography>
-              {box.components.map((c) => (
-                <ComponentRow
-                  key={c.id}
-                  component={c}
-                  orderId={orderId}
-                  orderBoxes={orderBoxes}
-                  warehouseId={warehouseId}
-                  taskId={task.id}
-                  taskBoxId={box.id}
-                  canFulfill={canFulfill && task.status !== "done"}
-                />
-              ))}
-              <Divider sx={{my: 1}} />
-            </Box>
-          ))}
-
-          {canFulfill && (
-            <Stack direction="row" spacing={1}>
-              {task.status === "pending" && (
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => handleTransition("inProgress")}
-                  disabled={transitionMutation.isPending}
-                >
-                  Начать
-                </Button>
-              )}
-              {task.status === "inProgress" && (
-                <Button
-                  size="small"
-                  variant="contained"
-                  color="success"
-                  onClick={() => handleTransition("done")}
-                  disabled={transitionMutation.isPending || fulfilledComponents < totalComponents}
-                >
-                  {transitionMutation.isPending ? (
-                    <CircularProgress size={16} color="inherit" />
-                  ) : (
-                    "Завершить"
-                  )}
-                </Button>
-              )}
-            </Stack>
-          )}
-        </Stack>
-      </AccordionDetails>
+      <AccordionDetails>{body}</AccordionDetails>
     </Accordion>
   );
 }

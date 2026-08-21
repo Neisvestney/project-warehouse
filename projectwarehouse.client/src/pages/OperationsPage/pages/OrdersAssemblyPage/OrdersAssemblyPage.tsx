@@ -10,7 +10,6 @@ import {useRealtimeEvent} from "@/hooks/useRealtimeEvent";
 import {byOperation} from "@/utils/queryKeys";
 import {CatalogItemDrawerHost} from "@/components/catalog/CatalogItemDrawerHost";
 import AssemblyOrderAccordion from "./AssemblyOrderAccordion";
-import AssemblyOrderInline from "./AssemblyOrderInline";
 import {checkBatchEligibility, hasRemainingWork} from "./batchEligibility";
 import BatchAssemblyDialog, {type SelectedTaskInfo} from "./BatchAssemblyDialog";
 import PageGenericHeader from "@/components/PageGenericHeader.tsx";
@@ -189,36 +188,16 @@ function OrdersAssemblyPage() {
         )}
 
         {!showLoading &&
-          orders.map((order) => {
-            const tasks = order.assemblyTasks;
-
-            if (tasks.length === 1) {
-              const task = tasks[0];
-              const eligible = eligibilityMap.get(task.id) ?? checkBatchEligibility(task);
-              return (
-                <AssemblyOrderInline
-                  key={order.id}
-                  order={order}
-                  task={task}
-                  canFulfill={canFulfill}
-                  checked={selectedTaskIds.has(task.id)}
-                  onCheckChange={(checked) => handleTaskCheckChange(order.id, task.id, checked)}
-                  batchEligible={eligible}
-                />
-              );
-            }
-
-            return (
-              <AssemblyOrderAccordion
-                key={order.id}
-                order={order}
-                canFulfill={canFulfill}
-                selectedTaskIds={selectedTaskIds}
-                onTaskCheckChange={handleTaskCheckChange}
-                eligibilityMap={eligibilityMap}
-              />
-            );
-          })}
+          orders.map((order) => (
+            <AssemblyOrderAccordion
+              key={order.id}
+              order={order}
+              canFulfill={canFulfill}
+              selectedTaskIds={selectedTaskIds}
+              onTaskCheckChange={handleTaskCheckChange}
+              eligibilityMap={eligibilityMap}
+            />
+          ))}
 
         {batchDialogOpen && (
           <BatchAssemblyDialog
