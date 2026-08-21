@@ -141,7 +141,8 @@ public class OrdersController(
     /// <c>warehouseId</c>, <c>type</c>, <c>status</c>, <c>marketplaceType</c>, <c>marketplaceAccountId</c>,
     /// <c>marketplaceStatus</c>, <c>sortBy</c> (default <c>Number</c>), <c>sortOrder</c> (default <c>Desc</c>).
     /// Any of the three marketplace filters also excludes orders without a <c>MarketplaceOrder</c>, so they
-    /// never match Direct orders.
+    /// never match Direct orders. <c>searchString</c> is the extended search — it also matches box labels and
+    /// the catalog items and marketplace cards of the order contents, see <see cref="Order.MatchesExtendedSearch"/>.
     /// Requires <c>orders.view</c> or <c>orders.view_assigned</c>; <c>orders.assemble_assigned</c> alone does
     /// not open the list (403).
     /// </remarks>
@@ -183,7 +184,7 @@ public class OrdersController(
                         (o.MarketplaceOrder != null && o.MarketplaceOrder.MarketplaceAccountId == marketplaceAccountId))
             .Where(o => marketplaceStatus == null ||
                         (o.MarketplaceOrder != null && o.MarketplaceOrder.Status == marketplaceStatus))
-            .WhereMatchesSearch(o => o.SearchString, searchString);
+            .WhereMatchesExtendedSearch((o, pattern) => o.MatchesExtendedSearch(pattern), searchString);
 
         var query = sortBy switch
         {
@@ -206,6 +207,7 @@ public class OrdersController(
     /// <summary>The current user's personal assembly worklist: full details of Assembly-status orders that have a task assigned to them.</summary>
     /// <remarks>
     /// Query params: <c>warehouseId</c>, <c>searchString</c> (both optional). Not paginated — returns a plain list.
+    /// <c>searchString</c> is the extended search — see <see cref="Order.MatchesExtendedSearch"/>.
     /// Only orders in <c>Assembly</c> status with at least one <c>AssemblyTask</c> assigned to the caller are
     /// returned, and each order carries only that caller's own tasks; other assemblers' tasks are filtered out.
     /// Every task box component is annotated with <c>containsUnit</c>, computed by walking the Bundle/Variation
@@ -263,7 +265,7 @@ public class OrdersController(
         if (warehouseId is not null)
             query = query.Where(o => o.WarehouseId == warehouseId);
 
-        query = query.WhereMatchesSearch(o => o.SearchString, searchString);
+        query = query.WhereMatchesExtendedSearch((o, pattern) => o.MatchesExtendedSearch(pattern), searchString);
 
         var result = await query.ToListAsync(ct);
         var nodeById = await LoadWarehouseNodesAsync(
