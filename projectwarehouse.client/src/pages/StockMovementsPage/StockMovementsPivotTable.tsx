@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useRef} from "react";
+import {useEffect, useRef} from "react";
 import {
   Box,
   Button,
@@ -23,28 +23,28 @@ import TableRowEmpty from "@/components/TableRowEmpty";
 import TableRowLoader from "@/components/TableRowLoader";
 import {formatDateOnly, formatWeekday, isWeekend} from "@/utils/dateOnly";
 
-const EMPTY_TOTALS: StockMovementTotalsDto = {
-  inQuantity: 0,
-  outQuantity: 0,
-  transferInQuantity: 0,
-  transferOutQuantity: 0,
-  movementsCount: 0,
-  net: 0,
-};
+// const EMPTY_TOTALS: StockMovementTotalsDto = {
+//   inQuantity: 0,
+//   outQuantity: 0,
+//   transferInQuantity: 0,
+//   transferOutQuantity: 0,
+//   movementsCount: 0,
+//   net: 0,
+// };
 
-function sumTotals(totals: StockMovementTotalsDto[]): StockMovementTotalsDto {
-  return totals.reduce(
-    (acc, t) => ({
-      inQuantity: acc.inQuantity + t.inQuantity,
-      outQuantity: acc.outQuantity + t.outQuantity,
-      transferInQuantity: acc.transferInQuantity + t.transferInQuantity,
-      transferOutQuantity: acc.transferOutQuantity + t.transferOutQuantity,
-      movementsCount: acc.movementsCount + t.movementsCount,
-      net: acc.net + t.net,
-    }),
-    EMPTY_TOTALS,
-  );
-}
+// function sumTotals(totals: StockMovementTotalsDto[]): StockMovementTotalsDto {
+//   return totals.reduce(
+//     (acc, t) => ({
+//       inQuantity: acc.inQuantity + t.inQuantity,
+//       outQuantity: acc.outQuantity + t.outQuantity,
+//       transferInQuantity: acc.transferInQuantity + t.transferInQuantity,
+//       transferOutQuantity: acc.transferOutQuantity + t.transferOutQuantity,
+//       movementsCount: acc.movementsCount + t.movementsCount,
+//       net: acc.net + t.net,
+//     }),
+//     EMPTY_TOTALS,
+//   );
+// }
 
 /**
  * `stickyHeader` pins every `th` at `top: 0`, so a second header row has to be offset by hand — and
@@ -150,25 +150,25 @@ function StockMovementsPivotTable({
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, onLoadMore, rows.length]);
 
-  const columnTotals = useMemo(() => {
-    const byItem = new Map<string, StockMovementTotalsDto[]>();
-    rows.forEach((row) =>
-      row.cells.forEach((cell) => {
-        const bucket = byItem.get(cell.catalogItemId);
-        if (bucket) bucket.push(cell);
-        else byItem.set(cell.catalogItemId, [cell]);
-      }),
-    );
-    return new Map([...byItem].map(([id, cells]) => [id, sumTotals(cells)]));
-  }, [rows]);
+  // const columnTotals = useMemo(() => {
+  //   const byItem = new Map<string, StockMovementTotalsDto[]>();
+  //   rows.forEach((row) =>
+  //     row.cells.forEach((cell) => {
+  //       const bucket = byItem.get(cell.catalogItemId);
+  //       if (bucket) bucket.push(cell);
+  //       else byItem.set(cell.catalogItemId, [cell]);
+  //     }),
+  //   );
+  //   return new Map([...byItem].map(([id, cells]) => [id, sumTotals(cells)]));
+  // }, [rows]);
 
-  const grandTotal = useMemo(() => sumTotals(rows.map((row) => row.total)), [rows]);
+  // const grandTotal = useMemo(() => sumTotals(rows.map((row) => row.total)), [rows]);
 
   const colSpan = columns.length + 2;
-  const loadedRangeLabel =
-    rows.length > 0
-      ? `${formatDateOnly(rows[rows.length - 1].date)} — ${formatDateOnly(rows[0].date)}`
-      : null;
+  // const loadedRangeLabel =
+  //   rows.length > 0
+  //     ? `${formatDateOnly(rows[rows.length - 1].date)} — ${formatDateOnly(rows[0].date)}`
+  //     : null;
 
   return (
     <Paper>
