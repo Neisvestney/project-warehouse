@@ -200,7 +200,6 @@ function StocktakePage() {
     dataUpdatedAt,
   } = useQuery({
     ...queryOptions,
-    gcTime: 0,
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
   });
 

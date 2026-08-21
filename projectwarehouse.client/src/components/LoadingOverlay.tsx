@@ -26,7 +26,7 @@ function LoadingOverlay({
   delay = 300,
   minDuration = 200,
   label,
-  blur = 0.5,
+  blur = 1,
   size = 40,
   sx,
 }: LoadingOverlayProps) {
@@ -57,7 +57,9 @@ function LoadingOverlay({
   }, [open, delay, minDuration]);
 
   return (
-    <Fade in={visible} timeout={{enter: 150, exit: 250}} unmountOnExit>
+    // appear only affects the first render: a page restored from cache opens with the backdrop
+    // already there instead of fading it in over content that is visibly not fresh.
+    <Fade in={visible} appear={false} timeout={{enter: 150, exit: 250}} unmountOnExit>
       <Box
         sx={[
           (theme) => ({

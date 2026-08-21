@@ -58,7 +58,6 @@ function OrderPage() {
 
   const query = useQuery({
     ...ordersGetByIdOptions({path: {id: id!}}),
-    gcTime: 0,
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
   });
 

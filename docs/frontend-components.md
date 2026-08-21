@@ -104,6 +104,11 @@ The two layers are timed differently on purpose:
 - `minDuration` (200 ms) is the floor on the backdrop. Once shown it stays at least this long even if the data
   lands right after, so the overlay is never a one-frame flash.
 
+The backdrop's `Fade` runs with `appear={false}`, so a page that mounts already refetching — the usual case
+now that detail pages keep their cache and render from it instantly — opens with the overlay in place instead
+of fading it in over data the user can see is not fresh. It only affects the first render; every later open
+fades normally.
+
 `visible` is derived (`open || holding`) rather than stored: only the post-`open` tail lives in state, which is
 what keeps the backdrop free of a render's worth of lag and keeps `setState` out of the effect body.
 
