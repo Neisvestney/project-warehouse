@@ -26,6 +26,7 @@ import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
 import {byOperation} from "@/utils/queryKeys";
 import {useEditLock} from "@/hooks/useEditLock";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import EditLockBanner from "@/components/EditLockBanner";
 import StaleDataBanner from "@/components/StaleDataBanner";
@@ -169,6 +170,7 @@ function WriteoffPage() {
   const {
     data: writeoff,
     isLoading,
+    isFetching,
     isError,
     isRefetchError,
     error,
@@ -250,163 +252,166 @@ function WriteoffPage() {
     finishMutation.isPending || cancelMutation.isPending || deleteMutation.isPending;
 
   return (
-    <Stack spacing={2}>
-      <EditLockBanner heldBy={lock.heldBy} />
-      <StaleDataBanner
-        isStale={!lock.heldBy && lock.isStale}
-        staleBy={lock.staleBy}
-        onRefresh={lock.refresh}
-        onDismiss={lock.dismissStale}
-      />
+    <Box sx={{position: "relative"}}>
+      <LoadingOverlay open={isFetching && !isLoading && !isEditingAnything} />
+      <Stack spacing={2}>
+        <EditLockBanner heldBy={lock.heldBy} />
+        <StaleDataBanner
+          isStale={!lock.heldBy && lock.isStale}
+          staleBy={lock.staleBy}
+          onRefresh={lock.refresh}
+          onDismiss={lock.dismissStale}
+        />
 
-      <AppBreadcrumbs
-        path={[
-          {name: "Списания", link: "/operations/writeoffs"},
-          {name: formatWriteoffNumber(writeoff.number)},
-        ]}
-        viewersOf={{entityType: "writeoff", entityId: id}}
-      />
-      <PageGenericHeader
-        title={
-          <Stack direction="row" spacing={1.5} sx={{alignItems: "center"}}>
-            <Typography variant="h5" component="span">
-              {writeoff.name || "—"}
-            </Typography>
-            <WriteoffStatusChip status={writeoff.status} />
-          </Stack>
-        }
-        right={
-          canEdit && !isTerminal ? (
-            <Stack direction="row" spacing={1}>
-              <Button
-                variant="contained"
-                color="success"
-                disabled={actionPending || writeoff.items.length === 0}
-                onClick={() => setFinishOpen(true)}
-                startIcon={<TaskAltIcon />}
-                loading={finishMutation.isPending}
-              >
-                Завершить
-              </Button>
-              <Button
-                color="error"
-                variant="outlined"
-                disabled={actionPending}
-                onClick={() => setCancelOpen(true)}
-                startIcon={<BlockIcon />}
-              >
-                Отменить
-              </Button>
-              <Button
-                color="error"
-                variant="outlined"
-                disabled={actionPending}
-                onClick={() => setDeleteOpen(true)}
-                startIcon={<DeleteIcon />}
-              >
-                Удалить
-              </Button>
+        <AppBreadcrumbs
+          path={[
+            {name: "Списания", link: "/operations/writeoffs"},
+            {name: formatWriteoffNumber(writeoff.number)},
+          ]}
+          viewersOf={{entityType: "writeoff", entityId: id}}
+        />
+        <PageGenericHeader
+          title={
+            <Stack direction="row" spacing={1.5} sx={{alignItems: "center"}}>
+              <Typography variant="h5" component="span">
+                {writeoff.name || "—"}
+              </Typography>
+              <WriteoffStatusChip status={writeoff.status} />
             </Stack>
-          ) : undefined
-        }
-      />
-
-      <Paper>
-        <Stack spacing={1.5} sx={{p: 3}}>
-          {!isEditing ? (
-            <>
-              <InfoRow label="Номер" value={formatWriteoffNumber(writeoff.number)} />
-              <InfoRow label="Причина" value={WRITEOFF_REASON_LABELS[writeoff.reason]} />
-              <Stack direction="row" spacing={1} sx={{alignItems: "baseline"}}>
-                <Typography color="text.secondary" sx={{width: 160, flexShrink: 0}}>
-                  Склад
-                </Typography>
-                <Typography
-                  component={RouterLink}
-                  to={`/storage/warehouses/${writeoff.warehouseId}`}
-                  sx={{
-                    color: "primary.main",
-                    textDecoration: "none",
-                    "&:hover": {textDecoration: "underline"},
-                  }}
+          }
+          right={
+            canEdit && !isTerminal ? (
+              <Stack direction="row" spacing={1}>
+                <Button
+                  variant="contained"
+                  color="success"
+                  disabled={actionPending || writeoff.items.length === 0}
+                  onClick={() => setFinishOpen(true)}
+                  startIcon={<TaskAltIcon />}
+                  loading={finishMutation.isPending}
                 >
-                  {writeoff.warehouseName}
-                </Typography>
+                  Завершить
+                </Button>
+                <Button
+                  color="error"
+                  variant="outlined"
+                  disabled={actionPending}
+                  onClick={() => setCancelOpen(true)}
+                  startIcon={<BlockIcon />}
+                >
+                  Отменить
+                </Button>
+                <Button
+                  color="error"
+                  variant="outlined"
+                  disabled={actionPending}
+                  onClick={() => setDeleteOpen(true)}
+                  startIcon={<DeleteIcon />}
+                >
+                  Удалить
+                </Button>
               </Stack>
-              <InfoRow
-                label="Создано"
-                value={new Date(writeoff.createdAt).toLocaleString("ru-RU")}
-              />
-              <InfoRow label="Примечания" value={writeoff.notes ?? "—"} />
-              {isDraft && canEdit && (
-                <Box>
-                  <Button
-                    startIcon={<EditIcon fontSize="small" />}
-                    size="small"
-                    onClick={() => setIsEditing(true)}
+            ) : undefined
+          }
+        />
+
+        <Paper>
+          <Stack spacing={1.5} sx={{p: 3}}>
+            {!isEditing ? (
+              <>
+                <InfoRow label="Номер" value={formatWriteoffNumber(writeoff.number)} />
+                <InfoRow label="Причина" value={WRITEOFF_REASON_LABELS[writeoff.reason]} />
+                <Stack direction="row" spacing={1} sx={{alignItems: "baseline"}}>
+                  <Typography color="text.secondary" sx={{width: 160, flexShrink: 0}}>
+                    Склад
+                  </Typography>
+                  <Typography
+                    component={RouterLink}
+                    to={`/storage/warehouses/${writeoff.warehouseId}`}
+                    sx={{
+                      color: "primary.main",
+                      textDecoration: "none",
+                      "&:hover": {textDecoration: "underline"},
+                    }}
                   >
-                    Редактировать
-                  </Button>
-                </Box>
-              )}
-            </>
-          ) : (
-            <EditInfoForm
-              writeoff={writeoff}
-              onDone={(updated) => {
-                updateLocal(updated);
-                setIsEditing(false);
-              }}
-            />
+                    {writeoff.warehouseName}
+                  </Typography>
+                </Stack>
+                <InfoRow
+                  label="Создано"
+                  value={new Date(writeoff.createdAt).toLocaleString("ru-RU")}
+                />
+                <InfoRow label="Примечания" value={writeoff.notes ?? "—"} />
+                {isDraft && canEdit && (
+                  <Box>
+                    <Button
+                      startIcon={<EditIcon fontSize="small" />}
+                      size="small"
+                      onClick={() => setIsEditing(true)}
+                    >
+                      Редактировать
+                    </Button>
+                  </Box>
+                )}
+              </>
+            ) : (
+              <EditInfoForm
+                writeoff={writeoff}
+                onDone={(updated) => {
+                  updateLocal(updated);
+                  setIsEditing(false);
+                }}
+              />
+            )}
+          </Stack>
+        </Paper>
+
+        <WriteoffItemsSection writeoff={writeoff} onEditingChange={setIsEditingItems} />
+
+        <ConfirmDialog
+          open={finishOpen}
+          onClose={() => setFinishOpen(false)}
+          title="Выполнить списание?"
+          onConfirm={() => finishMutation.mutate({path: {id: writeoff.id}})}
+          isPending={finishMutation.isPending}
+          confirmText="Завершить"
+          confirmColor="success"
+        >
+          <Typography>
+            {pluralItems(writeoff.items.length)} из склада. Это действие необратимо.
+          </Typography>
+          {finishMutation.isError && (
+            <Alert severity="error" sx={{mt: 1}}>
+              {extractErrorMessage(finishMutation.error)}
+            </Alert>
           )}
-        </Stack>
-      </Paper>
+        </ConfirmDialog>
 
-      <WriteoffItemsSection writeoff={writeoff} onEditingChange={setIsEditingItems} />
+        <ConfirmDialog
+          open={cancelOpen}
+          onClose={() => setCancelOpen(false)}
+          title="Отменить списание?"
+          onConfirm={() => cancelMutation.mutate({path: {id: writeoff.id}})}
+          isPending={cancelMutation.isPending}
+          confirmText="Отменить списание"
+          confirmColor="error"
+        >
+          Документ будет отменён. Товары не будут затронуты.
+        </ConfirmDialog>
 
-      <ConfirmDialog
-        open={finishOpen}
-        onClose={() => setFinishOpen(false)}
-        title="Выполнить списание?"
-        onConfirm={() => finishMutation.mutate({path: {id: writeoff.id}})}
-        isPending={finishMutation.isPending}
-        confirmText="Завершить"
-        confirmColor="success"
-      >
-        <Typography>
-          {pluralItems(writeoff.items.length)} из склада. Это действие необратимо.
-        </Typography>
-        {finishMutation.isError && (
-          <Alert severity="error" sx={{mt: 1}}>
-            {extractErrorMessage(finishMutation.error)}
-          </Alert>
-        )}
-      </ConfirmDialog>
-
-      <ConfirmDialog
-        open={cancelOpen}
-        onClose={() => setCancelOpen(false)}
-        title="Отменить списание?"
-        onConfirm={() => cancelMutation.mutate({path: {id: writeoff.id}})}
-        isPending={cancelMutation.isPending}
-        confirmText="Отменить списание"
-        confirmColor="error"
-      >
-        Документ будет отменён. Товары не будут затронуты.
-      </ConfirmDialog>
-
-      <ConfirmDialog
-        open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        title="Удалить списание?"
-        onConfirm={() => deleteMutation.mutate({path: {id: writeoff.id}})}
-        isPending={deleteMutation.isPending}
-        confirmText="Удалить"
-        confirmColor="error"
-      >
-        Документ будет удалён безвозвратно.
-      </ConfirmDialog>
-    </Stack>
+        <ConfirmDialog
+          open={deleteOpen}
+          onClose={() => setDeleteOpen(false)}
+          title="Удалить списание?"
+          onConfirm={() => deleteMutation.mutate({path: {id: writeoff.id}})}
+          isPending={deleteMutation.isPending}
+          confirmText="Удалить"
+          confirmColor="error"
+        >
+          Документ будет удалён безвозвратно.
+        </ConfirmDialog>
+      </Stack>
+    </Box>
   );
 }
 

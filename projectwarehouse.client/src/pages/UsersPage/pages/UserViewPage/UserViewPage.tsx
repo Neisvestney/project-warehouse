@@ -26,6 +26,7 @@ import QueryError from "@/components/QueryError";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import DeleteUserDialog from "./DeleteUserDialog";
 import InfoRow from "@/components/InfoRow.tsx";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import {useHasPermission} from "@/hooks/usePermission.ts";
 
 function UserViewPage() {
@@ -41,6 +42,7 @@ function UserViewPage() {
   const {
     data: user,
     isLoading,
+    isFetching,
     isError,
     isRefetchError,
     error,
@@ -70,112 +72,117 @@ function UserViewPage() {
   if (!user) return <NotFound />;
 
   return (
-    <Stack spacing={2}>
-      <AppBreadcrumbs
-        path={[
-          {name: "Сотрудники", link: "/settings/employees"},
-          {name: user.username},
-          {name: "Просмотр"},
-        ]}
-        viewersOf={{entityType: "user", entityId: id}}
-      />
-      <PageGenericHeader
-        title={user.username}
-        right={
-          <>
-            {hasEditUserPermission && (
-              <Button
-                variant="outlined"
-                startIcon={<EditIcon />}
-                component={RouterLink}
-                to={`/settings/employees/${id}/edit`}
-              >
-                Редактировать
-              </Button>
-            )}
-            {hasChangeUserPasswordPermission && (
-              <Button
-                variant="outlined"
-                startIcon={<LockResetIcon />}
-                onClick={() => setChangePasswordOpen(true)}
-              >
-                Сменить пароль
-              </Button>
-            )}
-            {hasDeleteUserPermission && (
-              <Button
-                variant="outlined"
-                color="error"
-                startIcon={<DeleteIcon />}
-                onClick={() => setDeleteOpen(true)}
-              >
-                Удалить
-              </Button>
-            )}
-          </>
-        }
-      />
+    <Box sx={{position: "relative"}}>
+      <LoadingOverlay open={isFetching && !isLoading} />
+      <Stack spacing={2}>
+        <AppBreadcrumbs
+          path={[
+            {name: "Сотрудники", link: "/settings/employees"},
+            {name: user.username},
+            {name: "Просмотр"},
+          ]}
+          viewersOf={{entityType: "user", entityId: id}}
+        />
+        <PageGenericHeader
+          title={user.username}
+          right={
+            <>
+              {hasEditUserPermission && (
+                <Button
+                  variant="outlined"
+                  startIcon={<EditIcon />}
+                  component={RouterLink}
+                  to={`/settings/employees/${id}/edit`}
+                >
+                  Редактировать
+                </Button>
+              )}
+              {hasChangeUserPasswordPermission && (
+                <Button
+                  variant="outlined"
+                  startIcon={<LockResetIcon />}
+                  onClick={() => setChangePasswordOpen(true)}
+                >
+                  Сменить пароль
+                </Button>
+              )}
+              {hasDeleteUserPermission && (
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  Удалить
+                </Button>
+              )}
+            </>
+          }
+        />
 
-      <Paper>
-        <Stack spacing={1.5} sx={{p: 3}}>
-          <InfoRow label="Email" value={user.email ?? "—"} />
-          <InfoRow label="Имя" value={user.firstName ?? "—"} />
-          <InfoRow label="Фамилия" value={user.lastName ?? "—"} />
-          <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
-            <Typography color="text.secondary" sx={{width: 160, flexShrink: 0, pt: 0.25}}>
-              Роли
-            </Typography>
-            <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap", gap: 0.5}}>
-              {user.roles.length > 0 ? (
-                user.roles.map((role) => <Chip key={role.id} label={role.name} size="small" />)
-              ) : (
-                <Typography>—</Typography>
-              )}
+        <Paper>
+          <Stack spacing={1.5} sx={{p: 3}}>
+            <InfoRow label="Email" value={user.email ?? "—"} />
+            <InfoRow label="Имя" value={user.firstName ?? "—"} />
+            <InfoRow label="Фамилия" value={user.lastName ?? "—"} />
+            <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
+              <Typography color="text.secondary" sx={{width: 160, flexShrink: 0, pt: 0.25}}>
+                Роли
+              </Typography>
+              <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap", gap: 0.5}}>
+                {user.roles.length > 0 ? (
+                  user.roles.map((role) => <Chip key={role.id} label={role.name} size="small" />)
+                ) : (
+                  <Typography>—</Typography>
+                )}
+              </Stack>
+            </Stack>
+            <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
+              <Typography color="text.secondary" sx={{width: 160, flexShrink: 0, pt: 0.25}}>
+                Прямые права
+              </Typography>
+              <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap", gap: 0.5}}>
+                {user.directPermissions.length > 0 ? (
+                  user.directPermissions.map((p) => (
+                    <Tooltip key={p} title={p} arrow>
+                      <Chip label={getPermissionLabel(p)} size="small" />
+                    </Tooltip>
+                  ))
+                ) : (
+                  <Typography>—</Typography>
+                )}
+              </Stack>
+            </Stack>
+            <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
+              <Typography color="text.secondary" sx={{width: 160, flexShrink: 0, pt: 0.25}}>
+                Склады
+              </Typography>
+              <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap", gap: 0.5}}>
+                {user.assignedWarehouses.length > 0 ? (
+                  user.assignedWarehouses.map((w) => (
+                    <Chip key={w.id} label={w.name} size="small" />
+                  ))
+                ) : (
+                  <Typography>—</Typography>
+                )}
+              </Stack>
             </Stack>
           </Stack>
-          <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
-            <Typography color="text.secondary" sx={{width: 160, flexShrink: 0, pt: 0.25}}>
-              Прямые права
-            </Typography>
-            <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap", gap: 0.5}}>
-              {user.directPermissions.length > 0 ? (
-                user.directPermissions.map((p) => (
-                  <Tooltip key={p} title={p} arrow>
-                    <Chip label={getPermissionLabel(p)} size="small" />
-                  </Tooltip>
-                ))
-              ) : (
-                <Typography>—</Typography>
-              )}
-            </Stack>
-          </Stack>
-          <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
-            <Typography color="text.secondary" sx={{width: 160, flexShrink: 0, pt: 0.25}}>
-              Склады
-            </Typography>
-            <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap", gap: 0.5}}>
-              {user.assignedWarehouses.length > 0 ? (
-                user.assignedWarehouses.map((w) => <Chip key={w.id} label={w.name} size="small" />)
-              ) : (
-                <Typography>—</Typography>
-              )}
-            </Stack>
-          </Stack>
-        </Stack>
-      </Paper>
+        </Paper>
 
-      <ChangePasswordDialog
-        open={changePasswordOpen}
-        userId={id!}
-        onClose={() => setChangePasswordOpen(false)}
-      />
-      <DeleteUserDialog
-        open={deleteOpen}
-        userId={id!}
-        username={user.username}
-        onClose={() => setDeleteOpen(false)}
-      />
-    </Stack>
+        <ChangePasswordDialog
+          open={changePasswordOpen}
+          userId={id!}
+          onClose={() => setChangePasswordOpen(false)}
+        />
+        <DeleteUserDialog
+          open={deleteOpen}
+          userId={id!}
+          username={user.username}
+          onClose={() => setDeleteOpen(false)}
+        />
+      </Stack>
+    </Box>
   );
 }
 

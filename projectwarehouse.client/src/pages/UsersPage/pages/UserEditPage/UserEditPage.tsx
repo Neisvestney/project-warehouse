@@ -37,6 +37,7 @@ import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
 import RolesSelect from "@/components/RolesSelect";
 import WarehousesSelect from "@/components/WarehousesSelect";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 type EditFormValues = {
   email: string;
@@ -146,76 +147,64 @@ function UserEditPage() {
   const user = userQuery.data;
 
   return (
-    <Stack spacing={2}>
-      <AppBreadcrumbs
-        path={[
-          {name: "Сотрудники", link: "/settings/employees"},
-          {name: user.username, link: `/settings/employees/${id}`},
-          {name: "Редактировать"},
-        ]}
-        viewersOf={{entityType: "user", entityId: id}}
+    <Box sx={{position: "relative"}}>
+      <LoadingOverlay
+        open={userQuery.isFetching && !userQuery.isLoading && !form.formState.isDirty}
       />
-      <PageGenericHeader title={`Редактировать: ${user.username}`} />
+      <Stack spacing={2}>
+        <AppBreadcrumbs
+          path={[
+            {name: "Сотрудники", link: "/settings/employees"},
+            {name: user.username, link: `/settings/employees/${id}`},
+            {name: "Редактировать"},
+          ]}
+          viewersOf={{entityType: "user", entityId: id}}
+        />
+        <PageGenericHeader title={`Редактировать: ${user.username}`} />
 
-      <EditLockBanner heldBy={lock.heldBy} />
-      <StaleDataBanner
-        isStale={!lock.heldBy && lock.isStale}
-        staleBy={lock.staleBy}
-        onRefresh={lock.refresh}
-        onDismiss={lock.dismissStale}
-      />
+        <EditLockBanner heldBy={lock.heldBy} />
+        <StaleDataBanner
+          isStale={!lock.heldBy && lock.isStale}
+          staleBy={lock.staleBy}
+          onRefresh={lock.refresh}
+          onDismiss={lock.dismissStale}
+        />
 
-      <Paper>
-        <Box component="form" onSubmit={onSubmit} sx={{p: 3}}>
-          <Stack spacing={2.5}>
-            <FormTextField
-              control={form.control}
-              name="email"
-              label="Email"
-              type="email"
-              autoComplete="email"
-              disabled={mutation.isPending}
-              fullWidth
-            />
-            <FormTextField
-              control={form.control}
-              name="firstName"
-              label="Имя"
-              autoComplete="given-name"
-              disabled={mutation.isPending}
-              fullWidth
-            />
-            <FormTextField
-              control={form.control}
-              name="lastName"
-              label="Фамилия"
-              autoComplete="family-name"
-              disabled={mutation.isPending}
-              fullWidth
-            />
-
-            {canManageAssignedWarehouses && (
-              <Controller
+        <Paper>
+          <Box component="form" onSubmit={onSubmit} sx={{p: 3}}>
+            <Stack spacing={2.5}>
+              <FormTextField
                 control={form.control}
-                name="assignedWarehouses"
-                render={({field}) => (
-                  <WarehousesSelect
-                    multiple
-                    value={field.value}
-                    onChange={field.onChange}
-                    disabled={mutation.isPending}
-                  />
-                )}
+                name="email"
+                label="Email"
+                type="email"
+                autoComplete="email"
+                disabled={mutation.isPending}
+                fullWidth
               />
-            )}
+              <FormTextField
+                control={form.control}
+                name="firstName"
+                label="Имя"
+                autoComplete="given-name"
+                disabled={mutation.isPending}
+                fullWidth
+              />
+              <FormTextField
+                control={form.control}
+                name="lastName"
+                label="Фамилия"
+                autoComplete="family-name"
+                disabled={mutation.isPending}
+                fullWidth
+              />
 
-            {canManageRoles && (
-              <>
+              {canManageAssignedWarehouses && (
                 <Controller
                   control={form.control}
-                  name="roles"
+                  name="assignedWarehouses"
                   render={({field}) => (
-                    <RolesSelect
+                    <WarehousesSelect
                       multiple
                       value={field.value}
                       onChange={field.onChange}
@@ -223,66 +212,87 @@ function UserEditPage() {
                     />
                   )}
                 />
-                <Controller
-                  control={form.control}
-                  name="directPermissions"
-                  render={({field}) => (
-                    <Autocomplete
-                      multiple
-                      options={permissionsQuery.data ?? []}
-                      value={field.value}
-                      onChange={(_, v) => field.onChange(v)}
-                      loading={permissionsQuery.isLoading}
-                      filterSelectedOptions
-                      disabled={mutation.isPending}
-                      getOptionLabel={getPermissionLabel}
-                      renderOption={(props, option) => (
-                        <li {...props} key={option}>
-                          <Box>
-                            <Typography variant="body2">{getPermissionLabel(option)}</Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {option}
-                            </Typography>
-                          </Box>
-                        </li>
-                      )}
-                      renderInput={(params) => <TextField {...params} label="Прямые права" />}
-                      renderValue={(tagValue, getItemProps) =>
-                        tagValue.map((option, index) => (
-                          <Tooltip key={option} title={option} arrow>
-                            <Chip
-                              label={getPermissionLabel(option)}
-                              {...getItemProps({index})}
-                              size="small"
-                            />
-                          </Tooltip>
-                        ))
-                      }
-                    />
+              )}
+
+              {canManageRoles && (
+                <>
+                  <Controller
+                    control={form.control}
+                    name="roles"
+                    render={({field}) => (
+                      <RolesSelect
+                        multiple
+                        value={field.value}
+                        onChange={field.onChange}
+                        disabled={mutation.isPending}
+                      />
+                    )}
+                  />
+                  <Controller
+                    control={form.control}
+                    name="directPermissions"
+                    render={({field}) => (
+                      <Autocomplete
+                        multiple
+                        options={permissionsQuery.data ?? []}
+                        value={field.value}
+                        onChange={(_, v) => field.onChange(v)}
+                        loading={permissionsQuery.isLoading}
+                        filterSelectedOptions
+                        disabled={mutation.isPending}
+                        getOptionLabel={getPermissionLabel}
+                        renderOption={(props, option) => (
+                          <li {...props} key={option}>
+                            <Box>
+                              <Typography variant="body2">{getPermissionLabel(option)}</Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {option}
+                              </Typography>
+                            </Box>
+                          </li>
+                        )}
+                        renderInput={(params) => <TextField {...params} label="Прямые права" />}
+                        renderValue={(tagValue, getItemProps) =>
+                          tagValue.map((option, index) => (
+                            <Tooltip key={option} title={option} arrow>
+                              <Chip
+                                label={getPermissionLabel(option)}
+                                {...getItemProps({index})}
+                                size="small"
+                              />
+                            </Tooltip>
+                          ))
+                        }
+                      />
+                    )}
+                  />
+                </>
+              )}
+
+              {form.formState.errors.root && (
+                <Alert severity="error">{form.formState.errors.root.message}</Alert>
+              )}
+
+              <Stack direction="row" spacing={1} sx={{justifyContent: "flex-end"}}>
+                <Button
+                  onClick={() => navigate(`/settings/employees/${id}`)}
+                  disabled={mutation.isPending}
+                >
+                  Отмена
+                </Button>
+                <Button type="submit" variant="contained" disabled={mutation.isPending}>
+                  {mutation.isPending ? (
+                    <CircularProgress size={22} color="inherit" />
+                  ) : (
+                    "Сохранить"
                   )}
-                />
-              </>
-            )}
-
-            {form.formState.errors.root && (
-              <Alert severity="error">{form.formState.errors.root.message}</Alert>
-            )}
-
-            <Stack direction="row" spacing={1} sx={{justifyContent: "flex-end"}}>
-              <Button
-                onClick={() => navigate(`/settings/employees/${id}`)}
-                disabled={mutation.isPending}
-              >
-                Отмена
-              </Button>
-              <Button type="submit" variant="contained" disabled={mutation.isPending}>
-                {mutation.isPending ? <CircularProgress size={22} color="inherit" /> : "Сохранить"}
-              </Button>
+                </Button>
+              </Stack>
             </Stack>
-          </Stack>
-        </Box>
-      </Paper>
-    </Stack>
+          </Box>
+        </Paper>
+      </Stack>
+    </Box>
   );
 }
 

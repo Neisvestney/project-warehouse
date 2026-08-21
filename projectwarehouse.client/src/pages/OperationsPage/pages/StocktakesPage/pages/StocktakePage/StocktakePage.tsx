@@ -29,6 +29,7 @@ import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
 import {byOperation} from "@/utils/queryKeys";
 import {useEditLock} from "@/hooks/useEditLock";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import EditLockBanner from "@/components/EditLockBanner";
 import StaleDataBanner from "@/components/StaleDataBanner";
@@ -192,6 +193,7 @@ function StocktakePage() {
   const {
     data: stocktake,
     isLoading,
+    isFetching,
     isError,
     isRefetchError,
     error,
@@ -298,239 +300,244 @@ function StocktakePage() {
     deleteMutation.isPending;
 
   return (
-    <Stack spacing={2}>
-      <EditLockBanner heldBy={lock.heldBy} />
-      <StaleDataBanner
-        isStale={!lock.heldBy && lock.isStale}
-        staleBy={lock.staleBy}
-        onRefresh={lock.refresh}
-        onDismiss={lock.dismissStale}
-      />
+    <Box sx={{position: "relative"}}>
+      <LoadingOverlay open={isFetching && !isLoading && !isEditingAnything} />
+      <Stack spacing={2}>
+        <EditLockBanner heldBy={lock.heldBy} />
+        <StaleDataBanner
+          isStale={!lock.heldBy && lock.isStale}
+          staleBy={lock.staleBy}
+          onRefresh={lock.refresh}
+          onDismiss={lock.dismissStale}
+        />
 
-      <AppBreadcrumbs
-        path={[
-          {name: "Инвентаризации", link: "/operations/stocktakes"},
-          {name: formatStocktakeNumber(stocktake.number)},
-        ]}
-        viewersOf={{entityType: "stocktake", entityId: id}}
-      />
-      <PageGenericHeader
-        title={
-          <Stack direction="row" spacing={1.5} sx={{alignItems: "center"}}>
-            <Typography variant="h5" component="span">
-              {stocktake.name || "—"}
-            </Typography>
-            <StocktakeStatusChip status={stocktake.status} />
-          </Stack>
-        }
-        right={
-          canEdit && !isTerminal ? (
-            <Stack direction="row" spacing={1}>
-              {(isDraft || isPlanned) && (
-                <Button
-                  variant="contained"
-                  disabled={actionPending || stocktake.nodes.length === 0}
-                  onClick={() => startMutation.mutate({path: {id: stocktake.id}})}
-                  startIcon={<PlayArrowIcon />}
-                  loading={startMutation.isPending}
-                >
-                  Начать
-                </Button>
-              )}
-              {canSchedule && (
-                <Button
-                  variant="outlined"
-                  disabled={actionPending || stocktake.nodes.length === 0}
-                  onClick={() => scheduleMutation.mutate({path: {id: stocktake.id}})}
-                  startIcon={<EventIcon />}
-                  loading={scheduleMutation.isPending}
-                >
-                  Запланировать
-                </Button>
-              )}
-              {isPlanned && (
-                <Button
-                  variant="outlined"
-                  disabled={actionPending}
-                  onClick={() => toDraftMutation.mutate({path: {id: stocktake.id}})}
-                  startIcon={<EditNoteIcon />}
-                  loading={toDraftMutation.isPending}
-                >
-                  Вернуть в черновик
-                </Button>
-              )}
-              {isInProgress && (
-                <>
+        <AppBreadcrumbs
+          path={[
+            {name: "Инвентаризации", link: "/operations/stocktakes"},
+            {name: formatStocktakeNumber(stocktake.number)},
+          ]}
+          viewersOf={{entityType: "stocktake", entityId: id}}
+        />
+        <PageGenericHeader
+          title={
+            <Stack direction="row" spacing={1.5} sx={{alignItems: "center"}}>
+              <Typography variant="h5" component="span">
+                {stocktake.name || "—"}
+              </Typography>
+              <StocktakeStatusChip status={stocktake.status} />
+            </Stack>
+          }
+          right={
+            canEdit && !isTerminal ? (
+              <Stack direction="row" spacing={1}>
+                {(isDraft || isPlanned) && (
                   <Button
                     variant="contained"
-                    color="success"
-                    disabled={actionPending}
-                    onClick={() => setDifferencesOpen(true)}
-                    startIcon={<TaskAltIcon />}
+                    disabled={actionPending || stocktake.nodes.length === 0}
+                    onClick={() => startMutation.mutate({path: {id: stocktake.id}})}
+                    startIcon={<PlayArrowIcon />}
+                    loading={startMutation.isPending}
                   >
-                    Завершить
+                    Начать
                   </Button>
+                )}
+                {canSchedule && (
+                  <Button
+                    variant="outlined"
+                    disabled={actionPending || stocktake.nodes.length === 0}
+                    onClick={() => scheduleMutation.mutate({path: {id: stocktake.id}})}
+                    startIcon={<EventIcon />}
+                    loading={scheduleMutation.isPending}
+                  >
+                    Запланировать
+                  </Button>
+                )}
+                {isPlanned && (
                   <Button
                     variant="outlined"
                     disabled={actionPending}
-                    onClick={() => revertMutation.mutate({path: {id: stocktake.id}})}
-                    startIcon={<UndoIcon />}
-                    loading={revertMutation.isPending}
+                    onClick={() => toDraftMutation.mutate({path: {id: stocktake.id}})}
+                    startIcon={<EditNoteIcon />}
+                    loading={toDraftMutation.isPending}
                   >
-                    В черновик
+                    Вернуть в черновик
                   </Button>
-                </>
-              )}
-              <Button
-                color="error"
-                variant="outlined"
-                disabled={actionPending}
-                onClick={() => setCancelOpen(true)}
-                startIcon={<BlockIcon />}
-              >
-                Отменить
-              </Button>
-              {(isPlanned || isDraft) && (
+                )}
+                {isInProgress && (
+                  <>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      disabled={actionPending}
+                      onClick={() => setDifferencesOpen(true)}
+                      startIcon={<TaskAltIcon />}
+                    >
+                      Завершить
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      disabled={actionPending}
+                      onClick={() => revertMutation.mutate({path: {id: stocktake.id}})}
+                      startIcon={<UndoIcon />}
+                      loading={revertMutation.isPending}
+                    >
+                      В черновик
+                    </Button>
+                  </>
+                )}
                 <Button
                   color="error"
                   variant="outlined"
                   disabled={actionPending}
-                  onClick={() => setDeleteOpen(true)}
-                  startIcon={<DeleteIcon />}
+                  onClick={() => setCancelOpen(true)}
+                  startIcon={<BlockIcon />}
                 >
-                  Удалить
+                  Отменить
                 </Button>
-              )}
-            </Stack>
-          ) : undefined
-        }
-      />
-
-      <Paper>
-        <Stack spacing={1.5} sx={{p: 3}}>
-          {!isEditing ? (
-            <>
-              <InfoRow label="Номер" value={formatStocktakeNumber(stocktake.number)} />
-              <Stack direction="row" spacing={1} sx={{alignItems: "baseline"}}>
-                <Typography color="text.secondary" sx={{width: 160, flexShrink: 0}}>
-                  Склад
-                </Typography>
-                <Typography
-                  component={RouterLink}
-                  to={`/storage/warehouses/${stocktake.warehouseId}`}
-                  sx={{
-                    color: "primary.main",
-                    textDecoration: "none",
-                    "&:hover": {textDecoration: "underline"},
-                  }}
-                >
-                  {stocktake.warehouseName}
-                </Typography>
+                {(isPlanned || isDraft) && (
+                  <Button
+                    color="error"
+                    variant="outlined"
+                    disabled={actionPending}
+                    onClick={() => setDeleteOpen(true)}
+                    startIcon={<DeleteIcon />}
+                  >
+                    Удалить
+                  </Button>
+                )}
               </Stack>
-              <InfoRow label="Тип" value={STOCKTAKE_TYPE_LABELS[stocktake.type]} />
-              {stocktake.type === "scheduled" && (
+            ) : undefined
+          }
+        />
+
+        <Paper>
+          <Stack spacing={1.5} sx={{p: 3}}>
+            {!isEditing ? (
+              <>
+                <InfoRow label="Номер" value={formatStocktakeNumber(stocktake.number)} />
+                <Stack direction="row" spacing={1} sx={{alignItems: "baseline"}}>
+                  <Typography color="text.secondary" sx={{width: 160, flexShrink: 0}}>
+                    Склад
+                  </Typography>
+                  <Typography
+                    component={RouterLink}
+                    to={`/storage/warehouses/${stocktake.warehouseId}`}
+                    sx={{
+                      color: "primary.main",
+                      textDecoration: "none",
+                      "&:hover": {textDecoration: "underline"},
+                    }}
+                  >
+                    {stocktake.warehouseName}
+                  </Typography>
+                </Stack>
+                <InfoRow label="Тип" value={STOCKTAKE_TYPE_LABELS[stocktake.type]} />
+                {stocktake.type === "scheduled" && (
+                  <InfoRow
+                    label="Плановая дата"
+                    value={
+                      stocktake.plannedDate
+                        ? parseDateOnly(stocktake.plannedDate).toLocaleDateString("ru-RU")
+                        : "—"
+                    }
+                  />
+                )}
                 <InfoRow
-                  label="Плановая дата"
+                  label="Создано"
+                  value={new Date(stocktake.createdAt).toLocaleString("ru-RU")}
+                />
+                <InfoRow
+                  label="Начата"
                   value={
-                    stocktake.plannedDate
-                      ? parseDateOnly(stocktake.plannedDate).toLocaleDateString("ru-RU")
+                    stocktake.startedAt
+                      ? new Date(stocktake.startedAt).toLocaleString("ru-RU")
                       : "—"
                   }
                 />
-              )}
-              <InfoRow
-                label="Создано"
-                value={new Date(stocktake.createdAt).toLocaleString("ru-RU")}
+                <InfoRow
+                  label="Завершена"
+                  value={
+                    stocktake.finishedAt
+                      ? new Date(stocktake.finishedAt).toLocaleString("ru-RU")
+                      : "—"
+                  }
+                />
+                <InfoRow label="Примечания" value={stocktake.notes ?? "—"} />
+                {!isTerminal && canEdit && (
+                  <Box>
+                    <Button
+                      startIcon={<EditIcon fontSize="small" />}
+                      size="small"
+                      onClick={() => setIsEditing(true)}
+                    >
+                      Редактировать
+                    </Button>
+                  </Box>
+                )}
+              </>
+            ) : (
+              <EditInfoForm
+                stocktake={stocktake}
+                onDone={(updated) => {
+                  updateLocal(updated);
+                  setIsEditing(false);
+                }}
               />
-              <InfoRow
-                label="Начата"
-                value={
-                  stocktake.startedAt ? new Date(stocktake.startedAt).toLocaleString("ru-RU") : "—"
-                }
-              />
-              <InfoRow
-                label="Завершена"
-                value={
-                  stocktake.finishedAt
-                    ? new Date(stocktake.finishedAt).toLocaleString("ru-RU")
-                    : "—"
-                }
-              />
-              <InfoRow label="Примечания" value={stocktake.notes ?? "—"} />
-              {!isTerminal && canEdit && (
-                <Box>
-                  <Button
-                    startIcon={<EditIcon fontSize="small" />}
-                    size="small"
-                    onClick={() => setIsEditing(true)}
-                  >
-                    Редактировать
-                  </Button>
-                </Box>
-              )}
-            </>
-          ) : (
-            <EditInfoForm
-              stocktake={stocktake}
-              onDone={(updated) => {
-                updateLocal(updated);
-                setIsEditing(false);
-              }}
-            />
-          )}
-        </Stack>
-      </Paper>
+            )}
+          </Stack>
+        </Paper>
 
-      {(isPlanned || isDraft) && (
-        <StocktakeNodesSection
+        {(isPlanned || isDraft) && (
+          <StocktakeNodesSection
+            stocktake={stocktake}
+            onUpdated={updateLocal}
+            onEditingChange={setIsEditingNodes}
+          />
+        )}
+        {isInProgress && (
+          <StocktakeCountingSection
+            stocktake={stocktake}
+            onUpdated={updateLocal}
+            onShowDifferences={() => setDifferencesOpen(true)}
+          />
+        )}
+        {isTerminal && <StocktakeResultSection stocktake={stocktake} />}
+
+        <StocktakeDifferencesDialog
+          open={differencesOpen}
           stocktake={stocktake}
-          onUpdated={updateLocal}
-          onEditingChange={setIsEditingNodes}
+          onClose={() => setDifferencesOpen(false)}
+          onFinished={(updated) => {
+            updateLocal(updated);
+            setDifferencesOpen(false);
+          }}
         />
-      )}
-      {isInProgress && (
-        <StocktakeCountingSection
-          stocktake={stocktake}
-          onUpdated={updateLocal}
-          onShowDifferences={() => setDifferencesOpen(true)}
-        />
-      )}
-      {isTerminal && <StocktakeResultSection stocktake={stocktake} />}
 
-      <StocktakeDifferencesDialog
-        open={differencesOpen}
-        stocktake={stocktake}
-        onClose={() => setDifferencesOpen(false)}
-        onFinished={(updated) => {
-          updateLocal(updated);
-          setDifferencesOpen(false);
-        }}
-      />
+        <ConfirmDialog
+          open={cancelOpen}
+          onClose={() => setCancelOpen(false)}
+          title="Отменить инвентаризацию?"
+          onConfirm={() => cancelMutation.mutate({path: {id: stocktake.id}})}
+          isPending={cancelMutation.isPending}
+          confirmText="Отменить инвентаризацию"
+          confirmColor="error"
+        >
+          Документ будет отменён. Остатки не будут затронуты.
+        </ConfirmDialog>
 
-      <ConfirmDialog
-        open={cancelOpen}
-        onClose={() => setCancelOpen(false)}
-        title="Отменить инвентаризацию?"
-        onConfirm={() => cancelMutation.mutate({path: {id: stocktake.id}})}
-        isPending={cancelMutation.isPending}
-        confirmText="Отменить инвентаризацию"
-        confirmColor="error"
-      >
-        Документ будет отменён. Остатки не будут затронуты.
-      </ConfirmDialog>
-
-      <ConfirmDialog
-        open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        title="Удалить инвентаризацию?"
-        onConfirm={() => deleteMutation.mutate({path: {id: stocktake.id}})}
-        isPending={deleteMutation.isPending}
-        confirmText="Удалить"
-        confirmColor="error"
-      >
-        Документ будет удалён безвозвратно.
-      </ConfirmDialog>
-    </Stack>
+        <ConfirmDialog
+          open={deleteOpen}
+          onClose={() => setDeleteOpen(false)}
+          title="Удалить инвентаризацию?"
+          onConfirm={() => deleteMutation.mutate({path: {id: stocktake.id}})}
+          isPending={deleteMutation.isPending}
+          confirmText="Удалить"
+          confirmColor="error"
+        >
+          Документ будет удалён безвозвратно.
+        </ConfirmDialog>
+      </Stack>
+    </Box>
   );
 }
 

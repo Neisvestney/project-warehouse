@@ -12,6 +12,7 @@ import type {OrderStatus} from "@/api/types.gen";
 import {isNotFoundError} from "@/utils/errorUtils";
 import {useHasPermission} from "@/hooks/usePermission";
 import {useEditLock} from "@/hooks/useEditLock";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import EditLockBanner from "@/components/EditLockBanner";
 import StaleDataBanner from "@/components/StaleDataBanner";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
@@ -134,226 +135,233 @@ function OrderPage() {
     marketplaceOrder != null;
 
   return (
-    <CatalogItemDrawerHost>
-      <Stack spacing={2}>
-        <EditLockBanner heldBy={lock.heldBy} />
-        <StaleDataBanner
-          isStale={!lock.heldBy && lock.isStale}
-          staleBy={lock.staleBy}
-          onRefresh={lock.refresh}
-          onDismiss={lock.dismissStale}
-        />
+    <Box sx={{position: "relative"}}>
+      <LoadingOverlay open={query.isFetching && !query.isLoading && !isEditingMeta} />
+      <CatalogItemDrawerHost>
+        <Stack spacing={2}>
+          <EditLockBanner heldBy={lock.heldBy} />
+          <StaleDataBanner
+            isStale={!lock.heldBy && lock.isStale}
+            staleBy={lock.staleBy}
+            onRefresh={lock.refresh}
+            onDismiss={lock.dismissStale}
+          />
 
-        <AppBreadcrumbs
-          path={[
-            {name: "Операции", link: "/operations"},
-            {name: "Заказы"},
-            {name: typeLabel, link: `/operations/orders/${order.type}`},
-            {name: formatOrderNumber(order.number)},
-          ]}
-          viewersOf={{entityType: "order", entityId: id}}
-        />
+          <AppBreadcrumbs
+            path={[
+              {name: "Операции", link: "/operations"},
+              {name: "Заказы"},
+              {name: typeLabel, link: `/operations/orders/${order.type}`},
+              {name: formatOrderNumber(order.number)},
+            ]}
+            viewersOf={{entityType: "order", entityId: id}}
+          />
 
-        <PageGenericHeader
-          title={
-            <Stack direction="row" spacing={1.5} sx={{alignItems: "center", flexWrap: "wrap"}}>
-              <Typography variant="h5" component="span">
-                {formatOrderNumber(order.number)}
-              </Typography>
-              <OrderTypeChip type={order.type} />
-              <OrderStatusChip status={order.status} />
-            </Stack>
-          }
-          right={
-            hasActions ? (
-              <Stack direction="row" spacing={1} sx={{flexWrap: "wrap"}}>
-                {marketplaceOrder != null && (
-                  <DownloadOrderLabelButton
-                    orderId={order.id}
-                    marketplaceOrder={marketplaceOrder}
-                  />
-                )}
+          <PageGenericHeader
+            title={
+              <Stack direction="row" spacing={1.5} sx={{alignItems: "center", flexWrap: "wrap"}}>
+                <Typography variant="h5" component="span">
+                  {formatOrderNumber(order.number)}
+                </Typography>
+                <OrderTypeChip type={order.type} />
+                <OrderStatusChip status={order.status} />
+              </Stack>
+            }
+            right={
+              hasActions ? (
+                <Stack direction="row" spacing={1} sx={{flexWrap: "wrap"}}>
+                  {marketplaceOrder != null && (
+                    <DownloadOrderLabelButton
+                      orderId={order.id}
+                      marketplaceOrder={marketplaceOrder}
+                    />
+                  )}
 
-                {canSelfAssign && order.status === "confirmed" && (
-                  <Button
-                    variant="outlined"
-                    disabled={actionPending}
-                    onClick={() => selfAssignMutation.mutate({path: {id: order.id}})}
-                    startIcon={<PersonAddIcon />}
-                    loading={selfAssignMutation.isPending}
-                  >
-                    Взять на себя
-                  </Button>
-                )}
-
-                {canEdit && order.status === "draft" && (
-                  <>
-                    <Button
-                      variant="contained"
-                      disabled={actionPending}
-                      onClick={() => transition("confirmed", true)}
-                      startIcon={<CheckIcon />}
-                      loading={transitionMutation.isPending}
-                    >
-                      Подтвердить
-                    </Button>
-                    <Button
-                      color="error"
-                      variant="outlined"
-                      disabled={actionPending}
-                      onClick={() => transition("canceled")}
-                      startIcon={<BlockIcon />}
-                    >
-                      Отменить
-                    </Button>
-                  </>
-                )}
-
-                {canEdit && order.status === "confirmed" && (
-                  <>
-                    <Button
-                      variant="contained"
-                      disabled={actionPending}
-                      onClick={() => transition("assembly", true)}
-                      startIcon={<PlayArrowIcon />}
-                      loading={transitionMutation.isPending}
-                    >
-                      На сборку
-                    </Button>
+                  {canSelfAssign && order.status === "confirmed" && (
                     <Button
                       variant="outlined"
                       disabled={actionPending}
-                      onClick={() => transition("draft")}
-                      startIcon={<UndoIcon />}
+                      onClick={() => selfAssignMutation.mutate({path: {id: order.id}})}
+                      startIcon={<PersonAddIcon />}
+                      loading={selfAssignMutation.isPending}
                     >
-                      Вернуть в черновик
+                      Взять на себя
                     </Button>
-                    <Button
-                      color="error"
-                      variant="outlined"
-                      disabled={actionPending}
-                      onClick={() => transition("canceled")}
-                      startIcon={<BlockIcon />}
-                    >
-                      Отменить
-                    </Button>
-                  </>
-                )}
+                  )}
 
-                {canEdit && order.status === "assembly" && (
-                  <>
-                    {!hasDoneTasks && (
+                  {canEdit && order.status === "draft" && (
+                    <>
+                      <Button
+                        variant="contained"
+                        disabled={actionPending}
+                        onClick={() => transition("confirmed", true)}
+                        startIcon={<CheckIcon />}
+                        loading={transitionMutation.isPending}
+                      >
+                        Подтвердить
+                      </Button>
+                      <Button
+                        color="error"
+                        variant="outlined"
+                        disabled={actionPending}
+                        onClick={() => transition("canceled")}
+                        startIcon={<BlockIcon />}
+                      >
+                        Отменить
+                      </Button>
+                    </>
+                  )}
+
+                  {canEdit && order.status === "confirmed" && (
+                    <>
+                      <Button
+                        variant="contained"
+                        disabled={actionPending}
+                        onClick={() => transition("assembly", true)}
+                        startIcon={<PlayArrowIcon />}
+                        loading={transitionMutation.isPending}
+                      >
+                        На сборку
+                      </Button>
                       <Button
                         variant="outlined"
                         disabled={actionPending}
-                        onClick={() => transition("confirmed")}
+                        onClick={() => transition("draft")}
                         startIcon={<UndoIcon />}
-                        loading={transitionMutation.isPending}
                       >
-                        Вернуть в Подтверждён
+                        Вернуть в черновик
                       </Button>
-                    )}
+                      <Button
+                        color="error"
+                        variant="outlined"
+                        disabled={actionPending}
+                        onClick={() => transition("canceled")}
+                        startIcon={<BlockIcon />}
+                      >
+                        Отменить
+                      </Button>
+                    </>
+                  )}
+
+                  {canEdit && order.status === "assembly" && (
+                    <>
+                      {!hasDoneTasks && (
+                        <Button
+                          variant="outlined"
+                          disabled={actionPending}
+                          onClick={() => transition("confirmed")}
+                          startIcon={<UndoIcon />}
+                          loading={transitionMutation.isPending}
+                        >
+                          Вернуть в Подтверждён
+                        </Button>
+                      )}
+                      <Button
+                        color="error"
+                        variant="outlined"
+                        disabled={actionPending}
+                        onClick={() => transition("canceled")}
+                        startIcon={<BlockIcon />}
+                      >
+                        Отменить
+                      </Button>
+                    </>
+                  )}
+
+                  {canEdit && order.status === "assembled" && (
                     <Button
-                      color="error"
-                      variant="outlined"
+                      variant="contained"
+                      color="success"
                       disabled={actionPending}
-                      onClick={() => transition("canceled")}
-                      startIcon={<BlockIcon />}
+                      onClick={() => transition("shipped")}
+                      startIcon={<LocalShippingIcon />}
+                      loading={transitionMutation.isPending}
                     >
-                      Отменить
+                      Отгрузить
                     </Button>
-                  </>
-                )}
+                  )}
+                </Stack>
+              ) : undefined
+            }
+          />
 
-                {canEdit && order.status === "assembled" && (
-                  <Button
-                    variant="contained"
-                    color="success"
-                    disabled={actionPending}
-                    onClick={() => transition("shipped")}
-                    startIcon={<LocalShippingIcon />}
-                    loading={transitionMutation.isPending}
-                  >
-                    Отгрузить
-                  </Button>
-                )}
-              </Stack>
-            ) : undefined
-          }
-        />
+          <Paper>
+            <Stack spacing={1.5} sx={{p: 3}}>
+              <OrderMetaSection
+                order={order}
+                canEdit={canEdit}
+                onEditingChange={setIsEditingMeta}
+              />
+            </Stack>
+          </Paper>
 
-        <Paper>
-          <Stack spacing={1.5} sx={{p: 3}}>
-            <OrderMetaSection order={order} canEdit={canEdit} onEditingChange={setIsEditingMeta} />
-          </Stack>
-        </Paper>
+          {order.marketplaceItems.length > 0 && (
+            <Paper sx={{p: 3}}>
+              <Typography variant="subtitle1" sx={{fontWeight: 600, mb: 2}}>
+                Состав заказа на маркетплейсе
+              </Typography>
+              <OrderMarketplaceItemsSection order={order} />
+            </Paper>
+          )}
 
-        {order.marketplaceItems.length > 0 && (
           <Paper sx={{p: 3}}>
             <Typography variant="subtitle1" sx={{fontWeight: 600, mb: 2}}>
-              Состав заказа на маркетплейсе
+              Коробки и состав
             </Typography>
-            <OrderMarketplaceItemsSection order={order} />
+            <OrderBoxesSection order={order} canEdit={canEdit} />
           </Paper>
-        )}
 
-        <Paper sx={{p: 3}}>
-          <Typography variant="subtitle1" sx={{fontWeight: 600, mb: 2}}>
-            Коробки и состав
-          </Typography>
-          <OrderBoxesSection order={order} canEdit={canEdit} />
-        </Paper>
-
-        {(order.status === "assembly" || order.status === "assembled") && (
-          <Paper sx={{p: 3}}>
-            <OrderAssemblyTasksSection order={order} canEdit={canEdit || canAssemble} />
-          </Paper>
-        )}
-
-        <ConfirmDialog
-          open={cancelConfirm}
-          onClose={() => setCancelConfirm(false)}
-          title="Отменить заказ?"
-          confirmText="Отменить заказ"
-          confirmColor="error"
-          onConfirm={() =>
-            transitionMutation.mutate({path: {id: order.id}, body: {targetStatus: "canceled"}})
-          }
-          isPending={transitionMutation.isPending}
-        />
-
-        <ConfirmDialog
-          open={emptyBoxesConfirm !== null}
-          onClose={() => setEmptyBoxesConfirm(null)}
-          title={
-            emptyBoxesConfirm === "assembly" ? "Отправить заказ на сборку?" : "Подтвердить заказ?"
-          }
-          confirmText={emptyBoxesConfirm === "assembly" ? "На сборку" : "Подтвердить"}
-          maxWidth="sm"
-          onConfirm={() => emptyBoxesConfirm && doTransition(emptyBoxesConfirm)}
-          isPending={transitionMutation.isPending}
-          confirmColor={"error"}
-        >
-          {order.boxes.length === 0 ? (
-            <Typography variant="body2">В заказе нет ни одной коробки.</Typography>
-          ) : (
-            <>
-              <Typography variant="body2">В заказе есть коробки без компонентов:</Typography>
-              <Box component="ul" sx={{mt: 1, mb: 0, pl: 3}}>
-                {emptyBoxes.map((box) => (
-                  <Typography key={box.id} component="li" variant="body2">
-                    {formatBoxLabel(box, order.boxes)}
-                  </Typography>
-                ))}
-              </Box>
-            </>
+          {(order.status === "assembly" || order.status === "assembled") && (
+            <Paper sx={{p: 3}}>
+              <OrderAssemblyTasksSection order={order} canEdit={canEdit || canAssemble} />
+            </Paper>
           )}
-          <Typography variant="body2" sx={{mt: 2}}>
-            Всё равно продолжить?
-          </Typography>
-        </ConfirmDialog>
-      </Stack>
-    </CatalogItemDrawerHost>
+
+          <ConfirmDialog
+            open={cancelConfirm}
+            onClose={() => setCancelConfirm(false)}
+            title="Отменить заказ?"
+            confirmText="Отменить заказ"
+            confirmColor="error"
+            onConfirm={() =>
+              transitionMutation.mutate({path: {id: order.id}, body: {targetStatus: "canceled"}})
+            }
+            isPending={transitionMutation.isPending}
+          />
+
+          <ConfirmDialog
+            open={emptyBoxesConfirm !== null}
+            onClose={() => setEmptyBoxesConfirm(null)}
+            title={
+              emptyBoxesConfirm === "assembly" ? "Отправить заказ на сборку?" : "Подтвердить заказ?"
+            }
+            confirmText={emptyBoxesConfirm === "assembly" ? "На сборку" : "Подтвердить"}
+            maxWidth="sm"
+            onConfirm={() => emptyBoxesConfirm && doTransition(emptyBoxesConfirm)}
+            isPending={transitionMutation.isPending}
+            confirmColor={"error"}
+          >
+            {order.boxes.length === 0 ? (
+              <Typography variant="body2">В заказе нет ни одной коробки.</Typography>
+            ) : (
+              <>
+                <Typography variant="body2">В заказе есть коробки без компонентов:</Typography>
+                <Box component="ul" sx={{mt: 1, mb: 0, pl: 3}}>
+                  {emptyBoxes.map((box) => (
+                    <Typography key={box.id} component="li" variant="body2">
+                      {formatBoxLabel(box, order.boxes)}
+                    </Typography>
+                  ))}
+                </Box>
+              </>
+            )}
+            <Typography variant="body2" sx={{mt: 2}}>
+              Всё равно продолжить?
+            </Typography>
+          </ConfirmDialog>
+        </Stack>
+      </CatalogItemDrawerHost>
+    </Box>
   );
 }
 

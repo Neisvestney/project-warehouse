@@ -67,6 +67,70 @@ Standard list-page table shell: `Paper` → `LinearProgress` (while fetching) �
 `TablePagination` with Russian labels baked in. Extends `PaperProps`. The `page` prop is **1-based**, matching
 the `usePaginatedParams` convention; the component converts to MUI's 0-based value internally.
 
+### `LoadingOverlay`
+
+Dim-and-blur overlay for content that is **being refetched in the background** — an `entityChanged` SSE hint
+invalidated the query, or the tab regained focus and TanStack refetched. Not for the first load: that is what
+`TableRowLoader` and skeletons are for, so pages pass `open={isFetching && !isLoading}`.
+
+```tsx
+<Box sx={{position: "relative"}}>
+  <LoadingOverlay open={isFetching && !isLoading} />
+  <Stack spacing={2}>{/* page content */}</Stack>
+</Box>
+```
+
+The parent must be `position: relative` — the overlay is `position: absolute; inset: 0` and covers it whole.
+Keep it out of a spacing `Stack`: the `& > * + *` margin rule would also apply to the absolute child and push
+it off by one gap. It intentionally **blocks pointer events**, so nothing can be clicked in the moment before
+it is replaced by fresher data. Dialogs are portalled to `body` and stay reachable.
+
+**For detail pages, not list pages.** A list already reports a background refetch through
+`DataTableContainer`'s `LinearProgress`, and dimming its filters would be a regression. A detail page has no
+such affordance, so this is where the overlay earns its place.
+
+The two layers are timed differently on purpose:
+
+- The **backdrop follows `open` directly** — the dim and blur land on the first frame, so the freeze is
+  acknowledged immediately rather than after a suspicious pause.
+- `delay` (300 ms) gates only the **spinner**. A fast round-trip dims the page for a moment and never puts a
+  spinner on screen, which is the difference between "that refreshed" and "that is loading".
+- `minDuration` (200 ms) is the floor on the backdrop. Once shown it stays at least this long even if the data
+  lands right after, so the overlay is never a one-frame flash.
+
+`visible` is derived (`open || holding`) rather than stored: only the post-`open` tail lives in state, which is
+what keeps the backdrop free of a render's worth of lag and keeps `setState` out of the effect body.
+
+`label`, `blur`, `size` and `sx` are optional. The spinner is centred by the overlay's own flexbox and is
+additionally `position: sticky` with **both** `top` and `bottom` insets, so a page taller than the viewport
+keeps it on screen. Do not express that as a `vh` offset: sticky can only shift an element inside its own
+containing block, so on any overlay shorter than the offset the shift clamps and the spinner sinks to the
+bottom edge. The backdrop is `alpha(theme.palette.background.default, 0.55)` — theme tokens, not a hardcoded
+white.
+
+**Every entity detail page carries it**: `ReceiptPage`, `WriteoffPage`, `StocktakePage`, `OrderPage`,
+`MarketplaceAccountPage`, `UserViewPage`, `UserEditPage`, `WarehouseViewPage`, `MyProfilePage`.
+
+Where the page has an edit mode the condition also carries `&& !<edit flag>` — blurring a form someone is
+typing into is worse than showing nothing, and a concurrent write during an edit is already reported by
+`useEditLock` / `StaleDataBanner`. The flag differs per page: `isEditingAnything` on the operation documents,
+`isEditingMeta` on `OrderPage`, `form.formState.isDirty` on `UserEditPage` (the whole page is the form).
+
+`WarehouseEditPage` has none: it is a canvas editor that holds the layout dirty from the moment it opens
+(`useEditLock(..., {isDirty: true})`), so there is no read-only state for the overlay to belong to. It does
+not take one.
+
+`CatalogItemDrawer` takes it too, but on the **content area only**, not on the `Drawer` — an overlay over the
+whole panel would swallow the close button and trap the user until the refetch ends. The wrapper also sits
+*outside* the scrolling `Box` rather than inside it: an `inset: 0` child of an `overflow: auto` parent is sized
+to the visible box and scrolls away with the content, leaving everything below it uncovered. Only the
+read-only view carries it; `EditMode` is a separate branch, so no edit flag is needed.
+
+The inventory pages (`WarehouseInventoryPage`, `StoragePlaceInventoryPage`, `NodeInventoryPage`) deliberately
+**do not** take it. Their own query only resolves the warehouse or place name; the content is an
+`ItemsBasePage` list that reports its own fetching, so an overlay there would almost never fire and would
+cover a table that is already covered.
+
 ### `FiltersBar`
 
 Filter row with a `FilterAltIcon` + «Фильтры:» label and a children slot. The `sx` prop is **merged** with the
