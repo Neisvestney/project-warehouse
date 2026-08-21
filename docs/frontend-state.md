@@ -15,6 +15,10 @@ Wraps pages that use URL-synced state (mounted in `MainLayout`). Batches all `se
 synchronous tick into a **single** `setSearchParams` navigation via `queueMicrotask`. Without this, two hooks
 updating in one render would each read the pre-update URL and the second would overwrite the first.
 
+Pushed updates are also kept in an *unconfirmed* map and re-applied on every following navigation until the
+router's params actually contain them. React Router commits navigations inside a transition, so a batch fired
+before the previous one committed would otherwise build on a `prev` that still misses the earlier update.
+
 ### `useDebounce<T>(value, delay?)`
 
 Generic debounce hook. Returns the debounced copy of `value`; updates only after `delay` ms of inactivity
@@ -77,6 +81,13 @@ the URL after a debounce. Returns `[localValue, setLocalValue, urlValue]`.
 - `localValue` / `setLocalValue` — bind to the input element (updates instantly, no re-navigation per keystroke)
 - `urlValue` — the debounced URL-synced value; pass this to API query params
 - `localValue` is synced back from the URL when it changes externally (browser back/forward, deep link)
+- `T` is constrained to primitives (`string | number | boolean | null | undefined`) — a `fromQuery` returning a
+  fresh object every render would make the URL-change check fire on every render and loop. Object-valued params
+  belong in plain `useSyncedWithQueryState`, which has no sync-back effect
+
+The hook remembers the last value it pushed and ignores that echo when it comes back from the URL. Since the
+navigation commits in a transition, the echo can arrive after the user has typed further characters — syncing it
+back would rewind the input and swallow them.
 
 ```typescript
 const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
