@@ -3747,6 +3747,7 @@ export type OrdersGetAllAssemblyData = {
   path?: never;
   query?: {
     warehouseId?: string;
+    searchString?: string;
   };
   url: "/api/orders/assembly";
 };

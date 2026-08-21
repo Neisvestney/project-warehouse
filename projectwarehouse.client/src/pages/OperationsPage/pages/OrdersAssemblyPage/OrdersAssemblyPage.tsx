@@ -17,12 +17,20 @@ import PageGenericHeader from "@/components/PageGenericHeader.tsx";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs.tsx";
 import FiltersBar from "@/components/FiltersBar.tsx";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState.ts";
+import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState.ts";
+import SearchInput from "@/components/SearchInput.tsx";
 import WarehousesSelect from "@/components/WarehousesSelect.tsx";
 
 function OrdersAssemblyPage() {
   const canFulfill = useHasPermission(
     ["orders.assemble_assigned", "orders.edit", "orders.edit_assigned"],
     "any",
+  );
+
+  const [searchInput, setSearchInput, searchString] = useDebouncedSyncedWithQueryState(
+    "search",
+    (q) => (typeof q === "string" ? q : ""),
+    (v) => v || null,
   );
 
   const [warehouseId, setWarehouseId] = useSyncedWithQueryState(
@@ -33,7 +41,7 @@ function OrdersAssemblyPage() {
 
   const ordersQuery = useQuery({
     ...ordersGetAllAssemblyOptions({
-      query: {warehouseId: warehouseId ?? undefined},
+      query: {warehouseId: warehouseId ?? undefined, searchString: searchString || undefined},
     }),
   });
 
@@ -104,6 +112,8 @@ function OrdersAssemblyPage() {
     setSelectedTaskIds(eligibleIds);
   }
 
+  // Counts come from here, not from selectedTaskIds: ids of tasks hidden by the search/warehouse
+  // filter stay in the set, and the dialog only ever gets the visible ones.
   const selectedTaskInfos = useMemo<SelectedTaskInfo[]>(() => {
     const result: SelectedTaskInfo[] = [];
     for (const order of orders) {
@@ -134,20 +144,22 @@ function OrdersAssemblyPage() {
                   <Button size="small" variant="outlined" onClick={handleSelectAllEligible}>
                     Выбрать все доступные для массовой сборки
                   </Button>
-                  {selectedTaskIds.size >= 1 && (
+                  {selectedTaskInfos.length >= 1 && (
                     <Button
                       size="small"
                       variant="contained"
                       onClick={() => setBatchDialogOpen(true)}
                     >
-                      Собрать выбранные ({selectedTaskIds.size})
+                      Собрать выбранные ({selectedTaskInfos.length})
                     </Button>
                   )}
                 </Stack>
               )}
             </>
           }
-        />
+        >
+          <SearchInput value={searchInput} onChange={setSearchInput} />
+        </PageGenericHeader>
         <FiltersBar>
           <WarehousesSelect
             value={warehouseId}
@@ -170,7 +182,9 @@ function OrdersAssemblyPage() {
 
         {orders.length === 0 && !showLoading && (
           <Box sx={{p: 4, textAlign: "center"}}>
-            <Typography color="text.secondary">Нет заказов на сборке</Typography>
+            <Typography color="text.secondary">
+              {searchString ? "Ничего не найдено" : "Нет заказов на сборке"}
+            </Typography>
           </Box>
         )}
 

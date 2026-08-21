@@ -205,7 +205,7 @@ public class OrdersController(
 
     /// <summary>The current user's personal assembly worklist: full details of Assembly-status orders that have a task assigned to them.</summary>
     /// <remarks>
-    /// Query params: <c>warehouseId</c> (optional). Not paginated — returns a plain list.
+    /// Query params: <c>warehouseId</c>, <c>searchString</c> (both optional). Not paginated — returns a plain list.
     /// Only orders in <c>Assembly</c> status with at least one <c>AssemblyTask</c> assigned to the caller are
     /// returned, and each order carries only that caller's own tasks; other assemblers' tasks are filtered out.
     /// Every task box component is annotated with <c>containsUnit</c>, computed by walking the Bundle/Variation
@@ -216,7 +216,10 @@ public class OrdersController(
     [HttpGet("assembly")]
     [Authorize]
     [ProducesResponseType<List<OrderDetailsDto>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAllAssembly([FromQuery] Guid? warehouseId = null, CancellationToken ct = default)
+    public async Task<IActionResult> GetAllAssembly(
+        [FromQuery] Guid? warehouseId = null,
+        [FromQuery] string? searchString = null,
+        CancellationToken ct = default)
     {
         if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
             return error;
@@ -259,6 +262,8 @@ public class OrdersController(
         
         if (warehouseId is not null)
             query = query.Where(o => o.WarehouseId == warehouseId);
+
+        query = query.WhereMatchesSearch(o => o.SearchString, searchString);
 
         var result = await query.ToListAsync(ct);
         var nodeById = await LoadWarehouseNodesAsync(

@@ -1347,7 +1347,7 @@ export const ordersGetAll = <ThrowOnError extends boolean = false>(
 /**
  * The current user's personal assembly worklist: full details of Assembly-status orders that have a task assigned to them.
  *
- * Query params: `warehouseId` (optional). Not paginated — returns a plain list.
+ * Query params: `warehouseId`, `searchString` (both optional). Not paginated — returns a plain list.
  * Only orders in `Assembly` status with at least one `AssemblyTask` assigned to the caller are
  * returned, and each order carries only that caller's own tasks; other assemblers' tasks are filtered out.
  * Every task box component is annotated with `containsUnit`, computed by walking the Bundle/Variation
