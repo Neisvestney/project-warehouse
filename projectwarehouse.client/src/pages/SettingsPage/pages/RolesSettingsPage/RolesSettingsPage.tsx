@@ -39,7 +39,6 @@ export default observer(function RolesSettingsPage() {
     dataUpdatedAt: rolesUpdatedAt,
   } = useQuery({
     ...rolesGetAllOptions(),
-    gcTime: 0,
     meta: {suppressGlobalError: true},
   });
   const {

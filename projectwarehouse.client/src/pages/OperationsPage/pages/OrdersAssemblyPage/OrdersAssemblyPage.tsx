@@ -35,7 +35,6 @@ function OrdersAssemblyPage() {
     ...ordersGetAllAssemblyOptions({
       query: {warehouseId: warehouseId ?? undefined},
     }),
-    gcTime: 0,
   });
 
   const orders = useMemo<OrderDetailsDto[]>(() => ordersQuery.data ?? [], [ordersQuery.data]);
