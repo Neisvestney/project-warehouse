@@ -57,7 +57,12 @@ function UserViewPage() {
     void queryClient.invalidateQueries({queryKey: byOperation("usersGetById", {path: {id: id!}})});
   }, [queryClient, id]);
 
-  useStaleData("user", id, {dataUpdatedAt, onRefresh: refreshUser});
+  const {showLoadingOverlay} = useStaleData("user", id, {
+    dataUpdatedAt,
+    isFetching,
+    isLoading,
+    onRefresh: refreshUser,
+  });
 
   if (isLoading) {
     return (
@@ -73,7 +78,7 @@ function UserViewPage() {
 
   return (
     <Box sx={{position: "relative"}}>
-      <LoadingOverlay open={isFetching && !isLoading} />
+      <LoadingOverlay open={showLoadingOverlay} />
       <Stack spacing={2}>
         <AppBreadcrumbs
           path={[

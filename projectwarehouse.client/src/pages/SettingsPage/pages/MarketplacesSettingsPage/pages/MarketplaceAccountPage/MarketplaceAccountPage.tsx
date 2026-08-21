@@ -1,4 +1,4 @@
-import {useCallback, useState} from "react";
+import {useCallback, useLayoutEffect, useRef, useState} from "react";
 import {useParams} from "react-router";
 import {
   Box,
@@ -25,6 +25,7 @@ import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {useSearchParamsContext} from "@/contexts/SearchParams/SearchParamsContext";
 import {useHasPermission} from "@/hooks/usePermission";
 import {useEntityWatch} from "@/hooks/useEntityWatch";
+import {useSilentRefresh} from "@/hooks/useSilentRefresh";
 import {useRealtimeEvent} from "@/hooks/useRealtimeEvent";
 import {byOperation} from "@/utils/queryKeys";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
@@ -110,7 +111,14 @@ function MarketplaceAccountPage() {
     });
   }, [queryClient, id]);
 
-  const {isWatching} = useEntityWatch("marketplaceAccount", id, refreshAccountData);
+  // The watch is declared before the query, so the silent mark is reached through a ref.
+  const markSilentRef = useRef<(() => void) | null>(null);
+  const handleWatched = useCallback(() => {
+    markSilentRef.current?.();
+    refreshAccountData();
+  }, [refreshAccountData]);
+
+  const {isWatching} = useEntityWatch("marketplaceAccount", id, handleWatched);
 
   const {
     data: account,
@@ -124,6 +132,11 @@ function MarketplaceAccountPage() {
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
     refetchInterval: (query) =>
       !isWatching && query.state.data?.lastSyncStatus === "running" ? RUNNING_POLL_MS : false,
+  });
+
+  const {showLoadingOverlay, markSilent} = useSilentRefresh(isFetching, isLoading);
+  useLayoutEffect(() => {
+    markSilentRef.current = markSilent;
   });
 
   useRealtimeEvent("marketplaceSyncProgress", (_event, payload) => {
@@ -171,7 +184,7 @@ function MarketplaceAccountPage() {
 
   return (
     <Box sx={{position: "relative"}}>
-      <LoadingOverlay open={isFetching && !isLoading} />
+      <LoadingOverlay open={showLoadingOverlay} />
       <Stack spacing={2}>
         <AppBreadcrumbs
           path={[{name: "Маркетплейсы", link: "/settings/integrations"}, {name: account.name}]}

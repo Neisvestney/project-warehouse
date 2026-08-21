@@ -210,6 +210,8 @@ function ReceiptPage() {
   const lock = useEditLock("receipt", id, {
     isDirty: isEditingAnything,
     dataUpdatedAt,
+    isFetching,
+    isLoading,
     onRefresh: refreshReceipt,
     enabled: isEditingAnything && canEdit,
   });
@@ -279,7 +281,7 @@ function ReceiptPage() {
 
   return (
     <Box sx={{position: "relative"}}>
-      <LoadingOverlay open={isFetching && !isLoading && !isEditingAnything} />
+      <LoadingOverlay open={lock.showLoadingOverlay && !isEditingAnything} />
       <Stack spacing={2}>
         <EditLockBanner heldBy={lock.heldBy} />
         <StaleDataBanner

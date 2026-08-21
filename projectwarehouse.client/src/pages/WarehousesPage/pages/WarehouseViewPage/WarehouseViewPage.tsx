@@ -89,7 +89,12 @@ function WarehouseViewPage() {
     });
   }, [queryClient, id]);
 
-  useStaleData("warehouse", id, {dataUpdatedAt, onRefresh: refreshWarehouse});
+  const {showLoadingOverlay} = useStaleData("warehouse", id, {
+    dataUpdatedAt,
+    isFetching,
+    isLoading,
+    onRefresh: refreshWarehouse,
+  });
 
   const defaultNodeId = warehouse?.defaultStoragePlaceNodeId;
 
@@ -119,7 +124,7 @@ function WarehouseViewPage() {
 
   return (
     <Box sx={{position: "relative"}}>
-      <LoadingOverlay open={isFetching && !isLoading} />
+      <LoadingOverlay open={showLoadingOverlay} />
       <Stack spacing={2}>
         <AppBreadcrumbs
           path={[

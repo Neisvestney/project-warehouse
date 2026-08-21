@@ -408,14 +408,16 @@ function ViewMode({
   onDelete,
   canEdit,
   onOpenItem,
+  showLoadingOverlay,
 }: {
   itemId: string;
   onEdit: () => void;
   onDelete: () => void;
   canEdit: boolean;
   onOpenItem?: (id: string) => void;
+  showLoadingOverlay: boolean;
 }) {
-  const {data, isLoading, isFetching, isError, isRefetchError, error} = useQuery({
+  const {data, isLoading, isError, isRefetchError, error} = useQuery({
     ...catalogGetByIdOptions({path: {id: itemId}}),
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
   });
@@ -448,7 +450,7 @@ function ViewMode({
 
   return (
     <Box sx={{position: "relative", display: "flex", flex: 1, minHeight: 0}}>
-      <LoadingOverlay open={isFetching && !isLoading} />
+      <LoadingOverlay open={showLoadingOverlay} />
       <Box sx={{overflowY: "auto", px: 2, py: 2, flex: 1}}>
         <Stack spacing={2}>
           <ItemImagesView item={data} />
@@ -1238,7 +1240,7 @@ export function CatalogItemDrawer({itemId, onClose, onOpenItem}: CatalogItemDraw
     setPrintOpen(false);
   }
 
-  const {data, dataUpdatedAt} = useQuery({
+  const {data, dataUpdatedAt, isFetching, isLoading} = useQuery({
     ...catalogGetByIdOptions({path: {id: itemId!}}),
     enabled: !!itemId,
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
@@ -1254,6 +1256,8 @@ export function CatalogItemDrawer({itemId, onClose, onOpenItem}: CatalogItemDraw
   const lock = useEditLock("catalogItem", itemId, {
     isDirty: isEditing,
     dataUpdatedAt,
+    isFetching,
+    isLoading,
     onRefresh: refreshItem,
     enabled: isEditing && canEdit,
   });
@@ -1362,6 +1366,7 @@ export function CatalogItemDrawer({itemId, onClose, onOpenItem}: CatalogItemDraw
           onEdit={() => setIsEditing(true)}
           onDelete={() => setDeleteOpen(true)}
           onOpenItem={handleOpenItem}
+          showLoadingOverlay={lock.showLoadingOverlay}
         />
       )}
       {itemId && isEditing && <EditMode itemId={itemId} onClose={() => setIsEditing(false)} />}

@@ -109,7 +109,7 @@ table row is noise, not information.
 Names come from the stream connection, which reads them off the token's `given_name`/`family_name` claims —
 the same full name `EditLockBanner` and `StaleDataBanner` show, never the login.
 
-## `useStaleData(entityType, entityId, {isDirty, dataUpdatedAt, onRefresh})`
+## `useStaleData(entityType, entityId, {isDirty, dataUpdatedAt, isFetching, isLoading, onRefresh})`
 
 Warns that the object on screen may have been saved by someone else. Subscribes with `useEntityWatch` and
 listens to two triggers: `entityChanged` (the precise one — the object really was written) and
@@ -119,6 +119,8 @@ listens to two triggers: `entityChanged` (the precise one — the object really 
 const stale = useStaleData("receipt", id, {
   isDirty: isEditing,
   dataUpdatedAt,
+  isFetching,
+  isLoading,
   onRefresh: refreshReceipt,
 });
 ```
@@ -126,6 +128,13 @@ const stale = useStaleData("receipt", id, {
 An untouched form is refreshed silently — `isDirty === false` means there is nothing to lose, and a banner
 there would be noise. A modified one gets `StaleDataBanner`: auto-refreshing it would erase what the user
 typed, which is the very loss the warning is about.
+
+**The subscription refetch is silent.** `onRefresh` also runs on every confirmed subscription, which on mount
+lands right behind the page's first read — two requests back to back. The second one is correctness (it closes
+the window where an event could be missed), but showing a loader for it would just make the page flicker, so
+the hook marks it through `useSilentRefresh` and reports `showLoadingOverlay` with that refetch excluded. The
+page passes `isFetching`/`isLoading` from its own `useQuery` for this and hands `showLoadingOverlay` straight
+to `LoadingOverlay`. A `entityChanged` refetch is not marked and still shows the overlay.
 
 **The flag clears itself.** `isStale` is `dataUpdatedAt < staleAt`, not a boolean the hook has to reset:
 TanStack refetches every active query on focus and `staleTime` is 0 app-wide, so a read that landed after the
@@ -135,7 +144,22 @@ It exists separately from `useEditLock` because a page can hold an editable form
 lock the object — `CanEdit(Order)` excludes `orders.assemble_assigned`, so an assembler gets no lock and would
 otherwise get no warning either.
 
-## `useEditLock(entityType, entityId, {isDirty, dataUpdatedAt, onRefresh, enabled})`
+## `useSilentRefresh(isFetching, isLoading)`
+
+Marks individual refetches as background ones: `markSilent()` right before the invalidation, and
+`isSilentRefresh` holds until the resulting fetch settles (`isFetching` back to `false`), with a one-second
+grace period in case the refetch never starts at all. Also returns the ready `showLoadingOverlay`.
+`useStaleData` uses it internally; a page that watches an object with a bare `useEntityWatch` — the marketplace
+account page — uses it directly for the same reason.
+
+**The flag covers the query, not one fetch.** An `entityChanged` invalidation that lands while a marked refetch
+is in flight cancels it and starts its own (`invalidateQueries` defaults to `cancelRefetch: true`), but
+`isFetching` never dips in between, so that refetch stays without an overlay too. The window is the couple of
+hundred milliseconds right after mount and the worst case is a hidden overlay — the data still arrives and the
+staleness banner still fires — so the causes are deliberately not told apart. Doing it would take promoting the
+flag by hand on every visible trigger, or subscribing to `QueryCache` fetch-start events; neither is worth it.
+
+## `useEditLock(entityType, entityId, {isDirty, dataUpdatedAt, isFetching, isLoading, onRefresh, enabled})`
 
 Claims the object while it is being edited, on top of `useStaleData` (whose whole result it re-exports).
 Acquires on mount, releases on unmount and on `beforeunload`, and re-acquires under the new `connectionId`

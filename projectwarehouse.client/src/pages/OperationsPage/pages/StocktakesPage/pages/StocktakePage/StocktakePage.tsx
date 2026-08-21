@@ -222,6 +222,8 @@ function StocktakePage() {
   const lock = useEditLock("stocktake", id, {
     isDirty: isEditingAnything,
     dataUpdatedAt,
+    isFetching,
+    isLoading,
     onRefresh: refreshStocktake,
     enabled: isEditingAnything && canEdit,
   });
@@ -301,7 +303,7 @@ function StocktakePage() {
 
   return (
     <Box sx={{position: "relative"}}>
-      <LoadingOverlay open={isFetching && !isLoading && !isEditingAnything} />
+      <LoadingOverlay open={lock.showLoadingOverlay && !isEditingAnything} />
       <Stack spacing={2}>
         <EditLockBanner heldBy={lock.heldBy} />
         <StaleDataBanner

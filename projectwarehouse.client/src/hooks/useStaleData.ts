@@ -3,6 +3,7 @@ import type {AppEntityType} from "@/api/types.gen";
 import {useAuth} from "@/hooks/useAuth";
 import {useEntityWatch} from "@/hooks/useEntityWatch";
 import {useRealtimeEvent} from "@/hooks/useRealtimeEvent";
+import {useSilentRefresh} from "@/hooks/useSilentRefresh";
 
 export interface StaleActor {
   userId: string;
@@ -14,6 +15,10 @@ export interface UseStaleDataOptions {
   isDirty?: boolean;
   /** `dataUpdatedAt` of the object's query — a read newer than the event clears the flag by itself. */
   dataUpdatedAt?: number;
+  /** `isFetching` of the object's query — tells apart a finished background refresh from a new one. */
+  isFetching?: boolean;
+  /** `isLoading` of the object's query — the first read renders its own placeholder, not an overlay. */
+  isLoading?: boolean;
   /** Invalidates the object's queries. Also runs on every confirmed subscription. */
   onRefresh: () => void;
   enabled?: boolean;
@@ -21,6 +26,10 @@ export interface UseStaleDataOptions {
 
 export interface UseStaleDataResult {
   isStale: boolean;
+  /** The running refetch was triggered by a confirmed subscription — pages keep the loader hidden. */
+  isSilentRefresh: boolean;
+  /** Ready-made `open` for `LoadingOverlay`: a visible refetch over already rendered data. */
+  showLoadingOverlay: boolean;
   staleBy: StaleActor | null;
   isWatching: boolean;
   refresh: () => void;
@@ -35,7 +44,14 @@ export interface UseStaleDataResult {
 export function useStaleData(
   entityType: AppEntityType,
   entityId: string | null | undefined,
-  {isDirty = false, dataUpdatedAt = 0, onRefresh, enabled = true}: UseStaleDataOptions,
+  {
+    isDirty = false,
+    dataUpdatedAt = 0,
+    isFetching = false,
+    isLoading = false,
+    onRefresh,
+    enabled = true,
+  }: UseStaleDataOptions,
 ): UseStaleDataResult {
   const {user} = useAuth();
   const [staleAt, setStaleAt] = useState<number | null>(null);
@@ -48,8 +64,14 @@ export function useStaleData(
     onRefreshRef.current = onRefresh;
   });
 
+  const {isSilentRefresh, markSilent, showLoadingOverlay} = useSilentRefresh(isFetching, isLoading);
+
   const watchedId = enabled ? entityId : null;
-  const handleWatched = useCallback(() => onRefreshRef.current(), []);
+  // The subscription is confirmed right after mount, so its refetch trails the first read — no loader.
+  const handleWatched = useCallback(() => {
+    markSilent();
+    onRefreshRef.current();
+  }, [markSilent]);
   const {isWatching} = useEntityWatch(entityType, watchedId, handleWatched);
 
   const markStale = useCallback((by: StaleActor | null) => {
@@ -101,5 +123,13 @@ export function useStaleData(
   // landed after the event already answered the warning — no need to clear the flag by hand.
   const isStale = staleAt !== null && dataUpdatedAt < staleAt;
 
-  return {isStale, staleBy: isStale ? staleBy : null, isWatching, refresh, dismissStale};
+  return {
+    isStale,
+    staleBy: isStale ? staleBy : null,
+    isSilentRefresh,
+    showLoadingOverlay,
+    isWatching,
+    refresh,
+    dismissStale,
+  };
 }
