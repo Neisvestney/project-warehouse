@@ -562,8 +562,12 @@ check already in flight rather than starting a second one:
   [frontend-realtime.md](frontend-realtime.md#outage-detection). The client is published into the server
   image, so a frontend release restarts the server and drops every stream; the reconnect is the first
   moment the new bundle is known to be served.
-- **A 30-minute interval** (`usePeriodicUpdateCheck`, called in `App.tsx`) for tabs the reconnect trigger
-  cannot reach, such as `/login`, which is outside the realtime provider.
+- **A 30-minute interval, plus becoming visible** (`usePeriodicUpdateCheck`, called in `App.tsx`) for tabs
+  the reconnect trigger cannot reach — `/login`, `/scanner` and `/print` all live outside the realtime
+  provider. The visibility half carries the weight: a hidden tab has its timers throttled to about one
+  firing a minute, a frozen one runs none at all, and a machine returning from suspend collapses every
+  missed period into one late firing, so the interval is least trustworthy exactly when a tab has been
+  sitting idle the longest.
 - **A React crash.** `ErrorBoundary` checks with `force: true`, bypassing the throttle, and skip-waits
   straight into the new worker if one installs.
 
