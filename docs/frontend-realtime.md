@@ -10,7 +10,7 @@ Ordering isn't guaranteed, a lost event isn't fatal, and reconnection replays no
 
 ## `RealtimeProvider`
 
-Mounted in `MainLayout`. The provider itself is wiring: it owns `connectionId`, dispatches events to
+Mounted in `MainLayout`, so it covers every authenticated route. The provider itself is wiring: it owns `connectionId`, dispatches events to
 subscribers, and hands the rest to three hooks beside it — `useRealtimeStream` (the connection),
 `useWatchRegistry` (what this tab is subscribed to, plus presence), `useHeartbeat` (liveness).
 

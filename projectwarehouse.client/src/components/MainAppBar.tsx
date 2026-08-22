@@ -49,6 +49,8 @@ const pages: {
   },
 ];
 
+export const MAIN_APP_BAR_HEIGHT = 50;
+
 export interface AppBarProps {}
 
 function MainAppBar({}: AppBarProps) {
@@ -151,7 +153,7 @@ function MainAppBar({}: AppBarProps) {
     <>
       <AppBar position="static">
         <Container maxWidth="xl">
-          <Toolbar disableGutters variant="dense" sx={{minHeight: 50}}>
+          <Toolbar disableGutters variant="dense" sx={{minHeight: MAIN_APP_BAR_HEIGHT}}>
             <WarehouseIcon sx={{display: {xs: "none", md: "flex"}, mr: 1}} />
             <Typography
               variant="h6"
