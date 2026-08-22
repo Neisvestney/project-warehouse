@@ -18,6 +18,7 @@ import {Capacitor} from "@capacitor/core";
 import ServerSetupPage from "@/pages/ServerSetupPage/ServerSetupPage.tsx";
 import {SELECTED_SERVER_KEY} from "@/configuration/servers.ts";
 import ErrorBoundary from "@/components/ErrorBoundary.tsx";
+import {usePeriodicUpdateCheck} from "@/hooks/usePeriodicUpdateCheck.ts";
 
 const HomePage = React.lazy(() => import("@/pages/HomePage/HomePage.tsx"));
 const MyProfilePage = React.lazy(() => import("@/pages/MyProfilePage/MyProfilePage.tsx"));
@@ -32,6 +33,8 @@ const ThrowErrorPage = React.lazy(() => import("@/pages/ThrowErrorPage/ThrowErro
 
 function App() {
   const [installing, setInstalling] = React.useState(false);
+
+  usePeriodicUpdateCheck();
 
   const {
     needRefresh: [needRefresh],

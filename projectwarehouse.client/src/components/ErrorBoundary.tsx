@@ -1,6 +1,7 @@
 import React from "react";
 import {Box, Button, CircularProgress, Typography} from "@mui/material";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
+import {checkForServiceWorkerUpdate} from "@/services/serviceWorkerUpdate";
 
 interface Props {
   children: React.ReactNode;
@@ -31,18 +32,16 @@ class ErrorBoundary extends React.Component<Props, State> {
     this.setState({updating: true});
 
     try {
-      const registration = await navigator.serviceWorker.getRegistration();
-      if (!registration) return;
+      // A crash is worth a check even right after a throttled one: a broken bundle is the symptom.
+      const registration = await checkForServiceWorkerUpdate({force: true});
 
-      await registration.update();
-
-      const waiting = registration.waiting;
+      const waiting = registration?.waiting;
       if (waiting) {
         waiting.postMessage({type: "SKIP_WAITING"});
         this.startCountdown();
       }
     } catch {
-      // SW update failed silently — user can still manually reload
+      // Nothing left to try — the user can still reload by hand.
     } finally {
       this.setState({updating: false});
     }

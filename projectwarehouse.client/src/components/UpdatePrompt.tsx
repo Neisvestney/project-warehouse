@@ -15,8 +15,10 @@ import {
 import DownloadingIcon from "@mui/icons-material/Downloading";
 import SystemUpdateAltIcon from "@mui/icons-material/SystemUpdateAlt";
 import {useFloatTop} from "@/hooks/useFloatTop.ts";
+import {useFadeOnHover} from "@/hooks/useFadeOnHover.ts";
 
 const FLOAT_LEFT = 16;
+const FADE_MS = 150;
 
 export interface UpdatePromptProps {}
 
@@ -24,6 +26,7 @@ function UpdatePrompt({}: UpdatePromptProps) {
   const {installing, needRefresh, updateServiceWorker} = useContext(ServiceWorkerContext);
   const [dismissed, setDismissed] = useState(false);
   const floatTop = useFloatTop();
+  const {ref: floatRef, faded, onPointerEnter} = useFadeOnHover<HTMLDivElement>();
 
   const [prevNeedRefresh, setPrevNeedRefresh] = useState(needRefresh);
   if (needRefresh !== prevNeedRefresh) {
@@ -44,9 +47,22 @@ function UpdatePrompt({}: UpdatePromptProps) {
     boxShadow: 4,
   } as const;
 
+  // Only the progress plaque steps aside: it carries nothing to click, while the waiting one exists
+  // to be clicked and going transparent to the pointer would put its button out of reach.
+  const fadingFloatProps = {
+    ref: floatRef,
+    onPointerEnter,
+    sx: {
+      ...floatSx,
+      opacity: faded ? 0 : 1,
+      pointerEvents: faded ? "none" : "auto",
+      transition: `opacity ${FADE_MS}ms`,
+    },
+  } as const;
+
   if (installing) {
     return (
-      <Paper sx={floatSx}>
+      <Paper {...fadingFloatProps}>
         <Box sx={{display: "flex", alignItems: "center", gap: 1}}>
           <DownloadingIcon fontSize="small" color="primary" />
           <Typography variant="body2" sx={{fontWeight: 500}}>
