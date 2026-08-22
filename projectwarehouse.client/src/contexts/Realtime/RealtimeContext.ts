@@ -13,6 +13,11 @@ export interface RealtimeContextValue {
   /** Registers interest in an object; `onWatched` fires after every confirmed subscription. */
   watch: (entityType: AppEntityType, entityId: string, onWatched: () => void) => () => void;
   isWatching: (entityType: AppEntityType, entityId: string) => boolean;
+  /**
+   * Fires when the stream came back after a gap long enough that the server was most likely
+   * restarted. Separate from `subscribe`, which carries only events the server actually sent.
+   */
+  onReconnectedAfterOutage: (handler: () => void) => () => void;
   /** Viewers of every watched object, keyed by `entityType:entityId`. Includes the current user. */
   presence: ReadonlyMap<string, readonly RealtimeViewer[]>;
   presenceKey: (entityType: AppEntityType, entityId: string) => string;

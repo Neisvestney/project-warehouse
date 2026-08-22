@@ -39,6 +39,18 @@ TanStack's own `focusManager`/`onlineManager` listen to those exact two events, 
 app, so every active query already refetches on its own. Re-invalidating would only duplicate that and would
 override the few queries that deliberately set a `staleTime`.
 
+### Outage detection
+
+`useOutageTracker` times the gap between `onDisconnected` and the next `connectionReady` and exposes
+`onReconnectedAfterOutage` on the context — a subscription of its own, not a `RealtimeEventType`, because
+nothing sent it over the wire. A gap over 10 s fires it; the first connect of a page load never does,
+having no gap to measure.
+
+The threshold separates the two reasons a stream ends. A token expiry closes it cleanly and the next
+attempt succeeds within a second. A restarted server is unreachable until the container comes back, which
+is far longer. Precision is not required — the only consumer is the service worker update check
+([frontend.md](frontend.md#update-checks)), where a false positive costs one request.
+
 **A backgrounded tab gives up in two steps.** 20 s hidden → `unwatch` on everything it watched: no more events,
 and it drops out of everyone's presence. 2 min hidden → the stream is aborted, which is what makes the server
 release this connection's locks (the heartbeat stops with the `connectionId`). "Hidden" is

@@ -6,6 +6,7 @@ import type {
 } from "@/api/types.gen";
 import RealtimeContext, {type RealtimeContextValue} from "@/contexts/Realtime/RealtimeContext";
 import {useHeartbeat} from "@/contexts/Realtime/useHeartbeat";
+import {useOutageTracker} from "@/contexts/Realtime/useOutageTracker";
 import {useRealtimeStream} from "@/contexts/Realtime/useRealtimeStream";
 import {useWatchRegistry} from "@/contexts/Realtime/useWatchRegistry";
 import {watchKey} from "@/contexts/Realtime/watchKey";
@@ -25,6 +26,7 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
 
   const registry = useWatchRegistry(connectionIdRef);
   const beat = useHeartbeat(connectionId);
+  const {onReconnectedAfterOutage, markDisconnected, markConnected} = useOutageTracker();
 
   const subscribe = useCallback<RealtimeContextValue["subscribe"]>((type, handler) => {
     let handlers = handlersRef.current.get(type);
@@ -67,15 +69,17 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
       connectionIdRef.current = id;
       setConnectionId(id);
       flush();
+      markConnected();
     },
-    [flush],
+    [flush, markConnected],
   );
 
   const handleDisconnected = useCallback(() => {
     connectionIdRef.current = null;
     setConnectionId(null);
     reset();
-  }, [reset]);
+    markDisconnected();
+  }, [reset, markDisconnected]);
 
   const handleResumed = useCallback(() => {
     // A stream that survived the background needs its subscriptions back by hand; one that did not
@@ -99,10 +103,18 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
       subscribe,
       watch: registry.watch,
       isWatching: registry.isWatching,
+      onReconnectedAfterOutage,
       presence: registry.presence,
       presenceKey: watchKey,
     }),
-    [connectionId, subscribe, registry.watch, registry.isWatching, registry.presence],
+    [
+      connectionId,
+      subscribe,
+      registry.watch,
+      registry.isWatching,
+      registry.presence,
+      onReconnectedAfterOutage,
+    ],
   );
 
   return <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>;

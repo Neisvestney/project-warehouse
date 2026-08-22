@@ -547,12 +547,44 @@ Workbox caching strategy:
 
 Manifest: name "Project Warehouse", theme `#1976d2`, standalone display.
 
+### Update checks
+
+The browser fetches `sw.js` when the worker is registered and on navigations within scope. Client-side
+routing is not a navigation, so a tab that stays open — the normal state of a warehouse terminal — would
+otherwise never learn that a release shipped. Three triggers cover that, all going through
+`checkForServiceWorkerUpdate()` in `services/serviceWorkerUpdate.ts`, which shares one 60 s throttle
+across callers. The throttle window opens only after a check that actually reached the network, so a
+failure on a flapping connection does not cost the next trigger its turn; concurrent callers join the
+check already in flight rather than starting a second one:
+
+- **A realtime reconnect after an outage.** `ServiceWorkerUpdateWatcher`, mounted inside
+  `RealtimeProvider`, subscribes to `onReconnectedAfterOutage` — see
+  [frontend-realtime.md](frontend-realtime.md#outage-detection). The client is published into the server
+  image, so a frontend release restarts the server and drops every stream; the reconnect is the first
+  moment the new bundle is known to be served.
+- **A 30-minute interval** (`usePeriodicUpdateCheck`, called in `App.tsx`) for tabs the reconnect trigger
+  cannot reach, such as `/login`, which is outside the realtime provider.
+- **A React crash.** `ErrorBoundary` checks with `force: true`, bypassing the throttle, and skip-waits
+  straight into the new worker if one installs.
+
+A check that finds new bytes installs the worker and raises `needRefresh`, which is what `UpdatePrompt`
+renders. Checks are cheap: an unchanged `sw.js` costs one small request and does nothing.
+
 ### `InstallPrompt` / `UpdatePrompt`
 
 PWA lifecycle UI. `InstallPrompt` is driven by the `beforeinstallprompt` event (captured in
 `utils/useInstallPrompt.ts`) and is surfaced on `HomePage` alongside the offline-ready indicator.
 `UpdatePrompt` is mounted globally in `App.tsx` and calls `updateServiceWorker()` from `ServiceWorkerContext`
 when a new SW version is waiting.
+
+The installing plaque floats over the page and carries nothing to click, so it fades out and lets clicks
+through while the pointer is on it, via `useFadeOnHover`. The plaque shown after "Отложить" keeps its
+pointer events: its button is the only way left to apply an update the user has already deferred.
+
+The hook is JavaScript rather than a `:hover` rule because `pointer-events: none` removes the element from
+hit testing, which unapplies the very rule that set it. It watches `pointermove` on the document to know when
+the pointer has left the rect, restores on `pointerleave` when the pointer leaves the window entirely, and
+falls back to a 2 s timer for a non-mouse pointer, which delivers an enter and nothing after it.
 
 ## Dev Proxy
 
