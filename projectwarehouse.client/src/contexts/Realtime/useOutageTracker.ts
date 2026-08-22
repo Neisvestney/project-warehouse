@@ -1,6 +1,6 @@
 import {useCallback, useRef} from "react";
 
-const OUTAGE_MS = 10_000;
+const OUTAGE_MS = 100;
 
 export interface OutageTracker {
   /** Subscribes to reconnections that followed a gap long enough to be a server outage. */
