@@ -79,6 +79,12 @@ the repository; the rule is not.
 `BrowserRouter` in `main.tsx`. Pages are lazy-loaded via `React.lazy` + `Suspense`. Access control is handled
 by `ProtectedRoute` / `ProtectedRoutes`; unauthenticated users are redirected to `/login`.
 
+Each layout owns a `Suspense` boundary around its own `<Outlet />`, and `App.tsx` keeps an outer one for the
+routes that have no layout. React picks the nearest boundary, so a suspending page chunk never reaches past
+its layout: the app bar stays on screen, and — the reason the inner boundary in `MainLayout` matters —
+`RealtimeProvider`'s effects are not torn down, which would drop and re-open the stream on every cold chunk.
+All of them render `RouteFallback`.
+
 The route configs are the source of truth for paths and permissions: `App.tsx` for top-level routes, and
 `storageConfig.tsx` / `operationsConfig.tsx` / `settingsConfig.tsx` for the three `SidebarPage` modules
 (`/storage/*`, `/operations/*`, `/settings/*`).
@@ -87,8 +93,10 @@ The route configs are the source of truth for paths and permissions: `App.tsx` f
 > route. Sub-pages that need a stronger right (`integrations.edit`, `integrations.map`, `integrations.sync`) hide their actions with
 > `useHasPermission`, and the server enforces it regardless.
 
-`/scanner` and `/print` are authenticated but live **outside** `MainLayout`, so they get no app bar, no
-breadcrumbs and no realtime stream.
+Two layouts nest inside each other. `MainLayout` is the shell every authenticated page shares — realtime
+stream, service-worker update watcher, URL-synced state. `MainAppBarLayout` sits inside it and adds the visual
+chrome: app bar and the page `Container`. `/scanner` and `/print` are children of `MainLayout` directly, so
+they keep the stream and the shared providers but render full-bleed, with no app bar and no breadcrumbs.
 
 ## Cross-cutting conventions
 
@@ -490,12 +498,17 @@ ServiceWorkerContext.Provider
                                       └── Routes (lazy pages)
                                             └── MainLayout
                                                   └── RealtimeProvider
+                                                        ├── ServiceWorkerUpdateWatcher
                                                         └── SearchParamsProvider
+                                                              └── Suspense
+                                                                    ├── MainAppBarLayout
+                                                                    │     └── app bar + Container + Suspense
+                                                                    ├── /scanner
+                                                                    └── /print
 ```
 
 `RealtimeProvider` sits in `MainLayout` rather than next to `AuthProvider`: the stream is only useful for an
-authenticated user browsing the app. `/scanner` and `/print` are protected but live outside `MainLayout`, so
-they have no stream — neither page consumes realtime events.
+authenticated user, and `MainLayout` covers every authenticated route including `/scanner` and `/print`.
 
 `AuthProvider` fetches `/me` with `suppressGlobalError` and clears the entire query cache on logout.
 
@@ -580,6 +593,16 @@ PWA lifecycle UI. `InstallPrompt` is driven by the `beforeinstallprompt` event (
 `utils/useInstallPrompt.ts`) and is surfaced on `HomePage` alongside the offline-ready indicator.
 `UpdatePrompt` is mounted globally in `App.tsx` and calls `updateServiceWorker()` from `ServiceWorkerContext`
 when a new SW version is waiting.
+
+Every variant — both plaques and the modal dialog — is hidden under `@media print`, so an update that arrives
+while the user is at `Ctrl+P` never lands on the sheet.
+
+The plaques are positioned by `useFloatTop`, which returns a CSS `max(...)` expression built around the
+`--app-bar-height` custom property. `MainAppBarLayout` sets that property on `documentElement` while it is
+mounted and removes it on unmount, so a route without an app bar (`/login`, `/scanner`, `/print`) falls back
+to the declared `0px` and the plaque sits at the top of the viewport. The property is the only channel
+available: `UpdatePrompt` is mounted above the router in `App.tsx` and cannot see the layout tree. The height
+itself comes from `MAIN_APP_BAR_HEIGHT`, exported by `MainAppBar` and also used for its own `Toolbar`.
 
 The installing plaque floats over the page and carries nothing to click, so it fades out and lets clicks
 through while the pointer is on it, via `useFadeOnHover`. The plaque shown after "Отложить" keeps its

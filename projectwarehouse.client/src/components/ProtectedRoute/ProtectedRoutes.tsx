@@ -1,6 +1,6 @@
 import React from "react";
 import {Navigate, Outlet, Route, Routes, useLocation} from "react-router";
-import {Box, CircularProgress} from "@mui/material";
+import RouteFallback from "@/components/RouteFallback.tsx";
 import type {PermissionName} from "@/api/types.gen";
 import {useAuth} from "@/hooks/useAuth";
 import {useHasPermission} from "@/hooks/usePermission";
@@ -20,13 +20,7 @@ function AuthGuard({requiredPermission, permissionMode = "any", children}: AuthG
   const hasPermission = useHasPermission(requiredPermission ?? [], permissionMode);
 
   if (isLoading) {
-    return (
-      <Box
-        sx={{display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh"}}
-      >
-        <CircularProgress />
-      </Box>
-    );
+    return <RouteFallback />;
   }
 
   if (!isAuthenticated) {

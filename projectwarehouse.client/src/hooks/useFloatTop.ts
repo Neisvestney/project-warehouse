@@ -1,23 +1,17 @@
 import {useEffect, useState} from "react";
-import {matchPath, useLocation} from "react-router";
 
-const NAVBAR_HEIGHT = 50;
 const FLOAT_GAP = 8;
 
-const NO_NAVBAR_PAGES = ["/login"];
+/** Set by whichever layout renders an app bar; absent means nothing occupies the top of the viewport. */
+export const APP_BAR_HEIGHT_VAR = "--app-bar-height";
 
 export function useFloatTop() {
-  const location = useLocation();
-
-  const navbar_height = NO_NAVBAR_PAGES.some((p) => matchPath(p, location.pathname))
-    ? 0
-    : NAVBAR_HEIGHT;
-
   const [scrollY, setScrollY] = useState(() => window.scrollY);
   useEffect(() => {
     const handler = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", handler, {passive: true});
     return () => window.removeEventListener("scroll", handler);
   }, []);
-  return Math.max(FLOAT_GAP, navbar_height + FLOAT_GAP - scrollY);
+
+  return `max(${FLOAT_GAP}px, calc(var(${APP_BAR_HEIGHT_VAR}, 0px) + ${FLOAT_GAP}px - ${scrollY}px))`;
 }

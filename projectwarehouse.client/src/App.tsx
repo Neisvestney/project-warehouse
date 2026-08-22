@@ -4,6 +4,7 @@ import CssBaseline from "@mui/material/CssBaseline";
 import {ThemeProvider} from "@mui/material";
 import theme from "@/theme.ts";
 import MainLayout from "@/layouts/MainLayout/MainLayout.tsx";
+import MainAppBarLayout from "@/layouts/MainAppBarLayout/MainAppBarLayout.tsx";
 import {SnackbarProvider} from "notistack";
 import ServiceWorkerContext from "@/contexts/ServiceWorker/ServiceWorkerContext.ts";
 import UpdatePrompt from "@/components/UpdatePrompt.tsx";
@@ -18,6 +19,7 @@ import {Capacitor} from "@capacitor/core";
 import ServerSetupPage from "@/pages/ServerSetupPage/ServerSetupPage.tsx";
 import {SELECTED_SERVER_KEY} from "@/configuration/servers.ts";
 import ErrorBoundary from "@/components/ErrorBoundary.tsx";
+import RouteFallback from "@/components/RouteFallback.tsx";
 import {usePeriodicUpdateCheck} from "@/hooks/usePeriodicUpdateCheck.ts";
 
 const HomePage = React.lazy(() => import("@/pages/HomePage/HomePage.tsx"));
@@ -93,26 +95,28 @@ function App() {
               <CssBaseline />
               <UpdatePrompt />
               <AuthProvider>
-                <Suspense>
+                <Suspense fallback={<RouteFallback />}>
                   <ProtectedRoutes>
                     <Route path="/server-setup" element={<ServerSetupPage />} />
                     <Route path="/login" element={<LoginPage />} />
                     <ProtectedRoute element={<MainLayout />}>
-                      <ProtectedRoute path="/" element={<HomePage />} />
-                      <ProtectedRoute path="/profile" element={<MyProfilePage />} />
-                      <ProtectedRoute
-                        path="/catalog"
-                        element={<CatalogPage />}
-                        requiredPermission="catalog.view"
-                      />
-                      <ProtectedRoute path="/storage/*" element={<StoragePage />} />
-                      <ProtectedRoute path="/operations/*" element={<OperationsPage />} />
-                      <ProtectedRoute path="/settings/*" element={<SettingsPage />} />
-                      <Route path="/throw-error" element={<ThrowErrorPage />} />
-                      <Route path="*" element={<PageNotFound />} />
+                      <ProtectedRoute element={<MainAppBarLayout />}>
+                        <ProtectedRoute path="/" element={<HomePage />} />
+                        <ProtectedRoute path="/profile" element={<MyProfilePage />} />
+                        <ProtectedRoute
+                          path="/catalog"
+                          element={<CatalogPage />}
+                          requiredPermission="catalog.view"
+                        />
+                        <ProtectedRoute path="/storage/*" element={<StoragePage />} />
+                        <ProtectedRoute path="/operations/*" element={<OperationsPage />} />
+                        <ProtectedRoute path="/settings/*" element={<SettingsPage />} />
+                        <ProtectedRoute path="/throw-error" element={<ThrowErrorPage />} />
+                        <ProtectedRoute path="*" element={<PageNotFound />} />
+                      </ProtectedRoute>
+                      <ProtectedRoute path="/scanner" element={<ScannerPage />} />
+                      <ProtectedRoute path="/print" element={<PrintPage />} />
                     </ProtectedRoute>
-                    <ProtectedRoute path="/scanner" element={<ScannerPage />} />
-                    <ProtectedRoute path="/print" element={<PrintPage />} />
                   </ProtectedRoutes>
                 </Suspense>
               </AuthProvider>

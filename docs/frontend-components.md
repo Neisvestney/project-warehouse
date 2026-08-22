@@ -67,6 +67,28 @@ Standard list-page table shell: `Paper` → `LinearProgress` (while fetching) �
 `TablePagination` with Russian labels baked in. Extends `PaperProps`. The `page` prop is **1-based**, matching
 the `usePaginatedParams` convention; the component converts to MUI's 0-based value internally.
 
+### `RouteFallback`
+
+Centred `CircularProgress` shown while a whole route is unavailable — a lazy page chunk still loading
+(`Suspense fallback` in `MainLayout` / `MainAppBarLayout` / `App.tsx`) or the `/me` query still deciding
+whether the user is authenticated (`AuthGuard` in `ProtectedRoutes`). It renders **nothing** for the first
+`delay` ms (50 by default), then fades in over a full second: a warm chunk resolves long before the spinner
+is legible, so the common case shows no flash while a genuinely slow load still gets feedback.
+
+A cold load runs two instances back to back — the auth guard's while `/me` is in flight, then the layout's
+while the page chunk downloads. A module-level session ties them together: the second instance measures its
+delay from when the *first* appeared, and the fade is a CSS keyframe given a **negative** `animation-delay`
+equal to the time already faded, so it resumes at the exact opacity the previous instance reached. The
+handover is invisible.
+
+The session is keyed on a live-instance count rather than a timer, because a React render can be discarded
+before it commits: a seed left behind by such a render is only honoured while an instance is mounted or
+within `SESSION_GAP_MS` of the last one leaving, so an orphan expires instead of disabling the delay for the
+rest of the page's life. That same gap is what separates one load from the next.
+
+Distinct from `LoadingOverlay`: this one *replaces* the content, so it needs no positioned parent and does not
+dim anything.
+
 ### `LoadingOverlay`
 
 Dim-and-blur overlay for content that is **being refetched in the background** — an `entityChanged` SSE hint

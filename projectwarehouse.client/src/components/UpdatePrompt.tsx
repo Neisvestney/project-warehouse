@@ -20,6 +20,8 @@ import {useFadeOnHover} from "@/hooks/useFadeOnHover.ts";
 const FLOAT_LEFT = 16;
 const FADE_MS = 150;
 
+const HIDE_ON_PRINT = {"@media print": {display: "none"}} as const;
+
 export interface UpdatePromptProps {}
 
 function UpdatePrompt({}: UpdatePromptProps) {
@@ -45,6 +47,7 @@ function UpdatePrompt({}: UpdatePromptProps) {
     flexDirection: "column",
     gap: 1,
     boxShadow: 4,
+    ...HIDE_ON_PRINT,
   } as const;
 
   // Only the progress plaque steps aside: it carries nothing to click, while the waiting one exists
@@ -76,7 +79,7 @@ function UpdatePrompt({}: UpdatePromptProps) {
 
   if (needRefresh && !dismissed) {
     return (
-      <Dialog open onClose={() => {}}>
+      <Dialog open onClose={() => {}} sx={HIDE_ON_PRINT}>
         <DialogTitle>Доступно обновление приложения</DialogTitle>
         <DialogContent>
           <DialogContentText>Перезагрузите приложение для применения обновления</DialogContentText>

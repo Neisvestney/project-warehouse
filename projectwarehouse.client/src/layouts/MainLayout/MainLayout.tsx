@@ -1,10 +1,9 @@
-import React from "react";
-import {Container} from "@mui/material";
+import React, {Suspense} from "react";
 import {Outlet} from "react-router";
-import MainAppBar from "@/components/MainAppBar.tsx";
 import {RealtimeProvider} from "@/contexts/Realtime/RealtimeProvider";
 import {SearchParamsProvider} from "@/contexts/SearchParams/SearchParamsProvider";
 import ServiceWorkerUpdateWatcher from "@/components/ServiceWorkerUpdateWatcher.tsx";
+import RouteFallback from "@/components/RouteFallback.tsx";
 
 export interface MainLayoutProps {}
 
@@ -12,12 +11,12 @@ function MainLayout({}: MainLayoutProps) {
   return (
     <RealtimeProvider>
       <ServiceWorkerUpdateWatcher />
-      <MainAppBar />
-      <Container maxWidth="xl" sx={{marginTop: 2, paddingBottom: 2}}>
-        <SearchParamsProvider>
+      <SearchParamsProvider>
+        {/* Below the providers: a boundary above them would tear down the stream on every lazy chunk. */}
+        <Suspense fallback={<RouteFallback />}>
           <Outlet />
-        </SearchParamsProvider>
-      </Container>
+        </Suspense>
+      </SearchParamsProvider>
     </RealtimeProvider>
   );
 }

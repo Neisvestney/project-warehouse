@@ -11,7 +11,7 @@ survive a reload) stays in `useState`.
 
 ### `SearchParamsProvider`
 
-Wraps pages that use URL-synced state (mounted in `MainLayout`). Batches all `setParam` calls made in the same
+Wraps every authenticated page (mounted in `MainLayout`). Batches all `setParam` calls made in the same
 synchronous tick into a **single** `setSearchParams` navigation via `queueMicrotask`. Without this, two hooks
 updating in one render would each read the pre-update URL and the second would overwrite the first.
 
