@@ -499,12 +499,50 @@ they have no stream — neither page consumes realtime events.
 
 `AuthProvider` fetches `/me` with `suppressGlobalError` and clears the entire query cache on logout.
 
+## Build output and caching
+
+Chunk filenames carry a content hash and the service worker precaches them, so the build config is
+tuned so that an ordinary change invalidates as few chunks as possible.
+
+**Reproducible dependency resolution.** `ProjectWarehouse.Server/Dockerfile` copies
+`package-lock.json` alongside `package.json` and installs with `npm ci`. A lock-less `npm install`
+re-resolves every `^` range at image build time; a different rolldown or Vite build changes chunk
+boundaries and with them every hash, which wipes the whole service worker cache. With the lock in
+place two independent installs produce byte-identical chunk names — on Linux and Windows alike.
+
+**Vendor chunks** (`vendorGroups` in `vite.config.ts`). Packages tagged `$initial` — statically
+reachable from the entry — are split per package family: react, emotion, mui, mui-x, mui-icons,
+query, mobx, dnd, capacitor, plus a catch-all `vendor`. A group also claims the dependencies of the
+modules it captures, so `priority` has to place each package ahead of its dependents: react and
+emotion before mui, mui before the icon packages. Bumping one dependency then invalidates only its
+own chunk.
+
+The `$initial` tag is what keeps the initial payload small. Packages reached only through
+`React.lazy` routes stay inside the route chunk; giving them vendor groups of their own makes them
+statically reachable from the entry and adds them to the `modulepreload` set — konva, bwip-js and
+`@mui/x-scheduler` alone amount to ~1.2 MB of first-load traffic.
+
+**Shared app chunks** (`sharedGroup`). Modules under `api`, `components`, `configuration`,
+`contexts`, `features`, `hooks`, `layouts`, `plugins`, `services` and `utils` that are used by two
+or more chunks (`minShareCount: 2`) each get a chunk of their own, named `app-<path>`. Otherwise a
+shared component is inlined into every route chunk importing it, and editing one header rewrites
+every page.
+
+A hash change still cascades into importers, because a chunk embeds the filenames it imports —
+touching a widely used component rewrites its own chunk plus the entry and the routes that reference
+it. That cascade is the floor; the config removes the duplication on top of it.
+
 ## PWA
 
 `vite-plugin-pwa` with `registerType: "prompt"` — the user is prompted before an SW update, not auto-updated.
 
 Workbox caching strategy:
 - All static assets → precached (`globPatterns: ["**/*"]`)
+- `*-legacy-*.js` → excluded from the precache via `globIgnores`, served by a `CacheFirst` runtime
+  route (`legacy-assets`, 60 entries / 30 days). `@vitejs/plugin-legacy` emits a full second copy of
+  every chunk, and a browser only ever executes one of the two builds; precaching both would double
+  the download for every client. Legacy targets (`chrome >= 49`) still support service workers, so
+  they populate that runtime cache on first load and keep working offline.
 - `/api/*` → `NetworkOnly` (never cached)
 
 Manifest: name "Project Warehouse", theme `#1976d2`, standalone display.
