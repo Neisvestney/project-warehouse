@@ -5,6 +5,7 @@ let inFlight: Promise<ServiceWorkerRegistration | null> | null = null;
 
 async function runCheck(): Promise<ServiceWorkerRegistration | null> {
   try {
+    console.log("Checking for Service Worker update")
     const registration = await navigator.serviceWorker.getRegistration();
     if (!registration) return null;
     await registration.update();
@@ -28,6 +29,7 @@ async function runCheck(): Promise<ServiceWorkerRegistration | null> {
 export function checkForServiceWorkerUpdate(
   options: {force?: boolean} = {},
 ): Promise<ServiceWorkerRegistration | null> {
+  console.log("Trying to check for Service Worker update")
   if (!("serviceWorker" in navigator)) return Promise.resolve(null);
   if (!options.force && Date.now() - lastCheckAt < MIN_CHECK_INTERVAL_MS)
     return Promise.resolve(null);
