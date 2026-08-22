@@ -7,7 +7,7 @@ import {VitePWA} from "vite-plugin-pwa";
 import fs from "fs";
 import path from "path";
 import child_process from "child_process";
-import {type ChunkingContext} from "rolldown";
+import {type CodeSplittingGroup} from "rolldown";
 
 const baseFolder =
   process.env.APPDATA !== undefined && process.env.APPDATA !== ""
@@ -43,6 +43,47 @@ if (!fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
   }
 }
 
+// Priority orders dependencies before their dependents: a group claims its captured modules'
+// dependencies too, so react/emotion must be taken before mui, and mui before the icon packages.
+const vendorGroups: CodeSplittingGroup[] = [
+  {
+    name: "vendor-react",
+    test: /node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/,
+    priority: 60,
+  },
+  {name: "vendor-emotion", test: /node_modules[\\/]@emotion[\\/]/, priority: 55},
+  {name: "vendor-mui", test: /node_modules[\\/]@mui[\\/](?!x-|icons-material)/, priority: 50},
+  {name: "vendor-mui-x", test: /node_modules[\\/]@mui[\\/]x-/, priority: 40},
+  {
+    name: "vendor-mui-icons",
+    test: /node_modules[\\/](@mui[\\/]icons-material|mdi-material-ui)[\\/]/,
+    priority: 40,
+  },
+  {name: "vendor-query", test: /node_modules[\\/]@tanstack[\\/]/, priority: 30},
+  {name: "vendor-mobx", test: /node_modules[\\/]mobx(-react-lite)?[\\/]/, priority: 30},
+  {name: "vendor-dnd", test: /node_modules[\\/]@dnd-kit[\\/]/, priority: 30},
+  {name: "vendor-capacitor", test: /node_modules[\\/]@capacitor[\\/]/, priority: 30},
+  {name: "vendor", test: /node_modules/, priority: 10},
+].map((group) => ({...group, tags: ["$initial"]}));
+
+const sharedDirs =
+  "api|components|configuration|contexts|features|hooks|layouts|plugins|services|utils";
+
+// One chunk per shared module, so editing a widely used component invalidates only its own file
+// instead of every page chunk that inlined it.
+const sharedGroup: CodeSplittingGroup = {
+  name: (moduleId) =>
+    "app-" +
+    moduleId
+      .replace(/\\/g, "/")
+      .replace(/^.*\/src\//, "")
+      .replace(/\.[^./]+$/, "")
+      .replace(/\//g, "-"),
+  test: new RegExp(`[\\\\/]src[\\\\/](${sharedDirs})[\\\\/]`),
+  minShareCount: 2,
+  priority: 5,
+};
+
 // https://vitejs.dev/config/
 export default defineConfig(({command}) => ({
   plugins: [
@@ -55,11 +96,23 @@ export default defineConfig(({command}) => ({
       workbox: {
         // add this to cache all the imports
         globPatterns: ["**/*"],
+        // Legacy bundles are served only to browsers that skip the module build, so precaching them
+        // would double the payload for everyone else; they are cached on demand instead.
+        globIgnores: ["**/node_modules/**/*", "**/*-legacy-*.js"],
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
             urlPattern: /^\/api\//,
             handler: "NetworkOnly",
+          },
+          {
+            urlPattern: /-legacy-[^/]*\.js$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "legacy-assets",
+              expiration: {maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 30},
+              cacheableResponse: {statuses: [0, 200]},
+            },
           },
         ],
       },
@@ -89,29 +142,7 @@ export default defineConfig(({command}) => ({
     rolldownOptions: {
       output: {
         codeSplitting: {
-          groups: [
-            {
-              name: (moduleId, ctx: ChunkingContext) => {
-                if (moduleId.includes("node_modules")) {
-                  if (isEagerlyImported(moduleId, ctx)) {
-                    return "vendor";
-                  }
-                }
-
-                // if (
-                //   moduleId.includes("src/components") ||
-                //   moduleId.includes("src/contexts") ||
-                //   moduleId.includes("src/services") ||
-                //   moduleId.includes("src/hooks") ||
-                //   moduleId.includes("src/utils")
-                // ) {
-                //   return "shared";
-                // }
-
-                return null;
-              },
-            },
-          ],
+          groups: [...vendorGroups, sharedGroup],
         },
       },
     },
@@ -143,20 +174,3 @@ export default defineConfig(({command}) => ({
     },
   },
 }));
-
-function isEagerlyImported(id: string, ctx: ChunkingContext, visited = new Set<string>()): boolean {
-  if (visited.has(id)) return false; // cycle guard
-  visited.add(id);
-
-  const info = ctx.getModuleInfo(id);
-  if (!info) return false;
-
-  // Entry point itself — definitely eager
-  if (info.isEntry) return true;
-
-  // If this module has NO static importers (only dynamic) — it's lazy
-  if (info.importers.length === 0) return false;
-
-  // Walk up static importers recursively
-  return info.importers.some((importerId) => isEagerlyImported(importerId, ctx, visited));
-}

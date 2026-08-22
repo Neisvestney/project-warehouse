@@ -18,9 +18,9 @@ WORKDIR /src
 COPY ["ProjectWarehouse.Server/ProjectWarehouse.Server.csproj", "ProjectWarehouse.Server/"]
 COPY ["projectwarehouse.client/projectwarehouse.client.esproj", "projectwarehouse.client/"]
 RUN dotnet restore "ProjectWarehouse.Server/ProjectWarehouse.Server.csproj"
-COPY ["projectwarehouse.client/package.json", "projectwarehouse.client/"]
+COPY ["projectwarehouse.client/package.json", "projectwarehouse.client/package-lock.json", "projectwarehouse.client/"]
 WORKDIR /src/projectwarehouse.client
-RUN npm install --no-audit --no-fund --verbose
+RUN npm ci --no-audit --no-fund
 WORKDIR /src
 COPY . .
 WORKDIR "/src/ProjectWarehouse.Server"
