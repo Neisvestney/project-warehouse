@@ -76,6 +76,13 @@ docker compose --env-file .env.prod up --build
 
 Приложение доступно на http://localhost:4587.
 
+Образ собирается из `ProjectWarehouse.Server/Dockerfile` в две стадии: SDK-стадия
+восстанавливает NuGet-пакеты и `npm ci`, затем `dotnet publish` собирает бэкенд и
+через ProjectReference на `.esproj` прогоняет vite-сборку клиента в `wwwroot`.
+Финальный образ — `aspnet:10.0` с непривилегированным пользователем, каталогами
+`/keys` и `/data/files` под volume-монтирование и `HEALTHCHECK` на `GET /health`.
+Сборка требует BuildKit: используются cache-mount'ы для `~/.nuget/packages` и `~/.npm`.
+
 ---
 
 ## Создание миграций
