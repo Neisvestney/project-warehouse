@@ -441,6 +441,7 @@ try
     app.UseAuthentication();
     app.UseAuthorization();
     app.MapControllers();
+    app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
     app.Map("/api/{**path}", (async ctx =>
     {
         var problem = AppProblems.NotFound(ErrorCode.RouteNotFound, "The requested API endpoint does not exist.");
