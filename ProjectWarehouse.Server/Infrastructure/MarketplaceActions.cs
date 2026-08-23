@@ -17,4 +17,8 @@ public static class MarketplaceActions
     public const string MappingSet     = "mapping.set";
     public const string MappingCleared = "mapping.cleared";
     public const string MappingAuto    = "mapping.auto";
+
+    public const string RuleCreated = "rule.created";
+    public const string RuleUpdated = "rule.updated";
+    public const string RuleDeleted = "rule.deleted";
 }

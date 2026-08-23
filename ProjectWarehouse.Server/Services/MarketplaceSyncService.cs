@@ -277,14 +277,17 @@ public class MarketplaceSyncService(
     }
 
     /// <summary>
-    /// Maps by seller article first, then by barcode. An existing mapping is never overwritten, and
-    /// anything ambiguous (zero or more than one candidate) is left for a human.
+    /// Applies the global auto-mapping rules first, then maps by seller article, then by barcode. An
+    /// existing mapping is never overwritten, and anything ambiguous (zero or more than one candidate)
+    /// is left for a human.
     /// </summary>
     private async Task<int> AutoMapAsync(IReadOnlyCollection<MarketplaceCard> cards, CancellationToken ct)
     {
         var candidates = cards.Where(c => c.CatalogItemId is null).ToList();
         if (candidates.Count == 0)
             return 0;
+
+        var rules = await LoadRulesAsync(ct);
 
         var offerIds = candidates
             .Select(c => c.OfferId.ToLowerInvariant())
@@ -319,7 +322,12 @@ public class MarketplaceSyncService(
 
         foreach (var card in candidates)
         {
-            if (TryResolveSingle(byArticle, [card.OfferId.ToLowerInvariant()], out var catalogItemId))
+            if (TryApplyRule(card, rules, out var ruleTarget))
+            {
+                Apply(card, ruleTarget, MarketplaceMappingSource.Rule);
+                mapped++;
+            }
+            else if (TryResolveSingle(byArticle, [card.OfferId.ToLowerInvariant()], out var catalogItemId))
             {
                 Apply(card, catalogItemId, MarketplaceMappingSource.AutoOfferId);
                 mapped++;
@@ -339,6 +347,54 @@ public class MarketplaceSyncService(
             card.MappingSource = source;
             card.MappedAt = now;
         }
+    }
+
+    /// <summary>
+    /// Enabled rules in priority order, with rules whose target is no longer a legal mapping target
+    /// dropped: an archived or retyped item must not silently break the rest of the chain.
+    /// </summary>
+    private async Task<IReadOnlyList<CompiledAutoMapRule>> LoadRulesAsync(CancellationToken ct)
+    {
+        var rules = await db.MarketplaceAutoMapRules
+            .Where(r => r.IsEnabled
+                        && !r.CatalogItem.IsArchived
+                        && MarketplaceMapping.MappableTypes.Contains(r.CatalogItem.Type))
+            .OrderByDescending(r => r.Priority)
+            .ThenBy(r => r.Id)
+            .ToListAsync(ct);
+
+        var compiled = new List<CompiledAutoMapRule>(rules.Count);
+        foreach (var rule in rules)
+        {
+            try
+            {
+                compiled.Add(MarketplaceRuleMatcher.Compile(rule));
+            }
+            catch (ArgumentException ex)
+            {
+                logger.LogWarning(ex, "Auto-map rule {RuleId} has an invalid pattern and is skipped", rule.Id);
+            }
+        }
+
+        return compiled;
+    }
+
+    private bool TryApplyRule(MarketplaceCard card, IReadOnlyList<CompiledAutoMapRule> rules, out Guid catalogItemId)
+    {
+        foreach (var rule in rules)
+        {
+            if (MarketplaceRuleMatcher.Matches(card, rule, out var timedOut))
+            {
+                catalogItemId = rule.CatalogItemId;
+                return true;
+            }
+
+            if (timedOut)
+                logger.LogWarning("Auto-map rule {RuleId} timed out on card {CardId}", rule.RuleId, card.Id);
+        }
+
+        catalogItemId = Guid.Empty;
+        return false;
     }
 
     private static bool TryResolveSingle(Dictionary<string, List<Guid>> index, IEnumerable<string> keys, out Guid id)

@@ -14,6 +14,14 @@ public enum AppEntityType
     Stocktake = 14,
     MarketplaceAccount = 9,
     MarketplaceCard = 10,
+    MarketplaceAutoMapRule = 15,
+
+    /// <summary>
+    /// The auto-mapping rule set as one object. Individual rules are journalled under
+    /// <see cref="MarketplaceAutoMapRule"/>; this value addresses the whole set — the page lock and the
+    /// change event are keyed by it.
+    /// </summary>
+    MarketplaceAutoMapRules = 16,
 
     /// <summary>
     /// The changelog itself. Not something a user opens a page for — it exists so the storage

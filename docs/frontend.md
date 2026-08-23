@@ -449,6 +449,32 @@ client does not call `/sync` after creating.
 > **Note:** `input[type=number]` hands RHF a string. Numeric fields are coerced with `Number(...)` at submit —
 > the API rejects `"30"` for an `int`.
 
+### `AutoMapRulesPage`
+
+Auto-mapping rules at `/settings/integrations/auto-map-rules`, reached from **Правила автосопоставления** in the
+account-list header. The rules are global — one set for every shop — so the page is a sibling of the account
+list, not a tab on an account. The route is declared **before** `:id` in `settingsConfig.tsx`, otherwise the
+dynamic segment swallows it.
+
+One unpaginated table ordered by **Приоритет** descending — the order the backend applies them in, highest first. The **Активно** switch
+saves through the same `PUT` as the dialog, sending the row unchanged apart from `isEnabled`. A rule whose
+target got archived carries an **Архив** chip — the backend skips it until it is repointed. Everything that
+mutates requires `integrations.map`; without it the page is read-only.
+
+`AutoMapRuleDialog` serves both create and edit (`rule === null` means create) and picks the target with the
+shared `CatalogItemsSelect`, restricted to `standard | unit | bundle | variation`. An invalid regular expression
+comes back as a 422 on `value` and lands on the field through `useRhfApiErrors`.
+
+Collaboration follows `RolesSettingsPage`: the rules are one versioned object, so `useEditLock` claims them
+under `marketplaceAutoMapRules` with an empty guid, `EditLockBanner` and `StaleDataBanner` sit above the table,
+and `AppBreadcrumbs` carries `viewersOf` for the same key. An open dialog counts as `isDirty`, so a concurrent
+save warns instead of silently reloading under the form.
+
+**The claim waits for intent.** `enabled` is gated on a sticky `hasEditIntent` flag raised by opening either
+dialog or flipping the **Активно** switch — most visitors only read the page, and claiming on arrival would
+lock them all out of each other. Watching and the staleness warning run from the first render regardless; only
+the `acquire` call is deferred.
+
 ### `MarketplaceAccountPage`
 
 Account shell at `/settings/integrations/:id`. Header shows the sync status chip plus **Синхронизировать**

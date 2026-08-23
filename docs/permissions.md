@@ -123,7 +123,8 @@ new WarehouseScopedRule<Writeoff>(db, scope, AppEntityType.Writeoff,
     "You are not assigned to the warehouse of this write-off.")
 ```
 
-Use `SimpleAccessRule<T>` when the entity has no warehouse scope (catalog, users, roles, marketplace accounts).
+Use `SimpleAccessRule<T>` when the entity has no warehouse scope (catalog, users, roles, marketplace accounts,
+auto-mapping rules).
 Permissions are lists because several can behave identically — `orders.assemble_assigned` grants the same view as
 `orders.view_assigned`. An entity type with **no** registered rule is inaccessible: realtime cannot subscribe to it
 and every filter returns nothing.

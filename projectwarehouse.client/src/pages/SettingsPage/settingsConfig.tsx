@@ -14,6 +14,7 @@ import UserCreatePage from "@/pages/UsersPage/pages/UserCreatePage/UserCreatePag
 import MarketplacesSettingsPage from "./pages/MarketplacesSettingsPage/MarketplacesSettingsPage.tsx";
 import MarketplaceAccountCreatePage from "./pages/MarketplacesSettingsPage/pages/MarketplaceAccountCreatePage/MarketplaceAccountCreatePage.tsx";
 import MarketplaceAccountPage from "./pages/MarketplacesSettingsPage/pages/MarketplaceAccountPage/MarketplaceAccountPage.tsx";
+import AutoMapRulesPage from "./pages/MarketplacesSettingsPage/pages/AutoMapRulesPage/AutoMapRulesPage.tsx";
 import StorageSettingsPage from "./pages/StorageSettingsPage/StorageSettingsPage.tsx";
 
 export const settingsSections: SectionConfig[] = [
@@ -43,6 +44,8 @@ export const settingsSections: SectionConfig[] = [
     component: MarketplacesSettingsPage,
     requiredPermission: "integrations.view",
     subroutes: [
+      // before ":id", otherwise the dynamic segment swallows the static path
+      {path: "auto-map-rules", component: AutoMapRulesPage},
       {path: "new", component: MarketplaceAccountCreatePage},
       {path: ":id", component: MarketplaceAccountPage},
     ],

@@ -356,6 +356,11 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.CatalogItemArticle,
                 opt => opt.MapFrom(s => s.CatalogItem != null ? s.CatalogItem.Article : null));
 
+        CreateMap<MarketplaceAutoMapRule, MarketplaceAutoMapRuleDto>()
+            .ForMember(d => d.CatalogItemFullName, opt => opt.MapFrom(s => s.CatalogItem.FullName))
+            .ForMember(d => d.CatalogItemArticle, opt => opt.MapFrom(s => s.CatalogItem.Article))
+            .ForMember(d => d.IsTargetArchived, opt => opt.MapFrom(s => s.CatalogItem.IsArchived));
+
         CreateMap<MarketplaceSyncRun, MarketplaceSyncRunDto>()
             .ForMember(d => d.TriggeredByName,
                 opt => opt.MapFrom(s => s.TriggeredBy != null ? s.TriggeredBy.UserName : null))
