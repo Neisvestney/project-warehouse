@@ -59,7 +59,9 @@ export type AppEntityType =
   | "changeLog"
   | "inventoryItem"
   | "stockMovement"
-  | "stocktake";
+  | "stocktake"
+  | "marketplaceAutoMapRule"
+  | "marketplaceAutoMapRules";
 
 export type AppFieldError = {
   code: ErrorCode;
@@ -645,7 +647,9 @@ export type ErrorCode =
   | "transferNotAssignedToWarehouse"
   | "realtimeConnectionUnknown"
   | "editLockHeld"
-  | "editLockNotHeld";
+  | "editLockNotHeld"
+  | "marketplaceAutoMapRuleNotFound"
+  | "marketplaceAutoMapRuleInvalidRegex";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -752,8 +756,32 @@ export type MarketplaceAccountSummaryDto = {
   unmappedCardCount: number;
 };
 
+export type MarketplaceAutoMapRuleDto = {
+  id: string;
+  field: MarketplaceCardField;
+  operator: MarketplaceRuleOperator;
+  value: string;
+  catalogItemId: string;
+  catalogItemFullName: string;
+  catalogItemArticle: string;
+  /**
+   * The target was archived after the rule was created — the rule is skipped until it is fixed.
+   */
+  isTargetArchived: boolean;
+  isEnabled: boolean;
+  priority: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type MarketplaceCapabilities =
-  "none" | "warehouses" | "cards" | "orders" | "stockPush" | "sellerInfo" | "labels";
+  | "none"
+  | "warehouses"
+  | "cards"
+  | "orders"
+  | "stockPush"
+  | "sellerInfo"
+  | "labels";
 
 export type MarketplaceCardDto = {
   id: string;
@@ -780,13 +808,18 @@ export type MarketplaceCardDto = {
 };
 
 /**
+ * Card field an auto-mapping rule matches against. MarketplaceCardField.Barcode matches if any barcode does.
+ */
+export type MarketplaceCardField = "offerId" | "sku" | "externalId" | "name" | "barcode";
+
+/**
  * Mapping-state filter for the cards tab.
  */
 export type MarketplaceCardMappingState = "all" | "unmapped" | "mapped" | "archivedItem";
 
 export type MarketplaceCardSortBy = "name" | "offerId" | "price" | "syncedAt";
 
-export type MarketplaceMappingSource = "manual" | "autoOfferId" | "autoBarcode";
+export type MarketplaceMappingSource = "manual" | "autoOfferId" | "autoBarcode" | "rule";
 
 /**
  * Marketplace side of an order, inlined into the order DTOs — the entity has no page of its own.
@@ -820,7 +853,12 @@ export type MarketplaceOrderDto = {
  * must not look like a working one.
  */
 export type MarketplaceOrderStatus =
-  "unknown" | "awaitingDeliver" | "delivering" | "delivered" | "cancelled" | "arbitration";
+  | "unknown"
+  | "awaitingDeliver"
+  | "delivering"
+  | "delivered"
+  | "cancelled"
+  | "arbitration";
 
 /**
  * An account offered in the "sync orders" dialog.
@@ -836,6 +874,8 @@ export type MarketplaceOrderSyncTargetDto = {
   unmappedWarehouseCount: number;
   unmappedCardCount: number;
 };
+
+export type MarketplaceRuleOperator = "equals" | "contains" | "startsWith" | "endsWith" | "regex";
 
 export type MarketplaceSyncRunDto = {
   id: string;
@@ -1494,7 +1534,12 @@ export type ReceiptItemRequest = {
 export type ReceiptReason = "newGoods" | "return" | "other";
 
 export type ReceiptSortBy =
-  "name" | "number" | "status" | "createdAt" | "warehouseName" | "plannedDeliveryDate";
+  | "name"
+  | "number"
+  | "status"
+  | "createdAt"
+  | "warehouseName"
+  | "plannedDeliveryDate";
 
 export type ReceiptStatus = "draft" | "planned" | "processing" | "finished" | "canceled";
 
@@ -1527,6 +1572,15 @@ export type RoleWithPermissionsDto = {
   name: string;
   order: number;
   permissions: Array<string>;
+};
+
+export type SaveAutoMapRuleRequest = {
+  field: MarketplaceCardField;
+  operator: MarketplaceRuleOperator;
+  value: string;
+  catalogItemId: string;
+  isEnabled: boolean;
+  priority: number;
 };
 
 /**
@@ -1634,7 +1688,12 @@ export type StockMovementDto = {
 };
 
 export type StockMovementGroupBy =
-  "action" | "catalogItem" | "warehouse" | "storagePlace" | "node" | "user";
+  | "action"
+  | "catalogItem"
+  | "warehouse"
+  | "storagePlace"
+  | "node"
+  | "user";
 
 export type StockMovementPivotCellDto = {
   catalogItemId: string;
@@ -1740,7 +1799,13 @@ export type StocktakeDifferenceLineDto = {
  * What finishing the document will do to a single position.
  */
 export type StocktakeDifferenceResolution =
-  "noChange" | "surplus" | "shortage" | "relocation" | "createUnit" | "detachUnit" | "reattachUnit";
+  | "noChange"
+  | "surplus"
+  | "shortage"
+  | "relocation"
+  | "createUnit"
+  | "detachUnit"
+  | "reattachUnit";
 
 /**
  * Preview of what finishing the document would do. Produced by the same calculator the finish
@@ -2052,7 +2117,10 @@ export type UnitInventoryItemDto = {
 };
 
 export type UnitInventoryItemSortBy =
-  "inventoryNumber" | "warehouseName" | "storagePlaceName" | "nodeName";
+  | "inventoryNumber"
+  | "warehouseName"
+  | "storagePlaceName"
+  | "nodeName";
 
 /**
  * Feeds the sidebar badge — a count query, never a card listing.
@@ -2272,6 +2340,20 @@ export type WriteoffSummaryDto = {
   warehouseName: string;
   itemsCount: number;
   createdAt: string;
+};
+
+export type GetHealthData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/health";
+};
+
+export type GetHealthResponses = {
+  /**
+   * OK
+   */
+  200: unknown;
 };
 
 export type AuthLoginData = {
@@ -3060,6 +3142,134 @@ export type InventoryItemsGetAllUnitsResponses = {
 
 export type InventoryItemsGetAllUnitsResponse =
   InventoryItemsGetAllUnitsResponses[keyof InventoryItemsGetAllUnitsResponses];
+
+export type MarketplaceAutoMapRulesGetRulesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/integrations/marketplaces/auto-map-rules";
+};
+
+export type MarketplaceAutoMapRulesGetRulesErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplaceAutoMapRulesGetRulesError =
+  MarketplaceAutoMapRulesGetRulesErrors[keyof MarketplaceAutoMapRulesGetRulesErrors];
+
+export type MarketplaceAutoMapRulesGetRulesResponses = {
+  /**
+   * OK
+   */
+  200: Array<MarketplaceAutoMapRuleDto>;
+};
+
+export type MarketplaceAutoMapRulesGetRulesResponse =
+  MarketplaceAutoMapRulesGetRulesResponses[keyof MarketplaceAutoMapRulesGetRulesResponses];
+
+export type MarketplaceAutoMapRulesCreateRuleData = {
+  body: SaveAutoMapRuleRequest;
+  path?: never;
+  query?: never;
+  url: "/api/integrations/marketplaces/auto-map-rules";
+};
+
+export type MarketplaceAutoMapRulesCreateRuleErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplaceAutoMapRulesCreateRuleError =
+  MarketplaceAutoMapRulesCreateRuleErrors[keyof MarketplaceAutoMapRulesCreateRuleErrors];
+
+export type MarketplaceAutoMapRulesCreateRuleResponses = {
+  /**
+   * OK
+   */
+  200: MarketplaceAutoMapRuleDto;
+};
+
+export type MarketplaceAutoMapRulesCreateRuleResponse =
+  MarketplaceAutoMapRulesCreateRuleResponses[keyof MarketplaceAutoMapRulesCreateRuleResponses];
+
+export type MarketplaceAutoMapRulesDeleteRuleData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/integrations/marketplaces/auto-map-rules/{id}";
+};
+
+export type MarketplaceAutoMapRulesDeleteRuleErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplaceAutoMapRulesDeleteRuleError =
+  MarketplaceAutoMapRulesDeleteRuleErrors[keyof MarketplaceAutoMapRulesDeleteRuleErrors];
+
+export type MarketplaceAutoMapRulesDeleteRuleResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type MarketplaceAutoMapRulesDeleteRuleResponse =
+  MarketplaceAutoMapRulesDeleteRuleResponses[keyof MarketplaceAutoMapRulesDeleteRuleResponses];
+
+export type MarketplaceAutoMapRulesUpdateRuleData = {
+  body: SaveAutoMapRuleRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/integrations/marketplaces/auto-map-rules/{id}";
+};
+
+export type MarketplaceAutoMapRulesUpdateRuleErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplaceAutoMapRulesUpdateRuleError =
+  MarketplaceAutoMapRulesUpdateRuleErrors[keyof MarketplaceAutoMapRulesUpdateRuleErrors];
+
+export type MarketplaceAutoMapRulesUpdateRuleResponses = {
+  /**
+   * OK
+   */
+  200: MarketplaceAutoMapRuleDto;
+};
+
+export type MarketplaceAutoMapRulesUpdateRuleResponse =
+  MarketplaceAutoMapRulesUpdateRuleResponses[keyof MarketplaceAutoMapRulesUpdateRuleResponses];
 
 export type MarketplacesGetAccountsData = {
   body?: never;

@@ -406,6 +406,7 @@ try
     builder.Services.AddScoped<IChangeLogService<StocktakeDto>, StocktakeDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<MarketplaceAccountDto>, MarketplaceAccountDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<MarketplaceCardDto>, MarketplaceCardDtoChangelogService>();
+    builder.Services.AddScoped<IChangeLogService<MarketplaceAutoMapRuleDto>, MarketplaceAutoMapRuleDtoChangelogService>();
     builder.Services.AddScoped<IInventoryService, InventoryService>();
     builder.Services.AddScoped<ICatalogService, CatalogService>();
     builder.Services.AddScoped<AccessScope>();

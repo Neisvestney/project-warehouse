@@ -133,6 +133,8 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   marketplaceCardMappingArchivedItem: "Нельзя привязать карточку к архивной позиции каталога",
   marketplaceWarehouseNotFound: "Склад маркетплейса не найден",
   marketplaceCardNotFound: "Карточка маркетплейса не найдена",
+  marketplaceAutoMapRuleNotFound: "Правило автосопоставления не найдено",
+  marketplaceAutoMapRuleInvalidRegex: "Некорректное регулярное выражение",
   dataFileNotFound: "Файл не найден — возможно, форма была открыта слишком долго",
   dataFileEmpty: "Файл пустой",
   dataFileTooLarge: "Файл слишком большой",

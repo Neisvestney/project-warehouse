@@ -325,9 +325,7 @@ function OrdersListPage({
         )}
       </FiltersBar>
 
-      {type == "fbo" && <Alert severity={"warning"}>
-          Раздел "Поставки FBO" еще не реализован
-      </Alert>}
+      {type == "fbo" && <Alert severity={"warning"}>Раздел "Поставки FBO" еще не реализован</Alert>}
 
       {showBulkBar && (
         <Toolbar

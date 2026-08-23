@@ -16,6 +16,7 @@ import AssignmentIcon from "@mui/icons-material/Assignment";
 import QuestionMarkIcon from "@mui/icons-material/QuestionMark";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
+import RuleIcon from "@mui/icons-material/Rule";
 import HistoryIcon from "@mui/icons-material/History";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import SwapVertIcon from "@mui/icons-material/SwapVert";
@@ -222,6 +223,16 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     linkTemplate: "no-link",
     typeName: "Карточка маркетплейса",
     icon: <LocalOfferIcon />,
+  },
+  marketplaceAutoMapRule: {
+    linkTemplate: "/settings/integrations/auto-map-rules",
+    typeName: "Правило автосопоставления",
+    icon: <RuleIcon />,
+  },
+  marketplaceAutoMapRules: {
+    linkTemplate: "/settings/integrations/auto-map-rules",
+    typeName: "Правила автосопоставления",
+    icon: <RuleIcon />,
   },
   // Сам журнал изменений. Не сущность, за которой ходят на страницу — заведён ради статистики хранилища
   changeLog: {

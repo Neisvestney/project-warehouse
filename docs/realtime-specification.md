@@ -443,7 +443,7 @@ Entry                             — то, что лежит в сторе
 
 Событие адресуется `ToWatchers(entityType, entityId)` и **не отправляется автору изменения** — свои же правки не должны объявляться устаревшими.
 
-> **Ограничение:** покрытие ограничено сущностями с зарегистрированным `IChangeLogService<T>` — сейчас это `User`, `Roles`, `Warehouse`, `CatalogItem`, `StoragePlaceNode`, `Receipt`, `Writeoff`, `Stocktake`, `MarketplaceAccount`, `MarketplaceCard`. Всё остальное покрывается только запасным триггером.
+> **Ограничение:** покрытие ограничено сущностями с зарегистрированным `IChangeLogService<T>` — сейчас это `User`, `Roles`, `Warehouse`, `CatalogItem`, `StoragePlaceNode`, `Receipt`, `Writeoff`, `Stocktake`, `MarketplaceAccount`, `MarketplaceCard`, `MarketplaceAutoMapRule`. Всё остальное покрывается только запасным триггером.
 
 **У заказов changelog-сервиса нет.** Публикация для них идёт из
 фильтра `[PublishesEntityChanged(AppEntityType.Order)]` на `OrdersController`: он поднимает событие после любого

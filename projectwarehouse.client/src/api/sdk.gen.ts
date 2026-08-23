@@ -71,12 +71,26 @@ import type {
   FilesUploadData,
   FilesUploadErrors,
   FilesUploadResponses,
+  GetHealthData,
+  GetHealthResponses,
   InventoryItemsGetAllData,
   InventoryItemsGetAllErrors,
   InventoryItemsGetAllResponses,
   InventoryItemsGetAllUnitsData,
   InventoryItemsGetAllUnitsErrors,
   InventoryItemsGetAllUnitsResponses,
+  MarketplaceAutoMapRulesCreateRuleData,
+  MarketplaceAutoMapRulesCreateRuleErrors,
+  MarketplaceAutoMapRulesCreateRuleResponses,
+  MarketplaceAutoMapRulesDeleteRuleData,
+  MarketplaceAutoMapRulesDeleteRuleErrors,
+  MarketplaceAutoMapRulesDeleteRuleResponses,
+  MarketplaceAutoMapRulesGetRulesData,
+  MarketplaceAutoMapRulesGetRulesErrors,
+  MarketplaceAutoMapRulesGetRulesResponses,
+  MarketplaceAutoMapRulesUpdateRuleData,
+  MarketplaceAutoMapRulesUpdateRuleErrors,
+  MarketplaceAutoMapRulesUpdateRuleResponses,
   MarketplacesAutoMapCardsData,
   MarketplacesAutoMapCardsErrors,
   MarketplacesAutoMapCardsResponses,
@@ -460,6 +474,14 @@ export type Options<
    */
   meta?: Record<string, unknown>;
 };
+
+export const getHealth = <ThrowOnError extends boolean = false>(
+  options?: Options<GetHealthData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<GetHealthResponses, unknown, ThrowOnError>({
+    url: "/health",
+    ...options,
+  });
 
 /**
  * Authenticate with username and password.
@@ -932,6 +954,85 @@ export const inventoryItemsGetAllUnits = <ThrowOnError extends boolean = false>(
   >({url: "/api/inventory-items/units", ...options});
 
 /**
+ * All auto-mapping rules, in the order they are applied.
+ *
+ * Takes no parameters and is not paginated — the rule set is small by design. Ordered by
+ * `priority` descending, then by `id`. Requires `integrations.view`;
+ * 403 `permissionDenied` otherwise.
+ */
+export const marketplaceAutoMapRulesGetRules = <ThrowOnError extends boolean = false>(
+  options?: Options<MarketplaceAutoMapRulesGetRulesData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    MarketplaceAutoMapRulesGetRulesResponses,
+    MarketplaceAutoMapRulesGetRulesErrors,
+    ThrowOnError
+  >({url: "/api/integrations/marketplaces/auto-map-rules", ...options});
+
+/**
+ * Create an auto-mapping rule.
+ *
+ *     Errors:
+ * * 422 required on value — the value is blank
+ * * 422 marketplaceAutoMapRuleInvalidRegex on value — the pattern does not compile
+ * * 422 catalogItemNotFound on catalogItemId
+ * * 422 marketplaceCardMappingTypeNotAllowed on catalogItemId — a product group cannot back a card
+ * * 422 marketplaceCardMappingArchivedItem on catalogItemId — the target is archived
+ * Requires `integrations.map`.
+ */
+export const marketplaceAutoMapRulesCreateRule = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplaceAutoMapRulesCreateRuleData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    MarketplaceAutoMapRulesCreateRuleResponses,
+    MarketplaceAutoMapRulesCreateRuleErrors,
+    ThrowOnError
+  >({
+    url: "/api/integrations/marketplaces/auto-map-rules",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete an auto-mapping rule. Cards it already mapped keep their mapping.
+ *
+ * 404 `marketplaceAutoMapRuleNotFound` when the rule is gone. Requires `integrations.map`.
+ */
+export const marketplaceAutoMapRulesDeleteRule = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplaceAutoMapRulesDeleteRuleData, ThrowOnError>,
+) =>
+  (options.client ?? client).delete<
+    MarketplaceAutoMapRulesDeleteRuleResponses,
+    MarketplaceAutoMapRulesDeleteRuleErrors,
+    ThrowOnError
+  >({url: "/api/integrations/marketplaces/auto-map-rules/{id}", ...options});
+
+/**
+ * Update an auto-mapping rule.
+ *
+ * 404 `marketplaceAutoMapRuleNotFound` when the rule is gone, plus the same 422 codes as creation.
+ * Requires `integrations.map`.
+ */
+export const marketplaceAutoMapRulesUpdateRule = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplaceAutoMapRulesUpdateRuleData, ThrowOnError>,
+) =>
+  (options.client ?? client).put<
+    MarketplaceAutoMapRulesUpdateRuleResponses,
+    MarketplaceAutoMapRulesUpdateRuleErrors,
+    ThrowOnError
+  >({
+    url: "/api/integrations/marketplaces/auto-map-rules/{id}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
  * List marketplace accounts (paginated, searchable).
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
@@ -1332,7 +1433,8 @@ export const marketplacesGetUnmappedCount = <ThrowOnError extends boolean = fals
  * `warehouseId`, `type`, `status`, `marketplaceType`, `marketplaceAccountId`,
  * `marketplaceStatus`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
  * Any of the three marketplace filters also excludes orders without a `MarketplaceOrder`, so they
- * never match Direct orders.
+ * never match Direct orders. `searchString` is the extended search — it also matches box labels and
+ * the catalog items and marketplace cards of the order contents, see bool Order.MatchesExtendedSearch(string pattern).
  * Requires `orders.view` or `orders.view_assigned`; `orders.assemble_assigned` alone does
  * not open the list (403).
  */
@@ -1348,6 +1450,7 @@ export const ordersGetAll = <ThrowOnError extends boolean = false>(
  * The current user's personal assembly worklist: full details of Assembly-status orders that have a task assigned to them.
  *
  * Query params: `warehouseId`, `searchString` (both optional). Not paginated — returns a plain list.
+ * `searchString` is the extended search — see bool Order.MatchesExtendedSearch(string pattern).
  * Only orders in `Assembly` status with at least one `AssemblyTask` assigned to the caller are
  * returned, and each order carries only that caller's own tasks; other assemblers' tasks are filtered out.
  * Every task box component is annotated with `containsUnit`, computed by walking the Bundle/Variation

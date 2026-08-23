@@ -59,6 +59,7 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<MarketplaceCard> MarketplaceCards => Set<MarketplaceCard>();
     public DbSet<MarketplaceSyncRun> MarketplaceSyncRuns => Set<MarketplaceSyncRun>();
     public DbSet<MarketplaceOrder> MarketplaceOrders => Set<MarketplaceOrder>();
+    public DbSet<MarketplaceAutoMapRule> MarketplaceAutoMapRules => Set<MarketplaceAutoMapRule>();
 
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderMarketplaceItem> OrderMarketplaceItems => Set<OrderMarketplaceItem>();
@@ -652,6 +653,20 @@ public class ApplicationDbContext : IdentityDbContext<
             e.HasIndex(x => new { x.MarketplaceAccountId, x.OfferId });
             // postings carry sku, never product_id, so order sync resolves cards through this index
             e.HasIndex(x => new { x.MarketplaceAccountId, x.Sku });
+            e.HasIndex(x => x.CatalogItemId);
+        });
+
+        builder.Entity<MarketplaceAutoMapRule>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            // Restrict: a rule pointing at a deleted item would silently stop mapping anything.
+            e.HasOne(x => x.CatalogItem)
+                .WithMany()
+                .HasForeignKey(x => x.CatalogItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(x => new { x.IsEnabled, x.Priority }).IsDescending(false, true);
             e.HasIndex(x => x.CatalogItemId);
         });
 

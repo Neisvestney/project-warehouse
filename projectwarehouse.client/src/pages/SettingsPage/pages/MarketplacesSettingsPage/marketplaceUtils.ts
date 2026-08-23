@@ -1,8 +1,10 @@
 import type {ChipProps} from "@mui/material";
 import type {
   MarketplaceCapabilities,
+  MarketplaceCardField,
   MarketplaceCardMappingState,
   MarketplaceMappingSource,
+  MarketplaceRuleOperator,
   MarketplaceSyncScope,
   MarketplaceSyncStatus,
   MarketplaceType,
@@ -55,7 +57,40 @@ export const MAPPING_SOURCE_LABELS: Record<MarketplaceMappingSource, string> = {
   manual: "вручную",
   autoOfferId: "авто (артикул)",
   autoBarcode: "авто (штрихкод)",
+  rule: "по правилу",
 };
+
+export const CARD_FIELD_LABELS: Record<MarketplaceCardField, string> = {
+  offerId: "Артикул продавца",
+  sku: "SKU",
+  externalId: "ID карточки",
+  name: "Название",
+  barcode: "Штрихкод",
+};
+
+export const ALL_CARD_FIELDS: MarketplaceCardField[] = [
+  "offerId",
+  "sku",
+  "externalId",
+  "name",
+  "barcode",
+];
+
+export const RULE_OPERATOR_LABELS: Record<MarketplaceRuleOperator, string> = {
+  equals: "равно",
+  contains: "содержит",
+  startsWith: "начинается с",
+  endsWith: "заканчивается на",
+  regex: "регулярное выражение",
+};
+
+export const ALL_RULE_OPERATORS: MarketplaceRuleOperator[] = [
+  "equals",
+  "contains",
+  "startsWith",
+  "endsWith",
+  "regex",
+];
 
 export const MAPPING_STATE_LABELS: Record<MarketplaceCardMappingState, string> = {
   all: "Все",

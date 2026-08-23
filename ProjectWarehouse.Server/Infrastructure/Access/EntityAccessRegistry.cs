@@ -82,6 +82,11 @@ public class EntityAccessRegistry
 
             new SimpleAccessRule<MarketplaceCard>(db, AppEntityType.MarketplaceCard,
                 Permissions.Integrations.View, Permissions.Integrations.Edit),
+
+            // Registered under the plural type: the lock and the change event address the rule set as a
+            // whole, and mapping is the right that editing a rule actually needs.
+            new SimpleAccessRule<MarketplaceAutoMapRule>(db, AppEntityType.MarketplaceAutoMapRules,
+                Permissions.Integrations.View, Permissions.Integrations.Map),
         ];
 
         _byEntityType = rules.ToDictionary(r => r.EntityType);

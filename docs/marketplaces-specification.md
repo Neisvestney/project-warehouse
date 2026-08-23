@@ -425,7 +425,7 @@ MarketplaceCard : IHasIdentity
 ├── CurrencyCode          — string?
 ├── IsArchived            — bool
 ├── CatalogItemId         — Guid? → CatalogItem (Restrict) — привязка к каталогу WMS
-├── MappingSource         — MarketplaceMappingSource? (Manual | AutoOfferId | AutoBarcode)
+├── MappingSource         — MarketplaceMappingSource? (Manual | AutoOfferId | AutoBarcode | Rule)
 ├── MappedAt              — DateTime?
 └── SyncedAt              — DateTime
 
@@ -659,13 +659,35 @@ MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, Labels, Stock
 
 Обновление карточки **никогда не сбрасывает `CatalogItemId` и `MappingSource`** — маппинг живёт независимо от данных карточки.
 
+### Правило автосопоставления (`MarketplaceAutoMapRule`)
+
+```
+MarketplaceAutoMapRule : IHasIdentity
+├── Id             — Guid
+├── Field          — MarketplaceCardField (OfferId | Sku | ExternalId | Name | Barcode)
+├── Operator       — MarketplaceRuleOperator (Equals | Contains | StartsWith | EndsWith | Regex)
+├── Value          — string, значение или шаблон
+├── CatalogItemId  — Guid → CatalogItem (Restrict) — целевой товар
+├── IsEnabled      — bool
+├── Priority       — int, больше — применяется раньше
+├── CreatedAt      — DateTime
+└── UpdatedAt      — DateTime
+
+Индексы: (IsEnabled, Priority DESC), (CatalogItemId)
+```
+
+Правила **глобальные**: один набор на всё приложение, никакой привязки к аккаунту или площадке. Условие проверяется по одному полю карточки; `Field = Barcode` означает «совпал хотя бы один штрихкод». Сравнение строк — `OrdinalIgnoreCase`, для `Regex` — `IgnoreCase | CultureInvariant`.
+
+`Restrict` на `CatalogItem` умышленный: удалённый товар оставил бы правило указывающим в пустоту.
+
 ### Автосопоставление
 
 Применяется только к карточкам с `CatalogItemId == null`. Существующая привязка не перезаписывается ни при каких условиях.
 
-1. **По артикулу.** `OfferId` сравнивается с `CatalogItem.Article` без учёта регистра. Кандидаты фильтруются: `IsArchived == false` и `Type ∈ { Standard, Unit, Bundle, Variation }`. Ровно один кандидат → привязка с `MappingSource = AutoOfferId`.
-2. **По штрихкоду.** Если по артикулу совпадения нет — любой из `Barcodes` карточки сравнивается с `CatalogItem.Barcode`. Ровно один кандидат → `MappingSource = AutoBarcode`.
-3. Ноль кандидатов или больше одного → карточка остаётся несопоставленной. Неоднозначность разрешает человек.
+1. **По правилу.** Активные (`IsEnabled`) правила перебираются по убыванию `Priority`, затем по `Id`; первое подошедшее выигрывает и даёт `MappingSource = Rule` с товаром из правила. Правила проверяются раньше эвристик: правило — решение человека, эвристика — догадка.
+2. **По артикулу.** `OfferId` сравнивается с `CatalogItem.Article` без учёта регистра. Кандидаты фильтруются: `IsArchived == false` и `Type ∈ { Standard, Unit, Bundle, Variation }`. Ровно один кандидат → привязка с `MappingSource = AutoOfferId`.
+3. **По штрихкоду.** Если по артикулу совпадения нет — любой из `Barcodes` карточки сравнивается с `CatalogItem.Barcode`. Ровно один кандидат → `MappingSource = AutoBarcode`.
+4. Ноль кандидатов или больше одного → карточка остаётся несопоставленной. Неоднозначность разрешает человек.
 
 Автосопоставление по штрихкоду до `Variation` и `Bundle` не дотягивается — кандидаты фильтруются явным `Type ∈ { Standard, Unit }`. По соглашению `Barcode` у этих типов не заполняется (см. [items-specification.md](items-specification.md#fields-by-type)), но **схема этого не гарантирует**: `CatalogItem.Barcode` — обычная nullable-строка у всех пяти типов, ограничение нигде не enforced. Полагаться на `null` нельзя, поэтому фильтр по типу задаётся явно. Карточка, за которой стоит вариация, сопоставляется либо по артикулу самой вариации, либо вручную.
 
@@ -673,7 +695,13 @@ MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, Labels, Stock
 
 Отдельный риск неоднозначности: если артикул вариации совпадает с артикулом одного из её же членов, кандидатов окажется два и автосопоставление корректно откажется выбирать. Это сознательное поведение — угадывание уровня привязки здесь дороже ручного разбора.
 
+Правило, чей целевой товар архивен или сменил `Type` на недопустимый, из набора выпадает — карточка едет дальше по цепочке. Регулярное выражение компилируется один раз на прогон; таймаут матчинга — 200 мс, срабатывание считается «не совпало» и пишется в лог предупреждением, чтобы один злой шаблон не останавливал синхронизацию аккаунта.
+
 Ручной запуск автосопоставления по всему аккаунту доступен отдельной кнопкой и подчиняется тем же правилам.
+
+Каждая мутация правила пишет запись журнала на само правило (`MarketplaceAutoMapRule` + его `Id`) и **дополнительно** публикует `entityChanged` на набор — `MarketplaceAutoMapRules` с пустым `Guid`. Событие журнала адресовано одному правилу, а страница смотрит за набором целиком, поэтому без явной публикации она бы о правке не узнала.
+
+Набор зарегистрирован в `EntityAccessRegistry` как `SimpleAccessRule<MarketplaceAutoMapRule>` под типом `MarketplaceAutoMapRules` с правами `integrations.view` / `integrations.map`. Без правила `acquire` блокировки отдавал бы 403: тип без записи в реестре недоступен по умолчанию. Сингуляр `MarketplaceAutoMapRule` в реестре не заводится — он только ключ журнала, за ним никто не наблюдает.
 
 ### Допустимые цели маппинга
 
@@ -736,6 +764,10 @@ Quartz регистрируется с in-memory хранилищем задач
 | `GET` | `/accounts/{id}/cards` | `integrations.view` | Карточки (поиск, `mappingState` = `all`/`unmapped`/`mapped`/`archivedItem`, `includeArchived`) |
 | `PUT` | `/cards/{id}/mapping` | `integrations.map` | Привязка карточки, `{ catalogItemId }`, `null` — снять |
 | `POST` | `/accounts/{id}/cards/auto-map` | `integrations.map` | Автосопоставление по всему аккаунту |
+| `GET` | `/auto-map-rules` | `integrations.view` | Правила автосопоставления в порядке применения (`priority` по убыванию), без пагинации |
+| `POST` | `/auto-map-rules` | `integrations.map` | Создание правила |
+| `PUT` | `/auto-map-rules/{id}` | `integrations.map` | Изменение правила |
+| `DELETE` | `/auto-map-rules/{id}` | `integrations.map` | Удаление правила, `204`. Сопоставленные им карточки сохраняют привязку |
 | `GET` | `/accounts/unmapped-count` | `integrations.view` | `{ count }` несопоставленных карточек по всем активным аккаунтам — источник данных для бейджа в сайдбаре |
 | `GET` | `/accounts/order-sync-targets` | `integrations.sync` | Аккаунты, доступные для синхронизации заказов, — источник данных для модалки |
 | `POST` | `/accounts/sync-orders` | `integrations.sync` | Запуск синхронизации заказов по нескольким аккаунтам, тело `{ accountIds }` → `202` |
@@ -789,7 +821,7 @@ Quartz регистрируется с in-memory хранилищем задач
 
 ### Changelog
 
-`AppEntityType` несёт `MarketplaceAccount = 9` и `MarketplaceCard = 10`. Номера проставлены явно и **не перенумеровываются** — enum персистится в `ChangeLogEntry.EntityType` как `int`, и смена номера молча переинтерпретировала бы все существующие записи журнала.
+`AppEntityType` несёт `MarketplaceAccount = 9`, `MarketplaceCard = 10`, `MarketplaceAutoMapRule = 15` и `MarketplaceAutoMapRules = 16`. Номера проставлены явно и **не перенумеровываются** — enum персистится в `ChangeLogEntry.EntityType` как `int`, и смена номера молча переинтерпретировала бы все существующие записи журнала.
 
 | Действие | `action` | `actionData` |
 |----------|----------|--------------|
@@ -801,12 +833,15 @@ Quartz регистрируется с in-memory хранилищем задач
 | Ручная привязка карточки | `mapping.set` | `{ catalogItemId, source: "manual" }` |
 | Снятие привязки | `mapping.cleared` | — |
 | Автосопоставление | `mapping.auto` | `{ matched, remaining }` |
+| Создание правила | `rule.created` | — |
+| Изменение правила | `rule.updated` | — |
+| Удаление правила | `rule.deleted` | — |
 
 **Записи `sync.started` нет.** `AbstractChangeLogService` пишет запись только при непустом диффе `before`/`after`, а старт синхронизации сам по себе состояние аккаунта не меняет — запись либо не создалась бы вовсе, либо пришлось бы подделывать тип `Added`. Факт запуска и так виден в `MarketplaceSyncRun` со статусом `Running`, который создаётся и коммитится сразу; в журнал попадает итог. По той же причине `mapping.auto` пишется через дифф аккаунта (меняется `unmappedCardCount`) — прогон, не сопоставивший ничего, записи не создаёт.
 
 Фоновая синхронизация выполняется без пользователя — `ChangeLogEntry.UserId` остаётся `null`, что схема допускает.
 
-Оба значения `AppEntityType` используются **только** как `ChangeLogEntry.EntityType`: у карточки нет собственной страницы, а маппинга `MarketplaceCard → AppEntity` в `AppMapperProfile` нет вовсе. `MarketplaceOrder` своего значения не получает — на бэкенде он отображается в `AppEntityType.Order`.
+`MarketplaceAccount`, `MarketplaceCard` и `MarketplaceAutoMapRule` используются **только** как `ChangeLogEntry.EntityType`: ни у карточки, ни у отдельного правила нет собственной страницы, а маппингов `MarketplaceCard → AppEntity` и `MarketplaceAutoMapRule → AppEntity` в `AppMapperProfile` нет вовсе. `MarketplaceAutoMapRules` в журнал не пишется вовсе — это адрес набора правил целиком, по нему берётся блокировка страницы и рассылается `entityChanged`. `MarketplaceOrder` своего значения не получает — на бэкенде он отображается в `AppEntityType.Order`.
 
 **Заказы, созданные синхронизацией, в changelog не пишутся** — по тому же правилу «синхронизация не пишет в журнал». Прогон на сотню заказов затопил бы журнал сотней записей `Added`, не несущих информации сверх той, что уже есть в `sync.finished` и в самих заказах. Получение этикетки тоже не логируется: это чтение с площадки, а не изменение заказа.
 

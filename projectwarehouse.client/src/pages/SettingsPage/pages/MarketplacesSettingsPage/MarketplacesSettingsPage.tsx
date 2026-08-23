@@ -14,6 +14,7 @@ import {
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import RuleIcon from "@mui/icons-material/Rule";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import {useQuery} from "@tanstack/react-query";
 import {Link as RouterLink, useNavigate} from "react-router";
@@ -94,6 +95,15 @@ function MarketplacesSettingsPage() {
             <IconButton color="inherit" onClick={() => refetch()}>
               <RefreshIcon />
             </IconButton>
+            <Button
+              variant="text"
+              startIcon={<RuleIcon />}
+              size="small"
+              component={RouterLink}
+              to="/settings/integrations/auto-map-rules"
+            >
+              Правила автосопоставления
+            </Button>
             {canEdit && (
               <Button
                 variant="outlined"
