@@ -70,15 +70,14 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
     (q) => (typeof q === "string" ? q : ""),
     (v) => v || null,
   );
-
-  // Рабочий список — несопоставленные, поэтому это и есть значение по умолчанию
+  
   const [mappingState, setMappingState] = useSyncedWithQueryState<MarketplaceCardMappingState>(
     "mappingState",
     (q) =>
       ALL_MAPPING_STATES.includes(q as MarketplaceCardMappingState)
         ? (q as MarketplaceCardMappingState)
-        : "unmapped",
-    (v) => (v === "unmapped" ? null : v),
+        : "all",
+    (v) => (v === "all" ? null : v),
   );
 
   const [includeArchived, setIncludeArchived] = useSyncedWithQueryState(
