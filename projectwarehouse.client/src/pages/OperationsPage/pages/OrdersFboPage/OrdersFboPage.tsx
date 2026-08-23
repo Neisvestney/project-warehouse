@@ -4,7 +4,7 @@ function OrdersFboPage() {
   return (
     <OrdersListPage
       type="fbo"
-      title="Заказы FBO"
+      title="Поставки FBO"
       breadcrumbName="FBO"
       breadcrumbLink="/operations/orders/fbo"
       marketplaceFilters
