@@ -176,6 +176,21 @@ Thin presentational wrappers; read the file. Two non-obvious details: `InfoRow`'
 and every `keydown` except `Escape`/`Tab`, so a dropdown stays open and its arrow-key navigation doesn't hijack
 the «Выбрать все» / «Снять выбор» buttons.
 
+`InfoRow`'s value slot renders as `Typography component="div"`, so a chip or any other block element can be
+passed as `value` without invalid nesting.
+
+### `WarehouseChip`, `UserChip`
+
+`<WarehouseChip warehouseId={…} name={…} />` and `<UserChip userId={…} name={…} />` (both in
+`components/shared/`) — outlined `size="small"` chips used as the `value` of an `InfoRow` wherever a detail view
+names a warehouse («Склад») or a person («Создал», «Кем подключён»).
+
+Each checks the viewer's rights itself: `WarehouseChip` needs `warehouses.view` or `warehouses.view_assigned`
+and links to `/storage/warehouses/{id}`, `UserChip` needs `users.view` and links to
+`/settings/employees/{id}`. Without the permission — or without an id — the same chip renders unlinked, so the
+row keeps its shape either way. `onClick` stops propagation so a chip inside a clickable row doesn't trigger it.
+Both forward the remaining `Chip` props.
+
 ### `UserAvatar`
 
 `<UserAvatar userId={…} name={…} />` — a MUI `Avatar` whose background is derived from the user id, so the same

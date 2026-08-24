@@ -1,5 +1,5 @@
 import {useCallback, useState} from "react";
-import {Link as RouterLink, useNavigate, useParams} from "react-router";
+import {useNavigate, useParams} from "react-router";
 import {
   Alert,
   Box,
@@ -35,6 +35,7 @@ import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import InfoRow from "@/components/InfoRow";
+import WarehouseChip from "@/components/shared/WarehouseChip";
 import WriteoffStatusChip from "@/components/writeoffs/WriteoffStatusChip";
 import WriteoffItemsSection from "@/components/writeoffs/WriteoffItemsSection";
 import {WRITEOFF_REASON_LABELS, formatWriteoffNumber} from "@/components/writeoffs/writeoffUtils";
@@ -322,22 +323,15 @@ function WriteoffPage() {
               <>
                 <InfoRow label="Номер" value={formatWriteoffNumber(writeoff.number)} />
                 <InfoRow label="Причина" value={WRITEOFF_REASON_LABELS[writeoff.reason]} />
-                <Stack direction="row" spacing={1} sx={{alignItems: "baseline"}}>
-                  <Typography color="text.secondary" sx={{width: 160, flexShrink: 0}}>
-                    Склад
-                  </Typography>
-                  <Typography
-                    component={RouterLink}
-                    to={`/storage/warehouses/${writeoff.warehouseId}`}
-                    sx={{
-                      color: "primary.main",
-                      textDecoration: "none",
-                      "&:hover": {textDecoration: "underline"},
-                    }}
-                  >
-                    {writeoff.warehouseName}
-                  </Typography>
-                </Stack>
+                <InfoRow
+                  label="Склад"
+                  value={
+                    <WarehouseChip
+                      warehouseId={writeoff.warehouseId}
+                      name={writeoff.warehouseName}
+                    />
+                  }
+                />
                 <InfoRow
                   label="Создано"
                   value={new Date(writeoff.createdAt).toLocaleString("ru-RU")}

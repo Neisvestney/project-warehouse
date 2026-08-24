@@ -70,7 +70,7 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
     (q) => (typeof q === "string" ? q : ""),
     (v) => v || null,
   );
-  
+
   const [mappingState, setMappingState] = useSyncedWithQueryState<MarketplaceCardMappingState>(
     "mappingState",
     (q) =>

@@ -16,6 +16,15 @@ const theme = createTheme({
       contrastText: "#FFFFFF",
     },
   },
+  components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        html: {
+          overflowY: "scroll",
+        },
+      },
+    },
+  },
 });
 
 export default theme;

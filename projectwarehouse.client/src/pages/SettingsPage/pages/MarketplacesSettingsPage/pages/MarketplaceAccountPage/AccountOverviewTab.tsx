@@ -1,5 +1,6 @@
 import {Alert, Chip, Paper, Stack, Typography} from "@mui/material";
 import InfoRow from "@/components/InfoRow";
+import UserChip from "@/components/shared/UserChip";
 import SyncErrorAlert from "../../components/SyncErrorAlert";
 import {
   MARKETPLACE_TYPE_LABELS,
@@ -41,19 +42,28 @@ function AccountOverviewTab({account}: AccountOverviewTabProps) {
           <InfoRow label="Client-Id" value={account.externalClientId ?? "—"} />
           <InfoRow label="Ключ обновлён" value={formatDateTime(account.apiKeyUpdatedAt)} />
           <InfoRow label="Интервал, мин" value={String(account.syncIntervalMinutes)} />
-          <Stack direction="row" spacing={1} sx={{alignItems: "baseline"}}>
-            <Typography color="text.secondary" sx={{width: 160, flexShrink: 0}}>
-              Авто-синхронизация
-            </Typography>
-            <Chip
-              label={account.isActive ? "Включена" : "Отключена"}
-              color={account.isActive ? "success" : "default"}
-              size="small"
-            />
-          </Stack>
+          <InfoRow
+            label="Авто-синхронизация"
+            value={
+              <Chip
+                label={account.isActive ? "Включена" : "Отключена"}
+                color={account.isActive ? "success" : "default"}
+                size="small"
+              />
+            }
+          />
           <InfoRow label="Последняя синхронизация" value={formatDateTime(account.lastSyncAt)} />
           <InfoRow label="Подключён" value={formatDateTime(account.createdAt)} />
-          <InfoRow label="Кем подключён" value={account.createdByName ?? "—"} />
+          <InfoRow
+            label="Кем подключён"
+            value={
+              account.createdByName ? (
+                <UserChip userId={account.createdById} name={account.createdByName} />
+              ) : (
+                "—"
+              )
+            }
+          />
         </Stack>
       </Paper>
 

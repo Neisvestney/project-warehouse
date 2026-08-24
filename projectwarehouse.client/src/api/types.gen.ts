@@ -996,6 +996,7 @@ export type OrderDetailsDto = {
   createdAt: string;
   warehouseId: string;
   warehouseName: string;
+  createdById?: null | string;
   createdByName?: null | string;
   marketplaceOrder?: null | MarketplaceOrderDto;
   marketplaceItems: Array<OrderMarketplaceItemDto>;

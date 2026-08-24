@@ -4,7 +4,6 @@ import {
   AccordionDetails,
   AccordionSummary,
   Checkbox,
-  Chip,
   Stack,
   Tooltip,
   Typography,
@@ -14,6 +13,7 @@ import {Link} from "react-router";
 import type {OrderDetailsDto} from "@/api/types.gen";
 import OrderTypeChip from "@/components/orders/OrderTypeChip";
 import MarketplaceAccountChip from "@/components/marketplace/MarketplaceAccountChip";
+import WarehouseChip from "@/components/shared/WarehouseChip";
 import AssemblyOrderBoxesSection from "./AssemblyOrderBoxesSection";
 import AssemblyTaskAccordion, {AssemblyTaskStatusChip} from "./AssemblyTaskAccordion";
 import {formatOrderNumber} from "@/components/orders/orderUtils";
@@ -102,7 +102,7 @@ function AssemblyOrderAccordion({
           </Typography>
 
           <OrderTypeChip type={order.type} />
-          <Chip label={order.warehouseName} size="small" variant="outlined" />
+          <WarehouseChip warehouseId={order.warehouseId} name={order.warehouseName} />
           {order.marketplaceOrder && (
             <MarketplaceAccountChip
               accountId={order.marketplaceOrder.marketplaceAccountId}

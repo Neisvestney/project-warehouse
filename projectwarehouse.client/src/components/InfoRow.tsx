@@ -12,7 +12,7 @@ function InfoRow({label, value}: InfoRowProps) {
       <Typography color="text.secondary" sx={{width: 160, flexShrink: 0}}>
         {label}
       </Typography>
-      <Typography>{value}</Typography>
+      <Typography component="div">{value}</Typography>
     </Stack>
   );
 }
