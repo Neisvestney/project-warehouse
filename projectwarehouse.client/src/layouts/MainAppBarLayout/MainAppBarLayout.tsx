@@ -1,7 +1,7 @@
 import React, {Suspense, useLayoutEffect} from "react";
 import {Container} from "@mui/material";
 import {Outlet} from "react-router";
-import MainAppBar, {MAIN_APP_BAR_HEIGHT} from "@/components/MainAppBar.tsx";
+import MainAppBar, {MAIN_APP_BAR_HEIGHT} from "@/components/MainNav/MainAppBar.tsx";
 import {APP_BAR_HEIGHT_VAR} from "@/hooks/useFloatTop.ts";
 import RouteFallback from "@/components/RouteFallback.tsx";
 

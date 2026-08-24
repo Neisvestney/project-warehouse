@@ -1,59 +1,12 @@
 import React from "react";
-import {Box, List, ListItemButton, ListItemIcon, ListItemText, Tab, Tabs} from "@mui/material";
-import {Link, matchPath, useLocation} from "react-router";
-
-export interface SidebarNavLeafItem {
-  label: string;
-  path: string;
-  icon?: React.ReactElement;
-}
-
-export interface SidebarNavGroup {
-  label: string;
-  defaultPath: string;
-  children: SidebarNavLeafItem[];
-  icon?: React.ReactElement;
-}
-
-export type SidebarNavItem = SidebarNavLeafItem | SidebarNavGroup;
+import {Box, List, ListItemButton, ListItemIcon, ListItemText} from "@mui/material";
+import {Link, useLocation} from "react-router";
+import {isActive, isGroup} from "./navItems.ts";
+import type {SidebarNavGroup, SidebarNavItem, SidebarNavLeafItem} from "./navItems.ts";
 
 export interface SidebarLayoutProps {
   navItems: SidebarNavItem[];
   children: React.ReactNode;
-}
-
-function isGroup(item: SidebarNavItem): item is SidebarNavGroup {
-  return "children" in item;
-}
-
-function isActive(path: string, locationPathname: string): boolean {
-  return !!matchPath({path, end: false}, locationPathname);
-}
-
-function activeTabValue(navItems: SidebarNavItem[], locationPathname: string): string | false {
-  for (const item of navItems) {
-    if (isGroup(item)) {
-      if (item.children.some((c) => isActive(c.path, locationPathname))) return item.defaultPath;
-    } else {
-      if (isActive(item.path, locationPathname)) return item.path;
-    }
-  }
-  return false;
-}
-
-function activeTabValueFull(navItems: SidebarNavItem[], locationPathname: string): string | false {
-  for (const item of navItems) {
-    if (isGroup(item)) {
-      for (const child of item.children) {
-        if (isActive(child.path, locationPathname)) {
-          return child.path;
-        }
-      }
-    } else {
-      if (isActive(item.path, locationPathname)) return item.path;
-    }
-  }
-  return false;
 }
 
 function SidebarDesktopLeaf({
@@ -116,12 +69,9 @@ function SidebarDesktopGroup({
 
 function SidebarLayout({navItems, children}: SidebarLayoutProps) {
   const location = useLocation();
-  const _activeTabPath = activeTabValue(navItems, location.pathname);
-  const activeTabPathFull = activeTabValueFull(navItems, location.pathname);
 
   return (
     <Box sx={{display: "flex", flexDirection: {xs: "column", md: "row"}, gap: 2}}>
-      {/* Desktop sidebar */}
       <Box
         component="nav"
         sx={{
@@ -150,52 +100,6 @@ function SidebarLayout({navItems, children}: SidebarLayoutProps) {
             ),
           )}
         </List>
-      </Box>
-
-      {/* Mobile tabs */}
-      <Box sx={{display: {xs: "block", md: "none"}}}>
-        <Tabs
-          value={activeTabPathFull}
-          variant="scrollable"
-          scrollButtons="auto"
-          slotProps={{
-            root: {
-              sx: {
-                minHeight: 30,
-              },
-            },
-          }}
-        >
-          {navItems.map((item) =>
-            isGroup(item) ? (
-              item.children.map((child) => (
-                <Tab
-                  key={child.path}
-                  label={child.label}
-                  value={child.path}
-                  component={Link}
-                  to={child.path}
-                  sx={{
-                    minHeight: 30,
-                  }}
-                />
-              ))
-            ) : (
-              <Tab
-                key={item.path}
-                label={item.label}
-                value={item.path}
-                icon={item.icon}
-                iconPosition="start"
-                component={Link}
-                to={item.path}
-                sx={{
-                  minHeight: 30,
-                }}
-              />
-            ),
-          )}
-        </Tabs>
       </Box>
 
       {/* Content */}

@@ -28,6 +28,35 @@ navigation can never be overwritten by a stale re-application.
 Generic debounce hook. Returns the debounced copy of `value`; updates only after `delay` ms of inactivity
 (default 300 ms).
 
+### `useBackClosable(open, onClose)`
+
+Makes a fullscreen overlay dismissable with Back. While `open`, the hook holds one history entry of its own
+(`history.pushState` with the router's own state carried over plus an `__overlay` marker), so a Back press —
+including the hardware button in the Capacitor build — pops that entry and the `popstate` listener calls
+`onClose` instead of the user leaving the page. Closing the overlay any other way drops the entry again in
+the effect cleanup.
+
+The marker holds the hook instance's `useId`, not a plain flag, which is what keeps stacked overlays
+independent. `popstate` is a window event and reaches every open overlay's listener, so each one compares the
+marker now current against its own id: the overlay whose entry was popped closes, the ones still holding
+theirs ignore the event. The cleanup uses the same comparison before calling `history.back()` — without it an
+overlay would drop a neighbour's entry and a single Back press would walk back several steps. The comparison
+also absorbs the duplicate push StrictMode's double-invoked effect produces in dev.
+
+`idx` is copied unchanged, so the held entry is invisible to react-router's own index tracking. That is safe
+while nothing in the app uses `useBlocker` / `usePrompt`, which are the only consumers of that delta.
+
+Used by `MainNavDrawer` and `GlobalSearchModal`.
+
+**Links inside such an overlay must navigate with `replace`** (`<Link replace>` / `navigate(to, {replace: true})`).
+The held entry carries the current URL, so replacing it puts the destination exactly where the overlay stood
+and Back from there returns to the page the user came from; a plain push would leave a duplicate entry that
+swallows one Back press.
+
+That navigation also has to be **synchronous**, which is what the declarative router in `main.tsx` gives.
+Under a data router with async loaders `onClose` would run before the entry is actually replaced, and the
+cleanup would call `history.back()` over a navigation still in flight.
+
 ### `useSyncedWithQueryState(key, fromQuery, toQuery)`
 
 Binds a typed state value to a single URL query param. Returns `[value, setValue]`; `setValue` writes through
@@ -131,10 +160,18 @@ param. Returns `[selectedItemId, openDrawer, closeDrawer]`.
 
 - `selectedItemId` — `string | null`; the current value of `?{name}=`, or `null` when closed. Pass directly to
   `open={!!selectedItemId}` and to the entity fetch.
-- `openDrawer(id)` — navigates **forward** (no `replace`), so pressing browser back closes the drawer.
-- `closeDrawer()` — removes the param with `replace: true`, so closing via button/×/escape doesn't add an extra
-  history entry, and back goes to wherever the user was before opening it. Guards against no-ops when the param
-  is already absent.
+- `openDrawer(id)` — navigates **forward** (no `replace`), so pressing browser back closes the drawer. It also
+  records the history index the drawer opened at.
+- `closeDrawer()` — walks the history back to that recorded index, so closing via button/×/escape leaves the
+  user where they were before opening the drawer, however many entries were pushed while it was open. It falls
+  back to dropping the param with `replace: true` whenever that walk is not well defined: no index was recorded
+  (the drawer was restored from a bookmarked URL rather than opened in this session), or the recorded index is
+  no longer behind the current one and has therefore gone stale. Guards against no-ops when the param is
+  already absent.
+
+The index comes from `idx` in `history.state`, which react-router maintains — **not** from `history.length`.
+`history.length` counts forward entries too, never shrinks on back, and grows with anything an overlay pushes
+on top (see [`useBackClosable`](#usebackclosableopen-onclose)), so a delta measured from it walks back too far.
 
 Use it for any drawer whose open state should survive a refresh; do not use it for transient UI state.
 

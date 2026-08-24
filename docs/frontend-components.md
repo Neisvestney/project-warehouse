@@ -8,12 +8,37 @@ Architecture overview: [frontend.md](frontend.md).
 
 ### `MainAppBar`
 
-Top navigation bar with a permission-filtered link set. Each entry supports `requiredPermission`
-(`PermissionName | PermissionName[]` — an array means "any of"), `showIf` (an arbitrary predicate over
-permissions) and `url`, which may be a plain string **or** a `(permissions: PermissionName[]) => string`
-factory. The sidebar modules use the factory form (`getStorageFirstPageUrl`, `getOperationsFirstPageUrl`,
-`getSettingsFirstPageUrl`) so the app bar links straight to the first section the user can actually reach
-instead of a redirect that might bounce them to `AccessDenied`.
+Top navigation bar. It lives in `@/components/MainNav/` together with `MainNavDrawer` and the shared
+`mainNavConfig.tsx` they both read. The link set lives in `mainNavConfig.tsx`: `mainNavPages` declares
+the entries, `resolveMainNavPages(permissions)` filters them and resolves each `url`. An entry supports
+`requiredPermission` (`PermissionName | PermissionName[]` — an array means "any of"), `showIf` (an arbitrary
+predicate over permissions) and `url`, which may be a plain string **or** a
+`(permissions: PermissionName[]) => string` factory. The sidebar modules use the factory form
+(`getStorageFirstPageUrl`, `getOperationsFirstPageUrl`, `getSettingsFirstPageUrl`) so the app bar links
+straight to the first section the user can actually reach instead of a redirect that might bounce them to
+`AccessDenied`.
+
+An entry may also carry `basePath` + `sections: SectionConfig[]` — the module's own sidebar config.
+`resolveMainNavPages` feeds those through `toNavItems` so each resolved page also exposes `navItems`, the
+same permission-filtered tree `SidebarPage` renders. That is what `MainNavDrawer` expands.
+
+On desktop (md+) the entries render as flat `Button` links; on mobile the burger opens `MainNavDrawer`.
+
+### `MainNavDrawer`
+
+Left-anchored mobile navigation `Drawer`. Pages without
+`navItems` (e.g. Каталог) are plain links; pages with them are accordion rows — **only one section is
+expanded at a time**, and the header row only toggles, it never navigates, so a mistap on a touch screen
+cannot throw the user onto another page.
+
+Expansion is derived, not stored: `expandedOverride === undefined` means "nobody picked one yet" and the
+section containing the current route is shown open; toggling writes an explicit override, and closing the
+drawer clears it back to `undefined`. Nested `SidebarNavGroup`s render as a non-clickable caption with their
+children indented under it. Any navigation (link tap, logo) closes the drawer.
+
+Back closes the drawer instead of leaving the page — see
+[`useBackClosable`](frontend-state.md#usebackclosableopen-onclose). Every link inside therefore navigates with
+`replace`, which is what keeps the history stack clean.
 
 If the `/me` profile query fails, an inline red error is shown in the avatar dropdown via
 `profileIsLoadError` / `profileLoadError` from `AuthContext` — a failed profile must not look like "no
@@ -21,17 +46,18 @@ permissions".
 
 ### `SidebarLayout`
 
-Generic visual layout for pages with left-panel navigation. On desktop (md+) a MUI `List` sidebar; on mobile
-scrollable `Tabs` at the top. Active item detection uses `matchPath({end: false})` so sub-routes highlight the
-parent item.
+Generic visual layout for pages with left-panel navigation: a MUI `List` sidebar on desktop (md+), hidden on
+mobile, where the same items are reachable through `MainNavDrawer`.
 
-On mobile, **groups are expanded into individual child tabs** (each child gets its own `<Tab>`), because a
-collapsed group header would leave its children unreachable without a second tap layer.
+The nav vocabulary both renderers share lives in `@/layouts/SidebarLayout/navItems.ts`: the
+`SidebarNavLeafItem` / `SidebarNavGroup` / `SidebarNavItem` types plus `isGroup` and `isActive`. Active item
+detection goes through `matchPath({end: false})`, so sub-routes highlight the parent item.
 
 ### `SidebarPage`
 
 Routing wrapper on top of `SidebarLayout`. Takes `sections: SectionConfig[]` and a `basePath`, and:
-- builds the nav filtered by user permissions and `showIf`
+- builds the nav filtered by user permissions and `showIf` via `toNavItems`
+  (`@/layouts/SidebarPage/toNavItems.ts`, also used by `MainNavDrawer`)
 - creates `<Routes>` with relative paths (leaves, subroutes, and redirect routes for groups)
 - redirects a group with no `component` to its first visible child at runtime
 - wraps every rendered route in `ProtectedRoute`, rendering `<AccessDenied />` when the section's
