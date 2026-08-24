@@ -1,5 +1,14 @@
-import {type DependencyList, useCallback, useEffect, useRef, useState} from "react";
+import {type DependencyList, type RefObject, useCallback, useEffect, useRef, useState} from "react";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
+
+// Compares deps against the last committed run instead of a "is this the first run" flag: StrictMode
+// remounts replay the effect, and a flag would treat the replay as a real dependency change.
+function depsChangedSince(ref: RefObject<DependencyList | null>, deps: DependencyList): boolean {
+  const prev = ref.current;
+  ref.current = deps;
+  if (prev === null) return false;
+  return prev.length !== deps.length || prev.some((v, i) => !Object.is(v, deps[i]));
+}
 
 interface PaginatedParamsOptions {
   defaultPageSize?: number;
@@ -62,12 +71,9 @@ export function usePaginatedParams<D extends object, I extends object = object>(
     }
   }, [urlPage]);
 
-  const isFirstDebounce = useRef(true);
+  const lastDebouncedDeps = useRef<DependencyList | null>(null);
   useEffect(() => {
-    if (isFirstDebounce.current) {
-      isFirstDebounce.current = false;
-      return;
-    }
+    if (!depsChangedSince(lastDebouncedDeps, debouncedDeps)) return;
     // setState inside a setTimeout callback is async — not a sync effect body, linter-compliant
     const timer = setTimeout(() => {
       setSettled({params: debouncedParams, page: 1});
@@ -77,12 +83,9 @@ export function usePaginatedParams<D extends object, I extends object = object>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, debouncedDeps);
 
-  const isFirstImmediate = useRef(true);
+  const lastImmediateDeps = useRef<DependencyList | null>(null);
   useEffect(() => {
-    if (isFirstImmediate.current) {
-      isFirstImmediate.current = false;
-      return;
-    }
+    if (!depsChangedSince(lastImmediateDeps, immediateDeps ?? [])) return;
     // setTimeout(fn, 0) keeps setState out of the synchronous effect body
     const timer = setTimeout(() => {
       setSettled((prev) => ({...prev, page: 1}));
