@@ -35,7 +35,7 @@ function OrdersFbsPage() {
       breadcrumbName="FBS"
       breadcrumbLink="/operations/orders/fbs"
       headerActions={canSync ? <SyncOrdersButton /> : null}
-      bulkActions={(ids) => <DownloadLabelsButton orderIds={ids} />}
+      bulkActions={(orders) => <DownloadLabelsButton orderIds={orders.map((o) => o.id)} />}
       marketplaceFilters
       extraColumns={EXTRA_COLUMNS}
       showNotes={false}

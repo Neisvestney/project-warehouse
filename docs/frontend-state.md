@@ -153,6 +153,35 @@ const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams(
 `page` is **1-based** throughout the app, including `DataTableContainer`, which converts to MUI's 0-based
 value internally.
 
+### `useSelectedItems(getId, freshItems?)`
+
+Row selection for tables where the selection must outlive the visible page. Stores the **full item objects**,
+not ids, so bulk actions still have every field of a row that has since been paged or filtered away.
+
+Returns `{selectedItems, selectedIds, isSelected, allPageSelected, somePageSelected, toggle, toggleAll,
+removeIds, clear}` — `selectedIds` is a `Set` of the selected ids and `isSelected(id)` the per-row check built
+on it, `allPageSelected` / `somePageSelected` drive the header checkbox and its indeterminate state,
+`toggleAll()` selects the current page or clears it when it is already fully selected (leaving off-page
+selections untouched), `removeIds` drops the items a bulk action just consumed, and `clear` empties the
+selection.
+
+The second argument is the currently fetched page — it is also what the page-scoped members above operate on.
+Whenever it arrives with a new identity the hook writes the matching rows back into the stored selection, so a
+row ticked before a refetch carries its current values rather than the snapshot taken back then, and keeps them
+after paging away. That write happens **during render** rather than in an effect: React re-runs the render with
+the new state before committing, so there is no extra paint and no effect-loop to guard against. Rows the
+current page does not contain are left alone.
+
+Call the hook below the query it reads from, and pass the fetched array itself (`data?.items`) — the refresh
+keys off its identity, so a fresh literal every render would defeat it.
+
+```tsx
+const getOrderId = (order: OrderSummaryDto) => order.id;
+
+const {data} = useQuery(...);
+const {selectedItems, isSelected, toggle, toggleAll, clear} = useSelectedItems(getOrderId, data?.items);
+```
+
 ### `useDrawerSearchParamsState(name)`
 
 Manages the open/close state of a detail drawer (or dialog) by storing the selected entity id in a URL query

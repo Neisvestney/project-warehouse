@@ -201,6 +201,17 @@ optional `actions` slot renders at the right edge (`ml: "auto"`) for things like
 
 The `sx` prop is **merged** with the component's own defaults via MUI's array `sx` syntax, not replaced.
 
+### `BulkBar`
+
+Dense toolbar shown above a table while rows are selected: a `primary.main` band with the selected count on the
+left, a clear button pinned next to it, and `children` — the bulk action buttons — pushed to the right edge by
+that button's `mr: "auto"`.
+
+`count` is rendered through `pluralCount`, so `countLabel` takes the three Russian forms of the phrase
+(`{one: "заказ выбран", few: "заказа выбрано", many: "заказов выбрано"}`). `onClear` drops the whole selection —
+pair it with [`useSelectedItems`](./frontend-state.md#useselecteditemsgetid-freshitems)'s `clear`. Rendering the
+bar at all is the caller's decision; it does not hide itself at `count === 0`.
+
 ### `SearchInput`, `SelectAllHeader`, `InfoRow`, `TableRowLoader`, `TableRowEmpty`, `PageGenericHeader`
 
 Thin presentational wrappers; read the file. Two non-obvious details: `InfoRow`'s label column is fixed at
@@ -512,12 +523,17 @@ stopped so it does not also trigger the surrounding row.
 ### `OrdersListPage` slots
 
 The orders list is shared by FBS, FBO and Direct, so type-specific behaviour arrives as props rather than an
-internal `type === "fbs"` branch: `headerActions?`, `bulkActions?: (selectedIds: string[]) => ReactNode`,
+internal `type === "fbs"` branch: `headerActions?`, `bulkActions?: (selectedOrders: OrderSummaryDto[]) => ReactNode`,
 `extraColumns?: {key, label, render}[]`, `marketplaceFilters?` and `showNotes?`. That keeps marketplace imports —
 and the `integrations.sync` permission — out of the pages that have nothing to do with marketplaces.
 
-`bulkActions` receives **every** selected id, not just the confirmed ones self-assign cares about, and the
-selection toolbar appears whenever something is selected and either action set applies. Adding an
+`bulkActions` receives **every** selected order, not just the confirmed ones self-assign cares about, and the
+selection toolbar appears whenever something is selected and either action set applies. The selection itself is
+held by [`useSelectedItems`](./frontend-state.md#useselecteditemsgetid-freshitems) as full `OrderSummaryDto` rows, so it
+survives paging and filter changes: the toolbar count, the confirmed subset for self-assign and `bulkActions`
+all read from the accumulated selection rather than from the visible page. The hook is handed the fetched page,
+so a row selected long ago is re-checked against its current status instead of the snapshot taken when the
+checkbox was ticked. The bar itself is [`BulkBar`](#bulkbar). Adding an
 `extraColumns` entry also widens the loader/empty-row `colSpan`, which is computed rather than hard-coded —
 as does dropping the notes column with `showNotes={false}` (FBO trades it for the posting number).
 

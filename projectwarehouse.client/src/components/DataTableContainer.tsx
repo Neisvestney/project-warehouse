@@ -45,7 +45,9 @@ function DataTableContainer({
         count={count}
         page={page - 1}
         rowsPerPage={rowsPerPage}
-        rowsPerPageOptions={[...new Set([rowsPerPage, ...rowsPerPageOptions].sort((a, b) => a - b))]}
+        rowsPerPageOptions={[
+          ...new Set([rowsPerPage, ...rowsPerPageOptions].sort((a, b) => a - b)),
+        ]}
         onPageChange={(_, newPage) => onPageChange(newPage + 1)}
         onRowsPerPageChange={(e) => onRowsPerPageChange(Number(e.target.value))}
         labelRowsPerPage={isMobile ? "" : "Строк на странице:"}
