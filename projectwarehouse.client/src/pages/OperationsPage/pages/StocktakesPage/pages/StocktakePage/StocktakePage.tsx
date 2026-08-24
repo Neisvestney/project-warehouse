@@ -329,9 +329,9 @@ function StocktakePage() {
               <StocktakeStatusChip status={stocktake.status} />
             </Stack>
           }
-          right={
+          actions={
             canEdit && !isTerminal ? (
-              <Stack direction="row" spacing={1}>
+              <>
                 {(isDraft || isPlanned) && (
                   <Button
                     variant="contained"
@@ -407,7 +407,7 @@ function StocktakePage() {
                     Удалить
                   </Button>
                 )}
-              </Stack>
+              </>
             ) : undefined
           }
         />

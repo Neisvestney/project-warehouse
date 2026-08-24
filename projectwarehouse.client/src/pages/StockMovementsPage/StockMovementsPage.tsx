@@ -40,7 +40,7 @@ function StockMovementsPage() {
 
       <PageGenericHeader
         title="Движения товаров"
-        right={
+        refresh={
           <Tooltip title="Обновить">
             <IconButton color="inherit" onClick={() => pivot.refetch()}>
               <RefreshIcon />

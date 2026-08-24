@@ -90,11 +90,13 @@ function MarketplacesSettingsPage() {
       />
       <PageGenericHeader
         title="Маркетплейсы"
-        right={
+        refresh={
+          <IconButton color="inherit" onClick={() => refetch()}>
+            <RefreshIcon />
+          </IconButton>
+        }
+        actions={
           <>
-            <IconButton color="inherit" onClick={() => refetch()}>
-              <RefreshIcon />
-            </IconButton>
             <Button
               variant="text"
               startIcon={<RuleIcon />}

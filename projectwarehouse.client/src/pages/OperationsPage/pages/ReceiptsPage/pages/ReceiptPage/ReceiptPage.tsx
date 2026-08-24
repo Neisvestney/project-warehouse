@@ -307,9 +307,9 @@ function ReceiptPage() {
               <ReceiptStatusChip status={receipt.status} />
             </Stack>
           }
-          right={
+          actions={
             canEdit && (!isTerminal || isFinished) ? (
-              <Stack direction="row" spacing={1}>
+              <>
                 {isDraft && (
                   <>
                     <Button
@@ -387,7 +387,7 @@ function ReceiptPage() {
                     Отменить
                   </Button>
                 )}
-              </Stack>
+              </>
             ) : undefined
           }
         />

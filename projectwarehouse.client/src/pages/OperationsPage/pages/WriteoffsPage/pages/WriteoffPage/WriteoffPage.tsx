@@ -281,9 +281,9 @@ function WriteoffPage() {
               <WriteoffStatusChip status={writeoff.status} />
             </Stack>
           }
-          right={
+          actions={
             canEdit && !isTerminal ? (
-              <Stack direction="row" spacing={1}>
+              <>
                 <Button
                   variant="contained"
                   color="success"
@@ -312,7 +312,7 @@ function WriteoffPage() {
                 >
                   Удалить
                 </Button>
-              </Stack>
+              </>
             ) : undefined
           }
         />

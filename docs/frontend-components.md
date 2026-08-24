@@ -178,12 +178,26 @@ The `sx` prop is **merged** with the component's own defaults via MUI's array `s
 ### `SearchInput`, `SelectAllHeader`, `InfoRow`, `TableRowLoader`, `TableRowEmpty`, `PageGenericHeader`
 
 Thin presentational wrappers; read the file. Two non-obvious details: `InfoRow`'s label column is fixed at
-**160 px** (that is what keeps detail views aligned across pages), and `SelectAllHeader` swallows `mousedown`
+**160 px** from `sm` up (that is what keeps detail views aligned across pages), and `SelectAllHeader` swallows `mousedown`
 and every `keydown` except `Escape`/`Tab`, so a dropdown stays open and its arrow-key navigation doesn't hijack
 the «Выбрать все» / «Снять выбор» buttons.
 
 `InfoRow`'s value slot renders as `Typography component="div"`, so a chip or any other block element can be
 passed as `value` without invalid nesting.
+
+Below `sm` `InfoRow` turns into a column: the label loses its fixed width, drops to `body2` size and sits above
+the value, which then gets the full width of the container for long strings and chips.
+
+`PageGenericHeader` has three slots besides `title`: `children` (the middle block — search, filters), `actions`
+(action buttons) and `refresh`. The `refresh` slot is rendered twice with breakpoint-gated `display`: from `md`
+up it is the first item of the actions group, below `md` — where the header stacks into a column — it moves into
+the title row and is pushed to its right edge with `ml: "auto"`, so the reload action stays reachable without
+adding a row on narrow screens.
+
+The actions group is a wrapping row aligned to the right edge. Below `md` every direct child gets
+`flex: 1 1 auto`, so buttons share the row evenly and a lone button spans the full width; `IconButton`s keep
+`flex: 0 0 auto` to stay square. Pass buttons to `actions` as a fragment rather than a nested `Stack` — a
+wrapper collapses into a single flex item and its buttons stop stretching.
 
 ### `WarehouseChip`, `UserChip`
 
@@ -563,6 +577,12 @@ Toggling it calls `onTaskCheckChange` per selectable task, so the page keeps its
 
 Selectable means `getBatchDisabledReason(task, eligible)` in `batchEligibility.ts` returns an empty string; that
 reason is also the tooltip and disabled state of the per-task checkboxes.
+
+The order summary is split into two groups: a head (checkbox, order number link, progress caption pushed right
+with `margin-left: auto`) and a chip row (order type, warehouse, marketplace account, the sole task's status,
+posting number). From `md` up both groups are `display: contents`, so their children join the summary's own flex
+row and it reads as a single line; `order: 1` on the progress and `order: 2` on the posting number keep those
+two at the end of it. Below `md` the summary becomes a column of the two groups, and the chip row wraps.
 
 ### `components/marketplace/MarketplaceAccountChip`
 

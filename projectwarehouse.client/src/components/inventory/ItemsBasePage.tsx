@@ -151,7 +151,7 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
       <Stack spacing={2}>
         <PageGenericHeader
           title={title}
-          right={
+          refresh={
             <IconButton color="inherit" onClick={() => refetch()}>
               <RefreshIcon />
             </IconButton>

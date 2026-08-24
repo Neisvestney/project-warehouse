@@ -111,22 +111,22 @@ function CatalogPage() {
         <AppBreadcrumbs path={[{name: "Каталог", link: "/catalog"}, {name: "Список"}]} />
         <PageGenericHeader
           title="Каталог"
-          right={
-            <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
-              <IconButton color="inherit" onClick={() => refetch()}>
-                <RefreshIcon />
-              </IconButton>
-              {canEdit && (
-                <Button
-                  endIcon={<AddIcon />}
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setCreateOpen(true)}
-                >
-                  Создать
-                </Button>
-              )}
-            </Stack>
+          refresh={
+            <IconButton color="inherit" onClick={() => refetch()}>
+              <RefreshIcon />
+            </IconButton>
+          }
+          actions={
+            canEdit && (
+              <Button
+                endIcon={<AddIcon />}
+                variant="outlined"
+                size="small"
+                onClick={() => setCreateOpen(true)}
+              >
+                Создать
+              </Button>
+            )
           }
         >
           <SearchInput value={inputValue} onChange={setInputValue} />

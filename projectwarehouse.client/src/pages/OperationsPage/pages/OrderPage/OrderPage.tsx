@@ -168,9 +168,9 @@ function OrderPage() {
                 <OrderStatusChip status={order.status} />
               </Stack>
             }
-            right={
+            actions={
               hasActions ? (
-                <Stack direction="row" spacing={1} sx={{flexWrap: "wrap"}}>
+                <>
                   {marketplaceOrder != null && (
                     <DownloadOrderLabelButton
                       orderId={order.id}
@@ -281,7 +281,7 @@ function OrderPage() {
                       Отгрузить
                     </Button>
                   )}
-                </Stack>
+                </>
               ) : undefined
             }
           />

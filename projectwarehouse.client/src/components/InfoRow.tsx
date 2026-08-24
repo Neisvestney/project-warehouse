@@ -1,5 +1,5 @@
 import React from "react";
-import {Stack, Typography} from "@mui/material";
+import {css, styled, Typography} from "@mui/material";
 
 export interface InfoRowProps {
   label: string;
@@ -8,13 +8,40 @@ export interface InfoRowProps {
 
 function InfoRow({label, value}: InfoRowProps) {
   return (
-    <Stack direction="row" spacing={1} sx={{alignItems: "baseline"}}>
-      <Typography color="text.secondary" sx={{width: 160, flexShrink: 0}}>
-        {label}
+    <InfoRowUi>
+      <InfoRowLabel color="text.secondary">{label}</InfoRowLabel>
+      <Typography component="div" sx={{minWidth: 0}}>
+        {value}
       </Typography>
-      <Typography component="div">{value}</Typography>
-    </Stack>
+    </InfoRowUi>
   );
 }
 
 export default InfoRow;
+
+const InfoRowUi = styled("div")(
+  ({theme}) => css`
+    display: flex;
+    align-items: baseline;
+    gap: ${theme.spacing(1)};
+
+    ${theme.breakpoints.down("sm")} {
+      flex-direction: column;
+      align-items: stretch;
+      gap: ${theme.spacing(0.25)};
+    }
+  `,
+);
+
+const InfoRowLabel = styled(Typography)(
+  ({theme}) => css`
+    width: 160px;
+    flex-shrink: 0;
+
+    ${theme.breakpoints.down("sm")} {
+      width: auto;
+      font-size: ${theme.typography.body2.fontSize};
+      line-height: ${theme.typography.body2.lineHeight};
+    }
+  `,
+);
