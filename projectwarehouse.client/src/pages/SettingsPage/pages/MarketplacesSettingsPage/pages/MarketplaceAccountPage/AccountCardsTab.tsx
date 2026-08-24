@@ -133,7 +133,21 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
 
   return (
     <Stack spacing={2}>
-      <FiltersBar>
+      <FiltersBar
+        actions={
+          canMap ? (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<AutoFixHighIcon />}
+              disabled={autoMapMutation.isPending}
+              onClick={() => autoMapMutation.mutate({path: {id: accountId}})}
+            >
+              Сопоставить автоматически
+            </Button>
+          ) : null
+        }
+      >
         <SearchInput value={inputValue} onChange={setInputValue} size="small" />
         <Select
           value={mappingState}
@@ -156,17 +170,6 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
           }
           label="Показывать архивные"
         />
-        {canMap && (
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<AutoFixHighIcon />}
-            disabled={autoMapMutation.isPending}
-            onClick={() => autoMapMutation.mutate({path: {id: accountId}})}
-          >
-            Сопоставить автоматически
-          </Button>
-        )}
       </FiltersBar>
       {catalogItemIdFilter && (
         <Stack spacing={1} direction={"row"}>

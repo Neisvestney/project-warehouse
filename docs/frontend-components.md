@@ -166,8 +166,14 @@ cover a table that is already covered.
 
 ### `FiltersBar`
 
-Filter row with a `FilterAltIcon` + «Фильтры:» label and a children slot. The `sx` prop is **merged** with the
-component's own defaults via MUI's array `sx` syntax, not replaced.
+Filter row rendered as an outlined card — rounded border in `divider`, a faint `primary` tint background and
+`px: 2 / py: 1.5` padding — so the filters read as a block separate from the table below.
+
+The leading label is a `FilterAltIcon` on a tinted rounded square plus a «Фильтры» caption; the caption is
+hidden below the `sm` breakpoint, leaving only the icon on narrow screens. Controls go in `children`; the
+optional `actions` slot renders at the right edge (`ml: "auto"`) for things like a reset button.
+
+The `sx` prop is **merged** with the component's own defaults via MUI's array `sx` syntax, not replaced.
 
 ### `SearchInput`, `SelectAllHeader`, `InfoRow`, `TableRowLoader`, `TableRowEmpty`, `PageGenericHeader`
 
