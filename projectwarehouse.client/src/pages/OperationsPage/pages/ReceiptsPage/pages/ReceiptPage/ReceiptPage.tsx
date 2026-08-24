@@ -1,5 +1,5 @@
 import {useCallback, useState} from "react";
-import {Link as RouterLink, useNavigate, useParams} from "react-router";
+import {useNavigate, useParams} from "react-router";
 import {
   Alert,
   Box,
@@ -39,6 +39,7 @@ import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import InfoRow from "@/components/InfoRow";
+import WarehouseChip from "@/components/shared/WarehouseChip";
 import ReceiptStatusChip from "@/components/receipts/ReceiptStatusChip";
 import ReceiptItemsSection from "@/components/receipts/ReceiptItemsSection";
 import {RECEIPT_REASON_LABELS, formatReceiptNumber} from "@/components/receipts/receiptUtils";
@@ -397,22 +398,12 @@ function ReceiptPage() {
               <>
                 <InfoRow label="Номер" value={formatReceiptNumber(receipt.number)} />
                 <InfoRow label="Причина" value={RECEIPT_REASON_LABELS[receipt.reason]} />
-                <Stack direction="row" spacing={1} sx={{alignItems: "baseline"}}>
-                  <Typography color="text.secondary" sx={{width: 160, flexShrink: 0}}>
-                    Склад
-                  </Typography>
-                  <Typography
-                    component={RouterLink}
-                    to={`/storage/warehouses/${receipt.warehouseId}`}
-                    sx={{
-                      color: "primary.main",
-                      textDecoration: "none",
-                      "&:hover": {textDecoration: "underline"},
-                    }}
-                  >
-                    {receipt.warehouseName}
-                  </Typography>
-                </Stack>
+                <InfoRow
+                  label="Склад"
+                  value={
+                    <WarehouseChip warehouseId={receipt.warehouseId} name={receipt.warehouseName} />
+                  }
+                />
                 <InfoRow
                   label="Создана"
                   value={new Date(receipt.createdAt).toLocaleString("ru-RU")}

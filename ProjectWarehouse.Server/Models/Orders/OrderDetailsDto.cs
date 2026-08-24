@@ -13,6 +13,7 @@ public class OrderDetailsDto
     public DateTime CreatedAt { get; init; }
     public Guid WarehouseId { get; init; }
     public string WarehouseName { get; init; } = null!;
+    public Guid? CreatedById { get; init; }
     public string? CreatedByName { get; init; }
     public MarketplaceOrderDto? MarketplaceOrder { get; init; }
     public IReadOnlyList<OrderMarketplaceItemDto> MarketplaceItems { get; init; } = [];

@@ -1,5 +1,5 @@
 import {useCallback, useState} from "react";
-import {Link as RouterLink, useNavigate, useParams} from "react-router";
+import {useNavigate, useParams} from "react-router";
 import {
   Alert,
   Box,
@@ -38,6 +38,7 @@ import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import InfoRow from "@/components/InfoRow";
+import WarehouseChip from "@/components/shared/WarehouseChip";
 import StocktakeStatusChip from "@/components/stocktakes/StocktakeStatusChip";
 import StocktakeNodesSection from "@/components/stocktakes/StocktakeNodesSection";
 import StocktakeCountingSection from "@/components/stocktakes/StocktakeCountingSection";
@@ -416,22 +417,15 @@ function StocktakePage() {
             {!isEditing ? (
               <>
                 <InfoRow label="Номер" value={formatStocktakeNumber(stocktake.number)} />
-                <Stack direction="row" spacing={1} sx={{alignItems: "baseline"}}>
-                  <Typography color="text.secondary" sx={{width: 160, flexShrink: 0}}>
-                    Склад
-                  </Typography>
-                  <Typography
-                    component={RouterLink}
-                    to={`/storage/warehouses/${stocktake.warehouseId}`}
-                    sx={{
-                      color: "primary.main",
-                      textDecoration: "none",
-                      "&:hover": {textDecoration: "underline"},
-                    }}
-                  >
-                    {stocktake.warehouseName}
-                  </Typography>
-                </Stack>
+                <InfoRow
+                  label="Склад"
+                  value={
+                    <WarehouseChip
+                      warehouseId={stocktake.warehouseId}
+                      name={stocktake.warehouseName}
+                    />
+                  }
+                />
                 <InfoRow label="Тип" value={STOCKTAKE_TYPE_LABELS[stocktake.type]} />
                 {stocktake.type === "scheduled" && (
                   <InfoRow

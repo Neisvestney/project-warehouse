@@ -26,7 +26,7 @@ export const ORDER_STATUS_COLORS: Record<OrderStatus, ChipProps["color"]> = {
 };
 
 export const ORDER_TYPE_COLORS: Record<OrderType, ChipProps["color"]> = {
-  direct: "default",
+  direct: "info",
   fbs: "secondary",
   fbo: "primary",
 };

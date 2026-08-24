@@ -1,5 +1,5 @@
-import {type ReactNode, useState} from "react";
-import {Alert, Box, Button, Stack, Typography} from "@mui/material";
+import {useState} from "react";
+import {Alert, Box, Button, Stack} from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import {useForm} from "react-hook-form";
@@ -12,6 +12,9 @@ import MarketplaceOrderStatusChip from "@/components/orders/marketplace/Marketpl
 import {format} from "date-fns";
 import {ru} from "date-fns/locale";
 import MarketplaceAccountChip from "@/components/marketplace/MarketplaceAccountChip";
+import InfoRow from "@/components/InfoRow";
+import UserChip from "@/components/shared/UserChip";
+import WarehouseChip from "@/components/shared/WarehouseChip";
 import {formatPostingNumber} from "@/utils/postingNumberUtils";
 
 function formatDate(iso: string | null | undefined): string {
@@ -30,17 +33,6 @@ function toDateTimeLocal(iso: string | null | undefined): string {
   } catch {
     return "";
   }
-}
-
-function MetaRow({label, children}: {label: string; children: ReactNode}) {
-  return (
-    <Stack direction="row" spacing={1} sx={{alignItems: "baseline", minHeight: 32}}>
-      <Typography color="text.secondary" sx={{width: 160, flexShrink: 0, pt: 0.25}}>
-        {label}
-      </Typography>
-      <Stack sx={{flex: 1}}>{children}</Stack>
-    </Stack>
-  );
 }
 
 interface EditInfoFormValues {
@@ -143,66 +135,67 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
   }
 
   return (
-    <Stack spacing={0.5}>
-      <MetaRow label="Склад">
-        <Typography variant="body2">{order.warehouseName}</Typography>
-      </MetaRow>
+    <Stack spacing={1.5}>
+      <InfoRow
+        label="Склад"
+        value={<WarehouseChip warehouseId={order.warehouseId} name={order.warehouseName} />}
+      />
 
-      <MetaRow label="Создан">
-        <Typography variant="body2">{formatDate(order.createdAt)}</Typography>
-      </MetaRow>
+      <InfoRow label="Создан" value={formatDate(order.createdAt)} />
 
       {order.createdByName && (
-        <MetaRow label="Создал">
-          <Typography variant="body2">{order.createdByName}</Typography>
-        </MetaRow>
+        <InfoRow
+          label="Создал"
+          value={<UserChip userId={order.createdById} name={order.createdByName} />}
+        />
       )}
 
-      <MetaRow label="Плановая отгрузка">
-        <Typography variant="body2">{formatDate(order.plannedShipmentAt)}</Typography>
-      </MetaRow>
+      <InfoRow label="Плановая отгрузка" value={formatDate(order.plannedShipmentAt)} />
 
-      <MetaRow label="Заметки">
-        <Typography variant="body2">{order.notes || "—"}</Typography>
-      </MetaRow>
+      <InfoRow label="Заметки" value={order.notes || "—"} />
 
       {order.marketplaceOrder && (
         <>
-          <MetaRow label="Отправление">
-            <Typography variant="body2" sx={{fontFamily: "monospace"}}>
-              {formatPostingNumber(order.marketplaceOrder.postingNumber)}
-            </Typography>
-          </MetaRow>
+          <InfoRow
+            label="Отправление"
+            value={
+              <Box component="span" sx={{fontFamily: "monospace"}}>
+                {formatPostingNumber(order.marketplaceOrder.postingNumber)}
+              </Box>
+            }
+          />
 
-          <MetaRow label="Магазин">
-            <Box>
+          <InfoRow
+            label="Магазин"
+            value={
               <MarketplaceAccountChip
                 accountId={order.marketplaceOrder.marketplaceAccountId}
                 name={order.marketplaceOrder.marketplaceAccountName}
                 type={order.marketplaceOrder.marketplaceType}
               />
-            </Box>
-          </MetaRow>
+            }
+          />
 
-          <MetaRow label="Статус на площадке">
-            <Box>
-              <MarketplaceOrderStatusChip value={order.marketplaceOrder} />
-            </Box>
-          </MetaRow>
+          <InfoRow
+            label="Статус на площадке"
+            value={<MarketplaceOrderStatusChip value={order.marketplaceOrder} />}
+          />
 
           {order.marketplaceOrder.trackingNumber && (
-            <MetaRow label="Трек-номер">
-              <Typography variant="body2" sx={{fontFamily: "monospace"}}>
-                {order.marketplaceOrder.trackingNumber}
-              </Typography>
-            </MetaRow>
+            <InfoRow
+              label="Трек-номер"
+              value={
+                <Box component="span" sx={{fontFamily: "monospace"}}>
+                  {order.marketplaceOrder.trackingNumber}
+                </Box>
+              }
+            />
           )}
 
-          <MetaRow label="Статус сверен">
-            <Typography variant="body2">
-              {formatDate(order.marketplaceOrder.statusSyncedAt)}
-            </Typography>
-          </MetaRow>
+          <InfoRow
+            label="Статус сверен"
+            value={formatDate(order.marketplaceOrder.statusSyncedAt)}
+          />
 
           {order.marketplaceOrder.status === "cancelled" && (
             <Alert severity="warning">
