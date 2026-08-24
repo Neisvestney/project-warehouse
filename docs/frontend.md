@@ -87,7 +87,8 @@ All of them render `RouteFallback`.
 
 The route configs are the source of truth for paths and permissions: `App.tsx` for top-level routes, and
 `storageConfig.tsx` / `operationsConfig.tsx` / `settingsConfig.tsx` for the three `SidebarPage` modules
-(`/storage/*`, `/operations/*`, `/settings/*`).
+(`/storage/*`, `/operations/*`, `/settings/*`). `@/components/MainNav/mainNavConfig.tsx` joins them into the
+top-level nav: the app bar links on desktop, and the expandable section tree of `MainNavDrawer` on mobile.
 
 > **Convention:** subroutes carry no `requiredPermission` of their own — `SidebarPage` only gates the section
 > route. Sub-pages that need a stronger right (`integrations.edit`, `integrations.map`, `integrations.sync`) hide their actions with

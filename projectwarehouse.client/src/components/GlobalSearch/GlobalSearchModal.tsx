@@ -21,6 +21,7 @@ import {useNavigate} from "react-router";
 import {commonContentGlobalSearchOptions} from "@/api/@tanstack/react-query.gen";
 import {resolveEntity} from "@/utils/appEntityUtils";
 import {useDebounce} from "@/hooks/useDebounce";
+import {useBackClosable} from "@/hooks/useBackClosable.ts";
 import type {AppEntity} from "@/api";
 
 type ResolvedEntity = ReturnType<typeof resolveEntity>;
@@ -57,7 +58,7 @@ function GlobalSearchContent({
   );
 
   const handleSelect = (entity: ResolvedEntity) => {
-    navigate(entity.link);
+    navigate(entity.link, {replace: true});
     onClose();
   };
 
@@ -162,6 +163,8 @@ function GlobalSearchContent({
 
 function GlobalSearchModal({open, onClose}: GlobalSearchModalProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useBackClosable(open, onClose);
 
   return (
     <Dialog

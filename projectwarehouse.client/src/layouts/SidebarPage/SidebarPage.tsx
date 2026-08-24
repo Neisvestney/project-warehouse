@@ -3,12 +3,9 @@ import {Navigate, Route, Routes} from "react-router";
 import type {PermissionName} from "@/api/types.gen";
 import {useAuth} from "@/hooks/useAuth";
 import AccessDenied from "@/components/AccessDenied";
-import SidebarLayout, {
-  type SidebarNavGroup,
-  type SidebarNavItem,
-  type SidebarNavLeafItem,
-} from "@/layouts/SidebarLayout/SidebarLayout.tsx";
+import SidebarLayout from "@/layouts/SidebarLayout/SidebarLayout.tsx";
 import {hasSectionPermission, isSectionVisible} from "./sectionVisibility.ts";
+import {toNavItems} from "./toNavItems.ts";
 
 export interface SectionSubroute {
   path: string;
@@ -30,35 +27,6 @@ export interface SectionConfig {
 export interface SidebarPageProps {
   sections: SectionConfig[];
   basePath: string;
-}
-
-function toNavItems(
-  sections: SectionConfig[],
-  permissions: PermissionName[],
-  parentAbsPath: string,
-): SidebarNavItem[] {
-  return sections
-    .filter((s) => isSectionVisible(s, permissions))
-    .map((s) => {
-      const absPath = `${parentAbsPath}/${s.path}`;
-      if (s.children) {
-        const visibleChildren = s.children
-          .filter((c) => isSectionVisible(c, permissions))
-          .map(
-            (c) =>
-              ({label: c.label, path: `${absPath}/${c.path}`, icon: c.icon}) as SidebarNavLeafItem,
-          );
-        if (visibleChildren.length === 0) return null;
-        return {
-          label: s.label,
-          defaultPath: visibleChildren[0].path,
-          children: visibleChildren,
-          icon: s.icon,
-        } as SidebarNavGroup;
-      }
-      return {label: s.label, path: absPath, icon: s.icon} as SidebarNavLeafItem;
-    })
-    .filter(Boolean) as SidebarNavItem[];
 }
 
 function RedirectToFirstVisible({

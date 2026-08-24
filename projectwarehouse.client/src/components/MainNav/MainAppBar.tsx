@@ -20,55 +20,24 @@ import GlobalSearchModal from "@/components/GlobalSearch/GlobalSearchModal";
 import {Link, useNavigate} from "react-router";
 import {useAuth} from "@/hooks/useAuth";
 import UserAvatar from "@/components/UserAvatar";
-import type {PermissionName} from "@/api";
-import {getSettingsFirstPageUrl, hasSettingsAccess} from "@/pages/SettingsPage/settingsConfig.tsx";
-import {getStorageFirstPageUrl} from "@/pages/StoragePage/storageConfig.tsx";
-import {getOperationsFirstPageUrl} from "@/pages/OperationsPage/operationsConfig.tsx";
+import type {PermissionName} from "@/api/types.gen";
+import MainNavDrawer from "./MainNavDrawer.tsx";
+import {resolveMainNavPages} from "./mainNavConfig.tsx";
 import {extractErrorMessage} from "@/utils/errorUtils.ts";
-
-const pages: {
-  name: string;
-  url: string | ((permissions: PermissionName[]) => string);
-  requiredPermission?: PermissionName | PermissionName[];
-  showIf?: (permissions: PermissionName[]) => boolean;
-}[] = [
-  {
-    name: "Склад",
-    url: (p) => `/storage/${getStorageFirstPageUrl(p)}`,
-    showIf: (p) => p.includes("warehouses.view") || p.includes("warehouses.view_assigned"),
-  },
-  {name: "Каталог", url: "/catalog", requiredPermission: "catalog.view"},
-  {
-    name: "Операции",
-    url: (p) => `/operations/${getOperationsFirstPageUrl(p)}`,
-  },
-  {
-    name: "Настройки",
-    url: (p) => `/settings/${getSettingsFirstPageUrl(p)}`,
-    showIf: hasSettingsAccess,
-  },
-];
 
 export const MAIN_APP_BAR_HEIGHT = 50;
 
 export interface AppBarProps {}
 
 function MainAppBar({}: AppBarProps) {
-  const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
+  const [navDrawerOpen, setNavDrawerOpen] = React.useState(false);
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
   const [searchOpen, setSearchOpen] = React.useState(false);
   const {user, logout, profileIsLoadError, profileLoadError} = useAuth();
   const navigate = useNavigate();
 
-  const handleOpenNavMenu = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorElNav(event.currentTarget);
-  };
   const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorElUser(event.currentTarget);
-  };
-
-  const handleCloseNavMenu = () => {
-    setAnchorElNav(null);
   };
 
   const handleCloseUserMenu = () => {
@@ -131,23 +100,7 @@ function MainAppBar({}: AppBarProps) {
     };
   }, []);
 
-  const filteredPages = pages
-    .filter((page) => {
-      const perms = (user?.permissions ?? []) as PermissionName[];
-      const hasPermission =
-        !page.requiredPermission ||
-        (Array.isArray(page.requiredPermission)
-          ? page.requiredPermission.some((p) => perms.includes(p))
-          : perms.includes(page.requiredPermission));
-      return hasPermission && (!page.showIf || page.showIf(perms));
-    })
-    .map((page) => ({
-      ...page,
-      url:
-        typeof page.url === "string"
-          ? page.url
-          : page.url((user?.permissions ?? []) as PermissionName[]),
-    }));
+  const filteredPages = resolveMainNavPages((user?.permissions ?? []) as PermissionName[]);
 
   return (
     <>
@@ -176,41 +129,12 @@ function MainAppBar({}: AppBarProps) {
             <Box sx={{flexGrow: 1, display: {xs: "flex", md: "none"}}}>
               <IconButton
                 size="large"
-                aria-label="account of current user"
-                aria-controls="menu-appbar"
-                aria-haspopup="true"
-                onClick={handleOpenNavMenu}
+                aria-label="Открыть меню навигации"
+                onClick={() => setNavDrawerOpen(true)}
                 color="inherit"
               >
                 <MenuIcon />
               </IconButton>
-              <Menu
-                id="menu-appbar"
-                anchorEl={anchorElNav}
-                anchorOrigin={{
-                  vertical: "bottom",
-                  horizontal: "left",
-                }}
-                keepMounted
-                transformOrigin={{
-                  vertical: "top",
-                  horizontal: "left",
-                }}
-                open={Boolean(anchorElNav)}
-                onClose={handleCloseNavMenu}
-                sx={{display: {xs: "block", md: "none"}}}
-              >
-                {filteredPages.map((page) => (
-                  <MenuItem
-                    onClick={handleCloseNavMenu}
-                    component={Link}
-                    to={page.url}
-                    key={page.url}
-                  >
-                    <Typography sx={{textAlign: "center"}}>{page.name}</Typography>
-                  </MenuItem>
-                ))}
-              </Menu>
             </Box>
             <WarehouseIcon sx={{display: {xs: "flex", md: "none"}, mr: 1}} />
             <Typography
@@ -235,7 +159,6 @@ function MainAppBar({}: AppBarProps) {
               {filteredPages.map((page) => (
                 <Button
                   key={page.url}
-                  onClick={handleCloseNavMenu}
                   sx={{color: "white", display: "block"}}
                   component={Link}
                   to={page.url}
@@ -341,6 +264,11 @@ function MainAppBar({}: AppBarProps) {
           </Toolbar>
         </Container>
       </AppBar>
+      <MainNavDrawer
+        open={navDrawerOpen}
+        onClose={() => setNavDrawerOpen(false)}
+        pages={filteredPages}
+      />
       <GlobalSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
     </>
   );
