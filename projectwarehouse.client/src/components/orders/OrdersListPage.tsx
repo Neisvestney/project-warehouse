@@ -15,7 +15,6 @@ import {
   TableHead,
   TableRow,
   TableSortLabel,
-  Toolbar,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -33,12 +32,14 @@ import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQu
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {useTableSort} from "@/hooks/useTableSort";
+import {useSelectedItems} from "@/hooks/useSelectedItems";
 import {useHasPermission} from "@/hooks/usePermission";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import SearchInput from "@/components/SearchInput";
 import FiltersBar from "@/components/FiltersBar";
 import DataTableContainer from "@/components/DataTableContainer";
+import BulkBar from "@/components/BulkBar";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
 import WarehousesSelect from "@/components/WarehousesSelect";
@@ -58,7 +59,6 @@ import type {
   OrderSummaryDto,
   OrderType,
 } from "@/api/types.gen";
-import {pluralCount} from "@/utils/pluralUtils";
 import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
 
 const SORT_COLUMNS: {key: OrderSortBy; label: string}[] = [
@@ -93,14 +93,16 @@ interface OrdersListPageProps {
   createLink?: string;
   /** Rendered in the page header. Keeps marketplace specifics out of this shared component. */
   headerActions?: ReactNode;
-  /** Extra buttons for the selection toolbar. Receives every selected id, not just confirmed ones. */
-  bulkActions?: (selectedIds: string[]) => ReactNode;
+  /** Extra buttons for the selection toolbar. Receives every selected order, not just confirmed ones. */
+  bulkActions?: (selectedOrders: OrderSummaryDto[]) => ReactNode;
   extraColumns?: OrdersListExtraColumn[];
   /** Marketplace / account / posting-status filters. Meaningless on Direct orders. */
   marketplaceFilters?: boolean;
   /** FBO trades the notes column for the posting number. */
   showNotes?: boolean;
 }
+
+const getOrderId = (order: OrderSummaryDto) => order.id;
 
 function OrdersListPage({
   type,
@@ -119,7 +121,6 @@ function OrdersListPage({
   const canCreate = useHasPermission(["orders.edit", "orders.edit_assigned"]);
   const canSelfAssign = useHasPermission("orders.self_assign");
 
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [failedItems, setFailedItems] = useState<BatchSelfAssignFailedItem[]>([]);
   const [selfAssignError, setSelfAssignError] = useState<string | null>(null);
 
@@ -206,29 +207,36 @@ function OrdersListPage({
     ordersGetAllOptions({query: fetchParams}),
   );
 
+  const {
+    selectedItems,
+    isSelected,
+    allPageSelected,
+    somePageSelected,
+    toggle,
+    toggleAll,
+    removeIds,
+    clear,
+  } = useSelectedItems(getOrderId, data?.items);
+
   const selfAssignMutation = useMutation({
     ...ordersBatchSelfAssignMutation(),
     meta: {suppressGlobalError: true},
     // Awaited so isPending covers the refetch and the button cannot re-send stale ids
     onSuccess: async (data) => {
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        data.assignedOrderIds.forEach((id) => next.delete(id));
-        return next;
-      });
+      removeIds(data.assignedOrderIds);
       setFailedItems(data.failedItems);
       await queryClient.invalidateQueries({queryKey: ordersGetAllQueryKey()});
     },
     onError: (error) => setSelfAssignError(extractErrorMessage(error)),
   });
 
-  const selectedConfirmedIds =
-    data?.items.filter((o) => selectedIds.has(o.id) && o.status === "confirmed").map((o) => o.id) ??
-    [];
+  const selectedConfirmedIds = selectedItems
+    .filter((o) => o.status === "confirmed")
+    .map((o) => o.id);
 
   const showSelfAssign = canSelfAssign && selectedConfirmedIds.length > 0;
   // the bulkActions term keeps the bar hidden on Direct and FBO, which pass no extra actions
-  const showBulkBar = selectedIds.size > 0 && (showSelfAssign || bulkActions != null);
+  const showBulkBar = selectedItems.length > 0 && (showSelfAssign || bulkActions != null);
   const columnCount = (showNotes ? 8 : 7) + (extraColumns?.length ?? 0);
 
   function handleSelfAssignSelected() {
@@ -236,33 +244,6 @@ function OrdersListPage({
     setSelfAssignError(null);
     selfAssignMutation.mutate({body: {orderIds: selectedConfirmedIds}});
   }
-
-  function toggleSelect(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function toggleSelectAll() {
-    const pageIds = data?.items.map((o) => o.id) ?? [];
-    const allSelected = pageIds.every((id) => selectedIds.has(id));
-    if (allSelected) {
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        pageIds.forEach((id) => next.delete(id));
-        return next;
-      });
-    } else {
-      setSelectedIds((prev) => new Set([...prev, ...pageIds]));
-    }
-  }
-
-  const pageIds = data?.items.map((o) => o.id) ?? [];
-  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
-  const somePageSelected = pageIds.some((id) => selectedIds.has(id));
 
   return (
     <Stack spacing={2}>
@@ -330,23 +311,12 @@ function OrdersListPage({
       {type == "fbo" && <Alert severity={"warning"}>Раздел "Поставки FBO" еще не реализован</Alert>}
 
       {showBulkBar && (
-        <Toolbar
-          variant="dense"
-          sx={{
-            bgcolor: "primary.main",
-            color: "primary.contrastText",
-            borderRadius: 1,
-            gap: 1,
-          }}
+        <BulkBar
+          count={selectedItems.length}
+          countLabel={{one: "заказ выбран", few: "заказа выбрано", many: "заказов выбрано"}}
+          onClear={clear}
         >
-          <Typography variant="body2" sx={{flexGrow: 1}}>
-            {pluralCount(selectedIds.size, {
-              one: "заказ выбран",
-              few: "заказа выбрано",
-              many: "заказов выбрано",
-            })}
-          </Typography>
-          {bulkActions?.([...selectedIds])}
+          {bulkActions?.(selectedItems)}
           {showSelfAssign && (
             <Button
               size="small"
@@ -366,7 +336,7 @@ function OrdersListPage({
               Взять на себя ({selectedConfirmedIds.length})
             </Button>
           )}
-        </Toolbar>
+        </BulkBar>
       )}
 
       {failedItems.length > 0 && (
@@ -406,7 +376,7 @@ function OrdersListPage({
                   size="small"
                   checked={allPageSelected}
                   indeterminate={!allPageSelected && somePageSelected}
-                  onChange={toggleSelectAll}
+                  onChange={toggleAll}
                 />
               </TableCell>
               {SORT_COLUMNS.map(({key, label}) => (
@@ -439,7 +409,7 @@ function OrdersListPage({
                 <TableRow
                   key={order.id}
                   hover
-                  selected={selectedIds.has(order.id)}
+                  selected={isSelected(order.id)}
                   sx={{
                     cursor: "pointer",
                     opacity: isFetching && !isLoading ? 0.5 : 1,
@@ -451,10 +421,10 @@ function OrdersListPage({
                     padding="checkbox"
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleSelect(order.id);
+                      toggle(order);
                     }}
                   >
-                    <Checkbox size="small" checked={selectedIds.has(order.id)} />
+                    <Checkbox size="small" checked={isSelected(order.id)} />
                   </TableCell>
                   <TableCell sx={{fontFamily: "monospace"}}>
                     {formatOrderNumber(order.number)}
