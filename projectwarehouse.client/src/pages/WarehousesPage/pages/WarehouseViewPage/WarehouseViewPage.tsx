@@ -135,7 +135,7 @@ function WarehouseViewPage() {
         />
         <PageGenericHeader
           title={warehouse.name}
-          right={
+          actions={
             <>
               <Button
                 variant="outlined"

@@ -196,7 +196,7 @@ function MarketplaceAccountPage() {
               <MarketplaceStatusChip status={account.lastSyncStatus} />
             </Stack>
           }
-          right={
+          actions={
             <>
               {canSync && (
                 <Button

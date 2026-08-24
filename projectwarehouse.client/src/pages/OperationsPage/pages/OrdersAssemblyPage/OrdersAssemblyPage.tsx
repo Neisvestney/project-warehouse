@@ -133,28 +133,24 @@ function OrdersAssemblyPage() {
         />
         <PageGenericHeader
           title={"Сборка заказов"}
-          right={
-            <>
-              <IconButton color="inherit" onClick={handleRefresh} disabled={showLoading}>
-                <RefreshIcon />
-              </IconButton>
-              {canFulfill && (
-                <Stack direction="row" spacing={1}>
-                  <Button size="small" variant="outlined" onClick={handleSelectAllEligible}>
-                    Выбрать все доступные для массовой сборки
+          refresh={
+            <IconButton color="inherit" onClick={handleRefresh} disabled={showLoading}>
+              <RefreshIcon />
+            </IconButton>
+          }
+          actions={
+            canFulfill && (
+              <>
+                <Button size="small" variant="outlined" onClick={handleSelectAllEligible}>
+                  Выбрать все доступные для массовой сборки
+                </Button>
+                {selectedTaskInfos.length >= 1 && (
+                  <Button size="small" variant="contained" onClick={() => setBatchDialogOpen(true)}>
+                    Собрать выбранные ({selectedTaskInfos.length})
                   </Button>
-                  {selectedTaskInfos.length >= 1 && (
-                    <Button
-                      size="small"
-                      variant="contained"
-                      onClick={() => setBatchDialogOpen(true)}
-                    >
-                      Собрать выбранные ({selectedTaskInfos.length})
-                    </Button>
-                  )}
-                </Stack>
-              )}
-            </>
+                )}
+              </>
+            )
           }
         >
           <SearchInput value={searchInput} onChange={setSearchInput} />

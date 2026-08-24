@@ -125,7 +125,7 @@ export default observer(function WarehouseEditPage() {
         />
         <PageGenericHeader
           title="Редактировать склад"
-          right={
+          actions={
             <>
               <Button
                 component={Link}

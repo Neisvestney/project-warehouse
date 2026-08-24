@@ -106,11 +106,13 @@ function ReceiptsPage() {
       <AppBreadcrumbs path={[{name: "Приемки", link: "/operations/receipts"}, {name: "Список"}]} />
       <PageGenericHeader
         title="Приемки"
-        right={
+        refresh={
+          <IconButton color="inherit" onClick={() => refetch()}>
+            <RefreshIcon />
+          </IconButton>
+        }
+        actions={
           <>
-            <IconButton color="inherit" onClick={() => refetch()}>
-              <RefreshIcon />
-            </IconButton>
             {canCreate && (
               <Button
                 variant="outlined"

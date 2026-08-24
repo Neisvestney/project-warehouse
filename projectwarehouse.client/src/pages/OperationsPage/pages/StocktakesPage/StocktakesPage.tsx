@@ -99,11 +99,13 @@ function StocktakesPage() {
       />
       <PageGenericHeader
         title="Инвентаризации"
-        right={
+        refresh={
+          <IconButton color="inherit" onClick={() => refetch()}>
+            <RefreshIcon />
+          </IconButton>
+        }
+        actions={
           <>
-            <IconButton color="inherit" onClick={() => refetch()}>
-              <RefreshIcon />
-            </IconButton>
             {canCreate && (
               <Button
                 variant="outlined"

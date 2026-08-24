@@ -90,7 +90,7 @@ function UserViewPage() {
         />
         <PageGenericHeader
           title={user.username}
-          right={
+          actions={
             <>
               {hasEditUserPermission && (
                 <Button

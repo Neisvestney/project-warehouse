@@ -61,7 +61,7 @@ function MyProfilePage() {
         <AppBreadcrumbs path={[{name: "Мой профиль"}]} />
         <PageGenericHeader
           title={user.username}
-          right={
+          actions={
             <>
               <Button
                 variant="outlined"

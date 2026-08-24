@@ -269,11 +269,13 @@ function OrdersListPage({
       <AppBreadcrumbs path={[{name: "Заказы", link: breadcrumbLink}, {name: breadcrumbName}]} />
       <PageGenericHeader
         title={title}
-        right={
+        refresh={
+          <IconButton color="inherit" onClick={() => refetch()}>
+            <RefreshIcon />
+          </IconButton>
+        }
+        actions={
           <>
-            <IconButton color="inherit" onClick={() => refetch()}>
-              <RefreshIcon />
-            </IconButton>
             {headerActions}
             {createLink && canCreate && (
               <Button

@@ -47,11 +47,13 @@ function WarehousesPage() {
       <AppBreadcrumbs path={[{name: "Склады", link: "/storage/warehouses"}, {name: "Список"}]} />
       <PageGenericHeader
         title={"Склады"}
-        right={
+        refresh={
+          <IconButton color={"inherit"} onClick={() => refetch()}>
+            <RefreshIcon />
+          </IconButton>
+        }
+        actions={
           <>
-            <IconButton color={"inherit"} onClick={() => refetch()}>
-              <RefreshIcon />
-            </IconButton>
             <Button
               variant="outlined"
               endIcon={<AddIcon />}

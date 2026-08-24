@@ -6,12 +6,15 @@ import EntityViewers from "@/components/EntityViewers";
 export interface PageGenericHeaderProps {
   title: React.ReactNode;
   children?: React.ReactNode;
-  right?: React.ReactNode;
+  /** Action buttons of the header. Below `md` they stretch to fill the row. */
+  actions?: React.ReactNode;
+  /** Refresh action. From `md` up it leads the actions group, below `md` it sits in the title row. */
+  refresh?: React.ReactNode;
   /** Shows who else is looking at the object. The page still has to be subscribed to the stream. */
   viewersOf?: {entityType: AppEntityType; entityId: string | null | undefined};
 }
 
-function PageGenericHeader({title, children, right, viewersOf}: PageGenericHeaderProps) {
+function PageGenericHeader({title, children, actions, refresh, viewersOf}: PageGenericHeaderProps) {
   return (
     <PageGenericHeaderUi>
       <Stack
@@ -35,21 +38,27 @@ function PageGenericHeader({title, children, right, viewersOf}: PageGenericHeade
           {title}
         </Typography>
         {viewersOf && <EntityViewers {...viewersOf} />}
+        {refresh && (
+          <Box sx={{display: {xs: "flex", md: "none"}, ml: "auto", alignItems: "center"}}>
+            {refresh}
+          </Box>
+        )}
       </Stack>
       {children && (
         <Box sx={{flexGrow: 1, flexShrink: 0}}>
           <MiddleContentWrapper>{children ?? <span></span>}</MiddleContentWrapper>
         </Box>
       )}
-      {right && (
-        <Stack
+      {(actions || refresh) && (
+        <ActionsStack
           spacing={1}
           direction={"row"}
           useFlexGap
-          sx={{flexShrink: 99, alignItems: "center", flexWrap: "wrap"}}
+          sx={{display: actions ? "flex" : {xs: "none", md: "flex"}}}
         >
-          {right}
-        </Stack>
+          {refresh && <Box sx={{display: {xs: "none", md: "flex"}}}>{refresh}</Box>}
+          {actions}
+        </ActionsStack>
       )}
     </PageGenericHeaderUi>
   );
@@ -68,6 +77,27 @@ const PageGenericHeaderUi = styled("div")(
       align-items: stretch;
       & > * {
         flex: 1;
+      }
+    }
+  `,
+);
+
+const ActionsStack = styled(Stack)(
+  ({theme}) => css`
+    flex-shrink: 99;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+
+    ${theme.breakpoints.down("md")} {
+      justify-content: flex-end;
+
+      & > * {
+        flex: 1 1 auto;
+      }
+
+      & > .MuiIconButton-root {
+        flex: 0 0 auto;
       }
     }
   `,

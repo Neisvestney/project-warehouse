@@ -101,7 +101,7 @@ export default observer(function RolesSettingsPage() {
       />
       <PageGenericHeader
         title="Роли"
-        right={
+        actions={
           canEdit ? (
             <>
               <Button

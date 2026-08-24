@@ -130,7 +130,7 @@ function AutoMapRulesPage() {
       />
       <PageGenericHeader
         title="Правила автосопоставления"
-        right={
+        actions={
           canEdit && (
             <Button
               variant="outlined"
