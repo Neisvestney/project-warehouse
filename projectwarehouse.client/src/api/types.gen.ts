@@ -649,7 +649,8 @@ export type ErrorCode =
   | "editLockHeld"
   | "editLockNotHeld"
   | "marketplaceAutoMapRuleNotFound"
-  | "marketplaceAutoMapRuleInvalidRegex";
+  | "marketplaceAutoMapRuleInvalidRegex"
+  | "invalidValue";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -1121,6 +1122,16 @@ export type PaginatedOfReceiptSummaryDto = {
   hasPreviousPage: boolean;
 };
 
+export type PaginatedOfStockForecastRowDto = {
+  items: Array<StockForecastRowDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
 export type PaginatedOfStockMovementDto = {
   items: Array<StockMovementDto>;
   total: number;
@@ -1575,6 +1586,16 @@ export type SetCardMappingRequest = {
   catalogItemId?: null | string;
 };
 
+export type SetStockWarningOverrideRequest = {
+  warehouseId: string;
+  catalogItemId: string;
+  /**
+   * Null deletes the override. Writing the warehouse's current value instead would freeze the item
+   * at that number and silently cut it off from later changes to the warehouse setting.
+   */
+  warningDays?: null | number;
+};
+
 /**
  * Null clears the mapping.
  */
@@ -1609,6 +1630,104 @@ export type StartSyncResponse = {
 };
 
 /**
+ * One forecast unit. Deliberately carries no catalog item: on a stock row and in the item drawer the
+ * item is already on screen, and repeating it there would double the payload for one use site.
+ */
+export type StockForecastDto = {
+  catalogItemId: string;
+  stock: number;
+  /**
+   * Average per day over the window, rounded to two decimals.
+   */
+  dailyConsumption: number;
+  consumedInWindow: number;
+  /**
+   * Null is "never runs out", not "no data" — it sorts last and never counts as a warning.
+   */
+  daysLeft?: null | number;
+  warningDays: number;
+  /**
+   * True when the threshold came from the item's own override rather than the warehouse.
+   */
+  isWarningOverridden: boolean;
+  status: StockForecastStatus;
+};
+
+/**
+ * The page plus the settings it was computed under — window, averaging mode and time zone are read
+ * from the warehouse, so the client can only label them if they come back with the result.
+ */
+export type StockForecastListDto = {
+  items: PaginatedOfStockForecastRowDto;
+  windowDays: number;
+  useWeightedConsumption: boolean;
+  timeZoneId: string;
+  /**
+   * Threshold every row without an override inherited.
+   */
+  warehouseWarningDays: number;
+};
+
+/**
+ * A forecast row of the list, where the item does have to travel with the numbers.
+ */
+export type StockForecastRowDto = {
+  catalogItem: CatalogItemSummaryDto;
+  catalogItemId: string;
+  stock: number;
+  /**
+   * Average per day over the window, rounded to two decimals.
+   */
+  dailyConsumption: number;
+  consumedInWindow: number;
+  /**
+   * Null is "never runs out", not "no data" — it sorts last and never counts as a warning.
+   */
+  daysLeft?: null | number;
+  warningDays: number;
+  /**
+   * True when the threshold came from the item's own override rather than the warehouse.
+   */
+  isWarningOverridden: boolean;
+  status: StockForecastStatus;
+};
+
+/**
+ * The warehouse's own settings next to the system defaults. Null and "equal to the default" are
+ * different states and stay distinguishable: a null keeps following the constant when it changes.
+ */
+export type StockForecastSettingsDto = {
+  warehouseId: string;
+  stockWarningDays?: null | number;
+  consumptionWindowDays?: null | number;
+  useWeightedConsumption: boolean;
+  timeZoneId?: null | string;
+  defaultWarningDays: number;
+  defaultWindowDays: number;
+  effectiveWarningDays: number;
+  effectiveWindowDays: number;
+  /**
+   * Zone the days would actually be cut in, once the fallback chain has run.
+   */
+  effectiveTimeZoneId: string;
+};
+
+/**
+ * StockForecastSortBy.Default is the composite rule — warnings first, then by days left, "never" last.
+ * Any other value replaces that rule entirely; a null `daysLeft` still sorts last either way.
+ */
+export type StockForecastSortBy =
+  "default" | "type" | "name" | "article" | "stock" | "dailyConsumption" | "daysLeft";
+
+/**
+ * How urgent the position is. StockForecastStatus.OutOfStock does not depend on the threshold at all:
+ * stock ran out while it was still being consumed, which is a warning at any `warningDays`,
+ * zero included. StockForecastStatus.NoConsumption is not a warning — dead stock needs a different
+ * conversation, not a purchase order.
+ */
+export type StockForecastStatus = "outOfStock" | "warning" | "ok" | "noConsumption";
+
+/**
  * One row of a grouped report. Guid? StockMovementBreakdownItemDto.Key is null when grouping by action, and also
  * for rows whose referenced entity has since been deleted.
  */
@@ -1640,6 +1759,10 @@ export type StockMovementDailyPointDto = {
 export type StockMovementDailySeriesDto = {
   from: string;
   to: string;
+  /**
+   * IANA zone the days were cut in — label the axis with it, it is not always the caller's own.
+   */
+  timeZoneId: string;
   items: Array<StockMovementDailyPointDto>;
   totals: StockMovementTotalsDto;
 };
@@ -1713,6 +1836,10 @@ export type StockMovementPivotColumnDto = {
 export type StockMovementPivotDto = {
   from: string;
   to: string;
+  /**
+   * IANA zone the days were cut in — label the table with it, it is not always the caller's own.
+   */
+  timeZoneId: string;
   /**
    * Ordered by total quantity moved, descending.
    */
@@ -2159,6 +2286,22 @@ export type UpdateRoleItem = {
   name: string;
   order: number;
   permissions: Array<string>;
+};
+
+export type UpdateStockForecastSettingsRequest = {
+  /**
+   * Null restores the system default.
+   */
+  stockWarningDays?: null | number;
+  /**
+   * Null restores the system default.
+   */
+  consumptionWindowDays?: null | number;
+  useWeightedConsumption: boolean;
+  /**
+   * IANA identifier; null falls back to the caller's zone and then to the server's.
+   */
+  timeZoneId?: null | string;
 };
 
 export type UpdateStocktakeRequest = {
@@ -2857,11 +3000,16 @@ export type CommonContentGlobalSearchResponse =
 
 export type EventsGetEventsData = {
   body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
   path?: never;
   query?: {
     startDate?: string;
     endDate?: string;
-    utcOffsetMinutes?: number;
   };
   url: "/api/events";
 };
@@ -5861,21 +6009,25 @@ export type RolesGetByIdResponse = RolesGetByIdResponses[keyof RolesGetByIdRespo
 
 export type StatisticsGetDailyData = {
   body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
   path?: never;
   query?: {
     /**
-     * Inclusive first day, in the caller's time zone. Defaults to 29 days before DateOnly? StockMovementFilterRequest.To.
+     * Inclusive first day, in the resolved time zone. Defaults to 29 days before DateOnly? StockMovementFilterRequest.To.
      */
     From?: string;
     /**
-     * Inclusive last day, in the caller's time zone. Defaults to today.
+     * Inclusive last day, in the resolved time zone. Defaults to today.
      */
     To?: string;
     /**
-     * Offset of the caller's time zone from UTC. A day boundary is meaningless without it — a warehouse
-     * in UTC+3 would see an evening shift's work land on the next day.
+     * Narrows the rows and, when the warehouse has a zone of its own, decides where the day breaks.
      */
-    UtcOffsetMinutes?: number;
     WarehouseId?: string;
     StoragePlaceId?: string;
     NodeId?: string;
@@ -5918,21 +6070,25 @@ export type StatisticsGetDailyResponse =
 
 export type StatisticsGetPivotData = {
   body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
   path?: never;
   query?: {
     /**
-     * Inclusive first day, in the caller's time zone. Defaults to 29 days before DateOnly? StockMovementFilterRequest.To.
+     * Inclusive first day, in the resolved time zone. Defaults to 29 days before DateOnly? StockMovementFilterRequest.To.
      */
     From?: string;
     /**
-     * Inclusive last day, in the caller's time zone. Defaults to today.
+     * Inclusive last day, in the resolved time zone. Defaults to today.
      */
     To?: string;
     /**
-     * Offset of the caller's time zone from UTC. A day boundary is meaningless without it — a warehouse
-     * in UTC+3 would see an evening shift's work land on the next day.
+     * Narrows the rows and, when the warehouse has a zone of its own, decides where the day breaks.
      */
-    UtcOffsetMinutes?: number;
     WarehouseId?: string;
     StoragePlaceId?: string;
     NodeId?: string;
@@ -5976,21 +6132,25 @@ export type StatisticsGetPivotResponse =
 
 export type StatisticsGetBreakdownData = {
   body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
   path?: never;
   query?: {
     /**
-     * Inclusive first day, in the caller's time zone. Defaults to 29 days before DateOnly? StockMovementFilterRequest.To.
+     * Inclusive first day, in the resolved time zone. Defaults to 29 days before DateOnly? StockMovementFilterRequest.To.
      */
     From?: string;
     /**
-     * Inclusive last day, in the caller's time zone. Defaults to today.
+     * Inclusive last day, in the resolved time zone. Defaults to today.
      */
     To?: string;
     /**
-     * Offset of the caller's time zone from UTC. A day boundary is meaningless without it — a warehouse
-     * in UTC+3 would see an evening shift's work land on the next day.
+     * Narrows the rows and, when the warehouse has a zone of its own, decides where the day breaks.
      */
-    UtcOffsetMinutes?: number;
     WarehouseId?: string;
     StoragePlaceId?: string;
     NodeId?: string;
@@ -6036,21 +6196,25 @@ export type StatisticsGetBreakdownResponse =
 
 export type StatisticsGetMovementsData = {
   body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
   path?: never;
   query?: {
     /**
-     * Inclusive first day, in the caller's time zone. Defaults to 29 days before DateOnly? StockMovementFilterRequest.To.
+     * Inclusive first day, in the resolved time zone. Defaults to 29 days before DateOnly? StockMovementFilterRequest.To.
      */
     From?: string;
     /**
-     * Inclusive last day, in the caller's time zone. Defaults to today.
+     * Inclusive last day, in the resolved time zone. Defaults to today.
      */
     To?: string;
     /**
-     * Offset of the caller's time zone from UTC. A day boundary is meaningless without it — a warehouse
-     * in UTC+3 would see an evening shift's work land on the next day.
+     * Narrows the rows and, when the warehouse has a zone of its own, decides where the day breaks.
      */
-    UtcOffsetMinutes?: number;
     WarehouseId?: string;
     StoragePlaceId?: string;
     NodeId?: string;
@@ -6093,6 +6257,220 @@ export type StatisticsGetMovementsResponses = {
 
 export type StatisticsGetMovementsResponse =
   StatisticsGetMovementsResponses[keyof StatisticsGetMovementsResponses];
+
+export type StockForecastGetListData = {
+  body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path?: never;
+  query?: {
+    /**
+     * Required: consumption differs per warehouse, and an average across all of them means nothing.
+     */
+    WarehouseId?: string;
+    SearchString?: string;
+    /**
+     * Physical types to keep. Empty means both `Standard` and `Unit`.
+     */
+    CatalogItemTypes?: Array<CatalogItemType>;
+    TagIds?: Array<string>;
+    IsArchived?: boolean;
+    /**
+     * Leaves only `OutOfStock` and `Warning`.
+     */
+    OnlyWarnings?: boolean;
+    SortBy?: StockForecastSortBy;
+    SortOrder?: SortOrder;
+    page?: number;
+    pageSize?: number;
+  };
+  url: "/api/stock-forecast";
+};
+
+export type StockForecastGetListErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type StockForecastGetListError =
+  StockForecastGetListErrors[keyof StockForecastGetListErrors];
+
+export type StockForecastGetListResponses = {
+  /**
+   * OK
+   */
+  200: StockForecastListDto;
+};
+
+export type StockForecastGetListResponse =
+  StockForecastGetListResponses[keyof StockForecastGetListResponses];
+
+export type StockForecastGetForItemsData = {
+  body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path?: never;
+  query: {
+    warehouseId: string;
+    catalogItemIds?: Array<string>;
+  };
+  url: "/api/stock-forecast/items";
+};
+
+export type StockForecastGetForItemsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type StockForecastGetForItemsError =
+  StockForecastGetForItemsErrors[keyof StockForecastGetForItemsErrors];
+
+export type StockForecastGetForItemsResponses = {
+  /**
+   * OK
+   */
+  200: {
+    [key: string]: StockForecastDto;
+  };
+};
+
+export type StockForecastGetForItemsResponse =
+  StockForecastGetForItemsResponses[keyof StockForecastGetForItemsResponses];
+
+export type StockForecastGetSettingsData = {
+  body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path: {
+    warehouseId: string;
+  };
+  query?: never;
+  url: "/api/stock-forecast/settings/{warehouseId}";
+};
+
+export type StockForecastGetSettingsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type StockForecastGetSettingsError =
+  StockForecastGetSettingsErrors[keyof StockForecastGetSettingsErrors];
+
+export type StockForecastGetSettingsResponses = {
+  /**
+   * OK
+   */
+  200: StockForecastSettingsDto;
+};
+
+export type StockForecastGetSettingsResponse =
+  StockForecastGetSettingsResponses[keyof StockForecastGetSettingsResponses];
+
+export type StockForecastUpdateSettingsData = {
+  body: UpdateStockForecastSettingsRequest;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path: {
+    warehouseId: string;
+  };
+  query?: never;
+  url: "/api/stock-forecast/settings/{warehouseId}";
+};
+
+export type StockForecastUpdateSettingsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type StockForecastUpdateSettingsError =
+  StockForecastUpdateSettingsErrors[keyof StockForecastUpdateSettingsErrors];
+
+export type StockForecastUpdateSettingsResponses = {
+  /**
+   * OK
+   */
+  200: StockForecastSettingsDto;
+};
+
+export type StockForecastUpdateSettingsResponse =
+  StockForecastUpdateSettingsResponses[keyof StockForecastUpdateSettingsResponses];
+
+export type StockForecastSetOverrideData = {
+  body: SetStockWarningOverrideRequest;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path?: never;
+  query?: never;
+  url: "/api/stock-forecast/overrides";
+};
+
+export type StockForecastSetOverrideErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type StockForecastSetOverrideError =
+  StockForecastSetOverrideErrors[keyof StockForecastSetOverrideErrors];
+
+export type StockForecastSetOverrideResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type StockForecastSetOverrideResponse =
+  StockForecastSetOverrideResponses[keyof StockForecastSetOverrideResponses];
 
 export type StocktakesGetAllData = {
   body?: never;

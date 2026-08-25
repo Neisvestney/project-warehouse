@@ -15,10 +15,15 @@ public class StockStatisticsService(
     ApplicationDbContext db,
     IMapper mapper,
     IUserQueryFilterService userFilter,
-    IInventoryService inventoryService) : IStockStatisticsService
+    IInventoryService inventoryService,
+    IWarehouseTimeZoneResolver timeZones) : IStockStatisticsService
 {
     private const int DefaultDays = 30;
     private const int MaxDays = 366;
+
+    /// <summary>The filtered query plus everything the day boundary was decided by.</summary>
+    private sealed record MovementScope(
+        IQueryable<StockMovement> Query, DateOnly From, DateOnly To, int OffsetMinutes, string TimeZoneId);
 
     private sealed class DayRow : StockMovementTotalsDto
     {
@@ -41,10 +46,10 @@ public class StockStatisticsService(
         StockMovementFilterRequest filter,
         CancellationToken ct = default)
     {
-        var (query, from, to) = await BuildAsync(user, filter, ct);
-        var byDate = await GroupByDayAsync(query, filter.UtcOffsetMinutes, ct);
+        var scope = await BuildAsync(user, filter, ct);
+        var byDate = await GroupByDayAsync(scope.Query, scope.OffsetMinutes, ct);
 
-        var items = EachDay(from, to)
+        var items = EachDay(scope.From, scope.To)
             .Select(day => new StockMovementDailyPointDto
             {
                 Date = day,
@@ -58,8 +63,9 @@ public class StockStatisticsService(
 
         return new StockMovementDailySeriesDto
         {
-            From = from,
-            To = to,
+            From = scope.From,
+            To = scope.To,
+            TimeZoneId = scope.TimeZoneId,
             Items = items,
             Totals = Sum(items),
         };
@@ -71,8 +77,7 @@ public class StockStatisticsService(
         int columnLimit,
         CancellationToken ct = default)
     {
-        var (query, from, to) = await BuildAsync(user, filter, ct);
-        var offsetMinutes = filter.UtcOffsetMinutes;
+        var (query, from, to, offsetMinutes, timeZoneId) = await BuildAsync(user, filter, ct);
         var toUtc = DateTime.SpecifyKind(
             to.AddDays(1).ToDateTime(TimeOnly.MinValue) - TimeSpan.FromMinutes(offsetMinutes), DateTimeKind.Utc);
 
@@ -249,6 +254,7 @@ public class StockStatisticsService(
         {
             From = from,
             To = to,
+            TimeZoneId = timeZoneId,
             Columns = columnRows
                 .Where(c => catalogItems.ContainsKey(c.CatalogItemId))
                 .Select(c => new StockMovementPivotColumnDto
@@ -276,7 +282,7 @@ public class StockStatisticsService(
         int limit,
         CancellationToken ct = default)
     {
-        var (query, _, _) = await BuildAsync(user, filter, ct);
+        var query = (await BuildAsync(user, filter, ct)).Query;
 
         // Reduced to a uniform key/label shape first, so the aggregation below is written once.
         // All branches produce the same anonymous type.
@@ -321,7 +327,7 @@ public class StockStatisticsService(
         int pageSize,
         CancellationToken ct = default)
     {
-        var (query, _, _) = await BuildAsync(user, filter, ct);
+        var query = (await BuildAsync(user, filter, ct)).Query;
 
         return await query
             .OrderByDescending(m => m.CreatedAt)
@@ -408,15 +414,18 @@ public class StockStatisticsService(
     }
 
     /// <summary>
-    /// Resolves the day range, converts it to a UTC half-open interval and applies every filter.
-    /// The range is converted rather than shifted per row so the index on <c>CreatedAt</c> stays usable.
+    /// Resolves the time zone and the day range, converts the range to a UTC half-open interval and
+    /// applies every filter. The range is converted rather than shifted per row so the index on
+    /// <c>CreatedAt</c> stays usable.
     /// </summary>
-    private async Task<(IQueryable<StockMovement> Query, DateOnly From, DateOnly To)> BuildAsync(
+    private async Task<MovementScope> BuildAsync(
         ClaimsPrincipal user,
         StockMovementFilterRequest filter,
         CancellationToken ct)
     {
-        var offset = TimeSpan.FromMinutes(filter.UtcOffsetMinutes);
+        var zone = await timeZones.ResolveAsync(filter.WarehouseId, ct);
+        var offsetMinutes = zone.CurrentOffsetMinutes();
+        var offset = TimeSpan.FromMinutes(offsetMinutes);
         var to = filter.To ?? DateOnly.FromDateTime(DateTime.UtcNow + offset);
         var from = filter.From ?? to.AddDays(-(DefaultDays - 1));
 
@@ -448,6 +457,6 @@ public class StockStatisticsService(
         if (filter.Directions is { Length: > 0 } directions)
             query = query.Where(m => directions.Contains(m.Direction));
 
-        return (query, from, to);
+        return new MovementScope(query, from, to, offsetMinutes, zone.IanaId());
     }
 }

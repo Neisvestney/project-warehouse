@@ -30,7 +30,7 @@ is rationale, invariants, cross-cutting conventions and decisions.
 
 | File | Contents |
 |------|----------|
-| [api.md](api.md) | API conventions (pagination, filtering, `utcOffsetMinutes`), JWT auth, refresh rotation, SecurityVersion invalidation |
+| [api.md](api.md) | API conventions (pagination, filtering, day boundaries and `X-Time-Zone`), JWT auth, refresh rotation, SecurityVersion invalidation |
 | [permissions.md](permissions.md) | The `_assigned` convention, notable access rules, where access is checked, RBAC + direct permissions |
 | [errors.md](errors.md) | `AppProblemDetails` envelope, field-path conventions, persisted errors, controller helpers |
 | [validation.md](validation.md) | Validation pipeline, `[JsonRequired]`, ModelState mapping |
@@ -55,6 +55,7 @@ is rationale, invariants, cross-cutting conventions and decisions.
 | [technical-specification.md](technical-specification.md) | WMS operational flows — receipts, transfers, write-offs, stocktakes |
 | [orders-specification.md](orders-specification.md) | Orders — FBS, FBO, Direct, assembly tasks, status flows |
 | [items-specification.md](items-specification.md) | Catalog items — types, `FullName`, inheritance, tags, images, listing rules |
+| [stock-forecast-specification.md](stock-forecast-specification.md) | Прогноз остатков — расчёт «на сколько дней хватит», окно расхода, пороги предупреждения |
 | [marketplaces-specification.md](marketplaces-specification.md) | Integration platform — Ozon Seller API, client codegen, credential storage, warehouse/card sync & mapping |
 | [marketplaces-orders-fbs-specification.md](marketplaces-orders-fbs-specification.md) | FBS order sync — posting discovery, status catch-up, order creation, label retrieval |
 | [realtime-specification.md](realtime-specification.md) | Real-time transport — SSE, event schema, watch registry, advisory edit locks |

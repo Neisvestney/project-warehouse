@@ -1,6 +1,7 @@
 import {useMemo} from "react";
 import {Alert, IconButton, Stack, Tooltip} from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import QueryError from "@/components/QueryError";
@@ -39,7 +40,27 @@ function StockMovementsPage() {
       <AppBreadcrumbs path={[{name: "Движения товаров"}]} />
 
       <PageGenericHeader
-        title="Движения товаров"
+        title={
+          // The applied zone hangs off a permanently rendered icon: as a line of its own it appeared
+          // and vanished with every reload and shifted the page under the cursor.
+          <>
+            Движения товаров
+            <Tooltip
+              title={pivot.timeZoneId && `Сутки считаются по часовому поясу ${pivot.timeZoneId}`}
+            >
+              <InfoOutlinedIcon
+                sx={{
+                  fontSize: "0.7em",
+                  verticalAlign: "middle",
+                  ml: 0.5,
+                  color: "primary.main",
+                  opacity: pivot.timeZoneId ? 1 : 0,
+                  pointerEvents: pivot.timeZoneId ? "auto" : "none",
+                }}
+              />
+            </Tooltip>
+          </>
+        }
         refresh={
           <Tooltip title="Обновить">
             <IconButton color="inherit" onClick={() => pivot.refetch()}>

@@ -11,6 +11,8 @@ interface UseTableSortOptions {
   sortByParam?: string;
   sortOrderParam?: string;
   defaultSortOrder?: SortOrder;
+  /** Adds a third click on the active column that drops the sort back to `defaultSortBy`. */
+  clearable?: boolean;
 }
 
 export function useTableSort<TSortBy extends string>(
@@ -41,12 +43,21 @@ export function useTableSort<TSortBy extends string>(
   );
 
   const handleSortClick = (column: TSortBy) => {
-    if (sortBy === column) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
+    if (sortBy !== column) {
       setSortBy(column);
       setSortOrder("asc");
+      return;
     }
+    if (sortOrder === "asc") {
+      setSortOrder("desc");
+      return;
+    }
+    if (options?.clearable) {
+      setSortBy(defaultSortBy);
+      setSortOrder(options.defaultSortOrder ?? "asc");
+      return;
+    }
+    setSortOrder("asc");
   };
 
   return {sortBy, sortOrder, handleSortClick};

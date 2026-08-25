@@ -27,7 +27,7 @@ const ru = {
 };
 import {eventsGetEventsOptions} from "@/api/@tanstack/react-query.gen";
 import {resolveEntity} from "@/utils/appEntityUtils";
-import {currentUtcOffsetMinutes, toDateOnly} from "@/utils/dateOnly";
+import {toDateOnly} from "@/utils/dateOnly";
 import type React from "react";
 
 export interface AppEventsProps {}
@@ -51,7 +51,7 @@ function AppEvents({}: AppEventsProps) {
     isError,
   } = useQuery(
     eventsGetEventsOptions({
-      query: {startDate, endDate, utcOffsetMinutes: currentUtcOffsetMinutes()},
+      query: {startDate, endDate},
     }),
   );
 

@@ -11,6 +11,10 @@ public class StockMovementDailySeriesDto
 {
     public DateOnly From { get; init; }
     public DateOnly To { get; init; }
+
+    /// <summary>IANA zone the days were cut in — label the axis with it, it is not always the caller's own.</summary>
+    public string TimeZoneId { get; init; } = null!;
+
     public IReadOnlyList<StockMovementDailyPointDto> Items { get; init; } = [];
     public StockMovementTotalsDto Totals { get; init; } = new();
 }

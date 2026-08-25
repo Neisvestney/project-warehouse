@@ -59,6 +59,7 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   invalidFormat: "Неверный формат",
   outOfRange: "Значение вне допустимого диапазона",
   invalidJson: "Неверный формат JSON",
+  invalidValue: "Недопустимое значение",
   passwordTooShort: "Пароль должен содержать как минимум {minimalLength} симв.",
   passwordAtLeastOneDigit: "Пароль должен содержать как минимум одну цифру",
   passwordAtLeastOneUppercase: "Пароль должен содержать хотя бы одну заглавную букву",

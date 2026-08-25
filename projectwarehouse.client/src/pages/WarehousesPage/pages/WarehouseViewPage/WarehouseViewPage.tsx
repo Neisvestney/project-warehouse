@@ -19,6 +19,7 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import EditIcon from "@mui/icons-material/Edit";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
+import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import {isNotFoundError} from "@/utils/errorUtils";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import PageGenericHeader from "@/components/PageGenericHeader";
@@ -144,6 +145,14 @@ function WarehouseViewPage() {
                 to={`/storage/warehouses/${id}/inventory`}
               >
                 Остатки
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<TrendingDownIcon />}
+                component={Link}
+                to={`/storage/warehouses/${id}/forecast`}
+              >
+                Прогноз остатков
               </Button>
               <Button
                 startIcon={isPrinting ? <CircularProgress size={14} /> : <PrintIcon />}

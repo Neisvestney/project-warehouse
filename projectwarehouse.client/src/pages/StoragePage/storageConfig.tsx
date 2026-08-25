@@ -2,6 +2,7 @@ import React from "react";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
 import InventoryIcon from "@mui/icons-material/Inventory2";
 import SwapVertIcon from "@mui/icons-material/SwapVert";
+import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import {createHasAccess} from "@/layouts/SidebarPage/createHasAccess.ts";
 import {createFirstPageUrl} from "@/layouts/SidebarPage/createFirstPageUrl.ts";
 import type {SectionConfig} from "@/layouts/SidebarPage/SidebarPage.tsx";
@@ -11,9 +12,11 @@ import WarehouseViewPage from "@/pages/WarehousesPage/pages/WarehouseViewPage/Wa
 import WarehouseEditPage from "@/pages/WarehousesPage/pages/WarehouseEditPage/WarehouseEditPage.tsx";
 import WarehouseNewPage from "@/pages/WarehousesPage/pages/WarehouseNewPage/WarehouseNewPage.tsx";
 import WarehouseInventoryPage from "@/pages/WarehousesPage/pages/WarehouseInventoryPage/WarehouseInventoryPage.tsx";
+import WarehouseForecastPage from "@/pages/WarehousesPage/pages/WarehouseForecastPage/WarehouseForecastPage.tsx";
 import StoragePlaceInventoryPage from "@/pages/WarehousesPage/pages/StoragePlaceInventoryPage/StoragePlaceInventoryPage.tsx";
 import NodeInventoryPage from "@/pages/WarehousesPage/pages/NodeInventoryPage/NodeInventoryPage.tsx";
 import StockMovementsPage from "@/pages/StockMovementsPage/StockMovementsPage.tsx";
+import StockForecastPage from "@/pages/StockForecastPage/StockForecastPage.tsx";
 
 export const storageSections: SectionConfig[] = [
   {
@@ -26,6 +29,7 @@ export const storageSections: SectionConfig[] = [
       {path: "new", component: WarehouseNewPage},
       {path: ":id/edit", component: WarehouseEditPage},
       {path: ":id/inventory", component: WarehouseInventoryPage},
+      {path: ":id/forecast", component: WarehouseForecastPage},
       {
         path: ":warehouseId/storage-places/:storagePlaceId/nodes/:nodeId/inventory",
         component: NodeInventoryPage,
@@ -49,6 +53,13 @@ export const storageSections: SectionConfig[] = [
     path: "stock-movements",
     icon: <SwapVertIcon fontSize="small" />,
     component: StockMovementsPage,
+    requiredPermission: ["statistics.view", "statistics.view_assigned"],
+  },
+  {
+    label: "Прогноз остатков",
+    path: "forecast",
+    icon: <TrendingDownIcon fontSize="small" />,
+    component: StockForecastPage,
     requiredPermission: ["statistics.view", "statistics.view_assigned"],
   },
 ];

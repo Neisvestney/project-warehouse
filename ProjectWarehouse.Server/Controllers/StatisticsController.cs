@@ -9,21 +9,22 @@ using ProjectWarehouse.Server.Services;
 namespace ProjectWarehouse.Server.Controllers;
 
 [Route("api/statistics")]
+[TimeZoneAware]
 public class StatisticsController(IStockStatisticsService statistics) : AppControllerBase
 {
     /// <summary>Daily in/out/transfer totals over a date range.</summary>
     /// <remarks>
-    /// Every day of the range is present, including empty ones. Days are cut in the caller's time zone —
-    /// pass <c>utcOffsetMinutes</c>, or an evening shift lands on the wrong day. Defaults to the last 30 days;
-    /// the range may not exceed 366 days.
-    /// Query params come from <c>StockMovementFilterRequest</c>: <c>from</c>, <c>to</c>,
-    /// <c>utcOffsetMinutes</c> (default 0, range -840..840), <c>warehouseId</c>, <c>storagePlaceId</c>,
-    /// <c>nodeId</c>, <c>userId</c>, <c>catalogItemIds</c>, <c>actions</c>, <c>directions</c>.
+    /// Every day of the range is present, including empty ones. Days are cut in the zone of
+    /// <c>warehouseId</c> when it has one, otherwise in the zone sent as <c>X-Time-Zone</c>, otherwise in the
+    /// server's; the applied zone comes back as <c>timeZoneId</c>. Defaults to the last 30 days; the range
+    /// may not exceed 366 days.
+    /// Query params come from <c>StockMovementFilterRequest</c>: <c>from</c>, <c>to</c>, <c>warehouseId</c>,
+    /// <c>storagePlaceId</c>, <c>nodeId</c>, <c>userId</c>, <c>catalogItemIds</c>, <c>actions</c>,
+    /// <c>directions</c>.
     /// Requires <c>statistics.view</c> or <c>statistics.view_assigned</c> — either one grants access and the
     /// warehouses the rows come from are narrowed afterwards; 403 <c>permissionDenied</c> when neither is held.
     /// Returns 422 <c>outOfRange</c> on <c>from</c> when <c>from</c> is later than <c>to</c> or the range
-    /// exceeds 366 days (no <c>args</c>), and 422 <c>outOfRange</c> on <c>utcOffsetMinutes</c> from model
-    /// validation. Every statistics endpoint below shares these params and both codes.
+    /// exceeds 366 days (no <c>args</c>). Every statistics endpoint below shares these params and that code.
     /// </remarks>
     [HttpGet("stock-movements/daily")]
     [Authorize]
@@ -76,7 +77,7 @@ public class StatisticsController(IStockStatisticsService statistics) : AppContr
     /// <summary>Same totals, grouped by one dimension instead of by day.</summary>
     /// <remarks>
     /// Query params: the shared filter plus <c>groupBy</c> (default <c>Action</c>) and <c>limit</c>
-    /// (default 20, range 1..200). Days are still cut with <c>utcOffsetMinutes</c>.
+    /// (default 20, range 1..200). The range is still cut in the resolved zone.
     /// Same access rule and the same 422 <c>outOfRange</c> range errors as <c>stock-movements/daily</c>.
     /// </remarks>
     [HttpGet("stock-movements/breakdown")]

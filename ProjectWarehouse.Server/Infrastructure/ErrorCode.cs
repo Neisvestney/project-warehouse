@@ -134,6 +134,7 @@ public enum ErrorCode
     InvalidFormat = 93,
     OutOfRange = 94,
     InvalidJson = 95,
+    InvalidValue = 135,
     PasswordTooShort = 96,
     PasswordAtLeastOneDigit = 97,
     PasswordAtLeastOneUppercase = 98,

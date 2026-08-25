@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using ProjectWarehouse.Server.Domain;
 
 namespace ProjectWarehouse.Server.Models.Statistics;
@@ -6,19 +5,13 @@ namespace ProjectWarehouse.Server.Models.Statistics;
 /// <summary>Shared filter for every stock statistics endpoint.</summary>
 public class StockMovementFilterRequest
 {
-    /// <summary>Inclusive first day, in the caller's time zone. Defaults to 29 days before <see cref="To"/>.</summary>
+    /// <summary>Inclusive first day, in the resolved time zone. Defaults to 29 days before <see cref="To"/>.</summary>
     public DateOnly? From { get; init; }
 
-    /// <summary>Inclusive last day, in the caller's time zone. Defaults to today.</summary>
+    /// <summary>Inclusive last day, in the resolved time zone. Defaults to today.</summary>
     public DateOnly? To { get; init; }
 
-    /// <summary>
-    /// Offset of the caller's time zone from UTC. A day boundary is meaningless without it — a warehouse
-    /// in UTC+3 would see an evening shift's work land on the next day.
-    /// </summary>
-    [Range(-840, 840)]
-    public int UtcOffsetMinutes { get; init; }
-
+    /// <summary>Narrows the rows and, when the warehouse has a zone of its own, decides where the day breaks.</summary>
     public Guid? WarehouseId { get; init; }
     public Guid? StoragePlaceId { get; init; }
     public Guid? NodeId { get; init; }
