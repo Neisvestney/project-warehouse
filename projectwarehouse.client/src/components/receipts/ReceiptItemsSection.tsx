@@ -46,6 +46,7 @@ import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
 import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
 import ReceiptItemsEditorDrawer from "@/components/receipts/ReceiptItemsEditorDrawer";
+import NotesTableCell from "@/components/NotesTableCell";
 import AddPlacementDialog from "@/components/receipts/AddPlacementDialog";
 import BatchStandardPlacementDialog from "@/components/receipts/BatchStandardPlacementDialog";
 import type {ReceiptDto, ReceiptItemDto, ReceiptItemPlacementDto} from "@/api/types.gen";
@@ -698,7 +699,7 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
                     <CatalogItemCell item={item} onOpen={setCatalogItemId} />
                   </TableCell>
                   <TableCell align="right">{item.plannedCount}</TableCell>
-                  <TableCell sx={{color: "text.secondary"}}>{item.notes ?? "—"}</TableCell>
+                  <NotesTableCell notes={item.notes} />
                 </TableRow>
               ))}
             </TableBody>

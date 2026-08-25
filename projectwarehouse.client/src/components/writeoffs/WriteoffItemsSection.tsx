@@ -16,6 +16,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import type {WriteoffDto} from "@/api/types.gen";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
+import NotesTableCell from "@/components/NotesTableCell";
 import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
 import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState";
 import WriteoffItemsEditorDrawer from "@/components/writeoffs/WriteoffItemsEditorDrawer";
@@ -143,11 +144,7 @@ function WriteoffItemsSection({writeoff, onEditingChange}: WriteoffItemsSectionP
                           <ItemNameCell item={item} onOpen={openCatalogDrawer} />
                         </TableCell>
                         <TableCell>{itemDisplayCount(item)}</TableCell>
-                        <TableCell>
-                          <Typography variant="body2" color="text.secondary">
-                            {item.notes || "—"}
-                          </Typography>
-                        </TableCell>
+                        <NotesTableCell notes={item.notes} />
                       </TableRow>
                     ))}
                   </TableBody>

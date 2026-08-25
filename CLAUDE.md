@@ -1,6 +1,8 @@
 ﻿Before planning read `docs/` to understand project structure.  
 Use rider mcp to start and stop dev frontend and backend servers for testing and api gen but do not use rider mcp to simple cli commands (dotnet ef and etc).  
 Project uses MUI v9 that has some breaking changes.  
+The frontend build enables React Compiler, so memoization is automatic. Do not add `React.memo`, `useMemo` or `useCallback` for render-cost reasons, and never raise a missing one as a review finding — only keep them where they guard a non-render invariant such as a stable identity passed to an external API.  
+MobX is the exception: a component that reads observable fields must start its body with `"use no memo"`. The store reference is stable while its fields mutate, so the compiler does not treat an observable read as a JSX-cache dependency — the component re-renders but returns the frozen first-render subtree, and no lint rule catches it. Passing a store through context reads nothing observable and stays compiled. The same trap applies to react-hook-form's `watch()`; use `useWatch({control, name})` instead.  
 When planning new features or code edits add docs writing as final step.  
 Docs describe the current state of the code only — never the history of a change. No "раньше было", "теперь вместо", "убрали/переименовали/перенесли", no mention of deleted components, props or layouts, no rationale of the form "чтобы не как прежде". Write as if the code had always looked this way; the diff and the changelog are where the history lives.  
 Check typescript with `npm run typecheck` command (run from `projectwarehouse.client`; uses TypeScript 7 / native Go compiler) to catch any compilation errors.  

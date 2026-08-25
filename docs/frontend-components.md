@@ -134,6 +134,22 @@ for the `isFetching` dim (`opacity: isFetching && !isLoading ? 0.5 : 1`).
 
 Used by the orders, receipts, stocktakes, writeoffs, marketplace accounts, employees and warehouses lists.
 
+### `NotesTableCell`
+
+A `TableCell` for the «Примечание» column. It renders the note as `body2` / `text.secondary`, truncated to
+`maxWidth` (200px by default) with `noWrap`, and wraps it in a `Tooltip` carrying the full text. An empty or
+missing note renders «—» and the tooltip stays disabled.
+
+```tsx
+<NotesTableCell notes={item.notes} />
+<NotesTableCell notes={order.notes} sx={{position: "relative", zIndex: 1}} />
+```
+
+Remaining props are forwarded to `TableCell`, so a row inside `LinkTableRow` can raise the cell above the link
+overlay to keep the tooltip hoverable.
+
+Used by the orders list and the receipt, writeoff and stocktake item tables.
+
 ### `RouteFallback`
 
 Centred `CircularProgress` shown while a whole route is unavailable — a lazy page chunk still loading

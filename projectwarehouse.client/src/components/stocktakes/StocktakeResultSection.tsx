@@ -13,6 +13,7 @@ import {
 } from "@mui/material";
 import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState";
 import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
+import NotesTableCell from "@/components/NotesTableCell";
 import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {deltaColor, formatDelta} from "@/components/stocktakes/stocktakeUtils";
@@ -102,7 +103,7 @@ function StocktakeResultSection({stocktake}: StocktakeResultSectionProps) {
                       <TableCell align="right" sx={{color: deltaColor(item.appliedDelta ?? 0)}}>
                         {item.appliedDelta == null ? "—" : formatDelta(item.appliedDelta)}
                       </TableCell>
-                      <TableCell>{item.notes ?? "—"}</TableCell>
+                      <NotesTableCell notes={item.notes} />
                     </TableRow>
                   ))}
                 </TableBody>
