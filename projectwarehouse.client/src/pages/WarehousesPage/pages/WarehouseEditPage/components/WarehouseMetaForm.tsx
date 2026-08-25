@@ -6,6 +6,7 @@ import {useController} from "react-hook-form";
 import {useQuery} from "@tanstack/react-query";
 import {warehousesGetByIdForPrintOptions} from "@/api/@tanstack/react-query.gen";
 import {FormTextField} from "@/components/form/FormTextField";
+import {FormTimeZoneField} from "@/components/form/FormTimeZoneField";
 import SelectNodeModal from "@/components/receipts/SelectNodeModal";
 import type {WarehouseMetaFormValues} from "../warehouseEditStore";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
@@ -122,7 +123,16 @@ export default function WarehouseMetaForm({
         />
       </Stack>
       {warehouseId && (
-        <DefaultNodePicker control={control} disabled={disabled} warehouseId={warehouseId} />
+        <>
+          <FormTimeZoneField
+            control={control}
+            name="timeZoneId"
+            helperText="Пусто — пояс вызывающего или сервера"
+            disabled={disabled}
+            sx={{maxWidth: 320}}
+          />
+          <DefaultNodePicker control={control} disabled={disabled} warehouseId={warehouseId} />
+        </>
       )}
     </Stack>
   );

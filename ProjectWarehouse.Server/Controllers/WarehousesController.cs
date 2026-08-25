@@ -201,6 +201,9 @@ public class WarehousesController(
     /// Returns 422 <c>storagePlaceNotFound</c> if any provided ID does not belong to this warehouse — including
     /// for <c>defaultStoragePlaceNodeId</c>, which must reference a node of this warehouse. Deleting the
     /// referenced node clears the field via cascade.
+    /// <c>timeZoneId</c> is an IANA identifier (null falls back to the caller's zone and then to the
+    /// server's); an unknown one answers 422 <c>invalidValue</c>. The remaining forecast settings are
+    /// written through <c>PUT /api/stock-forecast/settings/{warehouseId}</c>.
     /// Requires <c>warehouses.edit</c> or <c>warehouses.edit_assigned</c> (assigned warehouses only).
     /// </remarks>
     [HttpPut("{id:guid}")]
@@ -246,6 +249,13 @@ public class WarehousesController(
             return Problem(AppProblems.UnprocessableEntities(errors));
         }
 
+        // A stored identifier is a setting somebody typed: a broken one would leave the warehouse
+        // silently cutting its days by the server zone forever.
+        var timeZoneId = TimeZoneIds.Normalize(request.TimeZoneId);
+        if (timeZoneId is not null && !TimeZoneIds.IsKnown(timeZoneId))
+            return UnprocessableEntity("timeZoneId", ErrorCode.InvalidValue,
+                "Unknown IANA time zone identifier.");
+
         if (request.DefaultStoragePlaceNodeId.HasValue)
         {
             var nodeExists = await db.StoragePlacesNodes
@@ -263,6 +273,7 @@ public class WarehousesController(
         warehouse.Width = request.Width;
         warehouse.Height = request.Height;
         warehouse.DefaultStoragePlaceNodeId = request.DefaultStoragePlaceNodeId;
+        warehouse.TimeZoneId = timeZoneId;
         warehouse.LayoutObjects.Clear();
         foreach (var lo in request.LayoutObjects)
             warehouse.LayoutObjects.Add(new WarehouseLayoutElement

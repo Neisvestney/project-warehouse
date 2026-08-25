@@ -34,6 +34,7 @@ export interface WarehouseMetaFormValues {
   width: number;
   height: number;
   defaultStoragePlaceNodeId: string | null;
+  timeZoneId: string | null;
 }
 
 export class WarehouseEditStore {
@@ -81,6 +82,7 @@ export class WarehouseEditStore {
       width: warehouse.width,
       height: warehouse.height,
       defaultStoragePlaceNodeId: warehouse.defaultStoragePlaceNodeId ?? null,
+      timeZoneId: warehouse.timeZoneId ?? null,
     };
   }
 
@@ -129,6 +131,7 @@ export class WarehouseEditStore {
       width: meta?.width ?? 0,
       height: meta?.height ?? 0,
       defaultStoragePlaceNodeId: meta?.defaultStoragePlaceNodeId ?? null,
+      timeZoneId: meta?.timeZoneId?.trim() ? meta.timeZoneId.trim() : null,
       storagePlaces: this.storagePlaces.map((sp) => ({
         id: sp.serverId ?? undefined,
         name: sp.name,

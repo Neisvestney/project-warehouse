@@ -55,7 +55,7 @@ Examples:
 
 This allows the UI to render a human-friendly explanation ("Changed during receiving ПРХ-00042") instead of a generic "Modified by user".
 
-Real action constants live in `Infrastructure/*Actions.cs`, one class per feature: `ReceiptActions`, `WriteoffActions`, `TransferActions`, `OrderActions`, `MarketplaceActions`, `StocktakeActions` (`nodes_synced`, `items_synced`, `scheduled`, `moved_to_draft`, `started`, `reverted`, `finished`, `canceled`) — plus `InventoryActions`, whose values double as `StockMovement.Action` and therefore carry an `inventory.` prefix. A stocktake writes document-level entries under `AppEntityType.Stocktake` and, through `InventoryService`, per-node entries under `AppEntityType.StoragePlaceNode` with `inventory.stocktake_surplus` / `_shortage` / `_relocation`.
+Real action constants live in `Infrastructure/*Actions.cs`, one class per feature: `ReceiptActions`, `WriteoffActions`, `TransferActions`, `OrderActions`, `MarketplaceActions`, `StocktakeActions` (`nodes_synced`, `items_synced`, `scheduled`, `moved_to_draft`, `started`, `reverted`, `finished`, `canceled`), `ForecastActions` (`forecast.override_set`, `forecast.override_cleared`) — plus `InventoryActions`, whose values double as `StockMovement.Action` and therefore carry an `inventory.` prefix. A stocktake writes document-level entries under `AppEntityType.Stocktake` and, through `InventoryService`, per-node entries under `AppEntityType.StoragePlaceNode` with `inventory.stocktake_surplus` / `_shortage` / `_relocation`.
 
 ## Adding Changelog to a New Method
 

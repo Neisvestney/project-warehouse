@@ -13,7 +13,13 @@ function WarehouseNewPage() {
   const navigate = useNavigate();
 
   const form = useForm<WarehouseMetaFormValues>({
-    defaultValues: {name: "", width: 10, height: 10, defaultStoragePlaceNodeId: null},
+    defaultValues: {
+      name: "",
+      width: 10,
+      height: 10,
+      defaultStoragePlaceNodeId: null,
+      timeZoneId: null,
+    },
   });
   const {setApiError} = useRhfApiErrors(form);
 
