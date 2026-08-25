@@ -16,6 +16,8 @@ const TOOLS: {value: Tool; label: string; icon: React.ReactElement}[] = [
 ];
 
 export default observer(function WarehouseEditToolbar() {
+  "use no memo";
+
   const store = useWarehouseEditStore();
 
   return (

@@ -14,6 +14,8 @@ interface RoleColumnHeaderProps {
 }
 
 export default observer(function RoleColumnHeader({role, dragHandleProps}: RoleColumnHeaderProps) {
+  "use no memo";
+
   const {store, canEdit} = useRolesStore();
   const {showModal, showConfirm} = useModal();
 

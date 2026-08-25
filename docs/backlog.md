@@ -45,3 +45,27 @@ front of the app, all of which still trust the file name. Not worth carrying tha
 set `build.chunkImportMap: true` in `vite.config.ts` and confirm on a fresh build that every import
 specifier in the modern chunks resolves through `importmap.json`, that `index.html` carries both the
 `importmap` and `systemjs-importmap` tags, and that the `modulepreload` set is unchanged.
+
+## Drop the `"use no memo"` opt-outs on MobX components
+
+**What it buys.** React Compiler memoizes all of `src` except the `observer` components in
+`RolesSettingsPage` and `WarehouseEditPage`, which opt out with a `"use no memo"` directive — see
+[frontend.md](frontend.md#react-compiler). Removing the directives puts the warehouse floor-plan
+editor and the roles matrix, the two heaviest interactive screens in the app, under the same
+memoization as everything else.
+
+**Why it is off.** MobX relies on interior mutability: the store reference stays the same while its
+fields change, so the compiler never records an observable read as a dependency of the JSX cache. The
+component keeps its subscription and still re-renders, and still returns the element built on the
+first render — the subtree freezes permanently. `react-hooks/incompatible-library` does not detect the
+pattern, so nothing but the directive stands between the compiler and a silently dead canvas.
+
+[mobxjs/mobx#3874](https://github.com/mobxjs/mobx/issues/3874) tracks this upstream. Open since May
+2024, labelled `✋ on hold`, no assignee — the bindings are not being adapted, so the directives are
+the permanent arrangement rather than a stopgap.
+
+**Trigger.** Either mobx-react-lite ships a compiler-compatible subscription API and #3874 closes, or
+`rolesStore` / `warehouseEditStore` move to `useSyncExternalStore` with immutable snapshots, which the
+compiler reads correctly. Then delete the directives and confirm with a Babel probe that those files
+emit `_c(n)` cache slots, and by hand that the canvas still repaints on every store mutation —
+the failure mode is a frozen subtree, and no test in the repo covers it.

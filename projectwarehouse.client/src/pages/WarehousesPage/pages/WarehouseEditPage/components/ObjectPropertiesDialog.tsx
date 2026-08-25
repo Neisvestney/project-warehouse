@@ -40,6 +40,8 @@ export default observer(function ObjectPropertiesDialog({
   tempId,
   onClose,
 }: ObjectPropertiesDialogProps) {
+  "use no memo";
+
   const store = useWarehouseEditStore();
 
   const sp = tempId ? store.storagePlaces.find((s) => s.tempId === tempId) : undefined;

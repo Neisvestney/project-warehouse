@@ -25,6 +25,8 @@ import QueryError from "@/components/QueryError.tsx";
 const ROLES_ENTITY_ID = "00000000-0000-0000-0000-000000000000";
 
 export default observer(function RolesSettingsPage() {
+  "use no memo";
+
   const [store] = useState(() => new RolesStore());
   const canEdit = useHasPermission("roles.edit");
   const queryClient = useQueryClient();

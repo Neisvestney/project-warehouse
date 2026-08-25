@@ -1,7 +1,8 @@
 import {fileURLToPath, URL} from "node:url";
 
 import {defineConfig} from "vite";
-import plugin from "@vitejs/plugin-react";
+import plugin, {reactCompilerPreset} from "@vitejs/plugin-react";
+import babel from "@rolldown/plugin-babel";
 import legacy from "@vitejs/plugin-legacy";
 import {VitePWA} from "vite-plugin-pwa";
 import fs from "fs";
@@ -88,6 +89,7 @@ const sharedGroup: CodeSplittingGroup = {
 export default defineConfig(({command}) => ({
   plugins: [
     plugin(),
+    babel({presets: [reactCompilerPreset()]}),
     legacy({
       targets: ["chrome >= 49", "android >= 49"],
     }),
