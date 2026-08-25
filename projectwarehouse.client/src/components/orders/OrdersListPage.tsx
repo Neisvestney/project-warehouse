@@ -15,7 +15,6 @@ import {
   TableHead,
   TableRow,
   TableSortLabel,
-  Tooltip,
   Typography,
   Chip,
 } from "@mui/material";
@@ -44,6 +43,7 @@ import BulkBar from "@/components/BulkBar";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
 import LinkTableRow from "@/components/LinkTableRow";
+import NotesTableCell from "@/components/NotesTableCell";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import OrderStatusChip from "./OrderStatusChip";
 import MarketplaceOrderFilters from "./marketplace/MarketplaceOrderFilters";
@@ -444,17 +444,7 @@ function OrdersListPage({
                     </TableCell>
                   ))}
                   {showNotes && (
-                    <TableCell>
-                      <Tooltip title={order.notes ?? ""} disableHoverListener={!order.notes}>
-                        <Typography
-                          variant="body2"
-                          noWrap
-                          sx={{maxWidth: 200, display: "inline-block"}}
-                        >
-                          {order.notes ?? "—"}
-                        </Typography>
-                      </Tooltip>
-                    </TableCell>
+                    <NotesTableCell notes={order.notes} sx={{position: "relative", zIndex: 1}} />
                   )}
                   <TableCell>
                     {!order.boxCount ? (
