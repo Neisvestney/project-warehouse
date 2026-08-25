@@ -30,6 +30,9 @@ import {
   inventoryItemsGetAllUnitsOptions,
 } from "@/api/@tanstack/react-query.gen";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
+import SearchInput from "@/components/SearchInput";
+import {useDebounce} from "@/hooks/useDebounce";
+import {useResetOnChange} from "@/hooks/useResetOnChange";
 import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 import type {CatalogItemType} from "@/api/types.gen";
 import type {InventoryItemSummaryDto, UnitInventoryItemDto} from "@/api/types.gen";
@@ -63,10 +66,12 @@ function itemToCatalogType(item: SelectedInventoryItem): CatalogItemType {
 function StandardAccordion({
   nodeId,
   open,
+  searchString,
   onAdd,
 }: {
   nodeId: string;
   open: boolean;
+  searchString: string;
   onAdd: (items: SelectedInventoryItem[]) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -74,9 +79,11 @@ function StandardAccordion({
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [counts, setCounts] = useState<Record<string, number>>({});
 
+  useResetOnChange(searchString, () => setPage(1));
+
   const query = useQuery({
     ...inventoryItemsGetAllOptions({
-      query: {nodeId, page, pageSize: PAGE_SIZE, catalogItemTypes: ["standard"]},
+      query: {nodeId, page, pageSize: PAGE_SIZE, searchString, catalogItemTypes: ["standard"]},
     }),
     enabled: open && expanded,
     meta: {suppressGlobalError: true},
@@ -84,6 +91,9 @@ function StandardAccordion({
 
   const items = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
+  const visibleChecked = items.filter((item: InventoryItemSummaryDto) =>
+    checked.has(item.catalogItemId),
+  );
 
   const toggleChecked = (id: string) => {
     setChecked((prev) => {
@@ -98,17 +108,19 @@ function StandardAccordion({
   };
 
   const handleAdd = () => {
-    const toAdd: SelectedInventoryItem[] = items
-      .filter((item: InventoryItemSummaryDto) => checked.has(item.catalogItemId))
-      .map((item: InventoryItemSummaryDto) => ({
-        type: "standard" as const,
-        catalogItemId: item.catalogItemId,
-        catalogItemName: item.catalogItem.fullName,
-        count: counts[item.catalogItemId] ?? 1,
-        available: item.count,
-      }));
+    const toAdd: SelectedInventoryItem[] = visibleChecked.map((item: InventoryItemSummaryDto) => ({
+      type: "standard" as const,
+      catalogItemId: item.catalogItemId,
+      catalogItemName: item.catalogItem.fullName,
+      count: counts[item.catalogItemId] ?? 1,
+      available: item.count,
+    }));
     onAdd(toAdd);
-    setChecked(new Set());
+    setChecked((prev) => {
+      const next = new Set(prev);
+      for (const item of visibleChecked) next.delete(item.catalogItemId);
+      return next;
+    });
     setCounts({});
   };
 
@@ -126,7 +138,7 @@ function StandardAccordion({
           </Box>
         ) : items.length === 0 ? (
           <Typography color="text.secondary" sx={{px: 2, py: 2}} variant="body2">
-            Нет стандартных товаров в этой ячейке
+            {searchString ? "Ничего не найдено" : "Нет стандартных товаров в этой ячейке"}
           </Typography>
         ) : (
           <>
@@ -195,10 +207,10 @@ function StandardAccordion({
           <Button
             size="small"
             variant="contained"
-            disabled={checked.size === 0}
+            disabled={visibleChecked.length === 0}
             onClick={handleAdd}
           >
-            Выбрать выделенное ({checked.size})
+            Выбрать выделенное ({visibleChecked.length})
           </Button>
         </Box>
       </AccordionDetails>
@@ -211,19 +223,23 @@ function StandardAccordion({
 function UnitAccordion({
   nodeId,
   open,
+  searchString,
   onAdd,
 }: {
   nodeId: string;
   open: boolean;
+  searchString: string;
   onAdd: (items: SelectedInventoryItem[]) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [page, setPage] = useState(1);
   const [checked, setChecked] = useState<Set<string>>(new Set());
 
+  useResetOnChange(searchString, () => setPage(1));
+
   const query = useQuery({
     ...inventoryItemsGetAllUnitsOptions({
-      query: {nodeId, page, pageSize: PAGE_SIZE},
+      query: {nodeId, page, pageSize: PAGE_SIZE, searchString},
     }),
     enabled: open && expanded,
     meta: {suppressGlobalError: true},
@@ -231,6 +247,7 @@ function UnitAccordion({
 
   const items = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
+  const visibleChecked = items.filter((item: UnitInventoryItemDto) => checked.has(item.id));
 
   const toggleChecked = (id: string) => {
     setChecked((prev) => {
@@ -245,16 +262,18 @@ function UnitAccordion({
   };
 
   const handleAdd = () => {
-    const toAdd: SelectedInventoryItem[] = items
-      .filter((item: UnitInventoryItemDto) => checked.has(item.id))
-      .map((item: UnitInventoryItemDto) => ({
-        type: "unit" as const,
-        unitItemId: item.id,
-        inventoryNumber: item.inventoryNumber,
-        catalogItemName: item.catalogItem.fullName,
-      }));
+    const toAdd: SelectedInventoryItem[] = visibleChecked.map((item: UnitInventoryItemDto) => ({
+      type: "unit" as const,
+      unitItemId: item.id,
+      inventoryNumber: item.inventoryNumber,
+      catalogItemName: item.catalogItem.fullName,
+    }));
     onAdd(toAdd);
-    setChecked(new Set());
+    setChecked((prev) => {
+      const next = new Set(prev);
+      for (const item of visibleChecked) next.delete(item.id);
+      return next;
+    });
   };
 
   return (
@@ -271,7 +290,7 @@ function UnitAccordion({
           </Box>
         ) : items.length === 0 ? (
           <Typography color="text.secondary" sx={{px: 2, py: 2}} variant="body2">
-            Нет единичных товаров в этой ячейке
+            {searchString ? "Ничего не найдено" : "Нет единичных товаров в этой ячейке"}
           </Typography>
         ) : (
           <>
@@ -322,10 +341,10 @@ function UnitAccordion({
           <Button
             size="small"
             variant="contained"
-            disabled={checked.size === 0}
+            disabled={visibleChecked.length === 0}
             onClick={handleAdd}
           >
-            Выбрать выделенное ({checked.size})
+            Выбрать выделенное ({visibleChecked.length})
           </Button>
         </Box>
       </AccordionDetails>
@@ -342,6 +361,8 @@ function InventoryItemPickerModal({
   onConfirm,
 }: InventoryItemPickerModalProps) {
   const [selected, setSelected] = useState<SelectedInventoryItem[]>([]);
+  const [search, setSearch] = useState("");
+  const searchString = useDebounce(search);
 
   const addItems = (incoming: SelectedInventoryItem[]) => {
     setSelected((prev) => {
@@ -369,12 +390,14 @@ function InventoryItemPickerModal({
 
   const handleClose = () => {
     setSelected([]);
+    setSearch("");
     onClose();
   };
 
   const handleConfirm = () => {
     onConfirm(selected);
     setSelected([]);
+    setSearch("");
     onClose();
   };
 
@@ -463,10 +486,19 @@ function InventoryItemPickerModal({
 
         <Divider sx={{my: 1, flexShrink: 0}} />
 
+        <Box sx={{px: 2, pb: 1, flexShrink: 0}}>
+          <SearchInput value={search} onChange={setSearch} size="small" fullWidth />
+        </Box>
+
         {/* Accordions — scrollable */}
         <Box sx={{overflow: "auto", flex: 1}}>
-          <StandardAccordion nodeId={nodeId} open={open} onAdd={addItems} />
-          <UnitAccordion nodeId={nodeId} open={open} onAdd={addItems} />
+          <StandardAccordion
+            nodeId={nodeId}
+            open={open}
+            searchString={searchString}
+            onAdd={addItems}
+          />
+          <UnitAccordion nodeId={nodeId} open={open} searchString={searchString} onAdd={addItems} />
         </Box>
       </DialogContent>
 
