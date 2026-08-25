@@ -10,7 +10,7 @@ import {
   TableRow,
 } from "@mui/material";
 import {useQuery} from "@tanstack/react-query";
-import {Link as RouterLink, useNavigate} from "react-router";
+import {Link as RouterLink} from "react-router";
 import {warehousesGetAllOptions} from "@/api/@tanstack/react-query.gen";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
@@ -22,9 +22,9 @@ import SearchInput from "@/components/SearchInput.tsx";
 import DataTableContainer from "@/components/DataTableContainer.tsx";
 import TableRowLoader from "@/components/TableRowLoader.tsx";
 import TableRowEmpty from "@/components/TableRowEmpty.tsx";
+import LinkTableRow from "@/components/LinkTableRow.tsx";
 
 function WarehousesPage() {
-  const navigate = useNavigate();
   const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
     "search",
     (q) => (typeof q === "string" ? q : ""),
@@ -91,15 +91,14 @@ function WarehousesPage() {
               <TableRowEmpty colSpan={3} message="Склады не найдены" />
             ) : (
               data?.items.map((warehouse) => (
-                <TableRow
+                <LinkTableRow
                   key={warehouse.id}
-                  hover
+                  to={`/storage/warehouses/${warehouse.id}`}
+                  ariaLabel={`Склад ${warehouse.name}`}
                   sx={{
-                    cursor: "pointer",
                     opacity: isFetching && !isLoading ? 0.5 : 1,
                     transition: "opacity 0.2s",
                   }}
-                  onClick={() => navigate(`/storage/warehouses/${warehouse.id}`)}
                 >
                   <TableCell>{warehouse.name}</TableCell>
                   <TableCell>
@@ -121,7 +120,7 @@ function WarehousesPage() {
                       "—"
                     )}
                   </TableCell>
-                </TableRow>
+                </LinkTableRow>
               ))
             )}
           </TableBody>

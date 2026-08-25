@@ -17,7 +17,7 @@ import AddIcon from "@mui/icons-material/Add";
 import RuleIcon from "@mui/icons-material/Rule";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import {useQuery} from "@tanstack/react-query";
-import {Link as RouterLink, useNavigate} from "react-router";
+import {Link as RouterLink} from "react-router";
 import {marketplacesGetAccountsOptions} from "@/api/@tanstack/react-query.gen";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
@@ -31,6 +31,7 @@ import FiltersBar from "@/components/FiltersBar";
 import DataTableContainer from "@/components/DataTableContainer";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
+import LinkTableRow from "@/components/LinkTableRow";
 import MarketplaceStatusChip from "./components/MarketplaceStatusChip";
 import {MARKETPLACE_TYPE_LABELS, formatDateTime, MARKETPLACE_TYPE_COLORS} from "./marketplaceUtils";
 import type {MarketplaceAccountSortBy, MarketplaceType} from "@/api/types.gen";
@@ -44,7 +45,6 @@ const SORT_COLUMNS: {key: MarketplaceAccountSortBy; label: string}[] = [
 const ALL_TYPES: MarketplaceType[] = ["ozon", "wildberries"];
 
 function MarketplacesSettingsPage() {
-  const navigate = useNavigate();
   const canEdit = useHasPermission("integrations.edit");
 
   const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
@@ -193,15 +193,14 @@ function MarketplacesSettingsPage() {
               <TableRowEmpty colSpan={8} message="Магазины не подключены" />
             ) : (
               data?.items.map((account) => (
-                <TableRow
+                <LinkTableRow
                   key={account.id}
-                  hover
+                  to={`/settings/integrations/${account.id}`}
+                  ariaLabel={`Магазин ${account.name}`}
                   sx={{
-                    cursor: "pointer",
                     opacity: isFetching && !isLoading ? 0.5 : 1,
                     transition: "opacity 0.2s",
                   }}
-                  onClick={() => navigate(`/settings/integrations/${account.id}`)}
                 >
                   <TableCell>{account.name}</TableCell>
                   <TableCell>
@@ -235,7 +234,7 @@ function MarketplacesSettingsPage() {
                       <Chip label="Нет" color="default" variant="outlined" size="small" />
                     )}
                   </TableCell>
-                </TableRow>
+                </LinkTableRow>
               ))
             )}
           </TableBody>

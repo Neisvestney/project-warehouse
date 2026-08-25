@@ -16,7 +16,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import {useQuery} from "@tanstack/react-query";
-import {Link as RouterLink, useNavigate} from "react-router";
+import {Link as RouterLink} from "react-router";
 import {stocktakesGetAllOptions} from "@/api/@tanstack/react-query.gen";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
@@ -30,6 +30,7 @@ import FiltersBar from "@/components/FiltersBar";
 import DataTableContainer from "@/components/DataTableContainer";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
+import LinkTableRow from "@/components/LinkTableRow";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import StocktakeStatusChip from "@/components/stocktakes/StocktakeStatusChip";
 import {
@@ -51,7 +52,6 @@ const SORT_COLUMNS: {key: StocktakeSortBy; label: string}[] = [
 const ALL_STATUSES: StocktakeStatus[] = ["planned", "draft", "inProgress", "finished", "canceled"];
 
 function StocktakesPage() {
-  const navigate = useNavigate();
   const canCreate = useHasPermission(["stocktakes.edit", "stocktakes.edit_assigned"]);
 
   const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
@@ -179,15 +179,14 @@ function StocktakesPage() {
               <TableRowEmpty colSpan={8} message="Инвентаризации не найдены" />
             ) : (
               data?.items.map((stocktake) => (
-                <TableRow
+                <LinkTableRow
                   key={stocktake.id}
-                  hover
+                  to={`/operations/stocktakes/${stocktake.id}`}
+                  ariaLabel={`Инвентаризация ${formatStocktakeNumber(stocktake.number)}`}
                   sx={{
-                    cursor: "pointer",
                     opacity: isFetching && !isLoading ? 0.5 : 1,
                     transition: "opacity 0.2s",
                   }}
-                  onClick={() => navigate(`/operations/stocktakes/${stocktake.id}`)}
                 >
                   <TableCell sx={{fontFamily: "monospace"}}>
                     {formatStocktakeNumber(stocktake.number)}
@@ -220,7 +219,7 @@ function StocktakesPage() {
                       "—"
                     )}
                   </TableCell>
-                </TableRow>
+                </LinkTableRow>
               ))
             )}
           </TableBody>

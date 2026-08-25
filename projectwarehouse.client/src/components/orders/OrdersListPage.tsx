@@ -17,12 +17,13 @@ import {
   TableSortLabel,
   Tooltip,
   Typography,
+  Chip,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import {useQuery, useMutation, useQueryClient} from "@tanstack/react-query";
-import {Link as RouterLink, useNavigate} from "react-router";
+import {Link as RouterLink} from "react-router";
 import {
   ordersBatchSelfAssignMutation,
   ordersGetAllOptions,
@@ -42,6 +43,7 @@ import DataTableContainer from "@/components/DataTableContainer";
 import BulkBar from "@/components/BulkBar";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
+import LinkTableRow from "@/components/LinkTableRow";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import OrderStatusChip from "./OrderStatusChip";
 import MarketplaceOrderFilters from "./marketplace/MarketplaceOrderFilters";
@@ -116,7 +118,6 @@ function OrdersListPage({
   marketplaceFilters,
   showNotes = true,
 }: OrdersListPageProps) {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canCreate = useHasPermission(["orders.edit", "orders.edit_assigned"]);
   const canSelfAssign = useHasPermission("orders.self_assign");
@@ -406,25 +407,23 @@ function OrdersListPage({
               <TableRowEmpty colSpan={columnCount} message="Заказы не найдены" />
             ) : (
               data?.items.map((order) => (
-                <TableRow
+                <LinkTableRow
                   key={order.id}
-                  hover
+                  to={`/operations/orders/${order.id}`}
+                  ariaLabel={`Заказ ${formatOrderNumber(order.number)}`}
                   selected={isSelected(order.id)}
                   sx={{
-                    cursor: "pointer",
                     opacity: isFetching && !isLoading ? 0.5 : 1,
                     transition: "opacity 0.2s",
                   }}
-                  onClick={() => navigate(`/operations/orders/${order.id}`)}
                 >
-                  <TableCell
-                    padding="checkbox"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggle(order);
-                    }}
-                  >
-                    <Checkbox size="small" checked={isSelected(order.id)} />
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      size="small"
+                      checked={isSelected(order.id)}
+                      onClick={() => toggle(order)}
+                      sx={{position: "relative", zIndex: 1}}
+                    />
                   </TableCell>
                   <TableCell sx={{fontFamily: "monospace"}}>
                     {formatOrderNumber(order.number)}
@@ -457,8 +456,14 @@ function OrdersListPage({
                       </Tooltip>
                     </TableCell>
                   )}
-                  <TableCell>{order.boxCount}</TableCell>
-                </TableRow>
+                  <TableCell>
+                    {!order.boxCount ? (
+                      "—"
+                    ) : (
+                      <Chip variant={"outlined"} size={"small"} label={order.boxCount} />
+                    )}
+                  </TableCell>
+                </LinkTableRow>
               ))
             )}
           </TableBody>

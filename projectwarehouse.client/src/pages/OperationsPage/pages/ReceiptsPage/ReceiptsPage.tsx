@@ -15,7 +15,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import {useQuery} from "@tanstack/react-query";
-import {Link as RouterLink, useNavigate} from "react-router";
+import {Link as RouterLink} from "react-router";
 import {receiptsGetAllOptions} from "@/api/@tanstack/react-query.gen";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
@@ -29,6 +29,7 @@ import FiltersBar from "@/components/FiltersBar";
 import DataTableContainer from "@/components/DataTableContainer";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
+import LinkTableRow from "@/components/LinkTableRow";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import ReceiptStatusChip from "@/components/receipts/ReceiptStatusChip";
 import {
@@ -53,7 +54,6 @@ const ALL_STATUSES: ReceiptStatus[] = ["draft", "planned", "processing", "finish
 const ALL_REASONS: ReceiptReason[] = ["newGoods", "return", "other"];
 
 function ReceiptsPage() {
-  const navigate = useNavigate();
   const canCreate = useHasPermission(["receipts.edit", "receipts.edit_assigned"]);
 
   const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
@@ -200,15 +200,14 @@ function ReceiptsPage() {
               <TableRowEmpty colSpan={8} message="Приемки не найдены" />
             ) : (
               data?.items.map((receipt) => (
-                <TableRow
+                <LinkTableRow
                   key={receipt.id}
-                  hover
+                  to={`/operations/receipts/${receipt.id}`}
+                  ariaLabel={`Приемка ${formatReceiptNumber(receipt.number)}`}
                   sx={{
-                    cursor: "pointer",
                     opacity: isFetching && !isLoading ? 0.5 : 1,
                     transition: "opacity 0.2s",
                   }}
-                  onClick={() => navigate(`/operations/receipts/${receipt.id}`)}
                 >
                   <TableCell sx={{fontFamily: "monospace"}}>
                     {formatReceiptNumber(receipt.number)}
@@ -235,7 +234,7 @@ function ReceiptsPage() {
                   <TableCell>
                     {receipt.totalPlannedCount} / {receipt.totalReceivedCount ?? "—"}
                   </TableCell>
-                </TableRow>
+                </LinkTableRow>
               ))
             )}
           </TableBody>
