@@ -12,7 +12,7 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import {useQuery} from "@tanstack/react-query";
-import {Link as RouterLink, useNavigate} from "react-router";
+import {Link as RouterLink} from "react-router";
 import {usersGetAllOptions} from "@/api/@tanstack/react-query.gen";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
@@ -29,6 +29,7 @@ import FiltersBar from "@/components/FiltersBar.tsx";
 import DataTableContainer from "@/components/DataTableContainer.tsx";
 import TableRowLoader from "@/components/TableRowLoader.tsx";
 import TableRowEmpty from "@/components/TableRowEmpty.tsx";
+import LinkTableRow from "@/components/LinkTableRow.tsx";
 
 function renderDirectPermissions(user: UserDetailDto) {
   const overflowing = user.directPermissions.length > 3;
@@ -49,7 +50,6 @@ function renderDirectPermissions(user: UserDetailDto) {
 }
 
 function UsersPage() {
-  const navigate = useNavigate();
   const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
     "search",
     (q) => (typeof q === "string" ? q : ""),
@@ -139,15 +139,14 @@ function UsersPage() {
               <TableRowEmpty colSpan={5} message="Пользователи не найдены" />
             ) : (
               data?.items.map((user) => (
-                <TableRow
+                <LinkTableRow
                   key={user.id}
-                  hover
+                  to={`/settings/employees/${user.id}`}
+                  ariaLabel={`Пользователь ${user.username}`}
                   sx={{
-                    cursor: "pointer",
                     opacity: isFetching && !isLoading ? 0.5 : 1,
                     transition: "opacity 0.2s",
                   }}
-                  onClick={() => navigate(`/settings/employees/${user.id}`)}
                 >
                   <TableCell>{user.username}</TableCell>
                   <TableCell>{user.email ?? "—"}</TableCell>
@@ -161,7 +160,7 @@ function UsersPage() {
                       {renderDirectPermissions(user)}
                     </Stack>
                   </TableCell>
-                </TableRow>
+                </LinkTableRow>
               ))
             )}
           </TableBody>

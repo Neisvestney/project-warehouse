@@ -775,13 +775,7 @@ export type MarketplaceAutoMapRuleDto = {
 };
 
 export type MarketplaceCapabilities =
-  | "none"
-  | "warehouses"
-  | "cards"
-  | "orders"
-  | "stockPush"
-  | "sellerInfo"
-  | "labels";
+  "none" | "warehouses" | "cards" | "orders" | "stockPush" | "sellerInfo" | "labels";
 
 export type MarketplaceCardDto = {
   id: string;
@@ -853,12 +847,7 @@ export type MarketplaceOrderDto = {
  * must not look like a working one.
  */
 export type MarketplaceOrderStatus =
-  | "unknown"
-  | "awaitingDeliver"
-  | "delivering"
-  | "delivered"
-  | "cancelled"
-  | "arbitration";
+  "unknown" | "awaitingDeliver" | "delivering" | "delivered" | "cancelled" | "arbitration";
 
 /**
  * An account offered in the "sync orders" dialog.
@@ -1535,12 +1524,7 @@ export type ReceiptItemRequest = {
 export type ReceiptReason = "newGoods" | "return" | "other";
 
 export type ReceiptSortBy =
-  | "name"
-  | "number"
-  | "status"
-  | "createdAt"
-  | "warehouseName"
-  | "plannedDeliveryDate";
+  "name" | "number" | "status" | "createdAt" | "warehouseName" | "plannedDeliveryDate";
 
 export type ReceiptStatus = "draft" | "planned" | "processing" | "finished" | "canceled";
 
@@ -1689,12 +1673,7 @@ export type StockMovementDto = {
 };
 
 export type StockMovementGroupBy =
-  | "action"
-  | "catalogItem"
-  | "warehouse"
-  | "storagePlace"
-  | "node"
-  | "user";
+  "action" | "catalogItem" | "warehouse" | "storagePlace" | "node" | "user";
 
 export type StockMovementPivotCellDto = {
   catalogItemId: string;
@@ -1800,13 +1779,7 @@ export type StocktakeDifferenceLineDto = {
  * What finishing the document will do to a single position.
  */
 export type StocktakeDifferenceResolution =
-  | "noChange"
-  | "surplus"
-  | "shortage"
-  | "relocation"
-  | "createUnit"
-  | "detachUnit"
-  | "reattachUnit";
+  "noChange" | "surplus" | "shortage" | "relocation" | "createUnit" | "detachUnit" | "reattachUnit";
 
 /**
  * Preview of what finishing the document would do. Produced by the same calculator the finish
@@ -2118,10 +2091,7 @@ export type UnitInventoryItemDto = {
 };
 
 export type UnitInventoryItemSortBy =
-  | "inventoryNumber"
-  | "warehouseName"
-  | "storagePlaceName"
-  | "nodeName";
+  "inventoryNumber" | "warehouseName" | "storagePlaceName" | "nodeName";
 
 /**
  * Feeds the sidebar badge — a count query, never a card listing.

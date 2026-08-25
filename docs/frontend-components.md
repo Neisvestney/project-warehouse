@@ -93,6 +93,47 @@ Standard list-page table shell: `Paper` → `LinearProgress` (while fetching) �
 `TablePagination` with Russian labels baked in. Extends `PaperProps`. The `page` prop is **1-based**, matching
 the `usePaginatedParams` convention; the component converts to MUI's 0-based value internally.
 
+### `LinkTableRow`
+
+A clickable list row that navigates to `to`. It is a `TableRow` with `hover`, `position: relative` and a
+`react-router` `Link` stretched over the whole row (`position: absolute; inset: 0`), so the row behaves like a
+real anchor: middle-click and Ctrl+click open a new tab, the context menu offers «Копировать ссылку», and
+screen readers announce a link.
+
+The overlay is cloned **into the first cell**, not rendered as a direct child of the row: a bare `<a>` under
+`<tr>` gets wrapped in an anonymous table cell and shifts every column one place. The first cell stays
+unpositioned so the overlay resolves against the row.
+
+`ariaLabel` is required — the overlay carries no visible text, so without it the row is an anonymous link.
+Pass the row's identity (`Заказ 000123`, `Склад Основной`).
+
+The overlay sits above the static cells, so any interactive cell content — a selection checkbox, an action
+button — must be lifted out of its way with `position: relative; zIndex: 1` **on the element itself**, not on
+its `TableCell` (a positioned cell would become the overlay's containing block and shrink it to that cell):
+
+```tsx
+<LinkTableRow
+  to={`/operations/orders/${order.id}`}
+  ariaLabel={`Заказ ${formatOrderNumber(order.number)}`}
+  selected={isSelected(order.id)}
+>
+  <TableCell padding="checkbox">
+    <Checkbox
+      size="small"
+      checked={isSelected(order.id)}
+      onClick={() => toggle(order)}
+      sx={{position: "relative", zIndex: 1}}
+    />
+  </TableCell>
+  <TableCell>{formatOrderNumber(order.number)}</TableCell>
+</LinkTableRow>
+```
+
+Remaining props are forwarded to `TableRow`, and `sx` is merged with the component's own — list pages use it
+for the `isFetching` dim (`opacity: isFetching && !isLoading ? 0.5 : 1`).
+
+Used by the orders, receipts, stocktakes, writeoffs, marketplace accounts, employees and warehouses lists.
+
 ### `RouteFallback`
 
 Centred `CircularProgress` shown while a whole route is unavailable — a lazy page chunk still loading

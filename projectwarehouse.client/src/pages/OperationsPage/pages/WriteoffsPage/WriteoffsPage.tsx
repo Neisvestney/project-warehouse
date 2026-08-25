@@ -15,7 +15,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import {useQuery} from "@tanstack/react-query";
-import {Link as RouterLink, useNavigate} from "react-router";
+import {Link as RouterLink} from "react-router";
 import {writeoffsGetAllOptions} from "@/api/@tanstack/react-query.gen";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
@@ -29,6 +29,7 @@ import FiltersBar from "@/components/FiltersBar";
 import DataTableContainer from "@/components/DataTableContainer";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
+import LinkTableRow from "@/components/LinkTableRow";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import WriteoffStatusChip from "@/components/writeoffs/WriteoffStatusChip";
 import {
@@ -50,7 +51,6 @@ const ALL_STATUSES: WriteoffStatus[] = ["draft", "finished", "canceled"];
 const ALL_REASONS: WriteoffReason[] = ["loss", "defect", "other"];
 
 function WriteoffsPage() {
-  const navigate = useNavigate();
   const canCreate = useHasPermission(["writeoffs.edit", "writeoffs.edit_assigned"]);
 
   const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
@@ -198,15 +198,14 @@ function WriteoffsPage() {
               <TableRowEmpty colSpan={7} message="Списания не найдены" />
             ) : (
               data?.items.map((writeoff) => (
-                <TableRow
+                <LinkTableRow
                   key={writeoff.id}
-                  hover
+                  to={`/operations/writeoffs/${writeoff.id}`}
+                  ariaLabel={`Списание ${formatWriteoffNumber(writeoff.number)}`}
                   sx={{
-                    cursor: "pointer",
                     opacity: isFetching && !isLoading ? 0.5 : 1,
                     transition: "opacity 0.2s",
                   }}
-                  onClick={() => navigate(`/operations/writeoffs/${writeoff.id}`)}
                 >
                   <TableCell sx={{fontFamily: "monospace"}}>
                     {formatWriteoffNumber(writeoff.number)}
@@ -225,7 +224,7 @@ function WriteoffsPage() {
                       "—"
                     )}
                   </TableCell>
-                </TableRow>
+                </LinkTableRow>
               ))
             )}
           </TableBody>
