@@ -37,8 +37,3 @@ export function isWeekend(value: string): boolean {
   const day = parseDateOnly(value).getDay();
   return day === 0 || day === 6;
 }
-
-/** The offset the API needs to cut days the same way the user sees them. */
-export function currentUtcOffsetMinutes(): number {
-  return -new Date().getTimezoneOffset();
-}

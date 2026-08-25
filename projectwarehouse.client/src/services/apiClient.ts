@@ -78,6 +78,10 @@ export function setupApiClient() {
       if (current) request.headers.set("Authorization", `Bearer ${current}`);
     }
 
+    // Resolved per request, not once at startup: a PWA left open overnight can cross a DST
+    // transition or a zone border and has to start sending the new value on its own.
+    request.headers.set("X-Time-Zone", Intl.DateTimeFormat().resolvedOptions().timeZone);
+
     retryClones.set(request, request.clone());
 
     return request;

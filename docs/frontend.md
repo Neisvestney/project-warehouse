@@ -142,8 +142,11 @@ parser reads a bare date as **UTC midnight**, so anyone west of UTC sees the pre
 (or `formatDateOnly`) from `@/utils/dateOnly`, which builds the date in local time.
 
 The mirror case is server-side day cutting: an endpoint that turns a `DateTime` into a day (statistics, the
-calendar) takes a `utcOffsetMinutes` query param, supplied by `currentUtcOffsetMinutes()`. Without it an
-evening operation lands on the wrong day.
+calendar, the stock forecast) decides the zone itself. The client's part is one request interceptor in
+`setupApiClient` that sends `X-Time-Zone: <IANA id>`, recomputed per request so a session left open across a
+DST transition starts sending the new value on its own; the zone actually applied comes back on the response
+as `timeZoneId`, and it is not always the one that was sent — a warehouse with its own zone wins. See
+[stock-forecast-specification.md](stock-forecast-specification.md#резолвер-пояса).
 
 ### Inline error branches
 
@@ -388,6 +391,25 @@ the clear icon is disabled.
 queries `GET /api/catalog/for-select` with `tagIds` + `types` + `take=200`, previews the match count and appends
 the found ids to the current selection (duplicates skipped). It's a one-shot action — the tag itself is not
 persisted in the URL. A warning is shown when the result hits the 200-item cap.
+
+The applied time zone sits in the tooltip of an `InfoOutlinedIcon` beside the page title («Сутки считаются по
+часовому поясу Europe/Moscow»). It comes from `timeZoneId` on the pivot response and is not necessarily the
+one the client sent: a warehouse with its own zone outranks the caller's, so the figures would otherwise
+shift for a viewer elsewhere with nothing on screen to explain it. The icon stays rendered while the pivot
+reloads — a caption that came and went with every request moved the whole page under the cursor.
+
+### `StockForecastPage`
+
+«Прогноз остатков» at `/storage/forecast`, requires `statistics.view` or `statistics.view_assigned` (the
+endpoint additionally judges warehouse access itself). A paginated table of how long the stock of one
+warehouse lasts; the warehouse is mandatory and lives in `?warehouse=`, the rest of the state in
+`?search=`, `?types=`, `?tags=`, `?archived=`, `?warnings=`, `?sortBy=`, `?sortOrder=`, `?page=`,
+`?pageSize=` through `useSyncedWithQueryState` / `useDebouncedSyncedWithQueryState` / `usePaginatedParams`.
+The table itself is `ForecastBasePage`; `WarehouseForecastPage`
+(`/storage/warehouses/:id/forecast`, reached from the «Прогноз остатков» button of `WarehouseViewPage`) is the
+second wrapper around it and drops the warehouse filter, the way `WarehouseInventoryPage` does for «Остатки».
+Columns, sorting, the settings dialogs and `StockForecastChip` are described in
+[frontend-components.md](frontend-components.md#forecastbasepage).
 
 ### `CatalogPage`
 

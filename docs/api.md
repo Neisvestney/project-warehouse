@@ -29,8 +29,12 @@ Errors always use `AppProblemDetails` — see [errors.md](errors.md) for the env
 - **Search**: `searchString` matches against the entity's precomputed `SearchString` column.
 - **Sorting**: `sortBy` (per-endpoint enum) plus `sortOrder` (`asc` | `desc`).
 - **Multi-value filters**: repeatable params (`itemTypes`, `tagIds`, `catalogItemTypes`) use OR semantics.
-- **`utcOffsetMinutes`**: the caller's offset in minutes, used where a timestamp must be cut into a calendar
-  day the way the user sees it (`/api/events`, `/api/statistics/stock-movements/*`).
+- **Day boundaries**: where a timestamp is cut into a calendar day (`/api/events`,
+  `/api/statistics/stock-movements/*`, `/api/stock-forecast`), the zone is never a query parameter. It is
+  resolved server-side: the warehouse's own `TimeZoneId` when the request is narrowed to one warehouse,
+  otherwise the caller's `X-Time-Zone` header (an IANA id, set for every request by the client interceptor),
+  otherwise the server's zone. Responses echo the zone that was applied. See
+  [stock-forecast-specification.md](stock-forecast-specification.md#резолвер-пояса).
 
 ## Authorization
 

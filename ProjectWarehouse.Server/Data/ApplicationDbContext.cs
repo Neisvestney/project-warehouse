@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Domain;
@@ -42,6 +42,7 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<StoragePlaceNodeItemsGroup> StoragePlacesNodesItemsGroups => Set<StoragePlaceNodeItemsGroup>();
 
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<CatalogItemStockWarning> CatalogItemStockWarnings => Set<CatalogItemStockWarning>();
 
     public DbSet<Receipt> Receipts => Set<Receipt>();
     public DbSet<ReceiptItem> ReceiptItems => Set<ReceiptItem>();
@@ -195,6 +196,22 @@ public class ApplicationDbContext : IdentityDbContext<
                 .WithMany(x => x.ItemsGroups)
                 .HasForeignKey(x => x.StoragePlaceNodeId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<CatalogItemStockWarning>(e =>
+        {
+            e.HasKey(x => new { x.CatalogItemId, x.WarehouseId });
+
+            // A report setting, not history: when either side goes, the override has nothing left to mean.
+            e.HasOne(x => x.CatalogItem)
+                .WithMany()
+                .HasForeignKey(x => x.CatalogItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.Warehouse)
+                .WithMany()
+                .HasForeignKey(x => x.WarehouseId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<StockMovement>(e =>

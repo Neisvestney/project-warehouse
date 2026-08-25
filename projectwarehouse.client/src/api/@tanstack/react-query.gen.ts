@@ -114,6 +114,11 @@ import {
   statisticsGetDaily,
   statisticsGetMovements,
   statisticsGetPivot,
+  stockForecastGetForItems,
+  stockForecastGetList,
+  stockForecastGetSettings,
+  stockForecastSetOverride,
+  stockForecastUpdateSettings,
   stocktakesCancel,
   stocktakesCreate,
   stocktakesDelete,
@@ -465,6 +470,21 @@ import type {
   StatisticsGetPivotData,
   StatisticsGetPivotError,
   StatisticsGetPivotResponse,
+  StockForecastGetForItemsData,
+  StockForecastGetForItemsError,
+  StockForecastGetForItemsResponse,
+  StockForecastGetListData,
+  StockForecastGetListError,
+  StockForecastGetListResponse,
+  StockForecastGetSettingsData,
+  StockForecastGetSettingsError,
+  StockForecastGetSettingsResponse,
+  StockForecastSetOverrideData,
+  StockForecastSetOverrideError,
+  StockForecastSetOverrideResponse,
+  StockForecastUpdateSettingsData,
+  StockForecastUpdateSettingsError,
+  StockForecastUpdateSettingsResponse,
   StocktakesCancelData,
   StocktakesCancelError,
   StocktakesCancelResponse,
@@ -1311,10 +1331,11 @@ export const eventsGetEventsQueryKey = (options?: Options<EventsGetEventsData>) 
 /**
  * Calendar events: planned receipts and stocktakes.
  *
- * Days are cut in the caller's time zone — pass `utcOffsetMinutes`, or a stocktake finished in the
- * evening lands on the wrong day. Same convention as StatisticsController.
- * Query params: `startDate`, `endDate` (both optional, inclusive), `utcOffsetMinutes`
- * (default 0). Canceled documents and receipt drafts are never returned.
+ * Days are cut in the zone sent as `X-Time-Zone`, otherwise in the server's — a stocktake
+ * finished in the evening would otherwise land on the wrong day. The calendar spans every warehouse,
+ * so no warehouse zone can apply here.
+ * Query params: `startDate`, `endDate` (both optional, inclusive). Canceled documents and
+ * receipt drafts are never returned.
  * Rows are narrowed to what the caller may see by IUserQueryFilterService rather than by an
  * up-front permission check, so a user with no receipt or stocktake access gets an empty list, not a 403.
  * The endpoint produces no error code of its own.
@@ -4405,17 +4426,17 @@ export const statisticsGetDailyQueryKey = (options?: Options<StatisticsGetDailyD
 /**
  * Daily in/out/transfer totals over a date range.
  *
- * Every day of the range is present, including empty ones. Days are cut in the caller's time zone —
- * pass `utcOffsetMinutes`, or an evening shift lands on the wrong day. Defaults to the last 30 days;
- * the range may not exceed 366 days.
- * Query params come from `StockMovementFilterRequest`: `from`, `to`,
- * `utcOffsetMinutes` (default 0, range -840..840), `warehouseId`, `storagePlaceId`,
- * `nodeId`, `userId`, `catalogItemIds`, `actions`, `directions`.
+ * Every day of the range is present, including empty ones. Days are cut in the zone of
+ * `warehouseId` when it has one, otherwise in the zone sent as `X-Time-Zone`, otherwise in the
+ * server's; the applied zone comes back as `timeZoneId`. Defaults to the last 30 days; the range
+ * may not exceed 366 days.
+ * Query params come from `StockMovementFilterRequest`: `from`, `to`, `warehouseId`,
+ * `storagePlaceId`, `nodeId`, `userId`, `catalogItemIds`, `actions`,
+ * `directions`.
  * Requires `statistics.view` or `statistics.view_assigned` — either one grants access and the
  * warehouses the rows come from are narrowed afterwards; 403 `permissionDenied` when neither is held.
  * Returns 422 `outOfRange` on `from` when `from` is later than `to` or the range
- * exceeds 366 days (no `args`), and 422 `outOfRange` on `utcOffsetMinutes` from model
- * validation. Every statistics endpoint below shares these params and both codes.
+ * exceeds 366 days (no `args`). Every statistics endpoint below shares these params and that code.
  */
 export const statisticsGetDailyOptions = (options?: Options<StatisticsGetDailyData>) =>
   queryOptions<
@@ -4475,7 +4496,7 @@ export const statisticsGetBreakdownQueryKey = (options?: Options<StatisticsGetBr
  * Same totals, grouped by one dimension instead of by day.
  *
  * Query params: the shared filter plus `groupBy` (default `Action`) and `limit`
- * (default 20, range 1..200). Days are still cut with `utcOffsetMinutes`.
+ * (default 20, range 1..200). The range is still cut in the resolved zone.
  * Same access rule and the same 422 `outOfRange` range errors as `stock-movements/daily`.
  */
 export const statisticsGetBreakdownOptions = (options?: Options<StatisticsGetBreakdownData>) =>
@@ -4574,6 +4595,247 @@ export const statisticsGetMovementsInfiniteOptions = (
       queryKey: statisticsGetMovementsInfiniteQueryKey(options),
     },
   );
+
+export const stockForecastGetListQueryKey = (options?: Options<StockForecastGetListData>) =>
+  createQueryKey("stockForecastGetList", options);
+
+/**
+ * How long the stock on one warehouse lasts, one page at a time.
+ *
+ * Query params come from `StockForecastListRequest`: `warehouseId` (required),
+ * `searchString`, `catalogItemTypes`, `tagIds`, `isArchived`,
+ * `onlyWarnings`, `sortBy` (default `default`), `sortOrder`, plus `page`
+ * (default 1) and `pageSize` (default 20, max 200). Window, averaging mode and time zone are
+ * warehouse settings and are not accepted here; the applied values come back on the response so the
+ * client can label them.
+ * Only `Standard` and `Unit` items appear, and only those with stock or consumption in the
+ * window. `onlyWarnings` keeps `outOfStock` and `warning`.
+ * Requires `statistics.view` or `statistics.view_assigned`, and view access to the
+ * warehouse itself (`warehouses.view` / `warehouses.view_assigned`): another warehouse
+ * answers 403 `warehouseNotAssigned` rather than an empty page, and a caller with neither
+ * statistics permission gets 403 `permissionDenied`.
+ * Returns 422 `required` on `warehouseId` when it is missing and 422
+ * `warehouseNotFound` when it names nothing (no `args` on either).
+ */
+export const stockForecastGetListOptions = (options?: Options<StockForecastGetListData>) =>
+  queryOptions<
+    StockForecastGetListResponse,
+    StockForecastGetListError,
+    StockForecastGetListResponse,
+    ReturnType<typeof stockForecastGetListQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await stockForecastGetList({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: stockForecastGetListQueryKey(options),
+  });
+
+export const stockForecastGetListInfiniteQueryKey = (
+  options?: Options<StockForecastGetListData>,
+): QueryKey<Options<StockForecastGetListData>> =>
+  createQueryKey("stockForecastGetList", options, true);
+
+/**
+ * How long the stock on one warehouse lasts, one page at a time.
+ *
+ * Query params come from `StockForecastListRequest`: `warehouseId` (required),
+ * `searchString`, `catalogItemTypes`, `tagIds`, `isArchived`,
+ * `onlyWarnings`, `sortBy` (default `default`), `sortOrder`, plus `page`
+ * (default 1) and `pageSize` (default 20, max 200). Window, averaging mode and time zone are
+ * warehouse settings and are not accepted here; the applied values come back on the response so the
+ * client can label them.
+ * Only `Standard` and `Unit` items appear, and only those with stock or consumption in the
+ * window. `onlyWarnings` keeps `outOfStock` and `warning`.
+ * Requires `statistics.view` or `statistics.view_assigned`, and view access to the
+ * warehouse itself (`warehouses.view` / `warehouses.view_assigned`): another warehouse
+ * answers 403 `warehouseNotAssigned` rather than an empty page, and a caller with neither
+ * statistics permission gets 403 `permissionDenied`.
+ * Returns 422 `required` on `warehouseId` when it is missing and 422
+ * `warehouseNotFound` when it names nothing (no `args` on either).
+ */
+export const stockForecastGetListInfiniteOptions = (options?: Options<StockForecastGetListData>) =>
+  infiniteQueryOptions<
+    StockForecastGetListResponse,
+    StockForecastGetListError,
+    InfiniteData<StockForecastGetListResponse>,
+    QueryKey<Options<StockForecastGetListData>>,
+    | number
+    | Pick<QueryKey<Options<StockForecastGetListData>>[0], "body" | "headers" | "path" | "query">
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({pageParam, queryKey, signal}) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<StockForecastGetListData>>[0],
+          "body" | "headers" | "path" | "query"
+        > =
+          typeof pageParam === "object"
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const {data} = await stockForecastGetList({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: stockForecastGetListInfiniteQueryKey(options),
+    },
+  );
+
+export const stockForecastGetForItemsQueryKey = (options: Options<StockForecastGetForItemsData>) =>
+  createQueryKey("stockForecastGetForItems", options);
+
+/**
+ * The same numbers for a named set of items, without paging or filters.
+ *
+ * Query params: `warehouseId` (required) and `catalogItemIds` (at most 200; an empty list
+ * returns an empty map).
+ * The response is keyed by catalog item id; an item with neither stock nor consumption on the
+ * warehouse, or one of a virtual type, is simply absent from it.
+ * Same access rule and the same 422 `required` / `warehouseNotFound` codes as
+ * `GET /api/stock-forecast`, plus 422 `outOfRange` on `catalogItemIds` when more
+ * than 200 are passed (no `args`) — in practice a query string that long is refused by the
+ * host with a bare 414 first.
+ */
+export const stockForecastGetForItemsOptions = (options: Options<StockForecastGetForItemsData>) =>
+  queryOptions<
+    StockForecastGetForItemsResponse,
+    StockForecastGetForItemsError,
+    StockForecastGetForItemsResponse,
+    ReturnType<typeof stockForecastGetForItemsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await stockForecastGetForItems({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: stockForecastGetForItemsQueryKey(options),
+  });
+
+export const stockForecastGetSettingsQueryKey = (options: Options<StockForecastGetSettingsData>) =>
+  createQueryKey("stockForecastGetSettings", options);
+
+/**
+ * Forecast settings of one warehouse, next to the system defaults.
+ *
+ * A null `stockWarningDays` or `consumptionWindowDays` means the warehouse follows the
+ * system default rather than having chosen the same number; `effective*` carries what the
+ * forecast will actually use, and `effectiveTimeZoneId` the zone after the whole fallback chain.
+ * Requires `warehouses.edit` or `warehouses.edit_assigned` — these are report parameters
+ * only the person who may edit the warehouse changes. Another warehouse answers 403
+ * `warehouseNotAssigned`. Returns 422 `warehouseNotFound` on `warehouseId` when the
+ * warehouse does not exist (no `args`).
+ */
+export const stockForecastGetSettingsOptions = (options: Options<StockForecastGetSettingsData>) =>
+  queryOptions<
+    StockForecastGetSettingsResponse,
+    StockForecastGetSettingsError,
+    StockForecastGetSettingsResponse,
+    ReturnType<typeof stockForecastGetSettingsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await stockForecastGetSettings({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: stockForecastGetSettingsQueryKey(options),
+  });
+
+/**
+ * Writes the forecast settings of one warehouse.
+ *
+ * Body: `stockWarningDays` (0..3650, null restores the default), `consumptionWindowDays`
+ * (1..366, null restores the default), `useWeightedConsumption`, `timeZoneId` (IANA, null
+ * falls back to the caller's zone and then to the server's). The window cap matches the statistics
+ * endpoints and keeps a request from scanning the whole journal.
+ * Requires `warehouses.edit` or `warehouses.edit_assigned`; another warehouse answers 403
+ * `warehouseNotAssigned`.
+ * Returns 422 `validationError` on a day field outside its range, 422 `invalidValue` on
+ * `timeZoneId` when the identifier is unknown, and 422 `warehouseNotFound` on
+ * `warehouseId` (no `args` on any of them).
+ */
+export const stockForecastUpdateSettingsMutation = (
+  options?: Partial<Options<StockForecastUpdateSettingsData>>,
+): UseMutationOptions<
+  StockForecastUpdateSettingsResponse,
+  StockForecastUpdateSettingsError,
+  Options<StockForecastUpdateSettingsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StockForecastUpdateSettingsResponse,
+    StockForecastUpdateSettingsError,
+    Options<StockForecastUpdateSettingsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stockForecastUpdateSettings({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Sets or clears the warning threshold of one item on one warehouse.
+ *
+ * Body: `warehouseId`, `catalogItemId`, `warningDays` (0..3650). A null
+ * `warningDays` deletes the override, so the item goes back to inheriting the warehouse
+ * setting instead of freezing at its current value.
+ * Requires `warehouses.edit` or `warehouses.edit_assigned`; another warehouse answers 403
+ * `warehouseNotAssigned`.
+ * Returns 422 `required` on a missing body field, 422 `validationError` on
+ * `warningDays` outside 0..3650,
+ * 422 `catalogItemNotFound` and 422 `invalidValue` on `catalogItemId` — the latter
+ * when the item is of a virtual type and holds no stock (no `args` on any of them).
+ */
+export const stockForecastSetOverrideMutation = (
+  options?: Partial<Options<StockForecastSetOverrideData>>,
+): UseMutationOptions<
+  StockForecastSetOverrideResponse,
+  StockForecastSetOverrideError,
+  Options<StockForecastSetOverrideData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StockForecastSetOverrideResponse,
+    StockForecastSetOverrideError,
+    Options<StockForecastSetOverrideData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stockForecastSetOverride({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 export const stocktakesGetAllQueryKey = (options?: Options<StocktakesGetAllData>) =>
   createQueryKey("stocktakesGetAll", options);

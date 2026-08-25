@@ -43,8 +43,9 @@ interface WarehousesSelectMultiProps extends OmitControlled<
   onChange: (value: WarehouseSummaryDto[]) => void;
 }
 
+// DisableClearable stays generic so a caller with a single possible warehouse can drop the clear icon.
 interface WarehousesSelectSingleProps extends OmitControlled<
-  AutocompleteProps<WarehouseSummaryDto, false, false, false>
+  AutocompleteProps<WarehouseSummaryDto, false, boolean, false>
 > {
   label?: string;
   multiple?: false;

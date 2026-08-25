@@ -6,7 +6,7 @@ import type {
   StockMovementDirection,
   StockMovementPivotRowDto,
 } from "@/api/types.gen";
-import {addDays, currentUtcOffsetMinutes, todayDateOnly} from "@/utils/dateOnly";
+import {addDays, todayDateOnly} from "@/utils/dateOnly";
 
 export const WINDOW_DAYS = 30;
 
@@ -34,7 +34,6 @@ function buildQuery(filter: StockMovementsFilterValue, from: string, to: string)
   return {
     From: from,
     To: to,
-    UtcOffsetMinutes: currentUtcOffsetMinutes(),
     WarehouseId: filter.warehouseId ?? undefined,
     StoragePlaceId: filter.storagePlaceId ?? undefined,
     NodeId: filter.nodeId ?? undefined,
@@ -88,8 +87,14 @@ export function useStockMovementsPivot(filter: StockMovementsFilterValue) {
     return (pages ?? []).flatMap((page) => [...page.rows].reverse());
   }, [isInfinite, infiniteQuery.data, rangeQuery.data]);
 
+  // The warehouse's own zone wins over the caller's, so the applied one has to be shown, not assumed.
+  const timeZoneId = isInfinite
+    ? infiniteQuery.data?.pages[0]?.timeZoneId
+    : rangeQuery.data?.timeZoneId;
+
   return {
     rows,
+    timeZoneId,
     isInfinite,
     isLoading: enabled && active.isLoading,
     isFetching: active.isFetching,

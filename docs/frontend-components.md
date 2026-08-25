@@ -465,6 +465,96 @@ Both debounce the search input (300 ms), fetch via `catalogGetForSelectOptions`,
 they survive search changes** — otherwise a selected chip would vanish as soon as the user typed a query that
 does not match it. `types?` is passed straight through to the endpoint as server-side filtering.
 
+## Forecast
+
+### `StockForecastChip`
+
+`components/forecast/StockForecastChip.tsx` — takes a `StockForecastDto` and renders «12 дн.» /
+«Нет в наличии» / «∞» in the colour of its `status` (`outOfStock` → `error`, `warning` → `warning`,
+`ok` → `success`, `noConsumption` → `default`). Everything else of `ChipProps` passes through; `size`
+defaults to `small`.
+
+The chip knows nothing about the forecast table and fetches nothing itself — the column «Осталось дней» is
+its first consumer, stock rows and `CatalogItemDrawer` are the next ones, and each of them already holds the
+DTO.
+
+> The colour comes from `status` and is never re-derived from `daysLeft`. A null `daysLeft` means "never runs
+> out", and `null <= warningDays` is `true` in JS, so a comparison would paint «∞» as a warning.
+
+### `ForecastBasePage`
+
+`components/forecast/ForecastBasePage.tsx` is the whole forecast table: header, filters, pagination, the
+settings dialogs and the item drawer. It takes `title` and an optional `warehouseId` scope, and the
+`WarehousesSelect` is shown **only** when `warehouseId` is absent — the same shape as `ItemsBasePage`, which
+it deliberately does not reuse: the columns, the sort rule and the mandatory warehouse differ enough that a
+shared component would degrade into a bag of flags. Shared pieces come from components: `FiltersBar`, `SearchInput`,
+`DataTableContainer`, `CatalogTypesFilter` (on `PHYSICAL_CATALOG_ITEMS`), `CatalogTagsFilter`,
+`TableRowLoader`, `TableRowEmpty`, `CatalogItemLink`, `CatalogItemDrawer` via
+`useDrawerSearchParamsState("catalogItem")`.
+
+Two pages are thin wrappers around it and differ only in the scope they forward and the breadcrumbs they
+draw: `StockForecastPage` (`/storage/forecast`, section `forecast` of `storageConfig.tsx` with
+`TrendingDownIcon` and `statistics.view` / `statistics.view_assigned`, no scope — the warehouse select is
+visible) and `WarehouseForecastPage` (`/storage/warehouses/:id/forecast`, `warehouseId` from the route, no
+select). `WarehouseViewPage` links to the latter with a «Прогноз остатков» button next to «Остатки».
+
+**The warehouse is mandatory.** In the unscoped page `WarehousesSelect` is the first control of the filter bar
+and its value lives in `?warehouse=`. Until one is picked the list query is `enabled: false` and the table shows «Выберите склад»;
+when the user has exactly one warehouse available it is selected automatically and the select turns
+`disableClearable`, so the clear icon is absent rather than undone by the auto-selection a frame later. The
+count behind that comes from a `pageSize: 2` warehouse query the page issues unconditionally — the select has
+to know whether clearing is meaningful even when the warehouse arrived from the URL.
+
+Columns: Тип · Название · Артикул · Остаток · Расход/день · Осталось дней (`StockForecastChip`) · Порог.
+All but «Порог» are sortable. The table starts on `sortBy: "default"` — the composite rule (warnings first,
+then ascending days left, «∞» last); clicking a column replaces that rule entirely, so `default` is not one
+of the clickable columns and the URL carries no `sortBy` while it is in force. Getting back to it is the
+third click on the active column, through `useTableSort(…, {clearable: true})`: asc → desc → default, which
+drops `sortBy` and `sortOrder` from the URL. The flag is opt-in, so the two-state cycle of every other table
+is unchanged.
+
+The settings the page was computed under — `windowDays`, `useWeightedConsumption`, `timeZoneId`,
+`warehouseWarningDays` — hang off an `InfoOutlinedIcon` beside the title («Расход за 30 дн., взвешенный»,
+«Сутки по Europe/Moscow», «Порог склада 14 дн.»). The window, the averaging mode and the zone are warehouse
+settings, not page filters, and the response is the only place the client learns which ones were applied.
+
+> The icon is rendered **always** and merely fades to `opacity: 0` (with `pointerEvents: none`, so an
+> invisible icon holds no tooltip) while there is nothing to tell, because the data behind it disappears on
+> every query-key change (a filter, a page, a sort). As a line of its own that signature came and went on
+> every request and shifted the page under the cursor. It sits inline in the heading — `fontSize: "0.7em"`
+> and `verticalAlign: middle`, so it scales with whatever the header's font size is — and is painted
+> `primary.main`. The same reasoning puts the applied zone of `StockMovementsPage` on an icon rather than a
+> caption.
+
+Filters: search (`?search=`), types (`?types=`), tags (`?tags=`), archive toggle (`?archived=`) and
+«Только предупреждения» (`?warnings=true`, keeps `outOfStock` and `warning`). An empty type selection disables
+the query, as on the other catalog-filtered pages.
+
+### `StockForecastSettingsDialog` / `StockWarningOverrideDialog`
+
+Both live next to the page and are rendered **only** for `warehouses.edit` / `warehouses.edit_assigned`
+(`useHasPermission`): those endpoints require the edit right for reading as well, so a viewer offered the
+button would meet a 403 on opening it. With the right, «Настройки склада» is always on screen — without a
+selected warehouse it is `disabled` with the tooltip «Сначала выберите склад», rather than appearing and
+disappearing with the selection.
+
+**`StockForecastSettingsDialog`** — `GET`/`PUT /api/stock-forecast/settings/{warehouseId}`. `stockWarningDays`,
+`consumptionWindowDays` and `timeZoneId` are nullable, and null means "follow the system default", not zero:
+an empty field submits `null` and shows `defaultWarningDays` / `defaultWindowDays` as its placeholder. The zone
+is an `Autocomplete` over `Intl.supportedValuesOf("timeZone")`, `freeSolo` so the field still works where that
+API is missing. `effectiveWarningDays` / `effectiveWindowDays` / `effectiveTimeZoneId` are shown as
+«фактически применяется». Saving invalidates both the settings query and `stockForecastGetListQueryKey()`.
+
+**`StockWarningOverrideDialog`** — `PUT /api/stock-forecast/overrides` with
+`{warehouseId, catalogItemId, warningDays}`. The «Сбросить» button sends `warningDays: null`, which **deletes**
+the override so the item inherits the warehouse again; it is not a write of the warehouse's current value,
+which would freeze the item at that number. The button appears only when the row is already overridden. A row
+whose `isWarningOverridden` is true marks its threshold with a pin icon.
+
+The warehouse threshold shown under the field comes from `warehouseWarningDays` of the list response and is
+`number | null`: while the list has not loaded the hint is dropped entirely rather than naming a threshold
+nobody set.
+
 ## Files
 
 ### The files subsystem (`components/files/`)

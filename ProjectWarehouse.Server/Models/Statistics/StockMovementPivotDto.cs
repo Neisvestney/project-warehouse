@@ -40,6 +40,9 @@ public class StockMovementPivotDto
     public DateOnly From { get; init; }
     public DateOnly To { get; init; }
 
+    /// <summary>IANA zone the days were cut in — label the table with it, it is not always the caller's own.</summary>
+    public string TimeZoneId { get; init; } = null!;
+
     /// <summary>Ordered by total quantity moved, descending.</summary>
     public IReadOnlyList<StockMovementPivotColumnDto> Columns { get; init; } = [];
 

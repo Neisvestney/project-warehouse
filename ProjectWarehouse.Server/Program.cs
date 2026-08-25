@@ -162,6 +162,28 @@ try
                 operation.OperationId = descriptor.ControllerName + descriptor.ActionName;
             return Task.CompletedTask;
         });
+
+        options.AddOperationTransformer((operation, context, _) =>
+        {
+            if (context.Description.ActionDescriptor is not ControllerActionDescriptor descriptor
+                || descriptor.MethodInfo.GetCustomAttribute<TimeZoneAwareAttribute>() is null
+                && descriptor.ControllerTypeInfo.GetCustomAttribute<TimeZoneAwareAttribute>() is null)
+                return Task.CompletedTask;
+
+            operation.Parameters ??= [];
+            operation.Parameters.Add(new OpenApiParameter
+            {
+                Name = RequestTimeZoneAccessor.HeaderName,
+                In = ParameterLocation.Header,
+                Required = false,
+                Description = "IANA time zone of the caller (Europe/Moscow). Used when the request is not "
+                              + "narrowed to a warehouse that has its own zone; an unreadable value is ignored.",
+                Schema = new OpenApiSchema { Type = JsonSchemaType.String },
+                Example = JsonValue.Create("Europe/Moscow"),
+            });
+
+            return Task.CompletedTask;
+        });
     });
 
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
@@ -414,7 +436,10 @@ try
     builder.Services.AddScoped<IEntityAccessService, EntityAccessService>();
     builder.Services.AddScoped<IUserQueryFilterService, UserQueryFilterService>();
     builder.Services.AddScoped<IOrderService, OrderService>();
+    builder.Services.AddScoped<IRequestTimeZoneAccessor, RequestTimeZoneAccessor>();
+    builder.Services.AddScoped<IWarehouseTimeZoneResolver, WarehouseTimeZoneResolver>();
     builder.Services.AddScoped<IStockStatisticsService, StockStatisticsService>();
+    builder.Services.AddScoped<IStockForecastService, StockForecastService>();
     builder.Services.AddScoped<IStocktakeDiffCalculator, StocktakeDiffCalculator>();
     var app = builder.Build();
 

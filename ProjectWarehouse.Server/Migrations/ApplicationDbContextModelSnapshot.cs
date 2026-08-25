@@ -505,6 +505,24 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("CatalogItemImages");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemStockWarning", b =>
+                {
+                    b.Property<Guid>("CatalogItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("WarningDays")
+                        .HasColumnType("integer");
+
+                    b.HasKey("CatalogItemId", "WarehouseId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("CatalogItemStockWarnings");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemTag", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1563,6 +1581,9 @@ namespace ProjectWarehouse.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int?>("ConsumptionWindowDays")
+                        .HasColumnType("integer");
+
                     b.Property<Guid?>("DefaultStoragePlaceNodeId")
                         .HasColumnType("uuid");
 
@@ -1572,6 +1593,15 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int?>("StockWarningDays")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TimeZoneId")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("UseWeightedConsumption")
+                        .HasColumnType("boolean");
 
                     b.Property<decimal>("Width")
                         .HasColumnType("numeric");
@@ -1959,6 +1989,25 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("CatalogItem");
 
                     b.Navigation("DataFile");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemStockWarning", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CatalogItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CatalogItem");
+
+                    b.Navigation("Warehouse");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemVariationMember", b =>
