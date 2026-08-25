@@ -12,6 +12,9 @@ public class UpdateWarehouseRequest
 
     public Guid? DefaultStoragePlaceNodeId { get; init; }
 
+    /// <summary>IANA identifier; null falls back to the caller's zone and then to the server's.</summary>
+    public string? TimeZoneId { get; init; }
+
     public IReadOnlyList<StoragePlaceItem> StoragePlaces { get; init; } = [];
     public IReadOnlyList<WarehouseLayoutElementItem> LayoutObjects { get; init; } = [];
 }

@@ -39,7 +39,13 @@ export default observer(function WarehouseEditPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const form = useForm<WarehouseMetaFormValues>({
-    defaultValues: {name: "", width: 10, height: 10, defaultStoragePlaceNodeId: null},
+    defaultValues: {
+      name: "",
+      width: 10,
+      height: 10,
+      defaultStoragePlaceNodeId: null,
+      timeZoneId: null,
+    },
   });
 
   // Connect ObservableForm bridge to RHF — runs once on mount

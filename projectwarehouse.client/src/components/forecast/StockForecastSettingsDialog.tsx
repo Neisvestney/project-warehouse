@@ -2,7 +2,6 @@ import {Controller, useForm} from "react-hook-form";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
   Alert,
-  Autocomplete,
   Button,
   CircularProgress,
   Dialog,
@@ -12,7 +11,6 @@ import {
   FormControlLabel,
   Stack,
   Switch,
-  TextField,
   Typography,
 } from "@mui/material";
 import {
@@ -22,15 +20,12 @@ import {
   stockForecastUpdateSettingsMutation,
 } from "@/api/@tanstack/react-query.gen";
 import {FormTextField} from "@/components/form/FormTextField";
+import {FormTimeZoneField} from "@/components/form/FormTimeZoneField";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 
 const MAX_WARNING_DAYS = 3650;
 const MIN_WINDOW_DAYS = 1;
 const MAX_WINDOW_DAYS = 366;
-
-// Chrome only learned supportedValuesOf in 99; the field stays usable as free text without it.
-const TIME_ZONE_OPTIONS: string[] =
-  typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
 
 interface SettingsFormValues {
   stockWarningDays: string;
@@ -162,34 +157,14 @@ export function StockForecastSettingsDialog({
               }}
             />
 
-            <Controller
+            <FormTimeZoneField
               control={control}
               name="timeZoneId"
-              render={({field, fieldState}) => (
-                <Autocomplete
-                  freeSolo
-                  options={TIME_ZONE_OPTIONS}
-                  value={field.value}
-                  onChange={(_, v) => field.onChange(v ?? null)}
-                  onInputChange={(_, v, reason) => {
-                    if (reason === "input") field.onChange(v || null);
-                  }}
-                  disabled={isPending}
-                  size="small"
-                  fullWidth
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Часовой пояс"
-                      placeholder={settings.effectiveTimeZoneId}
-                      error={!!fieldState.error}
-                      helperText={
-                        fieldState.error?.message ?? "Пусто — пояс вызывающего или сервера"
-                      }
-                    />
-                  )}
-                />
-              )}
+              placeholder={settings.effectiveTimeZoneId}
+              helperText="Пусто — пояс вызывающего или сервера"
+              disabled={isPending}
+              size="small"
+              fullWidth
             />
 
             <Controller

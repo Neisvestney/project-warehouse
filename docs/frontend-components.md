@@ -866,6 +866,19 @@ Thin RHF + MUI `TextField` integration wrapping `Controller` and wiring `error`/
   rules={{required: "Обязательное поле"}} fullWidth />
 ```
 
+### `FormTimeZoneField`
+
+RHF-поле выбора часового пояса: `Autocomplete` в режиме `freeSolo` со списком из
+`Intl.supportedValuesOf("timeZone")`. Пустая строка коммитится как `null`, чтобы «не задан» и «пустая строка»
+не разъезжались, а `freeSolo` оставляет поле рабочим там, где `supportedValuesOf` недоступен: список тогда
+пуст, а ввод руками работает. Используется карточкой склада (`WarehouseMetaForm`) и
+`StockForecastSettingsDialog` — обе формы правят одно и то же поле `Warehouse.TimeZoneId`.
+
+```tsx
+<FormTimeZoneField control={form.control} name="timeZoneId"
+  helperText="Пусто — пояс вызывающего или сервера" />
+```
+
 ### `ClampedIntegerField`
 
 Number `TextField` for editing a quantity **outside** of RHF (local state, or committed through a callback).

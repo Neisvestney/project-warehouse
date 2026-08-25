@@ -98,8 +98,9 @@ public class StockForecastController(IStockForecastService forecast, EntityAcces
     /// A null <c>stockWarningDays</c> or <c>consumptionWindowDays</c> means the warehouse follows the
     /// system default rather than having chosen the same number; <c>effective*</c> carries what the
     /// forecast will actually use, and <c>effectiveTimeZoneId</c> the zone after the whole fallback chain.
-    /// Requires <c>warehouses.edit</c> or <c>warehouses.edit_assigned</c> — these are report parameters
-    /// only the person who may edit the warehouse changes. Another warehouse answers 403
+    /// Requires <c>warehouses.view</c> or <c>warehouses.view_assigned</c> — the same numbers already reach
+    /// every reader of the warehouse through <c>WarehouseDto</c>, and the page labels its columns with
+    /// them. Writing them still takes the edit permission. Another warehouse answers 403
     /// <c>warehouseNotAssigned</c>. Returns 422 <c>warehouseNotFound</c> on <c>warehouseId</c> when the
     /// warehouse does not exist (no <c>args</c>).
     /// </remarks>
@@ -108,7 +109,7 @@ public class StockForecastController(IStockForecastService forecast, EntityAcces
     [ProducesResponseType<StockForecastSettingsDto>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetSettings(Guid warehouseId, CancellationToken ct = default)
     {
-        if (AccessError(await Rule.CheckWarehouseAsync(User, AccessLevel.Edit, warehouseId, ct)) is { } denied)
+        if (AccessError(await Rule.CheckWarehouseAsync(User, AccessLevel.View, warehouseId, ct)) is { } denied)
             return denied;
 
         try

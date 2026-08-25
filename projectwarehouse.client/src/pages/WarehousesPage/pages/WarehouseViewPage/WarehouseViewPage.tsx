@@ -213,6 +213,16 @@ function WarehouseViewPage() {
                 )}
               </Stack>
             )}
+            {warehouse.timeZoneId && (
+              <Stack spacing={0.25}>
+                <Typography variant="caption" color="text.secondary">
+                  Часовой пояс
+                </Typography>
+                <Typography variant="body1" sx={{fontWeight: 500}}>
+                  {warehouse.timeZoneId}
+                </Typography>
+              </Stack>
+            )}
             {warehouse.marketplaceAccounts.length > 0 && (
               <Stack spacing={0.25}>
                 <Typography variant="caption" color="text.secondary">

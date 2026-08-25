@@ -2334,6 +2334,10 @@ export type UpdateWarehouseRequest = {
   width: number;
   height: number;
   defaultStoragePlaceNodeId?: null | string;
+  /**
+   * IANA identifier; null falls back to the caller's zone and then to the server's.
+   */
+  timeZoneId?: null | string;
   storagePlaces: Array<StoragePlaceItem>;
   layoutObjects: Array<WarehouseLayoutElementItem>;
 };
@@ -2366,6 +2370,13 @@ export type WarehouseDto = {
   width: number;
   height: number;
   defaultStoragePlaceNodeId?: null | string;
+  /**
+   * IANA identifier the warehouse's days are cut by. Null falls back down the resolver chain.
+   */
+  timeZoneId?: null | string;
+  stockWarningDays?: null | number;
+  consumptionWindowDays?: null | number;
+  useWeightedConsumption: boolean;
   storagePlaces: Array<StoragePlaceDto>;
   layoutObjects: Array<WarehouseLayoutElementDto>;
   marketplaceAccounts: Array<MarketplaceAccountShortSummaryDto>;

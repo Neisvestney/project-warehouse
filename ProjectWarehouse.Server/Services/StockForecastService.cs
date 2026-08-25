@@ -8,6 +8,8 @@ using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
 using ProjectWarehouse.Server.Models.Forecast;
+using ProjectWarehouse.Server.Models.Warehouses;
+using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 
 namespace ProjectWarehouse.Server.Services;
 
@@ -16,7 +18,9 @@ public class StockForecastService(
     IMapper mapper,
     IUserQueryFilterService userFilter,
     IInventoryService inventoryService,
-    IWarehouseTimeZoneResolver timeZones) : IStockForecastService
+    IWarehouseTimeZoneResolver timeZones,
+    IChangeLogService<WarehouseDto> warehouseChangeLog,
+    IChangeLogService changeLog) : IStockForecastService
 {
     /// <summary>Virtual types hold no stock, so there is nothing to forecast for them.</summary>
     private static readonly CatalogItemType[] PhysicalTypes = [CatalogItemType.Standard, CatalogItemType.Unit];
@@ -128,20 +132,24 @@ public class StockForecastService(
         CancellationToken ct = default)
     {
         var warehouse = await LoadWarehouseAsync(warehouseId, ct);
+        var beforeDto = await WarehouseDtoAsync(warehouseId, ct);
+
+        var timeZoneId = TimeZoneIds.Normalize(request.TimeZoneId);
 
         // Unlike the header, a stored identifier is a setting somebody typed: accepting a broken one
         // would leave the warehouse silently cutting its days by the server zone forever.
-        if (!string.IsNullOrWhiteSpace(request.TimeZoneId)
-            && !TimeZoneInfo.TryFindSystemTimeZoneById(request.TimeZoneId, out _))
+        if (timeZoneId is not null && !TimeZoneIds.IsKnown(timeZoneId))
             throw new ValidationException("timeZoneId", ErrorCode.InvalidValue,
                 "Unknown IANA time zone identifier.");
 
         warehouse.StockWarningDays = request.StockWarningDays;
         warehouse.ConsumptionWindowDays = request.ConsumptionWindowDays;
         warehouse.UseWeightedConsumption = request.UseWeightedConsumption;
-        warehouse.TimeZoneId = string.IsNullOrWhiteSpace(request.TimeZoneId) ? null : request.TimeZoneId;
+        warehouse.TimeZoneId = timeZoneId;
 
         await db.SaveChangesAsync(ct);
+
+        await warehouseChangeLog.CompareAndSaveToChangelog(beforeDto, await WarehouseDtoAsync(warehouseId, ct));
 
         return await BuildSettingsAsync(warehouse, ct);
     }
@@ -152,7 +160,10 @@ public class StockForecastService(
         // The access rule answers "may you touch this warehouse", not "does it exist": an unscoped
         // warehouses.edit is allowed straight off the claim, and an unknown id would reach the insert
         // and surface as a foreign key violation instead of a field error.
-        await EnsureWarehouseExistsAsync(request.WarehouseId, ct);
+        var warehouseName = await db.Warehouses
+            .Where(w => w.Id == request.WarehouseId)
+            .Select(w => w.Name)
+            .FirstOrDefaultAsync(ct) ?? throw WarehouseNotFound();
 
         var type = await db.CatalogItems
             .Where(c => c.Id == request.CatalogItemId)
@@ -169,6 +180,8 @@ public class StockForecastService(
         var existing = await db.CatalogItemStockWarnings
             .FirstOrDefaultAsync(
                 o => o.CatalogItemId == request.CatalogItemId && o.WarehouseId == request.WarehouseId, ct);
+
+        var beforeOverride = OverrideSnapshot(request, warehouseName, existing?.WarningDays);
 
         if (request.WarningDays is not { } warningDays)
         {
@@ -191,6 +204,14 @@ public class StockForecastService(
         }
 
         await db.SaveChangesAsync(ct);
+
+        // Both sides are non-null so clearing reads as "threshold went back to inherited" rather than as
+        // a deleted catalog item — the entry hangs on the item, whose own DTO has no per-warehouse field.
+        await changeLog.CompareAndSaveToChangelog(
+            AppEntityType.CatalogItem, request.CatalogItemId,
+            beforeOverride, OverrideSnapshot(request, warehouseName, request.WarningDays),
+            action: request.WarningDays is null ? ForecastActions.OverrideCleared : ForecastActions.OverrideSet,
+            actionData: new { warehouseId = request.WarehouseId, warehouseName });
     }
 
     /// <summary>
@@ -439,11 +460,21 @@ public class StockForecastService(
     private async Task<Warehouse> LoadWarehouseAsync(Guid warehouseId, CancellationToken ct) =>
         await db.Warehouses.FirstOrDefaultAsync(w => w.Id == warehouseId, ct) ?? throw WarehouseNotFound();
 
-    private async Task EnsureWarehouseExistsAsync(Guid warehouseId, CancellationToken ct)
-    {
-        if (!await db.Warehouses.AnyAsync(w => w.Id == warehouseId, ct))
-            throw WarehouseNotFound();
-    }
+    /// <summary>The changelog snapshot of a warehouse, the same shape the warehouse endpoints journal.</summary>
+    private async Task<WarehouseDto> WarehouseDtoAsync(Guid warehouseId, CancellationToken ct) =>
+        await db.Warehouses
+            .ProjectTo<WarehouseDto>(mapper.ConfigurationProvider)
+            .FirstAsync(w => w.Id == warehouseId, ct);
+
+    private static StockWarningOverrideDto OverrideSnapshot(
+        SetStockWarningOverrideRequest request, string warehouseName, int? warningDays) =>
+        new()
+        {
+            CatalogItemId = request.CatalogItemId,
+            WarehouseId = request.WarehouseId,
+            WarehouseName = warehouseName,
+            WarningDays = warningDays,
+        };
 
     private static ValidationException WarehouseNotFound() =>
         new("warehouseId", ErrorCode.WarehouseNotFound, "Warehouse not found.");

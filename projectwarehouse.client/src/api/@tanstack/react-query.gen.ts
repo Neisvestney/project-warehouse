@@ -4739,8 +4739,9 @@ export const stockForecastGetSettingsQueryKey = (options: Options<StockForecastG
  * A null `stockWarningDays` or `consumptionWindowDays` means the warehouse follows the
  * system default rather than having chosen the same number; `effective*` carries what the
  * forecast will actually use, and `effectiveTimeZoneId` the zone after the whole fallback chain.
- * Requires `warehouses.edit` or `warehouses.edit_assigned` — these are report parameters
- * only the person who may edit the warehouse changes. Another warehouse answers 403
+ * Requires `warehouses.view` or `warehouses.view_assigned` — the same numbers already reach
+ * every reader of the warehouse through `WarehouseDto`, and the page labels its columns with
+ * them. Writing them still takes the edit permission. Another warehouse answers 403
  * `warehouseNotAssigned`. Returns 422 `warehouseNotFound` on `warehouseId` when the
  * warehouse does not exist (no `args`).
  */
@@ -4809,7 +4810,7 @@ export const stockForecastUpdateSettingsMutation = (
  * Requires `warehouses.edit` or `warehouses.edit_assigned`; another warehouse answers 403
  * `warehouseNotAssigned`.
  * Returns 422 `required` on a missing body field, 422 `validationError` on
- * `warningDays` outside 0..3650,
+ * `warningDays` outside 0..3650, 422 `warehouseNotFound` on `warehouseId`,
  * 422 `catalogItemNotFound` and 422 `invalidValue` on `catalogItemId` — the latter
  * when the item is of a virtual type and holds no stock (no `args` on any of them).
  */
@@ -6129,6 +6130,9 @@ export const warehousesGetByIdOptions = (options: Options<WarehousesGetByIdData>
  * Returns 422 `storagePlaceNotFound` if any provided ID does not belong to this warehouse — including
  * for `defaultStoragePlaceNodeId`, which must reference a node of this warehouse. Deleting the
  * referenced node clears the field via cascade.
+ * `timeZoneId` is an IANA identifier (null falls back to the caller's zone and then to the
+ * server's); an unknown one answers 422 `invalidValue`. The remaining forecast settings are
+ * written through `PUT /api/stock-forecast/settings/{warehouseId}`.
  * Requires `warehouses.edit` or `warehouses.edit_assigned` (assigned warehouses only).
  */
 export const warehousesUpdateMutation = (
