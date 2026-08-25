@@ -29,6 +29,8 @@ import WarehouseCanvas from "./components/WarehouseCanvas";
 import DeleteWarehouseDialog from "./components/DeleteWarehouseDialog";
 
 export default observer(function WarehouseEditPage() {
+  "use no memo";
+
   const {id} = useParams<{id: string}>();
   const {enqueueSnackbar} = useSnackbar();
   const queryClient = useQueryClient();

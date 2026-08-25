@@ -13,6 +13,7 @@ Companion documents:
 | Tool | Version | Role |
 |------|---------|------|
 | React | 19 | UI framework |
+| React Compiler | 1 | Automatic memoization (Babel pass, see below) |
 | TypeScript | 7 (native Go compiler) | Type safety |
 | Vite | 8 | Build tool + dev server |
 | MUI (Material UI) | v9 | Component library |
@@ -32,6 +33,39 @@ Companion documents:
 
 Build target is `chrome >= 49`. That is why a few modern CSS features (`aspect-ratio`) and browser APIs are
 hand-rolled or feature-detected rather than used directly.
+
+### React Compiler
+
+React Compiler memoizes components automatically, in dev and in build alike. Manual `useMemo` / `useCallback`
+are no longer the way to avoid re-renders — write the plain version and let the pass do it. Existing manual
+memoization is kept as written (`react-hooks/preserve-manual-memoization`), so removing it is safe but not
+urgent.
+
+`eslint-plugin-react-hooks` carries the compiler's own rules, and its `recommended` set is what the project
+lints against. **A lint error there means the compiler cannot safely optimize that component** — it is a
+correctness signal, not style, and `eslint-disable` on those rules is the wrong fix.
+
+The Babel peers (`@babel/core`, `@babel/plugin-transform-runtime`, `@babel/runtime`) are pinned to 7.x: npm
+otherwise resolves them to 8.x and the install fails against the copy `@vitejs/plugin-legacy` already pulls in.
+
+**MobX `observer` components opt out with a `"use no memo"` directive.** MobX relies on interior mutability:
+the store reference is stable while its fields change, so the compiler does not see an observable read as a
+dependency of the JSX cache. The component still subscribes and still re-renders, but returns the element
+built during the first render — a permanently frozen subtree. The `react-hooks/incompatible-library` lint rule
+does not detect this pattern, so the directive is the boundary, and it is required in every `observer` body:
+
+```tsx
+export default observer(function WarehouseCanvas() {
+  "use no memo";
+  ...
+});
+```
+
+The line is drawn at reading observable fields, not at touching a store: a component that only passes a store
+instance through context reads nothing observable and stays compiled.
+
+The same interior-mutability trap applies to react-hook-form's `watch()` — use `useWatch({control, name})` in
+components instead. That one the linter does catch.
 
 ### TypeScript tooling note
 

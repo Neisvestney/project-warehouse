@@ -34,6 +34,8 @@ const CANVAS_SCALE = 100;
 const MIN_DRAW_PX = 5;
 
 export default observer(function WarehouseCanvas() {
+  "use no memo";
+
   const store = useWarehouseEditStore();
 
   const containerRef = useRef<HTMLDivElement>(null);

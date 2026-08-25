@@ -32,6 +32,8 @@ const SortableRoleHeaderCell = observer(function SortableRoleHeaderCell({
 }: {
   role: EditableRole;
 }) {
+  "use no memo";
+
   const {canEdit} = useRolesStore();
   const {attributes, listeners, setNodeRef, transform, transition, isDragging} = useSortable({
     id: role.tempId,
@@ -58,6 +60,8 @@ const SortableRoleHeaderCell = observer(function SortableRoleHeaderCell({
 });
 
 export default observer(function RolesTable({isLoading}: {isLoading: boolean}) {
+  "use no memo";
+
   const {store, canEdit} = useRolesStore();
 
   const sensors = useSensors(
