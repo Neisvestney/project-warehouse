@@ -640,7 +640,9 @@ await showModal(FileViewerModal, {
 ```
 
 The dialog takes almost the whole viewport (`96vw × 94vh`, full screen below `sm`). Arrows, the counter and the
-filmstrip appear only for more than one file. `Esc` closes, `←`/`→` navigate. Renderers are tried in order:
+filmstrip appear only for more than one file. `Esc` closes, `←`/`→` navigate, and Back closes the viewer
+instead of leaving the page (see [`useBackClosable`](frontend-state.md#usebackclosableopen-onclose)) — the
+gallery is fullscreen on a phone, where Back is what the hand reaches for. Renderers are tried in order:
 image → PDF → unsupported. An `onError` drops to the unsupported card, which is also the degradation path for an
 external link that turned out not to be an image.
 

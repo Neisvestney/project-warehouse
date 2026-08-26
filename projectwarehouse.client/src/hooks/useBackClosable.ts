@@ -2,6 +2,37 @@ import {useEffect, useId, useRef} from "react";
 
 const OVERLAY_KEY = "__overlay";
 
+const isOverlayEntry = (state: unknown) =>
+  !!state && typeof state === "object" && OVERLAY_KEY in state;
+
+/**
+ * Walks back off the entries a reload froze into the stack — the overlays that held them are gone
+ * after a cold start, so the entries would otherwise eat one Back press each before the user
+ * actually leaves the page. Each entry is stripped of its marker before being left behind, so a
+ * Forward press cannot land on one still claiming to be held. Call before React mounts, alongside
+ * `stripEphemeralSearchParams()`.
+ */
+export function dropOverlayHistoryEntries() {
+  if (!isOverlayEntry(window.history.state)) return;
+
+  const step = () => {
+    const state = window.history.state;
+    if (!isOverlayEntry(state)) {
+      window.removeEventListener("popstate", step);
+      return;
+    }
+
+    const next = {...state};
+    delete next[OVERLAY_KEY];
+    window.history.replaceState(next, "");
+    window.history.back();
+  };
+
+  // Stacked overlays leave one entry each; every `back()` lands through `popstate`.
+  window.addEventListener("popstate", step);
+  step();
+}
+
 /**
  * An open overlay occupies its own history entry, so Back — the hardware button on the handheld
  * included — closes it instead of leaving the page.
@@ -22,6 +53,7 @@ const OVERLAY_KEY = "__overlay";
 export function useBackClosable(open: boolean, onClose: () => void) {
   const id = useId();
   const onCloseRef = useRef(onClose);
+  const pendingBackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -30,7 +62,13 @@ export function useBackClosable(open: boolean, onClose: () => void) {
   useEffect(() => {
     if (!open) return;
 
-    window.history.pushState({...window.history.state, [OVERLAY_KEY]: id}, "");
+    if (pendingBackRef.current !== null) {
+      // The cleanup's Back has not gone out yet, so the entry it was about to drop is still ours.
+      clearTimeout(pendingBackRef.current);
+      pendingBackRef.current = null;
+    } else {
+      window.history.pushState({...window.history.state, [OVERLAY_KEY]: id}, "");
+    }
 
     const handlePop = () => {
       if (window.history.state?.[OVERLAY_KEY] === id) return;
@@ -41,7 +79,12 @@ export function useBackClosable(open: boolean, onClose: () => void) {
     return () => {
       window.removeEventListener("popstate", handlePop);
       // Only our own entry is ours to drop — Back or a replace navigation may already have.
-      if (window.history.state?.[OVERLAY_KEY] === id) window.history.back();
+      if (window.history.state?.[OVERLAY_KEY] !== id) return;
+
+      pendingBackRef.current = setTimeout(() => {
+        pendingBackRef.current = null;
+        if (window.history.state?.[OVERLAY_KEY] === id) window.history.back();
+      });
     };
   }, [open, id]);
 }

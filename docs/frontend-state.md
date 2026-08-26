@@ -40,13 +40,31 @@ The marker holds the hook instance's `useId`, not a plain flag, which is what ke
 independent. `popstate` is a window event and reaches every open overlay's listener, so each one compares the
 marker now current against its own id: the overlay whose entry was popped closes, the ones still holding
 theirs ignore the event. The cleanup uses the same comparison before calling `history.back()` — without it an
-overlay would drop a neighbour's entry and a single Back press would walk back several steps. The comparison
-also absorbs the duplicate push StrictMode's double-invoked effect produces in dev.
+overlay would drop a neighbour's entry and a single Back press would walk back several steps.
+
+The `history.back()` of the cleanup is **deferred by a timer**, and the next effect run cancels it and keeps
+the entry instead of pushing a new one. A history traversal is queued, and the browser resolves its delta
+against the entry current when `back()` was *called*, not when the queued task runs — so a cleanup followed by
+a synchronous re-push walks one entry too far and lands below the overlay, where the marker no longer matches
+and the listener closes the overlay it just opened. That is exactly the setup → cleanup → setup StrictMode
+runs in dev, and it only shows on an overlay mounted already open (`FileViewerModal`); one mounted with
+`open === false` never reaches the push on that first pass.
 
 `idx` is copied unchanged, so the held entry is invisible to react-router's own index tracking. That is safe
 while nothing in the app uses `useBlocker` / `usePrompt`, which are the only consumers of that delta.
 
-Used by `MainNavDrawer` and `GlobalSearchModal`.
+Used by `MainNavDrawer`, `GlobalSearchModal` and `FileViewerModal`.
+
+`dropOverlayHistoryEntries()`, exported from the same module, is the history-side counterpart of
+[`stripEphemeralSearchParams()`](frontend.md#stripephemeralsearchparams) and is called next to it in
+`main.tsx` before `mountApp()`. A reload with an overlay open restores the held entry while the overlay itself
+is gone, and that orphan entry then eats one Back press before the user actually leaves the page — two
+presses to go back, one per overlay that was open. The function walks off them: while the current entry
+carries the marker it strips it via `history.replaceState` — so a Forward press cannot land on an entry still
+claiming to be held — and calls `history.back()`, continuing from the `popstate` that lands, which unwinds a
+stack of several overlays as well. The URL of the held entry is the page's own, so the walk is a
+same-document traversal: no reload, and the router sees the location it already had. `idx` is left intact,
+the same way the push carries it over.
 
 **Links inside such an overlay must navigate with `replace`** (`<Link replace>` / `navigate(to, {replace: true})`).
 The held entry carries the current URL, so replacing it puts the destination exactly where the overlay stood
