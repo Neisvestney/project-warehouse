@@ -15,6 +15,7 @@ import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import type {DataFileDto} from "@/api";
 import type {ModalComponentProps} from "@/contexts/Modal/ModalContext";
+import {useBackClosable} from "@/hooks/useBackClosable.ts";
 import FileImage from "../FileImage";
 import {formatFileSize, isImageContentType, isPdfContentType} from "../fileUtils";
 import ImageFileRenderer from "./ImageFileRenderer";
@@ -69,6 +70,8 @@ export default function FileViewerModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, hasMany, files.length]);
+
+  useBackClosable(open, () => onClose(null));
 
   if (!current) return null;
 
