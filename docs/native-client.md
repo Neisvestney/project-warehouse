@@ -68,7 +68,8 @@ export const PREDEFINED_SERVERS: ServerConfig[] = [
 `Capacitor.isNativePlatform()` и вместо просмотрщика подставляет `UnsupportedFileRenderer` с кнопкой скачивания,
 которая передаёт файл системному приложению.
 
-Изображения в WebView работают штатно, включая масштабирование и перетаскивание в `FileViewerModal`.
+Изображения в WebView работают штатно, включая жесты масштабирования, перетаскивание и поворот в
+`FileViewerModal`.
 
 Прочие оговорки по целевому браузеру (`chrome >= 49`) — в [frontend.md](frontend.md).
 

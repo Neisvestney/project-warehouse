@@ -81,9 +81,22 @@ export default function FileViewerModal({
       open={open}
       onClose={() => onClose(null)}
       fullScreen={fullScreen}
-      maxWidth="lg"
+      maxWidth="xl"
       fullWidth
-      slotProps={{paper: {sx: {bgcolor: "grey.900", height: fullScreen ? "100%" : "85vh"}}}}
+      slotProps={{
+        paper: {
+          sx: fullScreen
+            ? {bgcolor: "grey.900", height: "100%"}
+            : {
+                bgcolor: "grey.900",
+                width: "96vw",
+                maxWidth: "96vw",
+                height: "94vh",
+                maxHeight: "94vh",
+                m: 0,
+              },
+        },
+      }}
     >
       <Box
         sx={{

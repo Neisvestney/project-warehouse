@@ -56,6 +56,7 @@ detection goes through `matchPath({end: false})`, so sub-routes highlight the pa
 ### `SidebarPage`
 
 Routing wrapper on top of `SidebarLayout`. Takes `sections: SectionConfig[]` and a `basePath`, and:
+
 - builds the nav filtered by user permissions and `showIf` via `toNavItems`
   (`@/layouts/SidebarPage/toNavItems.ts`, also used by `MainNavDrawer`)
 - creates `<Routes>` with relative paths (leaves, subroutes, and redirect routes for groups)
@@ -70,16 +71,16 @@ See `settingsConfig.tsx` for the reference implementation.
 
 **`SectionConfig` fields:**
 
-| Field | Type | Description |
-|---|---|---|
-| `label` | `string` | Nav item label |
-| `path` | `string` | Relative path segment (e.g. `"roles"`) |
-| `component` | `ComponentType?` | Page component; absent → redirect to first visible child |
-| `requiredPermission` | `PermissionName \| PermissionName[]?` | Hides the item unless the user has it (any of, for an array) |
-| `showIf` | `() => boolean?` | Additional visibility predicate (feature flags etc.) |
-| `subroutes` | `SectionSubroute[]?` | Sub-paths (e.g. `":id"`) that highlight the parent nav item |
-| `children` | `SectionConfig[]?` | Nested nav sections (max depth 1); the section becomes a group |
-| `icon` | `React.ReactElement?` | Icon in the sidebar group header (desktop only) |
+| Field                | Type                                  | Description                                                    |
+| -------------------- | ------------------------------------- | -------------------------------------------------------------- |
+| `label`              | `string`                              | Nav item label                                                 |
+| `path`               | `string`                              | Relative path segment (e.g. `"roles"`)                         |
+| `component`          | `ComponentType?`                      | Page component; absent → redirect to first visible child       |
+| `requiredPermission` | `PermissionName \| PermissionName[]?` | Hides the item unless the user has it (any of, for an array)   |
+| `showIf`             | `() => boolean?`                      | Additional visibility predicate (feature flags etc.)           |
+| `subroutes`          | `SectionSubroute[]?`                  | Sub-paths (e.g. `":id"`) that highlight the parent nav item    |
+| `children`           | `SectionConfig[]?`                    | Nested nav sections (max depth 1); the section becomes a group |
+| `icon`               | `React.ReactElement?`                 | Icon in the sidebar group header (desktop only)                |
 
 ### `AppBreadcrumbs`
 
@@ -122,7 +123,7 @@ its `TableCell` (a positioned cell would become the overlay's containing block a
       size="small"
       checked={isSelected(order.id)}
       onClick={() => toggle(order)}
-      sx={{position: "relative", zIndex: 1}}
+      sx={{ position: "relative", zIndex: 1 }}
     />
   </TableCell>
   <TableCell>{formatOrderNumber(order.number)}</TableCell>
@@ -160,7 +161,7 @@ is legible, so the common case shows no flash while a genuinely slow load still 
 
 A cold load runs two instances back to back — the auth guard's while `/me` is in flight, then the layout's
 while the page chunk downloads. A module-level session ties them together: the second instance measures its
-delay from when the *first* appeared, and the fade is a CSS keyframe given a **negative** `animation-delay`
+delay from when the _first_ appeared, and the fade is a CSS keyframe given a **negative** `animation-delay`
 equal to the time already faded, so it resumes at the exact opacity the previous instance reached. The
 handover is invisible.
 
@@ -169,7 +170,7 @@ before it commits: a seed left behind by such a render is only honoured while an
 within `SESSION_GAP_MS` of the last one leaving, so an orphan expires instead of disabling the delay for the
 rest of the page's life. That same gap is what separates one load from the next.
 
-Distinct from `LoadingOverlay`: this one *replaces* the content, so it needs no positioned parent and does not
+Distinct from `LoadingOverlay`: this one _replaces_ the content, so it needs no positioned parent and does not
 dim anything.
 
 ### `LoadingOverlay`
@@ -179,7 +180,7 @@ invalidated the query, or the tab regained focus and TanStack refetched. Not for
 `TableRowLoader` and skeletons are for, so pages pass `open={isFetching && !isLoading}`.
 
 ```tsx
-<Box sx={{position: "relative"}}>
+<Box sx={{ position: "relative" }}>
   <LoadingOverlay open={isFetching && !isLoading} />
   <Stack spacing={2}>{/* page content */}</Stack>
 </Box>
@@ -238,7 +239,7 @@ not take one.
 
 `CatalogItemDrawer` takes it too, but on the **content area only**, not on the `Drawer` — an overlay over the
 whole panel would swallow the close button and trap the user until the refetch ends. The wrapper also sits
-*outside* the scrolling `Box` rather than inside it: an `inset: 0` child of an `overflow: auto` parent is sized
+_outside_ the scrolling `Box` rather than inside it: an `inset: 0` child of an `overflow: auto` parent is sized
 to the visible box and scrolls away with the content, leaving everything below it uncovered. Only the
 read-only view carries it; `EditMode` is a separate branch, so no edit flag is needed.
 
@@ -364,14 +365,15 @@ Reusable right-side drawer for viewing and editing any catalog item. Mount it on
 Edit is hidden for items with a `groupId` — those are managed by the parent group, shown as an info alert.
 
 **Header actions** (both modes, and also for group-managed items):
+
 - **Скопировать GUID** — copies the raw id via `copyToClipboard` (`utils/clipboardUtils.ts`:
   `navigator.clipboard` with a hidden-textarea + `execCommand` fallback for insecure origins and the Capacitor
   shell), then reports the result via snackbar.
 - **Печать этикетки** — opens `PrintLabelDialog`: payload + copy count (1–200), then `openPrintPage` with the
   item repeated N times.
-  - *Внутренний код* — `DataMatrix` with `pw:ci:<guid>` (see
+  - _Внутренний код_ — `DataMatrix` with `pw:ci:<guid>` (see
     [barcode payload format](frontend.md#barcode-payload-format))
-  - *Штрихкод товара* — the item's own `barcode`; disabled when empty. Encoded as `EAN13` for 12–13 digit
+  - _Штрихкод товара_ — the item's own `barcode`; disabled when empty. Encoded as `EAN13` for 12–13 digit
     values, otherwise `Code128`, since bwip-js rejects non-numeric EAN13 payloads.
   - Label caption for both: `fullName · article`.
 
@@ -387,7 +389,7 @@ open-drawer affordance as part of the initial implementation, not as a follow-up
 - **Page whose links live in components rendered in a loop** → wrap the page in `CatalogItemDrawerHost` and
   call `useOpenCatalogItem()` in the leaf. A per-component drawer would open N copies at once, since the state
   is shared via the URL.
-- **Nested inside a drawer/dialog whose own open state is *not* in the URL** → use a distinct param name and
+- **Nested inside a drawer/dialog whose own open state is _not_ in the URL** → use a distinct param name and
   register it in `EPHEMERAL_PARAMS`, e.g. `"fulfillmentCatalogItem"` in `FulfillmentsDrawer`. Otherwise a reload
   would reopen the nested drawer on top of a closed parent. Never reuse `"catalogItem"` for this — that name
   must survive a cold load.
@@ -402,11 +404,13 @@ so the host file only exports a component (react-refresh rule).
 // page
 <CatalogItemDrawerHost>
   <Stack spacing={2}>…</Stack>
-</CatalogItemDrawerHost>
+</CatalogItemDrawerHost>;
 
 // any descendant, however deep
 const openCatalogItem = useOpenCatalogItem();
-<CatalogItemLink catalogItemId={c.catalogItemId} onOpen={openCatalogItem}>…</CatalogItemLink>
+<CatalogItemLink catalogItemId={c.catalogItemId} onOpen={openCatalogItem}>
+  …
+</CatalogItemLink>;
 ```
 
 `useOpenCatalogItem()` **throws** outside the host — a missing wrapper fails loudly instead of silently doing
@@ -422,7 +426,11 @@ Content is passed as **children** because the composition differs per call site 
 inventory number, archive icon, extra badges) — the wrapper stays flag-free.
 
 ```tsx
-<CatalogItemLink catalogItemId={c.catalogItemId} onOpen={openCatalogItemDrawer} spacing={0.5}>
+<CatalogItemLink
+  catalogItemId={c.catalogItemId}
+  onOpen={openCatalogItemDrawer}
+  spacing={0.5}
+>
   <Typography variant="body2">{c.catalogItemName}</Typography>
   <CatalogItemTypeChip type={c.catalogItemType} />
 </CatalogItemLink>
@@ -563,7 +571,13 @@ Three layers, plus a viewer. `FileInput` and `FileView` are pure components that
 `FileControl` is the **only** layer that calls it. Compose them by passing the other two in as props:
 
 ```tsx
-<SingleFileControl value={value} onChange={onChange} View={ImageCardFileView} Input={AddFileInput} accept="image/*" />
+<SingleFileControl
+  value={value}
+  onChange={onChange}
+  View={ImageCardFileView}
+  Input={AddFileInput}
+  accept="image/*"
+/>
 ```
 
 A control is a controlled component over a `DataFileDto`, **not** over a `File`: picking a file uploads it
@@ -579,7 +593,7 @@ control can be re-picked without deleting first. `FileListControl` uploads a bat
 own `failures` list — the upload hook holds only the last error, and a batch needs one message per file name.
 
 **Reordering.** `FileListControl` takes `sortable` and wraps its views in `@dnd-kit` (`rectSortingStrategy` for
-a wrapping row, `verticalListSortingStrategy` for a column). Position *is* the value: the control just calls
+a wrapping row, `verticalListSortingStrategy` for a column). Position _is_ the value: the control just calls
 `onChange` with a reordered array, and the owner decides what that means — for catalog images
 `mapImagesToRequest` turns the index into `order`. The whole tile is the drag handle, since a photo grid is
 dragged by the photo; `PointerSensor` with `activationConstraint: {distance: 5}` keeps a tap opening the viewer
@@ -619,13 +633,44 @@ a product photo and a marketplace card image scroll in one gallery. `useViewable
 one shape so the renderers never branch on the source.
 
 ```ts
-await showModal(FileViewerModal, {files: item.images.map((i) => viewable(i.file)), initialIndex: 2});
+await showModal(FileViewerModal, {
+  files: item.images.map((i) => viewable(i.file)),
+  initialIndex: 2,
+});
 ```
 
-Arrows, the counter and the filmstrip appear only for more than one file. `Esc` closes, `←`/`→` navigate.
-Renderers are tried in order: image → PDF → unsupported. Images support wheel zoom and drag pan (hand-rolled —
-there is no lightbox library here); an `onError` drops to the unsupported card, which is also the degradation
-path for an external link that turned out not to be an image.
+The dialog takes almost the whole viewport (`96vw × 94vh`, full screen below `sm`). Arrows, the counter and the
+filmstrip appear only for more than one file. `Esc` closes, `←`/`→` navigate. Renderers are tried in order:
+image → PDF → unsupported. An `onError` drops to the unsupported card, which is also the degradation path for an
+external link that turned out not to be an image.
+
+`ImageFileRenderer` builds on `react-zoom-pan-pinch`: mouse wheel and trackpad pinch, two-finger pinch and drag
+on touch, double click/tap toggles zoom, `1×`–`8×`. A floating pill at the bottom adds zoom in/out, reset, the
+current zoom level (hidden below `sm`) and rotation by 90°. The image is contain-fitted, never upscaled past its
+natural size, and laid out through a wrapper sized to the post-rotation footprint, so pan bounds stay correct on
+a quarter turn.
+
+A two-finger trackpad scroll does **not** zoom — only a trackpad pinch and a mouse wheel do. The browser marks a
+pinch with `ctrlKey`, but a wheel notch and a two-finger scroll are the same event, so a capture-phase `wheel`
+listener on the container classifies by the shape of the delta (`isTrackpadScroll`) and takes every trackpad
+event away from the library before its wheel zoom sees it. A high-resolution scroll wheel reads as a trackpad
+here — the accepted price; no API exposes the device.
+
+A mouse wheel keeps the library's own zoom, one `step` per notch. A pinch is driven by hand instead: the
+library flattens every delta to a full step, and a pinch fires at frame rate, which makes the zoom jump. The
+listener scales by `exp(-deltaY × PINCH_ZOOM_RATE)` — continuous, proportional to the gesture, and at the rate
+browsers use for their own trackpad page zoom — anchors the point under the cursor, and clamps the result with
+`clampAxis`, which mirrors the library's `getBounds` so the image stops where a drag would stop it.
+
+Centering is driven off that footprint rather than the library's `centerOnInit`, which fires while the content
+box is still a placeholder: a **layout** effect keyed on the footprint recenters in the same frame the new
+layout reaches the DOM — on a container resize (keeping the current zoom) and on rotation (back to `1×`). Three
+things together keep the image from ever being painted off-centre: the container is measured synchronously in
+the ref callback rather than waiting for the first `ResizeObserver` delivery, `imageWidth`/`imageHeight` from
+the DTO seed the natural size so our own files have their layout before the first paint, and the placeholder
+content box (an external source, whose dimensions arrive only with the image) centres its child by flexbox.
+
+Zoom and rotation are per-file — the modal remounts the renderer by `key` on navigation.
 
 For external sources the metadata line is blank (we have none) but keeps its height so the toolbar does not jump,
 the delete button is hidden, and «Скачать» becomes «Открыть в новой вкладке» — the browser ignores `download` on
@@ -715,7 +760,7 @@ manual refresh.
 
 - `DownloadLabelsButton` — the bulk button in the FBS list's selection toolbar. It opens `DownloadLabelsDialog`
   with a «Группировать по» choice (`Не группировать` / `По артикулам`; the choice survives a reload in
-  `localStorage` under `orders-labels-grouping`) and sends **all** selected orders: the button *could* know in
+  `localStorage` under `orders-labels-grouping`) and sends **all** selected orders: the button _could_ know in
   advance whether an order has a stored label, but filtering the user's selection for them is not its job — the
   server's refusal comes back with a clear message.
 - `DownloadOrderLabelButton` — the button in the FBS order page header. A single order has nothing to group, so
@@ -740,6 +785,7 @@ not carry, so callers pass it down; the «Вариант: …» row uses `resolv
 component's `catalogItemId`. Without `catalogItemId` the headline renders as plain text.
 
 Helpers in `components/orders/orderAssemblyUtils.ts`:
+
 - `countFulfilledQty(fulfillments)` — progress count; a `Unit`/`Bundle` fulfillment always counts as 1.
 - `getFulfillmentKind(fulfillment)` — `"unit" | "bundle" | "standard"`, so the three call sites don't each
   re-derive it.
@@ -819,12 +865,12 @@ the native `BarcodeDetector` (fallback). Decoded values arrive via `onScan`. Sca
 
 Shared body of the storage-node picker dialogs (`components/shared/`). Four tabs:
 
-| Tab | Behaviour |
-|---|---|
-| Карта | `WarehouseCanvas`; clicking a storage place selects it and jumps to the Схема tab |
-| Схема | Storage place `Select` + `StoragePlaceNodeTree` scoped to it (parent nodes are not selectable) |
-| Камера | `ScannerBlock` |
-| Сканер | Hint text; the hardware scanner is bound globally via `useHardwareScanner` while `open` |
+| Tab    | Behaviour                                                                                      |
+| ------ | ---------------------------------------------------------------------------------------------- |
+| Карта  | `WarehouseCanvas`; clicking a storage place selects it and jumps to the Схема tab              |
+| Схема  | Storage place `Select` + `StoragePlaceNodeTree` scoped to it (parent nodes are not selectable) |
+| Камера | `ScannerBlock`                                                                                 |
+| Сканер | Hint text; the hardware scanner is bound globally via `useHardwareScanner` while `open`        |
 
 **Scanning is warehouse-wide, not limited to the storage place chosen in the Схема tab.** The picker loads
 `GET /api/warehouses/{id}/print` while open, which returns every node of the warehouse as `{id, name: string[]}`
@@ -862,8 +908,13 @@ Thin RHF + MUI `TextField` integration wrapping `Controller` and wiring `error`/
 `InputAdornment` (a password show/hide toggle, for instance) drop to `Controller` directly.
 
 ```tsx
-<FormTextField control={form.control} name="username" label="Логин"
-  rules={{required: "Обязательное поле"}} fullWidth />
+<FormTextField
+  control={form.control}
+  name="username"
+  label="Логин"
+  rules={{ required: "Обязательное поле" }}
+  fullWidth
+/>
 ```
 
 ### `FormTimeZoneField`
@@ -875,8 +926,11 @@ RHF-поле выбора часового пояса: `Autocomplete` в реж�
 `StockForecastSettingsDialog` — обе формы правят одно и то же поле `Warehouse.TimeZoneId`.
 
 ```tsx
-<FormTimeZoneField control={form.control} name="timeZoneId"
-  helperText="Пусто — пояс вызывающего или сервера" />
+<FormTimeZoneField
+  control={form.control}
+  name="timeZoneId"
+  helperText="Пусто — пояс вызывающего или сервера"
+/>
 ```
 
 ### `ClampedIntegerField`
@@ -890,4 +944,3 @@ keystroke.
 `min` defaults to **1**; pass `min={0}` wherever zero is a legitimate value (stocktake counting relies on this).
 If `value` changes externally — after a mutation invalidates and refetches — the displayed text re-syncs,
 **unless the field is currently focused**, so it never clobbers an in-progress edit.
-
