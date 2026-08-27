@@ -69,3 +69,21 @@ the permanent arrangement rather than a stopgap.
 compiler reads correctly. Then delete the directives and confirm with a Babel probe that those files
 emit `_c(n)` cache slots, and by hand that the canvas still repaints on every store mutation —
 the failure mode is a frozen subtree, and no test in the repo covers it.
+
+## Drop empty `MarketplaceSyncScanJob` runs from traces
+
+**What it buys.** `SyncScanCron: "0 * * * * ?"` wakes the job once a minute, and in the vast majority
+of runs it finds no account due for a sync. That is roughly fifteen hundred traces a day, each one a
+single span over a single `SELECT`. In the file archive they eat rotation budget; in the dashboard
+they bury the trace list, so every incident starts with scrolling past noise.
+
+**Why it is off.** By design the filtering belongs in the collector's `filter/noise` (see
+[observability-specification.md](observability-specification.md#сэмплинг)), and there is nothing
+there to filter on: `OpenTelemetry.Instrumentation.Quartz` records the job name, the trigger and the
+duration — no attribute says "did nothing". Duration is not a usable proxy either, since an empty
+pass and a pass with one fast account differ by milliseconds.
+
+**Trigger.** The job setting an attribute of its own on the current span — say
+`app.sync.accounts_scanned` — right after it selects candidates. The collector rule is then a single
+line (`attributes["app.sync.accounts_scanned"] == 0`) and ships by restarting one container. Adding
+the attribute ahead of this task buys nothing on its own.

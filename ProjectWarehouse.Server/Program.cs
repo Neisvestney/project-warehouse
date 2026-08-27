@@ -41,9 +41,13 @@ using ProjectWarehouse.Server.Models.Stocktakes;
 using ProjectWarehouse.Server.Models.Writeoffs;
 using ProjectWarehouse.Server.Services;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using ProjectWarehouse.Server.Infrastructure.Observability;
 using Quartz;
 using Scalar.AspNetCore;
 using Serilog;
+using Serilog.Sinks.OpenTelemetry;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -69,12 +73,76 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
 
-    builder.Host.UseSerilog((context, services, config) => config
-        .ReadFrom.Configuration(context.Configuration)
-        .ReadFrom.Services(services)
-        .Enrich.FromLogContext()
-        .WriteTo.Console(
-            outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"));
+    builder.Services.Configure<ObservabilityOptions>(
+        builder.Configuration.GetSection(ObservabilityOptions.SectionName));
+    var observability = builder.Configuration.GetSection(ObservabilityOptions.SectionName)
+        .Get<ObservabilityOptions>() ?? new ObservabilityOptions();
+    // An empty endpoint switches the export off entirely: dotnet run without the telemetry compose
+    // profile would otherwise hit an exporter timeout on every batch. "none" means the same thing and
+    // is the form that survives the environment — Windows drops a variable set to an empty string.
+    var otlpEnabled = !string.IsNullOrWhiteSpace(observability.OtlpEndpoint)
+                      && !observability.OtlpEndpoint.Equals("none", StringComparison.OrdinalIgnoreCase);
+
+    var serviceVersion = typeof(Program).Assembly.GetName().Version?.ToString();
+    // Aspire keys a resource by name plus instance id, so logs and traces have to carry the same
+    // pair or the app appears twice and the two views cannot be filtered to each other.
+    var serviceInstanceId = Guid.NewGuid().ToString();
+    var otlpResource = new Dictionary<string, object>
+    {
+        ["service.name"] = observability.ServiceName,
+        ["service.instance.id"] = serviceInstanceId,
+    };
+    if (serviceVersion is not null)
+        otlpResource["service.version"] = serviceVersion;
+
+    builder.Host.UseSerilog((context, services, config) =>
+    {
+        config
+            .ReadFrom.Configuration(context.Configuration)
+            .ReadFrom.Services(services)
+            .Enrich.FromLogContext()
+            // read by eye during dotnet run, unlike the OTLP sink
+            .WriteTo.Console(
+                outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}");
+
+        if (otlpEnabled)
+            config.WriteTo.OpenTelemetry(o =>
+            {
+                o.Endpoint = observability.OtlpEndpoint;
+                o.Protocol = OtlpProtocol.Grpc;
+                o.ResourceAttributes = otlpResource;
+            });
+    });
+
+    if (otlpEnabled)
+    {
+        var otlpUri = new Uri(observability.OtlpEndpoint);
+        builder.Services.AddOpenTelemetry()
+            .ConfigureResource(r => r.AddService(
+                serviceName: observability.ServiceName,
+                serviceVersion: serviceVersion,
+                serviceInstanceId: serviceInstanceId))
+            .WithTracing(tracing => tracing
+                .SetSampler(new ParentBasedSampler(
+                    new TraceIdRatioBasedSampler(observability.TraceSampleRatio)))
+                .AddAspNetCoreInstrumentation(o =>
+                {
+                    // not cosmetic: a span for /api/telemetry ships in the next batch, which spans again
+                    o.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/api/telemetry")
+                                      && ctx.Request.Path != "/health";
+                })
+                .AddHttpClientInstrumentation(o =>
+                {
+                    // the Serilog OTLP sink exports over a plain HttpClient and, unlike the trace
+                    // exporter, does not suppress its own egress — every log batch would span itself
+                    o.FilterHttpRequestMessage = req => req.RequestUri is null
+                        || req.RequestUri.Host != otlpUri.Host
+                        || req.RequestUri.Port != otlpUri.Port;
+                })
+                .AddNpgsql()
+                .AddQuartzInstrumentation()
+                .AddOtlpExporter(o => o.Endpoint = otlpUri));
+    }
 
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
@@ -465,6 +533,7 @@ try
     app.UseHttpsRedirection();
     app.UseCors("CapacitorPolicy");
     app.UseAuthentication();
+    app.UseMiddleware<TelemetryEnrichmentMiddleware>();
     app.UseAuthorization();
     app.MapControllers();
     app.MapGet("/health", () => Results.Ok(new { status = "ok" }));

@@ -38,6 +38,31 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Docker creates the mount point of a named volume as root:root, and the collector image runs as
+  # 10001 — without this the file exporter dies on its first write and the container restart-loops.
+  otel-telemetry-init:
+    image: busybox:1.37.0
+    user: "0:0"
+    command: ["sh", "-c", "chown 10001:10001 /telemetry && chmod 750 /telemetry"]
+    volumes:
+      - telemetry_data:/telemetry
+    restart: "no"
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.159.0
+    command: ["--config=/etc/otel/config.yaml"]
+    networks:
+      - projectwarehouse
+    volumes:
+      - ./otel/collector.prod.yaml:/etc/otel/config.yaml:ro
+      - telemetry_data:/telemetry
+    depends_on:
+      otel-telemetry-init:
+        condition: service_completed_successfully
+    # memory_limiter caps the collector's own heap accounting, not the process RSS
+    mem_limit: 256m
+    restart: unless-stopped
+
 networks:
   projectwarehouse:
     driver: bridge
@@ -48,3 +73,5 @@ volumes:
   dataprotection_keys:
   # Not self-contained: without a DB dump the file names on disk map to nothing. Back it up together with the DB.
   datafiles_storage:
+  # Holds user names and SQL text. Same handling as datafiles_storage; rotation caps it at ~2.5 GB.
+  telemetry_data:
