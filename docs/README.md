@@ -36,6 +36,7 @@ is rationale, invariants, cross-cutting conventions and decisions.
 | [validation.md](validation.md) | Validation pipeline, `[JsonRequired]`, ModelState mapping |
 | [backend-patterns.md](backend-patterns.md) | Recurring backend patterns — search, inheritable fields, list sync, background work, access rules, enums |
 | [changelog.md](changelog.md) | Changelog system — how to add tracking to a method, Action/ActionData |
+| [observability-specification.md](observability-specification.md) | Telemetry — OpenTelemetry traces and logs, file archive on prod, local analysis stack |
 | [backlog.md](backlog.md) | Deferred work — what is blocked, why, and the event that unblocks it |
 
 **Frontend**
