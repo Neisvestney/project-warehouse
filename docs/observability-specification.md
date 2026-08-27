@@ -87,18 +87,38 @@ OTLP-приёмник коллектора не умеет ни JWT, ни рот
 Сервис в `docker-compose.prod.yml`:
 
 ```yaml
+  otel-telemetry-init:
+    image: busybox:1.37.0
+    user: "0:0"
+    command: ["sh", "-c", "chown 10001:10001 /telemetry && chmod 750 /telemetry"]
+    volumes:
+      - telemetry_data:/telemetry
+    restart: "no"
+
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
+    image: otel/opentelemetry-collector-contrib:0.159.0
     command: ["--config=/etc/otel/config.yaml"]
     networks:
       - projectwarehouse
     volumes:
       - ./otel/collector.prod.yaml:/etc/otel/config.yaml:ro
       - telemetry_data:/telemetry
+    depends_on:
+      otel-telemetry-init:
+        condition: service_completed_successfully
+    mem_limit: 256m
     restart: unless-stopped
 ```
 
 Образ именно `-contrib`: `fileexporter` и `filterprocessor` в базовую сборку не входят. Портов в `ports:` нет — приложение обращается к нему по имени сервиса внутри сети.
+
+`otel-telemetry-init` — не украшение. Образ коллектора запускается под `USER 10001:10001`, каталога `/telemetry` внутри образа нет, поэтому Docker создаёт точку монтирования именованного тома как `root:root 0755`. `fileexporter` открывает файл в `Start()`, то есть без `chown` коллектор падает на первой же записи и уходит в цикл перезапусков — архив не начинает расти вообще. Одноразовый контейнер выставляет владельца и завершается; коллектор ждёт его через `service_completed_successfully` и остаётся непривилегированным. `chmod 750` заодно закрывает том от посторонних UID на хосте.
+
+`mem_limit` задан отдельно от `memory_limiter`: процессор ограничивает собственный учёт коллектора по куче, а не RSS процесса, и на рост вне отслеживаемых аллокаций не реагирует. Без лимита контейнера выбор жертвы при нехватке памяти остаётся за OOM killer'ом, а рядом стоит постгрес на 400 соединений.
+
+Версия образа закреплена, а не `latest`: коллектор выпускает минорную версию раз в две недели и ломающие изменения в конфигах разносит по ним же, так что `docker compose pull` на проде иначе способен уронить сервис на переименованном поле. В деве закреплена та же версия — дев-стек служит стендом для прод-конфига, и расхождение версий этот смысл убирает.
+
+Volume `telemetry_data` объявляется в `volumes:` того же файла рядом с `datafiles_storage`; ограничения на хранение — те же (см. [Приватность](#приватность)).
 
 `otel/collector.prod.yaml`:
 
@@ -119,6 +139,10 @@ processors:
     error_mode: ignore
     traces:
       span:
+        - 'attributes["url.path"] == "/health"'
+        - 'IsMatch(attributes["url.path"], "^/api/telemetry/")'
+    logs:
+      log_record:
         - 'attributes["url.path"] == "/health"'
         - 'IsMatch(attributes["url.path"], "^/api/telemetry/")'
   batch:
@@ -143,7 +167,7 @@ service:
       exporters: [file/traces]
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, filter/noise, batch]
       exporters: [file/logs]
   telemetry:
     logs:
@@ -151,6 +175,8 @@ service:
 ```
 
 `filter/noise` обязателен, а не косметичен: без него запрос к `/api/telemetry/*` порождает спан, спан уезжает в коллектор следующим запросом, который порождает спан — трейсинг начинает трейсить сам себя. `/health` отсекается по той же причине, что и всегда: опрос раз в несколько секунд, полезной информации ноль.
+
+Тот же процессор стоит и в пайплайне логов: рекурсии там нет (строка лога не порождает строку лога), но строки от опроса живости и от прокси-эндпоинта одинаково бесполезны и одинаково тратят бюджет ротации. Правило для логов матчит `attributes["url.path"]` — атрибут, который у записи лога сам по себе не появляется, его кладёт обогащение (см. [Обогащение](#обогащение)). Записи вне HTTP-запроса — из джоб и со старта приложения — пути не имеют и под правило не попадают.
 
 Верхняя граница диска — `max_megabytes × max_backups` на сигнал, то есть ~2.5 ГБ на оба при значениях выше.
 
@@ -166,23 +192,28 @@ OpenTelemetry.Instrumentation.Quartz
 Npgsql.OpenTelemetry
 ```
 
+`OpenTelemetry.Instrumentation.Quartz` — единственный пакет с закреплённой версией (`1.18.0-beta.1`) вместо диапазона: стабильных сборок у него не выходило ни разу, и подстановочный `1.*` prerelease не подхватывает.
+
 Отдельная EF-инструментация не нужна: Npgsql 8+ эмитит собственный `ActivitySource`, а `Npgsql.OpenTelemetry` даёт метод `.AddNpgsql()`, подписывающий на него провайдер трейсов.
 
 ### Конфигурация
 
-`Models/ObservabilityOptions.cs` — по образцу `DataFilesOptions`:
+`Infrastructure/Observability/ObservabilityOptions.cs` — по образцу `Infrastructure/Files/DataFilesOptions.cs`:
 
 ```csharp
 public class ObservabilityOptions
 {
     public const string SectionName = "Observability";
 
-    /// <summary>OTLP-приёмник коллектора. В контейнере — имя сервиса в docker-сети.</summary>
+    /// <summary>
+    /// OTLP-приёмник коллектора. В контейнере — имя сервиса в docker-сети.
+    /// Пустое значение выключает экспорт целиком.
+    /// </summary>
     public string OtlpEndpoint { get; set; } = "http://otel-collector:4317";
 
     public string ServiceName { get; set; } = "projectwarehouse.server";
 
-    /// <summary>Доля трейсов, попадающих в архив. Ошибки и медленные запросы не сэмплируются.</summary>
+    /// <summary>Доля трейсов, попадающих в архив.</summary>
     public double TraceSampleRatio { get; set; } = 1.0;
 
     /// <summary>Потолок тела одного OTLP-запроса от фронтенда, байт.</summary>
@@ -194,73 +225,103 @@ public class ObservabilityOptions
 
 ### Регистрация
 
-В `Program.cs`, до `builder.Build()`:
+В `Program.cs`, сразу после `CreateBuilder` — раньше `UseSerilog`, которому нужен тот же прочитанный конфиг:
 
 ```csharp
 builder.Services.Configure<ObservabilityOptions>(
     builder.Configuration.GetSection(ObservabilityOptions.SectionName));
 var observability = builder.Configuration.GetSection(ObservabilityOptions.SectionName)
     .Get<ObservabilityOptions>() ?? new ObservabilityOptions();
+var otlpEnabled = !string.IsNullOrWhiteSpace(observability.OtlpEndpoint)
+                  && !observability.OtlpEndpoint.Equals("none", StringComparison.OrdinalIgnoreCase);
 
-builder.Services.AddOpenTelemetry()
-    .ConfigureResource(r => r.AddService(
-        serviceName: observability.ServiceName,
-        serviceVersion: typeof(Program).Assembly.GetName().Version?.ToString()))
-    .WithTracing(tracing => tracing
-        .AddAspNetCoreInstrumentation(o =>
-        {
-            o.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/api/telemetry")
-                              && ctx.Request.Path != "/health";
-        })
-        .AddHttpClientInstrumentation()
-        .AddNpgsql()
-        .AddQuartzInstrumentation()
-        .AddOtlpExporter(o => o.Endpoint = new Uri(observability.OtlpEndpoint)));
+if (otlpEnabled)
+{
+    var otlpUri = new Uri(observability.OtlpEndpoint);
+    builder.Services.AddOpenTelemetry()
+        .ConfigureResource(r => r.AddService(
+            serviceName: observability.ServiceName,
+            serviceVersion: serviceVersion,
+            serviceInstanceId: serviceInstanceId))
+        .WithTracing(tracing => tracing
+            .SetSampler(new ParentBasedSampler(
+                new TraceIdRatioBasedSampler(observability.TraceSampleRatio)))
+            .AddAspNetCoreInstrumentation(o =>
+            {
+                o.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/api/telemetry")
+                                  && ctx.Request.Path != "/health";
+            })
+            .AddHttpClientInstrumentation(o =>
+            {
+                o.FilterHttpRequestMessage = req => req.RequestUri is null
+                    || req.RequestUri.Host != otlpUri.Host
+                    || req.RequestUri.Port != otlpUri.Port;
+            })
+            .AddNpgsql()
+            .AddQuartzInstrumentation()
+            .AddOtlpExporter(o => o.Endpoint = otlpUri));
+}
 ```
+
+`FilterHttpRequestMessage` отсекает собственный трафик до коллектора. OTLP-экспортёр трейсов глушит свой egress сам через `SuppressInstrumentationScope`, а Serilog-sink шлёт батчи обычным `HttpClient` и потому инструментируется наравне с вызовами Ozon: без фильтра каждая пачка логов порождает client-спан, который `filter/noise` не ловит — тот матчит `attributes["url.path"]`, а у client-спанов такого атрибута нет.
 
 Фильтр по пути дублирует `filter/noise` коллектора намеренно: локальный дев-запуск ходит в коллектор напрямую, минуя прод-конфиг, и без фильтра в приложении рекурсия воспроизводится на машине разработчика.
 
-**Текст SQL записывается** — `EnableCommandTextInstrumentation` в настройках трассировки Npgsql включён. Спан без текста запроса отвечает «здесь ушло 800 мс» и не отвечает на единственный интересный вопрос — на что именно; спрашивать это у спана и лезть за ответом в код сводит на нет смысл трейсинга запросов к БД. Цена — объём: сгенерированный EF запрос на десяток таблиц весит больше всего остального спана вместе взятого и расходует бюджет ротации быстрее. Персональных данных в параметрах нет, схема заказов их не хранит (см. [Приватность](#приватность)). Если архив начнёт упираться в `max_backups` раньше, чем в `max_days`, флаг выключается одной строкой конфигурации — без изменений в остальной инструментации.
+Пустой `OtlpEndpoint` — либо строка `none` — отключает и провайдер трейсов, и OTLP-sink логов: регистрации целиком не происходит, а не происходит с недостижимым адресом. Без этого `dotnet run` без поднятого compose упирается в таймаут экспортёра на каждом батче. Два написания нужны потому, что пустая строка недоступна из окружения: на Windows и `$env:X = ""`, и `X=` в `.env` не задают переменную, а удаляют её, и до провайдера конфигурации значение не доезжает вовсе. `none` — та форма выключателя, которая работает и в `appsettings`, и в переменной окружения.
 
-Serilog получает второй sink в существующем `UseSerilog`:
+`TraceSampleRatio` применяется головным сэмплером `ParentBased(TraceIdRatioBased)`: решение принимается в момент старта корневого спана, потомки наследуют его от родителя. Отсюда следствие — **отобрать по ratio ошибки и медленные запросы головной сэмплер не может**: длительность и статус на старте спана ещё неизвестны. При значении меньше единицы часть трейсов с ошибками теряется вместе со всеми остальными; выборочное сохранение потребовало бы tail-сэмплинга на коллекторе, которого в схеме нет. Значение по умолчанию — `1.0`, то есть сэмплинг фактически выключен, и грубым фильтром служит `filter/noise`.
+
+**Текст SQL записывается.** Npgsql 10 кладёт `db.query.text` в спан безусловно — отдельного флага вроде `EnableCommandTextInstrumentation` в его API нет, и `AddNpgsql()` опций не принимает. Это то поведение, которое нужно: спан без текста запроса отвечает «здесь ушло 800 мс» и не отвечает на единственный интересный вопрос — на что именно. Цена — объём: сгенерированный EF запрос на десяток таблиц весит больше всего остального спана вместе взятого и расходует бюджет ротации быстрее. Персональных данных в параметрах нет, схема заказов их не хранит (см. [Приватность](#приватность)). Если архив начнёт упираться в `max_backups` раньше, чем в `max_days`, текст снимается либо `attributes`-процессором коллектора, либо `dataSource.ConfigureTracing(o => o.ConfigureCommandEnrichmentCallback(...))` — но не одной строкой конфигурации.
+
+Serilog получает второй sink в существующем `UseSerilog`, под тем же условием:
 
 ```csharp
-    .WriteTo.OpenTelemetry(o =>
-    {
-        o.Endpoint = observability.OtlpEndpoint;
-        o.Protocol = OtlpProtocol.Grpc;
-        o.ResourceAttributes = new Dictionary<string, object>
+    if (otlpEnabled)
+        config.WriteTo.OpenTelemetry(o =>
         {
-            ["service.name"] = observability.ServiceName,
-        };
-    })
+            o.Endpoint = observability.OtlpEndpoint;
+            o.Protocol = OtlpProtocol.Grpc;
+            o.ResourceAttributes = otlpResource;
+        });
 ```
 
 Консольный sink остаётся: он читается глазами при `dotnet run`, OTLP-sink — нет.
 
+`otlpResource` — общий словарь, из которого собираются оба ресурса: `service.name`, `service.version` и `service.instance.id`, сгенерированный один раз на процесс. Aspire ключует ресурс парой «имя + instance id», а `AddService` генерирует свой идентификатор сам, если его не передать, — разойдись эти два ресурса, приложение показывалось бы в дашборде двумя записями, и Structured Logs нельзя было бы отфильтровать на тот же узел, что список трейсов. Корреляция `trace_id`/`span_id` от этого не зависит и работает в любом случае.
+
 ### Обогащение
 
-Middleware, добавляющее в `LogContext` и в текущий `Activity` то, чего нет в стандартной инструментации:
+`Infrastructure/Observability/TelemetryEnrichmentMiddleware.cs` добавляет в `LogContext` и в текущий `Activity` то, чего нет в стандартной инструментации:
 
 | Атрибут | Источник |
 |---------|----------|
-| `enduser.id` | claim `sub` |
-| `enduser.name` | claim `name` |
+| `user.id` | claim `sub` |
+| `user.name` | claim `name` |
 | `app.time_zone` | `IRequestTimeZoneAccessor` |
+| `url.path` | `HttpRequest.Path`, только в `LogContext` |
 
-Пишутся и в спан (`Activity.Current?.SetTag`), и в `LogContext` — спан нужен для фильтрации трейсов по пользователю, `LogContext` для строк лога, порождённых вне HTTP-спана.
+Имена — `user.*`, а не `enduser.*`: последние в текущем semantic conventions помечены устаревшими, и инструменты, которые умеют подсвечивать личность в трейсе, ищут именно `user.id`.
+
+Пишутся и в спан (`Activity.Current?.SetTag`), и в `LogContext` — спан нужен для фильтрации трейсов по пользователю, `LogContext` для строк лога, порождённых вне HTTP-спана. Имена свойств `LogContext` совпадают с именами атрибутов спана, поэтому OTLP-sink отдаёт их в запись лога без переименования.
+
+`url.path` — исключение: в спан его уже положила инструментация ASP.NET Core, а в записи лога он не появляется ниоткуда, и без него `filter/noise` нечем отличить лог опроса живости от лога складской операции. Поэтому он попадает только в `LogContext`.
+
+Место в пайплайне — между `UseAuthentication` и `UseAuthorization`: раньше первого `User` ещё анонимен, а откладывать до `MapControllers` незачем — отказ авторизации тоже интересно видеть с именем пользователя. Пустые значения не пишутся вовсе, поэтому у анонимного запроса в скоупе остаётся один `url.path`.
 
 ### Сэмплинг
 
-Джоба `MarketplaceSyncScanJob` запускается раз в минуту (`SyncScanCron: "0 * * * * ?"`) и в подавляющем большинстве запусков не делает ничего. Полторы тысячи пустых трейсов в сутки забивают архив и мешают искать глазами, поэтому пустые проходы сканера отбрасываются, а трейсы реальной синхронизации сохраняются целиком.
+Головной сэмплер приложения — `ParentBased(TraceIdRatioBased(TraceSampleRatio))`, доля общая для всех трейсов. Точечных исключений в приложении нет.
 
-Пороги и правила живут в `filter/noise` коллектора, а не в приложении: менять их перезапуском одного контейнера дешевле, чем пересборкой образа.
+Отсев по содержимому живёт в `filter/noise` коллектора, а не в приложении: менять правила перезапуском одного контейнера дешевле, чем пересборкой образа. Сейчас там два правила — `/health` и `/api/telemetry/` — и применяются они одинаково к трейсам и к логам.
+
+Джоба `MarketplaceSyncScanJob` запускается раз в минуту (`SyncScanCron: "0 * * * * ?"`) и в подавляющем большинстве запусков не делает ничего, то есть даёт около полутора тысяч пустых трейсов в сутки. Отсева для них нет: спан от Quartz-инструментации несёт имя джобы и длительность, но не признак «ничего не сделал», и отличить пустой проход от результативного коллектор по атрибутам не может. Правило появится, когда джоба начнёт сама помечать спан таким атрибутом (см. [backlog.md](backlog.md)).
 
 ### Приватность
 
 Архив телеметрии — чувствительные данные и хранится с теми же ограничениями, что и volume `datafiles_storage`.
 
 - **Api-Key маркетплейсов.** `HttpClientInstrumentation` не записывает заголовки запросов, и включать их запись нельзя: `OzonAuthHandler` подставляет расшифрованный ключ именно в заголовок.
+- **Имена пользователей.** `user.name` из обогащения попадает в каждый спан и в каждую строку лога аутентифицированного запроса. Это внутренняя складская система, и «кто это сделал» — половина смысла разбора инцидента, но означает это, что архив телеметрии по составу сведений о сотрудниках сопоставим с журналом изменений и хранится соответственно.
 - **Тела ответов Ozon.** Записываются в атрибуты спанов на уровне `Debug` — это главный инструмент разбора расхождений между площадкой и WMS. Персональных данных получателя Ozon продавцу не раскрывает, а схема `Order` их и не хранит: `MarketplaceOrder` держит номер отправления, аккаунт, статус и этикетку (см. [orders-specification.md](orders-specification.md#заказ-order)).
 
 ---
@@ -424,7 +485,7 @@ Capacitor-сборка после выбора сервера переходит
       - DASHBOARD__FRONTEND__AUTHMODE=Unsecured
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
+    image: otel/opentelemetry-collector-contrib:0.159.0
     profiles: ["telemetry"]
     command: ["--config=/etc/otel/config.yaml"]
     ports:
@@ -440,22 +501,43 @@ Capacitor-сборка после выбора сервера переходит
 
 **Порты публикуются на хост — в отличие от прода.** Бэкенд в деве запускается `dotnet run` на самой машине (см. [README.md](README.md#run-backend)), а не в контейнере, поэтому обратиться к коллектору по имени сервиса внутри docker-сети не может: только `localhost:4317`. Обратная сторона — коллектор в деве принимает OTLP от кого угодно с этой машины, что для локального запуска нормально и в прод-конфиг не переносится.
 
-`otel/collector.dev.yaml` отличается от прод-конфига блоком экспортёров и ничем больше:
+`otel/collector.dev.yaml` отличается от прод-конфига выходом и настройками батча; приёмники и `filter/noise` совпадают дословно:
 
 ```yaml
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317   # бэкенд
+      http:
+        endpoint: 0.0.0.0:4318   # прокси-эндпоинт фронтенда
+
+processors:
+  filter/noise:
+    error_mode: ignore
+    traces:
+      span:
+        - 'attributes["url.path"] == "/health"'
+        - 'IsMatch(attributes["url.path"], "^/api/telemetry/")'
+    logs:
+      log_record:
+        - 'attributes["url.path"] == "/health"'
+        - 'IsMatch(attributes["url.path"], "^/api/telemetry/")'
+  batch:
+    timeout: 1s
+
 exporters:
   otlp:
     endpoint: aspire-dashboard:18889
     tls: {insecure: true}
 
-processors:
-  batch:
-    timeout: 1s
-
 service:
   pipelines:
     traces: {receivers: [otlp], processors: [filter/noise, batch], exporters: [otlp]}
-    logs:   {receivers: [otlp], processors: [batch], exporters: [otlp]}
+    logs: {receivers: [otlp], processors: [filter/noise, batch], exporters: [otlp]}
+  telemetry:
+    logs:
+      level: warn
 ```
 
 `batch.timeout` снижен с десяти секунд до одной: в деве задержка между запросом и его появлением в дашборде — это время, которое разработчик проводит, глядя в пустой экран и гадая, доехало ли вообще. `memory_limiter` убран — ограничивать поток одного разработчика нечем и незачем.
@@ -478,7 +560,7 @@ Aspire Dashboard сам принимает OTLP, и приложение мог�
 }
 ```
 
-Пустая строка выключает экспорт целиком — это состояние по умолчанию для того, кто compose не поднимал: приложение стартует и пишет в консоль ровно как раньше. Без явного выключения `dotnet run` без docker упирается в таймаут экспортёра на каждом батче и засоряет вывод.
+Закоммиченное значение рассчитано на поднятый профиль `telemetry`. Кому телеметрия сейчас не нужна, ставит `none` — экспорт выключается целиком, приложение стартует и пишет в консоль ровно как раньше. Без этого `dotnet run` без docker упирается в таймаут экспортёра на каждом батче и засоряет вывод. Выключение локальное — `Observability__OtlpEndpoint=none` в окружении, `.env` или user secrets, — чтобы файл в репозитории оставался рабочим по умолчанию.
 
 Уровни `Serilog` в деве уже понижены до `Debug`, и OTLP-sink наследует их: в дашборд едет заметно больше строк, чем в прод-архив.
 

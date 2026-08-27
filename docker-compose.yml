@@ -37,5 +37,27 @@ services:
       postgres:
         condition: service_healthy
 
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+    profiles: ["telemetry"]
+    ports:
+      - "18888:18888"
+    environment:
+      - DASHBOARD__OTLP__AUTHMODE=Unsecured
+      - DASHBOARD__FRONTEND__AUTHMODE=Unsecured
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.159.0
+    profiles: ["telemetry"]
+    command: ["--config=/etc/otel/config.yaml"]
+    ports:
+      # dotnet run lives on the host, not in the network — it can only reach the collector via localhost
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./otel/collector.dev.yaml:/etc/otel/config.yaml:ro
+    depends_on:
+      - aspire-dashboard
+
 volumes:
   postgres_data:

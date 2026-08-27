@@ -112,6 +112,18 @@ npm run dev
 Dev server: `http://localhost:5173`  
 Vite proxies `/api/*`, `/openapi/*`, `/scalar/*` → `https://localhost:7095`.
 
+### Run Telemetry (optional)
+
+```
+docker compose --profile telemetry up -d
+```
+
+Raises the OTLP collector (`4317`/`4318`) and the Aspire Dashboard on `http://localhost:18888`; the backend
+started by `dotnet run` exports traces and logs into it. The profile keeps both containers out of a plain
+`docker compose up`. To run without them, set `Observability__OtlpEndpoint=none` — that switches the export
+off instead of leaving it to time out. See
+[observability-specification.md](observability-specification.md).
+
 ### First Login
 
 Use the credentials set in `Seed:AdminPassword`. The admin user is seeded on startup with all permissions.
