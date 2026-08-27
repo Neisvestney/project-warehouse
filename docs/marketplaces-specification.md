@@ -300,6 +300,8 @@ services.AddHttpClient<IOzonApiClient, OzonApiClient>(c => c.BaseAddress = new U
 
 Сгенерированный `OzonApiException` наружу модуля тоже не выходит: провайдер заворачивает его в провайдер-нейтральный `MarketplaceApiException` (`StatusCode`, усечённое до 2000 символов тело ответа, готовый набор `Args`). Ни сервис синхронизации, ни контроллер не ссылаются на сгенерированные типы.
 
+По пути наружу каждый `catch (OzonApiException)` пишет полное необрезанное тело в лог через `ILogger.LogFailedResponse` (`Integrations/Ozon/OzonResponseLogging.cs`). Усечение до 2000 символов касается только копии, которая едет в `MarketplaceSyncRun.Error` и дальше в UI. Правило целиком — в [observability-specification.md](observability-specification.md#тела-ответов-маркетплейса).
+
 ### Новые пакеты
 
 | Пакет | Куда | Назначение |

@@ -164,6 +164,8 @@ public class OzonClient(
         catch (OzonApiException ex) when (ex.StatusCode == 404)
         {
             logger.LogWarning("Ozon no longer knows posting {PostingNumber}", postingNumber);
+            // swallowed here rather than at the provider, so the body is written on the way past
+            logger.LogFailedResponse(ex, LogLevel.Warning);
             return null;
         }
 

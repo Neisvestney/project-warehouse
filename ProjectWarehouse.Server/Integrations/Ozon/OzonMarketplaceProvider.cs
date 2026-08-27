@@ -29,11 +29,13 @@ public class OzonMarketplaceProvider(
         catch (OzonApiException ex) when (ex.StatusCode is 401 or 403)
         {
             logger.LogWarning("Ozon rejected the credentials with {Status}", ex.StatusCode);
+            // a mistyped key is an expected answer from validation, not a failure of it
+            logger.LogFailedResponse(ex, LogLevel.Warning);
             return CredentialsValidationResult.Invalid(Describe(ex), Wrap(ex).Args);
         }
         catch (OzonApiException ex)
         {
-            throw Wrap(ex);
+            throw LogAndWrap(ex);
         }
     }
 
@@ -46,7 +48,7 @@ public class OzonMarketplaceProvider(
         }
         catch (OzonApiException ex)
         {
-            throw Wrap(ex);
+            throw LogAndWrap(ex);
         }
     }
 
@@ -59,7 +61,7 @@ public class OzonMarketplaceProvider(
         }
         catch (OzonApiException ex)
         {
-            throw Wrap(ex);
+            throw LogAndWrap(ex);
         }
     }
 
@@ -85,7 +87,7 @@ public class OzonMarketplaceProvider(
                 }
                 catch (OzonApiException ex)
                 {
-                    throw Wrap(ex);
+                    throw LogAndWrap(ex);
                 }
 
                 if (!hasNext)
@@ -118,7 +120,7 @@ public class OzonMarketplaceProvider(
                 }
                 catch (OzonApiException ex)
                 {
-                    throw Wrap(ex);
+                    throw LogAndWrap(ex);
                 }
 
                 if (!hasNext)
@@ -151,7 +153,7 @@ public class OzonMarketplaceProvider(
         }
         catch (OzonApiException ex)
         {
-            throw Wrap(ex);
+            throw LogAndWrap(ex);
         }
 
         return statuses;
@@ -171,14 +173,26 @@ public class OzonMarketplaceProvider(
             logger.LogInformation(
                 "Ozon rejected the label request for {Count} posting(s) as not ready ({Status})",
                 postingNumbers.Count, ex.StatusCode);
+            // an expected outcome, but still a rejection, so the body is written like any other
+            logger.LogFailedResponse(ex, LogLevel.Information);
             return new ExternalLabelDocument(false, postingNumbers, null, null);
         }
         catch (OzonApiException ex)
         {
-            throw Wrap(ex);
+            // MarketplaceLabelService answers a rejected batch by retrying every posting on its own, so one
+            // bad batch of N comes back through here N+1 times — Error would turn a retry into a log storm
+            throw LogAndWrap(ex, LogLevel.Warning);
         }
     }
 
+    /// <summary>The ordinary way out: the body is written, then the failure crosses the provider boundary.</summary>
+    private MarketplaceApiException LogAndWrap(OzonApiException ex, LogLevel level = LogLevel.Error)
+    {
+        logger.LogFailedResponse(ex, level);
+        return Wrap(ex);
+    }
+
+    /// <summary>Wraps and nothing else — for arms that write the body themselves, at their own level.</summary>
     private static MarketplaceApiException Wrap(OzonApiException ex) =>
         new(Describe(ex), ex.StatusCode, Body(ex), ex);
 

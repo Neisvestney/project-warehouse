@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Infrastructure.Realtime;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Integrations.Sync;
@@ -23,6 +24,8 @@ public class MarketplaceOrderSyncService(
     public async Task SyncOrdersAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
         MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
     {
+        using var activity = AppTelemetry.Source.StartActivity("marketplace.sync.orders");
+
         var skipped = new List<SkippedOrderInfo>();
 
         await DiscoverPostingsAsync(provider, credentials, account, run, skipped, ct);
@@ -32,6 +35,10 @@ public class MarketplaceOrderSyncService(
         // tracking cannot see the list grow — the same reason cards do `Barcodes = [.. …]`.
         run.SkippedOrders = skipped.Count > 0 ? [.. skipped] : null;
         await db.SaveChangesAsync(ct);
+
+        activity?.SetTag("marketplace.orders.created", run.OrdersCreated);
+        activity?.SetTag("marketplace.orders.updated", run.OrdersUpdated);
+        activity?.SetTag("marketplace.orders.skipped", skipped.Count);
     }
 
     // ── Phase 1: discovery ────────────────────────────────────────────────────
