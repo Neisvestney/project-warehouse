@@ -118,10 +118,11 @@ Vite proxies `/api/*`, `/openapi/*`, `/scalar/*` → `https://localhost:7095`.
 docker compose --profile telemetry up -d
 ```
 
-Raises the OTLP collector (`4317`/`4318`) and the Aspire Dashboard on `http://localhost:18888`; the backend
-started by `dotnet run` exports traces and logs into it. The profile keeps both containers out of a plain
-`docker compose up`. To run without them, set `Observability__OtlpEndpoint=none` — that switches the export
-off instead of leaving it to time out. See
+Raises the OTLP collector (`4317` for the backend over gRPC, `4318` for the frontend's OTLP/HTTP proxied
+through `/api/telemetry`) and the Aspire Dashboard on `http://localhost:18888`; the backend started by
+`dotnet run` exports traces and logs into it. The profile keeps both containers out of a plain
+`docker compose up`. To run without them, set `Observability__OtlpEndpoint=none` and
+`Observability__OtlpHttpEndpoint=none` — that switches the export off instead of leaving it to time out. See
 [observability-specification.md](observability-specification.md).
 
 ### First Login

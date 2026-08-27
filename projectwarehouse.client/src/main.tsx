@@ -31,8 +31,10 @@ import {SELECTED_SERVER_KEY} from "@/configuration/servers.ts";
 import {fetchWithTimeout} from "@/utils/fetchWithTimeout.ts";
 import {stripEphemeralSearchParams} from "@/utils/ephemeralSearchParams.ts";
 import {dropOverlayHistoryEntries} from "@/hooks/useBackClosable.ts";
+import {installClientLogCapture} from "@/services/telemetryLogs.ts";
 
 setupApiClient();
+installClientLogCapture();
 stripEphemeralSearchParams();
 dropOverlayHistoryEntries();
 
@@ -42,6 +44,18 @@ const queryClient = new QueryClient({
     mutations: {retry: false},
   },
 });
+
+const LAUNCHER_ORIGINS = ["capacitor://localhost", "https://localhost"];
+
+// ~70 KB gzip of SDK is a bad trade in the critical path, especially for the mobile client on the
+// warehouse floor. On the launcher origin there is no server picked yet, so there is nowhere to send.
+function startTelemetry() {
+  if (LAUNCHER_ORIGINS.includes(window.location.origin)) return;
+
+  const load = () => void import("@/services/telemetry.ts").then((m) => m.initTelemetry());
+  if ("requestIdleCallback" in window) window.requestIdleCallback(() => load());
+  else setTimeout(load, 2000);
+}
 
 function mountApp() {
   createRoot(document.getElementById("root")!).render(
@@ -53,9 +67,9 @@ function mountApp() {
       </BrowserRouter>
     </StrictMode>,
   );
-}
 
-const LAUNCHER_ORIGINS = ["capacitor://localhost", "https://localhost"];
+  startTelemetry();
+}
 
 if (new URLSearchParams(window.location.search).get("clear_server") === "1") {
   localStorage.removeItem(SELECTED_SERVER_KEY);

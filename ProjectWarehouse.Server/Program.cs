@@ -82,6 +82,13 @@ try
     // is the form that survives the environment — Windows drops a variable set to an empty string.
     var otlpEnabled = !string.IsNullOrWhiteSpace(observability.OtlpEndpoint)
                       && !observability.OtlpEndpoint.Equals("none", StringComparison.OrdinalIgnoreCase);
+    // Separate switch and separate port: the proxy endpoint speaks OTLP/HTTP+JSON, which the gRPC
+    // receiver behind OtlpEndpoint does not accept.
+    var otlpHttpEnabled = !string.IsNullOrWhiteSpace(observability.OtlpHttpEndpoint)
+                          && !observability.OtlpHttpEndpoint.Equals("none", StringComparison.OrdinalIgnoreCase);
+    var otlpHttpUri = otlpHttpEnabled
+        ? new Uri(observability.OtlpHttpEndpoint.TrimEnd('/') + "/")
+        : null;
 
     var serviceVersion = typeof(Program).Assembly.GetName().Version?.ToString();
     // Aspire keys a resource by name plus instance id, so logs and traces have to carry the same
@@ -135,14 +142,27 @@ try
                 {
                     // the Serilog OTLP sink exports over a plain HttpClient and, unlike the trace
                     // exporter, does not suppress its own egress — every log batch would span itself
+                    // TelemetryController forwards to the OTLP/HTTP port over the same factory and
+                    // needs the same exemption: its client span would survive the ASP.NET Core filter
+                    // above and never match filter/noise, which keys on url.path.
                     o.FilterHttpRequestMessage = req => req.RequestUri is null
-                        || req.RequestUri.Host != otlpUri.Host
-                        || req.RequestUri.Port != otlpUri.Port;
+                        || !((req.RequestUri.Host == otlpUri.Host && req.RequestUri.Port == otlpUri.Port)
+                             || (otlpHttpUri is not null
+                                 && req.RequestUri.Host == otlpHttpUri.Host
+                                 && req.RequestUri.Port == otlpHttpUri.Port));
                 })
                 .AddNpgsql()
                 .AddQuartzInstrumentation()
                 .AddOtlpExporter(o => o.Endpoint = otlpUri));
     }
+
+    // Deliberately without AddStandardResilienceHandler: retrying telemetry is pointless, a batch is
+    // cheaper to drop than to hold in memory.
+    builder.Services.AddHttpClient(ObservabilityOptions.HttpClientName, c =>
+    {
+        c.BaseAddress = otlpHttpUri;
+        c.Timeout = TimeSpan.FromSeconds(observability.CollectorTimeoutSeconds);
+    });
 
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
