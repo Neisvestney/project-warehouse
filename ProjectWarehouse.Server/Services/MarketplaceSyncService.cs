@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -8,6 +9,7 @@ using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Integrations.Sync;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Infrastructure.Realtime;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Integrations;
@@ -33,6 +35,9 @@ public class MarketplaceSyncService(
             logger.LogWarning("Sync run {SyncRunId} vanished before it started", request.SyncRunId);
             return;
         }
+
+        // from the row rather than from the request: the branching below reads run.Scope, not request.Scope
+        Activity.Current?.SetTag("marketplace.sync.scope", run.Scope.ToString());
 
         var account = await db.MarketplaceAccounts.FirstOrDefaultAsync(a => a.Id == request.AccountId, ct);
         if (account is null)
@@ -148,6 +153,8 @@ public class MarketplaceSyncService(
     private async Task SyncSellerInfoAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
         MarketplaceAccount account, CancellationToken ct)
     {
+        using var activity = AppTelemetry.Source.StartActivity("marketplace.sync.seller_info");
+
         var info = await provider.FetchSellerInfoAsync(credentials, ct);
 
         if (!string.IsNullOrWhiteSpace(info.Name))
@@ -164,6 +171,8 @@ public class MarketplaceSyncService(
     private async Task SyncWarehousesAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
         MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
     {
+        using var activity = AppTelemetry.Source.StartActivity("marketplace.sync.warehouses");
+
         var external = await provider.FetchWarehousesAsync(credentials, ct);
         var existing = await db.MarketplaceWarehouses
             .Where(w => w.MarketplaceAccountId == account.Id)
@@ -204,11 +213,15 @@ public class MarketplaceSyncService(
         run.WarehousesProcessed = external.Count;
         await db.SaveChangesAsync(ct);
         await realtime.PublishProgressAsync(run, ct);
+
+        activity?.SetTag("marketplace.warehouses.processed", external.Count);
     }
 
     private async Task SyncCardsAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
         MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
     {
+        using var activity = AppTelemetry.Source.StartActivity("marketplace.sync.cards");
+
         await foreach (var page in provider.FetchCardsAsync(credentials, ct))
         {
             var externalIds = page.Select(c => c.ExternalId).ToList();
@@ -263,6 +276,10 @@ public class MarketplaceSyncService(
         run.CardsArchived = await db.MarketplaceCards
             .Where(c => c.MarketplaceAccountId == account.Id && !c.IsArchived && c.SyncedAt < run.StartedAt)
             .ExecuteUpdateAsync(s => s.SetProperty(c => c.IsArchived, true), ct);
+
+        activity?.SetTag("marketplace.cards.processed", run.CardsProcessed);
+        activity?.SetTag("marketplace.cards.created", run.CardsCreated);
+        activity?.SetTag("marketplace.cards.archived", run.CardsArchived);
     }
 
     public async Task<int> AutoMapAccountAsync(Guid accountId, CancellationToken ct)

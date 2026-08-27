@@ -153,6 +153,7 @@ try
                 })
                 .AddNpgsql()
                 .AddQuartzInstrumentation()
+                .AddSource(AppTelemetry.ActivitySourceName)
                 .AddOtlpExporter(o => o.Endpoint = otlpUri));
     }
 

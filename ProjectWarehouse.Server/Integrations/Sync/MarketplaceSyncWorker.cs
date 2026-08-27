@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Services;
 
@@ -20,8 +22,13 @@ public class MarketplaceSyncWorker(
     {
         await ReconcileInterruptedRunsAsync(stoppingToken);
 
-        await foreach (var request in queue.ReadAllAsync(stoppingToken))
+        await foreach (var message in queue.ReadAllAsync(stoppingToken))
         {
+            var request = message.Payload;
+            using var activity = AppTelemetry.StartDetachedQueueConsumer("marketplace.sync", message.Trace);
+            activity?.SetTag("marketplace.account.id", request.AccountId.ToString());
+            activity?.SetTag("marketplace.sync_run.id", request.SyncRunId.ToString());
+
             try
             {
                 using var scope = scopeFactory.CreateScope();
@@ -35,6 +42,8 @@ public class MarketplaceSyncWorker(
             catch (Exception ex)
             {
                 logger.LogError(ex, "Marketplace sync worker failed on run {SyncRunId}", request.SyncRunId);
+                activity?.AddException(ex);
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             }
         }
     }
