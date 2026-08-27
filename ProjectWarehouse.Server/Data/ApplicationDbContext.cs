@@ -219,6 +219,7 @@ public class ApplicationDbContext : IdentityDbContext<
             e.HasKey(x => x.Id);
 
             e.Property(x => x.Action).HasMaxLength(64);
+            e.Property(x => x.UnitInventoryNumber).HasMaxLength(128);
 
             e.HasOne(x => x.CatalogItem)
                 .WithMany()
@@ -239,6 +240,11 @@ public class ApplicationDbContext : IdentityDbContext<
             e.HasOne(x => x.Warehouse)
                 .WithMany()
                 .HasForeignKey(x => x.WarehouseId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.UnitInventoryItem)
+                .WithMany()
+                .HasForeignKey(x => x.UnitInventoryItemId)
                 .OnDelete(DeleteBehavior.SetNull);
 
             e.HasOne(x => x.User)

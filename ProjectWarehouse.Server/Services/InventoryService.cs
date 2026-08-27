@@ -1,38 +1,18 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
-using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Infrastructure.Observability;
-using ProjectWarehouse.Server.Models.Warehouses;
 
 namespace ProjectWarehouse.Server.Services;
 
 public class InventoryService(
     ApplicationDbContext db,
-    IMapper mapper,
-    IHttpContextAccessor httpContextAccessor,
-    IChangeLogService<StoragePlaceNodeDetailsDto> changeLog) : IInventoryService
+    IHttpContextAccessor httpContextAccessor) : IInventoryService
 {
     // ── Helpers ──────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Loads a node with its items for changelog diffing.
-    /// Throws <see cref="InvalidOperationException"/> with a clear message if the node does not exist.
-    /// </summary>
-    private async Task<StoragePlaceNodeDetailsDto> SnapshotNodeAsync(Guid nodeId, CancellationToken ct)
-    {
-        var node = await db.StoragePlacesNodes
-            .Include(n => n.ItemsGroups).ThenInclude(g => g.CatalogItem)
-            .Include(n => n.InventoryItems)
-            .FirstOrDefaultAsync(n => n.Id == nodeId, ct)
-            ?? throw new StoragePlaceNodeNotFoundException(nodeId);
-
-        return mapper.Map<StoragePlaceNodeDetailsDto>(node);
-    }
 
     /// Scoped service, so this lives for one request — batch endpoints hitting several shortages
     /// in a row reuse the warehouse node map instead of re-reading it per failure.
@@ -107,27 +87,44 @@ public class InventoryService(
         int quantity,
         StockMovementDirection direction,
         string action,
-        CancellationToken ct)
+        CancellationToken ct,
+        UnitInventoryItem? unitItem = null)
     {
-        var location = await GetNodeLocationAsync(nodeId, ct);
+        var location = await GetNodeLocationAsync(nodeId, ct)
+            ?? throw new StoragePlaceNodeNotFoundException(nodeId);
         var movementId = Guid.NewGuid();
 
         db.StockMovements.Add(new StockMovement
         {
-            Id                 = movementId,
-            CreatedAt          = DateTime.UtcNow,
-            Direction          = direction,
-            Action             = action,
-            Quantity           = quantity,
-            CatalogItemId      = catalogItemId,
-            StoragePlaceNodeId = nodeId,
-            StoragePlaceId     = location?.StoragePlaceId,
-            WarehouseId        = location?.WarehouseId,
-            UserId             = GetCurrentUserId(),
+            Id                  = movementId,
+            CreatedAt           = DateTime.UtcNow,
+            Direction           = direction,
+            Action              = action,
+            Quantity            = quantity,
+            CatalogItemId       = catalogItemId,
+            StoragePlaceNodeId  = nodeId,
+            StoragePlaceId      = location.StoragePlaceId,
+            WarehouseId         = location.WarehouseId,
+            UnitInventoryItemId = unitItem?.Id,
+            UnitInventoryNumber = unitItem?.InventoryNumber,
+            UserId              = GetCurrentUserId(),
         });
 
         return movementId;
     }
+
+    /// <summary>
+    /// Same as <see cref="RecordMovementAsync"/> for a single unit item, putting both the item id and its
+    /// number on the row. The id is an audit reference nulled out when the item is deleted; the number is
+    /// a copy and stays, so a movement of a piece that no longer exists is still identifiable.
+    /// </summary>
+    private Task<Guid> RecordUnitMovementAsync(
+        Guid nodeId,
+        UnitInventoryItem item,
+        StockMovementDirection direction,
+        string action,
+        CancellationToken ct) =>
+        RecordMovementAsync(nodeId, item.CatalogItemId, 1, direction, action, ct, item);
 
     private Guid? GetCurrentUserId() =>
         Guid.TryParse(httpContextAccessor.HttpContext?.User.FindFirstValue(JwtRegisteredClaimNames.Sub), out var id)
@@ -163,8 +160,6 @@ public class InventoryService(
             throw new ArgumentOutOfRangeException(nameof(count), count,
                 "Count must be greater than zero.");
 
-        var before = await SnapshotNodeAsync(nodeId, ct);
-
         var group = await db.StoragePlacesNodesItemsGroups
             .FirstOrDefaultAsync(g => g.StoragePlaceNodeId == nodeId && g.CatalogItemId == catalogItemId, ct);
 
@@ -184,9 +179,6 @@ public class InventoryService(
         var movementId = await RecordMovementAsync(nodeId, catalogItemId, count, direction, action, ct);
         await db.SaveChangesAsync(ct);
         activity?.SetTag("inventory.stock_movement_id", movementId);
-
-        var after = await SnapshotNodeAsync(nodeId, ct);
-        await changeLog.CompareAndSaveToChangelog(before, after, action);
     }
 
     public Task RemoveStandardItemsFromNodeAsync(
@@ -216,8 +208,6 @@ public class InventoryService(
             throw new ArgumentOutOfRangeException(nameof(count), count,
                 "Count must be greater than zero.");
 
-        var before = await SnapshotNodeAsync(nodeId, ct);
-
         var group = await db.StoragePlacesNodesItemsGroups
             .FirstOrDefaultAsync(g => g.StoragePlaceNodeId == nodeId && g.CatalogItemId == catalogItemId, ct);
 
@@ -228,9 +218,6 @@ public class InventoryService(
         var movementId = await RecordMovementAsync(nodeId, catalogItemId, count, direction, action, ct);
         await db.SaveChangesAsync(ct);
         activity?.SetTag("inventory.stock_movement_id", movementId);
-
-        var after = await SnapshotNodeAsync(nodeId, ct);
-        await changeLog.CompareAndSaveToChangelog(before, after, action);
     }
 
     // ── Unit items ────────────────────────────────────────────────────────────
@@ -280,16 +267,11 @@ public class InventoryService(
         activity?.SetTag("inventory.count", 1);
         activity?.SetTag("inventory.action", action);
 
-        var before = await SnapshotNodeAsync(nodeId, ct);
-
         var item = await CreateUnitItemAsync(nodeId, catalogItemId, inventoryNumber, ct);
-        var movementId = await RecordMovementAsync(nodeId, catalogItemId, 1, StockMovementDirection.In, action, ct);
+        var movementId = await RecordUnitMovementAsync(nodeId, item, StockMovementDirection.In, action, ct);
         await db.SaveChangesAsync(ct);
         activity?.SetTag("inventory.unit_item_id", item.Id);
         activity?.SetTag("inventory.stock_movement_id", movementId);
-
-        var after = await SnapshotNodeAsync(nodeId, ct);
-        await changeLog.CompareAndSaveToChangelog(before, after, action);
 
         return item;
     }
@@ -315,15 +297,10 @@ public class InventoryService(
             throw new InventoryItemNodeMismatchException(unitItemId, expectedNodeId, item.StoragePlaceNodeId ?? Guid.Empty);
 
         var nodeId = item.StoragePlaceNodeId!.Value;
-        var before = await SnapshotNodeAsync(nodeId, ct);
-
         db.InventoryItems.Remove(item);
-        var movementId = await RecordMovementAsync(nodeId, item.CatalogItemId, 1, StockMovementDirection.Out, action, ct);
+        var movementId = await RecordUnitMovementAsync(nodeId, item, StockMovementDirection.Out, action, ct);
         await db.SaveChangesAsync(ct);
         activity?.SetTag("inventory.stock_movement_id", movementId);
-
-        var after = await SnapshotNodeAsync(nodeId, ct);
-        await changeLog.CompareAndSaveToChangelog(before, after, action);
     }
 
     public async Task DetachUnitItemAsync(
@@ -347,15 +324,10 @@ public class InventoryService(
             throw new InventoryItemNodeMismatchException(unitItemId, expectedNodeId, item.StoragePlaceNodeId ?? Guid.Empty);
 
         var nodeId = expectedNodeId;
-        var before = await SnapshotNodeAsync(nodeId, ct);
-
         item.StoragePlaceNodeId = null;
-        var movementId = await RecordMovementAsync(nodeId, item.CatalogItemId, 1, StockMovementDirection.Out, action, ct);
+        var movementId = await RecordUnitMovementAsync(nodeId, item, StockMovementDirection.Out, action, ct);
         await db.SaveChangesAsync(ct);
         activity?.SetTag("inventory.stock_movement_id", movementId);
-
-        var after = await SnapshotNodeAsync(nodeId, ct);
-        await changeLog.CompareAndSaveToChangelog(before, after, action);
     }
 
     public async Task ReattachUnitItemAsync(
@@ -378,15 +350,10 @@ public class InventoryService(
         if (item.StoragePlaceNodeId != null)
             throw new InventoryItemNodeMismatchException(unitItemId, nodeId, item.StoragePlaceNodeId.Value);
 
-        var before = await SnapshotNodeAsync(nodeId, ct);
-
         item.StoragePlaceNodeId = nodeId;
-        var movementId = await RecordMovementAsync(nodeId, item.CatalogItemId, 1, StockMovementDirection.In, action, ct);
+        var movementId = await RecordUnitMovementAsync(nodeId, item, StockMovementDirection.In, action, ct);
         await db.SaveChangesAsync(ct);
         activity?.SetTag("inventory.stock_movement_id", movementId);
-
-        var after = await SnapshotNodeAsync(nodeId, ct);
-        await changeLog.CompareAndSaveToChangelog(before, after, action);
     }
 
     // ── Movement ──────────────────────────────────────────────────────────────
@@ -430,22 +397,13 @@ public class InventoryService(
         var fromNodeId = item.StoragePlaceNodeId
             ?? throw new InvalidOperationException($"Unit inventory item {unitItemId} is detached and cannot be moved.");
 
-        var fromBefore = await SnapshotNodeAsync(fromNodeId, ct);
-        var toBefore   = await SnapshotNodeAsync(toNodeId, ct);
-
         item.StoragePlaceNodeId = toNodeId;
-        var outMovementId = await RecordMovementAsync(fromNodeId, item.CatalogItemId, 1, StockMovementDirection.TransferOut, action, ct);
-        var inMovementId = await RecordMovementAsync(toNodeId, item.CatalogItemId, 1, StockMovementDirection.TransferIn, action, ct);
+        var outMovementId = await RecordUnitMovementAsync(fromNodeId, item, StockMovementDirection.TransferOut, action, ct);
+        var inMovementId = await RecordUnitMovementAsync(toNodeId, item, StockMovementDirection.TransferIn, action, ct);
         await db.SaveChangesAsync(ct);
         activity?.SetTag("inventory.from_node_id", fromNodeId);
         activity?.SetTag("inventory.stock_movement_out_id", outMovementId);
         activity?.SetTag("inventory.stock_movement_in_id", inMovementId);
-
-        var fromAfter = await SnapshotNodeAsync(fromNodeId, ct);
-        var toAfter   = await SnapshotNodeAsync(toNodeId, ct);
-
-        await changeLog.CompareAndSaveToChangelog(fromBefore, fromAfter, action);
-        await changeLog.CompareAndSaveToChangelog(toBefore, toAfter, action);
     }
 
     // ── Reads ────────────────────────────────────────────────────────────────

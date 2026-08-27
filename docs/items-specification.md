@@ -124,6 +124,12 @@ StoragePlaceNode (1) ──> (many) UnitInventoryItem : InventoryItem
 
 `InventoryItem` uses TPH — all subtypes share the `InventoryItems` table with a `Type` discriminator column.
 
+Every stock change of either kind is journalled as a `StockMovement` in the same transaction. For a unit item the
+row also carries `UnitInventoryItemId` and a denormalized `UnitInventoryNumber`; standard quantity movements leave
+both `null`. The id is an audit reference like the other location columns — deleting the item nulls the link instead
+of erasing the movement — while the copied number stays, so the history of a piece that no longer exists is still
+readable and searchable by its number.
+
 ---
 
 ## Tags
