@@ -87,3 +87,21 @@ pass and a pass with one fast account differ by milliseconds.
 `app.sync.accounts_scanned` — right after it selects candidates. The collector rule is then a single
 line (`attributes["app.sync.accounts_scanned"] == 0`) and ships by restarting one container. Adding
 the attribute ahead of this task buys nothing on its own.
+
+## Wrap the remaining business operations in spans
+
+**What it buys.** `withOperationSpan` covers one operation, `order.self_assign`. The table in
+[observability-specification.md](observability-specification.md#спаны-бизнес-операций) names the
+rest — confirmation, assembly hand-off and completion, shipping, receipts, transfers, write-offs,
+stocktakes, manual marketplace sync, label printing. Until a call is wrapped, the operation's trace
+starts at the HTTP request, so "why did this take a minute" cannot be answered for the part that
+happened in the browser.
+
+**Why it is off.** One wrapped operation is enough to show the scheme works end to end, and the rest
+touch a dozen components across four features. Doing them alongside the infrastructure would have
+mixed a wide mechanical edit into the change that has to be reviewed carefully.
+
+**Trigger.** None — this is ready to be picked up. A single-request operation is one
+`useOperationMutation(...)` at the call site; one that sends several requests calls
+`withOperationSpan(...)` from the handler and spreads `op` into each request. Attributes are the ones the
+table already names.

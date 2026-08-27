@@ -204,6 +204,73 @@ generator's response types for binary responses are unreliable — same reason a
 the **error** body a Blob too, so `resolveErrorMessage` cannot read it: unwrap it with
 `parseProblemFromBlob(error)` from `utils/blobErrorUtils.ts` first.
 
+### Telemetry
+
+OpenTelemetry traces and logs, shipped to `/api/telemetry/*` under the existing JWT. The design and the
+server side live in [observability-specification.md](observability-specification.md); what matters at a call
+site is which module to import.
+
+| Module | Depends on | Use it for |
+|--------|-----------|------------|
+| `hooks/useOperationMutation.ts` | `@opentelemetry/api` | A mutation that *is* a warehouse operation — the common case |
+| `services/withOperationSpan.ts` | `@opentelemetry/api` | An operation that sends more than one request |
+| `services/telemetryLogs.ts` | `@opentelemetry/api-logs` | Emitting a log record; installing the global error capture |
+| `services/telemetry.ts` | the whole Web SDK | Nothing — it is loaded once from `main.tsx` and imported nowhere else |
+| `services/currentPage.ts` | nothing | Nothing — `TelemetryRouteLogger` feeds it, the three modules above read it |
+| `services/currentUser.ts` | nothing | Nothing — reads `user.*` off the access token for the three modules above |
+
+The first two are in the initial bundle and are safe to import from any component. The third is ~70 KB gzip
+and is pulled in by a dynamic `import()` after the first render, so **never import it statically** — that
+undoes the split and puts the SDK back in the critical path.
+
+Both light modules work before the SDK has loaded, which is the point of the split: `trace.getTracer()`
+without a registered provider returns a no-op and runs the callback untouched, and log records wait in a
+100-entry ring buffer until the exporter is attached.
+
+`fetch` is instrumented automatically, so the generated `@hey-api` client and the SSE wrapper need no
+wrapping — a request made anywhere already carries `traceparent` to the backend. What is not automatic is the
+**operation** a request belongs to:
+
+```tsx
+const mutation = useOperationMutation(
+  "order.self_assign",
+  {...ordersBatchSelfAssignMutation(), meta: {suppressGlobalError: true}, onSuccess},
+  (variables) => ({"order.count": variables.body?.orderIds.length ?? 0}),
+);
+```
+
+An operation that sends several requests calls the helper directly and spreads `op` into each of them —
+including into the variables of an existing mutation, which are themselves request options:
+
+```tsx
+await withOperationSpan("receipt.post", {"document.id": id}, async (op) => {
+  await uploadScan({body: form, ...op});
+  await postReceiptMutation.mutateAsync({path: {id}, ...op});
+});
+```
+
+Rules that are not obvious from the code:
+
+- **`op` is what puts a request inside the operation.** A call that does not get it still works, but its span
+  lands in a trace of its own. Parallel calls sharing one `op` are fine — the context travels as a value, so
+  there is nothing to race over.
+- **`mutateAsync`, never `mutate`.** `mutate()` returns nothing and does not wait, so the span would end
+  before anything was sent. The hook exists precisely because it wraps `mutationFn` instead.
+- **Never swap the client's `fetch` for the duration** (`client.setConfig({fetch})`). That is ambient state:
+  with `staleTime: 0` and refetch-on-focus, any background query that starts inside the window would attach
+  itself to the operation.
+- **One span per user action, not per business process.** Handing an order to assembly and finishing it are
+  two actions minutes apart on different screens; tie them together with a shared attribute
+  (`assembly_task.id`), not with one long-lived span.
+
+Errors are handled by the helper — it marks the span `ERROR`, records the exception and rethrows, so the
+calling code knows nothing about telemetry beyond the operation name. Operation spans are `SpanKind.CLIENT`.
+
+Every span and every log record also carries `app.page`, the screen the user was on, and `user.id` /
+`user.name`, taken from the access token — the same names the server writes, so one filter finds both sides
+of a trace. Both are stamped centrally, from `services/currentPage.ts` and `services/currentUser.ts`, and
+need nothing at the call site.
+
 ### `pluralUtils`
 
 Russian pluralization of counters. Forms are picked by `Intl.PluralRules("ru-RU")`, not by hand-rolled
@@ -573,6 +640,7 @@ ServiceWorkerContext.Provider
         └── SnackbarProvider (notistack)
               └── ModalProvider
                     ├── QueryErrorHandler    (self-closing — global query error handler)
+                    ├── TelemetryRouteLogger (self-closing — logs router transitions)
                     ├── CssBaseline          (self-closing — global CSS reset)
                     ├── UpdatePrompt
                     └── AuthProvider
@@ -732,7 +800,13 @@ Outputs to `src/api/`. Generated files are committed to git.
 Tokens live in `localStorage`, written only through `storeTokens()` / `clearTokens()` in
 `services/apiClient.ts` — the expiry timestamp is stored alongside the tokens so the proactive refresh above
 needs no JWT decode on every request. Call `storeTokens(tokenResponse)` after a successful login (the auth
-context does this) and `clearTokens()` on logout.
+context does this) and `clearTokens()` on logout. Each dispatches a window event — `auth:tokens` and
+`auth:clear` — which is how code outside the React tree learns that authentication changed.
+
+The proactive refresh itself is `getFreshAccessToken()`, exported from the same module: it returns a token
+that is valid for at least the next 30 seconds, refreshing first if it is not. The request interceptor is one
+caller; the telemetry exporters, which send their own requests, are another. Anything that builds an
+`Authorization` header by hand goes through it rather than reading `localStorage` directly.
 
 Because the bearer token is injected by the request interceptor, **anything the browser fetches by URL
 attribute cannot be authorized** — that is why images go through `FileImage` rather than `<img src="/api/…">`.

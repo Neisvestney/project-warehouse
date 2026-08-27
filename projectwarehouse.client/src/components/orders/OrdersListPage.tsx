@@ -21,7 +21,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
-import {useQuery, useMutation, useQueryClient} from "@tanstack/react-query";
+import {useQuery, useQueryClient} from "@tanstack/react-query";
 import {Link as RouterLink} from "react-router";
 import {
   ordersBatchSelfAssignMutation,
@@ -34,6 +34,7 @@ import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {useTableSort} from "@/hooks/useTableSort";
 import {useSelectedItems} from "@/hooks/useSelectedItems";
 import {useHasPermission} from "@/hooks/usePermission";
+import {useOperationMutation} from "@/hooks/useOperationMutation";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import SearchInput from "@/components/SearchInput";
@@ -219,17 +220,21 @@ function OrdersListPage({
     clear,
   } = useSelectedItems(getOrderId, data?.items);
 
-  const selfAssignMutation = useMutation({
-    ...ordersBatchSelfAssignMutation(),
-    meta: {suppressGlobalError: true},
-    // Awaited so isPending covers the refetch and the button cannot re-send stale ids
-    onSuccess: async (data) => {
-      removeIds(data.assignedOrderIds);
-      setFailedItems(data.failedItems);
-      await queryClient.invalidateQueries({queryKey: ordersGetAllQueryKey()});
+  const selfAssignMutation = useOperationMutation(
+    "order.self_assign",
+    {
+      ...ordersBatchSelfAssignMutation(),
+      meta: {suppressGlobalError: true},
+      // Awaited so isPending covers the refetch and the button cannot re-send stale ids
+      onSuccess: async (data) => {
+        removeIds(data.assignedOrderIds);
+        setFailedItems(data.failedItems);
+        await queryClient.invalidateQueries({queryKey: ordersGetAllQueryKey()});
+      },
+      onError: (error) => setSelfAssignError(extractErrorMessage(error)),
     },
-    onError: (error) => setSelfAssignError(extractErrorMessage(error)),
-  });
+    (variables) => ({"order.count": variables.body?.orderIds.length ?? 0}),
+  );
 
   const selectedConfirmedIds = selectedItems
     .filter((o) => o.status === "confirmed")

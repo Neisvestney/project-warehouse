@@ -21,6 +21,7 @@ import {SELECTED_SERVER_KEY} from "@/configuration/servers.ts";
 import ErrorBoundary from "@/components/ErrorBoundary.tsx";
 import RouteFallback from "@/components/RouteFallback.tsx";
 import {usePeriodicUpdateCheck} from "@/hooks/usePeriodicUpdateCheck.ts";
+import TelemetryRouteLogger from "@/components/TelemetryRouteLogger.tsx";
 
 const HomePage = React.lazy(() => import("@/pages/HomePage/HomePage.tsx"));
 const MyProfilePage = React.lazy(() => import("@/pages/MyProfilePage/MyProfilePage.tsx"));
@@ -92,6 +93,7 @@ function App() {
           <SnackbarProvider>
             <ModalProvider>
               <QueryErrorHandler />
+              <TelemetryRouteLogger />
               <CssBaseline />
               <UpdatePrompt />
               <AuthProvider>

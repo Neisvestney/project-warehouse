@@ -47,6 +47,22 @@ export function storeTokens(tokens: TokenResponse) {
   localStorage.setItem("accessToken", tokens.accessToken);
   localStorage.setItem("refreshToken", tokens.refreshToken);
   localStorage.setItem("tokenExpiry", String(Date.now() + Number(tokens.expiresIn) * 1000));
+  window.dispatchEvent(new Event("auth:tokens"));
+}
+
+// Proactively refreshes the token 30s before it expires, the same window the request interceptor
+// uses. Exported for callers that send their own requests instead of going through the client —
+// the telemetry exporters take their Authorization header from here.
+export async function getFreshAccessToken(): Promise<string | null> {
+  const token = localStorage.getItem("accessToken");
+  if (!token) return null;
+
+  const expiry = parseInt(localStorage.getItem("tokenExpiry") ?? "0");
+  if (expiry <= 0 || Date.now() + 30_000 > expiry) {
+    await refreshTokens();
+  }
+
+  return localStorage.getItem("accessToken");
 }
 
 export function clearTokens() {
@@ -66,17 +82,8 @@ export function setupApiClient() {
   // Concurrent calls share a single in-flight refresh promise to prevent rotation conflicts.
   // Clone is stored here — after fetch() the body is consumed and can't be re-read.
   client.interceptors.request.use(async (request) => {
-    const expiry = parseInt(localStorage.getItem("tokenExpiry") ?? "0");
-    const token = localStorage.getItem("accessToken");
-
-    if (token) {
-      const hasExpiry = expiry > 0;
-      if (!hasExpiry || Date.now() + 30_000 > expiry) {
-        await refreshTokens();
-      }
-      const current = localStorage.getItem("accessToken");
-      if (current) request.headers.set("Authorization", `Bearer ${current}`);
-    }
+    const current = await getFreshAccessToken();
+    if (current) request.headers.set("Authorization", `Bearer ${current}`);
 
     // Resolved per request, not once at startup: a PWA left open overnight can cross a DST
     // transition or a zone border and has to start sending the new value on its own.
