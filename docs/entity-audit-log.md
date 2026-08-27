@@ -1,4 +1,4 @@
-# Changelog System
+# Entity Audit Log
 
 Tracks every mutation of key entities (create / update / delete) with a before/after diff, a snapshot, and the identity of the user who made the change.
 

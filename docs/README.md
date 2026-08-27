@@ -35,7 +35,7 @@ is rationale, invariants, cross-cutting conventions and decisions.
 | [errors.md](errors.md) | `AppProblemDetails` envelope, field-path conventions, persisted errors, controller helpers |
 | [validation.md](validation.md) | Validation pipeline, `[JsonRequired]`, ModelState mapping |
 | [backend-patterns.md](backend-patterns.md) | Recurring backend patterns — search, inheritable fields, list sync, background work, access rules, enums |
-| [changelog.md](changelog.md) | Changelog system — how to add tracking to a method, Action/ActionData |
+| [entity-audit-log.md](entity-audit-log.md) | Entity audit log — before/after diffs of every mutation, how to add tracking to a method, Action/ActionData |
 | [observability-specification.md](observability-specification.md) | Telemetry — OpenTelemetry traces and logs, file archive on prod, local analysis stack |
 | [backlog.md](backlog.md) | Deferred work — what is blocked, why, and the event that unblocks it |
 
