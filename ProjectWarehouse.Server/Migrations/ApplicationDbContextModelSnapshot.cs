@@ -1356,6 +1356,13 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<Guid?>("StoragePlaceNodeId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("UnitInventoryItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UnitInventoryNumber")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<Guid?>("UserId")
                         .HasColumnType("uuid");
 
@@ -1369,6 +1376,8 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasIndex("StoragePlaceId");
 
                     b.HasIndex("StoragePlaceNodeId");
+
+                    b.HasIndex("UnitInventoryItemId");
 
                     b.HasIndex("CatalogItemId", "CreatedAt");
 
@@ -2348,6 +2357,11 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasForeignKey("StoragePlaceNodeId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("ProjectWarehouse.Server.Domain.UnitInventoryItem", "UnitInventoryItem")
+                        .WithMany()
+                        .HasForeignKey("UnitInventoryItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -2363,6 +2377,8 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("StoragePlace");
 
                     b.Navigation("StoragePlaceNode");
+
+                    b.Navigation("UnitInventoryItem");
 
                     b.Navigation("User");
 

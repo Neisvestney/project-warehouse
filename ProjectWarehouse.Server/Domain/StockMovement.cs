@@ -39,6 +39,16 @@ public class StockMovement
     public Guid? WarehouseId { get; set; }
     public Warehouse? Warehouse { get; set; }
 
+    /// <summary>Set only for movements of a unit item; null for standard quantity movements.</summary>
+    public Guid? UnitInventoryItemId { get; set; }
+    public UnitInventoryItem? UnitInventoryItem { get; set; }
+
+    /// <summary>
+    /// Denormalized copy of the item's number, written together with <see cref="UnitInventoryItemId"/>.
+    /// Survives the item itself, so a movement of a piece that was later removed is still identifiable.
+    /// </summary>
+    public string? UnitInventoryNumber { get; set; }
+
     public Guid? UserId { get; set; }
     public ApplicationUser? User { get; set; }
 }
