@@ -754,7 +754,9 @@ imports from the settings tree.
 
 Labels are downloaded from two places and both need the same request, so the call lives in the
 `useDownloadLabels` hook: it calls `ordersGetLabels` with `parseAs: "blob"`, unwraps the error via
-`parseProblemFromBlob` and returns it as `{message, postingNumbers}`. The components stay markup.
+`parseProblemFromBlob` and returns it as `{message, postingNumbers}`. Labels open for a look before printing:
+the hook reserves a tab with `reserveBlobTab()` before the request — the click is still the current gesture
+there — shows the PDF in it on success and closes it on any failure. The components stay markup.
 
 Printing fills `LabelFileId`, and button availability depends on it, so after a successful download the hook
 invalidates the order list and every printed order's card — otherwise the button would stay greyed out until a
