@@ -126,10 +126,11 @@ the attribute ahead of this task buys nothing on its own.
 
 ## Wrap the remaining business operations in spans
 
-**What it buys.** `withOperationSpan` covers one operation, `order.self_assign`. The table in
-[observability-specification.md](observability-specification.md#спаны-бизнес-операций) names the
-rest — confirmation, assembly hand-off and completion, shipping, receipts, transfers, write-offs,
-stocktakes, manual marketplace sync, label printing. Until a call is wrapped, the operation's trace
+**What it buys.** `withOperationSpan` (see
+[observability-specification.md](observability-specification.md#спаны-операций)) covers one
+operation, `order.self_assign`. The rest are unwrapped — confirmation, assembly hand-off and
+completion, shipping, receipts, transfers, write-offs, stocktakes, manual marketplace sync, label
+printing. Until a call is wrapped, the operation's trace
 starts at the HTTP request, so "why did this take a minute" cannot be answered for the part that
 happened in the browser.
 
