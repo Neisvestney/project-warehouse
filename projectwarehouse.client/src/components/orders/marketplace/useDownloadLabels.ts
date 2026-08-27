@@ -3,7 +3,7 @@ import {useQueryClient} from "@tanstack/react-query";
 import {ordersGetAllQueryKey, ordersGetByIdQueryKey} from "@/api/@tanstack/react-query.gen";
 import {ordersGetLabels} from "@/api/sdk.gen";
 import type {OrderLabelsGrouping} from "@/api/types.gen";
-import {saveBlob} from "@/utils/downloadUtils";
+import {reserveBlobTab, withTimestamp} from "@/utils/downloadUtils";
 import {parseProblemFromBlob} from "@/utils/blobErrorUtils";
 import {extractErrorMessage, firstFieldError, resolveErrorMessage} from "@/utils/errorUtils";
 
@@ -38,6 +38,8 @@ export function useDownloadLabels() {
   }: DownloadLabelsOptions): Promise<boolean> {
     setIsPending(true);
     setError(null);
+    // the click is still the current gesture here — after the request it no longer is
+    const tab = reserveBlobTab();
     try {
       // The generated *Options helpers mistype binary endpoints, so the SDK function is called
       // directly with parseAs: "blob" — same approach as useFileBlobUrl.
@@ -48,6 +50,7 @@ export function useDownloadLabels() {
       });
 
       if (response.error !== undefined) {
+        tab.close();
         const problem = (await parseProblemFromBlob(response.error)) ?? response.error;
         const fieldError =
           typeof problem === "object" && problem !== null && "errors" in problem
@@ -60,7 +63,7 @@ export function useDownloadLabels() {
         return false;
       }
 
-      saveBlob(response.data as unknown as Blob, fileName);
+      tab.show(response.data as unknown as Blob, withTimestamp(fileName));
 
       // printing fills LabelFileId, and the button states read it
       await queryClient.invalidateQueries({queryKey: ordersGetAllQueryKey()});
@@ -71,6 +74,7 @@ export function useDownloadLabels() {
       );
       return true;
     } catch (e) {
+      tab.close();
       setError({message: extractErrorMessage(e), postingNumbers: []});
       return false;
     } finally {

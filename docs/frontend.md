@@ -194,10 +194,21 @@ void queryClient.invalidateQueries({
 
 ### Downloading a generated file
 
-`saveBlob(blob, fileName)` in `utils/downloadUtils.ts` — `createObjectURL` plus an anchor with `download`.
-It is the only save mechanism the app has, and it is also correct on native: the WebView cannot render a PDF
-inline, so handing the file to the system app is the documented behaviour ([native-client.md](native-client.md)).
-No `Capacitor.isNativePlatform()` branch is needed at the call site.
+`utils/downloadUtils.ts` has the two ways of handing a generated file to the browser:
+
+- `saveBlob(blob, fileName)` — `createObjectURL` plus an anchor with `download`. The save mechanism, and the
+  only thing that works on native: the WebView cannot render a PDF inline, so the file goes to the system app
+  ([native-client.md](native-client.md)).
+- `reserveBlobTab()` — for a document the user just looks at and prints. It returns `{show, close}`: `show`
+  puts the blob into the tab, `close` drops it when the file never arrived. Call it **synchronously from the
+  click**, before the request — a `window.open` after an `await` has no user gesture behind it and gets blocked.
+  The reserved tab is `about:blank` on this origin, so it gets a spinner page written into it while the request
+  runs instead of sitting empty.
+  It falls back to `saveBlob` on `Capacitor.isNativePlatform()` and when the popup is blocked anyway, so call
+  sites need no platform branch of their own. The object URL is never revoked: the tab reads it for as long as
+  it stays open, and closing the tab frees the blob.
+- `withTimestamp(fileName)` — `labels.pdf` → `labels-2026-08-28_14-05-09.pdf`. Wrap the name before handing it
+  over so repeated saves land as separate files instead of `labels (1).pdf`.
 
 Binary endpoints are called through the generated SDK function directly with `parseAs: "blob"` (the
 generator's response types for binary responses are unreliable — same reason as `useFileBlobUrl`). That makes
