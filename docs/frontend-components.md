@@ -53,6 +53,10 @@ The nav vocabulary both renderers share lives in `@/layouts/SidebarLayout/navIte
 `SidebarNavLeafItem` / `SidebarNavGroup` / `SidebarNavItem` types plus `isGroup` and `isActive`. Active item
 detection goes through `matchPath({end: false})`, so sub-routes highlight the parent item.
 
+The active item carries the accent, not just the `Mui-selected` plate: `navItemSx` paints its icon and
+label `primary.main` and bumps the label to weight 600, so one row stands out among a dozen otherwise
+identical ones. Group headers and indented children share the same `sx`, children adding only `pl`.
+
 ### `SidebarPage`
 
 Routing wrapper on top of `SidebarLayout`. Takes `sections: SectionConfig[]` and a `basePath`, and:

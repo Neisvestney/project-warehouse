@@ -674,6 +674,89 @@ authenticated user, and `MainLayout` covers every authenticated route including 
 
 `AuthProvider` fetches `/me` with `suppressGlobalError` and clears the entire query cache on logout.
 
+## Theme and color mode
+
+`src/theme.ts` builds the theme with MUI's `colorSchemes` (`light` and `dark`), so both palettes live in
+one theme object and MUI swaps them at runtime. Never add a top-level `palette` key: it takes precedence
+over `colorSchemes` and pins the app to one mode.
+
+`ThemeProvider` is mounted with `defaultMode="system" noSsr`, so a first-time visitor follows the OS
+`prefers-color-scheme` and only departs from it once they choose a scheme themselves. `noSsr` skips the
+second render pass, so `mode` is defined on the first render of a client-only app. MUI persists the choice
+in `localStorage` under `mui-mode` and syncs it across tabs.
+
+The switch lives in the user menu in `MainAppBar` — a `MenuItem` reading from `useColorScheme()` and
+flipping between `"light"` and `"dark"`. Read `mode` together with `systemMode`: `mode` stays `"system"`
+until the user picks a scheme, so a component that needs to know which scheme is *currently rendered* must
+resolve `mode === "system" ? systemMode : mode`, as `MainAppBar` does. Testing `mode === "dark"` alone
+mislabels the toggle for anyone on a dark OS who has never touched it. Any component that needs the
+current mode goes through this hook rather than `theme.palette.mode`.
+
+### Dark scheme
+
+The dark scheme overrides the MUI defaults rather than inheriting them:
+
+- `text.primary` is held just below full white — full-strength white on a near-black surface reads as
+  glare and haloes at the glyph edges.
+- `background.default` / `paper` are a slightly cool near-black, `paper` a step above `default`.
+- `MuiPaper` drops the elevation overlay in the dark scheme (`backgroundImage: none`). MUI tints every
+  Paper by its elevation, which compounds on nested Paper — a menu or dialog inside a card ends up
+  visibly lighter than the surface it sits on. Without it a Paper is exactly its palette color and
+  depth reads from the shadow instead.
+- `error.main` is softened; MUI's default is the only fully saturated hue on a dark page and outshouts
+  the content it belongs to.
+- `MuiTableCell` takes its bottom border from `divider` in the dark scheme. MUI derives that border from
+  a formula — `darken(alpha(divider, 1), 0.68)` — which lands far heavier against a dark surface than its
+  light counterpart does against white, and heavier than every other line in the app.
+- `MuiListItemIcon` is retinted to `text.secondary` in the dark scheme. MUI gives list icons
+  `action.active`, which is a little over half-opacity black in light but pure white in dark — so icons
+  come out *brighter* than the labels beside them and the hierarchy inverts between schemes.
+
+The app bar is dark in the dark scheme: `MuiAppBar.styleOverrides` wraps its rules in
+`theme.applyStyles("dark", …)`, drops the elevation overlay and shadow, and separates the bar from the
+page with a `divider` bottom border. The brand mark carries the accent instead — the `WarehouseIcon` and
+the "Warehouse" wordmark in `MainAppBar` take `primary.main` through the same `applyStyles("dark", …)`
+helper, since in the light scheme the bar is already `primary` and the mark stays white.
+
+### Chip colors
+
+Chips are labels, not actions, so in the dark scheme every filled chip is a muted tint — a dark colored
+ground with a light colored label — instead of a saturated block with dark text. Two tint tables in
+`theme.ts` carry that, and they are deliberately separate:
+
+- `DARK_CHIP_TINTS` — one entry per hue (`bg`, `fg`, `hover`) for MUI's **built-in** colors.
+- `ITEM_CHIP_TINTS` — one entry per **catalog item type**.
+
+**Built-in colors** (`default`, `primary`, `secondary`, `error`, `info`, `success`, `warning`) are
+retinted through `MuiChip.styleOverrides`, which targets `&.MuiChip-filled.MuiChip-color*` inside
+`theme.applyStyles("dark", …)`. This covers order kinds, statuses and assembly task states, so a screen
+never mixes muted and saturated chips.
+
+**Catalog item types** get their own palette colors — `itemStandard`, `itemUnit`, `itemProductGroup`,
+`itemVariation`, `itemBundle` — declared per scheme and augmented in `src/extend-theme.d.ts` (both
+`Palette`/`PaletteOptions` and `ChipPropsColorOverrides`), the same pattern as `ozon` and `wb`.
+`CATALOG_ITEM_TYPE_CONFIG` in `features/catalog/catalogItemTypes.ts` maps each `CatalogItemType` to one
+of them, and `CatalogItemTypeChip` passes it straight to `Chip`.
+
+Item types hold hues of their own rather than reusing the built-in ones. `ORDER_STATUS_COLORS`,
+`ORDER_TYPE_COLORS` and `TASK_STATUS_COLORS` between them already claim all six built-ins, and an order
+list puts an order kind, a status and an item type in the same row — sharing a hue there makes the three
+read as one thing. The `ozon` and `wb` brand colors are spoken for too, so the item set stays clear of
+those hues as well.
+
+Two of the entries encode a relationship rather than an identity: `itemStandard` and `itemUnit` share a
+hue and differ only in tone, because they are exactly `PHYSICAL_CATALOG_ITEMS` — the types that hold
+stock. Keep that pairing if either color changes.
+
+Note the token roles when editing any of these. `main` is the chip ground and `contrastText` the label,
+while `dark` is what `Chip` uses on **hover** — so in the dark scheme `dark` is *lighter* than `main`,
+which reads like a typo and is not. Labels are white on every light-scheme item chip; a ground light
+enough to need dark text breaks that row, and such a ground also fails to clear 4.5:1 against white — so
+grounds are chosen dark enough to keep the white label.
+
+Both tint tables are dark-scheme-only, so the built-in chips render as stock MUI in the light scheme.
+Item-type chips are the exception: they carry their own colors in both schemes.
+
 ## Build output and caching
 
 Chunk filenames carry a content hash and the service worker precaches them, so the build config is

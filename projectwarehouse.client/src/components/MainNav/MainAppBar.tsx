@@ -12,10 +12,17 @@ import {
   Typography,
   ListSubheader,
   ButtonBase,
+  ListItemIcon,
 } from "@mui/material";
+import type {Theme} from "@mui/material/styles";
+import {useColorScheme} from "@mui/material/styles";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
 import MenuIcon from "@mui/icons-material/Menu";
 import SearchIcon from "@mui/icons-material/Search";
+import DarkModeIcon from "@mui/icons-material/DarkMode";
+import LightModeIcon from "@mui/icons-material/LightMode";
+import PersonIcon from "@mui/icons-material/Person";
+import LogoutIcon from "@mui/icons-material/Logout";
 import GlobalSearchModal from "@/components/GlobalSearch/GlobalSearchModal";
 import {Link, useNavigate} from "react-router";
 import {useAuth} from "@/hooks/useAuth";
@@ -27,6 +34,10 @@ import {extractErrorMessage} from "@/utils/errorUtils.ts";
 
 export const MAIN_APP_BAR_HEIGHT = 50;
 
+// The light-scheme bar is already primary, so the brand mark only takes the accent in dark.
+const brandDarkSx = (theme: Theme) =>
+  theme.applyStyles("dark", {color: theme.palette.primary.main});
+
 export interface AppBarProps {}
 
 function MainAppBar({}: AppBarProps) {
@@ -34,6 +45,9 @@ function MainAppBar({}: AppBarProps) {
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
   const [searchOpen, setSearchOpen] = React.useState(false);
   const {user, logout, profileIsLoadError, profileLoadError} = useAuth();
+  const {mode, systemMode, setMode} = useColorScheme();
+  // `mode` is "system" until the user picks a scheme, so resolve it before reading the current one.
+  const resolvedMode = mode === "system" ? systemMode : mode;
   const navigate = useNavigate();
 
   const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -50,6 +64,10 @@ function MainAppBar({}: AppBarProps) {
     navigate("/login", {replace: true});
   };
 
+  const handleToggleColorMode = () => {
+    setMode(resolvedMode === "dark" ? "light" : "dark");
+  };
+
   const handleNavToProfile = async () => {
     handleCloseUserMenu();
     navigate("/profile");
@@ -64,8 +82,8 @@ function MainAppBar({}: AppBarProps) {
       dirty = false;
     };
 
-    // Считаем нажатие только по keyup и только если между down и up ничего больше
-    // не жали — иначе Shift+Alt (смена раскладки) и Shift+буква ложно срабатывают.
+    // Count a press on keyup only, and only when nothing else was pressed between down and up —
+    // otherwise Shift+Alt (layout switch) and Shift+letter fire false positives.
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Shift") {
         dirty = e.repeat || e.ctrlKey || e.metaKey || e.altKey;
@@ -107,21 +125,24 @@ function MainAppBar({}: AppBarProps) {
       <AppBar position="static">
         <Container maxWidth="xl">
           <Toolbar disableGutters variant="dense" sx={{minHeight: MAIN_APP_BAR_HEIGHT}}>
-            <WarehouseIcon sx={{display: {xs: "none", md: "flex"}, mr: 1}} />
+            <WarehouseIcon sx={[{display: {xs: "none", md: "flex"}, mr: 1}, brandDarkSx]} />
             <Typography
               variant="h6"
               noWrap
               component={Link}
               to={"/"}
-              sx={{
-                mr: 2,
-                display: {xs: "none", md: "flex"},
-                fontFamily: "monospace",
-                fontWeight: 700,
-                letterSpacing: "-0.1rem",
-                color: "inherit",
-                textDecoration: "none",
-              }}
+              sx={[
+                {
+                  mr: 2,
+                  display: {xs: "none", md: "flex"},
+                  fontFamily: "monospace",
+                  fontWeight: 700,
+                  letterSpacing: "-0.1rem",
+                  color: "inherit",
+                  textDecoration: "none",
+                },
+                brandDarkSx,
+              ]}
             >
               Warehouse
             </Typography>
@@ -136,22 +157,25 @@ function MainAppBar({}: AppBarProps) {
                 <MenuIcon />
               </IconButton>
             </Box>
-            <WarehouseIcon sx={{display: {xs: "flex", md: "none"}, mr: 1}} />
+            <WarehouseIcon sx={[{display: {xs: "flex", md: "none"}, mr: 1}, brandDarkSx]} />
             <Typography
               variant="h5"
               noWrap
               component={Link}
               to={"/"}
-              sx={{
-                mr: 2,
-                display: {xs: "flex", md: "none"},
-                flexGrow: 1,
-                fontFamily: "monospace",
-                fontWeight: 700,
-                letterSpacing: "-0.1rem",
-                color: "inherit",
-                textDecoration: "none",
-              }}
+              sx={[
+                {
+                  mr: 2,
+                  display: {xs: "flex", md: "none"},
+                  flexGrow: 1,
+                  fontFamily: "monospace",
+                  fontWeight: 700,
+                  letterSpacing: "-0.1rem",
+                  color: "inherit",
+                  textDecoration: "none",
+                },
+                brandDarkSx,
+              ]}
             >
               Warehouse
             </Typography>
@@ -249,15 +273,33 @@ function MainAppBar({}: AppBarProps) {
                   </Typography>
                 </MenuItem>
                 {profileIsLoadError && (
-                  <ListSubheader sx={{color: "red"}}>
+                  <ListSubheader sx={{color: "error.main"}}>
                     {extractErrorMessage(profileLoadError)}
                   </ListSubheader>
                 )}
+                <MenuItem onClick={handleToggleColorMode}>
+                  <ListItemIcon>
+                    {resolvedMode === "dark" ? (
+                      <LightModeIcon fontSize="small" />
+                    ) : (
+                      <DarkModeIcon fontSize="small" />
+                    )}
+                  </ListItemIcon>
+                  <Typography>
+                    {resolvedMode === "dark" ? "Светлая тема" : "Тёмная тема"}
+                  </Typography>
+                </MenuItem>
                 <MenuItem onClick={handleNavToProfile}>
-                  <Typography sx={{textAlign: "center"}}>Профиль</Typography>
+                  <ListItemIcon>
+                    <PersonIcon fontSize="small" />
+                  </ListItemIcon>
+                  <Typography>Профиль</Typography>
                 </MenuItem>
                 <MenuItem onClick={handleLogout}>
-                  <Typography sx={{textAlign: "center"}}>Выйти</Typography>
+                  <ListItemIcon>
+                    <LogoutIcon fontSize="small" />
+                  </ListItemIcon>
+                  <Typography>Выйти</Typography>
                 </MenuItem>
               </Menu>
             </Box>

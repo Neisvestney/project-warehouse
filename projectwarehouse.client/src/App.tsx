@@ -75,7 +75,7 @@ function App() {
 
   if (isLauncher && !localStorage.getItem(SELECTED_SERVER_KEY)) {
     return (
-      <ThemeProvider theme={theme}>
+      <ThemeProvider theme={theme} defaultMode="system" noSsr>
         <SnackbarProvider>
           <CssBaseline />
           <ServerSetupPage />
@@ -88,7 +88,7 @@ function App() {
     <ServiceWorkerContext.Provider
       value={{installing, needRefresh, offlineReady, updateServiceWorker}}
     >
-      <ThemeProvider theme={theme}>
+      <ThemeProvider theme={theme} defaultMode="system" noSsr>
         <ErrorBoundary>
           <SnackbarProvider>
             <ModalProvider>
