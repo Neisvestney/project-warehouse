@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.Access;
+using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Transfers;
 using ProjectWarehouse.Server.Services;
@@ -115,13 +116,10 @@ public class TransfersController(
                     "You are not assigned to the destination warehouse.");
         }
 
-        var strategy = db.Database.CreateExecutionStrategy();
         try
         {
-            await strategy.ExecuteAsync(async () =>
+            await db.Database.ExecuteInTransactionAsync("transfers.execute", async () =>
             {
-                await using var tx = await db.Database.BeginTransactionAsync(ct);
-
                 foreach (var item in request.Items)
                 {
                     if (item.CatalogItemId.HasValue)
@@ -141,9 +139,7 @@ public class TransfersController(
                             ct: ct);
                     }
                 }
-
-                await tx.CommitAsync(ct);
-            });
+            }, ct);
         }
         catch (InsufficientInventoryException ex)
         {

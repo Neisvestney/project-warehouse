@@ -10,6 +10,7 @@ using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Receipts;
 using ProjectWarehouse.Server.Services;
@@ -506,11 +507,8 @@ public class ReceiptsController(
         var nodeById = await LoadWarehouseNodesAsync(warehouseId, ct);
         var itemBefore = mapper.Map<ReceiptItemDto>(item, opts => opts.Items["nodeById"] = nodeById);
 
-        var strategy = db.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync(async () =>
+        await db.Database.ExecuteInTransactionAsync("receipts.placement.standard", async () =>
         {
-            await using var tx = await db.Database.BeginTransactionAsync(ct);
-
             await inventory.AddStandardItemsToNodeAsync(
                 request.StoragePlaceNodeId,
                 catalogItemId,
@@ -526,8 +524,7 @@ public class ReceiptsController(
                 Count              = request.Count,
             });
             await db.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
-        });
+        }, ct);
 
         var itemAfter = await LoadItemDtoAsync(itemId, warehouseId, ct, nodeById);
         await changeLog.CompareAndSaveToChangelog(
@@ -609,13 +606,10 @@ public class ReceiptsController(
 
         var before = mapper.Map<ReceiptDto>(receipt, opts => opts.Items["nodeById"] = nodeById);
 
-        var strategy = db.Database.CreateExecutionStrategy();
         try
         {
-            await strategy.ExecuteAsync(async () =>
+            await db.Database.ExecuteInTransactionAsync("receipts.placement.standard.batch", async () =>
             {
-                await using var tx = await db.Database.BeginTransactionAsync(ct);
-
                 foreach (var req in request.Items)
                 {
                     var item = receiptItemsById[req.ItemId];
@@ -637,8 +631,7 @@ public class ReceiptsController(
                 }
 
                 await db.SaveChangesAsync(ct);
-                await tx.CommitAsync(ct);
-            });
+            }, ct);
         }
         catch (StoragePlaceNodeNotFoundException)
         {
@@ -693,13 +686,10 @@ public class ReceiptsController(
         var nodeById = await LoadWarehouseNodesAsync(warehouseId, ct);
         var itemBefore = mapper.Map<ReceiptItemDto>(item, opts => opts.Items["nodeById"] = nodeById);
 
-        var strategy = db.Database.CreateExecutionStrategy();
         try
         {
-            await strategy.ExecuteAsync(async () =>
+            await db.Database.ExecuteInTransactionAsync("receipts.placement.unit", async () =>
             {
-                await using var tx = await db.Database.BeginTransactionAsync(ct);
-
                 // Soft uniqueness check is done inside PlaceUnitItemToNodeAsync (via CreateUnitItemAsync).
                 // DB unique constraint is the hard guard against races (caught as DbUpdateException below).
                 var unitItem = await inventory.PlaceUnitItemToNodeAsync(
@@ -718,8 +708,7 @@ public class ReceiptsController(
                     UnitInventoryItemId = unitItem.Id,
                 });
                 await db.SaveChangesAsync(ct);
-                await tx.CommitAsync(ct);
-            });
+            }, ct);
         }
         catch (ValidationException ex)
         {
@@ -787,13 +776,10 @@ public class ReceiptsController(
         var itemBefore = mapper.Map<ReceiptItemDto>(itemEntity, opts => opts.Items["nodeById"] = nodeById);
 
         // Reverse the inventory change and remove the placement record atomically.
-        var strategy = db.Database.CreateExecutionStrategy();
         try
         {
-            await strategy.ExecuteAsync(async () =>
+            await db.Database.ExecuteInTransactionAsync("receipts.placement.delete", async () =>
             {
-                await using var tx = await db.Database.BeginTransactionAsync(ct);
-
                 if (placement.UnitInventoryItemId is not null)
                     await inventory.RemoveUnitItemAsync(
                         placement.UnitInventoryItemId.Value,
@@ -810,8 +796,7 @@ public class ReceiptsController(
 
                 db.ReceiptItemPlacements.Remove(placement);
                 await db.SaveChangesAsync(ct);
-                await tx.CommitAsync(ct);
-            });
+            }, ct);
         }
         catch (InventoryItemNodeMismatchException)
         {

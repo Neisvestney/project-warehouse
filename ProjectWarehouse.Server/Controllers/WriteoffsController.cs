@@ -9,6 +9,7 @@ using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Writeoffs;
 using ProjectWarehouse.Server.Services;
@@ -428,18 +429,15 @@ public class WriteoffsController(
 
         var before = await BuildDtoAsync(writeoff, ct);
 
-        var strategy = db.Database.CreateExecutionStrategy();
         try
         {
-            await strategy.ExecuteAsync(async () =>
+            await db.Database.ExecuteInTransactionAsync("writeoffs.finish", async () =>
             {
-                await using var tx = await db.Database.BeginTransactionAsync(ct);
-
-                // Reload inside the lambda so retries get a fresh entity with current status
+                // Reload inside the transaction so the status check sees the committed state
                 var fresh = await BaseQuery(includeItems: true).FirstAsync(w => w.Id == id, ct);
 
                 if (fresh.Status != WriteoffStatus.Draft)
-                    return; // already finished by a previous retry that committed
+                    return; // finished concurrently
 
                 foreach (var item in fresh.Items)
                 {
@@ -464,8 +462,7 @@ public class WriteoffsController(
 
                 fresh.Status = WriteoffStatus.Finished;
                 await db.SaveChangesAsync(ct);
-                await tx.CommitAsync(ct);
-            });
+            }, ct);
         }
         catch (InsufficientInventoryException ex)
         {
