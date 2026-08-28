@@ -15,7 +15,6 @@ import {
   ListItemIcon,
 } from "@mui/material";
 import type {Theme} from "@mui/material/styles";
-import {useColorScheme} from "@mui/material/styles";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
 import MenuIcon from "@mui/icons-material/Menu";
 import SearchIcon from "@mui/icons-material/Search";
@@ -26,6 +25,7 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import GlobalSearchModal from "@/components/GlobalSearch/GlobalSearchModal";
 import {Link, useNavigate} from "react-router";
 import {useAuth} from "@/hooks/useAuth";
+import {useResolvedColorScheme} from "@/hooks/useResolvedColorScheme.ts";
 import UserAvatar from "@/components/UserAvatar";
 import type {PermissionName} from "@/api/types.gen";
 import MainNavDrawer from "./MainNavDrawer.tsx";
@@ -45,9 +45,7 @@ function MainAppBar({}: AppBarProps) {
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
   const [searchOpen, setSearchOpen] = React.useState(false);
   const {user, logout, profileIsLoadError, profileLoadError} = useAuth();
-  const {mode, systemMode, setMode} = useColorScheme();
-  // `mode` is "system" until the user picks a scheme, so resolve it before reading the current one.
-  const resolvedMode = mode === "system" ? systemMode : mode;
+  const {scheme, setMode} = useResolvedColorScheme();
   const navigate = useNavigate();
 
   const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -65,7 +63,7 @@ function MainAppBar({}: AppBarProps) {
   };
 
   const handleToggleColorMode = () => {
-    setMode(resolvedMode === "dark" ? "light" : "dark");
+    setMode(scheme === "dark" ? "light" : "dark");
   };
 
   const handleNavToProfile = async () => {
@@ -147,7 +145,7 @@ function MainAppBar({}: AppBarProps) {
               Warehouse
             </Typography>
 
-            <Box sx={{flexGrow: 1, display: {xs: "flex", md: "none"}}}>
+            <Box sx={{flex: 1, display: {xs: "flex", md: "none"}}}>
               <IconButton
                 size="large"
                 aria-label="Открыть меню навигации"
@@ -157,28 +155,27 @@ function MainAppBar({}: AppBarProps) {
                 <MenuIcon />
               </IconButton>
             </Box>
-            <WarehouseIcon sx={[{display: {xs: "flex", md: "none"}, mr: 1}, brandDarkSx]} />
-            <Typography
-              variant="h5"
-              noWrap
-              component={Link}
-              to={"/"}
-              sx={[
-                {
-                  mr: 2,
-                  display: {xs: "flex", md: "none"},
-                  flexGrow: 1,
-                  fontFamily: "monospace",
-                  fontWeight: 700,
-                  letterSpacing: "-0.1rem",
-                  color: "inherit",
-                  textDecoration: "none",
-                },
-                brandDarkSx,
-              ]}
-            >
-              Warehouse
-            </Typography>
+            <Box sx={{display: {xs: "flex", md: "none"}, alignItems: "center", minWidth: 0}}>
+              <WarehouseIcon sx={[{mr: 1}, brandDarkSx]} />
+              <Typography
+                variant="h5"
+                noWrap
+                component={Link}
+                to={"/"}
+                sx={[
+                  {
+                    fontFamily: "monospace",
+                    fontWeight: 700,
+                    letterSpacing: "-0.1rem",
+                    color: "inherit",
+                    textDecoration: "none",
+                  },
+                  brandDarkSx,
+                ]}
+              >
+                Warehouse
+              </Typography>
+            </Box>
             <Box sx={{flexGrow: 1, display: {xs: "none", md: "flex"}}}>
               {filteredPages.map((page) => (
                 <Button
@@ -233,75 +230,82 @@ function MainAppBar({}: AppBarProps) {
                 </Box>
               </ButtonBase>
             </Box>
-            <IconButton
-              color="inherit"
-              onClick={() => setSearchOpen(true)}
-              aria-label="Поиск"
-              sx={{display: {xs: "flex", md: "none"}}}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                flex: {xs: 1, md: "0 0 auto"},
+              }}
             >
-              <SearchIcon />
-            </IconButton>
-            <Box sx={{flexGrow: 0}}>
-              <Tooltip title={user?.fullName ?? ""}>
-                <IconButton onClick={handleOpenUserMenu} sx={{p: 0}}>
-                  <UserAvatar
-                    userId={user?.id}
-                    name={user?.fullName}
-                    sx={{width: 32, height: 32, fontSize: 14}}
-                  />
-                </IconButton>
-              </Tooltip>
-              <Menu
-                sx={{mt: "45px"}}
-                id="menu-user"
-                anchorEl={anchorElUser}
-                anchorOrigin={{
-                  vertical: "top",
-                  horizontal: "right",
-                }}
-                keepMounted
-                transformOrigin={{
-                  vertical: "top",
-                  horizontal: "right",
-                }}
-                open={Boolean(anchorElUser)}
-                onClose={handleCloseUserMenu}
+              <IconButton
+                color="inherit"
+                onClick={() => setSearchOpen(true)}
+                aria-label="Поиск"
+                sx={{display: {xs: "flex", md: "none"}}}
               >
-                <MenuItem disabled>
-                  <Typography variant="body2" color="text.secondary">
-                    {user?.username}
-                  </Typography>
-                </MenuItem>
-                {profileIsLoadError && (
-                  <ListSubheader sx={{color: "error.main"}}>
-                    {extractErrorMessage(profileLoadError)}
-                  </ListSubheader>
-                )}
-                <MenuItem onClick={handleToggleColorMode}>
-                  <ListItemIcon>
-                    {resolvedMode === "dark" ? (
-                      <LightModeIcon fontSize="small" />
-                    ) : (
-                      <DarkModeIcon fontSize="small" />
-                    )}
-                  </ListItemIcon>
-                  <Typography>
-                    {resolvedMode === "dark" ? "Светлая тема" : "Тёмная тема"}
-                  </Typography>
-                </MenuItem>
-                <MenuItem onClick={handleNavToProfile}>
-                  <ListItemIcon>
-                    <PersonIcon fontSize="small" />
-                  </ListItemIcon>
-                  <Typography>Профиль</Typography>
-                </MenuItem>
-                <MenuItem onClick={handleLogout}>
-                  <ListItemIcon>
-                    <LogoutIcon fontSize="small" />
-                  </ListItemIcon>
-                  <Typography>Выйти</Typography>
-                </MenuItem>
-              </Menu>
+                <SearchIcon />
+              </IconButton>
+              <Box sx={{flexGrow: 0}}>
+                <Tooltip title={user?.fullName ?? ""}>
+                  <IconButton onClick={handleOpenUserMenu} sx={{p: 0}}>
+                    <UserAvatar
+                      userId={user?.id}
+                      name={user?.fullName}
+                      sx={{width: 32, height: 32, fontSize: 14}}
+                    />
+                  </IconButton>
+                </Tooltip>
+                <Menu
+                  sx={{mt: "45px"}}
+                  id="menu-user"
+                  anchorEl={anchorElUser}
+                  anchorOrigin={{
+                    vertical: "top",
+                    horizontal: "right",
+                  }}
+                  keepMounted
+                  transformOrigin={{
+                    vertical: "top",
+                    horizontal: "right",
+                  }}
+                  open={Boolean(anchorElUser)}
+                  onClose={handleCloseUserMenu}
+                >
+                  <MenuItem disabled>
+                    <Typography variant="body2" color="text.secondary">
+                      {user?.username}
+                    </Typography>
+                  </MenuItem>
+                  {profileIsLoadError && (
+                    <ListSubheader sx={{color: "error.main"}}>
+                      {extractErrorMessage(profileLoadError)}
+                    </ListSubheader>
+                  )}
+                  <MenuItem onClick={handleToggleColorMode}>
+                    <ListItemIcon>
+                      {scheme === "dark" ? (
+                        <LightModeIcon fontSize="small" />
+                      ) : (
+                        <DarkModeIcon fontSize="small" />
+                      )}
+                    </ListItemIcon>
+                    <Typography>{scheme === "dark" ? "Светлая тема" : "Тёмная тема"}</Typography>
+                  </MenuItem>
+                  <MenuItem onClick={handleNavToProfile}>
+                    <ListItemIcon>
+                      <PersonIcon fontSize="small" />
+                    </ListItemIcon>
+                    <Typography>Профиль</Typography>
+                  </MenuItem>
+                  <MenuItem onClick={handleLogout}>
+                    <ListItemIcon>
+                      <LogoutIcon fontSize="small" />
+                    </ListItemIcon>
+                    <Typography>Выйти</Typography>
+                  </MenuItem>
+                </Menu>
+              </Box>
             </Box>
           </Toolbar>
         </Container>

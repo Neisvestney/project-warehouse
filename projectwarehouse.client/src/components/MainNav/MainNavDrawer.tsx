@@ -136,13 +136,15 @@ function MainNavDrawer({open, onClose, pages}: MainNavDrawerProps) {
                   {page.navItems.map((item) =>
                     isGroup(item) ? (
                       <React.Fragment key={item.defaultPath}>
-                        <ListItemText
-                          primary={item.label}
-                          sx={{pl: 4, py: 0.5}}
-                          slotProps={{
-                            primary: {variant: "caption", color: "text.secondary"},
-                          }}
-                        />
+                        <Box sx={{display: "flex", alignItems: "center", pl: 4, py: 0.5}}>
+                          {item.icon && (
+                            <ListItemIcon sx={{minWidth: 36}}>{item.icon}</ListItemIcon>
+                          )}
+                          <ListItemText
+                            primary={item.label}
+                            slotProps={{primary: {color: "text.secondary"}}}
+                          />
+                        </Box>
                         {item.children.map((child) => (
                           <NavLeaf
                             key={child.path}

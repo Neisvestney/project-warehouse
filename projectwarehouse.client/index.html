@@ -5,6 +5,40 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Project Warehouse</title>
+    <!-- Overrides manifest.theme_color; both values must track APP_BAR_LIGHT_BG / APP_BAR_DARK_BG in theme.ts. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#1976d2" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1c1c22" />
+    <style>
+      /* Paints the ground before React mounts; must track palette.background.default in theme.ts. */
+      html {
+        background-color: #fff;
+      }
+      html[data-mui-color-scheme="dark"] {
+        background-color: #16161a;
+        color-scheme: dark;
+      }
+    </style>
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("mui-mode") || "system";
+          var mode = stored;
+          if (mode === "system") {
+            mode = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          }
+          var scheme = localStorage.getItem("mui-color-scheme-" + mode) || mode;
+          document.documentElement.setAttribute("data-mui-color-scheme", scheme);
+
+          // The media-scoped meta tags answer the OS, not an explicit choice — collapse them onto one color.
+          if (stored !== "system") {
+            var color = scheme === "dark" ? "#1c1c22" : "#1976d2";
+            document.querySelectorAll('meta[name="theme-color"]').forEach(function (meta) {
+              meta.setAttribute("content", color);
+            });
+          }
+        } catch {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

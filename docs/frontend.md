@@ -666,6 +666,7 @@ ServiceWorkerContext.Provider
                     ├── QueryErrorHandler    (self-closing — global query error handler)
                     ├── TelemetryRouteLogger (self-closing — logs router transitions)
                     ├── CssBaseline          (self-closing — global CSS reset)
+                    ├── ThemeColorMeta       (self-closing — syncs the theme-color meta tags)
                     ├── UpdatePrompt
                     └── AuthProvider
                           └── Suspense
@@ -698,12 +699,41 @@ over `colorSchemes` and pins the app to one mode.
 second render pass, so `mode` is defined on the first render of a client-only app. MUI persists the choice
 in `localStorage` under `mui-mode` and syncs it across tabs.
 
-The switch lives in the user menu in `MainAppBar` — a `MenuItem` reading from `useColorScheme()` and
-flipping between `"light"` and `"dark"`. Read `mode` together with `systemMode`: `mode` stays `"system"`
-until the user picks a scheme, so a component that needs to know which scheme is *currently rendered* must
-resolve `mode === "system" ? systemMode : mode`, as `MainAppBar` does. Testing `mode === "dark"` alone
-mislabels the toggle for anyone on a dark OS who has never touched it. Any component that needs the
-current mode goes through this hook rather than `theme.palette.mode`.
+The switch lives in the user menu in `MainAppBar` — a `MenuItem` flipping between `"light"` and `"dark"`.
+A component that needs to know which scheme is *currently rendered* reads `scheme` from
+`useResolvedColorScheme()` (`hooks/useResolvedColorScheme.ts`), which wraps `useColorScheme()` and
+re-exports its result with that field added. `mode` stays `"system"` until the user picks a scheme, so
+testing `mode === "dark"` alone mislabels the toggle for anyone on a dark OS who has never touched it —
+`scheme` falls back to `systemMode` in that case. Read `mode` itself only to tell an explicit choice from
+following the OS, as `ThemeColorMeta` does. Either way the source is this hook, never `theme.palette.mode`.
+
+### Pre-mount paint
+
+The theme only reaches the DOM once React mounts, so the document would otherwise show the browser's
+default white ground for the first frames of every load. A blocking inline script in `index.html` closes
+that gap: it reads `mui-mode` from `localStorage` (falling back to `matchMedia("(prefers-color-scheme: dark)")`
+when the mode is `system`), resolves it through `mui-color-scheme-{light,dark}` and stamps
+`data-mui-color-scheme` on `<html>` — the same attribute MUI writes itself, so mounting adds no second
+repaint. An inline `<style>` in the same head paints `<html>` from that attribute and sets `color-scheme`
+so the browser's own scrollbars and native controls start out in the right scheme. Both the script and
+the style are duplicated state: the color there must track `palette.background.default`, and the whole
+block runs before any bundle, so it stays dependency-free ES5-shaped JS wrapped in `try`/`catch`.
+
+### Browser theme color
+
+`index.html` carries two `<meta name="theme-color">` tags, one per `prefers-color-scheme`, holding
+`APP_BAR_LIGHT_BG` and `APP_BAR_DARK_BG` from `theme.ts`. They override `manifest.theme_color`, which the
+manifest keeps only as a fallback, and they colour the mobile status bar and the installed-PWA title bar
+to match the app bar rather than a single fixed blue.
+
+Media-scoped tags answer the OS, not the user, so an explicit choice has to override them: the pre-mount
+script collapses both tags onto the picked colour when `mui-mode` is not `system`, and `ThemeColorMeta`
+(mounted next to `CssBaseline` inside `ThemeProvider`) keeps doing that from `useResolvedColorScheme()`
+for the rest of the session, so flipping the switch updates the status bar without a reload. Going back
+to `system` restores one colour per tag and lets the media queries decide again.
+
+`manifest.background_color` cannot follow the scheme — it paints the Android splash screen before any
+page code runs, and the manifest has no media queries.
 
 ### Dark scheme
 
@@ -820,7 +850,9 @@ Workbox caching strategy:
   they populate that runtime cache on first load and keep working offline.
 - `/api/*` → `NetworkOnly` (never cached)
 
-Manifest: name "Project Warehouse", theme `#1976d2`, standalone display.
+Manifest: name "Project Warehouse", theme `#1976d2`, standalone display. The theme colour is
+overridden per scheme by the `<meta name="theme-color">` tags described in
+[Browser theme color](#browser-theme-color).
 
 ### Update checks
 

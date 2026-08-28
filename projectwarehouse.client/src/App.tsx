@@ -22,6 +22,7 @@ import ErrorBoundary from "@/components/ErrorBoundary.tsx";
 import RouteFallback from "@/components/RouteFallback.tsx";
 import {usePeriodicUpdateCheck} from "@/hooks/usePeriodicUpdateCheck.ts";
 import TelemetryRouteLogger from "@/components/TelemetryRouteLogger.tsx";
+import ThemeColorMeta from "@/components/ThemeColorMeta.tsx";
 
 const HomePage = React.lazy(() => import("@/pages/HomePage/HomePage.tsx"));
 const MyProfilePage = React.lazy(() => import("@/pages/MyProfilePage/MyProfilePage.tsx"));
@@ -78,6 +79,7 @@ function App() {
       <ThemeProvider theme={theme} defaultMode="system" noSsr>
         <SnackbarProvider>
           <CssBaseline />
+          <ThemeColorMeta />
           <ServerSetupPage />
         </SnackbarProvider>
       </ThemeProvider>
@@ -95,6 +97,7 @@ function App() {
               <QueryErrorHandler />
               <TelemetryRouteLogger />
               <CssBaseline />
+              <ThemeColorMeta />
               <UpdatePrompt />
               <AuthProvider>
                 <Suspense fallback={<RouteFallback />}>

@@ -1,7 +1,9 @@
 import {createTheme} from "@mui/material";
 import type {CSSObject} from "@mui/material";
 
-const APP_BAR_DARK_BG = "#1c1c22";
+export const APP_BAR_DARK_BG = "#1c1c22";
+// MUI's default primary.main, which the light AppBar inherits as its ground.
+export const APP_BAR_LIGHT_BG = "#1976d2";
 
 type ChipTint = {bg: string; fg: string; hover: string};
 

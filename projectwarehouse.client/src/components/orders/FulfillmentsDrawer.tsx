@@ -2,6 +2,7 @@ import {
   Box,
   Divider,
   Drawer,
+  IconButton,
   Paper,
   Stack,
   Table,
@@ -11,6 +12,7 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 import {format} from "date-fns";
 import {ru} from "date-fns/locale";
 import type {AssemblyFulfillmentDto} from "@/api/types.gen";
@@ -19,6 +21,7 @@ import {countFulfilledQty, getFulfillmentKind} from "@/components/orders/orderAs
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
 import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState";
 
 function formatDateTime(iso: string | null | undefined): string {
@@ -168,6 +171,8 @@ function FulfillmentsDrawer({
   const [openedCatalogItemId, openCatalogDrawer, closeCatalogDrawer] =
     useDrawerSearchParamsState("fulfillmentCatalogItem");
 
+  useBackClosable(open, onClose);
+
   return (
     <Drawer
       anchor="right"
@@ -176,7 +181,14 @@ function FulfillmentsDrawer({
       slotProps={{paper: {sx: {width: {xs: "100%", sm: 480}}}}}
     >
       <Stack spacing={1} sx={{p: 2}}>
-        <Typography variant="h6">{title}</Typography>
+        <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+          <Typography variant="h6" sx={{flex: 1, minWidth: 0}}>
+            {title}
+          </Typography>
+          <IconButton onClick={onClose} size="small">
+            <CloseIcon />
+          </IconButton>
+        </Stack>
         {subtitle && (
           <Typography variant="caption" color="text.secondary">
             {subtitle}
