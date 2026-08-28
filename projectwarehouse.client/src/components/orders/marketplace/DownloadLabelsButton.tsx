@@ -29,7 +29,7 @@ function DownloadLabelsButton({orderIds}: DownloadLabelsButtonProps) {
         startIcon={<LocalPrintshopIcon />}
         disabled={orderIds.length === 0}
         onClick={() => setIsDialogOpen(true)}
-        sx={{color: "primary.main", bgcolor: "white"}}
+        sx={{color: "primary.main"}}
       >
         Скачать этикетки
       </Button>
