@@ -42,6 +42,7 @@ const InfoRowLabel = styled(Typography)(
       width: auto;
       font-size: ${theme.typography.body2.fontSize};
       line-height: ${theme.typography.body2.lineHeight};
+      color: ${theme.palette.text.secondary};
     }
   `,
 );

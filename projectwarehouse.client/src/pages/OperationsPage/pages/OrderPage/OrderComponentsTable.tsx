@@ -131,7 +131,7 @@ function OrderComponentsTable({
   return (
     <>
       {isMobile ? (
-        <Stack spacing={1} sx={{p: 1.5, pb: canAdd ? 0 : 1.5}}>
+        <Stack spacing={1} sx={{pb: canAdd ? 0 : 1.5}}>
           {components.map((c) => {
             const fulfilledQty = getFulfilledQty(c);
             return (
@@ -273,7 +273,7 @@ function OrderComponentsTable({
       )}
 
       {canAdd && (
-        <Box sx={{p: 2, pt: 1}}>
+        <Box sx={{pb: 1, pt: 3}}>
           <Stack spacing={1}>
             <Stack
               direction={isMobile ? "column" : "row"}

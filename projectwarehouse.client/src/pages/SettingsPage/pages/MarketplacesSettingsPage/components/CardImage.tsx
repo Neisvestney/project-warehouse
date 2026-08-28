@@ -42,7 +42,11 @@ function CardImage({src, name, size = 40}: CardImageProps) {
           "&:hover .card-image-overlay": {opacity: 1},
         }}
       >
-        <FileImage source={viewableUrl(src, {name})} style={{height: "100%"}} fallback={fallback} />
+        <FileImage
+          source={viewableUrl(src, {name})}
+          style={{height: "100%", width: "100%", objectFit: "cover"}}
+          fallback={fallback}
+        />
         <Box
           className="card-image-overlay"
           sx={{

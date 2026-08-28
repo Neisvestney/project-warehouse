@@ -297,7 +297,7 @@ function OrderPage() {
           </Paper>
 
           {order.marketplaceItems.length > 0 && (
-            <Paper sx={{p: 3}}>
+            <Paper sx={{p: {xs: 1.5, md: 3}}}>
               <Typography variant="subtitle1" sx={{fontWeight: 600, mb: 2}}>
                 Состав заказа на маркетплейсе
               </Typography>
