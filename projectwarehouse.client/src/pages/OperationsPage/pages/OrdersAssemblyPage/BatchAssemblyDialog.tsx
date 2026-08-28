@@ -11,6 +11,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {
@@ -32,6 +33,7 @@ import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
 import {BundleTreeForm, VariationForm} from "./AddFulfillmentDialog";
 import {getRemainingQty} from "./batchEligibility";
 import {NOUNS, pluralCount} from "@/utils/pluralUtils";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
 
 interface SelectedTaskInfo {
   orderId: string;
@@ -305,6 +307,28 @@ interface BatchAssemblyDialogProps {
 export type {SelectedTaskInfo};
 
 function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialogProps) {
+  // The content is unmounted only after the exit animation; that is what resets the per-group picks.
+  const [shownTasks, releaseShownTasks] = useRetainedValue(open ? selectedTasks : null);
+
+  useBackClosable(open, onClose);
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      slotProps={{
+        transition: {onExited: releaseShownTasks},
+        paper: {sx: {pointerEvents: open ? undefined : "none"}},
+      }}
+    >
+      {shownTasks && <BatchAssemblyContent onClose={onClose} selectedTasks={shownTasks} />}
+    </Dialog>
+  );
+}
+
+function BatchAssemblyContent({onClose, selectedTasks}: Omit<BatchAssemblyDialogProps, "open">) {
   const queryClient = useQueryClient();
   const groups = useMemo(() => buildBatchGroups(selectedTasks), [selectedTasks]);
 
@@ -396,7 +420,7 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
   }
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <>
       <DialogTitle>Массовая сборка ({pluralCount(selectedTasks.length, NOUNS.task)})</DialogTitle>
       <DialogContent>
         <Stack spacing={3} sx={{mt: 1}}>
@@ -444,7 +468,7 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
           {mutation.isPending ? <CircularProgress size={20} color="inherit" /> : "Собрать"}
         </Button>
       </DialogActions>
-    </Dialog>
+    </>
   );
 }
 

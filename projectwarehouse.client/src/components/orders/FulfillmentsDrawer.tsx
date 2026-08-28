@@ -169,8 +169,7 @@ function FulfillmentsDrawer({
   catalogItemId,
   fulfillments,
 }: FulfillmentsDrawerProps) {
-  const [openedCatalogItemId, openCatalogDrawer, closeCatalogDrawer] =
-    useDrawerLocalState();
+  const [openedCatalogItemId, openCatalogDrawer, closeCatalogDrawer] = useDrawerLocalState();
 
   useBackClosable(open, onClose);
 
@@ -179,7 +178,9 @@ function FulfillmentsDrawer({
       anchor="right"
       open={open}
       onClose={onClose}
-      slotProps={{paper: {sx: {width: {xs: "100%", sm: 480}}}}}
+      slotProps={{
+        paper: {sx: {width: {xs: "100%", sm: 480}, pointerEvents: open ? undefined : "none"}},
+      }}
     >
       <Stack spacing={1} sx={{p: 2}}>
         <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>

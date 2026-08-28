@@ -9,6 +9,7 @@ import {
   ListItem,
   Typography,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {formatPostingNumber} from "@/utils/postingNumberUtils";
 import type {LabelsError} from "./useDownloadLabels";
 
@@ -21,6 +22,8 @@ function LabelsErrorDialog({error, onClose}: LabelsErrorDialogProps) {
   // held over the closing transition, otherwise the dialog empties out while it fades
   const [shown, setShown] = useState<LabelsError | null>(error);
   if (error !== null && error !== shown) setShown(error);
+
+  useBackClosable(error !== null, onClose);
 
   return (
     <Dialog open={error !== null} onClose={onClose} fullWidth maxWidth="xs">

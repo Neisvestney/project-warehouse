@@ -44,9 +44,11 @@ function OrderAssemblyTasksSection({order, canEdit}: OrderAssemblyTasksSectionPr
         <AssemblyTaskAccordionItem key={task.id} task={task} order={order} canEdit={canEdit} />
       ))}
 
-      {createOpen && (
-        <CreateAssemblyTaskDialog open onClose={() => setCreateOpen(false)} order={order} />
-      )}
+      <CreateAssemblyTaskDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        order={order}
+      />
     </Stack>
   );
 }

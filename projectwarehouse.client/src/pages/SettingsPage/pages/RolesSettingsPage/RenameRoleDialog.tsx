@@ -1,5 +1,6 @@
 import {useState} from "react";
 import {Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField} from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import type {ModalComponentProps} from "@/contexts/Modal/ModalContext";
 
 interface RenameRoleDialogProps extends ModalComponentProps<string> {
@@ -13,6 +14,8 @@ export default function RenameRoleDialog({open, onClose, initialName}: RenameRol
     const trimmed = name.trim();
     if (trimmed) onClose(trimmed);
   }
+
+  useBackClosable(open, () => onClose(null));
 
   return (
     <Dialog open={open} onClose={() => onClose(null)} maxWidth="xs" fullWidth>

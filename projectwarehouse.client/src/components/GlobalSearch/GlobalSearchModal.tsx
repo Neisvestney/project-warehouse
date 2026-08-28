@@ -22,6 +22,7 @@ import {commonContentGlobalSearchOptions} from "@/api/@tanstack/react-query.gen"
 import {resolveEntity} from "@/utils/appEntityUtils";
 import {useDebounce} from "@/hooks/useDebounce";
 import {useBackClosable} from "@/hooks/useBackClosable.ts";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
 import type {AppEntity} from "@/api";
 
 type ResolvedEntity = ReturnType<typeof resolveEntity>;
@@ -166,6 +167,8 @@ function GlobalSearchModal({open, onClose}: GlobalSearchModalProps) {
 
   useBackClosable(open, onClose);
 
+  const [shownOpen, releaseShown] = useRetainedValue(open || null);
+
   return (
     <Dialog
       open={open}
@@ -173,18 +176,19 @@ function GlobalSearchModal({open, onClose}: GlobalSearchModalProps) {
       maxWidth="sm"
       fullWidth
       slotProps={{
-        transition: {onEntered: () => inputRef.current?.focus()},
+        transition: {onEntered: () => inputRef.current?.focus(), onExited: releaseShown},
         paper: {
           sx: {
             position: "fixed",
             top: "15%",
             m: 0,
             borderRadius: 2,
+            pointerEvents: open ? undefined : "none",
           },
         },
       }}
     >
-      {open && <GlobalSearchContent onClose={onClose} inputRef={inputRef} />}
+      {shownOpen && <GlobalSearchContent onClose={onClose} inputRef={inputRef} />}
     </Dialog>
   );
 }

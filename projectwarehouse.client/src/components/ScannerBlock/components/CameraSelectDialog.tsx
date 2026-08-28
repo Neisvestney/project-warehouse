@@ -9,6 +9,7 @@ import {
   ListItemButton,
   ListItemText,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import {blue} from "@mui/material/colors";
 
@@ -35,6 +36,8 @@ function CameraSelectDialog({
     handleClose();
     selectDeviceId(deviceId);
   };
+
+  useBackClosable(open, handleClose);
 
   return (
     <>

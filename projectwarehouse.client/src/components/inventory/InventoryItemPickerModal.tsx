@@ -22,6 +22,7 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import CloseIcon from "@mui/icons-material/Close";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {useQuery} from "@tanstack/react-query";
@@ -400,6 +401,8 @@ function InventoryItemPickerModal({
     setSearch("");
     onClose();
   };
+
+  useBackClosable(open, handleClose);
 
   return (
     <Dialog

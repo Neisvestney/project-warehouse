@@ -6,6 +6,7 @@ import {
   DialogContentText,
   DialogTitle,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import type {ConfirmOptions, ModalComponentProps} from "@/contexts/Modal/ModalContext";
 
 type ConfirmModalProps = ModalComponentProps<boolean> & ConfirmOptions;
@@ -26,6 +27,8 @@ export default function ConfirmModal({
   cancelText = "Отмена",
 }: ConfirmModalProps) {
   const color = severityColor[severity];
+
+  useBackClosable(open, () => onClose(false));
 
   return (
     <Dialog open={open} onClose={() => onClose(false)}>

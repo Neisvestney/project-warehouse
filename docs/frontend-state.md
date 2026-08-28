@@ -286,7 +286,9 @@ to get there and they are mutually exclusive:
   `useBackClosable` on top of it would hold a second entry for the same overlay and Back would need two presses.
 - [`useBackClosable`](#usebackclosableopen-onclose) — for an overlay whose open state is not in the URL, paired
   with [`useDrawerLocalState`](#usedrawerlocalstate) or a plain `useState`. Pass it the same flag that drives
-  `open`.
+  `open`, down to confirmations and the small form dialogs. An overlay that refuses to close while a mutation
+  runs carries that guard into the hook too (`open && !mutation.isPending`) — Back is one more way out, and it
+  has to be shut with the rest of them.
 
 Which one applies follows from the parent, and nesting is directional: a URL-driven overlay can host a
 `useBackClosable` one above it, never the other way round. `useBackClosable` holds a history entry of its own
@@ -312,6 +314,11 @@ const [shownId, releaseShown] = useRetainedValue(selectedId);
   {shownId && <Body id={shownId} />}
 </Drawer>;
 ```
+
+An overlay that relied on that unmount to clear a form keeps the same behaviour by splitting in two: the
+component itself is a bare shell holding the `<Dialog>`/`<Drawer>` and the retained value, and everything
+stateful lives in a `…Content` child rendered only while the value is held. The child then mounts on open and
+unmounts on `onExited` — a fresh form every time, one animation later than before.
 
 The `pointerEvents: "none"` belongs to the same pattern and is mandatory whenever the overlay is interactive.
 The retained body outlives whatever the raw id guarded — an edit lock, a permission check, a mutation's

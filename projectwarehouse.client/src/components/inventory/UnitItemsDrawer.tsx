@@ -23,6 +23,7 @@ import DataTableContainer from "@/components/DataTableContainer";
 import SearchInput from "@/components/SearchInput";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
 
 const SORTABLE_COLUMNS: {key: UnitInventoryItemSortBy; label: string}[] = [
   {key: "inventoryNumber", label: "Инвентарный номер"},
@@ -80,18 +81,28 @@ export function UnitItemsDrawer({
     enabled: !!catalogItemId,
   });
 
+  const [shownName, releaseShownName] = useRetainedValue(catalogItemName);
+  const [shownData, releaseShownData] = useRetainedValue(catalogItemId ? data : null);
+
+  const releaseShown = () => {
+    releaseShownName();
+    releaseShownData();
+  };
+
   return (
     <Drawer
       anchor="right"
       open={!!catalogItemId}
       onClose={onClose}
       slotProps={{
+        transition: {onExited: releaseShown},
         paper: {
           sx: {
             maxWidth: "100vw",
             minWidth: "calc(min(1200px, 100vw))",
             display: "flex",
             flexDirection: "column",
+            pointerEvents: catalogItemId ? undefined : "none",
           },
         },
       }}
@@ -101,7 +112,7 @@ export function UnitItemsDrawer({
         sx={{alignItems: "center", justifyContent: "space-between", px: 2, py: 1.5, flexShrink: 0}}
       >
         <Typography variant="h6" noWrap>
-          Штучные экземпляры{catalogItemName ? ` — ${catalogItemName}` : ""}
+          Штучные экземпляры{shownName ? ` — ${shownName}` : ""}
         </Typography>
         <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
           <SearchInput value={inputValue} onChange={setInputValue} size="small" />
@@ -114,7 +125,7 @@ export function UnitItemsDrawer({
       <Box sx={{flex: 1, overflow: "auto"}}>
         <DataTableContainer
           isFetching={isFetching}
-          count={data?.total ?? 0}
+          count={shownData?.total ?? 0}
           page={page}
           onPageChange={setPage}
           rowsPerPage={pageSize}
@@ -141,10 +152,10 @@ export function UnitItemsDrawer({
             <TableBody>
               {isLoading ? (
                 <TableRowLoader colSpan={4} />
-              ) : data?.items.length === 0 ? (
+              ) : shownData?.items.length === 0 ? (
                 <TableRowEmpty colSpan={4} message="Экземпляры не найдены" />
               ) : (
-                data?.items.map((item) => (
+                shownData?.items.map((item) => (
                   <TableRow key={item.id} hover>
                     <TableCell sx={{fontFamily: "monospace"}}>{item.inventoryNumber}</TableCell>
                     <TableCell>{item.warehouseName}</TableCell>

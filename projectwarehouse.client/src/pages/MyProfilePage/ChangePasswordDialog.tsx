@@ -11,6 +11,7 @@ import {
   Stack,
   TextField,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {useMutation} from "@tanstack/react-query";
 import {authChangeOwnPasswordMutation} from "@/api/@tanstack/react-query.gen";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
@@ -45,6 +46,8 @@ function ChangePasswordDialog({open, onClose}: ChangePasswordDialogProps) {
       body: {newPassword: values.newPassword, currentPassword: values.currentPassword},
     });
   });
+
+  useBackClosable(open && !mutation.isPending, onClose);
 
   return (
     <Dialog open={open} onClose={mutation.isPending ? undefined : onClose} fullWidth maxWidth="xs">

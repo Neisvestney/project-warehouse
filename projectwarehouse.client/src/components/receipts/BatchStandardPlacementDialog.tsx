@@ -19,6 +19,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {useMutation, useQuery} from "@tanstack/react-query";
 import {
   receiptsAddStandardPlacementBatchMutation,
@@ -29,6 +30,7 @@ import SelectNodeModal from "@/components/receipts/SelectNodeModal";
 import type {SelectedNode} from "@/components/receipts/SelectNodeModal";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {extractErrorMessage} from "@/utils/errorUtils";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
 
 function calcTotalPlaced(item: ReceiptItemDto): number {
   return item.placements.reduce((sum, p) => sum + (p.count || (p.unitInventoryItemId ? 1 : 0)), 0);
@@ -100,6 +102,43 @@ function BatchStandardPlacementDialog({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
+  // The content is unmounted only after the exit animation; that is what resets the entered counts.
+  const [shownItems, releaseShownItems] = useRetainedValue(open ? items : null);
+
+  useBackClosable(open, onClose);
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      fullScreen={isMobile}
+      slotProps={{
+        transition: {onExited: releaseShownItems},
+        paper: {sx: {pointerEvents: open ? undefined : "none"}},
+      }}
+    >
+      {shownItems && (
+        <BatchStandardPlacementContent
+          onClose={onClose}
+          receiptId={receiptId}
+          warehouseId={warehouseId}
+          items={shownItems}
+          onUpdate={onUpdate}
+        />
+      )}
+    </Dialog>
+  );
+}
+
+function BatchStandardPlacementContent({
+  onClose,
+  receiptId,
+  warehouseId,
+  items,
+  onUpdate,
+}: Omit<BatchStandardPlacementDialogProps, "open">) {
   const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -113,7 +152,6 @@ function BatchStandardPlacementDialog({
 
   const defaultNodeQuery = useQuery({
     ...warehousesGetDefaultNodeOptions({path: {id: warehouseId}}),
-    enabled: open,
     meta: {suppressGlobalError: true},
     retry: false,
   });
@@ -160,7 +198,7 @@ function BatchStandardPlacementDialog({
   const isReady = !defaultNodeQuery.isPending;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth fullScreen={isMobile}>
+    <>
       <DialogTitle>Разместить позиции ({items.length})</DialogTitle>
       <DialogContent>
         {!isReady ? (
@@ -227,7 +265,7 @@ function BatchStandardPlacementDialog({
           {mutation.isPending ? <CircularProgress size={20} color="inherit" /> : "Разместить"}
         </Button>
       </DialogActions>
-    </Dialog>
+    </>
   );
 }
 

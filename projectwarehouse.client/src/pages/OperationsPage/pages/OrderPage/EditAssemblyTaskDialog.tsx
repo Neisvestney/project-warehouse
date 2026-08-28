@@ -9,6 +9,7 @@ import {
   DialogTitle,
   Stack,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {
   ordersGetByIdQueryKey,
@@ -16,6 +17,7 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import type {AssemblyTaskDto} from "@/api/types.gen";
 import UsersSelect from "@/components/UsersSelect";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
 
 interface EditAssemblyTaskDialogProps {
   open: boolean;
@@ -25,6 +27,32 @@ interface EditAssemblyTaskDialogProps {
 }
 
 function EditAssemblyTaskDialog({open, onClose, orderId, task}: EditAssemblyTaskDialogProps) {
+  // The content is unmounted only after the exit animation; that is what resets the picked assignee.
+  const [shownOpen, releaseShown] = useRetainedValue(open || null);
+
+  useBackClosable(open, onClose);
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      slotProps={{
+        transition: {onExited: releaseShown},
+        paper: {sx: {pointerEvents: open ? undefined : "none"}},
+      }}
+    >
+      {shownOpen && <EditAssemblyTaskContent onClose={onClose} orderId={orderId} task={task} />}
+    </Dialog>
+  );
+}
+
+function EditAssemblyTaskContent({
+  onClose,
+  orderId,
+  task,
+}: Omit<EditAssemblyTaskDialogProps, "open">) {
   const queryClient = useQueryClient();
   const [assignedToIds, setAssignedToIds] = useState<string[]>(() =>
     task.assignedToId ? [task.assignedToId] : [],
@@ -50,7 +78,7 @@ function EditAssemblyTaskDialog({open, onClose, orderId, task}: EditAssemblyTask
   }
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <>
       <DialogTitle>Редактировать задание</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{mt: 1}}>
@@ -71,7 +99,7 @@ function EditAssemblyTaskDialog({open, onClose, orderId, task}: EditAssemblyTask
           {mutation.isPending ? <CircularProgress size={20} color="inherit" /> : "Сохранить"}
         </Button>
       </DialogActions>
-    </Dialog>
+    </>
   );
 }
 

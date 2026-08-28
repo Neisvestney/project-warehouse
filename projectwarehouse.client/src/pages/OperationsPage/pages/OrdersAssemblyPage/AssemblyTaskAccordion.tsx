@@ -212,30 +212,26 @@ function ComponentRow({
         </Box>
       ))}
 
-      {addOpen && (
-        <AddFulfillmentDialog
-          open
-          onClose={() => setAddOpen(false)}
-          orderId={orderId}
-          warehouseId={warehouseId}
-          taskId={taskId}
-          taskBoxId={taskBoxId}
-          component={component}
-        />
-      )}
+      <AddFulfillmentDialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        orderId={orderId}
+        warehouseId={warehouseId}
+        taskId={taskId}
+        taskBoxId={taskBoxId}
+        component={component}
+      />
 
-      {moveOpen && (
-        <MoveTaskComponentDialog
-          open
-          onClose={() => setMoveOpen(false)}
-          orderId={orderId}
-          orderBoxes={orderBoxes}
-          taskId={taskId}
-          taskBoxId={taskBoxId}
-          component={component}
-          maxQuantity={movableQty}
-        />
-      )}
+      <MoveTaskComponentDialog
+        open={moveOpen}
+        onClose={() => setMoveOpen(false)}
+        orderId={orderId}
+        orderBoxes={orderBoxes}
+        taskId={taskId}
+        taskBoxId={taskBoxId}
+        component={component}
+        maxQuantity={movableQty}
+      />
 
       <FulfillmentsDrawer
         open={fulfillmentsOpen}

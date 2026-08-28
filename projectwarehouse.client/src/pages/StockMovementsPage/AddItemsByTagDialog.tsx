@@ -9,6 +9,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {useQuery} from "@tanstack/react-query";
 import {catalogGetForSelectOptions} from "@/api/@tanstack/react-query.gen";
 import type {CatalogItemSelectDto, CatalogItemType} from "@/api/types.gen";
@@ -43,6 +44,8 @@ function AddItemsByTagDialog({open, onClose, onAdd, types}: AddItemsByTagDialogP
     onAdd(foundItems);
     handleClose();
   };
+
+  useBackClosable(open, handleClose);
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">

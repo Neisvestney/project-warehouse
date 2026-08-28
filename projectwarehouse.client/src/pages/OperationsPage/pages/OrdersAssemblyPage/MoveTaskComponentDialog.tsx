@@ -17,6 +17,7 @@ import {
   Stack,
   TextField,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
   ordersGetAllAssemblyQueryKey,
@@ -26,6 +27,7 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import type {AssemblyTaskBoxComponentDto, OrderBoxDto} from "@/api/types.gen";
 import {formatBoxLabel} from "@/components/orders/orderUtils";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
 
 interface MoveTaskComponentDialogProps {
   open: boolean;
@@ -38,8 +40,29 @@ interface MoveTaskComponentDialogProps {
   maxQuantity: number;
 }
 
-function MoveTaskComponentDialog({
-  open,
+function MoveTaskComponentDialog({open, ...props}: MoveTaskComponentDialogProps) {
+  // The content is unmounted only after the exit animation; that is what resets the entered target.
+  const [shownOpen, releaseShown] = useRetainedValue(open || null);
+
+  useBackClosable(open, props.onClose);
+
+  return (
+    <Dialog
+      open={open}
+      onClose={props.onClose}
+      maxWidth="sm"
+      fullWidth
+      slotProps={{
+        transition: {onExited: releaseShown},
+        paper: {sx: {pointerEvents: open ? undefined : "none"}},
+      }}
+    >
+      {shownOpen && <MoveTaskComponentContent {...props} />}
+    </Dialog>
+  );
+}
+
+function MoveTaskComponentContent({
   onClose,
   orderId,
   orderBoxes,
@@ -47,7 +70,7 @@ function MoveTaskComponentDialog({
   taskBoxId,
   component,
   maxQuantity,
-}: MoveTaskComponentDialogProps) {
+}: Omit<MoveTaskComponentDialogProps, "open">) {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [targetBoxId, setTargetBoxId] = useState<string>("");
@@ -63,7 +86,6 @@ function MoveTaskComponentDialog({
     ...ordersGetTaskMoveTargetsOptions({
       path: {id: orderId, taskId, tbid: taskBoxId, cid: component.id},
     }),
-    enabled: open,
   });
 
   const moveMutation = useMutation({
@@ -102,7 +124,7 @@ function MoveTaskComponentDialog({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <>
       <DialogTitle>Переместить «{component.catalogItemName}»</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{mt: 1}}>
@@ -170,7 +192,7 @@ function MoveTaskComponentDialog({
           {moveMutation.isPending ? <CircularProgress size={20} color="inherit" /> : "Переместить"}
         </Button>
       </DialogActions>
-    </Dialog>
+    </>
   );
 }
 

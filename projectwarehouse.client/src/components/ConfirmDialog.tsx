@@ -1,5 +1,6 @@
 import React from "react";
 import type {ButtonProps, DialogProps} from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {
   Button,
   CircularProgress,
@@ -32,6 +33,8 @@ function ConfirmDialog({
   confirmColor = "primary",
   maxWidth = "xs",
 }: ConfirmDialogProps) {
+  useBackClosable(open && !isPending, onClose);
+
   return (
     <Dialog open={open} onClose={isPending ? undefined : onClose} maxWidth={maxWidth} fullWidth>
       <DialogTitle>{title}</DialogTitle>

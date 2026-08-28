@@ -18,6 +18,7 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {
   ordersCreateAssemblyTaskMutation,
@@ -27,6 +28,7 @@ import type {OrderDetailsDto} from "@/api/types.gen";
 import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 import {formatBoxLabel} from "@/components/orders/orderUtils";
 import UsersSelect from "@/components/UsersSelect";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
 
 interface TaskBox {
   orderBoxId: string;
@@ -58,6 +60,28 @@ interface CreateAssemblyTaskDialogProps {
 }
 
 function CreateAssemblyTaskDialog({open, onClose, order}: CreateAssemblyTaskDialogProps) {
+  // The content is unmounted only after the exit animation; that is what resets the picked boxes.
+  const [shownOpen, releaseShown] = useRetainedValue(open || null);
+
+  useBackClosable(open, onClose);
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      slotProps={{
+        transition: {onExited: releaseShown},
+        paper: {sx: {pointerEvents: open ? undefined : "none"}},
+      }}
+    >
+      {shownOpen && <CreateAssemblyTaskContent onClose={onClose} order={order} />}
+    </Dialog>
+  );
+}
+
+function CreateAssemblyTaskContent({onClose, order}: Omit<CreateAssemblyTaskDialogProps, "open">) {
   const queryClient = useQueryClient();
   const [assignedToIds, setAssignedToIds] = useState<string[]>([]);
   const [taskBoxes, setTaskBoxes] = useState<TaskBox[]>(() => initTaskBoxes(order));
@@ -120,7 +144,7 @@ function CreateAssemblyTaskDialog({open, onClose, order}: CreateAssemblyTaskDial
   );
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <>
       <DialogTitle>Создать задание на сборку</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{mt: 1}}>
@@ -191,7 +215,7 @@ function CreateAssemblyTaskDialog({open, onClose, order}: CreateAssemblyTaskDial
           {mutation.isPending ? <CircularProgress size={20} color="inherit" /> : "Создать"}
         </Button>
       </DialogActions>
-    </Dialog>
+    </>
   );
 }
 
