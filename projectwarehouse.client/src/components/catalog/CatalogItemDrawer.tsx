@@ -87,6 +87,7 @@ import {openPrintPage, type PrintItem} from "@/utils/printUtils";
 import type {BarcodeType} from "@/pages/PrintPage/BarcodeLabel";
 import MarketplaceAccountChip from "@/components/marketplace/MarketplaceAccountChip";
 import {useBackClosable} from "@/hooks/useBackClosable.ts";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
 
 const DRAWER_WIDTH = 1000;
 
@@ -1232,40 +1233,43 @@ export function CatalogItemDrawer({
   const [isEditing, setIsEditing] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
-  const [prevItemId, setPrevItemId] = useState(itemId);
   const canEdit = useHasPermission("catalog.edit");
   const queryClient = useQueryClient();
   const {enqueueSnackbar} = useSnackbar();
 
+  // Content keeps rendering the closing item until the exit animation ends.
+  const [shownItemId, releaseShownItem] = useRetainedValue(itemId);
+  const [prevItemId, setPrevItemId] = useState(shownItemId);
+
   useBackClosable(!!itemId && !!backClosable, onClose);
 
-  if (prevItemId !== itemId) {
-    setPrevItemId(itemId);
+  if (prevItemId !== shownItemId) {
+    setPrevItemId(shownItemId);
     setIsEditing(false);
     setDeleteOpen(false);
     setPrintOpen(false);
   }
 
   const {data, dataUpdatedAt, isFetching, isLoading} = useQuery({
-    ...catalogGetByIdOptions({path: {id: itemId!}}),
-    enabled: !!itemId,
+    ...catalogGetByIdOptions({path: {id: shownItemId!}}),
+    enabled: !!shownItemId,
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
   });
 
   const refreshItem = useCallback(() => {
     void queryClient.invalidateQueries({
-      queryKey: byOperation("catalogGetById", {path: {id: itemId!}}),
+      queryKey: byOperation("catalogGetById", {path: {id: shownItemId!}}),
     });
-  }, [queryClient, itemId]);
+  }, [queryClient, shownItemId]);
 
   // The drawer opens read-only, so the lock is taken only once the user actually starts editing.
-  const lock = useEditLock("catalogItem", itemId, {
+  const lock = useEditLock("catalogItem", shownItemId, {
     isDirty: isEditing,
     dataUpdatedAt,
     isFetching,
     isLoading,
     onRefresh: refreshItem,
-    enabled: isEditing && canEdit,
+    enabled: isEditing && canEdit && !!itemId,
   });
 
   const deleteMutation = useMutation({
@@ -1273,11 +1277,11 @@ export function CatalogItemDrawer({
     onSuccess: async () => {
       await queryClient.invalidateQueries({queryKey: catalogGetAllQueryKey()});
       onClose();
+      setDeleteOpen(false);
     },
   });
 
   const handleClose = () => {
-    setIsEditing(false);
     setDeleteOpen(false);
     setPrintOpen(false);
     onClose();
@@ -1305,6 +1309,7 @@ export function CatalogItemDrawer({
       open={!!itemId}
       onClose={handleClose}
       slotProps={{
+        transition: {onExited: releaseShownItem},
         paper: {
           sx: {
             width: DRAWER_WIDTH,
@@ -1331,7 +1336,7 @@ export function CatalogItemDrawer({
           <Typography variant="h6" noWrap sx={{flex: 1}}>
             {data?.fullName ?? ""}
           </Typography>
-          {isEditing && <EntityViewers entityType="catalogItem" entityId={itemId} />}
+          {isEditing && <EntityViewers entityType="catalogItem" entityId={shownItemId} />}
         </Stack>
         <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
           <Tooltip title="Скопировать GUID">
@@ -1365,9 +1370,9 @@ export function CatalogItemDrawer({
         />
       </Box>
 
-      {itemId && !isEditing && (
+      {shownItemId && !isEditing && (
         <ViewMode
-          itemId={itemId}
+          itemId={shownItemId}
           canEdit={canEdit}
           onEdit={() => setIsEditing(true)}
           onDelete={() => setDeleteOpen(true)}
@@ -1375,13 +1380,15 @@ export function CatalogItemDrawer({
           showLoadingOverlay={lock.showLoadingOverlay}
         />
       )}
-      {itemId && isEditing && <EditMode itemId={itemId} onClose={() => setIsEditing(false)} />}
+      {shownItemId && isEditing && (
+        <EditMode itemId={shownItemId} onClose={() => setIsEditing(false)} />
+      )}
 
       <ConfirmDialog
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
         title="Удалить позицию?"
-        onConfirm={() => deleteMutation.mutate({path: {id: itemId!}})}
+        onConfirm={() => deleteMutation.mutate({path: {id: shownItemId!}})}
         isPending={deleteMutation.isPending}
         confirmText="Удалить"
         confirmColor="error"
