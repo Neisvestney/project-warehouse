@@ -22,7 +22,8 @@ import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
 import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
 import {useBackClosable} from "@/hooks/useBackClosable";
-import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState";
+import {useState} from "react";
+import {useDrawerLocalState} from "@/hooks/useDrawerLocalState.ts";
 
 function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -169,7 +170,7 @@ function FulfillmentsDrawer({
   fulfillments,
 }: FulfillmentsDrawerProps) {
   const [openedCatalogItemId, openCatalogDrawer, closeCatalogDrawer] =
-    useDrawerSearchParamsState("fulfillmentCatalogItem");
+    useDrawerLocalState();
 
   useBackClosable(open, onClose);
 
@@ -220,6 +221,7 @@ function FulfillmentsDrawer({
         itemId={openedCatalogItemId}
         onClose={closeCatalogDrawer}
         onOpenItem={openCatalogDrawer}
+        backClosable
       />
     </Drawer>
   );

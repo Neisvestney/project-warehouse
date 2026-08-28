@@ -29,13 +29,11 @@ import {setupApiClient} from "@/services/apiClient.ts";
 import {Capacitor} from "@capacitor/core";
 import {SELECTED_SERVER_KEY} from "@/configuration/servers.ts";
 import {fetchWithTimeout} from "@/utils/fetchWithTimeout.ts";
-import {stripEphemeralSearchParams} from "@/utils/ephemeralSearchParams.ts";
 import {dropOverlayHistoryEntries} from "@/hooks/useBackClosable.ts";
 import {installClientLogCapture} from "@/services/telemetryLogs.ts";
 
 setupApiClient();
 installClientLogCapture();
-stripEphemeralSearchParams();
 dropOverlayHistoryEntries();
 
 const queryClient = new QueryClient({
