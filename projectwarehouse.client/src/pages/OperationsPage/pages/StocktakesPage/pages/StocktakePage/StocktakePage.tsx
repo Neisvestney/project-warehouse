@@ -324,7 +324,7 @@ function StocktakePage() {
           title={
             <Stack direction="row" spacing={1.5} sx={{alignItems: "center"}}>
               <Typography variant="h5" component="span">
-                {stocktake.name || "—"}
+                {stocktake.name || formatStocktakeNumber(stocktake.number)}
               </Typography>
               <StocktakeStatusChip status={stocktake.status} />
             </Stack>
