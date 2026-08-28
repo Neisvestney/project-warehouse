@@ -14,13 +14,15 @@ public abstract class AbstractChangeLogService : IChangeLogService
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IRealtimeNotifier _realtime;
+    private readonly ILogger<AbstractChangeLogService> _logger;
     private readonly JsonSerializerOptions _jsonOptions;
 
     public AbstractChangeLogService(IHttpContextAccessor httpContextAccessor, IRealtimeNotifier realtime,
-        IOptions<JsonOptions> jsonOptions)
+        IOptions<JsonOptions> jsonOptions, ILogger<AbstractChangeLogService> logger)
     {
         _httpContextAccessor = httpContextAccessor;
         _realtime = realtime;
+        _logger = logger;
         _jsonOptions = jsonOptions.Value.JsonSerializerOptions;
     }
 
@@ -108,6 +110,8 @@ public abstract class AbstractChangeLogService : IChangeLogService
         // Watchers of the object are told only after the write went through, and never the author.
         await _realtime.PublishEntityChangedAsync(entityType, entityId, changeLogEntry.UserId,
             _httpContextAccessor.HttpContext?.User.GetDisplayName());
+        
+        _logger.LogInformation("Changelog entry created: {ChangeLogEntry}", changeLogEntry);
     }
 
     public IQueryable<ChangeLogEntry> GetChangelog(AppEntityType entityType, Guid entityId)

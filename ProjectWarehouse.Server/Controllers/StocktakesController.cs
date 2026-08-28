@@ -9,6 +9,7 @@ using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
 using ProjectWarehouse.Server.Models.Stocktakes;
@@ -995,17 +996,14 @@ public class StocktakesController(
 
         IActionResult? blocked = null;
 
-        var strategy = db.Database.CreateExecutionStrategy();
         try
         {
-            await strategy.ExecuteAsync(async () =>
+            await db.Database.ExecuteInTransactionAsync("stocktakes.finish", async () =>
             {
-                await using var tx = await db.Database.BeginTransactionAsync(ct);
-
-                // Reload inside the lambda so retries get a fresh entity with current status
+                // Reload inside the transaction so the status check sees the committed state
                 var fresh = await BaseQuery(includeItems: true).FirstAsync(s => s.Id == id, ct);
                 if (fresh.Status != StocktakeStatus.InProgress)
-                    return; // already committed by a previous retry
+                    return; // finished concurrently
 
                 var plan = await diffCalculator.BuildPlanAsync(fresh, ct);
                 if (plan.Problems.Count > 0)
@@ -1020,8 +1018,7 @@ public class StocktakesController(
                 fresh.Status     = StocktakeStatus.Finished;
                 fresh.FinishedAt = DateTime.UtcNow;
                 await db.SaveChangesAsync(ct);
-                await tx.CommitAsync(ct);
-            });
+            }, ct);
         }
         catch (InsufficientInventoryException ex)
         {

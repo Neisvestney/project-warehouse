@@ -10,8 +10,9 @@ public class AppChangeLogService(
     ApplicationDbContext db,
     IHttpContextAccessor httpContextAccessor,
     IRealtimeNotifier realtime,
-    IOptions<JsonOptions> jsonOptions)
-    : AbstractChangeLogService(httpContextAccessor, realtime, jsonOptions)
+    IOptions<JsonOptions> jsonOptions,
+    ILogger<AppChangeLogService> logger)
+    : AbstractChangeLogService(httpContextAccessor, realtime, jsonOptions, logger)
 {
     protected override IQueryable<ChangeLogEntry> GetGetChangelogQueryable() => db.ChangeLogEntries;
 
