@@ -131,15 +131,15 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
       <AccordionDetails sx={{p: 0}}>
         {task.boxes.map((box, i) => (
           <Box key={box.id}>
-            {task.boxes.length > 1 &&
-                <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{fontWeight: 600, display: "block", px: 2, py: 0.5}}
-                >
-                  {box.orderBoxLabel ?? `Коробка №${i}`}
-                </Typography>
-            }
+            {task.boxes.length > 1 && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{fontWeight: 600, display: "block", px: 2, py: 0.5}}
+              >
+                {box.orderBoxLabel ?? `Коробка №${i}`}
+              </Typography>
+            )}
             {isMobile ? (
               <Stack spacing={1} sx={{pb: 1}}>
                 {box.components.map((c) => {

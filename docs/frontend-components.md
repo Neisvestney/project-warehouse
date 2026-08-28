@@ -99,6 +99,15 @@ Standard list-page table shell: `Paper` → `LinearProgress` (while fetching) �
 `TablePagination` with Russian labels baked in. Extends `PaperProps`. The `page` prop is **1-based**, matching
 the `usePaginatedParams` convention; the component converts to MUI's 0-based value internally.
 
+An `IntersectionObserver` watches the `TablePagination` wrapper. While it is off-screen and the result set spans
+more than one page, a floating pill (`position: fixed`, bottom-right, `zIndex.fab`) fades in with prev/next
+arrows and a `21–40 из 250` counter, so paging stays reachable from the middle of a long list. It hides again as
+soon as the real pagination scrolls into view. `disableFloatingPagination` turns the pill off for a list that
+does not want it.
+
+While `isFetching`, both the row and the pill swap their counters for `Skeleton`s and the arrows go `disabled` —
+a pending page carries no totals, and rendering them would flash a `0–0 из 0`.
+
 ### `LinkTableRow`
 
 A clickable list row that navigates to `to`. It is a `TableRow` with `hover`, `position: relative` and a
