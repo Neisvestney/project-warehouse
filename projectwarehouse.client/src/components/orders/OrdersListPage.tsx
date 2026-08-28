@@ -337,7 +337,7 @@ function OrdersListPage({
               }
               disabled={selfAssignMutation.isPending}
               onClick={handleSelfAssignSelected}
-              sx={{color: "primary.main", bgcolor: "white"}}
+              sx={{color: "primary.main"}}
             >
               Взять на себя ({selectedConfirmedIds.length})
             </Button>
