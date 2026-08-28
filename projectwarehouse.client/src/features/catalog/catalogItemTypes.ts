@@ -7,11 +7,11 @@ export type CatalogItemTypeConfig = {
 };
 
 export const CATALOG_ITEM_TYPE_CONFIG: Record<CatalogItemType, CatalogItemTypeConfig> = {
-  standard: {label: "Товар", color: "default"},
-  unit: {label: "Штучный", color: "info"},
-  productGroup: {label: "Группа", color: "secondary"},
-  variation: {label: "Вариация", color: "warning"},
-  bundle: {label: "Комплект", color: "success"},
+  standard: {label: "Товар", color: "itemStandard"},
+  unit: {label: "Штучный", color: "itemUnit"},
+  productGroup: {label: "Группа", color: "itemProductGroup"},
+  variation: {label: "Вариация", color: "itemVariation"},
+  bundle: {label: "Комплект", color: "itemBundle"},
 };
 
 export const CATALOG_ITEM_TYPES = Object.keys(CATALOG_ITEM_TYPE_CONFIG) as CatalogItemType[];

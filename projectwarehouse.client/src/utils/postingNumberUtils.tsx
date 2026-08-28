@@ -1,7 +1,7 @@
 import type {ReactNode} from "react";
 import {Box} from "@mui/material";
 
-// Выделяем последние 4 цифры первого сегмента: 0132298262-0184-1 -> 8262
+// Highlights the last 4 digits of the first segment: 0132298262-0184-1 -> 8262
 const HIGHLIGHTED_PART_REGEX = /^(\d*)(\d{4})(?=-|$)/;
 
 export function formatPostingNumber(postingNumber: string | null | undefined): ReactNode {
@@ -19,8 +19,8 @@ export function formatPostingNumber(postingNumber: string | null | undefined): R
           display: "inline-block",
           px: 0.5,
           borderRadius: 1,
-          bgcolor: "common.black",
-          color: "common.white",
+          bgcolor: "text.primary",
+          color: "background.paper",
           fontWeight: "bold",
           lineHeight: 1.4,
         }}

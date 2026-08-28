@@ -4,6 +4,16 @@ import {Link, useLocation} from "react-router";
 import {isActive, isGroup} from "./navItems.ts";
 import type {SidebarNavGroup, SidebarNavItem, SidebarNavLeafItem} from "./navItems.ts";
 
+// The active section takes the accent outright: the `Mui-selected` plate alone does not stand out
+// among a dozen otherwise identical rows.
+const navItemSx = {
+  borderRadius: 1,
+  "&.Mui-selected": {
+    "& .MuiListItemIcon-root": {color: "primary.main"},
+    "& .MuiListItemText-primary": {color: "primary.main", fontWeight: 600},
+  },
+};
+
 export interface SidebarLayoutProps {
   navItems: SidebarNavItem[];
   children: React.ReactNode;
@@ -21,7 +31,7 @@ function SidebarDesktopLeaf({
       component={Link}
       to={item.path}
       selected={isActive(item.path, locationPathname)}
-      sx={{borderRadius: 1}}
+      sx={navItemSx}
     >
       {item.icon && <ListItemIcon sx={{minWidth: 36}}>{item.icon}</ListItemIcon>}
       <ListItemText primary={item.label} />
@@ -43,7 +53,7 @@ function SidebarDesktopGroup({
         component={Link}
         to={item.defaultPath}
         // selected={groupActive}
-        sx={{borderRadius: 1}}
+        sx={navItemSx}
       >
         {item.icon && <ListItemIcon sx={{minWidth: 36}}>{item.icon}</ListItemIcon>}
         <ListItemText
@@ -57,7 +67,7 @@ function SidebarDesktopGroup({
           component={Link}
           to={child.path}
           selected={isActive(child.path, locationPathname)}
-          sx={{pl: 4, borderRadius: 1}}
+          sx={[navItemSx, {pl: 4}]}
         >
           {child.icon && <ListItemIcon sx={{minWidth: 36}}>{child.icon}</ListItemIcon>}
           <ListItemText primary={child.label} />
