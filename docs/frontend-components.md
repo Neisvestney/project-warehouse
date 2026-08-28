@@ -2,7 +2,8 @@
 
 Reusable components and feature modules — the conventions, compositions and gotchas that reading the file will
 not tell you. Props interfaces are deliberately not mirrored here; open the component.
-Architecture overview: [frontend.md](frontend.md).
+Architecture overview: [frontend.md](frontend.md). A new drawer, modal or fullscreen overlay starts from the
+checklist in [frontend-state.md → Overlays](frontend-state.md#overlays).
 
 ## Layout & tables
 

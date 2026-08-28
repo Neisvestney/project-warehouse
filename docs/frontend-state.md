@@ -28,6 +28,32 @@ navigation can never be overwritten by a stale re-application.
 Generic debounce hook. Returns the debounced copy of `value`; updates only after `delay` ms of inactivity
 (default 300 ms).
 
+### `useRetainedValue<T>(value)`
+
+Returns `[shownValue, release]`. While `value` is non-nullish the hook mirrors it; once it turns `null` the
+last non-nullish value is kept until `release()` is called.
+
+Use it for anything whose content is derived from the same id that also drives its `open` flag. Clearing the
+id closes the overlay and empties its body in the same commit, so the exit animation plays over a blank
+panel. Render the body from `shownValue` and wire `release` to the transition's `onExited`:
+
+```tsx
+const [shownItemId, releaseShownItem] = useRetainedValue(itemId);
+
+<Drawer open={!!itemId} slotProps={{transition: {onExited: releaseShownItem}}}>
+  {shownItemId && <ViewMode itemId={shownItemId} />}
+</Drawer>;
+```
+
+The query behind the body stays enabled for `shownValue` too, so the cached data is still there while the
+panel slides out. Anything that must react to the close immediately — releasing an edit lock, dismissing a
+nested dialog — keeps reading the raw `value` instead. Local state that resets per item is keyed off
+`shownValue`, which makes the reset happen on `release` rather than mid-animation.
+
+That split leaves the retained body outliving whatever the raw `value` guarded, so the panel is muted with
+`pointerEvents: "none"` while it slides out: an edit form still on screen after its lock was released must
+not accept input, let alone a save.
+
 ### `useBackClosable(open, onClose)`
 
 Makes a fullscreen overlay dismissable with Back. While `open`, the hook holds one history entry of its own
@@ -53,7 +79,9 @@ runs in dev, and it only shows on an overlay mounted already open (`FileViewerMo
 `idx` is copied unchanged, so the held entry is invisible to react-router's own index tracking. That is safe
 while nothing in the app uses `useBlocker` / `usePrompt`, which are the only consumers of that delta.
 
-Used by `MainNavDrawer`, `GlobalSearchModal` and `FileViewerModal`.
+Used by `MainNavDrawer`, `GlobalSearchModal` and `FileViewerModal` — overlays whose open state is local. A
+drawer driven by [`useDrawerSearchParamsState`](#usedrawersearchparamsstatename) answers to Back through the
+navigation itself and must not use this hook as well.
 
 `dropOverlayHistoryEntries()`, exported from the same module, is called in `main.tsx` before `mountApp()`. A reload with an overlay open restores the held entry while the overlay itself
 is gone, and that orphan entry then eats one Back press before the user actually leaves the page — two
@@ -244,6 +272,51 @@ its nested `CatalogItemDrawer` are the reference case. A search param there woul
 reopen the nested drawer over a closed parent, so the state must not outlive the parent's own lifetime. The
 trade-off is deliberate: no deep link, and «назад» does not close the drawer — pair it with
 [`useBackClosable`](#usebackclosableopen-onclose) when the drawer should answer to the Back button.
+
+## Overlays
+
+Every new drawer, modal or fullscreen overlay wires the same two things. They are not optional polish — each
+one covers a defect that is invisible on the developer's machine and obvious on a phone.
+
+**Back closes the overlay** — always, including the hardware button in the Capacitor build. There are two ways
+to get there and they are mutually exclusive:
+
+- [`useDrawerSearchParamsState`](#usedrawersearchparamsstatename) — the default. The id lives in a search param
+  and `openDrawer` navigates forward, so Back already closes the overlay and the URL is deep-linkable. Adding
+  `useBackClosable` on top of it would hold a second entry for the same overlay and Back would need two presses.
+- [`useBackClosable`](#usebackclosableopen-onclose) — for an overlay whose open state is not in the URL, paired
+  with [`useDrawerLocalState`](#usedrawerlocalstate) or a plain `useState`. Pass it the same flag that drives
+  `open`.
+
+Which one applies follows from the parent, and nesting is directional: a URL-driven overlay can host a
+`useBackClosable` one above it, never the other way round. `useBackClosable` holds a history entry of its own
+while open, so a nested search-param drawer would push its entries above that one, and `closeDrawer`'s walk
+back to the recorded index crosses it — the outer overlay sees a marker that is no longer its own and closes
+underneath the inner one. An overlay opened from inside a `useBackClosable` overlay therefore keeps its state
+local.
+
+**The body survives the exit animation.** Feed the id through
+[`useRetainedValue`](#useretainedvaluetvalue), render the content from `shownValue`, and release it from the
+transition's `onExited`:
+
+```tsx
+const [shownId, releaseShown] = useRetainedValue(selectedId);
+
+<Drawer
+  open={!!selectedId}
+  slotProps={{
+    transition: {onExited: releaseShown},
+    paper: {sx: {pointerEvents: selectedId ? undefined : "none"}},
+  }}
+>
+  {shownId && <Body id={shownId} />}
+</Drawer>;
+```
+
+The `pointerEvents: "none"` belongs to the same pattern and is mandatory whenever the overlay is interactive.
+The retained body outlives whatever the raw id guarded — an edit lock, a permission check, a mutation's
+`enabled` flag — so for the length of the exit animation the user is looking at a live form whose guards are
+already gone. Muting the panel makes the closing overlay purely decorative.
 
 ## Form Hooks
 
