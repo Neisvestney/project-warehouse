@@ -55,9 +55,7 @@ while nothing in the app uses `useBlocker` / `usePrompt`, which are the only con
 
 Used by `MainNavDrawer`, `GlobalSearchModal` and `FileViewerModal`.
 
-`dropOverlayHistoryEntries()`, exported from the same module, is the history-side counterpart of
-[`stripEphemeralSearchParams()`](frontend.md#stripephemeralsearchparams) and is called next to it in
-`main.tsx` before `mountApp()`. A reload with an overlay open restores the held entry while the overlay itself
+`dropOverlayHistoryEntries()`, exported from the same module, is called in `main.tsx` before `mountApp()`. A reload with an overlay open restores the held entry while the overlay itself
 is gone, and that orphan entry then eats one Back press before the user actually leaves the page — two
 presses to go back, one per overlay that was open. The function walks off them: while the current entry
 carries the marker it strips it via `history.replaceState` — so a Forward press cannot land on an entry still
@@ -229,15 +227,23 @@ const [selectedId, openDrawer, closeDrawer] = useDrawerSearchParamsState("item")
 <MyDrawer open={!!selectedId} onClose={closeDrawer} item={…} />
 ```
 
-**Params of drawers nested inside a parent whose own open state is *not* in the URL** must be registered in
-`EPHEMERAL_PARAMS` (`utils/ephemeralSearchParams.ts`) — otherwise a refresh restores the nested drawer with its
-parent closed. `FulfillmentsDrawer` (`?fulfillmentCatalogItem=`) is the reference case; see
-[`stripEphemeralSearchParams()`](frontend.md#stripephemeralsearchparams).
-
 Param names in use: `?item=` (`CatalogPage`, page-local), `?storagePlace=` (`WarehouseViewPage`),
-`?catalogItem=` / `?unitCatalogItem=` (`ItemsBasePage` and every page showing catalog item links),
-`?fulfillmentCatalogItem=` (ephemeral). `"catalogItem"` is the shared, cold-load-safe name and must never be
-reused for a nested drawer.
+`?catalogItem=` / `?unitCatalogItem=` (`ItemsBasePage` and every page showing catalog item links).
+`"catalogItem"` is the shared, cold-load-safe name and must never be reused for a nested drawer.
+
+### `useDrawerLocalState()`
+
+Same `[selectedItemId, openDrawer, closeDrawer]` triple, but the id lives in `useState` instead of the URL.
+
+```tsx
+const [selectedId, openDrawer, closeDrawer] = useDrawerLocalState();
+```
+
+Use it for a drawer nested inside a parent whose own open state is _not_ in the URL — `FulfillmentsDrawer` and
+its nested `CatalogItemDrawer` are the reference case. A search param there would survive a cold load and
+reopen the nested drawer over a closed parent, so the state must not outlive the parent's own lifetime. The
+trade-off is deliberate: no deep link, and «назад» does not close the drawer — pair it with
+[`useBackClosable`](#usebackclosableopen-onclose) when the drawer should answer to the Back button.
 
 ## Form Hooks
 

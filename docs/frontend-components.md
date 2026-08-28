@@ -383,8 +383,8 @@ Edit is hidden for items with a `groupId` — those are managed by the parent gr
 
 **Convention:** wherever a catalog item name is rendered — table cell, card headline, drawer row — it should be
 a `CatalogItemLink` that opens this drawer. When building a new page or drawer that shows catalog items, add the
-open-drawer affordance as part of the initial implementation, not as a follow-up. State always goes through
-`useDrawerSearchParamsState`, so «назад» closes the drawer; only the param name differs:
+open-drawer affordance as part of the initial implementation, not as a follow-up. Where the state lives depends
+on whether the owner itself is addressable by URL:
 
 - **Page, single link owner** → `useDrawerSearchParamsState("catalogItem")` plus a local `<CatalogItemDrawer>`.
   The opened item lands in the URL and stays deep-linkable (`ItemsBasePage`, `ReceiptItemsSection`,
@@ -393,10 +393,10 @@ open-drawer affordance as part of the initial implementation, not as a follow-up
 - **Page whose links live in components rendered in a loop** → wrap the page in `CatalogItemDrawerHost` and
   call `useOpenCatalogItem()` in the leaf. A per-component drawer would open N copies at once, since the state
   is shared via the URL.
-- **Nested inside a drawer/dialog whose own open state is _not_ in the URL** → use a distinct param name and
-  register it in `EPHEMERAL_PARAMS`, e.g. `"fulfillmentCatalogItem"` in `FulfillmentsDrawer`. Otherwise a reload
-  would reopen the nested drawer on top of a closed parent. Never reuse `"catalogItem"` for this — that name
-  must survive a cold load.
+- **Nested inside a drawer/dialog whose own open state is _not_ in the URL** → `useDrawerLocalState()`, with the
+  nested `<CatalogItemDrawer>` rendered inside the parent. `FulfillmentsDrawer` is the reference case. A URL
+  param here would survive a cold load and reopen the nested drawer on top of a closed parent. Never reuse
+  `"catalogItem"` for this — that name must survive a cold load.
 
 ### `CatalogItemDrawerHost`
 
@@ -786,8 +786,8 @@ inventory number for `Unit`, chosen variant for `Variation`, an expanded compone
 assembled it and when. Opened from the order page's «Коробки и состав» and «Задания на сборку» cards, and from
 the eye `IconButton` on every component row of `OrdersAssemblyPage`.
 
-Every catalog item inside the drawer is a `CatalogItemLink` opening a nested `CatalogItemDrawer`, held in the
-`?fulfillmentCatalogItem=` param (an ephemeral param, since this drawer's own open state is local): the card
+Every catalog item inside the drawer is a `CatalogItemLink` opening a nested `CatalogItemDrawer`, held in local
+state (the drawer's own open state is local too, so the URL stays out of it): the card
 headline uses the optional `catalogItemId` prop — the position's own item, which `AssemblyFulfillmentDto` does
 not carry, so callers pass it down; the «Вариант: …» row uses `resolvedCatalogItemId`; bundle rows use each
 component's `catalogItemId`. Without `catalogItemId` the headline renders as plain text.

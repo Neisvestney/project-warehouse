@@ -86,6 +86,7 @@ import {formatEntityBarcode} from "@/utils/barcodeUtils";
 import {openPrintPage, type PrintItem} from "@/utils/printUtils";
 import type {BarcodeType} from "@/pages/PrintPage/BarcodeLabel";
 import MarketplaceAccountChip from "@/components/marketplace/MarketplaceAccountChip";
+import {useBackClosable} from "@/hooks/useBackClosable.ts";
 
 const DRAWER_WIDTH = 1000;
 
@@ -1219,9 +1220,15 @@ export interface CatalogItemDrawerProps {
   itemId: string | null;
   onClose: () => void;
   onOpenItem?: (id: string) => void;
+  backClosable?: boolean;
 }
 
-export function CatalogItemDrawer({itemId, onClose, onOpenItem}: CatalogItemDrawerProps) {
+export function CatalogItemDrawer({
+  itemId,
+  onClose,
+  onOpenItem,
+  backClosable,
+}: CatalogItemDrawerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
@@ -1229,6 +1236,8 @@ export function CatalogItemDrawer({itemId, onClose, onOpenItem}: CatalogItemDraw
   const canEdit = useHasPermission("catalog.edit");
   const queryClient = useQueryClient();
   const {enqueueSnackbar} = useSnackbar();
+
+  useBackClosable(!!itemId && !!backClosable, onClose);
 
   if (prevItemId !== itemId) {
     setPrevItemId(itemId);

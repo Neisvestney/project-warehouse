@@ -9,8 +9,7 @@ const isOverlayEntry = (state: unknown) =>
  * Walks back off the entries a reload froze into the stack — the overlays that held them are gone
  * after a cold start, so the entries would otherwise eat one Back press each before the user
  * actually leaves the page. Each entry is stripped of its marker before being left behind, so a
- * Forward press cannot land on one still claiming to be held. Call before React mounts, alongside
- * `stripEphemeralSearchParams()`.
+ * Forward press cannot land on one still claiming to be held. Call before React mounts.
  */
 export function dropOverlayHistoryEntries() {
   if (!isOverlayEntry(window.history.state)) return;

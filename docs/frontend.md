@@ -173,14 +173,6 @@ if (query.isError)
   return isNotFoundError(query.error) ? <NotFound /> : <QueryError error={query.error} />;
 ```
 
-### `stripEphemeralSearchParams()`
-
-Called in `main.tsx` before `mountApp()` (same slot as the existing `clear_server` cleanup). Deletes every
-param listed in `EPHEMERAL_PARAMS` (`utils/ephemeralSearchParams.ts`) from the current URL via
-`history.replaceState`, so they never survive a cold entry (F5, bookmark, pasted link) but are untouched by
-in-app SPA navigation. Running before React mounts means the drawer doesn't flash open for a frame, and the
-history entry is replaced rather than pushed.
-
 ### Номер отправления
 
 `formatPostingNumber(postingNumber)` from `@/utils/postingNumberUtils` returns a `ReactNode` where the last 4
