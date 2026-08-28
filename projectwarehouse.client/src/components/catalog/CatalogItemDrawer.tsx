@@ -88,6 +88,8 @@ import type {BarcodeType} from "@/pages/PrintPage/BarcodeLabel";
 import MarketplaceAccountChip from "@/components/marketplace/MarketplaceAccountChip";
 import {useBackClosable} from "@/hooks/useBackClosable.ts";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
+import CatalogItemLink from "@/components/catalog/CatalogItemLink.tsx";
+import {CATALOG_ITEM_TYPE_CONFIG} from "@/features/catalog";
 
 const DRAWER_WIDTH = 1000;
 
@@ -575,9 +577,10 @@ function ViewMode({
                         key={q.data.id}
                         label={q.data.fullName}
                         size="small"
-                        variant="outlined"
+                        variant="filled"
                         onClick={onOpenItem ? () => onOpenItem(q.data!.id) : undefined}
                         sx={{cursor: onOpenItem ? "pointer" : "default"}}
+                        color={CATALOG_ITEM_TYPE_CONFIG[q.data.type].color}
                       />
                     ) : (
                       <Chip key={i} label="…" size="small" variant="outlined" />
@@ -600,6 +603,7 @@ function ViewMode({
                 <Table size="small">
                   <TableHead>
                     <TableRow>
+                      <TableCell>Тип</TableCell>
                       <TableCell>Позиция</TableCell>
                       <TableCell align="right">Кол-во</TableCell>
                     </TableRow>
@@ -608,14 +612,17 @@ function ViewMode({
                     {data.components.map((c) => (
                       <TableRow key={c.id}>
                         <TableCell>
+                          <CatalogItemTypeChip type={c.componentType} />
+                        </TableCell>
+                        <TableCell>
                           {onOpenItem ? (
-                            <Button
-                              size="small"
-                              onClick={() => onOpenItem(c.componentId)}
-                              sx={{p: 0, minWidth: 0, textTransform: "none", fontWeight: "normal"}}
+                            <CatalogItemLink
+                              catalogItemId={c.componentId}
+                              onOpen={onOpenItem}
+                              sx={{gap: 1}}
                             >
                               {c.componentName}
-                            </Button>
+                            </CatalogItemLink>
                           ) : (
                             c.componentName
                           )}
