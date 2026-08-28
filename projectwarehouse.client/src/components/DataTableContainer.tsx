@@ -64,6 +64,8 @@ function DataTableContainer({
   const from = count === 0 ? 0 : (page - 1) * rowsPerPage + 1;
   const to = Math.min(count, page * rowsPerPage);
   const showFloating = !disableFloatingPagination && !paginationVisible && count > rowsPerPage;
+  // a background refetch keeps the previous totals, so only a first load has nothing to show
+  const showSkeleton = isFetching && count === 0;
 
   return (
     <Paper {...paperProps}>
@@ -72,7 +74,7 @@ function DataTableContainer({
       />
       <TableContainer>{children}</TableContainer>
       <Box ref={paginationRef}>
-        {isFetching ? (
+        {showSkeleton ? (
           <Box
             sx={{
               display: "flex",
@@ -133,7 +135,7 @@ function DataTableContainer({
           >
             <KeyboardArrowLeftIcon fontSize="small" />
           </IconButton>
-          {isFetching ? (
+          {showSkeleton ? (
             <Skeleton variant="text" width={90} />
           ) : (
             <Typography variant="caption" aria-live="polite" sx={{whiteSpace: "nowrap"}}>

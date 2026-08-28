@@ -105,8 +105,9 @@ arrows and a `21–40 из 250` counter, so paging stays reachable from the midd
 soon as the real pagination scrolls into view. `disableFloatingPagination` turns the pill off for a list that
 does not want it.
 
-While `isFetching`, both the row and the pill swap their counters for `Skeleton`s and the arrows go `disabled` —
-a pending page carries no totals, and rendering them would flash a `0–0 из 0`.
+On a first load (`isFetching` with `count === 0`) both the row and the pill swap their counters for `Skeleton`s,
+instead of flashing a `0–0 из 0`. A background refetch keeps the previous totals on screen and only disables the
+arrows, so an invalidation does not make the pagination blink.
 
 ### `LinkTableRow`
 
