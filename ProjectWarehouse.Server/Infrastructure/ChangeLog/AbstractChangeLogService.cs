@@ -111,7 +111,7 @@ public abstract class AbstractChangeLogService : IChangeLogService
         await _realtime.PublishEntityChangedAsync(entityType, entityId, changeLogEntry.UserId,
             _httpContextAccessor.HttpContext?.User.GetDisplayName());
         
-        _logger.LogInformation("Changelog entry created: {ChangeLogEntry}", changeLogEntry);
+        _logger.LogInformation("Changelog entry created [type: {EntityType}, id: {EntityId}]", changeLogEntry.EntityType, changeLogEntry.EntityId);
     }
 
     public IQueryable<ChangeLogEntry> GetChangelog(AppEntityType entityType, Guid entityId)
