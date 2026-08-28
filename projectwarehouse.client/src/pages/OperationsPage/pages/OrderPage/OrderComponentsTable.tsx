@@ -5,6 +5,7 @@ import {
   Button,
   CircularProgress,
   IconButton,
+  Paper,
   Stack,
   Table,
   TableBody,
@@ -13,6 +14,8 @@ import {
   TableRow,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -52,6 +55,8 @@ function OrderComponentsTable({
   canEdit,
 }: OrderComponentsTableProps) {
   const orderId = order.id;
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const openCatalogItem = useOpenCatalogItem();
   const queryClient = useQueryClient();
   const queryKey = ordersGetByIdQueryKey({path: {id: orderId}});
@@ -111,80 +116,170 @@ function OrderComponentsTable({
     });
   }
 
+  function openFulfillments(component: OrderBoxComponentDto) {
+    setFulfillmentsTarget(component);
+    setFulfillmentsDrawerOpen(true);
+  }
+
+  function getFulfilledQty(component: OrderBoxComponentDto) {
+    if (!hasAssembly) return 0;
+    return countFulfilledQty(
+      collectBoxComponentFulfillments(order, boxId, component.catalogItemId),
+    );
+  }
+
   return (
     <>
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Позиция</TableCell>
-            <TableCell>Тип</TableCell>
-            <TableCell sx={{width: 100}}>Кол-во</TableCell>
-            {hasAssembly && <TableCell sx={{width: 90}}>Собрано</TableCell>}
-            {canDelete && <TableCell sx={{width: 80}} />}
-          </TableRow>
-        </TableHead>
-        <TableBody>
+      {isMobile ? (
+        <Stack spacing={1} sx={{p: 1.5, pb: canAdd ? 0 : 1.5}}>
           {components.map((c) => {
-            const fulfilledQty = hasAssembly
-              ? countFulfilledQty(collectBoxComponentFulfillments(order, boxId, c.catalogItemId))
-              : 0;
+            const fulfilledQty = getFulfilledQty(c);
             return (
-              <TableRow
+              <Paper
                 key={c.id}
-                hover
-                sx={{cursor: "pointer"}}
-                onClick={() => {
-                  setFulfillmentsTarget(c);
-                  setFulfillmentsDrawerOpen(true);
-                }}
+                variant="outlined"
+                sx={{p: 1.5, cursor: "pointer"}}
+                onClick={() => openFulfillments(c)}
               >
-                <TableCell>
-                  <CatalogItemLink catalogItemId={c.catalogItemId} onOpen={openCatalogItem}>
-                    <Typography variant="body2">{c.catalogItemName}</Typography>
-                  </CatalogItemLink>
-                </TableCell>
-                <TableCell>
-                  <CatalogItemTypeChip type={c.catalogItemType} />
-                </TableCell>
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  {canEditQuantity ? (
-                    <ClampedIntegerField
-                      size="small"
-                      value={c.quantity}
-                      onCommit={(qty) => handleQuantityChange(c, qty)}
-                      slotProps={{htmlInput: {style: {width: 60}}}}
-                      variant="outlined"
-                    />
-                  ) : (
-                    c.quantity
-                  )}
-                </TableCell>
-                {hasAssembly && (
-                  <TableCell
-                    sx={{color: fulfilledQty >= c.quantity ? "success.main" : "text.secondary"}}
-                  >
-                    {fulfilledQty}
-                  </TableCell>
-                )}
-                {canDelete && (
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Tooltip title="Удалить">
-                      <IconButton size="small" color="error" onClick={() => setDeleteTarget(c)}>
+                <Stack spacing={1}>
+                  <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
+                    <Box sx={{flex: 1, minWidth: 0}}>
+                      <CatalogItemLink catalogItemId={c.catalogItemId} onOpen={openCatalogItem}>
+                        <Typography variant="body2">{c.catalogItemName}</Typography>
+                      </CatalogItemLink>
+                      <Box sx={{mt: 0.5}}>
+                        <CatalogItemTypeChip type={c.catalogItemType} />
+                      </Box>
+                    </Box>
+                    {canDelete && (
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget(c);
+                        }}
+                      >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                )}
-              </TableRow>
+                    )}
+                  </Stack>
+                  <Stack
+                    direction="row"
+                    spacing={2}
+                    sx={{alignItems: "center", flexWrap: "wrap", rowGap: 1}}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+                      <Typography variant="caption" color="text.secondary">
+                        Кол-во
+                      </Typography>
+                      {canEditQuantity ? (
+                        <ClampedIntegerField
+                          size="small"
+                          value={c.quantity}
+                          onCommit={(qty) => handleQuantityChange(c, qty)}
+                          slotProps={{htmlInput: {style: {width: 60}}}}
+                          variant="outlined"
+                        />
+                      ) : (
+                        <Typography variant="body2">{c.quantity}</Typography>
+                      )}
+                    </Stack>
+                    {hasAssembly && (
+                      <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+                        <Typography variant="caption" color="text.secondary">
+                          Собрано
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: fulfilledQty >= c.quantity ? "success.main" : "text.secondary",
+                          }}
+                        >
+                          {fulfilledQty}
+                        </Typography>
+                      </Stack>
+                    )}
+                  </Stack>
+                </Stack>
+              </Paper>
             );
           })}
-        </TableBody>
-      </Table>
+        </Stack>
+      ) : (
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Позиция</TableCell>
+              <TableCell>Тип</TableCell>
+              <TableCell sx={{width: 100}}>Кол-во</TableCell>
+              {hasAssembly && <TableCell sx={{width: 90}}>Собрано</TableCell>}
+              {canDelete && <TableCell sx={{width: 80}} />}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {components.map((c) => {
+              const fulfilledQty = getFulfilledQty(c);
+              return (
+                <TableRow
+                  key={c.id}
+                  hover
+                  sx={{cursor: "pointer"}}
+                  onClick={() => openFulfillments(c)}
+                >
+                  <TableCell>
+                    <CatalogItemLink catalogItemId={c.catalogItemId} onOpen={openCatalogItem}>
+                      <Typography variant="body2">{c.catalogItemName}</Typography>
+                    </CatalogItemLink>
+                  </TableCell>
+                  <TableCell>
+                    <CatalogItemTypeChip type={c.catalogItemType} />
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    {canEditQuantity ? (
+                      <ClampedIntegerField
+                        size="small"
+                        value={c.quantity}
+                        onCommit={(qty) => handleQuantityChange(c, qty)}
+                        slotProps={{htmlInput: {style: {width: 60}}}}
+                        variant="outlined"
+                      />
+                    ) : (
+                      c.quantity
+                    )}
+                  </TableCell>
+                  {hasAssembly && (
+                    <TableCell
+                      sx={{color: fulfilledQty >= c.quantity ? "success.main" : "text.secondary"}}
+                    >
+                      {fulfilledQty}
+                    </TableCell>
+                  )}
+                  {canDelete && (
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Tooltip title="Удалить">
+                        <IconButton size="small" color="error" onClick={() => setDeleteTarget(c)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      )}
 
       {canAdd && (
         <Box sx={{p: 2, pt: 1}}>
           <Stack spacing={1}>
-            <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
+            <Stack
+              direction={isMobile ? "column" : "row"}
+              spacing={1}
+              sx={{alignItems: isMobile ? "stretch" : "flex-start"}}
+            >
               <CatalogItemsSelect
                 multiple={false}
                 value={addCatalogItemId}

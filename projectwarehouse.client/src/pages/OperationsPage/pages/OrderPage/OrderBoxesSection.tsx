@@ -97,34 +97,40 @@ function OrderBoxesSection({order, canEdit}: OrderBoxesSectionProps) {
           orderStatus={order.status}
           canEdit={canEdit}
         />
-        <Divider sx={{my: 2}} />
         {canAddBox && (
-          <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
-            <TextField
-              label="Название новой коробки (необязательно)"
-              size="small"
-              value={newBoxLabel}
-              onChange={(e) => setNewBoxLabel(e.target.value)}
-              sx={{flex: 1}}
-            />
-            <Button
-              size="small"
-              sx={{
-                whiteSpace: "nowrap",
-                alignSelf: "stretch",
-              }}
-              startIcon={addBoxMutation.isPending ? <CircularProgress size={14} /> : <AddIcon />}
-              disabled={addBoxMutation.isPending}
-              onClick={() =>
-                addBoxMutation.mutate({
-                  path: {id: order.id},
-                  body: {label: newBoxLabel.trim() || null},
-                })
-              }
+          <>
+            <Divider sx={{my: 2}} />
+            <Stack
+              direction={{xs: "column", sm: "row"}}
+              spacing={1}
+              sx={{alignItems: {xs: "stretch", sm: "center"}}}
             >
-              Добавить коробку
-            </Button>
-          </Stack>
+              <TextField
+                label="Название новой коробки (необязательно)"
+                size="small"
+                value={newBoxLabel}
+                onChange={(e) => setNewBoxLabel(e.target.value)}
+                sx={{flex: 1}}
+              />
+              <Button
+                size="small"
+                sx={{
+                  whiteSpace: "nowrap",
+                  alignSelf: "stretch",
+                }}
+                startIcon={addBoxMutation.isPending ? <CircularProgress size={14} /> : <AddIcon />}
+                disabled={addBoxMutation.isPending}
+                onClick={() =>
+                  addBoxMutation.mutate({
+                    path: {id: order.id},
+                    body: {label: newBoxLabel.trim() || null},
+                  })
+                }
+              >
+                Добавить коробку
+              </Button>
+            </Stack>
+          </>
         )}
         {addBoxError && (
           <Alert severity="error" sx={{mt: 1}}>
@@ -152,14 +158,19 @@ function OrderBoxesSection({order, canEdit}: OrderBoxesSectionProps) {
         <Accordion key={box.id} defaultExpanded disableGutters>
           <AccordionSummary
             expandIcon={<ExpandMoreIcon />}
-            sx={{bgcolor: "grey.50", "&:hover": {bgcolor: "grey.100"}}}
+            sx={{bgcolor: "action.hover", "&:hover": {bgcolor: "action.selected"}}}
           >
             <Stack
               direction="row"
               sx={{alignItems: "center", justifyContent: "space-between", width: "100%", pr: 1}}
             >
               {editingLabel?.boxId === box.id ? (
-                <Stack direction="row" spacing={1} onClick={(e) => e.stopPropagation()}>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{flexWrap: "wrap", rowGap: 1}}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <TextField
                     size="small"
                     value={editingLabel.label}
@@ -226,7 +237,11 @@ function OrderBoxesSection({order, canEdit}: OrderBoxesSectionProps) {
       ))}
 
       {canAddBox && (
-        <Stack direction="row" spacing={1} sx={{alignItems: "center", mt: 1}}>
+        <Stack
+          direction={{xs: "column", sm: "row"}}
+          spacing={1}
+          sx={{alignItems: {xs: "stretch", sm: "center"}, mt: 1}}
+        >
           <TextField
             label="Название новой коробки (необязательно)"
             size="small"

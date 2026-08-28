@@ -148,6 +148,19 @@ DST transition starts sending the new value on its own; the zone actually applie
 as `timeZoneId`, and it is not always the one that was sent — a warehouse with its own zone wins. See
 [stock-forecast-specification.md](stock-forecast-specification.md#резолвер-пояса).
 
+### Таблицы на узких экранах
+
+A dense `Table` — a chip column, an editable quantity field, an action icon — does not fit a phone: the row
+either overflows the `Paper` or squeezes every column to one word. Such a table renders a card list instead
+below `theme.breakpoints.down("sm")` (`useMediaQuery`), one outlined `Paper` per row: the identity of the row
+(link plus type chip) on top, the numbers as `caption` label + value pairs underneath, the row action as an
+icon in the top-right corner. The row's own click target (a drawer, a details view) moves onto the card, so
+every interactive control inside it stops propagation, exactly as the cells did.
+
+The same breakpoint turns an inline "add" form (`direction="row"` select + quantity + button) into a column,
+otherwise the select collapses to a few characters. `ReceiptItemsSection` and the order page's
+`OrderComponentsTable` / `OrderBoxesSection` are the worked examples.
+
 ### Inline error branches
 
 A page fetching one entity by id renders `<NotFound />` for a 404 and `<QueryError error={…} />` for anything
@@ -708,6 +721,10 @@ The dark scheme overrides the MUI defaults rather than inheriting them:
 - `MuiTableCell` takes its bottom border from `divider` in the dark scheme. MUI derives that border from
   a formula — `darken(alpha(divider, 1), 0.68)` — which lands far heavier against a dark surface than its
   light counterpart does against white, and heavier than every other line in the app.
+- A raised sub-surface inside a `Paper` — an `AccordionSummary` header, a sticky table head — takes
+  `action.hover` (and `action.selected` on hover), never a hard-coded `grey.50`/`grey.100`. The `grey` ramp
+  is one fixed scale shared by both schemes, so a light grey stays light on a near-black card and the header
+  turns into a white bar.
 - `MuiListItemIcon` is retinted to `text.secondary` in the dark scheme. MUI gives list icons
   `action.active`, which is a little over half-opacity black in light but pure white in dark — so icons
   come out *brighter* than the labels beside them and the hierarchy inverts between schemes.
