@@ -132,6 +132,7 @@ export function UnitItemsDrawer({
           onRowsPerPageChange={setPageSize}
           rowsPerPageOptions={[10, 20, 50]}
           elevation={0}
+          disableFloatingPagination
         >
           <Table size="small">
             <TableHead>
