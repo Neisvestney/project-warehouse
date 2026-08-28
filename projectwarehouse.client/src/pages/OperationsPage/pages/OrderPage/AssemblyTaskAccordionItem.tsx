@@ -5,6 +5,7 @@ import {
   AccordionSummary,
   Box,
   Chip,
+  Paper,
   Divider,
   IconButton,
   Stack,
@@ -15,6 +16,8 @@ import {
   TableRow,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import EditIcon from "@mui/icons-material/Edit";
@@ -30,6 +33,7 @@ import {useOpenCatalogItem} from "@/components/catalog/CatalogItemDrawerContext"
 import ConfirmDialog from "@/components/ConfirmDialog";
 import FulfillmentsDrawer from "@/components/orders/FulfillmentsDrawer";
 import {countFulfilledQty, getTaskProgress} from "@/components/orders/orderAssemblyUtils";
+import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import EditAssemblyTaskDialog from "./EditAssemblyTaskDialog";
 
 const TASK_STATUS_LABELS: Record<string, string> = {
@@ -52,6 +56,8 @@ interface AssemblyTaskAccordionItemProps {
 function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordionItemProps) {
   const queryClient = useQueryClient();
   const openCatalogItem = useOpenCatalogItem();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [fulfillmentsTarget, setFulfillmentsTarget] = useState<{
@@ -71,6 +77,11 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
   });
 
   const canDelete = canEdit && task.status === "pending";
+
+  function openFulfillments(component: AssemblyTaskBoxComponentDto, boxLabel?: string | null) {
+    setFulfillmentsTarget({component, boxLabel});
+    setFulfillmentsDrawerOpen(true);
+  }
 
   return (
     <Accordion disableGutters>
@@ -118,52 +129,105 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
       </AccordionSummary>
 
       <AccordionDetails sx={{p: 0}}>
-        {task.boxes.map((box) => (
+        {task.boxes.map((box, i) => (
           <Box key={box.id}>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{fontWeight: 600, display: "block", px: 2, py: 0.5}}
-            >
-              {box.orderBoxLabel ?? "Коробка"}
-            </Typography>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Позиция</TableCell>
-                  <TableCell sx={{width: 80}}>Кол-во</TableCell>
-                  <TableCell sx={{width: 80}}>Собрано</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
+            {task.boxes.length > 1 &&
+                <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{fontWeight: 600, display: "block", px: 2, py: 0.5}}
+                >
+                  {box.orderBoxLabel ?? `Коробка №${i}`}
+                </Typography>
+            }
+            {isMobile ? (
+              <Stack spacing={1} sx={{pb: 1}}>
                 {box.components.map((c) => {
                   const qty = countFulfilledQty(c.fulfillments);
                   return (
-                    <TableRow
+                    <Paper
                       key={c.id}
-                      hover
-                      sx={{cursor: "pointer"}}
-                      onClick={() => {
-                        setFulfillmentsTarget({component: c, boxLabel: box.orderBoxLabel});
-                        setFulfillmentsDrawerOpen(true);
-                      }}
+                      variant="outlined"
+                      sx={{p: 1.5, cursor: "pointer"}}
+                      onClick={() => openFulfillments(c, box.orderBoxLabel)}
                     >
-                      <TableCell>
-                        <CatalogItemLink catalogItemId={c.catalogItemId} onOpen={openCatalogItem}>
-                          <Typography variant="body2">{c.catalogItemName}</Typography>
-                        </CatalogItemLink>
-                      </TableCell>
-                      <TableCell>{c.quantity}</TableCell>
-                      <TableCell
-                        sx={{color: qty >= c.quantity ? "success.main" : "text.secondary"}}
-                      >
-                        {qty}
-                      </TableCell>
-                    </TableRow>
+                      <Stack spacing={1}>
+                        <Box sx={{minWidth: 0}}>
+                          <CatalogItemLink catalogItemId={c.catalogItemId} onOpen={openCatalogItem}>
+                            <Typography variant="body2">{c.catalogItemName}</Typography>
+                          </CatalogItemLink>
+                          <Box sx={{mt: 0.5}}>
+                            <CatalogItemTypeChip type={c.catalogItemType} />
+                          </Box>
+                        </Box>
+                        <Stack
+                          direction="row"
+                          spacing={2}
+                          sx={{alignItems: "center", flexWrap: "wrap", rowGap: 1}}
+                        >
+                          <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+                            <Typography variant="caption" color="text.secondary">
+                              Кол-во
+                            </Typography>
+                            <Typography variant="body2">{c.quantity}</Typography>
+                          </Stack>
+                          <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+                            <Typography variant="caption" color="text.secondary">
+                              Собрано
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{color: qty >= c.quantity ? "success.main" : "text.secondary"}}
+                            >
+                              {qty}
+                            </Typography>
+                          </Stack>
+                        </Stack>
+                      </Stack>
+                    </Paper>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </Stack>
+            ) : (
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Позиция</TableCell>
+                    <TableCell>Тип</TableCell>
+                    <TableCell sx={{width: 80}}>Кол-во</TableCell>
+                    <TableCell sx={{width: 80}}>Собрано</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {box.components.map((c) => {
+                    const qty = countFulfilledQty(c.fulfillments);
+                    return (
+                      <TableRow
+                        key={c.id}
+                        hover
+                        sx={{cursor: "pointer"}}
+                        onClick={() => openFulfillments(c, box.orderBoxLabel)}
+                      >
+                        <TableCell>
+                          <CatalogItemLink catalogItemId={c.catalogItemId} onOpen={openCatalogItem}>
+                            <Typography variant="body2">{c.catalogItemName}</Typography>
+                          </CatalogItemLink>
+                        </TableCell>
+                        <TableCell>
+                          <CatalogItemTypeChip type={c.catalogItemType} />
+                        </TableCell>
+                        <TableCell>{c.quantity}</TableCell>
+                        <TableCell
+                          sx={{color: qty >= c.quantity ? "success.main" : "text.secondary"}}
+                        >
+                          {qty}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
             <Divider />
           </Box>
         ))}
