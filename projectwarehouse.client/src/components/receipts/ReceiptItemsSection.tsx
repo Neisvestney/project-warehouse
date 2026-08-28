@@ -307,19 +307,17 @@ function ProcessingItemRow({
           </Collapse>
         </TableCell>
       </TableRow>
-      {placementDialogOpen && (
-        <AddPlacementDialog
-          open
-          onClose={() => setPlacementDialogOpen(false)}
-          receiptId={receipt.id}
-          item={item}
-          warehouseId={receipt.warehouseId}
-          onUpdate={(updatedItem) => {
-            onUpdate(mergeItem(updatedItem));
-            setPlacementDialogOpen(false);
-          }}
-        />
-      )}
+      <AddPlacementDialog
+        open={placementDialogOpen}
+        onClose={() => setPlacementDialogOpen(false)}
+        receiptId={receipt.id}
+        item={item}
+        warehouseId={receipt.warehouseId}
+        onUpdate={(updatedItem) => {
+          onUpdate(mergeItem(updatedItem));
+          setPlacementDialogOpen(false);
+        }}
+      />
     </>
   );
 }
@@ -462,19 +460,17 @@ function ProcessingItemCard({
           </Collapse>
         </Stack>
       </Paper>
-      {placementDialogOpen && (
-        <AddPlacementDialog
-          open
-          onClose={() => setPlacementDialogOpen(false)}
-          receiptId={receipt.id}
-          item={item}
-          warehouseId={receipt.warehouseId}
-          onUpdate={(updatedItem) => {
-            onUpdate(mergeItem(updatedItem));
-            setPlacementDialogOpen(false);
-          }}
-        />
-      )}
+      <AddPlacementDialog
+        open={placementDialogOpen}
+        onClose={() => setPlacementDialogOpen(false)}
+        receiptId={receipt.id}
+        item={item}
+        warehouseId={receipt.warehouseId}
+        onUpdate={(updatedItem) => {
+          onUpdate(mergeItem(updatedItem));
+          setPlacementDialogOpen(false);
+        }}
+      />
     </>
   );
 }
@@ -933,9 +929,9 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
         )
       ) : null}
 
-      {isDraftOrPlanned && editorOpen && (
+      {isDraftOrPlanned && (
         <ReceiptItemsEditorDrawer
-          open
+          open={editorOpen}
           onClose={() => setEditorOpen(false)}
           receipt={receipt}
           onUpdate={(updated) => {
@@ -966,25 +962,24 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
         </Box>
       )}
 
-      {batchDialogOpen && (
-        <BatchStandardPlacementDialog
-          open
-          onClose={() => setBatchDialogOpen(false)}
-          receiptId={receipt.id}
-          warehouseId={receipt.warehouseId}
-          items={selectedItems}
-          onUpdate={(updated) => {
-            onUpdate(updated);
-            setBatchDialogOpen(false);
-            setSelectedItemIds(new Set());
-          }}
-        />
-      )}
+      <BatchStandardPlacementDialog
+        open={batchDialogOpen}
+        onClose={() => setBatchDialogOpen(false)}
+        receiptId={receipt.id}
+        warehouseId={receipt.warehouseId}
+        items={selectedItems}
+        onUpdate={(updated) => {
+          onUpdate(updated);
+          setBatchDialogOpen(false);
+          setSelectedItemIds(new Set());
+        }}
+      />
 
       <CatalogItemDrawer
         itemId={catalogItemId}
         onClose={() => setCatalogItemId(null)}
         onOpenItem={setCatalogItemId}
+        backClosable
       />
     </Box>
   );

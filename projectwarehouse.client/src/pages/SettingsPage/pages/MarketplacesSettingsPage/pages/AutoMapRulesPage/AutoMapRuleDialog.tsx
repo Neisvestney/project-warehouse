@@ -15,6 +15,7 @@ import {
   Stack,
   Switch,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {Controller, useForm} from "react-hook-form";
 import {useMutation} from "@tanstack/react-query";
 import {
@@ -121,6 +122,8 @@ function AutoMapRuleDialog({open, rule, onClose, onSaved}: AutoMapRuleDialogProp
     if (rule) update.mutate({path: {id: rule.id}, body});
     else create.mutate({body});
   });
+
+  useBackClosable(open && !isPending, onClose);
 
   return (
     <Dialog open={open} onClose={isPending ? undefined : onClose} maxWidth="sm" fullWidth>

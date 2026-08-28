@@ -13,6 +13,7 @@ import {
   Switch,
   Typography,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {
   stockForecastGetListQueryKey,
   stockForecastGetSettingsOptions,
@@ -116,6 +117,8 @@ export function StockForecastSettingsDialog({
       },
     });
   });
+
+  useBackClosable(open, handleClose);
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>

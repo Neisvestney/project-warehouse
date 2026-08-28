@@ -9,6 +9,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import CloseIcon from "@mui/icons-material/Close";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import StorageNodePickerContent from "@/components/shared/StorageNodePickerContent";
@@ -44,12 +45,27 @@ function SelectLocationModal({open, onClose, onSelect}: SelectLocationModalProps
 
   const handleClose = () => {
     onClose();
+  };
+
+  // Reset after the exit transition, otherwise the picker empties while the dialog is still fading.
+  const handleExited = () => {
     setWarehouseId(null);
     setWarehouseName("");
   };
 
+  useBackClosable(open, handleClose);
+
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="sm"
+      fullWidth
+      slotProps={{
+        transition: {onExited: handleExited},
+        paper: {sx: {pointerEvents: open ? undefined : "none"}},
+      }}
+    >
       <DialogTitle sx={{pb: 0}}>
         <Stack direction="row" sx={{alignItems: "center"}}>
           <Typography variant="h6" sx={{flexGrow: 1}}>

@@ -195,16 +195,14 @@ function OrdersAssemblyPage() {
             />
           ))}
 
-        {batchDialogOpen && (
-          <BatchAssemblyDialog
-            open
-            onClose={() => {
-              setBatchDialogOpen(false);
-              setSelectedTaskIds(new Set());
-            }}
-            selectedTasks={selectedTaskInfos}
-          />
-        )}
+        <BatchAssemblyDialog
+          open={batchDialogOpen}
+          onClose={() => {
+            setBatchDialogOpen(false);
+            setSelectedTaskIds(new Set());
+          }}
+          selectedTasks={selectedTaskInfos}
+        />
       </Stack>
     </CatalogItemDrawerHost>
   );

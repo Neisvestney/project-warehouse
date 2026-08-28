@@ -35,6 +35,7 @@ import SelectNodeModal from "@/components/receipts/SelectNodeModal";
 import type {SelectedNode} from "@/components/receipts/SelectNodeModal";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {extractErrorMessage} from "@/utils/errorUtils";
+import {useBackClosable} from "@/hooks/useBackClosable";
 
 interface WriteoffItemsEditorDrawerProps {
   open: boolean;
@@ -112,6 +113,8 @@ function itemLabel(item: DraftItem): string {
 }
 
 function WriteoffItemsEditorDrawer({open, onClose, writeoff}: WriteoffItemsEditorDrawerProps) {
+  useBackClosable(open, onClose);
+
   const {enqueueSnackbar} = useSnackbar();
   const queryClient = useQueryClient();
 
@@ -218,8 +221,12 @@ function WriteoffItemsEditorDrawer({open, onClose, writeoff}: WriteoffItemsEdito
   };
 
   const handleClose = () => {
-    setDraftItems(existingItemsToDraft(writeoff.items));
     onClose();
+  };
+
+  // Reset after the exit transition, otherwise the list empties while the drawer is still sliding out.
+  const handleExited = () => {
+    setDraftItems(existingItemsToDraft(writeoff.items));
   };
 
   // Group items by source node for display
@@ -236,7 +243,15 @@ function WriteoffItemsEditorDrawer({open, onClose, writeoff}: WriteoffItemsEdito
 
   return (
     <>
-      <Drawer anchor="right" open={open} onClose={handleClose}>
+      <Drawer
+        anchor="right"
+        open={open}
+        onClose={handleClose}
+        slotProps={{
+          transition: {onExited: handleExited},
+          paper: {sx: {pointerEvents: open ? undefined : "none"}},
+        }}
+      >
         <Box sx={{width: 580, display: "flex", flexDirection: "column", height: "100%"}}>
           <Stack
             direction="row"

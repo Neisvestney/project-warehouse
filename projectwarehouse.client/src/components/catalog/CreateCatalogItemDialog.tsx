@@ -15,6 +15,7 @@ import {
   Select,
   Stack,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {catalogCreateMutation, catalogGetAllQueryKey} from "@/api/@tanstack/react-query.gen";
 import type {CatalogItemType, DataFileDto} from "@/api/types.gen";
 import SingleFileControl from "@/components/files/controls/SingleFileControl";
@@ -85,6 +86,8 @@ export function CreateCatalogItemDialog({open, onClose, onCreated}: CreateCatalo
       },
     });
   });
+
+  useBackClosable(open, handleClose);
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>

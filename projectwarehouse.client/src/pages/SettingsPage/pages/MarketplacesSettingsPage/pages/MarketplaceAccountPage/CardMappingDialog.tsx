@@ -10,6 +10,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {useMutation} from "@tanstack/react-query";
 import {marketplacesSetCardMappingMutation} from "@/api/@tanstack/react-query.gen";
 import {extractErrorMessage} from "@/utils/errorUtils";
@@ -20,6 +21,7 @@ import EntityViewers from "@/components/EntityViewers";
 import StaleDataBanner from "@/components/StaleDataBanner";
 import CardImage from "../../components/CardImage";
 import type {CatalogItemType, MarketplaceCardDto} from "@/api/types.gen";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
 
 // ProductGroup — виртуальная группа, компонентом заказа быть не может
 const MAPPABLE_TYPES: CatalogItemType[] = ["standard", "unit", "bundle", "variation"];
@@ -34,6 +36,7 @@ interface CardMappingDialogProps {
 
 function CardMappingDialog({card, onClose, onSaved, dataUpdatedAt}: CardMappingDialogProps) {
   const [catalogItemId, setCatalogItemId] = useState<string | null>(null);
+  const [shownCard, releaseShownCard] = useRetainedValue(card);
 
   // Сброс на текущую привязку при смене карточки — правка состояния в рендере, а не эффектом
   const [shownCardId, setShownCardId] = useState<string | null>(null);
@@ -53,8 +56,8 @@ function CardMappingDialog({card, onClose, onSaved, dataUpdatedAt}: CardMappingD
 
   const {reset} = mutation;
   useEffect(() => {
-    if (!card) reset();
-  }, [card, reset]);
+    if (!shownCard) reset();
+  }, [shownCard, reset]);
 
   const save = (value: string | null) => {
     if (!card) return;
@@ -72,17 +75,23 @@ function CardMappingDialog({card, onClose, onSaved, dataUpdatedAt}: CardMappingD
     enabled: !!card,
   });
 
+  useBackClosable(!!card && !mutation.isPending, onClose);
+
   return (
     <Dialog
       open={!!card}
       onClose={mutation.isPending ? undefined : onClose}
       maxWidth="sm"
       fullWidth
+      slotProps={{
+        transition: {onExited: releaseShownCard},
+        paper: {sx: {pointerEvents: card ? undefined : "none"}},
+      }}
     >
       <DialogTitle>
         <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
           <span>Привязка карточки</span>
-          <EntityViewers entityType="marketplaceCard" entityId={card?.id} />
+          <EntityViewers entityType="marketplaceCard" entityId={shownCard?.id} />
         </Stack>
       </DialogTitle>
       <DialogContent>
@@ -95,14 +104,14 @@ function CardMappingDialog({card, onClose, onSaved, dataUpdatedAt}: CardMappingD
             onDismiss={lock.dismissStale}
           />
 
-          {card && (
+          {shownCard && (
             <Stack direction="row" spacing={2} sx={{alignItems: "center"}}>
-              <CardImage src={card.primaryImageUrl} name={card.name} size={72} />
+              <CardImage src={shownCard.primaryImageUrl} name={shownCard.name} size={72} />
               <Stack>
-                <Typography>{card.name}</Typography>
+                <Typography>{shownCard.name}</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Артикул {card.offerId}
-                  {card.sku ? ` · SKU ${card.sku}` : ""}
+                  Артикул {shownCard.offerId}
+                  {shownCard.sku ? ` · SKU ${shownCard.sku}` : ""}
                 </Typography>
               </Stack>
             </Stack>
@@ -123,7 +132,7 @@ function CardMappingDialog({card, onClose, onSaved, dataUpdatedAt}: CardMappingD
         <Button onClick={onClose} disabled={mutation.isPending}>
           Отмена
         </Button>
-        {card?.catalogItemId && (
+        {shownCard?.catalogItemId && (
           <Button color="error" onClick={() => save(null)} disabled={mutation.isPending}>
             Снять привязку
           </Button>

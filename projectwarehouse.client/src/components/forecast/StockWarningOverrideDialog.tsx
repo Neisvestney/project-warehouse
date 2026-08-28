@@ -17,6 +17,8 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import {FormTextField} from "@/components/form/FormTextField";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
+import {useBackClosable} from "@/hooks/useBackClosable";
 
 const MAX_WARNING_DAYS = 3650;
 
@@ -67,6 +69,10 @@ export function StockWarningOverrideDialog({
 
   const isPending = mutation.isPending;
 
+  const [shownTarget, releaseShownTarget] = useRetainedValue(target);
+
+  useBackClosable(target !== null && !isPending, onClose);
+
   const handleClose = () => {
     if (isPending) return;
     reset();
@@ -83,12 +89,21 @@ export function StockWarningOverrideDialog({
   const onSubmit = form.handleSubmit((values) => submit(Number(values.warningDays)));
 
   return (
-    <Dialog open={target !== null} onClose={handleClose} maxWidth="xs" fullWidth>
+    <Dialog
+      open={target !== null}
+      onClose={handleClose}
+      maxWidth="xs"
+      fullWidth
+      slotProps={{
+        transition: {onExited: releaseShownTarget},
+        paper: {sx: {pointerEvents: target ? undefined : "none"}},
+      }}
+    >
       <DialogTitle>Порог предупреждения</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{pt: 1}}>
           <Typography variant="body2" color="text.secondary">
-            {target?.itemName}
+            {shownTarget?.itemName}
           </Typography>
 
           <FormTextField
@@ -102,7 +117,7 @@ export function StockWarningOverrideDialog({
             helperText={
               warehouseWarningDays === null
                 ? undefined
-                : target?.isWarningOverridden
+                : shownTarget?.isWarningOverridden
                   ? `Порог склада — ${warehouseWarningDays} дн.`
                   : `Сейчас наследуется от склада: ${warehouseWarningDays} дн.`
             }
@@ -122,7 +137,7 @@ export function StockWarningOverrideDialog({
       </DialogContent>
       <DialogActions>
         {/* Reset deletes the override so the item follows the warehouse again — it is not a write of the warehouse value. */}
-        {target?.isWarningOverridden && (
+        {shownTarget?.isWarningOverridden && (
           <Button color="warning" onClick={() => submit(null)} disabled={isPending}>
             Сбросить
           </Button>

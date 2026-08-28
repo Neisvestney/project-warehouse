@@ -13,6 +13,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {useForm} from "react-hook-form";
 import {useMutation, useQuery} from "@tanstack/react-query";
 import {
@@ -27,6 +28,7 @@ import type {ReceiptItemDto} from "@/api/types.gen";
 
 import type {SelectedNode} from "@/components/receipts/SelectNodeModal";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
 
 interface AddPlacementDialogProps {
   open: boolean;
@@ -258,43 +260,63 @@ function AddPlacementDialog({
 
   const isReady = !defaultNodeQuery.isPending || defaultNodeQuery.isError;
 
+  // The body is dropped only after the exit animation, which is what resets the forms inside it.
+  const [shownOpen, releaseShown] = useRetainedValue(open || null);
+
+  useBackClosable(open, onClose);
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth fullScreen={isMobile}>
-      <DialogTitle>Добавить размещение — {item.catalogItem.fullName}</DialogTitle>
-      <DialogContent>
-        {isVirtual ? (
-          <Box sx={{py: 2}}>
-            <Typography color="text.secondary">
-              Товар типа «{type}» является виртуальным и не может быть физически размещён на складе.
-            </Typography>
-            <DialogActions>
-              <Button onClick={onClose}>Закрыть</Button>
-            </DialogActions>
-          </Box>
-        ) : !isReady ? (
-          <Box sx={{display: "flex", justifyContent: "center", py: 4}}>
-            <CircularProgress size={32} />
-          </Box>
-        ) : isUnit ? (
-          <UnitPlacementForm
-            item={item}
-            receiptId={receiptId}
-            warehouseId={warehouseId}
-            defaultNode={defaultNode}
-            onUpdate={onUpdate}
-            onClose={onClose}
-          />
-        ) : (
-          <StandardPlacementForm
-            item={item}
-            receiptId={receiptId}
-            warehouseId={warehouseId}
-            defaultNode={defaultNode}
-            onUpdate={onUpdate}
-            onClose={onClose}
-          />
-        )}
-      </DialogContent>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      fullScreen={isMobile}
+      slotProps={{
+        transition: {onExited: releaseShown},
+        paper: {sx: {pointerEvents: open ? undefined : "none"}},
+      }}
+    >
+      {!shownOpen ? null : (
+        <>
+          <DialogTitle>Добавить размещение — {item.catalogItem.fullName}</DialogTitle>
+          <DialogContent>
+            {isVirtual ? (
+              <Box sx={{py: 2}}>
+                <Typography color="text.secondary">
+                  Товар типа «{type}» является виртуальным и не может быть физически размещён на
+                  складе.
+                </Typography>
+                <DialogActions>
+                  <Button onClick={onClose}>Закрыть</Button>
+                </DialogActions>
+              </Box>
+            ) : !isReady ? (
+              <Box sx={{display: "flex", justifyContent: "center", py: 4}}>
+                <CircularProgress size={32} />
+              </Box>
+            ) : isUnit ? (
+              <UnitPlacementForm
+                item={item}
+                receiptId={receiptId}
+                warehouseId={warehouseId}
+                defaultNode={defaultNode}
+                onUpdate={onUpdate}
+                onClose={onClose}
+              />
+            ) : (
+              <StandardPlacementForm
+                item={item}
+                receiptId={receiptId}
+                warehouseId={warehouseId}
+                defaultNode={defaultNode}
+                onUpdate={onUpdate}
+                onClose={onClose}
+              />
+            )}
+          </DialogContent>
+        </>
+      )}
     </Dialog>
   );
 }

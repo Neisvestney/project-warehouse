@@ -8,6 +8,7 @@ import {
   Stack,
   TextField,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
 import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 import type {CatalogItemSelectDto} from "@/api/types.gen";
@@ -58,6 +59,8 @@ function StocktakeAddItemModal({open, onClose, onAdd}: StocktakeAddItemModalProp
     });
     reset();
   };
+
+  useBackClosable(open, handleClose);
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>

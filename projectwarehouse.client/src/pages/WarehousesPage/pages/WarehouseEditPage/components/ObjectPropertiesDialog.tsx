@@ -10,9 +10,11 @@ import {
   Stack,
   TextField,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {Controller, useForm} from "react-hook-form";
 import type {WarehouseLayoutObjectType} from "@/api/types.gen";
 import {useWarehouseEditStore} from "../WarehouseEditStoreContext";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
 
 interface PropertiesFormValues {
   name: string;
@@ -44,8 +46,10 @@ export default observer(function ObjectPropertiesDialog({
 
   const store = useWarehouseEditStore();
 
-  const sp = tempId ? store.storagePlaces.find((s) => s.tempId === tempId) : undefined;
-  const lo = tempId ? store.layoutObjects.find((l) => l.tempId === tempId) : undefined;
+  const [shownTempId, releaseShownTempId] = useRetainedValue(tempId);
+
+  const sp = shownTempId ? store.storagePlaces.find((s) => s.tempId === shownTempId) : undefined;
+  const lo = shownTempId ? store.layoutObjects.find((l) => l.tempId === shownTempId) : undefined;
   const obj = sp
     ? {kind: "storagePlace" as const, data: sp}
     : lo
@@ -91,8 +95,19 @@ export default observer(function ObjectPropertiesDialog({
     onClose();
   };
 
+  useBackClosable(open, onClose);
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xs"
+      fullWidth
+      slotProps={{
+        transition: {onExited: releaseShownTempId},
+        paper: {sx: {pointerEvents: open ? undefined : "none"}},
+      }}
+    >
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <DialogTitle>
           {obj?.kind === "storagePlace" ? "Место хранения" : "Объект планировки"}

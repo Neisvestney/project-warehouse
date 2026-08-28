@@ -11,6 +11,7 @@ import {
   Radio,
   RadioGroup,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import type {OrderLabelsGrouping} from "@/api/types.gen";
 
 const GROUPING_KEY = "orders-labels-grouping";
@@ -33,6 +34,8 @@ function DownloadLabelsDialog({open, isPending, onClose, onConfirm}: DownloadLab
     setGrouping(value);
     localStorage.setItem(GROUPING_KEY, value);
   }
+
+  useBackClosable(open && !isPending, onClose);
 
   return (
     <Dialog open={open} onClose={isPending ? undefined : onClose} fullWidth maxWidth="xs">

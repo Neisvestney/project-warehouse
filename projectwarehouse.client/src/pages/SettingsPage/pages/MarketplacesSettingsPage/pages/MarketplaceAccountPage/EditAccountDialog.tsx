@@ -11,6 +11,7 @@ import {
   Stack,
   Switch,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {Controller, useForm, useWatch} from "react-hook-form";
 import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {
@@ -89,6 +90,8 @@ function EditAccountDialog({open, account, onClose}: EditAccountDialogProps) {
       },
     }),
   );
+
+  useBackClosable(open && !mutation.isPending, onClose);
 
   return (
     <Dialog open={open} onClose={mutation.isPending ? undefined : onClose} maxWidth="sm" fullWidth>

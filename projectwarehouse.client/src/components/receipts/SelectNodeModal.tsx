@@ -1,4 +1,5 @@
 import {Dialog, DialogContent, DialogTitle, IconButton, Stack, Typography} from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import CloseIcon from "@mui/icons-material/Close";
 import StorageNodePickerContent from "@/components/shared/StorageNodePickerContent";
 import type {SelectedNode} from "@/components/shared/nodePathUtils";
@@ -20,6 +21,8 @@ function SelectNodeModal({
   onSelect,
   catalogItemId,
 }: SelectNodeModalProps) {
+  useBackClosable(open, onClose);
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{pb: 0}}>

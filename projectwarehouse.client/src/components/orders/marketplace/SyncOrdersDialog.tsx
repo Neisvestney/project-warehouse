@@ -13,6 +13,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
@@ -138,6 +139,8 @@ function SyncOrdersDialog({open, onClose}: SyncOrdersDialogProps) {
   function nameOf(accountId: string) {
     return targets?.find((t) => t.id === accountId)?.name ?? "Магазин";
   }
+
+  useBackClosable(open, handleClose);
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">

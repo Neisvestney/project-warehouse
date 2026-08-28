@@ -17,6 +17,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import {useMutation, useQueries, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
@@ -43,6 +44,7 @@ import {useDebounce} from "@/hooks/useDebounce";
 import {useDefaultStorageNode} from "@/hooks/useDefaultStorageNode";
 import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
 import {pluralCount} from "@/utils/pluralUtils";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
 
 // ─── Node field (display + pick, no manual typing) ─────────────────────────
 
@@ -672,15 +674,36 @@ function SubFulfillmentForm({
 
 // ─── Main dialog ──────────────────────────────────────────────────────────
 
-function AddFulfillmentDialog({
-  open,
+function AddFulfillmentDialog({open, ...props}: AddFulfillmentDialogProps) {
+  // The content is unmounted only after the exit animation; that is what resets the built fulfillment.
+  const [shownOpen, releaseShown] = useRetainedValue(open || null);
+
+  useBackClosable(open, props.onClose);
+
+  return (
+    <Dialog
+      open={open}
+      onClose={props.onClose}
+      maxWidth="sm"
+      fullWidth
+      slotProps={{
+        transition: {onExited: releaseShown},
+        paper: {sx: {pointerEvents: open ? undefined : "none"}},
+      }}
+    >
+      {shownOpen && <AddFulfillmentContent {...props} />}
+    </Dialog>
+  );
+}
+
+function AddFulfillmentContent({
   onClose,
   orderId,
   warehouseId,
   taskId,
   taskBoxId,
   component,
-}: AddFulfillmentDialogProps) {
+}: Omit<AddFulfillmentDialogProps, "open">) {
   const queryClient = useQueryClient();
   const [fulfillment, setFulfillment] = useState<AddFulfillmentRequest>({
     sourceNodeId: null,
@@ -764,7 +787,7 @@ function AddFulfillmentDialog({
   const isPending = mutation.isPending || batchMutation.isPending;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <>
       <DialogTitle>Добавить фулфилмент — {component.catalogItemName}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{mt: 1}}>
@@ -835,7 +858,7 @@ function AddFulfillmentDialog({
           {isPending ? <CircularProgress size={20} color="inherit" /> : "Добавить"}
         </Button>
       </DialogActions>
-    </Dialog>
+    </>
   );
 }
 

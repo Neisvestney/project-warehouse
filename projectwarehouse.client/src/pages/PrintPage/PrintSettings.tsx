@@ -14,6 +14,7 @@ import Tooltip from "@mui/material/Tooltip";
 import DeleteIcon from "@mui/icons-material/Delete";
 import PrintIcon from "@mui/icons-material/Print";
 import SaveIcon from "@mui/icons-material/Save";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {
   SYSTEM_PRESETS,
   type PrintPreset,
@@ -116,6 +117,8 @@ function PrintSettings({
       handlePresetChange(SYSTEM_PRESETS[0].id);
     }
   };
+
+  useBackClosable(saveDialogOpen, () => setSaveDialogOpen(false));
 
   return (
     <Box

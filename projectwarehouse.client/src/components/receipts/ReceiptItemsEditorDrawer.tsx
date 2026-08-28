@@ -1,3 +1,4 @@
+import {useEffect, useState} from "react";
 import {
   Alert,
   Box,
@@ -24,6 +25,8 @@ import {Controller, useFieldArray, useForm} from "react-hook-form";
 import {useMutation} from "@tanstack/react-query";
 import {receiptsSyncItemsMutation} from "@/api/@tanstack/react-query.gen";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
 import type {ReceiptDto} from "@/api/types.gen";
 
@@ -46,6 +49,56 @@ function ReceiptItemsEditorDrawer({
   receipt,
   onUpdate,
 }: ReceiptItemsEditorDrawerProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("lg"));
+
+  // The content is unmounted only after the exit animation; that is what resets the form.
+  const [shownOpen, releaseShown] = useRetainedValue(open || null);
+
+  // Saving lives in the content, but the ways out of the drawer belong to the shell.
+  const [isSaving, setIsSaving] = useState(false);
+
+  useBackClosable(open && !isSaving, onClose);
+
+  return (
+    <Drawer
+      anchor="right"
+      open={open}
+      onClose={isSaving ? undefined : onClose}
+      slotProps={{
+        transition: {onExited: releaseShown},
+        paper: {
+          sx: {
+            maxWidth: "100vw",
+            minWidth: "calc(min(1200px, 100vw))",
+            pointerEvents: open ? undefined : "none",
+          },
+        },
+      }}
+    >
+      {shownOpen && (
+        <ReceiptItemsEditorContent
+          onClose={onClose}
+          receipt={receipt}
+          onUpdate={onUpdate}
+          isMobile={isMobile}
+          onSavingChange={setIsSaving}
+        />
+      )}
+    </Drawer>
+  );
+}
+
+function ReceiptItemsEditorContent({
+  onClose,
+  receipt,
+  onUpdate,
+  isMobile,
+  onSavingChange,
+}: Omit<ReceiptItemsEditorDrawerProps, "open"> & {
+  isMobile: boolean;
+  onSavingChange: (saving: boolean) => void;
+}) {
   const form = useForm<{items: ItemRow[]}>({
     defaultValues: {
       items: receipt.items.map((item) => ({
@@ -63,9 +116,6 @@ function ReceiptItemsEditorDrawer({
 
   const {setApiError} = useRhfApiErrors(form);
 
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("lg"));
-
   const mutation = useMutation({
     ...receiptsSyncItemsMutation(),
     meta: {suppressGlobalError: true},
@@ -75,6 +125,12 @@ function ReceiptItemsEditorDrawer({
     },
     onError: setApiError,
   });
+
+  const isPending = mutation.isPending;
+  useEffect(() => {
+    onSavingChange(isPending);
+    return () => onSavingChange(false);
+  }, [isPending, onSavingChange]);
 
   const onSubmit = form.handleSubmit((values) => {
     const hasEmpty = values.items.some((i) => i.catalogItemId === null);
@@ -100,32 +156,107 @@ function ReceiptItemsEditorDrawer({
   });
 
   return (
-    <Drawer
-      anchor="right"
-      open={open}
-      onClose={mutation.isPending ? undefined : onClose}
-      slotProps={{
-        paper: {
-          sx: {maxWidth: "100vw", minWidth: "calc(min(1200px, 100vw))"},
-        },
-      }}
-    >
-      <Box sx={{display: "flex", flexDirection: "column", height: "100%"}}>
-        <Stack direction="row" sx={{alignItems: "center", px: 2, pt: 2, pb: 1, flexShrink: 0}}>
-          <Typography variant="h6" sx={{flexGrow: 1}}>
-            Позиции приемки
-          </Typography>
-          <IconButton onClick={onClose} disabled={mutation.isPending}>
-            <CloseIcon />
-          </IconButton>
-        </Stack>
+    <Box sx={{display: "flex", flexDirection: "column", height: "100%"}}>
+      <Stack direction="row" sx={{alignItems: "center", px: 2, pt: 2, pb: 1, flexShrink: 0}}>
+        <Typography variant="h6" sx={{flexGrow: 1}}>
+          Позиции приемки
+        </Typography>
+        <IconButton onClick={onClose} disabled={mutation.isPending}>
+          <CloseIcon />
+        </IconButton>
+      </Stack>
 
-        <Box component="form" onSubmit={onSubmit} sx={{overflow: "auto", flexGrow: 1, px: 2}}>
-          {isMobile ? (
-            <Stack spacing={1} sx={{py: 1}}>
+      <Box component="form" onSubmit={onSubmit} sx={{overflow: "auto", flexGrow: 1, px: 2}}>
+        {isMobile ? (
+          <Stack spacing={1} sx={{py: 1}}>
+            {fields.map((field, index) => (
+              <Paper key={field.id} variant="outlined" sx={{p: 1.5}}>
+                <Stack spacing={1}>
+                  <Controller
+                    control={form.control}
+                    name={`items.${index}.catalogItemId`}
+                    rules={{required: true}}
+                    render={({field: f, fieldState}) => (
+                      <CatalogItemsSelect
+                        value={f.value}
+                        onChange={f.onChange}
+                        types={["standard", "unit"]}
+                        size="small"
+                        disabled={mutation.isPending}
+                        textFieldProps={{
+                          error: !!fieldState.error,
+                          placeholder: "Выберите товар",
+                        }}
+                        sx={{width: "100%"}}
+                      />
+                    )}
+                  />
+                  <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
+                    <Controller
+                      control={form.control}
+                      name={`items.${index}.plannedCount`}
+                      rules={{required: true, min: 1}}
+                      render={({field: f, fieldState}) => (
+                        <TextField
+                          {...f}
+                          type="number"
+                          size="small"
+                          label="Кол-во"
+                          error={!!fieldState.error}
+                          disabled={mutation.isPending}
+                          slotProps={{htmlInput: {min: 1}}}
+                          onChange={(e) => f.onChange(Number(e.target.value))}
+                          sx={{width: 100}}
+                        />
+                      )}
+                    />
+                    <Controller
+                      control={form.control}
+                      name={`items.${index}.notes`}
+                      render={({field: f}) => (
+                        <TextField
+                          {...f}
+                          size="small"
+                          label="Примечание"
+                          placeholder="Необязательно"
+                          disabled={mutation.isPending}
+                          sx={{flexGrow: 1}}
+                        />
+                      )}
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={() => remove(index)}
+                      disabled={mutation.isPending}
+                      color="error"
+                      sx={{mt: 0.5}}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                </Stack>
+              </Paper>
+            ))}
+            {fields.length === 0 && (
+              <Typography variant="body2" color="text.secondary" sx={{py: 2, textAlign: "center"}}>
+                Нет позиций — добавьте товары
+              </Typography>
+            )}
+          </Stack>
+        ) : (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Товар</TableCell>
+                <TableCell sx={{width: 100}}>Кол-во</TableCell>
+                <TableCell>Примечание</TableCell>
+                <TableCell sx={{width: 48}} />
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {fields.map((field, index) => (
-                <Paper key={field.id} variant="outlined" sx={{p: 1.5}}>
-                  <Stack spacing={1}>
+                <TableRow key={field.id}>
+                  <TableCell>
                     <Controller
                       control={form.control}
                       name={`items.${index}.catalogItemId`}
@@ -141,185 +272,95 @@ function ReceiptItemsEditorDrawer({
                             error: !!fieldState.error,
                             placeholder: "Выберите товар",
                           }}
-                          sx={{width: "100%"}}
+                          sx={{minWidth: 200}}
                         />
                       )}
                     />
-                    <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
-                      <Controller
-                        control={form.control}
-                        name={`items.${index}.plannedCount`}
-                        rules={{required: true, min: 1}}
-                        render={({field: f, fieldState}) => (
-                          <TextField
-                            {...f}
-                            type="number"
-                            size="small"
-                            label="Кол-во"
-                            error={!!fieldState.error}
-                            disabled={mutation.isPending}
-                            slotProps={{htmlInput: {min: 1}}}
-                            onChange={(e) => f.onChange(Number(e.target.value))}
-                            sx={{width: 100}}
-                          />
-                        )}
-                      />
-                      <Controller
-                        control={form.control}
-                        name={`items.${index}.notes`}
-                        render={({field: f}) => (
-                          <TextField
-                            {...f}
-                            size="small"
-                            label="Примечание"
-                            placeholder="Необязательно"
-                            disabled={mutation.isPending}
-                            sx={{flexGrow: 1}}
-                          />
-                        )}
-                      />
-                      <IconButton
-                        size="small"
-                        onClick={() => remove(index)}
-                        disabled={mutation.isPending}
-                        color="error"
-                        sx={{mt: 0.5}}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Stack>
-                  </Stack>
-                </Paper>
+                  </TableCell>
+                  <TableCell>
+                    <Controller
+                      control={form.control}
+                      name={`items.${index}.plannedCount`}
+                      rules={{required: true, min: 1}}
+                      render={({field: f, fieldState}) => (
+                        <TextField
+                          {...f}
+                          type="number"
+                          size="small"
+                          fullWidth
+                          error={!!fieldState.error}
+                          disabled={mutation.isPending}
+                          slotProps={{htmlInput: {min: 1}}}
+                          onChange={(e) => f.onChange(Number(e.target.value))}
+                        />
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Controller
+                      control={form.control}
+                      name={`items.${index}.notes`}
+                      render={({field: f}) => (
+                        <TextField
+                          {...f}
+                          size="small"
+                          fullWidth
+                          placeholder="Необязательно"
+                          disabled={mutation.isPending}
+                        />
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <IconButton
+                      size="small"
+                      onClick={() => remove(index)}
+                      disabled={mutation.isPending}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
               ))}
               {fields.length === 0 && (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{py: 2, textAlign: "center"}}
-                >
-                  Нет позиций — добавьте товары
-                </Typography>
-              )}
-            </Stack>
-          ) : (
-            <Table size="small">
-              <TableHead>
                 <TableRow>
-                  <TableCell>Товар</TableCell>
-                  <TableCell sx={{width: 100}}>Кол-во</TableCell>
-                  <TableCell>Примечание</TableCell>
-                  <TableCell sx={{width: 48}} />
+                  <TableCell colSpan={4} align="center" sx={{py: 3, color: "text.secondary"}}>
+                    Нет позиций — добавьте товары
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {fields.map((field, index) => (
-                  <TableRow key={field.id}>
-                    <TableCell>
-                      <Controller
-                        control={form.control}
-                        name={`items.${index}.catalogItemId`}
-                        rules={{required: true}}
-                        render={({field: f, fieldState}) => (
-                          <CatalogItemsSelect
-                            value={f.value}
-                            onChange={f.onChange}
-                            types={["standard", "unit"]}
-                            size="small"
-                            disabled={mutation.isPending}
-                            textFieldProps={{
-                              error: !!fieldState.error,
-                              placeholder: "Выберите товар",
-                            }}
-                            sx={{minWidth: 200}}
-                          />
-                        )}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Controller
-                        control={form.control}
-                        name={`items.${index}.plannedCount`}
-                        rules={{required: true, min: 1}}
-                        render={({field: f, fieldState}) => (
-                          <TextField
-                            {...f}
-                            type="number"
-                            size="small"
-                            fullWidth
-                            error={!!fieldState.error}
-                            disabled={mutation.isPending}
-                            slotProps={{htmlInput: {min: 1}}}
-                            onChange={(e) => f.onChange(Number(e.target.value))}
-                          />
-                        )}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Controller
-                        control={form.control}
-                        name={`items.${index}.notes`}
-                        render={({field: f}) => (
-                          <TextField
-                            {...f}
-                            size="small"
-                            fullWidth
-                            placeholder="Необязательно"
-                            disabled={mutation.isPending}
-                          />
-                        )}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        onClick={() => remove(index)}
-                        disabled={mutation.isPending}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {fields.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} align="center" sx={{py: 3, color: "text.secondary"}}>
-                      Нет позиций — добавьте товары
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          )}
+              )}
+            </TableBody>
+          </Table>
+        )}
 
-          {form.formState.errors.root && (
-            <Alert severity="error" sx={{mt: 1}}>
-              {form.formState.errors.root.message}
-            </Alert>
-          )}
-        </Box>
-
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{px: 2, py: 2, flexShrink: 0, borderTop: 1, borderColor: "divider"}}
-        >
-          <Button
-            startIcon={<AddIcon />}
-            onClick={() => append({catalogItemId: null, plannedCount: 1, notes: ""})}
-            disabled={mutation.isPending}
-          >
-            Добавить позицию
-          </Button>
-          <Box sx={{flexGrow: 1}} />
-          <Button onClick={onClose} disabled={mutation.isPending}>
-            Отмена
-          </Button>
-          <Button variant="contained" onClick={onSubmit} disabled={mutation.isPending}>
-            {mutation.isPending ? <CircularProgress size={22} color="inherit" /> : "Сохранить"}
-          </Button>
-        </Stack>
+        {form.formState.errors.root && (
+          <Alert severity="error" sx={{mt: 1}}>
+            {form.formState.errors.root.message}
+          </Alert>
+        )}
       </Box>
-    </Drawer>
+
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{px: 2, py: 2, flexShrink: 0, borderTop: 1, borderColor: "divider"}}
+      >
+        <Button
+          startIcon={<AddIcon />}
+          onClick={() => append({catalogItemId: null, plannedCount: 1, notes: ""})}
+          disabled={mutation.isPending}
+        >
+          Добавить позицию
+        </Button>
+        <Box sx={{flexGrow: 1}} />
+        <Button onClick={onClose} disabled={mutation.isPending}>
+          Отмена
+        </Button>
+        <Button variant="contained" onClick={onSubmit} disabled={mutation.isPending}>
+          {mutation.isPending ? <CircularProgress size={22} color="inherit" /> : "Сохранить"}
+        </Button>
+      </Stack>
+    </Box>
   );
 }
 

@@ -190,14 +190,12 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
         fulfillments={fulfillmentsTarget?.component.fulfillments ?? []}
       />
 
-      {editOpen && (
-        <EditAssemblyTaskDialog
-          open
-          onClose={() => setEditOpen(false)}
-          orderId={order.id}
-          task={task}
-        />
-      )}
+      <EditAssemblyTaskDialog
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        orderId={order.id}
+        task={task}
+      />
     </Accordion>
   );
 }

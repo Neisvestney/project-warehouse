@@ -29,6 +29,7 @@ import {
   type ServerConfig,
 } from "@/configuration/servers.ts";
 import {fetchWithTimeout} from "@/utils/fetchWithTimeout.ts";
+import {useBackClosable} from "@/hooks/useBackClosable";
 
 const CUSTOM_SERVERS_KEY = "custom_servers";
 
@@ -99,6 +100,8 @@ function ServerSetupPage() {
   };
 
   const allServers = [...PREDEFINED_SERVERS, ...customServers];
+
+  useBackClosable(addDialogOpen, () => setAddDialogOpen(false));
 
   return (
     <Box

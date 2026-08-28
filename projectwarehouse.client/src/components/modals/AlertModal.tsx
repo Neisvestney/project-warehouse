@@ -6,6 +6,7 @@ import {
   DialogContentText,
   DialogTitle,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import type {AlertOptions, ModalComponentProps} from "@/contexts/Modal/ModalContext";
 
 type AlertModalProps = ModalComponentProps<void> & AlertOptions;
@@ -26,6 +27,8 @@ export default function AlertModal({
   confirmText = "OK",
 }: AlertModalProps) {
   const color = severityColor[severity];
+
+  useBackClosable(open, () => onClose(null));
 
   return (
     <Dialog open={open} onClose={() => onClose(null)}>

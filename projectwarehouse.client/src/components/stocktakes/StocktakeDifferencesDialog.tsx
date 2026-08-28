@@ -16,6 +16,7 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {useMutation, useQuery} from "@tanstack/react-query";
 import {
   stocktakesFinishMutation,
@@ -65,6 +66,8 @@ function StocktakeDifferencesDialog({
     !!data &&
     data.problems.length === 0 &&
     !finishMutation.isPending;
+
+  useBackClosable(open, onClose);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>

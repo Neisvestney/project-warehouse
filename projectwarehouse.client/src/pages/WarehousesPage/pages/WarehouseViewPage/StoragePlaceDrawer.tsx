@@ -44,6 +44,8 @@ import Inventory2Icon from "@mui/icons-material/Inventory2";
 import ConfirmDialog from "@/components/ConfirmDialog.tsx";
 import {SortableNodeTree} from "./SortableNodeTree.tsx";
 import {NOUNS, pluralCount} from "@/utils/pluralUtils";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
+import {useBackClosable} from "@/hooks/useBackClosable";
 
 const DRAWER_WIDTH = 1000;
 
@@ -60,18 +62,19 @@ type NodeDialogState =
   | {mode: "rename"; node: StoragePlaceNodeDto};
 
 function StoragePlaceDrawer({open, storagePlace, warehouseId, onClose}: StoragePlaceDialogProps) {
+  const [shownPlace, releaseShownPlace] = useRetainedValue(open ? storagePlace : null);
   const queryClient = useQueryClient();
 
   const {data: nodes = [], isLoading} = useQuery({
-    ...storagePlacesGetNodesOptions({path: {id: storagePlace?.id ?? ""}}),
-    enabled: open && !!storagePlace?.id,
+    ...storagePlacesGetNodesOptions({path: {id: shownPlace?.id ?? ""}}),
+    enabled: open && !!shownPlace?.id,
   });
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const nodeAutoSelected = useRef(false);
-  const [prevStoragePlaceId, setPrevStoragePlaceId] = useState(storagePlace?.id);
-  if (prevStoragePlaceId !== storagePlace?.id) {
-    setPrevStoragePlaceId(storagePlace?.id);
+  const [prevStoragePlaceId, setPrevStoragePlaceId] = useState(shownPlace?.id);
+  if (prevStoragePlaceId !== shownPlace?.id) {
+    setPrevStoragePlaceId(shownPlace?.id);
     setSelectedNodeId(null);
   }
 
@@ -176,6 +179,8 @@ function StoragePlaceDrawer({open, storagePlace, warehouseId, onClose}: StorageP
     setNodeName("");
   };
 
+  useBackClosable(nodeDialog !== null, closeNodeDialog);
+
   const handleNodeDialogSubmit = () => {
     if (!storagePlace?.id || !nodeName.trim()) return;
 
@@ -246,7 +251,7 @@ function StoragePlaceDrawer({open, storagePlace, warehouseId, onClose}: StorageP
       nodes.map((x) => ({
         type: "DataMatrix",
         value: formatEntityBarcode("storagePlaceNode", x.id),
-        label: `${storagePlace?.name} / ${buildPath(x)}`,
+        label: `${shownPlace?.name} / ${buildPath(x)}`,
       })),
     );
   };
@@ -273,12 +278,14 @@ function StoragePlaceDrawer({open, storagePlace, warehouseId, onClose}: StorageP
         open={open}
         onClose={handleClose}
         slotProps={{
+          transition: {onExited: releaseShownPlace},
           paper: {
             sx: {
               width: DRAWER_WIDTH,
               maxWidth: "calc(100vw - 10px)",
               display: "flex",
               flexDirection: "column",
+              pointerEvents: open ? undefined : "none",
             },
           },
         }}
@@ -294,7 +301,7 @@ function StoragePlaceDrawer({open, storagePlace, warehouseId, onClose}: StorageP
           }}
         >
           <Typography variant="h6" noWrap sx={{flex: 1, mr: 1}}>
-            {storagePlace?.name ?? ""}
+            {shownPlace?.name ?? ""}
           </Typography>
           <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
             {selectedNodeId && (
@@ -302,7 +309,7 @@ function StoragePlaceDrawer({open, storagePlace, warehouseId, onClose}: StorageP
                 size="small"
                 startIcon={<Inventory2Icon />}
                 component={Link}
-                to={`/storage/warehouses/${warehouseId}/storage-places/${storagePlace?.id}/nodes/${selectedNodeId}/inventory`}
+                to={`/storage/warehouses/${warehouseId}/storage-places/${shownPlace?.id}/nodes/${selectedNodeId}/inventory`}
                 disabled={!!nodes.find((x) => x.parentNodeId == selectedNodeId)}
               >
                 Остатки ячейки
@@ -312,8 +319,8 @@ function StoragePlaceDrawer({open, storagePlace, warehouseId, onClose}: StorageP
               size="small"
               startIcon={<Inventory2Icon />}
               component={Link}
-              to={`/storage/warehouses/${warehouseId}/storage-places/${storagePlace?.id}/inventory`}
-              disabled={!storagePlace?.id}
+              to={`/storage/warehouses/${warehouseId}/storage-places/${shownPlace?.id}/inventory`}
+              disabled={!shownPlace?.id}
             >
               Остатки
             </Button>
@@ -356,9 +363,9 @@ function StoragePlaceDrawer({open, storagePlace, warehouseId, onClose}: StorageP
               <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
                 <Typography variant="subtitle2">Ячейки</Typography>
                 {nodes.length > 0 && <Chip label={nodes.length} size="small" />}
-                {(storagePlace?.totalItemsCount ?? 0) > 0 && (
+                {(shownPlace?.totalItemsCount ?? 0) > 0 && (
                   <Chip
-                    label={pluralCount(storagePlace!.totalItemsCount, NOUNS.item)}
+                    label={pluralCount(shownPlace!.totalItemsCount, NOUNS.item)}
                     size="small"
                     color="primary"
                     variant="outlined"
