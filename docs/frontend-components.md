@@ -657,17 +657,16 @@ current zoom level (hidden below `sm`) and rotation by 90°. The image is contai
 natural size, and laid out through a wrapper sized to the post-rotation footprint, so pan bounds stay correct on
 a quarter turn.
 
-A two-finger trackpad scroll does **not** zoom — only a trackpad pinch and a mouse wheel do. The browser marks a
-pinch with `ctrlKey`, but a wheel notch and a two-finger scroll are the same event, so a capture-phase `wheel`
-listener on the container classifies by the shape of the delta (`isTrackpadScroll`) and takes every trackpad
-event away from the library before its wheel zoom sees it. A high-resolution scroll wheel reads as a trackpad
-here — the accepted price; no API exposes the device.
-
-A mouse wheel keeps the library's own zoom, one `step` per notch. A pinch is driven by hand instead: the
-library flattens every delta to a full step, and a pinch fires at frame rate, which makes the zoom jump. The
-listener scales by `exp(-deltaY × PINCH_ZOOM_RATE)` — continuous, proportional to the gesture, and at the rate
-browsers use for their own trackpad page zoom — anchors the point under the cursor, and clamps the result with
-`clampAxis`, which mirrors the library's `getBounds` so the image stops where a drag would stop it.
+Zoom splits by `ctrlKey`, the flag the browser sets on a trackpad pinch and on ctrl+wheel — nothing tries to
+tell a wheel from a trackpad by the shape of its delta, which no API exposes and no heuristic gets right on a
+high-resolution wheel. A plain scroll stays with the library's own wheel zoom, one `step` per notch. A
+`ctrlKey` event is driven by hand instead, by a capture-phase `wheel` listener on the container that takes it
+away from the library: the library flattens every delta to a full step, and a pinch fires at frame rate, which
+makes the zoom jump. The listener scales by `exp(-delta × PINCH_ZOOM_RATE)` — continuous, proportional to the
+gesture, and at the rate browsers use for their own trackpad page zoom — anchors the point under the cursor,
+and clamps the result with `clampAxis`, which mirrors the library's `getBounds` so the image stops where a drag
+would stop it. The delta is normalized first: Firefox's line units become pixels, and `MAX_ZOOM_DELTA` caps a
+coarse wheel notch to a sane step while leaving a pinch's single-digit deltas untouched.
 
 Centering is driven off that footprint rather than the library's `centerOnInit`, which fires while the content
 box is still a placeholder: a **layout** effect keyed on the footprint recenters in the same frame the new

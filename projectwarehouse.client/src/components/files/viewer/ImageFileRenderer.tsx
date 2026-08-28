@@ -25,6 +25,13 @@ const MAX_SCALE = 8;
 /** Zoom per unit of pinch delta. 0.01 is the rate browsers use for their own trackpad page zoom. */
 const PINCH_ZOOM_RATE = 0.01;
 
+/**
+ * A trackpad pinch fires at frame rate with deltas in the single digits, while a ctrl+wheel notch
+ * arrives as one coarse event — 100 in Chrome, more on a hi-res wheel. Capping the delta keeps a
+ * notch to a sane step without touching the pinch, so both feed the same continuous zoom.
+ */
+const MAX_ZOOM_DELTA = 20;
+
 interface Size {
   width: number;
   height: number;
@@ -32,16 +39,10 @@ interface Size {
 
 type Layout = ReturnType<typeof fitLayout>;
 
-/**
- * A trackpad two-finger scroll and a mouse wheel arrive as the same `ctrlKey`-less wheel event (a
- * trackpad *pinch* is the one the browser marks with `ctrlKey`), so only the shape of the delta
- * separates them: a wheel notch is coarse and quantized — ±100 in Chrome, `deltaMode: 1` in Firefox
- * — and never horizontal, while a trackpad emits fine, often fractional deltas with a `deltaX`.
- * High-resolution scroll wheels also emit fine deltas and are read as a trackpad here; that is the
- * price of the heuristic, and there is no API that gives the device away.
- */
-const isTrackpadScroll = (e: WheelEvent) =>
-  e.deltaMode === 0 && (e.deltaX !== 0 || !Number.isInteger(e.deltaY) || Math.abs(e.deltaY) < 50);
+/** Firefox reports a wheel notch in lines; Chrome's 100 pixels for the same notch is the yardstick. */
+const LINE_HEIGHT = 33;
+
+const wheelDelta = (e: WheelEvent) => (e.deltaMode === 0 ? e.deltaY : e.deltaY * LINE_HEIGHT);
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -98,15 +99,13 @@ export default function ImageFileRenderer({item}: {item: ResolvedViewable}) {
     // capture phase, so it runs before the library's own listener on the wrapper below and can
     // take the event away from its wheel zoom
     const onWheel = (e: WheelEvent) => {
-      // a mouse wheel, with or without ctrl, is left to the library: its per-notch step suits it
-      if (!isTrackpadScroll(e)) return;
+      // the browser marks a trackpad pinch with `ctrlKey`, which is also how ctrl+wheel arrives;
+      // everything else is a plain scroll and stays with the library's own wheel zoom
+      if (!e.ctrlKey) return;
 
       e.stopPropagation();
-      // without this the browser zooms the page on a pinch and swipes back on a horizontal scroll
+      // without this the browser zooms the page instead
       if (e.cancelable) e.preventDefault();
-
-      // a two-finger scroll is not a zoom gesture; only a pinch (which the browser marks) is
-      if (!e.ctrlKey) return;
 
       const ref = transformRef.current;
       const wrapper = ref?.instance.wrapperComponent;
@@ -116,7 +115,8 @@ export default function ImageFileRenderer({item}: {item: ResolvedViewable}) {
       // continuous and proportional to the gesture: the library's own wheel zoom flattens every
       // delta to a full step, which a pinch — firing at frame rate — turns into a jump
       const {positionX, positionY, scale} = ref.instance.state;
-      const next = clamp(scale * Math.exp(-e.deltaY * PINCH_ZOOM_RATE), MIN_SCALE, MAX_SCALE);
+      const delta = clamp(wheelDelta(e), -MAX_ZOOM_DELTA, MAX_ZOOM_DELTA);
+      const next = clamp(scale * Math.exp(-delta * PINCH_ZOOM_RATE), MIN_SCALE, MAX_SCALE);
       const ratio = next / scale;
 
       // anchor the point under the cursor so the image zooms where the fingers are
@@ -180,7 +180,7 @@ export default function ImageFileRenderer({item}: {item: ResolvedViewable}) {
         centerOnInit
         centerZoomedOut
         doubleClick={{mode: "toggle", step: 1}}
-        wheel={{step: 0.2}}
+        wheel={{step: 0.005}}
       >
         <Surface
           item={item}
