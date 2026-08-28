@@ -302,7 +302,7 @@ function ReceiptPage() {
           title={
             <Stack direction="row" spacing={1.5} sx={{alignItems: "center"}}>
               <Typography variant="h5" component="span">
-                {receipt.name || "—"}
+                {receipt.name || formatReceiptNumber(receipt.number)}
               </Typography>
               <ReceiptStatusChip status={receipt.status} />
             </Stack>

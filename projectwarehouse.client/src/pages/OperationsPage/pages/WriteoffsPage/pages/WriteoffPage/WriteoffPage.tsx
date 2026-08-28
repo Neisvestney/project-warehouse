@@ -276,7 +276,7 @@ function WriteoffPage() {
           title={
             <Stack direction="row" spacing={1.5} sx={{alignItems: "center"}}>
               <Typography variant="h5" component="span">
-                {writeoff.name || "—"}
+                {writeoff.name || formatWriteoffNumber(writeoff.number)}
               </Typography>
               <WriteoffStatusChip status={writeoff.status} />
             </Stack>
