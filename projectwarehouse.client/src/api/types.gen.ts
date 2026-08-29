@@ -1278,25 +1278,25 @@ export type RealtimeEvent = {
  */
 export type RealtimeEventPayload =
   | ({
-      type?: "connectionReady";
+      type: "connectionReady";
     } & RealtimeEventPayloadConnectionReadyPayload)
   | ({
-      type?: "marketplaceSyncProgress";
+      type: "marketplaceSyncProgress";
     } & RealtimeEventPayloadMarketplaceSyncProgressPayload)
   | ({
-      type?: "marketplaceSyncFinished";
+      type: "marketplaceSyncFinished";
     } & RealtimeEventPayloadMarketplaceSyncFinishedPayload)
   | ({
-      type?: "entityChanged";
+      type: "entityChanged";
     } & RealtimeEventPayloadEntityChangedPayload)
   | ({
-      type?: "editLockAcquired";
+      type: "editLockAcquired";
     } & RealtimeEventPayloadEditLockAcquiredPayload)
   | ({
-      type?: "editLockReleased";
+      type: "editLockReleased";
     } & RealtimeEventPayloadEditLockReleasedPayload)
   | ({
-      type?: "entityPresenceChanged";
+      type: "entityPresenceChanged";
     } & RealtimeEventPayloadEntityPresenceChangedPayload);
 
 export type RealtimeEventPayloadConnectionReadyPayload = {
