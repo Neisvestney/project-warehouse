@@ -36,6 +36,7 @@
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.*" />
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.*" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.*" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.*" />
     <!-- Prerelease by upstream policy: this instrumentation has never shipped a stable build. -->
     <PackageReference Include="OpenTelemetry.Instrumentation.Quartz" Version="1.18.0-beta.1" />
     <PackageReference Include="Npgsql.OpenTelemetry" Version="10.*" />

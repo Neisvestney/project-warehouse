@@ -1,16 +1,26 @@
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 
 namespace ProjectWarehouse.Server.Infrastructure.Observability;
 
 /// <summary>
-/// Spans the application opens itself, alongside those the instrumentation libraries produce.
-/// <see cref="ActivitySourceName" /> has to be registered with <c>AddSource</c> or none of them is exported.
+/// Spans and instruments the application opens itself, alongside those the instrumentation libraries
+/// produce. <see cref="ActivitySourceName" /> has to be registered with <c>AddSource</c> and
+/// <see cref="MeterName" /> with <c>AddMeter</c>, or none of them is exported.
 /// </summary>
 public static class AppTelemetry
 {
     public const string ActivitySourceName = "ProjectWarehouse.Server";
 
     public static readonly ActivitySource Source = new(ActivitySourceName);
+
+    public const string MeterName = "ProjectWarehouse.Server";
+
+    /// <summary>
+    /// Meter behind the application's own instruments. Registered with <c>AddMeter</c> next to the
+    /// activity source, and just as invisible without it.
+    /// </summary>
+    public static readonly Meter Meter = new(MeterName);
 
     /// <summary>
     /// Opens the span covering one message taken off an in-process queue. The producer is attached as a

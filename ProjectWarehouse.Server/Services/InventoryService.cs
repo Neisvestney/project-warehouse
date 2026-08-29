@@ -143,7 +143,8 @@ public class InventoryService(
             ? id
             : null;
 
-    private const int GroupWriteRetryLimit = 3;
+    // internal: the histogram of attempts sizes its buckets from the budget
+    internal const int GroupWriteRetryLimit = 3;
 
     private const string GroupUniqueIndexName = "IX_ItemsGroup_StoragePlaceNodeId_CatalogItemId";
 
@@ -193,6 +194,7 @@ public class InventoryService(
                 {
                     await db.SaveChangesAsync(ct);
                     activity?.SetTag("inventory.group_write.attempts", attempt + 1);
+                    InventoryMetrics.RecordCommit(attempt + 1);
                     return movement.Id;
                 }
                 catch (Exception e) when (IsGroupWriteConflict(e))
@@ -204,7 +206,10 @@ public class InventoryService(
                     }));
 
                     if (attempt >= GroupWriteRetryLimit)
+                    {
+                        InventoryMetrics.RecordExhausted(attempt + 1);
                         throw new InventoryWriteConflictException(nodeId, catalogItemId, attempt + 1, e);
+                    }
 
                     var entry = db.Entry(applied);
                     if (entry.State == EntityState.Added)
