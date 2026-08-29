@@ -973,8 +973,8 @@ export const catalogGetAllInfiniteQueryKey = (
  * reached through its group. Use Task&lt;IActionResult&gt; CatalogController.GetForSelect(string? searchString = null, IReadOnlyList&lt;CatalogItemType&gt;? types = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, int take = 10, CancellationToken ct = default(CancellationToken)) when children must be pickable.
  * Requires `catalog.view`. No error codes beyond 403 `permissionDenied`.
  */
-export const catalogGetAllInfiniteOptions = (options?: Options<CatalogGetAllData>) =>
-  infiniteQueryOptions<
+export const catalogGetAllInfiniteOptions = (options?: Options<CatalogGetAllData>) => {
+  const opts = infiniteQueryOptions<
     CatalogGetAllResponse,
     CatalogGetAllError,
     InfiniteData<CatalogGetAllResponse>,
@@ -1008,6 +1008,8 @@ export const catalogGetAllInfiniteOptions = (options?: Options<CatalogGetAllData
       queryKey: catalogGetAllInfiniteQueryKey(options),
     },
   );
+  return opts as Omit<typeof opts, "initialData">;
+};
 
 /**
  * Create a new catalog item.
@@ -1227,8 +1229,8 @@ export const changelogGetAllInfiniteQueryKey = (
  * No error codes beyond 403 `permissionDenied`; an unparseable `entityType` or
  * `changeLogEntryType` is a model-binding 422 (`invalidFormat`).
  */
-export const changelogGetAllInfiniteOptions = (options?: Options<ChangelogGetAllData>) =>
-  infiniteQueryOptions<
+export const changelogGetAllInfiniteOptions = (options?: Options<ChangelogGetAllData>) => {
+  const opts = infiniteQueryOptions<
     ChangelogGetAllResponse,
     ChangelogGetAllError,
     InfiniteData<ChangelogGetAllResponse>,
@@ -1262,6 +1264,8 @@ export const changelogGetAllInfiniteOptions = (options?: Options<ChangelogGetAll
       queryKey: changelogGetAllInfiniteQueryKey(options),
     },
   );
+  return opts as Omit<typeof opts, "initialData">;
+};
 
 export const commonContentGetHomePageContentQueryKey = (
   options?: Options<CommonContentGetHomePageContentData>,
@@ -1545,8 +1549,10 @@ export const inventoryItemsGetAllInfiniteQueryKey = (
  * token carries no usable user id. Filtering by a warehouse the caller is not assigned to is not an
  * error — it just yields an empty page.
  */
-export const inventoryItemsGetAllInfiniteOptions = (options?: Options<InventoryItemsGetAllData>) =>
-  infiniteQueryOptions<
+export const inventoryItemsGetAllInfiniteOptions = (
+  options?: Options<InventoryItemsGetAllData>,
+) => {
+  const opts = infiniteQueryOptions<
     InventoryItemsGetAllResponse,
     InventoryItemsGetAllError,
     InfiniteData<InventoryItemsGetAllResponse>,
@@ -1581,6 +1587,8 @@ export const inventoryItemsGetAllInfiniteOptions = (options?: Options<InventoryI
       queryKey: inventoryItemsGetAllInfiniteQueryKey(options),
     },
   );
+  return opts as Omit<typeof opts, "initialData">;
+};
 
 export const inventoryItemsGetAllUnitsQueryKey = (
   options?: Options<InventoryItemsGetAllUnitsData>,
@@ -1632,8 +1640,8 @@ export const inventoryItemsGetAllUnitsInfiniteQueryKey = (
  */
 export const inventoryItemsGetAllUnitsInfiniteOptions = (
   options?: Options<InventoryItemsGetAllUnitsData>,
-) =>
-  infiniteQueryOptions<
+) => {
+  const opts = infiniteQueryOptions<
     InventoryItemsGetAllUnitsResponse,
     InventoryItemsGetAllUnitsError,
     InfiniteData<InventoryItemsGetAllUnitsResponse>,
@@ -1671,6 +1679,8 @@ export const inventoryItemsGetAllUnitsInfiniteOptions = (
       queryKey: inventoryItemsGetAllUnitsInfiniteQueryKey(options),
     },
   );
+  return opts as Omit<typeof opts, "initialData">;
+};
 
 export const marketplaceAutoMapRulesGetRulesQueryKey = (
   options?: Options<MarketplaceAutoMapRulesGetRulesData>,
@@ -1841,8 +1851,8 @@ export const marketplacesGetAccountsInfiniteQueryKey = (
  */
 export const marketplacesGetAccountsInfiniteOptions = (
   options?: Options<MarketplacesGetAccountsData>,
-) =>
-  infiniteQueryOptions<
+) => {
+  const opts = infiniteQueryOptions<
     MarketplacesGetAccountsResponse,
     MarketplacesGetAccountsError,
     InfiniteData<MarketplacesGetAccountsResponse>,
@@ -1877,6 +1887,8 @@ export const marketplacesGetAccountsInfiniteOptions = (
       queryKey: marketplacesGetAccountsInfiniteQueryKey(options),
     },
   );
+  return opts as Omit<typeof opts, "initialData">;
+};
 
 /**
  * Connects a marketplace account. The key is encrypted on write and never returned.
@@ -2175,8 +2187,8 @@ export const marketplacesGetSyncRunsInfiniteQueryKey = (
  */
 export const marketplacesGetSyncRunsInfiniteOptions = (
   options: Options<MarketplacesGetSyncRunsData>,
-) =>
-  infiniteQueryOptions<
+) => {
+  const opts = infiniteQueryOptions<
     MarketplacesGetSyncRunsResponse,
     MarketplacesGetSyncRunsError,
     InfiniteData<MarketplacesGetSyncRunsResponse>,
@@ -2211,6 +2223,8 @@ export const marketplacesGetSyncRunsInfiniteOptions = (
       queryKey: marketplacesGetSyncRunsInfiniteQueryKey(options),
     },
   );
+  return opts as Omit<typeof opts, "initialData">;
+};
 
 export const marketplacesGetSyncRunsByIdsQueryKey = (
   options?: Options<MarketplacesGetSyncRunsByIdsData>,
@@ -2369,8 +2383,8 @@ export const marketplacesGetWarehousesInfiniteQueryKey = (
  */
 export const marketplacesGetWarehousesInfiniteOptions = (
   options: Options<MarketplacesGetWarehousesData>,
-) =>
-  infiniteQueryOptions<
+) => {
+  const opts = infiniteQueryOptions<
     MarketplacesGetWarehousesResponse,
     MarketplacesGetWarehousesError,
     InfiniteData<MarketplacesGetWarehousesResponse>,
@@ -2408,6 +2422,8 @@ export const marketplacesGetWarehousesInfiniteOptions = (
       queryKey: marketplacesGetWarehousesInfiniteQueryKey(options),
     },
   );
+  return opts as Omit<typeof opts, "initialData">;
+};
 
 /**
  * Maps a marketplace warehouse to a WMS warehouse. Null clears the mapping.
@@ -2486,8 +2502,8 @@ export const marketplacesGetCardsInfiniteQueryKey = (
  * `sortOrder` (default `Asc`). An unknown account id yields an empty page rather than a 404.
  * Requires `integrations.view`; 403 `permissionDenied` otherwise.
  */
-export const marketplacesGetCardsInfiniteOptions = (options: Options<MarketplacesGetCardsData>) =>
-  infiniteQueryOptions<
+export const marketplacesGetCardsInfiniteOptions = (options: Options<MarketplacesGetCardsData>) => {
+  const opts = infiniteQueryOptions<
     MarketplacesGetCardsResponse,
     MarketplacesGetCardsError,
     InfiniteData<MarketplacesGetCardsResponse>,
@@ -2522,6 +2538,8 @@ export const marketplacesGetCardsInfiniteOptions = (options: Options<Marketplace
       queryKey: marketplacesGetCardsInfiniteQueryKey(options),
     },
   );
+  return opts as Omit<typeof opts, "initialData">;
+};
 
 /**
  * Maps a card to a catalog item. Null clears the mapping.
@@ -2670,8 +2688,8 @@ export const ordersGetAllInfiniteQueryKey = (
  * Requires `orders.view` or `orders.view_assigned`; `orders.assemble_assigned` alone does
  * not open the list (403).
  */
-export const ordersGetAllInfiniteOptions = (options?: Options<OrdersGetAllData>) =>
-  infiniteQueryOptions<
+export const ordersGetAllInfiniteOptions = (options?: Options<OrdersGetAllData>) => {
+  const opts = infiniteQueryOptions<
     OrdersGetAllResponse,
     OrdersGetAllError,
     InfiniteData<OrdersGetAllResponse>,
@@ -2705,6 +2723,8 @@ export const ordersGetAllInfiniteOptions = (options?: Options<OrdersGetAllData>)
       queryKey: ordersGetAllInfiniteQueryKey(options),
     },
   );
+  return opts as Omit<typeof opts, "initialData">;
+};
 
 export const ordersGetAllAssemblyQueryKey = (options?: Options<OrdersGetAllAssemblyData>) =>
   createQueryKey("ordersGetAllAssembly", options);
@@ -3783,8 +3803,8 @@ export const receiptsGetAllInfiniteQueryKey = (
  * `permissionDenied`; 401 `tokenInvalid` when an `_assigned` permission is used but the
  * token carries no resolvable user.
  */
-export const receiptsGetAllInfiniteOptions = (options?: Options<ReceiptsGetAllData>) =>
-  infiniteQueryOptions<
+export const receiptsGetAllInfiniteOptions = (options?: Options<ReceiptsGetAllData>) => {
+  const opts = infiniteQueryOptions<
     ReceiptsGetAllResponse,
     ReceiptsGetAllError,
     InfiniteData<ReceiptsGetAllResponse>,
@@ -3818,6 +3838,8 @@ export const receiptsGetAllInfiniteOptions = (options?: Options<ReceiptsGetAllDa
       queryKey: receiptsGetAllInfiniteQueryKey(options),
     },
   );
+  return opts as Omit<typeof opts, "initialData">;
+};
 
 /**
  * Create a new receipt in Draft status.
@@ -4574,8 +4596,8 @@ export const statisticsGetMovementsInfiniteQueryKey = (
  */
 export const statisticsGetMovementsInfiniteOptions = (
   options?: Options<StatisticsGetMovementsData>,
-) =>
-  infiniteQueryOptions<
+) => {
+  const opts = infiniteQueryOptions<
     StatisticsGetMovementsResponse,
     StatisticsGetMovementsError,
     InfiniteData<StatisticsGetMovementsResponse>,
@@ -4610,6 +4632,8 @@ export const statisticsGetMovementsInfiniteOptions = (
       queryKey: statisticsGetMovementsInfiniteQueryKey(options),
     },
   );
+  return opts as Omit<typeof opts, "initialData">;
+};
 
 export const stockForecastGetListQueryKey = (options?: Options<StockForecastGetListData>) =>
   createQueryKey("stockForecastGetList", options);
@@ -4674,8 +4698,10 @@ export const stockForecastGetListInfiniteQueryKey = (
  * Returns 422 `required` on `warehouseId` when it is missing and 422
  * `warehouseNotFound` when it names nothing (no `args` on either).
  */
-export const stockForecastGetListInfiniteOptions = (options?: Options<StockForecastGetListData>) =>
-  infiniteQueryOptions<
+export const stockForecastGetListInfiniteOptions = (
+  options?: Options<StockForecastGetListData>,
+) => {
+  const opts = infiniteQueryOptions<
     StockForecastGetListResponse,
     StockForecastGetListError,
     InfiniteData<StockForecastGetListResponse>,
@@ -4710,6 +4736,8 @@ export const stockForecastGetListInfiniteOptions = (options?: Options<StockForec
       queryKey: stockForecastGetListInfiniteQueryKey(options),
     },
   );
+  return opts as Omit<typeof opts, "initialData">;
+};
 
 export const stockForecastGetForItemsQueryKey = (options: Options<StockForecastGetForItemsData>) =>
   createQueryKey("stockForecastGetForItems", options);
@@ -4899,8 +4927,8 @@ export const stocktakesGetAllInfiniteQueryKey = (
  * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
  * token carries no resolvable user.
  */
-export const stocktakesGetAllInfiniteOptions = (options?: Options<StocktakesGetAllData>) =>
-  infiniteQueryOptions<
+export const stocktakesGetAllInfiniteOptions = (options?: Options<StocktakesGetAllData>) => {
+  const opts = infiniteQueryOptions<
     StocktakesGetAllResponse,
     StocktakesGetAllError,
     InfiniteData<StocktakesGetAllResponse>,
@@ -4934,6 +4962,8 @@ export const stocktakesGetAllInfiniteOptions = (options?: Options<StocktakesGetA
       queryKey: stocktakesGetAllInfiniteQueryKey(options),
     },
   );
+  return opts as Omit<typeof opts, "initialData">;
+};
 
 /**
  * Create a new stocktake. Always starts in Draft status.
@@ -5831,8 +5861,8 @@ export const usersGetAllInfiniteQueryKey = (
  * `role` (role id), `warehouse` (assigned warehouse id). Ordered by id.
  * Requires `users.view`; without it the request is refused with 403 `permissionDenied`.
  */
-export const usersGetAllInfiniteOptions = (options?: Options<UsersGetAllData>) =>
-  infiniteQueryOptions<
+export const usersGetAllInfiniteOptions = (options?: Options<UsersGetAllData>) => {
+  const opts = infiniteQueryOptions<
     UsersGetAllResponse,
     UsersGetAllError,
     InfiniteData<UsersGetAllResponse>,
@@ -5866,6 +5896,8 @@ export const usersGetAllInfiniteOptions = (options?: Options<UsersGetAllData>) =
       queryKey: usersGetAllInfiniteQueryKey(options),
     },
   );
+  return opts as Omit<typeof opts, "initialData">;
+};
 
 /**
  * Create a new user.
@@ -6075,8 +6107,8 @@ export const warehousesGetAllInfiniteQueryKey = (
  * Returns `Paginated&lt;WarehouseSummaryDto&gt;` — id, name, width, height, storagePlaceCount.
  * Requires `warehouses.view` (all warehouses) or `warehouses.view_assigned` (assigned warehouses only).
  */
-export const warehousesGetAllInfiniteOptions = (options?: Options<WarehousesGetAllData>) =>
-  infiniteQueryOptions<
+export const warehousesGetAllInfiniteOptions = (options?: Options<WarehousesGetAllData>) => {
+  const opts = infiniteQueryOptions<
     WarehousesGetAllResponse,
     WarehousesGetAllError,
     InfiniteData<WarehousesGetAllResponse>,
@@ -6110,6 +6142,8 @@ export const warehousesGetAllInfiniteOptions = (options?: Options<WarehousesGetA
       queryKey: warehousesGetAllInfiniteQueryKey(options),
     },
   );
+  return opts as Omit<typeof opts, "initialData">;
+};
 
 /**
  * Create a new warehouse with optional storage places.
@@ -6333,8 +6367,8 @@ export const writeoffsGetAllInfiniteQueryKey = (
  * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
  * token carries no resolvable user.
  */
-export const writeoffsGetAllInfiniteOptions = (options?: Options<WriteoffsGetAllData>) =>
-  infiniteQueryOptions<
+export const writeoffsGetAllInfiniteOptions = (options?: Options<WriteoffsGetAllData>) => {
+  const opts = infiniteQueryOptions<
     WriteoffsGetAllResponse,
     WriteoffsGetAllError,
     InfiniteData<WriteoffsGetAllResponse>,
@@ -6368,6 +6402,8 @@ export const writeoffsGetAllInfiniteOptions = (options?: Options<WriteoffsGetAll
       queryKey: writeoffsGetAllInfiniteQueryKey(options),
     },
   );
+  return opts as Omit<typeof opts, "initialData">;
+};
 
 /**
  * Create a new write-off in Draft status.
