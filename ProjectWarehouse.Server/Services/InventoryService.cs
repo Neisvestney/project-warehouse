@@ -1,6 +1,8 @@
+﻿using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
@@ -88,15 +90,24 @@ public class InventoryService(
         StockMovementDirection direction,
         string action,
         CancellationToken ct,
+        UnitInventoryItem? unitItem = null) =>
+        (await QueueMovementAsync(nodeId, catalogItemId, quantity, direction, action, ct, unitItem)).Id;
+
+    private async Task<StockMovement> QueueMovementAsync(
+        Guid nodeId,
+        Guid catalogItemId,
+        int quantity,
+        StockMovementDirection direction,
+        string action,
+        CancellationToken ct,
         UnitInventoryItem? unitItem = null)
     {
         var location = await GetNodeLocationAsync(nodeId, ct)
             ?? throw new StoragePlaceNodeNotFoundException(nodeId);
-        var movementId = Guid.NewGuid();
 
-        db.StockMovements.Add(new StockMovement
+        var movement = new StockMovement
         {
-            Id                  = movementId,
+            Id                  = Guid.NewGuid(),
             CreatedAt           = DateTime.UtcNow,
             Direction           = direction,
             Action              = action,
@@ -108,9 +119,10 @@ public class InventoryService(
             UnitInventoryItemId = unitItem?.Id,
             UnitInventoryNumber = unitItem?.InventoryNumber,
             UserId              = GetCurrentUserId(),
-        });
+        };
 
-        return movementId;
+        db.StockMovements.Add(movement);
+        return movement;
     }
 
     /// <summary>
@@ -130,6 +142,92 @@ public class InventoryService(
         Guid.TryParse(httpContextAccessor.HttpContext?.User.FindFirstValue(JwtRegisteredClaimNames.Sub), out var id)
             ? id
             : null;
+
+    private const int GroupWriteRetryLimit = 3;
+
+    private const string GroupUniqueIndexName = "IX_ItemsGroup_StoragePlaceNodeId_CatalogItemId";
+
+    /// A unique violation is only ours if it names the group's index — anything else queued into the same
+    /// save is a genuine failure and must not be swallowed by a replay.
+    private static bool IsGroupWriteConflict(Exception e) =>
+        e is DbUpdateConcurrencyException
+        || (e is DbUpdateException { InnerException: PostgresException pg }
+            && pg.SqlState == PostgresErrorCodes.UniqueViolation
+            && pg.ConstraintName == GroupUniqueIndexName);
+
+    /// <summary>
+    /// Resolves the group for the node/item pair, lets <paramref name="apply"/> mutate it and saves.
+    /// Count is a read-modify-write, so a concurrent writer either bumps xmin under us or wins the race
+    /// to insert the group; both surface as a conflict here and the whole attempt is replayed against
+    /// freshly loaded state. The journal row is queued only once <paramref name="apply"/> has accepted the
+    /// change and then stays pending across attempts, so a rejected change leaves nothing behind in the
+    /// context — the scope is shared with callers that keep going after a business failure. Contention that
+    /// outlives the retry budget becomes an <see cref="InventoryWriteConflictException"/>: nothing was
+    /// written, so the caller can report it as retryable rather than as a server error.
+    /// </summary>
+    private async Task<Guid> SaveGroupChangeAsync(
+        Guid nodeId,
+        Guid catalogItemId,
+        Func<StoragePlaceNodeItemsGroup?, Task<StoragePlaceNodeItemsGroup>> apply,
+        Func<Task<StockMovement>> queueMovement,
+        Activity? activity,
+        CancellationToken ct)
+    {
+        StockMovement? movement = null;
+        StoragePlaceNodeItemsGroup? applied = null;
+
+        try
+        {
+            for (var attempt = 0; ; attempt++)
+            {
+                var group = await db.StoragePlacesNodesItemsGroups
+                    .FirstOrDefaultAsync(g => g.StoragePlaceNodeId == nodeId && g.CatalogItemId == catalogItemId, ct);
+
+                applied = await apply(group);
+                if (db.Entry(applied).State == EntityState.Detached)
+                    db.StoragePlacesNodesItemsGroups.Add(applied);
+
+                movement ??= await queueMovement();
+
+                try
+                {
+                    await db.SaveChangesAsync(ct);
+                    activity?.SetTag("inventory.group_write.attempts", attempt + 1);
+                    return movement.Id;
+                }
+                catch (Exception e) when (IsGroupWriteConflict(e))
+                {
+                    activity?.AddEvent(new ActivityEvent("inventory.group_write.conflict", tags: new ActivityTagsCollection
+                    {
+                        ["inventory.group_write.attempt"] = attempt + 1,
+                        ["exception.type"] = e.GetType().Name,
+                    }));
+
+                    if (attempt >= GroupWriteRetryLimit)
+                        throw new InventoryWriteConflictException(nodeId, catalogItemId, attempt + 1, e);
+
+                    var entry = db.Entry(applied);
+                    if (entry.State == EntityState.Added)
+                        entry.State = EntityState.Detached;
+                    else
+                        // A row deleted meanwhile reloads as Detached rather than throwing, so the next
+                        // pass reads null: Add recreates the group, Remove reports it as out of stock.
+                        await entry.ReloadAsync(ct);
+                }
+            }
+        }
+        catch
+        {
+            // Leaving on any other route means nothing was committed, so drop what the attempt queued:
+            // the scope is shared with callers that carry on after a failure and whose next save would
+            // otherwise flush these rows as part of an unrelated change.
+            if (movement is not null)
+                db.Entry(movement).State = EntityState.Detached;
+            if (applied is not null)
+                db.Entry(applied).State = EntityState.Detached;
+            throw;
+        }
+    }
 
     // ── Standard items ────────────────────────────────────────────────────────
 
@@ -160,24 +258,20 @@ public class InventoryService(
             throw new ArgumentOutOfRangeException(nameof(count), count,
                 "Count must be greater than zero.");
 
-        var group = await db.StoragePlacesNodesItemsGroups
-            .FirstOrDefaultAsync(g => g.StoragePlaceNodeId == nodeId && g.CatalogItemId == catalogItemId, ct);
-
-        if (group is null)
+        var movementId = await SaveGroupChangeAsync(nodeId, catalogItemId, group =>
         {
-            group = new StoragePlaceNodeItemsGroup
+            group ??= new StoragePlaceNodeItemsGroup
             {
                 Id = Guid.NewGuid(),
                 StoragePlaceNodeId = nodeId,
                 CatalogItemId = catalogItemId,
                 Count = 0,
             };
-            db.StoragePlacesNodesItemsGroups.Add(group);
-        }
 
-        group.Count += count;
-        var movementId = await RecordMovementAsync(nodeId, catalogItemId, count, direction, action, ct);
-        await db.SaveChangesAsync(ct);
+            group.Count += count;
+            return Task.FromResult(group);
+        }, () => QueueMovementAsync(nodeId, catalogItemId, count, direction, action, ct), activity, ct);
+
         activity?.SetTag("inventory.stock_movement_id", movementId);
     }
 
@@ -208,15 +302,15 @@ public class InventoryService(
             throw new ArgumentOutOfRangeException(nameof(count), count,
                 "Count must be greater than zero.");
 
-        var group = await db.StoragePlacesNodesItemsGroups
-            .FirstOrDefaultAsync(g => g.StoragePlaceNodeId == nodeId && g.CatalogItemId == catalogItemId, ct);
+        var movementId = await SaveGroupChangeAsync(nodeId, catalogItemId, async group =>
+        {
+            if (group is null || group.Count < count)
+                throw await BuildInsufficientInventoryExceptionAsync(nodeId, catalogItemId, group?.Count ?? 0, count, ct);
 
-        if (group is null || group.Count < count)
-            throw await BuildInsufficientInventoryExceptionAsync(nodeId, catalogItemId, group?.Count ?? 0, count, ct);
+            group.Count -= count;
+            return group;
+        }, () => QueueMovementAsync(nodeId, catalogItemId, count, direction, action, ct), activity, ct);
 
-        group.Count -= count;
-        var movementId = await RecordMovementAsync(nodeId, catalogItemId, count, direction, action, ct);
-        await db.SaveChangesAsync(ct);
         activity?.SetTag("inventory.stock_movement_id", movementId);
     }
 

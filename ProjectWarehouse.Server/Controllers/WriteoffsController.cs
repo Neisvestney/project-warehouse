@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Authorization;
@@ -406,6 +406,8 @@ public class WriteoffsController(
     ///   <item>422 <c>inventoryItemNodeMismatch</c> — a unit item was moved out of its source node after the
     ///     document was built</item>
     ///   <item>422 <c>unitInventoryItemNotFound</c> — a unit item no longer exists</item>
+    ///   <item>409 <c>inventoryWriteConflict</c> — concurrent stock writes outlasted the retry budget;
+    ///     nothing was written and the request can be repeated</item>
     ///   <item>403 <c>permissionDenied</c> / <c>writeoffNotAssignedToWarehouse</c> (edit access)</item>
     /// </list>
     /// </remarks>
@@ -463,6 +465,11 @@ public class WriteoffsController(
                 fresh.Status = WriteoffStatus.Finished;
                 await db.SaveChangesAsync(ct);
             }, ct);
+        }
+        catch (InventoryWriteConflictException)
+        {
+            return Conflict(ErrorCode.InventoryWriteConflict,
+                "Stock for this item was changed concurrently; nothing was written.");
         }
         catch (InsufficientInventoryException ex)
         {

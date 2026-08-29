@@ -142,6 +142,8 @@ import {
   storagePlacesUpdateNode,
   systemGetDatabaseStats,
   systemGetStorageStats,
+  telemetryLogs,
+  telemetryTraces,
   transfersExecute,
   usersChangePassword,
   usersCreate,
@@ -554,6 +556,10 @@ import type {
   SystemGetStorageStatsData,
   SystemGetStorageStatsError,
   SystemGetStorageStatsResponse,
+  TelemetryLogsData,
+  TelemetryLogsError,
+  TelemetryTracesData,
+  TelemetryTracesError,
   TransfersExecuteData,
   TransfersExecuteError,
   TransfersExecuteResponse,
@@ -3447,7 +3453,8 @@ export const ordersMoveTaskComponentMutation = (
  * against fresh state to absorb duplicate submits), 422 `insufficientInventory`,
  * `unitInventoryItemNotFound`, `inventoryItemNodeMismatch`, `catalogItemNotFound`,
  * 422 `orderNotAssembly` outside Assembly status, 404 `orderNotFound` or
- * `assemblyTaskBoxComponentNotFound`.
+ * `assemblyTaskBoxComponentNotFound`, 409 `inventoryWriteConflict` when concurrent stock writes
+ * outlast the retry budget — nothing was written and the request can be repeated.
  * Requires `orders.assemble_assigned`, `orders.edit` or `orders.edit_assigned`, plus an
  * assignment to the order's warehouse in every case.
  */
@@ -3519,7 +3526,8 @@ export const ordersRemoveFulfillmentMutation = (
  * `{ orderId, componentId, catalogItemName, error }` carrying the real error code
  * (`orderNotFound`, `orderNotAssignedToWarehouse`, `orderNotAssembly`,
  * `assemblyTaskBoxComponentNotFound`, `insufficientInventory`, `unitInventoryItemNotFound`,
- * `inventoryItemNodeMismatch`, `assemblyComponentAlreadyFulfilled`, …), while successful items are
+ * `inventoryItemNodeMismatch`, `assemblyComponentAlreadyFulfilled`, `inventoryWriteConflict`,
+ * …), while successful items are
  * committed and stay committed. There is no overall transaction.
  * With `autoCompleteTasks: false` task statuses are never touched and `completedTaskIds` comes back
  * empty. With `true`, every touched task is advanced Pending → InProgress, and InProgress → Done only
@@ -4134,6 +4142,8 @@ export const receiptsAddUnitPlacementMutation = (
  * * 422 unitInventoryItemNotFound — the unit item is already gone
  * * 422 insufficientInventory — the standard stock to reverse is no longer in the node;
  * args: { itemName, requested, available, missing, path }
+ * * 409 inventoryWriteConflict — concurrent stock writes outlasted the retry budget;
+ * nothing was written and the request can be repeated
  * * 403 permissionDenied / receiptNotAssignedToWarehouse; 401 tokenInvalid
  */
 export const receiptsDeletePlacementMutation = (
@@ -5366,6 +5376,8 @@ export const stocktakesGetDifferencesOptions = (options: Options<StocktakesGetDi
  * args: { itemName, requested, available, missing, path }
  * * 422 stocktakeConcurrentModification — a serial left its expected node while the finish
  * was running; the transaction rolled back
+ * * 409 inventoryWriteConflict — concurrent stock writes outlasted the retry budget;
+ * nothing was written and the request can be repeated
  * * 422 unitInventoryItemNotFound — a unit item disappeared mid-flight
  * * 422 storagePlaceNodeNotFound — a cell in scope no longer exists
  * * 422 unitInventoryItemNumberDuplicate — a surplus serial lost the race against the unique
@@ -5669,6 +5681,62 @@ export const systemGetDatabaseStatsOptions = (options?: Options<SystemGetDatabas
   });
 
 /**
+ * Frontend spans, OTLP/HTTP+JSON.
+ *
+ * The body is forwarded to the collector as is and capped at `Observability:MaxClientPayloadBytes`;
+ * a larger body is rejected with a bare 413, not an `AppProblemDetails`.
+ * Always answers 202 with an empty body — a collector that is down is logged as a warning and
+ * never turns into an error for the user.
+ * Requires authentication only.
+ */
+export const telemetryTracesMutation = (
+  options?: Partial<Options<TelemetryTracesData>>,
+): UseMutationOptions<unknown, TelemetryTracesError, Options<TelemetryTracesData>> => {
+  const mutationOptions: UseMutationOptions<
+    unknown,
+    TelemetryTracesError,
+    Options<TelemetryTracesData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await telemetryTraces({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Frontend logs, OTLP/HTTP+JSON.
+ *
+ * Same contract as `v1/traces`: opaque body, capped at `Observability:MaxClientPayloadBytes`,
+ * always 202 with an empty body.
+ * Requires authentication only.
+ */
+export const telemetryLogsMutation = (
+  options?: Partial<Options<TelemetryLogsData>>,
+): UseMutationOptions<unknown, TelemetryLogsError, Options<TelemetryLogsData>> => {
+  const mutationOptions: UseMutationOptions<
+    unknown,
+    TelemetryLogsError,
+    Options<TelemetryLogsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await telemetryLogs({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
  * Execute an atomic inventory transfer between two storage nodes.
  *
  *     All items are moved in a single transaction — if any item fails, the entire transfer is rolled back.
@@ -5685,6 +5753,8 @@ export const systemGetDatabaseStatsOptions = (options?: Options<SystemGetDatabas
  * when raised inside the transaction) — the node does not exist
  * * 422 insufficientInventory (field items) — not enough Standard items in the source node;
  * args { itemName, requested, available, missing, path }, path being the node breadcrumb
+ * * 409 inventoryWriteConflict — concurrent stock writes outlasted the retry budget;
+ * nothing was written and the request can be repeated
  * * 422 unitInventoryItemNotFound (field items) — the unit item does not exist or was already removed
  * * 422 validationError — empty items, an item with both or neither of
  * catalogItemId/unitItemId (field items[i]), or a non-positive
@@ -6468,6 +6538,8 @@ export const writeoffsSyncItemsMutation = (
  * * 422 inventoryItemNodeMismatch — a unit item was moved out of its source node after the
  * document was built
  * * 422 unitInventoryItemNotFound — a unit item no longer exists
+ * * 409 inventoryWriteConflict — concurrent stock writes outlasted the retry budget;
+ * nothing was written and the request can be repeated
  * * 403 permissionDenied / writeoffNotAssignedToWarehouse (edit access)
  */
 export const writeoffsFinishMutation = (

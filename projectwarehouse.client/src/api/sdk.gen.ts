@@ -404,6 +404,12 @@ import type {
   SystemGetStorageStatsData,
   SystemGetStorageStatsErrors,
   SystemGetStorageStatsResponses,
+  TelemetryLogsData,
+  TelemetryLogsErrors,
+  TelemetryLogsResponses,
+  TelemetryTracesData,
+  TelemetryTracesErrors,
+  TelemetryTracesResponses,
   TransfersExecuteData,
   TransfersExecuteErrors,
   TransfersExecuteResponses,
@@ -1982,7 +1988,8 @@ export const ordersMoveTaskComponent = <ThrowOnError extends boolean = false>(
  * against fresh state to absorb duplicate submits), 422 `insufficientInventory`,
  * `unitInventoryItemNotFound`, `inventoryItemNodeMismatch`, `catalogItemNotFound`,
  * 422 `orderNotAssembly` outside Assembly status, 404 `orderNotFound` or
- * `assemblyTaskBoxComponentNotFound`.
+ * `assemblyTaskBoxComponentNotFound`, 409 `inventoryWriteConflict` when concurrent stock writes
+ * outlast the retry budget — nothing was written and the request can be repeated.
  * Requires `orders.assemble_assigned`, `orders.edit` or `orders.edit_assigned`, plus an
  * assignment to the order's warehouse in every case.
  */
@@ -2034,7 +2041,8 @@ export const ordersRemoveFulfillment = <ThrowOnError extends boolean = false>(
  * `{ orderId, componentId, catalogItemName, error }` carrying the real error code
  * (`orderNotFound`, `orderNotAssignedToWarehouse`, `orderNotAssembly`,
  * `assemblyTaskBoxComponentNotFound`, `insufficientInventory`, `unitInventoryItemNotFound`,
- * `inventoryItemNodeMismatch`, `assemblyComponentAlreadyFulfilled`, …), while successful items are
+ * `inventoryItemNodeMismatch`, `assemblyComponentAlreadyFulfilled`, `inventoryWriteConflict`,
+ * …), while successful items are
  * committed and stay committed. There is no overall transaction.
  * With `autoCompleteTasks: false` task statuses are never touched and `completedTaskIds` comes back
  * empty. With `true`, every touched task is advanced Pending → InProgress, and InProgress → Done only
@@ -2439,6 +2447,8 @@ export const receiptsAddUnitPlacement = <ThrowOnError extends boolean = false>(
  * * 422 unitInventoryItemNotFound — the unit item is already gone
  * * 422 insufficientInventory — the standard stock to reverse is no longer in the node;
  * args: { itemName, requested, available, missing, path }
+ * * 409 inventoryWriteConflict — concurrent stock writes outlasted the retry budget;
+ * nothing was written and the request can be repeated
  * * 403 permissionDenied / receiptNotAssignedToWarehouse; 401 tokenInvalid
  */
 export const receiptsDeletePlacement = <ThrowOnError extends boolean = false>(
@@ -3090,6 +3100,8 @@ export const stocktakesGetDifferences = <ThrowOnError extends boolean = false>(
  * args: { itemName, requested, available, missing, path }
  * * 422 stocktakeConcurrentModification — a serial left its expected node while the finish
  * was running; the transaction rolled back
+ * * 409 inventoryWriteConflict — concurrent stock writes outlasted the retry budget;
+ * nothing was written and the request can be repeated
  * * 422 unitInventoryItemNotFound — a unit item disappeared mid-flight
  * * 422 storagePlaceNodeNotFound — a cell in scope no longer exists
  * * 422 unitInventoryItemNumberDuplicate — a surplus serial lost the race against the unique
@@ -3283,6 +3295,38 @@ export const systemGetDatabaseStats = <ThrowOnError extends boolean = false>(
   >({url: "/api/system/database", ...options});
 
 /**
+ * Frontend spans, OTLP/HTTP+JSON.
+ *
+ * The body is forwarded to the collector as is and capped at `Observability:MaxClientPayloadBytes`;
+ * a larger body is rejected with a bare 413, not an `AppProblemDetails`.
+ * Always answers 202 with an empty body — a collector that is down is logged as a warning and
+ * never turns into an error for the user.
+ * Requires authentication only.
+ */
+export const telemetryTraces = <ThrowOnError extends boolean = false>(
+  options?: Options<TelemetryTracesData, ThrowOnError>,
+) =>
+  (options?.client ?? client).post<TelemetryTracesResponses, TelemetryTracesErrors, ThrowOnError>({
+    url: "/api/telemetry/v1/traces",
+    ...options,
+  });
+
+/**
+ * Frontend logs, OTLP/HTTP+JSON.
+ *
+ * Same contract as `v1/traces`: opaque body, capped at `Observability:MaxClientPayloadBytes`,
+ * always 202 with an empty body.
+ * Requires authentication only.
+ */
+export const telemetryLogs = <ThrowOnError extends boolean = false>(
+  options?: Options<TelemetryLogsData, ThrowOnError>,
+) =>
+  (options?.client ?? client).post<TelemetryLogsResponses, TelemetryLogsErrors, ThrowOnError>({
+    url: "/api/telemetry/v1/logs",
+    ...options,
+  });
+
+/**
  * Execute an atomic inventory transfer between two storage nodes.
  *
  *     All items are moved in a single transaction — if any item fails, the entire transfer is rolled back.
@@ -3299,6 +3343,8 @@ export const systemGetDatabaseStats = <ThrowOnError extends boolean = false>(
  * when raised inside the transaction) — the node does not exist
  * * 422 insufficientInventory (field items) — not enough Standard items in the source node;
  * args { itemName, requested, available, missing, path }, path being the node breadcrumb
+ * * 409 inventoryWriteConflict — concurrent stock writes outlasted the retry budget;
+ * nothing was written and the request can be repeated
  * * 422 unitInventoryItemNotFound (field items) — the unit item does not exist or was already removed
  * * 422 validationError — empty items, an item with both or neither of
  * catalogItemId/unitItemId (field items[i]), or a non-positive
@@ -3691,6 +3737,8 @@ export const writeoffsSyncItems = <ThrowOnError extends boolean = false>(
  * * 422 inventoryItemNodeMismatch — a unit item was moved out of its source node after the
  * document was built
  * * 422 unitInventoryItemNotFound — a unit item no longer exists
+ * * 409 inventoryWriteConflict — concurrent stock writes outlasted the retry budget;
+ * nothing was written and the request can be repeated
  * * 403 permissionDenied / writeoffNotAssignedToWarehouse (edit access)
  */
 export const writeoffsFinish = <ThrowOnError extends boolean = false>(

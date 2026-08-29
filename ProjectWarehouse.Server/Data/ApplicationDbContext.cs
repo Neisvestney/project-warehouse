@@ -187,6 +187,13 @@ public class ApplicationDbContext : IdentityDbContext<
 
         builder.Entity<StoragePlaceNodeItemsGroup>(e =>
         {
+            // One group per (node, item): the unique index is what makes a racing insert fail loudly
+            // instead of producing a second row that splits the same stock in two.
+            e.HasIndex(x => new { x.StoragePlaceNodeId, x.CatalogItemId }).IsUnique();
+
+            // Maps to the PostgreSQL xmin system column, so Count updates are checked optimistically.
+            e.Property<uint>("Version").IsRowVersion();
+
             e.HasOne(x => x.CatalogItem)
                 .WithMany()
                 .HasForeignKey(x => x.CatalogItemId)

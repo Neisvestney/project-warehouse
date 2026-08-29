@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Authorization;
@@ -968,6 +968,8 @@ public class StocktakesController(
     ///     <c>args: { itemName, requested, available, missing, path }</c></item>
     ///   <item>422 <c>stocktakeConcurrentModification</c> — a serial left its expected node while the finish
     ///     was running; the transaction rolled back</item>
+    ///   <item>409 <c>inventoryWriteConflict</c> — concurrent stock writes outlasted the retry budget;
+    ///     nothing was written and the request can be repeated</item>
     ///   <item>422 <c>unitInventoryItemNotFound</c> — a unit item disappeared mid-flight</item>
     ///   <item>422 <c>storagePlaceNodeNotFound</c> — a cell in scope no longer exists</item>
     ///   <item>422 <c>unitInventoryItemNumberDuplicate</c> — a surplus serial lost the race against the unique
@@ -1019,6 +1021,11 @@ public class StocktakesController(
                 fresh.FinishedAt = DateTime.UtcNow;
                 await db.SaveChangesAsync(ct);
             }, ct);
+        }
+        catch (InventoryWriteConflictException)
+        {
+            return Conflict(ErrorCode.InventoryWriteConflict,
+                "Stock for this item was changed concurrently; nothing was written.");
         }
         catch (InsufficientInventoryException ex)
         {

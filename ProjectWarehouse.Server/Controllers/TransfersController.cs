@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
@@ -34,6 +34,8 @@ public class TransfersController(
     ///         when raised inside the transaction) — the node does not exist</item>
     ///   <item>422 <c>insufficientInventory</c> (field <c>items</c>) — not enough Standard items in the source node;
     ///         args <c>{ itemName, requested, available, missing, path }</c>, <c>path</c> being the node breadcrumb</item>
+    ///   <item>409 <c>inventoryWriteConflict</c> — concurrent stock writes outlasted the retry budget;
+    ///         nothing was written and the request can be repeated</item>
     ///   <item>422 <c>unitInventoryItemNotFound</c> (field <c>items</c>) — the unit item does not exist or was already removed</item>
     ///   <item>422 <c>validationError</c> — empty <c>items</c>, an item with both or neither of
     ///         <c>catalogItemId</c>/<c>unitItemId</c> (field <c>items[i]</c>), or a non-positive
@@ -140,6 +142,11 @@ public class TransfersController(
                     }
                 }
             }, ct);
+        }
+        catch (InventoryWriteConflictException)
+        {
+            return Conflict(ErrorCode.InventoryWriteConflict,
+                "Stock for this item was changed concurrently; nothing was written.");
         }
         catch (InsufficientInventoryException ex)
         {

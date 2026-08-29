@@ -167,4 +167,7 @@ public enum ErrorCode
     RealtimeConnectionUnknown = 130,
     EditLockHeld = 131,
     EditLockNotHeld = 132,
+
+    // Concurrency
+    InventoryWriteConflict = 133,
 }
