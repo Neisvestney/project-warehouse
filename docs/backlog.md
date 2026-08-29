@@ -73,7 +73,7 @@ the failure mode is a frozen subtree, and no test in the repo covers it.
 ## Live-режим телеметрии через обратный SSH-туннель
 
 **Что это даёт.** Прод-коллектор пишет телеметрию в файлы, и до дашборда она доезжает только после
-`scripts/fetch-telemetry.ps1` — см. [observability-specification.md](observability-specification.md).
+скачивания архива.
 Второй экспортёр `otlp` в тот же пайплайн, направленный в `localhost:4317` внутри обратного туннеля
 (`ssh -R 4317:localhost:4317`), даёт живой поток на машину разработчика, пока туннель открыт, не
 трогая файловый архив. С `sending_queue` на диске батчи, накопленные при закрытом туннеле,

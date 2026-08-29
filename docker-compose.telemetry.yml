@@ -1,0 +1,18 @@
+services:
+  aspire-dashboard-replay:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+    ports:
+      # 18888 занят живым дев-стеком: прод-инцидент и текущий дев смотрят рядом
+      - "18890:18888"
+    environment:
+      - DASHBOARD__OTLP__AUTHMODE=Unsecured
+      - DASHBOARD__FRONTEND__AUTHMODE=Unsecured
+
+  otel-replay:
+    image: otel/opentelemetry-collector-contrib:0.159.0
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./otel/collector.replay.yaml:/etc/otel/config.yaml:ro
+      - ./telemetry-archive:/archive:ro
+    depends_on:
+      - aspire-dashboard-replay

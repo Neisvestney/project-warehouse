@@ -1,0 +1,24 @@
+receivers:
+  otlpjsonfile:
+    include:
+      - /archive/*.json
+      - /archive/*.json.*
+    start_at: beginning
+
+processors:
+  batch:
+    timeout: 1s
+
+exporters:
+  otlp:
+    endpoint: aspire-dashboard-replay:18889
+    tls: {insecure: true}
+
+service:
+  pipelines:
+    traces: {receivers: [otlpjsonfile], processors: [batch], exporters: [otlp]}
+    logs: {receivers: [otlpjsonfile], processors: [batch], exporters: [otlp]}
+    metrics: {receivers: [otlpjsonfile], processors: [batch], exporters: [otlp]}
+  telemetry:
+    logs:
+      level: warn
