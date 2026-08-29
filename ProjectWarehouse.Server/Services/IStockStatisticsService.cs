@@ -5,7 +5,7 @@ using ProjectWarehouse.Server.Models.Statistics;
 namespace ProjectWarehouse.Server.Services;
 
 /// <summary>
-/// Reads the stock movement journal. Every method scopes the query to what <paramref name="user"/> may
+/// Reads the stock movement journal. Every method scopes the query to what the user may
 /// see (all warehouses vs. assigned ones) before applying the filter.
 /// </summary>
 public interface IStockStatisticsService

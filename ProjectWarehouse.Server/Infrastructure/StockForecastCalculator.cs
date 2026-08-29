@@ -21,11 +21,14 @@ public static class StockForecastCalculator
     /// <summary>Fresh days weigh more; a third of the window is the period over which weight halves.</summary>
     private const double HalfLifeFraction = 3.0;
 
+    /// <param name="stock">Current on-hand quantity.</param>
     /// <param name="dailyOutQuantities">
     /// Exactly <c>options.WindowDays</c> entries, index 0 being today. Days with no shipment are zeros
     /// and must be present: they are days too, and they are what keeps an item that leaves in one box a
     /// month from reading like a bestseller.
     /// </param>
+    /// <param name="options">Window size and half-life weighting configuration.</param>
+    /// <param name="warningDays">Threshold in days below which the forecast is flagged as low.</param>
     public static StockForecastResult Calculate(
         int stock,
         IReadOnlyList<int> dailyOutQuantities,

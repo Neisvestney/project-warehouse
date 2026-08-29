@@ -72,7 +72,7 @@ public class OrdersController(
                 .ThenInclude(tb => tb.Components).ThenInclude(c => c.Fulfillments)
                 .ThenInclude(f => f.CreatedBy)
             .Include(o => o.MarketplaceItems)
-                .ThenInclude(i => i.MarketplaceCard).ThenInclude(c => c.CatalogItem)
+                .ThenInclude(i => i.MarketplaceCard).ThenInclude(c => c!.CatalogItem)
             .AsSplitQuery();
 
     private async Task<Dictionary<Guid, StoragePlaceNode>> LoadWarehouseNodesAsync(
@@ -234,7 +234,7 @@ public class OrdersController(
 
         var query = accessible
             .Include(o => o.Warehouse)
-            .Include(o => o.MarketplaceOrder.MarketplaceAccount)
+            .Include(o => o.MarketplaceOrder!.MarketplaceAccount)
             .Include(o => o.CreatedBy)
             .Include(o => o.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
