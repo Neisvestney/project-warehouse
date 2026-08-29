@@ -4253,6 +4253,10 @@ export type OrdersTransitionStatusErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -4663,6 +4667,10 @@ export type OrdersDeleteAssemblyTaskErrors = {
    */
   403: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -4947,6 +4955,10 @@ export type OrdersRemoveFulfillmentErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type OrdersRemoveFulfillmentError =

@@ -64,8 +64,18 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                     .ThenInclude(f => f.BundleComponents)
                 .ToListAsync(ct);
 
-            foreach (var task in tasks)
-                await RestoreAndDeleteTaskAsync(task, ct);
+            // The restored stock, the deleted tasks and the new status are one fact: a failure partway
+            // through would hand the warehouse back some of the goods while the tasks still claim them.
+            await db.Database.ExecuteInTransactionAsync("orders.assembly.rollback", async () =>
+            {
+                foreach (var task in tasks)
+                    await RestoreAndDeleteTaskAsync(task, ct);
+
+                order.Status = targetStatus;
+                await db.SaveChangesAsync(ct);
+            }, ct);
+
+            return;
         }
 
         order.Status = targetStatus;
@@ -276,8 +286,11 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                 .ThenInclude(f => f.BundleComponents)
             .FirstAsync(t => t.Id == task.Id, ct);
 
-        await RestoreAndDeleteTaskAsync(fullTask, ct);
-        await db.SaveChangesAsync(ct);
+        await db.Database.ExecuteInTransactionAsync("orders.assembly_task.delete", async () =>
+        {
+            await RestoreAndDeleteTaskAsync(fullTask, ct);
+            await db.SaveChangesAsync(ct);
+        }, ct);
     }
 
     public async Task TransitionTaskStatusAsync(
@@ -664,12 +677,18 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
         return fulfillment;
     }
 
-    public async Task RemoveFulfillmentAsync(AssemblyFulfillment fulfillment, CancellationToken ct = default)
-    {
-        await RestoreFulfillmentInventoryAsync(fulfillment, ct);
-        db.AssemblyFulfillments.Remove(fulfillment);
-        await db.SaveChangesAsync(ct);
-    }
+    /// <summary>
+    /// Returns the picked stock and drops the fulfillment row. Both halves share one transaction:
+    /// split across two commits, a failure in between would leave the stock back on the node with the
+    /// fulfillment still standing, and a repeated undo would return it a second time.
+    /// </summary>
+    public async Task RemoveFulfillmentAsync(AssemblyFulfillment fulfillment, CancellationToken ct = default) =>
+        await db.Database.ExecuteInTransactionAsync("orders.fulfillment.remove", async () =>
+        {
+            await RestoreFulfillmentInventoryAsync(fulfillment, ct);
+            db.AssemblyFulfillments.Remove(fulfillment);
+            await db.SaveChangesAsync(ct);
+        }, ct);
 
     // ── Private helpers ───────────────────────────────────────────────────────
 

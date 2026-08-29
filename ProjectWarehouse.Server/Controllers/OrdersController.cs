@@ -414,13 +414,16 @@ public class OrdersController(
     /// when any assembly task is already <c>Done</c>; otherwise it deletes every assembly task of the order and
     /// restores the inventory of their fulfillments. Cancelling is refused with 422 <c>orderHasFulfillments</c>
     /// while any fulfillment still exists. Assembled is reached automatically when the last task completes, not
-    /// through this endpoint. Returns 404 <c>orderNotFound</c>.
+    /// through this endpoint. Returns 404 <c>orderNotFound</c>, 409 <c>inventoryWriteConflict</c> when the
+    /// inventory restored by Assembly → Confirmed loses to concurrent stock writes — nothing was written and
+    /// the request can be repeated.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [HttpPut("{id:guid}/status")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> TransitionStatus(
         Guid id, [FromBody] TransitionOrderStatusRequest request, CancellationToken ct = default)
@@ -435,6 +438,11 @@ public class OrdersController(
         catch (ValidationException ex)
         {
             return UnprocessableEntity(ex);
+        }
+        catch (InventoryWriteConflictException)
+        {
+            return Conflict(ErrorCode.InventoryWriteConflict,
+                "Stock for this item was changed concurrently; nothing was written.");
         }
 
         var full = await LoadOrderDetailsAsync(id, ct);
@@ -1010,12 +1018,15 @@ public class OrdersController(
     /// <remarks>
     /// Only possible while the order is in Assembly — otherwise 422 <c>assemblyTaskNotDeletable</c>.
     /// Deletion cascades to the task's boxes, components and fulfillments; picked stock is returned to its source
-    /// nodes first. Returns 404 <c>orderNotFound</c> or <c>assemblyTaskNotFound</c>.
+    /// nodes first. Returns 404 <c>orderNotFound</c> or <c>assemblyTaskNotFound</c>, 409
+    /// <c>inventoryWriteConflict</c> when returning that stock loses to concurrent writes — nothing was
+    /// written and the request can be repeated.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [HttpDelete("{id:guid}/assembly-tasks/{taskId:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> DeleteAssemblyTask(Guid id, Guid taskId, CancellationToken ct = default)
     {
@@ -1034,6 +1045,11 @@ public class OrdersController(
         catch (ValidationException ex)
         {
             return UnprocessableEntity(ex);
+        }
+        catch (InventoryWriteConflictException)
+        {
+            return Conflict(ErrorCode.InventoryWriteConflict,
+                "Stock for this item was changed concurrently; nothing was written.");
         }
     }
 
@@ -1315,7 +1331,8 @@ public class OrdersController(
     /// Standard rows increment the node count back, Unit rows reattach the instance, Bundle rows restore every
     /// leaf. No status guard: this works whatever status the order is in.
     /// Returns 404 <c>orderNotFound</c> or <c>assemblyFulfillmentNotFound</c> (the fulfillment must belong to the
-    /// component, task box and task named in the route).
+    /// component, task box and task named in the route), 409 <c>inventoryWriteConflict</c> when concurrent stock
+    /// writes outlast the retry budget — nothing was returned and the request can be repeated.
     /// Requires <c>orders.assemble_assigned</c>, <c>orders.edit</c> or <c>orders.edit_assigned</c>, plus an
     /// assignment to the order's warehouse in every case.
     /// </remarks>
@@ -1323,6 +1340,7 @@ public class OrdersController(
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> RemoveFulfillment(
         Guid id, Guid taskId, Guid tbid, Guid cid, Guid fid, CancellationToken ct = default)
     {
@@ -1348,6 +1366,11 @@ public class OrdersController(
         catch (ValidationException ex)
         {
             return UnprocessableEntity(ex);
+        }
+        catch (InventoryWriteConflictException)
+        {
+            return Conflict(ErrorCode.InventoryWriteConflict,
+                "Stock for this item was changed concurrently; nothing was written.");
         }
     }
 
