@@ -14,6 +14,8 @@ namespace ProjectWarehouse.Server.Controllers;
 /// outgoing request.
 /// </remarks>
 [Route("api/telemetry")]
+// telemetry about shipping telemetry is not load on the warehouse — see the metrics section of the spec
+[DisableHttpMetrics]
 public class TelemetryController(
     IHttpClientFactory httpClientFactory,
     ILogger<TelemetryController> logger) : AppControllerBase

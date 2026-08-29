@@ -41,6 +41,7 @@ using ProjectWarehouse.Server.Models.Stocktakes;
 using ProjectWarehouse.Server.Models.Writeoffs;
 using ProjectWarehouse.Server.Services;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using ProjectWarehouse.Server.Infrastructure.Observability;
@@ -154,7 +155,26 @@ try
                 .AddNpgsql()
                 .AddQuartzInstrumentation()
                 .AddSource(AppTelemetry.ActivitySourceName)
-                .AddOtlpExporter(o => o.Endpoint = otlpUri));
+                .AddOtlpExporter(o => o.Endpoint = otlpUri))
+            .WithMetrics(metrics => metrics
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddRuntimeInstrumentation()
+                // connection pool saturation is what a race for the same node hits first
+                .AddNpgsqlInstrumentation()
+                .AddMeter(AppTelemetry.MeterName)
+                // the retry budget is 3, so the default boundaries put every write in the first bucket
+                .AddView(InventoryMetrics.AttemptsName, new ExplicitBucketHistogramConfiguration
+                {
+                    Boundaries = InventoryMetrics.AttemptBoundaries,
+                })
+                .AddOtlpExporter((exporter, reader) =>
+                {
+                    exporter.Endpoint = otlpUri;
+                    reader.TemporalityPreference = observability.DeltaMetrics
+                        ? MetricReaderTemporalityPreference.Delta
+                        : MetricReaderTemporalityPreference.Cumulative;
+                }));
     }
 
     // Deliberately without AddStandardResilienceHandler: retrying telemetry is pointless, a batch is
@@ -540,6 +560,8 @@ try
 
     await DbSeeder.SeedAsync(app.Services);
 
+    app.UseMiddleware<ExceptionTelemetryMiddleware>();
+
     app.UseDefaultFiles();
     app.UseStaticFiles();
 
@@ -557,7 +579,7 @@ try
     app.UseMiddleware<TelemetryEnrichmentMiddleware>();
     app.UseAuthorization();
     app.MapControllers();
-    app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+    app.MapGet("/health", () => Results.Ok(new { status = "ok" })).DisableHttpMetrics();
     app.Map("/api/{**path}", (async ctx =>
     {
         var problem = AppProblems.NotFound(ErrorCode.RouteNotFound, "The requested API endpoint does not exist.");

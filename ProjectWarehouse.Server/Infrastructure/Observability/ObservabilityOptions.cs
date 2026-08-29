@@ -25,6 +25,13 @@ public class ObservabilityOptions
     /// <summary>Share of traces that reaches the archive.</summary>
     public double TraceSampleRatio { get; set; } = 1.0;
 
+    /// <summary>
+    /// Exports metrics as deltas rather than cumulative totals. On for the file archive: a delta record
+    /// stands on its own, while a cumulative one is readable only next to another point of the same series
+    /// and starts over at every restart of the process. Off for a dashboard, which sums deltas itself.
+    /// </summary>
+    public bool DeltaMetrics { get; set; } = true;
+
     /// <summary>Ceiling for the body of a single OTLP request coming from the frontend, bytes.</summary>
     public int MaxClientPayloadBytes { get; set; } = 1024 * 1024;
 

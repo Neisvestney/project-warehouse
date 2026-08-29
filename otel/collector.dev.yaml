@@ -17,6 +17,12 @@ processors:
       log_record:
         - 'attributes["url.path"] == "/health"'
         - 'IsMatch(attributes["url.path"], "^/api/telemetry/")'
+    metrics:
+      datapoint:
+        - 'attributes["server.port"] == 4317'
+        - 'attributes["server.port"] == 4318'
+        - 'attributes["http.route"] == "/health"'
+        - 'IsMatch(attributes["http.route"], "^/?api/telemetry/")'
   batch:
     timeout: 1s
 
@@ -29,6 +35,7 @@ service:
   pipelines:
     traces: {receivers: [otlp], processors: [filter/noise, batch], exporters: [otlp]}
     logs: {receivers: [otlp], processors: [filter/noise, batch], exporters: [otlp]}
+    metrics: {receivers: [otlp], processors: [filter/noise, batch], exporters: [otlp]}
   telemetry:
     logs:
       level: warn
