@@ -12,6 +12,7 @@ using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Users;
 using ProjectWarehouse.Server.Services;
@@ -245,55 +246,39 @@ public class UsersController(
         var warehousesToRemove = user.AssignedWarehouses.Where(w => toRemoveWarehouseIds.Contains(w.Id)).ToList();
 
         // All mutations inside a single transaction
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-
-        user.Email = request.Email;
-        user.FirstName = request.FirstName;
-        user.LastName = request.LastName;
-
-        var profileResult = await userManager.UpdateAsync(user);
-        if (!profileResult.Succeeded)
+        try
         {
-            var errors = profileResult.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description,
-                (IReadOnlyDictionary<string, object>?)null));
-            return Problem(AppProblems.UnprocessableEntities(errors));
-        }
-
-        foreach (var role in rolesToAdd)
-        {
-            var result = await userManager.AddToRoleAsync(user, role.Name!);
-            if (!result.Succeeded)
+            await db.Database.ExecuteInTransactionAsync("users.update", async () =>
             {
-                var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description,
-                    (IReadOnlyDictionary<string, object>?)null));
-                return Problem(AppProblems.UnprocessableEntities(errors));
-            }
-        }
+                user.Email = request.Email;
+                user.FirstName = request.FirstName;
+                user.LastName = request.LastName;
 
-        foreach (var role in rolesToRemove)
+                IdentityOperationException.ThrowIfFailed(await userManager.UpdateAsync(user));
+
+                foreach (var role in rolesToAdd)
+                    IdentityOperationException.ThrowIfFailed(await userManager.AddToRoleAsync(user, role.Name!));
+
+                foreach (var role in rolesToRemove)
+                    IdentityOperationException.ThrowIfFailed(await userManager.RemoveFromRoleAsync(user, role.Name!));
+
+                if (toAddPerms.Count > 0)
+                    db.UserPermissions.AddRange(toAddPerms.Select(p => new UserPermission { UserId = id, Permission = p }));
+
+                if (toRemovePerms.Count > 0)
+                    db.UserPermissions.RemoveRange(user.UserPermissions.Where(up => toRemovePerms.Contains(up.Permission)));
+
+                foreach (var w in warehousesToAdd) user.AssignedWarehouses.Add(w);
+                foreach (var w in warehousesToRemove) user.AssignedWarehouses.Remove(w);
+
+                if (permissionsChanged || warehousesChanged)
+                    await db.SaveChangesAsync(ct);
+            }, ct);
+        }
+        catch (IdentityOperationException ex)
         {
-            var result = await userManager.RemoveFromRoleAsync(user, role.Name!);
-            if (!result.Succeeded)
-            {
-                var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description,
-                    (IReadOnlyDictionary<string, object>?)null));
-                return Problem(AppProblems.UnprocessableEntities(errors));
-            }
+            return Problem(AppProblems.UnprocessableEntities(ex.ToFieldErrors()));
         }
-
-        if (toAddPerms.Count > 0)
-            db.UserPermissions.AddRange(toAddPerms.Select(p => new UserPermission { UserId = id, Permission = p }));
-
-        if (toRemovePerms.Count > 0)
-            db.UserPermissions.RemoveRange(user.UserPermissions.Where(up => toRemovePerms.Contains(up.Permission)));
-
-        foreach (var w in warehousesToAdd) user.AssignedWarehouses.Add(w);
-        foreach (var w in warehousesToRemove) user.AssignedWarehouses.Remove(w);
-
-        if (permissionsChanged || warehousesChanged)
-            await db.SaveChangesAsync(ct);
-
-        await transaction.CommitAsync(ct);
 
         if (rolesChanged || permissionsChanged)
             await versionStore.BumpAsync(user.Id);

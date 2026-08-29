@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
@@ -26,6 +27,10 @@ public static class TransactionTracing
     /// <paramref name="operation" /> is the span suffix identifying the unit of work, e.g.
     /// <c>receipts.placement.standard</c>.
     /// </para>
+    /// <para>
+    /// An <see cref="IExpectedFailure" /> rolls back under <c>db.transaction.rollback_reason</c> and leaves the
+    /// span status alone; anything else marks the span as an error and carries the exception.
+    /// </para>
     /// </summary>
     public static async Task ExecuteInTransactionAsync(
         this DatabaseFacade database,
@@ -45,6 +50,19 @@ public static class TransactionTracing
         catch (OperationCanceledException)
         {
             activity?.SetTag("db.transaction.outcome", "cancelled");
+            throw;
+        }
+        catch (Exception e) when (e is IExpectedFailure)
+        {
+            // A rejected request is not a fault: the reason is recorded, the error rate is not touched,
+            // and the stack trace stays out of the archive.
+            activity?.SetTag("db.transaction.outcome", "rollback");
+            activity?.SetTag("db.transaction.rollback_reason", e.GetType().Name);
+
+            // camelCase matches the code the client receives, so a trace joins the API response by value
+            if (e is IExpectedFailure { Code: { } code })
+                activity?.SetTag("db.transaction.rollback_code", JsonNamingPolicy.CamelCase.ConvertName(code.ToString()));
+
             throw;
         }
         catch (Exception e)

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Models.Orders;
 using ProjectWarehouse.Server.Models.Receipts;
 
@@ -548,18 +549,17 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
 
             db.AssemblyFulfillments.Add(fulfillment);
 
-            await using var tx = await db.Database.BeginTransactionAsync(ct);
+            await db.Database.ExecuteInTransactionAsync("orders.fulfillment.standard", async () =>
+            {
+                await db.SaveChangesAsync(ct);
 
-            await db.SaveChangesAsync(ct);
-
-            await inventory.RemoveStandardItemsFromNodeAsync(
-                request.SourceNodeId.Value,
-                fulfillment.ResolvedCatalogItemId!.Value,
-                request.Quantity,
-                InventoryActions.SpentOnOrder,
-                ct);
-
-            await tx.CommitAsync(ct);
+                await inventory.RemoveStandardItemsFromNodeAsync(
+                    request.SourceNodeId.Value,
+                    fulfillment.ResolvedCatalogItemId!.Value,
+                    request.Quantity,
+                    InventoryActions.SpentOnOrder,
+                    ct);
+            }, ct);
         }
         else if (isUnit)
         {
@@ -584,17 +584,16 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
 
             db.AssemblyFulfillments.Add(fulfillment);
 
-            await using var tx = await db.Database.BeginTransactionAsync(ct);
+            await db.Database.ExecuteInTransactionAsync("orders.fulfillment.unit", async () =>
+            {
+                await db.SaveChangesAsync(ct);
 
-            await db.SaveChangesAsync(ct);
-
-            await inventory.DetachUnitItemAsync(
-                request.UnitInventoryItemId!.Value,
-                request.SourceNodeId.Value,
-                InventoryActions.SpentOnOrder,
-                ct);
-
-            await tx.CommitAsync(ct);
+                await inventory.DetachUnitItemAsync(
+                    request.UnitInventoryItemId!.Value,
+                    request.SourceNodeId.Value,
+                    InventoryActions.SpentOnOrder,
+                    ct);
+            }, ct);
         }
         else // Bundle
         {
@@ -634,33 +633,32 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                 }
             }
 
-            await using var tx = await db.Database.BeginTransactionAsync(ct);
-
-            await db.SaveChangesAsync(ct);
-
-            // Deduct inventory for each bundle component; tx rolls back on any failure
-            foreach (var bundleComp in fulfillment.BundleComponents)
+            await db.Database.ExecuteInTransactionAsync("orders.fulfillment.bundle", async () =>
             {
-                if (bundleComp.UnitInventoryItemId.HasValue)
-                {
-                    await inventory.DetachUnitItemAsync(
-                        bundleComp.UnitInventoryItemId.Value,
-                        bundleComp.SourceNodeId,
-                        InventoryActions.SpentOnOrder,
-                        ct);
-                }
-                else
-                {
-                    await inventory.RemoveStandardItemsFromNodeAsync(
-                        bundleComp.SourceNodeId,
-                        bundleComp.CatalogItemId,
-                        bundleComp.Quantity,
-                        InventoryActions.SpentOnOrder,
-                        ct);
-                }
-            }
+                await db.SaveChangesAsync(ct);
 
-            await tx.CommitAsync(ct);
+                // Deduct inventory for each bundle component; tx rolls back on any failure
+                foreach (var bundleComp in fulfillment.BundleComponents)
+                {
+                    if (bundleComp.UnitInventoryItemId.HasValue)
+                    {
+                        await inventory.DetachUnitItemAsync(
+                            bundleComp.UnitInventoryItemId.Value,
+                            bundleComp.SourceNodeId,
+                            InventoryActions.SpentOnOrder,
+                            ct);
+                    }
+                    else
+                    {
+                        await inventory.RemoveStandardItemsFromNodeAsync(
+                            bundleComp.SourceNodeId,
+                            bundleComp.CatalogItemId,
+                            bundleComp.Quantity,
+                            InventoryActions.SpentOnOrder,
+                            ct);
+                    }
+                }
+            }, ct);
         }
 
         return fulfillment;

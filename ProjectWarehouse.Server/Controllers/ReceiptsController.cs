@@ -690,14 +690,24 @@ public class ReceiptsController(
         {
             await db.Database.ExecuteInTransactionAsync("receipts.placement.unit", async () =>
             {
-                // Soft uniqueness check is done inside PlaceUnitItemToNodeAsync (via CreateUnitItemAsync).
-                // DB unique constraint is the hard guard against races (caught as DbUpdateException below).
-                var unitItem = await inventory.PlaceUnitItemToNodeAsync(
-                    request.StoragePlaceNodeId,
-                    catalogItemId,
-                    request.UnitItem.InventoryNumber,
-                    action: action,
-                    ct: ct);
+                UnitInventoryItem unitItem;
+                try
+                {
+                    // Soft uniqueness check is done inside PlaceUnitItemToNodeAsync (via CreateUnitItemAsync).
+                    // DB unique constraint is the hard guard against races.
+                    unitItem = await inventory.PlaceUnitItemToNodeAsync(
+                        request.StoragePlaceNodeId,
+                        catalogItemId,
+                        request.UnitItem.InventoryNumber,
+                        action: action,
+                        ct: ct);
+                }
+                catch (DbUpdateException e) when (UniqueViolations.IsUnitInventoryNumber(e))
+                {
+                    // Race: the soft check passed but the unique index on the number fired
+                    throw new ValidationException("inventoryNumber", ErrorCode.UnitInventoryItemNumberDuplicate,
+                        "An item with this inventory number already exists for this catalog item.");
+                }
 
                 db.ReceiptItemPlacements.Add(new ReceiptItemPlacement
                 {
@@ -713,12 +723,6 @@ public class ReceiptsController(
         catch (ValidationException ex)
         {
             return UnprocessableEntity(ex);
-        }
-        catch (DbUpdateException)
-        {
-            // Race condition: soft check passed but DB unique constraint fired.
-            return UnprocessableEntity("inventoryNumber", ErrorCode.UnitInventoryItemNumberDuplicate,
-                "An item with this inventory number already exists for this catalog item.");
         }
 
         var itemAfter = await LoadItemDtoAsync(itemId, warehouseId, ct, nodeById);
