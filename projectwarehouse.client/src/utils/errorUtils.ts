@@ -155,8 +155,7 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   realtimeConnectionUnknown: "Соединение обновлений разорвано — переподключаемся",
   editLockHeld: "Объект сейчас редактирует другой пользователь",
   editLockNotHeld: "Блокировка редактирования уже снята",
-  inventoryWriteConflict:
-    "Остатки изменились в этот момент. Повторите попытку",
+  inventoryWriteConflict: "Остатки изменились в этот момент. Повторите попытку",
 };
 
 /** Richer variants used only when the server supplied every placeholder in args. */

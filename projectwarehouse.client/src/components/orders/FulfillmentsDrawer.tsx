@@ -22,7 +22,6 @@ import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
 import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
 import {useBackClosable} from "@/hooks/useBackClosable";
-import {useState} from "react";
 import {useDrawerLocalState} from "@/hooks/useDrawerLocalState.ts";
 
 function formatDateTime(iso: string | null | undefined): string {

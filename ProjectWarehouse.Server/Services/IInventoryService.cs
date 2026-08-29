@@ -107,7 +107,7 @@ public interface IInventoryService
     // ── Reads ────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Current on-hand quantity per catalog item — standard items (<see cref="StoragePlaceNodeItemsGroup.Count"/>)
+    /// Current on-hand quantity per catalog item — standard items (<see cref="ItemsGroup.Count"/>)
     /// plus located unit items — narrowed to <paramref name="warehouseIds"/> and, if given, further to one
     /// warehouse/storage place/node. <paramref name="catalogItemIds"/> restricts which items are counted;
     /// pass null to cover every item found in scope.

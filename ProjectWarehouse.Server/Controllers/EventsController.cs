@@ -14,7 +14,6 @@ namespace ProjectWarehouse.Server.Controllers;
 [Route("api/events")]
 [TimeZoneAware]
 public class EventsController(
-    ApplicationDbContext db,
     IMapper mapper,
     IUserQueryFilterService queryFilter,
     IWarehouseTimeZoneResolver timeZones) : AppControllerBase
