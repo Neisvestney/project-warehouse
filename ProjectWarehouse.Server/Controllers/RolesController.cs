@@ -8,6 +8,7 @@ using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Roles;
 using ProjectWarehouse.Server.Services;
@@ -167,80 +168,70 @@ public class RolesController(
                 .ToListAsync(ct)
             : (List<Guid>)[];
 
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-
         var bumpRoleIds = new HashSet<Guid>();
         var createdRoles = new List<(ApplicationRole Role, List<string> Permissions)>();
 
-        foreach (var item in toCreate)
+        try
         {
-            var role = new ApplicationRole { Name = item.Name, Order = item.Order };
-            var result = await roleManager.CreateAsync(role);
-            if (!result.Succeeded)
+            await db.Database.ExecuteInTransactionAsync("roles.batch_update", async () =>
             {
-                var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
-                return Problem(AppProblems.UnprocessableEntities(errors));
-            }
-            createdRoles.Add((role, item.Permissions.ToList()));
-            if (item.Permissions.Count > 0)
-                bumpRoleIds.Add(role.Id);
-        }
-
-        foreach (var item in toUpdate)
-        {
-            var role = existingById[item.Id!.Value];
-            var nameChanged = role.NormalizedName != roleManager.NormalizeKey(item.Name);
-            var orderChanged = role.Order != item.Order;
-
-            if (nameChanged || orderChanged)
-            {
-                role.Name = item.Name;
-                role.Order = item.Order;
-                var result = await roleManager.UpdateAsync(role);
-                if (!result.Succeeded)
+                foreach (var item in toCreate)
                 {
-                    var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
-                    return Problem(AppProblems.UnprocessableEntities(errors));
+                    var role = new ApplicationRole { Name = item.Name, Order = item.Order };
+                    IdentityOperationException.ThrowIfFailed(await roleManager.CreateAsync(role));
+                    createdRoles.Add((role, item.Permissions.ToList()));
+                    if (item.Permissions.Count > 0)
+                        bumpRoleIds.Add(role.Id);
                 }
-            }
-        }
 
-        foreach (var role in toDelete)
+                foreach (var item in toUpdate)
+                {
+                    var role = existingById[item.Id!.Value];
+                    var nameChanged = role.NormalizedName != roleManager.NormalizeKey(item.Name);
+                    var orderChanged = role.Order != item.Order;
+
+                    if (nameChanged || orderChanged)
+                    {
+                        role.Name = item.Name;
+                        role.Order = item.Order;
+                        IdentityOperationException.ThrowIfFailed(await roleManager.UpdateAsync(role));
+                    }
+                }
+
+                foreach (var role in toDelete)
+                    IdentityOperationException.ThrowIfFailed(await roleManager.DeleteAsync(role));
+
+                foreach (var (role, permissions) in createdRoles)
+                    db.RolePermissions.AddRange(permissions.Select(p => new RolePermission { RoleId = role.Id, Permission = p }));
+
+                foreach (var item in toUpdate)
+                {
+                    var role = existingById[item.Id!.Value];
+                    var current = role.RolePermissions.Select(rp => rp.Permission).ToHashSet();
+                    var requested = item.Permissions.ToHashSet();
+
+                    var toAdd = requested.Except(current).ToList();
+                    var toRemove = current.Except(requested).ToList();
+
+                    if (toAdd.Count > 0)
+                    {
+                        db.RolePermissions.AddRange(toAdd.Select(p => new RolePermission { RoleId = role.Id, Permission = p }));
+                        bumpRoleIds.Add(role.Id);
+                    }
+                    if (toRemove.Count > 0)
+                    {
+                        db.RolePermissions.RemoveRange(role.RolePermissions.Where(rp => toRemove.Contains(rp.Permission)));
+                        bumpRoleIds.Add(role.Id);
+                    }
+                }
+
+                await db.SaveChangesAsync(ct);
+            }, ct);
+        }
+        catch (IdentityOperationException ex)
         {
-            var result = await roleManager.DeleteAsync(role);
-            if (!result.Succeeded)
-            {
-                var errors = result.Errors.Select(e => ("root", ErrorCode.ValidationError, e.Description, (IReadOnlyDictionary<string, object>?)null));
-                return Problem(AppProblems.UnprocessableEntities(errors));
-            }
+            return Problem(AppProblems.UnprocessableEntities(ex.ToFieldErrors()));
         }
-
-        foreach (var (role, permissions) in createdRoles)
-            db.RolePermissions.AddRange(permissions.Select(p => new RolePermission { RoleId = role.Id, Permission = p }));
-
-        foreach (var item in toUpdate)
-        {
-            var role = existingById[item.Id!.Value];
-            var current = role.RolePermissions.Select(rp => rp.Permission).ToHashSet();
-            var requested = item.Permissions.ToHashSet();
-
-            var toAdd = requested.Except(current).ToList();
-            var toRemove = current.Except(requested).ToList();
-
-            if (toAdd.Count > 0)
-            {
-                db.RolePermissions.AddRange(toAdd.Select(p => new RolePermission { RoleId = role.Id, Permission = p }));
-                bumpRoleIds.Add(role.Id);
-            }
-            if (toRemove.Count > 0)
-            {
-                db.RolePermissions.RemoveRange(role.RolePermissions.Where(rp => toRemove.Contains(rp.Permission)));
-                bumpRoleIds.Add(role.Id);
-            }
-        }
-
-        await db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
 
         await permissionService.BumpUsersAsync(usersAffectedByDeletion);
 

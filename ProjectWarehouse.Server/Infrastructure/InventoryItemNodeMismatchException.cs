@@ -5,7 +5,7 @@ namespace ProjectWarehouse.Server.Infrastructure;
 /// This indicates the item was moved after the placement was recorded.
 /// </summary>
 public class InventoryItemNodeMismatchException(Guid itemId, Guid expectedNodeId, Guid actualNodeId)
-    : Exception($"Item '{itemId}' is not in the expected node '{expectedNodeId}' (actual: '{actualNodeId}'). It may have been moved after the placement was created.")
+    : Exception($"Item '{itemId}' is not in the expected node '{expectedNodeId}' (actual: '{actualNodeId}'). It may have been moved after the placement was created."), IExpectedFailure
 {
     public Guid ItemId { get; } = itemId;
     public Guid ExpectedNodeId { get; } = expectedNodeId;

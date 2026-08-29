@@ -1098,7 +1098,7 @@ public class StocktakesController(
                             line.StoragePlaceNodeId, line.CatalogItemId, line.InventoryNumber!,
                             action: InventoryActions.StocktakeSurplus, ct: ct);
                     }
-                    catch (DbUpdateException)
+                    catch (DbUpdateException e) when (UniqueViolations.IsUnitInventoryNumber(e))
                     {
                         // Race: the soft check passed but the unique index on the number fired
                         throw new Infrastructure.ValidationException("inventoryNumber",

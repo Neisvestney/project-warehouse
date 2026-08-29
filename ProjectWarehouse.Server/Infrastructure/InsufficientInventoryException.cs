@@ -7,7 +7,7 @@ public class InsufficientInventoryException(
     int requested,
     string catalogItemName = "",
     string[]? nodePath = null)
-    : Exception($"Insufficient inventory for catalog item '{catalogItemId}' in node '{nodeId}': requested {requested}, available {available}.")
+    : Exception($"Insufficient inventory for catalog item '{catalogItemId}' in node '{nodeId}': requested {requested}, available {available}."), IExpectedFailure
 {
     public Guid NodeId { get; } = nodeId;
     public Guid CatalogItemId { get; } = catalogItemId;

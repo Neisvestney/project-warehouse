@@ -6,13 +6,15 @@ namespace ProjectWarehouse.Server.Infrastructure;
 /// to convert it directly into a 422 <c>AppProblemDetails</c> field error.
 /// </summary>
 public class ValidationException(string field, ErrorCode errorCode, string message)
-    : Exception(message)
+    : Exception(message), IExpectedFailure
 {
     /// <summary>The request field the error should be attached to.</summary>
     public string Field { get; } = field;
 
     /// <summary>Machine-readable error code.</summary>
     public ErrorCode ErrorCode { get; } = errorCode;
+
+    ErrorCode? IExpectedFailure.Code => ErrorCode;
 
     /// <summary>
     /// Returns a new <see cref="ValidationException"/> with <paramref name="prefix"/> prepended to <see cref="Field"/>

@@ -369,6 +369,12 @@ into a per-item failure, so one contended item does not abort the rest of the ba
 Conflict detection is narrow on purpose: a unique violation counts only when `ConstraintName` is the group's own
 index. Anything else that lands in the same save is a real failure and must not be replayed away.
 
+The same narrowness applies wherever a unique violation is turned into a business answer. `UniqueViolations`
+recognises one index by name — `IsUnitInventoryNumber` matches the partial index behind "this inventory number is
+already taken", and both the receipt placement and the stocktake surplus path filter on it before converting the
+failure into a `ValidationException`. A bare `catch (DbUpdateException)` would report an unrelated foreign-key
+violation as a duplicate number, which is a lie the caller cannot act on.
+
 The same shape applies to any aggregate counter that several requests can touch at once. A row that is only ever
 replaced wholesale, or written from a single serialized worker, does not need it.
 
