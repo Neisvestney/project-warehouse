@@ -1573,7 +1573,9 @@ export const ordersCreateDirect = <ThrowOnError extends boolean = false>(
  * when any assembly task is already `Done`; otherwise it deletes every assembly task of the order and
  * restores the inventory of their fulfillments. Cancelling is refused with 422 `orderHasFulfillments`
  * while any fulfillment still exists. Assembled is reached automatically when the last task completes, not
- * through this endpoint. Returns 404 `orderNotFound`.
+ * through this endpoint. Returns 404 `orderNotFound`, 409 `inventoryWriteConflict` when the
+ * inventory restored by Assembly → Confirmed loses to concurrent stock writes — nothing was written and
+ * the request can be repeated.
  * Requires `orders.edit` or `orders.edit_assigned`.
  */
 export const ordersTransitionStatus = <ThrowOnError extends boolean = false>(
@@ -1829,7 +1831,9 @@ export const ordersCreateAssemblyTask = <ThrowOnError extends boolean = false>(
  *
  * Only possible while the order is in Assembly — otherwise 422 `assemblyTaskNotDeletable`.
  * Deletion cascades to the task's boxes, components and fulfillments; picked stock is returned to its source
- * nodes first. Returns 404 `orderNotFound` or `assemblyTaskNotFound`.
+ * nodes first. Returns 404 `orderNotFound` or `assemblyTaskNotFound`, 409
+ * `inventoryWriteConflict` when returning that stock loses to concurrent writes — nothing was
+ * written and the request can be repeated.
  * Requires `orders.edit` or `orders.edit_assigned`.
  */
 export const ordersDeleteAssemblyTask = <ThrowOnError extends boolean = false>(
@@ -2015,7 +2019,8 @@ export const ordersAddFulfillment = <ThrowOnError extends boolean = false>(
  * Standard rows increment the node count back, Unit rows reattach the instance, Bundle rows restore every
  * leaf. No status guard: this works whatever status the order is in.
  * Returns 404 `orderNotFound` or `assemblyFulfillmentNotFound` (the fulfillment must belong to the
- * component, task box and task named in the route).
+ * component, task box and task named in the route), 409 `inventoryWriteConflict` when concurrent stock
+ * writes outlast the retry budget — nothing was returned and the request can be repeated.
  * Requires `orders.assemble_assigned`, `orders.edit` or `orders.edit_assigned`, plus an
  * assignment to the order's warehouse in every case.
  */
