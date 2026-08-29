@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using AutoMapper;
 using ValidationException = ProjectWarehouse.Server.Infrastructure.ValidationException;
 using AutoMapper.QueryableExtensions;
@@ -744,6 +744,8 @@ public class ReceiptsController(
     ///   <item>422 <c>unitInventoryItemNotFound</c> — the unit item is already gone</item>
     ///   <item>422 <c>insufficientInventory</c> — the standard stock to reverse is no longer in the node;
     ///     <c>args: { itemName, requested, available, missing, path }</c></item>
+    ///   <item>409 <c>inventoryWriteConflict</c> — concurrent stock writes outlasted the retry budget;
+    ///     nothing was written and the request can be repeated</item>
     ///   <item>403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c>; 401 <c>tokenInvalid</c></item>
     /// </list>
     /// </remarks>
@@ -807,6 +809,11 @@ public class ReceiptsController(
         {
             return UnprocessableEntity("root", ErrorCode.UnitInventoryItemNotFound,
                 "Единичный товар не найден — возможно, он уже был удалён.");
+        }
+        catch (InventoryWriteConflictException)
+        {
+            return Conflict(ErrorCode.InventoryWriteConflict,
+                "Stock for this item was changed concurrently; nothing was written.");
         }
         catch (InsufficientInventoryException ex)
         {

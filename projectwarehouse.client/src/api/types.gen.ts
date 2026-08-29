@@ -648,6 +648,7 @@ export type ErrorCode =
   | "realtimeConnectionUnknown"
   | "editLockHeld"
   | "editLockNotHeld"
+  | "inventoryWriteConflict"
   | "marketplaceAutoMapRuleNotFound"
   | "marketplaceAutoMapRuleInvalidRegex"
   | "invalidValue";
@@ -7364,6 +7365,60 @@ export type SystemGetDatabaseStatsResponses = {
 
 export type SystemGetDatabaseStatsResponse =
   SystemGetDatabaseStatsResponses[keyof SystemGetDatabaseStatsResponses];
+
+export type TelemetryTracesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/telemetry/v1/traces";
+};
+
+export type TelemetryTracesErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type TelemetryTracesError = TelemetryTracesErrors[keyof TelemetryTracesErrors];
+
+export type TelemetryTracesResponses = {
+  /**
+   * Accepted
+   */
+  202: unknown;
+};
+
+export type TelemetryLogsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/telemetry/v1/logs";
+};
+
+export type TelemetryLogsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type TelemetryLogsError = TelemetryLogsErrors[keyof TelemetryLogsErrors];
+
+export type TelemetryLogsResponses = {
+  /**
+   * Accepted
+   */
+  202: unknown;
+};
 
 export type TransfersExecuteData = {
   body: ExecuteTransferRequest;

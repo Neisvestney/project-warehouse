@@ -1241,7 +1241,8 @@ public class OrdersController(
     /// against fresh state to absorb duplicate submits), 422 <c>insufficientInventory</c>,
     /// <c>unitInventoryItemNotFound</c>, <c>inventoryItemNodeMismatch</c>, <c>catalogItemNotFound</c>,
     /// 422 <c>orderNotAssembly</c> outside Assembly status, 404 <c>orderNotFound</c> or
-    /// <c>assemblyTaskBoxComponentNotFound</c>.
+    /// <c>assemblyTaskBoxComponentNotFound</c>, 409 <c>inventoryWriteConflict</c> when concurrent stock writes
+    /// outlast the retry budget — nothing was written and the request can be repeated.
     /// Requires <c>orders.assemble_assigned</c>, <c>orders.edit</c> or <c>orders.edit_assigned</c>, plus an
     /// assignment to the order's warehouse in every case.
     /// </remarks>
@@ -1278,6 +1279,11 @@ public class OrdersController(
         catch (ValidationException ex)
         {
             return UnprocessableEntity(ex);
+        }
+        catch (InventoryWriteConflictException)
+        {
+            return Conflict(ErrorCode.InventoryWriteConflict,
+                "Stock for this item was changed concurrently; nothing was written.");
         }
         catch (InsufficientInventoryException ex)
         {
@@ -1356,7 +1362,8 @@ public class OrdersController(
     /// <c>{ orderId, componentId, catalogItemName, error }</c> carrying the real error code
     /// (<c>orderNotFound</c>, <c>orderNotAssignedToWarehouse</c>, <c>orderNotAssembly</c>,
     /// <c>assemblyTaskBoxComponentNotFound</c>, <c>insufficientInventory</c>, <c>unitInventoryItemNotFound</c>,
-    /// <c>inventoryItemNodeMismatch</c>, <c>assemblyComponentAlreadyFulfilled</c>, …), while successful items are
+    /// <c>inventoryItemNodeMismatch</c>, <c>assemblyComponentAlreadyFulfilled</c>, <c>inventoryWriteConflict</c>,
+    /// …), while successful items are
     /// committed and stay committed. There is no overall transaction.
     /// With <c>autoCompleteTasks: false</c> task statuses are never touched and <c>completedTaskIds</c> comes back
     /// empty. With <c>true</c>, every touched task is advanced Pending → InProgress, and InProgress → Done only
@@ -1452,6 +1459,12 @@ public class OrdersController(
                 catch (ValidationException ex)
                 {
                     Fail(item, ex.ErrorCode, ex.Message, catalogItemName: itemName);
+                }
+                catch (InventoryWriteConflictException)
+                {
+                    Fail(item, ErrorCode.InventoryWriteConflict,
+                        "Stock for this item was changed concurrently; nothing was written.",
+                        catalogItemName: itemName);
                 }
                 catch (InsufficientInventoryException ex)
                 {

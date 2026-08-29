@@ -1726,7 +1726,14 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<Guid>("StoragePlaceNodeId")
                         .HasColumnType("uuid");
 
-                    b.HasIndex("StoragePlaceNodeId");
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasIndex("StoragePlaceNodeId", "CatalogItemId")
+                        .IsUnique();
 
                     b.HasDiscriminator().HasValue("StoragePlaceNodeItemsGroup");
                 });

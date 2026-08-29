@@ -330,6 +330,50 @@ each multiplies out into six figures of duplicated rows for one item. Split quer
 
 ---
 
+## Counter rows: unique index + `xmin` + replay
+
+A row whose value is read, changed in C# and written back (`Count` on `StoragePlaceNodeItemsGroup`) cannot be
+left unguarded. EF writes the absolute value — `SET "Count" = 15`, not `"Count" = "Count" + 5` — so two requests
+that read `10` concurrently both store `15` and one increment disappears, while both journal rows survive and the
+stock silently stops matching the movements.
+
+Three parts make such a counter safe:
+
+- **A unique index on the identity of the counter** (`(StoragePlaceNodeId, CatalogItemId)`), so a race to create
+  the row fails with `23505` instead of leaving two rows that split the same stock.
+- **`xmin` as a concurrency token** — `e.Property<uint>("Version").IsRowVersion()` in `OnModelCreating`. Npgsql
+  maps a `uint` row-version onto the PostgreSQL `xmin` system column, so no column is added and the migration
+  must not generate an `AddColumn` for it. Every `UPDATE` then carries `WHERE xmin = @original` and a lost update
+  raises `DbUpdateConcurrencyException`.
+- **Replaying the attempt**, not just retrying the save: `InventoryService.SaveGroupChangeAsync` re-reads the row,
+  reapplies the delta and saves again, up to a small retry limit. On conflict a row that was `Added` is detached
+  (someone else inserted it) and a `Modified` one is `Reload`ed, which resets both original and current values.
+
+The caller's span is passed in: every successful save tags it with `inventory.group_write.attempts`, and each
+conflict adds an `inventory.group_write.conflict` event, so contention is visible in traces instead of hiding
+behind a slightly slower request.
+
+The journal row is queued **once**, after the delegate has accepted the change, and stays pending across
+attempts: `SaveChanges` is atomic, so a failed attempt leaves it `Added` and the save that finally succeeds
+writes it. Queuing it per attempt would insert a row per attempt; queuing it before the delegate runs would
+leave an orphan behind whenever the delegate rejects the change — and the scope is shared with callers such as
+`OrdersController`'s mass fulfillment, which catches `InsufficientInventoryException` and keeps going on the
+same context, so that orphan would be written by the next unrelated save.
+
+Contention that outlives the retry budget is a **business outcome, not a server error**: nothing was written, so
+the operation is safe to repeat. `SaveGroupChangeAsync` wraps the last conflict in `InventoryWriteConflictException`,
+and every controller that drives stock turns it into `409 inventoryWriteConflict` — in the batch fulfillment loop
+into a per-item failure, so one contended item does not abort the rest of the batch. Letting the raw
+`DbUpdateException` escape would have produced a 500 and told the user nothing.
+
+Conflict detection is narrow on purpose: a unique violation counts only when `ConstraintName` is the group's own
+index. Anything else that lands in the same save is a real failure and must not be replayed away.
+
+The same shape applies to any aggregate counter that several requests can touch at once. A row that is only ever
+replaced wholesale, or written from a single serialized worker, does not need it.
+
+---
+
 ## Ambient state for `IHttpClientFactory` handlers
 
 A `DelegatingHandler` cannot read a **scoped** service written by the caller: `IHttpClientFactory` builds and caches
