@@ -10,9 +10,11 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import DeleteIcon from "@mui/icons-material/Delete";
 import {format} from "date-fns";
 import {ru} from "date-fns/locale";
 import type {AssemblyFulfillmentDto} from "@/api/types.gen";
@@ -42,6 +44,9 @@ interface FulfillmentCardProps {
   isVariation: boolean;
   catalogItemId?: string;
   openCatalogItemDrawer: (id: string) => void;
+  canDelete?: boolean;
+  isDeleting?: boolean;
+  onRequestDelete?: (fulfillment: AssemblyFulfillmentDto) => void;
 }
 
 function FulfillmentCard({
@@ -49,6 +54,9 @@ function FulfillmentCard({
   isVariation,
   catalogItemId,
   openCatalogItemDrawer,
+  canDelete,
+  isDeleting,
+  onRequestDelete,
 }: FulfillmentCardProps) {
   const kind = getFulfillmentKind(fulfillment);
   const headline =
@@ -67,13 +75,31 @@ function FulfillmentCard({
   return (
     <Paper variant="outlined" sx={{p: 1.5}}>
       <Stack spacing={1}>
-        {catalogItemId ? (
-          <CatalogItemLink catalogItemId={catalogItemId} onOpen={openCatalogItemDrawer}>
-            {headlineText}
-          </CatalogItemLink>
-        ) : (
-          headlineText
-        )}
+        <Stack direction="row" sx={{alignItems: "flex-start", justifyContent: "space-between"}}>
+          <Box sx={{minWidth: 0}}>
+            {catalogItemId ? (
+              <CatalogItemLink catalogItemId={catalogItemId} onOpen={openCatalogItemDrawer}>
+                {headlineText}
+              </CatalogItemLink>
+            ) : (
+              headlineText
+            )}
+          </Box>
+          {canDelete && (
+            <Tooltip title="Отменить фулфилмент">
+              <span>
+                <IconButton
+                  size="small"
+                  color="error"
+                  disabled={isDeleting}
+                  onClick={() => onRequestDelete?.(fulfillment)}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
+        </Stack>
 
         {isVariation &&
           (fulfillment.resolvedCatalogItemId ? (
@@ -156,6 +182,9 @@ interface FulfillmentsDrawerProps {
   isVariation?: boolean;
   catalogItemId?: string;
   fulfillments: AssemblyFulfillmentDto[];
+  canDelete?: boolean;
+  deletingFulfillmentId?: string;
+  onRequestDeleteFulfillment?: (fulfillment: AssemblyFulfillmentDto) => void;
 }
 
 function FulfillmentsDrawer({
@@ -167,6 +196,9 @@ function FulfillmentsDrawer({
   isVariation = false,
   catalogItemId,
   fulfillments,
+  canDelete = false,
+  deletingFulfillmentId,
+  onRequestDeleteFulfillment,
 }: FulfillmentsDrawerProps) {
   const [openedCatalogItemId, openCatalogDrawer, closeCatalogDrawer] = useDrawerLocalState();
 
@@ -213,6 +245,9 @@ function FulfillmentsDrawer({
               isVariation={isVariation}
               catalogItemId={catalogItemId}
               openCatalogItemDrawer={openCatalogDrawer}
+              canDelete={canDelete}
+              isDeleting={deletingFulfillmentId === f.id}
+              onRequestDelete={onRequestDeleteFulfillment}
             />
           ))
         )}

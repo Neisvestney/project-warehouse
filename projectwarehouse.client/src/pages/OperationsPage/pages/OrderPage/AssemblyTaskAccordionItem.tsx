@@ -22,12 +22,22 @@ import {
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import UndoIcon from "@mui/icons-material/Undo";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import CheckIcon from "@mui/icons-material/Check";
 import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {
   ordersDeleteAssemblyTaskMutation,
   ordersGetByIdQueryKey,
+  ordersRemoveFulfillmentMutation,
+  ordersTransitionTaskStatusMutation,
 } from "@/api/@tanstack/react-query.gen";
-import type {AssemblyTaskBoxComponentDto, AssemblyTaskDto, OrderDetailsDto} from "@/api/types.gen";
+import type {
+  AssemblyFulfillmentDto,
+  AssemblyTaskDto,
+  AssemblyTaskStatus,
+  OrderDetailsDto,
+} from "@/api/types.gen";
 import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
 import {useOpenCatalogItem} from "@/components/catalog/CatalogItemDrawerContext";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -61,10 +71,13 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [fulfillmentsTarget, setFulfillmentsTarget] = useState<{
-    component: AssemblyTaskBoxComponentDto;
+    taskBoxId: string;
+    componentId: string;
     boxLabel: string | null | undefined;
   } | null>(null);
   const [fulfillmentsDrawerOpen, setFulfillmentsDrawerOpen] = useState(false);
+  const [deleteFulfillmentTarget, setDeleteFulfillmentTarget] =
+    useState<AssemblyFulfillmentDto | null>(null);
 
   const {fulfilled: fulfilledComponents, total: totalComponents} = getTaskProgress(task);
 
@@ -76,11 +89,63 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
     },
   });
 
+  const transitionMutation = useMutation({
+    ...ordersTransitionTaskStatusMutation(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: order.id}})});
+    },
+  });
+
+  const removeFulfillmentMutation = useMutation({
+    ...ordersRemoveFulfillmentMutation(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: order.id}})});
+      setDeleteFulfillmentTarget(null);
+    },
+  });
+
   const canDelete = canEdit && task.status === "pending";
 
-  function openFulfillments(component: AssemblyTaskBoxComponentDto, boxLabel?: string | null) {
-    setFulfillmentsTarget({component, boxLabel});
+  const rollbackTarget: AssemblyTaskStatus | null =
+    task.status === "inProgress" ? "pending" : task.status === "done" ? "inProgress" : null;
+
+  const advanceTarget: AssemblyTaskStatus | null =
+    task.status === "pending" ? "inProgress" : task.status === "inProgress" ? "done" : null;
+  const advanceBlockedByFulfillment =
+    advanceTarget === "done" && fulfilledComponents < totalComponents;
+
+  function changeTaskStatus(targetStatus: AssemblyTaskStatus) {
+    transitionMutation.mutate({
+      path: {id: order.id, taskId: task.id},
+      body: {targetStatus},
+    });
+  }
+
+  function openFulfillments(taskBoxId: string, componentId: string, boxLabel?: string | null) {
+    setFulfillmentsTarget({taskBoxId, componentId, boxLabel});
     setFulfillmentsDrawerOpen(true);
+  }
+
+  // Re-derived from the live `task` prop on every render — never a stale snapshot from the
+  // moment the drawer was opened, so a fulfillment removed via this same drawer disappears
+  // from it immediately once the order query refetches.
+  const liveFulfillmentsComponent = fulfillmentsTarget
+    ? task.boxes
+        .find((b) => b.id === fulfillmentsTarget.taskBoxId)
+        ?.components.find((c) => c.id === fulfillmentsTarget.componentId)
+    : undefined;
+
+  function confirmRemoveFulfillment() {
+    if (!deleteFulfillmentTarget || !fulfillmentsTarget) return;
+    removeFulfillmentMutation.mutate({
+      path: {
+        id: order.id,
+        taskId: task.id,
+        tbid: fulfillmentsTarget.taskBoxId,
+        cid: fulfillmentsTarget.componentId,
+        fid: deleteFulfillmentTarget.id,
+      },
+    });
   }
 
   return (
@@ -96,6 +161,57 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
           <Typography variant="caption" color="text.secondary" sx={{ml: "auto"}}>
             {fulfilledComponents}/{totalComponents}
           </Typography>
+
+          {canEdit && (advanceTarget || rollbackTarget) && (
+            <Stack direction="row" sx={{alignItems: "center", gap: 0.5}}>
+              {advanceTarget && (
+                <Tooltip
+                  title={
+                    advanceBlockedByFulfillment
+                      ? "Не все компоненты собраны"
+                      : advanceTarget === "inProgress"
+                        ? "Начать сборку"
+                        : "Завершить задание"
+                  }
+                >
+                  <span>
+                    <IconButton
+                      size="small"
+                      color={advanceTarget === "done" ? "success" : "default"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        changeTaskStatus(advanceTarget);
+                      }}
+                      disabled={transitionMutation.isPending || advanceBlockedByFulfillment}
+                    >
+                      {advanceTarget === "done" ? (
+                        <CheckIcon fontSize="small" />
+                      ) : (
+                        <PlayArrowIcon fontSize="small" />
+                      )}
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              )}
+
+              {rollbackTarget && (
+                <Tooltip
+                  title={rollbackTarget === "pending" ? "Вернуть в ожидание" : "Вернуть в работу"}
+                >
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      changeTaskStatus(rollbackTarget);
+                    }}
+                    disabled={transitionMutation.isPending}
+                  >
+                    <UndoIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Stack>
+          )}
 
           {canEdit && (
             <Tooltip title="Редактировать назначение">
@@ -149,7 +265,7 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
                       key={c.id}
                       variant="outlined"
                       sx={{p: 1.5, cursor: "pointer"}}
-                      onClick={() => openFulfillments(c, box.orderBoxLabel)}
+                      onClick={() => openFulfillments(box.id, c.id, box.orderBoxLabel)}
                     >
                       <Stack spacing={1}>
                         <Box sx={{minWidth: 0}}>
@@ -206,7 +322,7 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
                         key={c.id}
                         hover
                         sx={{cursor: "pointer"}}
-                        onClick={() => openFulfillments(c, box.orderBoxLabel)}
+                        onClick={() => openFulfillments(box.id, c.id, box.orderBoxLabel)}
                       >
                         <TableCell>
                           <CatalogItemLink catalogItemId={c.catalogItemId} onOpen={openCatalogItem}>
@@ -244,15 +360,34 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
       />
 
       <FulfillmentsDrawer
-        open={fulfillmentsDrawerOpen}
+        open={fulfillmentsDrawerOpen && liveFulfillmentsComponent != null}
         onClose={() => setFulfillmentsDrawerOpen(false)}
-        title={fulfillmentsTarget?.component.catalogItemName ?? ""}
+        title={liveFulfillmentsComponent?.catalogItemName ?? ""}
         subtitle={fulfillmentsTarget?.boxLabel ?? undefined}
-        quantity={fulfillmentsTarget?.component.quantity ?? 0}
-        isVariation={fulfillmentsTarget?.component.catalogItemType === "variation"}
-        catalogItemId={fulfillmentsTarget?.component.catalogItemId}
-        fulfillments={fulfillmentsTarget?.component.fulfillments ?? []}
+        quantity={liveFulfillmentsComponent?.quantity ?? 0}
+        isVariation={liveFulfillmentsComponent?.catalogItemType === "variation"}
+        catalogItemId={liveFulfillmentsComponent?.catalogItemId}
+        fulfillments={liveFulfillmentsComponent?.fulfillments ?? []}
+        canDelete={canEdit}
+        deletingFulfillmentId={
+          removeFulfillmentMutation.isPending ? deleteFulfillmentTarget?.id : undefined
+        }
+        onRequestDeleteFulfillment={setDeleteFulfillmentTarget}
       />
+
+      <ConfirmDialog
+        open={deleteFulfillmentTarget !== null}
+        onClose={() => setDeleteFulfillmentTarget(null)}
+        title="Отменить фулфилмент?"
+        confirmText="Отменить"
+        confirmColor="error"
+        onConfirm={confirmRemoveFulfillment}
+        isPending={removeFulfillmentMutation.isPending}
+      >
+        <Typography variant="body2">
+          Собранный товар вернётся на склад. Действие нельзя отменить.
+        </Typography>
+      </ConfirmDialog>
 
       <EditAssemblyTaskDialog
         open={editOpen}

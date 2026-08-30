@@ -78,6 +78,25 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
             return;
         }
 
+        if (order.Status == OrderStatus.Assembly && targetStatus == OrderStatus.Assembled)
+        {
+            // Manual escape hatch for the same condition the auto-transition enforces in
+            // TransitionTaskStatusAsync: without it, an order that fell short of Assembled only
+            // because a fulfillment was missing when the last task turned Done would have no way
+            // back in short of rolling that task Done → InProgress → Done again.
+            // Queried fresh rather than off order.AssemblyTasks — that navigation is only populated
+            // because the current caller loads with fullDetails: true, which this method has no way
+            // to enforce or verify.
+            var tasks = await db.AssemblyTasks
+                .Where(t => t.OrderId == order.Id)
+                .Select(t => t.Status)
+                .ToListAsync(ct);
+            var allTasksDone = tasks.Count > 0 && tasks.All(s => s == AssemblyTaskStatus.Done);
+            if (!allTasksDone || !await IsOrderFullyFulfilledAsync(order.Id, ct))
+                throw new ValidationException("targetStatus", ErrorCode.OrderInvalidStatusTransition,
+                    "Cannot transition to Assembled: not every task is Done and fully fulfilled.");
+        }
+
         order.Status = targetStatus;
         await db.SaveChangesAsync(ct);
     }
@@ -296,11 +315,19 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
     public async Task TransitionTaskStatusAsync(
         AssemblyTask task, AssemblyTaskStatus targetStatus, Order order, CancellationToken ct = default)
     {
+        // Assembly tasks only make sense while the order is being assembled or just finished assembly.
+        // Without this, rolling a task out of Done on an order that has since moved to Shipped (or beyond)
+        // would silently desync the task from the order — the order stays Shipped while a task reopens.
+        if (order.Status is not (OrderStatus.Assembly or OrderStatus.Assembled))
+            throw new ValidationException("root", ErrorCode.OrderNotAssembly,
+                "Assembly task status can only change while the order is in Assembly or Assembled status.");
+
         var valid = (task.Status, targetStatus) switch
         {
             (AssemblyTaskStatus.Pending,    AssemblyTaskStatus.InProgress) => true,
             (AssemblyTaskStatus.InProgress, AssemblyTaskStatus.Done)       => true,
             (AssemblyTaskStatus.InProgress, AssemblyTaskStatus.Pending)    => true,
+            (AssemblyTaskStatus.Done,       AssemblyTaskStatus.InProgress) => true,
             _                                                              => false,
         };
 
@@ -308,17 +335,26 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
             throw new ValidationException("targetStatus", ErrorCode.OrderInvalidStatusTransition,
                 $"Cannot transition task from {task.Status} to {targetStatus}.");
 
+        var wasDone = task.Status == AssemblyTaskStatus.Done;
         task.Status = targetStatus;
 
-        // Auto-transition order to Assembled when all tasks are Done
         if (targetStatus == AssemblyTaskStatus.Done)
         {
+            // Auto-transition order to Assembled once every task is Done AND every component of the
+            // order is actually fully picked — a task can be marked Done with items left unfulfilled
+            // (see IsTaskFullyFulfilledAsync callers), so task status alone is not enough.
             var allDone = await db.AssemblyTasks
                 .Where(t => t.OrderId == order.Id && t.Id != task.Id)
                 .AllAsync(t => t.Status == AssemblyTaskStatus.Done, ct);
 
-            if (allDone && order.Status == OrderStatus.Assembly)
+            if (allDone && order.Status == OrderStatus.Assembly
+                && await IsOrderFullyFulfilledAsync(order.Id, ct))
                 order.Status = OrderStatus.Assembled;
+        }
+        else if (wasDone && order.Status == OrderStatus.Assembled)
+        {
+            // Rolling a completed task back out of Done reopens assembly on the order
+            order.Status = OrderStatus.Assembly;
         }
 
         await db.SaveChangesAsync(ct);
@@ -328,6 +364,18 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
     {
         var components = await db.AssemblyTaskBoxComponents
             .Where(c => c.AssemblyTaskBox.AssemblyTaskId == taskId)
+            .Include(c => c.Fulfillments)
+                .ThenInclude(f => f.BundleComponents)
+            .ToListAsync(ct);
+
+        return components.Count > 0
+            && components.All(c => CountFulfilledQty(c.Fulfillments) >= c.Quantity);
+    }
+
+    private async Task<bool> IsOrderFullyFulfilledAsync(Guid orderId, CancellationToken ct)
+    {
+        var components = await db.AssemblyTaskBoxComponents
+            .Where(c => c.AssemblyTaskBox.AssemblyTask.OrderId == orderId)
             .Include(c => c.Fulfillments)
                 .ThenInclude(f => f.BundleComponents)
             .ToListAsync(ct);
@@ -814,8 +862,10 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
             (OrderStatus.Confirmed, OrderStatus.Assembly)   => true,
             (OrderStatus.Confirmed, OrderStatus.Canceled)   => true,
             (OrderStatus.Assembly,  OrderStatus.Confirmed)  => true,
+            (OrderStatus.Assembly,  OrderStatus.Assembled)  => true,
             (OrderStatus.Assembly,  OrderStatus.Canceled)   => true,
             (OrderStatus.Assembled, OrderStatus.Shipped)    => true,
+            (OrderStatus.Shipped,   OrderStatus.Assembled)  => true,
             _                                               => false,
         };
 
