@@ -191,7 +191,7 @@ public class InventoryService(
                 movement ??= await queueMovement();
 
                 try
-                {
+                { 
                     await db.SaveChangesAsync(ct);
                     activity?.SetTag("inventory.group_write.attempts", attempt + 1);
                     InventoryMetrics.RecordCommit(attempt + 1);

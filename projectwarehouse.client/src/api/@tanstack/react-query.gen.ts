@@ -62,6 +62,7 @@ import {
   ordersAddFulfillment,
   ordersBatchFulfill,
   ordersBatchSelfAssign,
+  ordersBatchTransitionStatus,
   ordersCreateAssemblyTask,
   ordersCreateDirect,
   ordersDelete,
@@ -317,6 +318,9 @@ import type {
   OrdersBatchSelfAssignData,
   OrdersBatchSelfAssignError,
   OrdersBatchSelfAssignResponse,
+  OrdersBatchTransitionStatusData,
+  OrdersBatchTransitionStatusError,
+  OrdersBatchTransitionStatusResponse,
   OrdersCreateAssemblyTaskData,
   OrdersCreateAssemblyTaskError,
   OrdersCreateAssemblyTaskResponse,
@@ -2881,15 +2885,22 @@ export const ordersCreateDirectMutation = (
  *     Body: `TransitionOrderStatusRequest` — `targetStatus`. Allowed transitions:
  * * Draft → Confirmed | Canceled
  * * Confirmed → Draft | Assembly | Canceled
- * * Assembly → Confirmed | Canceled
+ * * Assembly → Confirmed | Assembled | Canceled
  * * Assembled → Shipped
+ * * Shipped → Assembled
  * Anything else is 422 `orderInvalidStatusTransition`. Assembly → Confirmed is additionally refused
  * when any assembly task is already `Done`; otherwise it deletes every assembly task of the order and
- * restores the inventory of their fulfillments. Cancelling is refused with 422 `orderHasFulfillments`
- * while any fulfillment still exists. Assembled is reached automatically when the last task completes, not
- * through this endpoint. Returns 404 `orderNotFound`, 409 `inventoryWriteConflict` when the
- * inventory restored by Assembly → Confirmed loses to concurrent stock writes — nothing was written and
- * the request can be repeated.
+ * restores the inventory of their fulfillments. Assembled is normally reached automatically when the last
+ * task turns Done with every component fully fulfilled (see the assembly-task status endpoint); Assembly →
+ * Assembled through this endpoint is the manual recovery path for when that condition became true only
+ * after the last task was already Done (e.g. a missing fulfillment was added afterwards) — it re-checks the
+ * same condition (every task Done and fully fulfilled) and is refused with 422
+ * `orderInvalidStatusTransition` otherwise. Shipped → Assembled is a pure status change — inventory was
+ * already deducted when fulfillments were added during assembly and is not touched by shipment or its
+ * rollback. Cancelling is refused with 422 `orderHasFulfillments`
+ * while any fulfillment still exists. Returns 404 `orderNotFound`, 409 `inventoryWriteConflict`
+ * when the inventory restored by Assembly → Confirmed loses to concurrent stock writes — nothing was
+ * written and the request can be repeated.
  * Requires `orders.edit` or `orders.edit_assigned`.
  */
 export const ordersTransitionStatusMutation = (
@@ -3017,6 +3028,47 @@ export const ordersBatchSelfAssignMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await ordersBatchSelfAssign({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Transition several orders to the same target status in one request, with partial-success semantics.
+ *
+ * Body: `BatchTransitionStatusRequest` — `orderIds` (duplicates are collapsed) and
+ * `targetStatus`, the same one for every order. Each order is transitioned independently through
+ * Task IOrderService.TransitionOrderStatusAsync(Order order, OrderStatus targetStatus, CancellationToken ct = default(CancellationToken)) — same allowed transitions and side effects as the
+ * single-order `PUT /{id}/status` — and the endpoint always answers 200 with
+ * `BatchTransitionStatusResponse`: successful ids in `transitionedOrderIds`, the rest in
+ * `failedItems` as `{ orderId, orderNumber, error }` with the real error code (`orderNotFound`,
+ * `orderInvalidStatusTransition`, …). There is no transaction: orders already transitioned stay
+ * transitioned when later ones fail.
+ * 403 is returned only for the request as a whole, when edit access is missing entirely. An order the
+ * caller cannot edit (outside their assigned warehouses) is reported as `orderNotFound` in
+ * `failedItems` rather than a distinct forbidden error, matching Task&lt;(Order? order, IActionResult? error)&gt; OrdersController.LoadOrderWithEditAccessAsync(Guid id, CancellationToken ct, bool fullDetails = false)'s
+ * underlying access rule.
+ * Requires `orders.edit` or `orders.edit_assigned`.
+ */
+export const ordersBatchTransitionStatusMutation = (
+  options?: Partial<Options<OrdersBatchTransitionStatusData>>,
+): UseMutationOptions<
+  OrdersBatchTransitionStatusResponse,
+  OrdersBatchTransitionStatusError,
+  Options<OrdersBatchTransitionStatusData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersBatchTransitionStatusResponse,
+    OrdersBatchTransitionStatusError,
+    Options<OrdersBatchTransitionStatusData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersBatchTransitionStatus({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -3328,9 +3380,14 @@ export const ordersUpdateAssemblyTaskMutation = (
  * * Pending → InProgress
  * * InProgress → Done
  * * InProgress → Pending
- * Anything else is 422 `orderInvalidStatusTransition`. Completing the last remaining task of an
- * Assembly-status order moves the order itself to `Assembled`. Fulfillment completeness is not checked
- * here — a task can be marked Done with components left unfulfilled.
+ * * Done → InProgress
+ * Anything else is 422 `orderInvalidStatusTransition`. Only allowed while the order itself is
+ * `Assembly` or `Assembled` — otherwise 422 `orderNotAssembly`. Completing the last remaining
+ * task of an Assembly-status order moves the order itself to `Assembled` only if every component of
+ * every task is fully fulfilled (not just every task Done) — a task can still be marked Done with components
+ * left unfulfilled, but the order then stays in `Assembly` until the shortfall is fulfilled and the
+ * check re-runs on a later task transition. Rolling a task back out of Done while the order is
+ * `Assembled` moves the order back to `Assembly`.
  * Returns 404 `orderNotFound` or `assemblyTaskNotFound`.
  * Requires `orders.assemble_assigned`, `orders.edit` or `orders.edit_assigned`, plus an
  * assignment to the order's warehouse in every case (403 `orderNotAssignedToWarehouse`).
@@ -3559,7 +3616,8 @@ export const ordersRemoveFulfillmentMutation = (
  * empty. With `true`, every touched task is advanced Pending → InProgress, and InProgress → Done only
  * when all of its components are fully fulfilled; only genuinely completed tasks are listed in
  * `completedTaskIds`. That step is best-effort — failures there are swallowed and do not fail the
- * request. Completing the last task still auto-moves the order to `Assembled`.
+ * request. Completing the last task still auto-moves the order to `Assembled`, but only once every
+ * component of every task in the order is fully fulfilled — see the assembly-task status endpoint.
  * 403 is returned only for the request as a whole, when neither `orders.assemble_assigned` nor
  * `orders.edit` / `orders.edit_assigned` is held; warehouse assignment is then checked per order.
  * The route carries no id, so realtime change events are published explicitly for each affected order.

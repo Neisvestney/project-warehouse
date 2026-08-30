@@ -465,6 +465,14 @@ Draft → Confirmed → Assembly ⇄ Assembled ⇄ Shipped
 
 Семантика — частичный успех, как у [`batch-fulfill`](#ошибки-в-ответе-batch-fulfill): эндпоинт всегда отвечает `200` с `BatchSelfAssignResponse { assignedOrderIds, failedItems }`. Каждый заказ проверяется независимо (существование, принадлежность к назначенному складу — кроме держателей безобластного `orders.view`, статус `Confirmed`), упавшие попадают в `failedItems` как `{ orderId, orderNumber, error: AppFieldError }` — структурная ошибка с настоящим `ErrorCode`. `403` возвращается только на уровне всего запроса — при отсутствии права `orders.self_assign`.
 
+#### Массовая смена статуса (`POST /api/orders/batch-transition-status`)
+
+Несколько заказов переводятся в один и тот же целевой статус **одним** запросом `BatchTransitionStatusRequest { orderIds, targetStatus }`, а не серией одиночных `PUT /api/orders/{id}/status`. Каждый заказ проходит ровно через `IOrderService.TransitionOrderStatusAsync` — те же допустимые переходы и побочные эффекты, что и у одиночного эндпоинта (см. [«Статусная модель»](#статусная-модель)).
+
+Семантика — частичный успех, как у `batch-self-assign`: эндпоинт всегда отвечает `200` с `BatchTransitionStatusResponse { transitionedOrderIds, failedItems }`. Заказ вне доступных админу складов (кроме держателей безобластного `orders.edit`) отчитывается в `failedItems` как `orderNotFound`, а не отдельной ошибкой доступа. Прочие сбои — тот же `ErrorCode`, что вернул бы одиночный эндпоинт (`orderInvalidStatusTransition`, `inventoryWriteConflict` и т.д.). `403` возвращается только на уровне всего запроса — при отсутствии `orders.edit`/`orders.edit_assigned`.
+
+На фронте кнопка «Отгрузить» в панели массовых действий (`OrdersListPage`) видна, когда среди выбранных заказов есть хотя бы один в статусе `Assembled`, и переводит только их (`targetStatus = Shipped`) — остальные выбранные заказы не участвуют в запросе.
+
 ---
 
 ## UI: сборка заказов
