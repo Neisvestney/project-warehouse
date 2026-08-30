@@ -693,6 +693,88 @@ public class OrdersController(
         });
     }
 
+    // ── POST /api/orders/batch-transition-status ──────────────────────────────
+
+    /// <summary>Transition several orders to the same target status in one request, with partial-success semantics.</summary>
+    /// <remarks>
+    /// Body: <c>BatchTransitionStatusRequest</c> — <c>orderIds</c> (duplicates are collapsed) and
+    /// <c>targetStatus</c>, the same one for every order. Each order is transitioned independently through
+    /// <see cref="IOrderService.TransitionOrderStatusAsync"/> — same allowed transitions and side effects as the
+    /// single-order <c>PUT /{id}/status</c> — and the endpoint always answers 200 with
+    /// <c>BatchTransitionStatusResponse</c>: successful ids in <c>transitionedOrderIds</c>, the rest in
+    /// <c>failedItems</c> as <c>{ orderId, orderNumber, error }</c> with the real error code (<c>orderNotFound</c>,
+    /// <c>orderInvalidStatusTransition</c>, …). There is no transaction: orders already transitioned stay
+    /// transitioned when later ones fail.
+    /// 403 is returned only for the request as a whole, when edit access is missing entirely. An order the
+    /// caller cannot edit (outside their assigned warehouses) is reported as <c>orderNotFound</c> in
+    /// <c>failedItems</c> rather than a distinct forbidden error, matching <see cref="LoadOrderWithEditAccessAsync"/>'s
+    /// underlying access rule.
+    /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
+    [HttpPost("batch-transition-status")]
+    [Authorize]
+    [ProducesResponseType<BatchTransitionStatusResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> BatchTransitionStatus(
+        [FromBody] BatchTransitionStatusRequest request, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
+
+        // ValidateOrderTransition reads order.AssemblyTasks (and its Fulfillments) to block Assembly → Confirmed
+        // with a Done task and any → Canceled with existing fulfillments — without these includes the
+        // collections come back empty and both checks silently no-op.
+        var accessible = (await Rule.QueryAsync(User, AccessLevel.Edit, ct))
+            .Include(o => o.AssemblyTasks).ThenInclude(t => t.Boxes).ThenInclude(b => b.Components)
+                .ThenInclude(c => c.Fulfillments);
+
+        var transitionedOrderIds = new List<Guid>();
+        var failedItems          = new List<BatchTransitionStatusFailedItem>();
+
+        void Fail(Guid orderId, ErrorCode code, string message, int? number = null) =>
+            failedItems.Add(new BatchTransitionStatusFailedItem
+            {
+                OrderId     = orderId,
+                OrderNumber = number,
+                Error       = AppProblems.MakeError(code, message),
+            });
+
+        foreach (var orderId in request.OrderIds.Distinct())
+        {
+            var order = await accessible.FirstOrDefaultAsync(o => o.Id == orderId, ct);
+            if (order is null)
+            {
+                Fail(orderId, ErrorCode.OrderNotFound, "Order not found.");
+                continue;
+            }
+
+            try
+            {
+                await orders.TransitionOrderStatusAsync(order, request.TargetStatus, ct);
+                transitionedOrderIds.Add(orderId);
+            }
+            catch (ValidationException ex)
+            {
+                Fail(orderId, ex.ErrorCode, ex.Message, order.Number);
+            }
+            catch (InventoryWriteConflictException)
+            {
+                Fail(orderId, ErrorCode.InventoryWriteConflict,
+                    "Stock for this item was changed concurrently; nothing was written.", order.Number);
+            }
+        }
+
+        // The route carries no id, so the filter cannot see which orders this touched.
+        foreach (var orderId in transitionedOrderIds)
+            await realtime.PublishEntityChangedAsync(AppEntityType.Order, orderId, User, ct);
+
+        return Ok(new BatchTransitionStatusResponse
+        {
+            TransitionedOrderIds = transitionedOrderIds,
+            FailedItems          = failedItems,
+        });
+    }
+
     // ── POST /api/orders/{id}/boxes ───────────────────────────────────────────
 
     /// <summary>Add an empty box to the order.</summary>

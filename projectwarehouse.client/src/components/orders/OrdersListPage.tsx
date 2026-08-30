@@ -21,10 +21,12 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import {useQuery, useQueryClient} from "@tanstack/react-query";
 import {Link as RouterLink} from "react-router";
 import {
   ordersBatchSelfAssignMutation,
+  ordersBatchTransitionStatusMutation,
   ordersGetAllOptions,
   ordersGetAllQueryKey,
 } from "@/api/@tanstack/react-query.gen";
@@ -55,6 +57,7 @@ import {
 import {ORDER_STATUS_LABELS, formatOrderNumber} from "./orderUtils";
 import type {
   BatchSelfAssignFailedItem,
+  BatchTransitionStatusFailedItem,
   MarketplaceOrderStatus,
   MarketplaceType,
   OrderSortBy,
@@ -125,6 +128,9 @@ function OrdersListPage({
 
   const [failedItems, setFailedItems] = useState<BatchSelfAssignFailedItem[]>([]);
   const [selfAssignError, setSelfAssignError] = useState<string | null>(null);
+
+  const [shipFailedItems, setShipFailedItems] = useState<BatchTransitionStatusFailedItem[]>([]);
+  const [shipError, setShipError] = useState<string | null>(null);
 
   const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
     "search",
@@ -236,19 +242,48 @@ function OrdersListPage({
     (variables) => ({"order.count": variables.body?.orderIds.length ?? 0}),
   );
 
+  const shipMutation = useOperationMutation(
+    "order.ship",
+    {
+      ...ordersBatchTransitionStatusMutation(),
+      meta: {suppressGlobalError: true},
+      // Awaited so isPending covers the refetch and the button cannot re-send stale ids
+      onSuccess: async (data) => {
+        removeIds(data.transitionedOrderIds);
+        setShipFailedItems(data.failedItems);
+        await queryClient.invalidateQueries({queryKey: ordersGetAllQueryKey()});
+      },
+      onError: (error) => setShipError(extractErrorMessage(error)),
+    },
+    (variables) => ({"order.count": variables.body?.orderIds.length ?? 0}),
+  );
+
   const selectedConfirmedIds = selectedItems
     .filter((o) => o.status === "confirmed")
     .map((o) => o.id);
 
+  const selectedAssembledIds = selectedItems
+    .filter((o) => o.status === "assembled")
+    .map((o) => o.id);
+
   const showSelfAssign = canSelfAssign && selectedConfirmedIds.length > 0;
+  // canCreate is really "can edit orders" (orders.edit / orders.edit_assigned) — shipping needs the same permission
+  const showShip = canCreate && selectedAssembledIds.length > 0;
   // the bulkActions term keeps the bar hidden on Direct and FBO, which pass no extra actions
-  const showBulkBar = selectedItems.length > 0 && (showSelfAssign || bulkActions != null);
+  const showBulkBar =
+    selectedItems.length > 0 && (showSelfAssign || showShip || bulkActions != null);
   const columnCount = (showNotes ? 8 : 7) + (extraColumns?.length ?? 0);
 
   function handleSelfAssignSelected() {
     setFailedItems([]);
     setSelfAssignError(null);
     selfAssignMutation.mutate({body: {orderIds: selectedConfirmedIds}});
+  }
+
+  function handleShipSelected() {
+    setShipFailedItems([]);
+    setShipError(null);
+    shipMutation.mutate({body: {orderIds: selectedAssembledIds, targetStatus: "shipped"}});
   }
 
   return (
@@ -342,6 +377,25 @@ function OrdersListPage({
               Взять на себя ({selectedConfirmedIds.length})
             </Button>
           )}
+          {showShip && (
+            <Button
+              size="small"
+              variant="contained"
+              color="inherit"
+              startIcon={
+                shipMutation.isPending ? (
+                  <CircularProgress size={14} color="inherit" />
+                ) : (
+                  <LocalShippingIcon />
+                )
+              }
+              disabled={shipMutation.isPending}
+              onClick={handleShipSelected}
+              sx={{color: "primary.main"}}
+            >
+              Отгрузить ({selectedAssembledIds.length})
+            </Button>
+          )}
         </BulkBar>
       )}
 
@@ -362,6 +416,26 @@ function OrdersListPage({
       {selfAssignError && (
         <Alert severity="error" onClose={() => setSelfAssignError(null)}>
           {selfAssignError}
+        </Alert>
+      )}
+
+      {shipFailedItems.length > 0 && (
+        <Alert severity="error" onClose={() => setShipFailedItems([])}>
+          <Typography variant="body2" sx={{mb: 0.5}}>
+            Часть заказов не удалось отгрузить:
+          </Typography>
+          {shipFailedItems.map((f) => (
+            <Typography key={f.orderId} variant="caption" sx={{display: "block"}}>
+              • {f.orderNumber != null ? formatOrderNumber(f.orderNumber) : "Заказ"}:{" "}
+              {resolveErrorMessage(f.error)}
+            </Typography>
+          ))}
+        </Alert>
+      )}
+
+      {shipError && (
+        <Alert severity="error" onClose={() => setShipError(null)}>
+          {shipError}
         </Alert>
       )}
 

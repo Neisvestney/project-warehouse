@@ -206,6 +206,25 @@ export type BatchStandardPlacementRequest = {
   items: Array<BatchStandardPlacementItemRequest>;
 };
 
+export type BatchTransitionStatusFailedItem = {
+  orderId: string;
+  /**
+   * Null when the order itself could not be loaded.
+   */
+  orderNumber?: null | number;
+  error: AppFieldError;
+};
+
+export type BatchTransitionStatusRequest = {
+  orderIds: Array<string>;
+  targetStatus: OrderStatus;
+};
+
+export type BatchTransitionStatusResponse = {
+  transitionedOrderIds: Array<string>;
+  failedItems: Array<BatchTransitionStatusFailedItem>;
+};
+
 export type BundleComponentDto = {
   id: string;
   componentId: string;
@@ -4378,6 +4397,37 @@ export type OrdersBatchSelfAssignResponses = {
 
 export type OrdersBatchSelfAssignResponse =
   OrdersBatchSelfAssignResponses[keyof OrdersBatchSelfAssignResponses];
+
+export type OrdersBatchTransitionStatusData = {
+  body: BatchTransitionStatusRequest;
+  path?: never;
+  query?: never;
+  url: "/api/orders/batch-transition-status";
+};
+
+export type OrdersBatchTransitionStatusErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type OrdersBatchTransitionStatusError =
+  OrdersBatchTransitionStatusErrors[keyof OrdersBatchTransitionStatusErrors];
+
+export type OrdersBatchTransitionStatusResponses = {
+  /**
+   * OK
+   */
+  200: BatchTransitionStatusResponse;
+};
+
+export type OrdersBatchTransitionStatusResponse =
+  OrdersBatchTransitionStatusResponses[keyof OrdersBatchTransitionStatusResponses];
 
 export type OrdersAddBoxData = {
   body: CreateOrderBoxRequest;
