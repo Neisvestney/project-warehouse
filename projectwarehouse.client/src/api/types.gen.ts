@@ -791,6 +791,8 @@ export type MarketplaceCardDto = {
   price?: null | number;
   currencyCode?: null | string;
   isArchived: boolean;
+  isMarkedArchived: boolean;
+  effectiveIsArchived: boolean;
   catalogItemId?: null | string;
   catalogItemFullName?: null | string;
   catalogItemArticle?: null | string;
@@ -1585,6 +1587,7 @@ export type SaveAutoMapRuleRequest = {
  */
 export type SetCardMappingRequest = {
   catalogItemId?: null | string;
+  isMarkedArchived: boolean;
 };
 
 export type SetStockWarningOverrideRequest = {

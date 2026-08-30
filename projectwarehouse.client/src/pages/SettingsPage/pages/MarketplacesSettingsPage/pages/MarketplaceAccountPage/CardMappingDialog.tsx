@@ -7,7 +7,9 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   Stack,
+  Switch,
   Typography,
 } from "@mui/material";
 import {useBackClosable} from "@/hooks/useBackClosable";
@@ -36,6 +38,7 @@ interface CardMappingDialogProps {
 
 function CardMappingDialog({card, onClose, onSaved, dataUpdatedAt}: CardMappingDialogProps) {
   const [catalogItemId, setCatalogItemId] = useState<string | null>(null);
+  const [isMarkedArchived, setIsMarkedArchived] = useState(false);
   const [shownCard, releaseShownCard] = useRetainedValue(card);
 
   // Сброс на текущую привязку при смене карточки — правка состояния в рендере, а не эффектом
@@ -43,6 +46,7 @@ function CardMappingDialog({card, onClose, onSaved, dataUpdatedAt}: CardMappingD
   if (card && card.id !== shownCardId) {
     setShownCardId(card.id);
     setCatalogItemId(card.catalogItemId ?? null);
+    setIsMarkedArchived(card.isMarkedArchived);
   }
 
   const mutation = useMutation({
@@ -61,15 +65,19 @@ function CardMappingDialog({card, onClose, onSaved, dataUpdatedAt}: CardMappingD
 
   const save = (value: string | null) => {
     if (!card) return;
-    mutation.mutate({path: {id: card.id}, body: {catalogItemId: value}});
+    mutation.mutate({path: {id: card.id}, body: {catalogItemId: value, isMarkedArchived}});
   };
 
   const refreshCard = useCallback(() => void onSaved(), [onSaved]);
 
+  const isDirty =
+    !!card &&
+    (catalogItemId !== (card.catalogItemId ?? null) || isMarkedArchived !== card.isMarkedArchived);
+
   // The dialog being open is the edit mode; a picked-but-unsaved mapping is what must not be
   // overwritten silently.
   const lock = useEditLock("marketplaceCard", card?.id, {
-    isDirty: !!card && catalogItemId !== (card.catalogItemId ?? null),
+    isDirty,
     dataUpdatedAt,
     onRefresh: refreshCard,
     enabled: !!card,
@@ -123,6 +131,16 @@ function CardMappingDialog({card, onClose, onSaved, dataUpdatedAt}: CardMappingD
             disabled={mutation.isPending}
             fullWidth
           />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={isMarkedArchived}
+                onChange={(e) => setIsMarkedArchived(e.target.checked)}
+                disabled={mutation.isPending}
+              />
+            }
+            label="Не используется на складе"
+          />
           {mutation.isError && (
             <Alert severity="error">{extractErrorMessage(mutation.error)}</Alert>
           )}
@@ -140,7 +158,7 @@ function CardMappingDialog({card, onClose, onSaved, dataUpdatedAt}: CardMappingD
         <Button
           variant="contained"
           onClick={() => save(catalogItemId)}
-          disabled={mutation.isPending || !catalogItemId}
+          disabled={mutation.isPending || !isDirty}
         >
           {mutation.isPending ? <CircularProgress size={20} color="inherit" /> : "Сохранить"}
         </Button>

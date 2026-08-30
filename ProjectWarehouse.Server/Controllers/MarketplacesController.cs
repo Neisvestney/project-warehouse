@@ -475,7 +475,7 @@ public class MarketplacesController(
                     IsSyncRunning = a.SyncRuns.Any(r => r.Status == MarketplaceSyncStatus.Running),
                     MappedWarehouseCount = a.Warehouses.Count(w => !w.IsArchived && w.WarehouseId != null),
                     UnmappedWarehouseCount = a.Warehouses.Count(w => !w.IsArchived && w.WarehouseId == null),
-                    UnmappedCardCount = a.Cards.Count(c => !c.IsArchived && c.CatalogItemId == null),
+                    UnmappedCardCount = a.Cards.Count(c => !c.EffectiveIsArchived && c.CatalogItemId == null),
                 },
                 a.Type,
                 a.ApiKeyProtected,
@@ -699,7 +699,7 @@ public class MarketplacesController(
             .WhereMatchesSearch(c => c.SearchString, searchString);
 
         if (!includeArchived)
-            query = query.Where(c => !c.IsArchived);
+            query = query.Where(c => !c.EffectiveIsArchived);
 
         if (catalogItemId is not null)
         {
@@ -732,7 +732,8 @@ public class MarketplacesController(
 
     /// <summary>Maps a card to a catalog item. Null clears the mapping.</summary>
     /// <remarks>
-    /// Body: <c>SetCardMappingRequest</c> — <c>catalogItemId</c> (null clears). Errors:
+    /// Body: <c>SetCardMappingRequest</c> — <c>catalogItemId</c> (null clears), <c>isMarkedArchived</c>
+    /// (WMS-side archive flag, independent of the marketplace's own <c>isArchived</c>). Errors:
     /// <list type="bullet">
     ///   <item>404 <c>marketplaceCardNotFound</c></item>
     ///   <item>422 <c>catalogItemNotFound</c> on <c>catalogItemId</c></item>
@@ -780,6 +781,7 @@ public class MarketplacesController(
         card.CatalogItemId = request.CatalogItemId;
         card.MappingSource = request.CatalogItemId is null ? null : MarketplaceMappingSource.Manual;
         card.MappedAt = request.CatalogItemId is null ? null : DateTime.UtcNow;
+        card.IsMarkedArchived = request.IsMarkedArchived;
         await db.SaveChangesAsync(ct);
 
         var after = await ProjectCardAsync(id, ct);
@@ -812,7 +814,7 @@ public class MarketplacesController(
         var mapped = await syncService.AutoMapAccountAsync(id, ct);
 
         var remaining = await db.MarketplaceCards
-            .CountAsync(c => c.MarketplaceAccountId == id && c.CatalogItemId == null && !c.IsArchived, ct);
+            .CountAsync(c => c.MarketplaceAccountId == id && c.CatalogItemId == null && !c.EffectiveIsArchived, ct);
 
         // diffs on unmappedCardCount, so a run that mapped nothing writes no entry
         await accountChangeLog.CompareAndSaveToChangelog(before, await ToDetailDtoAsync(account, ct),
@@ -832,7 +834,7 @@ public class MarketplacesController(
     public async Task<IActionResult> GetUnmappedCount(CancellationToken ct)
     {
         var count = await db.MarketplaceCards
-            .CountAsync(c => c.CatalogItemId == null && !c.IsArchived && c.MarketplaceAccount.IsActive, ct);
+            .CountAsync(c => c.CatalogItemId == null && !c.EffectiveIsArchived && c.MarketplaceAccount.IsActive, ct);
 
         return Ok(new UnmappedCardsCountDto { Count = count });
     }

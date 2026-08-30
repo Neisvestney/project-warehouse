@@ -840,6 +840,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<bool>("IsArchived")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsMarkedArchived")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("MappedAt")
                         .HasColumnType("timestamp with time zone");
 

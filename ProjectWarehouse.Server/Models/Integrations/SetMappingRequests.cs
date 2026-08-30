@@ -10,6 +10,7 @@ public class SetWarehouseMappingRequest
 public class SetCardMappingRequest
 {
     public Guid? CatalogItemId { get; init; }
+    public bool IsMarkedArchived { get; init; }
 }
 
 public class AutoMapResponse

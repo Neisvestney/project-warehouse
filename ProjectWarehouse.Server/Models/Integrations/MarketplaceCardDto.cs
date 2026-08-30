@@ -16,6 +16,8 @@ public class MarketplaceCardDto : IHasIdentity
     public decimal? Price { get; init; }
     public string? CurrencyCode { get; init; }
     public bool IsArchived { get; init; }
+    public bool IsMarkedArchived { get; init; }
+    public bool EffectiveIsArchived { get; init; }
 
     public Guid? CatalogItemId { get; init; }
     public string? CatalogItemFullName { get; init; }
