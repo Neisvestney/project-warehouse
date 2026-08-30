@@ -44,3 +44,13 @@ export function getTaskProgress(task: AssemblyTaskDto): {fulfilled: number; tota
   }
   return {fulfilled, total};
 }
+
+/** Mirrors the backend's IsOrderFullyFulfilledAsync: every component of every task must be fully
+ * picked, not just marked Done. Used to gate the manual "Собрать" recovery action. */
+export function isOrderFullyFulfilled(order: OrderDetailsDto): boolean {
+  const components = order.assemblyTasks.flatMap((t) => t.boxes.flatMap((b) => b.components));
+  return (
+    components.length > 0 &&
+    components.every((c) => countFulfilledQty(c.fulfillments) >= c.quantity)
+  );
+}

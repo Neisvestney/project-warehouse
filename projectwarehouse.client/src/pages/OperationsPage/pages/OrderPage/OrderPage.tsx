@@ -1,6 +1,6 @@
 import {useCallback, useState} from "react";
 import {useParams} from "react-router";
-import {Box, Button, CircularProgress, Paper, Stack, Typography} from "@mui/material";
+import {Box, Button, CircularProgress, Paper, Stack, Tooltip, Typography} from "@mui/material";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
   ordersGetByIdOptions,
@@ -25,6 +25,7 @@ import OrderStatusChip from "@/components/orders/OrderStatusChip";
 import OrderTypeChip from "@/components/orders/OrderTypeChip";
 import DownloadOrderLabelButton from "@/components/orders/marketplace/DownloadOrderLabelButton";
 import {ORDER_TYPE_LABELS, formatBoxLabel, formatOrderNumber} from "@/components/orders/orderUtils";
+import {isOrderFullyFulfilled} from "@/components/orders/orderAssemblyUtils";
 import OrderMetaSection from "./OrderMetaSection";
 import OrderBoxesSection from "./OrderBoxesSection";
 import OrderAssemblyTasksSection from "./OrderAssemblyTasksSection";
@@ -107,6 +108,9 @@ function OrderPage() {
   const order = query.data;
   const typeLabel = ORDER_TYPE_LABELS[order.type];
   const hasDoneTasks = order.assemblyTasks.some((t) => t.status === "done");
+  const allTasksDone =
+    order.assemblyTasks.length > 0 && order.assemblyTasks.every((t) => t.status === "done");
+  const canAssembleManually = allTasksDone && isOrderFullyFulfilled(order);
 
   const emptyBoxes = order.boxes.filter((b) => b.components.length === 0);
   const hasBoxIssues = order.boxes.length === 0 || emptyBoxes.length > 0;
@@ -132,7 +136,7 @@ function OrderPage() {
   const marketplaceOrder = order.type === "fbs" ? order.marketplaceOrder : null;
   const hasActions =
     (canSelfAssign && order.status === "confirmed") ||
-    (canEdit && order.status !== "canceled" && order.status !== "shipped") ||
+    (canEdit && order.status !== "canceled") ||
     marketplaceOrder != null;
 
   return (
@@ -257,6 +261,28 @@ function OrderPage() {
                           Вернуть в Подтверждён
                         </Button>
                       )}
+                      {allTasksDone && (
+                        <Tooltip
+                          title={
+                            canAssembleManually
+                              ? ""
+                              : "Не все компоненты собраны: количество фулфилментов меньше требуемого"
+                          }
+                        >
+                          <span>
+                            <Button
+                              variant="contained"
+                              color="success"
+                              disabled={actionPending || !canAssembleManually}
+                              onClick={() => transition("assembled")}
+                              startIcon={<CheckIcon />}
+                              loading={transitionMutation.isPending}
+                            >
+                              Собрать
+                            </Button>
+                          </span>
+                        </Tooltip>
+                      )}
                       <Button
                         color="error"
                         variant="outlined"
@@ -279,6 +305,18 @@ function OrderPage() {
                       loading={transitionMutation.isPending}
                     >
                       Отгрузить
+                    </Button>
+                  )}
+
+                  {canEdit && order.status === "shipped" && (
+                    <Button
+                      variant="outlined"
+                      disabled={actionPending}
+                      onClick={() => transition("assembled")}
+                      startIcon={<UndoIcon />}
+                      loading={transitionMutation.isPending}
+                    >
+                      Вернуть в Собран
                     </Button>
                   )}
                 </>

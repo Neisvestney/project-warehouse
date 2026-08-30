@@ -407,16 +407,23 @@ public class OrdersController(
     /// <list type="bullet">
     ///   <item>Draft → Confirmed | Canceled</item>
     ///   <item>Confirmed → Draft | Assembly | Canceled</item>
-    ///   <item>Assembly → Confirmed | Canceled</item>
+    ///   <item>Assembly → Confirmed | Assembled | Canceled</item>
     ///   <item>Assembled → Shipped</item>
+    ///   <item>Shipped → Assembled</item>
     /// </list>
     /// Anything else is 422 <c>orderInvalidStatusTransition</c>. Assembly → Confirmed is additionally refused
     /// when any assembly task is already <c>Done</c>; otherwise it deletes every assembly task of the order and
-    /// restores the inventory of their fulfillments. Cancelling is refused with 422 <c>orderHasFulfillments</c>
-    /// while any fulfillment still exists. Assembled is reached automatically when the last task completes, not
-    /// through this endpoint. Returns 404 <c>orderNotFound</c>, 409 <c>inventoryWriteConflict</c> when the
-    /// inventory restored by Assembly → Confirmed loses to concurrent stock writes — nothing was written and
-    /// the request can be repeated.
+    /// restores the inventory of their fulfillments. Assembled is normally reached automatically when the last
+    /// task turns Done with every component fully fulfilled (see the assembly-task status endpoint); Assembly →
+    /// Assembled through this endpoint is the manual recovery path for when that condition became true only
+    /// after the last task was already Done (e.g. a missing fulfillment was added afterwards) — it re-checks the
+    /// same condition (every task Done and fully fulfilled) and is refused with 422
+    /// <c>orderInvalidStatusTransition</c> otherwise. Shipped → Assembled is a pure status change — inventory was
+    /// already deducted when fulfillments were added during assembly and is not touched by shipment or its
+    /// rollback. Cancelling is refused with 422 <c>orderHasFulfillments</c>
+    /// while any fulfillment still exists. Returns 404 <c>orderNotFound</c>, 409 <c>inventoryWriteConflict</c>
+    /// when the inventory restored by Assembly → Confirmed loses to concurrent stock writes — nothing was
+    /// written and the request can be repeated.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [HttpPut("{id:guid}/status")]
@@ -1062,10 +1069,15 @@ public class OrdersController(
     ///   <item>Pending → InProgress</item>
     ///   <item>InProgress → Done</item>
     ///   <item>InProgress → Pending</item>
+    ///   <item>Done → InProgress</item>
     /// </list>
-    /// Anything else is 422 <c>orderInvalidStatusTransition</c>. Completing the last remaining task of an
-    /// Assembly-status order moves the order itself to <c>Assembled</c>. Fulfillment completeness is not checked
-    /// here — a task can be marked Done with components left unfulfilled.
+    /// Anything else is 422 <c>orderInvalidStatusTransition</c>. Only allowed while the order itself is
+    /// <c>Assembly</c> or <c>Assembled</c> — otherwise 422 <c>orderNotAssembly</c>. Completing the last remaining
+    /// task of an Assembly-status order moves the order itself to <c>Assembled</c> only if every component of
+    /// every task is fully fulfilled (not just every task Done) — a task can still be marked Done with components
+    /// left unfulfilled, but the order then stays in <c>Assembly</c> until the shortfall is fulfilled and the
+    /// check re-runs on a later task transition. Rolling a task back out of Done while the order is
+    /// <c>Assembled</c> moves the order back to <c>Assembly</c>.
     /// Returns 404 <c>orderNotFound</c> or <c>assemblyTaskNotFound</c>.
     /// Requires <c>orders.assemble_assigned</c>, <c>orders.edit</c> or <c>orders.edit_assigned</c>, plus an
     /// assignment to the order's warehouse in every case (403 <c>orderNotAssignedToWarehouse</c>).
@@ -1392,7 +1404,8 @@ public class OrdersController(
     /// empty. With <c>true</c>, every touched task is advanced Pending → InProgress, and InProgress → Done only
     /// when all of its components are fully fulfilled; only genuinely completed tasks are listed in
     /// <c>completedTaskIds</c>. That step is best-effort — failures there are swallowed and do not fail the
-    /// request. Completing the last task still auto-moves the order to <c>Assembled</c>.
+    /// request. Completing the last task still auto-moves the order to <c>Assembled</c>, but only once every
+    /// component of every task in the order is fully fulfilled — see the assembly-task status endpoint.
     /// 403 is returned only for the request as a whole, when neither <c>orders.assemble_assigned</c> nor
     /// <c>orders.edit</c> / <c>orders.edit_assigned</c> is held; warehouse assignment is then checked per order.
     /// The route carries no id, so realtime change events are published explicitly for each affected order.
