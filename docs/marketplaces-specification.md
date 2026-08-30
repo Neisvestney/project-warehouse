@@ -425,7 +425,8 @@ MarketplaceCard : IHasIdentity
 ├── PrimaryImageUrl       — string?
 ├── Price                 — decimal?
 ├── CurrencyCode          — string?
-├── IsArchived            — bool
+├── IsArchived            — bool, удалена на стороне маркетплейса — ставит синхронизация
+├── IsMarkedArchived      — bool, вручную помечена неиспользуемой со стороны WMS — синхронизация не трогает
 ├── CatalogItemId         — Guid? → CatalogItem (Restrict) — привязка к каталогу WMS
 ├── MappingSource         — MarketplaceMappingSource? (Manual | AutoOfferId | AutoBarcode | Rule)
 ├── MappedAt              — DateTime?
@@ -435,7 +436,10 @@ MarketplaceCard : IHasIdentity
 Индексы: (MarketplaceAccountId, OfferId), (CatalogItemId)
 
 [Projectable] SearchString => Name + " " + OfferId + " " + ExternalId + " " + Sku
+[Projectable] EffectiveIsArchived => IsArchived || IsMarkedArchived
 ```
+
+`EffectiveIsArchived` — то, что фактически используется при фильтрации карточек (списки, счётчики немаппленных, кандидаты автосопоставления): карточка исключается из «активных», если архивна на маркетплейсе **или** помечена неиспользуемой в WMS.
 
 **Сырой ответ маркетплейса не сохраняется.** Хранить `jsonb` с полным объектом карточки на десятках тысяч строк — заметный рост таблицы ради редких разборов инцидентов. Провайдер отображает ответ в `ExternalCard` и выбрасывает остальное; если в будущем понадобится новое поле — оно добавляется колонкой и заполняется следующей полной синхронизацией, которая и так идёт по расписанию.
 
@@ -764,7 +768,7 @@ Quartz регистрируется с in-memory хранилищем задач
 | `GET` | `/accounts/{id}/warehouses` | `integrations.view` | Склады маркетплейса |
 | `PUT` | `/warehouses/{id}/mapping` | `integrations.map` | Привязка склада, `{ warehouseId }`, `null` — снять |
 | `GET` | `/accounts/{id}/cards` | `integrations.view` | Карточки (поиск, `mappingState` = `all`/`unmapped`/`mapped`/`archivedItem`, `includeArchived`) |
-| `PUT` | `/cards/{id}/mapping` | `integrations.map` | Привязка карточки, `{ catalogItemId }`, `null` — снять |
+| `PUT` | `/cards/{id}/mapping` | `integrations.map` | Привязка карточки, `{ catalogItemId, isMarkedArchived }`, `catalogItemId: null` — снять привязку |
 | `POST` | `/accounts/{id}/cards/auto-map` | `integrations.map` | Автосопоставление по всему аккаунту |
 | `GET` | `/auto-map-rules` | `integrations.view` | Правила автосопоставления в порядке применения (`priority` по убыванию), без пагинации |
 | `POST` | `/auto-map-rules` | `integrations.map` | Создание правила |

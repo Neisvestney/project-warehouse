@@ -285,7 +285,7 @@ public class MarketplaceSyncService(
     public async Task<int> AutoMapAccountAsync(Guid accountId, CancellationToken ct)
     {
         var unmapped = await db.MarketplaceCards
-            .Where(c => c.MarketplaceAccountId == accountId && c.CatalogItemId == null && !c.IsArchived)
+            .Where(c => c.MarketplaceAccountId == accountId && c.CatalogItemId == null && !c.EffectiveIsArchived)
             .ToListAsync(ct);
 
         var mapped = await AutoMapAsync(unmapped, ct);

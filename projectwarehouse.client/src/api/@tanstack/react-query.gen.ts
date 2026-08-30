@@ -2544,7 +2544,8 @@ export const marketplacesGetCardsInfiniteOptions = (options: Options<Marketplace
 /**
  * Maps a card to a catalog item. Null clears the mapping.
  *
- *     Body: `SetCardMappingRequest` — `catalogItemId` (null clears). Errors:
+ *     Body: `SetCardMappingRequest` — `catalogItemId` (null clears), `isMarkedArchived`
+ * (WMS-side archive flag, independent of the marketplace's own `isArchived`). Errors:
  * * 404 marketplaceCardNotFound
  * * 422 catalogItemNotFound on catalogItemId
  * * 422 marketplaceCardMappingTypeNotAllowed on catalogItemId — the target is a ProductGroup

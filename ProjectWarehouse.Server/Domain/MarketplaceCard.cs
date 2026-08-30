@@ -25,6 +25,12 @@ public class MarketplaceCard : IHasIdentity
     public string? CurrencyCode { get; set; }
     public bool IsArchived { get; set; }
 
+    /// <summary>Archived on the WMS side even though the marketplace still lists it — sync never touches this.</summary>
+    public bool IsMarkedArchived { get; set; }
+
+    [Projectable]
+    public bool EffectiveIsArchived => IsArchived || IsMarkedArchived;
+
     /// <summary>Mapping to the catalog. Sync never resets it — the mapping outlives the card data.</summary>
     public Guid? CatalogItemId { get; set; }
     public CatalogItem? CatalogItem { get; set; }

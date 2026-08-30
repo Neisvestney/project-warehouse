@@ -232,6 +232,14 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
                     <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
                       <span>{card.name}</span>
                       {card.isArchived && <Chip label="Архивная" size="small" variant="outlined" />}
+                      {card.isMarkedArchived && (
+                        <Chip
+                          label="Не используется"
+                          size="small"
+                          variant="outlined"
+                          color="warning"
+                        />
+                      )}
                     </Stack>
                   </TableCell>
                   <TableCell sx={{fontFamily: "monospace"}}>{card.offerId}</TableCell>
