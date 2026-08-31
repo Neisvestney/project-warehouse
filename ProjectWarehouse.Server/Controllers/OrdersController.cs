@@ -410,6 +410,7 @@ public class OrdersController(
     ///   <item>Assembly → Confirmed | Assembled | Canceled</item>
     ///   <item>Assembled → Shipped</item>
     ///   <item>Shipped → Assembled</item>
+    ///   <item>Canceled → Draft (Direct orders) | Confirmed (FBO, FBS orders)</item>
     /// </list>
     /// Anything else is 422 <c>orderInvalidStatusTransition</c>. Assembly → Confirmed is additionally refused
     /// when any assembly task is already <c>Done</c>; otherwise it deletes every assembly task of the order and

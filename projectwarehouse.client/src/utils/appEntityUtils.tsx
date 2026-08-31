@@ -2,7 +2,8 @@ import type {
   AppEntity,
   AppEntityType,
   CatalogItemType,
-  MarketplaceType, OrderStatus,
+  MarketplaceType,
+  OrderStatus,
   ReceiptStatus,
   StocktakeStatus,
 } from "@/api";
@@ -181,7 +182,8 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
       const status = e.additionalFields?.status as OrderStatus | undefined;
       return status != null ? statusColors[status] : "teal";
     },
-    getEventCalendarTitle: (e) => `${formatOrderNumber(e.additionalFields?.number as number ?? 0)}`
+    getEventCalendarTitle: (e) =>
+      `${formatOrderNumber((e.additionalFields?.number as number) ?? 0)}`,
   },
   receipt: {
     linkTemplate: "/operations/receipts/{id}",
@@ -269,7 +271,8 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     linkTemplate: "/operations/orders/fbs",
     typeName: "Заказы FBO",
     icon: <AssignmentIcon />,
-    getEventCalendarTitle: (e) => `Заказы FBS ${e.additionalFields?.completedOrders} из ${e.additionalFields?.totalOrders}`
+    getEventCalendarTitle: (e) =>
+      `Заказы FBS ${e.additionalFields?.completedOrders} из ${e.additionalFields?.totalOrders}`,
   },
 };
 
