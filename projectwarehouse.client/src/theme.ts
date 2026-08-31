@@ -109,6 +109,9 @@ const theme = createTheme({
     },
     dark: {
       palette: {
+        // primary: {
+        //   main: "#9BBA2C",
+        // },
         background: {
           default: "#16161A",
           paper: "#19191e",

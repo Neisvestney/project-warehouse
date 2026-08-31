@@ -11,14 +11,13 @@ import {
   Stack,
   TextField,
   Tooltip,
-  Typography,
 } from "@mui/material";
-import WarehouseIcon from "@mui/icons-material/Warehouse";
 import DnsIcon from "@mui/icons-material/Dns";
 import {useMutation} from "@tanstack/react-query";
 import {useAuth} from "@/hooks/useAuth";
 import {useFormErrors} from "@/hooks/useFormErrors";
 import {Capacitor} from "@capacitor/core";
+import MainNavBrand from "@/components/MainNav/MainNavBrand.tsx";
 
 function LoginPage() {
   const {login, isAuthenticated} = useAuth();
@@ -102,10 +101,7 @@ function LoginPage() {
       <Card sx={{width: 380}} elevation={3}>
         <CardContent sx={{p: 4, "&:last-child": {pb: 4}}}>
           <Box sx={{display: "flex", flexDirection: "column", alignItems: "center", gap: 4}}>
-            <Box sx={{display: "flex", alignItems: "center", gap: 1.5}}>
-              <WarehouseIcon sx={{fontSize: 32}} color="primary" />
-              <Typography variant="h5">Warehouse</Typography>
-            </Box>
+            <MainNavBrand typographyVariant="h5" iconFontSize={32} linked={false} />
             <Box
               component="form"
               onSubmit={handleSubmit}

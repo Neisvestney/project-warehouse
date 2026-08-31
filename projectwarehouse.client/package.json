@@ -13,7 +13,8 @@
     "eslint:fix": "eslint . --report-unused-disable-directives --max-warnings 0 --fix",
     "prettier": "prettier --check .",
     "prettier:fix": "prettier --write .",
-    "generate-api": "cross-env NODE_TLS_REJECT_UNAUTHORIZED=0 openapi-ts"
+    "generate-api": "cross-env NODE_TLS_REJECT_UNAUTHORIZED=0 openapi-ts",
+    "generate-brand-assets": "node scripts/generate-brand-assets.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",
@@ -79,8 +80,10 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
+    "png-to-ico": "^3.0.2",
     "prettier": "^3.8.3",
     "sass-embedded": "^1.99.0",
+    "sharp": "^0.35.4",
     "terser": "^5.47.1",
     "typescript": "npm:@typescript/typescript6@~6.0.2",
     "typescript-7": "npm:typescript@^7.0.2",
