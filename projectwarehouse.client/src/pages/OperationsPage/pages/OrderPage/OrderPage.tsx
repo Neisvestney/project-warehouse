@@ -1,8 +1,10 @@
 import {useCallback, useState} from "react";
-import {useParams} from "react-router";
+import {useNavigate, useParams} from "react-router";
 import {Box, Button, CircularProgress, Paper, Stack, Tooltip, Typography} from "@mui/material";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
+  ordersDeleteMutation,
+  ordersGetAllQueryKey,
   ordersGetByIdOptions,
   ordersGetByIdQueryKey,
   ordersSelfAssignMutation,
@@ -35,11 +37,13 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import UndoIcon from "@mui/icons-material/Undo";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import BlockIcon from "@mui/icons-material/Block";
+import DeleteIcon from "@mui/icons-material/Delete";
 import {useSnackbar} from "notistack";
 import OrderMarketplaceItemsSection from "@/pages/OperationsPage/pages/OrderPage/OrderMarketplaceItemsSection.tsx";
 
 function OrderPage() {
   const {id} = useParams<{id: string}>();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const {enqueueSnackbar} = useSnackbar();
 
@@ -55,6 +59,7 @@ function OrderPage() {
 
   const [isEditingMeta, setIsEditingMeta] = useState(false);
   const [cancelConfirm, setCancelConfirm] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [emptyBoxesConfirm, setEmptyBoxesConfirm] = useState<OrderStatus | null>(null);
 
   const query = useQuery({
@@ -77,19 +82,30 @@ function OrderPage() {
 
   const transitionMutation = useMutation({
     ...ordersTransitionStatusMutation(),
-    meta: {suppressGlobalError: true},
     onSuccess: () => {
       queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: id!}})});
+    },
+    onSettled: () => {
       setCancelConfirm(false);
       setEmptyBoxesConfirm(null);
     },
-    onError: () => enqueueSnackbar("Ошибка смены статуса", {variant: "error"}),
   });
 
   const selfAssignMutation = useMutation({
     ...ordersSelfAssignMutation(),
     onSuccess: () => {
       queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: id!}})});
+    },
+  });
+
+  const deleteMutation = useMutation({
+    ...ordersDeleteMutation(),
+    meta: {suppressGlobalError: true},
+    onSuccess: () => {
+      queryClient.invalidateQueries({queryKey: ordersGetAllQueryKey()});
+    },
+    onSettled: () => {
+      setDeleteConfirm(false);
     },
   });
 
@@ -132,12 +148,18 @@ function OrderPage() {
     doTransition(targetStatus);
   }
 
-  const actionPending = transitionMutation.isPending || selfAssignMutation.isPending;
+  function handleDelete() {
+    deleteMutation.mutate(
+      {path: {id: order.id}},
+      {onSuccess: () => navigate(`/operations/orders/${order.type}`)},
+    );
+  }
+
+  const actionPending =
+    transitionMutation.isPending || selfAssignMutation.isPending || deleteMutation.isPending;
   const marketplaceOrder = order.type === "fbs" ? order.marketplaceOrder : null;
   const hasActions =
-    (canSelfAssign && order.status === "confirmed") ||
-    (canEdit && order.status !== "canceled") ||
-    marketplaceOrder != null;
+    (canSelfAssign && order.status === "confirmed") || canEdit || marketplaceOrder != null;
 
   return (
     <Box sx={{position: "relative"}}>
@@ -213,6 +235,15 @@ function OrderPage() {
                         startIcon={<BlockIcon />}
                       >
                         Отменить
+                      </Button>
+                      <Button
+                        color="error"
+                        variant="outlined"
+                        disabled={actionPending}
+                        onClick={() => setDeleteConfirm(true)}
+                        startIcon={<DeleteIcon />}
+                      >
+                        Удалить
                       </Button>
                     </>
                   )}
@@ -319,6 +350,18 @@ function OrderPage() {
                       Вернуть в Собран
                     </Button>
                   )}
+
+                  {canEdit && order.status === "canceled" && (
+                    <Button
+                      variant="outlined"
+                      disabled={actionPending}
+                      onClick={() => transition(order.type === "direct" ? "draft" : "confirmed")}
+                      startIcon={<UndoIcon />}
+                      loading={transitionMutation.isPending}
+                    >
+                      {order.type === "direct" ? "Вернуть в черновик" : "Вернуть в Подтверждён"}
+                    </Button>
+                  )}
                 </>
               ) : undefined
             }
@@ -366,6 +409,16 @@ function OrderPage() {
               transitionMutation.mutate({path: {id: order.id}, body: {targetStatus: "canceled"}})
             }
             isPending={transitionMutation.isPending}
+          />
+
+          <ConfirmDialog
+            open={deleteConfirm}
+            onClose={() => setDeleteConfirm(false)}
+            title="Удалить заказ?"
+            confirmText="Удалить"
+            confirmColor="error"
+            onConfirm={handleDelete}
+            isPending={deleteMutation.isPending}
           />
 
           <ConfirmDialog

@@ -883,6 +883,9 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
             (OrderStatus.Assembly,  OrderStatus.Canceled)   => true,
             (OrderStatus.Assembled, OrderStatus.Shipped)    => true,
             (OrderStatus.Shipped,   OrderStatus.Assembled)  => true,
+            // No Fulfillments check needed here: Canceled is only reachable when none exist.
+            (OrderStatus.Canceled,  OrderStatus.Draft)      => order.Type == OrderType.Direct,
+            (OrderStatus.Canceled,  OrderStatus.Confirmed)  => order.Type is OrderType.FBO or OrderType.FBS,
             _                                               => false,
         };
 
