@@ -8,16 +8,15 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Typography,
 } from "@mui/material";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import WarehouseIcon from "@mui/icons-material/Warehouse";
 import {Link, useLocation} from "react-router";
 import {isActive, isGroup} from "@/layouts/SidebarLayout/navItems.ts";
 import type {SidebarNavLeafItem} from "@/layouts/SidebarLayout/navItems.ts";
 import {useBackClosable} from "@/hooks/useBackClosable.ts";
 import type {ResolvedMainNavPage} from "./mainNavConfig.tsx";
+import MainNavBrand from "./MainNavBrand.tsx";
 
 export interface MainNavDrawerProps {
   open: boolean;
@@ -91,24 +90,8 @@ function MainNavDrawer({open, onClose, pages}: MainNavDrawerProps) {
       onClose={handleClose}
       slotProps={{paper: {sx: {width: DRAWER_WIDTH}}}}
     >
-      <Box sx={{display: "flex", alignItems: "center", gap: 1, px: 2, py: 1.5}}>
-        <WarehouseIcon fontSize="small" />
-        <Typography
-          variant="h6"
-          component={Link}
-          to="/"
-          replace
-          onClick={handleClose}
-          sx={{
-            fontFamily: "monospace",
-            fontWeight: 700,
-            letterSpacing: "-0.1rem",
-            color: "inherit",
-            textDecoration: "none",
-          }}
-        >
-          Warehouse
-        </Typography>
+      <Box sx={{px: 2, py: 1.5}}>
+        <MainNavBrand iconFontSize="small" replace onClick={handleClose} />
       </Box>
       <Divider />
       <List component="nav" sx={{px: 1}} dense>

@@ -14,8 +14,6 @@ import {
   ButtonBase,
   ListItemIcon,
 } from "@mui/material";
-import type {Theme} from "@mui/material/styles";
-import WarehouseIcon from "@mui/icons-material/Warehouse";
 import MenuIcon from "@mui/icons-material/Menu";
 import SearchIcon from "@mui/icons-material/Search";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
@@ -29,14 +27,11 @@ import {useResolvedColorScheme} from "@/hooks/useResolvedColorScheme.ts";
 import UserAvatar from "@/components/UserAvatar";
 import type {PermissionName} from "@/api/types.gen";
 import MainNavDrawer from "./MainNavDrawer.tsx";
+import MainNavBrand from "./MainNavBrand.tsx";
 import {resolveMainNavPages} from "./mainNavConfig.tsx";
 import {extractErrorMessage} from "@/utils/errorUtils.ts";
 
 export const MAIN_APP_BAR_HEIGHT = 50;
-
-// The light-scheme bar is already primary, so the brand mark only takes the accent in dark.
-const brandDarkSx = (theme: Theme) =>
-  theme.applyStyles("dark", {color: theme.palette.primary.main});
 
 export interface AppBarProps {}
 
@@ -123,27 +118,9 @@ function MainAppBar({}: AppBarProps) {
       <AppBar position="static">
         <Container maxWidth="xl">
           <Toolbar disableGutters variant="dense" sx={{minHeight: MAIN_APP_BAR_HEIGHT}}>
-            <WarehouseIcon sx={[{display: {xs: "none", md: "flex"}, mr: 1}, brandDarkSx]} />
-            <Typography
-              variant="h6"
-              noWrap
-              component={Link}
-              to={"/"}
-              sx={[
-                {
-                  mr: 2,
-                  display: {xs: "none", md: "flex"},
-                  fontFamily: "monospace",
-                  fontWeight: 700,
-                  letterSpacing: "-0.1rem",
-                  color: "inherit",
-                  textDecoration: "none",
-                },
-                brandDarkSx,
-              ]}
-            >
-              Warehouse
-            </Typography>
+            <Box sx={{display: {xs: "none", md: "flex"}, mr: 2}}>
+              <MainNavBrand />
+            </Box>
 
             <Box sx={{flex: 1, display: {xs: "flex", md: "none"}}}>
               <IconButton
@@ -156,31 +133,13 @@ function MainAppBar({}: AppBarProps) {
               </IconButton>
             </Box>
             <Box sx={{display: {xs: "flex", md: "none"}, alignItems: "center", minWidth: 0}}>
-              <WarehouseIcon sx={[{mr: 1}, brandDarkSx]} />
-              <Typography
-                variant="h5"
-                noWrap
-                component={Link}
-                to={"/"}
-                sx={[
-                  {
-                    fontFamily: "monospace",
-                    fontWeight: 700,
-                    letterSpacing: "-0.1rem",
-                    color: "inherit",
-                    textDecoration: "none",
-                  },
-                  brandDarkSx,
-                ]}
-              >
-                Warehouse
-              </Typography>
+              <MainNavBrand typographyVariant="h5" />
             </Box>
             <Box sx={{flexGrow: 1, display: {xs: "none", md: "flex"}}}>
               {filteredPages.map((page) => (
                 <Button
                   key={page.url}
-                  sx={{color: "white", display: "block"}}
+                  sx={{color: "white", display: "block", mt: "5px"}}
                   component={Link}
                   to={page.url}
                 >
