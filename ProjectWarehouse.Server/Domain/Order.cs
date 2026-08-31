@@ -17,6 +17,8 @@ public class Order : IHasIdentity
     public string? Notes { get; set; }
     public DateTime? PlannedShipmentAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? AssembledAt { get; set; }
+    public DateTime? ShippedAt { get; set; }
 
     public Guid WarehouseId { get; set; }
     public Warehouse Warehouse { get; set; } = null!;
@@ -30,6 +32,12 @@ public class Order : IHasIdentity
     public ICollection<OrderMarketplaceItem> MarketplaceItems { get; set; } = [];
     public ICollection<OrderBox> Boxes { get; set; } = [];
     public ICollection<AssemblyTask> AssemblyTasks { get; set; } = [];
+    
+    [Projectable]
+    public DateTime EffectiveDate => ShippedAt ?? AssembledAt ?? PlannedShipmentAt ?? CreatedAt;
+    
+    [Projectable]
+    public bool TerminalStatus => Status == OrderStatus.Shipped || Status == OrderStatus.Assembled || Status == OrderStatus.Canceled;
 
     // The ternary is load-bearing: SearchExtensions splices this body straight into EF.Functions.ILike,
     // and ILIKE(NULL, …) is NULL — a bare concatenation would drop every Direct and FBO order from search.

@@ -151,6 +151,8 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
       )}
 
       <InfoRow label="Плановая отгрузка" value={formatDate(order.plannedShipmentAt)} />
+      {order.assembledAt && <InfoRow label="Собран" value={formatDate(order.assembledAt)} />}
+      {order.shippedAt && <InfoRow label="Отгружен" value={formatDate(order.shippedAt)} />}
 
       <InfoRow label="Заметки" value={order.notes || "—"} />
 

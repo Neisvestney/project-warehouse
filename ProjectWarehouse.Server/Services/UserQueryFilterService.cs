@@ -13,6 +13,9 @@ public class UserQueryFilterService(EntityAccessRegistry registry) : IUserQueryF
     public Task<IQueryable<Warehouse>> GetWarehousesAsync(ClaimsPrincipal user, CancellationToken ct = default) =>
         View<Warehouse>(user, ct);
 
+    public Task<IQueryable<Order>> GetOrdersAsync(ClaimsPrincipal user, CancellationToken ct = default) =>
+        View<Order>(user, ct);
+
     public Task<IQueryable<Receipt>> GetReceiptsAsync(ClaimsPrincipal user, CancellationToken ct = default) =>
         View<Receipt>(user, ct);
 

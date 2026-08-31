@@ -34,4 +34,6 @@ public enum AppEntityType
 
     /// <summary>The stock movement journal. Present for storage statistics, nothing writes a changelog entry with it.</summary>
     StockMovement = 13,
+    
+    FbsOrdersGrouped = 17,
 }

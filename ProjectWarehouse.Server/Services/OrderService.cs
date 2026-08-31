@@ -97,6 +97,19 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                     "Cannot transition to Assembled: not every task is Done and fully fulfilled.");
         }
 
+        switch (targetStatus)
+        {
+            case OrderStatus.Assembled when order.Status == OrderStatus.Shipped:
+                order.ShippedAt = null;
+                break;
+            case OrderStatus.Assembled:
+                order.AssembledAt = DateTime.UtcNow;
+                break;
+            case OrderStatus.Shipped:
+                order.ShippedAt = DateTime.UtcNow;
+                break;
+        }
+
         order.Status = targetStatus;
         await db.SaveChangesAsync(ct);
     }
@@ -349,12 +362,16 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
 
             if (allDone && order.Status == OrderStatus.Assembly
                 && await IsOrderFullyFulfilledAsync(order.Id, ct))
+            {
                 order.Status = OrderStatus.Assembled;
+                order.AssembledAt = DateTime.UtcNow;
+            }
         }
         else if (wasDone && order.Status == OrderStatus.Assembled)
         {
             // Rolling a completed task back out of Done reopens assembly on the order
             order.Status = OrderStatus.Assembly;
+            order.AssembledAt = null;
         }
 
         await db.SaveChangesAsync(ct);

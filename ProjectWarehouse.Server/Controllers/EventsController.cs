@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Events;
 using ProjectWarehouse.Server.Services;
 
@@ -59,7 +60,37 @@ public class EventsController(
             .Where(x => startDate == null || x.StartDate >= startDate)
             .Where(x => endDate == null || x.EndDate <= endDate)
             .ToListAsync(ct);
+        
+        var ordersQueryable = await queryFilter.GetOrdersAsync(User, ct);
+        
+        var fbsOrdersGroupedEvents = await ordersQueryable
+            .Where(x => x.Type == OrderType.FBS)
+            .GroupBy(x => DateOnly.FromDateTime(x.EffectiveDate.AddMinutes(offsetMinutes)))
+            .Select(x => new EventDto
+            {
+                AppEntity = new AppEntity
+                {
+                    Type = AppEntityType.FbsOrdersGrouped,
+                    AdditionalFields = new Dictionary<string, object>
+                    {
+                        { "totalOrders", x.Count(o => o.Status != OrderStatus.Draft) },
+                        { "completedOrders", x.Where(x => x.TerminalStatus).Count(o => o.Status != OrderStatus.Draft) },
+                    },
+                },
+                StartDate = x.Key,
+                EndDate = x.Key,
+            })
+            .Where(x => startDate == null || x.StartDate >= startDate)
+            .Where(x => endDate == null || x.EndDate <= endDate)
+            .ToListAsync(ct);
+        
+        var ordersEvents = await ordersQueryable
+            .Where(x => x.Type != OrderType.FBS)
+            .ProjectTo<EventDto>(mapper.ConfigurationProvider, new { offsetMinutes })
+            .Where(x => startDate == null || x.StartDate >= startDate)
+            .Where(x => endDate == null || x.EndDate <= endDate)
+            .ToListAsync(ct);
 
-        return Ok(receiptsEvents.Concat(stocktakesEvents).ToList());
+        return Ok(receiptsEvents.Concat(stocktakesEvents).Concat(fbsOrdersGroupedEvents).Concat(ordersEvents).ToList());
     }
 }

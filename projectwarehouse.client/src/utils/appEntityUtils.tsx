@@ -2,7 +2,7 @@ import type {
   AppEntity,
   AppEntityType,
   CatalogItemType,
-  MarketplaceType,
+  MarketplaceType, OrderStatus,
   ReceiptStatus,
   StocktakeStatus,
 } from "@/api";
@@ -31,6 +31,7 @@ import {
   MARKETPLACE_TYPE_COLORS,
   MARKETPLACE_TYPE_LABELS,
 } from "@/pages/SettingsPage/pages/MarketplacesSettingsPage/marketplaceUtils.ts";
+import {formatOrderNumber} from "@/components/orders/orderUtils.ts";
 
 type EntityTypeConfig = {
   linkTemplate: string;
@@ -168,6 +169,19 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
         )}
       </>
     ),
+    getStatusColor: (e) => {
+      const statusColors: Record<OrderStatus, SchedulerEventColor> = {
+        draft: "grey",
+        confirmed: "blue",
+        assembly: "amber",
+        assembled: "green",
+        shipped: "green",
+        canceled: "red",
+      };
+      const status = e.additionalFields?.status as OrderStatus | undefined;
+      return status != null ? statusColors[status] : "teal";
+    },
+    getEventCalendarTitle: (e) => `${formatOrderNumber(e.additionalFields?.number as number ?? 0)}`
   },
   receipt: {
     linkTemplate: "/operations/receipts/{id}",
@@ -250,6 +264,12 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     linkTemplate: "/storage/stock-movements",
     typeName: "Движения товаров",
     icon: <SwapVertIcon />,
+  },
+  fbsOrdersGrouped: {
+    linkTemplate: "/operations/orders/fbs",
+    typeName: "Заказы FBO",
+    icon: <AssignmentIcon />,
+    getEventCalendarTitle: (e) => `Заказы FBS ${e.additionalFields?.completedOrders} из ${e.additionalFields?.totalOrders}`
   },
 };
 
