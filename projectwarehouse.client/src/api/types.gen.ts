@@ -61,7 +61,8 @@ export type AppEntityType =
   | "stockMovement"
   | "stocktake"
   | "marketplaceAutoMapRule"
-  | "marketplaceAutoMapRules";
+  | "marketplaceAutoMapRules"
+  | "fbsOrdersGrouped";
 
 export type AppFieldError = {
   code: ErrorCode;
@@ -1006,6 +1007,8 @@ export type OrderDetailsDto = {
   notes?: null | string;
   plannedShipmentAt?: null | string;
   createdAt: string;
+  assembledAt?: null | string;
+  shippedAt?: null | string;
   warehouseId: string;
   warehouseName: string;
   createdById?: null | string;
@@ -1044,6 +1047,8 @@ export type OrderSummaryDto = {
   notes?: null | string;
   plannedShipmentAt?: null | string;
   createdAt: string;
+  assembledAt?: null | string;
+  shippedAt?: null | string;
   warehouseId: string;
   warehouseName: string;
   createdByName?: null | string;

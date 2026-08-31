@@ -11,6 +11,8 @@ public class OrderDetailsDto
     public string? Notes { get; init; }
     public DateTime? PlannedShipmentAt { get; init; }
     public DateTime CreatedAt { get; init; }
+    public DateTime? AssembledAt { get; init; }
+    public DateTime? ShippedAt { get; init; }
     public Guid WarehouseId { get; init; }
     public string WarehouseName { get; init; } = null!;
     public Guid? CreatedById { get; init; }

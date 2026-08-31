@@ -106,7 +106,7 @@ function AppEvents({}: AppEventsProps) {
   );
 
   return (
-    <div style={{height: "calc(min(600px, 100vh - 120px))", width: "100%", position: "relative"}}>
+    <div style={{height: "calc(min(800px, 100vh - 120px))", width: "100%", position: "relative"}}>
       <EventCalendar
         events={events}
         readOnly
@@ -116,6 +116,7 @@ function AppEvents({}: AppEventsProps) {
         localeText={{
           ...ruRU.components.MuiEventCalendar.defaultProps.localeText,
           today: "Сегодня",
+          hiddenEvents: (c) => `еще ${c}..`,
         }}
         defaultPreferences={{ampm: false, isSidePanelOpen: false}}
         onClickCapture={handleClickCapture}

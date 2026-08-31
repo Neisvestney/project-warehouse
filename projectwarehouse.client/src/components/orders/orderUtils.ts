@@ -32,7 +32,7 @@ export const ORDER_TYPE_COLORS: Record<OrderType, ChipProps["color"]> = {
 };
 
 export function formatOrderNumber(n: number): string {
-  return `ЗКЗ-${String(n).padStart(5, "0")}`;
+  return `ЗКЗ-${String(n).padStart(7, "0")}`;
 }
 
 /**

@@ -314,6 +314,11 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.CatalogItemType, opt => opt.MapFrom(s => s.CatalogItem.Type))
             .ForMember(d => d.SourceNodePath, opt => opt.MapFrom<FulfillmentBundleComponentNodePathResolver>());
 
+        CreateMap<Order, EventDto>()
+            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x))
+            .ForMember(x => x.StartDate, opt => opt.MapFrom(x => DateOnly.FromDateTime(x.EffectiveDate.AddMinutes(offsetMinutes))))
+            .ForMember(x => x.EndDate, opt => opt.MapFrom(x => DateOnly.FromDateTime(x.EffectiveDate.AddMinutes(offsetMinutes))));
+        
         CreateMap<Order, AppEntity>()
             .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Order))
             .ForMember(x => x.Name, opt => opt.MapFrom(s => "#" + s.Number))

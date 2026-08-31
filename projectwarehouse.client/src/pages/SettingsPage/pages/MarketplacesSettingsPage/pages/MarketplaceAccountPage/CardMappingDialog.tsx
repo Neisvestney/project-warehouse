@@ -68,7 +68,7 @@ function CardMappingDialog({card, onClose, onSaved, dataUpdatedAt}: CardMappingD
     mutation.mutate({path: {id: card.id}, body: {catalogItemId: value, isMarkedArchived}});
   };
 
-  const refreshCard = useCallback(() => void onSaved(), [onSaved]);
+  // const refreshCard = useCallback(() => void onSaved(), [onSaved]);
 
   const isDirty =
     !!card &&
@@ -79,7 +79,7 @@ function CardMappingDialog({card, onClose, onSaved, dataUpdatedAt}: CardMappingD
   const lock = useEditLock("marketplaceCard", card?.id, {
     isDirty,
     dataUpdatedAt,
-    onRefresh: refreshCard,
+    onRefresh: () => {}, // Card hast GET endpoint
     enabled: !!card,
   });
 
