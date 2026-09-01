@@ -33,6 +33,7 @@ using ProjectWarehouse.Server.Integrations.Sync;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
 using ProjectWarehouse.Server.Models.Integrations;
+using ProjectWarehouse.Server.Models.Orders;
 using ProjectWarehouse.Server.Models.Roles;
 using ProjectWarehouse.Server.Models.Users;
 using ProjectWarehouse.Server.Models.Receipts;
@@ -538,6 +539,7 @@ try
     builder.Services.AddScoped<IChangeLogService<MarketplaceAccountDto>, MarketplaceAccountDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<MarketplaceCardDto>, MarketplaceCardDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<MarketplaceAutoMapRuleDto>, MarketplaceAutoMapRuleDtoChangelogService>();
+    builder.Services.AddScoped<IChangeLogService<OrderDetailsDto>, OrderDetailsDtoChangelogService>();
     builder.Services.AddScoped<IInventoryService, InventoryService>();
     builder.Services.AddScoped<ICatalogService, CatalogService>();
     builder.Services.AddScoped<AccessScope>();

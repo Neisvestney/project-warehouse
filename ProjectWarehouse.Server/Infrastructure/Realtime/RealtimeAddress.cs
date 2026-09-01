@@ -16,13 +16,14 @@ public enum RealtimeAddressKind
 public readonly record struct RealtimeAddress
 {
     private RealtimeAddress(RealtimeAddressKind kind, Guid userId, AppEntityType entityType, Guid entityId,
-        Guid? exceptUserId = null)
+        Guid? exceptUserId = null, Guid? exceptConnectionId = null)
     {
         Kind = kind;
         UserId = userId;
         EntityType = entityType;
         EntityId = entityId;
         ExceptUserId = exceptUserId;
+        ExceptConnectionId = exceptConnectionId;
     }
 
     public RealtimeAddressKind Kind { get; }
@@ -36,11 +37,18 @@ public readonly record struct RealtimeAddress
     /// <summary>Connections of this user are skipped — an author is not told about their own change.</summary>
     public Guid? ExceptUserId { get; }
 
+    /// <summary>
+    /// Only this one connection is skipped — the tab that made the change. Other tabs or devices of the
+    /// same user are still watchers and get told.
+    /// </summary>
+    public Guid? ExceptConnectionId { get; }
+
     public static RealtimeAddress ToUser(Guid userId) =>
         new(RealtimeAddressKind.User, userId, AppEntityType.Unknown, Guid.Empty);
 
-    public static RealtimeAddress ToWatchers(AppEntityType entityType, Guid entityId, Guid? exceptUserId = null) =>
-        new(RealtimeAddressKind.Watchers, Guid.Empty, entityType, entityId, exceptUserId);
+    public static RealtimeAddress ToWatchers(AppEntityType entityType, Guid entityId, Guid? exceptUserId = null,
+        Guid? exceptConnectionId = null) =>
+        new(RealtimeAddressKind.Watchers, Guid.Empty, entityType, entityId, exceptUserId, exceptConnectionId);
 
     public static RealtimeAddress ToAll() =>
         new(RealtimeAddressKind.All, Guid.Empty, AppEntityType.Unknown, Guid.Empty);

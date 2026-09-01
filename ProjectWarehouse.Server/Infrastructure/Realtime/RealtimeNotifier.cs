@@ -28,7 +28,7 @@ public class RealtimeNotifier(
             .GetWatchers(address.EntityType, address.EntityId)
             .Select(connections.Find)
             .OfType<RealtimeConnection>()
-            .Where(c => c.UserId != address.ExceptUserId),
+            .Where(c => c.UserId != address.ExceptUserId && c.Id != address.ExceptConnectionId),
         RealtimeAddressKind.All => connections.All,
         _ => [],
     };

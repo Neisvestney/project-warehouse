@@ -21,9 +21,11 @@ The diff is skipped entirely if `before == after` — no unnecessary rows.
 author so nobody is told their own save made the screen stale. The publication sits here rather than in each
 controller for three reasons: the method already takes `(entityType, entityId)` — the exact key watchers are
 addressed by — it already knows the acting user, and it does not write when the comparison found nothing, so a
-save that changed nothing raises no event either. Entities without a changelog service are not covered; orders
-publish the same event from a `[PublishesEntityChanged]` action filter instead. See
-[realtime-specification.md](realtime-specification.md).
+save that changed nothing raises no event either. Order create/update/delete/status transitions and self-assign
+go through `IChangeLogService<OrderDetailsDto>` like any other tracked entity; box, component, assembly-task,
+and fulfillment mutations on an order are not tracked in the changelog and instead publish the same event
+through a `[PublishesEntityChanged]` action filter on their own endpoint. Entities without a changelog service
+publish only through that filter. See [realtime-specification.md](realtime-specification.md).
 
 ## Domain Model Notes
 

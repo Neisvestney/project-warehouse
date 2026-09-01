@@ -92,7 +92,13 @@ export function useStaleData(
 
   useRealtimeEvent("entityChanged", (_event, payload) => {
     if (!matches(payload.entityType, payload.entityId)) return;
-    if (payload.byUserId && payload.byUserId === user?.id) return;
+
+    // A change from another tab/device of the same user is not a conflict: silently refresh when the
+    // form is clean, and skip naming an actor when it's dirty — `markStale` still warns either way.
+    if (payload.byUserId && payload.byUserId === user?.id) {
+      markStale(null);
+      return;
+    }
 
     markStale(
       payload.byUserId && payload.byUserName

@@ -153,7 +153,7 @@ public class MarketplaceAutoMapRulesController(
 
     // The changelog fires on a single rule; the page watches the set, so it needs waking explicitly.
     private ValueTask PublishRulesChangedAsync(CancellationToken ct) =>
-        realtime.PublishEntityChangedAsync(AppEntityType.MarketplaceAutoMapRules, RulesEntityId, User, ct);
+        realtime.PublishEntityChangedAsync(AppEntityType.MarketplaceAutoMapRules, RulesEntityId, HttpContext, ct);
 
     private async Task<MarketplaceAutoMapRuleDto> ProjectAsync(Guid id, CancellationToken ct) =>
         await db.MarketplaceAutoMapRules

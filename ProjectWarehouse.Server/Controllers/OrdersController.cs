@@ -9,6 +9,7 @@ using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.Access;
+using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Infrastructure.Realtime;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Models;
@@ -18,8 +19,9 @@ using ProjectWarehouse.Server.Services;
 namespace ProjectWarehouse.Server.Controllers;
 
 [Route("api/orders")]
-// Orders have no changelog service, so staleness events come from the filter instead of one.
-[PublishesEntityChanged(AppEntityType.Order)]
+// Order-level mutations (create/update/delete/status/self-assign) get their realtime event from the
+// changelog write below; endpoints that only touch boxes/components/assembly tasks/fulfillments carry
+// their own [PublishesEntityChanged] since those are not (yet) tracked in the changelog.
 public class OrdersController(
     ApplicationDbContext db,
     IMapper mapper,
@@ -28,7 +30,8 @@ public class OrdersController(
     EntityAccessRegistry access,
     AccessScope scope,
     IRealtimeNotifier realtime,
-    ICatalogService catalog) : AppControllerBase
+    ICatalogService catalog,
+    IChangeLogService<OrderDetailsDto> changeLog) : AppControllerBase
 {
     private EntityAccessRule<Order> Rule => access.For<Order>();
 
@@ -49,8 +52,18 @@ public class OrdersController(
             // details are mapped in memory, so the marketplace block silently vanishes without this
             .Include(o => o.MarketplaceOrder).ThenInclude(m => m!.MarketplaceAccount);
 
-    private IQueryable<Order> DetailsQuery() =>
-        BaseQuery()
+    private IQueryable<Order> DetailsQuery() => WithDetailsIncludes(BaseQuery());
+
+    /// <summary>Adds the full detail Include chain to an already-filtered order query — shared by
+    /// <see cref="DetailsQuery"/> and the batch endpoints, which need the same shape from a source other than
+    /// <see cref="BaseQuery"/>: <see cref="BatchTransitionStatus"/> from an access-rule-filtered
+    /// <c>Rule.QueryAsync</c>, <see cref="BatchSelfAssign"/> from a manually warehouse-narrowed <c>db.Orders</c>.</summary>
+    private IQueryable<Order> WithDetailsIncludes(IQueryable<Order> query) =>
+        query
+            // duplicated Include calls on an already-BaseQuery-shaped query are harmless no-ops
+            .Include(o => o.Warehouse)
+            .Include(o => o.CreatedBy)
+            .Include(o => o.MarketplaceOrder).ThenInclude(m => m!.MarketplaceAccount)
             .Include(o => o.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(o => o.AssemblyTasks).ThenInclude(t => t.AssignedTo)
             .Include(o => o.AssemblyTasks).ThenInclude(t => t.Boxes).ThenInclude(tb => tb.OrderBox)
@@ -132,6 +145,27 @@ public class OrdersController(
 
     private async Task<Order?> LoadOrderDetailsAsync(Guid id, CancellationToken ct) =>
         await DetailsQuery().FirstOrDefaultAsync(o => o.Id == id, ct);
+
+    private async Task<OrderDetailsDto> MapDetailsAsync(Order order, CancellationToken ct)
+    {
+        var nodeById = await LoadWarehouseNodesAsync([order.WarehouseId], ct);
+        return mapper.Map<OrderDetailsDto>(order, opts => opts.Items["nodeById"] = nodeById);
+    }
+
+    /// <summary>Picks the <see cref="OrderActions"/> constant that best describes a status transition, for the
+    /// changelog entry <see cref="TransitionStatus"/> and <see cref="BatchTransitionStatus"/> write.</summary>
+    private static string ActionForTransition(OrderStatus from, OrderStatus to) => to switch
+    {
+        OrderStatus.Confirmed when from == OrderStatus.Draft => OrderActions.Confirmed,
+        OrderStatus.Confirmed => OrderActions.RolledBack,
+        OrderStatus.Assembly => OrderActions.SentToAssembly,
+        OrderStatus.Assembled when from == OrderStatus.Shipped => OrderActions.RolledBack,
+        OrderStatus.Assembled => OrderActions.Assembled,
+        OrderStatus.Shipped => OrderActions.Shipped,
+        OrderStatus.Canceled => OrderActions.Canceled,
+        OrderStatus.Draft => OrderActions.RolledBack,
+        _ => OrderActions.Updated,
+    };
 
     // ── GET /api/orders ───────────────────────────────────────────────────────
 
@@ -312,8 +346,7 @@ public class OrdersController(
         if (AccessError(await Rule.CheckAsync(User, AccessLevel.View, order, ct)) is { } denied)
             return denied;
 
-        var nodeById = await LoadWarehouseNodesAsync([order.WarehouseId], ct);
-        return Ok(mapper.Map<OrderDetailsDto>(order, opts => opts.Items["nodeById"] = nodeById));
+        return Ok(await MapDetailsAsync(order, ct));
     }
 
     // ── POST /api/orders/direct ───────────────────────────────────────────────
@@ -344,7 +377,10 @@ public class OrdersController(
         var order = await orders.CreateDirectOrderAsync(request, GetCurrentUserId(), ct);
 
         var full = await LoadOrderDetailsAsync(order.Id, ct);
-        return CreatedAtAction(nameof(GetById), new { id = order.Id }, mapper.Map<OrderDetailsDto>(full));
+        var dto  = await MapDetailsAsync(full!, ct);
+        await changeLog.CompareAndSaveToChangelog(null, dto, OrderActions.Created);
+
+        return CreatedAtAction(nameof(GetById), new { id = order.Id }, dto);
     }
 
     // ── PUT /api/orders/{id} ──────────────────────────────────────────────────
@@ -361,13 +397,18 @@ public class OrdersController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateOrderRequest request, CancellationToken ct = default)
     {
-        var (order, error) = await LoadOrderWithEditAccessAsync(id, ct);
+        var (order, error) = await LoadOrderWithEditAccessAsync(id, ct, fullDetails: true);
         if (error is not null) return error;
+
+        var beforeDto = await MapDetailsAsync(order!, ct);
 
         await orders.UpdateOrderAsync(order!, request, ct);
 
         var full = await LoadOrderDetailsAsync(id, ct);
-        return Ok(mapper.Map<OrderDetailsDto>(full));
+        var afterDto = await MapDetailsAsync(full!, ct);
+        await changeLog.CompareAndSaveToChangelog(beforeDto, afterDto, OrderActions.Updated);
+
+        return Ok(afterDto);
     }
 
     // ── DELETE /api/orders/{id} ───────────────────────────────────────────────
@@ -384,8 +425,10 @@ public class OrdersController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct = default)
     {
-        var (order, error) = await LoadOrderWithEditAccessAsync(id, ct);
+        var (order, error) = await LoadOrderWithEditAccessAsync(id, ct, fullDetails: true);
         if (error is not null) return error;
+
+        var beforeDto = await MapDetailsAsync(order!, ct);
 
         try
         {
@@ -395,6 +438,8 @@ public class OrdersController(
         {
             return UnprocessableEntity(ex);
         }
+
+        await changeLog.CompareAndSaveToChangelog(beforeDto, null, OrderActions.Deleted);
 
         return NoContent();
     }
@@ -439,9 +484,12 @@ public class OrdersController(
         var (order, error) = await LoadOrderWithEditAccessAsync(id, ct, fullDetails: true);
         if (error is not null) return error;
 
+        var fromStatus = order!.Status;
+        var beforeDto  = await MapDetailsAsync(order, ct);
+
         try
         {
-            await orders.TransitionOrderStatusAsync(order!, request.TargetStatus, ct);
+            await orders.TransitionOrderStatusAsync(order, request.TargetStatus, ct);
         }
         catch (ValidationException ex)
         {
@@ -454,7 +502,10 @@ public class OrdersController(
         }
 
         var full = await LoadOrderDetailsAsync(id, ct);
-        return Ok(mapper.Map<OrderDetailsDto>(full));
+        var afterDto = await MapDetailsAsync(full!, ct);
+        await changeLog.CompareAndSaveToChangelog(beforeDto, afterDto, ActionForTransition(fromStatus, request.TargetStatus));
+
+        return Ok(afterDto);
     }
 
     // ── POST /api/orders/{id}/self-assign ─────────────────────────────────────
@@ -492,6 +543,8 @@ public class OrdersController(
         if (userId is null)
             return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
 
+        var beforeDto = await MapDetailsAsync(order, ct);
+
         try
         {
             await orders.SelfAssignOrderAsync(order, userId.Value, ct);
@@ -502,7 +555,10 @@ public class OrdersController(
         }
 
         var full = await LoadOrderDetailsAsync(id, ct);
-        return Ok(mapper.Map<OrderDetailsDto>(full));
+        var afterDto = await MapDetailsAsync(full!, ct);
+        await changeLog.CompareAndSaveToChangelog(beforeDto, afterDto, OrderActions.SelfAssigned);
+
+        return Ok(afterDto);
     }
 
     // ── POST /api/orders/labels ───────────────────────────────────────────────
@@ -658,7 +714,7 @@ public class OrdersController(
 
         foreach (var orderId in request.OrderIds.Distinct())
         {
-            var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
+            var order = await WithDetailsIncludes(db.Orders).FirstOrDefaultAsync(o => o.Id == orderId, ct);
             if (order is null)
             {
                 Fail(orderId, ErrorCode.OrderNotFound, "Order not found.");
@@ -672,10 +728,16 @@ public class OrdersController(
                 continue;
             }
 
+            var beforeDto = await MapDetailsAsync(order, ct);
+
             try
             {
                 await orders.SelfAssignOrderAsync(order, userId.Value, ct);
                 assignedOrderIds.Add(orderId);
+
+                var full = await LoadOrderDetailsAsync(orderId, ct);
+                await changeLog.CompareAndSaveToChangelog(
+                    beforeDto, await MapDetailsAsync(full!, ct), OrderActions.SelfAssigned);
             }
             catch (ValidationException ex)
             {
@@ -683,9 +745,7 @@ public class OrdersController(
             }
         }
 
-        // The route carries no id, so the filter cannot see which orders this touched.
-        foreach (var orderId in assignedOrderIds)
-            await realtime.PublishEntityChangedAsync(AppEntityType.Order, orderId, User, ct);
+        // realtime is published per order by the changelog write above, not looped here.
 
         return Ok(new BatchSelfAssignResponse
         {
@@ -723,11 +783,9 @@ public class OrdersController(
             return error;
 
         // ValidateOrderTransition reads order.AssemblyTasks (and its Fulfillments) to block Assembly → Confirmed
-        // with a Done task and any → Canceled with existing fulfillments — without these includes the
-        // collections come back empty and both checks silently no-op.
-        var accessible = (await Rule.QueryAsync(User, AccessLevel.Edit, ct))
-            .Include(o => o.AssemblyTasks).ThenInclude(t => t.Boxes).ThenInclude(b => b.Components)
-                .ThenInclude(c => c.Fulfillments);
+        // with a Done task and any → Canceled with existing fulfillments — the full detail include chain covers
+        // that, and also gives the changelog snapshot below a complete OrderDetailsDto to diff against.
+        var accessible = WithDetailsIncludes(await Rule.QueryAsync(User, AccessLevel.Edit, ct));
 
         var transitionedOrderIds = new List<Guid>();
         var failedItems          = new List<BatchTransitionStatusFailedItem>();
@@ -749,10 +807,17 @@ public class OrdersController(
                 continue;
             }
 
+            var fromStatus = order.Status;
+            var beforeDto  = await MapDetailsAsync(order, ct);
+
             try
             {
                 await orders.TransitionOrderStatusAsync(order, request.TargetStatus, ct);
                 transitionedOrderIds.Add(orderId);
+
+                var full = await LoadOrderDetailsAsync(orderId, ct);
+                await changeLog.CompareAndSaveToChangelog(
+                    beforeDto, await MapDetailsAsync(full!, ct), ActionForTransition(fromStatus, request.TargetStatus));
             }
             catch (ValidationException ex)
             {
@@ -765,9 +830,7 @@ public class OrdersController(
             }
         }
 
-        // The route carries no id, so the filter cannot see which orders this touched.
-        foreach (var orderId in transitionedOrderIds)
-            await realtime.PublishEntityChangedAsync(AppEntityType.Order, orderId, User, ct);
+        // realtime is published per order by the changelog write above, not looped here.
 
         return Ok(new BatchTransitionStatusResponse
         {
@@ -788,6 +851,7 @@ public class OrdersController(
     /// Callers without the unscoped <c>orders.edit</c> must be assigned to the order's warehouse
     /// (403 <c>orderNotAssignedToWarehouse</c>). Returns 404 <c>orderNotFound</c>.
     /// </remarks>
+    [PublishesEntityChanged(AppEntityType.Order)]
     [HttpPost("{id:guid}/boxes")]
     [Authorize]
     [ProducesResponseType<OrderBoxDto>(StatusCodes.Status201Created)]
@@ -833,6 +897,7 @@ public class OrdersController(
     /// Returns 404 <c>orderNotFound</c> or <c>orderBoxNotFound</c>.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
+    [PublishesEntityChanged(AppEntityType.Order)]
     [HttpPut("{id:guid}/boxes/{boxId:guid}")]
     [Authorize]
     [ProducesResponseType<OrderBoxDto>(StatusCodes.Status200OK)]
@@ -859,6 +924,7 @@ public class OrdersController(
     /// Requires <c>orders.edit</c> / <c>orders.edit_assigned</c> or <c>orders.assemble_assigned</c>; while the
     /// order is in Assembly only <c>orders.assemble_assigned</c> is accepted.
     /// </remarks>
+    [PublishesEntityChanged(AppEntityType.Order)]
     [HttpDelete("{id:guid}/boxes/{boxId:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -907,6 +973,7 @@ public class OrdersController(
     /// Returns 422 <c>catalogItemNotFound</c>, 404 <c>orderNotFound</c> or <c>orderBoxNotFound</c>.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
+    [PublishesEntityChanged(AppEntityType.Order)]
     [HttpPost("{id:guid}/boxes/{boxId:guid}/components")]
     [Authorize]
     [ProducesResponseType<OrderBoxComponentDto>(StatusCodes.Status201Created)]
@@ -947,6 +1014,7 @@ public class OrdersController(
     /// item, 404 <c>orderNotFound</c>, <c>orderBoxNotFound</c> or <c>orderBoxComponentNotFound</c>.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
+    [PublishesEntityChanged(AppEntityType.Order)]
     [HttpPut("{id:guid}/boxes/{boxId:guid}/components/{cid:guid}")]
     [Authorize]
     [ProducesResponseType<OrderBoxComponentDto>(StatusCodes.Status200OK)]
@@ -996,6 +1064,7 @@ public class OrdersController(
     /// Returns 404 <c>orderNotFound</c> or <c>orderBoxComponentNotFound</c>.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
+    [PublishesEntityChanged(AppEntityType.Order)]
     [HttpDelete("{id:guid}/boxes/{boxId:guid}/components/{cid:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -1034,6 +1103,7 @@ public class OrdersController(
     /// free. Returns 404 <c>orderNotFound</c>.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
+    [PublishesEntityChanged(AppEntityType.Order)]
     [HttpPost("{id:guid}/assembly-tasks")]
     [Authorize]
     [ProducesResponseType<AssemblyTaskDto>(StatusCodes.Status201Created)]
@@ -1072,6 +1142,7 @@ public class OrdersController(
     /// <c>orderNotFound</c> or <c>assemblyTaskNotFound</c>.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
+    [PublishesEntityChanged(AppEntityType.Order)]
     [HttpPut("{id:guid}/assembly-tasks/{taskId:guid}")]
     [Authorize]
     [ProducesResponseType<AssemblyTaskDto>(StatusCodes.Status200OK)]
@@ -1113,6 +1184,7 @@ public class OrdersController(
     /// written and the request can be repeated.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
+    [PublishesEntityChanged(AppEntityType.Order)]
     [HttpDelete("{id:guid}/assembly-tasks/{taskId:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -1165,6 +1237,7 @@ public class OrdersController(
     /// Requires <c>orders.assemble_assigned</c>, <c>orders.edit</c> or <c>orders.edit_assigned</c>, plus an
     /// assignment to the order's warehouse in every case (403 <c>orderNotAssignedToWarehouse</c>).
     /// </remarks>
+    [PublishesEntityChanged(AppEntityType.Order)]
     [HttpPut("{id:guid}/assembly-tasks/{taskId:guid}/status")]
     [Authorize]
     [ProducesResponseType<AssemblyTaskDto>(StatusCodes.Status200OK)]
@@ -1206,6 +1279,7 @@ public class OrdersController(
     /// Returns 404 <c>orderNotFound</c> or <c>assemblyTaskBoxComponentNotFound</c>.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
+    [PublishesEntityChanged(AppEntityType.Order)]
     [HttpPut("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}")]
     [Authorize]
     [ProducesResponseType<AssemblyTaskBoxComponentDto>(StatusCodes.Status200OK)]
@@ -1294,6 +1368,7 @@ public class OrdersController(
     /// Requires <c>orders.assemble_assigned</c> and an assignment to the order's warehouse; <c>orders.edit</c>
     /// alone gets 403.
     /// </remarks>
+    [PublishesEntityChanged(AppEntityType.Order)]
     [HttpPost("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}/move")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
@@ -1357,6 +1432,7 @@ public class OrdersController(
     /// Requires <c>orders.assemble_assigned</c>, <c>orders.edit</c> or <c>orders.edit_assigned</c>, plus an
     /// assignment to the order's warehouse in every case.
     /// </remarks>
+    [PublishesEntityChanged(AppEntityType.Order)]
     [HttpPost("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}/fulfillments")]
     [Authorize]
     [ProducesResponseType<AssemblyFulfillmentDto>(StatusCodes.Status201Created)]
@@ -1431,6 +1507,7 @@ public class OrdersController(
     /// Requires <c>orders.assemble_assigned</c>, <c>orders.edit</c> or <c>orders.edit_assigned</c>, plus an
     /// assignment to the order's warehouse in every case.
     /// </remarks>
+    [PublishesEntityChanged(AppEntityType.Order)]
     [HttpDelete("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}/fulfillments/{fid:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -1641,7 +1718,7 @@ public class OrdersController(
         }
 
         foreach (var orderId in changedOrderIds)
-            await realtime.PublishEntityChangedAsync(AppEntityType.Order, orderId, User, ct);
+            await realtime.PublishEntityChangedAsync(AppEntityType.Order, orderId, HttpContext, ct);
 
         return Ok(new BatchFulfillResponse
         {
