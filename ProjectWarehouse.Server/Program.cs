@@ -10,6 +10,7 @@ using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
@@ -563,6 +564,13 @@ try
     await DbSeeder.SeedAsync(app.Services);
 
     app.UseMiddleware<ExceptionTelemetryMiddleware>();
+
+    // nginx proxies plain HTTP to this app; without this, UseHttpsRedirection below sees
+    // Request.Scheme as http and redirects, producing a loop behind the reverse proxy.
+    app.UseForwardedHeaders(new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    });
 
     app.UseDefaultFiles();
     app.UseStaticFiles();
