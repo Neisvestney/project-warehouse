@@ -42,6 +42,7 @@ function OrdersAssemblyPage() {
     ...ordersGetAllAssemblyOptions({
       query: {warehouseId: warehouseId ?? undefined, searchString: searchString || undefined},
     }),
+    gcTime: 0,
   });
 
   const orders = useMemo<OrderDetailsDto[]>(() => ordersQuery.data ?? [], [ordersQuery.data]);
@@ -62,6 +63,7 @@ function OrdersAssemblyPage() {
   }, [isWatching, refreshAssembly]);
 
   useRealtimeEvent("entityChanged", (_event, payload) => {
+    console.log("entityChanged", payload);
     if (payload.entityType === "order" && orderIds.includes(payload.entityId)) refreshAssembly();
   });
 

@@ -119,7 +119,7 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
   const [accountForAssembly, setAccountForAssembly] = useSyncedWithQueryState<boolean>(
     "accountForAssembly",
     (q) => (typeof q === "string" ? q == "true" : false),
-    (v) => v ? "true" : null,
+    (v) => (v ? "true" : null),
   );
 
   // One available warehouse means there is nothing to choose — the page would otherwise open empty.
@@ -311,8 +311,14 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
           <Tooltip title={"Вариативные товары не учитываются в любом случае"}>
             <span>
               <FormControlLabel
-                control={<Checkbox checked={accountForAssembly} onChange={e => setAccountForAssembly(e.target.checked)}/>}
-                label="Учитывать заказы на сборке"/>
+                control={
+                  <Checkbox
+                    checked={accountForAssembly}
+                    onChange={(e) => setAccountForAssembly(e.target.checked)}
+                  />
+                }
+                label="Учитывать заказы на сборке"
+              />
             </span>
           </Tooltip>
         </Stack>

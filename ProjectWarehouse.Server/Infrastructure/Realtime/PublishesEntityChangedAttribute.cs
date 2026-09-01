@@ -25,6 +25,6 @@ public class PublishesEntityChangedAttribute(AppEntityType entityType, string ro
             return;
 
         var notifier = context.HttpContext.RequestServices.GetRequiredService<IRealtimeNotifier>();
-        await notifier.PublishEntityChangedAsync(entityType, id, context.HttpContext.User);
+        await notifier.PublishEntityChangedAsync(entityType, id, context.HttpContext);
     }
 }

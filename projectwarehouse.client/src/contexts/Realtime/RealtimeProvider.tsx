@@ -5,6 +5,7 @@ import type {
   RealtimeEventType,
 } from "@/api/types.gen";
 import RealtimeContext, {type RealtimeContextValue} from "@/contexts/Realtime/RealtimeContext";
+import {setCurrentConnectionId} from "@/contexts/Realtime/currentConnectionId";
 import {useHeartbeat} from "@/contexts/Realtime/useHeartbeat";
 import {useOutageTracker} from "@/contexts/Realtime/useOutageTracker";
 import {useRealtimeStream} from "@/contexts/Realtime/useRealtimeStream";
@@ -68,6 +69,7 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
       // tick away at best.
       connectionIdRef.current = id;
       setConnectionId(id);
+      setCurrentConnectionId(id);
       flush();
       markConnected();
     },
@@ -77,6 +79,7 @@ export function RealtimeProvider({children}: {children: ReactNode}) {
   const handleDisconnected = useCallback(() => {
     connectionIdRef.current = null;
     setConnectionId(null);
+    setCurrentConnectionId(null);
     reset();
     markDisconnected();
   }, [reset, markDisconnected]);

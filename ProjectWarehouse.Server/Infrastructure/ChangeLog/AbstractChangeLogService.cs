@@ -107,9 +107,9 @@ public abstract class AbstractChangeLogService : IChangeLogService
 
         await AddNewEntry(changeLogEntry);
 
-        // Watchers of the object are told only after the write went through, and never the author.
-        await _realtime.PublishEntityChangedAsync(entityType, entityId, changeLogEntry.UserId,
-            _httpContextAccessor.HttpContext?.User.GetDisplayName());
+        // Watchers of the object are told only after the write went through, and never the connection
+        // that made the change — other tabs or devices of the same user still get told.
+        await _realtime.PublishEntityChangedAsync(entityType, entityId, _httpContextAccessor.HttpContext);
         
         _logger.LogInformation("Changelog entry created [type: {EntityType}, id: {EntityId}]", changeLogEntry.EntityType, changeLogEntry.EntityId);
     }

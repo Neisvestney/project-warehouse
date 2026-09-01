@@ -1,5 +1,6 @@
 import {client} from "@/api/client.gen";
 import type {TokenResponse} from "@/api/types.gen";
+import {getCurrentConnectionId} from "@/contexts/Realtime/currentConnectionId";
 import {isAppProblemDetails} from "@/utils/errorUtils";
 
 let refreshingPromise: Promise<boolean> | null = null;
@@ -88,6 +89,11 @@ export function setupApiClient() {
     // Resolved per request, not once at startup: a PWA left open overnight can cross a DST
     // transition or a zone border and has to start sending the new value on its own.
     request.headers.set("X-Time-Zone", Intl.DateTimeFormat().resolvedOptions().timeZone);
+
+    // Lets the server skip this tab when fanning out the entityChanged event this request triggers —
+    // other tabs or devices of the same user still get it.
+    const connectionId = getCurrentConnectionId();
+    if (connectionId) request.headers.set("X-Realtime-Connection-Id", connectionId);
 
     retryClones.set(request, request.clone());
 
