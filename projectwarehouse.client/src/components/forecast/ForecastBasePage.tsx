@@ -14,6 +14,8 @@ import {
   ToggleButtonGroup,
   Tooltip,
   Typography,
+  Checkbox,
+  FormControlLabel,
 } from "@mui/material";
 import ArchiveIcon from "@mui/icons-material/Archive";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
@@ -114,6 +116,12 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
     (v) => v,
   );
 
+  const [accountForAssembly, setAccountForAssembly] = useSyncedWithQueryState<boolean>(
+    "accountForAssembly",
+    (q) => (typeof q === "string" ? q == "true" : false),
+    (v) => v ? "true" : null,
+  );
+
   // One available warehouse means there is nothing to choose — the page would otherwise open empty.
   // Asked for whenever the select is shown: it must know whether clearing is meaningful even when
   // the warehouse arrived from the URL.
@@ -141,6 +149,7 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
       TagIds: tagIds.length > 0 ? tagIds : undefined,
       IsArchived: isArchived ?? undefined,
       OnlyWarnings: onlyWarnings || undefined,
+      AccountForAssembly: accountForAssembly,
       SortBy: sortBy,
       SortOrder: sortOrder,
     },
@@ -151,6 +160,7 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
       tagIds,
       isArchived,
       onlyWarnings,
+      accountForAssembly,
       sortBy,
       sortOrder,
     ],
@@ -296,6 +306,16 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
             Только предупреждения
           </ToggleButton>
         </FiltersBar>
+
+        <Stack direction="row" sx={{alignItems: "center"}} spacing={1}>
+          <Tooltip title={"Вариативные товары не учитываются в любом случае"}>
+            <span>
+              <FormControlLabel
+                control={<Checkbox checked={accountForAssembly} onChange={e => setAccountForAssembly(e.target.checked)}/>}
+                label="Учитывать заказы на сборке"/>
+            </span>
+          </Tooltip>
+        </Stack>
 
         <DataTableContainer
           isFetching={isFetching}

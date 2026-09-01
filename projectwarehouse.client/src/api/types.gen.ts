@@ -6365,6 +6365,12 @@ export type StockForecastGetListData = {
      * Leaves only `OutOfStock` and `Warning`.
      */
     OnlyWarnings?: boolean;
+    /**
+     * Reserves the not-yet-fulfilled quantity of items on orders currently in `Assembly` against
+     * stock, as if it were already spoken for. A Bundle component is exploded into its own components
+     * recursively; a Variation component is dropped, since it has no single deterministic underlying item.
+     */
+    AccountForAssembly?: boolean;
     SortBy?: StockForecastSortBy;
     SortOrder?: SortOrder;
     page?: number;

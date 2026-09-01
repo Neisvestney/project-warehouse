@@ -1649,6 +1649,7 @@ export const ordersCreateDirect = <ThrowOnError extends boolean = false>(
  * * Assembly → Confirmed | Assembled | Canceled
  * * Assembled → Shipped
  * * Shipped → Assembled
+ * * Canceled → Draft (Direct orders) | Confirmed (FBO, FBS orders)
  * Anything else is 422 `orderInvalidStatusTransition`. Assembly → Confirmed is additionally refused
  * when any assembly task is already `Done`; otherwise it deletes every assembly task of the order and
  * restores the inventory of their fulfillments. Assembled is normally reached automatically when the last

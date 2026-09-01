@@ -396,11 +396,22 @@ Override пишется под `AppEntityType.CatalogItem` с `action` `forecast
 | `PUT` | `/api/stock-forecast/overrides` | Upsert / удаление override товара |
 
 `GET /api/stock-forecast` — параметры: обязательный `warehouseId`, пагинация (`page`, `pageSize` до 200),
-`searchString`, `catalogItemTypes`, `tagIds`, `isArchived`, `onlyWarnings`, `sortBy`, `sortOrder`.
-`onlyWarnings` оставляет `OutOfStock` и `Warning`. Окна, режима усреднения и часового пояса в параметрах
-**нет** — все три читаются из настроек склада; применённые значения возвращаются в ответе, чтобы UI мог их
-подписать. Отсутствующий `warehouseId` — `422 required`, несуществующий — `422 warehouseNotFound`, оба на поле
-`warehouseId`.
+`searchString`, `catalogItemTypes`, `tagIds`, `isArchived`, `onlyWarnings`, `accountForAssembly`, `sortBy`,
+`sortOrder`. `onlyWarnings` оставляет `OutOfStock` и `Warning`. Окна, режима усреднения и часового пояса в
+параметрах **нет** — все три читаются из настроек склада; применённые значения возвращаются в ответе, чтобы UI
+мог их подписать. Отсутствующий `warehouseId` — `422 required`, несуществующий — `422 warehouseNotFound`, оба на
+поле `warehouseId`.
+
+`accountForAssembly` резервирует под остаток ещё не собранную часть заказов склада в статусе `Assembly`: у
+каждого `AssemblyTaskBoxComponent` берётся `Quantity` за вычетом уже отработанных `AssemblyFulfillment`
+(та же арифметика, что и в `OrderService.AddFulfillmentAsync` — фулфилмент юнита или бандла засчитывается как
+`1`, остальные — по `Quantity`), и вычитается из остатка перед расчётом. Комплект (`Bundle`) разворачивается в
+составляющие рекурсивно через `BundleComponent`, с умножением количества на каждом уровне; вариация
+(`Variation`) выбрасывается из разворота целиком — пикер ещё не выбрал конкретный элемент, и подставлять
+что-то одно было бы гаданием. Остаток может уйти в минус — это и есть сигнал, что под сборку зарезервировано
+больше, чем реально лежит на полке; калькулятор трактует любое `stock <= 0` как `OutOfStock`, так что статус
+строки не путается. Флаг влияет только на `GET /api/stock-forecast`:
+`GET /api/stock-forecast/items`, `ComputeForWarehouseAsync` (алерты) его не принимают.
 
 `sortBy` — `StockForecastSortBy`: `default` (составное правило из [Сортировки](#сортировка-по-умолчанию)),
 `type`, `name`, `article`, `stock`, `dailyConsumption`, `daysLeft`. Любое значение, кроме `default`, заменяет
@@ -568,10 +579,14 @@ static int  ResolveWindowDays(int? warehouseSetting);
 3. Запрос расхода: `StockMovement`, отфильтрованный правилом доступа (`IUserQueryFilterService.GetStockMovementsAsync`),
    `Direction == Out`, склад, окно; группировка по `(CatalogItemId, день)` и раскладка в массив длиной
    `windowDays`, где индекс — возраст дня.
-4. Объединение ключей обоих словарей, применение фильтров каталога (поиск, типы, теги, архив) отдельным запросом
+4. При `accountForAssembly` — резерв под сборку: `AssemblyTaskBoxComponent` заказов склада в статусе
+   `Assembly`, за вычетом уже отработанных `AssemblyFulfillment`, разворот `Bundle` в составляющие через
+   `BundleComponent` (рекурсивно, с умножением количества), отсев `Variation`; результат вычитается из
+   остатка — уходя в минус, если под сборку зарезервировано больше, чем есть в наличии.
+5. Объединение ключей всех словарей, применение фильтров каталога (поиск, типы, теги, архив) отдельным запросом
    по `CatalogItem` — он же приносит ключи сортировки, — расчёт калькулятором, отсев `onlyWarnings`,
    сортировка и пагинация в памяти.
-5. Догрузка `CatalogItemSummaryDto` только для строк, переживших пагинацию.
+6. Догрузка `CatalogItemSummaryDto` только для строк, переживших пагинацию.
 
 Пункт 4 в памяти — сознательно. Полный внешний джойн двух агрегатов (остатки без движений и движения без
 остатков) в EF не выражается, а сортировать по `daysLeft` нужно по обоим источникам сразу. Обязательный фильтр

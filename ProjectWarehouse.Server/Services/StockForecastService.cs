@@ -65,7 +65,8 @@ public class StockForecastService(
             request.SearchString, request.CatalogItemTypes, request.TagIds, request.IsArchived, request.OnlyWarnings);
 
         var computed = await ComputeAsync(
-            await SourceForAsync(user, warehouseId, ct), filter, restrictToIds: null, options: null, ct);
+            await SourceForAsync(user, warehouseId, ct), filter, restrictToIds: null, options: null,
+            request.AccountForAssembly, ct);
 
         var sorted = Sort(computed.Entries, request.SortBy, request.SortOrder).ToList();
         var pageEntries = sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList();
@@ -98,7 +99,8 @@ public class StockForecastService(
             return new Dictionary<Guid, StockForecastDto>();
 
         var computed = await ComputeAsync(
-            await SourceForAsync(user, warehouseId, ct), new CatalogFilter(), catalogItemIds, options, ct);
+            await SourceForAsync(user, warehouseId, ct), new CatalogFilter(), catalogItemIds, options,
+            accountForAssembly: false, ct);
 
         return computed.Entries.ToDictionary(e => e.Forecast.CatalogItemId, e => e.Forecast);
     }
@@ -116,7 +118,7 @@ public class StockForecastService(
 
         // No query filter and no warehouse narrowing: this entry checks no permissions by contract.
         var source = new ForecastSource(warehouseId, db.StockMovements, [warehouseId]);
-        var computed = await ComputeAsync(source, filter, restrictToIds: null, options, ct);
+        var computed = await ComputeAsync(source, filter, restrictToIds: null, options, accountForAssembly: false, ct);
 
         return await ToRowsAsync(Sort(computed.Entries, StockForecastSortBy.Default, SortOrder.Asc).ToList(), ct);
     }
@@ -223,6 +225,7 @@ public class StockForecastService(
         CatalogFilter filter,
         IReadOnlyCollection<Guid>? restrictToIds,
         StockForecastOptions? options,
+        bool accountForAssembly,
         CancellationToken ct)
     {
         var warehouse = await db.Warehouses
@@ -255,9 +258,18 @@ public class StockForecastService(
         var consumption = await LoadConsumptionAsync(
             source, restrictToIds, fromUtc, toUtc, options, today, ct);
 
+        var assemblyDemand = accountForAssembly
+            ? await LoadAssemblyDemandAsync(source.WarehouseId, ct)
+            : [];
+
+        // Left negative on purpose: more is reserved for assembly than physically sits on the shelf,
+        // and that shortfall is exactly what the flag exists to surface.
+        foreach (var (catalogItemId, quantity) in assemblyDemand)
+            stock[catalogItemId] = stock.GetValueOrDefault(catalogItemId) - quantity;
+
         // A row exists when the item has stock or consumption; an empty catalog is never unfolded into
         // the forecast. Zero stock with consumption is exactly the row a buyer needs to see.
-        var candidateIds = stock.Keys.Concat(consumption.Keys).Distinct().ToList();
+        var candidateIds = stock.Keys.Concat(consumption.Keys).Concat(assemblyDemand.Keys).Distinct().ToList();
         if (candidateIds.Count == 0)
             return new ForecastComputation([], options, warehouseWarningDays);
 
@@ -353,6 +365,75 @@ public class StockForecastService(
         }
 
         return byItem;
+    }
+
+    /// <summary>
+    /// The not-yet-picked quantity of every box component on orders currently in <c>Assembly</c> on this
+    /// warehouse, exploded down to physical items: a Bundle component recurses into its own components,
+    /// a Variation component is dropped — it has no single member to credit, and the picker hasn't chosen
+    /// one yet.
+    /// </summary>
+    private async Task<Dictionary<Guid, int>> LoadAssemblyDemandAsync(Guid warehouseId, CancellationToken ct)
+    {
+        var components = await db.AssemblyTaskBoxComponents
+            .Where(c => c.AssemblyTaskBox.AssemblyTask.Order.WarehouseId == warehouseId
+                        && c.AssemblyTaskBox.AssemblyTask.Order.Status == OrderStatus.Assembly)
+            .Select(c => new
+            {
+                c.CatalogItemId,
+                c.CatalogItem.Type,
+                c.Quantity,
+                Fulfilled = c.Fulfillments
+                    .Sum(f => f.UnitInventoryItemId != null || f.BundleComponents.Count > 0 ? 1 : f.Quantity),
+            })
+            .ToListAsync(ct);
+
+        // Loaded once and reused for every component: bundle nesting is shallow in practice, and one
+        // query beats a network round trip per node visited while exploding it.
+        var bundleChildren = await db.BundleComponents
+            .Select(bc => new { bc.BundleId, bc.ComponentId, bc.Quantity, bc.Component.Type })
+            .ToListAsync(ct);
+        var childrenByBundle = bundleChildren
+            .GroupBy(bc => bc.BundleId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(bc => (bc.ComponentId, bc.Quantity, bc.Type)).ToList());
+
+        var demand = new Dictionary<Guid, int>();
+        foreach (var component in components)
+        {
+            var remaining = component.Quantity - component.Fulfilled;
+            if (remaining <= 0) continue;
+
+            AddExplodedDemand(component.CatalogItemId, component.Type, remaining, childrenByBundle, demand, []);
+        }
+
+        return demand;
+    }
+
+    private static void AddExplodedDemand(
+        Guid catalogItemId,
+        CatalogItemType type,
+        int quantity,
+        IReadOnlyDictionary<Guid, List<(Guid ComponentId, int Quantity, CatalogItemType Type)>> childrenByBundle,
+        Dictionary<Guid, int> demand,
+        HashSet<Guid> visiting)
+    {
+        if (type == CatalogItemType.Variation) return;
+
+        if (type != CatalogItemType.Bundle)
+        {
+            demand[catalogItemId] = demand.GetValueOrDefault(catalogItemId) + quantity;
+            return;
+        }
+
+        if (!visiting.Add(catalogItemId)) return; // bundles cannot legally cycle, but stay defensive
+
+        if (childrenByBundle.TryGetValue(catalogItemId, out var children))
+            foreach (var child in children)
+                AddExplodedDemand(child.ComponentId, child.Type, quantity * child.Quantity, childrenByBundle, demand, visiting);
+
+        visiting.Remove(catalogItemId);
     }
 
     private sealed record CatalogRow(Guid Id, CatalogItemType Type, string Name, string FullName, string Article);
