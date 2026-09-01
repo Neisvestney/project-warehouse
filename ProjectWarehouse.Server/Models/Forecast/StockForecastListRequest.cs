@@ -27,6 +27,13 @@ public class StockForecastListRequest
     /// <summary>Leaves only <c>OutOfStock</c> and <c>Warning</c>.</summary>
     public bool OnlyWarnings { get; init; }
 
+    /// <summary>
+    /// Reserves the not-yet-fulfilled quantity of items on orders currently in <c>Assembly</c> against
+    /// stock, as if it were already spoken for. A Bundle component is exploded into its own components
+    /// recursively; a Variation component is dropped, since it has no single deterministic underlying item.
+    /// </summary>
+    public bool AccountForAssembly { get; init; }
+
     public StockForecastSortBy SortBy { get; init; } = StockForecastSortBy.Default;
 
     public SortOrder SortOrder { get; init; } = SortOrder.Asc;
