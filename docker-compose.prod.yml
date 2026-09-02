@@ -23,7 +23,7 @@ services:
   projectwarehouse.server:
     image: ${REGISTRY_HOST:-local}/projectwarehouse.server:${IMAGE_TAG:-latest}
     ports:
-      - "4587:8080"
+      - "8001:8080"
     networks:
       - projectwarehouse
     environment:
