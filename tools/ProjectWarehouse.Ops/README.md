@@ -117,6 +117,7 @@ telemetry report the same `service.version` as the image tag.
 | `validate` | loads the config chain and reports every problem at once |
 | `status [target]` | git state, `.env` versions, registry's newest tag, container health |
 | `release` | builds the selected services and pushes them under the next version |
+| `ship [target]` | release, then deploy the versions just built |
 | `deploy [target]` | points a target's `.env` at chosen versions and brings the stack up |
 | `backup [target]` | downloads the database and volumes into `local.backupsDir` |
 | `restore [target]` | writes a local backup back onto a target |
@@ -144,6 +145,21 @@ prompt would fail on the same read error, so the command names the options it ne
 The build is captured and shown as a rolling tail; the push is not. docker only draws per-layer
 upload progress when it is talking to a terminal, so the push runs on the inherited console and
 draws itself.
+
+### ship
+
+```
+pwops ship prod
+pwops ship prod --bump patch --yes
+```
+
+`release` and `deploy` in one pass, over the target's own services and the registry it pulls from.
+The versions deployed are the ones just built, so nothing is chosen twice.
+
+The target is read **before** the build, not after: a dirty working tree or a variable defined
+twice in `.env` is worth finding out about now rather than four minutes into `docker build`. Both
+plans — what gets built and what `.env` becomes — are shown together, and one confirmation covers
+them. From there it is the same two commands, with the same rollback on the deploy half.
 
 ### deploy
 

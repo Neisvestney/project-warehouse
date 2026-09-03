@@ -213,7 +213,7 @@ public sealed class DeployCommand : AsyncCommand<DeploySettings>
         return selections;
     }
 
-    private static void RenderPlan(
+    internal static void RenderPlan(
         string name,
         bool danger,
         TargetContext connection,
@@ -255,7 +255,7 @@ public sealed class DeployCommand : AsyncCommand<DeploySettings>
             ? AnsiConsole.Confirm("[red]This is a danger target.[/] Deploy?", defaultValue: false)
             : AnsiConsole.Confirm("Deploy?");
 
-    private static async Task<int> RunAsync(
+    internal static async Task<int> RunAsync(
         DeploymentService service,
         DeployPreflight preflight,
         IReadOnlyDictionary<string, string> values,
