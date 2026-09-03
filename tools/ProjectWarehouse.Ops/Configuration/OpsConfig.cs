@@ -14,6 +14,8 @@ public sealed class OpsConfig
 
     public Dictionary<string, TargetConfig> Targets { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
+
+    public OpsOverrides? Overrides { get; set; }
 }
 
 public sealed class LocalPathsConfig

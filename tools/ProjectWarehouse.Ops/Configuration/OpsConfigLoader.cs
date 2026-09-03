@@ -8,6 +8,8 @@ public static class OpsConfigLoader
 {
     public const string DefaultFileName = "ops.json";
 
+    public const string LocalFileName = "ops.local.json";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -26,7 +28,10 @@ public static class OpsConfigLoader
         var chain = new List<string>();
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var config = LoadRecursive(path, project, visited, chain);
+
         config.Local ??= new LocalPathsConfig();
+        ApplyOverrides(config);
+
         return new LoadedConfig(config, chain, project);
     }
 
@@ -67,6 +72,39 @@ public static class OpsConfigLoader
                 + "and point includeConfig at your private config.");
     }
 
+    /// Every config in the chain may have an ops.local.json beside it, applied right after it.
+    /// The machine's own file then lives wherever its config does — next to the private repo's
+    /// config, next to the pointer in this one, or both.
+    private static void ApplyLocalSibling(
+        string configPath, string projectDir, HashSet<string> visited, List<string> chain, OpsConfig config)
+    {
+        var directory = Path.GetDirectoryName(configPath) ?? Directory.GetCurrentDirectory();
+        var local = Path.GetFullPath(Path.Combine(directory, LocalFileName));
+
+        if (!File.Exists(local) || visited.Contains(local))
+            return;
+
+        Overlay(config, LoadRecursive(local, projectDir, visited, chain));
+    }
+
+    private static void ApplyOverrides(OpsConfig config)
+    {
+        if (config.Overrides is not { } overrides)
+            return;
+
+        foreach (var (name, patch) in overrides.Targets)
+        {
+            if (!config.Targets.TryGetValue(name, out var target))
+            {
+                throw new OpsConfigException(
+                    $"overrides.targets.{name} does not match any target. "
+                        + $"Known: {string.Join(", ", config.Targets.Keys)}.");
+            }
+
+            patch.ApplyTo(target);
+        }
+    }
+
     private static OpsConfig LoadRecursive(
         string path, string projectDir, HashSet<string> visited, List<string> chain)
     {
@@ -90,6 +128,7 @@ public static class OpsConfigLoader
 
         chain.Add(path);
         Overlay(merged, current);
+        ApplyLocalSibling(path, projectDir, visited, chain, merged);
         return merged;
     }
 
@@ -140,6 +179,15 @@ public static class OpsConfigLoader
             if (target.Ssh?.KeyPath is { } keyPath)
                 target.Ssh.KeyPath = Expand(keyPath);
         }
+
+        foreach (var patch in config.Overrides?.Targets.Values ?? Enumerable.Empty<TargetOverride>())
+        {
+            if (patch.Ssh?.KeyPath is { } keyPath)
+                patch.Ssh.KeyPath = Expand(keyPath);
+
+            if (patch.RepoDir is { } repoDir)
+                patch.RepoDir = Expand(repoDir);
+        }
     }
 
     private static string ResolveInclude(string include, string includingFile)
@@ -167,5 +215,18 @@ public static class OpsConfigLoader
 
         foreach (var (key, value) in source.Targets)
             target.Targets[key] = value;
+
+        if (source.Overrides is not { } overrides)
+            return;
+
+        target.Overrides ??= new OpsOverrides();
+
+        foreach (var (key, patch) in overrides.Targets)
+        {
+            if (target.Overrides.Targets.TryGetValue(key, out var existing))
+                existing.MergeFrom(patch);
+            else
+                target.Overrides.Targets[key] = patch;
+        }
     }
 }

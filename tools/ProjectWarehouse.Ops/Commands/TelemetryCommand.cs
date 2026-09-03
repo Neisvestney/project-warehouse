@@ -84,7 +84,7 @@ public sealed class TelemetryCommand : AsyncCommand<TelemetrySettings>
         }
 
         AnsiConsole.MarkupLineInterpolated(
-            $"\n[green]{download.Files} file(s)[/], {download.Bytes / 1024.0 / 1024.0:F1} MB → {download.Directory}");
+            $"\n[green]{download.Files} file(s)[/], {ByteSize.Format(download.Bytes)} → {download.Directory}");
 
         AnsiConsole.MarkupLine(
             "[grey]docker compose -f docker-compose.telemetry.yml up -d[/] "

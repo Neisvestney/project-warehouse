@@ -48,6 +48,9 @@ public sealed class BackupService(TargetContext target)
     private readonly ComposeClient _compose = new(target);
     private readonly DockerVolumes _volumes = new(target);
 
+    /// The telemetry volume is deliberately absent: `pwops telemetry` fetches it with an age
+    /// filter and extracts it for the replay stack, and a rotated archive of that size in every
+    /// backup would cost more than the data is worth restoring.
     public IReadOnlyList<string> AvailableParts()
     {
         var parts = new List<string>();
@@ -55,7 +58,9 @@ public sealed class BackupService(TargetContext target)
         if (target.Config.Postgres is not null)
             parts.Add(BackupManifest.DatabasePart);
 
-        parts.AddRange(target.Config.Volumes.Keys);
+        parts.AddRange(target.Config.Volumes.Keys.Where(
+            key => !key.Equals(TelemetryService.VolumeKey, StringComparison.OrdinalIgnoreCase)));
+
         return parts;
     }
 

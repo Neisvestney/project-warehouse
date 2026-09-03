@@ -67,20 +67,6 @@ public sealed class RestoreCommand : AsyncCommand<RestoreSettings>
 
         RenderPlan(target.Key, target.Value.Danger, manifest, directory, parts);
 
-        if (!settings.NoSafetyBackup)
-        {
-            AnsiConsole.MarkupLine("\n[grey]Taking a backup of the current state first.[/]");
-            var backup = new BackupService(connection);
-            var safety = await BackupCommand.RunAsync(
-                backup, backupsRoot, backup.AvailableParts(), connection, cancellationToken);
-
-            if (safety is null)
-            {
-                AnsiConsole.MarkupLine("[red]The safety backup failed, so nothing was restored.[/]");
-                return 1;
-            }
-        }
-
         var what = $"Restore {string.Join(", ", parts)} into {target.Key} — current data is replaced.";
 
         // --yes never covers a danger target: the whole point of typing the name is that the
@@ -100,6 +86,22 @@ public sealed class RestoreCommand : AsyncCommand<RestoreSettings>
         else if (!settings.Yes && !AnsiConsole.Confirm($"{what} Continue?", defaultValue: false))
         {
             return 0;
+        }
+
+        // After the confirmation, not before: aborting at the prompt should not leave a copy of
+        // production sitting on the local disk.
+        if (!settings.NoSafetyBackup)
+        {
+            AnsiConsole.MarkupLine("\n[grey]Taking a backup of the current state first.[/]");
+            var backup = new BackupService(connection);
+            var safety = await BackupCommand.RunAsync(
+                backup, backupsRoot, backup.AvailableParts(), connection, cancellationToken);
+
+            if (safety is null)
+            {
+                AnsiConsole.MarkupLine("[red]The safety backup failed, so nothing was restored.[/]");
+                return 1;
+            }
         }
 
         var appServices = target.Value.Services
@@ -196,7 +198,7 @@ public sealed class RestoreCommand : AsyncCommand<RestoreSettings>
             table.AddRow(
                 selected ? $"[green]{part.Name}[/]" : $"[grey]{part.Name} (skipped)[/]",
                 $"[grey]{Markup.Escape(part.File)}[/]",
-                $"[grey]{part.Bytes / 1024.0 / 1024.0:F1} MB[/]");
+                $"[grey]{ByteSize.Format(part.Bytes)}[/]");
         }
 
         AnsiConsole.Write(table);
