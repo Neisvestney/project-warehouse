@@ -1,14 +1,6 @@
-using EntityFrameworkCore.Projectables;
-using ProjectWarehouse.Server.Infrastructure;
-
 namespace ProjectWarehouse.Server.Domain;
 
-public class CatalogItemTag : IHasIdentity
+public class CatalogItemTag : Tag
 {
-    public Guid Id { get; set; }
-    public string Name { get; set; } = null!;
-
     public ICollection<CatalogItem> Items { get; set; } = [];
-
-    [Projectable] public string SearchString => Name;
 }

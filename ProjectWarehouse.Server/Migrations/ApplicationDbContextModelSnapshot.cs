@@ -523,21 +523,6 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("CatalogItemStockWarnings");
                 });
 
-            modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemTag", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("CatalogItemTags");
-                });
-
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemVariationMember", b =>
                 {
                     b.Property<Guid>("ItemId")
@@ -1580,6 +1565,33 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("StoragePlacesNodes");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Tag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TagType")
+                        .IsRequired()
+                        .HasMaxLength(13)
+                        .HasColumnType("character varying(13)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TagType", "Name")
+                        .IsUnique();
+
+                    b.ToTable("Tags");
+
+                    b.HasDiscriminator<string>("TagType").HasValue("Tag");
+
+                    b.UseTphMappingStrategy();
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.UserPermission", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -1713,6 +1725,21 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("WriteoffItems");
                 });
 
+            modelBuilder.Entity("ReceiptTagLinks", b =>
+                {
+                    b.Property<Guid>("ReceiptsId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TagsId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("ReceiptsId", "TagsId");
+
+                    b.HasIndex("TagsId");
+
+                    b.ToTable("ReceiptTagLinks");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.UnitInventoryItem", b =>
                 {
                     b.HasBaseType("ProjectWarehouse.Server.Domain.InventoryItem");
@@ -1745,6 +1772,20 @@ namespace ProjectWarehouse.Server.Migrations
                         .IsUnique();
 
                     b.HasDiscriminator().HasValue("StoragePlaceNodeItemsGroup");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.CatalogItemTag", b =>
+                {
+                    b.HasBaseType("ProjectWarehouse.Server.Domain.Tag");
+
+                    b.HasDiscriminator().HasValue("CatalogItem");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.ReceiptTag", b =>
+                {
+                    b.HasBaseType("ProjectWarehouse.Server.Domain.Tag");
+
+                    b.HasDiscriminator().HasValue("Receipt");
                 });
 
             modelBuilder.Entity("ApplicationUserWarehouse", b =>
@@ -2595,6 +2636,21 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("UnitInventoryItem");
 
                     b.Navigation("Writeoff");
+                });
+
+            modelBuilder.Entity("ReceiptTagLinks", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.Receipt", null)
+                        .WithMany()
+                        .HasForeignKey("ReceiptsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.ReceiptTag", null)
+                        .WithMany()
+                        .HasForeignKey("TagsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StoragePlaceNodeItemsGroup", b =>

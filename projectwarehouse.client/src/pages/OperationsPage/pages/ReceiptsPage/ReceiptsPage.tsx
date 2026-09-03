@@ -32,6 +32,7 @@ import TableRowEmpty from "@/components/TableRowEmpty";
 import LinkTableRow from "@/components/LinkTableRow";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import ReceiptStatusChip from "@/components/receipts/ReceiptStatusChip";
+import ReceiptTagsFilter from "@/components/receipts/ReceiptTagsFilter";
 import {
   RECEIPT_REASON_LABELS,
   RECEIPT_STATUS_LABELS,
@@ -80,6 +81,12 @@ function ReceiptsPage() {
     (v) => v || null,
   );
 
+  const [tagIds, setTagIds] = useSyncedWithQueryState<string[]>(
+    "tags",
+    (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
+    (v) => v.join(",") || null,
+  );
+
   const {sortBy, sortOrder, handleSortClick} = useTableSort(SORT_COLUMNS, "number", {
     defaultSortOrder: "desc",
   });
@@ -91,10 +98,11 @@ function ReceiptsPage() {
       warehouseId: warehouseId ?? undefined,
       status: (status as ReceiptStatus) || undefined,
       reason: (reason as ReceiptReason) || undefined,
+      tagIds: tagIds.length > 0 ? tagIds : undefined,
       sortBy,
       sortOrder,
     },
-    [warehouseId, status, reason, sortBy, sortOrder],
+    [warehouseId, status, reason, tagIds, sortBy, sortOrder],
   );
 
   const {data, isLoading, isFetching, refetch} = useQuery(
@@ -165,6 +173,11 @@ function ReceiptsPage() {
             </MenuItem>
           ))}
         </Select>
+        <ReceiptTagsFilter
+          value={tagIds}
+          onChange={setTagIds}
+          sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
+        />
       </FiltersBar>
       <DataTableContainer
         isFetching={isFetching}
@@ -191,13 +204,14 @@ function ReceiptsPage() {
               <TableCell>Причина</TableCell>
               <TableCell>Позиций</TableCell>
               <TableCell>Запланировано / Принято</TableCell>
+              <TableCell>Теги</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {isLoading ? (
-              <TableRowLoader colSpan={8} />
+              <TableRowLoader colSpan={9} />
             ) : data?.items.length === 0 ? (
-              <TableRowEmpty colSpan={8} message="Приемки не найдены" />
+              <TableRowEmpty colSpan={9} message="Приемки не найдены" />
             ) : (
               data?.items.map((receipt) => (
                 <LinkTableRow
@@ -233,6 +247,17 @@ function ReceiptsPage() {
                   </TableCell>
                   <TableCell>
                     {receipt.totalPlannedCount} / {receipt.totalReceivedCount ?? "—"}
+                  </TableCell>
+                  <TableCell>
+                    {receipt.tags.length > 0 ? (
+                      <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap"}}>
+                        {receipt.tags.map((tag) => (
+                          <Chip key={tag.id} label={tag.name} size="small" />
+                        ))}
+                      </Stack>
+                    ) : (
+                      "—"
+                    )}
                   </TableCell>
                 </LinkTableRow>
               ))

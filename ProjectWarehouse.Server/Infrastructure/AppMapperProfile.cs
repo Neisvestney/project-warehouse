@@ -78,6 +78,7 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.Username, opt => opt.MapFrom(s => s.UserName));
 
         CreateMap<CatalogItemTag, CatalogItemTagDto>();
+        CreateMap<ReceiptTag, ReceiptTagDto>();
         CreateMap<BundleComponent, BundleComponentDto>()
             .ForMember(d => d.ComponentName, opt => opt.MapFrom(s => s.Component.FullName))
             .ForMember(d => d.ComponentType, opt => opt.MapFrom(s => s.Component.Type));

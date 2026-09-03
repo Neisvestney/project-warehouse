@@ -95,11 +95,13 @@ import {
   receiptsAddUnitPlacement,
   receiptsCancel,
   receiptsCreate,
+  receiptsCreateTag,
   receiptsDelete,
   receiptsDeletePlacement,
   receiptsFinish,
   receiptsGetAll,
   receiptsGetById,
+  receiptsGetTags,
   receiptsPlan,
   receiptsQuickAddItem,
   receiptsRevert,
@@ -416,6 +418,9 @@ import type {
   ReceiptsCreateData,
   ReceiptsCreateError,
   ReceiptsCreateResponse,
+  ReceiptsCreateTagData,
+  ReceiptsCreateTagError,
+  ReceiptsCreateTagResponse,
   ReceiptsDeleteData,
   ReceiptsDeleteError,
   ReceiptsDeletePlacementData,
@@ -431,6 +436,9 @@ import type {
   ReceiptsGetByIdData,
   ReceiptsGetByIdError,
   ReceiptsGetByIdResponse,
+  ReceiptsGetTagsData,
+  ReceiptsGetTagsError,
+  ReceiptsGetTagsResponse,
   ReceiptsPlanData,
   ReceiptsPlanError,
   ReceiptsPlanResponse,
@@ -870,8 +878,9 @@ export const catalogGetTagsOptions = (options?: Options<CatalogGetTagsData>) =>
  * Create a new catalog item tag.
  *
  * Requires `catalog.edit`. Body: `CreateCatalogItemTagRequest` — name (trimmed before saving).
- * Names are not checked for uniqueness, so this endpoint has no error codes of its own beyond 403
- * `permissionDenied` and the generic model-binding 422s (`required`, `tooLong`).
+ * Errors: 422 `validationError` (field `name`) when the trimmed name is empty; 422
+ * `tagNameDuplicate` (field `name`) when another catalog item tag already has this name; 403
+ * `permissionDenied`.
  */
 export const catalogCreateTagMutation = (
   options?: Partial<Options<CatalogCreateTagData>>,
@@ -3815,6 +3824,67 @@ export const realtimeReleaseLockMutation = (
   return mutationOptions;
 };
 
+export const receiptsGetTagsQueryKey = (options?: Options<ReceiptsGetTagsData>) =>
+  createQueryKey("receiptsGetTags", options);
+
+/**
+ * List all receipt tags, optionally filtered by name.
+ *
+ * Query params: `search` (optional). Not paginated — ordered by name.
+ * Requires `receipts.view` or `receipts.view_assigned`. No error codes beyond 403
+ * `permissionDenied`.
+ */
+export const receiptsGetTagsOptions = (options?: Options<ReceiptsGetTagsData>) =>
+  queryOptions<
+    ReceiptsGetTagsResponse,
+    ReceiptsGetTagsError,
+    ReceiptsGetTagsResponse,
+    ReturnType<typeof receiptsGetTagsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await receiptsGetTags({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: receiptsGetTagsQueryKey(options),
+  });
+
+/**
+ * Create a new receipt tag.
+ *
+ * Requires `receipts.edit` or `receipts.edit_assigned`. Body: `CreateReceiptTagRequest` —
+ * name (trimmed before saving). Errors: 422 `validationError` (field `name`) when the trimmed
+ * name is empty; 422 `tagNameDuplicate` (field `name`) when another receipt tag already has this
+ * name; 403 `permissionDenied`.
+ */
+export const receiptsCreateTagMutation = (
+  options?: Partial<Options<ReceiptsCreateTagData>>,
+): UseMutationOptions<
+  ReceiptsCreateTagResponse,
+  ReceiptsCreateTagError,
+  Options<ReceiptsCreateTagData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsCreateTagResponse,
+    ReceiptsCreateTagError,
+    Options<ReceiptsCreateTagData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsCreateTag({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
 export const receiptsGetAllQueryKey = (options?: Options<ReceiptsGetAllData>) =>
   createQueryKey("receiptsGetAll", options);
 
@@ -3822,7 +3892,7 @@ export const receiptsGetAllQueryKey = (options?: Options<ReceiptsGetAllData>) =>
  * List receipts with pagination, filtering, and search.
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
- * `warehouseId`, `status`, `reason`, `sortBy` (default `Number`),
+ * `warehouseId`, `status`, `reason`, `tagIds`, `sortBy` (default `Number`),
  * `sortOrder` (default `Desc`).
  * Requires `receipts.view` or `receipts.view_assigned`; `receipts.process_assigned` alone
  * also opens the list but narrows it to receipts in `Processing` status. Without any of them, 403
@@ -3856,7 +3926,7 @@ export const receiptsGetAllInfiniteQueryKey = (
  * List receipts with pagination, filtering, and search.
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
- * `warehouseId`, `status`, `reason`, `sortBy` (default `Number`),
+ * `warehouseId`, `status`, `reason`, `tagIds`, `sortBy` (default `Number`),
  * `sortOrder` (default `Desc`).
  * Requires `receipts.view` or `receipts.view_assigned`; `receipts.process_assigned` alone
  * also opens the list but narrows it to receipts in `Processing` status. Without any of them, 403

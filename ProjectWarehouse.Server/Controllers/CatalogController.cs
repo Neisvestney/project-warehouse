@@ -44,17 +44,36 @@ public class CatalogController(
     /// <summary>Create a new catalog item tag.</summary>
     /// <remarks>
     /// Requires <c>catalog.edit</c>. Body: <c>CreateCatalogItemTagRequest</c> — name (trimmed before saving).
-    /// Names are not checked for uniqueness, so this endpoint has no error codes of its own beyond 403
-    /// <c>permissionDenied</c> and the generic model-binding 422s (<c>required</c>, <c>tooLong</c>).
+    /// Errors: 422 <c>validationError</c> (field <c>name</c>) when the trimmed name is empty; 422
+    /// <c>tagNameDuplicate</c> (field <c>name</c>) when another catalog item tag already has this name; 403
+    /// <c>permissionDenied</c>.
     /// </remarks>
     [HttpPost("tags")]
     [Authorize(Policy = Permissions.Catalog.Edit)]
     [ProducesResponseType<CatalogItemTagDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> CreateTag([FromBody] CreateCatalogItemTagRequest request, CancellationToken ct = default)
     {
-        var tag = new CatalogItemTag { Id = Guid.NewGuid(), Name = request.Name.Trim() };
+        var name = request.Name.Trim();
+        if (name.Length == 0)
+            return UnprocessableEntity("name", ErrorCode.ValidationError, "Tag name cannot be blank.");
+
+        var duplicate = await db.CatalogItemTags.AnyAsync(t => t.Name == name, ct);
+        if (duplicate)
+            return UnprocessableEntity("name", ErrorCode.TagNameDuplicate, $"A tag named '{name}' already exists.");
+
+        var tag = new CatalogItemTag { Id = Guid.NewGuid(), Name = name };
         db.CatalogItemTags.Add(tag);
-        await db.SaveChangesAsync(ct);
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException e) when (UniqueViolations.IsTagName(e))
+        {
+            return UnprocessableEntity("name", ErrorCode.TagNameDuplicate, $"A tag named '{name}' already exists.");
+        }
+
         var dto = new CatalogItemTagDto { Id = tag.Id, Name = tag.Name };
         return Created($"/api/catalog/tags/{tag.Id}", dto);
     }

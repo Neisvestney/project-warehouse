@@ -11,10 +11,17 @@ namespace ProjectWarehouse.Server.Infrastructure;
 public static class UniqueViolations
 {
     private const string UnitInventoryNumberIndexName = "IX_InventoryItems_CatalogItemId_InventoryNumber";
+    private const string TagNameIndexName = "IX_Tags_TagType_Name";
 
     /// <summary>The partial unique index behind "this inventory number is already taken for that catalog item".</summary>
     public static bool IsUnitInventoryNumber(Exception e) =>
         e is DbUpdateException { InnerException: PostgresException pg }
         && pg.SqlState == PostgresErrorCodes.UniqueViolation
         && pg.ConstraintName == UnitInventoryNumberIndexName;
+
+    /// <summary>The unique index behind "a tag with this name already exists" (scoped per tag subtype).</summary>
+    public static bool IsTagName(Exception e) =>
+        e is DbUpdateException { InnerException: PostgresException pg }
+        && pg.SqlState == PostgresErrorCodes.UniqueViolation
+        && pg.ConstraintName == TagNameIndexName;
 }
