@@ -148,13 +148,21 @@ public sealed class ShipCommand : AsyncCommand<ShipSettings>
         if (released != 0)
             return released;
 
-        return await DeployCommand.RunAsync(
+        var exitCode = await DeployCommand.RunAsync(
             deployment,
             preflight,
             values,
             [.. services.Select(entry => entry.Value.ComposeService)],
             TimeSpan.FromSeconds(settings.HealthTimeout),
             cancellationToken);
+
+        // Ship carries one --version for every service, so a run that ended on mixed versions has
+        // no single line that would repeat it.
+        var versions = items.Select(item => item.Version.ToString()).Distinct().ToList();
+        if (exitCode == 0 && versions.Count == 1)
+            CommandEcho.Suggest(settings, "ship", target.Key, "--version", versions[0], "--yes");
+
+        return exitCode;
     }
 
     private static bool Confirm(Configuration.TargetConfig target) =>

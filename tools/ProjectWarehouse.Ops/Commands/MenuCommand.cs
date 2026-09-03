@@ -72,12 +72,18 @@ public sealed class MenuCommand : AsyncCommand<OpsSettings>
 
             try
             {
+                // Only a menu-driven run echoes its command line; a typed one already has it.
+                CommandEcho.Enabled = true;
                 await runner([choice.Command, .. globals]);
             }
             catch (OperationCanceledException)
             {
                 // One cancelled command does not end the session; Exit does.
                 AnsiConsole.MarkupLine("[yellow]cancelled[/]");
+            }
+            finally
+            {
+                CommandEcho.Enabled = false;
             }
         }
 

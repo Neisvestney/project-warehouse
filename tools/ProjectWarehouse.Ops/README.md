@@ -127,6 +127,18 @@ Global options: `--config <path>`, `--project <path>`. The menu passes whichever
 given down to the command it dispatches, and dispatches by running the same parser again — a menu
 entry and a typed command are the same code path, argument parsing included.
 
+A command finished from the menu prints the line that repeats it without the prompts:
+
+```
+repeat with: pwops backup prod --parts db,keys,datafiles
+```
+
+Only from the menu — a typed command already has its line, and echoing it back is noise. The
+suggestion carries the values that were actually chosen, so it is a script-ready form of the run
+that just happened. It is left out where a run has no single line that would repeat it: `--version`
+applies to every service at once, so services that ended up on different versions cannot be
+expressed in one command.
+
 ### release
 
 Reads the published tags, offers the next version per service, then builds and pushes. Versions

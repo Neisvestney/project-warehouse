@@ -38,7 +38,11 @@ public sealed class BackupCommand : AsyncCommand<BackupSettings>
         var directory = await RunAsync(
             service, loaded.Config.Local!.BackupsDir, parts, connection, cancellationToken);
 
-        return directory is null ? 1 : 0;
+        if (directory is null)
+            return 1;
+
+        CommandEcho.Suggest(settings, "backup", target.Key, "--parts", string.Join(',', parts));
+        return 0;
     }
 
     internal static async Task<string?> RunAsync(

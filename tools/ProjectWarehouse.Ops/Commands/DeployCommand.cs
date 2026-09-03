@@ -100,13 +100,25 @@ public sealed class DeployCommand : AsyncCommand<DeploySettings>
         if (!settings.Yes && !Confirm(target.Value))
             return 0;
 
-        return await RunAsync(
+        var exitCode = await RunAsync(
             service,
             preflight,
             values,
             [.. services.Select(entry => entry.Config.ComposeService)],
             TimeSpan.FromSeconds(settings.HealthTimeout),
             cancellationToken);
+
+        if (exitCode == 0)
+        {
+            var parts = new List<string?> { "deploy", target.Key };
+            foreach (var selection in selections)
+                parts.AddRange(["--set", $"{selection.ServiceName}={selection.Version}"]);
+
+            parts.Add("--yes");
+            CommandEcho.Suggest(settings, [.. parts]);
+        }
+
+        return exitCode;
     }
 
     private static Dictionary<string, string>? ParseSet(string[] pairs, IReadOnlyList<string> services)
