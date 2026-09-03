@@ -1,4 +1,6 @@
 using ProjectWarehouse.Ops.Commands;
+using ProjectWarehouse.Ops.Infrastructure;
+using Spectre.Console;
 using Spectre.Console.Cli;
 
 // A fresh app per invocation: the menu dispatches by running the same parser again, and nothing
@@ -38,5 +40,21 @@ static CommandApp<MenuCommand> CreateApp()
 }
 
 MenuCommand.Runner = commandArgs => CreateApp().RunAsync(commandArgs);
+
+// Left unset without a terminal, so a scripted run fails with a message instead of blocking on a
+// prompt nobody can answer.
+if (AnsiConsole.Profile.Capabilities.Interactive)
+{
+    SshCommandHost.PassphrasePrompt = (keyPath, attempt) =>
+    {
+        if (attempt == 1)
+            AnsiConsole.MarkupLineInterpolated($"[grey]{keyPath} is encrypted.[/]");
+        else
+            AnsiConsole.MarkupLine("[yellow]Wrong passphrase.[/]");
+
+        return AnsiConsole.Prompt(
+            new TextPrompt<string>("  passphrase:").Secret().AllowEmpty());
+    };
+}
 
 return CreateApp().Run(args);

@@ -1,6 +1,7 @@
 using System.Text;
 using ProjectWarehouse.Ops.Configuration;
 using Renci.SshNet;
+using Renci.SshNet.Common;
 
 namespace ProjectWarehouse.Ops.Infrastructure;
 
@@ -184,6 +185,57 @@ public sealed class SshCommandHost : ICommandHost
         return ValueTask.CompletedTask;
     }
 
+    /// Asked for a passphrase the config does not carry. Takes the key path and the attempt
+    /// number, returns the passphrase, or null to give up. Set by the composition root; a session
+    /// without a terminal leaves it unset and gets an error instead of a hang.
+    public static Func<string, int, string?>? PassphrasePrompt { get; set; }
+
+    private const int PassphraseAttempts = 3;
+
+    private static PrivateKeyFile LoadKey(string keyPath, string? passphrase)
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(passphrase))
+                return new PrivateKeyFile(keyPath, passphrase);
+
+            return new PrivateKeyFile(keyPath);
+        }
+        catch (SshPassPhraseNullOrEmptyException)
+        {
+            // Only reached when the key is encrypted and the config said nothing about it.
+        }
+        catch (Exception ex)
+        {
+            throw new CommandHostException($"Cannot read SSH key {keyPath}: {ex.Message}", ex);
+        }
+
+        if (PassphrasePrompt is not { } prompt)
+        {
+            throw new CommandHostException(
+                $"{keyPath} is encrypted and no passphrase is configured. Add one under "
+                    + "overrides.targets.<name>.ssh.passphrase, or run from a terminal to be asked.");
+        }
+
+        for (var attempt = 1; attempt <= PassphraseAttempts; attempt++)
+        {
+            var entered = prompt(keyPath, attempt);
+            if (string.IsNullOrEmpty(entered))
+                break;
+
+            try
+            {
+                return new PrivateKeyFile(keyPath, entered);
+            }
+            catch (SshException)
+            {
+                // Wrong passphrase; the prompt says so on the next round.
+            }
+        }
+
+        throw new CommandHostException($"Could not unlock {keyPath}.");
+    }
+
     private static ConnectionInfo BuildConnection(SshConfig config)
     {
         var keyPath = string.IsNullOrWhiteSpace(config.KeyPath)
@@ -196,17 +248,7 @@ public sealed class SshCommandHost : ICommandHost
         if (!File.Exists(keyPath))
             throw new CommandHostException($"SSH key not found: {keyPath}");
 
-        PrivateKeyFile key;
-        try
-        {
-            key = string.IsNullOrEmpty(config.Passphrase)
-                ? new PrivateKeyFile(keyPath)
-                : new PrivateKeyFile(keyPath, config.Passphrase);
-        }
-        catch (Exception ex)
-        {
-            throw new CommandHostException($"Cannot read SSH key {keyPath}: {ex.Message}", ex);
-        }
+        var key = LoadKey(keyPath, config.Passphrase);
 
         return new ConnectionInfo(
             config.Host,

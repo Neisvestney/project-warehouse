@@ -57,6 +57,10 @@ It covers `ssh` (host, port, user, keyPath, passphrase) and `repoDir`, takes the
 variables as everywhere else — `{currentConfigDir}` being the directory of the file the override
 is written in — and naming a target that does not exist fails the load rather than being ignored.
 
+`passphrase` may be left out even for an encrypted key: the tool asks for it, up to three tries,
+and never writes it anywhere. A run without a terminal cannot be asked, so there it is an error
+naming the key rather than a prompt nobody can answer.
+
 Unknown fields fail the load. A typo like `dagner` instead of `danger` would otherwise leave a
 production target unmarked and unguarded, and no amount of validation downstream would notice.
 
