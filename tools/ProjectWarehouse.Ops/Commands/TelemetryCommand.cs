@@ -90,6 +90,16 @@ public sealed class TelemetryCommand : AsyncCommand<TelemetrySettings>
             "[grey]docker compose -f docker-compose.telemetry.yml up -d[/] "
                 + "[grey]→ http://localhost:18890[/]");
 
+        CommandEcho.Suggest(
+            settings,
+            "telemetry",
+            target.Key,
+            settings.Since is not null ? "--since" : null,
+            settings.Since?.ToString(),
+            settings.To is not null ? "--to" : null,
+            settings.To,
+            settings.Clean ? "--clean" : null);
+
         return 0;
     }
 }

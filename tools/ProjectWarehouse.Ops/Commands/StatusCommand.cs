@@ -45,6 +45,7 @@ public sealed class StatusCommand : AsyncCommand<TargetSettings>
         }
 
         Render(target.Key, target.Value.Danger, status);
+        CommandEcho.Suggest(settings, "status", target.Key);
         return 0;
     }
 

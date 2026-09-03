@@ -92,7 +92,11 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseSettings>
         if (!settings.Yes && !AnsiConsole.Confirm("Build and push?"))
             return 0;
 
-        return await RunAsync(service, items, cancellationToken);
+        var exitCode = await RunAsync(service, items, cancellationToken);
+        if (exitCode == 0)
+            Echo(settings, registry.Key, items);
+
+        return exitCode;
     }
 
     /// Without a terminal every prompt dies on the same unhelpful read error, so the missing
@@ -307,6 +311,24 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseSettings>
         log.Split('\n', StringSplitOptions.RemoveEmptyEntries)
             .TakeLast(count)
             .Select(line => line.TrimEnd('\r'));
+
+    /// Only when the run is expressible as one command: --version applies to every selected
+    /// service, so services that ended up on different versions have no single line to suggest.
+    private static void Echo(
+        ReleaseSettings settings, string registryName, IReadOnlyList<ReleaseItem> items)
+    {
+        var versions = items.Select(item => item.Version.ToString()).Distinct().ToList();
+        if (versions.Count != 1)
+            return;
+
+        var parts = new List<string?> { "release", "--registry", registryName };
+
+        foreach (var item in items)
+            parts.AddRange(["--service", item.ServiceName]);
+
+        parts.AddRange(["--version", versions[0], "--yes"]);
+        CommandEcho.Suggest(settings, [.. parts]);
+    }
 
     internal static VersionBump? ParseBump(string? value) => value?.ToLowerInvariant() switch
     {

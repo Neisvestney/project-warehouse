@@ -108,8 +108,24 @@ public sealed class RestoreCommand : AsyncCommand<RestoreSettings>
             .Select(name => loaded.Config.Services[name].ComposeService)
             .ToList();
 
-        return await RunAsync(
+        var exitCode = await RunAsync(
             new RestoreService(connection), directory, manifest, parts, appServices, cancellationToken);
+
+        if (exitCode == 0)
+        {
+            CommandEcho.Suggest(
+                settings,
+                "restore",
+                target.Key,
+                "--from",
+                directory,
+                "--parts",
+                string.Join(',', parts),
+                settings.NoSafetyBackup ? "--no-safety-backup" : null,
+                target.Value.Danger ? null : "--yes");
+        }
+
+        return exitCode;
     }
 
     private static string? SelectBackup(string backupsRoot, string? requested)
