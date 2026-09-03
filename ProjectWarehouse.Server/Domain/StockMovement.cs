@@ -11,6 +11,7 @@ namespace ProjectWarehouse.Server.Domain;
 [Index(nameof(CatalogItemId), nameof(CreatedAt))]
 [Index(nameof(WarehouseId), nameof(CreatedAt))]
 [Index(nameof(UserId), nameof(CreatedAt))]
+[Index(nameof(ReceiptId))]
 public class StockMovement
 {
     public Guid Id { get; set; }
@@ -51,4 +52,8 @@ public class StockMovement
 
     public Guid? UserId { get; set; }
     public ApplicationUser? User { get; set; }
+
+    /// <summary>Set when the change came from a receipt placement; another audit reference nulled on delete.</summary>
+    public Guid? ReceiptId { get; set; }
+    public Receipt? Receipt { get; set; }
 }

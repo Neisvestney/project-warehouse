@@ -635,8 +635,8 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                     request.SourceNodeId.Value,
                     fulfillment.ResolvedCatalogItemId!.Value,
                     request.Quantity,
-                    InventoryActions.SpentOnOrder,
-                    ct);
+                    action: InventoryActions.SpentOnOrder,
+                    ct: ct);
             }, ct);
         }
         else if (isUnit)
@@ -669,8 +669,8 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                 await inventory.DetachUnitItemAsync(
                     request.UnitInventoryItemId!.Value,
                     request.SourceNodeId.Value,
-                    InventoryActions.SpentOnOrder,
-                    ct);
+                    action: InventoryActions.SpentOnOrder,
+                    ct: ct);
             }, ct);
         }
         else // Bundle
@@ -723,8 +723,8 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                         await inventory.DetachUnitItemAsync(
                             bundleComp.UnitInventoryItemId.Value,
                             bundleComp.SourceNodeId,
-                            InventoryActions.SpentOnOrder,
-                            ct);
+                            action: InventoryActions.SpentOnOrder,
+                            ct: ct);
                     }
                     else
                     {
@@ -732,8 +732,8 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                             bundleComp.SourceNodeId,
                             bundleComp.CatalogItemId,
                             bundleComp.Quantity,
-                            InventoryActions.SpentOnOrder,
-                            ct);
+                            action: InventoryActions.SpentOnOrder,
+                            ct: ct);
                     }
                 }
             }, ct);
@@ -770,8 +770,8 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                     await inventory.ReattachUnitItemAsync(
                         comp.UnitInventoryItemId.Value,
                         comp.SourceNodeId,
-                        InventoryActions.CancelledFulfillment,
-                        ct);
+                        action: InventoryActions.CancelledFulfillment,
+                        ct: ct);
                 }
                 else if (!string.IsNullOrEmpty(comp.UnitInventoryNumber))
                 {
@@ -781,8 +781,8 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                         comp.SourceNodeId,
                         comp.CatalogItemId,
                         comp.UnitInventoryNumber,
-                        InventoryActions.CancelledFulfillment,
-                        ct);
+                        action: InventoryActions.CancelledFulfillment,
+                        ct: ct);
                 }
                 else
                 {
@@ -790,8 +790,8 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                         comp.SourceNodeId,
                         comp.CatalogItemId,
                         comp.Quantity,
-                        InventoryActions.CancelledFulfillment,
-                        ct);
+                        action: InventoryActions.CancelledFulfillment,
+                        ct: ct);
                 }
             }
         }
@@ -801,8 +801,8 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
             await inventory.ReattachUnitItemAsync(
                 fulfillment.UnitInventoryItemId.Value,
                 fulfillment.SourceNodeId!.Value,
-                InventoryActions.CancelledFulfillment,
-                ct);
+                action: InventoryActions.CancelledFulfillment,
+                ct: ct);
         }
         else if (!string.IsNullOrEmpty(fulfillment.UnitInventoryNumber))
         {
@@ -812,8 +812,8 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                 fulfillment.SourceNodeId!.Value,
                 RestoreTargetCatalogItemId(fulfillment),
                 fulfillment.UnitInventoryNumber,
-                InventoryActions.CancelledFulfillment,
-                ct);
+                action: InventoryActions.CancelledFulfillment,
+                ct: ct);
         }
         else if (fulfillment.Quantity > 0 && fulfillment.SourceNodeId.HasValue)
         {
@@ -822,8 +822,8 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                 fulfillment.SourceNodeId.Value,
                 RestoreTargetCatalogItemId(fulfillment),
                 fulfillment.Quantity,
-                InventoryActions.CancelledFulfillment,
-                ct);
+                action: InventoryActions.CancelledFulfillment,
+                ct: ct);
         }
     }
 

@@ -24,6 +24,7 @@ export interface StockMovementsFilterValue {
   storagePlaceId: string | null;
   nodeId: string | null;
   userId: string | null;
+  receiptTagIds: string[];
   actions: string[];
   directions: StockMovementDirection[];
 }
@@ -39,6 +40,7 @@ function buildQuery(filter: StockMovementsFilterValue, from: string, to: string)
     NodeId: filter.nodeId ?? undefined,
     UserId: filter.userId ?? undefined,
     CatalogItemIds: filter.catalogItemIds,
+    ReceiptTagIds: filter.receiptTagIds.length > 0 ? filter.receiptTagIds : undefined,
     Actions: filter.actions.length > 0 ? filter.actions : undefined,
     Directions: filter.directions.length > 0 ? filter.directions : undefined,
     columnLimit: Math.min(Math.max(filter.catalogItemIds.length, 1), MAX_COLUMNS),

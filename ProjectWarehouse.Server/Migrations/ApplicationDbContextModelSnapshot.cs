@@ -1344,6 +1344,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
 
+                    b.Property<Guid?>("ReceiptId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("StoragePlaceId")
                         .HasColumnType("uuid");
 
@@ -1366,6 +1369,8 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedAt");
+
+                    b.HasIndex("ReceiptId");
 
                     b.HasIndex("StoragePlaceId");
 
@@ -2404,6 +2409,11 @@ namespace ProjectWarehouse.Server.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("ProjectWarehouse.Server.Domain.Receipt", "Receipt")
+                        .WithMany()
+                        .HasForeignKey("ReceiptId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("ProjectWarehouse.Server.Domain.StoragePlace", "StoragePlace")
                         .WithMany()
                         .HasForeignKey("StoragePlaceId")
@@ -2430,6 +2440,8 @@ namespace ProjectWarehouse.Server.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("CatalogItem");
+
+                    b.Navigation("Receipt");
 
                     b.Navigation("StoragePlace");
 

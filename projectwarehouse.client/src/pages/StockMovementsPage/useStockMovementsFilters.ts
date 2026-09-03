@@ -37,6 +37,11 @@ export function useStockMovementsFilters() {
   const [storagePlaceId, setStoragePlaceId] = useSyncedWithQueryState("place", parseId, (v) => v);
   const [nodeId, setNodeId] = useSyncedWithQueryState("node", parseId, (v) => v);
   const [userId, setUserId] = useSyncedWithQueryState("user", parseId, (v) => v);
+  const [receiptTagIds, setReceiptTagIds] = useSyncedWithQueryState(
+    "receiptTags",
+    parseList,
+    serializeList,
+  );
 
   const [actions, setActions] = useSyncedWithQueryState(
     "actions",
@@ -64,10 +69,22 @@ export function useStockMovementsFilters() {
       storagePlaceId,
       nodeId,
       userId,
+      receiptTagIds,
       actions,
       directions,
     }),
-    [catalogItemIds, from, to, warehouseId, storagePlaceId, nodeId, userId, actions, directions],
+    [
+      catalogItemIds,
+      from,
+      to,
+      warehouseId,
+      storagePlaceId,
+      nodeId,
+      userId,
+      receiptTagIds,
+      actions,
+      directions,
+    ],
   );
 
   return {
@@ -90,6 +107,7 @@ export function useStockMovementsFilters() {
     },
     setNodeId,
     setUserId,
+    setReceiptTagIds,
     setActions,
     setDirections,
   };

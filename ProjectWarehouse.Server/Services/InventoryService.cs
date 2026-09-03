@@ -89,9 +89,10 @@ public class InventoryService(
         int quantity,
         StockMovementDirection direction,
         string action,
+        StockMovementContext? context,
         CancellationToken ct,
         UnitInventoryItem? unitItem = null) =>
-        (await QueueMovementAsync(nodeId, catalogItemId, quantity, direction, action, ct, unitItem)).Id;
+        (await QueueMovementAsync(nodeId, catalogItemId, quantity, direction, action, context, ct, unitItem)).Id;
 
     private async Task<StockMovement> QueueMovementAsync(
         Guid nodeId,
@@ -99,6 +100,7 @@ public class InventoryService(
         int quantity,
         StockMovementDirection direction,
         string action,
+        StockMovementContext? context,
         CancellationToken ct,
         UnitInventoryItem? unitItem = null)
     {
@@ -119,6 +121,7 @@ public class InventoryService(
             UnitInventoryItemId = unitItem?.Id,
             UnitInventoryNumber = unitItem?.InventoryNumber,
             UserId              = GetCurrentUserId(),
+            ReceiptId           = context?.ReceiptId,
         };
 
         db.StockMovements.Add(movement);
@@ -135,8 +138,9 @@ public class InventoryService(
         UnitInventoryItem item,
         StockMovementDirection direction,
         string action,
+        StockMovementContext? context,
         CancellationToken ct) =>
-        RecordMovementAsync(nodeId, item.CatalogItemId, 1, direction, action, ct, item);
+        RecordMovementAsync(nodeId, item.CatalogItemId, 1, direction, action, context, ct, item);
 
     private Guid? GetCurrentUserId() =>
         Guid.TryParse(httpContextAccessor.HttpContext?.User.FindFirstValue(JwtRegisteredClaimNames.Sub), out var id)
@@ -241,8 +245,9 @@ public class InventoryService(
         Guid catalogItemId,
         int count,
         string action = InventoryActions.UnknownAction,
+        StockMovementContext? context = null,
         CancellationToken ct = default) =>
-        AddStandardCoreAsync(nodeId, catalogItemId, count, action, StockMovementDirection.In, ct);
+        AddStandardCoreAsync(nodeId, catalogItemId, count, action, StockMovementDirection.In, context, ct);
 
     private async Task AddStandardCoreAsync(
         Guid nodeId,
@@ -250,6 +255,7 @@ public class InventoryService(
         int count,
         string action,
         StockMovementDirection direction,
+        StockMovementContext? context,
         CancellationToken ct)
     {
         using var activity = AppTelemetry.Source.StartActivity("inventory.standard.add");
@@ -275,7 +281,7 @@ public class InventoryService(
 
             group.Count += count;
             return Task.FromResult(group);
-        }, () => QueueMovementAsync(nodeId, catalogItemId, count, direction, action, ct), activity, ct);
+        }, () => QueueMovementAsync(nodeId, catalogItemId, count, direction, action, context, ct), activity, ct);
 
         activity?.SetTag("inventory.stock_movement_id", movementId);
     }
@@ -285,8 +291,9 @@ public class InventoryService(
         Guid catalogItemId,
         int count,
         string action = InventoryActions.UnknownAction,
+        StockMovementContext? context = null,
         CancellationToken ct = default) =>
-        RemoveStandardCoreAsync(nodeId, catalogItemId, count, action, StockMovementDirection.Out, ct);
+        RemoveStandardCoreAsync(nodeId, catalogItemId, count, action, StockMovementDirection.Out, context, ct);
 
     private async Task RemoveStandardCoreAsync(
         Guid nodeId,
@@ -294,6 +301,7 @@ public class InventoryService(
         int count,
         string action,
         StockMovementDirection direction,
+        StockMovementContext? context,
         CancellationToken ct)
     {
         using var activity = AppTelemetry.Source.StartActivity("inventory.standard.remove");
@@ -314,7 +322,7 @@ public class InventoryService(
 
             group.Count -= count;
             return group;
-        }, () => QueueMovementAsync(nodeId, catalogItemId, count, direction, action, ct), activity, ct);
+        }, () => QueueMovementAsync(nodeId, catalogItemId, count, direction, action, context, ct), activity, ct);
 
         activity?.SetTag("inventory.stock_movement_id", movementId);
     }
@@ -358,6 +366,7 @@ public class InventoryService(
         Guid catalogItemId,
         string inventoryNumber,
         string action = InventoryActions.UnknownAction,
+        StockMovementContext? context = null,
         CancellationToken ct = default)
     {
         using var activity = AppTelemetry.Source.StartActivity("inventory.unit.place");
@@ -367,7 +376,7 @@ public class InventoryService(
         activity?.SetTag("inventory.action", action);
 
         var item = await CreateUnitItemAsync(nodeId, catalogItemId, inventoryNumber, ct);
-        var movementId = await RecordUnitMovementAsync(nodeId, item, StockMovementDirection.In, action, ct);
+        var movementId = await RecordUnitMovementAsync(nodeId, item, StockMovementDirection.In, action, context, ct);
         await db.SaveChangesAsync(ct);
         activity?.SetTag("inventory.unit_item_id", item.Id);
         activity?.SetTag("inventory.stock_movement_id", movementId);
@@ -379,6 +388,7 @@ public class InventoryService(
         Guid unitItemId,
         Guid expectedNodeId,
         string action = InventoryActions.UnknownAction,
+        StockMovementContext? context = null,
         CancellationToken ct = default)
     {
         using var activity = AppTelemetry.Source.StartActivity("inventory.unit.remove");
@@ -397,7 +407,7 @@ public class InventoryService(
 
         var nodeId = item.StoragePlaceNodeId!.Value;
         db.InventoryItems.Remove(item);
-        var movementId = await RecordUnitMovementAsync(nodeId, item, StockMovementDirection.Out, action, ct);
+        var movementId = await RecordUnitMovementAsync(nodeId, item, StockMovementDirection.Out, action, context, ct);
         await db.SaveChangesAsync(ct);
         activity?.SetTag("inventory.stock_movement_id", movementId);
     }
@@ -406,6 +416,7 @@ public class InventoryService(
         Guid unitItemId,
         Guid expectedNodeId,
         string action = InventoryActions.UnknownAction,
+        StockMovementContext? context = null,
         CancellationToken ct = default)
     {
         using var activity = AppTelemetry.Source.StartActivity("inventory.unit.detach");
@@ -424,7 +435,7 @@ public class InventoryService(
 
         var nodeId = expectedNodeId;
         item.StoragePlaceNodeId = null;
-        var movementId = await RecordUnitMovementAsync(nodeId, item, StockMovementDirection.Out, action, ct);
+        var movementId = await RecordUnitMovementAsync(nodeId, item, StockMovementDirection.Out, action, context, ct);
         await db.SaveChangesAsync(ct);
         activity?.SetTag("inventory.stock_movement_id", movementId);
     }
@@ -433,6 +444,7 @@ public class InventoryService(
         Guid unitItemId,
         Guid nodeId,
         string action = InventoryActions.UnknownAction,
+        StockMovementContext? context = null,
         CancellationToken ct = default)
     {
         using var activity = AppTelemetry.Source.StartActivity("inventory.unit.reattach");
@@ -450,7 +462,7 @@ public class InventoryService(
             throw new InventoryItemNodeMismatchException(unitItemId, nodeId, item.StoragePlaceNodeId.Value);
 
         item.StoragePlaceNodeId = nodeId;
-        var movementId = await RecordUnitMovementAsync(nodeId, item, StockMovementDirection.In, action, ct);
+        var movementId = await RecordUnitMovementAsync(nodeId, item, StockMovementDirection.In, action, context, ct);
         await db.SaveChangesAsync(ct);
         activity?.SetTag("inventory.stock_movement_id", movementId);
     }
@@ -463,6 +475,7 @@ public class InventoryService(
         Guid catalogItemId,
         int count,
         string action = InventoryActions.MoveStock,
+        StockMovementContext? context = null,
         CancellationToken ct = default)
     {
         using var activity = AppTelemetry.Source.StartActivity("inventory.standard.move");
@@ -472,14 +485,15 @@ public class InventoryService(
         activity?.SetTag("inventory.count", count);
         activity?.SetTag("inventory.action", action);
 
-        await RemoveStandardCoreAsync(fromNodeId, catalogItemId, count, action, StockMovementDirection.TransferOut, ct);
-        await AddStandardCoreAsync(toNodeId, catalogItemId, count, action, StockMovementDirection.TransferIn, ct);
+        await RemoveStandardCoreAsync(fromNodeId, catalogItemId, count, action, StockMovementDirection.TransferOut, context, ct);
+        await AddStandardCoreAsync(toNodeId, catalogItemId, count, action, StockMovementDirection.TransferIn, context, ct);
     }
 
     public async Task MoveUnitItemAsync(
         Guid unitItemId,
         Guid toNodeId,
         string action = InventoryActions.MoveStock,
+        StockMovementContext? context = null,
         CancellationToken ct = default)
     {
         using var activity = AppTelemetry.Source.StartActivity("inventory.unit.move");
@@ -497,8 +511,8 @@ public class InventoryService(
             ?? throw new InvalidOperationException($"Unit inventory item {unitItemId} is detached and cannot be moved.");
 
         item.StoragePlaceNodeId = toNodeId;
-        var outMovementId = await RecordUnitMovementAsync(fromNodeId, item, StockMovementDirection.TransferOut, action, ct);
-        var inMovementId = await RecordUnitMovementAsync(toNodeId, item, StockMovementDirection.TransferIn, action, ct);
+        var outMovementId = await RecordUnitMovementAsync(fromNodeId, item, StockMovementDirection.TransferOut, action, context, ct);
+        var inMovementId = await RecordUnitMovementAsync(toNodeId, item, StockMovementDirection.TransferIn, action, context, ct);
         await db.SaveChangesAsync(ct);
         activity?.SetTag("inventory.from_node_id", fromNodeId);
         activity?.SetTag("inventory.stock_movement_out_id", outMovementId);

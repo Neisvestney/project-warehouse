@@ -451,6 +451,9 @@ public class StockStatisticsService(
         if (filter.CatalogItemIds is { Length: > 0 } catalogItemIds)
             query = query.Where(m => catalogItemIds.Contains(m.CatalogItemId));
 
+        if (filter.ReceiptTagIds is { Length: > 0 } receiptTagIds)
+            query = query.Where(m => m.Receipt != null && m.Receipt.Tags.Any(t => receiptTagIds.Contains(t.Id)));
+
         if (filter.Actions is { Length: > 0 } actions)
             query = query.Where(m => actions.Contains(m.Action));
 

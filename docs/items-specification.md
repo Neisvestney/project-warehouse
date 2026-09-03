@@ -130,6 +130,11 @@ both `null`. The id is an audit reference like the other location columns — de
 of erasing the movement — while the copied number stays, so the history of a piece that no longer exists is still
 readable and searchable by its number.
 
+The document that caused the change is passed to `InventoryService` as an optional `StockMovementContext`
+(`ReceiptId`, extended as more document types get linked) and lands on the row as a nullable FK. Receipt placement
+endpoints supply the receipt they act on; movements made outside any document leave it `null`. Like the other
+references it is `ON DELETE SET NULL`, so deleting a receipt keeps its movements.
+
 ---
 
 ## Tags
