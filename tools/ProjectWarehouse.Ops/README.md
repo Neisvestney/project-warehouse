@@ -10,6 +10,40 @@ dotnet run -- validate
 dotnet run -- status prod
 ```
 
+## Global install
+
+Publishes `pwops` once into a fixed folder and puts a thin shim on `PATH`, so it runs from any
+directory without `cd`, `dotnet run`, or a local `ops.json`.
+
+```powershell
+dotnet publish tools\ProjectWarehouse.Ops\ProjectWarehouse.Ops.csproj -c Release -o "$env:USERPROFILE\.local\pwops"
+```
+
+Then create `pwops.cmd` in a folder that is already on `PATH` (`%USERPROFILE%\.local\bin` works if
+that is where you keep other shims):
+
+```bat
+@echo off
+"%USERPROFILE%\.local\pwops\pwops.exe" %* --project "<repo-path>" --config "<repo-path>\tools\ProjectWarehouse.Ops\ops.json"
+```
+
+Replace `<repo-path>` with the absolute path to this clone. `%*` must come **before**
+`--project`/`--config`: Spectre.Console.Cli reads per-command options after the command name, so
+putting the flags first makes it try to parse `validate` (or whichever command) as an unknown
+command.
+
+Hardcoding `--project`/`--config` is what makes the install machine-independent from the caller's
+point of view: `pwops` always resolves the same repo and config no matter which directory it is
+run from, instead of relying on `RepoRoot`'s `.git`-ancestor search or an `ops.json` sitting next
+to the working directory.
+
+Passing `--project` or `--config` explicitly when calling `pwops` adds a duplicate of that option;
+Spectre.Console.Cli keeps the last value, so the explicit one wins, but the shim's copy is still
+there.
+
+To update after pulling new code, rerun the `dotnet publish` command above — the shim needs no
+changes.
+
 ## Configuration
 
 `pwops` reads `ops.json` from the working directory, then from the directory holding the
