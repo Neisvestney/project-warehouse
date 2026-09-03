@@ -16,3 +16,4 @@ data
 publish
 .env
 .env.*
+tools

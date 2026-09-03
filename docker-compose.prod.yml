@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
 
   projectwarehouse.server:
-    image: ${REGISTRY_HOST:-local}/projectwarehouse.server:${IMAGE_TAG:-latest}
+    image: ${REGISTRY_HOST}/projectwarehouse.server:${SERVER_IMAGE_TAG}
     ports:
       - "8001:8080"
     networks:
