@@ -157,10 +157,17 @@ public sealed class ShipCommand : AsyncCommand<ShipSettings>
             cancellationToken);
 
         // Ship carries one --version for every service, so a run that ended on mixed versions has
-        // no single line that would repeat it.
+        // no single line that would repeat it. A bump is echoed as --bump, not the version it
+        // resolved to, so re-running the suggestion bumps again instead of pinning to this release.
+        // --version wins over --bump when both are given (mirrors ReleaseCommand.ResolveVersion).
         var versions = items.Select(item => item.Version.ToString()).Distinct().ToList();
         if (exitCode == 0 && versions.Count == 1)
-            CommandEcho.Suggest(settings, "ship", target.Key, "--version", versions[0], "--yes");
+        {
+            if (settings.Version is null && settings.Bump is { } bumpArg)
+                CommandEcho.Suggest(settings, "ship", target.Key, "--bump", bumpArg, "--yes");
+            else
+                CommandEcho.Suggest(settings, "ship", target.Key, "--version", versions[0], "--yes");
+        }
 
         return exitCode;
     }
