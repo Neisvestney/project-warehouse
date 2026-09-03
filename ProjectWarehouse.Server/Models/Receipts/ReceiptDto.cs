@@ -16,5 +16,6 @@ public class ReceiptDto
     public string WarehouseName { get; init; } = null!;
     public int TotalPlannedCount { get; init; }
     public int TotalReceivedCount { get; init; }
+    public IReadOnlyList<ReceiptTagDto> Tags { get; init; } = [];
     public IReadOnlyList<ReceiptItemDto> Items { get; init; } = [];
 }

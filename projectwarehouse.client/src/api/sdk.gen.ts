@@ -266,6 +266,9 @@ import type {
   ReceiptsCreateData,
   ReceiptsCreateErrors,
   ReceiptsCreateResponses,
+  ReceiptsCreateTagData,
+  ReceiptsCreateTagErrors,
+  ReceiptsCreateTagResponses,
   ReceiptsDeleteData,
   ReceiptsDeleteErrors,
   ReceiptsDeletePlacementData,
@@ -281,6 +284,9 @@ import type {
   ReceiptsGetByIdData,
   ReceiptsGetByIdErrors,
   ReceiptsGetByIdResponses,
+  ReceiptsGetTagsData,
+  ReceiptsGetTagsErrors,
+  ReceiptsGetTagsResponses,
   ReceiptsPlanData,
   ReceiptsPlanErrors,
   ReceiptsPlanResponses,
@@ -638,8 +644,9 @@ export const catalogGetTags = <ThrowOnError extends boolean = false>(
  * Create a new catalog item tag.
  *
  * Requires `catalog.edit`. Body: `CreateCatalogItemTagRequest` — name (trimmed before saving).
- * Names are not checked for uniqueness, so this endpoint has no error codes of its own beyond 403
- * `permissionDenied` and the generic model-binding 422s (`required`, `tooLong`).
+ * Errors: 422 `validationError` (field `name`) when the trimmed name is empty; 422
+ * `tagNameDuplicate` (field `name`) when another catalog item tag already has this name; 403
+ * `permissionDenied`.
  */
 export const catalogCreateTag = <ThrowOnError extends boolean = false>(
   options: Options<CatalogCreateTagData, ThrowOnError>,
@@ -2336,10 +2343,49 @@ export const realtimeReleaseLock = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * List all receipt tags, optionally filtered by name.
+ *
+ * Query params: `search` (optional). Not paginated — ordered by name.
+ * Requires `receipts.view` or `receipts.view_assigned`. No error codes beyond 403
+ * `permissionDenied`.
+ */
+export const receiptsGetTags = <ThrowOnError extends boolean = false>(
+  options?: Options<ReceiptsGetTagsData, ThrowOnError>,
+): RequestResult<ReceiptsGetTagsResponses, ReceiptsGetTagsErrors, ThrowOnError> =>
+  (options?.client ?? client).get<ReceiptsGetTagsResponses, ReceiptsGetTagsErrors, ThrowOnError>({
+    url: "/api/receipts/tags",
+    ...options,
+  });
+
+/**
+ * Create a new receipt tag.
+ *
+ * Requires `receipts.edit` or `receipts.edit_assigned`. Body: `CreateReceiptTagRequest` —
+ * name (trimmed before saving). Errors: 422 `validationError` (field `name`) when the trimmed
+ * name is empty; 422 `tagNameDuplicate` (field `name`) when another receipt tag already has this
+ * name; 403 `permissionDenied`.
+ */
+export const receiptsCreateTag = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsCreateTagData, ThrowOnError>,
+): RequestResult<ReceiptsCreateTagResponses, ReceiptsCreateTagErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    ReceiptsCreateTagResponses,
+    ReceiptsCreateTagErrors,
+    ThrowOnError
+  >({
+    url: "/api/receipts/tags",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
  * List receipts with pagination, filtering, and search.
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
- * `warehouseId`, `status`, `reason`, `sortBy` (default `Number`),
+ * `warehouseId`, `status`, `reason`, `tagIds`, `sortBy` (default `Number`),
  * `sortOrder` (default `Desc`).
  * Requires `receipts.view` or `receipts.view_assigned`; `receipts.process_assigned` alone
  * also opens the list but narrows it to receipts in `Processing` status. Without any of them, 403

@@ -4,6 +4,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Divider,
   MenuItem,
@@ -42,8 +43,9 @@ import InfoRow from "@/components/InfoRow";
 import WarehouseChip from "@/components/shared/WarehouseChip";
 import ReceiptStatusChip from "@/components/receipts/ReceiptStatusChip";
 import ReceiptItemsSection from "@/components/receipts/ReceiptItemsSection";
+import ReceiptTagsAutocomplete from "@/components/receipts/ReceiptTagsAutocomplete";
 import {RECEIPT_REASON_LABELS, formatReceiptNumber} from "@/components/receipts/receiptUtils";
-import type {ReceiptDto, ReceiptReason} from "@/api/types.gen";
+import type {ReceiptDto, ReceiptReason, ReceiptTagDto} from "@/api/types.gen";
 import {parseDateOnly} from "@/utils/dateOnly";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ScheduleSendIcon from "@mui/icons-material/ScheduleSend";
@@ -60,6 +62,7 @@ interface EditInfoFormValues {
   reason: ReceiptReason;
   notes: string;
   plannedDeliveryDate: string;
+  tags: ReceiptTagDto[];
 }
 
 function EditInfoForm({
@@ -75,6 +78,7 @@ function EditInfoForm({
       reason: receipt.reason,
       notes: receipt.notes ?? "",
       plannedDeliveryDate: receipt.plannedDeliveryDate ?? "",
+      tags: receipt.tags,
     },
   });
   const {setApiError} = useRhfApiErrors(form);
@@ -94,6 +98,7 @@ function EditInfoForm({
         reason: values.reason,
         notes: values.notes || null,
         plannedDeliveryDate: values.plannedDeliveryDate || null,
+        tags: values.tags.map((t) => t.id),
       },
     });
   });
@@ -143,6 +148,17 @@ function EditInfoForm({
           rows={2}
           disabled={mutation.isPending}
           fullWidth
+        />
+        <Controller
+          control={form.control}
+          name="tags"
+          render={({field}) => (
+            <ReceiptTagsAutocomplete
+              value={field.value}
+              onChange={field.onChange}
+              disabled={mutation.isPending}
+            />
+          )}
         />
         {form.formState.errors.root && (
           <Alert severity="error">{form.formState.errors.root.message}</Alert>
@@ -417,6 +433,20 @@ function ReceiptPage() {
                   }
                 />
                 <InfoRow label="Примечания" value={receipt.notes ?? "—"} />
+                <InfoRow
+                  label="Теги"
+                  value={
+                    receipt.tags.length > 0 ? (
+                      <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap"}}>
+                        {receipt.tags.map((tag) => (
+                          <Chip key={tag.id} label={tag.name} size="small" />
+                        ))}
+                      </Stack>
+                    ) : (
+                      "—"
+                    )
+                  }
+                />
                 {isDraft && canEdit && (
                   <Box>
                     <Button

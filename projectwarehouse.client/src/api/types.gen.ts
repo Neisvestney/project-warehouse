@@ -414,6 +414,10 @@ export type CreateReceiptRequest = {
   plannedDeliveryDate?: null | string;
 };
 
+export type CreateReceiptTagRequest = {
+  name: string;
+};
+
 export type CreateStandardPlacementRequest = {
   storagePlaceNodeId: string;
   count: number;
@@ -671,7 +675,8 @@ export type ErrorCode =
   | "inventoryWriteConflict"
   | "marketplaceAutoMapRuleNotFound"
   | "marketplaceAutoMapRuleInvalidRegex"
-  | "invalidValue";
+  | "invalidValue"
+  | "tagNameDuplicate";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -1522,6 +1527,7 @@ export type ReceiptDto = {
   warehouseName: string;
   totalPlannedCount: number;
   totalReceivedCount: number;
+  tags: Array<ReceiptTagDto>;
   items: Array<ReceiptItemDto>;
 };
 
@@ -1579,6 +1585,12 @@ export type ReceiptSummaryDto = {
   totalReceivedCount: number;
   createdAt: string;
   plannedDeliveryDate?: null | string;
+  tags: Array<ReceiptTagDto>;
+};
+
+export type ReceiptTagDto = {
+  id: string;
+  name: string;
 };
 
 export type RefreshRequest = {
@@ -2303,6 +2315,7 @@ export type UpdateReceiptRequest = {
   reason: ReceiptReason;
   notes?: null | string;
   plannedDeliveryDate?: null | string;
+  tags: Array<string>;
 };
 
 export type UpdateReceivedCountRequest = {
@@ -2707,6 +2720,10 @@ export type CatalogCreateTagErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
 };
 
 export type CatalogCreateTagError = CatalogCreateTagErrors[keyof CatalogCreateTagErrors];
@@ -5289,6 +5306,71 @@ export type RealtimeReleaseLockResponses = {
 export type RealtimeReleaseLockResponse =
   RealtimeReleaseLockResponses[keyof RealtimeReleaseLockResponses];
 
+export type ReceiptsGetTagsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    search?: string;
+  };
+  url: "/api/receipts/tags";
+};
+
+export type ReceiptsGetTagsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type ReceiptsGetTagsError = ReceiptsGetTagsErrors[keyof ReceiptsGetTagsErrors];
+
+export type ReceiptsGetTagsResponses = {
+  /**
+   * OK
+   */
+  200: Array<ReceiptTagDto>;
+};
+
+export type ReceiptsGetTagsResponse = ReceiptsGetTagsResponses[keyof ReceiptsGetTagsResponses];
+
+export type ReceiptsCreateTagData = {
+  body: CreateReceiptTagRequest;
+  path?: never;
+  query?: never;
+  url: "/api/receipts/tags";
+};
+
+export type ReceiptsCreateTagErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsCreateTagError = ReceiptsCreateTagErrors[keyof ReceiptsCreateTagErrors];
+
+export type ReceiptsCreateTagResponses = {
+  /**
+   * Created
+   */
+  201: ReceiptTagDto;
+};
+
+export type ReceiptsCreateTagResponse =
+  ReceiptsCreateTagResponses[keyof ReceiptsCreateTagResponses];
+
 export type ReceiptsGetAllData = {
   body?: never;
   path?: never;
@@ -5299,6 +5381,7 @@ export type ReceiptsGetAllData = {
     warehouseId?: string;
     status?: ReceiptStatus;
     reason?: ReceiptReason;
+    tagIds?: Array<string>;
     sortBy?: ReceiptSortBy;
     sortOrder?: SortOrder;
   };

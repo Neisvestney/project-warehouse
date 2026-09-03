@@ -28,8 +28,10 @@ public class ApplicationDbContext : IdentityDbContext<
 
     public DbSet<DataFile> DataFiles => Set<DataFile>();
 
+    public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<CatalogItem> CatalogItems => Set<CatalogItem>();
     public DbSet<CatalogItemTag> CatalogItemTags => Set<CatalogItemTag>();
+    public DbSet<ReceiptTag> ReceiptTags => Set<ReceiptTag>();
     public DbSet<CatalogItemImage> CatalogItemImages => Set<CatalogItemImage>();
     public DbSet<CatalogItemVariationMember> CatalogItemVariationMembers => Set<CatalogItemVariationMember>();
     public DbSet<BundleComponent> BundleComponents => Set<BundleComponent>();
@@ -113,6 +115,17 @@ public class ApplicationDbContext : IdentityDbContext<
                 .WithMany()
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<Tag>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasDiscriminator<string>("TagType")
+                .HasValue<CatalogItemTag>("CatalogItem")
+                .HasValue<ReceiptTag>("Receipt");
+
+            // Scoped by TagType: CatalogItemTag and ReceiptTag are separate name pools.
+            e.HasIndex("TagType", nameof(Tag.Name)).IsUnique();
         });
 
         builder.Entity<CatalogItem>(e =>
@@ -327,6 +340,10 @@ public class ApplicationDbContext : IdentityDbContext<
                 .WithMany()
                 .HasForeignKey(x => x.CreatedById)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasMany(x => x.Tags)
+                .WithMany(x => x.Receipts)
+                .UsingEntity("ReceiptTagLinks");
         });
 
         builder.Entity<ReceiptItem>(e =>

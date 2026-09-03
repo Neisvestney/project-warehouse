@@ -34,6 +34,7 @@ public class ReceiptsController(
     {
         var q = db.Receipts
             .Include(r => r.Warehouse)
+            .Include(r => r.Tags)
             .AsQueryable();
 
         if (includeItems)
@@ -60,12 +61,77 @@ public class ReceiptsController(
         return (true, assignedIds);
     }
 
+    // ── GET/POST tags ─────────────────────────────────────────────────────────
+
+    /// <summary>List all receipt tags, optionally filtered by name.</summary>
+    /// <remarks>
+    /// Query params: <c>search</c> (optional). Not paginated — ordered by name.
+    /// Requires <c>receipts.view</c> or <c>receipts.view_assigned</c>. No error codes beyond 403
+    /// <c>permissionDenied</c>.
+    /// </remarks>
+    [HttpGet("tags")]
+    [Authorize]
+    [ProducesResponseType<IReadOnlyList<ReceiptTagDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTags([FromQuery] string? search = null, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
+
+        var tags = await db.ReceiptTags
+            .WhereMatchesSearch(t => t.SearchString, search)
+            .OrderBy(t => t.Name)
+            .Select(t => new ReceiptTagDto { Id = t.Id, Name = t.Name })
+            .ToListAsync(ct);
+
+        return Ok(tags);
+    }
+
+    /// <summary>Create a new receipt tag.</summary>
+    /// <remarks>
+    /// Requires <c>receipts.edit</c> or <c>receipts.edit_assigned</c>. Body: <c>CreateReceiptTagRequest</c> —
+    /// name (trimmed before saving). Errors: 422 <c>validationError</c> (field <c>name</c>) when the trimmed
+    /// name is empty; 422 <c>tagNameDuplicate</c> (field <c>name</c>) when another receipt tag already has this
+    /// name; 403 <c>permissionDenied</c>.
+    /// </remarks>
+    [HttpPost("tags")]
+    [Authorize]
+    [ProducesResponseType<ReceiptTagDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> CreateTag([FromBody] CreateReceiptTagRequest request, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
+
+        var name = request.Name.Trim();
+        if (name.Length == 0)
+            return UnprocessableEntity("name", ErrorCode.ValidationError, "Tag name cannot be blank.");
+
+        var duplicate = await db.ReceiptTags.AnyAsync(t => t.Name == name, ct);
+        if (duplicate)
+            return UnprocessableEntity("name", ErrorCode.TagNameDuplicate, $"A tag named '{name}' already exists.");
+
+        var tag = new ReceiptTag { Id = Guid.NewGuid(), Name = name };
+        db.ReceiptTags.Add(tag);
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException e) when (UniqueViolations.IsTagName(e))
+        {
+            return UnprocessableEntity("name", ErrorCode.TagNameDuplicate, $"A tag named '{name}' already exists.");
+        }
+
+        var dto = new ReceiptTagDto { Id = tag.Id, Name = tag.Name };
+        return Created($"/api/receipts/tags/{tag.Id}", dto);
+    }
+
     // ── GET list ──────────────────────────────────────────────────────────────
 
     /// <summary>List receipts with pagination, filtering, and search.</summary>
     /// <remarks>
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
-    /// <c>warehouseId</c>, <c>status</c>, <c>reason</c>, <c>sortBy</c> (default <c>Number</c>),
+    /// <c>warehouseId</c>, <c>status</c>, <c>reason</c>, <c>tagIds</c>, <c>sortBy</c> (default <c>Number</c>),
     /// <c>sortOrder</c> (default <c>Desc</c>).
     /// Requires <c>receipts.view</c> or <c>receipts.view_assigned</c>; <c>receipts.process_assigned</c> alone
     /// also opens the list but narrows it to receipts in <c>Processing</c> status. Without any of them, 403
@@ -82,6 +148,7 @@ public class ReceiptsController(
         [FromQuery] Guid? warehouseId = null,
         [FromQuery] ReceiptStatus? status = null,
         [FromQuery] ReceiptReason? reason = null,
+        [FromQuery] IReadOnlyList<Guid>? tagIds = null,
         [FromQuery] ReceiptSortBy sortBy = ReceiptSortBy.Number,
         [FromQuery] SortOrder sortOrder = SortOrder.Desc,
         CancellationToken ct = default)
@@ -94,9 +161,11 @@ public class ReceiptsController(
         var baseQuery = accessible
             .Include(r => r.Warehouse)
             .Include(r => r.Items)
+            .Include(r => r.Tags)
             .Where(r => warehouseId == null || r.WarehouseId == warehouseId)
             .Where(r => status == null || r.Status == status)
             .Where(r => reason == null || r.Reason == reason)
+            .Where(r => tagIds == null || tagIds.Count == 0 || r.Tags.Any(t => tagIds.Contains(t.Id)))
             .WhereMatchesSearch(r => r.SearchString, searchString);
 
         var query = sortBy switch
@@ -224,6 +293,11 @@ public class ReceiptsController(
         receipt.Reason              = request.Reason;
         receipt.Notes               = request.Notes;
         receipt.PlannedDeliveryDate = request.PlannedDeliveryDate;
+
+        var newTags = await db.ReceiptTags.Where(t => request.Tags.Contains(t.Id)).ToListAsync(ct);
+        receipt.Tags.Clear();
+        foreach (var tag in newTags)
+            receipt.Tags.Add(tag);
 
         await db.SaveChangesAsync(ct);
 

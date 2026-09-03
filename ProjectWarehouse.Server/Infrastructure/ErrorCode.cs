@@ -170,4 +170,7 @@ public enum ErrorCode
 
     // Concurrency
     InventoryWriteConflict = 133,
+
+    // Tags
+    TagNameDuplicate = 136,
 }
