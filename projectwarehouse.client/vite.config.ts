@@ -47,7 +47,8 @@ if (!fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
 // Stamped into every span and log record as service.version. package.json stays at 0.0.0, so the
 // commit is the only value that actually identifies a build.
 const appVersion =
-  process.env.VITE_APP_VERSION ??
+  // Empty counts as unset: the Dockerfile always defines the variable, release tag or not.
+  (process.env.VITE_APP_VERSION === "" ? undefined : process.env.VITE_APP_VERSION) ??
   (() => {
     try {
       return child_process.execSync("git rev-parse --short HEAD").toString().trim();

@@ -1,0 +1,81 @@
+{
+  // Absolute path to another ops.json — typically a private repo holding hosts, keys and credentials.
+  // Includes load first; entries defined here replace same-named entries whole, field by field is not merged.
+  "includeConfig": null,
+
+  // Path values may use {currentConfigDir} — the directory of the file the value is written in —
+  // and {projectDir}, the code repository (--project, or the nearest .git ancestor of the cwd).
+  "local": {
+    "backupsDir": "{currentConfigDir}/backups",
+    "telemetryArchiveDir": "{projectDir}/telemetry-archive"
+  },
+
+  "registries": {
+    "harbor": {
+      "url": "https://registry.example.com",
+      "project": "project-warehouse",
+      // harbor | dockerV2 — how the tag list is read
+      "api": "harbor",
+      // docker (config.json + credential helper) | inline | prompt
+      "credentials": "docker",
+      "username": null,
+      "password": null
+    }
+  },
+
+  "services": {
+    "server": {
+      "dockerfile": "ProjectWarehouse.Server/Dockerfile",
+      "context": ".",
+      "image": "projectwarehouse.server",
+      "composeService": "projectwarehouse.server",
+      "tagVariable": "SERVER_IMAGE_TAG"
+    }
+  },
+
+  "targets": {
+    "prod": {
+      "kind": "ssh",
+      // Colors the target red everywhere and gates destructive actions behind a typed confirmation.
+      "danger": true,
+      "ssh": {
+        "host": "prod.example.com",
+        "port": 22,
+        "user": "deploy",
+        "keyPath": "~/.ssh/id_ed25519",
+        "passphrase": null
+      },
+      "repoDir": "/opt/project-warehouse",
+      "gitPull": true,
+      "composeFile": "docker-compose.prod.yml",
+      "envFile": ".env",
+      // Written on every deploy as "<registry host>/<registry project>".
+      "registryVariable": "REGISTRY_HOST",
+      "pullsFrom": "harbor",
+      "services": ["server"],
+      // Logical name -> volume name as written in the compose file.
+      "volumes": {
+        "datafiles": "datafiles_storage",
+        "keys": "dataprotection_keys",
+        "telemetry": "telemetry_data"
+      },
+      "postgres": {
+        "service": "postgres",
+        "user": "postgres",
+        "database": "projectwarehouse"
+      }
+    },
+
+    "local": {
+      "kind": "local",
+      "danger": false,
+      "composeFile": "docker-compose.yml",
+      "services": ["server"],
+      "postgres": {
+        "service": "postgres",
+        "user": "postgres",
+        "database": "projectwarehouse"
+      }
+    }
+  }
+}

@@ -24,6 +24,10 @@ COPY --from=node:25-bookworm-slim /usr/local/lib/node_modules /usr/local/lib/nod
 RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 ARG BUILD_CONFIGURATION=Release
+# Release tag, stamped into service.version on both halves of the telemetry. Empty falls back
+# to the git hash on the client and to the csproj version on the server.
+ARG APP_VERSION=
+ENV VITE_APP_VERSION=${APP_VERSION}
 WORKDIR /src
 COPY ["ProjectWarehouse.Server/ProjectWarehouse.Server.csproj", "ProjectWarehouse.Server/"]
 COPY ["projectwarehouse.client/projectwarehouse.client.esproj", "projectwarehouse.client/"]
@@ -41,7 +45,8 @@ WORKDIR "/src/ProjectWarehouse.Server"
 RUN mkdir -p ~/.aspnet/https
 RUN --mount=type=cache,target=/root/.nuget/packages \
     dotnet publish "./ProjectWarehouse.Server.csproj" -c $BUILD_CONFIGURATION --no-restore \
-    -o /app/publish /p:UseAppHost=false
+    -o /app/publish /p:UseAppHost=false \
+    ${APP_VERSION:+/p:Version=$APP_VERSION}
 
 FROM base AS final
 WORKDIR /app

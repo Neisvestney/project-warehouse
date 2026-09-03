@@ -101,3 +101,5 @@ publish
 keys/
 .localdata/
 backups/
+# ops tool: real config lives in a private repo, only ops.example.json is committed
+tools/ProjectWarehouse.Ops/ops.json

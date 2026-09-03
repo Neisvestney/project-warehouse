@@ -93,7 +93,12 @@ try
         ? new Uri(observability.OtlpHttpEndpoint.TrimEnd('/') + "/")
         : null;
 
-    var serviceVersion = typeof(Program).Assembly.GetName().Version?.ToString();
+    // Informational version, not AssemblyVersion: the latter is padded to four parts and would
+    // report 0.1.8.0 for the image tagged 0.1.8. The +sourceRevision suffix is trimmed off.
+    var serviceVersion = typeof(Program).Assembly
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+        ?.InformationalVersion.Split('+')[0]
+        ?? typeof(Program).Assembly.GetName().Version?.ToString();
     // Aspire keys a resource by name plus instance id, so logs and traces have to carry the same
     // pair or the app appears twice and the two views cannot be filtered to each other.
     var serviceInstanceId = Guid.NewGuid().ToString();
