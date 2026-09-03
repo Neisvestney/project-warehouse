@@ -80,7 +80,13 @@ public sealed class BackupCommand : AsyncCommand<BackupSettings>
                         cancellationToken);
                 });
 
-            AnsiConsole.MarkupLineInterpolated($"\n[green]saved[/] {directory}");
+            var total = Directory
+                .EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+                .Sum(file => new FileInfo(file).Length);
+
+            AnsiConsole.MarkupLineInterpolated(
+                $"\n[green]saved[/] {directory} [grey]({ByteSize.Format(total)})[/]");
+
             return directory;
         }
         catch (Exception ex) when (ex is BackupException or CommandHostException)

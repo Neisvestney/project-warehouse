@@ -27,6 +27,36 @@ a pointer:
 defined by the including file replace same-named entries **whole** — an override of
 `targets.prod` repeats every field it needs, not only the one it changes.
 
+Each config in the chain is also checked for an `ops.local.json` beside it, applied right after
+it. That is where a value belonging to one machine rather than to the team goes.
+
+### overrides
+
+The one section that patches instead of replacing:
+
+```json
+{
+  "overrides": {
+    "targets": {
+      "prod": {
+        "ssh": {
+          "keyPath": "~/.ssh/id_ed25519",
+          "passphrase": null
+        }
+      }
+    }
+  }
+}
+```
+
+The fields written here are applied onto the matching target and everything left out keeps the
+value it already had. That is what makes two lines enough: writing the same target under `targets`
+would replace it whole and drop its host, volumes and postgres section along with it.
+
+It covers `ssh` (host, port, user, keyPath, passphrase) and `repoDir`, takes the same path
+variables as everywhere else — `{currentConfigDir}` being the directory of the file the override
+is written in — and naming a target that does not exist fails the load rather than being ignored.
+
 Unknown fields fail the load. A typo like `dagner` instead of `danger` would otherwise leave a
 production target unmarked and unguarded, and no amount of validation downstream would notice.
 
@@ -158,6 +188,10 @@ Each part is streamed straight into a local file, so nothing is staged on the ta
 database through `pg_dump -F c`, a volume through a throwaway `busybox` container running
 `tar -cf -`. Output lands in `local.backupsDir/<target>-<timestamp>/` next to a `manifest.json`
 naming the parts, their sizes and the versions that were deployed.
+
+The telemetry volume is not part of a backup, even when the target declares it: `pwops telemetry`
+fetches it with an age filter and unpacks it for the replay stack, and a rotated archive of that
+size in every backup would cost more than the data is worth restoring.
 
 Volume names are matched by suffix. Compose prefixes a volume with its project name, and the
 project name depends on where the compose file lives — matching `_<name>` avoids reproducing that
