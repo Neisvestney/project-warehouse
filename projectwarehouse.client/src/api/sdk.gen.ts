@@ -2816,8 +2816,8 @@ export const rolesGetById = <ThrowOnError extends boolean = false>(
  * server's; the applied zone comes back as `timeZoneId`. Defaults to the last 30 days; the range
  * may not exceed 366 days.
  * Query params come from `StockMovementFilterRequest`: `from`, `to`, `warehouseId`,
- * `storagePlaceId`, `nodeId`, `userId`, `catalogItemIds`, `actions`,
- * `directions`.
+ * `storagePlaceId`, `nodeId`, `userId`, `catalogItemIds`, `receiptTagIds`,
+ * `actions`, `directions`.
  * Requires `statistics.view` or `statistics.view_assigned` — either one grants access and the
  * warehouses the rows come from are narrowed afterwards; 403 `permissionDenied` when neither is held.
  * Returns 422 `outOfRange` on `from` when `from` is later than `to` or the range

@@ -19,8 +19,8 @@ public class StatisticsController(IStockStatisticsService statistics) : AppContr
     /// server's; the applied zone comes back as <c>timeZoneId</c>. Defaults to the last 30 days; the range
     /// may not exceed 366 days.
     /// Query params come from <c>StockMovementFilterRequest</c>: <c>from</c>, <c>to</c>, <c>warehouseId</c>,
-    /// <c>storagePlaceId</c>, <c>nodeId</c>, <c>userId</c>, <c>catalogItemIds</c>, <c>actions</c>,
-    /// <c>directions</c>.
+    /// <c>storagePlaceId</c>, <c>nodeId</c>, <c>userId</c>, <c>catalogItemIds</c>, <c>receiptTagIds</c>,
+    /// <c>actions</c>, <c>directions</c>.
     /// Requires <c>statistics.view</c> or <c>statistics.view_assigned</c> — either one grants access and the
     /// warehouses the rows come from are narrowed afterwards; 403 <c>permissionDenied</c> when neither is held.
     /// Returns 422 <c>outOfRange</c> on <c>from</c> when <c>from</c> is later than <c>to</c> or the range

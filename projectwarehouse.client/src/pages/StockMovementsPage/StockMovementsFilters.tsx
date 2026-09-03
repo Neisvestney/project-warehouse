@@ -20,6 +20,7 @@ import {
 import type {CatalogItemSelectDto} from "@/api/types.gen";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
 import FiltersBar from "@/components/FiltersBar";
+import ReceiptTagsFilter from "@/components/receipts/ReceiptTagsFilter";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import {buildNodePath, formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {useHasPermission} from "@/hooks/usePermission";
@@ -45,10 +46,12 @@ function StockMovementsFilters({
   setStoragePlaceId,
   setNodeId,
   setUserId,
+  setReceiptTagIds,
   setActions,
   setDirections,
 }: StockMovementsFiltersProps) {
   const canViewUsers = useHasPermission("users.view");
+  const canViewReceipts = useHasPermission(["receipts.view", "receipts.view_assigned"]);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
 
   const {data: warehouses} = useQuery(warehousesGetAllOptions({query: {pageSize: 200}}));
@@ -223,6 +226,15 @@ function StockMovementsFilters({
       {/*    ))}*/}
       {/*  </Select>*/}
       {/*</FormControl>*/}
+
+      {canViewReceipts && (
+        <ReceiptTagsFilter
+          value={filter.receiptTagIds}
+          onChange={setReceiptTagIds}
+          label="Теги приёмки"
+          sx={{minWidth: 220}}
+        />
+      )}
 
       <FormControl size="small" sx={{minWidth: 180}}>
         <InputLabel>Операция</InputLabel>

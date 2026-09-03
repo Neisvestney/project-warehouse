@@ -6202,6 +6202,11 @@ export type StatisticsGetDailyData = {
      */
     CatalogItemIds?: Array<string>;
     /**
+     * Receipt tags to keep — a row matches when its receipt carries any of them. Empty means all.
+     * Movements made outside a receipt never match, so a non-empty value also drops them.
+     */
+    ReceiptTagIds?: Array<string>;
+    /**
      * Action constants to keep (`receipt.placement_added`, `transfer.standard`, …). Empty means all.
      */
     Actions?: Array<string>;
@@ -6262,6 +6267,11 @@ export type StatisticsGetPivotData = {
      * Catalog items to keep. Empty means all — in the pivot that also means the columns are picked by volume.
      */
     CatalogItemIds?: Array<string>;
+    /**
+     * Receipt tags to keep — a row matches when its receipt carries any of them. Empty means all.
+     * Movements made outside a receipt never match, so a non-empty value also drops them.
+     */
+    ReceiptTagIds?: Array<string>;
     /**
      * Action constants to keep (`receipt.placement_added`, `transfer.standard`, …). Empty means all.
      */
@@ -6324,6 +6334,11 @@ export type StatisticsGetBreakdownData = {
      * Catalog items to keep. Empty means all — in the pivot that also means the columns are picked by volume.
      */
     CatalogItemIds?: Array<string>;
+    /**
+     * Receipt tags to keep — a row matches when its receipt carries any of them. Empty means all.
+     * Movements made outside a receipt never match, so a non-empty value also drops them.
+     */
+    ReceiptTagIds?: Array<string>;
     /**
      * Action constants to keep (`receipt.placement_added`, `transfer.standard`, …). Empty means all.
      */
@@ -6388,6 +6403,11 @@ export type StatisticsGetMovementsData = {
      * Catalog items to keep. Empty means all — in the pivot that also means the columns are picked by volume.
      */
     CatalogItemIds?: Array<string>;
+    /**
+     * Receipt tags to keep — a row matches when its receipt carries any of them. Empty means all.
+     * Movements made outside a receipt never match, so a non-empty value also drops them.
+     */
+    ReceiptTagIds?: Array<string>;
     /**
      * Action constants to keep (`receipt.placement_added`, `transfer.standard`, …). Empty means all.
      */

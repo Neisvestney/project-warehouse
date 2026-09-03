@@ -17,6 +17,7 @@ public interface IInventoryService
         Guid catalogItemId,
         int count,
         string action = InventoryActions.UnknownAction,
+        StockMovementContext? context = null,
         CancellationToken ct = default);
 
     /// <summary>
@@ -28,6 +29,7 @@ public interface IInventoryService
         Guid catalogItemId,
         int count,
         string action = InventoryActions.UnknownAction,
+        StockMovementContext? context = null,
         CancellationToken ct = default);
 
     // ── Unit items (serialised, one per physical unit) ───────────────────────
@@ -53,6 +55,7 @@ public interface IInventoryService
         Guid catalogItemId,
         string inventoryNumber,
         string action = InventoryActions.UnknownAction,
+        StockMovementContext? context = null,
         CancellationToken ct = default);
 
     /// <summary>
@@ -64,6 +67,7 @@ public interface IInventoryService
         Guid unitItemId,
         Guid expectedNodeId,
         string action = InventoryActions.UnknownAction,
+        StockMovementContext? context = null,
         CancellationToken ct = default);
 
     /// <summary>
@@ -76,6 +80,7 @@ public interface IInventoryService
         Guid unitItemId,
         Guid expectedNodeId,
         string action = InventoryActions.UnknownAction,
+        StockMovementContext? context = null,
         CancellationToken ct = default);
 
     /// <summary>
@@ -86,6 +91,7 @@ public interface IInventoryService
         Guid unitItemId,
         Guid nodeId,
         string action = InventoryActions.UnknownAction,
+        StockMovementContext? context = null,
         CancellationToken ct = default);
 
     // ── Movement ─────────────────────────────────────────────────────────────
@@ -96,12 +102,14 @@ public interface IInventoryService
         Guid catalogItemId,
         int count,
         string action = InventoryActions.MoveStock,
+        StockMovementContext? context = null,
         CancellationToken ct = default);
 
     Task MoveUnitItemAsync(
         Guid unitItemId,
         Guid toNodeId,
         string action = InventoryActions.MoveStock,
+        StockMovementContext? context = null,
         CancellationToken ct = default);
 
     // ── Reads ────────────────────────────────────────────────────────────────

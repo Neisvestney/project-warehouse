@@ -463,7 +463,7 @@ the cell-is-authoritative rule is destructive by omission and must never be appl
 
 Pivot table of stock movements at `/storage/stock-movements`. Filter state lives in URL params via
 `useStockMovementsFilters` (`?items=` comma-separated catalog item ids, `?from=`, `?to=`, `?warehouse=`,
-`?place=`, `?node=`, `?user=`, `?actions=`, `?transfers=`); ids are resolved back into DTOs by
+`?place=`, `?node=`, `?user=`, `?receiptTags=`, `?actions=`, `?transfers=`); ids are resolved back into DTOs by
 `useCatalogItemsByIds`.
 
 **Catalog item selector** — `CatalogItemsSelect` restricted to `STOCK_MOVEMENT_ITEM_TYPES` (`standard` + `unit`;
@@ -474,6 +474,12 @@ the clear icon is disabled.
 queries `GET /api/catalog/for-select` with `tagIds` + `types` + `take=200`, previews the match count and appends
 the found ids to the current selection (duplicates skipped). It's a one-shot action — the tag itself is not
 persisted in the URL. A warning is shown when the result hits the 200-item cap.
+
+**«Теги приёмки» filter** — `ReceiptTagsFilter` over `receiptTagIds`: a row is kept when the receipt it came
+from carries any of the picked tags, so a non-empty selection also drops every movement made outside a receipt.
+The tag list comes from `GET /api/receipts/tags`, which needs `receipts.view` or `receipts.view_assigned` —
+the filter is rendered only for a user holding one of them, the way the employee filter is gated on
+`users.view`.
 
 The applied time zone sits in the tooltip of an `InfoOutlinedIcon` beside the page title («Сутки считаются по
 часовому поясу Europe/Moscow»). It comes from `timeZoneId` on the pivot response and is not necessarily the

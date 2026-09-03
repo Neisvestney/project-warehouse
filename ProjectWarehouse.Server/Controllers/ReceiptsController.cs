@@ -588,6 +588,7 @@ public class ReceiptsController(
                 catalogItemId,
                 request.Count,
                 action: action,
+                context: new StockMovementContext(id),
                 ct: ct);
 
             db.ReceiptItemPlacements.Add(new ReceiptItemPlacement
@@ -693,6 +694,7 @@ public class ReceiptsController(
                         item.CatalogItemId,
                         req.Count,
                         action: action,
+                        context: new StockMovementContext(id),
                         ct: ct);
 
                     db.ReceiptItemPlacements.Add(new ReceiptItemPlacement
@@ -774,6 +776,7 @@ public class ReceiptsController(
                         catalogItemId,
                         request.UnitItem.InventoryNumber,
                         action: action,
+                        context: new StockMovementContext(id),
                         ct: ct);
                 }
                 catch (DbUpdateException e) when (UniqueViolations.IsUnitInventoryNumber(e))
@@ -865,6 +868,7 @@ public class ReceiptsController(
                         placement.UnitInventoryItemId.Value,
                         placement.StoragePlaceNodeId,
                         action: InventoryActions.CancelledPlacement,
+                        context: new StockMovementContext(id),
                         ct: ct);
                 else if (placement.Count > 0)
                     await inventory.RemoveStandardItemsFromNodeAsync(
@@ -872,6 +876,7 @@ public class ReceiptsController(
                         itemEntity.CatalogItemId,
                         placement.Count,
                         action: InventoryActions.CancelledPlacement,
+                        context: new StockMovementContext(id),
                         ct: ct);
 
                 db.ReceiptItemPlacements.Remove(placement);

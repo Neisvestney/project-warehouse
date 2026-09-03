@@ -271,6 +271,11 @@ public class ApplicationDbContext : IdentityDbContext<
                 .WithMany()
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.Receipt)
+                .WithMany()
+                .HasForeignKey(x => x.ReceiptId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         builder.Entity<InventoryItem>(e =>
