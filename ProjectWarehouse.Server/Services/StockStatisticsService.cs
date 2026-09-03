@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Microsoft.EntityFrameworkCore;
@@ -78,6 +78,8 @@ public class StockStatisticsService(
         CancellationToken ct = default)
     {
         var (query, from, to, offsetMinutes, timeZoneId) = await BuildAsync(user, filter, ct);
+        var fromUtc = DateTime.SpecifyKind(
+            from.ToDateTime(TimeOnly.MinValue) - TimeSpan.FromMinutes(offsetMinutes), DateTimeKind.Utc);
         var toUtc = DateTime.SpecifyKind(
             to.AddDays(1).ToDateTime(TimeOnly.MinValue) - TimeSpan.FromMinutes(offsetMinutes), DateTimeKind.Utc);
 
@@ -163,8 +165,10 @@ public class StockStatisticsService(
         // Row totals cover every item the filter matched, not only the items that made it into a column
         var totalsByDate = await GroupByDayAsync(query, offsetMinutes, ct);
 
-        // Balance ignores Action/Direction/User — those only narrow what's *displayed*, but every
-        // movement, shown or not, moved real stock and has to count toward what's on the shelf.
+        // Balance ignores the display filters (Action/Direction/User/receipt tag) — those only narrow what's
+        // *shown*, but every movement, shown or not, moved real stock and has to count toward what's on the
+        // shelf. Both the per-item and the total balance walk back over this scope, never over `query`:
+        // seeding the walk from unfiltered stock and stepping it with filtered days drifts them apart.
         var stockScope = await BuildStockScopeAsync(user, filter, ct);
         var tailQuery = stockScope.Where(m => m.CreatedAt >= toUtc);
 
@@ -186,7 +190,21 @@ public class StockStatisticsService(
         var stockScopeCellsByDate = stockScopeCells
             .GroupBy(c => DateOnly.FromDateTime(c.Date))
             .ToDictionary(g => g.Key, g => g.ToList());
-        
+
+        // Same scope as the per-item walk, but over every item the filter covers rather than the columns —
+        // that is what `currentStockTotal` counts, so the two have to agree.
+        var stockScopeNetByDate = await stockScope
+            .Where(m => m.CreatedAt >= fromUtc && m.CreatedAt < toUtc)
+            .GroupBy(m => m.CreatedAt.AddMinutes(offsetMinutes).Date)
+            .Select(g => new
+            {
+                g.Key,
+                Net = g.Sum(m => m.Direction == StockMovementDirection.In || m.Direction == StockMovementDirection.TransferIn
+                    ? m.Quantity
+                    : -m.Quantity),
+            })
+            .ToDictionaryAsync(x => DateOnly.FromDateTime(x.Key), x => x.Net, ct);
+
         var tailNetByItem = await tailQuery
             .Where(m => columnIds.Contains(m.CatalogItemId))
             .GroupBy(m => m.CatalogItemId)
@@ -225,8 +243,7 @@ public class StockStatisticsService(
 
             foreach (var c in stockScopeCellsByDate.GetValueOrDefault(day) ?? [])
                 runningItemSuffix[c.CatalogItemId] = runningItemSuffix.GetValueOrDefault(c.CatalogItemId) + c.Net;
-            if (totalsByDate.TryGetValue(day, out var dayTotal))
-                runningTotalSuffix += dayTotal.Net;
+            runningTotalSuffix += stockScopeNetByDate.GetValueOrDefault(day);
         }
 
         var rows = days
