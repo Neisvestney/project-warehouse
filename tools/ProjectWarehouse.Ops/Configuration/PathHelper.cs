@@ -7,7 +7,10 @@ public static class PathHelper
         if (path.StartsWith('~'))
         {
             var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            return Path.Combine(home, path[1..].TrimStart('/', '\\'));
+
+            // Normalized: a `~/.ssh/key` written the POSIX way would otherwise come back with both
+            // separators in it and show up that way in every message.
+            return Path.GetFullPath(Path.Combine(home, path[1..].TrimStart('/', '\\')));
         }
 
         return path;
