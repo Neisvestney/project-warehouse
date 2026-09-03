@@ -167,7 +167,7 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseSettings>
                 .ToList();
     }
 
-    private static List<ReleaseItem> BuildPlan(
+    internal static List<ReleaseItem> BuildPlan(
         IReadOnlyList<ReleaseCandidate> candidates, ReleaseSettings settings, VersionBump? bump)
     {
         var items = new List<ReleaseItem>();
@@ -229,7 +229,7 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseSettings>
         return exactVersion;
     }
 
-    private static void RenderPlan(
+    internal static void RenderPlan(
         RegistryConfig registry, IReadOnlyList<ReleaseCandidate> candidates, IReadOnlyList<ReleaseItem> items)
     {
         var current = candidates.ToDictionary(candidate => candidate.ServiceName);
@@ -272,7 +272,7 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseSettings>
         });
     }
 
-    private static async Task<int> RunAsync(
+    internal static async Task<int> RunAsync(
         ReleaseService service, IReadOnlyList<ReleaseItem> items, CancellationToken cancellationToken)
     {
         try
@@ -308,7 +308,7 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseSettings>
             .TakeLast(count)
             .Select(line => line.TrimEnd('\r'));
 
-    private static VersionBump? ParseBump(string? value) => value?.ToLowerInvariant() switch
+    internal static VersionBump? ParseBump(string? value) => value?.ToLowerInvariant() switch
     {
         "patch" => VersionBump.Patch,
         "minor" => VersionBump.Minor,

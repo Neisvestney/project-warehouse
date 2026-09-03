@@ -20,7 +20,10 @@ static CommandApp<MenuCommand> CreateApp()
         config.AddCommand<ReleaseCommand>("release")
             .WithDescription("Build images and push them to the registry.");
 
-        config.AddCommand<DeployCommand>("deploy")
+        config.AddCommand<ShipCommand>("ship")
+        .WithDescription("Release, then deploy the versions just built.");
+
+    config.AddCommand<DeployCommand>("deploy")
             .WithDescription("Roll versions out to a target.");
 
         config.AddCommand<BackupCommand>("backup")

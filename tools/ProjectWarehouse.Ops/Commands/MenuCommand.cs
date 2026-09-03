@@ -14,6 +14,7 @@ public sealed class MenuCommand : AsyncCommand<OpsSettings>
     [
         ("release", "Release", "build images and push them to the registry"),
         ("deploy", "Deploy", "roll versions out to a target"),
+        ("ship", "Ship", "release, then deploy what was just built"),
         ("status", "Status", "what is deployed and running on a target"),
         ("backup", "Backup", "download the database, keys and data files"),
         ("restore", "Restore", "restore a target from a local backup"),
