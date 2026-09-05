@@ -18,8 +18,7 @@ public sealed class RestoreService(TargetContext target)
         BackupManifest manifest,
         IReadOnlyList<string> parts,
         IReadOnlyList<string> appServices,
-        Action<string> onStep,
-        IProgress<long>? progress,
+        IStepReporter reporter,
         CancellationToken cancellationToken)
     {
         var warnings = new List<string>();
@@ -39,15 +38,21 @@ public sealed class RestoreService(TargetContext target)
             // nothing but the time spent on it.
             foreach (var (part, local) in planned)
             {
-                onStep($"uploading {part.File}");
+                using var step = reporter.Begin($"uploading {part.File}", part.Bytes);
                 await target.Host.UploadFileAsync(
-                    local, Remote(staging, part.File), progress, cancellationToken);
+                    local, Remote(staging, part.File), step, cancellationToken);
+
+                step.Complete();
             }
 
-            onStep($"stopping {string.Join(", ", toStop)}");
-            var stop = await _compose.StopAsync(toStop, cancellationToken);
-            if (!stop.Succeeded)
-                throw new BackupException($"compose stop failed: {stop.FailureMessage}");
+            using (var stopping = reporter.Begin($"stopping {string.Join(", ", toStop)}"))
+            {
+                var stop = await _compose.StopAsync(toStop, cancellationToken);
+                if (!stop.Succeeded)
+                    throw new BackupException($"compose stop failed: {stop.FailureMessage}");
+
+                stopping.Complete();
+            }
 
             stopped = true;
 
@@ -55,19 +60,21 @@ public sealed class RestoreService(TargetContext target)
             {
                 if (part.Name == BackupManifest.DatabasePart)
                 {
-                    onStep("pg_restore");
+                    using var step = reporter.Begin("pg_restore");
                     await RestoreDatabaseAsync(staging, part.File, cancellationToken);
+                    step.Complete();
                 }
                 else
                 {
-                    onStep($"volume {part.Name}");
+                    using var step = reporter.Begin($"volume {part.Name}");
                     await _volumes.RestoreAsync(volumes[part.Name], staging, part.File, cancellationToken);
+                    step.Complete();
                 }
             }
         }
         catch (Exception ex) when (ex is BackupException or CommandHostException or OperationCanceledException)
         {
-            await BringUpAsync(stopped, onStep, warnings);
+            await BringUpAsync(stopped, reporter, warnings);
             await CleanStagingAsync(staging, warnings);
 
             return new RestoreOutcome(
@@ -78,7 +85,7 @@ public sealed class RestoreService(TargetContext target)
 
         // The stack has to come back up whichever way the restore ended, so this is not in the
         // success path by accident — it is the same call the failure path makes.
-        await BringUpAsync(stopped, onStep, warnings);
+        await BringUpAsync(stopped, reporter, warnings);
         await CleanStagingAsync(staging, warnings);
 
         return new RestoreOutcome(true, null, warnings);
@@ -171,16 +178,18 @@ public sealed class RestoreService(TargetContext target)
         return [.. services];
     }
 
-    private async Task BringUpAsync(bool stopped, Action<string> onStep, List<string> warnings)
+    private async Task BringUpAsync(bool stopped, IStepReporter reporter, List<string> warnings)
     {
         if (!stopped)
             return;
 
-        onStep("starting services");
+        using var step = reporter.Begin("starting services");
         try
         {
             var up = await _compose.UpAsync(CancellationToken.None);
-            if (!up.Succeeded)
+            if (up.Succeeded)
+                step.Complete();
+            else
                 warnings.Add($"the stack is still down — compose up failed: {up.FailureMessage}");
         }
         catch (CommandHostException ex)

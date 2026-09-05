@@ -51,21 +51,9 @@ public sealed class TelemetryCommand : AsyncCommand<TelemetrySettings>
         TelemetryDownload download;
         try
         {
-            download = await AnsiConsole.Progress()
-                .Columns(new TaskDescriptionColumn(), new DownloadedColumn(), new SpinnerColumn())
-                .StartAsync(async ctx =>
-                {
-                    var task = ctx.AddTask("starting", maxValue: double.MaxValue);
-                    var progress = new Progress<long>(bytes => task.Value = bytes);
-
-                    return await service.DownloadAsync(
-                        destination,
-                        settings.Since,
-                        settings.Clean,
-                        step => task.Description = Markup.Escape(step),
-                        progress,
-                        cancellationToken);
-                });
+            download = await ProgressReporter.RunAsync(
+                reporter => service.DownloadAsync(
+                    destination, settings.Since, settings.Clean, reporter, cancellationToken));
         }
         catch (Exception ex) when (ex is BackupException or CommandHostException)
         {

@@ -95,11 +95,10 @@ public sealed class ShipCommand : AsyncCommand<ShipSettings>
 
         var release = new ReleaseService(registry, registries.Create(registry), docker);
 
-        AnsiConsole.MarkupLineInterpolated(
-            $"\n[grey]registry[/] {registryName} [grey]{registry.ImagePrefix}[/]");
+        Chosen.Show("registry", RegistryPicker.Describe(registryName, registry));
 
-        var candidates = await AnsiConsole.Status()
-            .StartAsync("Reading published tags…", _ => release.SurveyAsync(services, cancellationToken));
+        var candidates = await Working.RunAsync(
+            "Reading published tags", () => release.SurveyAsync(services, cancellationToken));
 
         var items = ReleaseCommand.BuildPlan(
             candidates,
@@ -121,9 +120,9 @@ public sealed class ShipCommand : AsyncCommand<ShipSettings>
         DeployPreflight preflight;
         try
         {
-            preflight = await AnsiConsole.Status().StartAsync(
-                $"Reading {target.Key}…",
-                _ => deployment.PreflightAsync(registry, variables, cancellationToken));
+            preflight = await Working.RunAsync(
+                $"Reading {target.Key}",
+                () => deployment.PreflightAsync(registry, variables, cancellationToken));
         }
         catch (Exception ex) when (ex is DeploymentException or CommandHostException)
         {

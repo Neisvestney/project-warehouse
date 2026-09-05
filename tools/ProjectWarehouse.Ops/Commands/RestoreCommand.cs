@@ -134,7 +134,10 @@ public sealed class RestoreCommand : AsyncCommand<RestoreSettings>
         {
             var path = Path.GetFullPath(requested);
             if (Directory.Exists(path))
+            {
+                Chosen.ShowText("backup", Path.GetFileName(path));
                 return path;
+            }
 
             AnsiConsole.MarkupLineInterpolated($"[red]No such backup directory: {path}[/]");
             return null;
@@ -165,11 +168,14 @@ public sealed class RestoreCommand : AsyncCommand<RestoreSettings>
             return null;
         }
 
-        return AnsiConsole.Prompt(
+        var picked = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("Backup")
                 .AddChoices(candidates)
                 .UseConverter(Path.GetFileName));
+
+        Chosen.ShowText("backup", Path.GetFileName(picked));
+        return picked;
     }
 
     /// The data protection key ring decrypts the marketplace API keys stored in the database.
@@ -231,15 +237,9 @@ public sealed class RestoreCommand : AsyncCommand<RestoreSettings>
         RestoreOutcome outcome;
         try
         {
-            outcome = await AnsiConsole.Status().StartAsync("starting", ctx =>
-                service.ExecuteAsync(
-                    directory,
-                    manifest,
-                    parts,
-                    appServices,
-                    step => ctx.Status(Markup.Escape(step)),
-                    null,
-                    cancellationToken));
+            outcome = await ProgressReporter.RunAsync(
+                reporter => service.ExecuteAsync(
+                    directory, manifest, parts, appServices, reporter, cancellationToken));
         }
         catch (Exception ex) when (ex is BackupException or CommandHostException)
         {

@@ -54,6 +54,30 @@ public sealed class DockerVolumes(TargetContext target)
             progress,
             cancellationToken);
 
+    /// <param name="sinceDays">Same window the archive commands take, or null for the whole volume.</param>
+    /// <returns>
+    /// The bytes the files hold, or null when the size could not be read. A floor rather than the
+    /// tar's size — the archive adds a header per file — and only ever used to draw a bar.
+    /// </returns>
+    public async Task<long?> MeasureAsync(
+        string volume, int? sinceDays, CancellationToken cancellationToken)
+    {
+        var window = sinceDays is { } days ? $" -mtime -{days}" : string.Empty;
+
+        var result = await target.Host.RunAsync(
+            ShellCommand.Of(
+                "docker", "run", "--rm", "-v", $"{volume}:/src:ro", ToolImage,
+                "sh", "-c",
+                $"cd /src && find .{window} -type f -exec stat -c %s {{}} + "
+                    + "| awk '{ total += $1 } END { print total + 0 }'"),
+            cancellationToken);
+
+        if (!result.Succeeded)
+            return null;
+
+        return long.TryParse(result.StdOut.Trim(), out var bytes) && bytes > 0 ? bytes : null;
+    }
+
     /// How many files the same window selects. Asked separately because busybox tar fails outright
     /// on an empty file list, and "nothing was written that day" is an answer, not an error.
     public async Task<int> CountRecentAsync(

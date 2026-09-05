@@ -1,5 +1,6 @@
 using ProjectWarehouse.Ops.Commands;
 using ProjectWarehouse.Ops.Infrastructure;
+using ProjectWarehouse.Ops.Ui;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -48,7 +49,9 @@ MenuCommand.Runner = commandArgs => CreateApp().RunAsync(commandArgs);
 // prompt nobody can answer.
 if (AnsiConsole.Profile.Capabilities.Interactive)
 {
-    SshCommandHost.PassphrasePrompt = (keyPath, attempt) =>
+    // Erased once answered, attempt by attempt: a failed unlock says so on its own, and the key
+    // path has no business staying on screen after the run moved on.
+    SshCommandHost.PassphrasePrompt = (keyPath, attempt) => Transient.Ask(() =>
     {
         if (attempt == 1)
             AnsiConsole.MarkupLineInterpolated($"[grey]{keyPath} is encrypted.[/]");
@@ -57,7 +60,7 @@ if (AnsiConsole.Profile.Capabilities.Interactive)
 
         return AnsiConsole.Prompt(
             new TextPrompt<string>("  passphrase:").Secret().AllowEmpty());
-    };
+    });
 }
 
 return CreateApp().Run(args);

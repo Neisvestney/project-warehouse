@@ -68,8 +68,7 @@ public sealed class BackupService(TargetContext target)
         string backupsRoot,
         IReadOnlyList<string> parts,
         IReadOnlyDictionary<string, string> versions,
-        Action<string> onStep,
-        IProgress<long>? progress,
+        IStepReporter reporter,
         CancellationToken cancellationToken)
     {
         var takenAt = DateTimeOffset.Now;
@@ -87,17 +86,15 @@ public sealed class BackupService(TargetContext target)
             {
                 if (part == BackupManifest.DatabasePart)
                 {
-                    onStep("pg_dump");
-                    written.Add(await DumpDatabaseAsync(directory, progress, cancellationToken));
+                    written.Add(await DumpDatabaseAsync(directory, reporter, cancellationToken));
                     continue;
                 }
 
                 if (!target.Config.Volumes.TryGetValue(part, out var composeVolume))
                     throw new BackupException($"targets.{target.Name} has no volume '{part}'.");
 
-                onStep($"volume {part}");
                 written.Add(await ArchiveVolumeAsync(
-                    directory, part, composeVolume, progress, cancellationToken));
+                    directory, part, composeVolume, reporter, cancellationToken));
             }
 
             await BackupManifest.WriteAsync(
@@ -119,7 +116,7 @@ public sealed class BackupService(TargetContext target)
     }
 
     private async Task<BackupPart> DumpDatabaseAsync(
-        string directory, IProgress<long>? progress, CancellationToken cancellationToken)
+        string directory, IStepReporter reporter, CancellationToken cancellationToken)
     {
         var postgres = target.Config.Postgres
             ?? throw new BackupException($"targets.{target.Name} has no postgres section.");
@@ -133,11 +130,17 @@ public sealed class BackupService(TargetContext target)
             "exec", "-T", postgres.Service,
             "pg_dump", "-U", postgres.User, "-F", "c", "-d", postgres.Database);
 
+        // No size to ask for: the dump is compressed as it is produced, so how large it will be is
+        // only known once it is done.
+        using var step = reporter.Begin("pg_dump");
+
         await StreamAsync(
             path,
-            file => target.Host.RunStreamingAsync(command, file, progress, cancellationToken),
+            file => target.Host.RunStreamingAsync(command, file, step, cancellationToken),
             failure => $"pg_dump failed: {failure}",
             cancellationToken);
+
+        step.Complete();
 
         return new BackupPart(BackupManifest.DatabasePart, fileName, new FileInfo(path).Length);
     }
@@ -189,18 +192,23 @@ public sealed class BackupService(TargetContext target)
         string directory,
         string part,
         string composeVolume,
-        IProgress<long>? progress,
+        IStepReporter reporter,
         CancellationToken cancellationToken)
     {
         var volume = await _volumes.ResolveAsync(composeVolume, cancellationToken);
         var fileName = $"{part}.tar";
         var path = Path.Combine(directory, fileName);
 
+        var total = await _volumes.MeasureAsync(volume, null, cancellationToken);
+        using var step = reporter.Begin($"volume {part}", total);
+
         await StreamAsync(
             path,
-            file => _volumes.ArchiveAsync(volume, file, progress, cancellationToken),
+            file => _volumes.ArchiveAsync(volume, file, step, cancellationToken),
             failure => $"Archiving {volume} failed: {failure}",
             cancellationToken);
+
+        step.Complete();
 
         return new BackupPart(part, fileName, new FileInfo(path).Length);
     }

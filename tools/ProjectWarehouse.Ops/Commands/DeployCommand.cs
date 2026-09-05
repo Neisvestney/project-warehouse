@@ -51,6 +51,8 @@ public sealed class DeployCommand : AsyncCommand<DeploySettings>
         }
 
         var registry = loaded.Config.Registries[registryName];
+        Chosen.Show("registry", RegistryPicker.Describe(registryName, registry));
+
         var requested = ParseSet(settings.Set, target.Value.Services);
         if (requested is null)
             return 1;
@@ -72,9 +74,9 @@ public sealed class DeployCommand : AsyncCommand<DeploySettings>
         DeployPreflight preflight;
         try
         {
-            preflight = await AnsiConsole.Status().StartAsync(
-                $"Reading {target.Key}…",
-                _ => service.PreflightAsync(registry, variables, cancellationToken));
+            preflight = await Working.RunAsync(
+                $"Reading {target.Key}",
+                () => service.PreflightAsync(registry, variables, cancellationToken));
         }
         catch (Exception ex) when (ex is DeploymentException or CommandHostException)
         {
@@ -174,6 +176,7 @@ public sealed class DeployCommand : AsyncCommand<DeploySettings>
         {
             if (requested.TryGetValue(name, out var version))
             {
+                Chosen.ShowText("version", $"{name} {version}");
                 selections.Add(new DeploySelection(name, config, version));
                 continue;
             }
@@ -188,8 +191,8 @@ public sealed class DeployCommand : AsyncCommand<DeploySettings>
             IReadOnlyList<string> tags;
             try
             {
-                tags = await AnsiConsole.Status().StartAsync(
-                    $"Reading tags for {name}…", _ => client.ListTagsAsync(config.Image, cancellationToken));
+                tags = await Working.RunAsync(
+                    $"Reading tags for {name}", () => client.ListTagsAsync(config.Image, cancellationToken));
             }
             catch (Exception ex) when (ex is RegistryException or HttpRequestException)
             {
@@ -219,6 +222,7 @@ public sealed class DeployCommand : AsyncCommand<DeploySettings>
                     .AddChoices(published)
                     .UseConverter(tag => tag == deployed ? $"{tag} [grey](current)[/]" : tag));
 
+            Chosen.ShowText("version", $"{name} {choice}");
             selections.Add(new DeploySelection(name, config, choice));
         }
 

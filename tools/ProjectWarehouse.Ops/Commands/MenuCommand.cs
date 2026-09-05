@@ -39,10 +39,10 @@ public sealed class MenuCommand : AsyncCommand<OpsSettings>
         AnsiConsole.Write(new FigletText("pw ops").Color(Color.Teal));
         ConfigLoading.PrintSource(loaded);
 
-        var targets = loaded.Config.Targets.Select(pair =>
-            $"{TargetPicker.Decorate(pair.Key, pair.Value)} [grey]({pair.Value.Kind.ToString().ToLowerInvariant()})[/]");
+        var targets = loaded.Config.Targets.Select(
+            pair => TargetPicker.Describe(pair.Key, pair.Value));
 
-        AnsiConsole.MarkupLine($"[grey]targets[/] {string.Join("  ", targets)}");
+        Chosen.Show("targets", string.Join("  ", targets));
 
         var globals = new List<string>();
         if (settings.ConfigPath is { } configPath)
@@ -66,6 +66,11 @@ public sealed class MenuCommand : AsyncCommand<OpsSettings>
 
             if (choice.Command == "exit")
                 return 0;
+
+            // Names the run and separates it from the one above: a session is one long scroll,
+            // and two commands' output otherwise runs together.
+            AnsiConsole.Write(
+                new Rule($"[grey]{choice.Command}[/]").RuleStyle(Style.Parse("grey")));
 
             if (Runner is not { } runner)
                 return 1;

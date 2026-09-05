@@ -59,51 +59,6 @@ public sealed class LocalCommandHost(string workingDirectory) : ICommandHost
         return new CommandResult(process.ExitCode, string.Empty, await stdErr);
     }
 
-    /// Both streams line by line as they arrive. docker writes build progress to stderr, so a
-    /// caller that only followed stdout would watch a silent screen for the whole build.
-    public async Task<CommandResult> RunWithOutputAsync(
-        ShellCommand command,
-        Action<string> onLine,
-        CancellationToken cancellationToken)
-    {
-        using var process = Start(command, redirectStdOut: true);
-        var log = new StringBuilder();
-
-        void Handle(object sender, DataReceivedEventArgs args)
-        {
-            if (args.Data is null)
-                return;
-
-            lock (log)
-                log.AppendLine(args.Data);
-
-            onLine(args.Data);
-        }
-
-        process.OutputDataReceived += Handle;
-        process.ErrorDataReceived += Handle;
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        try
-        {
-            await process.WaitForExitAsync(cancellationToken);
-        }
-        catch (OperationCanceledException)
-        {
-            if (!process.HasExited)
-                process.Kill(entireProcessTree: true);
-
-            throw;
-        }
-
-        string text;
-        lock (log)
-            text = log.ToString();
-
-        return new CommandResult(process.ExitCode, text, string.Empty);
-    }
-
     /// Runs with this process's console handles. Nothing is captured, and that is the point:
     /// docker only draws its progress display when it is talking to a terminal.
     public async Task<int> RunInheritedAsync(ShellCommand command, CancellationToken cancellationToken)

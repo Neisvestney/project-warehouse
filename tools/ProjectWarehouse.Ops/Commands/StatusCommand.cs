@@ -33,10 +33,8 @@ public sealed class StatusCommand : AsyncCommand<TargetSettings>
         try
         {
             await using var connection = TargetContext.Open(target.Key, target.Value, loaded.ProjectDir);
-            status = await AnsiConsole.Status()
-                .StartAsync(
-                    $"Reading {target.Key}…",
-                    _ => service.ReadAsync(connection, cancellationToken));
+            status = await Working.RunAsync(
+                $"Reading {target.Key}", () => service.ReadAsync(connection, cancellationToken));
         }
         catch (CommandHostException ex)
         {
