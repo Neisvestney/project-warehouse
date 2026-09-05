@@ -249,6 +249,8 @@ export type CatalogItemDto = {
   barcode?: null | string;
   description?: null | string;
   notes?: null | string;
+  labelText?: null | string;
+  effectiveLabelText: string;
   isArchived: boolean;
   groupId?: null | string;
   groupName?: null | string;
@@ -1278,6 +1280,7 @@ export type ProductGroupChildRequest = {
   barcode?: null | string;
   description?: null | string;
   notes?: null | string;
+  labelText?: null | string;
   isArchived: boolean;
   tags: Array<string>;
   mainImageFileId?: null | string;
@@ -2281,6 +2284,7 @@ export type UpdateCatalogItemRequest = {
   barcode?: null | string;
   description?: null | string;
   notes?: null | string;
+  labelText?: null | string;
   isArchived: boolean;
   tags: Array<string>;
   mainImageFileId?: null | string;

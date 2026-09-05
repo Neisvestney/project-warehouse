@@ -459,6 +459,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<bool>("IsArchived")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("LabelText")
+                        .HasColumnType("text");
+
                     b.Property<Guid?>("MainImageFileId")
                         .HasColumnType("uuid");
 

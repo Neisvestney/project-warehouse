@@ -18,6 +18,7 @@ public class ProductGroupChildRequest
     public string? Barcode { get; init; }
     public string? Description { get; init; }
     public string? Notes { get; init; }
+    public string? LabelText { get; init; }
     public bool IsArchived { get; init; }
 
     public IReadOnlyList<Guid> Tags { get; init; } = [];
