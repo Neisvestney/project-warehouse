@@ -60,6 +60,7 @@ public sealed class MenuCommand : AsyncCommand<OpsSettings>
                     .Title("What now?")
                     .PageSize(Entries.Length + 2)
                     .AddChoices(Entries)
+                    .AddCancelResult(Entries[^1])
                     .UseConverter(entry => entry.Hint.Length == 0
                         ? entry.Title
                         : $"{entry.Title,-10} [grey]{entry.Hint}[/]"));
