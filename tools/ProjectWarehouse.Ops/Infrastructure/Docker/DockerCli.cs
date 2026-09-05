@@ -6,22 +6,16 @@ public sealed class DockerCli(string projectDir)
 {
     private readonly LocalCommandHost _host = new(projectDir);
 
-    public Task<CommandResult> BuildAsync(
+    /// Writes straight to the terminal, like the push: buildkit draws its own per-step display
+    /// only when it sees a console.
+    public Task<int> BuildAsync(
         string dockerfile,
         string context,
         IReadOnlyList<string> tags,
         IReadOnlyDictionary<string, string> buildArgs,
-        Action<string> onLine,
         CancellationToken cancellationToken)
     {
-        var command = ShellCommand.Of(
-            "docker",
-            "build",
-            "-f",
-            Resolve(dockerfile),
-            // Plain progress keeps the log linear: the default renderer redraws in place and turns
-            // captured output into a wall of escape sequences.
-            "--progress=plain");
+        var command = ShellCommand.Of("docker", "build", "-f", Resolve(dockerfile));
 
         foreach (var tag in tags)
             command = command.With("-t", tag);
@@ -31,7 +25,7 @@ public sealed class DockerCli(string projectDir)
 
         command = command.With(Resolve(context));
 
-        return _host.RunWithOutputAsync(command, onLine, cancellationToken);
+        return _host.RunInheritedAsync(command, cancellationToken);
     }
 
     /// Writes straight to the terminal instead of being captured: docker renders per-layer upload

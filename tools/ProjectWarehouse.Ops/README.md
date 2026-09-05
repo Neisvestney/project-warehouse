@@ -95,6 +95,10 @@ is written in — and naming a target that does not exist fails the load rather 
 and never writes it anywhere. A run without a terminal cannot be asked, so there it is an error
 naming the key rather than a prompt nobody can answer.
 
+The prompt is wiped from the screen once it is answered, retries included, and so are the registry
+credentials asked for the same way — nothing about a secret, not even which key or host it was
+asked for, is left in the scrollback.
+
 Unknown fields fail the load. A typo like `dagner` instead of `danger` would otherwise leave a
 production target unmarked and unguarded, and no amount of validation downstream would notice.
 
@@ -173,6 +177,9 @@ that just happened. It is left out where a run has no single line that would rep
 applies to every service at once, so services that ended up on different versions cannot be
 expressed in one command.
 
+A menu run opens with a rule carrying the command's name, so a session that ran several of them
+reads as separate blocks rather than one scroll.
+
 ### release
 
 Reads the published tags, offers the next version per service, then builds and pushes. Versions
@@ -188,9 +195,9 @@ pwops release --service server --version 1.4.0 --yes
 Building always happens on this machine; the target only ever pulls. Without a terminal every
 prompt would fail on the same read error, so the command names the options it needs instead.
 
-The build is captured and shown as a rolling tail; the push is not. docker only draws per-layer
-upload progress when it is talking to a terminal, so the push runs on the inherited console and
-draws itself.
+Both the build and the push run on the inherited console and draw themselves: docker renders its
+own step and per-layer progress only when it is talking to a terminal. Nothing is captured, so a
+failure leaves docker's own output on screen and the tool adds one line naming what failed.
 
 ### ship
 
@@ -327,8 +334,23 @@ Infrastructure/  ICommandHost (local process or SSH), compose, git, .env
 Registry/        docker credentials, Harbor and Distribution APIs, version math
 Services/        scenario logic
 Commands/        argument parsing and rendering
-Ui/              menu, target picker, shared prompts
+Ui/              menu, target picker, shared prompts, progress rendering
 ```
+
+Every answer is printed back as a `label  value` line — the target and its kind, the registry, the
+selected backup, the parts, the services, the version per service, the menu entry. A prompt leaves
+nothing on screen once it is answered, and a value that came from an option is echoed the same way,
+so a run reads alike whether it was driven by the menu or by a command line.
+
+Long-running scenarios report through `IStepReporter`: every step opens its own progress row, and
+one that moves bytes carries a bar and a transferred/total pair in `ByteSize` units. The total for
+a volume comes from measuring it on the target first — the same age filter the transfer uses — and
+counts file contents only, so the tar's per-file headers arrive with the bar already full. Steps
+whose size cannot be known up front (`pg_dump`, whose output is compressed as it is produced) run
+indeterminate and settle on their real size when they finish. A finished step swaps its spinner
+for a green tick, and a step that did not get there keeps its bar where it stopped — the tick is
+only ever printed for work that completed. A single read waited on — published tags, a target's
+state — is one such row too, so it keeps its line and turns into a tick where it stands.
 
 Scenarios are written against `ICommandHost`, so the same code runs against a local compose
 stack and against production over SSH. Commands are passed as argument arrays rather than shell

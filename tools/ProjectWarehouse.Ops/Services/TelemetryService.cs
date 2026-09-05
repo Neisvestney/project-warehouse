@@ -16,8 +16,7 @@ public sealed class TelemetryService(TargetContext target)
         string archiveDirectory,
         int? sinceDays,
         bool clean,
-        Action<string> onStep,
-        IProgress<long>? progress,
+        IStepReporter reporter,
         CancellationToken cancellationToken)
     {
         if (!target.Config.Volumes.TryGetValue(VolumeKey, out var composeVolume))
@@ -26,8 +25,12 @@ public sealed class TelemetryService(TargetContext target)
                 $"targets.{target.Name} has no '{VolumeKey}' volume, so there is no archive to fetch.");
         }
 
-        onStep("resolving volume");
-        var volume = await _volumes.ResolveAsync(composeVolume, cancellationToken);
+        string volume;
+        using (var resolving = reporter.Begin("resolving volume"))
+        {
+            volume = await _volumes.ResolveAsync(composeVolume, cancellationToken);
+            resolving.Complete();
+        }
 
         if (sinceDays is { } window
             && await _volumes.CountRecentAsync(volume, window, cancellationToken) == 0)
@@ -41,15 +44,19 @@ public sealed class TelemetryService(TargetContext target)
 
         try
         {
-            onStep("downloading");
+            var total = await _volumes.MeasureAsync(volume, sinceDays, cancellationToken);
+
+            using (var step = reporter.Begin("downloading", total))
             await using (var file = File.Create(staging))
             {
                 var result = sinceDays is { } days
-                    ? await _volumes.ArchiveRecentAsync(volume, days, file, progress, cancellationToken)
-                    : await _volumes.ArchiveAsync(volume, file, progress, cancellationToken);
+                    ? await _volumes.ArchiveRecentAsync(volume, days, file, step, cancellationToken)
+                    : await _volumes.ArchiveAsync(volume, file, step, cancellationToken);
 
                 if (!result.Succeeded)
                     throw new BackupException($"Reading {volume} failed: {result.FailureMessage}");
+
+                step.Complete();
             }
 
             if (new FileInfo(staging).Length == 0)
@@ -57,16 +64,21 @@ public sealed class TelemetryService(TargetContext target)
 
             if (clean && Directory.Exists(archiveDirectory))
             {
-                onStep("clearing the local archive");
+                using var clearing = reporter.Begin("clearing the local archive");
                 foreach (var existing in Directory.EnumerateFiles(archiveDirectory))
                     File.Delete(existing);
+
+                clearing.Complete();
             }
 
             Directory.CreateDirectory(archiveDirectory);
 
-            onStep("extracting");
-            await using var archive = File.OpenRead(staging);
-            TarFile.ExtractToDirectory(archive, archiveDirectory, overwriteFiles: true);
+            using (var extracting = reporter.Begin("extracting"))
+            {
+                await using var archive = File.OpenRead(staging);
+                TarFile.ExtractToDirectory(archive, archiveDirectory, overwriteFiles: true);
+                extracting.Complete();
+            }
 
             var files = Directory.GetFiles(archiveDirectory, "*", SearchOption.AllDirectories);
             return new TelemetryDownload(

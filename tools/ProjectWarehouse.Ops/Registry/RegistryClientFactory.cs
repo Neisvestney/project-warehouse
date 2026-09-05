@@ -1,4 +1,5 @@
 using ProjectWarehouse.Ops.Configuration;
+using ProjectWarehouse.Ops.Ui;
 using Spectre.Console;
 
 namespace ProjectWarehouse.Ops.Registry;
@@ -42,11 +43,11 @@ public sealed class RegistryClientFactory : IDisposable
         return credential;
     }
 
-    private static RegistryCredential Prompt(string host)
+    private static RegistryCredential Prompt(string host) => Transient.Ask(() =>
     {
         AnsiConsole.MarkupLineInterpolated($"[grey]Credentials for {host}[/]");
         var user = AnsiConsole.Ask<string>("  username:");
         var secret = AnsiConsole.Prompt(new TextPrompt<string>("  password:").Secret());
         return new RegistryCredential(user, secret);
-    }
+    });
 }

@@ -56,33 +56,9 @@ public sealed class BackupCommand : AsyncCommand<BackupSettings>
 
         try
         {
-            var directory = await AnsiConsole.Progress()
-                .Columns(new TaskDescriptionColumn(), new DownloadedColumn(), new SpinnerColumn())
-                .StartAsync(async ctx =>
-                {
-                    var task = ctx.AddTask("starting", maxValue: double.MaxValue);
-                    var offset = 0L;
-                    var current = 0L;
-
-                    var progress = new Progress<long>(bytes =>
-                    {
-                        current = bytes;
-                        task.Value = offset + bytes;
-                    });
-
-                    return await service.CreateAsync(
-                        backupsRoot,
-                        parts,
-                        versions,
-                        step =>
-                        {
-                            offset += current;
-                            current = 0;
-                            task.Description = Markup.Escape(step);
-                        },
-                        progress,
-                        cancellationToken);
-                });
+            var directory = await ProgressReporter.RunAsync(
+                reporter => service.CreateAsync(
+                    backupsRoot, parts, versions, reporter, cancellationToken));
 
             var total = Directory
                 .EnumerateFiles(directory, "*", SearchOption.AllDirectories)
@@ -131,7 +107,10 @@ internal static class BackupParts
         }
 
         if (string.IsNullOrWhiteSpace(requested))
+        {
+            Chosen.ShowText("parts", string.Join(", ", available));
             return available;
+        }
 
         var chosen = new List<string>();
 
@@ -153,6 +132,7 @@ internal static class BackupParts
             chosen.Add(match);
         }
 
+        Chosen.ShowText("parts", string.Join(", ", chosen));
         return chosen;
     }
 }

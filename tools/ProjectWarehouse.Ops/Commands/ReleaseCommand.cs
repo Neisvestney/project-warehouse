@@ -77,11 +77,8 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseSettings>
 
         var service = new ReleaseService(registry.Value, registries.Create(registry.Value), docker);
 
-        AnsiConsole.MarkupLineInterpolated(
-            $"\n[grey]registry[/] {registry.Key} [grey]{registry.Value.ImagePrefix}[/]");
-
-        var candidates = await AnsiConsole.Status()
-            .StartAsync("Reading published tags…", _ => service.SurveyAsync(selected, cancellationToken));
+        var candidates = await Working.RunAsync(
+            "Reading published tags", () => service.SurveyAsync(selected, cancellationToken));
 
         var items = BuildPlan(candidates, settings, bump);
         if (items.Count == 0)
@@ -152,11 +149,16 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseSettings>
                 chosen.Add(new KeyValuePair<string, ServiceConfig>(name, service));
             }
 
+            Chosen.ShowText("services", string.Join(", ", settings.Services));
             return chosen;
         }
 
         if (config.Services.Count == 1)
-            return [config.Services.First()];
+        {
+            var only = config.Services.First();
+            Chosen.ShowText("services", only.Key);
+            return [only];
+        }
 
         var names = AnsiConsole.Prompt(
             new MultiSelectionPrompt<string>()
@@ -165,10 +167,13 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseSettings>
                 .AddChoices(config.Services.Keys)
                 .Select(config.Services.Keys.First()));
 
-        return names.Count == 0
-            ? null
-            : names.Select(name => new KeyValuePair<string, ServiceConfig>(name, config.Services[name]))
-                .ToList();
+        if (names.Count == 0)
+            return null;
+
+        Chosen.ShowText("services", string.Join(", ", names));
+        return names
+            .Select(name => new KeyValuePair<string, ServiceConfig>(name, config.Services[name]))
+            .ToList();
     }
 
     internal static List<ReleaseItem> BuildPlan(
@@ -189,6 +194,7 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseSettings>
             if (version is null)
                 return [];
 
+            Chosen.ShowText("version", $"{candidate.ServiceName} {version.Value}");
             items.Add(new ReleaseItem(candidate.ServiceName, candidate.Service, version.Value));
         }
 
@@ -252,41 +258,18 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseSettings>
         AnsiConsole.Write(table);
     }
 
-    private static Task BuildAsync(
-        ReleaseService service, ReleaseItem item, CancellationToken cancellationToken)
-    {
-        var pane = new LogPane(30);
-        var header = $"{item.ServiceName} · build";
-
-        return AnsiConsole.Live(pane.Render()).StartAsync(async ctx =>
-        {
-            // Called from the process reader threads; the pane locks, so no marshalling is needed.
-            var work = service.BuildAsync(item, line => pane.Write(header, line), cancellationToken);
-
-            while (!work.IsCompleted)
-            {
-                ctx.UpdateTarget(pane.Render());
-                ctx.Refresh();
-                await Task.WhenAny(work, Task.Delay(100, cancellationToken));
-            }
-
-            ctx.UpdateTarget(pane.Render());
-            ctx.Refresh();
-            await work;
-        });
-    }
-
     internal static async Task<int> RunAsync(
         ReleaseService service, IReadOnlyList<ReleaseItem> items, CancellationToken cancellationToken)
     {
         try
         {
+            // Both steps write to the terminal themselves — docker's own display is the log, and
+            // anything of ours redrawing the same screen would fight it.
             foreach (var item in items)
             {
-                await BuildAsync(service, item, cancellationToken);
+                AnsiConsole.MarkupLineInterpolated($"\n[grey]{item.ServiceName} · build[/]");
+                await service.BuildAsync(item, cancellationToken);
 
-                // Outside the live display on purpose: docker draws the push itself, and two
-                // things redrawing the same screen produce neither picture.
                 AnsiConsole.MarkupLineInterpolated($"\n[grey]{item.ServiceName} · push[/]");
                 await service.PushAsync(item, cancellationToken);
             }
@@ -294,9 +277,6 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseSettings>
         catch (ReleaseException ex)
         {
             AnsiConsole.MarkupLineInterpolated($"[red]{ex.Message}[/]");
-            foreach (var line in LastLines(ex.Log, 30))
-                AnsiConsole.WriteLine(line);
-
             return 1;
         }
 
@@ -306,11 +286,6 @@ public sealed class ReleaseCommand : AsyncCommand<ReleaseSettings>
 
         return 0;
     }
-
-    private static IEnumerable<string> LastLines(string log, int count) =>
-        log.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .TakeLast(count)
-            .Select(line => line.TrimEnd('\r'));
 
     /// Only when the run is expressible as one command: --version applies to every selected
     /// service, so services that ended up on different versions have no single line to suggest.

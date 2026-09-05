@@ -46,24 +46,22 @@ public sealed class ReleaseService(RegistryConfig registry, IRegistryClient clie
     public static ImageVersion Next(ReleaseCandidate candidate, VersionBump bump) =>
         candidate.Current?.Bump(bump) ?? FirstVersion;
 
-    public async Task BuildAsync(
-        ReleaseItem item, Action<string> onLine, CancellationToken cancellationToken)
+    public async Task BuildAsync(ReleaseItem item, CancellationToken cancellationToken)
     {
         var buildArgs = new Dictionary<string, string>(item.Service.BuildArgs, StringComparer.Ordinal);
 
         if (item.Service.VersionBuildArg is { } versionArg)
             buildArgs[versionArg] = item.Version.ToString();
 
-        var result = await docker.BuildAsync(
+        var exitCode = await docker.BuildAsync(
             item.Service.Dockerfile,
             item.Service.Context,
             [item.Reference(registry)],
             buildArgs,
-            onLine,
             cancellationToken);
 
-        if (!result.Succeeded)
-            throw new ReleaseException($"docker build failed for {item.ServiceName}.", result.StdOut);
+        if (exitCode != 0)
+            throw new ReleaseException($"docker build failed for {item.ServiceName}.");
     }
 
     public async Task PushAsync(ReleaseItem item, CancellationToken cancellationToken)
@@ -72,11 +70,8 @@ public sealed class ReleaseService(RegistryConfig registry, IRegistryClient clie
         var exitCode = await docker.PushAsync(reference, cancellationToken);
 
         if (exitCode != 0)
-            throw new ReleaseException($"docker push failed for {reference}.", string.Empty);
+            throw new ReleaseException($"docker push failed for {reference}.");
     }
 }
 
-public sealed class ReleaseException(string message, string log) : Exception(message)
-{
-    public string Log => log;
-}
+public sealed class ReleaseException(string message) : Exception(message);
