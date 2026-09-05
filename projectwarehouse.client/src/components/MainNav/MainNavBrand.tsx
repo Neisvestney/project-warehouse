@@ -7,7 +7,8 @@ import {LogoIcon} from "@/components/icons/LogoIcon";
 
 // The light-scheme app bar is already primary, so the brand mark only takes the accent color in dark.
 const brandDarkSx = (theme: Theme) =>
-  theme.applyStyles("dark", {color: theme.palette.primary.main});
+  // `theme.palette.primary.main` bakes in the light-scheme literal under cssVariables mode.
+  theme.applyStyles("dark", {color: theme.vars!.palette.primary.main});
 
 export interface MainNavBrandProps {
   typographyVariant?: TypographyProps["variant"];
