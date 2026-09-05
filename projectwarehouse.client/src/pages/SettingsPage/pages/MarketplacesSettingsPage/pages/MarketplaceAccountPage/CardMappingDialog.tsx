@@ -18,6 +18,7 @@ import {marketplacesSetCardMappingMutation} from "@/api/@tanstack/react-query.ge
 import {extractErrorMessage} from "@/utils/errorUtils";
 import {useEditLock} from "@/hooks/useEditLock";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
+import CopyableText from "@/components/CopyableText";
 import EditLockBanner from "@/components/EditLockBanner";
 import EntityViewers from "@/components/EntityViewers";
 import StaleDataBanner from "@/components/StaleDataBanner";
@@ -117,9 +118,15 @@ function CardMappingDialog({card, onClose, onSaved, dataUpdatedAt}: CardMappingD
               <CardImage src={shownCard.primaryImageUrl} name={shownCard.name} size={72} />
               <Stack>
                 <Typography>{shownCard.name}</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Артикул {shownCard.offerId}
-                  {shownCard.sku ? ` · SKU ${shownCard.sku}` : ""}
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  component="div"
+                  sx={{display: "flex", alignItems: "center", flexWrap: "wrap", gap: 0.5}}
+                >
+                  <span>Артикул</span>
+                  <CopyableText value={shownCard.offerId} />
+                  {shownCard.sku && <span>· SKU {shownCard.sku}</span>}
                 </Typography>
               </Stack>
             </Stack>

@@ -31,6 +31,7 @@ import {useTableSort} from "@/hooks/useTableSort";
 import {useHasPermission} from "@/hooks/usePermission";
 import FiltersBar from "@/components/FiltersBar";
 import SearchInput from "@/components/SearchInput";
+import CopyableText from "@/components/CopyableText";
 import DataTableContainer from "@/components/DataTableContainer";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
@@ -242,7 +243,9 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
                       )}
                     </Stack>
                   </TableCell>
-                  <TableCell sx={{fontFamily: "monospace"}}>{card.offerId}</TableCell>
+                  <TableCell sx={{fontFamily: "monospace"}}>
+                    <CopyableText value={card.offerId} />
+                  </TableCell>
                   <TableCell>{formatPrice(card.price, card.currencyCode)}</TableCell>
                   <TableCell>{new Date(card.syncedAt).toLocaleDateString("ru-RU")}</TableCell>
                   <TableCell sx={{fontFamily: "monospace"}}>{card.sku ?? "—"}</TableCell>

@@ -50,9 +50,9 @@ function RolesSelect(props: RolesSelectMultiProps): React.ReactElement | null;
 function RolesSelect(props: RolesSelectSingleProps): React.ReactElement | null;
 function RolesSelect(props: RolesSelectProps): React.ReactElement | null {
   const canView = useHasPermission("roles.view");
-  
+
   if (!canView) return null;
-  
+
   if (props.multiple) {
     return <MultiSelect {...(props as RolesSelectMultiProps)} />;
   }
