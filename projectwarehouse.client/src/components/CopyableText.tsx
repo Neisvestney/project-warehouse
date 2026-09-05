@@ -27,7 +27,12 @@ function CopyableText({value, successMessage = "Скопировано", sx, tex
     <Stack direction="row" spacing={0.25} sx={{alignItems: "center", minWidth: 0, ...sx}}>
       <span style={{whiteSpace: "pre-wrap", overflowWrap: "anywhere", ...textStyle}}>{value}</span>
       <Tooltip title="Скопировать">
-        <IconButton size="small" onClick={handleCopy} sx={{p: 0.25, flexShrink: 0}}>
+        <IconButton
+          size="small"
+          onClick={handleCopy}
+          aria-label="Скопировать"
+          sx={{p: 0.25, flexShrink: 0}}
+        >
           <ContentCopyIcon sx={{fontSize: 14}} />
         </IconButton>
       </Tooltip>
