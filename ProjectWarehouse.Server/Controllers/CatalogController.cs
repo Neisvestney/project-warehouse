@@ -309,6 +309,7 @@ public class CatalogController(
         item.Barcode = request.Barcode;
         item.Description = request.Description;
         item.Notes = request.Notes;
+        item.LabelText = request.LabelText;
         item.IsArchived = request.IsArchived;
 
         var newTags = await db.CatalogItemTags.Where(t => request.Tags.Contains(t.Id)).ToListAsync(ct);
@@ -681,6 +682,7 @@ public class CatalogController(
                 existing.Barcode = req.Barcode;
                 existing.Description = req.Description;
                 existing.Notes = req.Notes;
+                existing.LabelText = req.LabelText;
                 existing.IsArchived = groupIsArchived;
 
                 var combinedTagIds = req.Tags.Concat(groupTagIds).Distinct().ToList();
@@ -705,6 +707,7 @@ public class CatalogController(
                     Barcode = req.Barcode,
                     Description = req.Description,
                     Notes = req.Notes,
+                    LabelText = req.LabelText,
                     IsArchived = groupIsArchived,
                     GroupId = groupId,
                     Tags = childTags

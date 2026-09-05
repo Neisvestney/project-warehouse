@@ -115,6 +115,7 @@ type ChildValue = {
   barcode: string;
   description: string;
   notes: string;
+  labelText: string;
   tags: CatalogItemTagDto[];
   mainImage: DataFileDto | null;
   images: ImageValue[];
@@ -126,6 +127,7 @@ type CatalogItemFormValues = {
   barcode: string;
   description: string;
   notes: string;
+  labelText: string;
   isArchived: boolean;
   tags: CatalogItemTagDto[];
   members: CatalogItemSelectDto[];
@@ -172,6 +174,7 @@ function mapFormToRequest(values: CatalogItemFormValues): UpdateCatalogItemReque
     barcode: values.barcode || null,
     description: values.description || null,
     notes: values.notes || null,
+    labelText: values.labelText || null,
     isArchived: values.isArchived,
     groupId: null,
     tags: values.tags.map((t) => t.id),
@@ -187,6 +190,7 @@ function mapFormToRequest(values: CatalogItemFormValues): UpdateCatalogItemReque
       barcode: c.barcode || null,
       description: c.description || null,
       notes: c.notes || null,
+      labelText: c.labelText || null,
       isArchived: values.isArchived,
       tags: c.tags.map((t) => t.id),
       mainImageFileId: c.mainImage?.id ?? null,
@@ -477,6 +481,11 @@ function ViewMode({
             <LabeledRow label="Заметки">
               <Typography variant="body2" sx={{whiteSpace: "pre-wrap"}}>
                 {data.notes ?? "—"}
+              </Typography>
+            </LabeledRow>
+            <LabeledRow label="Текст на этикетке">
+              <Typography variant="body2">
+                {data.labelText ?? `${data.effectiveLabelText}`}
               </Typography>
             </LabeledRow>
             {data.groupId && (
@@ -825,6 +834,15 @@ function ChildRow({
           fullWidth
           disabled={isPending}
         />
+        <FormTextField
+          control={control}
+          name={`children.${index}.labelText`}
+          label="Текст на этикетке"
+          size="small"
+          fullWidth
+          disabled={isPending}
+          helperText="По умолчанию — артикул"
+        />
         <TagsAutocomplete
           value={childTags}
           onChange={(v) => setValue(`children.${index}.tags`, v)}
@@ -867,6 +885,7 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
       barcode: "",
       description: "",
       notes: "",
+      labelText: "",
       isArchived: false,
       tags: [],
       members: [],
@@ -888,6 +907,7 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
       barcode: data.barcode ?? "",
       description: data.description ?? "",
       notes: data.notes ?? "",
+      labelText: data.labelText ?? "",
       isArchived: data.isArchived,
       tags: [...data.tags],
       members: memberSummaries,
@@ -904,6 +924,7 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
         barcode: c.barcode ?? "",
         description: c.description ?? "",
         notes: c.notes ?? "",
+        labelText: c.labelText ?? "",
         tags: [...c.tags],
         // a child's own image only — an inherited one must not be saved back as its own
         mainImage: c.mainImageFileId ? (c.mainImage ?? null) : null,
@@ -1012,6 +1033,15 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
           minRows={2}
           disabled={isPending}
         />
+        <FormTextField
+          control={control}
+          name="labelText"
+          label="Текст на этикетке"
+          size="small"
+          fullWidth
+          disabled={isPending}
+          helperText="По умолчанию — артикул"
+        />
         <Divider textAlign="left">
           <Typography variant="caption" color="text.secondary">
             Изображения
@@ -1103,6 +1133,7 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
                     barcode: "",
                     description: "",
                     notes: "",
+                    labelText: "",
                     tags: [],
                     mainImage: null,
                     images: [],

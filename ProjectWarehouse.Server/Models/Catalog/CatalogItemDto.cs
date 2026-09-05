@@ -15,6 +15,8 @@ public class CatalogItemDto : IHasIdentity
     public string? Barcode { get; init; }
     public string? Description { get; init; }
     public string? Notes { get; init; }
+    public string? LabelText { get; init; }
+    public string EffectiveLabelText { get; init; } = null!;
     public bool IsArchived { get; init; }
     public Guid? GroupId { get; init; }
     public string? GroupName { get; init; }

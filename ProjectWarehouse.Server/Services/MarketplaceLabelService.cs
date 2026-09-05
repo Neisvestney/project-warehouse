@@ -242,7 +242,7 @@ public class MarketplaceLabelService(
     [
         .. order.MarketplaceItems
             .Where(i => i.MarketplaceCard?.CatalogItem is not null)
-            .Select(i => new LabelArticle(i.MarketplaceCard!.CatalogItem!.Article, i.Quantity)),
+            .Select(i => new LabelArticle(i.MarketplaceCard!.CatalogItem!.EffectiveLabelText, i.Quantity)),
     ];
 
     private async Task<byte[]> ReadCachedAsync(Guid fileId, CancellationToken ct)

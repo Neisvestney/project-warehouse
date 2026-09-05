@@ -12,6 +12,7 @@ public class CatalogItem : IHasIdentity
     public string? Barcode { get; set; }
     public string? Description { get; set; }
     public string? Notes { get; set; }
+    public string? LabelText { get; set; }
     public bool IsArchived { get; set; }
 
     public Guid? GroupId { get; set; }
@@ -38,6 +39,8 @@ public class CatalogItem : IHasIdentity
     [Projectable] public string? EffectiveDescription => Description ?? (Group != null ? Group.Description : null);
 
     [Projectable] public string? EffectiveNotes => Notes ?? (Group != null ? Group.Notes : null);
+
+    [Projectable] public string EffectiveLabelText => LabelText ?? Article;
 
     [Projectable]
     public string SearchString => (Name ?? "") + " " + (Article ?? "") + " " + (Barcode ?? "") + " " + (Description ?? "") +
