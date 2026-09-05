@@ -28,16 +28,20 @@ public static class MarketplaceRuleMatcher
         CatalogItemId = rule.CatalogItemId,
         Field = rule.Field,
         Operator = rule.Operator,
-        Value = rule.Value,
+        Value = rule.Operator == MarketplaceRuleOperator.Regex ? rule.Value : CollapseSpaces(rule.Value),
         Regex = rule.Operator == MarketplaceRuleOperator.Regex ? BuildRegex(rule.Value) : null,
     };
 
+    private static readonly Regex MultipleSpaces = new(@" {2,}", RegexOptions.Compiled);
+
+    private static string CollapseSpaces(string value) => MultipleSpaces.Replace(value, " ");
+
     public static IEnumerable<string> ExtractValues(MarketplaceCard card, MarketplaceCardField field) => field switch
     {
-        MarketplaceCardField.OfferId => [card.OfferId],
-        MarketplaceCardField.Sku => card.Sku is null ? [] : [card.Sku],
-        MarketplaceCardField.ExternalId => [card.ExternalId],
-        MarketplaceCardField.Name => [card.Name],
+        MarketplaceCardField.OfferId => [CollapseSpaces(card.OfferId)],
+        MarketplaceCardField.Sku => card.Sku is null ? [] : [CollapseSpaces(card.Sku)],
+        MarketplaceCardField.ExternalId => [CollapseSpaces(card.ExternalId)],
+        MarketplaceCardField.Name => [CollapseSpaces(card.Name)],
         MarketplaceCardField.Barcode => card.Barcodes,
         _ => [],
     };
