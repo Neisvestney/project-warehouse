@@ -13,6 +13,7 @@ import {
   useTheme,
 } from "@mui/material";
 import CardImage from "@/pages/SettingsPage/pages/MarketplacesSettingsPage/components/CardImage.tsx";
+import CopyableText from "@/components/CopyableText.tsx";
 import {useOpenCatalogItem} from "@/components/catalog/CatalogItemDrawerContext.ts";
 import CatalogItemLink from "@/components/catalog/CatalogItemLink.tsx";
 import InfoRow from "@/components/InfoRow.tsx";
@@ -41,7 +42,10 @@ function OrderMarketplaceItemsSection({order}: OrderBoxesSectionProps) {
                   <Typography variant="body2" sx={{fontFamily: "monospace"}}>
                     {card?.name}
                   </Typography>
-                  <InfoRow label="Артикул" value={card?.offerId ?? "—"} />
+                  <InfoRow
+                    label="Артикул"
+                    value={card?.offerId ? <CopyableText value={card.offerId} /> : "—"}
+                  />
                   <InfoRow
                     label="SKU"
                     value={
@@ -101,7 +105,11 @@ function OrderMarketplaceItemsSection({order}: OrderBoxesSectionProps) {
                 />
               </TableCell>
               <TableCell sx={{fontFamily: "monospace"}}>{item.marketplaceCard?.name}</TableCell>
-              <TableCell>{item.marketplaceCard?.offerId}</TableCell>
+              <TableCell>
+                {item.marketplaceCard?.offerId && (
+                  <CopyableText value={item.marketplaceCard.offerId} />
+                )}
+              </TableCell>
               <TableCell sx={{fontFamily: "monospace"}}>
                 {item.marketplaceCard?.sku ?? "—"}
               </TableCell>
