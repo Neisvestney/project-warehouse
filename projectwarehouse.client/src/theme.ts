@@ -59,6 +59,10 @@ const darkChipOverrides = (): CSSObject =>
   }, {});
 
 const theme = createTheme({
+  // Without this, MUI defaults to `colorSchemeSelector: "media"` (both light+dark present), which never
+  // touches the DOM attribute at runtime — only `prefers-color-scheme` CSS drives the stylesheet, so an
+  // explicit `setMode` pick never reaches `data-mui-color-scheme` until a reload re-runs the init script.
+  cssVariables: {colorSchemeSelector: "data-mui-color-scheme"},
   colorSchemes: {
     light: {
       palette: {
@@ -169,7 +173,7 @@ const theme = createTheme({
             backgroundColor: APP_BAR_DARK_BG,
             backgroundImage: "none",
             boxShadow: "none",
-            borderBottom: `1px solid ${theme.palette.divider}`,
+            borderBottom: `1px solid ${theme.vars.palette.divider}`,
           }),
       },
     },
@@ -182,14 +186,15 @@ const theme = createTheme({
       styleOverrides: {
         // MUI derives this border as darken(opaque divider, 0.68) = #515151, heavier than every other
         // line in the app — those all sit on `divider` itself.
-        root: ({theme}) => theme.applyStyles("dark", {borderBottomColor: theme.palette.divider}),
+        root: ({theme}) =>
+          theme.applyStyles("dark", {borderBottomColor: theme.vars.palette.divider}),
       },
     },
     MuiListItemIcon: {
       styleOverrides: {
         // `action.active` is pure white in the dark scheme, making list icons brighter than the labels
         // beside them. It is 54% black in light, so align on `text.secondary`.
-        root: ({theme}) => theme.applyStyles("dark", {color: theme.palette.text.secondary}),
+        root: ({theme}) => theme.applyStyles("dark", {color: theme.vars.palette.text.secondary}),
       },
     },
   },

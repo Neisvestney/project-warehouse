@@ -230,6 +230,7 @@ function MainAppBar({}: AppBarProps) {
                   }}
                   open={Boolean(anchorElUser)}
                   onClose={handleCloseUserMenu}
+                  slotProps={{paper: {sx: {minWidth: 200}}}}
                 >
                   <MenuItem disabled>
                     <Typography variant="body2" color="text.secondary">
