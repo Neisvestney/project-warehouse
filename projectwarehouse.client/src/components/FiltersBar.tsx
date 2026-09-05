@@ -1,5 +1,5 @@
 import React from "react";
-import {alpha, Box, Stack, type StackProps, Typography} from "@mui/material";
+import {Box, Stack, type StackProps, Typography} from "@mui/material";
 import FilterAltIcon from "@mui/icons-material/FilterAlt";
 
 type FiltersBarProps = Omit<StackProps, "direction" | "spacing"> & {
@@ -39,7 +39,7 @@ function FiltersBar({children, actions, sx, ...stackProps}: FiltersBarProps) {
             p: 0.5,
             borderRadius: 1,
             color: "primary.main",
-            backgroundColor: alpha(theme.palette.primary.main, 0.1),
+            backgroundColor: `color-mix(in srgb, ${theme.vars!.palette.primary.main}, transparent 90%)`,
           })}
         >
           <FilterAltIcon fontSize="small" />

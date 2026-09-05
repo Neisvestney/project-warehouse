@@ -1,13 +1,5 @@
 import {useEffect, useRef, useState} from "react";
-import {
-  Box,
-  CircularProgress,
-  Fade,
-  Typography,
-  alpha,
-  type SxProps,
-  type Theme,
-} from "@mui/material";
+import {Box, CircularProgress, Fade, Typography, type SxProps, type Theme} from "@mui/material";
 
 interface LoadingOverlayProps {
   open: boolean;
@@ -71,7 +63,9 @@ function LoadingOverlay({
             zIndex: 3,
             borderRadius: "inherit",
             cursor: "progress",
-            backgroundColor: alpha(theme.palette.background.default, 0.55),
+            // `theme.palette.background.default` bakes in the light-scheme literal under cssVariables mode;
+            // color-mix on the CSS var tracks the active color scheme.
+            backgroundColor: `color-mix(in srgb, ${theme.vars!.palette.background.default}, transparent 45%)`,
             backdropFilter: `blur(${blur}px)`,
           }),
           ...(Array.isArray(sx) ? sx : [sx]),
