@@ -101,6 +101,5 @@ publish
 keys/
 .localdata/
 backups/
-# ops tool: real config lives in a private repo, only ops.example.json is committed
-tools/ProjectWarehouse.Ops/ops.json
-tools/ProjectWarehouse.Ops/ops.local.json
+# ops tool: ops.json is committed; ops.local.json (machine-specific, points at the private repo) is not
+

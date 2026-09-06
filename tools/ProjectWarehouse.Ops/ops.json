@@ -1,0 +1,13 @@
+{
+  "includeConfig": "./ops.local.json",
+
+  "services": {
+    "server": {
+      "dockerfile": "ProjectWarehouse.Server/Dockerfile",
+      "context": ".",
+      "image": "projectwarehouse.server",
+      "composeService": "projectwarehouse.server",
+      "tagVariable": "SERVER_IMAGE_TAG"
+    }
+  }
+}

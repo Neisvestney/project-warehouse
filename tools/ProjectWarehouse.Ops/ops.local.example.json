@@ -23,15 +23,7 @@
     }
   },
 
-  "services": {
-    "server": {
-      "dockerfile": "ProjectWarehouse.Server/Dockerfile",
-      "context": ".",
-      "image": "projectwarehouse.server",
-      "composeService": "projectwarehouse.server",
-      "tagVariable": "SERVER_IMAGE_TAG"
-    }
-  },
+  // services is defined in the committed ops.json; it doesn't need to be repeated in a private config.
 
   "targets": {
     "prod": {
