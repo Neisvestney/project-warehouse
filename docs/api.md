@@ -123,6 +123,17 @@ Refresh sets `RevokedAt = now` on the old row and inserts a new one; the revocat
 one `ExecuteUpdateAsync` with the filter inlined, so two callers racing with the same token cannot both win.
 Logout sets `RevokedAt = now`, matching on `UserId` as well as the hash.
 
+**Reuse detection.** A refresh call that matches no active row is checked against the hash regardless of
+state: if that row exists and was revoked more than `ReuseGracePeriod` (10s, not configurable) ago, the
+presented token was valid once and got used or revoked well before this request — a legitimate client does
+not replay its own refresh token that late, so this can only mean the token leaked and something else
+consumed it first. The response stays the same generic `refreshTokenInvalid` either way, but every other
+active refresh token for that `UserId` is revoked and `SecurityVersion` is bumped, ending every session the
+account holds, not just this request's. A row that is merely expired, a hash that matches no row at all, or
+one revoked within the grace period, does not trigger this — the grace period absorbs an ordinary race
+between two requests rotating the same token at once (no `navigator.locks` in the tab, or a network retry),
+where the loser seeing "already revoked" is expected, not a sign of theft.
+
 Rotation leaves a dead row behind every access-token lifetime, so `RefreshTokensGcJob` (Quartz, cron
 `Jwt:RefreshTokenGcCron`) deletes rows past `ExpiresAt` by more than `Jwt:RefreshTokenRetentionDays` (30 by
 default). Expiry alone decides — a revoked row is unusable either way — and the retention window keeps recent
