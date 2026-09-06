@@ -1,8 +1,13 @@
+using System.Text;
 using ProjectWarehouse.Ops.Commands;
 using ProjectWarehouse.Ops.Infrastructure;
 using ProjectWarehouse.Ops.Ui;
 using Spectre.Console;
 using Spectre.Console.Cli;
+
+// Without this, Windows defaults Console.Out to the OEM codepage, so Spectre's Unicode
+// glyphs (spinner, checkmark) come out as literal '?' regardless of terminal/font.
+Console.OutputEncoding = Encoding.UTF8;
 
 // A fresh app per invocation: the menu dispatches by running the same parser again, and nothing
 // here depends on a CommandApp being safe to re-enter while one of its commands is still on the
