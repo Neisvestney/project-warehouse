@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="ops.example.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="ops.local.example.json" CopyToOutputDirectory="PreserveNewest" />
     <None Update="ops.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
