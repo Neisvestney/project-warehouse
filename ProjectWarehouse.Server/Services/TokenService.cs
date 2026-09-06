@@ -17,7 +17,9 @@ public class TokenService(
     ApplicationDbContext db,
     UserManager<ApplicationUser> userManager,
     IPermissionService permissionService,
-    IOptions<JwtOptions> options) : ITokenService
+    SecurityVersionStore versionStore,
+    IOptions<JwtOptions> options,
+    ILogger<TokenService> logger) : ITokenService
 {
     private readonly JwtOptions _jwt = options.Value;
 
@@ -44,7 +46,19 @@ public class TokenService(
             .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, now));
 
         if (rowsAffected == 0)
+        {
+            try
+            {
+                await HandlePossibleReuseAsync(hash, now);
+            }
+            catch (Exception ex)
+            {
+                // Reuse detection is a bonus check on top of an already-failed refresh; a DB hiccup
+                // here must not turn an ordinary invalid-token response into a 500.
+                logger.LogError(ex, "Refresh token reuse check failed.");
+            }
             throw new InvalidOperationException("INVALID_REFRESH_TOKEN");
+        }
 
         var userId = await db.RefreshTokens
             .Where(t => t.TokenHash == hash)
@@ -74,6 +88,35 @@ public class TokenService(
         await db.RefreshTokens
             .Where(t => t.TokenHash == hash && t.UserId == userId && t.RevokedAt == null)
             .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, now));
+    }
+
+    // A benign double-send lands in this same window: two requests racing on one token without the
+    // client-side lock (no navigator.locks in the tab, or a network retry after a dropped response) both
+    // reach the server, one wins the rotation, the loser sees its token already revoked a few
+    // milliseconds later. That must not read as theft. Real reuse means someone presents a token this
+    // *server* already retired for a rotation the presenter was never part of — which only shows up well
+    // after the loser of any such race would have given up.
+    private static readonly TimeSpan ReuseGracePeriod = TimeSpan.FromSeconds(10);
+
+    private async Task HandlePossibleReuseAsync(string hash, DateTime now)
+    {
+        var revoked = await db.RefreshTokens
+            .Where(t => t.TokenHash == hash && t.RevokedAt != null)
+            .Select(t => new {UserId = (Guid?)t.UserId, t.RevokedAt})
+            .FirstOrDefaultAsync();
+        if (revoked?.UserId is not { } userId) return;
+        if (now - revoked.RevokedAt!.Value < ReuseGracePeriod) return;
+
+        // Bump first: a crash between the two writes must leave existing access tokens rejected
+        // (over-strict) rather than the refresh tokens gone but old access tokens still trusted
+        // (under-strict) — the whole point of this path is to fail closed.
+        await versionStore.BumpAsync(userId);
+        await db.RefreshTokens
+            .Where(t => t.UserId == userId && t.RevokedAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, now));
+
+        logger.LogWarning(
+            "Refresh token reuse detected for user {UserId}; all sessions revoked.", userId);
     }
 
     private static string HashToken(string token) =>
