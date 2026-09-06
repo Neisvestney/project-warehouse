@@ -2,11 +2,8 @@ namespace ProjectWarehouse.Server.Services;
 
 public interface IPermissionService
 {
+    /// <summary>Role permissions unioned with direct ones — the set a token carries and <c>/api/auth/me</c> reports.</summary>
     Task<IReadOnlyList<string>> GetEffectivePermissionsAsync(Guid userId);
-    Task AddRolePermissionAsync(Guid roleId, string permission);
-    Task RemoveRolePermissionAsync(Guid roleId, string permission);
-    Task AddUserPermissionAsync(Guid userId, string permission);
-    Task RemoveUserPermissionAsync(Guid userId, string permission);
     Task BumpForRoleUsersAsync(Guid roleId);
     Task BumpUsersAsync(IEnumerable<Guid> userIds);
 }

@@ -1,15 +1,12 @@
 import type {PermissionName} from "@/api/types.gen";
+import {hasPermission} from "@/utils/permissions";
 import type {SectionConfig} from "./SidebarPage.tsx";
 
 export function hasSectionPermission(
   s: Pick<SectionConfig, "requiredPermission">,
   permissions: PermissionName[],
 ): boolean {
-  if (!s.requiredPermission) return true;
-  const required = Array.isArray(s.requiredPermission)
-    ? s.requiredPermission
-    : [s.requiredPermission];
-  return required.some((p) => permissions.includes(p));
+  return hasPermission(permissions, s.requiredPermission);
 }
 
 export function isSectionVisible(

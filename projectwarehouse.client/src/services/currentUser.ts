@@ -7,6 +7,8 @@
  * SDK loads and outside of React.
  */
 
+import {decodeJwtClaims} from "@/utils/jwt";
+
 /** Claim `sub`. */
 export const ATTR_USER_ID = "user.id";
 /** Claim `name`. */
@@ -14,18 +16,6 @@ export const ATTR_USER_NAME = "user.name";
 
 let cachedToken: string | null = null;
 let cachedAttributes: Record<string, string> = {};
-
-function decodeClaims(token: string): Record<string, unknown> {
-  // Not verified, and does not need to be: the token comes from our own server and is used here as
-  // a label, never as a permission.
-  const payload = token.split(".")[1];
-  if (!payload) return {};
-
-  const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-  const bytes = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
-  return JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>;
-}
 
 /** Empty while nobody is signed in — the attributes are then simply absent from the record. */
 export function getCurrentUserAttributes(): Record<string, string> {
@@ -37,7 +27,7 @@ export function getCurrentUserAttributes(): Record<string, string> {
   if (!token) return cachedAttributes;
 
   try {
-    const claims = decodeClaims(token);
+    const claims = decodeJwtClaims(token);
     if (typeof claims.sub === "string") cachedAttributes[ATTR_USER_ID] = claims.sub;
     if (typeof claims.name === "string" && claims.name)
       cachedAttributes[ATTR_USER_NAME] = claims.name;

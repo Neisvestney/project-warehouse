@@ -1,47 +1,78 @@
 import {client} from "@/api/client.gen";
 import type {TokenResponse} from "@/api/types.gen";
 import {getCurrentConnectionId} from "@/contexts/Realtime/currentConnectionId";
+import {broadcastAuth, clearAuthChannelStorage, setupAuthChannel} from "@/services/authChannel";
 import {isAppProblemDetails} from "@/utils/errorUtils";
 
-let refreshingPromise: Promise<boolean> | null = null;
+/**
+ * `invalid` is the only outcome that ends the session. `unavailable` means the server could not answer —
+ * the refresh token is still good, so the caller keeps it and lets the user retry.
+ */
+export type RefreshOutcome = "ok" | "invalid" | "unavailable";
 
-async function refreshTokens(): Promise<boolean> {
+let refreshingPromise: Promise<RefreshOutcome> | null = null;
+
+async function refreshTokens(): Promise<RefreshOutcome> {
   if (refreshingPromise) return refreshingPromise;
 
-  refreshingPromise = doRefreshTokens().finally(() => {
+  refreshingPromise = lockedRefresh().finally(() => {
     refreshingPromise = null;
   });
 
   return refreshingPromise;
 }
 
-async function doRefreshTokens(): Promise<boolean> {
-  const refreshToken = localStorage.getItem("refreshToken");
-  if (!refreshToken) return false;
+// The refresh token is single-use: the server revokes it the instant it is accepted, so two tabs racing
+// with the same token would leave the loser holding a revoked one and log everybody out. The lock makes
+// the rotation origin-wide, and whoever waited on it finds the winner's tokens already in localStorage.
+async function lockedRefresh(): Promise<RefreshOutcome> {
+  if (!navigator.locks) return doRefreshTokens();
 
+  const tokenBefore = localStorage.getItem("accessToken");
   try {
-    const res = await fetch("/api/auth/refresh", {
+    return await navigator.locks.request(
+      "auth-refresh",
+      // A tab whose fetch hangs must not hold the rotation for every other tab.
+      {signal: AbortSignal.timeout(30_000)},
+      async () => {
+        const current = localStorage.getItem("accessToken");
+        if (current === tokenBefore) return doRefreshTokens();
+        // Another tab finished while we waited: it rotated, or it logged out and took the token away.
+        return current ? "ok" : "invalid";
+      },
+    );
+  } catch {
+    // Waiting for the lock timed out; the holder's own refresh decides the session, not this one.
+    return "unavailable";
+  }
+}
+
+async function doRefreshTokens(): Promise<RefreshOutcome> {
+  const refreshToken = localStorage.getItem("refreshToken");
+  if (!refreshToken) return "invalid";
+
+  let res: Response;
+  try {
+    res = await fetch("/api/auth/refresh", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({refreshToken}),
     });
-
-    if (!res.ok) {
-      // Only revoke on explicit auth rejections — 5xx means the server is down, not
-      // that the refresh token is invalid, so keep tokens and let the user retry.
-      if (res.status >= 400 && res.status < 500) {
-        clearTokens();
-      }
-      return false;
-    }
-
-    storeTokens(await res.json());
-    window.dispatchEvent(new Event("auth:refresh"));
-    return true;
   } catch {
-    // Network error — tokens are still valid, we just can't reach the server.
-    return false;
+    return "unavailable";
   }
+
+  if (!res.ok) {
+    return res.status >= 400 && res.status < 500 ? "invalid" : "unavailable";
+  }
+
+  try {
+    storeTokens(await res.json());
+  } catch {
+    // 200 with a body that is not a token pair — a captive portal or a proxy, not our server.
+    return "unavailable";
+  }
+  return "ok";
 }
 
 export function storeTokens(tokens: TokenResponse) {
@@ -49,6 +80,7 @@ export function storeTokens(tokens: TokenResponse) {
   localStorage.setItem("refreshToken", tokens.refreshToken);
   localStorage.setItem("tokenExpiry", String(Date.now() + Number(tokens.expiresIn) * 1000));
   window.dispatchEvent(new Event("auth:tokens"));
+  broadcastAuth("tokens");
 }
 
 // Proactively refreshes the token 30s before it expires, the same window the request interceptor
@@ -60,7 +92,13 @@ export async function getFreshAccessToken(): Promise<string | null> {
 
   const expiry = parseInt(localStorage.getItem("tokenExpiry") ?? "0");
   if (expiry <= 0 || Date.now() + 30_000 > expiry) {
-    await refreshTokens();
+    // A rejected refresh ends the session here rather than letting a known-dead token go out and come
+    // back as a 401 the interceptor has to refresh all over again.
+    if ((await refreshTokens()) === "invalid") {
+      window.dispatchEvent(new CustomEvent("auth:refreshTokenInvalid"));
+      clearTokens();
+      return null;
+    }
   }
 
   return localStorage.getItem("accessToken");
@@ -71,17 +109,20 @@ export function clearTokens() {
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("tokenExpiry");
   window.dispatchEvent(new Event("auth:clear"));
+  broadcastAuth("clear");
+  clearAuthChannelStorage();
 }
 
-// Stores request clones for 401 retry. WeakMap keys are GC'd automatically with their requests.
+// Stores clones of requests that carry a body, for 401 retry — a consumed body cannot be re-read,
+// while a bodyless request is replayable as it is. WeakMap keys are GC'd with their requests.
 const retryClones = new WeakMap<Request, Request>();
 
 export function setupApiClient() {
   client.setConfig({baseUrl: window.location.origin});
+  setupAuthChannel();
 
   // Proactively refresh the token 30s before it expires so requests never hit 401 due to expiry.
   // Concurrent calls share a single in-flight refresh promise to prevent rotation conflicts.
-  // Clone is stored here — after fetch() the body is consumed and can't be re-read.
   client.interceptors.request.use(async (request) => {
     const current = await getFreshAccessToken();
     if (current) request.headers.set("Authorization", `Bearer ${current}`);
@@ -95,32 +136,37 @@ export function setupApiClient() {
     const connectionId = getCurrentConnectionId();
     if (connectionId) request.headers.set("X-Realtime-Connection-Id", connectionId);
 
-    retryClones.set(request, request.clone());
+    if (request.body !== null) retryClones.set(request, request.clone());
 
     return request;
   });
 
   // On 401: try refreshing tokens and replay the request once with the new token.
-  // Falls back to clearTokens() when the refresh token is also invalid.
+  // Only an explicit rejection of the refresh token ends the session.
   client.interceptors.response.use(async (response, request) => {
     if (response.status !== 401) return response;
     if (!localStorage.getItem("accessToken")) return response;
 
-    const refreshed = await refreshTokens();
-    const clone = retryClones.get(request);
+    const outcome = await refreshTokens();
+    const replay = retryClones.get(request) ?? (request.body === null ? request : null);
     retryClones.delete(request);
 
-    if (!refreshed || !clone) {
+    if (outcome === "invalid") {
       window.dispatchEvent(new CustomEvent("auth:refreshTokenInvalid"));
       clearTokens();
       return response;
     }
 
+    // Unreachable server, or a request with a body that never passed through the request interceptor
+    // and so has nothing to replay: neither says anything about the session, so the caller just sees
+    // the 401.
+    if (outcome === "unavailable" || !replay) return response;
+
     const newToken = localStorage.getItem("accessToken");
-    const headers = new Headers(clone.headers);
+    const headers = new Headers(replay.headers);
     if (newToken) headers.set("Authorization", `Bearer ${newToken}`);
 
-    return fetch(new Request(clone, {headers}));
+    return fetch(new Request(replay, {headers}));
   });
 
   // Normalize non-AppProblemDetails HTTP errors (e.g. 502 {} body) to the status code string

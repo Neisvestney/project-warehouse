@@ -295,8 +295,8 @@ public class UsersController(
 
     /// <summary>Delete a user.</summary>
     /// <remarks>
-    /// Requires <c>users.delete</c>. Evicts the user's cached security version, so their outstanding tokens
-    /// stop validating.
+    /// Requires <c>users.delete</c>. Evicts the user's cached security version; a token whose subject no
+    /// longer exists then fails validation, and the user's refresh tokens go with the row.
     /// Returns 404 <c>userNotFound</c> if no such user, and 422 <c>validationError</c> (field <c>root</c>) if
     /// Identity refuses the delete.
     /// </remarks>

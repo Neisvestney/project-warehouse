@@ -1,24 +1,41 @@
 import type {MeResponse} from "@/api/types.gen";
+import {decodeJwtClaims} from "./jwt";
 
 type JwtUser = MeResponse & {roles: []};
+
+function claimString(value: unknown): string | null {
+  return typeof value === "string" && value ? value : null;
+}
 
 export function parseJwtUser(): JwtUser | null {
   const token = localStorage.getItem("accessToken");
   if (!token) return null;
   try {
-    const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    const payload = JSON.parse(atob(b64));
-    if (payload.exp && payload.exp * 1000 < Date.now()) return null;
-    const perm = payload.permission;
+    const claims = decodeJwtClaims(token);
+    if (typeof claims.exp === "number" && claims.exp * 1000 < Date.now()) return null;
+
+    // A payload without `sub` is not a token of ours — treat it as no user rather than an empty one.
+    const id = claimString(claims.sub);
+    if (!id) return null;
+
+    const perm = claims.permission;
+    const username = claimString(claims.name) ?? "";
+    const firstName = claimString(claims.given_name);
+    const lastName = claimString(claims.family_name);
+
     return {
-      id: payload.sub,
-      username: payload.name,
-      fullName: payload.name,
-      email: payload.email ?? null,
-      firstName: payload.given_name ?? null,
-      lastName: payload.family_name ?? null,
+      id,
+      username,
+      fullName: [firstName, lastName].filter(Boolean).join(" ") || username,
+      email: claimString(claims.email),
+      firstName,
+      lastName,
       roles: [],
-      permissions: Array.isArray(perm) ? perm : perm ? [perm] : [],
+      permissions: Array.isArray(perm)
+        ? perm.filter((p): p is string => typeof p === "string")
+        : typeof perm === "string"
+          ? [perm]
+          : [],
     };
   } catch {
     return null;

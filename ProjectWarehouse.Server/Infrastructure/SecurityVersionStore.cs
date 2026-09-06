@@ -11,19 +11,35 @@ namespace ProjectWarehouse.Server.Infrastructure;
 /// </summary>
 public sealed class SecurityVersionStore(IServiceScopeFactory scopeFactory)
 {
+    /// <summary>
+    /// Returned for a user that no longer exists. It must not collide with any value a token can carry —
+    /// <c>0</c> would, and a deleted user whose version was never bumped would keep a working token.
+    /// It is never cached: a missing row is cheap to re-read and the caller is being rejected anyway.
+    /// </summary>
+    public const int NoSuchUser = -1;
+
     private readonly ConcurrentDictionary<Guid, int> _versions = new();
+
+    // Bumped on every invalidation. A read that started before an invalidation must not publish the value it
+    // fetched, or a bump landing mid-read would be cached away and the revocation lost until the next one.
+    private long _generation;
 
     public async Task<int> GetVersionAsync(Guid userId)
     {
         if (_versions.TryGetValue(userId, out var cached))
             return cached;
 
+        var generation = Interlocked.Read(ref _generation);
+
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var user = await db.Users.FindAsync(userId);
-        var version = user?.SecurityVersion ?? 0;
-        _versions[userId] = version;
-        return version;
+        if (user is null) return NoSuchUser;
+
+        if (Interlocked.Read(ref _generation) == generation)
+            _versions[userId] = user.SecurityVersion;
+
+        return user.SecurityVersion;
     }
 
     public async Task BumpAsync(Guid userId)
@@ -33,8 +49,12 @@ public sealed class SecurityVersionStore(IServiceScopeFactory scopeFactory)
         await db.Users
             .Where(u => u.Id == userId)
             .ExecuteUpdateAsync(s => s.SetProperty(u => u.SecurityVersion, u => u.SecurityVersion + 1));
-        _versions.TryRemove(userId, out _);
+        Evict(userId);
     }
 
-    public void Evict(Guid userId) => _versions.TryRemove(userId, out _);
+    public void Evict(Guid userId)
+    {
+        Interlocked.Increment(ref _generation);
+        _versions.TryRemove(userId, out _);
+    }
 }

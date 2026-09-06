@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization.Metadata;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
@@ -14,6 +15,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -353,6 +355,15 @@ try
     var dataFilesOptions = builder.Configuration.GetSection(DataFilesOptions.SectionName)
         .Get<DataFilesOptions>() ?? new DataFilesOptions();
 
+    builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
+
+    // Read here as well as injected: the signing key and the GC cron are both needed while the container is
+    // still being built. Failing on a missing key at startup beats issuing tokens signed with an empty one.
+    var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName)
+        .Get<JwtOptions>() ?? new JwtOptions();
+    if (string.IsNullOrWhiteSpace(jwtOptions.SecretKey))
+        throw new InvalidOperationException("Jwt:SecretKey is not configured.");
+
     // the mounted volume is root-owned until the app touches it; both subtrees must exist before the first upload
     Directory.CreateDirectory(Path.Combine(dataFilesOptions.StorageRoot, "files"));
     Directory.CreateDirectory(Path.Combine(dataFilesOptions.StorageRoot, "thumbs"));
@@ -389,6 +400,13 @@ try
             .ForJob(gcKey)
             .WithIdentity(DataFilesGcJob.Key + "-trigger")
             .WithCronSchedule(dataFilesOptions.GcCron));
+
+        var tokenGcKey = new JobKey(RefreshTokensGcJob.Key);
+        q.AddJob<RefreshTokensGcJob>(tokenGcKey);
+        q.AddTrigger(t => t
+            .ForJob(tokenGcKey)
+            .WithIdentity(RefreshTokensGcJob.Key + "-trigger")
+            .WithCronSchedule(jwtOptions.RefreshTokenGcCron));
     });
     builder.Services.AddQuartzHostedService(o => o.WaitForJobsToComplete = true);
 
@@ -420,7 +438,6 @@ try
         .AddEntityFrameworkStores<ApplicationDbContext>()
         .AddDefaultTokenProviders();
 
-    var jwtSettings = builder.Configuration.GetSection("Jwt");
     builder.Services.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -432,13 +449,13 @@ try
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
-                ValidIssuer = jwtSettings["Issuer"],
+                ValidIssuer = jwtOptions.Issuer,
                 ValidateAudience = true,
-                ValidAudience = jwtSettings["Audience"],
+                ValidAudience = jwtOptions.Audience,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!)),
+                    Encoding.UTF8.GetBytes(jwtOptions.SecretKey)),
                 ClockSkew = TimeSpan.Zero,
                 NameClaimType = "name",
             };
@@ -476,6 +493,36 @@ try
             options.AddPolicy(permission,
                 p => p.Requirements.Add(new PermissionRequirement(permission)));
 
+    });
+
+    builder.Services.AddRateLimiter(options =>
+    {
+        // Partitioned by client address, so one warehouse behind NAT shares a bucket — the window is sized
+        // for a floor of people mistyping a password, not for a single browser.
+        options.AddPolicy(RateLimitPolicies.Login, ctx => RateLimitPartition.GetFixedWindowLimiter(
+            ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
+        options.OnRejected = async (ctx, ct) =>
+        {
+            var problem = AppProblems.Root(StatusCodes.Status429TooManyRequests, ErrorCode.TooManyRequests,
+                "Too many requests. Try again later.");
+            ctx.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+
+            if (ctx.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+                ctx.HttpContext.Response.Headers.RetryAfter = ((int)retryAfter.TotalSeconds).ToString();
+
+            // The content type has to ride along: the options overload of WriteAsJsonAsync overwrites
+            // whatever was set on the response with application/json.
+            await ctx.HttpContext.Response.WriteAsJsonAsync(problem, ctx.HttpContext.RequestServices
+                    .GetRequiredService<IOptions<JsonOptions>>().Value.JsonSerializerOptions,
+                "application/problem+json", ct);
+        };
     });
 
     builder.Services.Configure<ApiBehaviorOptions>(options =>
@@ -590,6 +637,7 @@ try
 
     app.UseHttpsRedirection();
     app.UseCors("CapacitorPolicy");
+    app.UseRateLimiter();
     app.UseAuthentication();
     app.UseMiddleware<TelemetryEnrichmentMiddleware>();
     app.UseAuthorization();

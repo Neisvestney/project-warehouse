@@ -674,11 +674,12 @@ export type ErrorCode =
   | "realtimeConnectionUnknown"
   | "editLockHeld"
   | "editLockNotHeld"
-  | "inventoryWriteConflict"
   | "marketplaceAutoMapRuleNotFound"
   | "marketplaceAutoMapRuleInvalidRegex"
   | "invalidValue"
-  | "tagNameDuplicate";
+  | "tagNameDuplicate"
+  | "tooManyRequests"
+  | "inventoryWriteConflict";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -2542,6 +2543,10 @@ export type AuthLoginErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Too Many Requests
+   */
+  429: AppProblemDetails;
 };
 
 export type AuthLoginError = AuthLoginErrors[keyof AuthLoginErrors];
