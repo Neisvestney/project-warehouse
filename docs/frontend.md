@@ -111,7 +111,9 @@ the repository; the rule is not.
 ## Routing
 
 `BrowserRouter` in `main.tsx`. Pages are lazy-loaded via `React.lazy` + `Suspense`. Access control is handled
-by `ProtectedRoute` / `ProtectedRoutes`; unauthenticated users are redirected to `/login`.
+by `ProtectedRoute` / `ProtectedRoutes`; unauthenticated users are redirected to `/login`, which carries the
+whole current URL — path, query and hash — in `location.state.from` and returns them there after the login.
+Page state lives in the query string, so a deep link survives the round trip intact.
 
 Each layout owns a `Suspense` boundary around its own `<Outlet />`, and `App.tsx` keeps an outer one for the
 routes that have no layout. React picks the nearest boundary, so a suspending page chunk never reaches past
@@ -127,6 +129,17 @@ top-level nav: the app bar links on desktop, and the expandable section tree of 
 > **Convention:** subroutes carry no `requiredPermission` of their own — `SidebarPage` only gates the section
 > route. Sub-pages that need a stronger right (`integrations.edit`, `integrations.map`, `integrations.sync`) hide their actions with
 > `useHasPermission`, and the server enforces it regardless.
+
+### Checking permissions
+
+One predicate answers the question everywhere: `hasPermission(granted, required, mode?)` from
+`@/utils/permissions`. `required` is a single `PermissionName`, a list of them, or nothing; `mode` is `"any"`
+(default) or `"all"`. **An absent or empty requirement means the route or item is open** — `requiredPermission`
+is a filter, and an empty filter removes nothing, which matters because the route configs are generated.
+
+`useHasPermission(required, mode?)` is the same function reading the user out of `AuthContext`; the places that
+already hold a permission list — `sectionVisibility.ts`, `mainNavConfig.tsx` — call the pure function with it.
+Nothing re-implements the check inline.
 
 Two layouts nest inside each other. `MainLayout` is the shell every authenticated page shares — realtime
 stream, service-worker update watcher, URL-synced state. `MainAppBarLayout` sits inside it and adds the visual
@@ -931,12 +944,31 @@ Outputs to `src/api/`. Generated files are committed to git.
 ### Runtime setup
 
 `setupApiClient()` is called once in `main.tsx` before `ReactDOM.createRoot`. It:
-- Sets `baseUrl` to `/api` (the Vite proxy routes this to the backend)
+- Sets `baseUrl` to `window.location.origin`
+- Starts the cross-tab auth channel (below)
 - Installs a request interceptor that proactively refreshes the JWT access token when < 30 s of its lifetime
   remains
 - Installs a response interceptor that on a 401 attempts a refresh and retries the request. If no `accessToken`
   is in `localStorage` the response is passed through without a refresh attempt (avoids spurious refreshes on
-  unauthenticated requests). Stored tokens are cleared when the refresh token is also invalid.
+  unauthenticated requests).
+
+The replay needs the request body, and `fetch` consumes it, so the request interceptor stores a clone in a
+`WeakMap` — but only for a request that has one. A bodyless request (every `GET`) is replayed as it is, which
+keeps a 25 MB file upload from being buffered twice on its way out.
+
+### Refresh outcomes
+
+`refreshTokens()` resolves to one of three values, and only one of them ends the session:
+
+| Outcome | When | What the 401 interceptor does |
+|---|---|---|
+| `ok` | the server issued a new pair | replays the original request with the new token |
+| `invalid` | the server rejected the refresh token (4xx), or there is none | raises `auth:refreshTokenInvalid`, clears tokens |
+| `unavailable` | the server is unreachable or answered 5xx | returns the 401 untouched, tokens kept |
+
+`unavailable` is the case that matters on the warehouse floor: a dropped connection must not log a picker out
+while their refresh token is good for another week. A successful refresh whose original request has no stored
+clone to replay is likewise not a session failure — the caller just sees the 401.
 
 Tokens live in `localStorage`, written only through `storeTokens()` / `clearTokens()` in
 `services/apiClient.ts` — the expiry timestamp is stored alongside the tokens so the proactive refresh above
@@ -944,10 +976,40 @@ needs no JWT decode on every request. Call `storeTokens(tokenResponse)` after a 
 context does this) and `clearTokens()` on logout. Each dispatches a window event — `auth:tokens` and
 `auth:clear` — which is how code outside the React tree learns that authentication changed.
 
+### Cross-tab authentication
+
+Every tab of the origin shares `localStorage`, so the tokens are common state while the React trees are not.
+`services/authChannel.ts` closes that gap: `storeTokens()` and `clearTokens()` post a `tokens` / `clear`
+message on a `BroadcastChannel`, and receiving tabs re-raise the matching local window event. Receivers never
+write storage back, so an echo loop is impossible. Where `BroadcastChannel` is missing the transport falls back
+to a nonce-carrying `localStorage` key, which reaches other tabs through the `storage` event. That key is a
+transport rather than state: `clearTokens()` removes it, and receivers ignore a `storage` event whose
+`newValue` is null, so the removal reaches nobody as a message.
+
+`AuthProvider` listens to both events, so a login, a token refresh or a logout in any tab is picked up by all
+of them — the others set `hasTokens` and refetch `/api/auth/me` rather than continuing with a stale identity.
+
+The rotation itself is serialized origin-wide with `navigator.locks.request("auth-refresh", …)`. A refresh
+token is single-use, so two tabs presenting the same one would leave the loser holding a revoked token and log
+everybody out; whoever waits on the lock re-reads `accessToken` afterwards. A changed value means the winner
+rotated (`ok`); a missing one means the winner logged out (`invalid`). The wait carries a 30 s
+`AbortSignal.timeout`, so a tab stuck mid-`fetch` cannot hold the rotation for the rest of them — a timed-out
+wait is `unavailable`, which leaves the session alone.
+
 The proactive refresh itself is `getFreshAccessToken()`, exported from the same module: it returns a token
-that is valid for at least the next 30 seconds, refreshing first if it is not. The request interceptor is one
+that is valid for at least the next 30 seconds, refreshing first if it is not, and `null` once a refresh comes
+back `invalid` — a known-dead token is not worth a round trip. The request interceptor is one
 caller; the telemetry exporters, which send their own requests, are another. Anything that builds an
 `Authorization` header by hand goes through it rather than reading `localStorage` directly.
+
+### Reading the access token
+
+`decodeJwtClaims(token)` in `@/utils/jwt` is the only JWT decoder — base64url with padding restored, decoded
+through `TextDecoder`, so Cyrillic claims survive. Two callers: `parseJwtUser()`, which builds the provisional
+`MeResponse` shown before `/api/auth/me` answers (`fullName` from `given_name` + `family_name`, falling back to
+the `name` claim, which is the username), and `services/currentUser.ts`, which labels telemetry. The claim table
+lives in [api.md](api.md#access-token-claims). The token is read as a label only — every permission it carries
+is re-checked on the server.
 
 Because the bearer token is injected by the request interceptor, **anything the browser fetches by URL
 attribute cannot be authorized** — that is why images go through `FileImage` rather than `<img src="/api/…">`.

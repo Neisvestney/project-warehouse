@@ -1,4 +1,5 @@
 import type {PermissionName} from "@/api/types.gen";
+import {hasPermission} from "@/utils/permissions";
 import type {SectionConfig} from "@/layouts/SidebarPage/SidebarPage.tsx";
 import {toNavItems} from "@/layouts/SidebarPage/toNavItems.ts";
 import type {SidebarNavItem} from "@/layouts/SidebarLayout/navItems.ts";
@@ -54,14 +55,11 @@ export const mainNavPages: MainNavPage[] = [
 
 export function resolveMainNavPages(permissions: PermissionName[]): ResolvedMainNavPage[] {
   return mainNavPages
-    .filter((page) => {
-      const hasPermission =
-        !page.requiredPermission ||
-        (Array.isArray(page.requiredPermission)
-          ? page.requiredPermission.some((p) => permissions.includes(p))
-          : permissions.includes(page.requiredPermission));
-      return hasPermission && (!page.showIf || page.showIf(permissions));
-    })
+    .filter(
+      (page) =>
+        hasPermission(permissions, page.requiredPermission) &&
+        (!page.showIf || page.showIf(permissions)),
+    )
     .map((page) => ({
       name: page.name,
       url: typeof page.url === "string" ? page.url : page.url(permissions),

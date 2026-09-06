@@ -21,6 +21,7 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   refreshTokenInvalid: "Токен обновления недействителен",
   refreshTokenExpired: "Токен обновления истёк",
   refreshTokenRevoked: "Токен обновления отозван",
+  tooManyRequests: "Слишком много запросов. Попробуйте позже",
   permissionDenied: "Недостаточно прав",
   roleProtected: "Роль {roleName} защищена от изменений",
   userNotFound: "Пользователь не найден",

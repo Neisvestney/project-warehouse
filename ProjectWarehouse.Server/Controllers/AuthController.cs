@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Models;
@@ -17,20 +18,45 @@ public class AuthController(
     IPermissionService permissionService,
     SecurityVersionStore versionStore) : AppControllerBase
 {
+    // Verified against when the username is unknown, so that path spends the same single PBKDF2 the known
+    // one does. Hashing per call would spend two and make the unknown case the slower of the pair — the very
+    // signal this exists to remove. The hash is produced by the configured hasher so its iteration count
+    // matches what real accounts carry; the first request to reach here pays for it once, and a concurrent
+    // double computation is harmless.
+    private static readonly ApplicationUser DummyUser = new() { Id = Guid.Empty, UserName = "__timing__" };
+    private static string? _dummyHash;
+
     /// <summary>Authenticate with username and password.</summary>
     /// <remarks>
     /// Anonymous. Returns a <c>TokenResponse</c> — <c>accessToken</c> (JWT), <c>refreshToken</c> (opaque,
     /// single-use) and <c>expiresIn</c> (access token lifetime in seconds).
     /// Returns 401 <c>invalidCredentials</c> when the username is unknown or the password does not match;
-    /// the two cases are deliberately indistinguishable.
+    /// the two cases are deliberately indistinguishable. Neither writes anything, and the unknown-username
+    /// path verifies against a throwaway hash, so they are not separable by response time either.
+    /// There is no per-account lockout: it would let anyone who knows a username keep that account shut, and
+    /// a locked account is itself an answer to "does this login exist". Guessing is bounded by the rate limit
+    /// instead — the endpoint is limited per client address and answers 429 <c>tooManyRequests</c> when the
+    /// limit is exceeded.
     /// </remarks>
     [HttpPost("login")]
+    [EnableRateLimiting(RateLimitPolicies.Login)]
     [ProducesResponseType<TokenResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var user = await userManager.FindByNameAsync(request.Username);
-        if (user is null || !await userManager.CheckPasswordAsync(user, request.Password))
+        if (user is null)
+        {
+            // Spend the same work an existing user would, so a missing account is not visible in the timing.
+            // Straight to the hasher: UserManager would add a store lookup the known path does not have.
+            var hasher = userManager.PasswordHasher;
+            _dummyHash ??= hasher.HashPassword(DummyUser, Guid.NewGuid().ToString());
+            hasher.VerifyHashedPassword(DummyUser, _dummyHash, request.Password);
+            return Unauthorized(ErrorCode.InvalidCredentials, "Username or password is incorrect.");
+        }
+
+        if (!await userManager.CheckPasswordAsync(user, request.Password))
             return Unauthorized(ErrorCode.InvalidCredentials, "Username or password is incorrect.");
 
         var tokens = await tokenService.IssueTokensAsync(user);
@@ -67,16 +93,18 @@ public class AuthController(
 
     /// <summary>Revoke the current refresh token (logout).</summary>
     /// <remarks>
-    /// Requires authentication, no permission. Revokes only the refresh token in the body; the access token
-    /// stays valid until it expires. Idempotent — an unknown or already-revoked token still answers 204, so
-    /// logout has no error codes of its own.
+    /// Requires authentication, no permission. Revokes only the refresh token in the body, and only when it
+    /// belongs to the caller; the access token stays valid until it expires. Idempotent — an unknown,
+    /// already-revoked or someone else's token still answers 204, so logout has no error codes of its own.
     /// </remarks>
     [HttpPost("logout")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Logout([FromBody] RefreshRequest request)
     {
-        await tokenService.RevokeRefreshTokenAsync(request.RefreshToken);
+        if (GetCurrentUserId() is { } userId)
+            await tokenService.RevokeRefreshTokenAsync(request.RefreshToken, userId);
+
         return NoContent();
     }
 

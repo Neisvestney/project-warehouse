@@ -33,21 +33,16 @@ function LoginPage() {
     "username" | "password"
   >();
 
-  const [navigateStarted, setNavigateStarted] = useState(false);
-
   const {mutate, isPending} = useMutation({
     mutationFn: ({username, password}: {username: string; password: string}) =>
       login(username, password),
     meta: {suppressGlobalError: true},
-    onSuccess: () => {
-      setNavigateStarted(true);
-      navigate(from, {replace: true});
-    },
+    onSuccess: () => navigate(from, {replace: true}),
     onError: setApiError,
   });
 
-  if (isAuthenticated && !navigateStarted) {
-    return <Navigate to="/" replace />;
+  if (isAuthenticated) {
+    return <Navigate to={from} replace />;
   }
 
   const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {

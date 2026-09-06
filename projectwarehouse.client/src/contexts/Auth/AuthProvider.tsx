@@ -18,14 +18,15 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
   const {data, isPending, isError, error} = useQuery({
     queryKey: ME_QUERY_KEY,
     queryFn: async (): Promise<MeResponse | null> => {
-      const {data: me, error} = await authMe();
+      const {data: me, error, response} = await authMe();
       if (error) {
-        // The interceptor may return a status-code string or TypeError at runtime,
-        // even though the generated type says AppProblemDetails.
-        const e: unknown = error;
-        // Transient errors (network failure, 5xx) — throw so TanStack keeps stale data.
-        if (e instanceof Error || (typeof e === "string" && e.startsWith("5"))) {
-          throw e;
+        // Typed non-optional, but absent when fetch itself threw — offline, DNS, aborted.
+        const status = (response as Response | undefined)?.status;
+
+        // Only the server saying "not you" ends the session. Everything else — unreachable server, 500,
+        // a WAF answering 403 — is transient, so throw and let TanStack keep the stale user.
+        if (status !== 401) {
+          throw error;
         }
         return null;
       }
@@ -37,8 +38,13 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
     meta: {suppressGlobalError: true},
   });
 
+  // Both events are raised by this tab when it stores or drops tokens, and re-raised locally by
+  // authChannel when another tab does — so a login, a refresh or a logout anywhere lands here.
   useEffect(() => {
     const handler = () => {
+      // Cancel first: clear() leaves live observers to refetch immediately, and those requests would go
+      // out unauthenticated before the guard has a chance to unmount the tree.
+      void queryClient.cancelQueries();
       queryClient.clear();
       queryClient.setQueryData(ME_QUERY_KEY, null);
       setHasTokens(false);
@@ -49,10 +55,11 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
 
   useEffect(() => {
     const handler = () => {
-      queryClient.invalidateQueries({queryKey: ME_QUERY_KEY});
+      setHasTokens(true);
+      void queryClient.invalidateQueries({queryKey: ME_QUERY_KEY});
     };
-    window.addEventListener("auth:refresh", handler);
-    return () => window.removeEventListener("auth:refresh", handler);
+    window.addEventListener("auth:tokens", handler);
+    return () => window.removeEventListener("auth:tokens", handler);
   }, [queryClient]);
 
   const login = useCallback(
@@ -69,8 +76,13 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
 
   const logout = useCallback(async () => {
     const refreshToken = localStorage.getItem("refreshToken") ?? "";
-    await authLogout({body: {refreshToken}});
-    clearTokens();
+    try {
+      // Best effort: revoking the refresh token server-side must not decide whether this device
+      // actually logs out. An unreachable server would otherwise leave the user signed in.
+      await authLogout({body: {refreshToken}});
+    } finally {
+      clearTokens();
+    }
   }, []);
 
   const user = (data as MeResponse | null | undefined) ?? null;

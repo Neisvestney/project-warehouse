@@ -702,7 +702,12 @@ export const getHealthOptions = (options?: Options<GetHealthData>) =>
  * Anonymous. Returns a `TokenResponse` — `accessToken` (JWT), `refreshToken` (opaque,
  * single-use) and `expiresIn` (access token lifetime in seconds).
  * Returns 401 `invalidCredentials` when the username is unknown or the password does not match;
- * the two cases are deliberately indistinguishable.
+ * the two cases are deliberately indistinguishable. Neither writes anything, and the unknown-username
+ * path verifies against a throwaway hash, so they are not separable by response time either.
+ * There is no per-account lockout: it would let anyone who knows a username keep that account shut, and
+ * a locked account is itself an answer to "does this login exist". Guessing is bounded by the rate limit
+ * instead — the endpoint is limited per client address and answers 429 `tooManyRequests` when the
+ * limit is exceeded.
  */
 export const authLoginMutation = (
   options?: Partial<Options<AuthLoginData>>,
@@ -760,9 +765,9 @@ export const authRefreshMutation = (
 /**
  * Revoke the current refresh token (logout).
  *
- * Requires authentication, no permission. Revokes only the refresh token in the body; the access token
- * stays valid until it expires. Idempotent — an unknown or already-revoked token still answers 204, so
- * logout has no error codes of its own.
+ * Requires authentication, no permission. Revokes only the refresh token in the body, and only when it
+ * belongs to the caller; the access token stays valid until it expires. Idempotent — an unknown,
+ * already-revoked or someone else's token still answers 204, so logout has no error codes of its own.
  */
 export const authLogoutMutation = (
   options?: Partial<Options<AuthLogoutData>>,
@@ -6065,8 +6070,8 @@ export const usersCreateMutation = (
 /**
  * Delete a user.
  *
- * Requires `users.delete`. Evicts the user's cached security version, so their outstanding tokens
- * stop validating.
+ * Requires `users.delete`. Evicts the user's cached security version; a token whose subject no
+ * longer exists then fails validation, and the user's refresh tokens go with the row.
  * Returns 404 `userNotFound` if no such user, and 422 `validationError` (field `root`) if
  * Identity refuses the delete.
  */

@@ -61,6 +61,13 @@ receipts of their own warehouses.
 **Assembly is warehouse-bound for everyone**, including holders of the unscoped `orders.edit` — physically
 picking stock requires being assigned to the warehouse the stock sits in.
 
+**`users.manage_roles_and_permissions` is effectively full administration.** Nothing checks that a granted
+permission is one the granter already holds, and nothing stops a caller editing their own record — so its
+holder can write themselves every permission in `Permissions.All` in one `PUT /api/users/{id}`. That is the
+accepted design: the permission is handed to people who administer the instance, and a "cannot grant what you
+lack" rule would only move the escalation one step (grant a role that has it) while making legitimate
+delegation awkward. Treat this permission as equivalent to Admin when deciding who gets it.
+
 **Own-record access.** `GET /api/users/{id}` is allowed without `users.view` when `id` is the caller's own.
 Otherwise every screen showing "who am I" would need a permission that also exposes the whole staff list.
 

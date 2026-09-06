@@ -53,7 +53,11 @@ function MainAppBar({}: AppBarProps) {
 
   const handleLogout = async () => {
     handleCloseUserMenu();
-    await logout();
+    try {
+      await logout();
+    } catch {
+      // Tokens are already cleared by logout()'s own finally; leaving is not the server's call.
+    }
     navigate("/login", {replace: true});
   };
 

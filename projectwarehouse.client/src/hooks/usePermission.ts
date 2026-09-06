@@ -1,14 +1,11 @@
 import type {PermissionName} from "@/api/types.gen";
+import {hasPermission} from "@/utils/permissions";
 import {useAuth} from "./useAuth";
 
 export function useHasPermission(
-  permission: PermissionName | PermissionName[],
+  permission: PermissionName | PermissionName[] | undefined,
   mode: "any" | "all" = "any",
 ): boolean {
   const {user} = useAuth();
-  if (!user) return false;
-  const required = Array.isArray(permission) ? permission : [permission];
-  return mode === "all"
-    ? required.every((p) => user.permissions.includes(p))
-    : required.some((p) => user.permissions.includes(p));
+  return hasPermission(user?.permissions ?? [], permission, mode);
 }

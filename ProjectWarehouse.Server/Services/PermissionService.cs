@@ -21,51 +21,7 @@ public class PermissionService(
             .Select(up => up.Permission)
             .ToListAsync();
 
-        return rolePermissions.Union(userPermissions).Distinct().ToList();
-    }
-
-    public async Task AddRolePermissionAsync(Guid roleId, string permission)
-    {
-        if (!await db.RolePermissions.AnyAsync(rp => rp.RoleId == roleId && rp.Permission == permission))
-        {
-            db.RolePermissions.Add(new RolePermission { RoleId = roleId, Permission = permission });
-            await db.SaveChangesAsync();
-        }
-        await BumpForRoleUsersAsync(roleId);
-    }
-
-    public async Task RemoveRolePermissionAsync(Guid roleId, string permission)
-    {
-        var entry = await db.RolePermissions
-            .FirstOrDefaultAsync(rp => rp.RoleId == roleId && rp.Permission == permission);
-        if (entry is not null)
-        {
-            db.RolePermissions.Remove(entry);
-            await db.SaveChangesAsync();
-        }
-        await BumpForRoleUsersAsync(roleId);
-    }
-
-    public async Task AddUserPermissionAsync(Guid userId, string permission)
-    {
-        if (!await db.UserPermissions.AnyAsync(up => up.UserId == userId && up.Permission == permission))
-        {
-            db.UserPermissions.Add(new UserPermission { UserId = userId, Permission = permission });
-            await db.SaveChangesAsync();
-        }
-        await versionStore.BumpAsync(userId);
-    }
-
-    public async Task RemoveUserPermissionAsync(Guid userId, string permission)
-    {
-        var entry = await db.UserPermissions
-            .FirstOrDefaultAsync(up => up.UserId == userId && up.Permission == permission);
-        if (entry is not null)
-        {
-            db.UserPermissions.Remove(entry);
-            await db.SaveChangesAsync();
-        }
-        await versionStore.BumpAsync(userId);
+        return rolePermissions.Union(userPermissions).ToList();
     }
 
     public async Task BumpForRoleUsersAsync(Guid roleId)

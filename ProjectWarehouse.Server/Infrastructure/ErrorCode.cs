@@ -11,6 +11,7 @@ public enum ErrorCode
     RefreshTokenInvalid = 3,
     RefreshTokenExpired = 4,
     RefreshTokenRevoked = 5,
+    TooManyRequests = 138,
 
     // Access
     PermissionDenied = 6,
@@ -169,7 +170,7 @@ public enum ErrorCode
     EditLockNotHeld = 132,
 
     // Concurrency
-    InventoryWriteConflict = 133,
+    InventoryWriteConflict = 139,
 
     // Tags
     TagNameDuplicate = 136,

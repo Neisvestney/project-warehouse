@@ -5,7 +5,7 @@ import type {PermissionName} from "@/api/types.gen";
 import {useAuth} from "@/hooks/useAuth";
 import {useHasPermission} from "@/hooks/usePermission";
 import AccessDenied from "@/components/AccessDenied";
-import ProtectedRoute, {type ProtectedRouteProps} from "./ProtectedRoute";
+import type {ProtectedRouteProps} from "./ProtectedRoute";
 import {PROTECTED_ROUTE_MARKER} from "./_protectedRouteMarker";
 
 interface AuthGuardProps {
@@ -17,17 +17,18 @@ interface AuthGuardProps {
 function AuthGuard({requiredPermission, permissionMode = "any", children}: AuthGuardProps) {
   const {isAuthenticated, isLoading} = useAuth();
   const location = useLocation();
-  const hasPermission = useHasPermission(requiredPermission ?? [], permissionMode);
+  const allowed = useHasPermission(requiredPermission, permissionMode);
 
   if (isLoading) {
     return <RouteFallback />;
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{from: location.pathname}} replace />;
+    const from = `${location.pathname}${location.search}${location.hash}`;
+    return <Navigate to="/login" state={{from}} replace />;
   }
 
-  if (requiredPermission && !hasPermission) {
+  if (!allowed) {
     return <AccessDenied />;
   }
 
@@ -43,9 +44,9 @@ function processRoutes(children: React.ReactNode): React.ReactNode {
       return <React.Fragment>{processRoutes(fragmentProps.children)}</React.Fragment>;
     }
 
-    const isProtectedRoute =
-      child.type === ProtectedRoute ||
-      !!(child.type as unknown as Record<symbol, unknown>)[PROTECTED_ROUTE_MARKER];
+    const isProtectedRoute = !!(child.type as unknown as Record<symbol, unknown>)[
+      PROTECTED_ROUTE_MARKER
+    ];
 
     if (isProtectedRoute) {
       const {
