@@ -12,25 +12,37 @@ dotnet run -- status prod
 
 ## Global install
 
-Publishes `pwops` once into a fixed folder and puts a thin shim on `PATH`, so it runs from any
-directory without `cd`, `dotnet run`, or a local `ops.json`.
+Publishes `pwops` once into a fixed folder, so it runs from any directory without `cd`,
+`dotnet run`, or a local `ops.json`.
 
 ```powershell
 dotnet publish tools\ProjectWarehouse.Ops\ProjectWarehouse.Ops.csproj -c Release -o "$env:USERPROFILE\.local\pwops"
 ```
 
-Then create `pwops.cmd` in a folder that is already on `PATH` (`%USERPROFILE%\.local\bin` works if
-that is where you keep other shims):
+In PowerShell, add a function to `$PROFILE` instead of a `PATH` shim — a `.cmd`/`.bat` shim runs
+under `cmd.exe`'s batch processor, which intercepts Ctrl+C with its own "Terminate batch job
+(Y/N)?" prompt no matter what the batch file runs; a PowerShell function calling the exe directly
+has no such prompt, Ctrl+C just kills the process:
+
+```powershell
+function pwops {
+    & "$env:USERPROFILE\.local\pwops\pwops.exe" @args --project "<repo-path>" --config "<repo-path>\tools\ProjectWarehouse.Ops\ops.json"
+}
+```
+
+Replace `<repo-path>` with the absolute path to this clone. `@args` must come **before**
+`--project`/`--config`: Spectre.Console.Cli reads per-command options after the command name, so
+putting the flags first makes it try to parse `validate` (or whichever command) as an unknown
+command.
+
+This only covers PowerShell. If `pwops` also needs to run from `cmd.exe`, put a `pwops.cmd` shim
+on `PATH` with the same argument order — but expect the Ctrl+C prompt there, since it comes from
+`cmd.exe` itself and no in-file change avoids it:
 
 ```bat
 @echo off
 "%USERPROFILE%\.local\pwops\pwops.exe" %* --project "<repo-path>" --config "<repo-path>\tools\ProjectWarehouse.Ops\ops.json"
 ```
-
-Replace `<repo-path>` with the absolute path to this clone. `%*` must come **before**
-`--project`/`--config`: Spectre.Console.Cli reads per-command options after the command name, so
-putting the flags first makes it try to parse `validate` (or whichever command) as an unknown
-command.
 
 Hardcoding `--project`/`--config` is what makes the install machine-independent from the caller's
 point of view: `pwops` always resolves the same repo and config no matter which directory it is
