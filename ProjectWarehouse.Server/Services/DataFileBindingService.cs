@@ -56,8 +56,13 @@ public class DataFileBindingService(ApplicationDbContext db, IListUpdater listUp
         var wanted = fileIds.Distinct().ToList();
         if (wanted.Count == 0) return null;
 
-        var found = await db.DataFiles.CountAsync(f => wanted.Contains(f.Id), ct);
-        if (found == wanted.Count) return null;
+        // Loaded, not just counted — this leaves the DataFile rows tracked, so EF's own
+        // relationship fixup wires up the DataFile navigation on every link BindListAsync/
+        // BindSingleAsync creates right after. A CountAsync tracks nothing, so a caller mapping
+        // straight after SaveChangesAsync (no full reload) would serialize a freshly attached
+        // file as null.
+        var found = await db.DataFiles.Where(f => wanted.Contains(f.Id)).ToListAsync(ct);
+        if (found.Count == wanted.Count) return null;
 
         return AppProblems.UnprocessableEntity(field, ErrorCode.DataFileNotFound,
             "Referenced file does not exist. It may have been collected after the form was left open.");
