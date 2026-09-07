@@ -3,7 +3,7 @@ import {Container} from "@mui/material";
 import {Outlet} from "react-router";
 import MainAppBar, {MAIN_APP_BAR_HEIGHT} from "@/components/MainNav/MainAppBar.tsx";
 import {APP_BAR_HEIGHT_VAR} from "@/hooks/useFloatTop.ts";
-import RouteFallback from "@/components/RouteFallback.tsx";
+import PageLoader from "@/components/PageLoader.tsx";
 
 export interface MainAppBarLayoutProps {}
 
@@ -22,7 +22,7 @@ function MainAppBarLayout({}: MainAppBarLayoutProps) {
     <>
       <MainAppBar />
       <Container maxWidth="xl" sx={{marginTop: 2, paddingBottom: 2}}>
-        <Suspense fallback={<RouteFallback />}>
+        <Suspense fallback={<PageLoader />}>
           <Outlet />
         </Suspense>
       </Container>

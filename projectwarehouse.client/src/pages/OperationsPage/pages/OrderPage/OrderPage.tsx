@@ -1,6 +1,6 @@
 import {useCallback, useState} from "react";
 import {useNavigate, useParams} from "react-router";
-import {Box, Button, CircularProgress, Paper, Stack, Tooltip, Typography} from "@mui/material";
+import {Box, Button, Paper, Stack, Tooltip, Typography} from "@mui/material";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
   ordersDeleteMutation,
@@ -16,6 +16,7 @@ import {isNotFoundError} from "@/utils/errorUtils";
 import {useHasPermission} from "@/hooks/usePermission";
 import {useEditLock} from "@/hooks/useEditLock";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import PageLoader from "@/components/PageLoader";
 import EditLockBanner from "@/components/EditLockBanner";
 import StaleDataBanner from "@/components/StaleDataBanner";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
@@ -119,13 +120,7 @@ function OrderPage() {
     },
   });
 
-  if (query.isLoading) {
-    return (
-      <Box sx={{display: "flex", justifyContent: "center", p: 4}}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  if (query.isLoading) return <PageLoader inline />;
 
   if (isNotFoundError(query.error)) return <NotFound />;
   if (query.isError) return <QueryError error={query.error} />;
@@ -173,7 +168,7 @@ function OrderPage() {
 
   return (
     <Box sx={{position: "relative"}}>
-      <LoadingOverlay open={lock.showLoadingOverlay && !isEditingMeta} />
+      <LoadingOverlay open={lock.showLoadingOverlay && !isEditingMeta} alignTop />
       <CatalogItemDrawerHost>
         <Stack spacing={2}>
           <EditLockBanner heldBy={lock.heldBy} />

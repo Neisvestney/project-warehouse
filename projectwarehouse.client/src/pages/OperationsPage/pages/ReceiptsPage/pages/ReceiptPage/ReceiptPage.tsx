@@ -1,3 +1,4 @@
+import PageLoader from "@/components/PageLoader";
 import {useCallback, useState} from "react";
 import {useNavigate, useParams} from "react-router";
 import {
@@ -5,7 +6,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Divider,
   MenuItem,
   Paper,
@@ -276,13 +276,7 @@ function ReceiptPage() {
     onSuccess: updateLocalReceipt,
   });
 
-  if (isLoading) {
-    return (
-      <Box sx={{display: "flex", justifyContent: "center", pt: 8}}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  if (isLoading) return <PageLoader inline />;
 
   if (isError && !isRefetchError)
     return isNotFoundError(error) ? <NotFound /> : <QueryError error={error} />;
@@ -305,7 +299,7 @@ function ReceiptPage() {
 
   return (
     <Box sx={{position: "relative"}}>
-      <LoadingOverlay open={lock.showLoadingOverlay && !isEditingAnything} />
+      <LoadingOverlay open={lock.showLoadingOverlay && !isEditingAnything} alignTop />
       <Stack spacing={2}>
         <EditLockBanner heldBy={lock.heldBy} />
         <StaleDataBanner

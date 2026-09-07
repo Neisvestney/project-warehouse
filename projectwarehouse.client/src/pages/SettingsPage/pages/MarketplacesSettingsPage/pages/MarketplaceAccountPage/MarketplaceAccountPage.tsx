@@ -1,16 +1,7 @@
+import PageLoader from "@/components/PageLoader";
 import {useCallback, useLayoutEffect, useRef, useState} from "react";
 import {useParams} from "react-router";
-import {
-  Box,
-  Button,
-  CircularProgress,
-  Menu,
-  MenuItem,
-  Paper,
-  Stack,
-  Tab,
-  Tabs,
-} from "@mui/material";
+import {Box, Button, Menu, MenuItem, Paper, Stack, Tab, Tabs} from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import SyncIcon from "@mui/icons-material/Sync";
@@ -164,13 +155,7 @@ function MarketplaceAccountPage() {
       }),
   });
 
-  if (isLoading) {
-    return (
-      <Box sx={{display: "flex", justifyContent: "center", pt: 8}}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  if (isLoading) return <PageLoader inline />;
 
   if (isError && !isRefetchError)
     return isNotFoundError(error) ? <NotFound /> : <QueryError error={error} />;
@@ -184,7 +169,7 @@ function MarketplaceAccountPage() {
 
   return (
     <Box sx={{position: "relative"}}>
-      <LoadingOverlay open={showLoadingOverlay} />
+      <LoadingOverlay open={showLoadingOverlay} alignTop />
       <Stack spacing={2}>
         <AppBreadcrumbs
           path={[{name: "Маркетплейсы", link: "/settings/integrations"}, {name: account.name}]}

@@ -19,7 +19,7 @@ import {Capacitor} from "@capacitor/core";
 import ServerSetupPage from "@/pages/ServerSetupPage/ServerSetupPage.tsx";
 import {SELECTED_SERVER_KEY} from "@/configuration/servers.ts";
 import ErrorBoundary from "@/components/ErrorBoundary.tsx";
-import RouteFallback from "@/components/RouteFallback.tsx";
+import PageLoader from "@/components/PageLoader.tsx";
 import {usePeriodicUpdateCheck} from "@/hooks/usePeriodicUpdateCheck.ts";
 import TelemetryRouteLogger from "@/components/TelemetryRouteLogger.tsx";
 import ThemeColorMeta from "@/components/ThemeColorMeta.tsx";
@@ -100,7 +100,7 @@ function App() {
               <ThemeColorMeta />
               <UpdatePrompt />
               <AuthProvider>
-                <Suspense fallback={<RouteFallback />}>
+                <Suspense fallback={<PageLoader />}>
                   <ProtectedRoutes>
                     <Route path="/server-setup" element={<ServerSetupPage />} />
                     <Route path="/login" element={<LoginPage />} />

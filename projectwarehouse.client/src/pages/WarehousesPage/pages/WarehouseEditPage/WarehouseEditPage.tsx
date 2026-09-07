@@ -1,7 +1,8 @@
+import PageLoader from "@/components/PageLoader";
 import {useCallback, useEffect, useRef, useState} from "react";
 import {observer} from "mobx-react-lite";
 import {Link, useParams} from "react-router";
-import {Box, Button, CircularProgress, Paper, Stack} from "@mui/material";
+import {Button, CircularProgress, Paper, Stack} from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import {useForm} from "react-hook-form";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
@@ -108,13 +109,7 @@ export default observer(function WarehouseEditPage() {
     updateWarehouse({path: {id: id!}, body: store.toUpdateRequest()});
   });
 
-  if (isLoading) {
-    return (
-      <Box sx={{display: "flex", justifyContent: "center", pt: 8}}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  if (isLoading) return <PageLoader inline />;
 
   if (isError && !isRefetchError)
     return isNotFoundError(error) ? <NotFound /> : <QueryError error={error} />;

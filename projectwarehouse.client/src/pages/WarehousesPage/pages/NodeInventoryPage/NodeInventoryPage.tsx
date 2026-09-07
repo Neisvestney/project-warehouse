@@ -1,4 +1,5 @@
-import {Box, CircularProgress, Stack} from "@mui/material";
+import {Stack} from "@mui/material";
+import PageLoader from "@/components/PageLoader";
 import {useParams} from "react-router";
 import {useQuery} from "@tanstack/react-query";
 import {
@@ -43,13 +44,7 @@ function NodeInventoryPage() {
 
   const isLoading = warehouseLoading || nodesLoading;
 
-  if (isLoading) {
-    return (
-      <Box sx={{display: "flex", justifyContent: "center", pt: 8}}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  if (isLoading) return <PageLoader inline />;
 
   if (warehouseError && !warehouseRefetchError)
     return isNotFoundError(warehouseErr) ? <NotFound /> : <QueryError error={warehouseErr} />;
