@@ -486,7 +486,9 @@ Autocomplete for catalog items, single or multi.
 
 Both debounce the search input (300 ms), fetch via `catalogGetForSelectOptions`, and **cache selected items so
 they survive search changes** — otherwise a selected chip would vanish as soon as the user typed a query that
-does not match it. `types?` is passed straight through to the endpoint as server-side filtering.
+does not match it. `types?` is passed straight through to the endpoint as server-side filtering. Single mode
+resolves its id through `useCatalogItemsByIds`, so an id nobody knows leaves the field empty instead of
+raising an error.
 
 ## Forecast
 

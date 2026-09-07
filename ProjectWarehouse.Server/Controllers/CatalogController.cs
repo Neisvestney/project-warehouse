@@ -22,6 +22,8 @@ public class CatalogController(
     ICatalogService catalogService,
     IDataFileBindingService fileBinding) : AppControllerBase
 {
+    private const int MaxSelectIds = 500;
+
     /// <summary>List all catalog item tags, optionally filtered by name.</summary>
     /// <remarks>
     /// Query params: <c>search</c> (optional). Not paginated — ordered by name.
@@ -169,6 +171,43 @@ public class CatalogController(
             .ThenBy(c => c.Name)
             .ThenBy(c => c.Id)
             .Take(take)
+            .ProjectTo<CatalogItemSelectDto>(mapper.ConfigurationProvider)
+            .ToListAsync(ct);
+
+        return Ok(items);
+    }
+
+    /// <summary>Resolve a set of ids into the same flat rows <see cref="GetForSelect"/> returns.</summary>
+    /// <remarks>
+    /// A POST because the id list is unbounded in practice — a selection restored from a URL can hold
+    /// hundreds of items, which no query string survives. Body: <c>CatalogItemsByIdsRequest</c> —
+    /// <c>ids</c> (at most 500; an empty list answers 200 with an empty array).
+    /// Unknown ids are simply absent from the response, and the order is not the order asked for —
+    /// the caller knows what it requested and indexes the result by id.
+    /// Archived items and product-group children are returned, same as <see cref="GetForSelect"/>.
+    /// Requires <c>catalog.view</c>. Returns 422 <c>outOfRange</c> on <c>ids</c> above the limit,
+    /// <c>args</c>: <c>max</c>.
+    /// </remarks>
+    [HttpPost("for-select/by-ids")]
+    [Authorize(Policy = Permissions.Catalog.View)]
+    [ProducesResponseType<IReadOnlyList<CatalogItemSelectDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> GetForSelectByIds(
+        [FromBody] CatalogItemsByIdsRequest request,
+        CancellationToken ct = default)
+    {
+        if (request.Ids.Count > MaxSelectIds)
+            return UnprocessableEntity(nameof(request.Ids), ErrorCode.OutOfRange,
+                $"At most {MaxSelectIds} catalog items can be requested at once.",
+                new Dictionary<string, object> { ["max"] = MaxSelectIds });
+
+        if (request.Ids.Count == 0)
+            return Ok(Array.Empty<CatalogItemSelectDto>());
+
+        var ids = request.Ids.Distinct().ToList();
+
+        var items = await db.CatalogItems
+            .Where(c => ids.Contains(c.Id))
             .ProjectTo<CatalogItemSelectDto>(mapper.ConfigurationProvider)
             .ToListAsync(ct);
 

@@ -3,21 +3,11 @@ import type {AutocompleteProps, TextFieldProps} from "@mui/material";
 import {Autocomplete, Box, Chip, TextField, Typography} from "@mui/material";
 import ArchiveIcon from "@mui/icons-material/Archive";
 import {useQuery} from "@tanstack/react-query";
-import {catalogGetByIdOptions, catalogGetForSelectOptions} from "@/api/@tanstack/react-query.gen";
-import type {CatalogItemDto, CatalogItemSelectDto, CatalogItemType} from "@/api/types.gen";
+import {catalogGetForSelectOptions} from "@/api/@tanstack/react-query.gen";
+import type {CatalogItemSelectDto, CatalogItemType} from "@/api/types.gen";
+import {useCatalogItemsByIds} from "@/hooks/useCatalogItemsByIds";
 import {useDebounce} from "@/hooks/useDebounce";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
-
-function toSelectDto(dto: CatalogItemDto): CatalogItemSelectDto {
-  return {
-    id: dto.id,
-    type: dto.type,
-    name: dto.name,
-    fullName: dto.fullName,
-    article: dto.article,
-    isArchived: dto.isArchived,
-  };
-}
 
 type OmitControlled<T> = Omit<
   T,
@@ -154,21 +144,14 @@ function SingleSelect({
     }),
   );
 
-  const getByIdQuery = useQuery({
-    ...catalogGetByIdOptions({path: {id: value!}}),
-    enabled: value !== null,
-    meta: {suppressGlobalError: true},
-  });
+  const known = useCatalogItemsByIds(value !== null ? [value] : []);
 
   const onDtoChangeRef = useRef(onDtoChange);
   useEffect(() => {
     onDtoChangeRef.current = onDtoChange;
   });
 
-  const fetchedSelectDto = useMemo(
-    () => (getByIdQuery.data ? toSelectDto(getByIdQuery.data) : undefined),
-    [getByIdQuery.data],
-  );
+  const fetchedSelectDto = value !== null ? known.items.get(value) : undefined;
 
   useEffect(() => {
     if (value === null) {
@@ -201,7 +184,7 @@ function SingleSelect({
       getOptionLabel={(item) => item.fullName}
       isOptionEqualToValue={(o, v) => o.id === v.id}
       filterOptions={(x) => x}
-      loading={searchQuery.isLoading || getByIdQuery.isLoading}
+      loading={searchQuery.isLoading || known.isLoading}
       renderInput={(params) => <TextField {...params} label={label} {...textFieldProps} />}
       renderOption={(props, option) => (
         <li {...props} key={option.id}>

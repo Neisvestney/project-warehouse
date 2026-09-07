@@ -198,6 +198,18 @@ Used everywhere a posting number is rendered: the `postingNumber` extra column i
 **Отправление** row in `OrderMetaSection`, and the failure list in `SkippedOrdersList` (there it sits inside the
 existing `<b>`, so the whole number stays bold and the 4 digits only gain the size bump).
 
+### Resolving catalog ids
+
+`hooks/useCatalogItemsByIds(ids)` turns a set of catalog item ids into `CatalogItemSelectDto`s and returns
+`{items: Map<string, CatalogItemSelectDto>, isLoading, isError}`. Use it wherever a component holds ids and
+has to show items — a selection restored from a URL, the members of a variation, the value of a single-value
+picker. It posts `POST /api/catalog/for-select/by-ids`, so a hundred ids cost one request rather than a
+hundred; the ids are deduplicated and sorted before they become the query key, so the same set in a different
+order is a cache hit, and anything past the server's 500-id cap is split into further requests.
+
+An id the server does not know is simply missing from `items` — that is not an error, and callers render
+their own placeholder for it (`StockMovementsPage` shows «…» until the name arrives).
+
 ### Invalidating by operation
 
 Generated query keys are one object — `[{_id, baseUrl, path?, query?}]` — so a filter built from a subset of
@@ -477,7 +489,7 @@ the cell-is-authoritative rule is destructive by omission and must never be appl
 Pivot table of stock movements at `/storage/stock-movements`. Filter state lives in URL params via
 `useStockMovementsFilters` (`?items=` comma-separated catalog item ids, `?from=`, `?to=`, `?warehouse=`,
 `?place=`, `?node=`, `?user=`, plus the display params `?preset=` and `?full=1`); ids are
-resolved back into DTOs by `useCatalogItemsByIds`. `preset` and `full` stay out of the `filter` object, so
+resolved back into DTOs by `hooks/useCatalogItemsByIds`. `preset` and `full` stay out of the `filter` object, so
 switching a preset or expanding the table does not change the pivot query key.
 
 **Columns are groups.** Each catalog item spans one sub-column per metric of the active preset, then two

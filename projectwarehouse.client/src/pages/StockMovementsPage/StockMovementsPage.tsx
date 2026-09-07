@@ -7,6 +7,7 @@ import {useSnackbar} from "notistack";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import QueryError from "@/components/QueryError";
+import {useCatalogItemsByIds} from "@/hooks/useCatalogItemsByIds";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import MetricsEditorDrawer from "./MetricsEditorDrawer";
 import {type DraftMetric, stripKeys, withKeys} from "./metricDraft";
@@ -14,7 +15,6 @@ import PresetBar from "./PresetBar";
 import StockMovementsFilters from "./StockMovementsFilters";
 import StockMovementsPivotTable from "./StockMovementsPivotTable";
 import {MAX_METRICS} from "./stockMovementsConstants";
-import {useCatalogItemsByIds} from "./useCatalogItemsByIds";
 import {useStockMovementPresets} from "./useStockMovementPresets";
 import {useStockMovementsFilters} from "./useStockMovementsFilters";
 import {useStockMovementsPivot} from "./useStockMovementsPivot";
@@ -62,7 +62,7 @@ function StockMovementsPage() {
     setPresetId(id);
   };
 
-  const knownItems = useCatalogItemsByIds(filter.catalogItemIds);
+  const {items: knownItems} = useCatalogItemsByIds(filter.catalogItemIds);
   const items = useMemo(
     () =>
       filter.catalogItemIds.map(
