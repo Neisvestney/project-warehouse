@@ -20,7 +20,7 @@ import {useStockMovementsFilters} from "./useStockMovementsFilters";
 import {useStockMovementsPivot} from "./useStockMovementsPivot";
 
 /** Beyond this the table stops being readable and starts being a scroll endurance test. */
-const COLUMN_WARNING_THRESHOLD = 120;
+const COLUMN_WARNING_THRESHOLD = 1500;
 
 function StockMovementsPage() {
   const filters = useStockMovementsFilters();
