@@ -2,8 +2,8 @@ import {useMemo} from "react";
 import {useInfiniteQuery, useQuery} from "@tanstack/react-query";
 import {statisticsGetPivot} from "@/api";
 import type {
-  StatisticsGetPivotData,
-  StockMovementDirection,
+  StockMovementMetricDto,
+  StockMovementPivotRequest,
   StockMovementPivotRowDto,
 } from "@/api/types.gen";
 import {addDays, todayDateOnly} from "@/utils/dateOnly";
@@ -24,31 +24,29 @@ export interface StockMovementsFilterValue {
   storagePlaceId: string | null;
   nodeId: string | null;
   userId: string | null;
-  receiptTagIds: string[];
-  actions: string[];
-  directions: StockMovementDirection[];
 }
 
-type PivotQuery = NonNullable<StatisticsGetPivotData["query"]>;
-
-function buildQuery(filter: StockMovementsFilterValue, from: string, to: string): PivotQuery {
+function buildBody(
+  filter: StockMovementsFilterValue,
+  metrics: StockMovementMetricDto[],
+  from: string,
+  to: string,
+): StockMovementPivotRequest {
   return {
-    From: from,
-    To: to,
-    WarehouseId: filter.warehouseId ?? undefined,
-    StoragePlaceId: filter.storagePlaceId ?? undefined,
-    NodeId: filter.nodeId ?? undefined,
-    UserId: filter.userId ?? undefined,
-    CatalogItemIds: filter.catalogItemIds,
-    ReceiptTagIds: filter.receiptTagIds.length > 0 ? filter.receiptTagIds : undefined,
-    Actions: filter.actions.length > 0 ? filter.actions : undefined,
-    Directions: filter.directions.length > 0 ? filter.directions : undefined,
+    from,
+    to,
+    warehouseId: filter.warehouseId,
+    storagePlaceId: filter.storagePlaceId,
+    nodeId: filter.nodeId,
+    userId: filter.userId,
+    catalogItemIds: filter.catalogItemIds,
+    metrics,
     columnLimit: Math.min(Math.max(filter.catalogItemIds.length, 1), MAX_COLUMNS),
   };
 }
 
-async function fetchPivot(query: PivotQuery, signal: AbortSignal) {
-  const response = await statisticsGetPivot({query, signal, throwOnError: true});
+async function fetchPivot(body: StockMovementPivotRequest, signal: AbortSignal) {
+  const response = await statisticsGetPivot({body, signal, throwOnError: true});
   return response.data;
 }
 
@@ -59,23 +57,41 @@ async function fetchPivot(query: PivotQuery, signal: AbortSignal) {
  * Columns are **not** taken from the response: the server only returns a column for an item that
  * actually moved, so the table would gain and lose columns as windows load. The selection drives them.
  */
-export function useStockMovementsPivot(filter: StockMovementsFilterValue) {
+export function useStockMovementsPivot(
+  filter: StockMovementsFilterValue,
+  metrics: StockMovementMetricDto[],
+) {
   const enabled = filter.catalogItemIds.length > 0;
   const isInfinite = filter.from === null;
   const anchor = filter.to ?? todayDateOnly();
 
+  // A metric's name is a column label and changes nothing about the figures, so it stays out of the key:
+  // keying on it re-POSTs the whole pivot on every keystroke in the editor's name field.
+  const predicates = metrics.map(({actions, directions, receiptTagIds}) => ({
+    actions,
+    directions,
+    receiptTagIds,
+  }));
+
+  // `name` is `[Required]` server-side, so a half-typed metric would 400 and replace the table with an
+  // error. The placeholder keeps the request valid while the user is still naming the column.
+  const named = metrics.map((metric, index) => ({
+    ...metric,
+    name: metric.name.trim() || `#${index + 1}`,
+  }));
+
   const rangeQuery = useQuery({
-    queryKey: ["stockMovementsPivot", "range", filter, anchor],
-    queryFn: ({signal}) => fetchPivot(buildQuery(filter, filter.from!, anchor), signal),
+    queryKey: ["stockMovementsPivot", "range", filter, predicates, anchor],
+    queryFn: ({signal}) => fetchPivot(buildBody(filter, named, filter.from!, anchor), signal),
     enabled: enabled && !isInfinite,
   });
 
   const infiniteQuery = useInfiniteQuery({
-    queryKey: ["stockMovementsPivot", "infinite", filter, anchor],
+    queryKey: ["stockMovementsPivot", "infinite", filter, predicates, anchor],
     initialPageParam: 0,
     queryFn: ({pageParam, signal}) => {
       const to = addDays(anchor, -WINDOW_DAYS * pageParam);
-      return fetchPivot(buildQuery(filter, addDays(to, -(WINDOW_DAYS - 1)), to), signal);
+      return fetchPivot(buildBody(filter, named, addDays(to, -(WINDOW_DAYS - 1)), to), signal);
     },
     getNextPageParam: (_last, pages) => (pages.length >= MAX_WINDOWS ? undefined : pages.length),
     enabled: enabled && isInfinite,

@@ -330,6 +330,46 @@ each multiplies out into six figures of duplicated rows for one item. Split quer
 
 ---
 
+## Many aggregates over one table: `Concat` into a single `UNION ALL`
+
+**A caller-supplied list of filters, each needing its own aggregate over the same rows, is one query, not
+one per filter.** `StockStatisticsService.GetMetricCellsAsync` builds a branch per metric — the metric's
+predicate, then `GroupBy(day, item)`, then a `Sum` — stamps each with a constant `MetricIndex`, and stitches
+them with `Concat`. EF translates that to a single `UNION ALL` over identically-shaped subqueries, and the
+index tag is what lets the rows be sorted back into per-metric slots in memory.
+
+The alternative — a conditional `SUM(CASE WHEN … )` column per metric — needs a projection built at runtime,
+because the metric count is not known at compile time; the alternative to *that* is N round trips. `Concat`
+gets one statement out of plain LINQ.
+
+Two constraints come with it. Every branch must project the same type, so the discriminator is a field of
+that type rather than a separate shape. And filtering and ordering happen **before** the projection: EF
+cannot translate `OrderBy` over a member of a record it has not yet materialised, which is the same reason
+`StockMovementPresetService.Rows` takes an already-ordered queryable instead of ordering its own output.
+
+---
+
+## Table-wide invariants: `pg_advisory_xact_lock`, not a retry
+
+**A write whose precondition is a fact about the whole table cannot be guarded by a row-level token.**
+`StockMovementPresetService` has two: "exactly one preset is the default" and "at least one preset exists".
+Both are read-then-write over every row, and the partial unique index on `IsDefault` is checked per
+statement, so two transactions moving the default collide on it however they order their updates.
+
+The fix is a transaction-scoped advisory lock taken as the first statement inside the unit of work — the
+write still goes through `ExecuteInTransactionAsync`, so it keeps its `db.transaction` span, and
+`SELECT pg_advisory_xact_lock($key)` is simply what it runs first. That serialises the writers and makes the
+check-then-act safe. The lock is
+released by the commit or the rollback, so unlike `PostgresAdvisoryLock` — session-scoped, on its own
+connection because Npgsql's `DISCARD ALL` would drop it — it can ride on the request's own DbContext
+connection. Reach for it when the invariant spans rows and the table is small and human-written; a retry loop
+around the unique violation would work too, but it leaves the failure mode live and the lock does not.
+
+Per-row lost updates are a different problem and still need the row token: the preset's `xmin` is what makes
+an edit started minutes ago fail instead of overwriting someone else's save.
+
+---
+
 ## Counter rows: unique index + `xmin` + replay
 
 A row whose value is read, changed in C# and written back (`Count` on `StoragePlaceNodeItemsGroup`) cannot be

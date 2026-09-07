@@ -36,4 +36,7 @@ public enum AppEntityType
     StockMovement = 13,
     
     FbsOrdersGrouped = 17,
+
+    /// <summary>A saved column layout of the stock movement report. Shared, so every edit is journalled.</summary>
+    StockMovementReportPreset = 18,
 }

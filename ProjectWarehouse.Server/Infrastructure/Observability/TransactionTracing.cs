@@ -82,7 +82,11 @@ public static class TransactionTracing
         CancellationToken ct = default)
     {
         var result = default(T)!;
-        await database.ExecuteInTransactionAsync(operation, async () => result = await action(), ct);
+
+        // The braces are load-bearing: as an expression body the lambda is a Func<Task<T>> and binds back
+        // to this same overload, which recurses until the stack dies. A block body makes it a Func<Task>.
+        await database.ExecuteInTransactionAsync(operation, async () => { result = await action(); }, ct);
+
         return result;
     }
 }

@@ -17,13 +17,12 @@ public interface IStockStatisticsService
         CancellationToken ct = default);
 
     /// <summary>
-    /// Days down, catalog items across. Columns are the <paramref name="columnLimit"/> items that moved the
-    /// most; row totals still cover everything the filter matched.
+    /// Days down, catalog items across, and each item split into the requested metrics. Columns are the
+    /// <c>columnLimit</c> items that moved the most; row totals sum those columns.
     /// </summary>
     Task<StockMovementPivotDto> GetPivotAsync(
         ClaimsPrincipal user,
-        StockMovementFilterRequest filter,
-        int columnLimit,
+        StockMovementPivotRequest request,
         CancellationToken ct = default);
 
     /// <summary>Top <paramref name="limit"/> groups over the filtered range, ordered by total quantity moved.</summary>

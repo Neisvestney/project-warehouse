@@ -1,11 +1,6 @@
 import {useMemo} from "react";
-import type {StockMovementDirection} from "@/api/types.gen";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
-import {STOCK_MOVEMENT_ACTIONS, STOCK_MOVEMENT_DIRECTIONS} from "./stockMovementsConstants";
 import type {StockMovementsFilterValue} from "./useStockMovementsPivot";
-
-const ACTION_VALUES = STOCK_MOVEMENT_ACTIONS.map((a) => a.value);
-const DIRECTION_VALUES: string[] = STOCK_MOVEMENT_DIRECTIONS.map((d) => d.value);
 
 function parseList(query: string | null): string[] {
   return query ? query.split(",").filter(Boolean) : [];
@@ -37,25 +32,12 @@ export function useStockMovementsFilters() {
   const [storagePlaceId, setStoragePlaceId] = useSyncedWithQueryState("place", parseId, (v) => v);
   const [nodeId, setNodeId] = useSyncedWithQueryState("node", parseId, (v) => v);
   const [userId, setUserId] = useSyncedWithQueryState("user", parseId, (v) => v);
-  const [receiptTagIds, setReceiptTagIds] = useSyncedWithQueryState(
-    "receiptTags",
-    parseList,
-    serializeList,
-  );
 
-  const [actions, setActions] = useSyncedWithQueryState(
-    "actions",
-    (q) => parseList(q).filter((a) => ACTION_VALUES.includes(a)),
-    serializeList,
-  );
-  const [directions, setDirections] = useSyncedWithQueryState(
-    "directions",
-    (q) => parseList(q).filter((d): d is StockMovementDirection => DIRECTION_VALUES.includes(d)),
-    serializeList,
-  );
-
-  const [showTransfers, setShowTransfers] = useSyncedWithQueryState(
-    "transfers",
+  // Which preset is open and whether the table fills the tab are display state, not filters — they
+  // stay out of `filter` so switching a preset does not invalidate the pivot query key.
+  const [presetId, setPresetId] = useSyncedWithQueryState("preset", parseId, (v) => v);
+  const [expanded, setExpanded] = useSyncedWithQueryState(
+    "full",
     (q) => q === "1",
     (v) => (v ? "1" : null),
   );
@@ -69,28 +51,16 @@ export function useStockMovementsFilters() {
       storagePlaceId,
       nodeId,
       userId,
-      receiptTagIds,
-      actions,
-      directions,
     }),
-    [
-      catalogItemIds,
-      from,
-      to,
-      warehouseId,
-      storagePlaceId,
-      nodeId,
-      userId,
-      receiptTagIds,
-      actions,
-      directions,
-    ],
+    [catalogItemIds, from, to, warehouseId, storagePlaceId, nodeId, userId],
   );
 
   return {
     filter,
-    showTransfers,
-    setShowTransfers,
+    presetId,
+    setPresetId,
+    expanded,
+    setExpanded,
     setCatalogItemIds,
     setFrom,
     setTo,
@@ -107,8 +77,5 @@ export function useStockMovementsFilters() {
     },
     setNodeId,
     setUserId,
-    setReceiptTagIds,
-    setActions,
-    setDirections,
   };
 }

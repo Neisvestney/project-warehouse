@@ -347,6 +347,18 @@ import type {
   StockForecastUpdateSettingsData,
   StockForecastUpdateSettingsErrors,
   StockForecastUpdateSettingsResponses,
+  StockMovementPresetsCreatePresetData,
+  StockMovementPresetsCreatePresetErrors,
+  StockMovementPresetsCreatePresetResponses,
+  StockMovementPresetsDeletePresetData,
+  StockMovementPresetsDeletePresetErrors,
+  StockMovementPresetsDeletePresetResponses,
+  StockMovementPresetsGetPresetsData,
+  StockMovementPresetsGetPresetsErrors,
+  StockMovementPresetsGetPresetsResponses,
+  StockMovementPresetsUpdatePresetData,
+  StockMovementPresetsUpdatePresetErrors,
+  StockMovementPresetsUpdatePresetResponses,
   StocktakesCancelData,
   StocktakesCancelErrors,
   StocktakesCancelResponses,
@@ -2838,23 +2850,33 @@ export const statisticsGetDaily = <ThrowOnError extends boolean = false>(
   >({url: "/api/statistics/stock-movements/daily", ...options});
 
 /**
- * Pivot: one row per day, one column per catalog item, in/out in each cell.
+ * Pivot: one row per day, one column per catalog item, split into the requested metrics.
  *
+ * A POST because `metrics` is a list of objects and does not survive a query string; the body is
+ * `StockMovementPivotRequest` — the shared filter plus `columnLimit` (default 20, range
+ * 1..200) and `metrics` (at most 12).
  * Columns are the `columnLimit` items that moved the most over the range (pass
  * `catalogItemIds` to pin them instead). Cells are sparse — a day with no movement of an item
- * carries no cell. Row totals cover every item the filter matched, so they stay correct even when
- * `hasMoreColumns` is true.
- * Query params: the shared filter plus `columnLimit` (default 20, range 1..200).
+ * carries no cell. Each cell's `metrics` holds the signed net per requested metric, in the order
+ * they were sent; metrics may overlap, so they never sum to `net`. Row and table totals sum the
+ * columns, so they agree with what the table shows.
  * Same access rule and the same 422 `outOfRange` range errors as `stock-movements/daily`.
  */
 export const statisticsGetPivot = <ThrowOnError extends boolean = false>(
-  options?: Options<StatisticsGetPivotData, ThrowOnError>,
+  options: Options<StatisticsGetPivotData, ThrowOnError>,
 ): RequestResult<StatisticsGetPivotResponses, StatisticsGetPivotErrors, ThrowOnError> =>
-  (options?.client ?? client).get<
+  (options.client ?? client).post<
     StatisticsGetPivotResponses,
     StatisticsGetPivotErrors,
     ThrowOnError
-  >({url: "/api/statistics/stock-movements/pivot", ...options});
+  >({
+    url: "/api/statistics/stock-movements/pivot",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
 
 /**
  * Same totals, grouped by one dimension instead of by day.
@@ -3011,6 +3033,104 @@ export const stockForecastSetOverride = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/api/stock-forecast/overrides",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * All presets, the default one first.
+ *
+ * Not paginated — the list is small by design. Requires `statistics.view` or
+ * `statistics.view_assigned`; 403 `permissionDenied` when neither is held. Presets are not
+ * warehouse-scoped, so `view_assigned` sees the same list as `view`.
+ */
+export const stockMovementPresetsGetPresets = <ThrowOnError extends boolean = false>(
+  options?: Options<StockMovementPresetsGetPresetsData, ThrowOnError>,
+): RequestResult<
+  StockMovementPresetsGetPresetsResponses,
+  StockMovementPresetsGetPresetsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    StockMovementPresetsGetPresetsResponses,
+    StockMovementPresetsGetPresetsErrors,
+    ThrowOnError
+  >({url: "/api/statistics/movement-presets", ...options});
+
+/**
+ * Create a preset.
+ *
+ *     Errors:
+ * * 422 stockMovementPresetNameDuplicate on name
+ * * 422 required on metrics[i].name
+ * * 422 stockMovementPresetUnknownAction on metrics[i].actions
+ * The first preset created becomes the default whatever `isDefault` says — the report has no
+ * columns without one. Same access rule as the listing.
+ */
+export const stockMovementPresetsCreatePreset = <ThrowOnError extends boolean = false>(
+  options: Options<StockMovementPresetsCreatePresetData, ThrowOnError>,
+): RequestResult<
+  StockMovementPresetsCreatePresetResponses,
+  StockMovementPresetsCreatePresetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StockMovementPresetsCreatePresetResponses,
+    StockMovementPresetsCreatePresetErrors,
+    ThrowOnError
+  >({
+    url: "/api/statistics/movement-presets",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete a preset. The default flag moves to the next preset by name.
+ *
+ * 404 `stockMovementPresetNotFound` when the preset is gone, 422
+ * `stockMovementPresetLastOne` on `root` when it is the only one left. Same access rule
+ * as the listing.
+ */
+export const stockMovementPresetsDeletePreset = <ThrowOnError extends boolean = false>(
+  options: Options<StockMovementPresetsDeletePresetData, ThrowOnError>,
+): RequestResult<
+  StockMovementPresetsDeletePresetResponses,
+  StockMovementPresetsDeletePresetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    StockMovementPresetsDeletePresetResponses,
+    StockMovementPresetsDeletePresetErrors,
+    ThrowOnError
+  >({url: "/api/statistics/movement-presets/{id}", ...options});
+
+/**
+ * Update a preset.
+ *
+ * 404 `stockMovementPresetNotFound` when the preset is gone, 409
+ * `stockMovementPresetModified` when `version` is stale — presets are shared, so pass back
+ * the `version` the edit started from. Plus the same 422 codes as creation. Same access rule
+ * as the listing.
+ */
+export const stockMovementPresetsUpdatePreset = <ThrowOnError extends boolean = false>(
+  options: Options<StockMovementPresetsUpdatePresetData, ThrowOnError>,
+): RequestResult<
+  StockMovementPresetsUpdatePresetResponses,
+  StockMovementPresetsUpdatePresetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    StockMovementPresetsUpdatePresetResponses,
+    StockMovementPresetsUpdatePresetErrors,
+    ThrowOnError
+  >({
+    url: "/api/statistics/movement-presets/{id}",
     ...options,
     headers: {
       "Content-Type": "application/json",

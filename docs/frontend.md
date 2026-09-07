@@ -476,8 +476,52 @@ the cell-is-authoritative rule is destructive by omission and must never be appl
 
 Pivot table of stock movements at `/storage/stock-movements`. Filter state lives in URL params via
 `useStockMovementsFilters` (`?items=` comma-separated catalog item ids, `?from=`, `?to=`, `?warehouse=`,
-`?place=`, `?node=`, `?user=`, `?receiptTags=`, `?actions=`, `?transfers=`); ids are resolved back into DTOs by
-`useCatalogItemsByIds`.
+`?place=`, `?node=`, `?user=`, plus the display params `?preset=` and `?full=1`); ids are
+resolved back into DTOs by `useCatalogItemsByIds`. `preset` and `full` stay out of the `filter` object, so
+switching a preset or expanding the table does not change the pivot query key.
+
+**Columns are groups.** Each catalog item spans one sub-column per metric of the active preset, then two
+fixed ones: «Итого движение» (the raw net) and «Остаток». The first group is «Итого» — the sum of the
+selected positions, computed server-side by summing the same columns, so it always adds up to what is on
+screen. Metric labels are set vertically (`writing-mode: vertical-rl` plus a 180° rotation), which is what
+fixes `METRIC_ROW_HEIGHT`. `stickyHeader` pins every `th` at `top: 0`, so the second header row carries an
+explicit `top` — the height of the first row, measured with a `ResizeObserver` rather than assumed. The group
+row holds a name over an article and `height` on a `th` is only a minimum, so a hardcoded offset parks the
+metric row over the group row and the column borders visibly merge as soon as the table scrolls. A thick left
+border opens a group, a thin one separates metrics inside it.
+
+**Metrics** are named filters — an action set, a direction set and a receipt-tag set, ANDed, all optional.
+The value is a signed net, so a metric restricted to `out` reports `−45` without the client deciding a sign.
+Metrics may overlap («Новый товар» covers «Приёмка HOT»), which is why the net and balance columns come from
+raw directions and the sub-columns are never summed to produce them.
+
+**Presets** (`useStockMovementPresets`) are server-side and shared by everyone who can view the report; the
+list query is invalidated after every write. The active one is `?preset=`, else the one flagged default, else
+the first — the report has no columns without a preset, so there is no unselected state. `MetricsEditorDrawer`
+edits a **draft** held on the page and passed straight into the pivot request: the preset is shared, and
+saving merely to preview a metric would change the table for the whole team. The draft holds the name as well
+as the metrics, so renaming is the same unsaved edit as adding a column; the chip keeps showing the stored
+name until it is saved. The draft carries the id of the preset it was made against, so switching presets
+discards it during render rather than through an effect, and selecting another preset clears it outright.
+Saving sends the `version` the edit started from — the server requires it on every update — and a 409 means
+someone else got there first.
+
+Two details keep the live preview usable. A metric's **name is not part of the pivot query key** and a blank
+one is sent as a `#n` placeholder: the name is a column label that changes no figure, so keying on it would
+re-POST the whole pivot per keystroke, and an empty one would fail the server's `[Required]` and replace the
+table with an error mid-rename. And each drafted metric carries a client-side `key` (`metricDraft.ts`) —
+the API identifies a metric by position, which is also what dragging changes, so keying rows by index leaves
+a focused input attached to whichever metric lands in that slot.
+
+**«Итого за период»** renders only when `from` is set. Without it the table is in infinite mode, walking
+backwards in 30-day windows, and a total over "however far the user happened to scroll" names no period.
+
+**Full-tab mode** (`?full=1`) is a `<Dialog fullScreen>` holding the same table instance, with the preset bar
+and a close button above it; `Escape` and the focus trap come from the Dialog. It deliberately does **not**
+use `useBackClosable`: that hook marks a pushed history entry, and syncing `full` to the query string
+replaces the entry and wipes the marker, so Back would reopen what was just closed. The table takes `fill`
+there and stretches instead of capping at `70vh`. The «Метрики» button is hidden while expanded — the editor
+is a `Drawer` and would render underneath the dialog.
 
 **Catalog item selector** — `CatalogItemsSelect` restricted to `STOCK_MOVEMENT_ITEM_TYPES` (`standard` + `unit`;
 groups, variations and bundles never hold stock). The selected items are what the pivot columns are made of, so
@@ -488,11 +532,13 @@ queries `GET /api/catalog/for-select` with `tagIds` + `types` + `take=200`, prev
 the found ids to the current selection (duplicates skipped). It's a one-shot action — the tag itself is not
 persisted in the URL. A warning is shown when the result hits the 200-item cap.
 
-**«Теги приёмки» filter** — `ReceiptTagsFilter` over `receiptTagIds`: a row is kept when the receipt it came
-from carries any of the picked tags, so a non-empty selection also drops every movement made outside a receipt.
-The tag list comes from `GET /api/receipts/tags`, which needs `receipts.view` or `receipts.view_assigned` —
-the filter is rendered only for a user holding one of them, the way the employee filter is gated on
-`users.view`.
+**Receipt tags are per metric, not global.** `ReceiptTagsFilter` lives inside each metric row of
+`MetricsEditorDrawer`: a movement matches when the receipt it came from carries any of the picked tags, so a
+non-empty selection also excludes every movement made outside a receipt. That is a column-shaping decision —
+«сколько приняли с тегом HOT» next to «сколько ушло в заказы» — and as one bar-level filter it could only ever
+answer it for the whole table at once. The tag list comes from `GET /api/receipts/tags`, which needs
+`receipts.view` or `receipts.view_assigned`, so the picker is rendered only for a user holding one of them,
+the way the employee filter is gated on `users.view`.
 
 The applied time zone sits in the tooltip of an `InfoOutlinedIcon` beside the page title («Сутки считаются по
 часовому поясу Europe/Moscow»). It comes from `timeZoneId` on the pivot response and is not necessarily the

@@ -12,6 +12,7 @@ public static class UniqueViolations
 {
     private const string UnitInventoryNumberIndexName = "IX_InventoryItems_CatalogItemId_InventoryNumber";
     private const string TagNameIndexName = "IX_Tags_TagType_Name";
+    private const string PresetNameIndexName = "IX_StockMovementReportPresets_Name";
 
     /// <summary>The partial unique index behind "this inventory number is already taken for that catalog item".</summary>
     public static bool IsUnitInventoryNumber(Exception e) =>
@@ -24,4 +25,10 @@ public static class UniqueViolations
         e is DbUpdateException { InnerException: PostgresException pg }
         && pg.SqlState == PostgresErrorCodes.UniqueViolation
         && pg.ConstraintName == TagNameIndexName;
+
+    /// <summary>The unique index behind "a movement report preset with this name already exists".</summary>
+    public static bool IsStockMovementPresetName(Exception e) =>
+        e is DbUpdateException { InnerException: PostgresException pg }
+        && pg.SqlState == PostgresErrorCodes.UniqueViolation
+        && pg.ConstraintName == PresetNameIndexName;
 }

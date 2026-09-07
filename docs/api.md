@@ -29,6 +29,10 @@ Errors always use `AppProblemDetails` — see [errors.md](errors.md) for the env
 - **Search**: `searchString` matches against the entity's precomputed `SearchString` column.
 - **Sorting**: `sortBy` (per-endpoint enum) plus `sortOrder` (`asc` | `desc`).
 - **Multi-value filters**: repeatable params (`itemTypes`, `tagIds`, `catalogItemTypes`) use OR semantics.
+- **Read endpoints that POST**: `POST /api/statistics/stock-movements/pivot` is the one read that takes a body.
+  Its `metrics` are objects, each an action set plus a direction set plus a receipt-tag set, and a list of those
+  does not survive a query string in any form worth parsing. The rest of the movement filter travels in the same
+  body rather than being split across body and query.
 - **Day boundaries**: where a timestamp is cut into a calendar day (`/api/events`,
   `/api/statistics/stock-movements/*`, `/api/stock-forecast`), the zone is never a query parameter. It is
   resolved server-side: the warehouse's own `TimeZoneId` when the request is narrowed to one warehouse,

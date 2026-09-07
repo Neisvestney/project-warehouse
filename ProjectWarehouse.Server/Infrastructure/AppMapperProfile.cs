@@ -79,6 +79,9 @@ public class AppMapperProfile : Profile
 
         CreateMap<CatalogItemTag, CatalogItemTagDto>();
         CreateMap<ReceiptTag, ReceiptTagDto>();
+
+        CreateMap<StockMovementReportPreset, AppEntity>()
+            .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.StockMovementReportPreset));
         CreateMap<BundleComponent, BundleComponentDto>()
             .ForMember(d => d.ComponentName, opt => opt.MapFrom(s => s.Component.FullName))
             .ForMember(d => d.ComponentType, opt => opt.MapFrom(s => s.Component.Type));

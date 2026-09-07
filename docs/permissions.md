@@ -90,6 +90,14 @@ rather than to a warehouse.
 **`system.*` is instance-wide technical readout**, not a business area. There is deliberately no `system.manage`:
 an unused permission is a checkbox in the roles matrix that grants nothing. Add it with the first action needing it.
 
+**Movement report presets are edited by whoever can read them.** `/api/statistics/movement-presets` gates all
+four verbs on the same `statistics.view` / `statistics.view_assigned` pair the report itself uses, with no
+separate edit permission. A preset is display state of a report — the columns someone chose to look at — and
+carries no data that reading the report does not already expose. The presets are shared and unscoped, so a
+`view_assigned` holder sees and edits the same list as a `view` holder; only the figures the report then draws
+are narrowed to their warehouses. The trade is deliberate: an edit is visible to everyone, and the audit log
+(`AppEntityType.StockMovementReportPreset`) is what names who changed what.
+
 **Uploading and reading files needs no permission** — the right to attach a file is the right to edit the owning
 entity, already checked on that entity's endpoint. See
 [data-files-specification.md](data-files-specification.md) for the limitation this leaves.

@@ -41,6 +41,15 @@ public class StockStatisticsService(
         public Guid CatalogItemId { get; init; }
     }
 
+    /// <summary>One metric's net for one item on one day. Metrics overlap, so a movement can feed several.</summary>
+    private sealed class MetricDayItemRow
+    {
+        public int MetricIndex { get; init; }
+        public DateTime Date { get; init; }
+        public Guid CatalogItemId { get; init; }
+        public int Net { get; init; }
+    }
+
     public async Task<StockMovementDailySeriesDto> GetDailySeriesAsync(
         ClaimsPrincipal user,
         StockMovementFilterRequest filter,
@@ -73,10 +82,13 @@ public class StockStatisticsService(
 
     public async Task<StockMovementPivotDto> GetPivotAsync(
         ClaimsPrincipal user,
-        StockMovementFilterRequest filter,
-        int columnLimit,
+        StockMovementPivotRequest request,
         CancellationToken ct = default)
     {
+        StockMovementFilterRequest filter = request;
+        var metrics = request.Metrics;
+        var columnLimit = request.ColumnLimit;
+
         var (query, from, to, offsetMinutes, timeZoneId) = await BuildAsync(user, filter, ct);
         var fromUtc = DateTime.SpecifyKind(
             from.ToDateTime(TimeOnly.MinValue) - TimeSpan.FromMinutes(offsetMinutes), DateTimeKind.Utc);
@@ -162,8 +174,7 @@ public class StockStatisticsService(
             }
         }
 
-        // Row totals cover every item the filter matched, not only the items that made it into a column
-        var totalsByDate = await GroupByDayAsync(query, offsetMinutes, ct);
+        var metricCells = await GetMetricCellsAsync(query, columnIds, metrics, offsetMinutes, ct);
 
         // Balance ignores the display filters (Action/Direction/User/receipt tag) — those only narrow what's
         // *shown*, but every movement, shown or not, moved real stock and has to count toward what's on the
@@ -172,7 +183,10 @@ public class StockStatisticsService(
         var stockScope = await BuildStockScopeAsync(user, filter, ct);
         var tailQuery = stockScope.Where(m => m.CreatedAt >= toUtc);
 
+        // Only the days inside the range are ever read back out of this; without the bound it would group
+        // an item's entire history and ship every day of it.
         var stockScopeCells = await stockScope
+            .Where(m => m.CreatedAt >= fromUtc && m.CreatedAt < toUtc)
             .Where(m => columnIds.Contains(m.CatalogItemId))
             .GroupBy(m => new { Date = m.CreatedAt.AddMinutes(offsetMinutes).Date, m.CatalogItemId })
             .Select(g => new DayItemRow
@@ -191,20 +205,6 @@ public class StockStatisticsService(
             .GroupBy(c => DateOnly.FromDateTime(c.Date))
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        // Same scope as the per-item walk, but over every item the filter covers rather than the columns —
-        // that is what `currentStockTotal` counts, so the two have to agree.
-        var stockScopeNetByDate = await stockScope
-            .Where(m => m.CreatedAt >= fromUtc && m.CreatedAt < toUtc)
-            .GroupBy(m => m.CreatedAt.AddMinutes(offsetMinutes).Date)
-            .Select(g => new
-            {
-                g.Key,
-                Net = g.Sum(m => m.Direction == StockMovementDirection.In || m.Direction == StockMovementDirection.TransferIn
-                    ? m.Quantity
-                    : -m.Quantity),
-            })
-            .ToDictionaryAsync(x => DateOnly.FromDateTime(x.Key), x => x.Net, ct);
-
         var tailNetByItem = await tailQuery
             .Where(m => columnIds.Contains(m.CatalogItemId))
             .GroupBy(m => m.CatalogItemId)
@@ -217,21 +217,12 @@ public class StockStatisticsService(
             })
             .ToDictionaryAsync(x => x.Key, x => x.Net, ct);
 
-        var tailNetTotal = await tailQuery.SumAsync(
-            m => m.Direction == StockMovementDirection.In || m.Direction == StockMovementDirection.TransferIn
-                ? m.Quantity
-                : -m.Quantity, ct);
-
         var currentStockByItem = await GetCurrentStockAsync(user, filter, columnIds, ct);
-        var currentStockTotal = (await GetCurrentStockAsync(
-            user, filter, filter.CatalogItemIds is { Length: > 0 } ids ? ids : null, ct)).Values.Sum();
 
         var days = EachDay(from, to).ToList();
         var itemBalanceByDay = new Dictionary<DateOnly, Dictionary<Guid, int>>();
-        var totalBalanceByDay = new Dictionary<DateOnly, int>();
 
         var runningItemSuffix = tailNetByItem.ToDictionary(x => x.Key, x => x.Value);
-        var runningTotalSuffix = tailNetTotal;
         for (var i = days.Count - 1; i >= 0; i--)
         {
             var day = days[i];
@@ -239,18 +230,15 @@ public class StockStatisticsService(
             itemBalanceByDay[day] = columnIds.ToDictionary(
                 id => id,
                 id => currentStockByItem.GetValueOrDefault(id) - runningItemSuffix.GetValueOrDefault(id));
-            totalBalanceByDay[day] = currentStockTotal - runningTotalSuffix;
 
             foreach (var c in stockScopeCellsByDate.GetValueOrDefault(day) ?? [])
                 runningItemSuffix[c.CatalogItemId] = runningItemSuffix.GetValueOrDefault(c.CatalogItemId) + c.Net;
-            runningTotalSuffix += stockScopeNetByDate.GetValueOrDefault(day);
         }
 
         var rows = days
-            .Select(day => new StockMovementPivotRowDto
+            .Select(day =>
             {
-                Date = day,
-                Cells = (cellsByDate.GetValueOrDefault(day) ?? [])
+                var cells = (cellsByDate.GetValueOrDefault(day) ?? [])
                     .Select(c => new StockMovementPivotCellDto
                     {
                         CatalogItemId = c.CatalogItemId,
@@ -260,12 +248,26 @@ public class StockStatisticsService(
                         TransferOutQuantity = c.TransferOutQuantity,
                         MovementsCount = c.MovementsCount,
                         Balance = itemBalanceByDay[day].GetValueOrDefault(c.CatalogItemId),
+                        Metrics = metricCells.GetValueOrDefault((day, c.CatalogItemId)) ?? Zeros(metrics.Count),
                     })
-                    .ToList(),
-                Total = totalsByDate.GetValueOrDefault(day) ?? new StockMovementTotalsDto(),
-                Balance = totalBalanceByDay[day],
+                    .ToList();
+
+                return new StockMovementPivotRowDto
+                {
+                    Date = day,
+                    Cells = cells,
+                    // The total column is the sum of the columns beside it: a figure that does not add up
+                    // to what the row shows reads as a bug, whatever else it could honestly count.
+                    Total = SumCells(cells, metrics.Count),
+                    Balance = itemBalanceByDay[day].Values.Sum(),
+                };
             })
             .ToList();
+
+        var metricsByItem = rows
+            .SelectMany(r => r.Cells)
+            .GroupBy(c => c.CatalogItemId)
+            .ToDictionary(g => g.Key, g => SumMetrics(g.Select(c => c.Metrics), metrics.Count));
 
         return new StockMovementPivotDto
         {
@@ -284,11 +286,117 @@ public class StockStatisticsService(
                     TransferOutQuantity = c.TransferOutQuantity,
                     MovementsCount = c.MovementsCount,
                     Balance = itemBalanceByDay[to].GetValueOrDefault(c.CatalogItemId),
+                    Metrics = metricsByItem.GetValueOrDefault(c.CatalogItemId) ?? Zeros(metrics.Count),
                 })
                 .ToList(),
             Rows = rows,
-            Totals = Sum(rows.Select(r => r.Total)),
+            Totals = SumTotals(rows.Select(r => r.Total), metrics.Count),
             HasMoreColumns = hasMoreColumns,
+        };
+    }
+
+    /// <summary>
+    /// Every metric in one round trip: each is its own filtered aggregate, and the branches are stitched
+    /// with <c>Concat</c> so the provider emits a single UNION ALL instead of a query per metric.
+    /// </summary>
+    private static async Task<Dictionary<(DateOnly Date, Guid CatalogItemId), int[]>> GetMetricCellsAsync(
+        IQueryable<StockMovement> query,
+        IReadOnlyCollection<Guid> columnIds,
+        IReadOnlyList<StockMovementMetricDto> metrics,
+        int offsetMinutes,
+        CancellationToken ct)
+    {
+        var result = new Dictionary<(DateOnly, Guid), int[]>();
+        if (metrics.Count == 0) return result;
+
+        var scoped = query.Where(m => columnIds.Contains(m.CatalogItemId));
+
+        IQueryable<MetricDayItemRow>? union = null;
+        for (var i = 0; i < metrics.Count; i++)
+        {
+            var index = i;
+            var branch = ApplyMetric(scoped, metrics[i])
+                .GroupBy(m => new { Date = m.CreatedAt.AddMinutes(offsetMinutes).Date, m.CatalogItemId })
+                .Select(g => new MetricDayItemRow
+                {
+                    MetricIndex = index,
+                    Date = g.Key.Date,
+                    CatalogItemId = g.Key.CatalogItemId,
+                    Net = g.Sum(m =>
+                        m.Direction == StockMovementDirection.In || m.Direction == StockMovementDirection.TransferIn
+                            ? m.Quantity
+                            : -m.Quantity),
+                });
+
+            union = union is null ? branch : union.Concat(branch);
+        }
+
+        foreach (var row in await union!.ToListAsync(ct))
+        {
+            var key = (DateOnly.FromDateTime(row.Date), row.CatalogItemId);
+            if (!result.TryGetValue(key, out var values))
+                result[key] = values = new int[metrics.Count];
+            values[row.MetricIndex] = row.Net;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// The metric's own predicate, applied on top of the report filter. Same three clauses as
+    /// <see cref="BuildAsync"/>, because a metric is a filter that produces a column instead of a page.
+    /// </summary>
+    private static IQueryable<StockMovement> ApplyMetric(
+        IQueryable<StockMovement> query,
+        StockMovementMetricDto metric)
+    {
+        if (metric.Actions is { Length: > 0 } actions)
+            query = query.Where(m => actions.Contains(m.Action));
+
+        if (metric.Directions is { Length: > 0 } directions)
+            query = query.Where(m => directions.Contains(m.Direction));
+
+        if (metric.ReceiptTagIds is { Length: > 0 } receiptTagIds)
+            query = query.Where(m => m.Receipt != null && m.Receipt.Tags.Any(t => receiptTagIds.Contains(t.Id)));
+
+        return query;
+    }
+
+    private static int[] Zeros(int count) => count == 0 ? [] : new int[count];
+
+    private static int[] SumMetrics(IEnumerable<IReadOnlyList<int>> parts, int count)
+    {
+        var sum = Zeros(count);
+        foreach (var part in parts)
+            for (var i = 0; i < count && i < part.Count; i++)
+                sum[i] += part[i];
+        return sum;
+    }
+
+    private static StockMovementPivotTotalsDto SumCells(
+        IReadOnlyList<StockMovementPivotCellDto> cells, int metricCount) =>
+        new()
+        {
+            InQuantity = cells.Sum(c => c.InQuantity),
+            OutQuantity = cells.Sum(c => c.OutQuantity),
+            TransferInQuantity = cells.Sum(c => c.TransferInQuantity),
+            TransferOutQuantity = cells.Sum(c => c.TransferOutQuantity),
+            MovementsCount = cells.Sum(c => c.MovementsCount),
+            Metrics = SumMetrics(cells.Select(c => c.Metrics), metricCount),
+        };
+
+    private static StockMovementPivotTotalsDto SumTotals(
+        IEnumerable<StockMovementPivotTotalsDto> totals, int metricCount)
+    {
+        var list = totals.ToList();
+        return new StockMovementPivotTotalsDto
+        {
+            InQuantity = list.Sum(t => t.InQuantity),
+            OutQuantity = list.Sum(t => t.OutQuantity),
+            TransferInQuantity = list.Sum(t => t.TransferInQuantity),
+            TransferOutQuantity = list.Sum(t => t.TransferOutQuantity),
+            MovementsCount = list.Sum(t => t.MovementsCount),
+            Metrics = SumMetrics(list.Select(t => t.Metrics), metricCount),
         };
     }
 

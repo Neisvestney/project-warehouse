@@ -44,6 +44,7 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<StoragePlaceNodeItemsGroup> StoragePlacesNodesItemsGroups => Set<StoragePlaceNodeItemsGroup>();
 
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<StockMovementReportPreset> StockMovementReportPresets => Set<StockMovementReportPreset>();
     public DbSet<CatalogItemStockWarning> CatalogItemStockWarnings => Set<CatalogItemStockWarning>();
 
     public DbSet<Receipt> Receipts => Set<Receipt>();
@@ -277,6 +278,32 @@ public class ApplicationDbContext : IdentityDbContext<
             e.HasOne(x => x.Receipt)
                 .WithMany()
                 .HasForeignKey(x => x.ReceiptId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<StockMovementReportPreset>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.Property(x => x.Name).HasMaxLength(100);
+            e.HasIndex(x => x.Name).IsUnique();
+
+            // Partial unique index: at most one default, enforced by the database rather than by a
+            // read-then-write that two concurrent saves would both pass.
+            e.HasIndex(x => x.IsDefault).IsUnique().HasFilter("\"IsDefault\"");
+
+            // Presets are shared, so two people editing at once is the normal case, not the edge one.
+            // Maps to the PostgreSQL xmin system column — no extra column in the table.
+            e.Property<uint>("Version").IsRowVersion();
+
+            // A collection of a complex type is also a candidate for EF's owned-collection discovery,
+            // and [Column] alone does not settle that.
+            e.Property(x => x.Metrics).HasColumnType("jsonb");
+
+            e.HasOne(x => x.UpdatedBy)
+                .WithMany()
+                .HasForeignKey(x => x.UpdatedById)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 

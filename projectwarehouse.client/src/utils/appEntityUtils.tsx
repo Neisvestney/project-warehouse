@@ -274,6 +274,11 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     getEventCalendarTitle: (e) =>
       `Заказы FBS ${e.additionalFields?.completedOrders} из ${e.additionalFields?.totalOrders}`,
   },
+  stockMovementReportPreset: {
+    linkTemplate: "/storage/stock-movements",
+    typeName: "Пресет отчёта о движениях",
+    icon: <SwapVertIcon />,
+  },
 };
 
 export function resolveEntity(entity: AppEntity): ResolvedEntity {
