@@ -1,15 +1,7 @@
+import PageLoader from "@/components/PageLoader";
 import {useCallback, useState} from "react";
 import {Link as RouterLink, useParams} from "react-router";
-import {
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Paper,
-  Stack,
-  Tooltip,
-  Typography,
-} from "@mui/material";
+import {Box, Button, Chip, Paper, Stack, Tooltip, Typography} from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import {getPermissionLabel} from "@/utils/permissionLabels";
 import LockResetIcon from "@mui/icons-material/LockReset";
@@ -64,13 +56,7 @@ function UserViewPage() {
     onRefresh: refreshUser,
   });
 
-  if (isLoading) {
-    return (
-      <Box sx={{display: "flex", justifyContent: "center", pt: 8}}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  if (isLoading) return <PageLoader inline />;
 
   if (isError && !isRefetchError)
     return isNotFoundError(error) ? <NotFound /> : <QueryError error={error} />;
@@ -78,7 +64,7 @@ function UserViewPage() {
 
   return (
     <Box sx={{position: "relative"}}>
-      <LoadingOverlay open={showLoadingOverlay} />
+      <LoadingOverlay open={showLoadingOverlay} alignTop />
       <Stack spacing={2}>
         <AppBreadcrumbs
           path={[

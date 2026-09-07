@@ -3,7 +3,7 @@ import {Outlet} from "react-router";
 import {RealtimeProvider} from "@/contexts/Realtime/RealtimeProvider";
 import {SearchParamsProvider} from "@/contexts/SearchParams/SearchParamsProvider";
 import ServiceWorkerUpdateWatcher from "@/components/ServiceWorkerUpdateWatcher.tsx";
-import RouteFallback from "@/components/RouteFallback.tsx";
+import PageLoader from "@/components/PageLoader.tsx";
 
 export interface MainLayoutProps {}
 
@@ -13,7 +13,7 @@ function MainLayout({}: MainLayoutProps) {
       <ServiceWorkerUpdateWatcher />
       <SearchParamsProvider>
         {/* Below the providers: a boundary above them would tear down the stream on every lazy chunk. */}
-        <Suspense fallback={<RouteFallback />}>
+        <Suspense fallback={<PageLoader />}>
           <Outlet />
         </Suspense>
       </SearchParamsProvider>

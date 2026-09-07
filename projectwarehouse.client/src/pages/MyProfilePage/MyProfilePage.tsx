@@ -1,14 +1,6 @@
+import PageLoader from "@/components/PageLoader";
 import {useState} from "react";
-import {
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Paper,
-  Stack,
-  Tooltip,
-  Typography,
-} from "@mui/material";
+import {Box, Button, Chip, Paper, Stack, Tooltip, Typography} from "@mui/material";
 import {getPermissionLabel} from "@/utils/permissionLabels";
 import LockResetIcon from "@mui/icons-material/LockReset";
 import {useQuery} from "@tanstack/react-query";
@@ -42,13 +34,7 @@ function MyProfilePage() {
     enabled: !!user?.id,
   });
 
-  if (isLoading) {
-    return (
-      <Box sx={{display: "flex", justifyContent: "center", pt: 8}}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  if (isLoading) return <PageLoader inline />;
 
   if (isError && !isRefetchError)
     return isNotFoundError(error) ? <NotFound /> : <QueryError error={error} />;
@@ -56,7 +42,7 @@ function MyProfilePage() {
 
   return (
     <Box sx={{position: "relative"}}>
-      <LoadingOverlay open={isFetching && !isLoading} />
+      <LoadingOverlay open={isFetching && !isLoading} alignTop />
       <Stack spacing={2}>
         <AppBreadcrumbs path={[{name: "Мой профиль"}]} />
         <PageGenericHeader

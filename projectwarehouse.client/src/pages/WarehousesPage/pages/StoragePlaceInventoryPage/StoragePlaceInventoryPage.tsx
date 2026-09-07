@@ -1,4 +1,5 @@
-import {Box, CircularProgress, Stack} from "@mui/material";
+import {Stack} from "@mui/material";
+import PageLoader from "@/components/PageLoader";
 import {useParams} from "react-router";
 import {useQuery} from "@tanstack/react-query";
 import {warehousesGetByIdOptions} from "@/api/@tanstack/react-query.gen";
@@ -25,13 +26,7 @@ function StoragePlaceInventoryPage() {
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
   });
 
-  if (isLoading) {
-    return (
-      <Box sx={{display: "flex", justifyContent: "center", pt: 8}}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  if (isLoading) return <PageLoader inline />;
 
   if (isError && !isRefetchError)
     return isNotFoundError(error) ? <NotFound /> : <QueryError error={error} />;

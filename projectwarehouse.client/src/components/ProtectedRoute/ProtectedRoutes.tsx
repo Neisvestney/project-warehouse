@@ -1,6 +1,6 @@
 import React from "react";
 import {Navigate, Outlet, Route, Routes, useLocation} from "react-router";
-import RouteFallback from "@/components/RouteFallback.tsx";
+import PageLoader from "@/components/PageLoader.tsx";
 import type {PermissionName} from "@/api/types.gen";
 import {useAuth} from "@/hooks/useAuth";
 import {useHasPermission} from "@/hooks/usePermission";
@@ -20,7 +20,7 @@ function AuthGuard({requiredPermission, permissionMode = "any", children}: AuthG
   const allowed = useHasPermission(requiredPermission, permissionMode);
 
   if (isLoading) {
-    return <RouteFallback />;
+    return <PageLoader />;
   }
 
   if (!isAuthenticated) {

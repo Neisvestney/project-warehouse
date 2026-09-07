@@ -1,16 +1,7 @@
+import PageLoader from "@/components/PageLoader";
 import {useCallback, useState} from "react";
 import {useNavigate, useParams} from "react-router";
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  MenuItem,
-  Paper,
-  Select,
-  Stack,
-  Typography,
-} from "@mui/material";
+import {Alert, Box, Button, MenuItem, Paper, Select, Stack, Typography} from "@mui/material";
 import {Controller, useForm} from "react-hook-form";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
@@ -248,13 +239,7 @@ function WriteoffPage() {
     onSuccess: updateLocal,
   });
 
-  if (isLoading) {
-    return (
-      <Box sx={{display: "flex", justifyContent: "center", pt: 8}}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  if (isLoading) return <PageLoader inline />;
 
   if (isError && !isRefetchError)
     return isNotFoundError(error) ? <NotFound /> : <QueryError error={error} />;
@@ -267,7 +252,7 @@ function WriteoffPage() {
 
   return (
     <Box sx={{position: "relative"}}>
-      <LoadingOverlay open={lock.showLoadingOverlay && !isEditingAnything} />
+      <LoadingOverlay open={lock.showLoadingOverlay && !isEditingAnything} alignTop />
       <Stack spacing={2}>
         <EditLockBanner heldBy={lock.heldBy} />
         <StaleDataBanner

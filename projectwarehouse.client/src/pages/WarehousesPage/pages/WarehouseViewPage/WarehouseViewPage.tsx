@@ -1,3 +1,4 @@
+import PageLoader from "@/components/PageLoader";
 import {useCallback, useState} from "react";
 import {Link, useParams} from "react-router";
 import {
@@ -110,13 +111,7 @@ function WarehouseViewPage() {
     return node ? formatStoragePlaceNodeName(node.name) : null;
   })();
 
-  if (isLoading) {
-    return (
-      <Box sx={{display: "flex", justifyContent: "center", pt: 8}}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  if (isLoading) return <PageLoader inline />;
 
   if (isError && !isRefetchError)
     return isNotFoundError(error) ? <NotFound /> : <QueryError error={error} />;
@@ -124,7 +119,7 @@ function WarehouseViewPage() {
 
   return (
     <Box sx={{position: "relative"}}>
-      <LoadingOverlay open={showLoadingOverlay} />
+      <LoadingOverlay open={showLoadingOverlay} alignTop />
       <Stack spacing={2}>
         <AppBreadcrumbs
           path={[

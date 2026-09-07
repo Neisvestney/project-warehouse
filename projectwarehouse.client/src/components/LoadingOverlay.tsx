@@ -1,5 +1,6 @@
 import {useEffect, useRef, useState} from "react";
 import {Box, CircularProgress, Fade, Typography, type SxProps, type Theme} from "@mui/material";
+import {SPINNER_TOP} from "@/components/PageLoader";
 
 interface LoadingOverlayProps {
   open: boolean;
@@ -11,6 +12,8 @@ interface LoadingOverlayProps {
   blur?: number;
   size?: number;
   sx?: SxProps<Theme>;
+  /** Keeps the spinner at the same fixed height from the viewport top as PageLoader — for overlays over a whole window-scrolled page, not a container with its own scroll */
+  alignTop?: boolean;
 }
 
 function LoadingOverlay({
@@ -21,6 +24,7 @@ function LoadingOverlay({
   blur = 1,
   size = 40,
   sx,
+  alignTop = false,
 }: LoadingOverlayProps) {
   // holding — только «хвост» после open=false; сама подложка идёт от open, без задержки
   const [holding, setHolding] = useState(false);
@@ -59,7 +63,9 @@ function LoadingOverlay({
             inset: 0,
             display: "flex",
             justifyContent: "center",
-            alignItems: "center",
+            // flex-start lets a short natural position sit above SPINNER_TOP, so sticky immediately
+            // pins it there instead of only doing so once scrolled that far.
+            alignItems: alignTop ? "flex-start" : "center",
             zIndex: 3,
             borderRadius: "inherit",
             cursor: "progress",
@@ -76,7 +82,7 @@ function LoadingOverlay({
           <Box
             sx={{
               position: "sticky",
-              top: 24,
+              top: alignTop ? SPINNER_TOP : 24,
               bottom: 24,
               display: "flex",
               flexDirection: "column",

@@ -1,3 +1,4 @@
+import PageLoader from "@/components/PageLoader";
 import {useCallback, useEffect} from "react";
 import {useNavigate, useParams} from "react-router";
 import {
@@ -134,13 +135,7 @@ function UserEditPage() {
     });
   });
 
-  if (userQuery.isLoading) {
-    return (
-      <Box sx={{display: "flex", justifyContent: "center", pt: 8}}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  if (userQuery.isLoading) return <PageLoader inline />;
 
   if (userQuery.isError && !userQuery.isRefetchError)
     return isNotFoundError(userQuery.error) ? <NotFound /> : <QueryError error={userQuery.error} />;
@@ -150,7 +145,7 @@ function UserEditPage() {
 
   return (
     <Box sx={{position: "relative"}}>
-      <LoadingOverlay open={lock.showLoadingOverlay && !form.formState.isDirty} />
+      <LoadingOverlay open={lock.showLoadingOverlay && !form.formState.isDirty} alignTop />
       <Stack spacing={2}>
         <AppBreadcrumbs
           path={[
