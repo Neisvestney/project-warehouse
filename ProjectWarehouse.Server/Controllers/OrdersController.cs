@@ -13,6 +13,7 @@ using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Infrastructure.Realtime;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Models;
+using ProjectWarehouse.Server.Models.Files;
 using ProjectWarehouse.Server.Models.Orders;
 using ProjectWarehouse.Server.Services;
 
@@ -31,7 +32,8 @@ public class OrdersController(
     AccessScope scope,
     IRealtimeNotifier realtime,
     ICatalogService catalog,
-    IChangeLogService<OrderDetailsDto> changeLog) : AppControllerBase
+    IChangeLogService<OrderDetailsDto> changeLog,
+    IDataFileBindingService fileBinding) : AppControllerBase
 {
     private EntityAccessRule<Order> Rule => access.For<Order>();
 
@@ -50,7 +52,8 @@ public class OrdersController(
             .Include(o => o.Warehouse)
             .Include(o => o.CreatedBy)
             // details are mapped in memory, so the marketplace block silently vanishes without this
-            .Include(o => o.MarketplaceOrder).ThenInclude(m => m!.MarketplaceAccount);
+            .Include(o => o.MarketplaceOrder).ThenInclude(m => m!.MarketplaceAccount)
+            .Include(o => o.Images).ThenInclude(i => i.DataFile);
 
     private IQueryable<Order> DetailsQuery() => WithDetailsIncludes(BaseQuery());
 
@@ -403,6 +406,39 @@ public class OrdersController(
         var beforeDto = await MapDetailsAsync(order!, ct);
 
         await orders.UpdateOrderAsync(order!, request, ct);
+
+        var full = await LoadOrderDetailsAsync(id, ct);
+        var afterDto = await MapDetailsAsync(full!, ct);
+        await changeLog.CompareAndSaveToChangelog(beforeDto, afterDto, OrderActions.Updated);
+
+        return Ok(afterDto);
+    }
+
+    // ── PATCH /api/orders/{id}/attachments ────────────────────────────────────
+
+    /// <summary>Update the order's attachments. Allowed in any status.</summary>
+    /// <remarks>
+    /// Returns 404 <c>orderNotFound</c>; 422 <c>dataFileNotFound</c> (field <c>attachments</c>) for an
+    /// unknown attachment id. Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
+    [HttpPatch("{id:guid}/attachments")]
+    [Authorize]
+    [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> UpdateAttachments(Guid id, [FromBody] UpdateAttachmentsRequest request,
+        CancellationToken ct = default)
+    {
+        var (order, error) = await LoadOrderWithEditAccessAsync(id, ct, fullDetails: true);
+        if (error is not null) return error;
+
+        var beforeDto = await MapDetailsAsync(order!, ct);
+
+        var problem = await fileBinding.BindListAsync(request.Attachments, order!.Images,
+            db.OrderImages, setOwner: img => img.OrderId = order.Id, field: "attachments", ct);
+        if (problem is not null) return Problem(problem);
+
+        await db.SaveChangesAsync(ct);
 
         var full = await LoadOrderDetailsAsync(id, ct);
         var afterDto = await MapDetailsAsync(full!, ct);

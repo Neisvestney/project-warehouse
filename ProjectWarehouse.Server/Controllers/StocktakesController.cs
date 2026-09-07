@@ -12,6 +12,7 @@ using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
+using ProjectWarehouse.Server.Models.Files;
 using ProjectWarehouse.Server.Models.Stocktakes;
 using ProjectWarehouse.Server.Services;
 
@@ -24,7 +25,8 @@ public class StocktakesController(
     IInventoryService inventory,
     IStocktakeDiffCalculator diffCalculator,
     EntityAccessRegistry access,
-    IChangeLogService<StocktakeDto> changeLog) : AppControllerBase
+    IChangeLogService<StocktakeDto> changeLog,
+    IDataFileBindingService fileBinding) : AppControllerBase
 {
     private EntityAccessRule<Stocktake> Rule => access.For<Stocktake>();
 
@@ -34,6 +36,7 @@ public class StocktakesController(
     {
         var q = db.Stocktakes
             .Include(s => s.Warehouse)
+            .Include(s => s.Images).ThenInclude(i => i.DataFile)
             .AsQueryable();
 
         if (includeItems)
@@ -46,9 +49,10 @@ public class StocktakesController(
                 .ThenInclude(i => i.CatalogItem)
                 .Include(s => s.Nodes)
                 .ThenInclude(n => n.Items)
-                .ThenInclude(i => i.UnitInventoryItem);
+                .ThenInclude(i => i.UnitInventoryItem)
+                .AsSplitQuery();
         else
-            q = q.Include(s => s.Nodes);
+            q = q.Include(s => s.Nodes).AsSplitQuery();
 
         return q;
     }
@@ -319,6 +323,39 @@ public class StocktakesController(
             if (stocktake.Status == StocktakeStatus.Planned && request.Type != StocktakeType.Scheduled)
                 stocktake.Status = StocktakeStatus.Draft;
         }
+
+        await db.SaveChangesAsync(ct);
+
+        var after = await BuildDtoAsync(stocktake, ct);
+        await changeLog.CompareAndSaveToChangelog(before, after);
+
+        return Ok(after);
+    }
+
+    // ── PATCH attachments ────────────────────────────────────────────────────
+
+    /// <summary>Update the stocktake's attachments. Allowed in any status.</summary>
+    /// <remarks>
+    /// Errors: 404 <c>stocktakeNotFound</c>; 422 <c>dataFileNotFound</c> (field <c>attachments</c>) for
+    /// an unknown attachment id; 403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c>
+    /// (edit access).
+    /// </remarks>
+    [HttpPatch("{id:guid}/attachments")]
+    [Authorize]
+    [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> UpdateAttachments(Guid id, [FromBody] UpdateAttachmentsRequest request,
+        CancellationToken ct = default)
+    {
+        var (stocktake, error) = await LoadStocktakeWithEditAccessAsync(id, ct);
+        if (error is not null) return error;
+
+        var before = await BuildDtoAsync(stocktake!, ct);
+
+        var problem = await fileBinding.BindListAsync(request.Attachments, stocktake!.Images,
+            db.StocktakeImages, setOwner: img => img.StocktakeId = stocktake.Id, field: "attachments", ct);
+        if (problem is not null) return Problem(problem);
 
         await db.SaveChangesAsync(ct);
 

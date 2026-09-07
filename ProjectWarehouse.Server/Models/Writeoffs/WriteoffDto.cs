@@ -1,4 +1,5 @@
 using ProjectWarehouse.Server.Domain;
+using ProjectWarehouse.Server.Models.Files;
 
 namespace ProjectWarehouse.Server.Models.Writeoffs;
 
@@ -14,4 +15,5 @@ public class WriteoffDto
     public Guid WarehouseId { get; init; }
     public string WarehouseName { get; init; } = null!;
     public IReadOnlyList<WriteoffItemDto> Items { get; init; } = [];
+    public IReadOnlyList<DataFileLinkDto> Attachments { get; init; } = [];
 }

@@ -24,6 +24,8 @@ interface Resolved {
   imageWidth?: number | null;
   imageHeight?: number | null;
   alt: string;
+  /** Undefined for external sources — their type is not known ahead of the request. */
+  isImage?: boolean;
 }
 
 function resolve(source: FileImageProps["source"]): Resolved | null {
@@ -44,6 +46,7 @@ function resolve(source: FileImageProps["source"]): Resolved | null {
       imageWidth: source.file.imageWidth,
       imageHeight: source.file.imageHeight,
       alt: source.file.originalFileName,
+      isImage: source.file.isImage,
     };
   }
 
@@ -52,6 +55,7 @@ function resolve(source: FileImageProps["source"]): Resolved | null {
     imageWidth: source.imageWidth,
     imageHeight: source.imageHeight,
     alt: source.originalFileName,
+    isImage: source.isImage,
   };
 }
 
@@ -112,7 +116,10 @@ export default function FileImage({
     return nearestThumbnailWidth(measuredWidth * dpr);
   }, [previewWidth, measuredWidth]);
 
-  const needsBlob = !!resolved?.fileId && visible;
+  // The thumbnail endpoint 422s for a non-image file — skip the request outright rather than
+  // let every non-image tile (a PDF, a spreadsheet, …) round-trip into a failed fetch.
+  const skipBlob = requestedWidth !== undefined && resolved?.isImage === false;
+  const needsBlob = !!resolved?.fileId && visible && !skipBlob;
   const {url: blobUrl, isLoading} = useFileBlobUrl(
     needsBlob ? resolved!.fileId : undefined,
     requestedWidth,
@@ -128,7 +135,7 @@ export default function FileImage({
       : undefined;
 
   const content = () => {
-    if (!resolved || failed) return fallback;
+    if (!resolved || failed || skipBlob) return fallback;
     if (!src) {
       return isLoading || needsBlob ? (
         <Skeleton variant="rectangular" width="100%" height="100%" />

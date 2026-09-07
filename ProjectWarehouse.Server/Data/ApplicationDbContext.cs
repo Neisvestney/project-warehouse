@@ -50,13 +50,16 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<Receipt> Receipts => Set<Receipt>();
     public DbSet<ReceiptItem> ReceiptItems => Set<ReceiptItem>();
     public DbSet<ReceiptItemPlacement> ReceiptItemPlacements => Set<ReceiptItemPlacement>();
+    public DbSet<ReceiptImage> ReceiptImages => Set<ReceiptImage>();
 
     public DbSet<Writeoff> Writeoffs => Set<Writeoff>();
     public DbSet<WriteoffItem> WriteoffItems => Set<WriteoffItem>();
+    public DbSet<WriteoffImage> WriteoffImages => Set<WriteoffImage>();
 
     public DbSet<Stocktake> Stocktakes => Set<Stocktake>();
     public DbSet<StocktakeNode> StocktakeNodes => Set<StocktakeNode>();
     public DbSet<StocktakeItem> StocktakeItems => Set<StocktakeItem>();
+    public DbSet<StocktakeImage> StocktakeImages => Set<StocktakeImage>();
 
     public DbSet<MarketplaceAccount> MarketplaceAccounts => Set<MarketplaceAccount>();
     public DbSet<MarketplaceWarehouse> MarketplaceWarehouses => Set<MarketplaceWarehouse>();
@@ -75,6 +78,7 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<AssemblyFulfillment> AssemblyFulfillments => Set<AssemblyFulfillment>();
     public DbSet<AssemblyFulfillmentBundleComponent> AssemblyFulfillmentBundleComponents =>
         Set<AssemblyFulfillmentBundleComponent>();
+    public DbSet<OrderImage> OrderImages => Set<OrderImage>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -381,6 +385,23 @@ public class ApplicationDbContext : IdentityDbContext<
                 .UsingEntity("ReceiptTagLinks");
         });
 
+        builder.Entity<ReceiptImage>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.Receipt)
+                .WithMany(x => x.Images)
+                .HasForeignKey(x => x.ReceiptId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.DataFile)
+                .WithMany()
+                .HasForeignKey(x => x.DataFileId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(x => new { x.ReceiptId, x.Order });
+        });
+
         builder.Entity<ReceiptItem>(e =>
         {
             e.HasKey(x => x.Id);
@@ -433,6 +454,23 @@ public class ApplicationDbContext : IdentityDbContext<
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
+        builder.Entity<WriteoffImage>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.Writeoff)
+                .WithMany(x => x.Images)
+                .HasForeignKey(x => x.WriteoffId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.DataFile)
+                .WithMany()
+                .HasForeignKey(x => x.DataFileId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(x => new { x.WriteoffId, x.Order });
+        });
+
         builder.Entity<WriteoffItem>(e =>
         {
             e.HasKey(x => x.Id);
@@ -475,6 +513,23 @@ public class ApplicationDbContext : IdentityDbContext<
                 .WithMany()
                 .HasForeignKey(x => x.CreatedById)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<StocktakeImage>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.Stocktake)
+                .WithMany(x => x.Images)
+                .HasForeignKey(x => x.StocktakeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.DataFile)
+                .WithMany()
+                .HasForeignKey(x => x.DataFileId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(x => new { x.StocktakeId, x.Order });
         });
 
         builder.Entity<StocktakeNode>(e =>
@@ -533,6 +588,23 @@ public class ApplicationDbContext : IdentityDbContext<
                 .WithMany()
                 .HasForeignKey(x => x.CreatedById)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<OrderImage>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.OwnerOrder)
+                .WithMany(x => x.Images)
+                .HasForeignKey(x => x.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.DataFile)
+                .WithMany()
+                .HasForeignKey(x => x.DataFileId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(x => new { x.OrderId, x.Order });
         });
 
         builder.Entity<OrderMarketplaceItem>(e =>

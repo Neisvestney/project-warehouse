@@ -1,4 +1,5 @@
 using ProjectWarehouse.Server.Domain;
+using ProjectWarehouse.Server.Models.Files;
 
 namespace ProjectWarehouse.Server.Models.Orders;
 
@@ -21,4 +22,5 @@ public class OrderDetailsDto
     public IReadOnlyList<OrderMarketplaceItemDto> MarketplaceItems { get; init; } = [];
     public IReadOnlyList<OrderBoxDto> Boxes { get; init; } = [];
     public IReadOnlyList<AssemblyTaskDto> AssemblyTasks { get; init; } = [];
+    public IReadOnlyList<DataFileLinkDto> Attachments { get; init; } = [];
 }

@@ -32,6 +32,8 @@ public class Stocktake : IHasIdentity
     /// node counted as empty is still part of the document.</summary>
     public ICollection<StocktakeNode> Nodes { get; set; } = [];
 
+    public List<StocktakeImage> Images { get; set; } = [];
+
     [Projectable]
     public string SearchString => Number + " " + Name + " " + Notes;
 }

@@ -12,6 +12,7 @@ using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Models;
+using ProjectWarehouse.Server.Models.Files;
 using ProjectWarehouse.Server.Models.Receipts;
 using ProjectWarehouse.Server.Services;
 
@@ -24,7 +25,8 @@ public class ReceiptsController(
     IInventoryService inventory,
     EntityAccessRegistry access,
     AccessScope scope,
-    IChangeLogService<ReceiptDto> changeLog) : AppControllerBase
+    IChangeLogService<ReceiptDto> changeLog,
+    IDataFileBindingService fileBinding) : AppControllerBase
 {
     private EntityAccessRule<Receipt> Rule => access.For<Receipt>();
 
@@ -35,6 +37,8 @@ public class ReceiptsController(
         var q = db.Receipts
             .Include(r => r.Warehouse)
             .Include(r => r.Tags)
+            .Include(r => r.Images).ThenInclude(i => i.DataFile)
+            .AsSplitQuery()
             .AsQueryable();
 
         if (includeItems)
@@ -298,6 +302,39 @@ public class ReceiptsController(
         receipt.Tags.Clear();
         foreach (var tag in newTags)
             receipt.Tags.Add(tag);
+
+        await db.SaveChangesAsync(ct);
+
+        var after = mapper.Map<ReceiptDto>(receipt);
+        await changeLog.CompareAndSaveToChangelog(before, after);
+
+        return Ok(after);
+    }
+
+    // ── PATCH attachments ────────────────────────────────────────────────────
+
+    /// <summary>Update the receipt's attachments. Allowed in any status.</summary>
+    /// <remarks>
+    /// Errors: 404 <c>receiptNotFound</c>; 422 <c>dataFileNotFound</c> (field <c>attachments</c>) for an
+    /// unknown attachment id; 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c> (edit
+    /// access).
+    /// </remarks>
+    [HttpPatch("{id:guid}/attachments")]
+    [Authorize]
+    [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> UpdateAttachments(Guid id, [FromBody] UpdateAttachmentsRequest request,
+        CancellationToken ct = default)
+    {
+        var (receipt, error) = await LoadReceiptWithEditAccessAsync(id, ct);
+        if (error is not null) return error;
+
+        var before = mapper.Map<ReceiptDto>(receipt);
+
+        var problem = await fileBinding.BindListAsync(request.Attachments, receipt!.Images,
+            db.ReceiptImages, setOwner: img => img.ReceiptId = receipt.Id, field: "attachments", ct);
+        if (problem is not null) return Problem(problem);
 
         await db.SaveChangesAsync(ct);
 

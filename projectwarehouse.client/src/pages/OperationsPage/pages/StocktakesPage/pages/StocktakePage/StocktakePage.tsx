@@ -21,6 +21,7 @@ import {
   stocktakesStartMutation,
   stocktakesScheduleMutation,
   stocktakesToDraftMutation,
+  stocktakesUpdateAttachmentsMutation,
   stocktakesUpdateMutation,
 } from "@/api/@tanstack/react-query.gen";
 import {extractErrorMessage, isNotFoundError} from "@/utils/errorUtils";
@@ -45,6 +46,7 @@ import StocktakeCountingSection from "@/components/stocktakes/StocktakeCountingS
 import StocktakeResultSection from "@/components/stocktakes/StocktakeResultSection";
 import StocktakeDifferencesDialog from "@/components/stocktakes/StocktakeDifferencesDialog";
 import {STOCKTAKE_TYPE_LABELS, formatStocktakeNumber} from "@/components/stocktakes/stocktakeUtils";
+import AttachmentsSection from "@/components/files/controls/AttachmentsSection";
 import type {StocktakeDto, StocktakeType} from "@/api/types.gen";
 import {parseDateOnly} from "@/utils/dateOnly";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -276,6 +278,12 @@ function StocktakePage() {
     onError: notifyError("Не удалось удалить инвентаризацию"),
   });
 
+  const attachmentsMutation = useMutation({
+    ...stocktakesUpdateAttachmentsMutation(),
+    meta: {suppressGlobalError: true},
+    onSuccess: updateLocal,
+  });
+
   if (isLoading) {
     return (
       <Box sx={{display: "flex", justifyContent: "center", pt: 8}}>
@@ -481,6 +489,14 @@ function StocktakePage() {
             )}
           </Stack>
         </Paper>
+
+        <AttachmentsSection
+          value={stocktake.attachments}
+          canEdit={canEdit}
+          save={(attachments) =>
+            attachmentsMutation.mutateAsync({path: {id: stocktake.id}, body: {attachments}})
+          }
+        />
 
         {(isPlanned || isDraft) && (
           <StocktakeNodesSection

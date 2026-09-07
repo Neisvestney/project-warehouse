@@ -9,6 +9,7 @@ import {
   ordersGetByIdQueryKey,
   ordersSelfAssignMutation,
   ordersTransitionStatusMutation,
+  ordersUpdateAttachmentsMutation,
 } from "@/api/@tanstack/react-query.gen";
 import type {OrderStatus} from "@/api/types.gen";
 import {isNotFoundError} from "@/utils/errorUtils";
@@ -28,6 +29,7 @@ import OrderTypeChip from "@/components/orders/OrderTypeChip";
 import DownloadOrderLabelButton from "@/components/orders/marketplace/DownloadOrderLabelButton";
 import {ORDER_TYPE_LABELS, formatBoxLabel, formatOrderNumber} from "@/components/orders/orderUtils";
 import {isOrderFullyFulfilled} from "@/components/orders/orderAssemblyUtils";
+import AttachmentsSection from "@/components/files/controls/AttachmentsSection";
 import OrderMetaSection from "./OrderMetaSection";
 import OrderBoxesSection from "./OrderBoxesSection";
 import OrderAssemblyTasksSection from "./OrderAssemblyTasksSection";
@@ -106,6 +108,14 @@ function OrderPage() {
     },
     onSettled: () => {
       setDeleteConfirm(false);
+    },
+  });
+
+  const attachmentsMutation = useMutation({
+    ...ordersUpdateAttachmentsMutation(),
+    meta: {suppressGlobalError: true},
+    onSuccess: () => {
+      queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: id!}})});
     },
   });
 
@@ -376,6 +386,14 @@ function OrderPage() {
               />
             </Stack>
           </Paper>
+
+          <AttachmentsSection
+            value={order.attachments}
+            canEdit={canEdit}
+            save={(attachments) =>
+              attachmentsMutation.mutateAsync({path: {id: order.id}, body: {attachments}})
+            }
+          />
 
           {order.marketplaceItems.length > 0 && (
             <Paper sx={{p: {xs: 1.5, md: 3}}}>

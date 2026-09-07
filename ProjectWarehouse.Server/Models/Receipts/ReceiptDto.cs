@@ -1,4 +1,5 @@
 using ProjectWarehouse.Server.Domain;
+using ProjectWarehouse.Server.Models.Files;
 
 namespace ProjectWarehouse.Server.Models.Receipts;
 
@@ -18,4 +19,5 @@ public class ReceiptDto
     public int TotalReceivedCount { get; init; }
     public IReadOnlyList<ReceiptTagDto> Tags { get; init; } = [];
     public IReadOnlyList<ReceiptItemDto> Items { get; init; } = [];
+    public IReadOnlyList<DataFileLinkDto> Attachments { get; init; } = [];
 }

@@ -220,6 +220,9 @@ import type {
   OrdersUpdateAssemblyTaskData,
   OrdersUpdateAssemblyTaskErrors,
   OrdersUpdateAssemblyTaskResponses,
+  OrdersUpdateAttachmentsData,
+  OrdersUpdateAttachmentsErrors,
+  OrdersUpdateAttachmentsResponses,
   OrdersUpdateBoxData,
   OrdersUpdateBoxErrors,
   OrdersUpdateBoxResponses,
@@ -305,6 +308,9 @@ import type {
   ReceiptsSyncItemsData,
   ReceiptsSyncItemsErrors,
   ReceiptsSyncItemsResponses,
+  ReceiptsUpdateAttachmentsData,
+  ReceiptsUpdateAttachmentsErrors,
+  ReceiptsUpdateAttachmentsResponses,
   ReceiptsUpdateData,
   ReceiptsUpdateErrors,
   ReceiptsUpdateReceivedCountData,
@@ -404,6 +410,9 @@ import type {
   StocktakesToDraftData,
   StocktakesToDraftErrors,
   StocktakesToDraftResponses,
+  StocktakesUpdateAttachmentsData,
+  StocktakesUpdateAttachmentsErrors,
+  StocktakesUpdateAttachmentsResponses,
   StocktakesUpdateData,
   StocktakesUpdateErrors,
   StocktakesUpdateResponses,
@@ -512,6 +521,9 @@ import type {
   WriteoffsSyncItemsData,
   WriteoffsSyncItemsErrors,
   WriteoffsSyncItemsResponses,
+  WriteoffsUpdateAttachmentsData,
+  WriteoffsUpdateAttachmentsErrors,
+  WriteoffsUpdateAttachmentsResponses,
   WriteoffsUpdateData,
   WriteoffsUpdateErrors,
   WriteoffsUpdateResponses,
@@ -1708,6 +1720,28 @@ export const ordersCreateDirect = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Update the order's attachments. Allowed in any status.
+ *
+ * Returns 404 `orderNotFound`; 422 `dataFileNotFound` (field `attachments`) for an
+ * unknown attachment id. Requires `orders.edit` or `orders.edit_assigned`.
+ */
+export const ordersUpdateAttachments = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersUpdateAttachmentsData, ThrowOnError>,
+): RequestResult<OrdersUpdateAttachmentsResponses, OrdersUpdateAttachmentsErrors, ThrowOnError> =>
+  (options.client ?? client).patch<
+    OrdersUpdateAttachmentsResponses,
+    OrdersUpdateAttachmentsErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/{id}/attachments",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
  * Move the order to another status.
  *
  *     Body: `TransitionOrderStatusRequest` — `targetStatus`. Allowed transitions:
@@ -2529,6 +2563,33 @@ export const receiptsUpdate = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Update the receipt's attachments. Allowed in any status.
+ *
+ * Errors: 404 `receiptNotFound`; 422 `dataFileNotFound` (field `attachments`) for an
+ * unknown attachment id; 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit
+ * access).
+ */
+export const receiptsUpdateAttachments = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsUpdateAttachmentsData, ThrowOnError>,
+): RequestResult<
+  ReceiptsUpdateAttachmentsResponses,
+  ReceiptsUpdateAttachmentsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).patch<
+    ReceiptsUpdateAttachmentsResponses,
+    ReceiptsUpdateAttachmentsErrors,
+    ThrowOnError
+  >({
+    url: "/api/receipts/{id}/attachments",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
  * Add a single catalog item to the receipt with plannedCount=0 during Processing.
  * Used when a new item is discovered while physically receiving goods.
  *
@@ -3276,6 +3337,33 @@ export const stocktakesUpdate = <ThrowOnError extends boolean = false>(
       },
     },
   );
+
+/**
+ * Update the stocktake's attachments. Allowed in any status.
+ *
+ * Errors: 404 `stocktakeNotFound`; 422 `dataFileNotFound` (field `attachments`) for
+ * an unknown attachment id; 403 `permissionDenied` / `stocktakeNotAssignedToWarehouse`
+ * (edit access).
+ */
+export const stocktakesUpdateAttachments = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesUpdateAttachmentsData, ThrowOnError>,
+): RequestResult<
+  StocktakesUpdateAttachmentsResponses,
+  StocktakesUpdateAttachmentsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).patch<
+    StocktakesUpdateAttachmentsResponses,
+    StocktakesUpdateAttachmentsErrors,
+    ThrowOnError
+  >({
+    url: "/api/stocktakes/{id}/attachments",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
 
 /**
  * Replace the set of counted cells. Cells already in scope keep their counted items; dropping a
@@ -4140,6 +4228,33 @@ export const writeoffsUpdate = <ThrowOnError extends boolean = false>(
 ): RequestResult<WriteoffsUpdateResponses, WriteoffsUpdateErrors, ThrowOnError> =>
   (options.client ?? client).patch<WriteoffsUpdateResponses, WriteoffsUpdateErrors, ThrowOnError>({
     url: "/api/writeoffs/{id}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Update the write-off's attachments. Allowed in any status.
+ *
+ * Errors: 404 `writeoffNotFound`; 422 `dataFileNotFound` (field `attachments`) for
+ * an unknown attachment id; 403 `permissionDenied` or `writeoffNotAssignedToWarehouse`
+ * (edit access).
+ */
+export const writeoffsUpdateAttachments = <ThrowOnError extends boolean = false>(
+  options: Options<WriteoffsUpdateAttachmentsData, ThrowOnError>,
+): RequestResult<
+  WriteoffsUpdateAttachmentsResponses,
+  WriteoffsUpdateAttachmentsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).patch<
+    WriteoffsUpdateAttachmentsResponses,
+    WriteoffsUpdateAttachmentsErrors,
+    ThrowOnError
+  >({
+    url: "/api/writeoffs/{id}/attachments",
     ...options,
     headers: {
       "Content-Type": "application/json",

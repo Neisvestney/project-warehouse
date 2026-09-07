@@ -169,8 +169,26 @@ builder.Entity<DataFile>(e =>
 ### Привязка 1:N
 
 Выделенная связующая сущность на каждого владельца, реализующая `IDataFileLink` (`Id`, FK на владельца, FK на
-`DataFile`, `Order`). Действующая точка — `CatalogItemImage`. FK на владельца — `Cascade`, FK на `DataFile` —
-`Restrict`; индекс по паре «владелец + `Order`».
+`DataFile`, `Order`). Действующие точки — `CatalogItemImage`, `ReceiptImage`, `WriteoffImage`, `OrderImage`,
+`StocktakeImage`. FK на владельца — `Cascade`, FK на `DataFile` — `Restrict`; индекс по паре «владелец + `Order`».
+
+`OrderImage` называет свою навигацию на владельца `OwnerOrder`, а не `Order` — `Order` уже занято
+int-полем сортировки, обязательным по `IDataFileLink`.
+
+DTO-пара `DataFileLinkDto`/`DataFileLinkRequest` (`Models/Files`) — общая форма элемента списка вложений,
+используемая всеми точками, кроме `CatalogItemImage` (у неё своя пара `CatalogItemImageDto`/`CatalogItemImageRequest`
+с полем `File`/`FileId`, оставленная как есть, чтобы не трогать работающий код каталога). На сущности-владельце
+(`Receipt`, `Writeoff`, `Order`, `Stocktake`) коллекция называется `Images` в домене, а поле `Attachments` —
+в читающем DTO: это произвольные вложения к документу (сканы, фото), а не фотогалерея товара, поэтому фронтенд
+отображает их построчным списком (`RowFileView`), а не сеткой миниатюр.
+
+Для этих четырёх точек привязка вынесена в отдельный эндпоинт `PATCH {route}/{id}/attachments`
+(`UpdateAttachmentsRequest`, поле `Attachments`), а не в основной `Update`/`PUT`. Причина — у основного эндпоинта
+каждой сущности своя проверка статуса (например, `ReceiptsController.Update` пускает только `Draft`), а вложение
+скана или фото должно быть доступно в любом статусе документа. Отдельный эндпоинт не проверяет статус вообще —
+только право редактирования (`LoadXWithEditAccessAsync`). Фронтенд отражает это разделение: `AttachmentsSection`
+(`components/files/controls`) — самостоятельный блок страницы со своей кнопкой «Редактировать» и своим сохранением,
+не часть формы редактирования остальных полей документа.
 
 ### Правила OnDelete
 

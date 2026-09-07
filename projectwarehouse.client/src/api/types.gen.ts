@@ -517,6 +517,30 @@ export type DataFileDto = {
   createdAt: string;
 };
 
+/**
+ * One element of an entity's file attachment list — shared shape for every 1:N attachment point
+ * (receipts, write-offs, orders, stocktakes, …). `IHasIdentity` matters here: the changelog's
+ * compare logic matches collection elements by Id rather than by position, so reordering files does
+ * not read as a full rewrite.
+ */
+export type DataFileLinkDto = {
+  id: string;
+  file: DataFileDto;
+  order: number;
+};
+
+/**
+ * Request-side counterpart of DataFileLinkDto, shared by every attachment point.
+ */
+export type DataFileLinkRequest = {
+  /**
+   * Null for a link not yet attached to the entity.
+   */
+  id?: null | string;
+  fileId: string;
+  order: number;
+};
+
 export type DiskSpaceDto = {
   mountPoint: string;
   totalBytes: number;
@@ -1043,6 +1067,7 @@ export type OrderDetailsDto = {
   marketplaceItems: Array<OrderMarketplaceItemDto>;
   boxes: Array<OrderBoxDto>;
   assemblyTasks: Array<AssemblyTaskDto>;
+  attachments: Array<DataFileLinkDto>;
 };
 
 /**
@@ -1552,6 +1577,7 @@ export type ReceiptDto = {
   totalReceivedCount: number;
   tags: Array<ReceiptTagDto>;
   items: Array<ReceiptItemDto>;
+  attachments: Array<DataFileLinkDto>;
 };
 
 export type ReceiptItemDto = {
@@ -2119,6 +2145,7 @@ export type StocktakeDto = {
   warehouseId: string;
   warehouseName: string;
   nodes: Array<StocktakeNodeDto>;
+  attachments: Array<DataFileLinkDto>;
 };
 
 export type StocktakeItemDto = {
@@ -2432,6 +2459,13 @@ export type UpdateAssemblyTaskRequest = {
   assignedToId?: null | string;
 };
 
+/**
+ * Body of the dedicated attachments endpoint, shared by every 1:N attachment point.
+ */
+export type UpdateAttachmentsRequest = {
+  attachments: Array<DataFileLinkRequest>;
+};
+
 export type UpdateCatalogItemRequest = {
   name: string;
   article: string;
@@ -2622,6 +2656,7 @@ export type WriteoffDto = {
   warehouseId: string;
   warehouseName: string;
   items: Array<WriteoffItemDto>;
+  attachments: Array<DataFileLinkDto>;
 };
 
 export type WriteoffItemDto = {
@@ -4471,6 +4506,47 @@ export type OrdersCreateDirectResponses = {
 export type OrdersCreateDirectResponse =
   OrdersCreateDirectResponses[keyof OrdersCreateDirectResponses];
 
+export type OrdersUpdateAttachmentsData = {
+  body: UpdateAttachmentsRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/orders/{id}/attachments";
+};
+
+export type OrdersUpdateAttachmentsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type OrdersUpdateAttachmentsError =
+  OrdersUpdateAttachmentsErrors[keyof OrdersUpdateAttachmentsErrors];
+
+export type OrdersUpdateAttachmentsResponses = {
+  /**
+   * OK
+   */
+  200: OrderDetailsDto;
+};
+
+export type OrdersUpdateAttachmentsResponse =
+  OrdersUpdateAttachmentsResponses[keyof OrdersUpdateAttachmentsResponses];
+
 export type OrdersTransitionStatusData = {
   body: TransitionOrderStatusRequest;
   path: {
@@ -5752,6 +5828,47 @@ export type ReceiptsUpdateResponses = {
 };
 
 export type ReceiptsUpdateResponse = ReceiptsUpdateResponses[keyof ReceiptsUpdateResponses];
+
+export type ReceiptsUpdateAttachmentsData = {
+  body: UpdateAttachmentsRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}/attachments";
+};
+
+export type ReceiptsUpdateAttachmentsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsUpdateAttachmentsError =
+  ReceiptsUpdateAttachmentsErrors[keyof ReceiptsUpdateAttachmentsErrors];
+
+export type ReceiptsUpdateAttachmentsResponses = {
+  /**
+   * OK
+   */
+  200: ReceiptDto;
+};
+
+export type ReceiptsUpdateAttachmentsResponse =
+  ReceiptsUpdateAttachmentsResponses[keyof ReceiptsUpdateAttachmentsResponses];
 
 export type ReceiptsQuickAddItemData = {
   body: QuickAddReceiptItemRequest;
@@ -7140,6 +7257,47 @@ export type StocktakesUpdateResponses = {
 };
 
 export type StocktakesUpdateResponse = StocktakesUpdateResponses[keyof StocktakesUpdateResponses];
+
+export type StocktakesUpdateAttachmentsData = {
+  body: UpdateAttachmentsRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/stocktakes/{id}/attachments";
+};
+
+export type StocktakesUpdateAttachmentsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StocktakesUpdateAttachmentsError =
+  StocktakesUpdateAttachmentsErrors[keyof StocktakesUpdateAttachmentsErrors];
+
+export type StocktakesUpdateAttachmentsResponses = {
+  /**
+   * OK
+   */
+  200: StocktakeDto;
+};
+
+export type StocktakesUpdateAttachmentsResponse =
+  StocktakesUpdateAttachmentsResponses[keyof StocktakesUpdateAttachmentsResponses];
 
 export type StocktakesSyncNodesData = {
   body: SyncStocktakeNodesRequest;
@@ -8707,6 +8865,47 @@ export type WriteoffsUpdateResponses = {
 };
 
 export type WriteoffsUpdateResponse = WriteoffsUpdateResponses[keyof WriteoffsUpdateResponses];
+
+export type WriteoffsUpdateAttachmentsData = {
+  body: UpdateAttachmentsRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/writeoffs/{id}/attachments";
+};
+
+export type WriteoffsUpdateAttachmentsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type WriteoffsUpdateAttachmentsError =
+  WriteoffsUpdateAttachmentsErrors[keyof WriteoffsUpdateAttachmentsErrors];
+
+export type WriteoffsUpdateAttachmentsResponses = {
+  /**
+   * OK
+   */
+  200: WriteoffDto;
+};
+
+export type WriteoffsUpdateAttachmentsResponse =
+  WriteoffsUpdateAttachmentsResponses[keyof WriteoffsUpdateAttachmentsResponses];
 
 export type WriteoffsSyncItemsData = {
   body: Array<WriteoffItemRequest>;
