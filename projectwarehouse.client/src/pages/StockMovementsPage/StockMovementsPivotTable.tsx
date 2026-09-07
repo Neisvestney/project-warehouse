@@ -1,4 +1,5 @@
 import {Fragment, useEffect, useRef, useState} from "react";
+import {useVirtualizer} from "@tanstack/react-virtual";
 import {
   Box,
   Button,
@@ -31,6 +32,10 @@ import {formatDateOnly, formatWeekday, isWeekend} from "@/utils/dateOnly";
  */
 const GROUP_ROW_MIN_HEIGHT = 44;
 const METRIC_ROW_HEIGHT = 130;
+
+/** Estimate only — the virtualizer measures each row's actual rendered height. */
+const DATA_ROW_HEIGHT_ESTIMATE = 48;
+const ROW_OVERSCAN = 8;
 
 /** Two fixed sub-columns close every group: the raw net, then the stock left at the end of the day. */
 const FIXED_COLUMNS = 2;
@@ -149,6 +154,8 @@ function StockMovementsPivotTable({
   onLoadMore,
   fill,
 }: StockMovementsPivotTableProps) {
+  "use no memo";
+
   const containerRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLTableCellElement>(null);
   const groupRowRef = useRef<HTMLTableRowElement>(null);
@@ -176,6 +183,21 @@ function StockMovementsPivotTable({
     observer.observe(target);
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, onLoadMore, rows.length]);
+
+  // eslint-disable-next-line react-hooks/incompatible-library -- acknowledged: "use no memo" above covers it
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => containerRef.current,
+    estimateSize: () => DATA_ROW_HEIGHT_ESTIMATE,
+    overscan: ROW_OVERSCAN,
+    getItemKey: (index) => rows[index]?.date ?? index,
+  });
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  const paddingTop = virtualRows.length > 0 ? virtualRows[0].start : 0;
+  const paddingBottom =
+    virtualRows.length > 0
+      ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
+      : 0;
 
   const groupWidth = metrics.length + FIXED_COLUMNS;
   const colSpan = 1 + groupWidth * (columns.length + 1);
@@ -281,51 +303,69 @@ function StockMovementsPivotTable({
             ) : rows.length === 0 ? (
               <TableRowEmpty colSpan={colSpan} message="Движений за период не найдено" />
             ) : (
-              rows.map((row) => {
-                const cells = new Map(row.cells.map((cell) => [cell.catalogItemId, cell]));
-                return (
-                  <TableRow key={row.date} hover>
-                    <TableCell sx={stickyColumnSx}>
-                      <Typography
-                        variant="body2"
-                        sx={{color: isWeekend(row.date) ? "text.secondary" : "text.primary"}}
-                      >
-                        {formatDateOnly(row.date)}
-                      </Typography>
-                      <Typography variant="caption" sx={{color: "text.secondary"}}>
-                        {formatWeekday(row.date)}
-                      </Typography>
-                    </TableCell>
-
-                    {metrics.map((metric, index) => (
-                      <NumberCell
-                        key={`total-${metric.name}-${index}`}
-                        value={row.total.metrics[index] ?? 0}
-                        first={index === 0}
-                      />
-                    ))}
-                    <NumberCell value={row.total.net} first={metrics.length === 0} bold />
-                    <BalanceCell value={row.balance} />
-
-                    {columns.map((item) => {
-                      const cell = cells.get(item.id);
-                      return (
-                        <Fragment key={item.id}>
-                          {metrics.map((metric, index) => (
-                            <NumberCell
-                              key={`${metric.name}-${index}`}
-                              value={cell?.metrics[index] ?? 0}
-                              first={index === 0}
-                            />
-                          ))}
-                          <NumberCell value={cell?.net ?? 0} first={metrics.length === 0} bold />
-                          <BalanceCell value={cell?.balance} />
-                        </Fragment>
-                      );
-                    })}
+              <>
+                {paddingTop > 0 && (
+                  <TableRow style={{height: paddingTop}}>
+                    <TableCell colSpan={colSpan} sx={{p: 0, border: 0}} />
                   </TableRow>
-                );
-              })
+                )}
+                {virtualRows.map((virtualRow) => {
+                  const row = rows[virtualRow.index];
+                  const cells = new Map(row.cells.map((cell) => [cell.catalogItemId, cell]));
+                  return (
+                    <TableRow
+                      key={row.date}
+                      data-index={virtualRow.index}
+                      ref={rowVirtualizer.measureElement}
+                      hover
+                    >
+                      <TableCell sx={stickyColumnSx}>
+                        <Typography
+                          variant="body2"
+                          sx={{color: isWeekend(row.date) ? "text.secondary" : "text.primary"}}
+                        >
+                          {formatDateOnly(row.date)}
+                        </Typography>
+                        <Typography variant="caption" sx={{color: "text.secondary"}}>
+                          {formatWeekday(row.date)}
+                        </Typography>
+                      </TableCell>
+
+                      {metrics.map((metric, index) => (
+                        <NumberCell
+                          key={`total-${metric.name}-${index}`}
+                          value={row.total.metrics[index] ?? 0}
+                          first={index === 0}
+                        />
+                      ))}
+                      <NumberCell value={row.total.net} first={metrics.length === 0} bold />
+                      <BalanceCell value={row.balance} />
+
+                      {columns.map((item) => {
+                        const cell = cells.get(item.id);
+                        return (
+                          <Fragment key={item.id}>
+                            {metrics.map((metric, index) => (
+                              <NumberCell
+                                key={`${metric.name}-${index}`}
+                                value={cell?.metrics[index] ?? 0}
+                                first={index === 0}
+                              />
+                            ))}
+                            <NumberCell value={cell?.net ?? 0} first={metrics.length === 0} bold />
+                            <BalanceCell value={cell?.balance} />
+                          </Fragment>
+                        );
+                      })}
+                    </TableRow>
+                  );
+                })}
+                {paddingBottom > 0 && (
+                  <TableRow style={{height: paddingBottom}}>
+                    <TableCell colSpan={colSpan} sx={{p: 0, border: 0}} />
+                  </TableRow>
+                )}
+              </>
             )}
 
             {hasNextPage && !isLoading && (

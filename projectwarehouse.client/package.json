@@ -44,6 +44,7 @@
     "@opentelemetry/sdk-trace-web": "^2.10.0",
     "@opentelemetry/semantic-conventions": "^1.43.0",
     "@tanstack/react-query": "^5.100.9",
+    "@tanstack/react-virtual": "^3.14.11",
     "abortcontroller-polyfill": "^1.7.8",
     "bwip-js": "^4.10.1",
     "classnames": "^2.5.1",
