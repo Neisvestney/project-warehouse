@@ -41,6 +41,9 @@ import type {
   CatalogGetByIdData,
   CatalogGetByIdErrors,
   CatalogGetByIdResponses,
+  CatalogGetForSelectByIdsData,
+  CatalogGetForSelectByIdsErrors,
+  CatalogGetForSelectByIdsResponses,
   CatalogGetForSelectData,
   CatalogGetForSelectErrors,
   CatalogGetForSelectResponses,
@@ -747,6 +750,34 @@ export const catalogGetForSelect = <ThrowOnError extends boolean = false>(
     CatalogGetForSelectErrors,
     ThrowOnError
   >({url: "/api/catalog/for-select", ...options});
+
+/**
+ * Resolve a set of ids into the same flat rows Task&lt;IActionResult&gt; CatalogController.GetForSelect(string? searchString = null, IReadOnlyList&lt;CatalogItemType&gt;? types = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, int take = 10, CancellationToken ct = default(CancellationToken)) returns.
+ *
+ * A POST because the id list is unbounded in practice — a selection restored from a URL can hold
+ * hundreds of items, which no query string survives. Body: `CatalogItemsByIdsRequest` —
+ * `ids` (at most 500; an empty list answers 200 with an empty array).
+ * Unknown ids are simply absent from the response, and the order is not the order asked for —
+ * the caller knows what it requested and indexes the result by id.
+ * Archived items and product-group children are returned, same as Task&lt;IActionResult&gt; CatalogController.GetForSelect(string? searchString = null, IReadOnlyList&lt;CatalogItemType&gt;? types = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, int take = 10, CancellationToken ct = default(CancellationToken)).
+ * Requires `catalog.view`. Returns 422 `outOfRange` on `ids` above the limit,
+ * `args`: `max`.
+ */
+export const catalogGetForSelectByIds = <ThrowOnError extends boolean = false>(
+  options: Options<CatalogGetForSelectByIdsData, ThrowOnError>,
+): RequestResult<CatalogGetForSelectByIdsResponses, CatalogGetForSelectByIdsErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    CatalogGetForSelectByIdsResponses,
+    CatalogGetForSelectByIdsErrors,
+    ThrowOnError
+  >({
+    url: "/api/catalog/for-select/by-ids",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
 
 /**
  * Delete a catalog item.
@@ -3664,7 +3695,7 @@ export const tagsGetAll = <ThrowOnError extends boolean = false>(
  * Create a tag of the given kind.
  *
  * Body: `CreateTagRequest` — kind and name (trimmed before saving). Errors: 422
- * `validationError` (field `name`) when the trimmed name is empty; 422 `tagNameDuplicate`
+ * `required` (field `name`) when the trimmed name is empty; 422 `tagNameDuplicate`
  * (field `name`) when a tag of the same kind already carries the name. Requires `tags.manage`.
  */
 export const tagsCreate = <ThrowOnError extends boolean = false>(
@@ -3698,7 +3729,7 @@ export const tagsDelete = <ThrowOnError extends boolean = false>(
  * Rename a tag. Everything bound to it keeps its binding.
  *
  * Body: `RenameTagRequest` — name (trimmed before saving). Errors: 404 `tagNotFound`; 422
- * `validationError` (field `name`) when the trimmed name is empty; 422 `tagNameDuplicate`
+ * `required` (field `name`) when the trimmed name is empty; 422 `tagNameDuplicate`
  * (field `name`) when another tag of the same kind already carries the name. Requires
  * `tags.manage`.
  */

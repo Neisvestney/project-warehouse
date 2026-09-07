@@ -19,7 +19,7 @@ import {
 } from "@mui/material";
 import {useBackClosable} from "@/hooks/useBackClosable";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
-import {useMutation, useQueries, useQuery, useQueryClient} from "@tanstack/react-query";
+import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
   catalogGetByIdOptions,
   inventoryItemsGetAllUnitsOptions,
@@ -40,6 +40,7 @@ import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 import {countFulfilledQty} from "@/components/orders/orderAssemblyUtils";
 import SelectNodeModal, {type SelectedNode} from "@/components/receipts/SelectNodeModal";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
+import {useCatalogItemsByIds} from "@/hooks/useCatalogItemsByIds";
 import {useDebounce} from "@/hooks/useDebounce";
 import {useDefaultStorageNode} from "@/hooks/useDefaultStorageNode";
 import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
@@ -268,9 +269,7 @@ function BundleSlotForm({
     enabled: catalogItemType === "variation",
   });
   const memberIds = variationQuery.data?.memberIds ?? [];
-  const memberQueries = useQueries({
-    queries: memberIds.map((id) => catalogGetByIdOptions({path: {id}})),
-  });
+  const members = useCatalogItemsByIds(memberIds);
 
   const defaultNode = useDefaultStorageNode(warehouseId, catalogItemType === "standard");
   const effectiveNode = overrideNode ?? defaultNode;
@@ -365,13 +364,13 @@ function BundleSlotForm({
   }
 
   if (catalogItemType === "variation") {
-    if (variationQuery.isLoading || memberQueries.some((q) => q.isLoading)) {
+    if (variationQuery.isLoading || members.isLoading) {
       return <CircularProgress size={20} />;
     }
 
-    const variantOptions = memberQueries
-      .map((q) => q.data)
-      .filter((d): d is NonNullable<typeof d> => !!d);
+    const variantOptions = memberIds
+      .map((id) => members.items.get(id))
+      .filter((item) => item !== undefined);
 
     return (
       <Stack spacing={1} sx={{pl: 1, borderLeft: "2px solid", borderColor: "divider"}}>
@@ -501,17 +500,15 @@ function VariationForm({
 
   const catalogQuery = useQuery(catalogGetByIdOptions({path: {id: catalogItemId}}));
   const memberIds = catalogQuery.data?.memberIds ?? [];
-  const memberQueries = useQueries({
-    queries: memberIds.map((id) => catalogGetByIdOptions({path: {id}})),
-  });
+  const members = useCatalogItemsByIds(memberIds);
 
-  if (catalogQuery.isLoading || memberQueries.some((q) => q.isLoading)) {
+  if (catalogQuery.isLoading || members.isLoading) {
     return <CircularProgress size={20} />;
   }
 
-  const variantOptions = memberQueries
-    .map((q) => q.data)
-    .filter((d): d is NonNullable<typeof d> => !!d);
+  const variantOptions = memberIds
+    .map((id) => members.items.get(id))
+    .filter((item) => item !== undefined);
 
   return (
     <Stack spacing={2}>

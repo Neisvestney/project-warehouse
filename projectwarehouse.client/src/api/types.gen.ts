@@ -293,6 +293,10 @@ export type CatalogItemImageRequest = {
   order: number;
 };
 
+export type CatalogItemsByIdsRequest = {
+  ids: Array<string>;
+};
+
 export type CatalogItemSelectDto = {
   id: string;
   type: CatalogItemType;
@@ -3000,6 +3004,41 @@ export type CatalogGetForSelectResponses = {
 
 export type CatalogGetForSelectResponse =
   CatalogGetForSelectResponses[keyof CatalogGetForSelectResponses];
+
+export type CatalogGetForSelectByIdsData = {
+  body: CatalogItemsByIdsRequest;
+  path?: never;
+  query?: never;
+  url: "/api/catalog/for-select/by-ids";
+};
+
+export type CatalogGetForSelectByIdsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type CatalogGetForSelectByIdsError =
+  CatalogGetForSelectByIdsErrors[keyof CatalogGetForSelectByIdsErrors];
+
+export type CatalogGetForSelectByIdsResponses = {
+  /**
+   * OK
+   */
+  200: Array<CatalogItemSelectDto>;
+};
+
+export type CatalogGetForSelectByIdsResponse =
+  CatalogGetForSelectByIdsResponses[keyof CatalogGetForSelectByIdsResponses];
 
 export type CatalogDeleteData = {
   body?: never;
