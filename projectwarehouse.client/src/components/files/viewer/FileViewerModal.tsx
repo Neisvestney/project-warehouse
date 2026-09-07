@@ -7,12 +7,14 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import {useTheme} from "@mui/material/styles";
+import {useSnackbar} from "notistack";
 import CloseIcon from "@mui/icons-material/Close";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import DownloadIcon from "@mui/icons-material/Download";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
+import ShareIcon from "@mui/icons-material/Share";
 import type {DataFileDto} from "@/api";
 import type {ModalComponentProps} from "@/contexts/Modal/ModalContext";
 import {useBackClosable} from "@/hooks/useBackClosable.ts";
@@ -56,6 +58,7 @@ export default function FileViewerModal({
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [index, setIndex] = useState(initialIndex);
+  const {enqueueSnackbar} = useSnackbar();
 
   const current = files[index];
   const item = useViewableSource(current ?? {kind: "external", url: ""});
@@ -79,6 +82,29 @@ export default function FileViewerModal({
   const Renderer = renderers.find((r) => r.match(item))!.Component;
   const newTab = item.download.mode === "newTab";
   const deletable = onDelete && current.kind === "dataFile";
+  const canShare = typeof navigator !== "undefined" && "share" in navigator;
+
+  const handleShare = async () => {
+    try {
+      if (!item.isExternal && item.src) {
+        const blob = await (await fetch(item.src)).blob();
+        const file = new File([blob], item.download.fileName ?? item.name, {
+          type: item.contentType || blob.type,
+        });
+        // a blob: URL cannot be a Web Share `url` — it is rejected outright and unresolvable in another process
+        if (navigator.canShare?.({files: [file]})) {
+          await navigator.share({files: [file], title: item.name});
+        } else {
+          await navigator.share({title: item.name});
+        }
+        return;
+      }
+      await navigator.share({title: item.name, url: item.src});
+    } catch (e) {
+      if ((e as Error)?.name === "AbortError") return;
+      enqueueSnackbar("Не удалось поделиться файлом", {variant: "error"});
+    }
+  };
 
   return (
     <Dialog
@@ -136,6 +162,14 @@ export default function FileViewerModal({
           <Typography variant="caption" sx={{opacity: 0.7, whiteSpace: "nowrap"}}>
             {index + 1} из {files.length}
           </Typography>
+        )}
+
+        {canShare && item.src && (
+          <Tooltip title="Поделиться">
+            <IconButton sx={{color: "common.white"}} onClick={handleShare}>
+              <ShareIcon />
+            </IconButton>
+          </Tooltip>
         )}
 
         {item.download.url && (
