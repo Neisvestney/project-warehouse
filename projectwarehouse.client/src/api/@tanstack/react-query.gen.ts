@@ -149,6 +149,10 @@ import {
   storagePlacesUpdateNode,
   systemGetDatabaseStats,
   systemGetStorageStats,
+  tagsCreate,
+  tagsDelete,
+  tagsGetAll,
+  tagsRename,
   telemetryLogs,
   telemetryTraces,
   transfersExecute,
@@ -584,6 +588,18 @@ import type {
   SystemGetStorageStatsData,
   SystemGetStorageStatsError,
   SystemGetStorageStatsResponse,
+  TagsCreateData,
+  TagsCreateError,
+  TagsCreateResponse,
+  TagsDeleteData,
+  TagsDeleteError,
+  TagsDeleteResponse,
+  TagsGetAllData,
+  TagsGetAllError,
+  TagsGetAllResponse,
+  TagsRenameData,
+  TagsRenameError,
+  TagsRenameResponse,
   TelemetryLogsData,
   TelemetryLogsError,
   TelemetryTracesData,
@@ -5107,8 +5123,9 @@ export const stockMovementPresetsCreatePresetMutation = (
  * Delete a preset. The default flag moves to the next preset by name.
  *
  * 404 `stockMovementPresetNotFound` when the preset is gone, 422
- * `stockMovementPresetLastOne` on `root` when it is the only one left. Same access rule
- * as the listing.
+ * `stockMovementPresetLastOne` on `root` when it is the only one left, 409
+ * `stockMovementPresetModified` when someone edited it under the delete. Same access rule as
+ * the listing.
  */
 export const stockMovementPresetsDeletePresetMutation = (
   options?: Partial<Options<StockMovementPresetsDeletePresetData>>,
@@ -5137,10 +5154,10 @@ export const stockMovementPresetsDeletePresetMutation = (
 /**
  * Update a preset.
  *
- * 404 `stockMovementPresetNotFound` when the preset is gone, 409
- * `stockMovementPresetModified` when `version` is stale — presets are shared, so pass back
- * the `version` the edit started from. Plus the same 422 codes as creation. Same access rule
- * as the listing.
+ * 404 `stockMovementPresetNotFound` when the preset is gone, 422 `required` on
+ * `version` when it is missing and 409 `stockMovementPresetModified` when it is stale —
+ * presets are shared, so the `version` the edit started from is mandatory here. Plus the same
+ * 422 codes as creation. Same access rule as the listing.
  */
 export const stockMovementPresetsUpdatePresetMutation = (
   options?: Partial<Options<StockMovementPresetsUpdatePresetData>>,
@@ -5999,6 +6016,117 @@ export const systemGetDatabaseStatsOptions = (options?: Options<SystemGetDatabas
     },
     queryKey: systemGetDatabaseStatsQueryKey(options),
   });
+
+export const tagsGetAllQueryKey = (options?: Options<TagsGetAllData>) =>
+  createQueryKey("tagsGetAll", options);
+
+/**
+ * All tags with the number of objects bound to each.
+ *
+ * Query params: `kind` (optional — every kind when omitted), `search` (optional). Not
+ * paginated; ordered by kind, then by name. Requires `tags.manage`; 403 `permissionDenied`
+ * otherwise.
+ */
+export const tagsGetAllOptions = (options?: Options<TagsGetAllData>) =>
+  queryOptions<
+    TagsGetAllResponse,
+    TagsGetAllError,
+    TagsGetAllResponse,
+    ReturnType<typeof tagsGetAllQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await tagsGetAll({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: tagsGetAllQueryKey(options),
+  });
+
+/**
+ * Create a tag of the given kind.
+ *
+ * Body: `CreateTagRequest` — kind and name (trimmed before saving). Errors: 422
+ * `validationError` (field `name`) when the trimmed name is empty; 422 `tagNameDuplicate`
+ * (field `name`) when a tag of the same kind already carries the name. Requires `tags.manage`.
+ */
+export const tagsCreateMutation = (
+  options?: Partial<Options<TagsCreateData>>,
+): UseMutationOptions<TagsCreateResponse, TagsCreateError, Options<TagsCreateData>> => {
+  const mutationOptions: UseMutationOptions<
+    TagsCreateResponse,
+    TagsCreateError,
+    Options<TagsCreateData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await tagsCreate({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Delete a tag and unbind it from every object carrying it.
+ *
+ * The objects themselves are untouched — they simply lose the tag. Read `usageCount` from the list
+ * endpoint first if the caller should be warned about how many. Errors: 404 `tagNotFound`. Requires
+ * `tags.manage`.
+ */
+export const tagsDeleteMutation = (
+  options?: Partial<Options<TagsDeleteData>>,
+): UseMutationOptions<TagsDeleteResponse, TagsDeleteError, Options<TagsDeleteData>> => {
+  const mutationOptions: UseMutationOptions<
+    TagsDeleteResponse,
+    TagsDeleteError,
+    Options<TagsDeleteData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await tagsDelete({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Rename a tag. Everything bound to it keeps its binding.
+ *
+ * Body: `RenameTagRequest` — name (trimmed before saving). Errors: 404 `tagNotFound`; 422
+ * `validationError` (field `name`) when the trimmed name is empty; 422 `tagNameDuplicate`
+ * (field `name`) when another tag of the same kind already carries the name. Requires
+ * `tags.manage`.
+ */
+export const tagsRenameMutation = (
+  options?: Partial<Options<TagsRenameData>>,
+): UseMutationOptions<TagsRenameResponse, TagsRenameError, Options<TagsRenameData>> => {
+  const mutationOptions: UseMutationOptions<
+    TagsRenameResponse,
+    TagsRenameError,
+    Options<TagsRenameData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await tagsRename({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 /**
  * Frontend spans, OTLP/HTTP+JSON.

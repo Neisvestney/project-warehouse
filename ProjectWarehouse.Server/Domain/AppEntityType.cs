@@ -39,4 +39,13 @@ public enum AppEntityType
 
     /// <summary>A saved column layout of the stock movement report. Shared, so every edit is journalled.</summary>
     StockMovementReportPreset = 18,
+
+    /// <summary>A single tag of any kind — what a changelog entry about a rename or a deletion is keyed by.</summary>
+    Tag = 19,
+
+    /// <summary>
+    /// The tag list as one object. Individual tags are journalled under <see cref="Tag"/>; this value
+    /// addresses the whole list, which is what the settings page watches.
+    /// </summary>
+    Tags = 20,
 }

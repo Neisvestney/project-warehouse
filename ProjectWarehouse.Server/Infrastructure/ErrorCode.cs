@@ -174,6 +174,7 @@ public enum ErrorCode
 
     // Tags
     TagNameDuplicate = 136,
+    TagNotFound = 145,
 
     // Stock movement report presets
     StockMovementPresetNotFound = 140,

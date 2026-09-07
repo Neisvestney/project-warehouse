@@ -43,6 +43,7 @@ using ProjectWarehouse.Server.Models.Users;
 using ProjectWarehouse.Server.Models.Receipts;
 using ProjectWarehouse.Server.Models.Warehouses;
 using ProjectWarehouse.Server.Models.Stocktakes;
+using ProjectWarehouse.Server.Models.Tags;
 using ProjectWarehouse.Server.Models.Writeoffs;
 using ProjectWarehouse.Server.Services;
 using Microsoft.Extensions.Options;
@@ -596,8 +597,10 @@ try
     builder.Services.AddScoped<IChangeLogService<OrderDetailsDto>, OrderDetailsDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<StockMovementReportPresetDto>,
         StockMovementReportPresetDtoChangelogService>();
+    builder.Services.AddScoped<IChangeLogService<TagDto>, TagDtoChangelogService>();
     builder.Services.AddScoped<IInventoryService, InventoryService>();
     builder.Services.AddScoped<ICatalogService, CatalogService>();
+    builder.Services.AddScoped<ITagsService, TagsService>();
     builder.Services.AddScoped<AccessScope>();
     builder.Services.AddScoped<EntityAccessRegistry>();
     builder.Services.AddScoped<IEntityAccessService, EntityAccessService>();

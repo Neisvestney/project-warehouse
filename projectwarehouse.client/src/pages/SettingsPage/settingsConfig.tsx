@@ -3,6 +3,7 @@ import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import PeopleIcon from "@mui/icons-material/People";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import StorageIcon from "@mui/icons-material/Storage";
+import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import {createHasAccess} from "@/layouts/SidebarPage/createHasAccess.ts";
 import {createFirstPageUrl} from "@/layouts/SidebarPage/createFirstPageUrl.ts";
 import type {SectionConfig} from "@/layouts/SidebarPage/SidebarPage.tsx";
@@ -16,6 +17,7 @@ import MarketplaceAccountCreatePage from "./pages/MarketplacesSettingsPage/pages
 import MarketplaceAccountPage from "./pages/MarketplacesSettingsPage/pages/MarketplaceAccountPage/MarketplaceAccountPage.tsx";
 import AutoMapRulesPage from "./pages/MarketplacesSettingsPage/pages/AutoMapRulesPage/AutoMapRulesPage.tsx";
 import StorageSettingsPage from "./pages/StorageSettingsPage/StorageSettingsPage.tsx";
+import TagsSettingsPage from "./pages/TagsSettingsPage/TagsSettingsPage.tsx";
 
 export const settingsSections: SectionConfig[] = [
   {
@@ -49,6 +51,13 @@ export const settingsSections: SectionConfig[] = [
       {path: "new", component: MarketplaceAccountCreatePage},
       {path: ":id", component: MarketplaceAccountPage},
     ],
+  },
+  {
+    label: "Теги",
+    path: "tags",
+    icon: <LocalOfferIcon fontSize="small" />,
+    component: TagsSettingsPage,
+    requiredPermission: "tags.manage",
   },
   {
     label: "Хранилище",

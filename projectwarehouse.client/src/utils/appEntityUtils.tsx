@@ -279,6 +279,16 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     typeName: "Пресет отчёта о движениях",
     icon: <SwapVertIcon />,
   },
+  tag: {
+    linkTemplate: "/settings/tags",
+    typeName: "Тег",
+    icon: <LocalOfferIcon />,
+  },
+  tags: {
+    linkTemplate: "/settings/tags",
+    typeName: "Теги",
+    icon: <LocalOfferIcon />,
+  },
 };
 
 export function resolveEntity(entity: AppEntity): ResolvedEntity {

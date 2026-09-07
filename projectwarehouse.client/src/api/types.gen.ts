@@ -63,7 +63,9 @@ export type AppEntityType =
   | "marketplaceAutoMapRule"
   | "marketplaceAutoMapRules"
   | "fbsOrdersGrouped"
-  | "stockMovementReportPreset";
+  | "stockMovementReportPreset"
+  | "tag"
+  | "tags";
 
 export type AppFieldError = {
   code: ErrorCode;
@@ -443,6 +445,11 @@ export type CreateStoragePlaceNodeRequest = {
   order: number;
 };
 
+export type CreateTagRequest = {
+  kind: TagKind;
+  name: string;
+};
+
 /**
  * Data required to create a new unit (serialised) inventory item.
  */
@@ -685,7 +692,8 @@ export type ErrorCode =
   | "stockMovementPresetNameDuplicate"
   | "stockMovementPresetModified"
   | "stockMovementPresetLastOne"
-  | "stockMovementPresetUnknownAction";
+  | "stockMovementPresetUnknownAction"
+  | "tagNotFound";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -1249,6 +1257,7 @@ export type PermissionName =
   | "warehouses.edit_assigned"
   | "catalog.view"
   | "catalog.edit"
+  | "tags.manage"
   | "changelog.view"
   | "statistics.view"
   | "statistics.view_assigned"
@@ -1605,6 +1614,10 @@ export type ReceiptTagDto = {
 
 export type RefreshRequest = {
   refreshToken: string;
+};
+
+export type RenameTagRequest = {
+  name: string;
 };
 
 export type RoleDto = {
@@ -2325,6 +2338,22 @@ export type TableStatDto = {
    */
   rowEstimate?: null | number;
 };
+
+export type TagDto = {
+  id: string;
+  name: string;
+  kind: TagKind;
+  /**
+   * How many objects currently carry the tag — what the delete confirmation warns about.
+   */
+  usageCount: number;
+};
+
+/**
+ * The tag subtype a management request addresses. Mirrors the `Tag` discriminator: every value here
+ * has exactly one Tag descendant behind it.
+ */
+export type TagKind = "receipt" | "catalogItem";
 
 /**
  * When ApiKey is supplied the route id is ignored, so a key can be checked before the account exists.
@@ -7770,6 +7799,137 @@ export type SystemGetDatabaseStatsResponses = {
 
 export type SystemGetDatabaseStatsResponse =
   SystemGetDatabaseStatsResponses[keyof SystemGetDatabaseStatsResponses];
+
+export type TagsGetAllData = {
+  body?: never;
+  path?: never;
+  query?: {
+    kind?: TagKind;
+    search?: string;
+  };
+  url: "/api/tags";
+};
+
+export type TagsGetAllErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type TagsGetAllError = TagsGetAllErrors[keyof TagsGetAllErrors];
+
+export type TagsGetAllResponses = {
+  /**
+   * OK
+   */
+  200: Array<TagDto>;
+};
+
+export type TagsGetAllResponse = TagsGetAllResponses[keyof TagsGetAllResponses];
+
+export type TagsCreateData = {
+  body: CreateTagRequest;
+  path?: never;
+  query?: never;
+  url: "/api/tags";
+};
+
+export type TagsCreateErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type TagsCreateError = TagsCreateErrors[keyof TagsCreateErrors];
+
+export type TagsCreateResponses = {
+  /**
+   * Created
+   */
+  201: TagDto;
+};
+
+export type TagsCreateResponse = TagsCreateResponses[keyof TagsCreateResponses];
+
+export type TagsDeleteData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/tags/{id}";
+};
+
+export type TagsDeleteErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type TagsDeleteError = TagsDeleteErrors[keyof TagsDeleteErrors];
+
+export type TagsDeleteResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type TagsDeleteResponse = TagsDeleteResponses[keyof TagsDeleteResponses];
+
+export type TagsRenameData = {
+  body: RenameTagRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/tags/{id}";
+};
+
+export type TagsRenameErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type TagsRenameError = TagsRenameErrors[keyof TagsRenameErrors];
+
+export type TagsRenameResponses = {
+  /**
+   * OK
+   */
+  200: TagDto;
+};
+
+export type TagsRenameResponse = TagsRenameResponses[keyof TagsRenameResponses];
 
 export type TelemetryTracesData = {
   body?: never;

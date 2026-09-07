@@ -123,6 +123,7 @@ public class ApplicationDbContext : IdentityDbContext<
         builder.Entity<Tag>(e =>
         {
             e.HasKey(x => x.Id);
+            e.Property(x => x.Name).HasMaxLength(100);
             e.HasDiscriminator<string>("TagType")
                 .HasValue<CatalogItemTag>("CatalogItem")
                 .HasValue<ReceiptTag>("Receipt");

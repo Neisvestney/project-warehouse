@@ -98,6 +98,14 @@ carries no data that reading the report does not already expose. The presets are
 are narrowed to their warehouses. The trade is deliberate: an edit is visible to everyone, and the audit log
 (`AppEntityType.StockMovementReportPreset`) is what names who changed what.
 
+**`tags.manage` is tag administration, not tag use.** It gates `/api/tags` — the settings screen that lists
+every kind with its usage count, renames and deletes. Creating a tag while filling a form stays on the module's
+own endpoint (`POST /api/receipts/tags` under `receipts.edit`/`receipts.edit_assigned`, `POST /api/catalog/tags`
+under `catalog.edit`): naming a tag on the fly is part of writing the document, while a rename or a delete
+changes what every other user sees. Reading the list is administration too, so there is no separate view
+permission — the pickers inside receipts and the catalog read their own module's endpoint, gated by that
+module's view right.
+
 **Uploading and reading files needs no permission** — the right to attach a file is the right to edit the owning
 entity, already checked on that entity's endpoint. See
 [data-files-specification.md](data-files-specification.md) for the limitation this leaves.
