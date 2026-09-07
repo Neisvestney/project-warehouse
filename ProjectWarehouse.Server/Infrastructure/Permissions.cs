@@ -42,6 +42,16 @@ public static class Permissions
         public const string Edit = "catalog.edit";
     }
 
+    /// <summary>
+    /// Tag administration — the settings screen that renames and deletes tags of every kind. Creating a tag
+    /// inline while editing a receipt or a catalog item stays with that module's own Edit permission: naming
+    /// a tag on the fly is part of filling the form, while renaming one changes what everybody else sees.
+    /// </summary>
+    public static class Tags
+    {
+        public const string Manage = "tags.manage";
+    }
+
     public static class ChangeLog
     {
         public const string View = "changelog.view";

@@ -141,6 +141,8 @@ references it is `ON DELETE SET NULL`, so deleting a receipt keeps its movements
 
 A CatalogItem can have zero or more tags. Tags are a flat list with no hierarchy. The relationship is many-to-many with no primary/default concept — all tags are equal.
 
+Catalog tags and receipt tags are separate name pools of the same `Tag` table, told apart by the discriminator. A name is at most 100 characters — enforced by the column, not only by the request models — and unique within its kind. The list itself is administered under Настройки → Теги (`/api/tags`, `tags.manage`): renaming keeps every binding, deleting drops the tag from every item while leaving the items untouched. Creating one inline from the catalog form stays on `POST /api/catalog/tags` under `catalog.edit`.
+
 **ProductGroup tag copying:** whenever a child item is created or updated via a ProductGroup's `children` list, the group's current tags are automatically merged into the child's tag set (union of the child's own `tags` from the request and the group's `tags`). This means changes to the group's tags propagate to all children on the next group update. Tags added to a child individually are preserved; however, tags removed from the group are not automatically removed from children.
 
 ---

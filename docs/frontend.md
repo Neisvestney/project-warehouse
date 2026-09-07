@@ -611,6 +611,27 @@ because the canvas holds unsaved layout from the moment it opens.
 `WarehousesPage` itself has **no permission guard** — it is reachable by any authenticated user; the server
 scopes what is listed.
 
+### `TagsSettingsPage` (Теги)
+
+`/settings/tags`, requires `tags.manage`. One tab per tag kind (`receipt`, `catalogItem`) kept in `?kind=` via
+`useSyncedWithQueryState` — `ALL_TAG_KINDS` and the Russian labels live in `tagKinds.ts`, so a new kind on the
+backend is one entry there plus one enum value in the generated `TagKind`.
+
+The table reads `GET /api/tags?kind=` — name, `usageCount` and the row actions. `TagDialog` serves both create
+and rename: with `tag === null` it posts `{kind, name}`, otherwise it puts the name to `/api/tags/{id}`. Names
+are unique per kind, and the duplicate comes back as a 422 on the `name` field, so `useRhfApiErrors` puts it
+under the input.
+
+Deletion goes through `ConfirmDialog` and always states the count: «Тег привязан к N приёмок — привязка будет
+снята со всех». The tag is deleted regardless — the count warns, it does not block, because the alternative
+would be asking someone to unbind a tag from a hundred receipts by hand.
+
+The page watches `("tags", empty guid)` — the backend publishes the list as one object — and on `entityChanged`
+invalidates three operations, not one: `tagsGetAll` plus `catalogGetTags` and `receiptsGetTags`. The pickers
+inside the catalog and receipt forms read their own module's endpoint, so their caches would otherwise keep
+showing a renamed tag under its old name and offering a deleted one until a reload. There is no edit lock: rows
+are independent and a rename is one field.
+
 ### `StorageSettingsPage` (Хранилище)
 
 `/settings/storage`, requires `system.view`. A shell with two tabs kept in `?tab=` via

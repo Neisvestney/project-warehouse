@@ -87,6 +87,11 @@ public class EntityAccessRegistry
             // whole, and mapping is the right that editing a rule actually needs.
             new SimpleAccessRule<MarketplaceAutoMapRule>(db, AppEntityType.MarketplaceAutoMapRules,
                 Permissions.Integrations.View, Permissions.Integrations.Map),
+
+            // Registered under the plural type: the settings page watches the tag list as a whole. Reading it
+            // is administration too — the per-module tag pickers go through their own module's endpoints.
+            new SimpleAccessRule<Tag>(db, AppEntityType.Tags,
+                Permissions.Tags.Manage, Permissions.Tags.Manage),
         ];
 
         _byEntityType = rules.ToDictionary(r => r.EntityType);

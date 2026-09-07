@@ -428,6 +428,18 @@ import type {
   SystemGetStorageStatsData,
   SystemGetStorageStatsErrors,
   SystemGetStorageStatsResponses,
+  TagsCreateData,
+  TagsCreateErrors,
+  TagsCreateResponses,
+  TagsDeleteData,
+  TagsDeleteErrors,
+  TagsDeleteResponses,
+  TagsGetAllData,
+  TagsGetAllErrors,
+  TagsGetAllResponses,
+  TagsRenameData,
+  TagsRenameErrors,
+  TagsRenameResponses,
   TelemetryLogsData,
   TelemetryLogsErrors,
   TelemetryLogsResponses,
@@ -3094,8 +3106,9 @@ export const stockMovementPresetsCreatePreset = <ThrowOnError extends boolean = 
  * Delete a preset. The default flag moves to the next preset by name.
  *
  * 404 `stockMovementPresetNotFound` when the preset is gone, 422
- * `stockMovementPresetLastOne` on `root` when it is the only one left. Same access rule
- * as the listing.
+ * `stockMovementPresetLastOne` on `root` when it is the only one left, 409
+ * `stockMovementPresetModified` when someone edited it under the delete. Same access rule as
+ * the listing.
  */
 export const stockMovementPresetsDeletePreset = <ThrowOnError extends boolean = false>(
   options: Options<StockMovementPresetsDeletePresetData, ThrowOnError>,
@@ -3113,10 +3126,10 @@ export const stockMovementPresetsDeletePreset = <ThrowOnError extends boolean = 
 /**
  * Update a preset.
  *
- * 404 `stockMovementPresetNotFound` when the preset is gone, 409
- * `stockMovementPresetModified` when `version` is stale — presets are shared, so pass back
- * the `version` the edit started from. Plus the same 422 codes as creation. Same access rule
- * as the listing.
+ * 404 `stockMovementPresetNotFound` when the preset is gone, 422 `required` on
+ * `version` when it is missing and 409 `stockMovementPresetModified` when it is stale —
+ * presets are shared, so the `version` the edit started from is mandatory here. Plus the same
+ * 422 codes as creation. Same access rule as the listing.
  */
 export const stockMovementPresetsUpdatePreset = <ThrowOnError extends boolean = false>(
   options: Options<StockMovementPresetsUpdatePresetData, ThrowOnError>,
@@ -3631,6 +3644,75 @@ export const systemGetDatabaseStats = <ThrowOnError extends boolean = false>(
     SystemGetDatabaseStatsErrors,
     ThrowOnError
   >({url: "/api/system/database", ...options});
+
+/**
+ * All tags with the number of objects bound to each.
+ *
+ * Query params: `kind` (optional — every kind when omitted), `search` (optional). Not
+ * paginated; ordered by kind, then by name. Requires `tags.manage`; 403 `permissionDenied`
+ * otherwise.
+ */
+export const tagsGetAll = <ThrowOnError extends boolean = false>(
+  options?: Options<TagsGetAllData, ThrowOnError>,
+): RequestResult<TagsGetAllResponses, TagsGetAllErrors, ThrowOnError> =>
+  (options?.client ?? client).get<TagsGetAllResponses, TagsGetAllErrors, ThrowOnError>({
+    url: "/api/tags",
+    ...options,
+  });
+
+/**
+ * Create a tag of the given kind.
+ *
+ * Body: `CreateTagRequest` — kind and name (trimmed before saving). Errors: 422
+ * `validationError` (field `name`) when the trimmed name is empty; 422 `tagNameDuplicate`
+ * (field `name`) when a tag of the same kind already carries the name. Requires `tags.manage`.
+ */
+export const tagsCreate = <ThrowOnError extends boolean = false>(
+  options: Options<TagsCreateData, ThrowOnError>,
+): RequestResult<TagsCreateResponses, TagsCreateErrors, ThrowOnError> =>
+  (options.client ?? client).post<TagsCreateResponses, TagsCreateErrors, ThrowOnError>({
+    url: "/api/tags",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete a tag and unbind it from every object carrying it.
+ *
+ * The objects themselves are untouched — they simply lose the tag. Read `usageCount` from the list
+ * endpoint first if the caller should be warned about how many. Errors: 404 `tagNotFound`. Requires
+ * `tags.manage`.
+ */
+export const tagsDelete = <ThrowOnError extends boolean = false>(
+  options: Options<TagsDeleteData, ThrowOnError>,
+): RequestResult<TagsDeleteResponses, TagsDeleteErrors, ThrowOnError> =>
+  (options.client ?? client).delete<TagsDeleteResponses, TagsDeleteErrors, ThrowOnError>({
+    url: "/api/tags/{id}",
+    ...options,
+  });
+
+/**
+ * Rename a tag. Everything bound to it keeps its binding.
+ *
+ * Body: `RenameTagRequest` — name (trimmed before saving). Errors: 404 `tagNotFound`; 422
+ * `validationError` (field `name`) when the trimmed name is empty; 422 `tagNameDuplicate`
+ * (field `name`) when another tag of the same kind already carries the name. Requires
+ * `tags.manage`.
+ */
+export const tagsRename = <ThrowOnError extends boolean = false>(
+  options: Options<TagsRenameData, ThrowOnError>,
+): RequestResult<TagsRenameResponses, TagsRenameErrors, ThrowOnError> =>
+  (options.client ?? client).put<TagsRenameResponses, TagsRenameErrors, ThrowOnError>({
+    url: "/api/tags/{id}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
 
 /**
  * Frontend spans, OTLP/HTTP+JSON.
