@@ -11,6 +11,7 @@ using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Models;
+using ProjectWarehouse.Server.Models.Files;
 using ProjectWarehouse.Server.Models.Writeoffs;
 using ProjectWarehouse.Server.Services;
 
@@ -22,7 +23,8 @@ public class WriteoffsController(
     IMapper mapper,
     IInventoryService inventory,
     EntityAccessRegistry access,
-    IChangeLogService<WriteoffDto> changeLog) : AppControllerBase
+    IChangeLogService<WriteoffDto> changeLog,
+    IDataFileBindingService fileBinding) : AppControllerBase
 {
     private EntityAccessRule<Writeoff> Rule => access.For<Writeoff>();
 
@@ -32,6 +34,7 @@ public class WriteoffsController(
     {
         var q = db.Writeoffs
             .Include(w => w.Warehouse)
+            .Include(w => w.Images).ThenInclude(i => i.DataFile)
             .AsQueryable();
 
         if (includeItems)
@@ -43,7 +46,8 @@ public class WriteoffsController(
                 .ThenInclude(i => i.CatalogItem)
                 .Include(w => w.Items)
                 .ThenInclude(i => i.UnitInventoryItem)
-                .ThenInclude(u => u!.CatalogItem);
+                .ThenInclude(u => u!.CatalogItem)
+                .AsSplitQuery();
 
         return q;
     }
@@ -228,6 +232,39 @@ public class WriteoffsController(
         writeoff.Name   = request.Name;
         writeoff.Reason = request.Reason;
         writeoff.Notes  = request.Notes;
+
+        await db.SaveChangesAsync(ct);
+
+        var after = mapper.Map<WriteoffDto>(writeoff);
+        await changeLog.CompareAndSaveToChangelog(before, after);
+
+        return Ok(after);
+    }
+
+    // ── PATCH attachments ────────────────────────────────────────────────────
+
+    /// <summary>Update the write-off's attachments. Allowed in any status.</summary>
+    /// <remarks>
+    /// Errors: 404 <c>writeoffNotFound</c>; 422 <c>dataFileNotFound</c> (field <c>attachments</c>) for
+    /// an unknown attachment id; 403 <c>permissionDenied</c> or <c>writeoffNotAssignedToWarehouse</c>
+    /// (edit access).
+    /// </remarks>
+    [HttpPatch("{id:guid}/attachments")]
+    [Authorize]
+    [ProducesResponseType<WriteoffDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> UpdateAttachments(Guid id, [FromBody] UpdateAttachmentsRequest request,
+        CancellationToken ct = default)
+    {
+        var (writeoff, error) = await LoadWriteoffWithEditAccessAsync(id, ct);
+        if (error is not null) return error;
+
+        var before = mapper.Map<WriteoffDto>(writeoff);
+
+        var problem = await fileBinding.BindListAsync(request.Attachments, writeoff!.Images,
+            db.WriteoffImages, setOwner: img => img.WriteoffId = writeoff.Id, field: "attachments", ct);
+        if (problem is not null) return Problem(problem);
 
         await db.SaveChangesAsync(ct);
 

@@ -41,6 +41,9 @@ export function useFileBlobUrl(fileId: string | undefined, width?: number) {
     staleTime: Infinity,
     // bounds memory: a long catalog session would otherwise pin hundreds of blobs
     gcTime: 30 * 60_000,
+    // a broken preview already renders its own fallback icon — a global error dialog on top
+    // would fire on every mount for anything the thumbnail endpoint can't serve
+    meta: {suppressGlobalError: true},
   });
 
   // createObjectURL returns a distinct URL per call, so consumers never revoke each other's

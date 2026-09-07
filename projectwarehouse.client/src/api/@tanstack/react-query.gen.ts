@@ -82,6 +82,7 @@ import {
   ordersTransitionTaskStatus,
   ordersUpdate,
   ordersUpdateAssemblyTask,
+  ordersUpdateAttachments,
   ordersUpdateBox,
   ordersUpdateComponent,
   ordersUpdateTaskBoxComponent,
@@ -109,6 +110,7 @@ import {
   receiptsStartProcessing,
   receiptsSyncItems,
   receiptsUpdate,
+  receiptsUpdateAttachments,
   receiptsUpdateReceivedCount,
   rolesGetAll,
   rolesGetById,
@@ -142,6 +144,7 @@ import {
   stocktakesSyncNodes,
   stocktakesToDraft,
   stocktakesUpdate,
+  stocktakesUpdateAttachments,
   storagePlacesAddNode,
   storagePlacesDeleteNode,
   storagePlacesGetNodeDetails,
@@ -178,6 +181,7 @@ import {
   writeoffsGetById,
   writeoffsSyncItems,
   writeoffsUpdate,
+  writeoffsUpdateAttachments,
 } from "../sdk.gen";
 import type {
   AuthChangeOwnPasswordData,
@@ -385,6 +389,9 @@ import type {
   OrdersUpdateAssemblyTaskData,
   OrdersUpdateAssemblyTaskError,
   OrdersUpdateAssemblyTaskResponse,
+  OrdersUpdateAttachmentsData,
+  OrdersUpdateAttachmentsError,
+  OrdersUpdateAttachmentsResponse,
   OrdersUpdateBoxData,
   OrdersUpdateBoxError,
   OrdersUpdateBoxResponse,
@@ -466,6 +473,9 @@ import type {
   ReceiptsSyncItemsData,
   ReceiptsSyncItemsError,
   ReceiptsSyncItemsResponse,
+  ReceiptsUpdateAttachmentsData,
+  ReceiptsUpdateAttachmentsError,
+  ReceiptsUpdateAttachmentsResponse,
   ReceiptsUpdateData,
   ReceiptsUpdateError,
   ReceiptsUpdateReceivedCountData,
@@ -565,6 +575,9 @@ import type {
   StocktakesToDraftData,
   StocktakesToDraftError,
   StocktakesToDraftResponse,
+  StocktakesUpdateAttachmentsData,
+  StocktakesUpdateAttachmentsError,
+  StocktakesUpdateAttachmentsResponse,
   StocktakesUpdateData,
   StocktakesUpdateError,
   StocktakesUpdateResponse,
@@ -671,6 +684,9 @@ import type {
   WriteoffsSyncItemsData,
   WriteoffsSyncItemsError,
   WriteoffsSyncItemsResponse,
+  WriteoffsUpdateAttachmentsData,
+  WriteoffsUpdateAttachmentsError,
+  WriteoffsUpdateAttachmentsResponse,
   WriteoffsUpdateData,
   WriteoffsUpdateError,
   WriteoffsUpdateResponse,
@@ -2966,6 +2982,36 @@ export const ordersCreateDirectMutation = (
 };
 
 /**
+ * Update the order's attachments. Allowed in any status.
+ *
+ * Returns 404 `orderNotFound`; 422 `dataFileNotFound` (field `attachments`) for an
+ * unknown attachment id. Requires `orders.edit` or `orders.edit_assigned`.
+ */
+export const ordersUpdateAttachmentsMutation = (
+  options?: Partial<Options<OrdersUpdateAttachmentsData>>,
+): UseMutationOptions<
+  OrdersUpdateAttachmentsResponse,
+  OrdersUpdateAttachmentsError,
+  Options<OrdersUpdateAttachmentsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersUpdateAttachmentsResponse,
+    OrdersUpdateAttachmentsError,
+    Options<OrdersUpdateAttachmentsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersUpdateAttachments({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
  * Move the order to another status.
  *
  *     Body: `TransitionOrderStatusRequest` — `targetStatus`. Allowed transitions:
@@ -4148,6 +4194,37 @@ export const receiptsUpdateMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await receiptsUpdate({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Update the receipt's attachments. Allowed in any status.
+ *
+ * Errors: 404 `receiptNotFound`; 422 `dataFileNotFound` (field `attachments`) for an
+ * unknown attachment id; 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit
+ * access).
+ */
+export const receiptsUpdateAttachmentsMutation = (
+  options?: Partial<Options<ReceiptsUpdateAttachmentsData>>,
+): UseMutationOptions<
+  ReceiptsUpdateAttachmentsResponse,
+  ReceiptsUpdateAttachmentsError,
+  Options<ReceiptsUpdateAttachmentsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsUpdateAttachmentsResponse,
+    ReceiptsUpdateAttachmentsError,
+    Options<ReceiptsUpdateAttachmentsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsUpdateAttachments({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -5426,6 +5503,37 @@ export const stocktakesUpdateMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await stocktakesUpdate({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Update the stocktake's attachments. Allowed in any status.
+ *
+ * Errors: 404 `stocktakeNotFound`; 422 `dataFileNotFound` (field `attachments`) for
+ * an unknown attachment id; 403 `permissionDenied` / `stocktakeNotAssignedToWarehouse`
+ * (edit access).
+ */
+export const stocktakesUpdateAttachmentsMutation = (
+  options?: Partial<Options<StocktakesUpdateAttachmentsData>>,
+): UseMutationOptions<
+  StocktakesUpdateAttachmentsResponse,
+  StocktakesUpdateAttachmentsError,
+  Options<StocktakesUpdateAttachmentsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StocktakesUpdateAttachmentsResponse,
+    StocktakesUpdateAttachmentsError,
+    Options<StocktakesUpdateAttachmentsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stocktakesUpdateAttachments({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -6969,6 +7077,37 @@ export const writeoffsUpdateMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await writeoffsUpdate({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Update the write-off's attachments. Allowed in any status.
+ *
+ * Errors: 404 `writeoffNotFound`; 422 `dataFileNotFound` (field `attachments`) for
+ * an unknown attachment id; 403 `permissionDenied` or `writeoffNotAssignedToWarehouse`
+ * (edit access).
+ */
+export const writeoffsUpdateAttachmentsMutation = (
+  options?: Partial<Options<WriteoffsUpdateAttachmentsData>>,
+): UseMutationOptions<
+  WriteoffsUpdateAttachmentsResponse,
+  WriteoffsUpdateAttachmentsError,
+  Options<WriteoffsUpdateAttachmentsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    WriteoffsUpdateAttachmentsResponse,
+    WriteoffsUpdateAttachmentsError,
+    Options<WriteoffsUpdateAttachmentsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await writeoffsUpdateAttachments({
         ...options,
         ...fnOptions,
         throwOnError: true,

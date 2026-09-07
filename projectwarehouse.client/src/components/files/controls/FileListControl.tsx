@@ -40,6 +40,8 @@ export interface FileListControlProps {
   direction?: "row" | "column";
   /** Drag to reorder. The owner decides what the position means — usually the `order` column. */
   sortable?: boolean;
+  /** Render Input as a tile inside the wrapping grid instead of as a separate control below it. */
+  inlineInput?: boolean;
 }
 
 export default function FileListControl({
@@ -52,6 +54,7 @@ export default function FileListControl({
   inputLabel,
   direction = "row",
   sortable,
+  inlineInput,
 }: FileListControlProps) {
   const {showModal} = useModal();
   const {upload, isUploading} = useFileUpload();
@@ -110,9 +113,20 @@ export default function FileListControl({
     ),
   );
 
+  const inputElement = !disabled && (
+    <Input
+      onChange={pick}
+      loading={isUploading}
+      disabled={disabled}
+      accept={accept}
+      multiple
+      label={inputLabel}
+    />
+  );
+
   return (
     <Box sx={{display: "flex", flexDirection: "column", gap: 1}}>
-      {value.length > 0 && (
+      {(value.length > 0 || (inlineInput && inputElement)) && (
         <Box
           sx={{
             display: "flex",
@@ -137,19 +151,11 @@ export default function FileListControl({
           ) : (
             tiles
           )}
+          {inlineInput && inputElement}
         </Box>
       )}
 
-      {!disabled && (
-        <Input
-          onChange={pick}
-          loading={isUploading}
-          disabled={disabled}
-          accept={accept}
-          multiple
-          label={inputLabel}
-        />
-      )}
+      {!inlineInput && inputElement}
 
       {failures.map((f, i) => (
         <FormHelperText key={`${f.name}-${i}`} error>

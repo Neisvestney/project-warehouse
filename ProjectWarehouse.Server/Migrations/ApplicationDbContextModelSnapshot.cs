@@ -1153,6 +1153,30 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("OrderBoxComponents");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.OrderImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DataFileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DataFileId");
+
+                    b.HasIndex("OrderId", "Order");
+
+                    b.ToTable("OrderImages");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.OrderMarketplaceItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1223,6 +1247,30 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasIndex("WarehouseId");
 
                     b.ToTable("Receipts");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.ReceiptImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DataFileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ReceiptId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DataFileId");
+
+                    b.HasIndex("ReceiptId", "Order");
+
+                    b.ToTable("ReceiptImages");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.ReceiptItem", b =>
@@ -1496,6 +1544,30 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("Stocktakes");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.StocktakeImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DataFileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("StocktakeId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DataFileId");
+
+                    b.HasIndex("StocktakeId", "Order");
+
+                    b.ToTable("StocktakeImages");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StocktakeItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1747,6 +1819,30 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasIndex("WarehouseId");
 
                     b.ToTable("Writeoffs");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.WriteoffImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DataFileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("WriteoffId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DataFileId");
+
+                    b.HasIndex("WriteoffId", "Order");
+
+                    b.ToTable("WriteoffImages");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.WriteoffItem", b =>
@@ -2354,6 +2450,25 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("OrderBox");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.OrderImage", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.DataFile", "DataFile")
+                        .WithMany()
+                        .HasForeignKey("DataFileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Order", "OwnerOrder")
+                        .WithMany("Images")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DataFile");
+
+                    b.Navigation("OwnerOrder");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.OrderMarketplaceItem", b =>
                 {
                     b.HasOne("ProjectWarehouse.Server.Domain.MarketplaceCard", "MarketplaceCard")
@@ -2388,6 +2503,25 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("CreatedBy");
 
                     b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.ReceiptImage", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.DataFile", "DataFile")
+                        .WithMany()
+                        .HasForeignKey("DataFileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Receipt", "Receipt")
+                        .WithMany("Images")
+                        .HasForeignKey("ReceiptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DataFile");
+
+                    b.Navigation("Receipt");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.ReceiptItem", b =>
@@ -2538,6 +2672,25 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("Warehouse");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.StocktakeImage", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.DataFile", "DataFile")
+                        .WithMany()
+                        .HasForeignKey("DataFileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Stocktake", "Stocktake")
+                        .WithMany("Images")
+                        .HasForeignKey("StocktakeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DataFile");
+
+                    b.Navigation("Stocktake");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StocktakeItem", b =>
                 {
                     b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
@@ -2683,6 +2836,25 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("Warehouse");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.WriteoffImage", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.DataFile", "DataFile")
+                        .WithMany()
+                        .HasForeignKey("DataFileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Writeoff", "Writeoff")
+                        .WithMany("Images")
+                        .HasForeignKey("WriteoffId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DataFile");
+
+                    b.Navigation("Writeoff");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.WriteoffItem", b =>
                 {
                     b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
@@ -2810,6 +2982,8 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.Navigation("Boxes");
 
+                    b.Navigation("Images");
+
                     b.Navigation("MarketplaceItems");
 
                     b.Navigation("MarketplaceOrder");
@@ -2822,6 +2996,8 @@ namespace ProjectWarehouse.Server.Migrations
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Receipt", b =>
                 {
+                    b.Navigation("Images");
+
                     b.Navigation("Items");
                 });
 
@@ -2832,6 +3008,8 @@ namespace ProjectWarehouse.Server.Migrations
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Stocktake", b =>
                 {
+                    b.Navigation("Images");
+
                     b.Navigation("Nodes");
                 });
 
@@ -2863,6 +3041,8 @@ namespace ProjectWarehouse.Server.Migrations
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Writeoff", b =>
                 {
+                    b.Navigation("Images");
+
                     b.Navigation("Items");
                 });
 #pragma warning restore 612, 618

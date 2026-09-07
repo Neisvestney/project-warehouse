@@ -207,7 +207,16 @@ public class AppMapperProfile : Profile
         CreateMap<Receipt, ReceiptDto>()
             .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
             .ForMember(d => d.TotalPlannedCount, opt => opt.MapFrom(s => s.Items.Sum(i => i.PlannedCount)))
-            .ForMember(d => d.TotalReceivedCount, opt => opt.MapFrom(s => s.Items.Sum(i => i.ReceivedCount ?? 0)));
+            .ForMember(d => d.TotalReceivedCount, opt => opt.MapFrom(s => s.Items.Sum(i => i.ReceivedCount ?? 0)))
+            .ForMember(d => d.Attachments, opt => opt.MapFrom(s => s.Images.OrderBy(i => i.Order)));
+
+        CreateMap<ReceiptImage, DataFileLinkDto>()
+            .ForMember(d => d.File, opt => opt.MapFrom(s => s.DataFile));
+
+        // the list updater creates new links through the mapper; Id is the join row's own key
+        CreateMap<DataFileLinkRequest, ReceiptImage>()
+            .ForMember(d => d.Id, opt => opt.Ignore())
+            .ForMember(d => d.DataFileId, opt => opt.MapFrom(s => s.FileId));
         CreateMap<Receipt, ReceiptSummaryDto>()
             .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
             .ForMember(d => d.ItemsCount, opt => opt.MapFrom(s => s.Items.Count))
@@ -223,7 +232,15 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
             .ForMember(d => d.ItemsCount, opt => opt.MapFrom(s => s.Items.Count));
         CreateMap<Writeoff, WriteoffDto>()
-            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name));
+            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
+            .ForMember(d => d.Attachments, opt => opt.MapFrom(s => s.Images.OrderBy(i => i.Order)));
+
+        CreateMap<WriteoffImage, DataFileLinkDto>()
+            .ForMember(d => d.File, opt => opt.MapFrom(s => s.DataFile));
+
+        CreateMap<DataFileLinkRequest, WriteoffImage>()
+            .ForMember(d => d.Id, opt => opt.Ignore())
+            .ForMember(d => d.DataFileId, opt => opt.MapFrom(s => s.FileId));
         CreateMap<WriteoffItem, WriteoffItemDto>()
             .ForMember(d => d.SourceNodePath, opt => opt.MapFrom<WriteoffItemNodePathResolver>())
             .ForMember(d => d.InventoryNumber,
@@ -246,7 +263,15 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.NodesCount, opt => opt.MapFrom(s => s.Nodes.Count))
             .ForMember(d => d.ItemsCount, opt => opt.MapFrom(s => s.Nodes.Sum(n => n.Items.Count)));
         CreateMap<Stocktake, StocktakeDto>()
-            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name));
+            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
+            .ForMember(d => d.Attachments, opt => opt.MapFrom(s => s.Images.OrderBy(i => i.Order)));
+
+        CreateMap<StocktakeImage, DataFileLinkDto>()
+            .ForMember(d => d.File, opt => opt.MapFrom(s => s.DataFile));
+
+        CreateMap<DataFileLinkRequest, StocktakeImage>()
+            .ForMember(d => d.Id, opt => opt.Ignore())
+            .ForMember(d => d.DataFileId, opt => opt.MapFrom(s => s.FileId));
         CreateMap<StocktakeNode, StocktakeNodeDto>()
             .ForMember(d => d.NodePath, opt => opt.MapFrom<StocktakeNodePathResolver>());
         CreateMap<StocktakeItem, StocktakeItemDto>()
@@ -283,7 +308,15 @@ public class AppMapperProfile : Profile
 
         CreateMap<Order, OrderDetailsDto>()
             .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
-            .ForMember(d => d.CreatedByName, opt => opt.MapFrom(s => s.CreatedBy != null ? s.CreatedBy.FullName : null));
+            .ForMember(d => d.CreatedByName, opt => opt.MapFrom(s => s.CreatedBy != null ? s.CreatedBy.FullName : null))
+            .ForMember(d => d.Attachments, opt => opt.MapFrom(s => s.Images.OrderBy(i => i.Order)));
+
+        CreateMap<OrderImage, DataFileLinkDto>()
+            .ForMember(d => d.File, opt => opt.MapFrom(s => s.DataFile));
+
+        CreateMap<DataFileLinkRequest, OrderImage>()
+            .ForMember(d => d.Id, opt => opt.Ignore())
+            .ForMember(d => d.DataFileId, opt => opt.MapFrom(s => s.FileId));
 
         CreateMap<MarketplaceOrder, MarketplaceOrderDto>()
             .ForMember(d => d.MarketplaceAccountName, opt => opt.MapFrom(s => s.MarketplaceAccount.Name))

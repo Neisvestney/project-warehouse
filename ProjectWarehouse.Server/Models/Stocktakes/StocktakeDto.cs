@@ -1,4 +1,5 @@
 using ProjectWarehouse.Server.Domain;
+using ProjectWarehouse.Server.Models.Files;
 
 namespace ProjectWarehouse.Server.Models.Stocktakes;
 
@@ -17,4 +18,5 @@ public class StocktakeDto
     public Guid WarehouseId { get; init; }
     public string WarehouseName { get; init; } = null!;
     public IReadOnlyList<StocktakeNodeDto> Nodes { get; init; } = [];
+    public IReadOnlyList<DataFileLinkDto> Attachments { get; init; } = [];
 }

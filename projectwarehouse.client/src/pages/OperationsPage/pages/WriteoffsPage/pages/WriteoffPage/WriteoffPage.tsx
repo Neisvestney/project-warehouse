@@ -18,6 +18,7 @@ import {
   writeoffsCancelMutation,
   writeoffsDeleteMutation,
   writeoffsFinishMutation,
+  writeoffsUpdateAttachmentsMutation,
   writeoffsUpdateMutation,
 } from "@/api/@tanstack/react-query.gen";
 import {extractErrorMessage, isNotFoundError} from "@/utils/errorUtils";
@@ -39,6 +40,7 @@ import WarehouseChip from "@/components/shared/WarehouseChip";
 import WriteoffStatusChip from "@/components/writeoffs/WriteoffStatusChip";
 import WriteoffItemsSection from "@/components/writeoffs/WriteoffItemsSection";
 import {WRITEOFF_REASON_LABELS, formatWriteoffNumber} from "@/components/writeoffs/writeoffUtils";
+import AttachmentsSection from "@/components/files/controls/AttachmentsSection";
 import type {WriteoffDto, WriteoffReason} from "@/api/types.gen";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -82,7 +84,11 @@ function EditInfoForm({
   const onSubmit = form.handleSubmit((values) => {
     mutation.mutate({
       path: {id: writeoff.id},
-      body: {name: values.name || null, reason: values.reason, notes: values.notes || null},
+      body: {
+        name: values.name || null,
+        reason: values.reason,
+        notes: values.notes || null,
+      },
     });
   });
 
@@ -236,6 +242,12 @@ function WriteoffPage() {
       }),
   });
 
+  const attachmentsMutation = useMutation({
+    ...writeoffsUpdateAttachmentsMutation(),
+    meta: {suppressGlobalError: true},
+    onSuccess: updateLocal,
+  });
+
   if (isLoading) {
     return (
       <Box sx={{display: "flex", justifyContent: "center", pt: 8}}>
@@ -360,6 +372,14 @@ function WriteoffPage() {
             )}
           </Stack>
         </Paper>
+
+        <AttachmentsSection
+          value={writeoff.attachments}
+          canEdit={canEdit}
+          save={(attachments) =>
+            attachmentsMutation.mutateAsync({path: {id: writeoff.id}, body: {attachments}})
+          }
+        />
 
         <WriteoffItemsSection writeoff={writeoff} onEditingChange={setIsEditingItems} />
 

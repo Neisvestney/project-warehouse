@@ -23,6 +23,7 @@ import {
   receiptsPlanMutation,
   receiptsRevertMutation,
   receiptsStartProcessingMutation,
+  receiptsUpdateAttachmentsMutation,
   receiptsUpdateMutation,
 } from "@/api/@tanstack/react-query.gen";
 import {isNotFoundError} from "@/utils/errorUtils";
@@ -45,6 +46,7 @@ import ReceiptStatusChip from "@/components/receipts/ReceiptStatusChip";
 import ReceiptItemsSection from "@/components/receipts/ReceiptItemsSection";
 import ReceiptTagsAutocomplete from "@/components/receipts/ReceiptTagsAutocomplete";
 import {RECEIPT_REASON_LABELS, formatReceiptNumber} from "@/components/receipts/receiptUtils";
+import AttachmentsSection from "@/components/files/controls/AttachmentsSection";
 import type {ReceiptDto, ReceiptReason, ReceiptTagDto} from "@/api/types.gen";
 import {parseDateOnly} from "@/utils/dateOnly";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -268,6 +270,12 @@ function ReceiptPage() {
     onSuccess: () => navigate("/operations/receipts"),
   });
 
+  const attachmentsMutation = useMutation({
+    ...receiptsUpdateAttachmentsMutation(),
+    meta: {suppressGlobalError: true},
+    onSuccess: updateLocalReceipt,
+  });
+
   if (isLoading) {
     return (
       <Box sx={{display: "flex", justifyContent: "center", pt: 8}}>
@@ -470,6 +478,14 @@ function ReceiptPage() {
             )}
           </Stack>
         </Paper>
+
+        <AttachmentsSection
+          value={receipt.attachments}
+          canEdit={canEdit}
+          save={(attachments) =>
+            attachmentsMutation.mutateAsync({path: {id: receipt.id}, body: {attachments}})
+          }
+        />
 
         {(isProcessing || isTerminal) && (
           <Paper>
