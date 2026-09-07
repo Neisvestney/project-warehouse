@@ -62,7 +62,8 @@ export type AppEntityType =
   | "stocktake"
   | "marketplaceAutoMapRule"
   | "marketplaceAutoMapRules"
-  | "fbsOrdersGrouped";
+  | "fbsOrdersGrouped"
+  | "stockMovementReportPreset";
 
 export type AppFieldError = {
   code: ErrorCode;
@@ -679,7 +680,12 @@ export type ErrorCode =
   | "invalidValue"
   | "tagNameDuplicate"
   | "tooManyRequests"
-  | "inventoryWriteConflict";
+  | "inventoryWriteConflict"
+  | "stockMovementPresetNotFound"
+  | "stockMovementPresetNameDuplicate"
+  | "stockMovementPresetModified"
+  | "stockMovementPresetLastOne"
+  | "stockMovementPresetUnknownAction";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -1622,6 +1628,20 @@ export type SaveAutoMapRuleRequest = {
   priority: number;
 };
 
+export type SaveStockMovementReportPresetRequest = {
+  name: string;
+  /**
+   * Setting it clears the flag on whichever preset carried it before.
+   */
+  isDefault: boolean;
+  metrics: Array<StockMovementMetricDto>;
+  /**
+   * The `version` the edit started from. Required on update — presets are shared, and without it
+   * the second of two concurrent saves would silently win.
+   */
+  version?: null | number;
+};
+
 /**
  * Null clears the mapping.
  */
@@ -1842,12 +1862,28 @@ export type StockMovementDto = {
 export type StockMovementGroupBy =
   "action" | "catalogItem" | "warehouse" | "storagePlace" | "node" | "user";
 
+/**
+ * One sub-column of the pivot. All three predicates are optional and combine with AND; leaving every
+ * one of them empty is legal and means «every movement».
+ */
+export type StockMovementMetricDto = {
+  name: string;
+  actions?: null | Array<string>;
+  directions?: null | Array<StockMovementDirection>;
+  receiptTagIds?: null | Array<string>;
+};
+
 export type StockMovementPivotCellDto = {
   catalogItemId: string;
   /**
    * On-hand quantity at the end of this day, ignoring the Action/Direction/User filters.
    */
   balance: number;
+  /**
+   * Signed net per requested metric, in the order the metrics were sent. Metrics may overlap, so these
+   * do not add up to int StockMovementTotalsDto.Net and must never be summed to get it.
+   */
+  metrics: Array<number>;
   inQuantity: number;
   outQuantity: number;
   transferInQuantity: number;
@@ -1866,6 +1902,11 @@ export type StockMovementPivotColumnDto = {
    * On-hand quantity at the end of DateOnly StockMovementPivotDto.To, ignoring the Action/Direction/User filters.
    */
   balance: number;
+  /**
+   * Signed net per requested metric, in the order the metrics were sent. Metrics may overlap, so these
+   * do not add up to int StockMovementTotalsDto.Net and must never be summed to get it.
+   */
+  metrics: Array<number>;
   inQuantity: number;
   outQuantity: number;
   transferInQuantity: number;
@@ -1892,7 +1933,7 @@ export type StockMovementPivotDto = {
    * One entry per day of the range, empty days included.
    */
   rows: Array<StockMovementPivotRowDto>;
-  totals: StockMovementTotalsDto;
+  totals: StockMovementPivotTotalsDto;
   /**
    * True when items were left out because the column limit was reached.
    */
@@ -1900,17 +1941,96 @@ export type StockMovementPivotDto = {
 };
 
 /**
+ * The pivot is a POST because IReadOnlyList&lt;StockMovementMetricDto&gt; StockMovementPivotRequest.Metrics is a list of objects — it does not survive a query
+ * string. Everything else is the shared movement filter.
+ */
+export type StockMovementPivotRequest = {
+  columnLimit: number;
+  /**
+   * Sub-columns to compute, in display order. Empty means totals only.
+   */
+  metrics: Array<StockMovementMetricDto>;
+  /**
+   * Inclusive first day, in the resolved time zone. Defaults to 29 days before DateOnly? StockMovementFilterRequest.To.
+   */
+  from?: null | string;
+  /**
+   * Inclusive last day, in the resolved time zone. Defaults to today.
+   */
+  to?: null | string;
+  /**
+   * Narrows the rows and, when the warehouse has a zone of its own, decides where the day breaks.
+   */
+  warehouseId?: null | string;
+  storagePlaceId?: null | string;
+  nodeId?: null | string;
+  userId?: null | string;
+  /**
+   * Catalog items to keep. Empty means all — in the pivot that also means the columns are picked by volume.
+   */
+  catalogItemIds?: null | Array<string>;
+  /**
+   * Receipt tags to keep — a row matches when its receipt carries any of them. Empty means all.
+   * Movements made outside a receipt never match, so a non-empty value also drops them.
+   */
+  receiptTagIds?: null | Array<string>;
+  /**
+   * Action constants to keep (`receipt.placement_added`, `transfer.standard`, …). Empty means all.
+   */
+  actions?: null | Array<string>;
+  directions?: null | Array<StockMovementDirection>;
+};
+
+/**
  * One day. IReadOnlyList&lt;StockMovementPivotCellDto&gt; StockMovementPivotRowDto.Cells is sparse — days where an item did not move carry no cell at all;
- * StockMovementTotalsDto StockMovementPivotRowDto.Total covers every item matching the filter, including ones cut from the columns.
+ * StockMovementPivotTotalsDto StockMovementPivotRowDto.Total sums the columns, so it always agrees with what the table shows.
  */
 export type StockMovementPivotRowDto = {
   date: string;
   cells: Array<StockMovementPivotCellDto>;
-  total: StockMovementTotalsDto;
+  total: StockMovementPivotTotalsDto;
   /**
-   * On-hand quantity, summed over every item matching the filter, at the end of this day.
+   * On-hand quantity, summed over the columns, at the end of this day.
    */
   balance: number;
+};
+
+/**
+ * Totals across the whole row or the whole table, carrying the same per-metric breakdown.
+ */
+export type StockMovementPivotTotalsDto = {
+  /**
+   * Signed net per requested metric, in the order the metrics were sent. Metrics may overlap, so these
+   * do not add up to int StockMovementTotalsDto.Net and must never be summed to get it.
+   */
+  metrics: Array<number>;
+  inQuantity: number;
+  outQuantity: number;
+  transferInQuantity: number;
+  transferOutQuantity: number;
+  movementsCount: number;
+  net: number;
+};
+
+/**
+ * A saved column layout of the movement report. Shared — every viewer sees the same list.
+ */
+export type StockMovementReportPresetDto = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  /**
+   * Sub-columns in display order.
+   */
+  metrics: Array<StockMovementMetricDto>;
+  createdAt: string;
+  updatedAt: string;
+  updatedById?: null | string;
+  updatedByName?: null | string;
+  /**
+   * Optimistic concurrency token — pass it back on update, the preset is shared.
+   */
+  version: number;
 };
 
 /**
@@ -6248,7 +6368,7 @@ export type StatisticsGetDailyResponse =
   StatisticsGetDailyResponses[keyof StatisticsGetDailyResponses];
 
 export type StatisticsGetPivotData = {
-  body?: never;
+  body: StockMovementPivotRequest;
   headers?: {
     /**
      * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
@@ -6256,38 +6376,7 @@ export type StatisticsGetPivotData = {
     "X-Time-Zone"?: string;
   };
   path?: never;
-  query?: {
-    /**
-     * Inclusive first day, in the resolved time zone. Defaults to 29 days before DateOnly? StockMovementFilterRequest.To.
-     */
-    From?: string;
-    /**
-     * Inclusive last day, in the resolved time zone. Defaults to today.
-     */
-    To?: string;
-    /**
-     * Narrows the rows and, when the warehouse has a zone of its own, decides where the day breaks.
-     */
-    WarehouseId?: string;
-    StoragePlaceId?: string;
-    NodeId?: string;
-    UserId?: string;
-    /**
-     * Catalog items to keep. Empty means all — in the pivot that also means the columns are picked by volume.
-     */
-    CatalogItemIds?: Array<string>;
-    /**
-     * Receipt tags to keep — a row matches when its receipt carries any of them. Empty means all.
-     * Movements made outside a receipt never match, so a non-empty value also drops them.
-     */
-    ReceiptTagIds?: Array<string>;
-    /**
-     * Action constants to keep (`receipt.placement_added`, `transfer.standard`, …). Empty means all.
-     */
-    Actions?: Array<string>;
-    Directions?: Array<StockMovementDirection>;
-    columnLimit?: number;
-  };
+  query?: never;
   url: "/api/statistics/stock-movements/pivot";
 };
 
@@ -6671,6 +6760,134 @@ export type StockForecastSetOverrideResponses = {
 
 export type StockForecastSetOverrideResponse =
   StockForecastSetOverrideResponses[keyof StockForecastSetOverrideResponses];
+
+export type StockMovementPresetsGetPresetsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/statistics/movement-presets";
+};
+
+export type StockMovementPresetsGetPresetsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type StockMovementPresetsGetPresetsError =
+  StockMovementPresetsGetPresetsErrors[keyof StockMovementPresetsGetPresetsErrors];
+
+export type StockMovementPresetsGetPresetsResponses = {
+  /**
+   * OK
+   */
+  200: Array<StockMovementReportPresetDto>;
+};
+
+export type StockMovementPresetsGetPresetsResponse =
+  StockMovementPresetsGetPresetsResponses[keyof StockMovementPresetsGetPresetsResponses];
+
+export type StockMovementPresetsCreatePresetData = {
+  body: SaveStockMovementReportPresetRequest;
+  path?: never;
+  query?: never;
+  url: "/api/statistics/movement-presets";
+};
+
+export type StockMovementPresetsCreatePresetErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type StockMovementPresetsCreatePresetError =
+  StockMovementPresetsCreatePresetErrors[keyof StockMovementPresetsCreatePresetErrors];
+
+export type StockMovementPresetsCreatePresetResponses = {
+  /**
+   * OK
+   */
+  200: StockMovementReportPresetDto;
+};
+
+export type StockMovementPresetsCreatePresetResponse =
+  StockMovementPresetsCreatePresetResponses[keyof StockMovementPresetsCreatePresetResponses];
+
+export type StockMovementPresetsDeletePresetData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/statistics/movement-presets/{id}";
+};
+
+export type StockMovementPresetsDeletePresetErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type StockMovementPresetsDeletePresetError =
+  StockMovementPresetsDeletePresetErrors[keyof StockMovementPresetsDeletePresetErrors];
+
+export type StockMovementPresetsDeletePresetResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type StockMovementPresetsDeletePresetResponse =
+  StockMovementPresetsDeletePresetResponses[keyof StockMovementPresetsDeletePresetResponses];
+
+export type StockMovementPresetsUpdatePresetData = {
+  body: SaveStockMovementReportPresetRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/statistics/movement-presets/{id}";
+};
+
+export type StockMovementPresetsUpdatePresetErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type StockMovementPresetsUpdatePresetError =
+  StockMovementPresetsUpdatePresetErrors[keyof StockMovementPresetsUpdatePresetErrors];
+
+export type StockMovementPresetsUpdatePresetResponses = {
+  /**
+   * OK
+   */
+  200: StockMovementReportPresetDto;
+};
+
+export type StockMovementPresetsUpdatePresetResponse =
+  StockMovementPresetsUpdatePresetResponses[keyof StockMovementPresetsUpdatePresetResponses];
 
 export type StocktakesGetAllData = {
   body?: never;

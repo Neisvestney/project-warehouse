@@ -122,6 +122,10 @@ import {
   stockForecastGetSettings,
   stockForecastSetOverride,
   stockForecastUpdateSettings,
+  stockMovementPresetsCreatePreset,
+  stockMovementPresetsDeletePreset,
+  stockMovementPresetsGetPresets,
+  stockMovementPresetsUpdatePreset,
   stocktakesCancel,
   stocktakesCreate,
   stocktakesDelete,
@@ -499,6 +503,18 @@ import type {
   StockForecastUpdateSettingsData,
   StockForecastUpdateSettingsError,
   StockForecastUpdateSettingsResponse,
+  StockMovementPresetsCreatePresetData,
+  StockMovementPresetsCreatePresetError,
+  StockMovementPresetsCreatePresetResponse,
+  StockMovementPresetsDeletePresetData,
+  StockMovementPresetsDeletePresetError,
+  StockMovementPresetsDeletePresetResponse,
+  StockMovementPresetsGetPresetsData,
+  StockMovementPresetsGetPresetsError,
+  StockMovementPresetsGetPresetsResponse,
+  StockMovementPresetsUpdatePresetData,
+  StockMovementPresetsUpdatePresetError,
+  StockMovementPresetsUpdatePresetResponse,
   StocktakesCancelData,
   StocktakesCancelError,
   StocktakesCancelResponse,
@@ -4629,37 +4645,42 @@ export const statisticsGetDailyOptions = (options?: Options<StatisticsGetDailyDa
     queryKey: statisticsGetDailyQueryKey(options),
   });
 
-export const statisticsGetPivotQueryKey = (options?: Options<StatisticsGetPivotData>) =>
-  createQueryKey("statisticsGetPivot", options);
-
 /**
- * Pivot: one row per day, one column per catalog item, in/out in each cell.
+ * Pivot: one row per day, one column per catalog item, split into the requested metrics.
  *
+ * A POST because `metrics` is a list of objects and does not survive a query string; the body is
+ * `StockMovementPivotRequest` — the shared filter plus `columnLimit` (default 20, range
+ * 1..200) and `metrics` (at most 12).
  * Columns are the `columnLimit` items that moved the most over the range (pass
  * `catalogItemIds` to pin them instead). Cells are sparse — a day with no movement of an item
- * carries no cell. Row totals cover every item the filter matched, so they stay correct even when
- * `hasMoreColumns` is true.
- * Query params: the shared filter plus `columnLimit` (default 20, range 1..200).
+ * carries no cell. Each cell's `metrics` holds the signed net per requested metric, in the order
+ * they were sent; metrics may overlap, so they never sum to `net`. Row and table totals sum the
+ * columns, so they agree with what the table shows.
  * Same access rule and the same 422 `outOfRange` range errors as `stock-movements/daily`.
  */
-export const statisticsGetPivotOptions = (options?: Options<StatisticsGetPivotData>) =>
-  queryOptions<
+export const statisticsGetPivotMutation = (
+  options?: Partial<Options<StatisticsGetPivotData>>,
+): UseMutationOptions<
+  StatisticsGetPivotResponse,
+  StatisticsGetPivotError,
+  Options<StatisticsGetPivotData>
+> => {
+  const mutationOptions: UseMutationOptions<
     StatisticsGetPivotResponse,
     StatisticsGetPivotError,
-    StatisticsGetPivotResponse,
-    ReturnType<typeof statisticsGetPivotQueryKey>
-  >({
-    queryFn: async ({queryKey, signal}) => {
+    Options<StatisticsGetPivotData>
+  > = {
+    mutationFn: async (fnOptions) => {
       const {data} = await statisticsGetPivot({
         ...options,
-        ...queryKey[0],
-        signal,
+        ...fnOptions,
         throwOnError: true,
       });
       return data;
     },
-    queryKey: statisticsGetPivotQueryKey(options),
-  });
+  };
+  return mutationOptions;
+};
 
 export const statisticsGetBreakdownQueryKey = (options?: Options<StatisticsGetBreakdownData>) =>
   createQueryKey("statisticsGetBreakdown", options);
@@ -5006,6 +5027,135 @@ export const stockForecastSetOverrideMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await stockForecastSetOverride({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const stockMovementPresetsGetPresetsQueryKey = (
+  options?: Options<StockMovementPresetsGetPresetsData>,
+) => createQueryKey("stockMovementPresetsGetPresets", options);
+
+/**
+ * All presets, the default one first.
+ *
+ * Not paginated — the list is small by design. Requires `statistics.view` or
+ * `statistics.view_assigned`; 403 `permissionDenied` when neither is held. Presets are not
+ * warehouse-scoped, so `view_assigned` sees the same list as `view`.
+ */
+export const stockMovementPresetsGetPresetsOptions = (
+  options?: Options<StockMovementPresetsGetPresetsData>,
+) =>
+  queryOptions<
+    StockMovementPresetsGetPresetsResponse,
+    StockMovementPresetsGetPresetsError,
+    StockMovementPresetsGetPresetsResponse,
+    ReturnType<typeof stockMovementPresetsGetPresetsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await stockMovementPresetsGetPresets({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: stockMovementPresetsGetPresetsQueryKey(options),
+  });
+
+/**
+ * Create a preset.
+ *
+ *     Errors:
+ * * 422 stockMovementPresetNameDuplicate on name
+ * * 422 required on metrics[i].name
+ * * 422 stockMovementPresetUnknownAction on metrics[i].actions
+ * The first preset created becomes the default whatever `isDefault` says — the report has no
+ * columns without one. Same access rule as the listing.
+ */
+export const stockMovementPresetsCreatePresetMutation = (
+  options?: Partial<Options<StockMovementPresetsCreatePresetData>>,
+): UseMutationOptions<
+  StockMovementPresetsCreatePresetResponse,
+  StockMovementPresetsCreatePresetError,
+  Options<StockMovementPresetsCreatePresetData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StockMovementPresetsCreatePresetResponse,
+    StockMovementPresetsCreatePresetError,
+    Options<StockMovementPresetsCreatePresetData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stockMovementPresetsCreatePreset({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Delete a preset. The default flag moves to the next preset by name.
+ *
+ * 404 `stockMovementPresetNotFound` when the preset is gone, 422
+ * `stockMovementPresetLastOne` on `root` when it is the only one left. Same access rule
+ * as the listing.
+ */
+export const stockMovementPresetsDeletePresetMutation = (
+  options?: Partial<Options<StockMovementPresetsDeletePresetData>>,
+): UseMutationOptions<
+  StockMovementPresetsDeletePresetResponse,
+  StockMovementPresetsDeletePresetError,
+  Options<StockMovementPresetsDeletePresetData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StockMovementPresetsDeletePresetResponse,
+    StockMovementPresetsDeletePresetError,
+    Options<StockMovementPresetsDeletePresetData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stockMovementPresetsDeletePreset({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Update a preset.
+ *
+ * 404 `stockMovementPresetNotFound` when the preset is gone, 409
+ * `stockMovementPresetModified` when `version` is stale — presets are shared, so pass back
+ * the `version` the edit started from. Plus the same 422 codes as creation. Same access rule
+ * as the listing.
+ */
+export const stockMovementPresetsUpdatePresetMutation = (
+  options?: Partial<Options<StockMovementPresetsUpdatePresetData>>,
+): UseMutationOptions<
+  StockMovementPresetsUpdatePresetResponse,
+  StockMovementPresetsUpdatePresetError,
+  Options<StockMovementPresetsUpdatePresetData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StockMovementPresetsUpdatePresetResponse,
+    StockMovementPresetsUpdatePresetError,
+    Options<StockMovementPresetsUpdatePresetData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stockMovementPresetsUpdatePreset({
         ...options,
         ...fnOptions,
         throwOnError: true,

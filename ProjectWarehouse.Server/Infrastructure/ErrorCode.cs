@@ -174,4 +174,11 @@ public enum ErrorCode
 
     // Tags
     TagNameDuplicate = 136,
+
+    // Stock movement report presets
+    StockMovementPresetNotFound = 140,
+    StockMovementPresetNameDuplicate = 141,
+    StockMovementPresetModified = 142,
+    StockMovementPresetLastOne = 143,
+    StockMovementPresetUnknownAction = 144,
 }

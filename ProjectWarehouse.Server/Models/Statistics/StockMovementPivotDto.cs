@@ -10,6 +10,9 @@ public class StockMovementPivotColumnDto : StockMovementTotalsDto
 
     /// <summary>On-hand quantity at the end of <see cref="StockMovementPivotDto.To"/>, ignoring the Action/Direction/User filters.</summary>
     public int Balance { get; init; }
+
+    /// <inheritdoc cref="StockMovementPivotCellDto.Metrics"/>
+    public IReadOnlyList<int> Metrics { get; init; } = [];
 }
 
 public class StockMovementPivotCellDto : StockMovementTotalsDto
@@ -18,19 +21,32 @@ public class StockMovementPivotCellDto : StockMovementTotalsDto
 
     /// <summary>On-hand quantity at the end of this day, ignoring the Action/Direction/User filters.</summary>
     public int Balance { get; init; }
+
+    /// <summary>
+    /// Signed net per requested metric, in the order the metrics were sent. Metrics may overlap, so these
+    /// do not add up to <see cref="StockMovementTotalsDto.Net"/> and must never be summed to get it.
+    /// </summary>
+    public IReadOnlyList<int> Metrics { get; init; } = [];
+}
+
+/// <summary>Totals across the whole row or the whole table, carrying the same per-metric breakdown.</summary>
+public class StockMovementPivotTotalsDto : StockMovementTotalsDto
+{
+    /// <inheritdoc cref="StockMovementPivotCellDto.Metrics"/>
+    public IReadOnlyList<int> Metrics { get; init; } = [];
 }
 
 /// <summary>
 /// One day. <see cref="Cells"/> is sparse — days where an item did not move carry no cell at all;
-/// <see cref="Total"/> covers every item matching the filter, including ones cut from the columns.
+/// <see cref="Total"/> sums the columns, so it always agrees with what the table shows.
 /// </summary>
 public class StockMovementPivotRowDto
 {
     public DateOnly Date { get; init; }
     public IReadOnlyList<StockMovementPivotCellDto> Cells { get; init; } = [];
-    public StockMovementTotalsDto Total { get; init; } = new();
+    public StockMovementPivotTotalsDto Total { get; init; } = new();
 
-    /// <summary>On-hand quantity, summed over every item matching the filter, at the end of this day.</summary>
+    /// <summary>On-hand quantity, summed over the columns, at the end of this day.</summary>
     public int Balance { get; init; }
 }
 
@@ -49,7 +65,7 @@ public class StockMovementPivotDto
     /// <summary>One entry per day of the range, empty days included.</summary>
     public IReadOnlyList<StockMovementPivotRowDto> Rows { get; init; } = [];
 
-    public StockMovementTotalsDto Totals { get; init; } = new();
+    public StockMovementPivotTotalsDto Totals { get; init; } = new();
 
     /// <summary>True when items were left out because the column limit was reached.</summary>
     public bool HasMoreColumns { get; init; }

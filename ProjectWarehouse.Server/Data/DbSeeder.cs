@@ -55,5 +55,64 @@ public static class DbSeeder
 
         if (!await userManager.IsInRoleAsync(adminUser, "Admin"))
             await userManager.AddToRoleAsync(adminUser, "Admin");
+
+        await SeedStockMovementPresetAsync(db);
+    }
+
+    /// <summary>
+    /// The movement report has no columns without a preset, so an empty table would be the first thing
+    /// a new install shows. Seeded once — a later delete of the preset is a choice, not a gap to refill.
+    /// </summary>
+    private static async Task SeedStockMovementPresetAsync(ApplicationDbContext db)
+    {
+        if (await db.StockMovementReportPresets.AnyAsync()) return;
+
+        var now = DateTime.UtcNow;
+        db.StockMovementReportPresets.Add(new StockMovementReportPreset
+        {
+            Id = Guid.NewGuid(),
+            Name = "По умолчанию",
+            IsDefault = true,
+            CreatedAt = now,
+            UpdatedAt = now,
+            Metrics =
+            [
+                new StockMovementMetric
+                {
+                    Name = "Заказы",
+                    Actions = [InventoryActions.SpentOnOrder],
+                },
+                new StockMovementMetric
+                {
+                    Name = "Брак и списания",
+                    Actions = [InventoryActions.WrittenOff],
+                },
+                new StockMovementMetric
+                {
+                    Name = "Новый товар",
+                    Actions = [InventoryActions.NewGoods],
+                },
+                new StockMovementMetric
+                {
+                    Name = "Возвраты",
+                    Actions = [InventoryActions.ReturnStock],
+                },
+                new StockMovementMetric
+                {
+                    Name = "Перемещения",
+                    Directions = [StockMovementDirection.TransferIn, StockMovementDirection.TransferOut],
+                },
+            ],
+        });
+
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (Exception e) when (UniqueViolations.IsStockMovementPresetName(e))
+        {
+            // Another instance seeded the same preset between the check and the insert. Nothing to do —
+            // the row exists, which is all this method wanted.
+        }
     }
 }

@@ -38,6 +38,7 @@ using ProjectWarehouse.Server.Models.Catalog;
 using ProjectWarehouse.Server.Models.Integrations;
 using ProjectWarehouse.Server.Models.Orders;
 using ProjectWarehouse.Server.Models.Roles;
+using ProjectWarehouse.Server.Models.Statistics;
 using ProjectWarehouse.Server.Models.Users;
 using ProjectWarehouse.Server.Models.Receipts;
 using ProjectWarehouse.Server.Models.Warehouses;
@@ -593,6 +594,8 @@ try
     builder.Services.AddScoped<IChangeLogService<MarketplaceCardDto>, MarketplaceCardDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<MarketplaceAutoMapRuleDto>, MarketplaceAutoMapRuleDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<OrderDetailsDto>, OrderDetailsDtoChangelogService>();
+    builder.Services.AddScoped<IChangeLogService<StockMovementReportPresetDto>,
+        StockMovementReportPresetDtoChangelogService>();
     builder.Services.AddScoped<IInventoryService, InventoryService>();
     builder.Services.AddScoped<ICatalogService, CatalogService>();
     builder.Services.AddScoped<AccessScope>();
@@ -603,6 +606,7 @@ try
     builder.Services.AddScoped<IRequestTimeZoneAccessor, RequestTimeZoneAccessor>();
     builder.Services.AddScoped<IWarehouseTimeZoneResolver, WarehouseTimeZoneResolver>();
     builder.Services.AddScoped<IStockStatisticsService, StockStatisticsService>();
+    builder.Services.AddScoped<IStockMovementPresetService, StockMovementPresetService>();
     builder.Services.AddScoped<IStockForecastService, StockForecastService>();
     builder.Services.AddScoped<IStocktakeDiffCalculator, StocktakeDiffCalculator>();
     var app = builder.Build();

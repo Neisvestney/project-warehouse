@@ -45,28 +45,30 @@ public class StatisticsController(IStockStatisticsService statistics) : AppContr
         }
     }
 
-    /// <summary>Pivot: one row per day, one column per catalog item, in/out in each cell.</summary>
+    /// <summary>Pivot: one row per day, one column per catalog item, split into the requested metrics.</summary>
     /// <remarks>
+    /// A POST because <c>metrics</c> is a list of objects and does not survive a query string; the body is
+    /// <c>StockMovementPivotRequest</c> — the shared filter plus <c>columnLimit</c> (default 20, range
+    /// 1..200) and <c>metrics</c> (at most 12).
     /// Columns are the <c>columnLimit</c> items that moved the most over the range (pass
     /// <c>catalogItemIds</c> to pin them instead). Cells are sparse — a day with no movement of an item
-    /// carries no cell. Row totals cover every item the filter matched, so they stay correct even when
-    /// <c>hasMoreColumns</c> is true.
-    /// Query params: the shared filter plus <c>columnLimit</c> (default 20, range 1..200).
+    /// carries no cell. Each cell's <c>metrics</c> holds the signed net per requested metric, in the order
+    /// they were sent; metrics may overlap, so they never sum to <c>net</c>. Row and table totals sum the
+    /// columns, so they agree with what the table shows.
     /// Same access rule and the same 422 <c>outOfRange</c> range errors as <c>stock-movements/daily</c>.
     /// </remarks>
-    [HttpGet("stock-movements/pivot")]
+    [HttpPost("stock-movements/pivot")]
     [Authorize]
     [ProducesResponseType<StockMovementPivotDto>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetPivot(
-        [FromQuery] StockMovementFilterRequest filter,
-        [FromQuery][Range(1, 200)] int columnLimit = 20,
+        [FromBody] StockMovementPivotRequest request,
         CancellationToken ct = default)
     {
         if (CheckAccess() is { } forbidden) return forbidden;
 
         try
         {
-            return Ok(await statistics.GetPivotAsync(User, filter, columnLimit, ct));
+            return Ok(await statistics.GetPivotAsync(User, request, ct));
         }
         catch (Infrastructure.ValidationException ex)
         {

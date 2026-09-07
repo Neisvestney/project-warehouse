@@ -1395,6 +1395,53 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("StockMovements");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.StockMovementReportPreset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("boolean");
+
+                    b.Property<List<StockMovementMetric>>("Metrics")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDefault")
+                        .IsUnique()
+                        .HasFilter("\"IsDefault\"");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedById");
+
+                    b.ToTable("StockMovementReportPresets");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Stocktake", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2460,6 +2507,16 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("User");
 
                     b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.StockMovementReportPreset", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", "UpdatedBy")
+                        .WithMany()
+                        .HasForeignKey("UpdatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("UpdatedBy");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Stocktake", b =>

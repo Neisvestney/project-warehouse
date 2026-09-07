@@ -1,15 +1,5 @@
 import {useMemo, useState} from "react";
-import {
-  Button,
-  Checkbox,
-  FormControl,
-  FormControlLabel,
-  InputLabel,
-  ListItemText,
-  MenuItem,
-  Select,
-  TextField,
-} from "@mui/material";
+import {Button, FormControl, InputLabel, MenuItem, Select, TextField} from "@mui/material";
 import {useQuery} from "@tanstack/react-query";
 import {
   storagePlacesGetNodesOptions,
@@ -20,12 +10,10 @@ import {
 import type {CatalogItemSelectDto} from "@/api/types.gen";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
 import FiltersBar from "@/components/FiltersBar";
-import ReceiptTagsFilter from "@/components/receipts/ReceiptTagsFilter";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import {buildNodePath, formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {useHasPermission} from "@/hooks/usePermission";
 import {PHYSICAL_CATALOG_ITEMS} from "@/features/catalog";
-import {STOCK_MOVEMENT_ACTIONS} from "./stockMovementsConstants";
 import type {useStockMovementsFilters} from "./useStockMovementsFilters";
 import AddItemsByTagDialog from "./AddItemsByTagDialog";
 
@@ -37,8 +25,6 @@ type StockMovementsFiltersProps = ReturnType<typeof useStockMovementsFilters> & 
 function StockMovementsFilters({
   items,
   filter,
-  showTransfers,
-  setShowTransfers,
   setCatalogItemIds,
   setFrom,
   setTo,
@@ -46,12 +32,8 @@ function StockMovementsFilters({
   setStoragePlaceId,
   setNodeId,
   setUserId,
-  setReceiptTagIds,
-  setActions,
-  setDirections,
 }: StockMovementsFiltersProps) {
   const canViewUsers = useHasPermission("users.view");
-  const canViewReceipts = useHasPermission(["receipts.view", "receipts.view_assigned"]);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
 
   const {data: warehouses} = useQuery(warehousesGetAllOptions({query: {pageSize: 200}}));
@@ -204,70 +186,6 @@ function StockMovementsFilters({
           </Select>
         </FormControl>
       )}
-
-      {/*<FormControl size="small" sx={{minWidth: 180}}>*/}
-      {/*  <InputLabel>Направление</InputLabel>*/}
-      {/*  <Select*/}
-      {/*    multiple*/}
-      {/*    label="Направление"*/}
-      {/*    value={filter.directions}*/}
-      {/*    onChange={(e) => setDirections(e.target.value as StockMovementDirection[])}*/}
-      {/*    renderValue={(selected) =>*/}
-      {/*      selected.length === 1*/}
-      {/*        ? STOCK_MOVEMENT_DIRECTIONS.find((d) => d.value === selected[0])?.label*/}
-      {/*        : `${selected.length} направления`*/}
-      {/*    }*/}
-      {/*  >*/}
-      {/*    {STOCK_MOVEMENT_DIRECTIONS.map(({value, label}) => (*/}
-      {/*      <MenuItem key={value} value={value}>*/}
-      {/*        <Checkbox size="small" checked={filter.directions.includes(value)} />*/}
-      {/*        <ListItemText primary={label} />*/}
-      {/*      </MenuItem>*/}
-      {/*    ))}*/}
-      {/*  </Select>*/}
-      {/*</FormControl>*/}
-
-      {canViewReceipts && (
-        <ReceiptTagsFilter
-          value={filter.receiptTagIds}
-          onChange={setReceiptTagIds}
-          label="Теги приёмки"
-          sx={{minWidth: 220}}
-        />
-      )}
-
-      <FormControl size="small" sx={{minWidth: 180}}>
-        <InputLabel>Операция</InputLabel>
-        <Select
-          multiple
-          label="Операция"
-          value={filter.actions}
-          onChange={(e) => setActions(e.target.value as string[])}
-          renderValue={(selected) =>
-            selected.length === 1
-              ? STOCK_MOVEMENT_ACTIONS.find((a) => a.value === selected[0])?.label
-              : `${selected.length} операции`
-          }
-        >
-          {STOCK_MOVEMENT_ACTIONS.map(({value, label}) => (
-            <MenuItem key={value} value={value}>
-              <Checkbox size="small" checked={filter.actions.includes(value)} />
-              <ListItemText primary={label} />
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-
-      <FormControlLabel
-        control={
-          <Checkbox
-            size="small"
-            checked={showTransfers}
-            onChange={(e) => setShowTransfers(e.target.checked)}
-          />
-        }
-        label="Показывать перемещения"
-      />
     </FiltersBar>
   );
 }
