@@ -17,6 +17,7 @@ import type {DataFileDto} from "@/api";
 import type {ModalComponentProps} from "@/contexts/Modal/ModalContext";
 import {useBackClosable} from "@/hooks/useBackClosable.ts";
 import FileImage from "../FileImage";
+import FileTypeIcon from "../views/FileTypeIcon";
 import {formatFileSize, isImageContentType, isPdfContentType} from "../fileUtils";
 import ImageFileRenderer from "./ImageFileRenderer";
 import PdfFileRenderer from "./PdfFileRenderer";
@@ -213,7 +214,31 @@ export default function FileViewerModal({
                 opacity: i === index ? 1 : 0.6,
               }}
             >
-              <FileImage source={file} previewWidth={128} lazy={false} style={{height: "100%"}} />
+              <FileImage
+                source={file}
+                previewWidth={128}
+                lazy={false}
+                style={{height: "100%"}}
+                fallback={
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "100%",
+                      height: "100%",
+                      bgcolor: "rgba(255,255,255,0.08)",
+                    }}
+                  >
+                    <FileTypeIcon
+                      contentType={
+                        file.kind === "dataFile" ? file.file.contentType : file.contentType
+                      }
+                      sx={{color: "rgba(255,255,255,0.7)"}}
+                    />
+                  </Box>
+                }
+              />
             </Box>
           ))}
         </Box>
