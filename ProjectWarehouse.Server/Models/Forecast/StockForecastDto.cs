@@ -26,6 +26,14 @@ public class StockForecastDto
     public bool IsWarningOverridden { get; init; }
 
     public StockForecastStatus Status { get; init; }
+
+    /// <summary>
+    /// Days since stock last hit zero within the window, counting backward from today. <c>0</c> means
+    /// stock is zero right now; <c>null</c> means it never hit zero anywhere in the window (the window
+    /// was not truncated). A positive value is both the age of the last zero day and the length the
+    /// consumption window was cut down to.
+    /// </summary>
+    public int? DaysSinceLastZeroStock { get; init; }
 }
 
 /// <summary>A forecast row of the list, where the item does have to travel with the numbers.</summary>

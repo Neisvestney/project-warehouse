@@ -255,7 +255,12 @@ public class StockForecastService(
         var stock = await inventoryService.GetCurrentStockAsync(
             source.StockWarehouseIds, source.WarehouseId, null, null, restrictToIds, ct);
 
-        var consumption = await LoadConsumptionAsync(
+        // Snapshot before the assembly reservation is folded in below: the zero-stock lookback
+        // reconstructs the physical past, and assembly demand is a present-day reservation, not
+        // something that existed on those earlier days.
+        var physicalStock = new Dictionary<Guid, int>(stock);
+
+        var movement = await LoadMovementAsync(
             source, restrictToIds, fromUtc, toUtc, options, today, ct);
 
         var assemblyDemand = accountForAssembly
@@ -269,7 +274,7 @@ public class StockForecastService(
 
         // A row exists when the item has stock or consumption; an empty catalog is never unfolded into
         // the forecast. Zero stock with consumption is exactly the row a buyer needs to see.
-        var candidateIds = stock.Keys.Concat(consumption.Keys).Concat(assemblyDemand.Keys).Distinct().ToList();
+        var candidateIds = stock.Keys.Concat(movement.DailyOut.Keys).Concat(assemblyDemand.Keys).Distinct().ToList();
         if (candidateIds.Count == 0)
             return new ForecastComputation([], options, warehouseWarningDays);
 
@@ -285,10 +290,29 @@ public class StockForecastService(
         {
             var itemOverride = overrides.TryGetValue(item.Id, out var days) ? days : (int?)null;
             var warningDays = StockForecastCalculator.ResolveWarningDays(itemOverride, warehouse.StockWarningDays);
+
+            var dailyOut = movement.DailyOut.GetValueOrDefault(item.Id) ?? empty;
+            var dailyNet = movement.DailyNet.GetValueOrDefault(item.Id) ?? empty;
+            var zeroStockAge = StockForecastCalculator.FindLastZeroStockAge(
+                physicalStock.GetValueOrDefault(item.Id), dailyNet);
+
+            var calcOptions = options;
+            if (zeroStockAge is int age && age > 0)
+            {
+                dailyOut = dailyOut.Take(age).ToArray();
+                calcOptions = new StockForecastOptions
+                {
+                    WindowDays = age,
+                    UseWeightedConsumption = options.UseWeightedConsumption,
+                    TimeZoneId = options.TimeZoneId,
+                    OffsetMinutes = options.OffsetMinutes,
+                };
+            }
+
             var result = StockForecastCalculator.Calculate(
                 stock.GetValueOrDefault(item.Id),
-                consumption.GetValueOrDefault(item.Id) ?? empty,
-                options,
+                dailyOut,
+                calcOptions,
                 warningDays);
 
             if (filter.OnlyWarnings && !StockForecastCalculator.IsWarning(result.Status))
@@ -305,6 +329,7 @@ public class StockForecastService(
                     WarningDays = warningDays,
                     IsWarningOverridden = itemOverride is not null,
                     Status = result.Status,
+                    DaysSinceLastZeroStock = zeroStockAge,
                 }));
         }
 
@@ -325,12 +350,20 @@ public class StockForecastService(
         };
     }
 
+    private sealed record MovementData(
+        Dictionary<Guid, int[]> DailyOut, Dictionary<Guid, int[]> DailyNet);
+
     /// <summary>
-    /// Out quantities per item per day of the window. <c>TransferOut</c> is left out on purpose: the
-    /// goods did not leave the company, and the matching <c>TransferIn</c> on the receiving warehouse
-    /// would burn the same item a second time when it actually ships.
+    /// Two views of the same window's movements, per item per day (index 0 = today):
+    /// <c>DailyOut</c> — Out quantities only, the consumption feeding the average. <c>TransferOut</c> is
+    /// left out of it on purpose, same reasoning as everywhere else in the forecast: the goods did not
+    /// leave the company, and the matching <c>TransferIn</c> on the receiving warehouse would burn the
+    /// same item a second time when it actually ships.
+    /// <c>DailyNet</c> — every direction, signed (in - out), the raw balance change used to walk the
+    /// stock backward and find the last day it sat at zero. Transfers count here: they moved physical
+    /// units off or onto this warehouse's shelf regardless of what the consumption definition ignores.
     /// </summary>
-    private static async Task<Dictionary<Guid, int[]>> LoadConsumptionAsync(
+    private static async Task<MovementData> LoadMovementAsync(
         ForecastSource source,
         IReadOnlyCollection<Guid>? restrictToIds,
         DateTime fromUtc,
@@ -341,30 +374,46 @@ public class StockForecastService(
     {
         var query = source.Movements
             .Where(m => m.WarehouseId == source.WarehouseId)
-            .Where(m => m.Direction == StockMovementDirection.Out)
             .Where(m => m.CreatedAt >= fromUtc && m.CreatedAt < toUtc);
 
         if (restrictToIds is not null)
             query = query.Where(m => restrictToIds.Contains(m.CatalogItemId));
 
         var rows = await query
-            .GroupBy(m => new { m.CatalogItemId, Date = m.CreatedAt.AddMinutes(options.OffsetMinutes).Date })
-            .Select(g => new { g.Key.CatalogItemId, g.Key.Date, Quantity = g.Sum(m => m.Quantity) })
+            .GroupBy(m => new
+            {
+                m.CatalogItemId,
+                m.Direction,
+                Date = m.CreatedAt.AddMinutes(options.OffsetMinutes).Date,
+            })
+            .Select(g => new { g.Key.CatalogItemId, g.Key.Direction, g.Key.Date, Quantity = g.Sum(m => m.Quantity) })
             .ToListAsync(ct);
 
-        var byItem = new Dictionary<Guid, int[]>();
+        var dailyOut = new Dictionary<Guid, int[]>();
+        var dailyNet = new Dictionary<Guid, int[]>();
+
         foreach (var row in rows)
         {
             var age = today.DayNumber - DateOnly.FromDateTime(row.Date).DayNumber;
             if (age < 0 || age >= options.WindowDays) continue;
 
-            if (!byItem.TryGetValue(row.CatalogItemId, out var days))
-                byItem[row.CatalogItemId] = days = new int[options.WindowDays];
+            var sign = row.Direction is StockMovementDirection.In or StockMovementDirection.TransferIn ? 1 : -1;
+            AddToDay(dailyNet, row.CatalogItemId, age, sign * row.Quantity, options.WindowDays);
 
-            days[age] += row.Quantity;
+            if (row.Direction == StockMovementDirection.Out)
+                AddToDay(dailyOut, row.CatalogItemId, age, row.Quantity, options.WindowDays);
         }
 
-        return byItem;
+        return new MovementData(dailyOut, dailyNet);
+    }
+
+    private static void AddToDay(
+        Dictionary<Guid, int[]> byItem, Guid catalogItemId, int age, int quantity, int windowDays)
+    {
+        if (!byItem.TryGetValue(catalogItemId, out var days))
+            byItem[catalogItemId] = days = new int[windowDays];
+
+        days[age] += quantity;
     }
 
     /// <summary>
@@ -484,6 +533,7 @@ public class StockForecastService(
                 WarningDays = e.Forecast.WarningDays,
                 IsWarningOverridden = e.Forecast.IsWarningOverridden,
                 Status = e.Forecast.Status,
+                DaysSinceLastZeroStock = e.Forecast.DaysSinceLastZeroStock,
                 CatalogItem = items[e.Forecast.CatalogItemId],
             })
             .ToList();

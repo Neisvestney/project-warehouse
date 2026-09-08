@@ -56,7 +56,7 @@ import StockWarningOverrideDialog, {
   type StockWarningOverrideTarget,
 } from "./StockWarningOverrideDialog";
 
-const COLUMN_COUNT = 7;
+const COLUMN_COUNT = 8;
 
 const SORTABLE_COLUMNS: {key: StockForecastSortBy; label: string; align?: "right"}[] = [
   {key: "type", label: "Тип"},
@@ -66,6 +66,16 @@ const SORTABLE_COLUMNS: {key: StockForecastSortBy; label: string; align?: "right
   {key: "dailyConsumption", label: "Расход/день", align: "right"},
   {key: "daysLeft", label: "Осталось дней", align: "right"},
 ];
+
+/**
+ * `0` — currently at zero. `null` — never hit zero anywhere in the window, so the label carries the
+ * window length as a floor rather than an exact count.
+ */
+function formatDaysSinceZeroStock(days: number | null, windowDays: number): string {
+  if (days === 0) return "—";
+  if (days === null) return `${windowDays}+ дн.`;
+  return `${days} дн.`;
+}
 
 interface ForecastBasePageProps {
   title: string;
@@ -345,7 +355,16 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
                     </TableSortLabel>
                   </TableCell>
                 ))}
-                <TableCell align="right">Порог</TableCell>
+                <TableCell align="right">
+                  <Tooltip title="Сколько дней назад остаток последний раз был нулевым в пределах окна расчёта">
+                    <span>С последнего 0</span>
+                  </Tooltip>
+                </TableCell>
+                <TableCell align="right">
+                  <Tooltip title="Порог предупреждения в днях">
+                    <span>Порог</span>
+                  </Tooltip>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -382,6 +401,14 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
                     <TableCell align="right">{row.dailyConsumption}</TableCell>
                     <TableCell align="right">
                       <StockForecastChip forecast={row} />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" color="text.secondary">
+                        {formatDaysSinceZeroStock(
+                          row.daysSinceLastZeroStock ?? null,
+                          data?.windowDays ?? 0,
+                        )}
+                      </Typography>
                     </TableCell>
                     <TableCell align="right">
                       <Stack
