@@ -1758,6 +1758,13 @@ export type StockForecastDto = {
    */
   isWarningOverridden: boolean;
   status: StockForecastStatus;
+  /**
+   * Days since stock last hit zero within the window, counting backward from today. `0` means
+   * stock is zero right now; `null` means it never hit zero anywhere in the window (the window
+   * was not truncated). A positive value is both the age of the last zero day and the length the
+   * consumption window was cut down to.
+   */
+  daysSinceLastZeroStock?: null | number;
 };
 
 /**
@@ -1797,6 +1804,13 @@ export type StockForecastRowDto = {
    */
   isWarningOverridden: boolean;
   status: StockForecastStatus;
+  /**
+   * Days since stock last hit zero within the window, counting backward from today. `0` means
+   * stock is zero right now; `null` means it never hit zero anywhere in the window (the window
+   * was not truncated). A positive value is both the age of the last zero day and the length the
+   * consumption window was cut down to.
+   */
+  daysSinceLastZeroStock?: null | number;
 };
 
 /**

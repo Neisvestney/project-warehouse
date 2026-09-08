@@ -70,6 +70,27 @@ public static class StockForecastCalculator
     }
 
     /// <summary>
+    /// Days since the item's stock last hit zero, walking back from today through
+    /// <paramref name="dailyNetChanges"/> (index 0 = today, signed: in - out for that day).
+    /// Returns <c>0</c> when <paramref name="stock"/> is already zero (nothing to truncate — it is already
+    /// <c>OutOfStock</c> by itself), a positive age when an earlier day in the window balanced to zero, or
+    /// <c>null</c> when no day in the window did.
+    /// </summary>
+    public static int? FindLastZeroStockAge(int stock, IReadOnlyList<int> dailyNetChanges)
+    {
+        if (stock == 0) return 0;
+
+        var balance = stock;
+        for (var age = 0; age < dailyNetChanges.Count; age++)
+        {
+            balance -= dailyNetChanges[age];
+            if (balance == 0) return age + 1;
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Whether the position is something to act on. <c>NoConsumption</c> is not: nothing is running out.
     /// </summary>
     public static bool IsWarning(StockForecastStatus status) =>
