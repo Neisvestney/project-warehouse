@@ -148,6 +148,7 @@ import {
   storagePlacesAddNode,
   storagePlacesDeleteNode,
   storagePlacesGetNodeDetails,
+  storagePlacesGetNodeItemCount,
   storagePlacesGetNodes,
   storagePlacesReorderNodes,
   storagePlacesUpdateNode,
@@ -590,6 +591,9 @@ import type {
   StoragePlacesGetNodeDetailsData,
   StoragePlacesGetNodeDetailsError,
   StoragePlacesGetNodeDetailsResponse,
+  StoragePlacesGetNodeItemCountData,
+  StoragePlacesGetNodeItemCountError,
+  StoragePlacesGetNodeItemCountResponse,
   StoragePlacesGetNodesData,
   StoragePlacesGetNodesError,
   StoragePlacesGetNodesResponse,
@@ -5963,6 +5967,41 @@ export const storagePlacesAddNodeMutation = (
   };
   return mutationOptions;
 };
+
+export const storagePlacesGetNodeItemCountQueryKey = (
+  options: Options<StoragePlacesGetNodeItemCountData>,
+) => createQueryKey("storagePlacesGetNodeItemCount", options);
+
+/**
+ * How much of one catalog item lies in one node.
+ *
+ * Returns `NodeItemCountDto` — nodeId, catalogItemId, count. Counts both grouped stock
+ * (`StoragePlaceNodeItemsGroup.Count`) and `Unit` instances, so it answers for any inventory type.
+ * The node is addressed on its own, without the owning storage place: callers that hold a bare node id —
+ * a warehouse default cell, a scanned label — have no place id to pass. Access is resolved through the
+ * node's own storage place: `warehouses.view` or `warehouses.view_assigned` on the owning warehouse.
+ * Returns 404 `storagePlaceNodeNotFound` when the node does not exist.
+ */
+export const storagePlacesGetNodeItemCountOptions = (
+  options: Options<StoragePlacesGetNodeItemCountData>,
+) =>
+  queryOptions<
+    StoragePlacesGetNodeItemCountResponse,
+    StoragePlacesGetNodeItemCountError,
+    StoragePlacesGetNodeItemCountResponse,
+    ReturnType<typeof storagePlacesGetNodeItemCountQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await storagePlacesGetNodeItemCount({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: storagePlacesGetNodeItemCountQueryKey(options),
+  });
 
 /**
  * Delete a node. Fails if the node has children — delete them first.

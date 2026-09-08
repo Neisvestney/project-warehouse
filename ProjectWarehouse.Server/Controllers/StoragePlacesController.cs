@@ -68,6 +68,48 @@ public class StoragePlacesController(
         return Ok(nodes);
     }
 
+    /// <summary>How much of one catalog item lies in one node.</summary>
+    /// <remarks>
+    /// Returns <c>NodeItemCountDto</c> — nodeId, catalogItemId, count. Counts both grouped stock
+    /// (<c>StoragePlaceNodeItemsGroup.Count</c>) and <c>Unit</c> instances, so it answers for any inventory type.
+    /// The node is addressed on its own, without the owning storage place: callers that hold a bare node id —
+    /// a warehouse default cell, a scanned label — have no place id to pass. Access is resolved through the
+    /// node's own storage place: <c>warehouses.view</c> or <c>warehouses.view_assigned</c> on the owning warehouse.
+    /// Returns 404 <c>storagePlaceNodeNotFound</c> when the node does not exist.
+    /// </remarks>
+    [HttpGet("nodes/{nodeId:guid}/item-count")]
+    [Authorize]
+    [ProducesResponseType<NodeItemCountDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetNodeItemCount(
+        Guid nodeId, [FromQuery] Guid catalogItemId, CancellationToken ct = default)
+    {
+        var storagePlaceId = await db.StoragePlacesNodes
+            .Where(n => n.Id == nodeId)
+            .Select(n => (Guid?)n.RootStoragePlaceId)
+            .FirstOrDefaultAsync(ct);
+
+        if (storagePlaceId is null)
+            return NotFound(ErrorCode.StoragePlaceNodeNotFound, "Storage place node not found.");
+
+        if (await CheckStoragePlaceAccessAsync(storagePlaceId.Value, AccessLevel.View, ct) is { } error)
+            return error;
+
+        var grouped = await db.StoragePlacesNodesItemsGroups
+            .Where(g => g.StoragePlaceNodeId == nodeId && g.CatalogItemId == catalogItemId)
+            .SumAsync(g => g.Count, ct);
+
+        var units = await db.InventoryItems.OfType<UnitInventoryItem>()
+            .CountAsync(u => u.StoragePlaceNodeId == nodeId && u.CatalogItemId == catalogItemId, ct);
+
+        return Ok(new NodeItemCountDto
+        {
+            NodeId = nodeId,
+            CatalogItemId = catalogItemId,
+            Count = grouped + units,
+        });
+    }
+
     /// <summary>Add a node to a storage place.</summary>
     /// <remarks>
     /// Body: <c>CreateStoragePlaceNodeRequest</c> — name (required), parentNodeId (optional, null = root node).

@@ -1,18 +1,29 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {
   Alert,
+  Box,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
+  IconButton,
+  Paper,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
-import {useBackClosable} from "@/hooks/useBackClosable";
-import LocationOnIcon from "@mui/icons-material/LocationOn";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {
   ordersBatchFulfillMutation,
@@ -26,20 +37,38 @@ import type {
   BatchFulfillFailedItem,
   CatalogItemType,
 } from "@/api/types.gen";
-import SelectNodeModal, {type SelectedNode} from "@/components/receipts/SelectNodeModal";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
+import {useBackClosable} from "@/hooks/useBackClosable";
 import {useDefaultStorageNode} from "@/hooks/useDefaultStorageNode";
-import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
-import {BundleTreeForm, VariationForm} from "./AddFulfillmentDialog";
-import {getRemainingQty} from "./batchEligibility";
-import {NOUNS, pluralCount} from "@/utils/pluralUtils";
+import {useNodeItemCount} from "@/hooks/useNodeItemCount";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
+import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
+import {NOUNS, pluralCount} from "@/utils/pluralUtils";
+import {TodoRegistryProvider, UnfilledCounter} from "./ComponentRow";
+import {EMPTY_STATUS, isComplete, type SlotStatus} from "./fulfillmentStatus";
+import {useTodoRegistry} from "./todoRegistry";
+import {NodeControl, type NodePick} from "./FulfillmentControls";
+import {BundleTree} from "./FulfillmentTree";
+import {getRemainingQty} from "./batchEligibility";
+import {VariationChain} from "./VariationChain";
+import {chainLeaf, type VariantStep} from "./variationOptions";
 
 interface SelectedTaskInfo {
   orderId: string;
   taskId: string;
   task: AssemblyTaskDto;
   warehouseId: string;
+  orderNumber?: string;
+}
+
+interface BatchTarget {
+  orderId: string;
+  taskId: string;
+  taskBoxId: string;
+  componentId: string;
+  qty: number;
+  orderNumber?: string;
+  boxLabel?: string | null;
 }
 
 interface BatchGroup {
@@ -49,45 +78,41 @@ interface BatchGroup {
   catalogItemType: CatalogItemType;
   warehouseId: string;
   totalNeeded: number;
-  taskComponents: {
-    orderId: string;
-    taskId: string;
-    taskBoxId: string;
-    componentId: string;
-    qty: number;
-  }[];
+  targets: BatchTarget[];
 }
 
 function buildBatchGroups(selectedTasks: SelectedTaskInfo[]): BatchGroup[] {
   const groupMap = new Map<string, BatchGroup>();
 
-  for (const {orderId, taskId, task, warehouseId} of selectedTasks) {
+  for (const {orderId, taskId, task, warehouseId, orderNumber} of selectedTasks) {
     for (const box of task.boxes) {
       for (const comp of box.components) {
         const remaining = getRemainingQty(comp);
         if (remaining <= 0) continue;
 
         const key = `${comp.catalogItemId}::${warehouseId}`;
-        const existing = groupMap.get(key);
-        const entry = {
+        const target: BatchTarget = {
           orderId,
           taskId,
           taskBoxId: box.id,
           componentId: comp.id,
           qty: remaining,
+          orderNumber,
+          boxLabel: box.orderBoxLabel,
         };
+        const existing = groupMap.get(key);
         if (existing) {
           existing.totalNeeded += remaining;
-          existing.taskComponents.push(entry);
+          existing.targets.push(target);
         } else {
           groupMap.set(key, {
             key,
             catalogItemId: comp.catalogItemId,
             catalogItemName: comp.catalogItemName,
-            catalogItemType: comp.catalogItemType as CatalogItemType,
+            catalogItemType: comp.catalogItemType,
             warehouseId,
             totalNeeded: remaining,
-            taskComponents: [entry],
+            targets: [target],
           });
         }
       }
@@ -97,206 +122,39 @@ function buildBatchGroups(selectedTasks: SelectedTaskInfo[]): BatchGroup[] {
   return Array.from(groupMap.values());
 }
 
-// ─── Node picker row ──────────────────────────────────────────────────────
-
-interface NodePickerRowProps {
-  label: string;
-  warehouseId: string;
-  value: {nodeId: string | null; nodePath: string | null};
-  onChange: (node: SelectedNode) => void;
-  catalogItemId?: string;
-}
-
-function NodePickerRow({label, warehouseId, value, onChange, catalogItemId}: NodePickerRowProps) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
-      <Typography variant="caption" sx={{minWidth: 120}}>
-        {label}
-      </Typography>
-      <Typography
-        variant="body2"
-        sx={{flex: 1, color: value.nodePath ? "text.primary" : "text.disabled"}}
-      >
-        {value.nodePath ?? "Не выбрано"}
-      </Typography>
-      <Button
-        variant={"outlined"}
-        size="small"
-        startIcon={<LocationOnIcon />}
-        onClick={() => setOpen(true)}
-      >
-        Выбрать
-      </Button>
-      <SelectNodeModal
-        open={open}
-        onClose={() => setOpen(false)}
-        warehouseId={warehouseId}
-        onSelect={(node) => {
-          onChange(node);
-          setOpen(false);
-        }}
-        catalogItemId={catalogItemId}
-      />
-    </Stack>
-  );
-}
-
-// ─── Group form by type ───────────────────────────────────────────────────
-
-interface StandardGroupFormProps {
-  group: BatchGroup;
-  value: {nodeId: string | null; nodePath: string | null};
-  onChange: (v: {nodeId: string | null; nodePath: string | null}) => void;
-}
-
-function StandardGroupForm({group, value, onChange}: StandardGroupFormProps) {
-  const defaultNode = useDefaultStorageNode(group.warehouseId);
-  useEffect(() => {
-    if (defaultNode && !value.nodeId) {
-      onChange({
-        nodeId: defaultNode.nodeId,
-        nodePath: formatStoragePlaceNodeName(defaultNode.nodePath),
-      });
-    }
-  }, [defaultNode, value.nodeId, onChange]);
-
-  return (
-    <Stack spacing={1}>
-      <Typography variant="body2">
-        <strong>{group.catalogItemName}</strong> — итого: {group.totalNeeded} шт.
-      </Typography>
-      <NodePickerRow
-        label="Ячейка"
-        warehouseId={group.warehouseId}
-        value={value}
-        onChange={(node) =>
-          onChange({nodeId: node.nodeId, nodePath: formatStoragePlaceNodeName(node.nodePath)})
-        }
-        catalogItemId={group.catalogItemId}
-      />
-    </Stack>
-  );
-}
-
-interface BundleGroupFormProps {
-  group: BatchGroup;
-  onChange: (v: AddFulfillmentBundleComponentRequest[], complete: boolean) => void;
-}
-
-function BundleGroupForm({group, onChange}: BundleGroupFormProps) {
-  return (
-    <Stack spacing={2}>
-      <Typography variant="body2">
-        <strong>{group.catalogItemName}</strong> — собрать ОДИН раз, состав скопируется для{" "}
-        {pluralCount(group.taskComponents.length, TASKS_GENITIVE)}
-      </Typography>
-      <BundleTreeForm
-        catalogItemId={group.catalogItemId}
-        warehouseId={group.warehouseId}
-        onChange={onChange}
-      />
-    </Stack>
-  );
-}
-
-// после «для» задание встаёт в родительный падеж
-const TASKS_GENITIVE = {one: "задания", few: "заданий", many: "заданий"};
-
-// ─── Variation group form ──────────────────────────────────────────────────
-
-interface VariationGroupFormProps {
-  group: BatchGroup;
-  fulfillment: AddFulfillmentRequest;
-  onFulfillmentChange: (f: AddFulfillmentRequest, complete: boolean) => void;
-}
-
-function VariationGroupForm({group, fulfillment, onFulfillmentChange}: VariationGroupFormProps) {
-  return (
-    <Stack spacing={2}>
-      <Typography variant="body2">
-        <strong>{group.catalogItemName}</strong> — выбрать вариант ОДИН раз для{" "}
-        {pluralCount(group.taskComponents.length, TASKS_GENITIVE)}
-      </Typography>
-      <VariationForm
-        catalogItemId={group.catalogItemId}
-        warehouseId={group.warehouseId}
-        fulfillment={fulfillment}
-        onFulfillmentChange={onFulfillmentChange}
-      />
-    </Stack>
-  );
-}
-
-// ─── Group row dispatcher ─────────────────────────────────────────────────
-
 interface GroupState {
-  standardNode: {nodeId: string | null; nodePath: string | null};
-  bundleComponents: AddFulfillmentBundleComponentRequest[];
-  variantFulfillment: AddFulfillmentRequest;
-  // Whether the bundle tree / variation choice below is fully specified.
-  complete: boolean;
+  node: NodePick | null;
+  /** Set for a standard group whose cell was picked by hand, over the warehouse default. */
+  nodePicked: boolean;
+  /** Variant choices for a variation group, one step per nesting level. */
+  chain: VariantStep[];
+  entries: AddFulfillmentBundleComponentRequest[];
+  status: SlotStatus;
 }
 
 function emptyGroupState(): GroupState {
-  return {
-    standardNode: {nodeId: null, nodePath: null},
-    bundleComponents: [],
-    variantFulfillment: {sourceNodeId: null, quantity: 0},
-    complete: false,
-  };
+  return {node: null, nodePicked: false, chain: [], entries: [], status: EMPTY_STATUS};
 }
 
-interface GroupFormRowProps {
-  group: BatchGroup;
-  state: GroupState;
-  onPatch: (key: string, patch: Partial<GroupState>) => void;
+/** The item stock actually moves against — the variation's leaf, or the group's own item. */
+function resolvedItem(
+  group: BatchGroup,
+  state: GroupState,
+): {id: string; type: CatalogItemType} | null {
+  if (group.catalogItemType !== "variation") {
+    return {id: group.catalogItemId, type: group.catalogItemType};
+  }
+  const leaf = chainLeaf(state.chain);
+  return leaf ? {id: leaf.id, type: leaf.type} : null;
 }
 
-function GroupFormRow({group, state, onPatch}: GroupFormRowProps) {
-  const type = group.catalogItemType;
-  const groupKey = group.key;
-
-  // Slot forms below keep these in effect deps, so a fresh identity each render would loop.
-  const handleStandardChange = useCallback(
-    (standardNode: GroupState["standardNode"]) => onPatch(groupKey, {standardNode}),
-    [onPatch, groupKey],
-  );
-  const handleBundleChange = useCallback(
-    (bundleComponents: AddFulfillmentBundleComponentRequest[], complete: boolean) =>
-      onPatch(groupKey, {bundleComponents, complete}),
-    [onPatch, groupKey],
-  );
-  const handleVariantChange = useCallback(
-    (variantFulfillment: AddFulfillmentRequest, complete: boolean) =>
-      onPatch(groupKey, {variantFulfillment, complete}),
-    [onPatch, groupKey],
-  );
-
-  if (type === "standard") {
-    return (
-      <StandardGroupForm group={group} value={state.standardNode} onChange={handleStandardChange} />
-    );
-  }
-
-  if (type === "bundle") {
-    return <BundleGroupForm group={group} onChange={handleBundleChange} />;
-  }
-
-  if (type === "variation") {
-    return (
-      <VariationGroupForm
-        group={group}
-        fulfillment={state.variantFulfillment}
-        onFulfillmentChange={handleVariantChange}
-      />
-    );
-  }
-
-  return null;
+/** What still blocks the group, or an empty string when it is ready to go. */
+function groupBlocker(group: BatchGroup, state: GroupState): string {
+  const resolved = resolvedItem(group, state);
+  if (!resolved) return "нужен вариант";
+  if (resolved.type === "standard") return state.node ? "" : "нужна ячейка";
+  return isComplete(state.status) ? "" : "задать состав";
 }
-
-// ─── Main dialog ──────────────────────────────────────────────────────────
 
 interface BatchAssemblyDialogProps {
   open: boolean;
@@ -304,9 +162,9 @@ interface BatchAssemblyDialogProps {
   selectedTasks: SelectedTaskInfo[];
 }
 
-export type {SelectedTaskInfo};
-
 function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialogProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   // The content is unmounted only after the exit animation; that is what resets the per-group picks.
   const [shownTasks, releaseShownTasks] = useRetainedValue(open ? selectedTasks : null);
 
@@ -318,29 +176,44 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
       onClose={onClose}
       maxWidth="md"
       fullWidth
+      fullScreen={isMobile}
       slotProps={{
         transition: {onExited: releaseShownTasks},
         paper: {sx: {pointerEvents: open ? undefined : "none"}},
       }}
     >
-      {shownTasks && <BatchAssemblyContent onClose={onClose} selectedTasks={shownTasks} />}
+      {shownTasks && (
+        <BatchAssemblyContent onClose={onClose} selectedTasks={shownTasks} isMobile={isMobile} />
+      )}
     </Dialog>
   );
 }
 
-function BatchAssemblyContent({onClose, selectedTasks}: Omit<BatchAssemblyDialogProps, "open">) {
+function BatchAssemblyContent({
+  onClose,
+  selectedTasks,
+  isMobile,
+}: Omit<BatchAssemblyDialogProps, "open"> & {isMobile: boolean}) {
   const queryClient = useQueryClient();
   const groups = useMemo(() => buildBatchGroups(selectedTasks), [selectedTasks]);
+  const {registry, scrollToFirst} = useTodoRegistry();
 
   const [groupStates, setGroupStates] = useState<Map<string, GroupState>>(new Map());
-
-  function getGroupState(key: string): GroupState {
-    return groupStates.get(key) ?? emptyGroupState();
-  }
-
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [failedItems, setFailedItems] = useState<BatchFulfillFailedItem[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const submittingRef = useRef(false);
+
+  const getState = useCallback(
+    (key: string) => groupStates.get(key) ?? emptyGroupState(),
+    [groupStates],
+  );
+
+  const patchState = useCallback((key: string, patch: Partial<GroupState>) => {
+    setGroupStates((prev) =>
+      new Map(prev).set(key, {...(prev.get(key) ?? emptyGroupState()), ...patch}),
+    );
+  }, []);
 
   const mutation = useMutation({
     ...ordersBatchFulfillMutation(),
@@ -362,55 +235,45 @@ function BatchAssemblyContent({onClose, selectedTasks}: Omit<BatchAssemblyDialog
     },
   });
 
-  const patchGroupState = useCallback((key: string, patch: Partial<GroupState>) => {
-    setGroupStates((prev) =>
-      new Map(prev).set(key, {...(prev.get(key) ?? emptyGroupState()), ...patch}),
-    );
-  }, []);
+  const blockers = groups.map((g) => groupBlocker(g, getState(g.key)));
+  const notReady = blockers.filter((b) => b !== "").length;
 
   function buildFulfillment(
     group: BatchGroup,
     state: GroupState,
     qty: number,
   ): AddFulfillmentRequest {
-    if (group.catalogItemType === "variation") {
-      // Unit variants reference a single inventory instance, which is consumed by the first
-      // replicated fulfillment — remaining tasks in the group fail.
-      return state.variantFulfillment;
+    const resolved =
+      group.catalogItemType === "variation"
+        ? {resolvedCatalogItemId: chainLeaf(state.chain)?.id ?? null}
+        : {};
+    if (state.entries.length > 0) {
+      return {sourceNodeId: null, quantity: 0, bundleComponents: state.entries, ...resolved};
     }
-    if (group.catalogItemType === "bundle" && state.bundleComponents.length > 0) {
-      return {sourceNodeId: null, quantity: 0, bundleComponents: state.bundleComponents};
-    }
-    return {sourceNodeId: state.standardNode.nodeId, quantity: qty};
+    return {sourceNodeId: state.node?.nodeId ?? null, quantity: qty, ...resolved};
   }
 
-  const allGroupsReady = groups.every((group) => {
-    const state = getGroupState(group.key);
-    return group.catalogItemType === "standard" ? !!state.standardNode.nodeId : state.complete;
-  });
-
   function handleSubmit() {
-    if (submittingRef.current) return;
+    if (submittingRef.current || notReady > 0) return;
     submittingRef.current = true;
-
     setFailedItems([]);
     setSubmitError(null);
 
     const items = groups.flatMap((group) => {
-      const state = getGroupState(group.key);
-      return group.taskComponents.flatMap((tc) => {
-        const fulfillment = buildFulfillment(group, state, tc.qty);
+      const state = getState(group.key);
+      return group.targets.flatMap((target) => {
+        const fulfillment = buildFulfillment(group, state, target.qty);
         // Bundle / Unit fulfillments each count as exactly +1 towards task progress (see
-        // countFulfilledQty), so a task needing tc.qty of them requires tc.qty separate
-        // identical fulfillments — unlike Standard, where quantity is additive.
+        // countFulfilledQty), so a task needing target.qty of them requires that many identical
+        // fulfillments — unlike Standard, where quantity is additive.
         const countsAsOne =
           (fulfillment.bundleComponents?.length ?? 0) > 0 || !!fulfillment.unitInventoryItemId;
-        const repeat = countsAsOne ? tc.qty : 1;
+        const repeat = countsAsOne ? target.qty : 1;
         return Array.from({length: repeat}, () => ({
-          orderId: tc.orderId,
-          taskId: tc.taskId,
-          taskBoxId: tc.taskBoxId,
-          componentId: tc.componentId,
+          orderId: target.orderId,
+          taskId: target.taskId,
+          taskBoxId: target.taskBoxId,
+          componentId: target.componentId,
           fulfillment,
         }));
       });
@@ -419,57 +282,493 @@ function BatchAssemblyContent({onClose, selectedTasks}: Omit<BatchAssemblyDialog
     mutation.mutate({body: {items, autoCompleteTasks: true}});
   }
 
+  const failedByComponent = useMemo(() => {
+    const map = new Map<string, BatchFulfillFailedItem[]>();
+    for (const item of failedItems) {
+      const list = map.get(item.componentId) ?? [];
+      list.push(item);
+      map.set(item.componentId, list);
+    }
+    return map;
+  }, [failedItems]);
+
+  const groupFailures = (group: BatchGroup) =>
+    group.targets.flatMap((t) => failedByComponent.get(t.componentId) ?? []);
+
+  const openGroup = groups.find((g) => g.key === expandedKey);
+  const orderCount = new Set(selectedTasks.map((t) => t.orderId)).size;
+
+  // On a phone the composition takes the whole dialog instead of unfolding inside a row.
+  if (isMobile && openGroup) {
+    return (
+      <>
+        <DialogTitle sx={{pb: 1}}>
+          <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+            <IconButton size="small" onClick={() => setExpandedKey(null)}>
+              <ArrowBackIcon fontSize="small" />
+            </IconButton>
+            <Stack>
+              <Typography variant="h6">{openGroup.catalogItemName}</Typography>
+              <Typography variant="caption" color="text.secondary">
+                состав ×1 · применится к {pluralCount(openGroup.targets.length, TASKS_DATIVE)}
+              </Typography>
+            </Stack>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <TodoRegistryProvider registry={registry}>
+            <Box sx={{mt: 1}}>
+              <GroupComposition
+                group={openGroup}
+                state={getState(openGroup.key)}
+                onPatch={patchState}
+              />
+            </Box>
+          </TodoRegistryProvider>
+        </DialogContent>
+        <DialogActions sx={{flexDirection: "column", alignItems: "stretch", gap: 1}}>
+          <UnfilledCounter status={getState(openGroup.key).status} onJump={scrollToFirst} />
+          <Button fullWidth variant="contained" onClick={() => setExpandedKey(null)}>
+            Готово
+          </Button>
+        </DialogActions>
+      </>
+    );
+  }
+
   return (
     <>
-      <DialogTitle>Массовая сборка ({pluralCount(selectedTasks.length, NOUNS.task)})</DialogTitle>
-      <DialogContent>
-        <Stack spacing={3} sx={{mt: 1}}>
-          {groups.length === 0 && (
-            <Typography color="text.secondary">
-              В выбранных заданиях не осталось несобранных позиций
-            </Typography>
-          )}
-
-          {groups.map((group, idx) => {
-            const state = getGroupState(group.key);
-            return (
-              <Stack key={group.key} spacing={1}>
-                {idx > 0 && <Divider />}
-                <GroupFormRow group={group} state={state} onPatch={patchGroupState} />
-              </Stack>
-            );
-          })}
-
-          {failedItems.length > 0 && (
-            <Alert severity="error">
-              <Typography variant="body2" sx={{mb: 0.5}}>
-                Часть позиций не удалось собрать:
-              </Typography>
-              {failedItems.map((f, i) => (
-                <Typography key={i} variant="caption" sx={{display: "block"}}>
-                  • {f.catalogItemName || "Компонент"}: {resolveErrorMessage(f.error)}
-                </Typography>
-              ))}
-            </Alert>
-          )}
-
-          {submitError && <Alert severity="error">{submitError}</Alert>}
+      <DialogTitle sx={{pb: 1}}>
+        <Stack spacing={0.5}>
+          <Typography variant="h6">Массовая сборка</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {pluralCount(selectedTasks.length, NOUNS.task)} · {pluralCount(orderCount, ORDERS)}
+          </Typography>
         </Stack>
+      </DialogTitle>
+
+      <DialogContent>
+        <TodoRegistryProvider registry={registry}>
+          <Stack spacing={2} sx={{mt: 1}}>
+            {groups.length === 0 && (
+              <Typography color="text.secondary">
+                В выбранных заданиях не осталось несобранных позиций
+              </Typography>
+            )}
+
+            {groups.length > 0 &&
+              (isMobile ? (
+                <Stack spacing={1}>
+                  {groups.map((group) => (
+                    <GroupCard
+                      key={group.key}
+                      group={group}
+                      state={getState(group.key)}
+                      blocker={groupBlocker(group, getState(group.key))}
+                      failures={groupFailures(group)}
+                      onPatch={patchState}
+                      onOpenComposition={() => setExpandedKey(group.key)}
+                    />
+                  ))}
+                </Stack>
+              ) : (
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Позиция</TableCell>
+                      <TableCell align="right">Итого</TableCell>
+                      <TableCell>Источник</TableCell>
+                      <TableCell>Статус</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {groups.map((group) => (
+                      <GroupRow
+                        key={group.key}
+                        group={group}
+                        state={getState(group.key)}
+                        blocker={groupBlocker(group, getState(group.key))}
+                        failures={groupFailures(group)}
+                        expanded={expandedKey === group.key}
+                        onToggle={() =>
+                          setExpandedKey((prev) => (prev === group.key ? null : group.key))
+                        }
+                        onPatch={patchState}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              ))}
+
+            {submitError && <Alert severity="error">{submitError}</Alert>}
+          </Stack>
+        </TodoRegistryProvider>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={mutation.isPending}>
-          Отмена
-        </Button>
-        <Button
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={mutation.isPending || groups.length === 0 || !allGroupsReady}
+
+      <DialogActions sx={{gap: 1, flexDirection: isMobile ? "column-reverse" : "row"}}>
+        {notReady > 0 && (
+          <Typography variant="caption" color="error">
+            Не готово: {pluralCount(notReady, GROUPS)}
+          </Typography>
+        )}
+        <Stack
+          direction={isMobile ? "column-reverse" : "row"}
+          spacing={1}
+          sx={{ml: isMobile ? 0 : "auto", width: isMobile ? "100%" : undefined}}
         >
-          {mutation.isPending ? <CircularProgress size={20} color="inherit" /> : "Собрать"}
-        </Button>
+          <Button onClick={onClose} disabled={mutation.isPending} fullWidth={isMobile}>
+            Отмена
+          </Button>
+          <Button
+            variant="contained"
+            fullWidth={isMobile}
+            onClick={handleSubmit}
+            disabled={mutation.isPending || groups.length === 0 || notReady > 0}
+          >
+            {mutation.isPending ? (
+              <CircularProgress size={20} color="inherit" />
+            ) : (
+              `Собрать ${pluralCount(selectedTasks.length, NOUNS.task)}`
+            )}
+          </Button>
+        </Stack>
       </DialogActions>
     </>
   );
 }
 
+const ORDERS = {one: "заказ", few: "заказа", many: "заказов"};
+
+const GROUPS = {one: "группа", few: "группы", many: "групп"};
+
+// после «к» задание встаёт в дательный падеж
+const TASKS_DATIVE = {one: "заданию", few: "заданиям", many: "заданиям"};
+
+interface GroupViewProps {
+  group: BatchGroup;
+  state: GroupState;
+  blocker: string;
+  failures: BatchFulfillFailedItem[];
+  onPatch: (key: string, patch: Partial<GroupState>) => void;
+}
+
+function StatusChip({blocker}: {blocker: string}) {
+  return blocker ? (
+    <Chip size="small" color="warning" label={blocker} />
+  ) : (
+    <Chip size="small" color="success" label="готово" />
+  );
+}
+
+function SourceCell({group, state, onPatch}: Omit<GroupViewProps, "blocker" | "failures">) {
+  const resolved = resolvedItem(group, state);
+
+  // A plain standard group has nothing to compose, so its cell is picked right in the row.
+  if (group.catalogItemType === "standard") {
+    return (
+      <GroupNodeControl
+        group={group}
+        state={state}
+        onPatch={onPatch}
+        catalogItemId={group.catalogItemId}
+      />
+    );
+  }
+  if (!resolved) {
+    return (
+      <Typography variant="caption" color="text.secondary">
+        вариант не выбран
+      </Typography>
+    );
+  }
+  // Everything else is picked inside the composition panel; the row only reports where it stands.
+  if (resolved.type === "standard") {
+    return (
+      <Typography variant="caption" color={state.node ? "text.primary" : "text.secondary"}>
+        {state.node ? state.node.nodePath : "нужна ячейка"}
+      </Typography>
+    );
+  }
+  const ready = isComplete(state.status);
+  return (
+    <Typography variant="caption" color={ready ? "text.primary" : "text.secondary"}>
+      {ready ? "состав задан" : "состав задаётся"}
+    </Typography>
+  );
+}
+
+interface GroupNodeControlProps extends Omit<GroupViewProps, "blocker" | "failures"> {
+  catalogItemId: string;
+}
+
+/** Cell of a standard group — the need is the whole group, so the stock check is multiplied. */
+function GroupNodeControl({group, state, onPatch, catalogItemId}: GroupNodeControlProps) {
+  const defaultNode = useDefaultStorageNode(group.warehouseId);
+  const node = state.node;
+  const groupKey = group.key;
+  const available = useNodeItemCount(node?.nodeId, catalogItemId);
+
+  // The group submits state.node, so the default has to land there — a suggestion the pick overrides.
+  useEffect(() => {
+    if (!node && defaultNode) {
+      onPatch(groupKey, {
+        node: {
+          nodeId: defaultNode.nodeId,
+          nodePath: formatStoragePlaceNodeName(defaultNode.nodePath),
+        },
+      });
+    }
+  }, [defaultNode, node, groupKey, onPatch]);
+
+  return (
+    <NodeControl
+      warehouseId={group.warehouseId}
+      catalogItemId={catalogItemId}
+      node={node}
+      isDefault={!state.nodePicked && !!defaultNode}
+      available={available}
+      needQty={group.totalNeeded}
+      onSelect={(picked) => onPatch(group.key, {node: picked, nodePicked: true})}
+    />
+  );
+}
+
+interface GroupRowProps extends GroupViewProps {
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+function GroupRow({group, state, blocker, failures, expanded, onToggle, onPatch}: GroupRowProps) {
+  const composable = group.catalogItemType !== "standard";
+
+  return (
+    <>
+      <TableRow
+        hover
+        onClick={onToggle}
+        sx={{cursor: "pointer", "& > td": {borderBottom: expanded ? 0 : undefined}}}
+      >
+        <TableCell>
+          <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
+            {/* The whole row toggles, so the twist is an affordance — its click just bubbles up. */}
+            <IconButton size="small" tabIndex={-1}>
+              {expanded ? (
+                <KeyboardArrowDownIcon fontSize="small" />
+              ) : (
+                <KeyboardArrowRightIcon fontSize="small" />
+              )}
+            </IconButton>
+            <Typography variant="body2">{group.catalogItemName}</Typography>
+            {composable && (
+              <Chip
+                size="small"
+                variant="outlined"
+                label={
+                  group.targets.length > 1
+                    ? `состав ×1 на ${pluralCount(group.targets.length, NOUNS.task)}`
+                    : "состав ×1"
+                }
+              />
+            )}
+          </Stack>
+        </TableCell>
+        <TableCell align="right">{group.totalNeeded}</TableCell>
+        {/* Picking a cell here must not fold the row shut. */}
+        <TableCell onClick={(e) => e.stopPropagation()}>
+          <SourceCell group={group} state={state} onPatch={onPatch} />
+        </TableCell>
+        <TableCell>
+          <StatusChip blocker={blocker} />
+        </TableCell>
+      </TableRow>
+
+      {expanded && (
+        <TableRow>
+          <TableCell colSpan={4} sx={{pt: 0}}>
+            <Stack spacing={1.5}>
+              <TargetList group={group} />
+              {composable && <GroupComposition group={group} state={state} onPatch={onPatch} />}
+            </Stack>
+          </TableCell>
+        </TableRow>
+      )}
+
+      {failures.length > 0 && (
+        <TableRow>
+          <TableCell colSpan={4} sx={{py: 0.5}}>
+            <Alert severity="error" sx={{py: 0}}>
+              {failures.map((f, i) => (
+                <Typography key={i} variant="caption" sx={{display: "block"}}>
+                  • {resolveErrorMessage(f.error)}
+                </Typography>
+              ))}
+            </Alert>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  );
+}
+
+interface GroupCardProps extends GroupViewProps {
+  onOpenComposition: () => void;
+}
+
+function GroupCard({group, state, blocker, failures, onPatch, onOpenComposition}: GroupCardProps) {
+  const composable = group.catalogItemType !== "standard";
+
+  return (
+    <Paper variant="outlined" sx={{p: 1.5}}>
+      <Stack spacing={1}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{alignItems: "center", justifyContent: "space-between"}}
+        >
+          <Typography variant="body2" sx={{fontWeight: 500}}>
+            {group.catalogItemName}
+          </Typography>
+          <StatusChip blocker={blocker} />
+        </Stack>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{alignItems: "center", flexWrap: "wrap", rowGap: 0.5}}
+        >
+          <Typography variant="caption" color="text.secondary">
+            {group.totalNeeded} шт · {pluralCount(group.targets.length, NOUNS.task)}
+          </Typography>
+          <SourceCell group={group} state={state} onPatch={onPatch} />
+        </Stack>
+        {composable && (
+          <Button size="small" variant="outlined" fullWidth onClick={onOpenComposition}>
+            Задать состав
+          </Button>
+        )}
+        {failures.length > 0 && (
+          <Alert severity="error" sx={{py: 0}}>
+            {failures.map((f, i) => (
+              <Typography key={i} variant="caption" sx={{display: "block"}}>
+                • {resolveErrorMessage(f.error)}
+              </Typography>
+            ))}
+          </Alert>
+        )}
+      </Stack>
+    </Paper>
+  );
+}
+
+/** How many targets are worth showing before the list turns into a wall of text. */
+const TARGET_PREVIEW = 5;
+
+/** Which tasks the group will write into — visible before the stock moves, not after. */
+function TargetList({group}: {group: BatchGroup}) {
+  const [showAll, setShowAll] = useState(false);
+  const hidden = group.targets.length - TARGET_PREVIEW;
+  const shown = showAll ? group.targets : group.targets.slice(0, TARGET_PREVIEW);
+
+  return (
+    <Stack spacing={0.25}>
+      <Stack spacing={0.25} sx={{maxHeight: 200, overflowY: "auto"}}>
+        {shown.map((t) => (
+          <Typography key={`${t.taskId}:${t.componentId}`} variant="caption" color="text.secondary">
+            {t.orderNumber ? `Заказ ${t.orderNumber}` : "Задание"}
+            {t.boxLabel ? ` · ${t.boxLabel}` : ""} — {t.qty} шт
+          </Typography>
+        ))}
+      </Stack>
+      {hidden > 0 && (
+        <Button size="small" sx={{alignSelf: "flex-start"}} onClick={() => setShowAll(!showAll)}>
+          {showAll ? "Свернуть" : `Ещё ${hidden}`}
+        </Button>
+      )}
+    </Stack>
+  );
+}
+
+/** The composition is filled once and copied to every task of the group. */
+function GroupComposition({group, state, onPatch}: Omit<GroupViewProps, "blocker" | "failures">) {
+  const handleTreeChange = useCallback(
+    (entries: AddFulfillmentBundleComponentRequest[], status: SlotStatus) =>
+      onPatch(group.key, {entries, status}),
+    [group.key, onPatch],
+  );
+
+  const resolved = resolvedItem(group, state);
+
+  // Bundle fulfillments count one apiece, so the group needs `totalNeeded` copies of the composition;
+  // a standard item is additive and goes out as a quantity instead.
+  const writeOff =
+    resolved?.type === "standard"
+      ? `спишется ${group.totalNeeded} шт`
+      : `спишется ${group.totalNeeded} × состав`;
+
+  return (
+    <CompositionFrame group={group} status={state.status} writeOff={writeOff}>
+      {group.catalogItemType === "variation" && (
+        <VariationChain
+          rootCatalogItemId={group.catalogItemId}
+          chain={state.chain}
+          onChange={(chain) =>
+            onPatch(group.key, {
+              chain,
+              node: null,
+              nodePicked: false,
+              entries: [],
+              status: EMPTY_STATUS,
+            })
+          }
+        />
+      )}
+
+      {resolved?.type === "standard" && (
+        <GroupNodeControl
+          group={group}
+          state={state}
+          onPatch={onPatch}
+          catalogItemId={resolved.id}
+        />
+      )}
+
+      {resolved?.type === "bundle" && (
+        <BundleTree
+          key={resolved.id}
+          catalogItemId={resolved.id}
+          warehouseId={group.warehouseId}
+          needTimes={group.totalNeeded}
+          onChange={handleTreeChange}
+        />
+      )}
+    </CompositionFrame>
+  );
+}
+
+interface CompositionFrameProps {
+  group: BatchGroup;
+  status: SlotStatus;
+  writeOff: string;
+  children: React.ReactNode;
+}
+
+function CompositionFrame({group, status, writeOff, children}: CompositionFrameProps) {
+  return (
+    <Paper variant="outlined" sx={{p: 1.5, bgcolor: "action.hover"}}>
+      <Stack spacing={1}>
+        <Stack direction="row" spacing={1} sx={{alignItems: "center", flexWrap: "wrap"}}>
+          <Chip size="small" color="warning" label="состав ×1" />
+          <Typography variant="caption" color="text.secondary">
+            применится к {pluralCount(group.targets.length, TASKS_DATIVE)} · {writeOff}
+          </Typography>
+          {status.total > 0 && !isComplete(status) && (
+            <Chip size="small" color="error" label={`${status.filled} из ${status.total}`} />
+          )}
+        </Stack>
+        {children}
+      </Stack>
+    </Paper>
+  );
+}
+
+export type {SelectedTaskInfo};
 export default BatchAssemblyDialog;

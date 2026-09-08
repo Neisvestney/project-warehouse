@@ -1030,6 +1030,12 @@ export type NodeCatalogItemDto = {
   barcode?: null | string;
 };
 
+export type NodeItemCountDto = {
+  nodeId: string;
+  catalogItemId: string;
+  count: number;
+};
+
 export type NodeOrderItem = {
   nodeId: string;
   order: number;
@@ -7785,6 +7791,45 @@ export type StoragePlacesAddNodeResponses = {
 
 export type StoragePlacesAddNodeResponse =
   StoragePlacesAddNodeResponses[keyof StoragePlacesAddNodeResponses];
+
+export type StoragePlacesGetNodeItemCountData = {
+  body?: never;
+  path: {
+    nodeId: string;
+  };
+  query?: {
+    catalogItemId?: string;
+  };
+  url: "/api/storagePlaces/nodes/{nodeId}/item-count";
+};
+
+export type StoragePlacesGetNodeItemCountErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type StoragePlacesGetNodeItemCountError =
+  StoragePlacesGetNodeItemCountErrors[keyof StoragePlacesGetNodeItemCountErrors];
+
+export type StoragePlacesGetNodeItemCountResponses = {
+  /**
+   * OK
+   */
+  200: NodeItemCountDto;
+};
+
+export type StoragePlacesGetNodeItemCountResponse =
+  StoragePlacesGetNodeItemCountResponses[keyof StoragePlacesGetNodeItemCountResponses];
 
 export type StoragePlacesDeleteNodeData = {
   body?: never;

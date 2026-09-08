@@ -134,25 +134,27 @@ function FulfillmentItem({
   );
 }
 
-interface ComponentRowProps {
+interface TaskComponentRowProps {
   component: AssemblyTaskBoxComponentDto;
   orderId: string;
   orderBoxes: OrderBoxDto[];
   warehouseId: string;
   taskId: string;
   taskBoxId: string;
+  boxLabel: string;
   canFulfill: boolean;
 }
 
-function ComponentRow({
+function TaskComponentRow({
   component,
   orderId,
   orderBoxes,
   warehouseId,
   taskId,
   taskBoxId,
+  boxLabel,
   canFulfill,
-}: ComponentRowProps) {
+}: TaskComponentRowProps) {
   const openCatalogItem = useOpenCatalogItem();
   const [addOpen, setAddOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
@@ -220,6 +222,7 @@ function ComponentRow({
         taskId={taskId}
         taskBoxId={taskBoxId}
         component={component}
+        boxLabel={boxLabel}
       />
 
       <MoveTaskComponentDialog
@@ -301,26 +304,30 @@ function AssemblyTaskAccordion({
         </Alert>
       )}
 
-      {task.boxes.map((box) => (
-        <Box key={box.id}>
-          <Typography variant="caption" color="text.secondary" sx={{fontWeight: 600}}>
-            {formatBoxLabel({id: box.orderBoxId, label: box.orderBoxLabel}, orderBoxes)}
-          </Typography>
-          {box.components.map((c) => (
-            <ComponentRow
-              key={c.id}
-              component={c}
-              orderId={orderId}
-              orderBoxes={orderBoxes}
-              warehouseId={warehouseId}
-              taskId={task.id}
-              taskBoxId={box.id}
-              canFulfill={canFulfill && task.status !== "done"}
-            />
-          ))}
-          <Divider sx={{my: 1}} />
-        </Box>
-      ))}
+      {task.boxes.map((box) => {
+        const boxLabel = formatBoxLabel({id: box.orderBoxId, label: box.orderBoxLabel}, orderBoxes);
+        return (
+          <Box key={box.id}>
+            <Typography variant="caption" color="text.secondary" sx={{fontWeight: 600}}>
+              {boxLabel}
+            </Typography>
+            {box.components.map((c) => (
+              <TaskComponentRow
+                key={c.id}
+                component={c}
+                orderId={orderId}
+                orderBoxes={orderBoxes}
+                warehouseId={warehouseId}
+                taskId={task.id}
+                taskBoxId={box.id}
+                boxLabel={boxLabel}
+                canFulfill={canFulfill && task.status !== "done"}
+              />
+            ))}
+            <Divider sx={{my: 1}} />
+          </Box>
+        );
+      })}
 
       {canFulfill && (
         <Stack direction="row" spacing={1}>

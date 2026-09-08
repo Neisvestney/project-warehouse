@@ -425,6 +425,9 @@ import type {
   StoragePlacesGetNodeDetailsData,
   StoragePlacesGetNodeDetailsErrors,
   StoragePlacesGetNodeDetailsResponses,
+  StoragePlacesGetNodeItemCountData,
+  StoragePlacesGetNodeItemCountErrors,
+  StoragePlacesGetNodeItemCountResponses,
   StoragePlacesGetNodesData,
   StoragePlacesGetNodesErrors,
   StoragePlacesGetNodesResponses,
@@ -3627,6 +3630,29 @@ export const storagePlacesAddNode = <ThrowOnError extends boolean = false>(
       ...options.headers,
     },
   });
+
+/**
+ * How much of one catalog item lies in one node.
+ *
+ * Returns `NodeItemCountDto` — nodeId, catalogItemId, count. Counts both grouped stock
+ * (`StoragePlaceNodeItemsGroup.Count`) and `Unit` instances, so it answers for any inventory type.
+ * The node is addressed on its own, without the owning storage place: callers that hold a bare node id —
+ * a warehouse default cell, a scanned label — have no place id to pass. Access is resolved through the
+ * node's own storage place: `warehouses.view` or `warehouses.view_assigned` on the owning warehouse.
+ * Returns 404 `storagePlaceNodeNotFound` when the node does not exist.
+ */
+export const storagePlacesGetNodeItemCount = <ThrowOnError extends boolean = false>(
+  options: Options<StoragePlacesGetNodeItemCountData, ThrowOnError>,
+): RequestResult<
+  StoragePlacesGetNodeItemCountResponses,
+  StoragePlacesGetNodeItemCountErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    StoragePlacesGetNodeItemCountResponses,
+    StoragePlacesGetNodeItemCountErrors,
+    ThrowOnError
+  >({url: "/api/storagePlaces/nodes/{nodeId}/item-count", ...options});
 
 /**
  * Delete a node. Fails if the node has children — delete them first.
