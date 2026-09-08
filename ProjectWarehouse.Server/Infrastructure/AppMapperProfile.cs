@@ -372,9 +372,7 @@ public class AppMapperProfile : Profile
         // Marketplaces. MarketplaceAccountDto deliberately has no ApiKey member — only a mask.
         CreateMap<MarketplaceAccount, MarketplaceAccountSummaryDto>()
             .ForMember(d => d.WarehouseCount, opt => opt.MapFrom(s => s.Warehouses.Count))
-            .ForMember(d => d.CardCount, opt => opt.MapFrom(s => s.Cards.Count))
-            .ForMember(d => d.UnmappedCardCount,
-                opt => opt.MapFrom(s => s.Cards.Count(c => c.CatalogItemId == null && !c.IsArchived)));
+            .ForMember(d => d.CardCount, opt => opt.MapFrom(s => s.Cards.Count));
         
         CreateMap<MarketplaceAccount, MarketplaceAccountShortSummaryDto>();
 
@@ -384,8 +382,6 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.UnmappedWarehouseCount,
                 opt => opt.MapFrom(s => s.Warehouses.Count(w => w.WarehouseId == null && !w.IsArchived)))
             .ForMember(d => d.CardCount, opt => opt.MapFrom(s => s.Cards.Count))
-            .ForMember(d => d.UnmappedCardCount,
-                opt => opt.MapFrom(s => s.Cards.Count(c => c.CatalogItemId == null && !c.IsArchived)))
             .ForMember(d => d.CredentialsUnreadable, opt => opt.Ignore())
             .ForMember(d => d.Capabilities, opt => opt.Ignore());
 
