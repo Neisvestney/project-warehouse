@@ -377,9 +377,14 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
         await db.SaveChangesAsync(ct);
     }
 
+    /// <summary>
+    /// Untracked on purpose: a rolled-back fulfillment stays in the change tracker as saved, and identity
+    /// resolution would keep counting it here long after the row is gone from the database.
+    /// </summary>
     public async Task<bool> IsTaskFullyFulfilledAsync(Guid taskId, CancellationToken ct = default)
     {
         var components = await db.AssemblyTaskBoxComponents
+            .AsNoTracking()
             .Where(c => c.AssemblyTaskBox.AssemblyTaskId == taskId)
             .Include(c => c.Fulfillments)
                 .ThenInclude(f => f.BundleComponents)
@@ -389,9 +394,11 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
             && components.All(c => CountFulfilledQty(c.Fulfillments) >= c.Quantity);
     }
 
+    /// <inheritdoc cref="IsTaskFullyFulfilledAsync" />
     private async Task<bool> IsOrderFullyFulfilledAsync(Guid orderId, CancellationToken ct)
     {
         var components = await db.AssemblyTaskBoxComponents
+            .AsNoTracking()
             .Where(c => c.AssemblyTaskBox.AssemblyTask.OrderId == orderId)
             .Include(c => c.Fulfillments)
                 .ThenInclude(f => f.BundleComponents)

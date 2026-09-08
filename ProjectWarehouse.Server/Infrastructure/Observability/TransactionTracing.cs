@@ -31,6 +31,10 @@ public static class TransactionTracing
     /// An <see cref="IExpectedFailure" /> rolls back under <c>db.transaction.rollback_reason</c> and leaves the
     /// span status alone; anything else marks the span as an error and carries the exception.
     /// </para>
+    /// <para>
+    /// Under an ambient transaction the unit of work runs on a savepoint instead: it still rolls back on its
+    /// own, but the outer transaction stays open and decides the final commit.
+    /// </para>
     /// </summary>
     public static async Task ExecuteInTransactionAsync(
         this DatabaseFacade database,
@@ -42,9 +46,30 @@ public static class TransactionTracing
 
         try
         {
-            await using var tx = await database.BeginTransactionAsync(ct);
-            await action();
-            await tx.CommitAsync(ct);
+            if (database.CurrentTransaction is { } ambient)
+            {
+                activity?.SetTag("db.transaction.nested", true);
+
+                var savepoint = $"sp_{Guid.NewGuid():N}";
+                await ambient.CreateSavepointAsync(savepoint, ct);
+                try
+                {
+                    await action();
+                    await ambient.ReleaseSavepointAsync(savepoint, ct);
+                }
+                catch
+                {
+                    await ambient.RollbackToSavepointAsync(savepoint, CancellationToken.None);
+                    throw;
+                }
+            }
+            else
+            {
+                await using var tx = await database.BeginTransactionAsync(ct);
+                await action();
+                await tx.CommitAsync(ct);
+            }
+
             activity?.SetTag("db.transaction.outcome", "commit");
         }
         catch (OperationCanceledException)

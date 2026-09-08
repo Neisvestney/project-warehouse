@@ -1,17 +1,21 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {
   Alert,
+  AlertTitle,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   IconButton,
   Paper,
   Stack,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -25,6 +29,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import {useMutation, useQueryClient} from "@tanstack/react-query";
+import {useSnackbar} from "notistack";
 import {
   ordersBatchFulfillMutation,
   ordersGetAllAssemblyQueryKey,
@@ -33,6 +38,7 @@ import {
 import type {
   AddFulfillmentBundleComponentRequest,
   AddFulfillmentRequest,
+  AppFieldError,
   AssemblyTaskDto,
   BatchFulfillFailedItem,
   CatalogItemType,
@@ -50,6 +56,7 @@ import {useTodoRegistry} from "./todoRegistry";
 import {NodeControl, type NodePick} from "./FulfillmentControls";
 import {BundleTree} from "./FulfillmentTree";
 import {getRemainingQty} from "./batchEligibility";
+import {IgnoreStockContext} from "./stockGuard";
 import {VariationChain} from "./VariationChain";
 import {chainLeaf, type VariantStep} from "./variationOptions";
 
@@ -156,6 +163,29 @@ function groupBlocker(group: BatchGroup, state: GroupState): string {
   return isComplete(state.status) ? "" : "задать состав";
 }
 
+const FULFILLMENTS = {one: "фулфилмент", few: "фулфилмента", many: "фулфилментов"};
+
+/** What actually landed in the database, which under all-or-nothing is nothing at all. */
+function describeOutcome(
+  sent: number,
+  failed: number,
+  allowPartialSuccess: boolean,
+): {message: string; variant: "success" | "warning" | "error"} {
+  if (failed === 0) {
+    return {message: `Собрано ${pluralCount(sent, FULFILLMENTS)}`, variant: "success"};
+  }
+  if (!allowPartialSuccess) {
+    return {
+      message: `Партия откачена целиком: ${pluralCount(failed, FULFILLMENTS)} из ${sent} с ошибкой`,
+      variant: "error",
+    };
+  }
+  return {
+    message: `Собрано ${pluralCount(sent - failed, FULFILLMENTS)} из ${sent}, с ошибкой — ${failed}`,
+    variant: "warning",
+  };
+}
+
 interface BatchAssemblyDialogProps {
   open: boolean;
   onClose: () => void;
@@ -195,13 +225,17 @@ function BatchAssemblyContent({
   isMobile,
 }: Omit<BatchAssemblyDialogProps, "open"> & {isMobile: boolean}) {
   const queryClient = useQueryClient();
+  const {enqueueSnackbar} = useSnackbar();
   const groups = useMemo(() => buildBatchGroups(selectedTasks), [selectedTasks]);
   const {registry, scrollToFirst} = useTodoRegistry();
 
   const [groupStates, setGroupStates] = useState<Map<string, GroupState>>(new Map());
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [failedItems, setFailedItems] = useState<BatchFulfillFailedItem[]>([]);
+  const [shortageErrors, setShortageErrors] = useState<AppFieldError[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [allowPartialSuccess, setAllowPartialSuccess] = useState(false);
+  const [ignoreStock, setIgnoreStock] = useState(false);
   const submittingRef = useRef(false);
 
   const getState = useCallback(
@@ -221,12 +255,19 @@ function BatchAssemblyContent({
     // Awaited: the mutation stays pending until the refetch lands, so the button cannot be pressed
     // again against stale groups. Invalidated on partial success too, so the refetched tasks shrink
     // the groups to what is still missing and a retry cannot re-send what already went through.
-    onSuccess: async (data) => {
+    onSuccess: async (data, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({queryKey: ordersGetAllQueryKey()}),
         queryClient.invalidateQueries({queryKey: ordersGetAllAssemblyQueryKey()}),
       ]);
       setFailedItems(data.failedItems);
+      setShortageErrors(data.insufficientInventoryErrors);
+      const outcome = describeOutcome(
+        variables.body.items.length,
+        data.failedItems.length,
+        variables.body.allowPartialSuccess,
+      );
+      enqueueSnackbar(outcome.message, {variant: outcome.variant});
       if (data.failedItems.length === 0) onClose();
     },
     onError: (error) => setSubmitError(extractErrorMessage(error)),
@@ -257,6 +298,7 @@ function BatchAssemblyContent({
     if (submittingRef.current || notReady > 0) return;
     submittingRef.current = true;
     setFailedItems([]);
+    setShortageErrors([]);
     setSubmitError(null);
 
     const items = groups.flatMap((group) => {
@@ -279,12 +321,14 @@ function BatchAssemblyContent({
       });
     });
 
-    mutation.mutate({body: {items, autoCompleteTasks: true}});
+    mutation.mutate({body: {items, autoCompleteTasks: true, allowPartialSuccess}});
   }
 
+  // Shortages are reported once, folded per item and cell, so the per-group lists leave them out.
   const failedByComponent = useMemo(() => {
     const map = new Map<string, BatchFulfillFailedItem[]>();
     for (const item of failedItems) {
+      if (item.error.code === "insufficientInventory") continue;
       const list = map.get(item.componentId) ?? [];
       list.push(item);
       map.set(item.componentId, list);
@@ -301,7 +345,7 @@ function BatchAssemblyContent({
   // On a phone the composition takes the whole dialog instead of unfolding inside a row.
   if (isMobile && openGroup) {
     return (
-      <>
+      <IgnoreStockContext value={ignoreStock}>
         <DialogTitle sx={{pb: 1}}>
           <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
             <IconButton size="small" onClick={() => setExpandedKey(null)}>
@@ -332,12 +376,12 @@ function BatchAssemblyContent({
             Готово
           </Button>
         </DialogActions>
-      </>
+      </IgnoreStockContext>
     );
   }
 
   return (
-    <>
+    <IgnoreStockContext value={ignoreStock}>
       <DialogTitle sx={{pb: 1}}>
         <Stack spacing={0.5}>
           <Typography variant="h6">Массовая сборка</Typography>
@@ -400,7 +444,55 @@ function BatchAssemblyContent({
                 </Table>
               ))}
 
+            {shortageErrors.length > 0 && (
+              <Alert severity="error">
+                <AlertTitle>Не хватило остатков</AlertTitle>
+                {shortageErrors.map((error, i) => (
+                  <Typography key={i} variant="caption" sx={{display: "block"}}>
+                    • {resolveErrorMessage(error)}
+                  </Typography>
+                ))}
+              </Alert>
+            )}
+
             {submitError && <Alert severity="error">{submitError}</Alert>}
+
+            <Stack>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={allowPartialSuccess}
+                    onChange={(e) => setAllowPartialSuccess(e.target.checked)}
+                  />
+                }
+                label={
+                  <Typography variant="body2">Сохранять успешные позиции при ошибках</Typography>
+                }
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ml: 4, mt: -0.5}}>
+                {allowPartialSuccess
+                  ? "Что удалось собрать — останется собранным"
+                  : "Любая ошибка откатит всю партию целиком"}
+              </Typography>
+              {import.meta.env.DEV && (
+                <FormControlLabel
+                  sx={{mt: 0.5}}
+                  control={
+                    <Switch
+                      size="small"
+                      checked={ignoreStock}
+                      onChange={(e) => setIgnoreStock(e.target.checked)}
+                    />
+                  }
+                  label={
+                    <Typography variant="body2" color="text.secondary">
+                      dev: не блокировать сборку при нехватке остатков
+                    </Typography>
+                  }
+                />
+              )}
+            </Stack>
           </Stack>
         </TodoRegistryProvider>
       </DialogContent>
@@ -433,7 +525,7 @@ function BatchAssemblyContent({
           </Button>
         </Stack>
       </DialogActions>
-    </>
+    </IgnoreStockContext>
   );
 }
 

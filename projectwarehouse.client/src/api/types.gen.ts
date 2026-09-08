@@ -175,11 +175,21 @@ export type BatchFulfillRequest = {
    * Mass-assembly mode: advance touched tasks (Done only when every component is fully fulfilled). Off for plain multi-fulfillment adds.
    */
   autoCompleteTasks: boolean;
+  /**
+   * Keep the items that succeeded when others fail. Off means all-or-nothing: every item is still attempted and reported in `failedItems`, but a single failure rolls the whole batch back.
+   */
+  allowPartialSuccess: boolean;
 };
 
 export type BatchFulfillResponse = {
   completedTaskIds: Array<string>;
   failedItems: Array<BatchFulfillFailedItem>;
+  /**
+   * The `insufficientInventory` failures of IReadOnlyList&lt;BatchFulfillFailedItem&gt; BatchFulfillResponse.FailedItems folded per catalog item and
+   * storage node: one error carrying the summed shortfall instead of a line per position. Same shape as a
+   * single failure, so it renders through the usual error mechanism.
+   */
+  insufficientInventoryErrors: Array<AppFieldError>;
 };
 
 export type BatchSelfAssignFailedItem = {

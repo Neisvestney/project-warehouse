@@ -19,12 +19,20 @@ public class InsufficientInventoryException(
     public int Missing => Requested - Available;
 
     /// <summary>Structured context for <c>AppFieldError.Args</c> so the client can format a readable message.</summary>
-    public IReadOnlyDictionary<string, object> ToArgs() => new Dictionary<string, object>
+    public IReadOnlyDictionary<string, object> ToArgs() =>
+        MakeArgs(CatalogItemName, string.Join(" / ", NodePath), Requested, Available);
+
+    /// <summary>
+    /// The same arg shape for a shortage assembled from figures of their own — a batch rollup counts demand
+    /// across several positions and reads the stock itself, so it has no single exception to render.
+    /// </summary>
+    public static IReadOnlyDictionary<string, object> MakeArgs(
+        string itemName, string path, int requested, int available) => new Dictionary<string, object>
     {
-        ["itemName"] = CatalogItemName,
-        ["requested"] = Requested,
-        ["available"] = Available,
-        ["missing"] = Missing,
-        ["path"] = string.Join(" / ", NodePath),
+        ["itemName"] = itemName,
+        ["requested"] = requested,
+        ["available"] = available,
+        ["missing"] = Math.Max(0, requested - available),
+        ["path"] = path,
     };
 }
