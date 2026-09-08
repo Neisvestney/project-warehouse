@@ -2,8 +2,14 @@ import {useEffect, useId, useRef} from "react";
 
 const OVERLAY_KEY = "__overlay";
 
-const isOverlayEntry = (state: unknown) =>
-  !!state && typeof state === "object" && OVERLAY_KEY in state;
+/** The ids of the overlays holding a history entry, outermost first. */
+const overlayStack = (state: unknown): string[] => {
+  if (!state || typeof state !== "object") return [];
+  const held = (state as Record<string, unknown>)[OVERLAY_KEY];
+  return Array.isArray(held) ? (held as string[]) : [];
+};
+
+const isOverlayEntry = (state: unknown) => overlayStack(state).length > 0;
 
 /**
  * Walks back off the entries a reload froze into the stack — the overlays that held them are gone
@@ -32,14 +38,56 @@ export function dropOverlayHistoryEntries() {
   step();
 }
 
+// Overlays whose entry is still on the stack but whose holder has closed, waiting to be walked off.
+const closing = new Set<string>();
+let unwindScheduled = false;
+
+function unwind() {
+  const top = overlayStack(window.history.state).at(-1);
+  if (top === undefined || !closing.has(top)) return;
+
+  closing.delete(top);
+  const onPop = () => {
+    window.removeEventListener("popstate", onPop);
+    unwind();
+  };
+  window.addEventListener("popstate", onPop);
+  window.history.back();
+}
+
+// Deferred, so overlays closing in the same commit are all marked before the first `back()` goes out.
+function scheduleUnwind() {
+  if (unwindScheduled) return;
+  unwindScheduled = true;
+  setTimeout(() => {
+    unwindScheduled = false;
+    unwind();
+  });
+}
+
+let sweeperAttached = false;
+
+/**
+ * An overlay opening before the unwinder reached the entry of one that just closed pushes over it, and
+ * the walk stops at a top it does not own. The stranded entry surfaces again once the overlays above it
+ * are gone, so every landing is a chance to resume the walk.
+ */
+function attachSweeper() {
+  if (sweeperAttached) return;
+  sweeperAttached = true;
+  window.addEventListener("popstate", () => {
+    if (closing.size > 0) scheduleUnwind();
+  });
+}
+
 /**
  * An open overlay occupies its own history entry, so Back — the hardware button on the handheld
  * included — closes it instead of leaving the page.
  *
- * The entry is stamped with the hook instance's own id, so overlays stacked on top of each other
- * stay independent: a `popstate` reaches every listener, but only the one whose entry actually
- * went away closes. Router state is carried over, `idx` included — react-router reads it back on
- * `popstate`, and leaving it untouched keeps the extra entry invisible to the router.
+ * Every entry carries the ids of all overlays open under it, so nesting stays independent: a
+ * `popstate` reaches every listener, but only the overlays no longer named by the landed entry
+ * close. Router state is carried over, `idx` included — react-router reads it back on `popstate`,
+ * and leaving it untouched keeps the extra entries invisible to the router.
  *
  * Two invariants the callers owe this hook:
  * - links inside the overlay navigate with `replace` (`<Link replace>` /
@@ -52,7 +100,6 @@ export function dropOverlayHistoryEntries() {
 export function useBackClosable(open: boolean, onClose: () => void) {
   const id = useId();
   const onCloseRef = useRef(onClose);
-  const pendingBackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -60,17 +107,18 @@ export function useBackClosable(open: boolean, onClose: () => void) {
 
   useEffect(() => {
     if (!open) return;
+    attachSweeper();
 
-    if (pendingBackRef.current !== null) {
-      // The cleanup's Back has not gone out yet, so the entry it was about to drop is still ours.
-      clearTimeout(pendingBackRef.current);
-      pendingBackRef.current = null;
+    if (closing.has(id)) {
+      // The unwinder has not reached our entry yet, so it is still ours to reuse.
+      closing.delete(id);
     } else {
-      window.history.pushState({...window.history.state, [OVERLAY_KEY]: id}, "");
+      const state = window.history.state;
+      window.history.pushState({...state, [OVERLAY_KEY]: [...overlayStack(state), id]}, "");
     }
 
     const handlePop = () => {
-      if (window.history.state?.[OVERLAY_KEY] === id) return;
+      if (overlayStack(window.history.state).includes(id)) return;
       onCloseRef.current();
     };
     window.addEventListener("popstate", handlePop);
@@ -78,12 +126,10 @@ export function useBackClosable(open: boolean, onClose: () => void) {
     return () => {
       window.removeEventListener("popstate", handlePop);
       // Only our own entry is ours to drop — Back or a replace navigation may already have.
-      if (window.history.state?.[OVERLAY_KEY] !== id) return;
+      if (!overlayStack(window.history.state).includes(id)) return;
 
-      pendingBackRef.current = setTimeout(() => {
-        pendingBackRef.current = null;
-        if (window.history.state?.[OVERLAY_KEY] === id) window.history.back();
-      });
+      closing.add(id);
+      scheduleUnwind();
     };
   }, [open, id]);
 }
