@@ -120,7 +120,13 @@ function OrdersAssemblyPage() {
     for (const order of orders) {
       for (const task of order.assemblyTasks) {
         if (selectedTaskIds.has(task.id)) {
-          result.push({orderId: order.id, taskId: task.id, task, warehouseId: order.warehouseId});
+          result.push({
+            orderId: order.id,
+            taskId: task.id,
+            task,
+            warehouseId: order.warehouseId,
+            orderNumber: `#${order.number}`,
+          });
         }
       }
     }

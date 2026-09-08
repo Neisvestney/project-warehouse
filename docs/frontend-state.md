@@ -62,19 +62,33 @@ including the hardware button in the Capacitor build — pops that entry and the
 `onClose` instead of the user leaving the page. Closing the overlay any other way drops the entry again in
 the effect cleanup.
 
-The marker holds the hook instance's `useId`, not a plain flag, which is what keeps stacked overlays
-independent. `popstate` is a window event and reaches every open overlay's listener, so each one compares the
-marker now current against its own id: the overlay whose entry was popped closes, the ones still holding
-theirs ignore the event. The cleanup uses the same comparison before calling `history.back()` — without it an
-overlay would drop a neighbour's entry and a single Back press would walk back several steps.
+The marker is an **array of the `useId`s of every overlay open under that entry**, outermost first, not a
+plain flag, which is what keeps stacked overlays independent. Each push appends its own id to the chain the
+current entry carries. `popstate` is a window event and reaches every open overlay's listener, so each one
+asks whether the marker now current still names it: an overlay whose id is gone from the chain closes, one
+still named by it ignores the event — including when the entry that popped belonged to an overlay stacked on
+top of it. A single id per entry would not carry that: the entry underneath a nested overlay names only the
+outer overlay, so every parent would read a child's pop as its own and the whole stack would collapse at
+once. The cleanup uses the same membership test before giving up its entry — without it an overlay would drop
+a neighbour's entry and a single Back press would walk back several steps.
 
-The `history.back()` of the cleanup is **deferred by a timer**, and the next effect run cancels it and keeps
-the entry instead of pushing a new one. A history traversal is queued, and the browser resolves its delta
-against the entry current when `back()` was *called*, not when the queued task runs — so a cleanup followed by
-a synchronous re-push walks one entry too far and lands below the overlay, where the marker no longer matches
-and the listener closes the overlay it just opened. That is exactly the setup → cleanup → setup StrictMode
-runs in dev, and it only shows on an overlay mounted already open (`FileViewerModal`); one mounted with
-`open === false` never reaches the push on that first pass.
+Entries are given up through a **shared unwinder** rather than a `history.back()` per cleanup. A closing
+overlay only adds its id to a module-level `closing` set and schedules the unwinder on a timer; the unwinder
+then walks off entries from the top while the topmost one belongs to a closed overlay, continuing from the
+`popstate` each `back()` lands. Two reasons for the indirection. Overlays that close in the same commit — a
+picker confirming into the modal that opened it — are all marked before the first `back()` goes out, so the
+walk removes both entries instead of leaving the lower one stranded on the stack. And a history traversal is
+queued: the browser resolves its delta against the entry current when `back()` was *called*, not when the
+queued task runs, so a cleanup followed by a synchronous re-push would walk one entry too far and land below
+the overlay, where the chain no longer names it and the listener closes the overlay it just opened. The next
+effect run therefore takes its id back out of `closing` and reuses the entry instead of pushing a new one.
+That is exactly the setup → cleanup → setup StrictMode runs in dev, and it only shows on an overlay mounted
+already open (`FileViewerModal`); one mounted with `open === false` never reaches the push on that first pass.
+
+An unrelated overlay opening inside that same deferred window pushes over the entry still waiting to be
+walked off, and the walk stops as soon as the top entry is one it does not own. The stranded entry surfaces
+again once the overlays above it are gone, so a module-level `popstate` listener reschedules the walk on every
+landing while `closing` is not empty — without it the entry would sit in the stack and eat one Back press.
 
 `idx` is copied unchanged, so the held entry is invisible to react-router's own index tracking. That is safe
 while nothing in the app uses `useBlocker` / `usePrompt`, which are the only consumers of that delta.
@@ -293,7 +307,8 @@ to get there and they are mutually exclusive:
 Which one applies follows from the parent, and nesting is directional: a URL-driven overlay can host a
 `useBackClosable` one above it, never the other way round. `useBackClosable` holds a history entry of its own
 while open, so a nested search-param drawer would push its entries above that one, and `closeDrawer`'s walk
-back to the recorded index crosses it — the outer overlay sees a marker that is no longer its own and closes
+back to the recorded index crosses it — router entries carry no overlay chain at all, so the outer overlay
+lands on an entry that no longer names it and closes
 underneath the inner one. An overlay opened from inside a `useBackClosable` overlay therefore keeps its state
 local.
 

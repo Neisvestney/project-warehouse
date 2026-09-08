@@ -906,6 +906,16 @@ A scan that arrives before the node list has loaded does **not** report "не н
 ещё загружаются, повторите сканирование» instead. If the list request failed, the scan triggers a `refetch` and
 asks the user to scan again.
 
+### `useNodeItemCount(nodeId, catalogItemId)`
+
+Сколько штук одной позиции лежит в одной ячейке: `GET /api/storagePlaces/nodes/{nodeId}/item-count`. Возвращает
+`number | null` — `null`, пока неизвестно. Считает и групповой остаток, и экземпляры `Unit`.
+
+Ячейка адресуется сама по себе, без места хранения: дефолтная ячейка склада и отсканированная этикетка дают
+голый `nodeId`, а `GET /api/storagePlaces/{id}/nodes?catalogItemId=` требует места. React-query кэширует по паре
+`(nodeId, catalogItemId)`, поэтому дерево комплекта, где половина слотов смотрит в одну ячейку, шлёт один запрос
+на пару, а не на слот.
+
 ### `useDefaultStorageNode(warehouseId, enabled?)`
 
 Fetches the warehouse's default storage cell via `GET /api/warehouses/{id}/default-node`. Returns
