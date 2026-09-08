@@ -10,6 +10,7 @@ using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Infrastructure.Realtime;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Models;
@@ -1584,18 +1585,24 @@ public class OrdersController(
 
     // ── POST /api/orders/assembly-tasks/batch-fulfill ─────────────────────────
 
-    /// <summary>Record many fulfillments across several orders and tasks in one request, with partial-success semantics.</summary>
+    /// <summary>Record many fulfillments across several orders and tasks in one request, either all-or-nothing or with partial-success semantics.</summary>
     /// <remarks>
     /// Body: <c>BatchFulfillRequest</c> — <c>items[]</c> (<c>orderId</c>, <c>taskId</c>, <c>taskBoxId</c>,
-    /// <c>componentId</c>, <c>fulfillment</c>) and <c>autoCompleteTasks</c>. Items are processed grouped by
+    /// <c>componentId</c>, <c>fulfillment</c>), <c>autoCompleteTasks</c> and <c>allowPartialSuccess</c>.
+    /// Items are processed grouped by
     /// order; the same <c>componentId</c> may appear several times, which is how N identical bundles are picked.
     /// Always answers 200 with <c>BatchFulfillResponse</c>: each failure lands in <c>failedItems</c> as
     /// <c>{ orderId, componentId, catalogItemName, error }</c> carrying the real error code
     /// (<c>orderNotFound</c>, <c>orderNotAssignedToWarehouse</c>, <c>orderNotAssembly</c>,
     /// <c>assemblyTaskBoxComponentNotFound</c>, <c>insufficientInventory</c>, <c>unitInventoryItemNotFound</c>,
     /// <c>inventoryItemNodeMismatch</c>, <c>assemblyComponentAlreadyFulfilled</c>, <c>inventoryWriteConflict</c>,
-    /// …), while successful items are
-    /// committed and stay committed. There is no overall transaction.
+    /// …). Alongside it <c>insufficientInventoryErrors</c> folds just the <c>insufficientInventory</c> failures
+    /// per catalog item and storage node into one <c>AppFieldError</c> each, summing the demand. Both lists
+    /// report what went wrong, not what survived, so a rollback leaves them untouched.
+    /// With <c>allowPartialSuccess: true</c> successful items are committed and stay committed; there is no
+    /// overall transaction. With <c>false</c> the whole batch runs in one transaction: every item is still
+    /// attempted so <c>failedItems</c> comes back complete, but a single failure rolls back every fulfillment
+    /// and task transition of the request, empties <c>completedTaskIds</c> and publishes no change events.
     /// With <c>autoCompleteTasks: false</c> task statuses are never touched and <c>completedTaskIds</c> comes back
     /// empty. With <c>true</c>, every touched task is advanced Pending → InProgress, and InProgress → Done only
     /// when all of its components are fully fulfilled; only genuinely completed tasks are listed in
@@ -1627,6 +1634,12 @@ public class OrdersController(
         var failedItems      = new List<BatchFulfillFailedItem>();
         var changedOrderIds  = new HashSet<Guid>();
 
+        var shortages = new Dictionary<(Guid NodeId, Guid CatalogItemId), List<InsufficientInventoryException>>();
+
+        // Stock the batch asks of each node, counted over every attempt: the demand a successful position
+        // took off the shelf is what makes the failures next to it look smaller than they were.
+        var demand = new Dictionary<(Guid NodeId, Guid CatalogItemId), int>();
+
         void Fail(BatchFulfillItemRequest item, ErrorCode code, string message,
             IReadOnlyDictionary<string, object>? args = null, string catalogItemName = "") =>
             failedItems.Add(new BatchFulfillFailedItem
@@ -1636,6 +1649,13 @@ public class OrdersController(
                 CatalogItemName = catalogItemName,
                 Error = AppProblems.MakeError(code, message, args),
             });
+
+        // All-or-nothing mode holds one transaction open across the whole batch; the per-fulfillment
+        // transactions inside the service degrade to savepoints under it, so a failed item still
+        // undoes only itself and the loop can carry on collecting the remaining failures.
+        await using var batchTx = request.AllowPartialSuccess
+            ? null
+            : await db.Database.BeginTransactionAsync(ct);
 
         // Process items grouped by order to avoid redundant DB lookups
         var itemsByOrder = request.Items.GroupBy(i => i.OrderId).ToList();
@@ -1669,6 +1689,12 @@ public class OrdersController(
             foreach (var item in orderGroup)
             {
                 var itemName = "";
+
+                // Demand is banked only once the position actually reached the shelves: a component rejected
+                // before that (already fulfilled, malformed request) asks nothing of stock, now or on a retry.
+                List<(Guid NodeId, Guid CatalogItemId, int Quantity)> stockDemand = [];
+                var reachedStock = false;
+
                 try
                 {
                     var component = await db.AssemblyTaskBoxComponents
@@ -1684,7 +1710,10 @@ public class OrdersController(
 
                     itemName = component.CatalogItem.FullName;
 
+                    stockDemand = EnumerateStockDemand(component, item.Fulfillment).ToList();
+
                     await orders.AddFulfillmentAsync(component, item.Fulfillment, GetCurrentUserId(), ct);
+                    reachedStock = true;
                     attemptedTaskIds.Add(item.TaskId);
                     changedOrderIds.Add(order.Id);
                 }
@@ -1694,28 +1723,47 @@ public class OrdersController(
                 }
                 catch (InventoryWriteConflictException)
                 {
+                    reachedStock = true;
                     Fail(item, ErrorCode.InventoryWriteConflict,
                         "Stock for this item was changed concurrently; nothing was written.",
                         catalogItemName: itemName);
                 }
                 catch (InsufficientInventoryException ex)
                 {
+                    reachedStock = true;
                     Fail(item, ErrorCode.InsufficientInventory,
                         $"Insufficient inventory at node '{ex.NodeId}': requested {ex.Requested}, available {ex.Available}.",
                         ex.ToArgs(), itemName);
+
+                    // Keyed on the exception's own item: a Bundle deducts per leaf, so the shortage
+                    // belongs to the leaf rather than to the component being fulfilled.
+                    if (!shortages.TryGetValue((ex.NodeId, ex.CatalogItemId), out var sameStock))
+                        shortages[(ex.NodeId, ex.CatalogItemId)] = sameStock = [];
+
+                    sameStock.Add(ex);
                 }
+                // Raised while deducting, unlike the same failure during Bundle assembly, which arrives as a
+                // ValidationException before any stock is touched
                 catch (UnitInventoryItemNotFoundException)
                 {
+                    reachedStock = true;
                     Fail(item, ErrorCode.UnitInventoryItemNotFound, "Unit inventory item not found.", catalogItemName: itemName);
                 }
                 catch (InventoryItemNodeMismatchException)
                 {
+                    reachedStock = true;
                     Fail(item, ErrorCode.InventoryItemNodeMismatch, "Item is not at the expected storage node.", catalogItemName: itemName);
                 }
                 catch (AssemblyComponentAlreadyFulfilledException)
                 {
                     Fail(item, ErrorCode.AssemblyComponentAlreadyFulfilled, "Component is already fully fulfilled.", catalogItemName: itemName);
                 }
+
+                if (!reachedStock)
+                    continue;
+
+                foreach (var (nodeId, catalogItemId, quantity) in stockDemand)
+                    demand[(nodeId, catalogItemId)] = demand.GetValueOrDefault((nodeId, catalogItemId)) + quantity;
             }
 
             // Mass-assembly only: advance touched tasks, completing just the fully fulfilled ones
@@ -1724,42 +1772,141 @@ public class OrdersController(
 
             foreach (var taskId in attemptedTaskIds)
             {
+                var completed = false;
+
                 try
                 {
-                    var fullOrder = await db.Orders
-                        .Include(o => o.AssemblyTasks)
-                        .FirstOrDefaultAsync(o => o.Id == order.Id, ct);
-                    if (fullOrder is null) continue;
+                    // The catch below swallows whatever goes wrong here, so the writes need their own
+                    // savepoint: left unguarded under a batch transaction, a failed save would abort it
+                    // and take every later item and the final commit down with it.
+                    await db.Database.ExecuteInTransactionAsync("orders.batch-fulfill.auto-complete", async () =>
+                    {
+                        var fullOrder = await db.Orders
+                            .Include(o => o.AssemblyTasks)
+                            .FirstOrDefaultAsync(o => o.Id == order.Id, ct);
+                        if (fullOrder is null) return;
 
-                    var task = await db.AssemblyTasks
-                        .FirstOrDefaultAsync(t => t.Id == taskId && t.OrderId == order.Id, ct);
-                    if (task is null) continue;
+                        var task = await db.AssemblyTasks
+                            .FirstOrDefaultAsync(t => t.Id == taskId && t.OrderId == order.Id, ct);
+                        if (task is null) return;
 
-                    if (task.Status == AssemblyTaskStatus.Pending)
-                        await orders.TransitionTaskStatusAsync(task, AssemblyTaskStatus.InProgress, fullOrder, ct);
+                        if (task.Status == AssemblyTaskStatus.Pending)
+                            await orders.TransitionTaskStatusAsync(task, AssemblyTaskStatus.InProgress, fullOrder, ct);
 
-                    if (!await orders.IsTaskFullyFulfilledAsync(taskId, ct))
-                        continue;
+                        if (!await orders.IsTaskFullyFulfilledAsync(taskId, ct))
+                            return;
 
-                    if (task.Status == AssemblyTaskStatus.InProgress)
-                        await orders.TransitionTaskStatusAsync(task, AssemblyTaskStatus.Done, fullOrder, ct);
+                        if (task.Status == AssemblyTaskStatus.InProgress)
+                            await orders.TransitionTaskStatusAsync(task, AssemblyTaskStatus.Done, fullOrder, ct);
 
-                    completedTaskIds.Add(taskId.ToString());
+                        completed = true;
+                    }, ct);
                 }
                 catch (Exception)
                 {
                     // Auto-complete is best-effort; partial success is acceptable
                 }
+
+                if (completed)
+                    completedTaskIds.Add(taskId.ToString());
+            }
+        }
+
+        if (batchTx is not null)
+        {
+            if (failedItems.Count == 0)
+            {
+                await batchTx.CommitAsync(ct);
+            }
+            else
+            {
+                await batchTx.RollbackAsync(ct);
+                completedTaskIds.Clear();
+                changedOrderIds.Clear();
             }
         }
 
         foreach (var orderId in changedOrderIds)
             await realtime.PublishEntityChangedAsync(AppEntityType.Order, orderId, HttpContext, ct);
 
+        // Read after the transaction settled: the snapshot each exception carries was taken mid-batch, with
+        // the stock already eaten by its neighbours — and under a rollback that stock is back on the shelf.
+        var stockNow = await ReadStockAsync(shortages.Keys, ct);
+
+        var insufficientInventoryErrors = shortages
+            .OrderBy(shortage => shortage.Value[0].CatalogItemName, StringComparer.OrdinalIgnoreCase)
+            .Select(shortage =>
+            {
+                var sample    = shortage.Value[0];
+                var available = stockNow.GetValueOrDefault(shortage.Key);
+
+                // A committed batch keeps what it picked, so only the rejected demand is still outstanding;
+                // a rolled-back one gave everything back and owes the shelf its whole demand again.
+                var requested = request.AllowPartialSuccess
+                    ? shortage.Value.Sum(e => e.Requested)
+                    : demand.GetValueOrDefault(shortage.Key);
+
+                return AppProblems.MakeError(ErrorCode.InsufficientInventory,
+                    $"Insufficient inventory at node '{sample.NodeId}': requested {requested}, available {available}.",
+                    InsufficientInventoryException.MakeArgs(
+                        sample.CatalogItemName, string.Join(" / ", sample.NodePath), requested, available));
+            })
+            .ToList();
+
         return Ok(new BatchFulfillResponse
         {
-            CompletedTaskIds = completedTaskIds,
-            FailedItems      = failedItems,
+            CompletedTaskIds            = completedTaskIds,
+            FailedItems                 = failedItems,
+            InsufficientInventoryErrors = insufficientInventoryErrors,
         });
+    }
+
+    /// <summary>
+    /// The stock a single fulfillment takes off the shelves, per node and catalog item. Unit picks are left
+    /// out: they move one named item rather than draw on a count, and never report a shortage.
+    /// </summary>
+    private static IEnumerable<(Guid NodeId, Guid CatalogItemId, int Quantity)> EnumerateStockDemand(
+        AssemblyTaskBoxComponent component, AddFulfillmentRequest fulfillment)
+    {
+        if (fulfillment.BundleComponents is { Count: > 0 } leaves)
+        {
+            foreach (var leaf in leaves.Where(l => !l.UnitInventoryItemId.HasValue))
+                yield return (leaf.SourceNodeId, leaf.CatalogItemId, leaf.Quantity);
+
+            yield break;
+        }
+
+        if (fulfillment.UnitInventoryItemId.HasValue || fulfillment.Quantity <= 0 || !fulfillment.SourceNodeId.HasValue)
+            yield break;
+
+        // Mirrors how the service resolves the item: only a Variation defers to the client's pick.
+        var catalogItemId = component.CatalogItem.Type == CatalogItemType.Variation
+            ? fulfillment.ResolvedCatalogItemId
+            : component.CatalogItemId;
+
+        if (catalogItemId.HasValue)
+            yield return (fulfillment.SourceNodeId.Value, catalogItemId.Value, fulfillment.Quantity);
+    }
+
+    /// <summary>Current count of each node/catalog-item pair, missing pairs meaning an empty shelf.</summary>
+    private async Task<Dictionary<(Guid NodeId, Guid CatalogItemId), int>> ReadStockAsync(
+        IReadOnlyCollection<(Guid NodeId, Guid CatalogItemId)> pairs, CancellationToken ct)
+    {
+        if (pairs.Count == 0)
+            return [];
+
+        var nodeIds = pairs.Select(p => p.NodeId).Distinct().ToList();
+        var itemIds = pairs.Select(p => p.CatalogItemId).Distinct().ToList();
+
+        // Queried as a cross product and filtered in memory — the pair count here is a handful
+        var groups = await db.StoragePlacesNodesItemsGroups
+            .AsNoTracking()
+            .Where(g => nodeIds.Contains(g.StoragePlaceNodeId) && itemIds.Contains(g.CatalogItemId))
+            .Select(g => new { g.StoragePlaceNodeId, g.CatalogItemId, g.Count })
+            .ToListAsync(ct);
+
+        return groups
+            .Where(g => pairs.Contains((g.StoragePlaceNodeId, g.CatalogItemId)))
+            .ToDictionary(g => (g.StoragePlaceNodeId, g.CatalogItemId), g => g.Count);
     }
 }

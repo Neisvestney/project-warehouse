@@ -2278,18 +2278,24 @@ export const ordersRemoveFulfillment = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Record many fulfillments across several orders and tasks in one request, with partial-success semantics.
+ * Record many fulfillments across several orders and tasks in one request, either all-or-nothing or with partial-success semantics.
  *
  * Body: `BatchFulfillRequest` — `items[]` (`orderId`, `taskId`, `taskBoxId`,
- * `componentId`, `fulfillment`) and `autoCompleteTasks`. Items are processed grouped by
+ * `componentId`, `fulfillment`), `autoCompleteTasks` and `allowPartialSuccess`.
+ * Items are processed grouped by
  * order; the same `componentId` may appear several times, which is how N identical bundles are picked.
  * Always answers 200 with `BatchFulfillResponse`: each failure lands in `failedItems` as
  * `{ orderId, componentId, catalogItemName, error }` carrying the real error code
  * (`orderNotFound`, `orderNotAssignedToWarehouse`, `orderNotAssembly`,
  * `assemblyTaskBoxComponentNotFound`, `insufficientInventory`, `unitInventoryItemNotFound`,
  * `inventoryItemNodeMismatch`, `assemblyComponentAlreadyFulfilled`, `inventoryWriteConflict`,
- * …), while successful items are
- * committed and stay committed. There is no overall transaction.
+ * …). Alongside it `insufficientInventoryErrors` folds just the `insufficientInventory` failures
+ * per catalog item and storage node into one `AppFieldError` each, summing the demand. Both lists
+ * report what went wrong, not what survived, so a rollback leaves them untouched.
+ * With `allowPartialSuccess: true` successful items are committed and stay committed; there is no
+ * overall transaction. With `false` the whole batch runs in one transaction: every item is still
+ * attempted so `failedItems` comes back complete, but a single failure rolls back every fulfillment
+ * and task transition of the request, empties `completedTaskIds` and publishes no change events.
  * With `autoCompleteTasks: false` task statuses are never touched and `completedTaskIds` comes back
  * empty. With `true`, every touched task is advanced Pending → InProgress, and InProgress → Done only
  * when all of its components are fully fulfilled; only genuinely completed tasks are listed in

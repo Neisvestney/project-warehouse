@@ -202,7 +202,9 @@ function AddFulfillmentContent({
         componentId: component.id,
         fulfillment,
       }));
-      batchMutation.mutate({body: {items, autoCompleteTasks: false}});
+      batchMutation.mutate({
+        body: {items, autoCompleteTasks: false, allowPartialSuccess: false},
+      });
       return;
     }
 

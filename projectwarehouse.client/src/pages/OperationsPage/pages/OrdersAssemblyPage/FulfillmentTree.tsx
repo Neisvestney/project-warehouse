@@ -11,7 +11,8 @@ import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {useDefaultStorageNode} from "@/hooks/useDefaultStorageNode";
 import {useNodeItemCount} from "@/hooks/useNodeItemCount";
 import {ComponentRow, RailCaption} from "./ComponentRow";
-import {EMPTY_STATUS, isShort, statusOf, sumStatus, type SlotStatus} from "./fulfillmentStatus";
+import {EMPTY_STATUS, statusOf, sumStatus, type SlotStatus} from "./fulfillmentStatus";
+import {useIsShort} from "./stockGuard";
 import {useVariationOptions} from "./variationOptions";
 import {NodeControl, UnitPicker, VariantPicker, type NodePick} from "./FulfillmentControls";
 
@@ -53,8 +54,10 @@ function useStandardLeaf(
   );
 
   const available = useNodeItemCount(node?.nodeId, catalogItemId);
-  // A cell that cannot cover the row is not a filled slot — the server would reject it anyway.
-  const ready = !!node && !isShort(available, multiplier, needTimes);
+  // A cell that cannot cover the row is not a filled slot — the server would reject it anyway,
+  // unless IgnoreStockContext lets the row through to that very rejection.
+  const short = useIsShort(available, multiplier, needTimes);
+  const ready = !!node && !short;
 
   useEffect(() => {
     onChange(
