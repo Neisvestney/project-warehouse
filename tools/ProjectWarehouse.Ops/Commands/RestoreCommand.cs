@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using ProjectWarehouse.Ops.Infrastructure;
 using ProjectWarehouse.Ops.Services;
 using ProjectWarehouse.Ops.Ui;
@@ -14,7 +14,7 @@ public sealed class RestoreSettings : TargetSettings
     public string? From { get; init; }
 
     [CommandOption("--parts <PARTS>")]
-    [Description("Comma-separated parts to restore. Defaults to everything in the backup.")]
+    [Description("Comma-separated parts to restore. Prompted from the backup when omitted.")]
     public string? Parts { get; init; }
 
     [CommandOption("-y|--yes")]

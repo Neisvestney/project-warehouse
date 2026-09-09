@@ -1,3 +1,5 @@
+﻿using ProjectWarehouse.Ops.Configuration;
+
 namespace ProjectWarehouse.Ops.Infrastructure.Docker;
 
 /// <param name="ComposeService">
@@ -12,9 +14,17 @@ public sealed class DockerVolumes(TargetContext target)
 {
     private const string ToolImage = "busybox:1.37.0";
 
+    /// The `docker run -v` source a logical volume maps to. A bind path is already one; a compose
+    /// volume name has to be matched against what compose actually created.
+    public Task<string> ResolveAsync(VolumeSource source, CancellationToken cancellationToken) =>
+        source.Path is { } path
+            ? Task.FromResult(path)
+            : ResolveComposeVolumeAsync(source.Volume ?? string.Empty, cancellationToken);
+
     /// Compose prefixes a volume with its project name, and the project name depends on where the
     /// compose file lives. Matching by suffix avoids having to reproduce that rule.
-    public async Task<string> ResolveAsync(string composeVolume, CancellationToken cancellationToken)
+    private async Task<string> ResolveComposeVolumeAsync(
+        string composeVolume, CancellationToken cancellationToken)
     {
         var listed = await target.Host.RunAsync(
             ShellCommand.Of("docker", "volume", "ls", "--format", "{{.Name}}"), cancellationToken);
@@ -118,11 +128,17 @@ public sealed class DockerVolumes(TargetContext target)
     public async Task<IReadOnlyList<VolumeUser>> UsersAsync(
         string volume, CancellationToken cancellationToken)
     {
-        var result = await target.Host.RunAsync(
-            ShellCommand.Of(
+        // `--filter volume=` matches a volume name or a mount point inside the container, never a
+        // bind's source on the host, so a bind is found by reading every container's mounts.
+        var command = IsBind(volume)
+            ? ShellCommand.Of(
+                "docker", "ps", "--no-trunc",
+                "--format", "{{.Names}}|{{.Label \"com.docker.compose.service\"}}|{{.Mounts}}")
+            : ShellCommand.Of(
                 "docker", "ps", "--filter", $"volume={volume}",
-                "--format", "{{.Names}}|{{.Label \"com.docker.compose.service\"}}"),
-            cancellationToken);
+                "--format", "{{.Names}}|{{.Label \"com.docker.compose.service\"}}");
+
+        var result = await target.Host.RunAsync(command, cancellationToken);
 
         if (!result.Succeeded)
             throw new CommandHostException($"docker ps failed: {result.FailureMessage}");
@@ -131,8 +147,11 @@ public sealed class DockerVolumes(TargetContext target)
 
         foreach (var line in result.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
-            var parts = line.Trim().Split('|', 2);
+            var parts = line.Trim().Split('|', 3);
             if (parts[0].Length == 0)
+                continue;
+
+            if (IsBind(volume) && !MountsInclude(parts.Length > 2 ? parts[2] : string.Empty, volume))
                 continue;
 
             var service = parts.Length > 1 && parts[1].Trim().Length > 0 ? parts[1].Trim() : null;
@@ -141,6 +160,30 @@ public sealed class DockerVolumes(TargetContext target)
 
         return users;
     }
+
+    /// A volume name cannot hold a path separator, so this tells the two mount kinds apart.
+    private static bool IsBind(string mount) => mount.Contains('/') || mount.Contains('\\');
+
+    /// Docker reports a bind source as the daemon sees it, which on Docker Desktop is the path
+    /// inside its VM (`/run/desktop/mnt/host/f/...`) rather than the `F:\...` it was given. A
+    /// drive-lettered path is therefore matched on its drive-relative tail, not on the whole string.
+    private static bool MountsInclude(string mounts, string path)
+    {
+        var wanted = Normalize(path);
+        var tail = DriveRelative(wanted);
+
+        return mounts.Split(',').Any(
+            mount => Normalize(mount) is var reported
+                && (reported == wanted || (tail is not null && reported.EndsWith(tail, StringComparison.Ordinal))));
+    }
+
+    private static string? DriveRelative(string normalized) =>
+        normalized.Length > 2 && char.IsLetter(normalized[0]) && normalized[1] == ':'
+            ? "/" + normalized[0] + normalized[2..]
+            : null;
+
+    private static string Normalize(string path) =>
+        path.Trim().Replace('\\', '/').TrimEnd('/').ToLowerInvariant();
 
     /// Reads the archive end to end before anything is destroyed. A truncated tar would otherwise
     /// be discovered only after the volume had been emptied, with nothing left to put back.

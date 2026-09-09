@@ -9,5 +9,23 @@
       "composeService": "projectwarehouse.server",
       "tagVariable": "SERVER_IMAGE_TAG"
     }
+  },
+
+  "targets": {
+    "local": {
+      "kind": "local",
+      "danger": false,
+      "composeFile": "docker-compose.yml",
+      "services": ["server"],
+      "volumes": {
+        "keys": { "path": "{projectDir}/ProjectWarehouse.Server/keys" },
+        "datafiles": { "path": "{projectDir}/ProjectWarehouse.Server/.localdata/files" }
+      },
+      "postgres": {
+        "service": "postgres",
+        "user": "postgres",
+        "database": "projectwarehouse"
+      }
+    }
   }
 }

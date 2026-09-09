@@ -1,4 +1,4 @@
-namespace ProjectWarehouse.Ops.Configuration;
+﻿namespace ProjectWarehouse.Ops.Configuration;
 
 public static class OpsConfigValidator
 {
@@ -127,5 +127,38 @@ public static class OpsConfigValidator
 
         if (target.Postgres is { } postgres && string.IsNullOrWhiteSpace(postgres.Database))
             errors.Add($"{scope}.postgres: database is required.");
+
+        foreach (var (key, volume) in target.Volumes)
+            ValidateVolume($"{scope}.volumes.{key}", target.Kind, volume, errors);
+    }
+
+    private static void ValidateVolume(
+        string scope, TargetKind kind, VolumeSource volume, List<string> errors)
+    {
+        var hasVolume = !string.IsNullOrWhiteSpace(volume.Volume);
+        var hasPath = !string.IsNullOrWhiteSpace(volume.Path);
+
+        if (hasVolume == hasPath)
+        {
+            errors.Add($"{scope}: give either a compose volume name or a path, not both or neither.");
+            return;
+        }
+
+        if (!hasPath)
+            return;
+
+        // A local target's path was rooted while loading; a remote one is whatever was written,
+        // and docker reads a relative -v source as a volume name — it would fill a new empty
+        // volume instead of the directory the compose file binds in.
+        if (kind == TargetKind.Ssh && !volume.Path!.StartsWith('/'))
+        {
+            errors.Add(
+                $"{scope}: path must be an absolute path on the remote host, got '{volume.Path}'. "
+                    + "{projectDir} expands to a directory on this machine and does not exist there.");
+        }
+        else if (kind == TargetKind.Local && !Path.IsPathRooted(volume.Path))
+        {
+            errors.Add($"{scope}: path must be absolute, got '{volume.Path}'.");
+        }
     }
 }

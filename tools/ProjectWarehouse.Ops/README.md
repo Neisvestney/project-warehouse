@@ -59,9 +59,11 @@ changes.
 ## Configuration
 
 `pwops` reads `ops.json` from the working directory, then from the directory holding the
-executable; `--config <path>` overrides both. The repository ships `ops.example.json` only —
-real hosts and credentials live in a separate private repository, and the committed side stays
-a pointer:
+executable; `--config <path>` overrides both. The committed `ops.json` holds what the code
+repository already describes — the `services` block and the `local` target for the dev compose
+stack — and points at a private config for the rest; `ops.local.example.json` is the annotated
+form of everything that can go there. Hosts, keys and credentials live in that private repository,
+reached through a pointer:
 
 ```json
 {
@@ -134,6 +136,30 @@ same target sharing a variable is a validation error: they would overwrite each 
 `danger: true` is the only risk marker. It colors the target red everywhere and gates destructive
 actions behind a typed confirmation.
 
+### Volumes
+
+A target's `volumes` maps a logical name — the name a backup part carries — onto where that data
+actually sits:
+
+```json
+"volumes": {
+  "keys": "dataprotection_keys",
+  "datafiles": { "path": "{projectDir}/ProjectWarehouse.Server/.localdata/files" }
+}
+```
+
+A string is a compose volume name. `{ "path": ... }` is a host directory the compose file binds in,
+which is how a stack that keeps its data in bind mounts is described — the dev `docker-compose.yml`
+is one. The path has to be absolute: docker reads a relative `-v` source as a volume name, and
+would quietly fill an empty volume instead of the directory.
+
+On an `ssh` target the path is a path on the remote host, so it has to be POSIX-absolute — a
+`{projectDir}` there would expand to a directory on this machine, and the load fails saying so.
+
+What lines up between two targets is the root, not the name. An archive holds the volume's contents
+from its root down, so a part that is `/data/files` on one target has to map to the directory
+standing for `/data/files` on the other, whatever each of them calls it.
+
 ### Path variables
 
 Path values expand two tokens:
@@ -146,9 +172,9 @@ Path values expand two tokens:
 Expansion happens per file while loading, so a value keeps pointing at its own repository no
 matter which config included it. An unknown token fails the load rather than reaching a command.
 
-`local.backupsDir` and `local.telemetryArchiveDir` are additionally rooted and normalized for
-this machine. Nothing else is: `repoDir` and `composeFile` may well be POSIX paths on the far
-side of an SSH link.
+`local.backupsDir`, `local.telemetryArchiveDir` and a local target's volume paths are additionally
+rooted and normalized for this machine. Nothing else is: `repoDir`, `composeFile` and an ssh
+target's volume paths may well be POSIX paths on the far side of an SSH link.
 
 ### Image versions
 
@@ -278,9 +304,13 @@ The telemetry volume is not part of a backup, even when the target declares it: 
 fetches it with an age filter and unpacks it for the replay stack, and a rotated archive of that
 size in every backup would cost more than the data is worth restoring.
 
-Volume names are matched by suffix. Compose prefixes a volume with its project name, and the
-project name depends on where the compose file lives — matching `_<name>` avoids reproducing that
-rule, and an ambiguous match is an error rather than a guess.
+Omitting `--parts` opens a multi-select over everything the target offers, everything preselected.
+Without a terminal to prompt on it means all of them, so a scripted run never waits for a keypress.
+
+A compose volume name is matched by suffix. Compose prefixes a volume with its project name, and
+the project name depends on where the compose file lives — matching `_<name>` avoids reproducing
+that rule, and an ambiguous match is an error rather than a guess. A `volumes` entry written as a
+path is already the mount source and is used as it stands.
 
 ### restore
 
@@ -300,10 +330,19 @@ nothing but time. The stack is brought back up on the way out whichever way the 
 and anything left behind — a stack that would not start, staging that would not delete — is
 reported as a warning rather than swallowed.
 
+`--from` and `--parts` are both prompted when left out — the backups under `local.backupsDir` as a
+list, the manifest's parts as a multi-select with everything preselected.
+
 Which services get stopped is worked out from the volumes, not assumed: `docker ps` names every
 running container holding a volume being restored, and each one's compose service joins the stop
 list. Emptying a volume under a process holding files open in it is how a restore turns into
 corruption. A container outside the compose project cannot be stopped, so it is a refusal.
+
+A bind is found by reading every container's mounts rather than through `docker ps --filter
+volume=`, which matches a volume name or a mount point inside the container but never a bind's
+source on the host. The comparison goes by the drive-relative tail of the path, because Docker
+Desktop reports a bind source as its own VM sees it — `/run/desktop/mnt/host/f/...` for an
+`F:\...` given on the command line.
 
 Postgres stays up throughout; the restore talks to it. A volume postgres has mounted therefore
 cannot be restored this way and is refused — the database comes back from its dump. A volume's

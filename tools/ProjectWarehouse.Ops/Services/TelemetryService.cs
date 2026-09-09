@@ -1,4 +1,4 @@
-using System.Formats.Tar;
+﻿using System.Formats.Tar;
 using ProjectWarehouse.Ops.Infrastructure;
 using ProjectWarehouse.Ops.Infrastructure.Docker;
 
@@ -19,7 +19,7 @@ public sealed class TelemetryService(TargetContext target)
         IStepReporter reporter,
         CancellationToken cancellationToken)
     {
-        if (!target.Config.Volumes.TryGetValue(VolumeKey, out var composeVolume))
+        if (!target.Config.Volumes.TryGetValue(VolumeKey, out var source))
         {
             throw new BackupException(
                 $"targets.{target.Name} has no '{VolumeKey}' volume, so there is no archive to fetch.");
@@ -28,7 +28,7 @@ public sealed class TelemetryService(TargetContext target)
         string volume;
         using (var resolving = reporter.Begin("resolving volume"))
         {
-            volume = await _volumes.ResolveAsync(composeVolume, cancellationToken);
+            volume = await _volumes.ResolveAsync(source, cancellationToken);
             resolving.Complete();
         }
 

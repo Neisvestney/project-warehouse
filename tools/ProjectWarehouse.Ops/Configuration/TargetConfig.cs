@@ -19,8 +19,8 @@ public sealed class TargetConfig
     public string? PullsFrom { get; set; }
     public List<string> Services { get; set; } = [];
 
-    /// Logical name -> compose volume name.
-    public Dictionary<string, string> Volumes { get; set; } =
+    /// Logical name -> compose volume name, or a host directory the compose file binds in.
+    public Dictionary<string, VolumeSource> Volumes { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
 
     public PostgresConfig? Postgres { get; set; }

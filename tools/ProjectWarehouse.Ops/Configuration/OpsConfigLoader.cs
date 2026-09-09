@@ -178,6 +178,18 @@ public static class OpsConfigLoader
 
             if (target.Ssh?.KeyPath is { } keyPath)
                 target.Ssh.KeyPath = Expand(keyPath);
+
+            foreach (var volume in target.Volumes.Values)
+            {
+                if (volume.Path is not { } volumePath)
+                    continue;
+
+                // Docker reads a relative -v source as a volume name, so a bind path is rooted here
+                // rather than left to whatever the process happens to be running in.
+                volume.Path = target.Kind == TargetKind.Local
+                    ? Path.GetFullPath(Expand(volumePath), projectDir)
+                    : Expand(volumePath);
+            }
         }
 
         foreach (var patch in config.Overrides?.Targets.Values ?? Enumerable.Empty<TargetOverride>())
