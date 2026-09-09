@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using ProjectWarehouse.Ops.Configuration;
 using ProjectWarehouse.Ops.Infrastructure;
 using ProjectWarehouse.Ops.Services;
@@ -11,7 +11,7 @@ namespace ProjectWarehouse.Ops.Commands;
 public sealed class BackupSettings : TargetSettings
 {
     [CommandOption("--parts <PARTS>")]
-    [Description("Comma-separated parts to back up, e.g. db,keys,datafiles. Defaults to all.")]
+    [Description("Comma-separated parts to back up, e.g. db,keys,datafiles. Prompted when omitted.")]
     public string? Parts { get; init; }
 }
 
@@ -108,8 +108,29 @@ internal static class BackupParts
 
         if (string.IsNullOrWhiteSpace(requested))
         {
-            Chosen.ShowText("parts", string.Join(", ", available));
-            return available;
+            // Everything, unchanged, wherever there is no terminal to ask on — a scripted run must
+            // not start waiting for a keypress.
+            if (!AnsiConsole.Profile.Capabilities.Interactive)
+            {
+                Chosen.ShowText("parts", string.Join(", ", available));
+                return available;
+            }
+
+            // Required, so clearing every box cannot produce a backup holding nothing, or a restore
+            // that stops and starts the stack without putting anything back.
+            var prompt = new MultiSelectionPrompt<string>()
+                .Title("Parts")
+                .InstructionsText("[grey]space toggles, enter confirms[/]")
+                .Required()
+                .AddChoices(available);
+
+            foreach (var part in available)
+                prompt.Select(part);
+
+            var selected = AnsiConsole.Prompt(prompt);
+
+            Chosen.ShowText("parts", string.Join(", ", selected));
+            return selected;
         }
 
         var chosen = new List<string>();

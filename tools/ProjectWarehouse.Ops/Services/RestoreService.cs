@@ -1,4 +1,4 @@
-using ProjectWarehouse.Ops.Infrastructure;
+﻿using ProjectWarehouse.Ops.Infrastructure;
 using ProjectWarehouse.Ops.Infrastructure.Docker;
 
 namespace ProjectWarehouse.Ops.Services;
@@ -133,10 +133,10 @@ public sealed class RestoreService(TargetContext target)
             if (part.Name == BackupManifest.DatabasePart)
                 continue;
 
-            if (!target.Config.Volumes.TryGetValue(part.Name, out var composeVolume))
+            if (!target.Config.Volumes.TryGetValue(part.Name, out var source))
                 throw new BackupException($"targets.{target.Name} has no volume '{part.Name}'.");
 
-            volumes[part.Name] = await _volumes.ResolveAsync(composeVolume, cancellationToken);
+            volumes[part.Name] = await _volumes.ResolveAsync(source, cancellationToken);
         }
 
         return volumes;

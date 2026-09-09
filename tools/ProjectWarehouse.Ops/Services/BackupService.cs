@@ -1,5 +1,6 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
+using ProjectWarehouse.Ops.Configuration;
 using ProjectWarehouse.Ops.Infrastructure;
 using ProjectWarehouse.Ops.Infrastructure.Docker;
 
@@ -90,11 +91,11 @@ public sealed class BackupService(TargetContext target)
                     continue;
                 }
 
-                if (!target.Config.Volumes.TryGetValue(part, out var composeVolume))
+                if (!target.Config.Volumes.TryGetValue(part, out var source))
                     throw new BackupException($"targets.{target.Name} has no volume '{part}'.");
 
                 written.Add(await ArchiveVolumeAsync(
-                    directory, part, composeVolume, reporter, cancellationToken));
+                    directory, part, source, reporter, cancellationToken));
             }
 
             await BackupManifest.WriteAsync(
@@ -191,11 +192,11 @@ public sealed class BackupService(TargetContext target)
     private async Task<BackupPart> ArchiveVolumeAsync(
         string directory,
         string part,
-        string composeVolume,
+        VolumeSource source,
         IStepReporter reporter,
         CancellationToken cancellationToken)
     {
-        var volume = await _volumes.ResolveAsync(composeVolume, cancellationToken);
+        var volume = await _volumes.ResolveAsync(source, cancellationToken);
         var fileName = $"{part}.tar";
         var path = Path.Combine(directory, fileName);
 
