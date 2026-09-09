@@ -46,12 +46,46 @@ public sealed class SshCommandHost : ICommandHost
 
     public async Task<CommandResult> RunAsync(ShellCommand command, CancellationToken cancellationToken)
     {
-        using var ssh = _ssh.CreateCommand(command.ToPosixLine());
-        await ssh.ExecuteAsync(cancellationToken);
-        return new CommandResult(ssh.ExitStatus ?? -1, ssh.Result, ssh.Error);
+        try
+        {
+            using var ssh = _ssh.CreateCommand(command.ToPosixLine());
+            await ssh.ExecuteAsync(cancellationToken);
+            return new CommandResult(ssh.ExitStatus ?? -1, ssh.Result, ssh.Error);
+        }
+        catch (Exception ex) when (Foreign(ex))
+        {
+            throw new CommandHostException(
+                $"{command.Executable} failed on {Description}: {ex.Message}", ex);
+        }
     }
 
+    /// A dropped link, a timeout, a disposed session — SSH.NET's own exceptions, which callers of
+    /// <see cref="ICommandHost"/> have no way to name. Connecting already reports failure this way;
+    /// running is the half that did not, so a caller narrowing on the interface's own exception
+    /// type missed everything that went wrong after the session was up.
+    private static bool Foreign(Exception ex) =>
+        ex is not (CommandHostException or OperationCanceledException);
+
     public async Task<CommandResult> RunStreamingAsync(
+        ShellCommand command,
+        Stream destination,
+        IProgress<long>? progress,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Awaited inside the try on purpose: returning the task unawaited would leave the
+            // catch below covering only the synchronous run-up to the first await.
+            return await StreamAsync(command, destination, progress, cancellationToken);
+        }
+        catch (Exception ex) when (Foreign(ex))
+        {
+            throw new CommandHostException(
+                $"{command.Executable} failed on {Description}: {ex.Message}", ex);
+        }
+    }
+
+    private async Task<CommandResult> StreamAsync(
         ShellCommand command,
         Stream destination,
         IProgress<long>? progress,
@@ -87,14 +121,28 @@ public sealed class SshCommandHost : ICommandHost
 
     public Task<string?> ReadFileAsync(string path, CancellationToken cancellationToken)
     {
-        var sftp = _sftp.Value;
-        return Task.FromResult(sftp.Exists(path) ? sftp.ReadAllText(path, Encoding.UTF8) : null);
+        try
+        {
+            var sftp = _sftp.Value;
+            return Task.FromResult(sftp.Exists(path) ? sftp.ReadAllText(path, Encoding.UTF8) : null);
+        }
+        catch (Exception ex) when (Foreign(ex))
+        {
+            throw new CommandHostException($"Could not read {path} on {Description}: {ex.Message}", ex);
+        }
     }
 
     public Task WriteFileAsync(string path, string content, CancellationToken cancellationToken)
     {
-        _sftp.Value.WriteAllText(path, content, Encoding.UTF8);
-        return Task.CompletedTask;
+        try
+        {
+            _sftp.Value.WriteAllText(path, content, Encoding.UTF8);
+            return Task.CompletedTask;
+        }
+        catch (Exception ex) when (Foreign(ex))
+        {
+            throw new CommandHostException($"Could not write {path} on {Description}: {ex.Message}", ex);
+        }
     }
 
     public async Task ReplaceFileAsync(string path, string content, CancellationToken cancellationToken)
@@ -105,7 +153,7 @@ public sealed class SshCommandHost : ICommandHost
         // or a 0600 .env comes back world-readable.
         var mode = await ReadModeAsync(path, cancellationToken);
 
-        _sftp.Value.WriteAllText(temporary, content, Encoding.UTF8);
+        await WriteFileAsync(temporary, content, cancellationToken);
 
         var chmod = await RunAsync(
             ShellCommand.Of("chmod", mode ?? "600", temporary), cancellationToken);
@@ -145,12 +193,23 @@ public sealed class SshCommandHost : ICommandHost
         IProgress<long>? progress,
         CancellationToken cancellationToken)
     {
+        // Opened outside the guard below: a local file that cannot be read is not the target's
+        // fault, and naming the host in that message would point at the wrong machine.
         await using var source = File.OpenRead(localPath);
-        var sftp = _sftp.Value;
 
-        await Task.Run(
-            () => sftp.UploadFile(source, remotePath, uploaded => progress?.Report((long)uploaded)),
-            cancellationToken);
+        try
+        {
+            var sftp = _sftp.Value;
+
+            await Task.Run(
+                () => sftp.UploadFile(source, remotePath, uploaded => progress?.Report((long)uploaded)),
+                cancellationToken);
+        }
+        catch (Exception ex) when (Foreign(ex))
+        {
+            throw new CommandHostException(
+                $"Could not upload {remotePath} to {Description}: {ex.Message}", ex);
+        }
     }
 
     public async Task<string> CreateTempDirectoryAsync(CancellationToken cancellationToken)
@@ -176,13 +235,29 @@ public sealed class SshCommandHost : ICommandHost
             throw new CommandHostException($"Could not remove {path}: {result.FailureMessage}");
     }
 
+    /// Runs from the `await using` that wraps a whole command, so neither half may escape or skip
+    /// the other: a session already dropped would otherwise turn a finished backup into a failure,
+    /// or leave the ssh client undisposed because the sftp one threw on the way out.
     public ValueTask DisposeAsync()
     {
         if (_sftp.IsValueCreated)
-            _sftp.Value.Dispose();
+            Quietly(_sftp.Value.Dispose);
 
-        _ssh.Dispose();
+        Quietly(_ssh.Dispose);
         return ValueTask.CompletedTask;
+    }
+
+    private static void Quietly(Action dispose)
+    {
+        try
+        {
+            dispose();
+        }
+        catch (Exception)
+        {
+            // Closing a connection that is already gone is not a problem anyone can act on, and
+            // the caller is on its way out regardless.
+        }
     }
 
     /// Asked for a passphrase the config does not carry. Takes the key path and the attempt

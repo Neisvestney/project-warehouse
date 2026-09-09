@@ -9,17 +9,22 @@ namespace ProjectWarehouse.Ops.Ui;
 public sealed class TransferColumn : ProgressColumn
 {
     private readonly ConcurrentDictionary<int, long?> _totals = new();
+    private readonly ConcurrentDictionary<int, long> _moved = new();
 
     protected override bool NoWrap => true;
 
     public void Track(ProgressTask task, long? total) => _totals[task.Id] = total;
+
+    /// Bytes are kept here rather than read back off the task: a step whose size is unknown runs
+    /// against a scale of one, and the task's own value is bounded by that scale.
+    public void Advance(ProgressTask task, long transferred) => _moved[task.Id] = transferred;
 
     public override IRenderable Render(RenderOptions options, ProgressTask task, TimeSpan deltaTime)
     {
         if (!_totals.TryGetValue(task.Id, out var total))
             return new Text(string.Empty);
 
-        var done = ByteSize.Format((long)task.Value);
+        var done = ByteSize.Format(_moved.TryGetValue(task.Id, out var moved) ? moved : 0);
 
         return new Text(
             total is { } max ? $"{done}/{ByteSize.Format(max)}" : done,

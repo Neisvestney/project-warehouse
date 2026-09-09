@@ -60,7 +60,13 @@ public sealed class ProgressReporter(ProgressContext context, TransferColumn col
         public void Report(long value)
         {
             _transferred = _total is { } max ? Math.Min(value, max) : value;
-            _task.Value = _transferred;
+            _column.Advance(_task, _transferred);
+
+            // Left alone while the total is unknown: the task runs against a scale of one, so any
+            // real byte count lands on it as "finished" and the percentage beside the bar reads
+            // 100% for the whole of the step.
+            if (_total is not null)
+                _task.Value = _transferred;
 
             if (_tracked)
                 return;
