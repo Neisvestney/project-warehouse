@@ -604,8 +604,9 @@ public class OrdersController(
     /// <remarks>
     /// Lives here rather than under integrations because it is invoked from the order list and is
     /// scoped by warehouse like every other order operation.
-    /// Body: <c>orderIds</c> (deduplicated, at most <see cref="MaxLabelOrders"/>) and an optional
-    /// <c>grouping</c>. Answers <c>application/pdf</c> — one merged document in the order the ids were sent.
+    /// Body: <c>orderIds</c> (deduplicated, at most <see cref="MaxLabelOrders"/>), an optional
+    /// <c>grouping</c> and an optional <c>forceRegenerate</c>. Answers <c>application/pdf</c> — one merged
+    /// document in the order the ids were sent.
     /// <para>All or nothing: if any requested label is missing the file is withheld entirely. A batch of 30
     /// quietly arriving with 28 labels means two unshipped boxes.</para>
     /// <list type="bullet">
@@ -622,6 +623,10 @@ public class OrdersController(
     /// <c>count</c> travels beside <c>postingNumbers</c> because the client interpolates a scalar to pluralize;
     /// an array cannot. Per-posting labels are cached in <c>DataFile</c>, so a repeat call does not hit the
     /// marketplace; the merged document itself is not stored.
+    /// <para><c>forceRegenerate</c> ignores that cache: every label is refetched from the marketplace and the
+    /// stored file replaced. Since only a posting awaiting shipment can be reprinted, a forced job answers
+    /// 422 <c>marketplaceOrderNotAwaitingDeliver</c> for any posting that has moved on — including ones that
+    /// would have reprinted from the cache.</para>
     /// Requires <c>orders.view</c>, or <c>orders.view_assigned</c> limited to the caller's warehouses.
     /// </remarks>
     [HttpPost("labels")]
@@ -664,7 +669,8 @@ public class OrdersController(
         LabelBundle bundle;
         try
         {
-            bundle = await labels.BuildAsync(orderIds, request.Grouping, GetCurrentUserId(), ct);
+            bundle = await labels.BuildAsync(orderIds, request.Grouping, GetCurrentUserId(),
+                request.ForceRegenerate, ct);
         }
         catch (ValidationException ex)
         {

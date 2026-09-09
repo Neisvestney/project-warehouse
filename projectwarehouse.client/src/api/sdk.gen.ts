@@ -1806,8 +1806,9 @@ export const ordersSelfAssign = <ThrowOnError extends boolean = false>(
  *
  *     Lives here rather than under integrations because it is invoked from the order list and is
  * scoped by warehouse like every other order operation.
- * Body: `orderIds` (deduplicated, at most int OrdersController.MaxLabelOrders) and an optional
- * `grouping`. Answers `application/pdf` — one merged document in the order the ids were sent.
+ * Body: `orderIds` (deduplicated, at most int OrdersController.MaxLabelOrders), an optional
+ * `grouping` and an optional `forceRegenerate`. Answers `application/pdf` — one merged
+ * document in the order the ids were sent.
  * All or nothing: if any requested label is missing the file is withheld entirely. A batch of 30
  * quietly arriving with 28 labels means two unshipped boxes.
  * * 422 required — empty orderIds
@@ -1822,6 +1823,10 @@ export const ordersSelfAssign = <ThrowOnError extends boolean = false>(
  * `count` travels beside `postingNumbers` because the client interpolates a scalar to pluralize;
  * an array cannot. Per-posting labels are cached in `DataFile`, so a repeat call does not hit the
  * marketplace; the merged document itself is not stored.
+ * forceRegenerate ignores that cache: every label is refetched from the marketplace and the
+ * stored file replaced. Since only a posting awaiting shipment can be reprinted, a forced job answers
+ * 422 marketplaceOrderNotAwaitingDeliver for any posting that has moved on — including ones that
+ * would have reprinted from the cache.
  * Requires `orders.view`, or `orders.view_assigned` limited to the caller's warehouses.
  */
 export const ordersGetLabels = <ThrowOnError extends boolean = false>(

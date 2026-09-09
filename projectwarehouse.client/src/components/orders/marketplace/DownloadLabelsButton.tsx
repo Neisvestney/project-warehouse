@@ -14,9 +14,9 @@ function DownloadLabelsButton({orderIds}: DownloadLabelsButtonProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const {download, isPending, error, clearError} = useDownloadLabels();
 
-  async function handleConfirm(grouping: OrderLabelsGrouping) {
+  async function handleConfirm(grouping: OrderLabelsGrouping, forceRegenerate: boolean) {
     // closed either way: on failure the error dialog takes over, and the choice is remembered
-    await download({orderIds, grouping});
+    await download({orderIds, grouping, forceRegenerate});
     setIsDialogOpen(false);
   }
 

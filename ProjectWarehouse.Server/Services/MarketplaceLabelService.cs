@@ -25,7 +25,7 @@ public class MarketplaceLabelService(
     private readonly MarketplacesOptions _options = options.Value;
 
     public async Task<LabelBundle> BuildAsync(IReadOnlyList<Guid> orderIds, OrderLabelsGrouping grouping,
-        Guid? userId, CancellationToken ct)
+        Guid? userId, bool forceRegenerate, CancellationToken ct)
     {
         var orders = await db.Orders
             .Where(o => orderIds.Contains(o.Id))
@@ -40,9 +40,11 @@ public class MarketplaceLabelService(
 
         // The marketplace only prints labels for awaiting_deliver, so anything else has to already be
         // cached — a stored label reprints at any status, its posting having been packed long ago.
+        // A forced regenerate cannot lean on that cache, so the status has to hold for every posting.
         var notAwaitingDeliver = orderIds
             .Select(id => orders[id].MarketplaceOrder!)
-            .Where(mo => mo.LabelFileId is null && mo.Status != MarketplaceOrderStatus.AwaitingDeliver)
+            .Where(mo => (forceRegenerate || mo.LabelFileId is null)
+                         && mo.Status != MarketplaceOrderStatus.AwaitingDeliver)
             .Select(mo => mo.PostingNumber)
             .ToList();
         if (notAwaitingDeliver.Count > 0)
@@ -52,7 +54,7 @@ public class MarketplaceLabelService(
         var documents = new Dictionary<Guid, byte[]>();
 
         foreach (var group in orders.Values.GroupBy(o => o.MarketplaceOrder!.MarketplaceAccountId))
-            await BuildForAccountAsync(group.Key, [.. group], documents, notReady, userId, ct);
+            await BuildForAccountAsync(group.Key, [.. group], documents, notReady, userId, forceRegenerate, ct);
 
         if (notReady.Count > 0)
             return new LabelBundle(null, notReady, [], []);
@@ -83,7 +85,8 @@ public class MarketplaceLabelService(
             .OrderBy(s => s, StringComparer.Ordinal));
 
     private async Task BuildForAccountAsync(Guid accountId, IReadOnlyList<Order> orders,
-        Dictionary<Guid, byte[]> documents, List<string> notReady, Guid? userId, CancellationToken ct)
+        Dictionary<Guid, byte[]> documents, List<string> notReady, Guid? userId, bool forceRegenerate,
+        CancellationToken ct)
     {
         var account = await db.MarketplaceAccounts.FirstOrDefaultAsync(a => a.Id == accountId, ct)
             ?? throw new ValidationException("orderIds", ErrorCode.MarketplaceAccountNotFound,
@@ -94,8 +97,8 @@ public class MarketplaceLabelService(
 
         foreach (var order in orders)
         {
-            // already printed once — never regenerate, the label is on a box by now
-            if (order.MarketplaceOrder!.LabelFileId is { } fileId)
+            // already printed once — never regenerate unless asked to, the label is on a box by now
+            if (!forceRegenerate && order.MarketplaceOrder!.LabelFileId is { } fileId)
                 documents[order.Id] = await ReadCachedAsync(fileId, ct);
             else
                 missing.Add(order);
@@ -221,7 +224,8 @@ public class MarketplaceLabelService(
         var stamped = composer.Overlay(pdf, BuildArticles(order));
 
         // The DataFile row commits before LabelFileId is set. A crash in between leaves an orphan that
-        // the file GC reclaims after OrphanTtlHours — self-healing, so no transaction is needed.
+        // the file GC reclaims after OrphanTtlHours — self-healing, so no transaction is needed. The
+        // same GC picks up the file a regenerate replaces.
         using var content = new MemoryStream(stamped);
         var file = await dataFiles.CreateAsync(content, contentType,
             $"label-{marketplaceOrder.PostingNumber}.pdf", stamped.Length, userId, ct: ct);

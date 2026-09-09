@@ -15,4 +15,7 @@ public class OrderLabelsRequest
     public IReadOnlyList<Guid> OrderIds { get; init; } = [];
 
     public OrderLabelsGrouping Grouping { get; init; } = OrderLabelsGrouping.None;
+
+    /// <summary>Refetch every label from the marketplace, ignoring and replacing the stored one.</summary>
+    public bool ForceRegenerate { get; init; }
 }

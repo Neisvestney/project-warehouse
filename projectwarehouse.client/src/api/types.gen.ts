@@ -1094,6 +1094,10 @@ export type OrderLabelsGrouping = "none" | "article";
 export type OrderLabelsRequest = {
   orderIds: Array<string>;
   grouping: OrderLabelsGrouping;
+  /**
+   * Refetch every label from the marketplace, ignoring and replacing the stored one.
+   */
+  forceRegenerate: boolean;
 };
 
 export type OrderMarketplaceItemDto = {
