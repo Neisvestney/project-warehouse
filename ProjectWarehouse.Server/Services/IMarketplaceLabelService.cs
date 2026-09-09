@@ -18,6 +18,11 @@ public record LabelBundle(
 
 public interface IMarketplaceLabelService
 {
+    /// <summary>
+    /// <paramref name="forceRegenerate"/> ignores the stored label and fetches a fresh one from the
+    /// marketplace, replacing the cached file. Only a posting awaiting shipment can be reprinted that way,
+    /// so a stored label whose posting has moved on fails the job instead of falling back to the cache.
+    /// </summary>
     Task<LabelBundle> BuildAsync(IReadOnlyList<Guid> orderIds, OrderLabelsGrouping grouping, Guid? userId,
-        CancellationToken ct);
+        bool forceRegenerate, CancellationToken ct);
 }

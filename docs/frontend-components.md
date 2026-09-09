@@ -780,12 +780,14 @@ manual refresh.
 
 - `DownloadLabelsButton` — the bulk button in the FBS list's selection toolbar. It opens `DownloadLabelsDialog`
   with a «Группировать по» choice (`Не группировать` / `По артикулам`; the choice survives a reload in
-  `localStorage` under `orders-labels-grouping`) and sends **all** selected orders: the button _could_ know in
-  advance whether an order has a stored label, but filtering the user's selection for them is not its job — the
-  server's refusal comes back with a clear message.
-- `DownloadOrderLabelButton` — the button in the FBS order page header. A single order has nothing to group, so
-  there is no dialog. The button is always visible but greys out when `labelFileId` is empty and the status is
-  not `awaitingDeliver`, with a tooltip explaining why.
+  `localStorage` under `orders-labels-grouping`) and a «Перегенерировать этикетки» checkbox that maps to
+  `forceRegenerate` — unlike the grouping it is **not** remembered and resets whenever the dialog closes, since
+  a stuck flag would refetch every label from the marketplace on each print. It sends **all** selected orders:
+  the button _could_ know in advance whether an order has a stored label, but filtering the user's selection for
+  them is not its job — the server's refusal comes back with a clear message.
+- `DownloadOrderLabelButton` — the button in the FBS order page header. A single order has nothing to group and
+  nothing to regenerate on demand, so there is no dialog. The button is always visible but greys out when
+  `labelFileId` is empty and the status is not `awaitingDeliver`, with a tooltip explaining why.
 - `LabelsErrorDialog` — the refusal is shown as a modal rather than a snackbar: both `marketplaceLabelNotReady`
   and `marketplaceOrderNotAwaitingDeliver` carry a list of postings in `args.postingNumbers`, and a list of
   thirty numbers does not fit a snackbar and times out before it can be read. The last error is held in state

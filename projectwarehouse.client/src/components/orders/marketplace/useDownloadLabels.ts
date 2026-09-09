@@ -16,6 +16,7 @@ export interface LabelsError {
 interface DownloadLabelsOptions {
   orderIds: string[];
   grouping?: OrderLabelsGrouping;
+  forceRegenerate?: boolean;
   fileName?: string;
 }
 
@@ -34,6 +35,7 @@ export function useDownloadLabels() {
   async function download({
     orderIds,
     grouping = "none",
+    forceRegenerate = false,
     fileName = "labels.pdf",
   }: DownloadLabelsOptions): Promise<boolean> {
     setIsPending(true);
@@ -44,7 +46,7 @@ export function useDownloadLabels() {
       // The generated *Options helpers mistype binary endpoints, so the SDK function is called
       // directly with parseAs: "blob" — same approach as useFileBlobUrl.
       const response = await ordersGetLabels({
-        body: {orderIds, grouping},
+        body: {orderIds, grouping, forceRegenerate},
         parseAs: "blob",
         throwOnError: false,
       });
