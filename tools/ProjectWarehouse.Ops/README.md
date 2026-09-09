@@ -349,6 +349,13 @@ cannot be restored this way and is refused — the database comes back from its 
 archive is read end to end inside the target before the volume is emptied, so a truncated tar
 cannot destroy the only copy.
 
+`db` and `keys` restore together or not at all. The data protection key ring decrypts the
+marketplace API keys held in the database, so either one alone leaves them unreadable.
+
+A volume is emptied before extraction, otherwise files no backup ever contained would survive.
+`pg_restore` runs with `--clean --if-exists --single-transaction`, so a failure leaves the
+database as it was rather than half-loaded.
+
 `--yes` skips the confirmation, but never on a `danger` target: there the answer is the target's
 name typed out, and a script cannot give it.
 
@@ -356,7 +363,8 @@ name typed out, and a script cannot give it.
 
 ```
 pwops telemetry prod
-pwops telemetry prod --since 2 --clean
+pwops telemetry prod --signals traces,logs
+pwops telemetry prod --signals traces --rotated --since 2 --clean
 ```
 
 The production collector only writes OTLP JSON to a volume and rotates it; searching and drawing
@@ -364,18 +372,45 @@ happen here. This pulls that volume into `local.telemetryArchiveDir`, which is w
 `docker-compose.telemetry.yml` reads from — bring that stack up afterwards and the dashboard is
 on `http://localhost:18890`.
 
-`--since <days>` narrows the fetch by file age, `--clean` empties the local archive first so the
-replay shows this fetch alone. The tar is staged in a scratch file and only then extracted: a
-transfer that dies half way leaves a scratch file behind rather than a half-populated archive the
-replay stack would happily read.
+The collector runs one file exporter per signal, so a signal is a file-name prefix in the volume
+and choosing signals is choosing file names. `--signals` takes any of `traces`, `metrics`, `logs`
+and is prompted as a multi-select with everything preselected; without a terminal it takes all
+three rather than waiting for a keypress.
 
-`db` and `keys` restore together or not at all. The data protection key ring decrypts the
-marketplace API keys held in the database, so either one alone leaves them unreadable.
+`--rotated` adds the rotation backups to the file each signal is currently being written to. The
+default is the active files alone, and the difference is the bulk of the fetch: a rotation is
+capped at `max_megabytes` and there are up to `max_backups` of them per signal, while the active
+file is whatever has accumulated since the last rotation.
 
-A volume is emptied before extraction, otherwise files no backup ever contained would survive.
-`pg_restore` runs with `--clean --if-exists --single-transaction`, so a failure leaves the
-database as it was rather than half-loaded. On a `danger` target the confirmation is the target's
-name typed out.
+`--since <days>` narrows by file age, which only ever reaches the rotation backups — the collector
+writes continuously, so an active file is always recent. On its own it therefore changes nothing,
+and the command says so rather than quietly fetching the same bytes.
+
+Given neither option, a terminal is asked for the rotations and then, only if they are wanted, for
+the window as a list of ranges. The order is the explanation: the window narrows the rotations and
+nothing else, so it is not a question worth asking until they are in. Either option on the command
+line answers both, and a run with nothing to ask on takes the active files.
+
+The selection is gzipped into a file on the target, then read back and expanded here. The archive
+is JSON lines and compresses by an order of magnitude, which is most of what makes a full fetch
+practical over an SSH link; what lands on disk is the same bytes the collector wrote, because the
+replay receiver reads only uncompressed JSON.
+
+Compressing to a file rather than straight into the stream is what gives the transfer a size to
+draw a progress bar against — a compressed stream only reveals its length by ending. Gzip runs
+once either way, so the size costs a file on the target rather than a second pass over the data:
+a tenth of what the selection holds, removed as soon as the fetch is done. A target that could not
+be tidied up is reported as a line rather than a failure — the archive is already on disk by then.
+
+`--clean` drops the chosen signals from the local archive first, so the replay shows this fetch
+alone. It removes each chosen signal in full, rotations included even when the fetch skipped them:
+the replay stack reads every file in the directory, so one left behind would still turn up on the
+dashboard. Signals that were not chosen are untouched, as is anything in the directory that is not
+telemetry.
+
+What arrives is staged in a scratch file and only then extracted: a transfer that dies half way
+leaves a scratch file behind rather than a half-populated archive the replay stack would happily
+read.
 
 ## Layout
 

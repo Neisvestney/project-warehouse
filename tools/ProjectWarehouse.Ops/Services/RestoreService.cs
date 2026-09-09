@@ -74,19 +74,20 @@ public sealed class RestoreService(TargetContext target)
         }
         catch (Exception ex) when (ex is BackupException or CommandHostException or OperationCanceledException)
         {
-            await BringUpAsync(stopped, reporter, warnings);
-            await CleanStagingAsync(staging, warnings);
-
             return new RestoreOutcome(
                 false,
                 ex is OperationCanceledException ? "cancelled" : ex.Message,
                 warnings);
         }
-
-        // The stack has to come back up whichever way the restore ended, so this is not in the
-        // success path by accident — it is the same call the failure path makes.
-        await BringUpAsync(stopped, reporter, warnings);
-        await CleanStagingAsync(staging, warnings);
+        finally
+        {
+            // The stack has to come back up and the staging has to go whichever way the restore
+            // ended — including on an exception this method does not name. A backup file that
+            // cannot be read locally is not the target's failure, but leaving the target stopped
+            // and littered because of it would be.
+            await BringUpAsync(stopped, reporter, warnings);
+            await CleanStagingAsync(staging, warnings);
+        }
 
         return new RestoreOutcome(true, null, warnings);
     }

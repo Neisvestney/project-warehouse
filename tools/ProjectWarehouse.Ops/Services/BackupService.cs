@@ -200,12 +200,13 @@ public sealed class BackupService(TargetContext target)
         var fileName = $"{part}.tar";
         var path = Path.Combine(directory, fileName);
 
-        var total = await _volumes.MeasureAsync(volume, null, cancellationToken);
-        using var step = reporter.Begin($"volume {part}", total);
+        var contents = await _volumes.MeasureAsync(volume, VolumeFilter.All, cancellationToken);
+        using var step = reporter.Begin($"volume {part}", contents?.BarTotal);
 
         await StreamAsync(
             path,
-            file => _volumes.ArchiveAsync(volume, file, step, cancellationToken),
+            file => _volumes.ArchiveAsync(
+                volume, VolumeFilter.All, file, step, cancellationToken),
             failure => $"Archiving {volume} failed: {failure}",
             cancellationToken);
 
