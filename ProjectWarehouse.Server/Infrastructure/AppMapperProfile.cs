@@ -208,6 +208,7 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
             .ForMember(d => d.TotalPlannedCount, opt => opt.MapFrom(s => s.Items.Sum(i => i.PlannedCount)))
             .ForMember(d => d.TotalReceivedCount, opt => opt.MapFrom(s => s.Items.Sum(i => i.ReceivedCount ?? 0)))
+            .ForMember(d => d.Items, opt => opt.MapFrom(s => s.Items.OrderBy(i => i.Order).ThenBy(i => i.Id)))
             .ForMember(d => d.Attachments, opt => opt.MapFrom(s => s.Images.OrderBy(i => i.Order)));
 
         CreateMap<ReceiptImage, DataFileLinkDto>()
@@ -233,6 +234,7 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.ItemsCount, opt => opt.MapFrom(s => s.Items.Count));
         CreateMap<Writeoff, WriteoffDto>()
             .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
+            .ForMember(d => d.Items, opt => opt.MapFrom(s => s.Items.OrderBy(i => i.Order).ThenBy(i => i.Id)))
             .ForMember(d => d.Attachments, opt => opt.MapFrom(s => s.Images.OrderBy(i => i.Order)));
 
         CreateMap<WriteoffImage, DataFileLinkDto>()

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using AutoMapper;
 using ValidationException = ProjectWarehouse.Server.Infrastructure.ValidationException;
 using AutoMapper.QueryableExtensions;
@@ -440,6 +440,7 @@ public class ReceiptsController(
             Id            = Guid.NewGuid(),
             ReceiptId     = receipt.Id,
             CatalogItemId = request.CatalogItemId,
+            Order         = receipt.Items.Count == 0 ? 0 : receipt.Items.Max(i => i.Order) + 1,
             PlannedCount  = 0,
         });
         await db.SaveChangesAsync(ct);
@@ -496,11 +497,13 @@ public class ReceiptsController(
             db.ReceiptItems.Remove(item);
 
         // Update existing / add new
-        foreach (var req in items)
+        for (var order = 0; order < items.Count; order++)
         {
+            var req = items[order];
             var existing = receipt.Items.FirstOrDefault(i => i.CatalogItemId == req.CatalogItemId);
             if (existing is not null)
             {
+                existing.Order        = order;
                 existing.PlannedCount = req.PlannedCount;
                 existing.Notes        = req.Notes;
             }
@@ -517,6 +520,7 @@ public class ReceiptsController(
                     ReceiptId     = receipt.Id,
                     CatalogItemId = req.CatalogItemId,
                     CatalogItem   = catalogItem,
+                    Order         = order,
                     PlannedCount  = req.PlannedCount,
                     Notes         = req.Notes,
                 });

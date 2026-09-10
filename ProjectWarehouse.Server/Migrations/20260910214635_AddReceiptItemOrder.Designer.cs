@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ProjectWarehouse.Server.Data;
@@ -14,9 +15,11 @@ using ProjectWarehouse.Server.Models;
 namespace ProjectWarehouse.Server.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260910214635_AddReceiptItemOrder")]
+    partial class AddReceiptItemOrder
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1863,9 +1866,6 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("text");
 
-                    b.Property<int>("Order")
-                        .HasColumnType("integer");
-
                     b.Property<Guid>("SourceNodeId")
                         .HasColumnType("uuid");
 
@@ -1883,7 +1883,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("UnitInventoryItemId");
 
-                    b.HasIndex("WriteoffId", "Order");
+                    b.HasIndex("WriteoffId");
 
                     b.ToTable("WriteoffItems");
                 });

@@ -19,6 +19,9 @@ public class WriteoffItem : IHasIdentity
     public Guid SourceNodeId { get; set; }
     public StoragePlaceNode SourceNode { get; set; } = null!;
 
+    /// <summary>Position of the item within the write-off, ascending.</summary>
+    public int Order { get; set; }
+
     public string? Notes { get; set; }
 
     // Standard item fields
