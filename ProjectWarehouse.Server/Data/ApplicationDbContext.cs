@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Domain;
@@ -415,6 +415,8 @@ public class ApplicationDbContext : IdentityDbContext<
                 .WithMany()
                 .HasForeignKey(x => x.CatalogItemId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(x => new { x.ReceiptId, x.Order });
         });
 
         builder.Entity<ReceiptItemPlacement>(e =>
@@ -496,6 +498,8 @@ public class ApplicationDbContext : IdentityDbContext<
                 .HasForeignKey(x => x.UnitInventoryItemId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(x => new { x.WriteoffId, x.Order });
         });
 
         builder.Entity<Stocktake>(e =>

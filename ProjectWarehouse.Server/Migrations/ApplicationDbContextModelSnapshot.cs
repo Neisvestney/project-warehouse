@@ -20,7 +20,7 @@ namespace ProjectWarehouse.Server.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.11")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -1285,6 +1285,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("text");
 
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
                     b.Property<int>("PlannedCount")
                         .HasColumnType("integer");
 
@@ -1298,7 +1301,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("CatalogItemId");
 
-                    b.HasIndex("ReceiptId");
+                    b.HasIndex("ReceiptId", "Order");
 
                     b.ToTable("ReceiptItems");
                 });
@@ -1860,6 +1863,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("text");
 
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
                     b.Property<Guid>("SourceNodeId")
                         .HasColumnType("uuid");
 
@@ -1877,7 +1883,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("UnitInventoryItemId");
 
-                    b.HasIndex("WriteoffId");
+                    b.HasIndex("WriteoffId", "Order");
 
                     b.ToTable("WriteoffItems");
                 });

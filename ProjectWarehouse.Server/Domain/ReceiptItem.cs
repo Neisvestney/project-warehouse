@@ -12,6 +12,9 @@ public class ReceiptItem : IHasIdentity
     public Guid CatalogItemId { get; set; }
     public CatalogItem CatalogItem { get; set; } = null!;
 
+    /// <summary>Position of the item within the receipt, ascending.</summary>
+    public int Order { get; set; }
+
     public int PlannedCount { get; set; }
 
     /// <summary>Actual count verified during the Processing phase.</summary>

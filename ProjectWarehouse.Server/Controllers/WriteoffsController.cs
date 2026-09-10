@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Authorization;
@@ -391,13 +391,15 @@ public class WriteoffsController(
         db.WriteoffItems.RemoveRange(writeoff.Items);
         writeoff.Items.Clear();
 
-        foreach (var req in items)
+        for (var order = 0; order < items.Count; order++)
         {
+            var req = items[order];
             var item = new WriteoffItem
             {
                 Id           = Guid.NewGuid(),
                 WriteoffId   = writeoff.Id,
                 SourceNodeId = req.SourceNodeId,
+                Order        = order,
                 Notes        = req.Notes,
             };
 
