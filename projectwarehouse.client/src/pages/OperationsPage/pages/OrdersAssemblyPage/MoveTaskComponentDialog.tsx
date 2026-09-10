@@ -28,6 +28,7 @@ import {
 import type {AssemblyTaskBoxComponentDto, OrderBoxDto} from "@/api/types.gen";
 import {formatBoxLabel} from "@/components/orders/orderUtils";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
+import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 
 interface MoveTaskComponentDialogProps {
   open: boolean;
@@ -75,12 +76,8 @@ function MoveTaskComponentContent({
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [targetBoxId, setTargetBoxId] = useState<string>("");
   const [newBoxLabel, setNewBoxLabel] = useState("");
-  const [quantityInput, setQuantityInput] = useState(String(maxQuantity));
+  const [quantity, setQuantity] = useState(maxQuantity);
   const [error, setError] = useState<string | null>(null);
-
-  const parsedQuantity = Number(quantityInput);
-  const quantity =
-    quantityInput.trim() !== "" && Number.isFinite(parsedQuantity) ? parsedQuantity : 0;
 
   const targetsQuery = useQuery({
     ...ordersGetTaskMoveTargetsOptions({
@@ -128,17 +125,11 @@ function MoveTaskComponentContent({
       <DialogTitle>Переместить «{component.catalogItemName}»</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{mt: 1}}>
-          <TextField
+          <ClampedIntegerField
             label="Количество"
-            type="number"
-            value={quantityInput}
-            onChange={(e) => setQuantityInput(e.target.value)}
-            onBlur={() => {
-              if (quantityInput.trim() === "") return;
-              const clamped = Math.max(1, Math.min(maxQuantity, quantity || 1));
-              setQuantityInput(String(clamped));
-            }}
-            slotProps={{htmlInput: {min: 1, max: maxQuantity}}}
+            value={quantity}
+            max={maxQuantity}
+            onCommit={setQuantity}
             size="small"
             fullWidth
             helperText={`Доступно для перемещения: ${maxQuantity}`}

@@ -90,6 +90,7 @@ import {useBackClosable} from "@/hooks/useBackClosable.ts";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
 import CatalogItemLink from "@/components/catalog/CatalogItemLink.tsx";
 import {CATALOG_ITEM_TYPE_CONFIG} from "@/features/catalog";
+import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 
 const DRAWER_WIDTH = 1000;
 
@@ -737,16 +738,17 @@ function BundleComponentRow({
         name={`components.${index}.quantity`}
         rules={{required: true, min: {value: 1, message: "Мин. 1"}}}
         render={({field: f, fieldState}) => (
-          <TextField
-            {...f}
+          <ClampedIntegerField
+            name={f.name}
+            inputRef={f.ref}
+            value={f.value}
+            onCommit={f.onChange}
             label="Кол-во"
-            type="number"
             size="small"
             sx={{width: 90}}
             disabled={isPending}
             error={!!fieldState.error}
             helperText={fieldState.error?.message}
-            slotProps={{htmlInput: {min: 1}}}
           />
         )}
       />
@@ -1233,13 +1235,12 @@ function PrintLabelDialog({
               }
             />
           </RadioGroup>
-          <TextField
+          <ClampedIntegerField
             label="Количество копий"
-            type="number"
             size="small"
             value={copies}
-            onChange={(e) => setCopies(Math.max(1, Math.min(200, Number(e.target.value) || 1)))}
-            slotProps={{htmlInput: {min: 1, max: 200}}}
+            max={200}
+            onCommit={setCopies}
           />
         </Stack>
       </DialogContent>

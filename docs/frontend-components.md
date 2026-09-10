@@ -974,12 +974,57 @@ RHF-поле выбора часового пояса: `Autocomplete` в реж�
 
 ### `ClampedIntegerField`
 
-Number `TextField` for editing a quantity **outside** of RHF (local state, or committed through a callback).
-Keeps raw keystrokes uncommitted — including a temporarily empty field — until blur, so the min/max clamp does
-not fight the user while they type or clear the field. Use this instead of hand-rolling
-`Math.max(min, Number(e.target.value))` in an `onChange`, which snaps an emptied field back to the min on every
-keystroke.
+Number `TextField` for editing an integer quantity. Keeps raw keystrokes uncommitted — including a temporarily
+empty field — until blur, so the min/max clamp does not fight the user while they type or clear the field. Use
+this instead of hand-rolling `Math.max(min, Number(e.target.value))` in an `onChange`, which snaps an emptied
+field back to the min on every keystroke.
 
 `min` defaults to **1**; pass `min={0}` wherever zero is a legitimate value (stocktake counting relies on this).
 If `value` changes externally — after a mutation invalidates and refetches — the displayed text re-syncs,
 **unless the field is currently focused**, so it never clobbers an in-progress edit.
+
+Works with local state (`value` / `onCommit`) and inside RHF through a `Controller` — wire `onCommit` to
+`field.onChange` and pass `name` / `inputRef` so error autofocus on submit still finds the input:
+
+```tsx
+<Controller
+  control={form.control}
+  name="count"
+  rules={{
+    required: "Обязательное поле",
+    min: { value: 1, message: "Минимум 1" },
+  }}
+  render={({ field: f, fieldState }) => (
+    <ClampedIntegerField
+      name={f.name}
+      inputRef={f.ref}
+      value={f.value}
+      onCommit={f.onChange}
+      label="Количество"
+      error={!!fieldState.error}
+      helperText={fieldState.error?.message}
+    />
+  )}
+/>
+```
+
+`field.onBlur` is not forwarded, so a form using `mode: "onBlur"` gets no blur-triggered validation for these
+fields — the commit goes through `onChange` instead.
+
+**Calculator popover.** Typing `+`, `-`, `*` or `/` in the field opens a popover under it, seeded with the
+current value and that operator (`12+`). Enter evaluates, rounds with `Math.round`, clamps and commits;
+Escape closes it and returns focus to the field; clicking away commits whatever the field itself held.
+
+The popover holds **at most one pending operation** — pressing another operator folds the current one and
+carries the result over, so `12` `+20` `+5` shows `32+5` and commits `37`. There is no operator precedence and
+no brackets: the tape is evaluated strictly left to right, so `12+2*3` yields `42`. A non-finite result
+(division by zero) marks the popover input as errored and refuses to commit.
+
+`Popper` renders with `disablePortal` on purpose: the field is used inside dialogs and drawers, whose focus
+trap would pull focus out of a body-portaled popover and make it impossible to type into.
+
+Operators arrive via `onKeyDown`, so in practice the calculator is a desktop affordance — the mobile numeric
+keypad offers no `+`/`*` keys.
+
+Not a fit where the field must accept fractions or negatives, or where an empty value carries its own meaning
+(`null` for "не указано", zero for "skip this row") — the component always commits a clamped integer.

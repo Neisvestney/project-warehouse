@@ -28,6 +28,7 @@ import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
 import {useBackClosable} from "@/hooks/useBackClosable";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
+import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 import type {ReceiptDto} from "@/api/types.gen";
 
 interface ItemRow {
@@ -197,15 +198,15 @@ function ReceiptItemsEditorContent({
                       name={`items.${index}.plannedCount`}
                       rules={{required: true, min: 1}}
                       render={({field: f, fieldState}) => (
-                        <TextField
-                          {...f}
-                          type="number"
+                        <ClampedIntegerField
+                          name={f.name}
+                          inputRef={f.ref}
                           size="small"
                           label="Кол-во"
+                          value={f.value}
+                          onCommit={f.onChange}
                           error={!!fieldState.error}
                           disabled={mutation.isPending}
-                          slotProps={{htmlInput: {min: 1}}}
-                          onChange={(e) => f.onChange(Number(e.target.value))}
                           sx={{width: 100}}
                         />
                       )}
@@ -283,15 +284,15 @@ function ReceiptItemsEditorContent({
                       name={`items.${index}.plannedCount`}
                       rules={{required: true, min: 1}}
                       render={({field: f, fieldState}) => (
-                        <TextField
-                          {...f}
-                          type="number"
+                        <ClampedIntegerField
+                          name={f.name}
+                          inputRef={f.ref}
                           size="small"
                           fullWidth
+                          value={f.value}
+                          onCommit={f.onChange}
                           error={!!fieldState.error}
                           disabled={mutation.isPending}
-                          slotProps={{htmlInput: {min: 1}}}
-                          onChange={(e) => f.onChange(Number(e.target.value))}
                         />
                       )}
                     />

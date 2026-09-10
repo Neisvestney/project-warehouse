@@ -20,6 +20,7 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
+import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 import TestConnectionButton from "../../components/TestConnectionButton";
 import {formatApiKeyMask} from "../../marketplaceUtils";
 import type {MarketplaceAccountDto} from "@/api/types.gen";
@@ -115,18 +116,28 @@ function EditAccountDialog({open, account, onClose}: EditAccountDialogProps) {
             disabled={mutation.isPending}
             fullWidth
           />
-          <FormTextField
+          <Controller
             control={form.control}
             name="syncIntervalMinutes"
-            label="Интервал синхронизации, мин"
-            type="number"
             rules={{
               required: "Обязательное поле",
               min: {value: 1, message: "Минимум 1 минута"},
               max: {value: 10080, message: "Максимум 10080 минут"},
             }}
-            disabled={mutation.isPending}
-            fullWidth
+            render={({field: f, fieldState}) => (
+              <ClampedIntegerField
+                name={f.name}
+                inputRef={f.ref}
+                value={f.value}
+                onCommit={f.onChange}
+                max={10080}
+                label="Интервал синхронизации, мин"
+                disabled={mutation.isPending}
+                fullWidth
+                error={!!fieldState.error}
+                helperText={fieldState.error?.message}
+              />
+            )}
           />
           <Controller
             control={form.control}
