@@ -1018,6 +1018,10 @@ export type MeResponse = {
   lastName?: null | string;
   roles: Array<string>;
   permissions: Array<string>;
+  /**
+   * Warehouses this user is assigned to — what every `_assigned` permission is scoped by.
+   */
+  assignedWarehouseIds: Array<string>;
 };
 
 /**

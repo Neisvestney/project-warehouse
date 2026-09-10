@@ -1,4 +1,4 @@
-using ProjectWarehouse.Server.Infrastructure;
+﻿using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Models.Auth;
 
@@ -12,4 +12,7 @@ public class MeResponse : IHasIdentity
     public string? LastName { get; init; }
     public IReadOnlyList<string> Roles { get; init; } = [];
     public IReadOnlyList<string> Permissions { get; init; } = [];
+
+    /// <summary>Warehouses this user is assigned to — what every <c>_assigned</c> permission is scoped by.</summary>
+    public IReadOnlyList<Guid> AssignedWarehouseIds { get; init; } = [];
 }

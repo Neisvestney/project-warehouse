@@ -52,6 +52,10 @@ own — inventory (`/api/inventory-items`) and storage places with their cells (
 `warehouses.edit_assigned` edits cells of their own warehouses and gets `storagePlaceNotAssignedToWarehouse` on
 anyone else's.
 
+`GET /api/auth/me` returns `assignedWarehouseIds` alongside the effective permissions, so the client can gate
+warehouse-bound UI by the same pair the server checks. It is a UI convenience only — every request is still
+verified server-side.
+
 ## Access rules worth knowing
 
 **`receipts.process_assigned`** is the warehouse-floor permission: receiving physical goods, meaning
