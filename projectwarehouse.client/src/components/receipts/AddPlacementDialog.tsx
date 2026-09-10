@@ -14,7 +14,7 @@ import {
   useTheme,
 } from "@mui/material";
 import {useBackClosable} from "@/hooks/useBackClosable";
-import {useForm} from "react-hook-form";
+import {Controller, useForm} from "react-hook-form";
 import {useMutation, useQuery} from "@tanstack/react-query";
 import {
   receiptsAddStandardPlacementMutation,
@@ -23,6 +23,7 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
+import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 import SelectNodeModal from "@/components/receipts/SelectNodeModal";
 import type {ReceiptItemDto} from "@/api/types.gen";
 
@@ -128,15 +129,23 @@ function StandardPlacementForm({
           </Typography>
           <NodeSelector node={selectedNode} onSelect={setSelectedNode} warehouseId={warehouseId} />
         </Stack>
-        <FormTextField
+        <Controller
           control={form.control}
           name="count"
-          label="Количество"
-          type="number"
           rules={{required: "Обязательное поле", min: {value: 1, message: "Минимум 1"}}}
-          disabled={mutation.isPending}
-          fullWidth
-          slotProps={{htmlInput: {min: 1}}}
+          render={({field: f, fieldState}) => (
+            <ClampedIntegerField
+              name={f.name}
+              inputRef={f.ref}
+              value={f.value}
+              onCommit={f.onChange}
+              label="Количество"
+              disabled={mutation.isPending}
+              fullWidth
+              error={!!fieldState.error}
+              helperText={fieldState.error?.message}
+            />
+          )}
         />
         {form.formState.errors.root && (
           <Alert severity="error">{form.formState.errors.root.message}</Alert>
