@@ -894,6 +894,8 @@ export const authMeQueryKey = (options?: Options<AuthMeData>) => createQueryKey(
  *
  * Requires authentication, no permission. `permissions` is the effective set — role permissions
  * unioned with direct ones — read from the database per call, not from the token's claims.
+ * `assignedWarehouseIds` is what the `_assigned` permissions are scoped by, so the client can
+ * gate warehouse-bound UI the same way the server gates the request.
  * Returns 401 `tokenInvalid` for a token with no usable `sub` claim, and 404
  * `userNotFound` if the user was deleted while the token was still valid.
  */
@@ -4431,8 +4433,9 @@ export const receiptsAddStandardPlacementBatchMutation = (
  *
  *     Requires `receipts.edit` or `receipts.process_assigned`. For each Standard item an unset
  * `receivedCount` becomes `plannedCount`; the placement tops the item up to its received count,
- * so already entered counts and existing placements are kept. Unit items are skipped — they need an
- * inventory number and are placed by hand. Errors:
+ * so already entered counts and existing placements are kept. Skipped: Unit items (they need an inventory
+ * number and are placed by hand), items already placed beyond their target (writing the planned count over
+ * them would only block `finish`), and quick-added items with nothing planned. Errors:
  * * 404 receiptNotFound
  * * 422 receiptInvalidStatusTransition — receipt is not in Processing
  * * 422 warehouseDefaultNodeNotSet — the warehouse has no default node, or it points outside

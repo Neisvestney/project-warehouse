@@ -31,6 +31,9 @@ export function parseJwtUser(): JwtUser | null {
       firstName,
       lastName,
       roles: [],
+      // The token carries no warehouse assignment; the real list arrives with /me, so warehouse-scoped UI
+      // stays closed until then.
+      assignedWarehouseIds: [],
       permissions: Array.isArray(perm)
         ? perm.filter((p): p is string => typeof p === "string")
         : typeof perm === "string"

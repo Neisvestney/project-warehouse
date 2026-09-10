@@ -1,4 +1,5 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -147,6 +148,8 @@ public class AuthController(
     /// <remarks>
     /// Requires authentication, no permission. <c>permissions</c> is the effective set — role permissions
     /// unioned with direct ones — read from the database per call, not from the token's claims.
+    /// <c>assignedWarehouseIds</c> is what the <c>_assigned</c> permissions are scoped by, so the client can
+    /// gate warehouse-bound UI the same way the server gates the request.
     /// Returns 401 <c>tokenInvalid</c> for a token with no usable <c>sub</c> claim, and 404
     /// <c>userNotFound</c> if the user was deleted while the token was still valid.
     /// </remarks>
@@ -161,6 +164,11 @@ public class AuthController(
 
         var roles = await userManager.GetRolesAsync(me);
         var permissions = await permissionService.GetEffectivePermissionsAsync(me.Id);
+        var assignedWarehouseIds = await userManager.Users
+            .Where(u => u.Id == me.Id)
+            .SelectMany(u => u.AssignedWarehouses)
+            .Select(w => w.Id)
+            .ToListAsync();
 
         return Ok(new MeResponse
         {
@@ -172,6 +180,7 @@ public class AuthController(
             LastName = me.LastName,
             Roles = roles.ToList(),
             Permissions = permissions,
+            AssignedWarehouseIds = assignedWarehouseIds,
         });
     }
 }

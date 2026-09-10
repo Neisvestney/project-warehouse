@@ -141,6 +141,20 @@ is a filter, and an empty filter removes nothing, which matters because the rout
 already hold a permission list — `sectionVisibility.ts`, `mainNavConfig.tsx` — call the pure function with it.
 Nothing re-implements the check inline.
 
+`useHasWarehousePermission(all, assigned, warehouseId)` is the warehouse-scoped form, and it is what gates any
+UI acting on a single warehouse-bound entity: the unscoped permission passes everywhere, the `_assigned` one
+only when `warehouseId` is in the user's `assignedWarehouseIds` (from `/api/auth/me`, on `AuthContext`). It
+mirrors the server's `WarehouseScopedRule` exactly, so a button it shows is a request the server accepts.
+Pass the id straight off the loaded entity — `undefined` (nothing loaded yet) reads as "no access", so the
+control stays hidden rather than flashing. The plain `useHasPermission(["x.edit", "x.edit_assigned"])` is for
+places with no single warehouse in hand, such as a «создать» button above a list.
+
+`useIsAssignedToWarehouse(warehouseId)` is the assignment half on its own, for operations the server binds to
+the warehouse for *everyone* — assembly is the case: picking physical stock needs the assignment even from a
+holder of the unscoped `orders.edit`, so `OrderPage` composes it as `hasAssemblePermission && isAssigned`.
+Do not express that as an empty `all` list to `useHasWarehousePermission`: an empty requirement means "open to
+all" in `hasPermission`, and the check would pass for everyone.
+
 Two layouts nest inside each other. `MainLayout` is the shell every authenticated page shares — realtime
 stream, service-worker update watcher, URL-synced state. `MainAppBarLayout` sits inside it and adds the visual
 chrome: app bar and the page `Container`. `/scanner` and `/print` are children of `MainLayout` directly, so

@@ -13,7 +13,11 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import type {OrderStatus} from "@/api/types.gen";
 import {isNotFoundError} from "@/utils/errorUtils";
-import {useHasPermission} from "@/hooks/usePermission";
+import {
+  useHasPermission,
+  useHasWarehousePermission,
+  useIsAssignedToWarehouse,
+} from "@/hooks/usePermission";
 import {useEditLock} from "@/hooks/useEditLock";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageLoader from "@/components/PageLoader";
@@ -50,15 +54,12 @@ function OrderPage() {
   const queryClient = useQueryClient();
   const {enqueueSnackbar} = useSnackbar();
 
-  const canEdit = useHasPermission("orders.edit");
   const canSelfAssign = useHasPermission("orders.self_assign");
-  // The lock follows the server's CanEdit(Order), which admits edit_assigned — unlike `canEdit`, which
-  // gates the unscoped editing UI.
-  const canLockOrder = useHasPermission(["orders.edit", "orders.edit_assigned"]);
-  const canAssemble = useHasPermission(
-    ["orders.assemble_assigned", "orders.edit", "orders.edit_assigned"],
-    "any",
-  );
+  const hasAssemblePermission = useHasPermission([
+    "orders.assemble_assigned",
+    "orders.edit",
+    "orders.edit_assigned",
+  ]);
 
   const [isEditingMeta, setIsEditingMeta] = useState(false);
   const [cancelConfirm, setCancelConfirm] = useState(false);
@@ -70,6 +71,17 @@ function OrderPage() {
     meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
   });
 
+  // Mirrors the server's edit access: unscoped orders.edit, or orders.edit_assigned on this order's warehouse.
+  const canEdit = useHasWarehousePermission(
+    "orders.edit",
+    "orders.edit_assigned",
+    query.data?.warehouseId,
+  );
+  const isAssignedToWarehouse = useIsAssignedToWarehouse(query.data?.warehouseId);
+  // Assembly is warehouse-bound for everyone, unscoped orders.edit included — picking stock requires the
+  // assignment. Matches LoadOrderWithAssembleAccessAsync.
+  const canAssemble = hasAssemblePermission && isAssignedToWarehouse;
+
   const refreshOrder = useCallback(() => {
     void queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: id!}})});
   }, [queryClient, id]);
@@ -80,7 +92,7 @@ function OrderPage() {
     isFetching: query.isFetching,
     isLoading: query.isLoading,
     onRefresh: refreshOrder,
-    enabled: canLockOrder,
+    enabled: canEdit,
   });
 
   const transitionMutation = useMutation({
