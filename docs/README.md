@@ -61,6 +61,7 @@ is rationale, invariants, cross-cutting conventions and decisions.
 | [marketplaces-orders-fbs-specification.md](marketplaces-orders-fbs-specification.md) | FBS order sync — posting discovery, status catch-up, order creation, label retrieval |
 | [realtime-specification.md](realtime-specification.md) | Real-time transport — SSE, event schema, watch registry, advisory edit locks |
 | [data-files-specification.md](data-files-specification.md) | File storage — upload, storage abstraction, FK attachments, orphan GC, serving rules |
+| [assembler-daily-routine.md](assembler-daily-routine.md) | Инструкция сборщика — рабочий день целиком: Ozon, волны отсечек, листик, вечерняя сборка и отгрузка |
 
 ### Licence note
 
