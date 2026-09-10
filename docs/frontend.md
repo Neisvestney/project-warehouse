@@ -155,6 +155,11 @@ holder of the unscoped `orders.edit`, so `OrderPage` composes it as `hasAssemble
 Do not express that as an empty `all` list to `useHasWarehousePermission`: an empty requirement means "open to
 all" in `hasPermission`, and the check would pass for everyone.
 
+A component whose controls hit two endpoint families with different requirements takes **two props**, one per
+family — `AssemblyTaskAccordionItem` splits `canEditTask` (reassign, delete — `orders.edit` family) from
+`canTransitionStatus` (advance, roll back, undo a fulfillment — warehouse-bound for everyone). Collapsing them
+into one flag with `||` shows buttons that are certain to answer 403, whichever way the caller leans.
+
 Two layouts nest inside each other. `MainLayout` is the shell every authenticated page shares — realtime
 stream, service-worker update watcher, URL-synced state. `MainAppBarLayout` sits inside it and adds the visual
 chrome: app bar and the page `Container`. `/scanner` and `/print` are children of `MainLayout` directly, so
