@@ -93,6 +93,8 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   receiptNotAssignedToWarehouse: "Приемка не привязана к этому складу",
   receiptItemsUnderplaced: "Некоторые позиции размещены не полностью",
   receiptItemsOverplaced: "Некоторые позиции размещены сверх принятого количества",
+  receiptNothingToAutoAccept: "Все позиции уже заполнены и размещены",
+  warehouseDefaultNodeNotSet: "У склада не назначена ячейка по умолчанию",
   insufficientInventory: "Недостаточно товара на складе",
   inventoryItemNodeMismatch: "Товар больше не находится в ожидаемой ячейке. Обновите страницу",
   unitInventoryItemNumberDuplicate: "Инвентарный номер уже используется для этого товара",

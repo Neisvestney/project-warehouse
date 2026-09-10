@@ -9,6 +9,7 @@ public static class ReceiptActions
     public const string PlacementAdded       = "placement_added";
     public const string BatchPlacementsAdded = "batch_placements_added";
     public const string PlacementRemoved     = "placement_removed";
+    public const string AutoAccepted         = "auto_accepted";
     public const string Planned              = "planned";
     public const string ProcessingStarted    = "processing_started";
     public const string Finished             = "finished";

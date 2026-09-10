@@ -350,7 +350,8 @@ Also listens for the `auth:refreshTokenInvalid` window event and shows a session
 ### `ConfirmDialog`
 
 Generic confirmation dialog with a spinner on the confirm button; blocks backdrop-click dismissal while
-`isPending`. Used for every destructive confirm flow — do not hand-roll another one.
+`isPending`. Used for every destructive confirm flow — do not hand-roll another one. `confirmDisabled` greys out
+the confirm button for a dialog that also renders why the action cannot run.
 
 ## Catalog
 
@@ -930,6 +931,12 @@ for the override-over-default merge used in `AddFulfillmentDialog` / `BatchAssem
 `setState`-ing from inside a `useEffect` trips the `react-hooks/set-state-in-effect` lint rule).
 `AddPlacementDialog` calls the same endpoint directly, since it only seeds initial state once and never merges
 with a live override.
+
+`useDefaultStorageNodeQuery(warehouseId, enabled?)` is the same query with the loading and failure states kept:
+`{node, isPending, isError, error}`. Take it when the difference matters — the endpoint answers 404 for "no
+default assigned", so collapsing that into the same `null` as a network failure would tell the user to go and
+assign a cell they already have. `AutoAcceptDialog` uses it; `useDefaultStorageNode` is the thin wrapper that
+returns just `node`.
 
 ## Forms
 

@@ -266,6 +266,9 @@ import type {
   ReceiptsAddUnitPlacementData,
   ReceiptsAddUnitPlacementErrors,
   ReceiptsAddUnitPlacementResponses,
+  ReceiptsAutoAcceptData,
+  ReceiptsAutoAcceptErrors,
+  ReceiptsAutoAcceptResponses,
   ReceiptsCancelData,
   ReceiptsCancelErrors,
   ReceiptsCancelResponses,
@@ -2744,6 +2747,29 @@ export const receiptsAddStandardPlacementBatch = <ThrowOnError extends boolean =
       ...options.headers,
     },
   });
+
+/**
+ * Accept every unfilled Standard item as planned and place it into the warehouse default node.
+ *
+ *     Requires `receipts.edit` or `receipts.process_assigned`. For each Standard item an unset
+ * `receivedCount` becomes `plannedCount`; the placement tops the item up to its received count,
+ * so already entered counts and existing placements are kept. Unit items are skipped — they need an
+ * inventory number and are placed by hand. Errors:
+ * * 404 receiptNotFound
+ * * 422 receiptInvalidStatusTransition — receipt is not in Processing
+ * * 422 warehouseDefaultNodeNotSet — the warehouse has no default node, or it points outside
+ * the warehouse
+ * * 422 receiptNothingToAutoAccept — no Standard item needs a count or a placement
+ * * 403 permissionDenied / receiptNotAssignedToWarehouse; 401 tokenInvalid
+ */
+export const receiptsAutoAccept = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsAutoAcceptData, ThrowOnError>,
+): RequestResult<ReceiptsAutoAcceptResponses, ReceiptsAutoAcceptErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    ReceiptsAutoAcceptResponses,
+    ReceiptsAutoAcceptErrors,
+    ThrowOnError
+  >({url: "/api/receipts/{id}/auto-accept", ...options});
 
 /**
  * Place a Unit (serialised) item at a storage node. Only in Processing status.

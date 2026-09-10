@@ -19,6 +19,7 @@ interface ConfirmDialogProps {
   isPending?: boolean;
   confirmText?: string;
   confirmColor?: ButtonProps["color"];
+  confirmDisabled?: boolean;
   maxWidth?: DialogProps["maxWidth"];
 }
 
@@ -31,6 +32,7 @@ function ConfirmDialog({
   isPending = false,
   confirmText = "Подтвердить",
   confirmColor = "primary",
+  confirmDisabled = false,
   maxWidth = "xs",
 }: ConfirmDialogProps) {
   useBackClosable(open && !isPending, onClose);
@@ -43,7 +45,12 @@ function ConfirmDialog({
         <Button onClick={onClose} disabled={isPending}>
           Отмена
         </Button>
-        <Button color={confirmColor} variant="contained" onClick={onConfirm} disabled={isPending}>
+        <Button
+          color={confirmColor}
+          variant="contained"
+          onClick={onConfirm}
+          disabled={isPending || confirmDisabled}
+        >
           {isPending ? <CircularProgress size={20} color="inherit" /> : confirmText}
         </Button>
       </DialogActions>
