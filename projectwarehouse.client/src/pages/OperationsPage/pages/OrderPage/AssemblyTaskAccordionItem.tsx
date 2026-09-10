@@ -60,10 +60,18 @@ const TASK_STATUS_COLORS: Record<string, "default" | "warning" | "success"> = {
 interface AssemblyTaskAccordionItemProps {
   task: AssemblyTaskDto;
   order: OrderDetailsDto;
-  canEdit: boolean;
+  /** Managing the task itself — reassigning and deleting it. Needs orders.edit / orders.edit_assigned. */
+  canEditTask: boolean;
+  /** Working the task — moving its status and undoing fulfillments. Warehouse-bound for everyone. */
+  canTransitionStatus: boolean;
 }
 
-function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordionItemProps) {
+function AssemblyTaskAccordionItem({
+  task,
+  order,
+  canEditTask,
+  canTransitionStatus,
+}: AssemblyTaskAccordionItemProps) {
   const queryClient = useQueryClient();
   const openCatalogItem = useOpenCatalogItem();
   const theme = useTheme();
@@ -104,7 +112,7 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
     },
   });
 
-  const canDelete = canEdit && task.status === "pending";
+  const canDelete = canEditTask && task.status === "pending";
 
   const rollbackTarget: AssemblyTaskStatus | null =
     task.status === "inProgress" ? "pending" : task.status === "done" ? "inProgress" : null;
@@ -162,7 +170,7 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
             {fulfilledComponents}/{totalComponents}
           </Typography>
 
-          {canEdit && (advanceTarget || rollbackTarget) && (
+          {canTransitionStatus && (advanceTarget || rollbackTarget) && (
             <Stack direction="row" sx={{alignItems: "center", gap: 0.5}}>
               {advanceTarget && (
                 <Tooltip
@@ -213,7 +221,7 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
             </Stack>
           )}
 
-          {canEdit && (
+          {canEditTask && (
             <Tooltip title="Редактировать назначение">
               <IconButton
                 size="small"
@@ -368,7 +376,7 @@ function AssemblyTaskAccordionItem({task, order, canEdit}: AssemblyTaskAccordion
         isVariation={liveFulfillmentsComponent?.catalogItemType === "variation"}
         catalogItemId={liveFulfillmentsComponent?.catalogItemId}
         fulfillments={liveFulfillmentsComponent?.fulfillments ?? []}
-        canDelete={canEdit}
+        canDelete={canTransitionStatus}
         deletingFulfillmentId={
           removeFulfillmentMutation.isPending ? deleteFulfillmentTarget?.id : undefined
         }

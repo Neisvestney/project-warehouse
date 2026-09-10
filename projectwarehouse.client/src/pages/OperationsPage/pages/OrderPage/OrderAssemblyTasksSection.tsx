@@ -7,10 +7,17 @@ import AssemblyTaskAccordionItem from "./AssemblyTaskAccordionItem";
 
 interface OrderAssemblyTasksSectionProps {
   order: OrderDetailsDto;
-  canEdit: boolean;
+  /** Creating, reassigning and deleting tasks. Needs orders.edit / orders.edit_assigned. */
+  canEditTask: boolean;
+  /** Moving task status and undoing fulfillments. Warehouse-bound for everyone. */
+  canTransitionStatus: boolean;
 }
 
-function OrderAssemblyTasksSection({order, canEdit}: OrderAssemblyTasksSectionProps) {
+function OrderAssemblyTasksSection({
+  order,
+  canEditTask,
+  canTransitionStatus,
+}: OrderAssemblyTasksSectionProps) {
   const [createOpen, setCreateOpen] = useState(false);
 
   const showSection = order.status === "assembly" || order.status === "assembled";
@@ -22,7 +29,7 @@ function OrderAssemblyTasksSection({order, canEdit}: OrderAssemblyTasksSectionPr
         <Typography variant="subtitle1" sx={{fontWeight: 600}}>
           Задания на сборку
         </Typography>
-        {canEdit && order.status === "assembly" && (
+        {canEditTask && order.status === "assembly" && (
           <Button
             size="small"
             variant="outlined"
@@ -41,7 +48,13 @@ function OrderAssemblyTasksSection({order, canEdit}: OrderAssemblyTasksSectionPr
       )}
 
       {order.assemblyTasks.map((task) => (
-        <AssemblyTaskAccordionItem key={task.id} task={task} order={order} canEdit={canEdit} />
+        <AssemblyTaskAccordionItem
+          key={task.id}
+          task={task}
+          order={order}
+          canEditTask={canEditTask}
+          canTransitionStatus={canTransitionStatus}
+        />
       ))}
 
       <CreateAssemblyTaskDialog

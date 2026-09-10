@@ -420,7 +420,11 @@ function OrderPage() {
 
           {(order.status === "assembly" || order.status === "assembled") && (
             <Paper sx={{p: 3}}>
-              <OrderAssemblyTasksSection order={order} canEdit={canEdit || canAssemble} />
+              <OrderAssemblyTasksSection
+                order={order}
+                canEditTask={canEdit}
+                canTransitionStatus={canAssemble}
+              />
             </Paper>
           )}
 
