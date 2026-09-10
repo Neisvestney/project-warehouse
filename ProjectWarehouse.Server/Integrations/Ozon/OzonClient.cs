@@ -137,6 +137,8 @@ public class OzonClient(
                         Cutoff_from = cutoffFrom,
                         Cutoff_to = cutoffTo,
                     },
+                    // rides along on a call already being made — no extra request, no extra rate limit
+                    With = new PostingFbsUnfulfilledListRequestWith { Financial_data = true },
                 }, ct);
 
             var postings = (response.Postings ?? [])
@@ -257,6 +259,12 @@ public class OzonClient(
         if (string.IsNullOrWhiteSpace(posting.Posting_number))
             return null;
 
+        // financial_data indexes products by product_id, which is the same number products[] calls sku
+        var financials = (posting.Financial_data?.Products ?? [])
+            .Where(p => p.Product_id is not null)
+            .GroupBy(p => p.Product_id!.Value)
+            .ToDictionary(g => g.Key, g => g.First());
+
         return new ExternalPosting(
             posting.Posting_number,
             posting.Order_number,
@@ -271,13 +279,36 @@ public class OzonClient(
             posting.Tracking_number,
             posting.Multi_box_qty is > 0 ? posting.Multi_box_qty.Value : 1,
             (posting.Products ?? [])
-                .Select(p => new ExternalPostingItem(
-                    p.Sku?.ToString(CultureInfo.InvariantCulture),
-                    p.Offer_id ?? "",
-                    p.Name ?? "",
-                    p.Quantity ?? 0))
+                .Select(p => ToExternalPostingItem(p, financials))
                 .ToList());
     }
+
+    private static ExternalPostingItem ToExternalPostingItem(
+        PostingFbsUnfulfilledListResponsePostingsProducts product,
+        IReadOnlyDictionary<long, PostingFbsUnfulfilledListResponsePostingsFinancialDataProducts> financials)
+    {
+        var financial = product.Sku is { } sku && financials.TryGetValue(sku, out var found) ? found : null;
+
+        return new ExternalPostingItem(
+            product.Sku?.ToString(CultureInfo.InvariantCulture),
+            product.Offer_id ?? "",
+            product.Name ?? "",
+            product.Quantity ?? 0,
+            ParsePrice(financial?.Customer_price?.Amount),
+            Trim(financial?.Customer_price?.Currency),
+            ToMoney(financial?.Price),
+            ToMoney(financial?.Old_price),
+            ToMoney(financial?.Total_discount_value),
+            ToMoney(financial?.Payout),
+            // financial_data states no currency of its own for these; the line's own price carries it
+            Trim(product.Price?.Currency),
+            ToMoney(financial?.Commission?.Amount),
+            Trim(financial?.Commission?.Currency));
+    }
+
+    /// <summary>Ozon types most financial amounts as <c>double</c>; money is kept as decimal in WMS.</summary>
+    private static decimal? ToMoney(double? value) =>
+        value is { } amount && double.IsFinite(amount) ? Math.Round((decimal)amount, 2) : null;
 
     /// <summary>Ozon posting states collapsed to the WMS vocabulary. Unknown values are logged, not guessed.</summary>
     private MarketplaceOrderStatus ToOrderStatus(string? status)
