@@ -95,6 +95,7 @@ import {
   receiptsAddStandardPlacement,
   receiptsAddStandardPlacementBatch,
   receiptsAddUnitPlacement,
+  receiptsAutoAccept,
   receiptsCancel,
   receiptsCreate,
   receiptsCreateTag,
@@ -432,6 +433,9 @@ import type {
   ReceiptsAddUnitPlacementData,
   ReceiptsAddUnitPlacementError,
   ReceiptsAddUnitPlacementResponse,
+  ReceiptsAutoAcceptData,
+  ReceiptsAutoAcceptError,
+  ReceiptsAutoAcceptResponse,
   ReceiptsCancelData,
   ReceiptsCancelError,
   ReceiptsCancelResponse,
@@ -4412,6 +4416,44 @@ export const receiptsAddStandardPlacementBatchMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await receiptsAddStandardPlacementBatch({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Accept every unfilled Standard item as planned and place it into the warehouse default node.
+ *
+ *     Requires `receipts.edit` or `receipts.process_assigned`. For each Standard item an unset
+ * `receivedCount` becomes `plannedCount`; the placement tops the item up to its received count,
+ * so already entered counts and existing placements are kept. Unit items are skipped — they need an
+ * inventory number and are placed by hand. Errors:
+ * * 404 receiptNotFound
+ * * 422 receiptInvalidStatusTransition — receipt is not in Processing
+ * * 422 warehouseDefaultNodeNotSet — the warehouse has no default node, or it points outside
+ * the warehouse
+ * * 422 receiptNothingToAutoAccept — no Standard item needs a count or a placement
+ * * 403 permissionDenied / receiptNotAssignedToWarehouse; 401 tokenInvalid
+ */
+export const receiptsAutoAcceptMutation = (
+  options?: Partial<Options<ReceiptsAutoAcceptData>>,
+): UseMutationOptions<
+  ReceiptsAutoAcceptResponse,
+  ReceiptsAutoAcceptError,
+  Options<ReceiptsAutoAcceptData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsAutoAcceptResponse,
+    ReceiptsAutoAcceptError,
+    Options<ReceiptsAutoAcceptData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsAutoAccept({
         ...options,
         ...fnOptions,
         throwOnError: true,

@@ -608,12 +608,7 @@ public class ReceiptsController(
         var catalogItemId = item!.CatalogItemId;
         var warehouseId = receipt!.WarehouseId;
 
-        var action = receipt.Reason switch
-        {
-            ReceiptReason.NewGoods => InventoryActions.NewGoods,
-            ReceiptReason.Return => InventoryActions.ReturnStock,
-            _ => InventoryActions.UnknownAction
-        };
+        var action = InventoryActionFor(receipt.Reason);
 
         var nodeById = await LoadWarehouseNodesAsync(warehouseId, ct);
         var itemBefore = mapper.Map<ReceiptItemDto>(item, opts => opts.Items["nodeById"] = nodeById);
@@ -696,12 +691,7 @@ public class ReceiptsController(
             .Where(i => requestItemIds.Contains(i.Id))
             .ToDictionary(i => i.Id);
         
-        var action = receipt.Reason switch
-        {
-            ReceiptReason.NewGoods => InventoryActions.NewGoods,
-            ReceiptReason.Return => InventoryActions.ReturnStock,
-            _ => InventoryActions.UnknownAction
-        };
+        var action = InventoryActionFor(receipt.Reason);
 
         foreach (var req in request.Items)
         {
@@ -755,6 +745,113 @@ public class ReceiptsController(
         var updatedReceipt = await BaseQuery(includeItems: true).FirstAsync(r => r.Id == id, ct);
         var after = mapper.Map<ReceiptDto>(updatedReceipt, opts => opts.Items["nodeById"] = nodeById);
         await changeLog.CompareAndSaveToChangelog(before, after, ReceiptActions.BatchPlacementsAdded);
+
+        return Ok(after);
+    }
+
+    // ── POST auto-accept ──────────────────────────────────────────────────────
+
+    /// <summary>Accept every unfilled Standard item as planned and place it into the warehouse default node.</summary>
+    /// <remarks>
+    /// Requires <c>receipts.edit</c> or <c>receipts.process_assigned</c>. For each Standard item an unset
+    /// <c>receivedCount</c> becomes <c>plannedCount</c>; the placement tops the item up to its received count,
+    /// so already entered counts and existing placements are kept. Skipped: Unit items (they need an inventory
+    /// number and are placed by hand), items already placed beyond their target (writing the planned count over
+    /// them would only block <c>finish</c>), and quick-added items with nothing planned. Errors:
+    /// <list type="bullet">
+    ///   <item>404 <c>receiptNotFound</c></item>
+    ///   <item>422 <c>receiptInvalidStatusTransition</c> — receipt is not in Processing</item>
+    ///   <item>422 <c>warehouseDefaultNodeNotSet</c> — the warehouse has no default node, or it points outside
+    ///     the warehouse</item>
+    ///   <item>422 <c>receiptNothingToAutoAccept</c> — no Standard item needs a count or a placement</item>
+    ///   <item>403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c>; 401 <c>tokenInvalid</c></item>
+    /// </list>
+    /// </remarks>
+    [HttpPost("{id:guid}/auto-accept")]
+    [Authorize]
+    [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> AutoAccept(Guid id, CancellationToken ct = default)
+    {
+        var (receipt, error) = await LoadReceiptWithProcessAccessAsync(id, ct);
+        if (error is not null) return error;
+
+        if (receipt!.Status != ReceiptStatus.Processing)
+            return UnprocessableEntity("root", ErrorCode.ReceiptInvalidStatusTransition,
+                "Auto-accept is only available during Processing status.");
+
+        var warehouseId = receipt.WarehouseId;
+        var nodeById = await LoadWarehouseNodesAsync(warehouseId, ct);
+
+        var defaultNodeId = receipt.Warehouse.DefaultStoragePlaceNodeId;
+        if (defaultNodeId is null || !nodeById.ContainsKey(defaultNodeId.Value))
+            return UnprocessableEntity("root", ErrorCode.WarehouseDefaultNodeNotSet,
+                "No default storage place node is set for this warehouse.");
+
+        var action = InventoryActionFor(receipt.Reason);
+        var before = mapper.Map<ReceiptDto>(receipt, opts => opts.Items["nodeById"] = nodeById);
+        var touchedCount = 0;
+
+        try
+        {
+            await db.Database.ExecuteInTransactionAsync("receipts.auto-accept", async () =>
+            {
+                foreach (var item in receipt.Items)
+                {
+                    if (item.CatalogItem.Type != CatalogItemType.Standard) continue;
+
+                    var placed = TotalPlaced(item);
+                    var target = item.ReceivedCount ?? item.PlannedCount;
+
+                    // An over-placed item is left to be sorted out by hand: stamping the planned count over it
+                    // would only leave the receipt unable to finish.
+                    if (placed > target) continue;
+
+                    var needsCount = item.ReceivedCount is null;
+                    var countToPlace = target - placed;
+
+                    // A quick-added item (planned 0) is nobody's expectation — accepting zero for it says nothing.
+                    if (countToPlace == 0 && (!needsCount || target == 0)) continue;
+
+                    if (needsCount) item.ReceivedCount = target;
+                    touchedCount++;
+
+                    if (countToPlace == 0) continue;
+
+                    await inventory.AddStandardItemsToNodeAsync(
+                        defaultNodeId.Value,
+                        item.CatalogItemId,
+                        countToPlace,
+                        action: action,
+                        context: new StockMovementContext(id),
+                        ct: ct);
+
+                    db.ReceiptItemPlacements.Add(new ReceiptItemPlacement
+                    {
+                        Id                 = Guid.NewGuid(),
+                        ReceiptItemId      = item.Id,
+                        StoragePlaceNodeId = defaultNodeId.Value,
+                        Count              = countToPlace,
+                    });
+                }
+
+                await db.SaveChangesAsync(ct);
+            }, ct);
+        }
+        catch (StoragePlaceNodeNotFoundException)
+        {
+            return UnprocessableEntity("root", ErrorCode.WarehouseDefaultNodeNotSet,
+                "Default storage place node not found.");
+        }
+
+        if (touchedCount == 0)
+            return UnprocessableEntity("root", ErrorCode.ReceiptNothingToAutoAccept,
+                "Nothing to auto-accept: every Standard item is already filled in and placed.");
+
+        var updatedReceipt = await BaseQuery(includeItems: true).FirstAsync(r => r.Id == id, ct);
+        var after = mapper.Map<ReceiptDto>(updatedReceipt, opts => opts.Items["nodeById"] = nodeById);
+        await changeLog.CompareAndSaveToChangelog(before, after, ReceiptActions.AutoAccepted);
 
         return Ok(after);
     }
@@ -1005,7 +1102,7 @@ public class ReceiptsController(
             .Where(i => i.ReceivedCount.HasValue)
             .Where(i =>
             {
-                var placed = i.Placements.Sum(p => p.Count == 0 ? 1 : p.Count);
+                var placed = TotalPlaced(i);
                 return placed < i.ReceivedCount!.Value;
             })
             .ToList();
@@ -1018,7 +1115,7 @@ public class ReceiptsController(
             .Where(i => i.ReceivedCount.HasValue)
             .Where(i =>
             {
-                var placed = i.Placements.Sum(p => p.Count == 0 ? 1 : p.Count);
+                var placed = TotalPlaced(i);
                 return placed > i.ReceivedCount!.Value;
             })
             .ToList();
@@ -1208,6 +1305,18 @@ public class ReceiptsController(
 
         return (receipt, item, null);
     }
+
+    /// <summary>Units one placement stands for: a Unit placement carries no count and always means one.</summary>
+    private static int PlacedUnits(ReceiptItemPlacement p) => p.Count == 0 ? 1 : p.Count;
+
+    private static int TotalPlaced(ReceiptItem item) => item.Placements.Sum(PlacedUnits);
+
+    private static string InventoryActionFor(ReceiptReason reason) => reason switch
+    {
+        ReceiptReason.NewGoods => InventoryActions.NewGoods,
+        ReceiptReason.Return   => InventoryActions.ReturnStock,
+        _                      => InventoryActions.UnknownAction
+    };
 
     private async Task<Dictionary<Guid, StoragePlaceNode>> LoadWarehouseNodesAsync(
         Guid warehouseId, CancellationToken ct) =>

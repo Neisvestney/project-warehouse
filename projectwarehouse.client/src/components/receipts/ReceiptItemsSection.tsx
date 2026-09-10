@@ -51,6 +51,7 @@ import AddPlacementDialog from "@/components/receipts/AddPlacementDialog";
 import BatchStandardPlacementDialog from "@/components/receipts/BatchStandardPlacementDialog";
 import type {ReceiptDto, ReceiptItemDto, ReceiptItemPlacementDto} from "@/api/types.gen";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
+import {calcTotalPlaced} from "@/components/receipts/receiptUtils";
 
 const VIRTUAL_TYPES = new Set(["productGroup", "variation", "bundle"]);
 
@@ -103,10 +104,6 @@ function DiscrepancyText({
   );
 }
 
-function calcTotalPlaced(item: ReceiptItemDto): number {
-  return item.placements.reduce((sum, p) => sum + (p.count || (p.unitInventoryItemId ? 1 : 0)), 0);
-}
-
 interface ReceiptItemsSectionProps {
   receipt: ReceiptDto;
   onUpdate: (updated: ReceiptDto) => void;
@@ -140,11 +137,12 @@ function ReceivedCountInput({
   onUpdateItem: (data: ReceiptItemDto) => void;
 }) {
   const {enqueueSnackbar} = useSnackbar();
-  const [value, setValue] = useState<string>(
+  // Null means "not being edited", so a write from elsewhere (auto-accept) shows up without a remount.
+  const [draft, setDraft] = useState<string | null>(null);
+  const saved =
     item.receivedCount !== null && item.receivedCount !== undefined
       ? String(item.receivedCount)
-      : "",
-  );
+      : "";
 
   const queryKey = receiptsGetByIdOptions({path: {id: receiptId}}).queryKey;
   const queryClient = useQueryClient();
@@ -154,19 +152,20 @@ function ReceivedCountInput({
     meta: {suppressGlobalError: true},
     onSuccess: (data) => {
       queryClient.invalidateQueries({queryKey});
+      setDraft(null);
       onUpdateItem(data);
     },
     onError: (err) => enqueueSnackbar(extractErrorMessage(err), {variant: "error"}),
   });
 
   const save = () => {
-    const parsed = value === "" ? null : Number(value);
-    if (value !== "" && (isNaN(parsed!) || parsed! < 0)) return;
-    const current =
-      item.receivedCount !== null && item.receivedCount !== undefined
-        ? String(item.receivedCount)
-        : "";
-    if (value === current) return;
+    if (draft === null) return;
+    const parsed = draft === "" ? null : Number(draft);
+    if (draft !== "" && (isNaN(parsed!) || parsed! < 0)) return;
+    if (draft === saved) {
+      setDraft(null);
+      return;
+    }
     mutation.mutate({
       path: {id: receiptId, itemId: item.id},
       body: {receivedCount: parsed},
@@ -175,8 +174,8 @@ function ReceivedCountInput({
 
   return (
     <TextField
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
+      value={draft ?? saved}
+      onChange={(e) => setDraft(e.target.value)}
       onBlur={save}
       onKeyDown={(e) => {
         if (e.key === "Enter") save();

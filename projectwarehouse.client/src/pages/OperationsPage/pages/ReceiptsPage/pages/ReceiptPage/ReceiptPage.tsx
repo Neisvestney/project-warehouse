@@ -45,6 +45,7 @@ import WarehouseChip from "@/components/shared/WarehouseChip";
 import ReceiptStatusChip from "@/components/receipts/ReceiptStatusChip";
 import ReceiptItemsSection from "@/components/receipts/ReceiptItemsSection";
 import ReceiptTagsAutocomplete from "@/components/receipts/ReceiptTagsAutocomplete";
+import AutoAcceptDialog from "@/components/receipts/AutoAcceptDialog";
 import {RECEIPT_REASON_LABELS, formatReceiptNumber} from "@/components/receipts/receiptUtils";
 import AttachmentsSection from "@/components/files/controls/AttachmentsSection";
 import type {ReceiptDto, ReceiptReason, ReceiptTagDto} from "@/api/types.gen";
@@ -56,6 +57,7 @@ import UndoIcon from "@mui/icons-material/Undo";
 import TaskAltIcon from "@mui/icons-material/TaskAlt";
 import BlockIcon from "@mui/icons-material/Block";
 import SaveIcon from "@mui/icons-material/Save";
+import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 
 const ALL_REASONS: ReceiptReason[] = ["newGoods", "return", "other"];
 
@@ -193,6 +195,8 @@ function ReceiptPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [startProcessingOpen, setStartProcessingOpen] = useState(false);
+  const [autoAcceptOpen, setAutoAcceptOpen] = useState(false);
+  const [autoAcceptPending, setAutoAcceptPending] = useState(false);
 
   const canEdit = useHasPermission(["receipts.edit", "receipts.edit_assigned"]);
 
@@ -295,7 +299,8 @@ function ReceiptPage() {
     finishMutation.isPending ||
     revertMutation.isPending ||
     cancelMutation.isPending ||
-    deleteMutation.isPending;
+    deleteMutation.isPending ||
+    autoAcceptPending;
 
   return (
     <Box sx={{position: "relative"}}>
@@ -373,15 +378,25 @@ function ReceiptPage() {
                   </>
                 )}
                 {isProcessing && (
-                  <Button
-                    variant="contained"
-                    disabled={actionPending}
-                    onClick={() => finishMutation.mutate({path: {id: receipt.id}})}
-                    startIcon={<TaskAltIcon />}
-                    loading={finishMutation.isPending}
-                  >
-                    Завершить
-                  </Button>
+                  <>
+                    <Button
+                      variant="outlined"
+                      disabled={actionPending}
+                      onClick={() => setAutoAcceptOpen(true)}
+                      startIcon={<AutoFixHighIcon />}
+                    >
+                      Авто приёмка
+                    </Button>
+                    <Button
+                      variant="contained"
+                      disabled={actionPending}
+                      onClick={() => finishMutation.mutate({path: {id: receipt.id}})}
+                      startIcon={<TaskAltIcon />}
+                      loading={finishMutation.isPending}
+                    >
+                      Завершить
+                    </Button>
+                  </>
                 )}
                 {isFinished && (
                   <Button
@@ -555,6 +570,14 @@ function ReceiptPage() {
         >
           <Typography>Статус приемки будет изменён на «Отменена».</Typography>
         </ConfirmDialog>
+
+        <AutoAcceptDialog
+          open={autoAcceptOpen}
+          onClose={() => setAutoAcceptOpen(false)}
+          receipt={receipt}
+          onUpdate={updateLocalReceipt}
+          onPendingChange={setAutoAcceptPending}
+        />
 
         <ConfirmDialog
           open={startProcessingOpen}

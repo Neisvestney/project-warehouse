@@ -432,12 +432,25 @@ showing planned/received counts and a placements table.
 **Status transitions rendered as action buttons based on `receipt.status`:**
 - `draft` → **Запланировать** + **Редактировать состав** (opens `ReceiptItemsEditorDrawer`) + **Удалить**
 - `planned` → **Начать приёмку** + **Редактировать состав** + **Вернуть** + **Отменить**
-- `processing` → **Завершить** + **Вернуть** + **Отменить** (Вернуть/Отменить disabled if any placements exist)
+- `processing` → **Авто приёмка** + **Завершить** + **Вернуть** + **Отменить** (Вернуть/Отменить disabled if any placements exist)
 - `finished` → **Вернуть в обработку**
 - `canceled` → read-only, no actions
 
 `receivedCount` is editable only in `processing` (PATCH `.../received-count`), and placements can only be
 deleted there.
+
+**Авто приёмка** opens `AutoAcceptDialog` — the confirmation for `POST /api/receipts/{id}/auto-accept`. It
+takes the warehouse default node from `useDefaultStorageNodeQuery` and previews the plan built by
+`buildAutoAcceptPlan(items)` in `receiptUtils.ts`, which mirrors the server rule: how many Standard items are
+touched, how many of them get a received count, and how many pieces land in the cell. Two groups the server
+skips get their own warnings — serialised items that still need a cell, and items already placed beyond their
+target. Confirm is disabled when the warehouse has no default cell or nothing needs doing, and a failed
+default-node request reads as a failed request rather than as "no cell assigned". The mutation's pending state
+is lifted to the page so the status buttons cannot fire while the receipt is being rewritten.
+
+`ReceivedCountInput` holds its edit as a `draft` that is `null` while the field is untouched, falling back to
+`item.receivedCount`. That is what lets an outside write — auto-accept — reach an already-mounted input; keying
+the component by the count would do the same but yanks focus out of the field on Enter-to-save.
 
 ### `StocktakePage`
 

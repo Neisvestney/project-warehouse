@@ -31,14 +31,8 @@ import type {SelectedNode} from "@/components/receipts/SelectNodeModal";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
+import {calcRemainingToPlace} from "@/components/receipts/receiptUtils";
 
-function calcTotalPlaced(item: ReceiptItemDto): number {
-  return item.placements.reduce((sum, p) => sum + (p.count || (p.unitInventoryItemId ? 1 : 0)), 0);
-}
-
-function calcBatchCount(item: ReceiptItemDto): number {
-  return (item.receivedCount ?? item.plannedCount) - calcTotalPlaced(item);
-}
 function NodeSelector({
   node,
   onSelect,
@@ -144,7 +138,9 @@ function BatchStandardPlacementContent({
 
   const initialCounts = useMemo(
     () =>
-      Object.fromEntries(items.map((item) => [item.id, String(Math.max(1, calcBatchCount(item)))])),
+      Object.fromEntries(
+        items.map((item) => [item.id, String(Math.max(1, calcRemainingToPlace(item)))]),
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );

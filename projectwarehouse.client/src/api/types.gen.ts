@@ -731,7 +731,9 @@ export type ErrorCode =
   | "stockMovementPresetModified"
   | "stockMovementPresetLastOne"
   | "stockMovementPresetUnknownAction"
-  | "tagNotFound";
+  | "tagNotFound"
+  | "receiptNothingToAutoAccept"
+  | "warehouseDefaultNodeNotSet";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -6109,6 +6111,46 @@ export type ReceiptsAddStandardPlacementBatchResponses = {
 
 export type ReceiptsAddStandardPlacementBatchResponse =
   ReceiptsAddStandardPlacementBatchResponses[keyof ReceiptsAddStandardPlacementBatchResponses];
+
+export type ReceiptsAutoAcceptData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}/auto-accept";
+};
+
+export type ReceiptsAutoAcceptErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsAutoAcceptError = ReceiptsAutoAcceptErrors[keyof ReceiptsAutoAcceptErrors];
+
+export type ReceiptsAutoAcceptResponses = {
+  /**
+   * OK
+   */
+  200: ReceiptDto;
+};
+
+export type ReceiptsAutoAcceptResponse =
+  ReceiptsAutoAcceptResponses[keyof ReceiptsAutoAcceptResponses];
 
 export type ReceiptsAddUnitPlacementData = {
   body: CreateUnitPlacementRequest;
