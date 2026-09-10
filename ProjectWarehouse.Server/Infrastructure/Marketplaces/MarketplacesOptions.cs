@@ -26,8 +26,11 @@ public class LabelsOptions
 
     public double FontSize { get; set; } = 8;
 
-    /// <summary>Distance from the page edge, in points.</summary>
-    public double Margin { get; set; } = 6;
+    /// <summary>Distance from the right page edge, in points.</summary>
+    public double MarginX { get; set; } = 6;
+
+    /// <summary>Distance from the top page edge, in points.</summary>
+    public double MarginY { get; set; } = 6;
 }
 
 public class OzonOptions

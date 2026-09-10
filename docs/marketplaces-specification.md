@@ -926,10 +926,13 @@ Quartz регистрируется с in-memory хранилищем задач
     "MaxArticlesOnLabel": 3,
     "FontResourceName": "ProjectWarehouse.Server.Resources.Fonts.LabelFont.ttf",
     "FontSize": 8,
-    "Margin": 6
+    "MarginX": 6,
+    "MarginY": 6
   }
 }
 ```
+
+`MarginX` — отступ от правого края страницы, `MarginY` — от верхнего; строки артикулов прижаты к правому верхнему углу этикетки.
 
 `LabelBatchSize` вынесен в конфигурацию, но потолок в 20 задан самим Ozon — значение выше вернётся ошибкой площадки, а не ошибкой валидации.
 

@@ -9,7 +9,7 @@ namespace ProjectWarehouse.Server.Infrastructure.Labels;
 
 /// <summary>
 /// PDF surgery for marketplace labels: slice a batch into per-posting documents, stamp WMS articles
-/// along the left edge, merge the result for printing. No database, no HTTP.
+/// into the top-right corner, merge the result for printing. No database, no HTTP.
 /// </summary>
 public class LabelPdfComposer(IOptions<MarketplacesOptions> options)
 {
@@ -53,7 +53,7 @@ public class LabelPdfComposer(IOptions<MarketplacesOptions> options)
     }
 
     /// <summary>
-    /// Writes the article lines along the top edge of every page in the document.
+    /// Writes the article lines into the top-right corner of every page in the document.
     /// </summary>
     /// <remarks>
     /// No rotation: Ozon already hands the label over rotated, so the page arrives in the orientation it
@@ -74,14 +74,10 @@ public class LabelPdfComposer(IOptions<MarketplacesOptions> options)
         {
             using var gfx = XGraphics.FromPdfPage(page, XGraphicsPdfPageOptions.Append);
 
-            var width = lines.Max(l => gfx.MeasureString(l, font).Width);
-            // Ozon prints up to the edge too; a plate keeps the articles readable over it
-            gfx.DrawRectangle(XBrushes.White,
-                _options.Margin - 2, _options.Margin - 2, width + 4, lines.Count * lineHeight + 4);
-
+            var right = page.Width.Point - _options.MarginX;
             for (var i = 0; i < lines.Count; i++)
                 gfx.DrawString(lines[i], font, XBrushes.Black,
-                    _options.Margin, _options.Margin + i * lineHeight, XStringFormats.TopLeft);
+                    right, _options.MarginY + i * lineHeight, XStringFormats.TopRight);
         }
 
         return Save(document);
