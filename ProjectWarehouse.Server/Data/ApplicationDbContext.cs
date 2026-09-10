@@ -625,6 +625,21 @@ public class ApplicationDbContext : IdentityDbContext<
                 .HasForeignKey(x => x.MarketplaceCardId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // SetNull, not Restrict: the snapshot is a reporting reference, and a deleted catalog item
+            // must not block the order row from surviving with its money intact
+            e.HasOne(x => x.CatalogItem)
+                .WithMany()
+                .HasForeignKey(x => x.CatalogItemId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.Property(x => x.CustomerPrice).HasPrecision(18, 2);
+            e.Property(x => x.Price).HasPrecision(18, 2);
+            e.Property(x => x.OldPrice).HasPrecision(18, 2);
+            e.Property(x => x.DiscountValue).HasPrecision(18, 2);
+            e.Property(x => x.Payout).HasPrecision(18, 2);
+            e.Property(x => x.CommissionAmount).HasPrecision(18, 2);
         });
 
         builder.Entity<OrderBox>(e =>

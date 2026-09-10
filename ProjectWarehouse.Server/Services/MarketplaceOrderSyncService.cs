@@ -141,7 +141,7 @@ public class MarketplaceOrderSyncService(
             return false;
         }
 
-        var resolved = new List<(CardRow Card, int Quantity)>(posting.Items.Count);
+        var resolved = new List<(CardRow Card, ExternalPostingItem Item)>(posting.Items.Count);
         var unmapped = new List<string>();
 
         foreach (var item in posting.Items)
@@ -150,7 +150,7 @@ public class MarketplaceOrderSyncService(
             if (card is null || card.CatalogItemId is null)
                 unmapped.Add(item.OfferId);
             else
-                resolved.Add((card, item.Quantity));
+                resolved.Add((card, item));
         }
 
         if (unmapped.Count > 0)
@@ -184,7 +184,17 @@ public class MarketplaceOrderSyncService(
                 Id = Guid.NewGuid(),
                 OrderId = orderId,
                 MarketplaceCardId = r.Card.Id,
-                Quantity = r.Quantity,
+                CatalogItemId = r.Card.CatalogItemId,
+                Quantity = r.Item.Quantity,
+                CustomerPrice = r.Item.CustomerPrice,
+                CustomerCurrencyCode = r.Item.CustomerCurrencyCode,
+                Price = r.Item.Price,
+                OldPrice = r.Item.OldPrice,
+                DiscountValue = r.Item.DiscountValue,
+                Payout = r.Item.Payout,
+                CurrencyCode = r.Item.CurrencyCode,
+                CommissionAmount = r.Item.CommissionAmount,
+                CommissionCurrencyCode = r.Item.CommissionCurrencyCode,
             })],
             Boxes =
             [
@@ -201,7 +211,7 @@ public class MarketplaceOrderSyncService(
                             Id = Guid.NewGuid(),
                             OrderBoxId = boxId,
                             CatalogItemId = g.Key,
-                            Quantity = g.Sum(r => r.Quantity),
+                            Quantity = g.Sum(r => r.Item.Quantity),
                         })],
                 },
             ],
