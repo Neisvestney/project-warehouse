@@ -78,14 +78,23 @@ public class MarketplaceSyncService(
             if (run.Scope is MarketplaceSyncScope.Cards or MarketplaceSyncScope.All)
                 await SyncCardsAsync(provider, credentials, account, run, ct);
 
-            // Orders are outside All on purpose — they only ever run from an explicit user action
+            // Importing postings stays outside All on purpose — only that step can pile up skips,
+            // and they are worth nothing unless someone is looking at them when they appear.
             if (run.Scope is MarketplaceSyncScope.Orders)
             {
-                if (!provider.Capabilities.HasFlag(MarketplaceCapabilities.Orders))
-                    throw new ValidationException("accountId", ErrorCode.MarketplaceOrdersNotSupported,
-                        "This marketplace provider does not support order sync.");
-
+                RequireOrders(provider);
                 await orderSync.SyncOrdersAsync(provider, credentials, account, run, ct);
+            }
+            else if (run.Scope is MarketplaceSyncScope.OrdersBackground)
+            {
+                RequireOrders(provider);
+                await orderSync.SyncOrdersBackgroundAsync(provider, credentials, account, run, ct);
+            }
+            else if (run.Scope is MarketplaceSyncScope.All
+                     && provider.Capabilities.HasFlag(MarketplaceCapabilities.Orders))
+            {
+                // silently skipped for a provider without orders: All is whatever this account can do
+                await orderSync.SyncOrdersBackgroundAsync(provider, credentials, account, run, ct);
             }
 
             run.Status = MarketplaceSyncStatus.Success;
@@ -124,6 +133,13 @@ public class MarketplaceSyncService(
             await FailAsync(run, account, ErrorCode.MarketplaceApiError, ex.Message, ct);
             await LogFinishedAsync(before, account, run);
         }
+    }
+
+    private static void RequireOrders(IMarketplaceProvider provider)
+    {
+        if (!provider.Capabilities.HasFlag(MarketplaceCapabilities.Orders))
+            throw new ValidationException("accountId", ErrorCode.MarketplaceOrdersNotSupported,
+                "This marketplace provider does not support order sync.");
     }
 
     /// <summary>

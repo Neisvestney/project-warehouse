@@ -5,6 +5,7 @@
     "/v3/product/info/list",
     "/v1/seller/info",
     "/v4/posting/fbs/unfulfilled/list",
+    "/v4/posting/fbs/list",
     "/v3/posting/fbs/get",
     "/v2/posting/fbs/package-label"
   ],

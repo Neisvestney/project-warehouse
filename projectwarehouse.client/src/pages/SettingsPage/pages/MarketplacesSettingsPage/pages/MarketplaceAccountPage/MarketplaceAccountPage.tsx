@@ -38,8 +38,8 @@ import type {MarketplaceSyncScope, MarketplaceSyncStatus} from "@/api/types.gen"
 const TAB_KEYS = ["overview", "warehouses", "cards", "runs"] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
-// "orders" отсутствует намеренно: заказы тянутся только вручную со страницы FBS
-const SYNC_SCOPES: MarketplaceSyncScope[] = ["all", "warehouses", "cards"];
+// "orders" отсутствует намеренно: импорт заказов запускается со страницы FBS
+const SYNC_SCOPES: MarketplaceSyncScope[] = ["all", "warehouses", "cards", "ordersBackground"];
 
 /**
  * Вкладки делят один URL, поэтому у них общие имена параметров. При смене вкладки чистим их все —

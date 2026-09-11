@@ -179,6 +179,31 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         System.Threading.Tasks.Task<PostingFbsUnfulfilledListResponse> PostingFbsUnfulfilledListAsync(PostingFbsUnfulfilledListRequest body, System.Threading.CancellationToken cancellationToken);
 
         /// <summary>
+        /// Получить список отправлений
+        /// </summary>
+        /// <remarks>
+        /// Возвращает список отправлений за указанный период времени — он должен быть не больше одного года.
+        /// <br/>
+        /// <br/> Чтобы получать актуальную дату отгрузки, регулярно обновляйте информацию об отправлениях или подключите [пуш-уведомления](#tag/push_start).
+        /// </remarks>
+        /// <returns>Список отправлений</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<PostingFbsListResponse> PostingFbsListAsync(PostingFbsListRequest body);
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Получить список отправлений
+        /// </summary>
+        /// <remarks>
+        /// Возвращает список отправлений за указанный период времени — он должен быть не больше одного года.
+        /// <br/>
+        /// <br/> Чтобы получать актуальную дату отгрузки, регулярно обновляйте информацию об отправлениях или подключите [пуш-уведомления](#tag/push_start).
+        /// </remarks>
+        /// <returns>Список отправлений</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<PostingFbsListResponse> PostingFbsListAsync(PostingFbsListRequest body, System.Threading.CancellationToken cancellationToken);
+
+        /// <summary>
         /// Получить информацию об отправлении по идентификатору
         /// </summary>
         /// <remarks>
@@ -872,6 +897,157 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
                         if (status_ == 200)
                         {
                             var objectResponse_ = await ReadObjectResponseAsync<PostingFbsUnfulfilledListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        if (status_ == 400)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 403)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u0414\u043e\u0441\u0442\u0443\u043f \u0437\u0430\u043f\u0440\u0435\u0449\u0451\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 404)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u041e\u0442\u0432\u0435\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 409)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u041a\u043e\u043d\u0444\u043b\u0438\u043a\u0442 \u0437\u0430\u043f\u0440\u043e\u0441\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 500)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u0412\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u044f\u044f \u043e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new OzonApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Получить список отправлений
+        /// </summary>
+        /// <remarks>
+        /// Возвращает список отправлений за указанный период времени — он должен быть не больше одного года.
+        /// <br/>
+        /// <br/> Чтобы получать актуальную дату отгрузки, регулярно обновляйте информацию об отправлениях или подключите [пуш-уведомления](#tag/push_start).
+        /// </remarks>
+        /// <returns>Список отправлений</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        public virtual System.Threading.Tasks.Task<PostingFbsListResponse> PostingFbsListAsync(PostingFbsListRequest body)
+        {
+            return PostingFbsListAsync(body, System.Threading.CancellationToken.None);
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Получить список отправлений
+        /// </summary>
+        /// <remarks>
+        /// Возвращает список отправлений за указанный период времени — он должен быть не больше одного года.
+        /// <br/>
+        /// <br/> Чтобы получать актуальную дату отгрузки, регулярно обновляйте информацию об отправлениях или подключите [пуш-уведомления](#tag/push_start).
+        /// </remarks>
+        /// <returns>Список отправлений</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<PostingFbsListResponse> PostingFbsListAsync(PostingFbsListRequest body, System.Threading.CancellationToken cancellationToken)
+        {
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("POST");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                
+                    // Operation Path: "v4/posting/fbs/list"
+                    urlBuilder_.Append("v4/posting/fbs/list");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<PostingFbsListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -3367,6 +3543,871 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
 
     }
 
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListRequest
+    {
+
+        /// <summary>
+        /// Указатель для выборки следующих данных.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("cursor")]
+        public string? Cursor { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("filter")]
+        public PostingFbsListRequestFilter Filter { get; set; } = new PostingFbsListRequestFilter();
+
+        /// <summary>
+        /// Количество значений в ответе.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("limit")]
+        public long Limit { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("sort_dir")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<PostingFbsListRequestSortDirEnum>))]
+        public PostingFbsListRequestSortDirEnum? Sort_dir { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, чтобы включить транслитерацию адреса из кириллицы в латиницу.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("translit")]
+        public bool? Translit { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("with")]
+        public PostingFbsListRequestWith? With { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Фильтр.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListRequestFilter
+    {
+
+        /// <summary>
+        /// Идентификатор способа доставки. Можно получить с помощью метода [/v1/delivery-method/list](#operation/WarehouseAPI_DeliveryMethodList).
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("delivery_method_ids")]
+        public System.Collections.Generic.IReadOnlyList<string>? Delivery_method_ids { get; set; } = default!;
+
+        /// <summary>
+        /// Процесс обработки отправления:
+        /// <br/>- `ozon` — доставка силами Ozon;
+        /// <br/>- `aggregator` — доставка внешней службой, Ozon регистрирует заказ;
+        /// <br/>- `non_integrated` — доставка силами продавца;
+        /// <br/>- `3pl_tracking` — доставка внешней службой, продавец регистрирует заказ;
+        /// <br/>- `hybrid` — гибридная интеграция;
+        /// <br/>- `hybrid_aggregator` — гибридная интеграция с доставкой внешней службой, Ozon регистрирует заказ;
+        /// <br/>- `hybrid_non_integrated` — гибридная интеграция с доставкой силами продавца;
+        /// <br/>- `hybrid_3pl_tracking` — гибридная интеграция с доставкой внешней службой, продавец регистрирует заказ;
+        /// <br/>- `click_and_collect` — бронирование в магазине партнёра;
+        /// <br/>- `FBP` — доставка с партнёрских складов Ozon.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("integration_type_flow")]
+        public System.Collections.Generic.IReadOnlyList<string>? Integration_type_flow { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, если товар отслеживаемый.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("is_blr_traceable")]
+        public bool? Is_blr_traceable { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("last_changed_status_date")]
+        public PostingFbsListRequestFilterLastChangedStatusDate? Last_changed_status_date { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор заказа.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("order_id")]
+        public long? Order_id { get; set; } = default!;
+
+        /// <summary>
+        /// Номера заказов, к которым относятся отправления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("order_numbers")]
+        public System.Collections.Generic.IReadOnlyList<string>? Order_numbers { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор службы доставки. Можно получить с помощью метода [/v1/delivery-method/list](#operation/WarehouseAPI_DeliveryMethodList).
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("provider_ids")]
+        public System.Collections.Generic.IReadOnlyList<string>? Provider_ids { get; set; } = default!;
+
+        /// <summary>
+        /// Дата начала периода, за который нужно получить список отправлений.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("since")]
+        public System.DateTimeOffset Since { get; set; } = default!;
+
+        /// <summary>
+        /// Статус отправления:
+        /// <br/>- `awaiting_registration` — ожидает регистрации;
+        /// <br/>- `acceptance_in_progress` — идёт приёмка;
+        /// <br/>- `awaiting_approve` — ожидает подтверждения;
+        /// <br/>- `awaiting_packaging` — ожидает упаковки;
+        /// <br/>- `awaiting_deliver` — ожидает отгрузки;
+        /// <br/>- `arbitration` — арбитраж;
+        /// <br/>- `client_arbitration` — клиентский арбитраж доставки;
+        /// <br/>- `delivering` — доставляется;
+        /// <br/>- `driver_pickup` — у водителя;
+        /// <br/>- `delivered` — доставлено;
+        /// <br/>- `cancelled` — отменено;
+        /// <br/>- `not_accepted` — не принято на сортировочном центре;
+        /// <br/>- `sent_by_seller` – отправлено продавцом.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("statuses")]
+        public System.Collections.Generic.IReadOnlyList<string>? Statuses { get; set; } = default!;
+
+        /// <summary>
+        /// Дата конца периода, за который нужно получить список отправлений.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("to")]
+        public System.DateTimeOffset To { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор склада. Можно получить с помощью метода [/v1/warehouse/list](#operation/WarehouseAPI_WarehouseList).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("warehouse_ids")]
+        public System.Collections.Generic.IReadOnlyList<string>? Warehouse_ids { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Период, в который последний раз изменялся статус у отправлений.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListRequestFilterLastChangedStatusDate
+    {
+
+        /// <summary>
+        /// Дата начала периода.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("from")]
+        public System.DateTimeOffset? From { get; set; } = default!;
+
+        /// <summary>
+        /// Дата окончания периода.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("to")]
+        public System.DateTimeOffset? To { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Направление сортировки:
+    /// <br/>- `ASC` — по возрастанию;
+    /// <br/>- `DESC` — по убыванию.
+    /// <br/>
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum PostingFbsListRequestSortDirEnum
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"ASC")]
+        ASC = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"DESC")]
+        DESC = 1,
+
+    }
+
+    /// <summary>
+    /// Дополнительные поля, которые нужно добавить в ответ.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListRequestWith
+    {
+
+        /// <summary>
+        /// `true`, чтобы добавить в ответ данные аналитики.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("analytics_data")]
+        public bool? Analytics_data { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, чтобы добавить в ответ штрихкоды отправления.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("barcodes")]
+        public bool? Barcodes { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, чтобы добавить в ответ финансовые данные.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("financial_data")]
+        public bool? Financial_data { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, чтобы добавить в ответ юридическую информацию.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("legal_info")]
+        public bool? Legal_info { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponse
+    {
+
+        /// <summary>
+        /// Указатель для выборки следующих данных.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("cursor")]
+        public string? Cursor { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, если в ответе вернулись не все отправления.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("has_next")]
+        public bool? Has_next { get; set; } = default!;
+
+        /// <summary>
+        /// Список отправлений.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("postings")]
+        public System.Collections.Generic.IReadOnlyList<PostingFbsListResponsePostings>? Postings { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponsePostings
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("addressee")]
+        public PostingFbsListResponsePostingsAddressee? Addressee { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("analytics_data")]
+        public PostingFbsListResponsePostingsAnalyticsData? Analytics_data { get; set; } = default!;
+
+        /// <summary>
+        /// Доступные действия и информация об отправлении:
+        /// <br/>- `arbitration` — открыть спор;
+        /// <br/>- `awaiting_delivery` — перевести в статус «Ожидает отгрузки»;
+        /// <br/>- `can_create_chat` — начать чат с покупателем;
+        /// <br/>- `cancel` — отменить отправление;
+        /// <br/>- `click_track_number` — просмотреть по трек-номеру историю изменения статусов в личном кабинете;
+        /// <br/>- `customer_phone_available` — телефон покупателя;
+        /// <br/>- `has_weight_products` — весовые товары в отправлении;
+        /// <br/>- `hide_region_and_city` — скрыть регион и город покупателя в отчёте;
+        /// <br/>- `invoice_get` —  получить информацию из счёта-фактуры;
+        /// <br/>- `invoice_send` — создать счёт-фактуру;
+        /// <br/>- `invoice_update` — отредактировать счёт-фактуру;
+        /// <br/>- `label_download_big` — скачать большую этикетку;
+        /// <br/>- `label_download_small` — скачать маленькую этикетку;
+        /// <br/>- `label_download` — скачать этикетку;
+        /// <br/>- `non_int_delivered` — перевести в статус «Условно доставлен»;
+        /// <br/>- `non_int_delivering` — перевести в статус «Доставляется»;
+        /// <br/>- `non_int_last_mile` — перевести в статус «Курьер в пути»;
+        /// <br/>- `product_cancel` — отменить часть товаров в отправлении;
+        /// <br/>- `set_cutoff` — укажите дату отгрузки методом [/v1/posting/cutoff/set](#operation/PostingAPI_SetPostingCutoff) не позже даты в параметре `shipment_date`;
+        /// <br/>- `set_timeslot` — изменить время доставки покупателю;
+        /// <br/>- `set_track_number` — указать или изменить трек-номер;
+        /// <br/>- `ship_async_in_process` — отправление собирается;
+        /// <br/>- `ship_async_retry` — собрать отправление повторно после ошибки сборки;
+        /// <br/>- `ship_async` — собрать отправление;
+        /// <br/>- `ship_with_additional_info` — заполните дополнительную информацию методом [/v6/fbs/posting/product/exemplar/set](https://docs.ozon.ru/api/seller/#operation/PostingAPI_FbsPostingProductExemplarSetV6);
+        /// <br/>- `ship` — собрать отправление;
+        /// <br/>- `update_cis` — изменить дополнительную информацию.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("available_actions")]
+        public System.Collections.Generic.IReadOnlyList<string>? Available_actions { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("barcodes")]
+        public PostingFbsListResponsePostingsBarcodes? Barcodes { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("cancellation")]
+        public PostingFbsListResponsePostingsCancellation? Cancellation { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("customer")]
+        public PostingFbsListResponsePostingsCustomer? Customer { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("container")]
+        public PostingFbsListResponsePostingsContainer? Container { get; set; } = default!;
+
+        /// <summary>
+        /// Тип сортировки грузоместа:
+        /// <br/>  - `SORT` — сортируемый;
+        /// <br/>  - `NON-SORT` — несортируемый.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("container_sort_type")]
+        public string? Container_sort_type { get; set; } = default!;
+
+        /// <summary>
+        /// Дата передачи отправления в доставку.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("delivering_date")]
+        public System.DateTimeOffset? Delivering_date { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("delivery_method")]
+        public PostingFbsListResponsePostingsDeliveryMethod? Delivery_method { get; set; } = default!;
+
+        /// <summary>
+        /// Схема доставки:
+        /// <br/>- `SDS` — идентификатор единого SKU;
+        /// <br/>- `FBO` — идентификатор товара, который продаётся со склада Ozon;
+        /// <br/>- `FBS` — идентификатор товара, который продаётся со склада FBS;
+        /// <br/>- `Crossborder` — идентификатор товара, который продаётся из-за границы.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("delivery_schema")]
+        public string? Delivery_schema { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор места назначения.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("destination_place_id")]
+        public long? Destination_place_id { get; set; } = default!;
+
+        /// <summary>
+        /// Название места назначения.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("destination_place_name")]
+        public string? Destination_place_name { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("external_order")]
+        public PostingFbsListResponsePostingsExternalOrder? External_order { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("financial_data")]
+        public PostingFbsListResponsePostingsFinancialData? Financial_data { get; set; } = default!;
+
+        /// <summary>
+        /// Дата и время начала обработки отправления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("in_process_at")]
+        public System.DateTimeOffset? In_process_at { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, если отправление доставляется методом «Самовывоз из магазина».
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("is_click_and_collect")]
+        public bool? Is_click_and_collect { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, если использовалась быстрая доставка Ozon Express.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("is_express")]
+        public bool? Is_express { get; set; } = default!;
+
+        /// <summary>
+        /// Признак, что в отправлении есть многокоробочный товар и нужно передать количество коробок для него:
+        /// <br/>
+        /// <br/>- `true` — до сборки передайте количество коробок через метод [/v3/posting/multiboxqty/set](#operation/PostingAPI_PostingMultiBoxQtySetV3).
+        /// <br/>- `false` — отправление собрано с указанием количества коробок в параметре `multi_box_qty` или в отправлении нет многокоробочного товара.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("is_multibox")]
+        public bool? Is_multibox { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, если товар — пересорт.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("is_presortable")]
+        public bool? Is_presortable { get; set; } = default!;
+
+        /// <summary>
+        /// Процесс обработки отправления:
+        /// <br/>- `ozon` — доставка силами Ozon;
+        /// <br/>- `aggregator` — доставка внешней службой, Ozon регистрирует заказ;
+        /// <br/>- `non_integrated` — доставка силами продавца;
+        /// <br/>- `3pl_tracking` — доставка внешней службой, продавец регистрирует заказ;
+        /// <br/>- `hybrid` — гибридная интеграция;
+        /// <br/>- `hybrid_aggregator` — гибридная интеграция с доставкой внешней службой, Ozon регистрирует заказ;
+        /// <br/>- `hybrid_non_integrated` — гибридная интеграция с доставкой силами продавца;
+        /// <br/>- `hybrid_3pl_tracking` — гибридная интеграция с доставкой внешней службой, продавец регистрирует заказ;
+        /// <br/>- `click_and_collect` — бронирование в магазине партнёра;
+        /// <br/>- `FBP` — доставка с партнёрских складов Ozon.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("integration_type_flow")]
+        public string? Integration_type_flow { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("legal_info")]
+        public PostingFbsListResponsePostingsLegalInfo? Legal_info { get; set; } = default!;
+
+        /// <summary>
+        /// Количество коробок, в которые упакован товар.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("multi_box_qty")]
+        public int? Multi_box_qty { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("optional")]
+        public PostingFbsListResponsePostingsOptional? Optional { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор заказа, к которому относится отправление.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("order_id")]
+        public long? Order_id { get; set; } = default!;
+
+        /// <summary>
+        /// Номер заказа, к которому относится отправление.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("order_number")]
+        public string? Order_number { get; set; } = default!;
+
+        /// <summary>
+        /// Номер родительского отправления, в результате разделения которого появилось текущее.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("parent_posting_number")]
+        public string? Parent_posting_number { get; set; } = default!;
+
+        /// <summary>
+        /// Дата и время успешной валидации кода курьера. Проверьте код курьера методом [/v1/posting/fbs/pick-up-code/verify](#operation/PostingAPI_PostingFBSPickupCodeVerify).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("pickup_code_verified_at")]
+        public System.DateTimeOffset? Pickup_code_verified_at { get; set; } = default!;
+
+        /// <summary>
+        /// Номер отправления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("posting_number")]
+        public string? Posting_number { get; set; } = default!;
+
+        /// <summary>
+        /// Список товаров в отправлении.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("products")]
+        public System.Collections.Generic.IReadOnlyList<PostingFbsListResponsePostingsProducts>? Products { get; set; } = default!;
+
+        /// <summary>
+        /// Код услуги погрузочно-разгрузочных работ:
+        /// <br/>- `lift` — подъём на лифте;
+        /// <br/>- `stairs` — подъём по лестнице;
+        /// <br/>- `none` — покупатель отказался от услуги, поднимать товары не нужно;
+        /// <br/>- `delivery_default` — доставка включена в стоимость, по условиям оферты нужно доставить товар на этаж.
+        /// <br/>
+        /// <br/>Для КГТ-отправлений с доставкой силами продавца или интегрированной службой.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("prr_option")]
+        public string? Prr_option { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор эконом-товара.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("quantum_id")]
+        public long? Quantum_id { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, если нужно заполнить атрибуты отслеживаемости.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("require_blr_traceable_attrs")]
+        public bool? Require_blr_traceable_attrs { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("requirements")]
+        public PostingFbsListResponsePostingsRequirements? Requirements { get; set; } = default!;
+
+        /// <summary>
+        /// Дата и время, до которой нужно собрать отправление. Показываем рекомендованное время отгрузки. По истечении этого времени начнёт применяться новый тариф, информацию о нём получите в поле `tariffication`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("shipment_date")]
+        public System.DateTimeOffset? Shipment_date { get; set; } = default!;
+
+        /// <summary>
+        /// Дата и время отгрузки без просрочки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("shipment_date_without_delay")]
+        public System.DateTimeOffset? Shipment_date_without_delay { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("sorting_center")]
+        public PostingFbsListResponsePostingsSortingCenter? Sorting_center { get; set; } = default!;
+
+        /// <summary>
+        /// Статус отправления:
+        /// <br/>- `acceptance_in_progress` — идёт приёмка;
+        /// <br/>- `arbitration` — арбитраж;
+        /// <br/>- `awaiting_approve` — ожидает подтверждения;
+        /// <br/>- `awaiting_deliver` — ожидает отгрузки;
+        /// <br/>- `awaiting_packaging` — ожидает упаковки;
+        /// <br/>- `awaiting_registration` — ожидает регистрации;
+        /// <br/>- `awaiting_verification` — создано;
+        /// <br/>- `cancelled` — отменено;
+        /// <br/>- `cancelled_from_split_pending` — отменено из-за разделения отправления;
+        /// <br/>- `client_arbitration` — клиентский арбитраж доставки;
+        /// <br/>- `delivering` — доставляется;
+        /// <br/>- `driver_pickup` — у водителя;
+        /// <br/>- `not_accepted` — не принято на сортировочном центре.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        public string? Status { get; set; } = default!;
+
+        /// <summary>
+        /// Подстатус отправления:
+        /// <br/>- `posting_acceptance_in_progress`— идёт приёмка;
+        /// <br/>- `posting_in_arbitration` — арбитраж;
+        /// <br/>- `posting_created` — создано;
+        /// <br/>- `posting_in_carriage` — в перевозке;
+        /// <br/>- `posting_not_in_carriage` — не добавлено в перевозку;
+        /// <br/>- `posting_registered` — зарегистрировано;
+        /// <br/>- `posting_transferring_to_delivery`, если `status=awaiting_deliver` — передаётся в доставку;
+        /// <br/>- `posting_awaiting_passport_data` — ожидает паспортных данных;
+        /// <br/>- `posting_created` — создано;
+        /// <br/>- `posting_awaiting_registration` — ожидает регистрации;
+        /// <br/>- `posting_registration_error` — ошибка регистрации;
+        /// <br/>- `posting_transferring_to_delivery`, если `status=awaiting_registration` — передаётся курьеру;
+        /// <br/>- `posting_split_pending` — создано;
+        /// <br/>- `posting_canceled` — отменено;
+        /// <br/>- `posting_in_client_arbitration` — клиентский арбитраж доставки;
+        /// <br/>- `posting_delivered` — доставлено;
+        /// <br/>- `posting_received` — получено;
+        /// <br/>- `posting_conditionally_delivered` — условно доставлено;
+        /// <br/>- `posting_in_courier_service` — курьер в пути;
+        /// <br/>- `posting_in_pickup_point` — в пункте выдачи;
+        /// <br/>- `posting_on_way_to_city` — в пути в ваш город;
+        /// <br/>- `posting_on_way_to_pickup_point` — в пути в пункт выдачи;
+        /// <br/>- `posting_returned_to_warehouse` — возвращено на склад;
+        /// <br/>- `posting_transferred_to_courier_service` — передаётся в службу доставки;
+        /// <br/>- `posting_driver_pick_up` — у водителя;
+        /// <br/>- `posting_not_in_sort_center` — не принято на сортировочном центре;
+        /// <br/>- `ship_failed` — сборка не удалась.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("substatus")]
+        public string? Substatus { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("tariffication")]
+        public PostingFbsListResponsePostingsTariffication? Tariffication { get; set; } = default!;
+
+        /// <summary>
+        /// Этапы тарификации.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("tariffication_steps")]
+        public System.Collections.Generic.IReadOnlyList<PostingFbsListResponsePostingsTarifficationStep>? Tariffication_steps { get; set; } = default!;
+
+        /// <summary>
+        /// Тип интеграции со службой доставки:
+        /// <br/>  - `ozon` — доставка службой Ozon;
+        /// <br/>  - `3pl_tracking` — доставка интегрированной службой;
+        /// <br/>  - `non_integrated` — доставка сторонней службой;
+        /// <br/>  - `aggregator` — доставка через партнёрскую доставку Ozon;
+        /// <br/>  - `hybryd` — схема доставки Почты России.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("tpl_integration_type")]
+        public string? Tpl_integration_type { get; set; } = default!;
+
+        /// <summary>
+        /// Трек-номер отправления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("tracking_number")]
+        public string? Tracking_number { get; set; } = default!;
+
+        /// <summary>
+        /// Объёмный вес товара.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("volume_weight")]
+        public double? Volume_weight { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Контактные данные получателя.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponsePostingsAddressee
+    {
+
+        /// <summary>
+        /// Имя получателя.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string? Name { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Данные аналитики.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponsePostingsAnalyticsData
+    {
+
+        /// <summary>
+        /// Город доставки. Только для отправлений rFBS и продавцов из СНГ.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("city")]
+        public string? City { get; set; } = default!;
+
+        /// <summary>
+        /// Дата и время начала доставки. Только для отправлений, оформленных через [Ozon Доставку](#tag/OzonLogistics).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("client_delivery_date_begin")]
+        public System.DateTimeOffset? Client_delivery_date_begin { get; set; } = default!;
+
+        /// <summary>
+        /// Ожидаемая дата, до которой заказ будет доставлен. Только для отправлений, оформленных через [Ozon Доставку](#tag/OzonLogistics).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("client_delivery_date_end")]
+        public System.DateTimeOffset? Client_delivery_date_end { get; set; } = default!;
+
+        /// <summary>
+        /// Дата и время начала доставки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("delivery_date_begin")]
+        public System.DateTimeOffset? Delivery_date_begin { get; set; } = default!;
+
+        /// <summary>
+        /// Дата и время конца доставки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("delivery_date_end")]
+        public System.DateTimeOffset? Delivery_date_end { get; set; } = default!;
+
+        /// <summary>
+        /// Способ доставки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("delivery_type")]
+        public string? Delivery_type { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, если получатель юридическое лицо.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("is_legal")]
+        public bool? Is_legal { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, если у получателя есть подписка Premium.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("is_premium")]
+        public bool? Is_premium { get; set; } = default!;
+
+        /// <summary>
+        /// Способ оплаты: 
+        /// <br/>- `картой онлайн`;
+        /// <br/>- `карта Ozon Банка`;
+        /// <br/>- `автосписание с карты Ozon Банка при выдаче`;
+        /// <br/>- `сохранённой картой при получении`;
+        /// <br/>- `Система Быстрых Платежей`;
+        /// <br/>- `Ozon Рассрочка`;
+        /// <br/>- `оплата на расчётный счёт`;
+        /// <br/>- `SberPay`;
+        /// <br/>- `предоплата на стороне внешнего продавца`.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("payment_type_group_name")]
+        public string? Payment_type_group_name { get; set; } = default!;
+
+        /// <summary>
+        /// Регион доставки. Только для отправлений rFBS.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("region")]
+        public string? Region { get; set; } = default!;
+
+        /// <summary>
+        /// Служба доставки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("tpl_provider")]
+        public string? Tpl_provider { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор службы доставки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("tpl_provider_id")]
+        public long? Tpl_provider_id { get; set; } = default!;
+
+        /// <summary>
+        /// Название склада отправки заказа.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("warehouse")]
+        public string? Warehouse { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор склада.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("warehouse_id")]
+        public long? Warehouse_id { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Штрихкоды отправления.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponsePostingsBarcodes
+    {
+
+        /// <summary>
+        /// Нижний штрихкод на маркировке отправления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("lower_barcode")]
+        public string? Lower_barcode { get; set; } = default!;
+
+        /// <summary>
+        /// Верхний штрихкод на маркировке отправления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("upper_barcode")]
+        public string? Upper_barcode { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Информация об отмене.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponsePostingsCancellation
+    {
+
+        /// <summary>
+        /// `true`, если отмена влияет на рейтинг продавца.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("affect_cancellation_rating")]
+        public bool? Affect_cancellation_rating { get; set; } = default!;
+
+        /// <summary>
+        /// Причина отмены.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("cancel_reason")]
+        public string? Cancel_reason { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор причины отмены отправления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("cancel_reason_id")]
+        public long? Cancel_reason_id { get; set; } = default!;
+
+        /// <summary>
+        /// Инициатор отмены:
+        /// <br/>- `Продавец`,
+        /// <br/>- `Клиент`,
+        /// <br/>- `Покупатель`,
+        /// <br/>- `Ozon`,
+        /// <br/>- `Система`,
+        /// <br/>- `Служба доставки`.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("cancellation_initiator")]
+        public string? Cancellation_initiator { get; set; } = default!;
+
+        /// <summary>
+        /// Тип отмены:
+        /// <br/>- `seller` — отменено продавцом;
+        /// <br/>- `client` или `customer` — отменено покупателем;
+        /// <br/>- `ozon` — отменено Ozon;
+        /// <br/>- `system` — отменено системой;
+        /// <br/>- `delivery` — отменено службой доставки.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("cancellation_type")]
+        public string? Cancellation_type { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, если отмена произошла после сборки отправления.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("cancelled_after_ship")]
+        public bool? Cancelled_after_ship { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
     /// <summary>
     /// Информация о грузоместе.
     /// </summary>
@@ -3398,6 +4439,680 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("container_number")]
         public int? Container_number { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Информация о покупателе.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponsePostingsCustomer
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("address")]
+        public PostingFbsListResponsePostingsCustomerAddress? Address { get; set; } = default!;
+
+        /// <summary>
+        /// Электронная почта покупателя.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("customer_email")]
+        public string? Customer_email { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор покупателя.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("customer_id")]
+        public long? Customer_id { get; set; } = default!;
+
+        /// <summary>
+        /// Имя покупателя.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string? Name { get; set; } = default!;
+
+        /// <summary>
+        /// Подменный контактный телефон покупателя.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("phone")]
+        public string? Phone { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Адрес доставки.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponsePostingsCustomerAddress
+    {
+
+        /// <summary>
+        /// Адрес в текстовом формате.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("address_tail")]
+        public string? Address_tail { get; set; } = default!;
+
+        /// <summary>
+        /// Город доставки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("city")]
+        public string? City { get; set; } = default!;
+
+        /// <summary>
+        /// Комментарий к заказу.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("comment")]
+        public string? Comment { get; set; } = default!;
+
+        /// <summary>
+        /// Страна доставки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("country")]
+        public string? Country { get; set; } = default!;
+
+        /// <summary>
+        /// Район доставки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("district")]
+        public string? District { get; set; } = default!;
+
+        /// <summary>
+        /// Широта.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("latitude")]
+        public double? Latitude { get; set; } = default!;
+
+        /// <summary>
+        /// Долгота.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("longitude")]
+        public double? Longitude { get; set; } = default!;
+
+        /// <summary>
+        /// Код пункта выдачи заказов 3PL-провайдера.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("provider_pvz_code")]
+        public string? Provider_pvz_code { get; set; } = default!;
+
+        /// <summary>
+        /// Код пункта выдачи заказов.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("pvz_code")]
+        public long? Pvz_code { get; set; } = default!;
+
+        /// <summary>
+        /// Регион доставки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("region")]
+        public string? Region { get; set; } = default!;
+
+        /// <summary>
+        /// Почтовый индекс получателя.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("zip_code")]
+        public string? Zip_code { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Информация о способе доставки.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponsePostingsDeliveryMethod
+    {
+
+        /// <summary>
+        /// Идентификатор способа доставки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public long? Id { get; set; } = default!;
+
+        /// <summary>
+        /// Название способа доставки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string? Name { get; set; } = default!;
+
+        /// <summary>
+        /// Служба доставки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("tpl_provider")]
+        public string? Tpl_provider { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор службы доставки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("tpl_provider_id")]
+        public long? Tpl_provider_id { get; set; } = default!;
+
+        /// <summary>
+        /// Название склада.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("warehouse")]
+        public string? Warehouse { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор склада.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("warehouse_id")]
+        public long? Warehouse_id { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Информация о заказе с внешней платформы.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponsePostingsExternalOrder
+    {
+
+        /// <summary>
+        /// `true`, если заказ с внешней платформы.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("is_external")]
+        public bool? Is_external { get; set; } = default!;
+
+        /// <summary>
+        /// Название платформы, с которой сделали заказ.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("platform_name")]
+        public string? Platform_name { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Информация о стоимости товара, размере скидки, выплате и комиссии.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponsePostingsFinancialData
+    {
+
+        /// <summary>
+        /// Код региона, откуда отправляется заказ.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("cluster_from")]
+        public string? Cluster_from { get; set; } = default!;
+
+        /// <summary>
+        /// Код региона, куда доставляется заказ.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("cluster_to")]
+        public string? Cluster_to { get; set; } = default!;
+
+        /// <summary>
+        /// Список товаров в заказе.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("products")]
+        public System.Collections.Generic.IReadOnlyList<PostingFbsListResponsePostingsFinancialDataProducts>? Products { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponsePostingsFinancialDataProducts
+    {
+
+        /// <summary>
+        /// Список акций.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("actions")]
+        public System.Collections.Generic.IReadOnlyList<string>? Actions { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("commission")]
+        public PostingFbsListResponsePostingsFinancialDataProductsCommission? Commission { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("customer_price")]
+        public PostingMoney? Customer_price { get; set; } = default!;
+
+        /// <summary>
+        /// Цена до учёта скидок. На карточке товара отображается зачёркнутой.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("old_price")]
+        public double? Old_price { get; set; } = default!;
+
+        /// <summary>
+        /// Выплата продавцу.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("payout")]
+        public double? Payout { get; set; } = default!;
+
+        /// <summary>
+        /// Цена товара с учётом акций, кроме акций за счёт Ozon.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public double? Price { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор товара в системе Ozon — SKU.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("product_id")]
+        public long? Product_id { get; set; } = default!;
+
+        /// <summary>
+        /// Количество товара в отправлении.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("quantity")]
+        public long? Quantity { get; set; } = default!;
+
+        /// <summary>
+        /// Процент скидки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("total_discount_percent")]
+        public double? Total_discount_percent { get; set; } = default!;
+
+        /// <summary>
+        /// Сумма скидки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("total_discount_value")]
+        public double? Total_discount_value { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Комиссия за товар.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponsePostingsFinancialDataProductsCommission
+    {
+
+        /// <summary>
+        /// Размер комиссии за товар.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("amount")]
+        public double? Amount { get; set; } = default!;
+
+        /// <summary>
+        /// Код валюты, в которой рассчитывалась комиссия.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("currency")]
+        public string? Currency { get; set; } = default!;
+
+        /// <summary>
+        /// Процент комиссии.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("percent")]
+        public long? Percent { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Юридическая информация о покупателе.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponsePostingsLegalInfo
+    {
+
+        /// <summary>
+        /// Название компании.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("company_name")]
+        public string? Company_name { get; set; } = default!;
+
+        /// <summary>
+        /// ИНН.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("inn")]
+        public string? Inn { get; set; } = default!;
+
+        /// <summary>
+        /// КПП.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("kpp")]
+        public string? Kpp { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Список товаров с дополнительными характеристиками.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponsePostingsOptional
+    {
+
+        /// <summary>
+        /// Список товаров с возможной маркировкой.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("products_with_possible_mandatory_mark")]
+        public System.Collections.Generic.IReadOnlyList<string>? Products_with_possible_mandatory_mark { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponsePostingsProducts
+    {
+
+        /// <summary>
+        /// Список IMEI мобильных устройств.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("imei")]
+        public System.Collections.Generic.IReadOnlyList<string>? Imei { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, если товар отслеживаемый.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("is_blr_traceable")]
+        public bool? Is_blr_traceable { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, если Ozon выкупил товар.
+        /// <br/>
+        /// <br/>[Подробнее о выкупе товаров в Базе знаний продавца](https://seller-edu.ozon.ru/commissions-tariffs/commissions-tariffs-ozon/prodaji-tovarov-v-eaes-i-drugie-strany#какие-товары-выкупает-ozon)
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("is_marketplace_buyout")]
+        public bool? Is_marketplace_buyout { get; set; } = default!;
+
+        /// <summary>
+        /// Название товара.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string? Name { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор товара в системе продавца — артикул.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("offer_id")]
+        public string? Offer_id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public PostingMoney? Price { get; set; } = default!;
+
+        /// <summary>
+        /// Цвет товара.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("product_color")]
+        public string? Product_color { get; set; } = default!;
+
+        /// <summary>
+        /// Количество товара в отправлении.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("quantity")]
+        public int? Quantity { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор товара в системе Ozon — SKU.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("sku")]
+        public long? Sku { get; set; } = default!;
+
+        /// <summary>
+        /// Вес товара в упаковке.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("weight")]
+        public double? Weight { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Товары, для которых нужна дополнительная информация.
+    /// <br/>
+    /// <br/>Чтобы перевести отправление в следующий статус, передайте:
+    /// <br/>- страну-изготовителя; 
+    /// <br/>- номер грузовой таможенной декларации (ГТД);
+    /// <br/>- регистрационный номер партии товара (РНПТ);
+    /// <br/>- маркировку «Честный знак»;
+    /// <br/>- другие маркировки;
+    /// <br/>- вес.
+    /// <br/>
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponsePostingsRequirements
+    {
+
+        /// <summary>
+        /// Список идентификаторов товаров (SKU), для которых нужно изменить страну-изготовителя. Чтобы изменить страну-изготовителя, используйте методы [/v2/posting/fbs/product/country/list](#operation/PostingAPI_ListCountryProductFbsPostingV2) и [/v2/posting/fbs/product/country/set](#operation/PostingAPI_SetCountryProductFbsPostingV2).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("products_requiring_change_country")]
+        public System.Collections.Generic.IReadOnlyList<string>? Products_requiring_change_country { get; set; } = default!;
+
+        /// <summary>
+        /// Список идентификаторов товаров (SKU), для которых нужно передать информацию о стране-изготовителе.
+        /// <br/>
+        /// <br/>Для сборки отправления передайте информацию о стране-изготовителе для всех перечисленных товаров методом [/v2/posting/fbs/product/country/set](#operation/PostingAPI_SetCountryProductFbsPostingV2).
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("products_requiring_country")]
+        public System.Collections.Generic.IReadOnlyList<string>? Products_requiring_country { get; set; } = default!;
+
+        /// <summary>
+        /// Список идентификаторов товаров (SKU), для которых нужно передать номера грузовой таможенной декларации (ГТД).
+        /// <br/>
+        /// <br/>До сборки отправления передайте для всех перечисленных товаров номер грузовой таможенной декларации или информацию о том, 
+        /// <br/>что номера нет, методом [/v6/fbs/posting/product/exemplar/set](#operation/PostingAPI_FbsPostingProductExemplarSetV6).
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("products_requiring_gtd")]
+        public System.Collections.Generic.IReadOnlyList<string>? Products_requiring_gtd { get; set; } = default!;
+
+        /// <summary>
+        /// Список идентификаторов товаров, для которых нужно передать IMEI.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("products_requiring_imei")]
+        public System.Collections.Generic.IReadOnlyList<string>? Products_requiring_imei { get; set; } = default!;
+
+        /// <summary>
+        /// Список товаров, для которых нужно передать уникальный идентификационный номер (УИН) ювелирного изделия.
+        /// <br/>
+        /// <br/>До сборки отправления передайте для всех перечисленных товаров УИН методом [/v6/fbs/posting/product/exemplar/set](#operation/PostingAPI_FbsPostingProductExemplarSetV6).
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("products_requiring_jw_uin")]
+        public System.Collections.Generic.IReadOnlyList<string>? Products_requiring_jw_uin { get; set; } = default!;
+
+        /// <summary>
+        /// Список идентификаторов товаров (SKU), для которых нужно передать маркировку «Честный знак».
+        /// <br/>
+        /// <br/>До сборки отправления передайте для всех перечисленных товаров маркировку «Честный знак» методом [/v6/fbs/posting/product/exemplar/set](#operation/PostingAPI_FbsPostingProductExemplarSetV6).
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("products_requiring_mandatory_mark")]
+        public System.Collections.Generic.IReadOnlyList<string>? Products_requiring_mandatory_mark { get; set; } = default!;
+
+        /// <summary>
+        /// Список идентификаторов товаров (SKU), для которых нужно передать регистрационный номер партии товара (РНПТ).
+        /// <br/>
+        /// <br/>До сборки отправления передайте для всех перечисленных товаров РНПТ методом [/v6/fbs/posting/product/exemplar/set](#operation/PostingAPI_FbsPostingProductExemplarSetV6).
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("products_requiring_rnpt")]
+        public System.Collections.Generic.IReadOnlyList<string>? Products_requiring_rnpt { get; set; } = default!;
+
+        /// <summary>
+        /// Список товаров, для которых нужно передать вес.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("products_requiring_weight")]
+        public System.Collections.Generic.IReadOnlyList<string>? Products_requiring_weight { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Информация о сортировочном центре, в который нужно привезти отправление. Для `integration_type_flow = hybrid_3pl_tracking`.
+    /// <br/>Если значение `null`, информацию получить не удалось.
+    /// <br/>
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponsePostingsSortingCenter
+    {
+
+        /// <summary>
+        /// Код сортировочного центра.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("code")]
+        public string? Code { get; set; } = default!;
+
+        /// <summary>
+        /// Название сортировочного центра.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string? Name { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Информация по тарификации отгрузки.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsListResponsePostingsTariffication
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("current_tariff_charge")]
+        public MoneyCurrent_tariff_charge? Current_tariff_charge { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("current_tariff_min_charge")]
+        public MoneyCurrent_tariff_min_charge? Current_tariff_min_charge { get; set; } = default!;
+
+        /// <summary>
+        /// Процент тарификации.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("current_tariff_rate")]
+        public double? Current_tariff_rate { get; set; } = default!;
+
+        /// <summary>
+        /// Тип тарификации — скидка или надбавка.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("current_tariff_type")]
+        public string? Current_tariff_type { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("next_tariff_charge")]
+        public MoneyNext_tariff_charge? Next_tariff_charge { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("next_tariff_min_charge")]
+        public MoneyNext_tariff_min_charge? Next_tariff_min_charge { get; set; } = default!;
+
+        /// <summary>
+        /// Процент, по которому будет тарифицироваться отправление через время из параметра `next_tariff_starts_at`.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("next_tariff_rate")]
+        public double? Next_tariff_rate { get; set; } = default!;
+
+        /// <summary>
+        /// Дата и время, когда начнёт применяться новый тариф.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("next_tariff_starts_at")]
+        public System.DateTimeOffset? Next_tariff_starts_at { get; set; } = default!;
+
+        /// <summary>
+        /// Тип тарификации через время из параметра `next_tariff_starts_at` — скидка или надбавка.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("next_tariff_type")]
+        public string? Next_tariff_type { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 

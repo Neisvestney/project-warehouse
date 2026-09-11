@@ -908,6 +908,359 @@
         }
       }
     },
+    "/v4/posting/fbs/list": {
+      "post": {
+        "description": "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u0441\u043F\u0438\u0441\u043E\u043A \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0439 \u0437\u0430 \u0443\u043A\u0430\u0437\u0430\u043D\u043D\u044B\u0439 \u043F\u0435\u0440\u0438\u043E\u0434 \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u2014 \u043E\u043D \u0434\u043E\u043B\u0436\u0435\u043D \u0431\u044B\u0442\u044C \u043D\u0435 \u0431\u043E\u043B\u044C\u0448\u0435 \u043E\u0434\u043D\u043E\u0433\u043E \u0433\u043E\u0434\u0430.\n\n \u0427\u0442\u043E\u0431\u044B \u043F\u043E\u043B\u0443\u0447\u0430\u0442\u044C \u0430\u043A\u0442\u0443\u0430\u043B\u044C\u043D\u0443\u044E \u0434\u0430\u0442\u0443 \u043E\u0442\u0433\u0440\u0443\u0437\u043A\u0438, \u0440\u0435\u0433\u0443\u043B\u044F\u0440\u043D\u043E \u043E\u0431\u043D\u043E\u0432\u043B\u044F\u0439\u0442\u0435 \u0438\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044E \u043E\u0431 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F\u0445 \u0438\u043B\u0438 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u0435 [\u043F\u0443\u0448-\u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F](#tag/push_start).\n",
+        "tags": [
+          "FBS"
+        ],
+        "summary": "\u041F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0441\u043F\u0438\u0441\u043E\u043A \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0439",
+        "operationId": "PostingFbsList",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostingFbsListRequest"
+              },
+              "example": {
+                "sort_dir": "asc",
+                "filter": {
+                  "order_numbers": [
+                    "12345-1"
+                  ],
+                  "delivery_method_ids": [
+                    123456789
+                  ],
+                  "integration_type_flow": [
+                    "ozon"
+                  ],
+                  "is_blr_traceable": false,
+                  "last_changed_status_date": {
+                    "from": "2026-04-01T19:47:39.878Z",
+                    "to": "2026-04-02T11:47:39.878Z"
+                  },
+                  "order_id": 123456,
+                  "since": "2026-04-01T19:47:39.878Z",
+                  "to": "2026-04-02T11:47:39.878Z",
+                  "statuses": [
+                    "awaiting_packaging",
+                    "awaiting_deliver",
+                    "delivering",
+                    "delivered"
+                  ],
+                  "provider_ids": [
+                    123
+                  ],
+                  "warehouse_ids": [
+                    3092889984
+                  ]
+                },
+                "limit": 100,
+                "cursor": "",
+                "with": {
+                  "analytics_data": true,
+                  "barcodes": true,
+                  "financial_data": true,
+                  "legal_info": true,
+                  "translit": true
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "\u0421\u043F\u0438\u0441\u043E\u043A \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0439",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostingFbsListResponse"
+                },
+                "example": {
+                  "cursor": "eyJmaWVsZHMiOlt7Im5hbWUiOiJvc3AuaW5fcHJvY2Vzc19hdCIsImRpciI6ImFzYyIsInZhbCI6IjIwMjYtMDEtMTVUMTA6MzA6MDBaIn0seyJuYW1lIjoib3NwLmlkIiwiZGlyIjoiYXNjIiwidmFsIjoiMTIzNDU2Nzg5MCJ9XX0=",
+                  "has_next": false,
+                  "postings": [
+                    {
+                      "addressee": {
+                        "name": "\u0418\u0432\u0430\u043D \u041F\u0435\u0442\u0440\u043E\u0432"
+                      },
+                      "analytics_data": {
+                        "city": "\u041C\u043E\u0441\u043A\u0432\u0430",
+                        "client_delivery_date_begin": "2026-05-20T08:00:00.000Z",
+                        "client_delivery_date_end": "2026-05-22T20:00:00.000Z",
+                        "delivery_date_begin": "2026-05-18T08:00:00.000Z",
+                        "delivery_date_end": "2026-05-19T20:00:00.000Z",
+                        "delivery_type": "PVZ",
+                        "is_legal": false,
+                        "is_premium": true,
+                        "payment_type_group_name": "\u0411\u0430\u043D\u043A\u043E\u0432\u0441\u043A\u0430\u044F \u043A\u0430\u0440\u0442\u0430",
+                        "region": "\u041C\u043E\u0441\u043A\u043E\u0432\u0441\u043A\u0430\u044F \u043E\u0431\u043B\u0430\u0441\u0442\u044C",
+                        "tpl_provider": "\u0414\u043E\u0441\u0442\u0430\u0432\u043A\u0430 Ozon",
+                        "tpl_provider_id": 24,
+                        "warehouse": "\u0421\u043E\u0444\u044C\u0438\u043D\u043E",
+                        "warehouse_id": 17023
+                      },
+                      "available_actions": [
+                        "pack",
+                        "ship",
+                        "cancel"
+                      ],
+                      "barcodes": {
+                        "lower_barcode": "601302481800001",
+                        "upper_barcode": "601302481800001"
+                      },
+                      "cancellation": {
+                        "affect_cancellation_rating": false,
+                        "cancel_reason": "",
+                        "cancel_reason_id": 0,
+                        "cancellation_initiator": "",
+                        "cancellation_type": "",
+                        "cancelled_after_ship": false
+                      },
+                      "container": {
+                        "cargo_type": "BOX",
+                        "container_date": "2026-05-14",
+                        "container_id": 100500,
+                        "container_number": 42
+                      },
+                      "container_sort_type": "standard",
+                      "customer": {
+                        "address": {
+                          "address_tail": "\u0434. 15, \u043A\u0432. 78",
+                          "city": "\u041C\u043E\u0441\u043A\u0432\u0430",
+                          "comment": "\u0414\u043E\u043C\u043E\u0444\u043E\u043D \u043D\u0435 \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442",
+                          "country": "\u0420\u043E\u0441\u0441\u0438\u044F",
+                          "district": "\u0426\u0410\u041E",
+                          "latitude": 55.7558,
+                          "longitude": 37.6176,
+                          "provider_pvz_code": "PVZ123",
+                          "pvz_code": 456,
+                          "region": "\u041C\u043E\u0441\u043A\u0432\u0430",
+                          "zip_code": "101000"
+                        },
+                        "customer_email": "ivan.petrov@example.com",
+                        "customer_id": 12345678,
+                        "name": "\u0418\u0432\u0430\u043D \u041F\u0435\u0442\u0440\u043E\u0432",
+                        "phone": "\u002B79031234567"
+                      },
+                      "delivering_date": "2026-05-19T15:30:00.000Z",
+                      "delivery_method": {
+                        "id": 20605650762000,
+                        "name": "\u0414\u043E\u0441\u0442\u0430\u0432\u043A\u0430 Ozon \u0441\u0430\u043C\u043E\u0441\u0442\u043E\u044F\u0442\u0435\u043B\u044C\u043D\u043E, \u0421\u043E\u0444\u044C\u0438\u043D\u043E",
+                        "tpl_provider": "\u0414\u043E\u0441\u0442\u0430\u0432\u043A\u0430 Ozon",
+                        "tpl_provider_id": 24,
+                        "warehouse": "17023",
+                        "warehouse_id": 20605650762000
+                      },
+                      "delivery_schema": "fbs",
+                      "destination_place_id": 500,
+                      "destination_place_name": "\u041F\u0412\u0417 \u2116123 \u043D\u0430 \u0422\u0432\u0435\u0440\u0441\u043A\u043E\u0439",
+                      "external_order": {
+                        "is_external": false,
+                        "platform_name": ""
+                      },
+                      "financial_data": {
+                        "cluster_from": "\u041C\u043E\u0441\u043A\u0432\u0430",
+                        "cluster_to": "\u041A\u0430\u0437\u0430\u043D\u044C",
+                        "products": [
+                          {
+                            "actions": [
+                              "\u041E\u043A\u0440\u0443\u0433\u043B\u0435\u043D\u0438\u0435"
+                            ],
+                            "commission": {
+                              "amount": 120,
+                              "currency": "RUB",
+                              "percent": 10
+                            },
+                            "customer_price": {
+                              "amount": "2500.00",
+                              "currency": "RUB"
+                            },
+                            "old_price": 3000,
+                            "payout": 2100,
+                            "price": 2500,
+                            "product_id": 1904686181,
+                            "quantity": 2,
+                            "total_discount_percent": 16.67,
+                            "total_discount_value": 500
+                          }
+                        ]
+                      },
+                      "in_process_at": "2026-05-14T08:00:00.000Z",
+                      "integration_type_flow": "ozon",
+                      "is_click_and_collect": false,
+                      "is_express": false,
+                      "is_multibox": false,
+                      "is_presortable": true,
+                      "legal_info": {
+                        "company_name": "\u041E\u041E\u041E \u0420\u043E\u043C\u0430\u0448\u043A\u0430",
+                        "inn": "7701234567",
+                        "kpp": "770101001"
+                      },
+                      "multi_box_qty": 1,
+                      "optional": {
+                        "products_with_possible_mandatory_mark": []
+                      },
+                      "order_id": 33301885134,
+                      "order_number": "0208245774-0029",
+                      "parent_posting_number": "",
+                      "pickup_code_verified_at": null,
+                      "posting_number": "0208245774-0029-1",
+                      "products": [
+                        {
+                          "imei": [],
+                          "is_blr_traceable": false,
+                          "is_marketplace_buyout": true,
+                          "name": "\u0421\u043C\u0430\u0440\u0442\u0444\u043E\u043D Xiaomi Note 12",
+                          "offer_id": "b4408110",
+                          "price": {
+                            "amount": "12990.00",
+                            "currency": "RUB"
+                          },
+                          "product_color": "\u0447\u0451\u0440\u043D\u044B\u0439",
+                          "quantity": 1,
+                          "sku": 1904686181,
+                          "weight": 0.42
+                        },
+                        {
+                          "imei": [
+                            "123456789012345",
+                            "987654321098765"
+                          ],
+                          "is_blr_traceable": false,
+                          "is_marketplace_buyout": false,
+                          "name": "\u041D\u0430\u0443\u0448\u043D\u0438\u043A\u0438 Bluetooth",
+                          "offer_id": "h667722",
+                          "price": {
+                            "amount": "3490.00",
+                            "currency": "RUB"
+                          },
+                          "product_color": "\u0431\u0435\u043B\u044B\u0439",
+                          "quantity": 2,
+                          "sku": 1904686182,
+                          "weight": 0.15
+                        }
+                      ],
+                      "prr_option": "standard",
+                      "quantum_id": 98765,
+                      "require_blr_traceable_attrs": false,
+                      "requirements": {
+                        "products_requiring_change_country": [],
+                        "products_requiring_country": [],
+                        "products_requiring_gtd": [
+                          "1904686181"
+                        ],
+                        "products_requiring_imei": [],
+                        "products_requiring_jw_uin": [],
+                        "products_requiring_mandatory_mark": [],
+                        "products_requiring_rnpt": []
+                      },
+                      "shipment_date": "2026-05-18T12:00:00.000Z",
+                      "shipment_date_without_delay": "2026-05-18T12:00:00.000Z",
+                      "sorting_center": null,
+                      "status": "awaiting_packaging",
+                      "substatus": "posting_created",
+                      "tariffication": {
+                        "current_tariff_charge": {
+                          "amount": "100.00",
+                          "currency": "RUB"
+                        },
+                        "current_tariff_min_charge": {
+                          "amount": "50.00",
+                          "currency": "RUB"
+                        },
+                        "current_tariff_rate": 2,
+                        "current_tariff_type": "commission",
+                        "next_tariff_charge": {
+                          "amount": "150.00",
+                          "currency": "RUB"
+                        },
+                        "next_tariff_min_charge": {
+                          "amount": "100.00",
+                          "currency": "RUB"
+                        },
+                        "next_tariff_rate": 2.5,
+                        "next_tariff_starts_at": "2026-05-20T00:00:00.000Z",
+                        "next_tariff_type": "commission"
+                      },
+                      "tariffication_steps": [
+                        {
+                          "min_charge": {
+                            "amount": "24.00",
+                            "currency": "RUB"
+                          },
+                          "tariff_charge": {
+                            "amount": "24.00",
+                            "currency": "RUB"
+                          },
+                          "tariff_deadline_at": "2026-05-15T23:59:59.000Z",
+                          "tariff_rate": 2,
+                          "tariff_type": "discount"
+                        }
+                      ],
+                      "tpl_integration_type": "ozon",
+                      "tracking_number": "TRK1234567890",
+                      "volume_weight": 1.2
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/rpcStatus"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "\u0414\u043E\u0441\u0442\u0443\u043F \u0437\u0430\u043F\u0440\u0435\u0449\u0451\u043D",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/rpcStatus"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "\u041E\u0442\u0432\u0435\u0442 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/rpcStatus"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "\u041A\u043E\u043D\u0444\u043B\u0438\u043A\u0442 \u0437\u0430\u043F\u0440\u043E\u0441\u0430",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/rpcStatus"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "\u0412\u043D\u0443\u0442\u0440\u0435\u043D\u043D\u044F\u044F \u043E\u0448\u0438\u0431\u043A\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/rpcStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v3/posting/fbs/get": {
       "post": {
         "summary": "\u041F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0438\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044E \u043E\u0431 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0438 \u043F\u043E \u0438\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440\u0443",
@@ -2408,6 +2761,497 @@
           }
         }
       },
+      "PostingFbsListRequest": {
+        "type": "object",
+        "required": [
+          "filter",
+          "limit"
+        ],
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "\u0423\u043A\u0430\u0437\u0430\u0442\u0435\u043B\u044C \u0434\u043B\u044F \u0432\u044B\u0431\u043E\u0440\u043A\u0438 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0445 \u0434\u0430\u043D\u043D\u044B\u0445."
+          },
+          "filter": {
+            "$ref": "#/components/schemas/PostingFbsListRequestFilter"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "\u041A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0439 \u0432 \u043E\u0442\u0432\u0435\u0442\u0435."
+          },
+          "sort_dir": {
+            "$ref": "#/components/schemas/PostingFbsListRequestSortDirEnum"
+          },
+          "translit": {
+            "description": "\u0060true\u0060, \u0447\u0442\u043E\u0431\u044B \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u0442\u0440\u0430\u043D\u0441\u043B\u0438\u0442\u0435\u0440\u0430\u0446\u0438\u044E \u0430\u0434\u0440\u0435\u0441\u0430 \u0438\u0437 \u043A\u0438\u0440\u0438\u043B\u043B\u0438\u0446\u044B \u0432 \u043B\u0430\u0442\u0438\u043D\u0438\u0446\u0443.\n",
+            "type": "boolean"
+          },
+          "with": {
+            "$ref": "#/components/schemas/PostingFbsListRequestWith"
+          }
+        }
+      },
+      "PostingFbsListRequestFilter": {
+        "type": "object",
+        "description": "\u0424\u0438\u043B\u044C\u0442\u0440.",
+        "required": [
+          "since",
+          "to"
+        ],
+        "properties": {
+          "delivery_method_ids": {
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0441\u043F\u043E\u0441\u043E\u0431\u0430 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438. \u041C\u043E\u0436\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0441 \u043F\u043E\u043C\u043E\u0449\u044C\u044E \u043C\u0435\u0442\u043E\u0434\u0430 [/v1/delivery-method/list](#operation/WarehouseAPI_DeliveryMethodList).\n",
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "format": "int64"
+            }
+          },
+          "integration_type_flow": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "\u041F\u0440\u043E\u0446\u0435\u0441\u0441 \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u043A\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F:\n- \u0060ozon\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0430 \u0441\u0438\u043B\u0430\u043C\u0438 Ozon;\n- \u0060aggregator\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0430 \u0432\u043D\u0435\u0448\u043D\u0435\u0439 \u0441\u043B\u0443\u0436\u0431\u043E\u0439, Ozon \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u0443\u0435\u0442 \u0437\u0430\u043A\u0430\u0437;\n- \u0060non_integrated\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0430 \u0441\u0438\u043B\u0430\u043C\u0438 \u043F\u0440\u043E\u0434\u0430\u0432\u0446\u0430;\n- \u00603pl_tracking\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0430 \u0432\u043D\u0435\u0448\u043D\u0435\u0439 \u0441\u043B\u0443\u0436\u0431\u043E\u0439, \u043F\u0440\u043E\u0434\u0430\u0432\u0435\u0446 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u0443\u0435\u0442 \u0437\u0430\u043A\u0430\u0437;\n- \u0060hybrid\u0060 \u2014 \u0433\u0438\u0431\u0440\u0438\u0434\u043D\u0430\u044F \u0438\u043D\u0442\u0435\u0433\u0440\u0430\u0446\u0438\u044F;\n- \u0060hybrid_aggregator\u0060 \u2014 \u0433\u0438\u0431\u0440\u0438\u0434\u043D\u0430\u044F \u0438\u043D\u0442\u0435\u0433\u0440\u0430\u0446\u0438\u044F \u0441 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u043E\u0439 \u0432\u043D\u0435\u0448\u043D\u0435\u0439 \u0441\u043B\u0443\u0436\u0431\u043E\u0439, Ozon \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u0443\u0435\u0442 \u0437\u0430\u043A\u0430\u0437;\n- \u0060hybrid_non_integrated\u0060 \u2014 \u0433\u0438\u0431\u0440\u0438\u0434\u043D\u0430\u044F \u0438\u043D\u0442\u0435\u0433\u0440\u0430\u0446\u0438\u044F \u0441 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u043E\u0439 \u0441\u0438\u043B\u0430\u043C\u0438 \u043F\u0440\u043E\u0434\u0430\u0432\u0446\u0430;\n- \u0060hybrid_3pl_tracking\u0060 \u2014 \u0433\u0438\u0431\u0440\u0438\u0434\u043D\u0430\u044F \u0438\u043D\u0442\u0435\u0433\u0440\u0430\u0446\u0438\u044F \u0441 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u043E\u0439 \u0432\u043D\u0435\u0448\u043D\u0435\u0439 \u0441\u043B\u0443\u0436\u0431\u043E\u0439, \u043F\u0440\u043E\u0434\u0430\u0432\u0435\u0446 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u0443\u0435\u0442 \u0437\u0430\u043A\u0430\u0437;\n- \u0060click_and_collect\u0060 \u2014 \u0431\u0440\u043E\u043D\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u0435 \u0432 \u043C\u0430\u0433\u0430\u0437\u0438\u043D\u0435 \u043F\u0430\u0440\u0442\u043D\u0451\u0440\u0430;\n- \u0060FBP\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0430 \u0441 \u043F\u0430\u0440\u0442\u043D\u0451\u0440\u0441\u043A\u0438\u0445 \u0441\u043A\u043B\u0430\u0434\u043E\u0432 Ozon.\n"
+          },
+          "is_blr_traceable": {
+            "description": "\u0060true\u0060, \u0435\u0441\u043B\u0438 \u0442\u043E\u0432\u0430\u0440 \u043E\u0442\u0441\u043B\u0435\u0436\u0438\u0432\u0430\u0435\u043C\u044B\u0439.\n",
+            "type": "boolean"
+          },
+          "last_changed_status_date": {
+            "$ref": "#/components/schemas/PostingFbsListRequestFilterLastChangedStatusDate"
+          },
+          "order_id": {
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0437\u0430\u043A\u0430\u0437\u0430.",
+            "type": "integer",
+            "format": "int64"
+          },
+          "order_numbers": {
+            "type": "array",
+            "description": "\u041D\u043E\u043C\u0435\u0440\u0430 \u0437\u0430\u043A\u0430\u0437\u043E\u0432, \u043A \u043A\u043E\u0442\u043E\u0440\u044B\u043C \u043E\u0442\u043D\u043E\u0441\u044F\u0442\u0441\u044F \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F.",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "provider_ids": {
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0441\u043B\u0443\u0436\u0431\u044B \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438. \u041C\u043E\u0436\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0441 \u043F\u043E\u043C\u043E\u0449\u044C\u044E \u043C\u0435\u0442\u043E\u0434\u0430 [/v1/delivery-method/list](#operation/WarehouseAPI_DeliveryMethodList).\n",
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "format": "int64"
+            }
+          },
+          "since": {
+            "description": "\u0414\u0430\u0442\u0430 \u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u0435\u0440\u0438\u043E\u0434\u0430, \u0437\u0430 \u043A\u043E\u0442\u043E\u0440\u044B\u0439 \u043D\u0443\u0436\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0441\u043F\u0438\u0441\u043E\u043A \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0439.",
+            "pattern": " YYYY-MM-DDThh:mm:ssZ",
+            "type": "string",
+            "format": "date-time"
+          },
+          "statuses": {
+            "type": "array",
+            "description": "\u0421\u0442\u0430\u0442\u0443\u0441 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F:\n- \u0060awaiting_registration\u0060 \u2014 \u043E\u0436\u0438\u0434\u0430\u0435\u0442 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438;\n- \u0060acceptance_in_progress\u0060 \u2014 \u0438\u0434\u0451\u0442 \u043F\u0440\u0438\u0451\u043C\u043A\u0430;\n- \u0060awaiting_approve\u0060 \u2014 \u043E\u0436\u0438\u0434\u0430\u0435\u0442 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u044F;\n- \u0060awaiting_packaging\u0060 \u2014 \u043E\u0436\u0438\u0434\u0430\u0435\u0442 \u0443\u043F\u0430\u043A\u043E\u0432\u043A\u0438;\n- \u0060awaiting_deliver\u0060 \u2014 \u043E\u0436\u0438\u0434\u0430\u0435\u0442 \u043E\u0442\u0433\u0440\u0443\u0437\u043A\u0438;\n- \u0060arbitration\u0060 \u2014 \u0430\u0440\u0431\u0438\u0442\u0440\u0430\u0436;\n- \u0060client_arbitration\u0060 \u2014 \u043A\u043B\u0438\u0435\u043D\u0442\u0441\u043A\u0438\u0439 \u0430\u0440\u0431\u0438\u0442\u0440\u0430\u0436 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438;\n- \u0060delivering\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043B\u044F\u0435\u0442\u0441\u044F;\n- \u0060driver_pickup\u0060 \u2014 \u0443 \u0432\u043E\u0434\u0438\u0442\u0435\u043B\u044F;\n- \u0060delivered\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u043E;\n- \u0060cancelled\u0060 \u2014 \u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E;\n- \u0060not_accepted\u0060 \u2014 \u043D\u0435 \u043F\u0440\u0438\u043D\u044F\u0442\u043E \u043D\u0430 \u0441\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043E\u0447\u043D\u043E\u043C \u0446\u0435\u043D\u0442\u0440\u0435;\n- \u0060sent_by_seller\u0060 \u2013 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u043E \u043F\u0440\u043E\u0434\u0430\u0432\u0446\u043E\u043C.\n",
+            "items": {
+              "type": "string"
+            }
+          },
+          "to": {
+            "description": "\u0414\u0430\u0442\u0430 \u043A\u043E\u043D\u0446\u0430 \u043F\u0435\u0440\u0438\u043E\u0434\u0430, \u0437\u0430 \u043A\u043E\u0442\u043E\u0440\u044B\u0439 \u043D\u0443\u0436\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0441\u043F\u0438\u0441\u043E\u043A \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0439.",
+            "type": "string",
+            "format": "date-time",
+            "pattern": " YYYY-MM-DDThh:mm:ssZ"
+          },
+          "warehouse_ids": {
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0441\u043A\u043B\u0430\u0434\u0430. \u041C\u043E\u0436\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0441 \u043F\u043E\u043C\u043E\u0449\u044C\u044E \u043C\u0435\u0442\u043E\u0434\u0430 [/v1/warehouse/list](#operation/WarehouseAPI_WarehouseList).",
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "format": "int64"
+            }
+          }
+        }
+      },
+      "PostingFbsListRequestFilterLastChangedStatusDate": {
+        "type": "object",
+        "description": "\u041F\u0435\u0440\u0438\u043E\u0434, \u0432 \u043A\u043E\u0442\u043E\u0440\u044B\u0439 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0439 \u0440\u0430\u0437 \u0438\u0437\u043C\u0435\u043D\u044F\u043B\u0441\u044F \u0441\u0442\u0430\u0442\u0443\u0441 \u0443 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0439.",
+        "properties": {
+          "from": {
+            "description": "\u0414\u0430\u0442\u0430 \u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u0435\u0440\u0438\u043E\u0434\u0430.",
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time",
+            "description": "\u0414\u0430\u0442\u0430 \u043E\u043A\u043E\u043D\u0447\u0430\u043D\u0438\u044F \u043F\u0435\u0440\u0438\u043E\u0434\u0430."
+          }
+        }
+      },
+      "PostingFbsListRequestSortDirEnum": {
+        "type": "string",
+        "description": "\u041D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u0441\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043A\u0438:\n- \u0060ASC\u0060 \u2014 \u043F\u043E \u0432\u043E\u0437\u0440\u0430\u0441\u0442\u0430\u043D\u0438\u044E;\n- \u0060DESC\u0060 \u2014 \u043F\u043E \u0443\u0431\u044B\u0432\u0430\u043D\u0438\u044E.\n",
+        "enum": [
+          "ASC",
+          "DESC"
+        ]
+      },
+      "PostingFbsListRequestWith": {
+        "type": "object",
+        "description": "\u0414\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0435 \u043F\u043E\u043B\u044F, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u043D\u0443\u0436\u043D\u043E \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u043E\u0442\u0432\u0435\u0442.",
+        "properties": {
+          "analytics_data": {
+            "description": "\u0060true\u0060, \u0447\u0442\u043E\u0431\u044B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u043E\u0442\u0432\u0435\u0442 \u0434\u0430\u043D\u043D\u044B\u0435 \u0430\u043D\u0430\u043B\u0438\u0442\u0438\u043A\u0438.\n",
+            "type": "boolean"
+          },
+          "barcodes": {
+            "description": "\u0060true\u0060, \u0447\u0442\u043E\u0431\u044B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u043E\u0442\u0432\u0435\u0442 \u0448\u0442\u0440\u0438\u0445\u043A\u043E\u0434\u044B \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F.\n",
+            "type": "boolean"
+          },
+          "financial_data": {
+            "description": "\u0060true\u0060, \u0447\u0442\u043E\u0431\u044B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u043E\u0442\u0432\u0435\u0442 \u0444\u0438\u043D\u0430\u043D\u0441\u043E\u0432\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435.\n",
+            "type": "boolean"
+          },
+          "legal_info": {
+            "description": "\u0060true\u0060, \u0447\u0442\u043E\u0431\u044B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u043E\u0442\u0432\u0435\u0442 \u044E\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043A\u0443\u044E \u0438\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044E.\n",
+            "type": "boolean"
+          }
+        }
+      },
+      "PostingFbsListResponse": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "\u0423\u043A\u0430\u0437\u0430\u0442\u0435\u043B\u044C \u0434\u043B\u044F \u0432\u044B\u0431\u043E\u0440\u043A\u0438 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0445 \u0434\u0430\u043D\u043D\u044B\u0445."
+          },
+          "has_next": {
+            "type": "boolean",
+            "description": "\u0060true\u0060, \u0435\u0441\u043B\u0438 \u0432 \u043E\u0442\u0432\u0435\u0442\u0435 \u0432\u0435\u0440\u043D\u0443\u043B\u0438\u0441\u044C \u043D\u0435 \u0432\u0441\u0435 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F.\n"
+          },
+          "postings": {
+            "description": "\u0421\u043F\u0438\u0441\u043E\u043A \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0439.",
+            "items": {
+              "$ref": "#/components/schemas/PostingFbsListResponsePostings"
+            },
+            "type": "array"
+          }
+        }
+      },
+      "PostingFbsListResponsePostings": {
+        "type": "object",
+        "properties": {
+          "addressee": {
+            "$ref": "#/components/schemas/PostingFbsListResponsePostingsAddressee"
+          },
+          "analytics_data": {
+            "$ref": "#/components/schemas/PostingFbsListResponsePostingsAnalyticsData"
+          },
+          "available_actions": {
+            "type": "array",
+            "description": "\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u044B\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F \u0438 \u0438\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F \u043E\u0431 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0438:\n- \u0060arbitration\u0060 \u2014 \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u0441\u043F\u043E\u0440;\n- \u0060awaiting_delivery\u0060 \u2014 \u043F\u0435\u0440\u0435\u0432\u0435\u0441\u0442\u0438 \u0432 \u0441\u0442\u0430\u0442\u0443\u0441 \u00AB\u041E\u0436\u0438\u0434\u0430\u0435\u0442 \u043E\u0442\u0433\u0440\u0443\u0437\u043A\u0438\u00BB;\n- \u0060can_create_chat\u0060 \u2014 \u043D\u0430\u0447\u0430\u0442\u044C \u0447\u0430\u0442 \u0441 \u043F\u043E\u043A\u0443\u043F\u0430\u0442\u0435\u043B\u0435\u043C;\n- \u0060cancel\u0060 \u2014 \u043E\u0442\u043C\u0435\u043D\u0438\u0442\u044C \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435;\n- \u0060click_track_number\u0060 \u2014 \u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u043F\u043E \u0442\u0440\u0435\u043A-\u043D\u043E\u043C\u0435\u0440\u0443 \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F \u0441\u0442\u0430\u0442\u0443\u0441\u043E\u0432 \u0432 \u043B\u0438\u0447\u043D\u043E\u043C \u043A\u0430\u0431\u0438\u043D\u0435\u0442\u0435;\n- \u0060customer_phone_available\u0060 \u2014 \u0442\u0435\u043B\u0435\u0444\u043E\u043D \u043F\u043E\u043A\u0443\u043F\u0430\u0442\u0435\u043B\u044F;\n- \u0060has_weight_products\u0060 \u2014 \u0432\u0435\u0441\u043E\u0432\u044B\u0435 \u0442\u043E\u0432\u0430\u0440\u044B \u0432 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0438;\n- \u0060hide_region_and_city\u0060 \u2014 \u0441\u043A\u0440\u044B\u0442\u044C \u0440\u0435\u0433\u0438\u043E\u043D \u0438 \u0433\u043E\u0440\u043E\u0434 \u043F\u043E\u043A\u0443\u043F\u0430\u0442\u0435\u043B\u044F \u0432 \u043E\u0442\u0447\u0451\u0442\u0435;\n- \u0060invoice_get\u0060 \u2014  \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0438\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044E \u0438\u0437 \u0441\u0447\u0451\u0442\u0430-\u0444\u0430\u043A\u0442\u0443\u0440\u044B;\n- \u0060invoice_send\u0060 \u2014 \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u0441\u0447\u0451\u0442-\u0444\u0430\u043A\u0442\u0443\u0440\u0443;\n- \u0060invoice_update\u0060 \u2014 \u043E\u0442\u0440\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0441\u0447\u0451\u0442-\u0444\u0430\u043A\u0442\u0443\u0440\u0443;\n- \u0060label_download_big\u0060 \u2014 \u0441\u043A\u0430\u0447\u0430\u0442\u044C \u0431\u043E\u043B\u044C\u0448\u0443\u044E \u044D\u0442\u0438\u043A\u0435\u0442\u043A\u0443;\n- \u0060label_download_small\u0060 \u2014 \u0441\u043A\u0430\u0447\u0430\u0442\u044C \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u0443\u044E \u044D\u0442\u0438\u043A\u0435\u0442\u043A\u0443;\n- \u0060label_download\u0060 \u2014 \u0441\u043A\u0430\u0447\u0430\u0442\u044C \u044D\u0442\u0438\u043A\u0435\u0442\u043A\u0443;\n- \u0060non_int_delivered\u0060 \u2014 \u043F\u0435\u0440\u0435\u0432\u0435\u0441\u0442\u0438 \u0432 \u0441\u0442\u0430\u0442\u0443\u0441 \u00AB\u0423\u0441\u043B\u043E\u0432\u043D\u043E \u0434\u043E\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u00BB;\n- \u0060non_int_delivering\u0060 \u2014 \u043F\u0435\u0440\u0435\u0432\u0435\u0441\u0442\u0438 \u0432 \u0441\u0442\u0430\u0442\u0443\u0441 \u00AB\u0414\u043E\u0441\u0442\u0430\u0432\u043B\u044F\u0435\u0442\u0441\u044F\u00BB;\n- \u0060non_int_last_mile\u0060 \u2014 \u043F\u0435\u0440\u0435\u0432\u0435\u0441\u0442\u0438 \u0432 \u0441\u0442\u0430\u0442\u0443\u0441 \u00AB\u041A\u0443\u0440\u044C\u0435\u0440 \u0432 \u043F\u0443\u0442\u0438\u00BB;\n- \u0060product_cancel\u0060 \u2014 \u043E\u0442\u043C\u0435\u043D\u0438\u0442\u044C \u0447\u0430\u0441\u0442\u044C \u0442\u043E\u0432\u0430\u0440\u043E\u0432 \u0432 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0438;\n- \u0060set_cutoff\u0060 \u2014 \u0443\u043A\u0430\u0436\u0438\u0442\u0435 \u0434\u0430\u0442\u0443 \u043E\u0442\u0433\u0440\u0443\u0437\u043A\u0438 \u043C\u0435\u0442\u043E\u0434\u043E\u043C [/v1/posting/cutoff/set](#operation/PostingAPI_SetPostingCutoff) \u043D\u0435 \u043F\u043E\u0437\u0436\u0435 \u0434\u0430\u0442\u044B \u0432 \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u0435 \u0060shipment_date\u0060;\n- \u0060set_timeslot\u0060 \u2014 \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0432\u0440\u0435\u043C\u044F \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438 \u043F\u043E\u043A\u0443\u043F\u0430\u0442\u0435\u043B\u044E;\n- \u0060set_track_number\u0060 \u2014 \u0443\u043A\u0430\u0437\u0430\u0442\u044C \u0438\u043B\u0438 \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0442\u0440\u0435\u043A-\u043D\u043E\u043C\u0435\u0440;\n- \u0060ship_async_in_process\u0060 \u2014 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u0441\u043E\u0431\u0438\u0440\u0430\u0435\u0442\u0441\u044F;\n- \u0060ship_async_retry\u0060 \u2014 \u0441\u043E\u0431\u0440\u0430\u0442\u044C \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u043F\u043E\u0432\u0442\u043E\u0440\u043D\u043E \u043F\u043E\u0441\u043B\u0435 \u043E\u0448\u0438\u0431\u043A\u0438 \u0441\u0431\u043E\u0440\u043A\u0438;\n- \u0060ship_async\u0060 \u2014 \u0441\u043E\u0431\u0440\u0430\u0442\u044C \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435;\n- \u0060ship_with_additional_info\u0060 \u2014 \u0437\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u0434\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u0443\u044E \u0438\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044E \u043C\u0435\u0442\u043E\u0434\u043E\u043C [/v6/fbs/posting/product/exemplar/set](https://docs.ozon.ru/api/seller/#operation/PostingAPI_FbsPostingProductExemplarSetV6);\n- \u0060ship\u0060 \u2014 \u0441\u043E\u0431\u0440\u0430\u0442\u044C \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435;\n- \u0060update_cis\u0060 \u2014 \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0434\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u0443\u044E \u0438\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044E.\n",
+            "items": {
+              "type": "string"
+            }
+          },
+          "barcodes": {
+            "$ref": "#/components/schemas/PostingFbsListResponsePostingsBarcodes"
+          },
+          "cancellation": {
+            "$ref": "#/components/schemas/PostingFbsListResponsePostingsCancellation"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/PostingFbsListResponsePostingsCustomer"
+          },
+          "container": {
+            "$ref": "#/components/schemas/PostingFbsListResponsePostingsContainer"
+          },
+          "container_sort_type": {
+            "type": "string",
+            "description": "\u0422\u0438\u043F \u0441\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043A\u0438 \u0433\u0440\u0443\u0437\u043E\u043C\u0435\u0441\u0442\u0430:\n  - \u0060SORT\u0060 \u2014 \u0441\u043E\u0440\u0442\u0438\u0440\u0443\u0435\u043C\u044B\u0439;\n  - \u0060NON-SORT\u0060 \u2014 \u043D\u0435\u0441\u043E\u0440\u0442\u0438\u0440\u0443\u0435\u043C\u044B\u0439.\n"
+          },
+          "delivering_date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "\u0414\u0430\u0442\u0430 \u043F\u0435\u0440\u0435\u0434\u0430\u0447\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u0432 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0443."
+          },
+          "delivery_method": {
+            "$ref": "#/components/schemas/PostingFbsListResponsePostingsDeliveryMethod"
+          },
+          "delivery_schema": {
+            "type": "string",
+            "description": "\u0421\u0445\u0435\u043C\u0430 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438:\n- \u0060SDS\u0060 \u2014 \u0438\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0435\u0434\u0438\u043D\u043E\u0433\u043E SKU;\n- \u0060FBO\u0060 \u2014 \u0438\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0442\u043E\u0432\u0430\u0440\u0430, \u043A\u043E\u0442\u043E\u0440\u044B\u0439 \u043F\u0440\u043E\u0434\u0430\u0451\u0442\u0441\u044F \u0441\u043E \u0441\u043A\u043B\u0430\u0434\u0430 Ozon;\n- \u0060FBS\u0060 \u2014 \u0438\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0442\u043E\u0432\u0430\u0440\u0430, \u043A\u043E\u0442\u043E\u0440\u044B\u0439 \u043F\u0440\u043E\u0434\u0430\u0451\u0442\u0441\u044F \u0441\u043E \u0441\u043A\u043B\u0430\u0434\u0430 FBS;\n- \u0060Crossborder\u0060 \u2014 \u0438\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0442\u043E\u0432\u0430\u0440\u0430, \u043A\u043E\u0442\u043E\u0440\u044B\u0439 \u043F\u0440\u043E\u0434\u0430\u0451\u0442\u0441\u044F \u0438\u0437-\u0437\u0430 \u0433\u0440\u0430\u043D\u0438\u0446\u044B.\n"
+          },
+          "destination_place_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u043C\u0435\u0441\u0442\u0430 \u043D\u0430\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F."
+          },
+          "destination_place_name": {
+            "type": "string",
+            "description": "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u043C\u0435\u0441\u0442\u0430 \u043D\u0430\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F."
+          },
+          "external_order": {
+            "$ref": "#/components/schemas/PostingFbsListResponsePostingsExternalOrder"
+          },
+          "financial_data": {
+            "$ref": "#/components/schemas/PostingFbsListResponsePostingsFinancialData"
+          },
+          "in_process_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "\u0414\u0430\u0442\u0430 \u0438 \u0432\u0440\u0435\u043C\u044F \u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u043A\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F."
+          },
+          "is_click_and_collect": {
+            "type": "boolean",
+            "description": "\u0060true\u0060, \u0435\u0441\u043B\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u0434\u043E\u0441\u0442\u0430\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u043C\u0435\u0442\u043E\u0434\u043E\u043C \u00AB\u0421\u0430\u043C\u043E\u0432\u044B\u0432\u043E\u0437 \u0438\u0437 \u043C\u0430\u0433\u0430\u0437\u0438\u043D\u0430\u00BB.\n"
+          },
+          "is_express": {
+            "type": "boolean",
+            "description": "\u0060true\u0060, \u0435\u0441\u043B\u0438 \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043B\u0430\u0441\u044C \u0431\u044B\u0441\u0442\u0440\u0430\u044F \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0430 Ozon Express.\n"
+          },
+          "is_multibox": {
+            "type": "boolean",
+            "description": "\u041F\u0440\u0438\u0437\u043D\u0430\u043A, \u0447\u0442\u043E \u0432 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0438 \u0435\u0441\u0442\u044C \u043C\u043D\u043E\u0433\u043E\u043A\u043E\u0440\u043E\u0431\u043E\u0447\u043D\u044B\u0439 \u0442\u043E\u0432\u0430\u0440 \u0438 \u043D\u0443\u0436\u043D\u043E \u043F\u0435\u0440\u0435\u0434\u0430\u0442\u044C \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u043A\u043E\u0440\u043E\u0431\u043E\u043A \u0434\u043B\u044F \u043D\u0435\u0433\u043E:\n\n- \u0060true\u0060 \u2014 \u0434\u043E \u0441\u0431\u043E\u0440\u043A\u0438 \u043F\u0435\u0440\u0435\u0434\u0430\u0439\u0442\u0435 \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u043A\u043E\u0440\u043E\u0431\u043E\u043A \u0447\u0435\u0440\u0435\u0437 \u043C\u0435\u0442\u043E\u0434 [/v3/posting/multiboxqty/set](#operation/PostingAPI_PostingMultiBoxQtySetV3).\n- \u0060false\u0060 \u2014 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u0441\u043E\u0431\u0440\u0430\u043D\u043E \u0441 \u0443\u043A\u0430\u0437\u0430\u043D\u0438\u0435\u043C \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u0430 \u043A\u043E\u0440\u043E\u0431\u043E\u043A \u0432 \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u0435 \u0060multi_box_qty\u0060 \u0438\u043B\u0438 \u0432 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0438 \u043D\u0435\u0442 \u043C\u043D\u043E\u0433\u043E\u043A\u043E\u0440\u043E\u0431\u043E\u0447\u043D\u043E\u0433\u043E \u0442\u043E\u0432\u0430\u0440\u0430.\n"
+          },
+          "is_presortable": {
+            "type": "boolean",
+            "description": "\u0060true\u0060, \u0435\u0441\u043B\u0438 \u0442\u043E\u0432\u0430\u0440 \u2014 \u043F\u0435\u0440\u0435\u0441\u043E\u0440\u0442.\n"
+          },
+          "integration_type_flow": {
+            "type": "string",
+            "description": "\u041F\u0440\u043E\u0446\u0435\u0441\u0441 \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u043A\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F:\n- \u0060ozon\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0430 \u0441\u0438\u043B\u0430\u043C\u0438 Ozon;\n- \u0060aggregator\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0430 \u0432\u043D\u0435\u0448\u043D\u0435\u0439 \u0441\u043B\u0443\u0436\u0431\u043E\u0439, Ozon \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u0443\u0435\u0442 \u0437\u0430\u043A\u0430\u0437;\n- \u0060non_integrated\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0430 \u0441\u0438\u043B\u0430\u043C\u0438 \u043F\u0440\u043E\u0434\u0430\u0432\u0446\u0430;\n- \u00603pl_tracking\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0430 \u0432\u043D\u0435\u0448\u043D\u0435\u0439 \u0441\u043B\u0443\u0436\u0431\u043E\u0439, \u043F\u0440\u043E\u0434\u0430\u0432\u0435\u0446 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u0443\u0435\u0442 \u0437\u0430\u043A\u0430\u0437;\n- \u0060hybrid\u0060 \u2014 \u0433\u0438\u0431\u0440\u0438\u0434\u043D\u0430\u044F \u0438\u043D\u0442\u0435\u0433\u0440\u0430\u0446\u0438\u044F;\n- \u0060hybrid_aggregator\u0060 \u2014 \u0433\u0438\u0431\u0440\u0438\u0434\u043D\u0430\u044F \u0438\u043D\u0442\u0435\u0433\u0440\u0430\u0446\u0438\u044F \u0441 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u043E\u0439 \u0432\u043D\u0435\u0448\u043D\u0435\u0439 \u0441\u043B\u0443\u0436\u0431\u043E\u0439, Ozon \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u0443\u0435\u0442 \u0437\u0430\u043A\u0430\u0437;\n- \u0060hybrid_non_integrated\u0060 \u2014 \u0433\u0438\u0431\u0440\u0438\u0434\u043D\u0430\u044F \u0438\u043D\u0442\u0435\u0433\u0440\u0430\u0446\u0438\u044F \u0441 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u043E\u0439 \u0441\u0438\u043B\u0430\u043C\u0438 \u043F\u0440\u043E\u0434\u0430\u0432\u0446\u0430;\n- \u0060hybrid_3pl_tracking\u0060 \u2014 \u0433\u0438\u0431\u0440\u0438\u0434\u043D\u0430\u044F \u0438\u043D\u0442\u0435\u0433\u0440\u0430\u0446\u0438\u044F \u0441 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u043E\u0439 \u0432\u043D\u0435\u0448\u043D\u0435\u0439 \u0441\u043B\u0443\u0436\u0431\u043E\u0439, \u043F\u0440\u043E\u0434\u0430\u0432\u0435\u0446 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u0443\u0435\u0442 \u0437\u0430\u043A\u0430\u0437;\n- \u0060click_and_collect\u0060 \u2014 \u0431\u0440\u043E\u043D\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u0435 \u0432 \u043C\u0430\u0433\u0430\u0437\u0438\u043D\u0435 \u043F\u0430\u0440\u0442\u043D\u0451\u0440\u0430;\n- \u0060FBP\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0430 \u0441 \u043F\u0430\u0440\u0442\u043D\u0451\u0440\u0441\u043A\u0438\u0445 \u0441\u043A\u043B\u0430\u0434\u043E\u0432 Ozon.\n"
+          },
+          "legal_info": {
+            "$ref": "#/components/schemas/PostingFbsListResponsePostingsLegalInfo"
+          },
+          "multi_box_qty": {
+            "description": "\u041A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u043A\u043E\u0440\u043E\u0431\u043E\u043A, \u0432 \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u0443\u043F\u0430\u043A\u043E\u0432\u0430\u043D \u0442\u043E\u0432\u0430\u0440.",
+            "type": "integer",
+            "format": "int32"
+          },
+          "optional": {
+            "$ref": "#/components/schemas/PostingFbsListResponsePostingsOptional"
+          },
+          "order_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0437\u0430\u043A\u0430\u0437\u0430, \u043A \u043A\u043E\u0442\u043E\u0440\u043E\u043C\u0443 \u043E\u0442\u043D\u043E\u0441\u0438\u0442\u0441\u044F \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435."
+          },
+          "order_number": {
+            "type": "string",
+            "description": "\u041D\u043E\u043C\u0435\u0440 \u0437\u0430\u043A\u0430\u0437\u0430, \u043A \u043A\u043E\u0442\u043E\u0440\u043E\u043C\u0443 \u043E\u0442\u043D\u043E\u0441\u0438\u0442\u0441\u044F \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435."
+          },
+          "parent_posting_number": {
+            "type": "string",
+            "description": "\u041D\u043E\u043C\u0435\u0440 \u0440\u043E\u0434\u0438\u0442\u0435\u043B\u044C\u0441\u043A\u043E\u0433\u043E \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F, \u0432 \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442\u0435 \u0440\u0430\u0437\u0434\u0435\u043B\u0435\u043D\u0438\u044F \u043A\u043E\u0442\u043E\u0440\u043E\u0433\u043E \u043F\u043E\u044F\u0432\u0438\u043B\u043E\u0441\u044C \u0442\u0435\u043A\u0443\u0449\u0435\u0435."
+          },
+          "pickup_code_verified_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "\u0414\u0430\u0442\u0430 \u0438 \u0432\u0440\u0435\u043C\u044F \u0443\u0441\u043F\u0435\u0448\u043D\u043E\u0439 \u0432\u0430\u043B\u0438\u0434\u0430\u0446\u0438\u0438 \u043A\u043E\u0434\u0430 \u043A\u0443\u0440\u044C\u0435\u0440\u0430. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u043A\u043E\u0434 \u043A\u0443\u0440\u044C\u0435\u0440\u0430 \u043C\u0435\u0442\u043E\u0434\u043E\u043C [/v1/posting/fbs/pick-up-code/verify](#operation/PostingAPI_PostingFBSPickupCodeVerify)."
+          },
+          "posting_number": {
+            "type": "string",
+            "description": "\u041D\u043E\u043C\u0435\u0440 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F."
+          },
+          "products": {
+            "type": "array",
+            "description": "\u0421\u043F\u0438\u0441\u043E\u043A \u0442\u043E\u0432\u0430\u0440\u043E\u0432 \u0432 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0438.",
+            "items": {
+              "$ref": "#/components/schemas/PostingFbsListResponsePostingsProducts"
+            }
+          },
+          "prr_option": {
+            "type": "string",
+            "description": "\u041A\u043E\u0434 \u0443\u0441\u043B\u0443\u0433\u0438 \u043F\u043E\u0433\u0440\u0443\u0437\u043E\u0447\u043D\u043E-\u0440\u0430\u0437\u0433\u0440\u0443\u0437\u043E\u0447\u043D\u044B\u0445 \u0440\u0430\u0431\u043E\u0442:\n- \u0060lift\u0060 \u2014 \u043F\u043E\u0434\u044A\u0451\u043C \u043D\u0430 \u043B\u0438\u0444\u0442\u0435;\n- \u0060stairs\u0060 \u2014 \u043F\u043E\u0434\u044A\u0451\u043C \u043F\u043E \u043B\u0435\u0441\u0442\u043D\u0438\u0446\u0435;\n- \u0060none\u0060 \u2014 \u043F\u043E\u043A\u0443\u043F\u0430\u0442\u0435\u043B\u044C \u043E\u0442\u043A\u0430\u0437\u0430\u043B\u0441\u044F \u043E\u0442 \u0443\u0441\u043B\u0443\u0433\u0438, \u043F\u043E\u0434\u043D\u0438\u043C\u0430\u0442\u044C \u0442\u043E\u0432\u0430\u0440\u044B \u043D\u0435 \u043D\u0443\u0436\u043D\u043E;\n- \u0060delivery_default\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0430 \u0432\u043A\u043B\u044E\u0447\u0435\u043D\u0430 \u0432 \u0441\u0442\u043E\u0438\u043C\u043E\u0441\u0442\u044C, \u043F\u043E \u0443\u0441\u043B\u043E\u0432\u0438\u044F\u043C \u043E\u0444\u0435\u0440\u0442\u044B \u043D\u0443\u0436\u043D\u043E \u0434\u043E\u0441\u0442\u0430\u0432\u0438\u0442\u044C \u0442\u043E\u0432\u0430\u0440 \u043D\u0430 \u044D\u0442\u0430\u0436.\n\n\u0414\u043B\u044F \u041A\u0413\u0422-\u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0439 \u0441 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u043E\u0439 \u0441\u0438\u043B\u0430\u043C\u0438 \u043F\u0440\u043E\u0434\u0430\u0432\u0446\u0430 \u0438\u043B\u0438 \u0438\u043D\u0442\u0435\u0433\u0440\u0438\u0440\u043E\u0432\u0430\u043D\u043D\u043E\u0439 \u0441\u043B\u0443\u0436\u0431\u043E\u0439.\n"
+          },
+          "quantum_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u044D\u043A\u043E\u043D\u043E\u043C-\u0442\u043E\u0432\u0430\u0440\u0430."
+          },
+          "require_blr_traceable_attrs": {
+            "type": "boolean",
+            "description": "\u0060true\u0060, \u0435\u0441\u043B\u0438 \u043D\u0443\u0436\u043D\u043E \u0437\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u044C \u0430\u0442\u0440\u0438\u0431\u0443\u0442\u044B \u043E\u0442\u0441\u043B\u0435\u0436\u0438\u0432\u0430\u0435\u043C\u043E\u0441\u0442\u0438.\n"
+          },
+          "requirements": {
+            "$ref": "#/components/schemas/PostingFbsListResponsePostingsRequirements"
+          },
+          "shipment_date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "\u0414\u0430\u0442\u0430 \u0438 \u0432\u0440\u0435\u043C\u044F, \u0434\u043E \u043A\u043E\u0442\u043E\u0440\u043E\u0439 \u043D\u0443\u0436\u043D\u043E \u0441\u043E\u0431\u0440\u0430\u0442\u044C \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435. \u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u043C \u0440\u0435\u043A\u043E\u043C\u0435\u043D\u0434\u043E\u0432\u0430\u043D\u043D\u043E\u0435 \u0432\u0440\u0435\u043C\u044F \u043E\u0442\u0433\u0440\u0443\u0437\u043A\u0438. \u041F\u043E \u0438\u0441\u0442\u0435\u0447\u0435\u043D\u0438\u0438 \u044D\u0442\u043E\u0433\u043E \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u043D\u0430\u0447\u043D\u0451\u0442 \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F \u043D\u043E\u0432\u044B\u0439 \u0442\u0430\u0440\u0438\u0444, \u0438\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044E \u043E \u043D\u0451\u043C \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u0435 \u0432 \u043F\u043E\u043B\u0435 \u0060tariffication\u0060."
+          },
+          "shipment_date_without_delay": {
+            "type": "string",
+            "format": "date-time",
+            "description": "\u0414\u0430\u0442\u0430 \u0438 \u0432\u0440\u0435\u043C\u044F \u043E\u0442\u0433\u0440\u0443\u0437\u043A\u0438 \u0431\u0435\u0437 \u043F\u0440\u043E\u0441\u0440\u043E\u0447\u043A\u0438."
+          },
+          "sorting_center": {
+            "$ref": "#/components/schemas/PostingFbsListResponsePostingsSortingCenter"
+          },
+          "status": {
+            "type": "string",
+            "description": "\u0421\u0442\u0430\u0442\u0443\u0441 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F:\n- \u0060acceptance_in_progress\u0060 \u2014 \u0438\u0434\u0451\u0442 \u043F\u0440\u0438\u0451\u043C\u043A\u0430;\n- \u0060arbitration\u0060 \u2014 \u0430\u0440\u0431\u0438\u0442\u0440\u0430\u0436;\n- \u0060awaiting_approve\u0060 \u2014 \u043E\u0436\u0438\u0434\u0430\u0435\u0442 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u044F;\n- \u0060awaiting_deliver\u0060 \u2014 \u043E\u0436\u0438\u0434\u0430\u0435\u0442 \u043E\u0442\u0433\u0440\u0443\u0437\u043A\u0438;\n- \u0060awaiting_packaging\u0060 \u2014 \u043E\u0436\u0438\u0434\u0430\u0435\u0442 \u0443\u043F\u0430\u043A\u043E\u0432\u043A\u0438;\n- \u0060awaiting_registration\u0060 \u2014 \u043E\u0436\u0438\u0434\u0430\u0435\u0442 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438;\n- \u0060awaiting_verification\u0060 \u2014 \u0441\u043E\u0437\u0434\u0430\u043D\u043E;\n- \u0060cancelled\u0060 \u2014 \u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E;\n- \u0060cancelled_from_split_pending\u0060 \u2014 \u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E \u0438\u0437-\u0437\u0430 \u0440\u0430\u0437\u0434\u0435\u043B\u0435\u043D\u0438\u044F \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F;\n- \u0060client_arbitration\u0060 \u2014 \u043A\u043B\u0438\u0435\u043D\u0442\u0441\u043A\u0438\u0439 \u0430\u0440\u0431\u0438\u0442\u0440\u0430\u0436 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438;\n- \u0060delivering\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043B\u044F\u0435\u0442\u0441\u044F;\n- \u0060driver_pickup\u0060 \u2014 \u0443 \u0432\u043E\u0434\u0438\u0442\u0435\u043B\u044F;\n- \u0060not_accepted\u0060 \u2014 \u043D\u0435 \u043F\u0440\u0438\u043D\u044F\u0442\u043E \u043D\u0430 \u0441\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043E\u0447\u043D\u043E\u043C \u0446\u0435\u043D\u0442\u0440\u0435.\n"
+          },
+          "substatus": {
+            "type": "string",
+            "description": "\u041F\u043E\u0434\u0441\u0442\u0430\u0442\u0443\u0441 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F:\n- \u0060posting_acceptance_in_progress\u0060\u2014 \u0438\u0434\u0451\u0442 \u043F\u0440\u0438\u0451\u043C\u043A\u0430;\n- \u0060posting_in_arbitration\u0060 \u2014 \u0430\u0440\u0431\u0438\u0442\u0440\u0430\u0436;\n- \u0060posting_created\u0060 \u2014 \u0441\u043E\u0437\u0434\u0430\u043D\u043E;\n- \u0060posting_in_carriage\u0060 \u2014 \u0432 \u043F\u0435\u0440\u0435\u0432\u043E\u0437\u043A\u0435;\n- \u0060posting_not_in_carriage\u0060 \u2014 \u043D\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E \u0432 \u043F\u0435\u0440\u0435\u0432\u043E\u0437\u043A\u0443;\n- \u0060posting_registered\u0060 \u2014 \u0437\u0430\u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u043E\u0432\u0430\u043D\u043E;\n- \u0060posting_transferring_to_delivery\u0060, \u0435\u0441\u043B\u0438 \u0060status=awaiting_deliver\u0060 \u2014 \u043F\u0435\u0440\u0435\u0434\u0430\u0451\u0442\u0441\u044F \u0432 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0443;\n- \u0060posting_awaiting_passport_data\u0060 \u2014 \u043E\u0436\u0438\u0434\u0430\u0435\u0442 \u043F\u0430\u0441\u043F\u043E\u0440\u0442\u043D\u044B\u0445 \u0434\u0430\u043D\u043D\u044B\u0445;\n- \u0060posting_created\u0060 \u2014 \u0441\u043E\u0437\u0434\u0430\u043D\u043E;\n- \u0060posting_awaiting_registration\u0060 \u2014 \u043E\u0436\u0438\u0434\u0430\u0435\u0442 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438;\n- \u0060posting_registration_error\u0060 \u2014 \u043E\u0448\u0438\u0431\u043A\u0430 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438;\n- \u0060posting_transferring_to_delivery\u0060, \u0435\u0441\u043B\u0438 \u0060status=awaiting_registration\u0060 \u2014 \u043F\u0435\u0440\u0435\u0434\u0430\u0451\u0442\u0441\u044F \u043A\u0443\u0440\u044C\u0435\u0440\u0443;\n- \u0060posting_split_pending\u0060 \u2014 \u0441\u043E\u0437\u0434\u0430\u043D\u043E;\n- \u0060posting_canceled\u0060 \u2014 \u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E;\n- \u0060posting_in_client_arbitration\u0060 \u2014 \u043A\u043B\u0438\u0435\u043D\u0442\u0441\u043A\u0438\u0439 \u0430\u0440\u0431\u0438\u0442\u0440\u0430\u0436 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438;\n- \u0060posting_delivered\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u043E;\n- \u0060posting_received\u0060 \u2014 \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043E;\n- \u0060posting_conditionally_delivered\u0060 \u2014 \u0443\u0441\u043B\u043E\u0432\u043D\u043E \u0434\u043E\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u043E;\n- \u0060posting_in_courier_service\u0060 \u2014 \u043A\u0443\u0440\u044C\u0435\u0440 \u0432 \u043F\u0443\u0442\u0438;\n- \u0060posting_in_pickup_point\u0060 \u2014 \u0432 \u043F\u0443\u043D\u043A\u0442\u0435 \u0432\u044B\u0434\u0430\u0447\u0438;\n- \u0060posting_on_way_to_city\u0060 \u2014 \u0432 \u043F\u0443\u0442\u0438 \u0432 \u0432\u0430\u0448 \u0433\u043E\u0440\u043E\u0434;\n- \u0060posting_on_way_to_pickup_point\u0060 \u2014 \u0432 \u043F\u0443\u0442\u0438 \u0432 \u043F\u0443\u043D\u043A\u0442 \u0432\u044B\u0434\u0430\u0447\u0438;\n- \u0060posting_returned_to_warehouse\u0060 \u2014 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0435\u043D\u043E \u043D\u0430 \u0441\u043A\u043B\u0430\u0434;\n- \u0060posting_transferred_to_courier_service\u0060 \u2014 \u043F\u0435\u0440\u0435\u0434\u0430\u0451\u0442\u0441\u044F \u0432 \u0441\u043B\u0443\u0436\u0431\u0443 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438;\n- \u0060posting_driver_pick_up\u0060 \u2014 \u0443 \u0432\u043E\u0434\u0438\u0442\u0435\u043B\u044F;\n- \u0060posting_not_in_sort_center\u0060 \u2014 \u043D\u0435 \u043F\u0440\u0438\u043D\u044F\u0442\u043E \u043D\u0430 \u0441\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043E\u0447\u043D\u043E\u043C \u0446\u0435\u043D\u0442\u0440\u0435;\n- \u0060ship_failed\u0060 \u2014 \u0441\u0431\u043E\u0440\u043A\u0430 \u043D\u0435 \u0443\u0434\u0430\u043B\u0430\u0441\u044C.\n"
+          },
+          "tariffication": {
+            "$ref": "#/components/schemas/PostingFbsListResponsePostingsTariffication"
+          },
+          "tariffication_steps": {
+            "type": "array",
+            "description": "\u042D\u0442\u0430\u043F\u044B \u0442\u0430\u0440\u0438\u0444\u0438\u043A\u0430\u0446\u0438\u0438.",
+            "items": {
+              "$ref": "#/components/schemas/PostingFbsListResponsePostingsTarifficationStep"
+            }
+          },
+          "tpl_integration_type": {
+            "type": "string",
+            "description": "\u0422\u0438\u043F \u0438\u043D\u0442\u0435\u0433\u0440\u0430\u0446\u0438\u0438 \u0441\u043E \u0441\u043B\u0443\u0436\u0431\u043E\u0439 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438:\n  - \u0060ozon\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0430 \u0441\u043B\u0443\u0436\u0431\u043E\u0439 Ozon;\n  - \u00603pl_tracking\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0430 \u0438\u043D\u0442\u0435\u0433\u0440\u0438\u0440\u043E\u0432\u0430\u043D\u043D\u043E\u0439 \u0441\u043B\u0443\u0436\u0431\u043E\u0439;\n  - \u0060non_integrated\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0430 \u0441\u0442\u043E\u0440\u043E\u043D\u043D\u0435\u0439 \u0441\u043B\u0443\u0436\u0431\u043E\u0439;\n  - \u0060aggregator\u0060 \u2014 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0430 \u0447\u0435\u0440\u0435\u0437 \u043F\u0430\u0440\u0442\u043D\u0451\u0440\u0441\u043A\u0443\u044E \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0443 Ozon;\n  - \u0060hybryd\u0060 \u2014 \u0441\u0445\u0435\u043C\u0430 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438 \u041F\u043E\u0447\u0442\u044B \u0420\u043E\u0441\u0441\u0438\u0438.\n"
+          },
+          "tracking_number": {
+            "type": "string",
+            "description": "\u0422\u0440\u0435\u043A-\u043D\u043E\u043C\u0435\u0440 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F."
+          },
+          "volume_weight": {
+            "type": "number",
+            "format": "double",
+            "description": "\u041E\u0431\u044A\u0451\u043C\u043D\u044B\u0439 \u0432\u0435\u0441 \u0442\u043E\u0432\u0430\u0440\u0430."
+          }
+        }
+      },
+      "PostingFbsListResponsePostingsAddressee": {
+        "type": "object",
+        "description": "\u041A\u043E\u043D\u0442\u0430\u043A\u0442\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435 \u043F\u043E\u043B\u0443\u0447\u0430\u0442\u0435\u043B\u044F.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "\u0418\u043C\u044F \u043F\u043E\u043B\u0443\u0447\u0430\u0442\u0435\u043B\u044F."
+          }
+        }
+      },
+      "PostingFbsListResponsePostingsAnalyticsData": {
+        "type": "object",
+        "description": "\u0414\u0430\u043D\u043D\u044B\u0435 \u0430\u043D\u0430\u043B\u0438\u0442\u0438\u043A\u0438.",
+        "properties": {
+          "city": {
+            "type": "string",
+            "description": "\u0413\u043E\u0440\u043E\u0434 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438. \u0422\u043E\u043B\u044C\u043A\u043E \u0434\u043B\u044F \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0439 rFBS \u0438 \u043F\u0440\u043E\u0434\u0430\u0432\u0446\u043E\u0432 \u0438\u0437 \u0421\u041D\u0413."
+          },
+          "client_delivery_date_begin": {
+            "type": "string",
+            "format": "date-time",
+            "description": "\u0414\u0430\u0442\u0430 \u0438 \u0432\u0440\u0435\u043C\u044F \u043D\u0430\u0447\u0430\u043B\u0430 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438. \u0422\u043E\u043B\u044C\u043A\u043E \u0434\u043B\u044F \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0439, \u043E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u043D\u044B\u0445 \u0447\u0435\u0440\u0435\u0437 [Ozon \u0414\u043E\u0441\u0442\u0430\u0432\u043A\u0443](#tag/OzonLogistics)."
+          },
+          "client_delivery_date_end": {
+            "type": "string",
+            "format": "date-time",
+            "description": "\u041E\u0436\u0438\u0434\u0430\u0435\u043C\u0430\u044F \u0434\u0430\u0442\u0430, \u0434\u043E \u043A\u043E\u0442\u043E\u0440\u043E\u0439 \u0437\u0430\u043A\u0430\u0437 \u0431\u0443\u0434\u0435\u0442 \u0434\u043E\u0441\u0442\u0430\u0432\u043B\u0435\u043D. \u0422\u043E\u043B\u044C\u043A\u043E \u0434\u043B\u044F \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0439, \u043E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u043D\u044B\u0445 \u0447\u0435\u0440\u0435\u0437 [Ozon \u0414\u043E\u0441\u0442\u0430\u0432\u043A\u0443](#tag/OzonLogistics)."
+          },
+          "delivery_date_begin": {
+            "type": "string",
+            "format": "date-time",
+            "description": "\u0414\u0430\u0442\u0430 \u0438 \u0432\u0440\u0435\u043C\u044F \u043D\u0430\u0447\u0430\u043B\u0430 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438."
+          },
+          "delivery_date_end": {
+            "type": "string",
+            "format": "date-time",
+            "description": "\u0414\u0430\u0442\u0430 \u0438 \u0432\u0440\u0435\u043C\u044F \u043A\u043E\u043D\u0446\u0430 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438."
+          },
+          "delivery_type": {
+            "type": "string",
+            "description": "\u0421\u043F\u043E\u0441\u043E\u0431 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438."
+          },
+          "is_legal": {
+            "type": "boolean",
+            "description": "\u0060true\u0060, \u0435\u0441\u043B\u0438 \u043F\u043E\u043B\u0443\u0447\u0430\u0442\u0435\u043B\u044C \u044E\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043A\u043E\u0435 \u043B\u0438\u0446\u043E.\n"
+          },
+          "is_premium": {
+            "type": "boolean",
+            "description": "\u0060true\u0060, \u0435\u0441\u043B\u0438 \u0443 \u043F\u043E\u043B\u0443\u0447\u0430\u0442\u0435\u043B\u044F \u0435\u0441\u0442\u044C \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0430 Premium.\n"
+          },
+          "payment_type_group_name": {
+            "type": "string",
+            "description": "\u0421\u043F\u043E\u0441\u043E\u0431 \u043E\u043F\u043B\u0430\u0442\u044B: \n- \u0060\u043A\u0430\u0440\u0442\u043E\u0439 \u043E\u043D\u043B\u0430\u0439\u043D\u0060;\n- \u0060\u043A\u0430\u0440\u0442\u0430 Ozon \u0411\u0430\u043D\u043A\u0430\u0060;\n- \u0060\u0430\u0432\u0442\u043E\u0441\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u0441 \u043A\u0430\u0440\u0442\u044B Ozon \u0411\u0430\u043D\u043A\u0430 \u043F\u0440\u0438 \u0432\u044B\u0434\u0430\u0447\u0435\u0060;\n- \u0060\u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u043E\u0439 \u043A\u0430\u0440\u0442\u043E\u0439 \u043F\u0440\u0438 \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u0438\u0438\u0060;\n- \u0060\u0421\u0438\u0441\u0442\u0435\u043C\u0430 \u0411\u044B\u0441\u0442\u0440\u044B\u0445 \u041F\u043B\u0430\u0442\u0435\u0436\u0435\u0439\u0060;\n- \u0060Ozon \u0420\u0430\u0441\u0441\u0440\u043E\u0447\u043A\u0430\u0060;\n- \u0060\u043E\u043F\u043B\u0430\u0442\u0430 \u043D\u0430 \u0440\u0430\u0441\u0447\u0451\u0442\u043D\u044B\u0439 \u0441\u0447\u0451\u0442\u0060;\n- \u0060SberPay\u0060;\n- \u0060\u043F\u0440\u0435\u0434\u043E\u043F\u043B\u0430\u0442\u0430 \u043D\u0430 \u0441\u0442\u043E\u0440\u043E\u043D\u0435 \u0432\u043D\u0435\u0448\u043D\u0435\u0433\u043E \u043F\u0440\u043E\u0434\u0430\u0432\u0446\u0430\u0060.\n"
+          },
+          "region": {
+            "type": "string",
+            "description": "\u0420\u0435\u0433\u0438\u043E\u043D \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438. \u0422\u043E\u043B\u044C\u043A\u043E \u0434\u043B\u044F \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0439 rFBS."
+          },
+          "tpl_provider": {
+            "type": "string",
+            "description": "\u0421\u043B\u0443\u0436\u0431\u0430 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438."
+          },
+          "tpl_provider_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0441\u043B\u0443\u0436\u0431\u044B \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438."
+          },
+          "warehouse": {
+            "type": "string",
+            "description": "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0441\u043A\u043B\u0430\u0434\u0430 \u043E\u0442\u043F\u0440\u0430\u0432\u043A\u0438 \u0437\u0430\u043A\u0430\u0437\u0430."
+          },
+          "warehouse_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0441\u043A\u043B\u0430\u0434\u0430."
+          }
+        }
+      },
+      "PostingFbsListResponsePostingsBarcodes": {
+        "type": "object",
+        "description": "\u0428\u0442\u0440\u0438\u0445\u043A\u043E\u0434\u044B \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F.",
+        "properties": {
+          "lower_barcode": {
+            "type": "string",
+            "description": "\u041D\u0438\u0436\u043D\u0438\u0439 \u0448\u0442\u0440\u0438\u0445\u043A\u043E\u0434 \u043D\u0430 \u043C\u0430\u0440\u043A\u0438\u0440\u043E\u0432\u043A\u0435 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F."
+          },
+          "upper_barcode": {
+            "type": "string",
+            "description": "\u0412\u0435\u0440\u0445\u043D\u0438\u0439 \u0448\u0442\u0440\u0438\u0445\u043A\u043E\u0434 \u043D\u0430 \u043C\u0430\u0440\u043A\u0438\u0440\u043E\u0432\u043A\u0435 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F."
+          }
+        }
+      },
+      "PostingFbsListResponsePostingsCancellation": {
+        "type": "object",
+        "description": "\u0418\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F \u043E\u0431 \u043E\u0442\u043C\u0435\u043D\u0435.",
+        "properties": {
+          "affect_cancellation_rating": {
+            "type": "boolean",
+            "description": "\u0060true\u0060, \u0435\u0441\u043B\u0438 \u043E\u0442\u043C\u0435\u043D\u0430 \u0432\u043B\u0438\u044F\u0435\u0442 \u043D\u0430 \u0440\u0435\u0439\u0442\u0438\u043D\u0433 \u043F\u0440\u043E\u0434\u0430\u0432\u0446\u0430.\n"
+          },
+          "cancel_reason": {
+            "type": "string",
+            "description": "\u041F\u0440\u0438\u0447\u0438\u043D\u0430 \u043E\u0442\u043C\u0435\u043D\u044B."
+          },
+          "cancel_reason_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u043F\u0440\u0438\u0447\u0438\u043D\u044B \u043E\u0442\u043C\u0435\u043D\u044B \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F."
+          },
+          "cancellation_initiator": {
+            "type": "string",
+            "description": "\u0418\u043D\u0438\u0446\u0438\u0430\u0442\u043E\u0440 \u043E\u0442\u043C\u0435\u043D\u044B:\n- \u0060\u041F\u0440\u043E\u0434\u0430\u0432\u0435\u0446\u0060,\n- \u0060\u041A\u043B\u0438\u0435\u043D\u0442\u0060,\n- \u0060\u041F\u043E\u043A\u0443\u043F\u0430\u0442\u0435\u043B\u044C\u0060,\n- \u0060Ozon\u0060,\n- \u0060\u0421\u0438\u0441\u0442\u0435\u043C\u0430\u0060,\n- \u0060\u0421\u043B\u0443\u0436\u0431\u0430 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438\u0060.\n"
+          },
+          "cancellation_type": {
+            "type": "string",
+            "description": "\u0422\u0438\u043F \u043E\u0442\u043C\u0435\u043D\u044B:\n- \u0060seller\u0060 \u2014 \u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E \u043F\u0440\u043E\u0434\u0430\u0432\u0446\u043E\u043C;\n- \u0060client\u0060 \u0438\u043B\u0438 \u0060customer\u0060 \u2014 \u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E \u043F\u043E\u043A\u0443\u043F\u0430\u0442\u0435\u043B\u0435\u043C;\n- \u0060ozon\u0060 \u2014 \u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E Ozon;\n- \u0060system\u0060 \u2014 \u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E \u0441\u0438\u0441\u0442\u0435\u043C\u043E\u0439;\n- \u0060delivery\u0060 \u2014 \u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E \u0441\u043B\u0443\u0436\u0431\u043E\u0439 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438.\n"
+          },
+          "cancelled_after_ship": {
+            "type": "boolean",
+            "description": "\u0060true\u0060, \u0435\u0441\u043B\u0438 \u043E\u0442\u043C\u0435\u043D\u0430 \u043F\u0440\u043E\u0438\u0437\u043E\u0448\u043B\u0430 \u043F\u043E\u0441\u043B\u0435 \u0441\u0431\u043E\u0440\u043A\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F.\n"
+          }
+        }
+      },
       "PostingFbsListResponsePostingsContainer": {
         "type": "object",
         "description": "\u0418\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F \u043E \u0433\u0440\u0443\u0437\u043E\u043C\u0435\u0441\u0442\u0435.",
@@ -2429,6 +3273,435 @@
             "type": "integer",
             "format": "int32",
             "description": "\u041F\u043E\u0440\u044F\u0434\u043A\u043E\u0432\u044B\u0439 \u043D\u043E\u043C\u0435\u0440 \u0433\u0440\u0443\u0437\u043E\u043C\u0435\u0441\u0442\u0430."
+          }
+        }
+      },
+      "PostingFbsListResponsePostingsCustomer": {
+        "type": "object",
+        "description": "\u0418\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F \u043E \u043F\u043E\u043A\u0443\u043F\u0430\u0442\u0435\u043B\u0435.",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/PostingFbsListResponsePostingsCustomerAddress"
+          },
+          "customer_email": {
+            "type": "string",
+            "description": "\u042D\u043B\u0435\u043A\u0442\u0440\u043E\u043D\u043D\u0430\u044F \u043F\u043E\u0447\u0442\u0430 \u043F\u043E\u043A\u0443\u043F\u0430\u0442\u0435\u043B\u044F."
+          },
+          "customer_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u043F\u043E\u043A\u0443\u043F\u0430\u0442\u0435\u043B\u044F."
+          },
+          "name": {
+            "type": "string",
+            "description": "\u0418\u043C\u044F \u043F\u043E\u043A\u0443\u043F\u0430\u0442\u0435\u043B\u044F."
+          },
+          "phone": {
+            "type": "string",
+            "description": "\u041F\u043E\u0434\u043C\u0435\u043D\u043D\u044B\u0439 \u043A\u043E\u043D\u0442\u0430\u043A\u0442\u043D\u044B\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D \u043F\u043E\u043A\u0443\u043F\u0430\u0442\u0435\u043B\u044F."
+          }
+        }
+      },
+      "PostingFbsListResponsePostingsCustomerAddress": {
+        "type": "object",
+        "description": "\u0410\u0434\u0440\u0435\u0441 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438.",
+        "properties": {
+          "address_tail": {
+            "type": "string",
+            "description": "\u0410\u0434\u0440\u0435\u0441 \u0432 \u0442\u0435\u043A\u0441\u0442\u043E\u0432\u043E\u043C \u0444\u043E\u0440\u043C\u0430\u0442\u0435."
+          },
+          "city": {
+            "type": "string",
+            "description": "\u0413\u043E\u0440\u043E\u0434 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438."
+          },
+          "comment": {
+            "type": "string",
+            "description": "\u041A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u0439 \u043A \u0437\u0430\u043A\u0430\u0437\u0443."
+          },
+          "country": {
+            "type": "string",
+            "description": "\u0421\u0442\u0440\u0430\u043D\u0430 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438."
+          },
+          "district": {
+            "type": "string",
+            "description": "\u0420\u0430\u0439\u043E\u043D \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438."
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "description": "\u0428\u0438\u0440\u043E\u0442\u0430."
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "description": "\u0414\u043E\u043B\u0433\u043E\u0442\u0430."
+          },
+          "provider_pvz_code": {
+            "type": "string",
+            "description": "\u041A\u043E\u0434 \u043F\u0443\u043D\u043A\u0442\u0430 \u0432\u044B\u0434\u0430\u0447\u0438 \u0437\u0430\u043A\u0430\u0437\u043E\u0432 3PL-\u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440\u0430."
+          },
+          "pvz_code": {
+            "type": "integer",
+            "format": "int64",
+            "description": "\u041A\u043E\u0434 \u043F\u0443\u043D\u043A\u0442\u0430 \u0432\u044B\u0434\u0430\u0447\u0438 \u0437\u0430\u043A\u0430\u0437\u043E\u0432."
+          },
+          "region": {
+            "type": "string",
+            "description": "\u0420\u0435\u0433\u0438\u043E\u043D \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438."
+          },
+          "zip_code": {
+            "type": "string",
+            "description": "\u041F\u043E\u0447\u0442\u043E\u0432\u044B\u0439 \u0438\u043D\u0434\u0435\u043A\u0441 \u043F\u043E\u043B\u0443\u0447\u0430\u0442\u0435\u043B\u044F."
+          }
+        }
+      },
+      "PostingFbsListResponsePostingsDeliveryMethod": {
+        "type": "object",
+        "description": "\u0418\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F \u043E \u0441\u043F\u043E\u0441\u043E\u0431\u0435 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438.",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0441\u043F\u043E\u0441\u043E\u0431\u0430 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438."
+          },
+          "name": {
+            "type": "string",
+            "description": "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0441\u043F\u043E\u0441\u043E\u0431\u0430 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438."
+          },
+          "tpl_provider": {
+            "type": "string",
+            "description": "\u0421\u043B\u0443\u0436\u0431\u0430 \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438."
+          },
+          "tpl_provider_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0441\u043B\u0443\u0436\u0431\u044B \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0438."
+          },
+          "warehouse": {
+            "type": "string",
+            "description": "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0441\u043A\u043B\u0430\u0434\u0430."
+          },
+          "warehouse_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0441\u043A\u043B\u0430\u0434\u0430."
+          }
+        }
+      },
+      "PostingFbsListResponsePostingsExternalOrder": {
+        "type": "object",
+        "description": "\u0418\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F \u043E \u0437\u0430\u043A\u0430\u0437\u0435 \u0441 \u0432\u043D\u0435\u0448\u043D\u0435\u0439 \u043F\u043B\u0430\u0442\u0444\u043E\u0440\u043C\u044B.",
+        "properties": {
+          "is_external": {
+            "type": "boolean",
+            "description": "\u0060true\u0060, \u0435\u0441\u043B\u0438 \u0437\u0430\u043A\u0430\u0437 \u0441 \u0432\u043D\u0435\u0448\u043D\u0435\u0439 \u043F\u043B\u0430\u0442\u0444\u043E\u0440\u043C\u044B.\n"
+          },
+          "platform_name": {
+            "type": "string",
+            "description": "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u043F\u043B\u0430\u0442\u0444\u043E\u0440\u043C\u044B, \u0441 \u043A\u043E\u0442\u043E\u0440\u043E\u0439 \u0441\u0434\u0435\u043B\u0430\u043B\u0438 \u0437\u0430\u043A\u0430\u0437."
+          }
+        }
+      },
+      "PostingFbsListResponsePostingsFinancialData": {
+        "type": "object",
+        "description": "\u0418\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F \u043E \u0441\u0442\u043E\u0438\u043C\u043E\u0441\u0442\u0438 \u0442\u043E\u0432\u0430\u0440\u0430, \u0440\u0430\u0437\u043C\u0435\u0440\u0435 \u0441\u043A\u0438\u0434\u043A\u0438, \u0432\u044B\u043F\u043B\u0430\u0442\u0435 \u0438 \u043A\u043E\u043C\u0438\u0441\u0441\u0438\u0438.",
+        "properties": {
+          "cluster_from": {
+            "type": "string",
+            "description": "\u041A\u043E\u0434 \u0440\u0435\u0433\u0438\u043E\u043D\u0430, \u043E\u0442\u043A\u0443\u0434\u0430 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u0437\u0430\u043A\u0430\u0437."
+          },
+          "cluster_to": {
+            "type": "string",
+            "description": "\u041A\u043E\u0434 \u0440\u0435\u0433\u0438\u043E\u043D\u0430, \u043A\u0443\u0434\u0430 \u0434\u043E\u0441\u0442\u0430\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u0437\u0430\u043A\u0430\u0437."
+          },
+          "products": {
+            "type": "array",
+            "description": "\u0421\u043F\u0438\u0441\u043E\u043A \u0442\u043E\u0432\u0430\u0440\u043E\u0432 \u0432 \u0437\u0430\u043A\u0430\u0437\u0435.",
+            "items": {
+              "$ref": "#/components/schemas/PostingFbsListResponsePostingsFinancialDataProducts"
+            }
+          }
+        }
+      },
+      "PostingFbsListResponsePostingsFinancialDataProducts": {
+        "type": "object",
+        "properties": {
+          "actions": {
+            "type": "array",
+            "description": "\u0421\u043F\u0438\u0441\u043E\u043A \u0430\u043A\u0446\u0438\u0439.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "commission": {
+            "$ref": "#/components/schemas/PostingFbsListResponsePostingsFinancialDataProductsCommission"
+          },
+          "customer_price": {
+            "$ref": "#/components/schemas/PostingMoney"
+          },
+          "old_price": {
+            "type": "number",
+            "format": "double",
+            "description": "\u0426\u0435\u043D\u0430 \u0434\u043E \u0443\u0447\u0451\u0442\u0430 \u0441\u043A\u0438\u0434\u043E\u043A. \u041D\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0435 \u0442\u043E\u0432\u0430\u0440\u0430 \u043E\u0442\u043E\u0431\u0440\u0430\u0436\u0430\u0435\u0442\u0441\u044F \u0437\u0430\u0447\u0451\u0440\u043A\u043D\u0443\u0442\u043E\u0439."
+          },
+          "payout": {
+            "type": "number",
+            "format": "double",
+            "description": "\u0412\u044B\u043F\u043B\u0430\u0442\u0430 \u043F\u0440\u043E\u0434\u0430\u0432\u0446\u0443."
+          },
+          "price": {
+            "description": "\u0426\u0435\u043D\u0430 \u0442\u043E\u0432\u0430\u0440\u0430 \u0441 \u0443\u0447\u0451\u0442\u043E\u043C \u0430\u043A\u0446\u0438\u0439, \u043A\u0440\u043E\u043C\u0435 \u0430\u043A\u0446\u0438\u0439 \u0437\u0430 \u0441\u0447\u0451\u0442 Ozon.",
+            "type": "number",
+            "format": "double"
+          },
+          "product_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0442\u043E\u0432\u0430\u0440\u0430 \u0432 \u0441\u0438\u0441\u0442\u0435\u043C\u0435 Ozon \u2014 SKU."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64",
+            "description": "\u041A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u0442\u043E\u0432\u0430\u0440\u0430 \u0432 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0438."
+          },
+          "total_discount_percent": {
+            "type": "number",
+            "format": "double",
+            "description": "\u041F\u0440\u043E\u0446\u0435\u043D\u0442 \u0441\u043A\u0438\u0434\u043A\u0438."
+          },
+          "total_discount_value": {
+            "type": "number",
+            "format": "double",
+            "description": "\u0421\u0443\u043C\u043C\u0430 \u0441\u043A\u0438\u0434\u043A\u0438."
+          }
+        }
+      },
+      "PostingFbsListResponsePostingsFinancialDataProductsCommission": {
+        "type": "object",
+        "description": "\u041A\u043E\u043C\u0438\u0441\u0441\u0438\u044F \u0437\u0430 \u0442\u043E\u0432\u0430\u0440.",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "format": "double",
+            "description": "\u0420\u0430\u0437\u043C\u0435\u0440 \u043A\u043E\u043C\u0438\u0441\u0441\u0438\u0438 \u0437\u0430 \u0442\u043E\u0432\u0430\u0440."
+          },
+          "currency": {
+            "type": "string",
+            "description": "\u041A\u043E\u0434 \u0432\u0430\u043B\u044E\u0442\u044B, \u0432 \u043A\u043E\u0442\u043E\u0440\u043E\u0439 \u0440\u0430\u0441\u0441\u0447\u0438\u0442\u044B\u0432\u0430\u043B\u0430\u0441\u044C \u043A\u043E\u043C\u0438\u0441\u0441\u0438\u044F."
+          },
+          "percent": {
+            "type": "integer",
+            "format": "int64",
+            "description": "\u041F\u0440\u043E\u0446\u0435\u043D\u0442 \u043A\u043E\u043C\u0438\u0441\u0441\u0438\u0438."
+          }
+        }
+      },
+      "PostingFbsListResponsePostingsLegalInfo": {
+        "type": "object",
+        "description": "\u042E\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043A\u0430\u044F \u0438\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F \u043E \u043F\u043E\u043A\u0443\u043F\u0430\u0442\u0435\u043B\u0435.",
+        "properties": {
+          "company_name": {
+            "description": "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u043A\u043E\u043C\u043F\u0430\u043D\u0438\u0438.",
+            "type": "string"
+          },
+          "inn": {
+            "description": "\u0418\u041D\u041D.",
+            "type": "string"
+          },
+          "kpp": {
+            "description": "\u041A\u041F\u041F.",
+            "type": "string"
+          }
+        }
+      },
+      "PostingFbsListResponsePostingsOptional": {
+        "type": "object",
+        "description": "\u0421\u043F\u0438\u0441\u043E\u043A \u0442\u043E\u0432\u0430\u0440\u043E\u0432 \u0441 \u0434\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u043C\u0438 \u0445\u0430\u0440\u0430\u043A\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043A\u0430\u043C\u0438.",
+        "properties": {
+          "products_with_possible_mandatory_mark": {
+            "type": "array",
+            "description": "\u0421\u043F\u0438\u0441\u043E\u043A \u0442\u043E\u0432\u0430\u0440\u043E\u0432 \u0441 \u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E\u0439 \u043C\u0430\u0440\u043A\u0438\u0440\u043E\u0432\u043A\u043E\u0439.",
+            "items": {
+              "type": "string",
+              "format": "int64"
+            }
+          }
+        }
+      },
+      "PostingFbsListResponsePostingsProducts": {
+        "type": "object",
+        "properties": {
+          "imei": {
+            "type": "array",
+            "description": "\u0421\u043F\u0438\u0441\u043E\u043A IMEI \u043C\u043E\u0431\u0438\u043B\u044C\u043D\u044B\u0445 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "is_blr_traceable": {
+            "type": "boolean",
+            "description": "\u0060true\u0060, \u0435\u0441\u043B\u0438 \u0442\u043E\u0432\u0430\u0440 \u043E\u0442\u0441\u043B\u0435\u0436\u0438\u0432\u0430\u0435\u043C\u044B\u0439.\n"
+          },
+          "is_marketplace_buyout": {
+            "type": "boolean",
+            "description": "\u0060true\u0060, \u0435\u0441\u043B\u0438 Ozon \u0432\u044B\u043A\u0443\u043F\u0438\u043B \u0442\u043E\u0432\u0430\u0440.\n\n[\u041F\u043E\u0434\u0440\u043E\u0431\u043D\u0435\u0435 \u043E \u0432\u044B\u043A\u0443\u043F\u0435 \u0442\u043E\u0432\u0430\u0440\u043E\u0432 \u0432 \u0411\u0430\u0437\u0435 \u0437\u043D\u0430\u043D\u0438\u0439 \u043F\u0440\u043E\u0434\u0430\u0432\u0446\u0430](https://seller-edu.ozon.ru/commissions-tariffs/commissions-tariffs-ozon/prodaji-tovarov-v-eaes-i-drugie-strany#\u043A\u0430\u043A\u0438\u0435-\u0442\u043E\u0432\u0430\u0440\u044B-\u0432\u044B\u043A\u0443\u043F\u0430\u0435\u0442-ozon)\n"
+          },
+          "name": {
+            "type": "string",
+            "description": "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0442\u043E\u0432\u0430\u0440\u0430."
+          },
+          "offer_id": {
+            "type": "string",
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0442\u043E\u0432\u0430\u0440\u0430 \u0432 \u0441\u0438\u0441\u0442\u0435\u043C\u0435 \u043F\u0440\u043E\u0434\u0430\u0432\u0446\u0430 \u2014 \u0430\u0440\u0442\u0438\u043A\u0443\u043B."
+          },
+          "price": {
+            "$ref": "#/components/schemas/PostingMoney"
+          },
+          "product_color": {
+            "type": "string",
+            "description": "\u0426\u0432\u0435\u0442 \u0442\u043E\u0432\u0430\u0440\u0430."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32",
+            "description": "\u041A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u0442\u043E\u0432\u0430\u0440\u0430 \u0432 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0438."
+          },
+          "sku": {
+            "type": "integer",
+            "format": "int64",
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0442\u043E\u0432\u0430\u0440\u0430 \u0432 \u0441\u0438\u0441\u0442\u0435\u043C\u0435 Ozon \u2014 SKU."
+          },
+          "weight": {
+            "type": "number",
+            "format": "double",
+            "description": "\u0412\u0435\u0441 \u0442\u043E\u0432\u0430\u0440\u0430 \u0432 \u0443\u043F\u0430\u043A\u043E\u0432\u043A\u0435."
+          }
+        }
+      },
+      "PostingFbsListResponsePostingsRequirements": {
+        "type": "object",
+        "description": "\u0422\u043E\u0432\u0430\u0440\u044B, \u0434\u043B\u044F \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u043D\u0443\u0436\u043D\u0430 \u0434\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u0430\u044F \u0438\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F.\n\n\u0427\u0442\u043E\u0431\u044B \u043F\u0435\u0440\u0435\u0432\u0435\u0441\u0442\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u0432 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0441\u0442\u0430\u0442\u0443\u0441, \u043F\u0435\u0440\u0435\u0434\u0430\u0439\u0442\u0435:\n- \u0441\u0442\u0440\u0430\u043D\u0443-\u0438\u0437\u0433\u043E\u0442\u043E\u0432\u0438\u0442\u0435\u043B\u044F; \n- \u043D\u043E\u043C\u0435\u0440 \u0433\u0440\u0443\u0437\u043E\u0432\u043E\u0439 \u0442\u0430\u043C\u043E\u0436\u0435\u043D\u043D\u043E\u0439 \u0434\u0435\u043A\u043B\u0430\u0440\u0430\u0446\u0438\u0438 (\u0413\u0422\u0414);\n- \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u043E\u043D\u043D\u044B\u0439 \u043D\u043E\u043C\u0435\u0440 \u043F\u0430\u0440\u0442\u0438\u0438 \u0442\u043E\u0432\u0430\u0440\u0430 (\u0420\u041D\u041F\u0422);\n- \u043C\u0430\u0440\u043A\u0438\u0440\u043E\u0432\u043A\u0443 \u00AB\u0427\u0435\u0441\u0442\u043D\u044B\u0439 \u0437\u043D\u0430\u043A\u00BB;\n- \u0434\u0440\u0443\u0433\u0438\u0435 \u043C\u0430\u0440\u043A\u0438\u0440\u043E\u0432\u043A\u0438;\n- \u0432\u0435\u0441.\n",
+        "properties": {
+          "products_requiring_change_country": {
+            "type": "array",
+            "description": "\u0421\u043F\u0438\u0441\u043E\u043A \u0438\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440\u043E\u0432 \u0442\u043E\u0432\u0430\u0440\u043E\u0432 (SKU), \u0434\u043B\u044F \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u043D\u0443\u0436\u043D\u043E \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0441\u0442\u0440\u0430\u043D\u0443-\u0438\u0437\u0433\u043E\u0442\u043E\u0432\u0438\u0442\u0435\u043B\u044F. \u0427\u0442\u043E\u0431\u044B \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0441\u0442\u0440\u0430\u043D\u0443-\u0438\u0437\u0433\u043E\u0442\u043E\u0432\u0438\u0442\u0435\u043B\u044F, \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0439\u0442\u0435 \u043C\u0435\u0442\u043E\u0434\u044B [/v2/posting/fbs/product/country/list](#operation/PostingAPI_ListCountryProductFbsPostingV2) \u0438 [/v2/posting/fbs/product/country/set](#operation/PostingAPI_SetCountryProductFbsPostingV2).",
+            "items": {
+              "type": "string",
+              "format": "int64"
+            }
+          },
+          "products_requiring_country": {
+            "type": "array",
+            "description": "\u0421\u043F\u0438\u0441\u043E\u043A \u0438\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440\u043E\u0432 \u0442\u043E\u0432\u0430\u0440\u043E\u0432 (SKU), \u0434\u043B\u044F \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u043D\u0443\u0436\u043D\u043E \u043F\u0435\u0440\u0435\u0434\u0430\u0442\u044C \u0438\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044E \u043E \u0441\u0442\u0440\u0430\u043D\u0435-\u0438\u0437\u0433\u043E\u0442\u043E\u0432\u0438\u0442\u0435\u043B\u0435.\n\n\u0414\u043B\u044F \u0441\u0431\u043E\u0440\u043A\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u043F\u0435\u0440\u0435\u0434\u0430\u0439\u0442\u0435 \u0438\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044E \u043E \u0441\u0442\u0440\u0430\u043D\u0435-\u0438\u0437\u0433\u043E\u0442\u043E\u0432\u0438\u0442\u0435\u043B\u0435 \u0434\u043B\u044F \u0432\u0441\u0435\u0445 \u043F\u0435\u0440\u0435\u0447\u0438\u0441\u043B\u0435\u043D\u043D\u044B\u0445 \u0442\u043E\u0432\u0430\u0440\u043E\u0432 \u043C\u0435\u0442\u043E\u0434\u043E\u043C [/v2/posting/fbs/product/country/set](#operation/PostingAPI_SetCountryProductFbsPostingV2).\n",
+            "items": {
+              "type": "string",
+              "format": "int64"
+            }
+          },
+          "products_requiring_gtd": {
+            "type": "array",
+            "description": "\u0421\u043F\u0438\u0441\u043E\u043A \u0438\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440\u043E\u0432 \u0442\u043E\u0432\u0430\u0440\u043E\u0432 (SKU), \u0434\u043B\u044F \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u043D\u0443\u0436\u043D\u043E \u043F\u0435\u0440\u0435\u0434\u0430\u0442\u044C \u043D\u043E\u043C\u0435\u0440\u0430 \u0433\u0440\u0443\u0437\u043E\u0432\u043E\u0439 \u0442\u0430\u043C\u043E\u0436\u0435\u043D\u043D\u043E\u0439 \u0434\u0435\u043A\u043B\u0430\u0440\u0430\u0446\u0438\u0438 (\u0413\u0422\u0414).\n\n\u0414\u043E \u0441\u0431\u043E\u0440\u043A\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u043F\u0435\u0440\u0435\u0434\u0430\u0439\u0442\u0435 \u0434\u043B\u044F \u0432\u0441\u0435\u0445 \u043F\u0435\u0440\u0435\u0447\u0438\u0441\u043B\u0435\u043D\u043D\u044B\u0445 \u0442\u043E\u0432\u0430\u0440\u043E\u0432 \u043D\u043E\u043C\u0435\u0440 \u0433\u0440\u0443\u0437\u043E\u0432\u043E\u0439 \u0442\u0430\u043C\u043E\u0436\u0435\u043D\u043D\u043E\u0439 \u0434\u0435\u043A\u043B\u0430\u0440\u0430\u0446\u0438\u0438 \u0438\u043B\u0438 \u0438\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044E \u043E \u0442\u043E\u043C, \n\u0447\u0442\u043E \u043D\u043E\u043C\u0435\u0440\u0430 \u043D\u0435\u0442, \u043C\u0435\u0442\u043E\u0434\u043E\u043C [/v6/fbs/posting/product/exemplar/set](#operation/PostingAPI_FbsPostingProductExemplarSetV6).\n",
+            "items": {
+              "type": "string",
+              "format": "int64"
+            }
+          },
+          "products_requiring_imei": {
+            "type": "array",
+            "description": "\u0421\u043F\u0438\u0441\u043E\u043A \u0438\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440\u043E\u0432 \u0442\u043E\u0432\u0430\u0440\u043E\u0432, \u0434\u043B\u044F \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u043D\u0443\u0436\u043D\u043E \u043F\u0435\u0440\u0435\u0434\u0430\u0442\u044C IMEI.",
+            "items": {
+              "type": "string",
+              "format": "int64"
+            }
+          },
+          "products_requiring_jw_uin": {
+            "type": "array",
+            "description": "\u0421\u043F\u0438\u0441\u043E\u043A \u0442\u043E\u0432\u0430\u0440\u043E\u0432, \u0434\u043B\u044F \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u043D\u0443\u0436\u043D\u043E \u043F\u0435\u0440\u0435\u0434\u0430\u0442\u044C \u0443\u043D\u0438\u043A\u0430\u043B\u044C\u043D\u044B\u0439 \u0438\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0446\u0438\u043E\u043D\u043D\u044B\u0439 \u043D\u043E\u043C\u0435\u0440 (\u0423\u0418\u041D) \u044E\u0432\u0435\u043B\u0438\u0440\u043D\u043E\u0433\u043E \u0438\u0437\u0434\u0435\u043B\u0438\u044F.\n\n\u0414\u043E \u0441\u0431\u043E\u0440\u043A\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u043F\u0435\u0440\u0435\u0434\u0430\u0439\u0442\u0435 \u0434\u043B\u044F \u0432\u0441\u0435\u0445 \u043F\u0435\u0440\u0435\u0447\u0438\u0441\u043B\u0435\u043D\u043D\u044B\u0445 \u0442\u043E\u0432\u0430\u0440\u043E\u0432 \u0423\u0418\u041D \u043C\u0435\u0442\u043E\u0434\u043E\u043C [/v6/fbs/posting/product/exemplar/set](#operation/PostingAPI_FbsPostingProductExemplarSetV6).\n",
+            "items": {
+              "type": "string",
+              "format": "int64"
+            }
+          },
+          "products_requiring_mandatory_mark": {
+            "type": "array",
+            "description": "\u0421\u043F\u0438\u0441\u043E\u043A \u0438\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440\u043E\u0432 \u0442\u043E\u0432\u0430\u0440\u043E\u0432 (SKU), \u0434\u043B\u044F \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u043D\u0443\u0436\u043D\u043E \u043F\u0435\u0440\u0435\u0434\u0430\u0442\u044C \u043C\u0430\u0440\u043A\u0438\u0440\u043E\u0432\u043A\u0443 \u00AB\u0427\u0435\u0441\u0442\u043D\u044B\u0439 \u0437\u043D\u0430\u043A\u00BB.\n\n\u0414\u043E \u0441\u0431\u043E\u0440\u043A\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u043F\u0435\u0440\u0435\u0434\u0430\u0439\u0442\u0435 \u0434\u043B\u044F \u0432\u0441\u0435\u0445 \u043F\u0435\u0440\u0435\u0447\u0438\u0441\u043B\u0435\u043D\u043D\u044B\u0445 \u0442\u043E\u0432\u0430\u0440\u043E\u0432 \u043C\u0430\u0440\u043A\u0438\u0440\u043E\u0432\u043A\u0443 \u00AB\u0427\u0435\u0441\u0442\u043D\u044B\u0439 \u0437\u043D\u0430\u043A\u00BB \u043C\u0435\u0442\u043E\u0434\u043E\u043C [/v6/fbs/posting/product/exemplar/set](#operation/PostingAPI_FbsPostingProductExemplarSetV6).\n",
+            "items": {
+              "type": "string",
+              "format": "int64"
+            }
+          },
+          "products_requiring_rnpt": {
+            "type": "array",
+            "description": "\u0421\u043F\u0438\u0441\u043E\u043A \u0438\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440\u043E\u0432 \u0442\u043E\u0432\u0430\u0440\u043E\u0432 (SKU), \u0434\u043B\u044F \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u043D\u0443\u0436\u043D\u043E \u043F\u0435\u0440\u0435\u0434\u0430\u0442\u044C \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u043E\u043D\u043D\u044B\u0439 \u043D\u043E\u043C\u0435\u0440 \u043F\u0430\u0440\u0442\u0438\u0438 \u0442\u043E\u0432\u0430\u0440\u0430 (\u0420\u041D\u041F\u0422).\n\n\u0414\u043E \u0441\u0431\u043E\u0440\u043A\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u043F\u0435\u0440\u0435\u0434\u0430\u0439\u0442\u0435 \u0434\u043B\u044F \u0432\u0441\u0435\u0445 \u043F\u0435\u0440\u0435\u0447\u0438\u0441\u043B\u0435\u043D\u043D\u044B\u0445 \u0442\u043E\u0432\u0430\u0440\u043E\u0432 \u0420\u041D\u041F\u0422 \u043C\u0435\u0442\u043E\u0434\u043E\u043C [/v6/fbs/posting/product/exemplar/set](#operation/PostingAPI_FbsPostingProductExemplarSetV6).\n",
+            "items": {
+              "type": "string",
+              "format": "int64"
+            }
+          },
+          "products_requiring_weight": {
+            "type": "array",
+            "description": "\u0421\u043F\u0438\u0441\u043E\u043A \u0442\u043E\u0432\u0430\u0440\u043E\u0432, \u0434\u043B\u044F \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u043D\u0443\u0436\u043D\u043E \u043F\u0435\u0440\u0435\u0434\u0430\u0442\u044C \u0432\u0435\u0441.",
+            "items": {
+              "type": "string",
+              "format": "int64"
+            }
+          }
+        }
+      },
+      "PostingFbsListResponsePostingsSortingCenter": {
+        "type": "object",
+        "title": "object",
+        "description": "\u0418\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F \u043E \u0441\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043E\u0447\u043D\u043E\u043C \u0446\u0435\u043D\u0442\u0440\u0435, \u0432 \u043A\u043E\u0442\u043E\u0440\u044B\u0439 \u043D\u0443\u0436\u043D\u043E \u043F\u0440\u0438\u0432\u0435\u0437\u0442\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435. \u0414\u043B\u044F \u0060integration_type_flow = hybrid_3pl_tracking\u0060.\n\u0415\u0441\u043B\u0438 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \u0060null\u0060, \u0438\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044E \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C.\n",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "\u041A\u043E\u0434 \u0441\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043E\u0447\u043D\u043E\u0433\u043E \u0446\u0435\u043D\u0442\u0440\u0430."
+          },
+          "name": {
+            "type": "string",
+            "description": "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0441\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043E\u0447\u043D\u043E\u0433\u043E \u0446\u0435\u043D\u0442\u0440\u0430."
+          }
+        }
+      },
+      "PostingFbsListResponsePostingsTariffication": {
+        "type": "object",
+        "description": "\u0418\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F \u043F\u043E \u0442\u0430\u0440\u0438\u0444\u0438\u043A\u0430\u0446\u0438\u0438 \u043E\u0442\u0433\u0440\u0443\u0437\u043A\u0438.",
+        "properties": {
+          "current_tariff_charge": {
+            "$ref": "#/components/schemas/MoneyCurrent_tariff_charge"
+          },
+          "current_tariff_min_charge": {
+            "$ref": "#/components/schemas/MoneyCurrent_tariff_min_charge"
+          },
+          "current_tariff_rate": {
+            "type": "number",
+            "format": "double",
+            "description": "\u041F\u0440\u043E\u0446\u0435\u043D\u0442 \u0442\u0430\u0440\u0438\u0444\u0438\u043A\u0430\u0446\u0438\u0438."
+          },
+          "current_tariff_type": {
+            "type": "string",
+            "description": "\u0422\u0438\u043F \u0442\u0430\u0440\u0438\u0444\u0438\u043A\u0430\u0446\u0438\u0438 \u2014 \u0441\u043A\u0438\u0434\u043A\u0430 \u0438\u043B\u0438 \u043D\u0430\u0434\u0431\u0430\u0432\u043A\u0430."
+          },
+          "next_tariff_charge": {
+            "$ref": "#/components/schemas/MoneyNext_tariff_charge"
+          },
+          "next_tariff_min_charge": {
+            "$ref": "#/components/schemas/MoneyNext_tariff_min_charge"
+          },
+          "next_tariff_rate": {
+            "type": "number",
+            "format": "double",
+            "description": "\u041F\u0440\u043E\u0446\u0435\u043D\u0442, \u043F\u043E \u043A\u043E\u0442\u043E\u0440\u043E\u043C\u0443 \u0431\u0443\u0434\u0435\u0442 \u0442\u0430\u0440\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u0442\u044C\u0441\u044F \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u0447\u0435\u0440\u0435\u0437 \u0432\u0440\u0435\u043C\u044F \u0438\u0437 \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u0430 \u0060next_tariff_starts_at\u0060."
+          },
+          "next_tariff_starts_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": " YYYY-MM-DDThh:mm:ss.mcsZ",
+            "description": "\u0414\u0430\u0442\u0430 \u0438 \u0432\u0440\u0435\u043C\u044F, \u043A\u043E\u0433\u0434\u0430 \u043D\u0430\u0447\u043D\u0451\u0442 \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F \u043D\u043E\u0432\u044B\u0439 \u0442\u0430\u0440\u0438\u0444."
+          },
+          "next_tariff_type": {
+            "type": "string",
+            "description": "\u0422\u0438\u043F \u0442\u0430\u0440\u0438\u0444\u0438\u043A\u0430\u0446\u0438\u0438 \u0447\u0435\u0440\u0435\u0437 \u0432\u0440\u0435\u043C\u044F \u0438\u0437 \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u0430 \u0060next_tariff_starts_at\u0060 \u2014 \u0441\u043A\u0438\u0434\u043A\u0430 \u0438\u043B\u0438 \u043D\u0430\u0434\u0431\u0430\u0432\u043A\u0430."
           }
         }
       },

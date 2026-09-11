@@ -56,4 +56,14 @@ public class OzonOptions
     public int CutoffWindowPastDays { get; set; } = 90;
 
     public int CutoffWindowFutureDays { get; set; } = 180;
+
+    /// <summary>
+    /// Half-widths of the mandatory <c>since</c>/<c>to</c> window on /v4/posting/fbs/list, in days.
+    /// The status catch-up asks about postings by order number, so the window only has to be wide
+    /// enough not to cut one off; Ozon caps the period at a year, which is what the two together
+    /// stay under. A posting outside the window comes back as absent, i.e. as forgotten.
+    /// </summary>
+    public int PostingWindowPastDays { get; set; } = 330;
+
+    public int PostingWindowFutureDays { get; set; } = 30;
 }
