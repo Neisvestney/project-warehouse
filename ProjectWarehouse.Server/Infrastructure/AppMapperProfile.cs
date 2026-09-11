@@ -90,7 +90,7 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.GroupName, opt => opt.MapFrom(s => s.Group != null ? s.Group.Name : null))
             .ForMember(d => d.Description, opt => opt.MapFrom(s => s.EffectiveDescription))
             .ForMember(d => d.Notes, opt => opt.MapFrom(s => s.EffectiveNotes))
-            .ForMember(d => d.Components, opt => opt.MapFrom(s => s.BundleComponents))
+            .ForMember(d => d.Components, opt => opt.MapFrom(s => s.BundleComponents.OrderBy(bc => bc.Order).ThenBy(bc => bc.Id)))
             .ForMember(d => d.VariationIds, opt => opt.MapFrom(s => s.VariationMemberships.Select(m => m.VariationId).ToList()))
             .ForMember(d => d.MemberIds, opt => opt.MapFrom(s => s.VariationMembers.Select(m => m.ItemId).ToList()))
             .ForMember(d => d.Children, opt => opt.MapFrom(s => s.GroupChildren))

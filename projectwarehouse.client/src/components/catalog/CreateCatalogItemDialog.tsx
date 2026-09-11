@@ -51,7 +51,7 @@ export function CreateCatalogItemDialog({open, onClose, onCreated}: CreateCatalo
   const queryClient = useQueryClient();
 
   const form = useForm<CreateFormValues>({
-    defaultValues: {type: "standard", name: "", article: "", barcode: "", mainImage: null},
+    defaultValues: {type: undefined, name: "", article: "", barcode: "", mainImage: null},
   });
   const {setApiError} = useRhfApiErrors(form);
   const {control, formState, reset} = form;
@@ -97,10 +97,11 @@ export function CreateCatalogItemDialog({open, onClose, onCreated}: CreateCatalo
           <Controller
             control={control}
             name="type"
+            rules={{required: "Обязательное поле"}}
             render={({field, fieldState}) => (
-              <FormControl size="small" fullWidth error={!!fieldState.error}>
+              <FormControl size="small" fullWidth required error={!!fieldState.error}>
                 <InputLabel>Тип</InputLabel>
-                <Select {...field} label="Тип" disabled={isPending}>
+                <Select {...field} value={field.value ?? ""} label="Тип" disabled={isPending}>
                   {CREATABLE_TYPES.map((type) => (
                     <MenuItem key={type} value={type}>
                       {CATALOG_ITEM_TYPE_CONFIG[type].label}
@@ -119,6 +120,7 @@ export function CreateCatalogItemDialog({open, onClose, onCreated}: CreateCatalo
             fullWidth
             disabled={isPending}
             rules={{required: "Обязательное поле"}}
+            required
           />
           <FormTextField
             control={control}
@@ -128,6 +130,7 @@ export function CreateCatalogItemDialog({open, onClose, onCreated}: CreateCatalo
             fullWidth
             disabled={isPending}
             rules={{required: "Обязательное поле"}}
+            required
           />
           <FormTextField
             control={control}

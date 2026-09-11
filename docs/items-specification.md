@@ -58,6 +58,8 @@ A configurable kit composed of any combination of Standard, Unit, ProductGroup, 
 
 Components are stored in `BundleComponent` records linked to the Bundle's CatalogItem.
 
+**Component order:** the position of a component inside the Bundle is `BundleComponent.Order`, written from the index of the element in the `components` array of `PUT /api/catalog/{id}`. The item always returns `components` sorted by that field, so the kit reads the same on every request. In the UI the list is reordered by dragging a row (`BundleComponentsEditor`); the form array index is the order, so no extra field travels in the request.
+
 #### Bundle/Variation nesting
 
 Bundle and Variation can nest each other to arbitrary depth: a Bundle component may be a Variation, and a Variation member may be a Bundle (`Bundle → Variation → Bundle → ...`), as long as the result is acyclic. The only two combinations that are disallowed are a Bundle directly containing another Bundle, and a Variation directly containing another Variation.

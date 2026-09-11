@@ -89,54 +89,12 @@ import MarketplaceAccountChip from "@/components/marketplace/MarketplaceAccountC
 import {useBackClosable} from "@/hooks/useBackClosable.ts";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
 import CatalogItemLink from "@/components/catalog/CatalogItemLink.tsx";
+import BundleComponentsEditor from "@/components/catalog/BundleComponentsEditor";
+import type {CatalogItemFormValues, ImageValue} from "@/components/catalog/catalogItemFormValues";
 import {CATALOG_ITEM_TYPE_CONFIG} from "@/features/catalog";
 import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 
 const DRAWER_WIDTH = 1000;
-
-// ─── Form types ───────────────────────────────────────────────────────────────
-
-type ComponentValue = {
-  entityId?: string;
-  component: CatalogItemSelectDto | null;
-  quantity: number;
-};
-
-type ImageValue = {
-  /** Id of the join row, absent until the image is saved with the item. */
-  entityId?: string;
-  file: DataFileDto;
-};
-
-type ChildValue = {
-  entityId?: string;
-  type: "standard" | "unit";
-  name: string;
-  article: string;
-  barcode: string;
-  description: string;
-  notes: string;
-  labelText: string;
-  tags: CatalogItemTagDto[];
-  mainImage: DataFileDto | null;
-  images: ImageValue[];
-};
-
-type CatalogItemFormValues = {
-  name: string;
-  article: string;
-  barcode: string;
-  description: string;
-  notes: string;
-  labelText: string;
-  isArchived: boolean;
-  tags: CatalogItemTagDto[];
-  members: CatalogItemSelectDto[];
-  components: ComponentValue[];
-  children: ChildValue[];
-  mainImage: DataFileDto | null;
-  images: ImageValue[];
-};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -701,64 +659,6 @@ function ViewMode({
   );
 }
 
-// ─── BundleComponentRow ───────────────────────────────────────────────────────
-
-function BundleComponentRow({
-  control,
-  setValue,
-  index,
-  onRemove,
-  isPending,
-}: {
-  control: Control<CatalogItemFormValues>;
-  setValue: UseFormSetValue<CatalogItemFormValues>;
-  index: number;
-  onRemove: () => void;
-  isPending: boolean;
-}) {
-  const component = useWatch({control, name: `components.${index}.component`});
-  return (
-    <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
-      <Box sx={{flex: 1}}>
-        <CatalogItemsSelect
-          value={component?.id ?? null}
-          onChange={(id) => {
-            if (!id) setValue(`components.${index}.component`, null);
-          }}
-          onDtoChange={(dto) => setValue(`components.${index}.component`, dto)}
-          types={["standard", "unit", "productGroup", "variation"]}
-          label="Позиция"
-          disabled={isPending}
-          size="small"
-          textFieldProps={{size: "small"}}
-        />
-      </Box>
-      <Controller
-        control={control}
-        name={`components.${index}.quantity`}
-        rules={{required: true, min: {value: 1, message: "Мин. 1"}}}
-        render={({field: f, fieldState}) => (
-          <ClampedIntegerField
-            name={f.name}
-            inputRef={f.ref}
-            value={f.value}
-            onCommit={f.onChange}
-            label="Кол-во"
-            size="small"
-            sx={{width: 90}}
-            disabled={isPending}
-            error={!!fieldState.error}
-            helperText={fieldState.error?.message}
-          />
-        )}
-      />
-      <IconButton size="small" onClick={onRemove} disabled={isPending} sx={{mt: 0.5}}>
-        <DeleteIcon fontSize="small" />
-      </IconButton>
-    </Stack>
-  );
-}
-
 // ─── ChildRow ─────────────────────────────────────────────────────────────────
 
 function ChildRow({
@@ -953,7 +853,6 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
   const isPending = mutation.isPending;
   const type = data?.type;
 
-  const componentsArray = useFieldArray({control, name: "components"});
   const childrenArray = useFieldArray({control, name: "children"});
 
   const tags = useWatch({control, name: "tags"});
@@ -1092,30 +991,7 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
 
         {/* Bundle — Components */}
         {type === "bundle" && (
-          <>
-            <Divider />
-            <Stack direction="row" sx={{justifyContent: "space-between", alignItems: "center"}}>
-              <Typography variant="subtitle2">Компоненты</Typography>
-              <Button
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={() => componentsArray.append({component: null, quantity: 1})}
-                disabled={isPending}
-              >
-                Добавить
-              </Button>
-            </Stack>
-            {componentsArray.fields.map((field, index) => (
-              <BundleComponentRow
-                key={field.id}
-                control={control}
-                setValue={setValue}
-                index={index}
-                onRemove={() => componentsArray.remove(index)}
-                isPending={isPending}
-              />
-            ))}
-          </>
+          <BundleComponentsEditor control={control} setValue={setValue} isPending={isPending} />
         )}
 
         {/* ProductGroup — Children */}

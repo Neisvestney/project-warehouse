@@ -202,6 +202,8 @@ public class ApplicationDbContext : IdentityDbContext<
                 .WithMany()
                 .HasForeignKey(x => x.ComponentId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(x => new { x.BundleId, x.Order });
         });
 
         builder.Entity<ItemsGroup>(e => { e.HasKey(x => x.Id); });

@@ -12,5 +12,8 @@ public class BundleComponent : IHasIdentity
     public Guid ComponentId { get; set; }
     public CatalogItem Component { get; set; } = null!;
 
+    /// <summary>Position of the component within the bundle, ascending.</summary>
+    public int Order { get; set; }
+
     public int Quantity { get; set; }
 }
