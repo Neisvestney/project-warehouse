@@ -780,13 +780,15 @@ public class CatalogController(
         foreach (var bc in toRemove)
             item.BundleComponents.Remove(bc);
 
-        foreach (var req in components)
+        for (var order = 0; order < components.Count; order++)
         {
+            var req = components[order];
             if (req.Id.HasValue)
             {
                 var existing = item.BundleComponents.First(bc => bc.Id == req.Id.Value);
                 existing.ComponentId = req.ComponentId;
                 existing.Quantity = req.Quantity;
+                existing.Order = order;
             }
             else
             {
@@ -795,7 +797,8 @@ public class CatalogController(
                     Id = Guid.NewGuid(),
                     BundleId = bundleId,
                     ComponentId = req.ComponentId,
-                    Quantity = req.Quantity
+                    Quantity = req.Quantity,
+                    Order = order
                 });
             }
         }

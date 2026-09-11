@@ -425,14 +425,17 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<Guid>("ComponentId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BundleId");
-
                     b.HasIndex("ComponentId");
+
+                    b.HasIndex("BundleId", "Order");
 
                     b.ToTable("BundleComponents");
                 });
