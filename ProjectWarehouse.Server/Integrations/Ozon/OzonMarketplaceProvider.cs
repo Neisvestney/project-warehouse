@@ -138,25 +138,15 @@ public class OzonMarketplaceProvider(
     public async Task<IReadOnlyList<ExternalPostingStatus>> FetchPostingStatusesAsync(
         MarketplaceCredentials credentials, IReadOnlyList<string> postingNumbers, CancellationToken ct)
     {
-        // a plain async method, so one scope covers the whole loop
         using var _ = requestContext.Use(credentials);
-
-        var statuses = new List<ExternalPostingStatus>(postingNumbers.Count);
         try
         {
-            foreach (var postingNumber in postingNumbers)
-            {
-                // postings Ozon has forgotten come back null and are simply left out
-                if (await client.GetPostingStatusAsync(postingNumber, ct) is { } status)
-                    statuses.Add(status);
-            }
+            return await client.GetPostingStatusesAsync(postingNumbers, ct);
         }
         catch (OzonApiException ex)
         {
             throw LogAndWrap(ex);
         }
-
-        return statuses;
     }
 
     public async Task<ExternalLabelDocument> FetchLabelDocumentAsync(

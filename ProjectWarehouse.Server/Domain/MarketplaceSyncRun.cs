@@ -28,7 +28,7 @@ public class MarketplaceSyncRun : IHasIdentity
     public int CardsArchived { get; set; }
     public int AutoMapped { get; set; }
 
-    // filled only when Scope is Orders
+    // Orders fills all four; a run that only refreshes statuses moves OrdersUpdated alone
     public int OrdersProcessed { get; set; }
     public int OrdersCreated { get; set; }
     public int OrdersUpdated { get; set; }

@@ -34,6 +34,7 @@ export const SYNC_SCOPE_LABELS: Record<MarketplaceSyncScope, string> = {
   cards: "Карточки",
   all: "Всё",
   orders: "Заказы",
+  ordersBackground: "Статусы заказов",
 };
 
 export const WAREHOUSE_KIND_LABELS: Record<MarketplaceWarehouseKind, string> = {

@@ -978,7 +978,7 @@ export type MarketplaceSyncRunDto = {
   error?: null | AppFieldError;
 };
 
-export type MarketplaceSyncScope = "warehouses" | "cards" | "all" | "orders";
+export type MarketplaceSyncScope = "warehouses" | "cards" | "all" | "orders" | "ordersBackground";
 
 export type MarketplaceSyncStatus = "running" | "success" | "failed" | "canceled";
 
@@ -1109,7 +1109,17 @@ export type OrderLabelsRequest = {
 export type OrderMarketplaceItemDto = {
   id: string;
   marketplaceCard?: null | MarketplaceCardDto;
+  catalogItemId?: null | string;
   quantity: number;
+  customerPrice?: null | number;
+  customerCurrencyCode?: null | string;
+  price?: null | number;
+  oldPrice?: null | number;
+  discountValue?: null | number;
+  payout?: null | number;
+  currencyCode?: null | string;
+  commissionAmount?: null | number;
+  commissionCurrencyCode?: null | string;
 };
 
 export type OrderSortBy = "number" | "status" | "createdAt" | "plannedShipmentAt" | "warehouseName";

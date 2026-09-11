@@ -20,6 +20,9 @@ public class OzonClient(
     private const int CardPageSize = 200;
     private const int PostingPageSize = 100;
 
+    /// <summary>Spec cap on <c>filter.order_numbers</c> of /v4/posting/fbs/list.</summary>
+    private const int OrderNumberBatchSize = 100;
+
     /// <summary>The only posting state WMS imports — see the FBS section of the marketplaces spec.</summary>
     private const string AwaitingDeliver = "awaiting_deliver";
 
@@ -155,32 +158,80 @@ public class OzonClient(
         } while (!string.IsNullOrEmpty(cursor));
     }
 
-    public async Task<ExternalPostingStatus?> GetPostingStatusAsync(string postingNumber, CancellationToken ct)
+    public async Task<IReadOnlyList<ExternalPostingStatus>> GetPostingStatusesAsync(
+        IReadOnlyList<string> postingNumbers, CancellationToken ct)
     {
-        V3FbsPostingDetail? posting;
-        try
+        var wanted = postingNumbers.ToHashSet();
+        var statuses = new List<ExternalPostingStatus>(wanted.Count);
+
+        var now = DateTimeOffset.UtcNow;
+        var since = now.AddDays(-_options.PostingWindowPastDays);
+        var to = now.AddDays(_options.PostingWindowFutureDays);
+
+        var firstBatch = true;
+
+        foreach (var batch in wanted.Select(ToOrderNumber).Distinct().Chunk(OrderNumberBatchSize))
         {
-            posting = (await api.PostingAPI_GetFbsPostingV3Async(
-                new Postingv3GetFbsPostingRequest { Posting_number = postingNumber }, ct)).Result;
-        }
-        catch (OzonApiException ex) when (ex.StatusCode == 404)
-        {
-            logger.LogWarning("Ozon no longer knows posting {PostingNumber}", postingNumber);
-            // swallowed here rather than at the provider, so the body is written on the way past
-            logger.LogFailedResponse(ex, LogLevel.Warning);
-            return null;
+            // the page delay guards pages inside a batch; batches need it just as much
+            if (!firstBatch)
+                await DelayBetweenPagesAsync(ct);
+            firstBatch = false;
+
+            string? cursor = null;
+            var matched = 0;
+
+            do
+            {
+                var response = await api.PostingFbsListAsync(
+                    new PostingFbsListRequest
+                    {
+                        Limit = PostingPageSize,
+                        Cursor = cursor,
+                        Filter = new PostingFbsListRequestFilter
+                        {
+                            Order_numbers = batch,
+                            Since = since,
+                            To = to,
+                        },
+                    }, ct);
+
+                foreach (var posting in response.Postings ?? [])
+                {
+                    // an order number pulls in all of its postings, including ones nobody asked about
+                    if (posting.Posting_number is not { Length: > 0 } number || !wanted.Contains(number))
+                        continue;
+
+                    statuses.Add(new ExternalPostingStatus(
+                        number,
+                        ToOrderStatus(posting.Status),
+                        posting.Status,
+                        posting.Substatus,
+                        posting.Tracking_number));
+                    matched++;
+                }
+
+                cursor = response.Has_next == true ? response.Cursor : null;
+                if (!string.IsNullOrEmpty(cursor))
+                    await DelayBetweenPagesAsync(ct);
+            } while (!string.IsNullOrEmpty(cursor));
+
+            // a whole batch matching nothing reads as a broken filter, not as N forgotten postings
+            if (matched == 0)
+                logger.LogWarning("Ozon returned no postings for {Count} order number(s), first {OrderNumber}",
+                    batch.Length, batch[0]);
         }
 
-        if (posting is null)
-            return null;
-
-        return new ExternalPostingStatus(
-            posting.Posting_number ?? postingNumber,
-            ToOrderStatus(posting.Status),
-            posting.Status,
-            posting.Substatus,
-            posting.Tracking_number);
+        return statuses;
     }
+
+    /// <summary>
+    /// <c>/v4/posting/fbs/list</c> filters by order, not by posting, and a posting number is its order
+    /// number plus an index — <c>12345678-0012-1</c> belongs to <c>12345678-0012</c>.
+    /// </summary>
+    private static string ToOrderNumber(string postingNumber) =>
+        postingNumber.LastIndexOf('-') is > 0 and var dash
+            ? postingNumber[..dash]
+            : postingNumber;
 
     public async Task<ExternalLabelDocument> GetPackageLabelAsync(
         IReadOnlyList<string> postingNumbers, CancellationToken ct)

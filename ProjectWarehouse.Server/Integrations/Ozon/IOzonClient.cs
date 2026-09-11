@@ -17,8 +17,12 @@ public interface IOzonClient
     /// <summary>Postings in <c>awaiting_deliver</c> — packed on Ozon's side, ready to be assembled here.</summary>
     IAsyncEnumerable<IReadOnlyList<ExternalPosting>> GetActivePostingsAsync(CancellationToken ct);
 
-    /// <summary>Null when Ozon no longer knows the posting (404); every other failure throws.</summary>
-    Task<ExternalPostingStatus?> GetPostingStatusAsync(string postingNumber, CancellationToken ct);
+    /// <summary>
+    /// Postings Ozon no longer knows are <b>absent</b> from the result rather than reported; every
+    /// failure throws.
+    /// </summary>
+    Task<IReadOnlyList<ExternalPostingStatus>> GetPostingStatusesAsync(
+        IReadOnlyList<string> postingNumbers, CancellationToken ct);
 
     Task<ExternalLabelDocument> GetPackageLabelAsync(IReadOnlyList<string> postingNumbers, CancellationToken ct);
 

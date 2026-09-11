@@ -15,4 +15,15 @@ public interface IMarketplaceOrderSyncService
         MarketplaceAccount account,
         MarketplaceSyncRun run,
         CancellationToken ct);
+
+    /// <summary>
+    /// The unattended half: it refreshes what is already imported and never creates an order, so it is
+    /// safe on a background interval. Also the second phase of <see cref="SyncOrdersAsync"/>.
+    /// </summary>
+    Task SyncOrdersBackgroundAsync(
+        IMarketplaceProvider provider,
+        MarketplaceCredentials credentials,
+        MarketplaceAccount account,
+        MarketplaceSyncRun run,
+        CancellationToken ct);
 }

@@ -29,7 +29,7 @@ public class MarketplaceOrderSyncService(
         var skipped = new List<SkippedOrderInfo>();
 
         await DiscoverPostingsAsync(provider, credentials, account, run, skipped, ct);
-        await CatchUpStatusesAsync(provider, credentials, account, run, ct);
+        await SyncOrdersBackgroundAsync(provider, credentials, account, run, ct);
 
         // A fresh instance, not an in-place mutation: a jsonb scalar has no value comparer, so change
         // tracking cannot see the list grow — the same reason cards do `Barcodes = [.. …]`.
@@ -275,7 +275,15 @@ public class MarketplaceOrderSyncService(
         return changed;
     }
 
-    // ── Phase 2: status catch-up ──────────────────────────────────────────────
+    // ── Phase 2: unattended refresh ───────────────────────────────────────────
+
+    public async Task SyncOrdersBackgroundAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
+        MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
+    {
+        using var activity = AppTelemetry.Source.StartActivity("marketplace.sync.orders_background");
+
+        await CatchUpStatusesAsync(provider, credentials, account, run, ct);
+    }
 
     /// <summary>
     /// Postings that leave <c>awaiting_deliver</c> disappear from the unfulfilled list, and "shipped" is
