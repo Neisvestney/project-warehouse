@@ -11,6 +11,16 @@ import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {useDefaultStorageNode} from "@/hooks/useDefaultStorageNode";
 import {useNodeItemCount} from "@/hooks/useNodeItemCount";
 import {ComponentRow, RailCaption} from "./ComponentRow";
+import {
+  PicksContext,
+  slotPath,
+  useSlotPick,
+  withBranchReplaced,
+  withPick,
+  type CompositionPicks,
+  type PicksUpdate,
+  type SlotPick,
+} from "./compositionPicks";
 import {EMPTY_STATUS, statusOf, sumStatus, type SlotStatus} from "./fulfillmentStatus";
 import {useIsShort} from "./stockGuard";
 import {useVariationOptions} from "./variationOptions";
@@ -27,6 +37,8 @@ interface SlotProps {
   multiplier: number;
   /** How many copies of the whole composition will be taken — batch assembly copies it per task. */
   needTimes?: number;
+  /** Where this slot's pick lives in the composition. */
+  path: string;
   onChange: SlotChange;
   flat?: boolean;
   /** Variant choices made on the way down to this row. */
@@ -39,9 +51,11 @@ function useStandardLeaf(
   catalogItemId: string,
   multiplier: number,
   onChange: SlotChange,
+  path: string,
   needTimes = 1,
 ) {
-  const [override, setOverride] = useState<NodePick | null>(null);
+  const slot = useSlotPick(path);
+  const override = slot.pick?.node ?? null;
   const defaultNode = useDefaultStorageNode(warehouseId);
   // A fresh object every render would re-run the reporting effect forever.
   const node = useMemo(
@@ -77,7 +91,7 @@ function useStandardLeaf(
 
   return {
     node,
-    setOverride,
+    setOverride: (picked: NodePick) => slot.set({node: picked}),
     available,
     isDefault: !override && !!defaultNode,
     status: statusOf(ready),
@@ -85,8 +99,9 @@ function useStandardLeaf(
 }
 
 /** Instance state of a unit leaf, plus the entry it reports upward. */
-function useUnitLeaf(onChange: SlotChange) {
-  const [item, setItem] = useState<UnitInventoryItemDto | null>(null);
+function useUnitLeaf(onChange: SlotChange, path: string) {
+  const slot = useSlotPick(path);
+  const item = slot.pick?.unitItem ?? null;
 
   useEffect(() => {
     onChange(
@@ -104,7 +119,11 @@ function useUnitLeaf(onChange: SlotChange) {
     );
   }, [item, onChange]);
 
-  return {item, setItem, status: statusOf(!!item)};
+  return {
+    item,
+    setItem: (picked: UnitInventoryItemDto | null) => slot.set({unitItem: picked}),
+    status: statusOf(!!item),
+  };
 }
 
 function StandardSlot({
@@ -113,11 +132,12 @@ function StandardSlot({
   name,
   multiplier,
   needTimes,
+  path,
   onChange,
   flat,
   trail,
 }: SlotProps) {
-  const leaf = useStandardLeaf(warehouseId, catalogItemId, multiplier, onChange, needTimes);
+  const leaf = useStandardLeaf(warehouseId, catalogItemId, multiplier, onChange, path, needTimes);
 
   return (
     <ComponentRow
@@ -143,8 +163,8 @@ function StandardSlot({
   );
 }
 
-function UnitSlot({warehouseId, catalogItemId, name, onChange, flat, trail}: SlotProps) {
-  const leaf = useUnitLeaf(onChange);
+function UnitSlot({warehouseId, catalogItemId, name, path, onChange, flat, trail}: SlotProps) {
+  const leaf = useUnitLeaf(onChange, path);
 
   return (
     <ComponentRow
@@ -168,7 +188,8 @@ function UnitSlot({warehouseId, catalogItemId, name, onChange, flat, trail}: Slo
 /**
  * Variation slot: pick a variant, then fill whatever it turned out to be. A leaf variant stays on
  * this row — the choice joins the trail, its cell becomes the tail; a variant that is itself a
- * bundle or a variation opens a rail below.
+ * bundle or a variation opens a rail below. Everything under the variant hangs off a path of its
+ * own, so switching variants takes that whole branch with it.
  */
 function VariationSlot({
   warehouseId,
@@ -176,12 +197,15 @@ function VariationSlot({
   name,
   multiplier,
   needTimes,
+  path,
   onChange,
   flat,
   trail,
 }: SlotProps) {
-  const [variantId, setVariantId] = useState<string | null>(null);
-  const [variantType, setVariantType] = useState<CatalogItemType | null>(null);
+  const slot = useSlotPick(path);
+  const variant = slot.pick?.variant ?? null;
+  const variantId = variant?.id ?? null;
+  const variantType = variant?.type ?? null;
   const [nestedStatus, setNestedStatus] = useState<SlotStatus>(EMPTY_STATUS);
 
   const options = useVariationOptions(catalogItemId);
@@ -202,6 +226,7 @@ function VariationSlot({
 
   const variantName = options.items.find((o) => o.id === variantId)?.fullName;
   const chosenTrail = variantName ? [...(trail ?? []), variantName] : trail;
+  const variantPath = variantId ? slotPath(path, variantId) : path;
 
   const picker = (
     <VariantPicker
@@ -209,8 +234,8 @@ function VariationSlot({
       options={options.items}
       value={variantId}
       onChange={(id) => {
-        setVariantId(id);
-        setVariantType(options.items.find((o) => o.id === id)?.type ?? null);
+        const picked = options.items.find((o) => o.id === id);
+        slot.replace({variant: picked ? {id, type: picked.type} : null});
         setNestedStatus(EMPTY_STATUS);
         onChange([], statusOf(false));
       }}
@@ -225,6 +250,7 @@ function VariationSlot({
       name,
       multiplier,
       needTimes,
+      path: variantPath,
       onChange,
       flat,
       trail: chosenTrail,
@@ -255,6 +281,7 @@ function VariationSlot({
             variantName={variantName ?? name}
             multiplier={multiplier}
             needTimes={needTimes}
+            path={variantPath}
             onChange={handleNested}
           />
         ) : undefined
@@ -271,6 +298,7 @@ interface VariationLeafRowProps {
   name: string;
   multiplier: number;
   needTimes?: number;
+  path: string;
   onChange: SlotChange;
   flat?: boolean;
   trail?: string[];
@@ -284,12 +312,13 @@ function VariationStandardRow({
   name,
   multiplier,
   needTimes,
+  path,
   onChange,
   flat,
   trail,
   picker,
 }: VariationLeafRowProps) {
-  const leaf = useStandardLeaf(warehouseId, catalogItemId, multiplier, onChange, needTimes);
+  const leaf = useStandardLeaf(warehouseId, catalogItemId, multiplier, onChange, path, needTimes);
 
   return (
     <ComponentRow
@@ -322,12 +351,13 @@ function VariationUnitRow({
   catalogItemId,
   name,
   multiplier,
+  path,
   onChange,
   flat,
   trail,
   picker,
 }: VariationLeafRowProps) {
-  const leaf = useUnitLeaf(onChange);
+  const leaf = useUnitLeaf(onChange, path);
 
   return (
     <ComponentRow
@@ -357,6 +387,7 @@ interface NestedVariantProps {
   variantName: string;
   multiplier: number;
   needTimes?: number;
+  path: string;
   onChange: SlotChange;
 }
 
@@ -367,6 +398,7 @@ function NestedVariant({
   variantName,
   multiplier,
   needTimes,
+  path,
   onChange,
 }: NestedVariantProps) {
   return (
@@ -375,11 +407,12 @@ function NestedVariant({
         {variantName} · {variantType === "bundle" ? "комплект" : "вариация"}
       </RailCaption>
       {variantType === "bundle" ? (
-        <BundleTree
+        <BundleLevel
           catalogItemId={variantId}
           warehouseId={warehouseId}
           multiplier={multiplier}
           needTimes={needTimes}
+          path={path}
           onChange={onChange}
           flatRows
         />
@@ -391,6 +424,7 @@ function NestedVariant({
           name={variantName}
           multiplier={multiplier}
           needTimes={needTimes}
+          path={path}
           onChange={onChange}
           flat
         />
@@ -405,6 +439,7 @@ function BundleSlot({
   name,
   multiplier,
   needTimes,
+  path,
   onChange,
   flat,
   trail,
@@ -428,11 +463,12 @@ function BundleSlot({
       flat={flat}
       trail={trail}
       nested={
-        <BundleTree
+        <BundleLevel
           catalogItemId={catalogItemId}
           warehouseId={warehouseId}
           multiplier={multiplier}
           needTimes={needTimes}
+          path={path}
           onChange={handleChange}
           flatRows
         />
@@ -460,26 +496,27 @@ function ComponentSlot(props: SlotProps) {
   }
 }
 
-interface BundleTreeProps {
+interface BundleLevelProps {
   catalogItemId: string;
   warehouseId: string;
   multiplier?: number;
   needTimes?: number;
+  path: string;
   onChange: SlotChange;
   /** Rows on a rail drop their own frame — the rail already groups them. */
   flatRows?: boolean;
-  empty?: ReactNode;
 }
 
 /** Every component of one bundle, each reporting its own entries and progress upward. */
-function BundleTree({
+function BundleLevel({
   catalogItemId,
   warehouseId,
   multiplier = 1,
   needTimes,
+  path,
   onChange,
   flatRows,
-}: BundleTreeProps) {
+}: BundleLevelProps) {
   const catalogQuery = useQuery(catalogGetByIdOptions({path: {id: catalogItemId}}));
   const catalogComponents = catalogQuery.data?.components;
   const components = useMemo(() => catalogComponents ?? [], [catalogComponents]);
@@ -513,6 +550,7 @@ function BundleTree({
           name={comp.componentName}
           multiplier={comp.quantity * multiplier}
           needTimes={needTimes}
+          path={slotPath(path, comp.componentId)}
           flat={flatRows}
           onSlotChange={updateSlot}
         />
@@ -537,6 +575,28 @@ function SlotBinding({slotKey, onSlotChange, ...slot}: SlotBindingProps) {
     [onSlotChange, slotKey],
   );
   return <ComponentSlot {...slot} onChange={handleChange} />;
+}
+
+interface BundleTreeProps extends Omit<BundleLevelProps, "path"> {
+  /** Picks of this composition, owned above the tree so they outlive it being folded away. */
+  picks: CompositionPicks;
+  onPicksChange: (update: PicksUpdate) => void;
+}
+
+/** Root of a composition: owns nothing, serves the picks its owner keeps. */
+function BundleTree({picks, onPicksChange, ...level}: BundleTreeProps) {
+  const store = {
+    picks,
+    setPick: (path: string, pick: SlotPick) => onPicksChange((prev) => withPick(prev, path, pick)),
+    replaceBranch: (path: string, pick: SlotPick) =>
+      onPicksChange((prev) => withBranchReplaced(prev, path, pick)),
+  };
+
+  return (
+    <PicksContext value={store}>
+      <BundleLevel {...level} path="" />
+    </PicksContext>
+  );
 }
 
 export {BundleTree};
