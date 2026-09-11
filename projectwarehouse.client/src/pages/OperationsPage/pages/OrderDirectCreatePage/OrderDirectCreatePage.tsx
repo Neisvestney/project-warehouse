@@ -62,6 +62,7 @@ function OrderDirectCreatePage() {
                 <WarehousesSelect
                   value={field.value}
                   onChange={field.onChange}
+                  canAutoSelect
                   disabled={mutation.isPending}
                   textFieldProps={{
                     label: "Склад",

@@ -53,6 +53,8 @@ interface WarehousesSelectSingleProps extends OmitControlled<
   onChange: (id: string | null) => void;
   /** Called when the DTO for the current value is resolved — on initial load and on every change. */
   onDtoChange?: (dto: WarehouseSummaryDto | null) => void;
+  /** Picks the only existing warehouse once, while value is empty and nothing is typed. */
+  canAutoSelect?: boolean;
   textFieldProps?: Partial<TextFieldProps>;
 }
 
@@ -114,6 +116,8 @@ function SingleSelect({
   value,
   onChange,
   onDtoChange,
+  canAutoSelect = false,
+  disableClearable,
   label = "Склад",
   textFieldProps,
   ...autocompleteProps
@@ -132,9 +136,29 @@ function SingleSelect({
   });
 
   const onDtoChangeRef = useRef(onDtoChange);
+  const onChangeRef = useRef(onChange);
   useEffect(() => {
     onDtoChangeRef.current = onDtoChange;
+    onChangeRef.current = onChange;
   });
+
+  // Its own unfiltered query: the count must stay the total number of warehouses, not whatever the
+  // search box currently narrows the list down to.
+  const onlyWarehouseQuery = useQuery({
+    ...warehousesGetAllOptions({query: {pageSize: 1}}),
+    enabled: canAutoSelect,
+    meta: {suppressGlobalError: true},
+  });
+  const onlyWarehouse =
+    onlyWarehouseQuery.data?.total === 1 ? onlyWarehouseQuery.data.items[0] : undefined;
+
+  const autoSelectedRef = useRef(false);
+  useEffect(() => {
+    if (autoSelectedRef.current || value !== null || inputValue || !onlyWarehouse) return;
+    autoSelectedRef.current = true;
+    onChangeRef.current(onlyWarehouse.id);
+    onDtoChangeRef.current?.(onlyWarehouse);
+  }, [value, inputValue, onlyWarehouse]);
 
   const fetchedSummary = useMemo(
     () => (getByIdQuery.data ? toSummary(getByIdQuery.data) : undefined),
@@ -161,6 +185,7 @@ function SingleSelect({
   return (
     <Autocomplete
       {...autocompleteProps}
+      disableClearable={disableClearable ?? onlyWarehouse !== undefined}
       options={options}
       value={fetchedSummary ?? null}
       onChange={(_, dto) => {
