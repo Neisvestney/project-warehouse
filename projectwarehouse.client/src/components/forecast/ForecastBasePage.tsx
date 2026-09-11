@@ -1,4 +1,4 @@
-import {useEffect, useState} from "react";
+import {useState} from "react";
 import {
   Box,
   Button,
@@ -26,10 +26,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import PushPinIcon from "@mui/icons-material/PushPin";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import {useQuery} from "@tanstack/react-query";
-import {
-  stockForecastGetListOptions,
-  warehousesGetAllOptions,
-} from "@/api/@tanstack/react-query.gen";
+import {stockForecastGetListOptions} from "@/api/@tanstack/react-query.gen";
 import type {StockForecastSortBy} from "@/api/types.gen";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import DataTableContainer from "@/components/DataTableContainer";
@@ -131,21 +128,6 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
     (q) => (typeof q === "string" ? q == "true" : false),
     (v) => (v ? "true" : null),
   );
-
-  // One available warehouse means there is nothing to choose — the page would otherwise open empty.
-  // Asked for whenever the select is shown: it must know whether clearing is meaningful even when
-  // the warehouse arrived from the URL.
-  const {data: warehousesData} = useQuery({
-    ...warehousesGetAllOptions({query: {pageSize: 2}}),
-    enabled: showWarehouseFilter,
-  });
-  const onlyWarehouseId =
-    warehousesData?.total === 1 ? (warehousesData.items[0]?.id ?? null) : null;
-
-  useEffect(() => {
-    if (showWarehouseFilter && filterWarehouseId === null && onlyWarehouseId !== null)
-      setFilterWarehouseId(onlyWarehouseId);
-  }, [showWarehouseFilter, filterWarehouseId, onlyWarehouseId, setFilterWarehouseId]);
 
   const effectiveWarehouseId = warehouseId ?? filterWarehouseId;
 
@@ -271,7 +253,7 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
             <WarehousesSelect
               value={filterWarehouseId}
               onChange={setFilterWarehouseId}
-              disableClearable={onlyWarehouseId !== null}
+              canAutoSelect
               size="small"
               sx={{minWidth: 220}}
             />

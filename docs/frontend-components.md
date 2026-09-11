@@ -525,11 +525,9 @@ visible) and `WarehouseForecastPage` (`/storage/warehouses/:id/forecast`, `wareh
 select). `WarehouseViewPage` links to the latter with a «Прогноз остатков» button next to «Остатки».
 
 **The warehouse is mandatory.** In the unscoped page `WarehousesSelect` is the first control of the filter bar
-and its value lives in `?warehouse=`. Until one is picked the list query is `enabled: false` and the table shows «Выберите склад»;
-when the user has exactly one warehouse available it is selected automatically and the select turns
-`disableClearable`, so the clear icon is absent rather than undone by the auto-selection a frame later. The
-count behind that comes from a `pageSize: 2` warehouse query the page issues unconditionally — the select has
-to know whether clearing is meaningful even when the warehouse arrived from the URL.
+and its value lives in `?warehouse=`. Until one is picked the list query is `enabled: false` and the table
+shows «Выберите склад». The select carries `canAutoSelect`, so a user with exactly one warehouse gets it
+filled in and loses the clear icon without the page counting warehouses itself.
 
 Columns: Тип · Название · Артикул · Остаток · Расход/день · Осталось дней (`StockForecastChip`) · Порог.
 All but «Порог» are sortable. The table starts on `sortBy: "default"` — the composite rule (warnings first,
@@ -854,6 +852,23 @@ Call sites: `OrderMetaSection` («Магазин»), the `OrdersAssemblyPage` or
 («Привязан к карточкам») and `WarehouseViewPage` («Привязано к складам маркетплейсов»).
 
 ## Warehouse & scanning
+
+### `WarehousesSelect`
+
+Autocomplete over warehouses, single or multi, debounced (300 ms) on `warehousesGetAllOptions`.
+
+- **Single mode** — the value is a warehouse `id` (`string | null`), resolved through
+  `warehousesGetByIdOptions` so an id outside the current search page still renders its name; `onDtoChange`
+  reports the resolved `WarehouseSummaryDto` on load and on every change.
+- **Multi mode** — value and `onChange` work with `WarehouseSummaryDto[]`, and selected warehouses are merged
+  into the option list so a chip survives a search that does not match it.
+
+`canAutoSelect` (single mode only) picks the sole warehouse for the caller: it fires **once**, and only while
+the value is empty and the search box is untouched. The count comes from a separate unfiltered `pageSize: 1`
+query the flag enables, not from the search query — a search narrowing the list to one result must not
+silently change the value. That same query also turns the select `disableClearable` while exactly one
+warehouse exists, so the caller does not have to count them itself; passing `disableClearable` explicitly
+still wins.
 
 ### `features/warehouse/`
 
