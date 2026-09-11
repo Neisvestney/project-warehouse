@@ -36,6 +36,7 @@ import {useNodeItemCount} from "@/hooks/useNodeItemCount";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
 import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
 import {ComponentRow, TodoRegistryProvider, UnfilledCounter} from "./ComponentRow";
+import {NO_PICKS, type CompositionPicks} from "./compositionPicks";
 import {EMPTY_STATUS, isComplete, isShort, type SlotStatus} from "./fulfillmentStatus";
 import {useTodoRegistry} from "./todoRegistry";
 import {NodeControl, UnitPicker, type NodePick} from "./FulfillmentControls";
@@ -96,6 +97,7 @@ function AddFulfillmentContent({
   const [unitItem, setUnitItem] = useState<UnitInventoryItemDto | null>(null);
   const [bundleEntries, setBundleEntries] = useState<AddFulfillmentBundleComponentRequest[]>([]);
   const [bundleStatus, setBundleStatus] = useState<SlotStatus>(EMPTY_STATUS);
+  const [bundlePicks, setBundlePicks] = useState<CompositionPicks>(NO_PICKS);
   const [error, setError] = useState<string | null>(null);
   const [failedItems, setFailedItems] = useState<BatchFulfillFailedItem[]>([]);
   const submittingRef = useRef(false);
@@ -266,6 +268,7 @@ function AddFulfillmentContent({
                   setUnitItem(null);
                   setBundleEntries([]);
                   setBundleStatus(EMPTY_STATUS);
+                  setBundlePicks(NO_PICKS);
                 }}
               />
             )}
@@ -311,6 +314,8 @@ function AddFulfillmentContent({
                 catalogItemId={effectiveItemId}
                 warehouseId={warehouseId}
                 needTimes={addingNow}
+                picks={bundlePicks}
+                onPicksChange={setBundlePicks}
                 onChange={handleBundleChange}
               />
             )}

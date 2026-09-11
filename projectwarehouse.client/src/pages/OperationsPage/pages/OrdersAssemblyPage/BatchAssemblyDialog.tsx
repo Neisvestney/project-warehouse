@@ -51,6 +51,7 @@ import {useRetainedValue} from "@/hooks/useRetainedValue";
 import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
 import {NOUNS, pluralCount} from "@/utils/pluralUtils";
 import {TodoRegistryProvider, UnfilledCounter} from "./ComponentRow";
+import {NO_PICKS, type CompositionPicks, type PicksUpdate} from "./compositionPicks";
 import {EMPTY_STATUS, isComplete, type SlotStatus} from "./fulfillmentStatus";
 import {useTodoRegistry} from "./todoRegistry";
 import {NodeControl, type NodePick} from "./FulfillmentControls";
@@ -74,8 +75,6 @@ interface BatchTarget {
   taskBoxId: string;
   componentId: string;
   qty: number;
-  orderNumber?: string;
-  boxLabel?: string | null;
 }
 
 interface BatchGroup {
@@ -91,7 +90,7 @@ interface BatchGroup {
 function buildBatchGroups(selectedTasks: SelectedTaskInfo[]): BatchGroup[] {
   const groupMap = new Map<string, BatchGroup>();
 
-  for (const {orderId, taskId, task, warehouseId, orderNumber} of selectedTasks) {
+  for (const {orderId, taskId, task, warehouseId} of selectedTasks) {
     for (const box of task.boxes) {
       for (const comp of box.components) {
         const remaining = getRemainingQty(comp);
@@ -104,8 +103,6 @@ function buildBatchGroups(selectedTasks: SelectedTaskInfo[]): BatchGroup[] {
           taskBoxId: box.id,
           componentId: comp.id,
           qty: remaining,
-          orderNumber,
-          boxLabel: box.orderBoxLabel,
         };
         const existing = groupMap.get(key);
         if (existing) {
@@ -137,10 +134,19 @@ interface GroupState {
   chain: VariantStep[];
   entries: AddFulfillmentBundleComponentRequest[];
   status: SlotStatus;
+  /** Composition choices, kept here so folding the group shut does not lose them. */
+  picks: CompositionPicks;
 }
 
 function emptyGroupState(): GroupState {
-  return {node: null, nodePicked: false, chain: [], entries: [], status: EMPTY_STATUS};
+  return {
+    node: null,
+    nodePicked: false,
+    chain: [],
+    entries: [],
+    status: EMPTY_STATUS,
+    picks: NO_PICKS,
+  };
 }
 
 /** The item stock actually moves against — the variation's leaf, or the group's own item. */
@@ -247,6 +253,13 @@ function BatchAssemblyContent({
     setGroupStates((prev) =>
       new Map(prev).set(key, {...(prev.get(key) ?? emptyGroupState()), ...patch}),
     );
+  }, []);
+
+  const patchPicks = useCallback((key: string, update: PicksUpdate) => {
+    setGroupStates((prev) => {
+      const state = prev.get(key) ?? emptyGroupState();
+      return new Map(prev).set(key, {...state, picks: update(state.picks)});
+    });
   }, []);
 
   const mutation = useMutation({
@@ -366,6 +379,7 @@ function BatchAssemblyContent({
                 group={openGroup}
                 state={getState(openGroup.key)}
                 onPatch={patchState}
+                onPicksPatch={patchPicks}
               />
             </Box>
           </TodoRegistryProvider>
@@ -438,6 +452,7 @@ function BatchAssemblyContent({
                           setExpandedKey((prev) => (prev === group.key ? null : group.key))
                         }
                         onPatch={patchState}
+                        onPicksPatch={patchPicks}
                       />
                     ))}
                   </TableBody>
@@ -628,9 +643,19 @@ function GroupNodeControl({group, state, onPatch, catalogItemId}: GroupNodeContr
 interface GroupRowProps extends GroupViewProps {
   expanded: boolean;
   onToggle: () => void;
+  onPicksPatch: (key: string, update: PicksUpdate) => void;
 }
 
-function GroupRow({group, state, blocker, failures, expanded, onToggle, onPatch}: GroupRowProps) {
+function GroupRow({
+  group,
+  state,
+  blocker,
+  failures,
+  expanded,
+  onToggle,
+  onPatch,
+  onPicksPatch,
+}: GroupRowProps) {
   const composable = group.catalogItemType !== "standard";
 
   return (
@@ -677,9 +702,15 @@ function GroupRow({group, state, blocker, failures, expanded, onToggle, onPatch}
       {expanded && (
         <TableRow>
           <TableCell colSpan={4} sx={{pt: 0}}>
-            <Stack spacing={1.5}>
-              <TargetList group={group} />
-              {composable && <GroupComposition group={group} state={state} onPatch={onPatch} />}
+            <Stack spacing={1.5} sx={{pt: 0.5}}>
+              {composable && (
+                <GroupComposition
+                  group={group}
+                  state={state}
+                  onPatch={onPatch}
+                  onPicksPatch={onPicksPatch}
+                />
+              )}
             </Stack>
           </TableCell>
         </TableRow>
@@ -751,36 +782,12 @@ function GroupCard({group, state, blocker, failures, onPatch, onOpenComposition}
   );
 }
 
-/** How many targets are worth showing before the list turns into a wall of text. */
-const TARGET_PREVIEW = 5;
-
-/** Which tasks the group will write into — visible before the stock moves, not after. */
-function TargetList({group}: {group: BatchGroup}) {
-  const [showAll, setShowAll] = useState(false);
-  const hidden = group.targets.length - TARGET_PREVIEW;
-  const shown = showAll ? group.targets : group.targets.slice(0, TARGET_PREVIEW);
-
-  return (
-    <Stack spacing={0.25}>
-      <Stack spacing={0.25} sx={{maxHeight: 200, overflowY: "auto"}}>
-        {shown.map((t) => (
-          <Typography key={`${t.taskId}:${t.componentId}`} variant="caption" color="text.secondary">
-            {t.orderNumber ? `Заказ ${t.orderNumber}` : "Задание"}
-            {t.boxLabel ? ` · ${t.boxLabel}` : ""} — {t.qty} шт
-          </Typography>
-        ))}
-      </Stack>
-      {hidden > 0 && (
-        <Button size="small" sx={{alignSelf: "flex-start"}} onClick={() => setShowAll(!showAll)}>
-          {showAll ? "Свернуть" : `Ещё ${hidden}`}
-        </Button>
-      )}
-    </Stack>
-  );
+/** The composition is filled once and copied to every task of the group. */
+interface GroupCompositionProps extends Omit<GroupViewProps, "blocker" | "failures"> {
+  onPicksPatch: (key: string, update: PicksUpdate) => void;
 }
 
-/** The composition is filled once and copied to every task of the group. */
-function GroupComposition({group, state, onPatch}: Omit<GroupViewProps, "blocker" | "failures">) {
+function GroupComposition({group, state, onPatch, onPicksPatch}: GroupCompositionProps) {
   const handleTreeChange = useCallback(
     (entries: AddFulfillmentBundleComponentRequest[], status: SlotStatus) =>
       onPatch(group.key, {entries, status}),
@@ -809,6 +816,7 @@ function GroupComposition({group, state, onPatch}: Omit<GroupViewProps, "blocker
               nodePicked: false,
               entries: [],
               status: EMPTY_STATUS,
+              picks: NO_PICKS,
             })
           }
         />
@@ -829,6 +837,8 @@ function GroupComposition({group, state, onPatch}: Omit<GroupViewProps, "blocker
           catalogItemId={resolved.id}
           warehouseId={group.warehouseId}
           needTimes={group.totalNeeded}
+          picks={state.picks}
+          onPicksChange={(update) => onPicksPatch(group.key, update)}
           onChange={handleTreeChange}
         />
       )}
