@@ -52,7 +52,6 @@ function OrderPage() {
   const {id} = useParams<{id: string}>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const {enqueueSnackbar} = useSnackbar();
 
   const canSelfAssign = useHasPermission("orders.self_assign");
   const hasAssemblePermission = useHasPermission([
