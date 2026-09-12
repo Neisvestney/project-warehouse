@@ -121,7 +121,7 @@ function OrdersListPage({
   bulkActions,
   extraColumns,
   marketplaceFilters,
-  showNotes = true, 
+  showNotes = true,
   defaultPageSize,
 }: OrdersListPageProps) {
   const queryClient = useQueryClient();

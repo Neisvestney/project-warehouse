@@ -1030,6 +1030,10 @@ fields — the commit goes through `onChange` instead.
 current value and that operator (`12+`). Enter evaluates, rounds with `Math.round`, clamps and commits;
 Escape closes it and returns focus to the field; clicking away commits whatever the field itself held.
 
+Once the tape holds a complete expression, a grey `={...}` adornment at the right edge of the popover input
+previews the **plain arithmetic** result — unrounded and unclamped (`7/2` shows `={3.5}`), so it can differ
+from the value Enter actually commits.
+
 The popover holds **at most one pending operation** — pressing another operator folds the current one and
 carries the result over, so `12` `+20` `+5` shows `32+5` and commits `37`. There is no operator precedence and
 no brackets: the tape is evaluated strictly left to right, so `12+2*3` yields `42`. A non-finite result
