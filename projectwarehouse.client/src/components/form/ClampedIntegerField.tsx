@@ -1,7 +1,14 @@
 import {useCallback, useEffect, useRef, useState} from "react";
 import type {Ref, RefCallback} from "react";
 import type {TextFieldProps} from "@mui/material";
-import {ClickAwayListener, Paper, Popper, TextField, Typography} from "@mui/material";
+import {
+  ClickAwayListener,
+  InputAdornment,
+  Paper,
+  Popper,
+  TextField,
+  Typography,
+} from "@mui/material";
 
 interface ClampedIntegerFieldProps extends Omit<
   TextFieldProps,
@@ -50,6 +57,14 @@ function evaluate({left, op, right}: CalcState): number {
 
 function formatCalc({left, op, right}: CalcState): string {
   return `${left}${op}${right}`;
+}
+
+// Preview shows plain arithmetic, unrounded and unclamped; the commit rounds and clamps.
+function previewResult(state: CalcState): string | null {
+  if (state.op === "" || state.right === "" || state.left === "") return null;
+  const result = evaluate(state);
+  if (!Number.isFinite(result)) return null;
+  return String(Number(result.toFixed(4)));
 }
 
 function assignRef<T>(ref: Ref<T> | undefined, node: T) {
@@ -136,6 +151,8 @@ export function ClampedIntegerField({
   };
 
   const calcText = calc ? formatCalc(calc) : "";
+  const calcPreview = calc && !calcError ? previewResult(calc) : null;
+  const calcWidth = Math.max(6, calcText.length + 1 + (calcPreview ? calcPreview.length + 1 : 0));
 
   return (
     <>
@@ -192,7 +209,17 @@ export function ClampedIntegerField({
               size="small"
               value={calcText}
               error={calcError}
-              sx={{width: `calc(${Math.max(6, calcText.length + 1)}ch + 26px)`}}
+              sx={{width: `calc(${calcWidth}ch + 26px)`}}
+              slotProps={{
+                input: {
+                  endAdornment:
+                    calcPreview !== null ? (
+                      <InputAdornment position="end" sx={{ml: 0.25, color: "text.secondary"}}>
+                        ={calcPreview}
+                      </InputAdornment>
+                    ) : undefined,
+                },
+              }}
               onChange={(e) => {
                 const parsed = CALC_EXPRESSION.exec(e.target.value);
                 if (!parsed || !calc) return;
