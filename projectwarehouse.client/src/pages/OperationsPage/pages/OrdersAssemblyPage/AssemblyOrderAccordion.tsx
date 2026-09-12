@@ -71,7 +71,12 @@ function AssemblyOrderAccordion({
   }
 
   return (
-    <Accordion expanded={expanded} onChange={(_, v) => setExpanded(v)} disableGutters>
+    <Accordion
+      expanded={expanded}
+      onChange={(_, v) => setExpanded(v)}
+      disableGutters
+      slotProps={{transition: {unmountOnExit: true}}}
+    >
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <SummaryUi>
           <SummaryHead>
