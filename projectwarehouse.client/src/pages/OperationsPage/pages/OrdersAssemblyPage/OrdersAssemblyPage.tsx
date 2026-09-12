@@ -20,6 +20,7 @@ import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState.ts";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState.ts";
 import SearchInput from "@/components/SearchInput.tsx";
 import WarehousesSelect from "@/components/WarehousesSelect.tsx";
+import CatalogItemsSelect from "@/components/CatalogItemsSelect.tsx";
 
 function OrdersAssemblyPage() {
   const canFulfill = useHasPermission(
@@ -39,9 +40,19 @@ function OrdersAssemblyPage() {
     (v) => v,
   );
 
+  const [catalogItemId, setCatalogItemId] = useSyncedWithQueryState(
+    "item",
+    (q) => (typeof q === "string" ? q : null),
+    (v) => v,
+  );
+
   const ordersQuery = useQuery({
     ...ordersGetAllAssemblyOptions({
-      query: {warehouseId: warehouseId ?? undefined, searchString: searchString || undefined},
+      query: {
+        warehouseId: warehouseId ?? undefined,
+        searchString: searchString || undefined,
+        catalogItemId: catalogItemId ?? undefined,
+      },
     }),
     gcTime: 0,
   });
@@ -173,6 +184,13 @@ function OrdersAssemblyPage() {
             size="small"
             textFieldProps={{label: "Склад"}}
           />
+          <CatalogItemsSelect
+            value={catalogItemId}
+            onChange={setCatalogItemId}
+            sx={{flexBasis: 300}}
+            size="small"
+            textFieldProps={{label: "Содержит позицию"}}
+          />
         </FiltersBar>
 
         {ordersQuery.isError && (
@@ -188,7 +206,9 @@ function OrdersAssemblyPage() {
         {orders.length === 0 && !showLoading && (
           <Box sx={{p: 4, textAlign: "center"}}>
             <Typography color="text.secondary">
-              {searchString ? "Ничего не найдено" : "Нет заказов на сборке"}
+              {searchString || warehouseId || catalogItemId
+                ? "Ничего не найдено"
+                : "Нет заказов на сборке"}
             </Typography>
           </Box>
         )}
