@@ -8,6 +8,7 @@ import {
   styled,
   Tooltip,
   Typography,
+  Stack,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {Link} from "react-router";
@@ -22,6 +23,7 @@ import {checkBatchEligibility, getBatchDisabledReason} from "./batchEligibility"
 import {getTaskProgress} from "@/components/orders/orderAssemblyUtils";
 import {NOUNS, plural, pluralCount} from "@/utils/pluralUtils";
 import {formatPostingNumber} from "@/utils/postingNumberUtils.tsx";
+import CheckIcon from "@mui/icons-material/Check";
 
 interface AssemblyOrderAccordionProps {
   order: OrderDetailsDto;
@@ -55,6 +57,8 @@ function AssemblyOrderAccordion({
   // body is rendered inline below.
   const soleTask = tasks.length === 1 ? taskStates[0] : null;
   const soleTaskProgress = soleTask ? getTaskProgress(soleTask.task) : null;
+  const soleComponent = soleTask ? soleTask.task.boxes[0]?.components[0] : null;
+  const singleSoleComponent = soleComponent && soleComponent.quantity == 1 ? soleComponent : null;
 
   const selectable = taskStates.filter((s) => s.disabledReason === "");
   const selectedCount = selectable.filter((s) => selectedTaskIds.has(s.task.id)).length;
@@ -109,9 +113,18 @@ function AssemblyOrderAccordion({
             </Typography>
 
             <SummaryProgress variant="caption" color="text.secondary">
-              {soleTaskProgress
-                ? `${soleTaskProgress.fulfilled}/${soleTaskProgress.total} ${plural(soleTaskProgress.total, NOUNS.position)}`
-                : pluralCount(tasks.length, NOUNS.task)}
+              {singleSoleComponent ? (
+                <Stack direction={"row"} useFlexGap spacing={1}>
+                  {singleSoleComponent.fulfillments.length == 1 && (
+                    <CheckIcon color={"success"} sx={{fontSize: 16}} />
+                  )}
+                  {singleSoleComponent.catalogItemName}
+                </Stack>
+              ) : soleTaskProgress ? (
+                `${soleTaskProgress.fulfilled}/${soleTaskProgress.total} ${plural(soleTaskProgress.total, NOUNS.position)}`
+              ) : (
+                pluralCount(tasks.length, NOUNS.task)
+              )}
             </SummaryProgress>
           </SummaryHead>
 
