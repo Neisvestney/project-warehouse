@@ -301,7 +301,7 @@ public class MarketplaceOrderSyncService(
         var open = await db.MarketplaceOrders
             .Where(o => o.MarketplaceAccountId == account.Id
                         && o.Status != MarketplaceOrderStatus.Delivered
-                        // && o.Status != MarketplaceOrderStatus.Cancelled
+                        && o.Status != MarketplaceOrderStatus.Cancelled
                         // phase 1 just refreshed everything the unfulfilled list returned; re-asking would
                         // cost one single-posting call per open order, every run, for no new information
                         && o.StatusSyncedAt < run.StartedAt)
