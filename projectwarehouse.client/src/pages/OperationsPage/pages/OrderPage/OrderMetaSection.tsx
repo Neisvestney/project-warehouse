@@ -9,6 +9,7 @@ import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
 import type {OrderDetailsDto} from "@/api/types.gen";
 import MarketplaceOrderStatusChip from "@/components/orders/marketplace/MarketplaceOrderStatusChip";
+import {MARKETPLACE_CANCELLATION_TYPE_LABELS} from "@/components/orders/marketplace/marketplaceOrderUtils";
 import {format} from "date-fns";
 import {ru} from "date-fns/locale";
 import MarketplaceAccountChip from "@/components/marketplace/MarketplaceAccountChip";
@@ -182,6 +183,19 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
             label="Статус на площадке"
             value={<MarketplaceOrderStatusChip value={order.marketplaceOrder} />}
           />
+          {order.marketplaceOrder.status === "cancelled" && (
+            <>
+              <InfoRow
+                label="Инициатор отмены"
+                value={
+                  order.marketplaceOrder.cancellationType
+                    ? MARKETPLACE_CANCELLATION_TYPE_LABELS[order.marketplaceOrder.cancellationType]
+                    : null
+                }
+              />
+              <InfoRow label="Причина отмены" value={order.marketplaceOrder.cancelReason} />
+            </>
+          )}
 
           {order.marketplaceOrder.trackingNumber && (
             <InfoRow
@@ -194,17 +208,20 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
             />
           )}
 
+          <InfoRow label="Способ доставки" value={order.marketplaceOrder.deliveryMethodName} />
+
           <InfoRow
             label="Статус сверен"
             value={formatDate(order.marketplaceOrder.statusSyncedAt)}
           />
 
-          {order.marketplaceOrder.status === "cancelled" && (
-            <Alert severity="warning">
-              Заказ отменён на маркетплейсе. Сборка в WMS не откатывается автоматически — решение
-              принимает человек.
-            </Alert>
-          )}
+          {order.marketplaceOrder.status === "cancelled" &&
+            !order.marketplaceOrder.cancelledAfterShip && (
+              <Alert severity="warning">
+                Заказ отменён на маркетплейсе до огрузки на маркетплейс. Сборка в WMS не
+                откатывается автоматически — решение принимает человек.
+              </Alert>
+            )}
         </>
       )}
 

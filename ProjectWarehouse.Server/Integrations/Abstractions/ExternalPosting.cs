@@ -14,4 +14,5 @@ public record ExternalPosting(
     DateTime? InProcessAt,
     string? TrackingNumber,
     int MultiBoxQty,
+    ExternalCancellation? Cancellation,
     IReadOnlyList<ExternalPostingItem> Items);

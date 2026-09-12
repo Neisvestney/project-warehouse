@@ -883,6 +883,15 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("CancelReason")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("CancellationType")
+                        .HasColumnType("integer");
+
+                    b.Property<bool?>("CancelledAfterShip")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("DeliveryMethodName")
                         .HasColumnType("text");
 
@@ -909,6 +918,9 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.Property<string>("PostingNumber")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RawCancellationType")
                         .HasColumnType("text");
 
                     b.Property<string>("RawStatus")

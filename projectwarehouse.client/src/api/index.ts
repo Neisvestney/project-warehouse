@@ -403,6 +403,7 @@ export type {
   MarketplaceAutoMapRulesUpdateRuleErrors,
   MarketplaceAutoMapRulesUpdateRuleResponse,
   MarketplaceAutoMapRulesUpdateRuleResponses,
+  MarketplaceCancellationType,
   MarketplaceCapabilities,
   MarketplaceCardDto,
   MarketplaceCardField,

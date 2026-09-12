@@ -858,6 +858,9 @@ export type MarketplaceAutoMapRuleDto = {
   updatedAt: string;
 };
 
+export type MarketplaceCancellationType =
+  "unknown" | "seller" | "customer" | "marketplace" | "system" | "delivery";
+
 export type MarketplaceCapabilities =
   "none" | "warehouses" | "cards" | "orders" | "stockPush" | "sellerInfo" | "labels";
 
@@ -913,6 +916,13 @@ export type MarketplaceOrderDto = {
   status: MarketplaceOrderStatus;
   rawStatus?: null | string;
   rawSubstatus?: null | string;
+  /**
+   * Null while the posting is alive; `true` when it was cancelled after being shipped.
+   */
+  cancelledAfterShip?: null | boolean;
+  cancellationType?: null | MarketplaceCancellationType;
+  rawCancellationType?: null | string;
+  cancelReason?: null | string;
   shipmentDate?: null | string;
   inProcessAt?: null | string;
   trackingNumber?: null | string;

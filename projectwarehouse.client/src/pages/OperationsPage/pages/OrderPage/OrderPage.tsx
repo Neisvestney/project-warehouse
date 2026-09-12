@@ -45,7 +45,6 @@ import UndoIcon from "@mui/icons-material/Undo";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import BlockIcon from "@mui/icons-material/Block";
 import DeleteIcon from "@mui/icons-material/Delete";
-import {useSnackbar} from "notistack";
 import OrderMarketplaceItemsSection from "@/pages/OperationsPage/pages/OrderPage/OrderMarketplaceItemsSection.tsx";
 
 function OrderPage() {

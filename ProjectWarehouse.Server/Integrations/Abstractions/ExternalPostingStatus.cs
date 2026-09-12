@@ -7,4 +7,5 @@ public record ExternalPostingStatus(
     MarketplaceOrderStatus Status,
     string? RawStatus,
     string? RawSubstatus,
-    string? TrackingNumber);
+    string? TrackingNumber,
+    ExternalCancellation? Cancellation);

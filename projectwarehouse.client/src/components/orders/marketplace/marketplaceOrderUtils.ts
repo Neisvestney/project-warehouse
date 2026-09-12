@@ -1,5 +1,10 @@
 import type {ChipProps} from "@mui/material";
-import type {MarketplaceOrderStatus, MarketplaceSyncStatus, MarketplaceType} from "@/api/types.gen";
+import type {
+  MarketplaceCancellationType,
+  MarketplaceOrderStatus,
+  MarketplaceSyncStatus,
+  MarketplaceType,
+} from "@/api/types.gen";
 
 // Живёт здесь, а не в дереве настроек: раздел операций не должен импортировать из настроек.
 export const MARKETPLACE_ORDER_STATUS_LABELS: Record<MarketplaceOrderStatus, string> = {
@@ -27,6 +32,15 @@ export const MARKETPLACE_ORDER_STATUS_COLORS: Record<MarketplaceOrderStatus, Chi
   delivered: "success",
   cancelled: "error",
   arbitration: "warning",
+};
+
+export const MARKETPLACE_CANCELLATION_TYPE_LABELS: Record<MarketplaceCancellationType, string> = {
+  unknown: "Неизвестен",
+  seller: "Продавец",
+  customer: "Покупатель",
+  marketplace: "Площадка",
+  system: "Система",
+  delivery: "Служба доставки",
 };
 
 export const MARKETPLACE_LABELS: Record<MarketplaceType, string> = {

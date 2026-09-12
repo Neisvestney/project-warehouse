@@ -30,6 +30,20 @@ public class MarketplaceOrder
     public string? RawStatus { get; set; }
     public string? RawSubstatus { get; set; }
 
+    /// <summary>
+    /// Null while the posting is alive. Set once it is cancelled: <c>true</c> when the marketplace had
+    /// already taken the shipment, which <see cref="Status"/> alone cannot tell apart.
+    /// </summary>
+    public bool? CancelledAfterShip { get; set; }
+
+    public MarketplaceCancellationType? CancellationType { get; set; }
+
+    // diagnostics only, same as RawStatus — a type the provider could not collapse survives here
+    public string? RawCancellationType { get; set; }
+
+    /// <summary>Cancellation reason as worded by the marketplace.</summary>
+    public string? CancelReason { get; set; }
+
     /// <summary>Deadline the marketplace expects the posting to be packed by.</summary>
     public DateTime? ShipmentDate { get; set; }
 

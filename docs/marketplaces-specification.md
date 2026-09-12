@@ -459,6 +459,10 @@ MarketplaceOrder
 ├── Status                — MarketplaceOrderStatus, нормализованный статус
 ├── RawStatus             — string?, статус площадки как есть  ─┐ только диагностика
 ├── RawSubstatus          — string?, подстатус как есть         ─┘
+├── CancelledAfterShip    — bool?, null пока отправление живо; true — отменено после отгрузки
+├── CancellationType      — MarketplaceCancellationType?, нормализованный инициатор отмены
+├── RawCancellationType   — string?, тип отмены как есть — только диагностика
+├── CancelReason          — string?, причина словами площадки
 ├── ShipmentDate          — DateTime?, до какого времени собрать
 ├── InProcessAt           — DateTime?, начало обработки на площадке
 ├── TrackingNumber        — string?
@@ -592,12 +596,18 @@ ExternalPosting         — record (string PostingNumber, string? ExternalOrderN
                                   string? WarehouseExternalId, string? DeliveryMethodName,
                                   DateTime? ShipmentDate, DateTime? InProcessAt,
                                   string? TrackingNumber, int MultiBoxQty,
+                                  ExternalCancellation? Cancellation,
                                   IReadOnlyList<ExternalPostingItem> Items)
 
 ExternalPostingItem     — record (string? Sku, string OfferId, string Name, int Quantity)
 
 ExternalPostingStatus   — record (string PostingNumber, MarketplaceOrderStatus Status,
-                                  string? RawStatus, string? RawSubstatus, string? TrackingNumber)
+                                  string? RawStatus, string? RawSubstatus, string? TrackingNumber,
+                                  ExternalCancellation? Cancellation)
+
+ExternalCancellation    — record (bool? CancelledAfterShip, MarketplaceCancellationType Type,
+                                  string? RawType, string? Reason)
+                          null у неотменённого отправления
 
 ExternalLabelDocument   — record (bool IsReady, IReadOnlyList<string> PostingNumbers,
                                   string? ContentType, byte[]? Content)
