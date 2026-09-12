@@ -62,6 +62,13 @@ including the hardware button in the Capacitor build — pops that entry and the
 `onClose` instead of the user leaving the page. Closing the overlay any other way drops the entry again in
 the effect cleanup.
 
+The third argument is an options object. `{blockBack: true}` inverts the hook's job: the entry is still held,
+but a Back landing below it is pushed straight back instead of closing the overlay, so Back becomes a no-op
+while the overlay lives and only the overlay's own controls can close it. It is for a dialog holding work that
+a stray Back would destroy — `BatchAssemblyDialog`, whose group composition exists nowhere but in its own
+state — and it pairs with dropping `onClose` on the MUI `Dialog`, which is what shuts the backdrop click and
+`Esc` in the same move.
+
 The marker is an **array of the `useId`s of every overlay open under that entry**, outermost first, not a
 plain flag, which is what keeps stacked overlays independent. Each push appends its own id to the chain the
 current entry carries. `popstate` is a window event and reaches every open overlay's listener, so each one
@@ -302,7 +309,9 @@ to get there and they are mutually exclusive:
   with [`useDrawerLocalState`](#usedrawerlocalstate) or a plain `useState`. Pass it the same flag that drives
   `open`, down to confirmations and the small form dialogs. An overlay that refuses to close while a mutation
   runs carries that guard into the hook too (`open && !mutation.isPending`) — Back is one more way out, and it
-  has to be shut with the rest of them.
+  has to be shut with the rest of them. The one exception is an overlay that must not be dismissed by accident
+  at all: it passes `{blockBack: true}` and drops the `Dialog`'s `onClose`, leaving its own Cancel button as
+  the single way out.
 
 Which one applies follows from the parent, and nesting is directional: a URL-driven overlay can host a
 `useBackClosable` one above it, never the other way round. `useBackClosable` holds a history entry of its own

@@ -21,13 +21,16 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import CloseIcon from "@mui/icons-material/Close";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
+import UndoIcon from "@mui/icons-material/Undo";
 import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {useSnackbar} from "notistack";
 import {
@@ -39,7 +42,6 @@ import type {
   AddFulfillmentBundleComponentRequest,
   AddFulfillmentRequest,
   AppFieldError,
-  AssemblyTaskDto,
   BatchFulfillFailedItem,
   CatalogItemType,
 } from "@/api/types.gen";
@@ -56,75 +58,17 @@ import {EMPTY_STATUS, isComplete, type SlotStatus} from "./fulfillmentStatus";
 import {useTodoRegistry} from "./todoRegistry";
 import {NodeControl, type NodePick} from "./FulfillmentControls";
 import {BundleTree} from "./FulfillmentTree";
-import {getRemainingQty} from "./batchEligibility";
 import {IgnoreStockContext} from "./stockGuard";
+import GroupTasksDialog from "./GroupTasksDialog";
+import {
+  buildBatchGroups,
+  withoutExcludedTasks,
+  NO_EXCLUDED_TASKS,
+  type BatchGroup,
+  type SelectedTaskInfo,
+} from "./batchGroups";
 import {VariationChain} from "./VariationChain";
 import {chainLeaf, type VariantStep} from "./variationOptions";
-
-interface SelectedTaskInfo {
-  orderId: string;
-  taskId: string;
-  task: AssemblyTaskDto;
-  warehouseId: string;
-  orderNumber?: string;
-}
-
-interface BatchTarget {
-  orderId: string;
-  taskId: string;
-  taskBoxId: string;
-  componentId: string;
-  qty: number;
-}
-
-interface BatchGroup {
-  key: string;
-  catalogItemId: string;
-  catalogItemName: string;
-  catalogItemType: CatalogItemType;
-  warehouseId: string;
-  totalNeeded: number;
-  targets: BatchTarget[];
-}
-
-function buildBatchGroups(selectedTasks: SelectedTaskInfo[]): BatchGroup[] {
-  const groupMap = new Map<string, BatchGroup>();
-
-  for (const {orderId, taskId, task, warehouseId} of selectedTasks) {
-    for (const box of task.boxes) {
-      for (const comp of box.components) {
-        const remaining = getRemainingQty(comp);
-        if (remaining <= 0) continue;
-
-        const key = `${comp.catalogItemId}::${warehouseId}`;
-        const target: BatchTarget = {
-          orderId,
-          taskId,
-          taskBoxId: box.id,
-          componentId: comp.id,
-          qty: remaining,
-        };
-        const existing = groupMap.get(key);
-        if (existing) {
-          existing.totalNeeded += remaining;
-          existing.targets.push(target);
-        } else {
-          groupMap.set(key, {
-            key,
-            catalogItemId: comp.catalogItemId,
-            catalogItemName: comp.catalogItemName,
-            catalogItemType: comp.catalogItemType,
-            warehouseId,
-            totalNeeded: remaining,
-            targets: [target],
-          });
-        }
-      }
-    }
-  }
-
-  return Array.from(groupMap.values());
-}
 
 interface GroupState {
   node: NodePick | null;
@@ -204,12 +148,12 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
   // The content is unmounted only after the exit animation; that is what resets the per-group picks.
   const [shownTasks, releaseShownTasks] = useRetainedValue(open ? selectedTasks : null);
 
-  useBackClosable(open, onClose);
+  // Closing goes through the dialog's own Cancel button only — no backdrop, no Esc, no Back.
+  useBackClosable(open, onClose, {blockBack: true});
 
   return (
     <Dialog
       open={open}
-      onClose={onClose}
       maxWidth="md"
       fullWidth
       fullScreen={isMobile}
@@ -237,6 +181,11 @@ function BatchAssemblyContent({
 
   const [groupStates, setGroupStates] = useState<Map<string, GroupState>>(new Map());
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [excludedKeys, setExcludedKeys] = useState<ReadonlySet<string>>(new Set());
+  const [excludedTasks, setExcludedTasks] = useState<ReadonlyMap<string, ReadonlySet<string>>>(
+    new Map(),
+  );
+  const [tasksDialogKey, setTasksDialogKey] = useState<string | null>(null);
   const [failedItems, setFailedItems] = useState<BatchFulfillFailedItem[]>([]);
   const [shortageErrors, setShortageErrors] = useState<AppFieldError[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -253,6 +202,26 @@ function BatchAssemblyContent({
     setGroupStates((prev) =>
       new Map(prev).set(key, {...(prev.get(key) ?? emptyGroupState()), ...patch}),
     );
+  }, []);
+
+  // The state of an excluded group is kept, so bringing it back restores the composition with it.
+  const toggleExcluded = useCallback((key: string) => {
+    setExcludedKeys((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+    setExpandedKey((prev) => (prev === key ? null : prev));
+  }, []);
+
+  const toggleTaskExcluded = useCallback((groupKey: string, taskId: string) => {
+    setExcludedTasks((prev) => {
+      const next = new Map(prev);
+      const tasks = new Set(prev.get(groupKey) ?? NO_EXCLUDED_TASKS);
+      if (!tasks.delete(taskId)) tasks.add(taskId);
+      next.set(groupKey, tasks);
+      return next;
+    });
   }, []);
 
   const patchPicks = useCallback((key: string, update: PicksUpdate) => {
@@ -289,7 +258,22 @@ function BatchAssemblyContent({
     },
   });
 
-  const blockers = groups.map((g) => groupBlocker(g, getState(g.key)));
+  // Every consumer below the row works on the trimmed group, so an excluded task is simply not there.
+  const trimmedGroups = useMemo(
+    () => groups.map((g) => withoutExcludedTasks(g, excludedTasks.get(g.key) ?? NO_EXCLUDED_TASKS)),
+    [groups, excludedTasks],
+  );
+  const activeGroups = useMemo(
+    () => trimmedGroups.filter((g) => !excludedKeys.has(g.key) && g.targets.length > 0),
+    [trimmedGroups, excludedKeys],
+  );
+  // Tasks left without a single group of their own are not part of the batch any more.
+  const activeTaskCount = useMemo(
+    () => new Set(activeGroups.flatMap((g) => g.targets.map((t) => t.taskId))).size,
+    [activeGroups],
+  );
+
+  const blockers = activeGroups.map((g) => groupBlocker(g, getState(g.key)));
   const notReady = blockers.filter((b) => b !== "").length;
 
   function buildFulfillment(
@@ -308,13 +292,13 @@ function BatchAssemblyContent({
   }
 
   function handleSubmit() {
-    if (submittingRef.current || notReady > 0) return;
+    if (submittingRef.current || notReady > 0 || activeGroups.length === 0) return;
     submittingRef.current = true;
     setFailedItems([]);
     setShortageErrors([]);
     setSubmitError(null);
 
-    const items = groups.flatMap((group) => {
+    const items = activeGroups.flatMap((group) => {
       const state = getState(group.key);
       return group.targets.flatMap((target) => {
         const fulfillment = buildFulfillment(group, state, target.qty);
@@ -352,8 +336,30 @@ function BatchAssemblyContent({
   const groupFailures = (group: BatchGroup) =>
     group.targets.flatMap((t) => failedByComponent.get(t.componentId) ?? []);
 
-  const openGroup = groups.find((g) => g.key === expandedKey);
+  const openIndex = trimmedGroups.findIndex((g) => g.key === expandedKey);
+  const openGroup = openIndex === -1 ? undefined : trimmedGroups[openIndex];
+  const tasksDialogIndex = groups.findIndex((g) => g.key === tasksDialogKey);
   const orderCount = new Set(selectedTasks.map((t) => t.orderId)).size;
+
+  // The phone's composition screen replaces the cards, so nothing else holds the default for the
+  // group open on it.
+  const mobileOpenGroup = isMobile ? (openGroup ?? null) : null;
+  useGroupDefaultNode(
+    mobileOpenGroup,
+    mobileOpenGroup ? getState(mobileOpenGroup.key) : null,
+    patchState,
+  );
+
+  const tasksGroup = tasksDialogIndex === -1 ? null : groups[tasksDialogIndex];
+  const tasksDialog = tasksGroup && (
+    <GroupTasksDialog
+      open
+      onClose={() => setTasksDialogKey(null)}
+      group={tasksGroup}
+      excludedTaskIds={excludedTasks.get(tasksGroup.key) ?? NO_EXCLUDED_TASKS}
+      onToggleTask={(taskId) => toggleTaskExcluded(tasksGroup.key, taskId)}
+    />
+  );
 
   // On a phone the composition takes the whole dialog instead of unfolding inside a row.
   if (isMobile && openGroup) {
@@ -374,15 +380,27 @@ function BatchAssemblyContent({
         </DialogTitle>
         <DialogContent>
           <TodoRegistryProvider registry={registry}>
-            <Box sx={{mt: 1}}>
-              <GroupComposition
+            <Stack spacing={1} sx={{mt: 1}}>
+              <GroupTasksSummary
                 group={openGroup}
-                state={getState(openGroup.key)}
-                onPatch={patchState}
-                onPicksPatch={patchPicks}
+                fullGroup={groups[openIndex]}
+                onOpenTasks={() => setTasksDialogKey(openGroup.key)}
               />
-            </Box>
+              {openGroup.targets.length === 0 ? (
+                <EmptiedGroupNote />
+              ) : (
+                <Box>
+                  <GroupComposition
+                    group={openGroup}
+                    state={getState(openGroup.key)}
+                    onPatch={patchState}
+                    onPicksPatch={patchPicks}
+                  />
+                </Box>
+              )}
+            </Stack>
           </TodoRegistryProvider>
+          {tasksDialog}
         </DialogContent>
         <DialogActions sx={{flexDirection: "column", alignItems: "stretch", gap: 1}}>
           <UnfilledCounter status={getState(openGroup.key).status} onJump={scrollToFirst} />
@@ -417,14 +435,18 @@ function BatchAssemblyContent({
             {groups.length > 0 &&
               (isMobile ? (
                 <Stack spacing={1}>
-                  {groups.map((group) => (
+                  {trimmedGroups.map((group, i) => (
                     <GroupCard
                       key={group.key}
                       group={group}
+                      fullGroup={groups[i]}
                       state={getState(group.key)}
                       blocker={groupBlocker(group, getState(group.key))}
                       failures={groupFailures(group)}
+                      excluded={excludedKeys.has(group.key)}
                       onPatch={patchState}
+                      onToggleExcluded={() => toggleExcluded(group.key)}
+                      onOpenTasks={() => setTasksDialogKey(group.key)}
                       onOpenComposition={() => setExpandedKey(group.key)}
                     />
                   ))}
@@ -437,20 +459,25 @@ function BatchAssemblyContent({
                       <TableCell align="right">Итого</TableCell>
                       <TableCell>Источник</TableCell>
                       <TableCell>Статус</TableCell>
+                      <TableCell padding="checkbox" />
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {groups.map((group) => (
+                    {trimmedGroups.map((group, i) => (
                       <GroupRow
                         key={group.key}
                         group={group}
+                        fullGroup={groups[i]}
                         state={getState(group.key)}
                         blocker={groupBlocker(group, getState(group.key))}
                         failures={groupFailures(group)}
+                        excluded={excludedKeys.has(group.key)}
                         expanded={expandedKey === group.key}
                         onToggle={() =>
                           setExpandedKey((prev) => (prev === group.key ? null : group.key))
                         }
+                        onToggleExcluded={() => toggleExcluded(group.key)}
+                        onOpenTasks={() => setTasksDialogKey(group.key)}
                         onPatch={patchState}
                         onPicksPatch={patchPicks}
                       />
@@ -510,12 +537,18 @@ function BatchAssemblyContent({
             </Stack>
           </Stack>
         </TodoRegistryProvider>
+        {tasksDialog}
       </DialogContent>
 
       <DialogActions sx={{gap: 1, flexDirection: isMobile ? "column-reverse" : "row"}}>
         {notReady > 0 && (
           <Typography variant="caption" color="error">
             Не готово: {pluralCount(notReady, GROUPS)}
+          </Typography>
+        )}
+        {notReady === 0 && groups.length > 0 && activeGroups.length === 0 && (
+          <Typography variant="caption" color="text.secondary">
+            Все группы убраны из сборки
           </Typography>
         )}
         <Stack
@@ -530,12 +563,12 @@ function BatchAssemblyContent({
             variant="contained"
             fullWidth={isMobile}
             onClick={handleSubmit}
-            disabled={mutation.isPending || groups.length === 0 || notReady > 0}
+            disabled={mutation.isPending || activeGroups.length === 0 || notReady > 0}
           >
             {mutation.isPending ? (
               <CircularProgress size={20} color="inherit" />
             ) : (
-              `Собрать ${pluralCount(selectedTasks.length, NOUNS.task)}`
+              `Собрать ${pluralCount(activeTaskCount, NOUNS.task)}`
             )}
           </Button>
         </Stack>
@@ -559,6 +592,39 @@ interface GroupViewProps {
   onPatch: (key: string, patch: Partial<GroupState>) => void;
 }
 
+const taskCount = (group: BatchGroup) => new Set(group.targets.map((t) => t.taskId)).size;
+
+interface GroupTasksSummaryProps {
+  /** Trimmed to the tasks still in the batch; `fullGroup` is what was selected before exclusions. */
+  group: BatchGroup;
+  fullGroup: BatchGroup;
+  onOpenTasks: () => void;
+}
+
+function GroupTasksSummary({group, fullGroup, onOpenTasks}: GroupTasksSummaryProps) {
+  const excluded = fullGroup.totalNeeded - group.totalNeeded;
+
+  return (
+    <Stack direction="row" spacing={1} sx={{alignItems: "center", flexWrap: "wrap", rowGap: 0.5}}>
+      <Typography variant="caption" color="text.secondary">
+        Позиций: {fullGroup.totalNeeded} · исключено {excluded} · осталось {group.totalNeeded}
+      </Typography>
+      <Button size="small" onClick={onOpenTasks}>
+        Задания ({taskCount(group)} из {taskCount(fullGroup)})
+      </Button>
+    </Stack>
+  );
+}
+
+/** A group with every task taken out has nothing left to compose — its picks would go nowhere. */
+function EmptiedGroupNote() {
+  return (
+    <Typography variant="body2" color="text.secondary">
+      Все задания этой позиции убраны из сборки
+    </Typography>
+  );
+}
+
 function StatusChip({blocker}: {blocker: string}) {
   return blocker ? (
     <Chip size="small" color="warning" label={blocker} />
@@ -567,11 +633,15 @@ function StatusChip({blocker}: {blocker: string}) {
   );
 }
 
-function SourceCell({group, state, onPatch}: Omit<GroupViewProps, "blocker" | "failures">) {
+interface SourceCellProps extends Omit<GroupViewProps, "blocker" | "failures"> {
+  /** The card picks the cell in place; the table row only reports it and picks inside the panel. */
+  withPicker?: boolean;
+}
+
+function SourceCell({group, state, onPatch, withPicker}: SourceCellProps) {
   const resolved = resolvedItem(group, state);
 
-  // A plain standard group has nothing to compose, so its cell is picked right in the row.
-  if (group.catalogItemType === "standard") {
+  if (withPicker && group.catalogItemType === "standard") {
     return (
       <GroupNodeControl
         group={group}
@@ -608,24 +678,38 @@ interface GroupNodeControlProps extends Omit<GroupViewProps, "blocker" | "failur
   catalogItemId: string;
 }
 
+/**
+ * The group submits `state.node`, so the warehouse default has to land there — a suggestion the pick
+ * overrides. It lives above the picker because the picker is only mounted while the group is open,
+ * and a cell the user never touched still has to be there when the batch goes out. The picker reads
+ * the same default for its «по умолчанию» mark; both readers share one query.
+ */
+function useGroupDefaultNode(
+  group: BatchGroup | null,
+  state: GroupState | null,
+  onPatch: (key: string, patch: Partial<GroupState>) => void,
+) {
+  const wanted = !!group && !!state && resolvedItem(group, state)?.type === "standard";
+  const defaultNode = useDefaultStorageNode(group?.warehouseId ?? "", wanted);
+  const node = state?.node;
+  const groupKey = group?.key;
+
+  useEffect(() => {
+    if (!wanted || node || !defaultNode || !groupKey) return;
+    onPatch(groupKey, {
+      node: {
+        nodeId: defaultNode.nodeId,
+        nodePath: formatStoragePlaceNodeName(defaultNode.nodePath),
+      },
+    });
+  }, [wanted, defaultNode, node, groupKey, onPatch]);
+}
+
 /** Cell of a standard group — the need is the whole group, so the stock check is multiplied. */
 function GroupNodeControl({group, state, onPatch, catalogItemId}: GroupNodeControlProps) {
   const defaultNode = useDefaultStorageNode(group.warehouseId);
   const node = state.node;
-  const groupKey = group.key;
   const available = useNodeItemCount(node?.nodeId, catalogItemId);
-
-  // The group submits state.node, so the default has to land there — a suggestion the pick overrides.
-  useEffect(() => {
-    if (!node && defaultNode) {
-      onPatch(groupKey, {
-        node: {
-          nodeId: defaultNode.nodeId,
-          nodePath: formatStoragePlaceNodeName(defaultNode.nodePath),
-        },
-      });
-    }
-  }, [defaultNode, node, groupKey, onPatch]);
 
   return (
     <NodeControl
@@ -641,42 +725,62 @@ function GroupNodeControl({group, state, onPatch, catalogItemId}: GroupNodeContr
 }
 
 interface GroupRowProps extends GroupViewProps {
+  fullGroup: BatchGroup;
+  excluded: boolean;
   expanded: boolean;
   onToggle: () => void;
+  onToggleExcluded: () => void;
+  onOpenTasks: () => void;
   onPicksPatch: (key: string, update: PicksUpdate) => void;
 }
 
 function GroupRow({
   group,
+  fullGroup,
   state,
   blocker,
   failures,
+  excluded,
   expanded,
   onToggle,
+  onToggleExcluded,
+  onOpenTasks,
   onPatch,
   onPicksPatch,
 }: GroupRowProps) {
   const composable = group.catalogItemType !== "standard";
+  const emptied = !excluded && group.targets.length === 0;
+
+  useGroupDefaultNode(group, state, onPatch);
 
   return (
     <>
       <TableRow
-        hover
-        onClick={onToggle}
-        sx={{cursor: "pointer", "& > td": {borderBottom: expanded ? 0 : undefined}}}
+        hover={!excluded}
+        onClick={excluded ? undefined : onToggle}
+        sx={{
+          cursor: excluded ? "default" : "pointer",
+          opacity: excluded ? 0.5 : undefined,
+          "& > td": {borderBottom: expanded ? 0 : undefined},
+        }}
       >
         <TableCell>
           <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
             {/* The whole row toggles, so the twist is an affordance — its click just bubbles up. */}
-            <IconButton size="small" tabIndex={-1}>
+            <IconButton size="small" tabIndex={-1} disabled={excluded}>
               {expanded ? (
                 <KeyboardArrowDownIcon fontSize="small" />
               ) : (
                 <KeyboardArrowRightIcon fontSize="small" />
               )}
             </IconButton>
-            <Typography variant="body2">{group.catalogItemName}</Typography>
-            {composable && (
+            <Typography
+              variant="body2"
+              sx={{textDecoration: excluded ? "line-through" : undefined}}
+            >
+              {group.catalogItemName}
+            </Typography>
+            {composable && !excluded && (
               <Chip
                 size="small"
                 variant="outlined"
@@ -689,21 +793,56 @@ function GroupRow({
             )}
           </Stack>
         </TableCell>
-        <TableCell align="right">{group.totalNeeded}</TableCell>
-        {/* Picking a cell here must not fold the row shut. */}
-        <TableCell onClick={(e) => e.stopPropagation()}>
-          <SourceCell group={group} state={state} onPatch={onPatch} />
+        <TableCell align="right">
+          {group.totalNeeded}
+          {fullGroup.totalNeeded !== group.totalNeeded && (
+            <Typography variant="caption" color="text.secondary">
+              {" "}
+              из {fullGroup.totalNeeded}
+            </Typography>
+          )}
         </TableCell>
         <TableCell>
-          <StatusChip blocker={blocker} />
+          {excluded || emptied ? (
+            <Typography variant="caption" color="text.secondary">
+              —
+            </Typography>
+          ) : (
+            <SourceCell group={group} state={state} onPatch={onPatch} />
+          )}
+        </TableCell>
+        <TableCell>
+          {excluded && <Chip size="small" label="убрана" />}
+          {emptied && <Chip size="small" label="нет заданий" />}
+          {!excluded && !emptied && <StatusChip blocker={blocker} />}
+        </TableCell>
+        {/* Taking the group out must not also fold the row shut. */}
+        <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
+          <Tooltip title={excluded ? "Вернуть в сборку" : "Убрать из сборки"}>
+            <IconButton size="small" onClick={onToggleExcluded}>
+              {excluded ? <UndoIcon fontSize="small" /> : <CloseIcon fontSize="small" />}
+            </IconButton>
+          </Tooltip>
         </TableCell>
       </TableRow>
 
-      {expanded && (
+      {expanded && !excluded && (
         <TableRow>
-          <TableCell colSpan={4} sx={{pt: 0}}>
+          <TableCell colSpan={5} sx={{pt: 0}}>
             <Stack spacing={1.5} sx={{pt: 0.5}}>
-              {composable && (
+              <GroupTasksSummary group={group} fullGroup={fullGroup} onOpenTasks={onOpenTasks} />
+              {emptied && <EmptiedGroupNote />}
+              {!composable && !emptied && (
+                <Paper variant="outlined" sx={{p: 1.5, bgcolor: "action.hover"}}>
+                  <GroupNodeControl
+                    group={group}
+                    state={state}
+                    onPatch={onPatch}
+                    catalogItemId={group.catalogItemId}
+                  />
+                </Paper>
+              )}
+              {composable && !emptied && (
                 <GroupComposition
                   group={group}
                   state={state}
@@ -718,7 +857,7 @@ function GroupRow({
 
       {failures.length > 0 && (
         <TableRow>
-          <TableCell colSpan={4} sx={{py: 0.5}}>
+          <TableCell colSpan={5} sx={{py: 0.5}}>
             <Alert severity="error" sx={{py: 0}}>
               {failures.map((f, i) => (
                 <Typography key={i} variant="caption" sx={{display: "block"}}>
@@ -734,24 +873,56 @@ function GroupRow({
 }
 
 interface GroupCardProps extends GroupViewProps {
+  fullGroup: BatchGroup;
+  excluded: boolean;
+  onToggleExcluded: () => void;
+  onOpenTasks: () => void;
   onOpenComposition: () => void;
 }
 
-function GroupCard({group, state, blocker, failures, onPatch, onOpenComposition}: GroupCardProps) {
+function GroupCard({
+  group,
+  fullGroup,
+  state,
+  blocker,
+  failures,
+  excluded,
+  onPatch,
+  onToggleExcluded,
+  onOpenTasks,
+  onOpenComposition,
+}: GroupCardProps) {
   const composable = group.catalogItemType !== "standard";
+  const emptied = !excluded && group.targets.length === 0;
+
+  useGroupDefaultNode(group, state, onPatch);
 
   return (
-    <Paper variant="outlined" sx={{p: 1.5}}>
+    <Paper variant="outlined" sx={{p: 1.5, opacity: excluded ? 0.5 : undefined}}>
       <Stack spacing={1}>
         <Stack
           direction="row"
           spacing={1}
           sx={{alignItems: "center", justifyContent: "space-between"}}
         >
-          <Typography variant="body2" sx={{fontWeight: 500}}>
+          <Typography
+            variant="body2"
+            sx={{fontWeight: 500, textDecoration: excluded ? "line-through" : undefined}}
+          >
             {group.catalogItemName}
           </Typography>
-          <StatusChip blocker={blocker} />
+          <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
+            {excluded && <Chip size="small" label="убрана" />}
+            {emptied && <Chip size="small" label="нет заданий" />}
+            {!excluded && !emptied && <StatusChip blocker={blocker} />}
+            <IconButton
+              size="small"
+              aria-label={excluded ? "Вернуть в сборку" : "Убрать из сборки"}
+              onClick={onToggleExcluded}
+            >
+              {excluded ? <UndoIcon fontSize="small" /> : <CloseIcon fontSize="small" />}
+            </IconButton>
+          </Stack>
         </Stack>
         <Stack
           direction="row"
@@ -759,11 +930,16 @@ function GroupCard({group, state, blocker, failures, onPatch, onOpenComposition}
           sx={{alignItems: "center", flexWrap: "wrap", rowGap: 0.5}}
         >
           <Typography variant="caption" color="text.secondary">
-            {group.totalNeeded} шт · {pluralCount(group.targets.length, NOUNS.task)}
+            {group.totalNeeded} шт · {pluralCount(taskCount(group), NOUNS.task)}
           </Typography>
-          <SourceCell group={group} state={state} onPatch={onPatch} />
+          {!excluded && !emptied && (
+            <SourceCell group={group} state={state} onPatch={onPatch} withPicker />
+          )}
         </Stack>
-        {composable && (
+        {!excluded && (
+          <GroupTasksSummary group={group} fullGroup={fullGroup} onOpenTasks={onOpenTasks} />
+        )}
+        {composable && !excluded && !emptied && (
           <Button size="small" variant="outlined" fullWidth onClick={onOpenComposition}>
             Задать состав
           </Button>
@@ -872,5 +1048,4 @@ function CompositionFrame({group, status, writeOff, children}: CompositionFrameP
   );
 }
 
-export type {SelectedTaskInfo};
 export default BatchAssemblyDialog;

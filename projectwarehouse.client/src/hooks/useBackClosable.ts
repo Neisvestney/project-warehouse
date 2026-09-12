@@ -80,6 +80,14 @@ function attachSweeper() {
   });
 }
 
+export interface UseBackClosableOptions {
+  /**
+   * Back no longer closes the overlay: the popped entry is pushed straight back, so the overlay
+   * keeps its place in the stack and only its own controls can close it.
+   */
+  blockBack?: boolean;
+}
+
 /**
  * An open overlay occupies its own history entry, so Back — the hardware button on the handheld
  * included — closes it instead of leaving the page.
@@ -97,12 +105,20 @@ function attachSweeper() {
  *   Under a data router with async loaders `onClose` would run before the entry is replaced, and
  *   the cleanup would back over a navigation still in flight.
  */
-export function useBackClosable(open: boolean, onClose: () => void) {
+export function useBackClosable(
+  open: boolean,
+  onClose: () => void,
+  options?: UseBackClosableOptions,
+) {
   const id = useId();
   const onCloseRef = useRef(onClose);
+  const blockBackRef = useRef(options?.blockBack ?? false);
 
+  // Both are read through refs only: a dependency here would restart the effect below and give up
+  // the held entry on nothing more than a changed callback identity or a flipped flag.
   useEffect(() => {
     onCloseRef.current = onClose;
+    blockBackRef.current = options?.blockBack ?? false;
   });
 
   useEffect(() => {
@@ -119,6 +135,14 @@ export function useBackClosable(open: boolean, onClose: () => void) {
 
     const handlePop = () => {
       if (overlayStack(window.history.state).includes(id)) return;
+
+      if (blockBackRef.current) {
+        // The entry is pushed back exactly as it was taken, so Back is a no-op while the overlay lives.
+        const state = window.history.state;
+        window.history.pushState({...state, [OVERLAY_KEY]: [...overlayStack(state), id]}, "");
+        return;
+      }
+
       onCloseRef.current();
     };
     window.addEventListener("popstate", handlePop);
