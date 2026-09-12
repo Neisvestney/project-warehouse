@@ -206,7 +206,8 @@ public class OzonClient(
                         ToOrderStatus(posting.Status),
                         posting.Status,
                         posting.Substatus,
-                        posting.Tracking_number));
+                        posting.Tracking_number,
+                        ToCancellation(posting.Cancellation)));
                     matched++;
                 }
 
@@ -329,6 +330,7 @@ public class OzonClient(
             posting.In_process_at?.UtcDateTime,
             posting.Tracking_number,
             posting.Multi_box_qty is > 0 ? posting.Multi_box_qty.Value : 1,
+            ToCancellation(posting.Cancellation),
             (posting.Products ?? [])
                 .Select(p => ToExternalPostingItem(p, financials))
                 .ToList());
@@ -380,6 +382,51 @@ public class OzonClient(
                 logger.LogWarning(
                     "Ozon returned an unknown posting status {OzonPostingStatus}", status ?? "<null>");
                 return MarketplaceOrderStatus.Unknown;
+        }
+    }
+
+    // the two posting endpoints carry the same cancellation payload under two unrelated generated types
+    private ExternalCancellation? ToCancellation(PostingFbsListResponsePostingsCancellation? cancellation) =>
+        ToCancellation(cancellation?.Cancelled_after_ship, cancellation?.Cancellation_type,
+            cancellation?.Cancel_reason);
+
+    private ExternalCancellation? ToCancellation(
+        PostingFbsUnfulfilledListResponsePostingsCancellation? cancellation) =>
+        ToCancellation(cancellation?.Cancelled_after_ship, cancellation?.Cancellation_type,
+            cancellation?.Cancel_reason);
+
+    /// <summary>Ozon answers a live posting with an all-empty cancellation object rather than none.</summary>
+    private ExternalCancellation? ToCancellation(bool? afterShip, string? type, string? reason)
+    {
+        var rawType = Trim(type);
+        var trimmedReason = Trim(reason);
+
+        if (afterShip is null && rawType is null && trimmedReason is null)
+            return null;
+
+        return new ExternalCancellation(afterShip, ToCancellationType(rawType), rawType, trimmedReason);
+    }
+
+    /// <summary>Ozon cancellation initiators collapsed to the WMS vocabulary.</summary>
+    private MarketplaceCancellationType ToCancellationType(string? type)
+    {
+        switch (type)
+        {
+            case null:
+                return MarketplaceCancellationType.Unknown;
+            case "seller":
+                return MarketplaceCancellationType.Seller;
+            case "client" or "customer":
+                return MarketplaceCancellationType.Customer;
+            case "ozon":
+                return MarketplaceCancellationType.Marketplace;
+            case "system":
+                return MarketplaceCancellationType.System;
+            case "delivery":
+                return MarketplaceCancellationType.Delivery;
+            default:
+                logger.LogWarning("Ozon returned an unknown cancellation type {OzonCancellationType}", type);
+                return MarketplaceCancellationType.Unknown;
         }
     }
 

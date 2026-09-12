@@ -18,6 +18,13 @@ public class MarketplaceOrderDto
     public string? RawStatus { get; init; }
     public string? RawSubstatus { get; init; }
 
+    /// <summary>Null while the posting is alive; <c>true</c> when it was cancelled after being shipped.</summary>
+    public bool? CancelledAfterShip { get; init; }
+
+    public MarketplaceCancellationType? CancellationType { get; init; }
+    public string? RawCancellationType { get; init; }
+    public string? CancelReason { get; init; }
+
     public DateTime? ShipmentDate { get; init; }
     public DateTime? InProcessAt { get; init; }
     public string? TrackingNumber { get; init; }

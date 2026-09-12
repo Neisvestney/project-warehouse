@@ -1347,7 +1347,8 @@ export const marketplacesTestConnection = <ThrowOnError extends boolean = false>
 /**
  * Queues a sync and returns 202 immediately — poll the run for progress.
  *
- *     Body: `StartSyncRequest` — `scope` (`All`, `Warehouses`, `Cards`, `Orders`).
+ *     Body: `StartSyncRequest` — `scope` (`All`, `Warehouses`, `Cards`, `Orders`,
+ * `OrdersBackground`).
  * Answers 202 with `StartSyncResponse.syncRunId`; poll it through `GET sync-runs?ids=`.
  * Errors returned by this call:
  * * 404 marketplaceAccountNotFound
@@ -1360,7 +1361,7 @@ export const marketplacesTestConnection = <ThrowOnError extends boolean = false>
  * * marketplaceSyncAlreadyRunning — the advisory lock is held by another run
  * * marketplaceCredentialsUnreadable — the stored key cannot be decrypted
  * * marketplaceCredentialsInvalid — the marketplace rejected the credentials; args: marketplaceStatus, optional marketplaceResponse
- * * marketplaceOrdersNotSupported — Orders scope on a provider without the Orders capability
+ * * marketplaceOrdersNotSupported — Orders or OrdersBackground scope on a provider without the Orders capability; inside All the step is skipped instead
  * * marketplaceApiError — any other marketplace or unexpected failure; args: marketplaceStatus, optional marketplaceResponse when it came from the API
  * * marketplaceSyncInterrupted — the run was left Running by an application shutdown and reconciled on the next start
  * Requires `integrations.sync`.

@@ -12,12 +12,13 @@ interface MarketplaceOrderStatusChipProps {
 function MarketplaceOrderStatusChip({value}: MarketplaceOrderStatusChipProps) {
   if (!value) return <>—</>;
 
+  let label = MARKETPLACE_ORDER_STATUS_LABELS[value.status];
+  if (value.status === "cancelled" && !!value.cancelledAfterShip) {
+    label = `${label} ${value.cancelledAfterShip ? "после огрузки" : "до огрузки"}`;
+  }
+
   const chip = (
-    <Chip
-      size="small"
-      label={MARKETPLACE_ORDER_STATUS_LABELS[value.status]}
-      color={MARKETPLACE_ORDER_STATUS_COLORS[value.status]}
-    />
+    <Chip size="small" label={label} color={MARKETPLACE_ORDER_STATUS_COLORS[value.status]} />
   );
 
   const tooltip =

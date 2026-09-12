@@ -224,6 +224,10 @@ public class MarketplaceOrderSyncService(
                 Status = posting.Status,
                 RawStatus = posting.RawStatus,
                 RawSubstatus = posting.RawSubstatus,
+                CancelledAfterShip = posting.Cancellation?.CancelledAfterShip,
+                CancellationType = posting.Cancellation?.Type,
+                RawCancellationType = posting.Cancellation?.RawType,
+                CancelReason = posting.Cancellation?.Reason,
                 ShipmentDate = posting.ShipmentDate,
                 InProcessAt = posting.InProcessAt,
                 TrackingNumber = posting.TrackingNumber,
@@ -254,6 +258,8 @@ public class MarketplaceOrderSyncService(
             || known.DeliveryMethodName != posting.DeliveryMethodName
             || known.MultiBoxQty != posting.MultiBoxQty
             || known.ExternalOrderNumber != posting.ExternalOrderNumber;
+
+        changed |= ApplyCancellation(known, posting.Cancellation);
 
         if (known.ShipmentDate != posting.ShipmentDate && known.Order is not null)
             known.Order.PlannedShipmentAt = posting.ShipmentDate;
@@ -295,7 +301,7 @@ public class MarketplaceOrderSyncService(
         var open = await db.MarketplaceOrders
             .Where(o => o.MarketplaceAccountId == account.Id
                         && o.Status != MarketplaceOrderStatus.Delivered
-                        && o.Status != MarketplaceOrderStatus.Cancelled
+                        // && o.Status != MarketplaceOrderStatus.Cancelled
                         // phase 1 just refreshed everything the unfulfilled list returned; re-asking would
                         // cost one single-posting call per open order, every run, for no new information
                         && o.StatusSyncedAt < run.StartedAt)
@@ -320,7 +326,10 @@ public class MarketplaceOrderSyncService(
                 continue;
             }
 
-            if (order.Status != status.Status
+            var cancellationChanged = ApplyCancellation(order, status.Cancellation);
+
+            if (cancellationChanged
+                || order.Status != status.Status
                 || order.RawStatus != status.RawStatus
                 || order.RawSubstatus != status.RawSubstatus
                 || order.TrackingNumber != status.TrackingNumber)
@@ -334,6 +343,26 @@ public class MarketplaceOrderSyncService(
         }
 
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Mirrors the marketplace's cancellation block, clearing included: a posting that stops reporting one
+    /// is no longer cancelled, and stale fields would outlive the state they describe.
+    /// </summary>
+    private static bool ApplyCancellation(MarketplaceOrder known, ExternalCancellation? cancellation)
+    {
+        var changed =
+            known.CancelledAfterShip != cancellation?.CancelledAfterShip
+            || known.CancellationType != cancellation?.Type
+            || known.RawCancellationType != cancellation?.RawType
+            || known.CancelReason != cancellation?.Reason;
+
+        known.CancelledAfterShip = cancellation?.CancelledAfterShip;
+        known.CancellationType = cancellation?.Type;
+        known.RawCancellationType = cancellation?.RawType;
+        known.CancelReason = cancellation?.Reason;
+
+        return changed;
     }
 
     private sealed record CardRow(Guid Id, string? Sku, string OfferId, Guid? CatalogItemId);
