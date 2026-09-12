@@ -4361,6 +4361,7 @@ export type OrdersGetAllData = {
     marketplaceType?: MarketplaceType;
     marketplaceAccountId?: string;
     marketplaceStatus?: MarketplaceOrderStatus;
+    catalogItemId?: string;
     sortBy?: OrderSortBy;
     sortOrder?: SortOrder;
   };
@@ -4395,6 +4396,7 @@ export type OrdersGetAllAssemblyData = {
   query?: {
     warehouseId?: string;
     searchString?: string;
+    catalogItemId?: string;
   };
   url: "/api/orders/assembly";
 };

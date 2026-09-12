@@ -48,6 +48,7 @@ import TableRowEmpty from "@/components/TableRowEmpty";
 import LinkTableRow from "@/components/LinkTableRow";
 import NotesTableCell from "@/components/NotesTableCell";
 import WarehousesSelect from "@/components/WarehousesSelect";
+import CatalogItemsSelect from "@/components/CatalogItemsSelect";
 import OrderStatusChip from "./OrderStatusChip";
 import MarketplaceOrderFilters from "./marketplace/MarketplaceOrderFilters";
 import {
@@ -146,6 +147,12 @@ function OrdersListPage({
     (v) => v,
   );
 
+  const [catalogItemId, setCatalogItemId] = useSyncedWithQueryState(
+    "item",
+    (q) => (typeof q === "string" ? q : null),
+    (v) => v,
+  );
+
   const [status, setStatus] = useSyncedWithQueryState<OrderStatus | "">(
     "status",
     (q) => (ALL_STATUSES.includes(q as OrderStatus) ? (q as OrderStatus) : ""),
@@ -186,6 +193,7 @@ function OrdersListPage({
       type,
       warehouseId: warehouseId ?? undefined,
       status: (status as OrderStatus) || undefined,
+      catalogItemId: catalogItemId ?? undefined,
       marketplaceType: marketplaceFilters
         ? (marketplaceType as MarketplaceType) || undefined
         : undefined,
@@ -199,6 +207,7 @@ function OrdersListPage({
     [
       warehouseId,
       status,
+      catalogItemId,
       marketplaceType,
       marketplaceAccountId,
       marketplaceStatus,
@@ -342,6 +351,13 @@ function OrdersListPage({
             </MenuItem>
           ))}
         </Select>
+        <CatalogItemsSelect
+          value={catalogItemId}
+          onChange={setCatalogItemId}
+          sx={{flexBasis: 300}}
+          size="small"
+          textFieldProps={{label: "Содержит позицию"}}
+        />
         {marketplaceFilters && (
           <MarketplaceOrderFilters
             type={marketplaceType}

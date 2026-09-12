@@ -1620,7 +1620,8 @@ export const marketplacesGetUnmappedCount = <ThrowOnError extends boolean = fals
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
  * `warehouseId`, `type`, `status`, `marketplaceType`, `marketplaceAccountId`,
- * `marketplaceStatus`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * `marketplaceStatus`, `catalogItemId`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * `catalogItemId` keeps orders that have a box component with that catalog item.
  * Any of the three marketplace filters also excludes orders without a `MarketplaceOrder`, so they
  * never match Direct orders. `searchString` is the extended search — it also matches box labels and
  * the catalog items and marketplace cards of the order contents, see bool Order.MatchesExtendedSearch(string pattern).
@@ -1638,7 +1639,8 @@ export const ordersGetAll = <ThrowOnError extends boolean = false>(
 /**
  * The current user's personal assembly worklist: full details of Assembly-status orders that have a task assigned to them.
  *
- * Query params: `warehouseId`, `searchString` (both optional). Not paginated — returns a plain list.
+ * Query params: `warehouseId`, `searchString`, `catalogItemId` (all optional). Not paginated — returns a plain list.
+ * `catalogItemId` keeps orders that have a box component with that catalog item.
  * `searchString` is the extended search — see bool Order.MatchesExtendedSearch(string pattern).
  * Only orders in `Assembly` status with at least one `AssemblyTask` assigned to the caller are
  * returned, and each order carries only that caller's own tasks; other assemblers' tasks are filtered out.
