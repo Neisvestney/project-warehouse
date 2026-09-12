@@ -364,7 +364,7 @@ function AssemblyTaskAccordion({
   if (inline) return body;
 
   return (
-    <Accordion disableGutters>
+    <Accordion disableGutters slotProps={{transition: {unmountOnExit: true}}}>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Stack direction="row" sx={{alignItems: "center", gap: 1.5, flex: 1, pr: 1}}>
           {onCheckChange !== undefined && (
