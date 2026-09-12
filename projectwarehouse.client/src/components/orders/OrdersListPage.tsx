@@ -481,7 +481,7 @@ function OrdersListPage({
                 </TableCell>
               ))}
               {showNotes && <TableCell>Заметки</TableCell>}
-              <TableCell>Коробок</TableCell>
+              <TableCell>Позиций</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -534,7 +534,7 @@ function OrdersListPage({
                     {!order.boxCount ? (
                       "—"
                     ) : (
-                      <Chip variant={"outlined"} size={"small"} label={order.boxCount} />
+                      <Chip variant={"outlined"} size={"small"} label={order.componentCount} />
                     )}
                   </TableCell>
                 </LinkTableRow>
