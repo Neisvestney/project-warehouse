@@ -106,6 +106,7 @@ interface OrdersListPageProps {
   marketplaceFilters?: boolean;
   /** FBO trades the notes column for the posting number. */
   showNotes?: boolean;
+  defaultPageSize?: number;
 }
 
 const getOrderId = (order: OrderSummaryDto) => order.id;
@@ -120,7 +121,8 @@ function OrdersListPage({
   bulkActions,
   extraColumns,
   marketplaceFilters,
-  showNotes = true,
+  showNotes = true, 
+  defaultPageSize,
 }: OrdersListPageProps) {
   const queryClient = useQueryClient();
   const canCreate = useHasPermission(["orders.edit", "orders.edit_assigned"]);
@@ -203,6 +205,9 @@ function OrdersListPage({
       sortBy,
       sortOrder,
     ],
+    {
+      defaultPageSize: defaultPageSize ?? 20,
+    },
   );
 
   // the account list is scoped to the marketplace, so a stale id must not survive the switch

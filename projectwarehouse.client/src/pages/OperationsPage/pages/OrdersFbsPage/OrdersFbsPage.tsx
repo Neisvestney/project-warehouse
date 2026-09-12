@@ -39,6 +39,7 @@ function OrdersFbsPage() {
       marketplaceFilters
       extraColumns={EXTRA_COLUMNS}
       showNotes={false}
+      defaultPageSize={200}
     />
   );
 }
