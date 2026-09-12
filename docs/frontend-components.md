@@ -840,6 +840,26 @@ posting number). From `md` up both groups are `display: contents`, so their chil
 row and it reads as a single line; `order: 1` on the progress and `order: 2` on the posting number keep those
 two at the end of it. Below `md` the summary becomes a column of the two groups, and the chip row wraps.
 
+### `OrdersAssemblyPage` grouping
+
+The «Группировка» select in the filters bar splits the order accordions into groups; the value lives in the
+`group` query param (absent means `none`). `groupAssemblyOrders(orders, grouping)` in `assemblyGrouping.ts` is
+a pure client-side split of the already loaded list, so a new mode is one more `AssemblyGrouping` member plus a
+`case` in `getGroupKey` returning `{key, label, rank}`. Groups sort by `rank`, then by label — `rank` pins fixed
+orders (task status, order type) and pushes catch-all groups («Без магазина», «Пустой состав») to the end.
+
+- `status` uses the order's summary status: all tasks `done` → «Готово», all `pending` → «Ожидает», anything
+  else → «В работе». Order status itself is always `Assembly` on this page, so it can't group anything.
+- `composition` keys on the order boxes' catalog items with quantities summed across boxes, so orders group
+  only when their whole content matches; the label lists `name ×qty`.
+
+Each group is an `AssemblyOrderGroup`: a header with a chevron, label, order count and a batch checkbox over
+every selectable task of the group (feeding the same `onTaskCheckChange` as the order checkboxes), and the order
+accordions below it in a `Collapse` with `unmountOnExit`. Groups start collapsed; clicking anywhere on the header
+except the checkbox toggles it. The expanded state is local to the group and keyed by `${grouping}:${key}`, so
+switching the mode remounts every group collapsed. With `none` the orders render as a plain list with no group
+wrapper.
+
 ### `components/marketplace/MarketplaceAccountChip`
 
 The marketplace account chip: account name, colored by `MARKETPLACE_TYPE_COLORS`, linking to

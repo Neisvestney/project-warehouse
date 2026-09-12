@@ -40,18 +40,16 @@ import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
 import {useOpenCatalogItem} from "@/components/catalog/CatalogItemDrawerContext";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import FulfillmentsDrawer from "@/components/orders/FulfillmentsDrawer";
-import {countFulfilledQty, getTaskProgress} from "@/components/orders/orderAssemblyUtils";
+import {
+  countFulfilledQty,
+  getTaskProgress,
+  TASK_STATUS_LABELS,
+} from "@/components/orders/orderAssemblyUtils";
 import {formatBoxLabel} from "@/components/orders/orderUtils";
 import AddFulfillmentDialog from "./AddFulfillmentDialog";
 import {getBatchDisabledReason} from "./batchEligibility";
 import MoveTaskComponentDialog from "./MoveTaskComponentDialog";
 import {NOUNS, plural} from "@/utils/pluralUtils";
-
-const TASK_STATUS_LABELS: Record<AssemblyTaskStatus, string> = {
-  pending: "Ожидает",
-  inProgress: "В работе",
-  done: "Готово",
-};
 
 const TASK_STATUS_COLORS: Record<AssemblyTaskStatus, "default" | "warning" | "success"> = {
   pending: "default",

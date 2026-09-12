@@ -1,5 +1,15 @@
 import {useCallback, useEffect, useMemo, useState} from "react";
-import {Alert, Box, Button, CircularProgress, IconButton, Stack, Typography} from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  IconButton,
+  MenuItem,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import {useQuery, useQueryClient} from "@tanstack/react-query";
 import {ordersGetAllAssemblyOptions} from "@/api/@tanstack/react-query.gen";
@@ -21,6 +31,13 @@ import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQu
 import SearchInput from "@/components/SearchInput.tsx";
 import WarehousesSelect from "@/components/WarehousesSelect.tsx";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect.tsx";
+import AssemblyOrderGroup from "./AssemblyOrderGroup";
+import {
+  ASSEMBLY_GROUPING_LABELS,
+  type AssemblyGrouping,
+  groupAssemblyOrders,
+  parseAssemblyGrouping,
+} from "./assemblyGrouping";
 
 function OrdersAssemblyPage() {
   const canFulfill = useHasPermission(
@@ -46,6 +63,12 @@ function OrdersAssemblyPage() {
     (v) => v,
   );
 
+  const [grouping, setGrouping] = useSyncedWithQueryState<AssemblyGrouping>(
+    "group",
+    parseAssemblyGrouping,
+    (v) => (v === "none" ? null : v),
+  );
+
   const ordersQuery = useQuery({
     ...ordersGetAllAssemblyOptions({
       query: {
@@ -62,6 +85,7 @@ function OrdersAssemblyPage() {
   // No edit lock here on purpose: several assemblers on one order is the normal case, and they need
   // to see each other's fulfillments instead of a "being edited" banner.
   const queryClient = useQueryClient();
+  const groups = groupAssemblyOrders(orders, grouping);
   const orderIds = useMemo(() => orders.map((o) => o.id), [orders]);
   const refreshAssembly = useCallback(() => {
     void queryClient.invalidateQueries({queryKey: byOperation("ordersGetAllAssembly")});
@@ -146,6 +170,19 @@ function OrdersAssemblyPage() {
     return result;
   }, [selectedTaskIds, orders]);
 
+  function renderOrder(order: OrderDetailsDto) {
+    return (
+      <AssemblyOrderAccordion
+        key={order.id}
+        order={order}
+        canFulfill={canFulfill}
+        selectedTaskIds={selectedTaskIds}
+        onTaskCheckChange={handleTaskCheckChange}
+        eligibilityMap={eligibilityMap}
+      />
+    );
+  }
+
   return (
     <CatalogItemDrawerHost>
       <Stack spacing={2}>
@@ -191,6 +228,20 @@ function OrdersAssemblyPage() {
             size="small"
             textFieldProps={{label: "Содержит позицию"}}
           />
+          <TextField
+            select
+            size="small"
+            label="Группировка"
+            value={grouping}
+            onChange={(e) => setGrouping(parseAssemblyGrouping(e.target.value))}
+            sx={{flexBasis: 200}}
+          >
+            {(Object.keys(ASSEMBLY_GROUPING_LABELS) as AssemblyGrouping[]).map((g) => (
+              <MenuItem key={g} value={g}>
+                {ASSEMBLY_GROUPING_LABELS[g]}
+              </MenuItem>
+            ))}
+          </TextField>
         </FiltersBar>
 
         {ordersQuery.isError && (
@@ -214,16 +265,22 @@ function OrdersAssemblyPage() {
         )}
 
         {!showLoading &&
-          orders.map((order) => (
-            <AssemblyOrderAccordion
-              key={order.id}
-              order={order}
-              canFulfill={canFulfill}
-              selectedTaskIds={selectedTaskIds}
-              onTaskCheckChange={handleTaskCheckChange}
-              eligibilityMap={eligibilityMap}
-            />
-          ))}
+          (grouping === "none"
+            ? orders.map(renderOrder)
+            : groups.map((group) => (
+                // The mode prefix remounts groups on a mode switch, so they start collapsed again.
+                <AssemblyOrderGroup
+                  key={`${grouping}:${group.key}`}
+                  label={group.label}
+                  orders={group.orders}
+                  canFulfill={canFulfill}
+                  selectedTaskIds={selectedTaskIds}
+                  onTaskCheckChange={handleTaskCheckChange}
+                  eligibilityMap={eligibilityMap}
+                >
+                  {group.orders.map(renderOrder)}
+                </AssemblyOrderGroup>
+              )))}
 
         <BatchAssemblyDialog
           open={batchDialogOpen}

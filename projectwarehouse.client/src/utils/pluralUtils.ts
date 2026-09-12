@@ -24,6 +24,7 @@ export function pluralCount(n: number, forms: PluralForms): string {
 
 export const NOUNS = {
   task: {one: "задание", few: "задания", many: "заданий"},
+  order: {one: "заказ", few: "заказа", many: "заказов"},
   item: {one: "товар", few: "товара", many: "товаров"},
   position: {one: "позиция", few: "позиции", many: "позиций"},
   itemType: {one: "тип", few: "типа", many: "типов"},

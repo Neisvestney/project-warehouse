@@ -1,4 +1,15 @@
-import type {AssemblyFulfillmentDto, AssemblyTaskDto, OrderDetailsDto} from "@/api/types.gen";
+import type {
+  AssemblyFulfillmentDto,
+  AssemblyTaskDto,
+  AssemblyTaskStatus,
+  OrderDetailsDto,
+} from "@/api/types.gen";
+
+export const TASK_STATUS_LABELS: Record<AssemblyTaskStatus, string> = {
+  pending: "Ожидает",
+  inProgress: "В работе",
+  done: "Готово",
+};
 
 export type FulfillmentKind = "unit" | "bundle" | "standard";
 
