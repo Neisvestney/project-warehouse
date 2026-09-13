@@ -746,6 +746,16 @@ checkbox was ticked. The bar itself is [`BulkBar`](#bulkbar). Adding an
 `extraColumns` entry also widens the loader/empty-row `colSpan`, which is computed rather than hard-coded —
 as does dropping the notes column with `showNotes={false}` (FBO trades it for the posting number).
 
+Даты в таблице (`Плановая отгрузка`, `Создан` и статусная колонка) рисует `DateTimeTableCell`: дата первой
+строкой, время под ней капшеном; вертикальные отступы ячейки поджаты, чтобы строка таблицы почти не подросла.
+
+Статусный фильтр добавляет свою колонку с отметкой времени: `Собран` (`assembledAt`) при `status=assembled` и
+`Отгружен` (`shippedAt`) при `status=shipped`. Колонка встаёт после «Создан», сортируется наравне с остальными
+(`OrderSortBy.AssembledAt` / `OrderSortBy.ShippedAt`) и учитывается в вычисленном `colSpan`. Список колонок,
+переданный в `useTableSort`, меняется вместе с фильтром, поэтому при уходе
+со статуса сортировка по исчезнувшей дате откатывается к дефолтной (`number`, `desc`). Остальные статусы
+колонку не получают — в модели заказа других отметок времени нет.
+
 `marketplaceFilters` renders `MarketplaceOrderFilters` (marketplace / account / posting status) and is the only
 thing that puts `marketplaceType`, `marketplaceAccountId` and `marketplaceStatus` into the query — Direct never
 sends them. The three filters live in the URL as `marketplace`, `account` and `mpStatus`; `status` stays the WMS

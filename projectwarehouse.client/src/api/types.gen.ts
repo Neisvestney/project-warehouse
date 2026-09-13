@@ -1132,7 +1132,14 @@ export type OrderMarketplaceItemDto = {
   commissionCurrencyCode?: null | string;
 };
 
-export type OrderSortBy = "number" | "status" | "createdAt" | "plannedShipmentAt" | "warehouseName";
+export type OrderSortBy =
+  | "number"
+  | "status"
+  | "createdAt"
+  | "plannedShipmentAt"
+  | "warehouseName"
+  | "assembledAt"
+  | "shippedAt";
 
 export type OrderStatus = "draft" | "confirmed" | "assembly" | "assembled" | "shipped" | "canceled";
 
