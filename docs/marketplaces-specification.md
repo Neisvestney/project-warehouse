@@ -941,10 +941,14 @@ Quartz регистрируется с in-memory хранилищем задач
     "FontResourceName": "ProjectWarehouse.Server.Resources.Fonts.LabelFont.ttf",
     "FontSize": 8,
     "MarginX": 6,
-    "MarginY": 6
+    "MarginY": 6,
+    "CacheTtlDays": 7,
+    "GcCron": "0 15 3 * * ?"
   }
 }
 ```
+
+`CacheTtlDays` и `GcCron` настраивают сборщик кешированных этикеток — см. [marketplaces-orders-fbs-specification.md](marketplaces-orders-fbs-specification.md#срок-жизни-кеша-этикеток).
 
 `MarginX` — отступ от правого края страницы, `MarginY` — от верхнего; строки артикулов прижаты к правому верхнему углу этикетки.
 

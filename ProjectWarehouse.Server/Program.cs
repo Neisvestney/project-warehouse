@@ -396,6 +396,14 @@ try
             .WithIdentity(MarketplaceSyncScanJob.Key + "-trigger")
             .WithCronSchedule(marketplacesOptions.SyncScanCron));
 
+        // runs before the file GC so released labels are reclaimed the same night
+        var labelsGcKey = new JobKey(MarketplaceLabelsGcJob.Key);
+        q.AddJob<MarketplaceLabelsGcJob>(labelsGcKey);
+        q.AddTrigger(t => t
+            .ForJob(labelsGcKey)
+            .WithIdentity(MarketplaceLabelsGcJob.Key + "-trigger")
+            .WithCronSchedule(marketplacesOptions.Labels.GcCron));
+
         var gcKey = new JobKey(DataFilesGcJob.Key);
         q.AddJob<DataFilesGcJob>(gcKey);
         q.AddTrigger(t => t
