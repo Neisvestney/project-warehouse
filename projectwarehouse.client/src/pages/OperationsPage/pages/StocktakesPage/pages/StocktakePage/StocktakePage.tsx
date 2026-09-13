@@ -14,6 +14,7 @@ import {
   stocktakesToDraftMutation,
   stocktakesUpdateAttachmentsMutation,
   stocktakesUpdateMutation,
+  stocktakesUpdateTagsMutation,
 } from "@/api/@tanstack/react-query.gen";
 import {extractErrorMessage, isNotFoundError} from "@/utils/errorUtils";
 import {useHasPermission} from "@/hooks/usePermission";
@@ -39,6 +40,7 @@ import StocktakeResultSection from "@/components/stocktakes/StocktakeResultSecti
 import StocktakeDifferencesDialog from "@/components/stocktakes/StocktakeDifferencesDialog";
 import {STOCKTAKE_TYPE_LABELS, formatStocktakeNumber} from "@/components/stocktakes/stocktakeUtils";
 import AttachmentsSection from "@/components/files/controls/AttachmentsSection";
+import DocumentTagsRow from "@/components/tags/DocumentTagsRow";
 import type {StocktakeDto, StocktakeType} from "@/api/types.gen";
 import {parseDateOnly} from "@/utils/dateOnly";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -276,6 +278,11 @@ function StocktakePage() {
     onSuccess: updateLocal,
   });
 
+  const tagsMutation = useMutation({
+    ...stocktakesUpdateTagsMutation(),
+    onSuccess: updateLocal,
+  });
+
   if (isLoading) return <PageLoader inline />;
 
   if (isError && !isRefetchError)
@@ -453,6 +460,14 @@ function StocktakePage() {
                   }
                 />
                 <InfoRow label="Примечания" value={stocktake.notes ?? "—"} />
+                <DocumentTagsRow
+                  kind="stocktake"
+                  value={stocktake.tags}
+                  canEdit={canEdit}
+                  save={(tags) =>
+                    tagsMutation.mutateAsync({path: {id: stocktake.id}, body: {tags}})
+                  }
+                />
                 {!isTerminal && canEdit && (
                   <Box>
                     <Button

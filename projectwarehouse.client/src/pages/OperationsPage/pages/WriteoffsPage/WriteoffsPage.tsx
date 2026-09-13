@@ -32,6 +32,8 @@ import TableRowEmpty from "@/components/TableRowEmpty";
 import LinkTableRow from "@/components/LinkTableRow";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import WriteoffStatusChip from "@/components/writeoffs/WriteoffStatusChip";
+import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
+import TagChips from "@/components/tags/TagChips";
 import {
   WRITEOFF_REASON_LABELS,
   WRITEOFF_STATUS_LABELS,
@@ -77,6 +79,12 @@ function WriteoffsPage() {
     (v) => v || null,
   );
 
+  const [tagIds, setTagIds] = useSyncedWithQueryState<string[]>(
+    "tags",
+    (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
+    (v) => v.join(",") || null,
+  );
+
   const {sortBy, sortOrder, handleSortClick} = useTableSort(SORT_COLUMNS, "number", {
     defaultSortOrder: "desc",
   });
@@ -88,10 +96,11 @@ function WriteoffsPage() {
       warehouseId: warehouseId ?? undefined,
       status: (status as WriteoffStatus) || undefined,
       reason: (reason as WriteoffReason) || undefined,
+      tagIds: tagIds.length > 0 ? tagIds : undefined,
       sortBy,
       sortOrder,
     },
-    [warehouseId, status, reason, sortBy, sortOrder],
+    [warehouseId, status, reason, tagIds, sortBy, sortOrder],
   );
 
   const {data, isLoading, isFetching, refetch} = useQuery(
@@ -164,6 +173,12 @@ function WriteoffsPage() {
             </MenuItem>
           ))}
         </Select>
+        <DocumentTagsFilter
+          kind="writeoff"
+          value={tagIds}
+          onChange={setTagIds}
+          sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
+        />
       </FiltersBar>
       <DataTableContainer
         isFetching={isFetching}
@@ -189,13 +204,14 @@ function WriteoffsPage() {
               ))}
               <TableCell>Причина</TableCell>
               <TableCell>Позиций</TableCell>
+              <TableCell>Теги</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {isLoading ? (
-              <TableRowLoader colSpan={7} />
+              <TableRowLoader colSpan={8} />
             ) : data?.items.length === 0 ? (
-              <TableRowEmpty colSpan={7} message="Списания не найдены" />
+              <TableRowEmpty colSpan={8} message="Списания не найдены" />
             ) : (
               data?.items.map((writeoff) => (
                 <LinkTableRow
@@ -223,6 +239,9 @@ function WriteoffsPage() {
                     ) : (
                       "—"
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <TagChips tags={writeoff.tags} />
                   </TableCell>
                 </LinkTableRow>
               ))

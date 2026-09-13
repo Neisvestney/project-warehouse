@@ -12,6 +12,7 @@ using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Files;
+using ProjectWarehouse.Server.Models.Tags;
 using ProjectWarehouse.Server.Models.Writeoffs;
 using ProjectWarehouse.Server.Services;
 
@@ -34,7 +35,9 @@ public class WriteoffsController(
     {
         var q = db.Writeoffs
             .Include(w => w.Warehouse)
+            .Include(w => w.Tags)
             .Include(w => w.Images).ThenInclude(i => i.DataFile)
+            .AsSplitQuery()
             .AsQueryable();
 
         if (includeItems)
@@ -82,12 +85,77 @@ public class WriteoffsController(
     private WriteoffDto MapWithNodes(Writeoff writeoff, Dictionary<Guid, StoragePlaceNode> nodeById) =>
         mapper.Map<WriteoffDto>(writeoff, opts => opts.Items["nodeById"] = nodeById);
 
+    // ── GET/POST tags ─────────────────────────────────────────────────────────
+
+    /// <summary>List all write-off tags, optionally filtered by name.</summary>
+    /// <remarks>
+    /// Query params: <c>search</c> (optional). Not paginated — ordered by name.
+    /// Requires <c>writeoffs.view</c> or <c>writeoffs.view_assigned</c>. No error codes beyond 403
+    /// <c>permissionDenied</c>.
+    /// </remarks>
+    [HttpGet("tags")]
+    [Authorize]
+    [ProducesResponseType<IReadOnlyList<WriteoffTagDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTags([FromQuery] string? search = null, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
+
+        var tags = await db.WriteoffTags
+            .WhereMatchesSearch(t => t.SearchString, search)
+            .OrderBy(t => t.Name)
+            .Select(t => new WriteoffTagDto { Id = t.Id, Name = t.Name })
+            .ToListAsync(ct);
+
+        return Ok(tags);
+    }
+
+    /// <summary>Create a new write-off tag.</summary>
+    /// <remarks>
+    /// Requires <c>writeoffs.edit</c> or <c>writeoffs.edit_assigned</c>. Body: <c>CreateWriteoffTagRequest</c> —
+    /// name (trimmed before saving). Errors: 422 <c>validationError</c> (field <c>name</c>) when the trimmed
+    /// name is empty; 422 <c>tagNameDuplicate</c> (field <c>name</c>) when another write-off tag already has
+    /// this name; 403 <c>permissionDenied</c>.
+    /// </remarks>
+    [HttpPost("tags")]
+    [Authorize]
+    [ProducesResponseType<WriteoffTagDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> CreateTag([FromBody] CreateWriteoffTagRequest request, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
+
+        var name = request.Name.Trim();
+        if (name.Length == 0)
+            return UnprocessableEntity("name", ErrorCode.ValidationError, "Tag name cannot be blank.");
+
+        var duplicate = await db.WriteoffTags.AnyAsync(t => t.Name == name, ct);
+        if (duplicate)
+            return UnprocessableEntity("name", ErrorCode.TagNameDuplicate, $"A tag named '{name}' already exists.");
+
+        var tag = new WriteoffTag { Id = Guid.NewGuid(), Name = name };
+        db.WriteoffTags.Add(tag);
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException e) when (UniqueViolations.IsTagName(e))
+        {
+            return UnprocessableEntity("name", ErrorCode.TagNameDuplicate, $"A tag named '{name}' already exists.");
+        }
+
+        var dto = new WriteoffTagDto { Id = tag.Id, Name = tag.Name };
+        return Created($"/api/writeoffs/tags/{tag.Id}", dto);
+    }
+
     // ── GET list ──────────────────────────────────────────────────────────────
 
     /// <summary>List write-offs with pagination, filtering, and search.</summary>
     /// <remarks>
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
-    /// <c>warehouseId</c>, <c>status</c>, <c>reason</c>, <c>sortBy</c> (default <c>Number</c>),
+    /// <c>warehouseId</c>, <c>status</c>, <c>reason</c>, <c>tagIds</c>, <c>sortBy</c> (default <c>Number</c>),
     /// <c>sortOrder</c> (default <c>Desc</c>).
     /// Requires <c>writeoffs.view</c> or <c>writeoffs.view_assigned</c>; without either, 403
     /// <c>permissionDenied</c>. 401 <c>tokenInvalid</c> when an <c>_assigned</c> permission is used but the
@@ -103,6 +171,7 @@ public class WriteoffsController(
         [FromQuery] Guid? warehouseId = null,
         [FromQuery] WriteoffStatus? status = null,
         [FromQuery] WriteoffReason? reason = null,
+        [FromQuery] IReadOnlyList<Guid>? tagIds = null,
         [FromQuery] WriteoffSortBy sortBy = WriteoffSortBy.Number,
         [FromQuery] SortOrder sortOrder = SortOrder.Desc,
         CancellationToken ct = default)
@@ -115,9 +184,11 @@ public class WriteoffsController(
         var baseQuery = accessible
             .Include(w => w.Warehouse)
             .Include(w => w.Items)
+            .Include(w => w.Tags)
             .Where(w => warehouseId == null || w.WarehouseId == warehouseId)
             .Where(w => status == null || w.Status == status)
             .Where(w => reason == null || w.Reason == reason)
+            .Where(w => tagIds == null || tagIds.Count == 0 || w.Tags.Any(t => tagIds.Contains(t.Id)))
             .WhereMatchesSearch(w => w.SearchString, searchString);
 
         var query = sortBy switch
@@ -269,6 +340,38 @@ public class WriteoffsController(
         await db.SaveChangesAsync(ct);
 
         var after = mapper.Map<WriteoffDto>(writeoff);
+        await changeLog.CompareAndSaveToChangelog(before, after);
+
+        return Ok(after);
+    }
+
+    // ── PATCH tags ───────────────────────────────────────────────────────────
+
+    /// <summary>Replace the write-off's tags. Allowed in any status.</summary>
+    /// <remarks>
+    /// Body: <c>UpdateTagsRequest</c> — the full tag id set; unknown ids are ignored. Errors: 404
+    /// <c>writeoffNotFound</c>; 403 <c>permissionDenied</c> or <c>writeoffNotAssignedToWarehouse</c> (edit access).
+    /// </remarks>
+    [HttpPatch("{id:guid}/tags")]
+    [Authorize]
+    [ProducesResponseType<WriteoffDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateTags(Guid id, [FromBody] UpdateTagsRequest request,
+        CancellationToken ct = default)
+    {
+        var (writeoff, error) = await LoadWriteoffWithEditAccessAsync(id, ct, includeItems: true);
+        if (error is not null) return error;
+
+        var before = await BuildDtoAsync(writeoff!, ct);
+
+        var newTags = await db.WriteoffTags.Where(t => request.Tags.Contains(t.Id)).ToListAsync(ct);
+        writeoff!.Tags.Clear();
+        foreach (var tag in newTags)
+            writeoff.Tags.Add(tag);
+
+        await db.SaveChangesAsync(ct);
+
+        var after = await BuildDtoAsync(writeoff, ct);
         await changeLog.CompareAndSaveToChangelog(before, after);
 
         return Ok(after);
@@ -489,6 +592,7 @@ public class WriteoffsController(
                             item.CatalogItemId.Value,
                             item.Count,
                             action: InventoryActions.WrittenOff,
+                            context: new StockMovementContext(WriteoffId: id),
                             ct: ct);
                     }
                     else if (item.UnitInventoryItemId.HasValue)
@@ -497,6 +601,7 @@ public class WriteoffsController(
                             item.UnitInventoryItemId.Value,
                             item.SourceNodeId,
                             action: InventoryActions.WrittenOff,
+                            context: new StockMovementContext(WriteoffId: id),
                             ct: ct);
                     }
                 }

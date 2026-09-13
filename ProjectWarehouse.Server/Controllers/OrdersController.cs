@@ -16,6 +16,7 @@ using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Files;
 using ProjectWarehouse.Server.Models.Orders;
+using ProjectWarehouse.Server.Models.Tags;
 using ProjectWarehouse.Server.Services;
 
 namespace ProjectWarehouse.Server.Controllers;
@@ -54,6 +55,7 @@ public class OrdersController(
             .Include(o => o.CreatedBy)
             // details are mapped in memory, so the marketplace block silently vanishes without this
             .Include(o => o.MarketplaceOrder).ThenInclude(m => m!.MarketplaceAccount)
+            .Include(o => o.Tags)
             .Include(o => o.Images).ThenInclude(i => i.DataFile);
 
     private IQueryable<Order> DetailsQuery() => WithDetailsIncludes(BaseQuery());
@@ -68,6 +70,7 @@ public class OrdersController(
             .Include(o => o.Warehouse)
             .Include(o => o.CreatedBy)
             .Include(o => o.MarketplaceOrder).ThenInclude(m => m!.MarketplaceAccount)
+            .Include(o => o.Tags)
             .Include(o => o.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(o => o.AssemblyTasks).ThenInclude(t => t.AssignedTo)
             .Include(o => o.AssemblyTasks).ThenInclude(t => t.Boxes).ThenInclude(tb => tb.OrderBox)
@@ -171,14 +174,81 @@ public class OrdersController(
         _ => OrderActions.Updated,
     };
 
+    // ── GET/POST /api/orders/tags ─────────────────────────────────────────────
+
+    /// <summary>List all order tags, optionally filtered by name.</summary>
+    /// <remarks>
+    /// Query params: <c>search</c> (optional). Not paginated — ordered by name.
+    /// Requires view access to orders (<c>orders.view</c>, <c>orders.view_assigned</c> or
+    /// <c>orders.assemble_assigned</c> — the assembly worklist filters by tag too). No error codes beyond 403
+    /// <c>permissionDenied</c>.
+    /// </remarks>
+    [HttpGet("tags")]
+    [Authorize]
+    [ProducesResponseType<IReadOnlyList<OrderTagDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTags([FromQuery] string? search = null, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
+
+        var tags = await db.OrderTags
+            .WhereMatchesSearch(t => t.SearchString, search)
+            .OrderBy(t => t.Name)
+            .Select(t => new OrderTagDto { Id = t.Id, Name = t.Name })
+            .ToListAsync(ct);
+
+        return Ok(tags);
+    }
+
+    /// <summary>Create a new order tag.</summary>
+    /// <remarks>
+    /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>. Body: <c>CreateOrderTagRequest</c> — name
+    /// (trimmed before saving). Errors: 422 <c>validationError</c> (field <c>name</c>) when the trimmed name is
+    /// empty; 422 <c>tagNameDuplicate</c> (field <c>name</c>) when another order tag already has this name; 403
+    /// <c>permissionDenied</c>.
+    /// </remarks>
+    [HttpPost("tags")]
+    [Authorize]
+    [ProducesResponseType<OrderTagDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> CreateTag([FromBody] CreateOrderTagRequest request, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
+
+        var name = request.Name.Trim();
+        if (name.Length == 0)
+            return UnprocessableEntity("name", ErrorCode.ValidationError, "Tag name cannot be blank.");
+
+        var duplicate = await db.OrderTags.AnyAsync(t => t.Name == name, ct);
+        if (duplicate)
+            return UnprocessableEntity("name", ErrorCode.TagNameDuplicate, $"A tag named '{name}' already exists.");
+
+        var tag = new OrderTag { Id = Guid.NewGuid(), Name = name };
+        db.OrderTags.Add(tag);
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException e) when (UniqueViolations.IsTagName(e))
+        {
+            return UnprocessableEntity("name", ErrorCode.TagNameDuplicate, $"A tag named '{name}' already exists.");
+        }
+
+        var dto = new OrderTagDto { Id = tag.Id, Name = tag.Name };
+        return Created($"/api/orders/tags/{tag.Id}", dto);
+    }
+
     // ── GET /api/orders ───────────────────────────────────────────────────────
 
     /// <summary>List orders (paginated, filtered, sorted).</summary>
     /// <remarks>
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
     /// <c>warehouseId</c>, <c>type</c>, <c>status</c>, <c>marketplaceType</c>, <c>marketplaceAccountId</c>,
-    /// <c>marketplaceStatus</c>, <c>catalogItemId</c>, <c>sortBy</c> (default <c>Number</c>), <c>sortOrder</c> (default <c>Desc</c>).
-    /// <c>catalogItemId</c> keeps orders that have a box component with that catalog item.
+    /// <c>marketplaceStatus</c>, <c>catalogItemId</c>, <c>tagIds</c>, <c>sortBy</c> (default <c>Number</c>), <c>sortOrder</c> (default <c>Desc</c>).
+    /// <c>catalogItemId</c> keeps orders that have a box component with that catalog item; <c>tagIds</c> keeps
+    /// orders carrying any of the tags.
     /// Any of the three marketplace filters also excludes orders without a <c>MarketplaceOrder</c>, so they
     /// never match Direct orders. <c>searchString</c> is the extended search — it also matches box labels and
     /// the catalog items and marketplace cards of the order contents, see <see cref="Order.MatchesExtendedSearch"/>.
@@ -199,6 +269,7 @@ public class OrdersController(
         [FromQuery] Guid? marketplaceAccountId = null,
         [FromQuery] MarketplaceOrderStatus? marketplaceStatus = null,
         [FromQuery] Guid? catalogItemId = null,
+        [FromQuery] IReadOnlyList<Guid>? tagIds = null,
         [FromQuery] OrderSortBy sortBy = OrderSortBy.Number,
         [FromQuery] SortOrder sortOrder = SortOrder.Desc,
         CancellationToken ct = default)
@@ -226,6 +297,7 @@ public class OrdersController(
                         (o.MarketplaceOrder != null && o.MarketplaceOrder.Status == marketplaceStatus))
             .Where(o => catalogItemId == null ||
                         o.Boxes.Any(b => b.Components.Any(c => c.CatalogItemId == catalogItemId)))
+            .Where(o => tagIds == null || tagIds.Count == 0 || o.Tags.Any(t => tagIds.Contains(t.Id)))
             .WhereMatchesExtendedSearch((o, pattern) => o.MatchesExtendedSearch(pattern), searchString);
 
         var query = sortBy switch
@@ -250,8 +322,9 @@ public class OrdersController(
 
     /// <summary>The current user's personal assembly worklist: full details of Assembly-status orders that have a task assigned to them.</summary>
     /// <remarks>
-    /// Query params: <c>warehouseId</c>, <c>searchString</c>, <c>catalogItemId</c> (all optional). Not paginated — returns a plain list.
-    /// <c>catalogItemId</c> keeps orders that have a box component with that catalog item.
+    /// Query params: <c>warehouseId</c>, <c>searchString</c>, <c>catalogItemId</c>, <c>tagIds</c> (all optional). Not paginated — returns a plain list.
+    /// <c>catalogItemId</c> keeps orders that have a box component with that catalog item; <c>tagIds</c> keeps
+    /// orders carrying any of the tags.
     /// <c>searchString</c> is the extended search — see <see cref="Order.MatchesExtendedSearch"/>.
     /// Only orders in <c>Assembly</c> status with at least one <c>AssemblyTask</c> assigned to the caller are
     /// returned, and each order carries only that caller's own tasks; other assemblers' tasks are filtered out.
@@ -267,6 +340,7 @@ public class OrdersController(
         [FromQuery] Guid? warehouseId = null,
         [FromQuery] string? searchString = null,
         [FromQuery] Guid? catalogItemId = null,
+        [FromQuery] IReadOnlyList<Guid>? tagIds = null,
         CancellationToken ct = default)
     {
         if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
@@ -282,6 +356,7 @@ public class OrdersController(
             .Include(o => o.Warehouse)
             .Include(o => o.MarketplaceOrder!.MarketplaceAccount)
             .Include(o => o.CreatedBy)
+            .Include(o => o.Tags)
             .Include(o => o.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
                 .ThenInclude(t => t.AssignedTo)
@@ -313,6 +388,9 @@ public class OrdersController(
 
         if (catalogItemId is not null)
             query = query.Where(o => o.Boxes.Any(b => b.Components.Any(c => c.CatalogItemId == catalogItemId)));
+
+        if (tagIds is { Count: > 0 })
+            query = query.Where(o => o.Tags.Any(t => tagIds.Contains(t.Id)));
 
         query = query.WhereMatchesExtendedSearch((o, pattern) => o.MatchesExtendedSearch(pattern), searchString);
 
@@ -449,6 +527,39 @@ public class OrdersController(
         var problem = await fileBinding.BindListAsync(request.Attachments, order!.Images,
             db.OrderImages, setOwner: img => img.OrderId = order.Id, field: "attachments", ct);
         if (problem is not null) return Problem(problem);
+
+        await db.SaveChangesAsync(ct);
+
+        var full = await LoadOrderDetailsAsync(id, ct);
+        var afterDto = await MapDetailsAsync(full!, ct);
+        await changeLog.CompareAndSaveToChangelog(beforeDto, afterDto, OrderActions.Updated);
+
+        return Ok(afterDto);
+    }
+
+    // ── PATCH /api/orders/{id}/tags ───────────────────────────────────────────
+
+    /// <summary>Replace the order's tags. Allowed in any status.</summary>
+    /// <remarks>
+    /// Body: <c>UpdateTagsRequest</c> — the full tag id set; unknown ids are ignored. Returns 404
+    /// <c>orderNotFound</c>. Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
+    [HttpPatch("{id:guid}/tags")]
+    [Authorize]
+    [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateTags(Guid id, [FromBody] UpdateTagsRequest request,
+        CancellationToken ct = default)
+    {
+        var (order, error) = await LoadOrderWithEditAccessAsync(id, ct, fullDetails: true);
+        if (error is not null) return error;
+
+        var beforeDto = await MapDetailsAsync(order!, ct);
+
+        var newTags = await db.OrderTags.Where(t => request.Tags.Contains(t.Id)).ToListAsync(ct);
+        order!.Tags.Clear();
+        foreach (var tag in newTags)
+            order.Tags.Add(tag);
 
         await db.SaveChangesAsync(ct);
 

@@ -11,6 +11,7 @@ import {
   writeoffsFinishMutation,
   writeoffsUpdateAttachmentsMutation,
   writeoffsUpdateMutation,
+  writeoffsUpdateTagsMutation,
 } from "@/api/@tanstack/react-query.gen";
 import {extractErrorMessage, isNotFoundError} from "@/utils/errorUtils";
 import {useHasPermission} from "@/hooks/usePermission";
@@ -33,6 +34,7 @@ import WriteoffStatusChip from "@/components/writeoffs/WriteoffStatusChip";
 import WriteoffItemsSection from "@/components/writeoffs/WriteoffItemsSection";
 import {WRITEOFF_REASON_LABELS, formatWriteoffNumber} from "@/components/writeoffs/writeoffUtils";
 import AttachmentsSection from "@/components/files/controls/AttachmentsSection";
+import DocumentTagsRow from "@/components/tags/DocumentTagsRow";
 import type {WriteoffDto, WriteoffReason} from "@/api/types.gen";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -240,6 +242,11 @@ function WriteoffPage() {
     onSuccess: updateLocal,
   });
 
+  const tagsMutation = useMutation({
+    ...writeoffsUpdateTagsMutation(),
+    onSuccess: updateLocal,
+  });
+
   if (isLoading) return <PageLoader inline />;
 
   if (isError && !isRefetchError)
@@ -336,6 +343,12 @@ function WriteoffPage() {
                   value={new Date(writeoff.createdAt).toLocaleString("ru-RU")}
                 />
                 <InfoRow label="Примечания" value={writeoff.notes ?? "—"} />
+                <DocumentTagsRow
+                  kind="writeoff"
+                  value={writeoff.tags}
+                  canEdit={canEdit}
+                  save={(tags) => tagsMutation.mutateAsync({path: {id: writeoff.id}, body: {tags}})}
+                />
                 {isDraft && canEdit && (
                   <Box>
                     <Button

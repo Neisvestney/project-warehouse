@@ -2,10 +2,11 @@ import {useCallback, useMemo} from "react";
 import {Autocomplete, Chip, Paper, type PaperProps, TextField} from "@mui/material";
 import type {SxProps, Theme} from "@mui/material";
 import {useQuery} from "@tanstack/react-query";
-import {receiptsGetTagsOptions} from "@/api/@tanstack/react-query.gen";
 import SelectAllHeader from "@/components/SelectAllHeader";
+import {documentTagsQueryOptions, type DocumentTagKind} from "@/components/tags/documentTags";
 
-type ReceiptTagsFilterProps = {
+type DocumentTagsFilterProps = {
+  kind: DocumentTagKind;
   /** Selected tag IDs. */
   value: string[];
   onChange: (value: string[]) => void;
@@ -13,9 +14,9 @@ type ReceiptTagsFilterProps = {
   sx?: SxProps<Theme>;
 };
 
-/** Multiselect over the full receipt tag list — small enough to load at once and filter client-side. */
-function ReceiptTagsFilter({value, onChange, label = "Теги", sx}: ReceiptTagsFilterProps) {
-  const tagsQuery = useQuery(receiptsGetTagsOptions({}));
+/** Multiselect over the full tag list of one document type — small enough to load at once and filter client-side. */
+function DocumentTagsFilter({kind, value, onChange, label = "Теги", sx}: DocumentTagsFilterProps) {
+  const tagsQuery = useQuery(documentTagsQueryOptions(kind));
   const allTags = useMemo(() => tagsQuery.data ?? [], [tagsQuery.data]);
 
   const selectedTags = useMemo(
@@ -62,4 +63,4 @@ function ReceiptTagsFilter({value, onChange, label = "Теги", sx}: ReceiptTag
   );
 }
 
-export default ReceiptTagsFilter;
+export default DocumentTagsFilter;

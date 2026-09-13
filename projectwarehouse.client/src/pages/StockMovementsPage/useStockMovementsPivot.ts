@@ -67,11 +67,16 @@ export function useStockMovementsPivot(
 
   // A metric's name is a column label and changes nothing about the figures, so it stays out of the key:
   // keying on it re-POSTs the whole pivot on every keystroke in the editor's name field.
-  const predicates = metrics.map(({actions, directions, receiptTagIds}) => ({
-    actions,
-    directions,
-    receiptTagIds,
-  }));
+  const predicates = metrics.map(
+    ({actions, directions, receiptTagIds, orderTagIds, writeoffTagIds, stocktakeTagIds}) => ({
+      actions,
+      directions,
+      receiptTagIds,
+      orderTagIds,
+      writeoffTagIds,
+      stocktakeTagIds,
+    }),
+  );
 
   // `name` is `[Required]` server-side, so a half-typed metric would 400 and replace the table with an
   // error. The placeholder keeps the request valid while the user is still naming the column.

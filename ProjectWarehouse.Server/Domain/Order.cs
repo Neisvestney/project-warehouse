@@ -33,7 +33,9 @@ public class Order : IHasIdentity
     public ICollection<OrderBox> Boxes { get; set; } = [];
     public ICollection<AssemblyTask> AssemblyTasks { get; set; } = [];
     public List<OrderImage> Images { get; set; } = [];
-    
+
+    public ICollection<OrderTag> Tags { get; set; } = [];
+
     [Projectable]
     public DateTime EffectiveDate => ShippedAt ?? AssembledAt ?? PlannedShipmentAt ?? CreatedAt;
     

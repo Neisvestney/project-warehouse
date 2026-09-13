@@ -12,6 +12,9 @@ namespace ProjectWarehouse.Server.Domain;
 [Index(nameof(WarehouseId), nameof(CreatedAt))]
 [Index(nameof(UserId), nameof(CreatedAt))]
 [Index(nameof(ReceiptId))]
+[Index(nameof(OrderId))]
+[Index(nameof(WriteoffId))]
+[Index(nameof(StocktakeId))]
 public class StockMovement
 {
     public Guid Id { get; set; }
@@ -56,4 +59,16 @@ public class StockMovement
     /// <summary>Set when the change came from a receipt placement; another audit reference nulled on delete.</summary>
     public Guid? ReceiptId { get; set; }
     public Receipt? Receipt { get; set; }
+
+    /// <summary>Set when the change came from an order's assembly or its rollback; nulled on delete.</summary>
+    public Guid? OrderId { get; set; }
+    public Order? Order { get; set; }
+
+    /// <summary>Set when the change came from finishing a write-off; nulled on delete.</summary>
+    public Guid? WriteoffId { get; set; }
+    public Writeoff? Writeoff { get; set; }
+
+    /// <summary>Set when the change came from applying a stocktake; nulled on delete.</summary>
+    public Guid? StocktakeId { get; set; }
+    public Stocktake? Stocktake { get; set; }
 }

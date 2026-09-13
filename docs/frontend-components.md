@@ -745,6 +745,23 @@ with one it wraps `FileImage` in external mode (direct `src`, `referrerPolicy="n
 tooltip and hover overlay, and opens `FileViewerModal` on click rather than a new tab. Click propagation is
 stopped so it does not also trigger the surrounding row.
 
+## Document tags (`src/components/tags/`)
+
+Receipts, orders, write-offs and stocktakes share one set of tag components keyed by `kind: DocumentTagKind`.
+`documentTags.ts` is the only place that knows which generated endpoint serves which kind:
+`documentTagsQueryOptions(kind, search?)` and `createDocumentTag(kind, name)`. The per-kind responses are all
+`{id, name}`, so the options are cast to one type there and nowhere else. A new tagged document adds one arm to
+each switch and one id to `DOCUMENT_TAGS_QUERY_IDS`.
+
+- **`DocumentTagsFilter`** — list-page and metric filter over ids: loads the whole list once and filters
+  client-side, with the `SelectAllHeader` paper. The list page keeps the ids in `?tags=` as a comma-joined value.
+- **`DocumentTagsAutocomplete`** — free-solo picker over tag objects that creates a typed name on selection
+  (the synthetic «Создать «…»» option).
+- **`DocumentTagsRow`** — the «Теги» `InfoRow` of every tagged document page. Tags are editable in any status, so
+  the row edits itself instead of joining the status-gated info form and calls `save(tagIds)` on every change; the
+  page passes a mutation of `PATCH /{module}/{id}/tags` that writes the returned DTO into its cache.
+- **`TagChips`** — read-only chips, a dash when empty; used in table cells and in `DocumentTagsRow`.
+
 ## Orders
 
 ### `OrdersListPage` slots

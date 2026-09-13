@@ -624,6 +624,8 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
             CreatedById           = createdById,
         };
 
+        var context = await MovementContextForComponentAsync(component.Id, ct);
+
         if (isStandard)
         {
             if (!request.SourceNodeId.HasValue)
@@ -643,6 +645,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                     fulfillment.ResolvedCatalogItemId!.Value,
                     request.Quantity,
                     action: InventoryActions.SpentOnOrder,
+                    context: context,
                     ct: ct);
             }, ct);
         }
@@ -677,6 +680,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                     request.UnitInventoryItemId!.Value,
                     request.SourceNodeId.Value,
                     action: InventoryActions.SpentOnOrder,
+                    context: context,
                     ct: ct);
             }, ct);
         }
@@ -731,6 +735,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                             bundleComp.UnitInventoryItemId.Value,
                             bundleComp.SourceNodeId,
                             action: InventoryActions.SpentOnOrder,
+                            context: context,
                             ct: ct);
                     }
                     else
@@ -740,6 +745,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                             bundleComp.CatalogItemId,
                             bundleComp.Quantity,
                             action: InventoryActions.SpentOnOrder,
+                            context: context,
                             ct: ct);
                     }
                 }
@@ -754,17 +760,28 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
     /// split across two commits, a failure in between would leave the stock back on the node with the
     /// fulfillment still standing, and a repeated undo would return it a second time.
     /// </summary>
-    public async Task RemoveFulfillmentAsync(AssemblyFulfillment fulfillment, CancellationToken ct = default) =>
+    public async Task RemoveFulfillmentAsync(AssemblyFulfillment fulfillment, CancellationToken ct = default)
+    {
+        var context = await MovementContextForComponentAsync(fulfillment.TaskBoxComponentId, ct);
+
         await db.Database.ExecuteInTransactionAsync("orders.fulfillment.remove", async () =>
         {
-            await RestoreFulfillmentInventoryAsync(fulfillment, ct);
+            await RestoreFulfillmentInventoryAsync(fulfillment, context, ct);
             db.AssemblyFulfillments.Remove(fulfillment);
             await db.SaveChangesAsync(ct);
         }, ct);
+    }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private async Task RestoreFulfillmentInventoryAsync(AssemblyFulfillment fulfillment, CancellationToken ct)
+    private async Task<StockMovementContext> MovementContextForComponentAsync(Guid taskBoxComponentId, CancellationToken ct) =>
+        new(OrderId: await db.AssemblyTaskBoxComponents
+            .Where(c => c.Id == taskBoxComponentId)
+            .Select(c => c.AssemblyTaskBox.AssemblyTask.OrderId)
+            .FirstAsync(ct));
+
+    private async Task RestoreFulfillmentInventoryAsync(
+        AssemblyFulfillment fulfillment, StockMovementContext context, CancellationToken ct)
     {
         // Determine type and restore inventory
         if (fulfillment.BundleComponents.Count > 0)
@@ -778,6 +795,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                         comp.UnitInventoryItemId.Value,
                         comp.SourceNodeId,
                         action: InventoryActions.CancelledFulfillment,
+                        context: context,
                         ct: ct);
                 }
                 else if (!string.IsNullOrEmpty(comp.UnitInventoryNumber))
@@ -789,6 +807,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                         comp.CatalogItemId,
                         comp.UnitInventoryNumber,
                         action: InventoryActions.CancelledFulfillment,
+                        context: context,
                         ct: ct);
                 }
                 else
@@ -798,6 +817,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                         comp.CatalogItemId,
                         comp.Quantity,
                         action: InventoryActions.CancelledFulfillment,
+                        context: context,
                         ct: ct);
                 }
             }
@@ -809,6 +829,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                 fulfillment.UnitInventoryItemId.Value,
                 fulfillment.SourceNodeId!.Value,
                 action: InventoryActions.CancelledFulfillment,
+                context: context,
                 ct: ct);
         }
         else if (!string.IsNullOrEmpty(fulfillment.UnitInventoryNumber))
@@ -820,6 +841,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                 RestoreTargetCatalogItemId(fulfillment),
                 fulfillment.UnitInventoryNumber,
                 action: InventoryActions.CancelledFulfillment,
+                context: context,
                 ct: ct);
         }
         else if (fulfillment.Quantity > 0 && fulfillment.SourceNodeId.HasValue)
@@ -830,6 +852,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                 RestoreTargetCatalogItemId(fulfillment),
                 fulfillment.Quantity,
                 action: InventoryActions.CancelledFulfillment,
+                context: context,
                 ct: ct);
         }
     }
@@ -841,10 +864,12 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
     /// <summary>Restores inventory for every fulfillment under the task, then removes the task (cascades boxes/components/fulfillments). Does not call SaveChanges.</summary>
     private async Task RestoreAndDeleteTaskAsync(AssemblyTask task, CancellationToken ct)
     {
+        var context = new StockMovementContext(OrderId: task.OrderId);
+
         foreach (var box in task.Boxes)
             foreach (var comp in box.Components)
                 foreach (var fulfillment in comp.Fulfillments.ToList())
-                    await RestoreFulfillmentInventoryAsync(fulfillment, ct);
+                    await RestoreFulfillmentInventoryAsync(fulfillment, context, ct);
 
         db.AssemblyTasks.Remove(task);
     }

@@ -8,4 +8,7 @@ public enum TagKind
 {
     Receipt,
     CatalogItem,
+    Order,
+    Writeoff,
+    Stocktake,
 }

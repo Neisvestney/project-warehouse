@@ -14,6 +14,7 @@ using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Files;
 using ProjectWarehouse.Server.Models.Receipts;
+using ProjectWarehouse.Server.Models.Tags;
 using ProjectWarehouse.Server.Services;
 
 namespace ProjectWarehouse.Server.Controllers;
@@ -298,8 +299,35 @@ public class ReceiptsController(
         receipt.Notes               = request.Notes;
         receipt.PlannedDeliveryDate = request.PlannedDeliveryDate;
 
+        await db.SaveChangesAsync(ct);
+
+        var after = mapper.Map<ReceiptDto>(receipt);
+        await changeLog.CompareAndSaveToChangelog(before, after);
+
+        return Ok(after);
+    }
+
+    // ── PATCH tags ───────────────────────────────────────────────────────────
+
+    /// <summary>Replace the receipt's tags. Allowed in any status.</summary>
+    /// <remarks>
+    /// Body: <c>UpdateTagsRequest</c> — the full tag id set; unknown ids are ignored. Errors: 404
+    /// <c>receiptNotFound</c>; 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c> (edit access).
+    /// </remarks>
+    [HttpPatch("{id:guid}/tags")]
+    [Authorize]
+    [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateTags(Guid id, [FromBody] UpdateTagsRequest request,
+        CancellationToken ct = default)
+    {
+        var (receipt, error) = await LoadReceiptWithEditAccessAsync(id, ct);
+        if (error is not null) return error;
+
+        var before = mapper.Map<ReceiptDto>(receipt);
+
         var newTags = await db.ReceiptTags.Where(t => request.Tags.Contains(t.Id)).ToListAsync(ct);
-        receipt.Tags.Clear();
+        receipt!.Tags.Clear();
         foreach (var tag in newTags)
             receipt.Tags.Add(tag);
 

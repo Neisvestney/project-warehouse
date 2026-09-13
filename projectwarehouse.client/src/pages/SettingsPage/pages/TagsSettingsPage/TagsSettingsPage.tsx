@@ -32,6 +32,7 @@ import {byOperation} from "@/utils/queryKeys";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import TagDialog from "./TagDialog";
 import {ALL_TAG_KINDS, TAG_KIND_LABELS, TAG_KIND_OBJECT_LABELS} from "./tagKinds";
+import {DOCUMENT_TAGS_QUERY_IDS} from "@/components/tags/documentTags";
 import type {TagDto, TagKind} from "@/api/types.gen";
 
 /** The tag list is watched as one object, and the backend keys the event by an empty guid. */
@@ -63,7 +64,7 @@ export default function TagsSettingsPage() {
   // old name and a delete leaves a tag that 404s on save.
   const invalidate = useCallback(async () => {
     await Promise.all(
-      ["tagsGetAll", "catalogGetTags", "receiptsGetTags"].map((operation) =>
+      ["tagsGetAll", "catalogGetTags", ...DOCUMENT_TAGS_QUERY_IDS].map((operation) =>
         queryClient.invalidateQueries({queryKey: byOperation(operation)}),
       ),
     );

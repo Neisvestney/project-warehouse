@@ -33,6 +33,8 @@ import TableRowEmpty from "@/components/TableRowEmpty";
 import LinkTableRow from "@/components/LinkTableRow";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import StocktakeStatusChip from "@/components/stocktakes/StocktakeStatusChip";
+import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
+import TagChips from "@/components/tags/TagChips";
 import {
   STOCKTAKE_STATUS_LABELS,
   STOCKTAKE_TYPE_LABELS,
@@ -72,6 +74,12 @@ function StocktakesPage() {
     (v) => v || null,
   );
 
+  const [tagIds, setTagIds] = useSyncedWithQueryState<string[]>(
+    "tags",
+    (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
+    (v) => v.join(",") || null,
+  );
+
   const {sortBy, sortOrder, handleSortClick} = useTableSort(SORT_COLUMNS, "number", {
     defaultSortOrder: "desc",
   });
@@ -82,10 +90,11 @@ function StocktakesPage() {
     {
       warehouseId: warehouseId ?? undefined,
       status: (status as StocktakeStatus) || undefined,
+      tagIds: tagIds.length > 0 ? tagIds : undefined,
       sortBy,
       sortOrder,
     },
-    [warehouseId, status, sortBy, sortOrder],
+    [warehouseId, status, tagIds, sortBy, sortOrder],
   );
 
   const {data, isLoading, isFetching, refetch} = useQuery(
@@ -144,6 +153,12 @@ function StocktakesPage() {
             </MenuItem>
           ))}
         </Select>
+        <DocumentTagsFilter
+          kind="stocktake"
+          value={tagIds}
+          onChange={setTagIds}
+          sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
+        />
       </FiltersBar>
       <DataTableContainer
         isFetching={isFetching}
@@ -170,13 +185,14 @@ function StocktakesPage() {
               <TableCell>Тип</TableCell>
               <TableCell>Ячеек</TableCell>
               <TableCell>Позиций</TableCell>
+              <TableCell>Теги</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {isLoading ? (
-              <TableRowLoader colSpan={8} />
+              <TableRowLoader colSpan={9} />
             ) : data?.items.length === 0 ? (
-              <TableRowEmpty colSpan={8} message="Инвентаризации не найдены" />
+              <TableRowEmpty colSpan={9} message="Инвентаризации не найдены" />
             ) : (
               data?.items.map((stocktake) => (
                 <LinkTableRow
@@ -218,6 +234,9 @@ function StocktakesPage() {
                     ) : (
                       "—"
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <TagChips tags={stocktake.tags} />
                   </TableCell>
                 </LinkTableRow>
               ))

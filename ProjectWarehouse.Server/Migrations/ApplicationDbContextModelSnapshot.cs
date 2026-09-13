@@ -143,6 +143,21 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("OrderTagLinks", b =>
+                {
+                    b.Property<Guid>("OrdersId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TagsId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("OrdersId", "TagsId");
+
+                    b.HasIndex("TagsId");
+
+                    b.ToTable("OrderTagLinks");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.ApplicationRole", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1453,10 +1468,16 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<int>("Direction")
                         .HasColumnType("integer");
 
+                    b.Property<Guid?>("OrderId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
 
                     b.Property<Guid?>("ReceiptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("StocktakeId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("StoragePlaceId")
@@ -1478,17 +1499,26 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<Guid?>("WarehouseId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("WriteoffId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedAt");
 
+                    b.HasIndex("OrderId");
+
                     b.HasIndex("ReceiptId");
+
+                    b.HasIndex("StocktakeId");
 
                     b.HasIndex("StoragePlaceId");
 
                     b.HasIndex("StoragePlaceNodeId");
 
                     b.HasIndex("UnitInventoryItemId");
+
+                    b.HasIndex("WriteoffId");
 
                     b.HasIndex("CatalogItemId", "CreatedAt");
 
@@ -1956,6 +1986,36 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("ReceiptTagLinks");
                 });
 
+            modelBuilder.Entity("StocktakeTagLinks", b =>
+                {
+                    b.Property<Guid>("StocktakesId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TagsId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("StocktakesId", "TagsId");
+
+                    b.HasIndex("TagsId");
+
+                    b.ToTable("StocktakeTagLinks");
+                });
+
+            modelBuilder.Entity("WriteoffTagLinks", b =>
+                {
+                    b.Property<Guid>("TagsId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WriteoffsId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("TagsId", "WriteoffsId");
+
+                    b.HasIndex("WriteoffsId");
+
+                    b.ToTable("WriteoffTagLinks");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.UnitInventoryItem", b =>
                 {
                     b.HasBaseType("ProjectWarehouse.Server.Domain.InventoryItem");
@@ -1997,11 +2057,32 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasDiscriminator().HasValue("CatalogItem");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.OrderTag", b =>
+                {
+                    b.HasBaseType("ProjectWarehouse.Server.Domain.Tag");
+
+                    b.HasDiscriminator().HasValue("Order");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.ReceiptTag", b =>
                 {
                     b.HasBaseType("ProjectWarehouse.Server.Domain.Tag");
 
                     b.HasDiscriminator().HasValue("Receipt");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.StocktakeTag", b =>
+                {
+                    b.HasBaseType("ProjectWarehouse.Server.Domain.Tag");
+
+                    b.HasDiscriminator().HasValue("Stocktake");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.WriteoffTag", b =>
+                {
+                    b.HasBaseType("ProjectWarehouse.Server.Domain.Tag");
+
+                    b.HasDiscriminator().HasValue("Writeoff");
                 });
 
             modelBuilder.Entity("ApplicationUserWarehouse", b =>
@@ -2066,6 +2147,21 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OrderTagLinks", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.Order", null)
+                        .WithMany()
+                        .HasForeignKey("OrdersId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.OrderTag", null)
+                        .WithMany()
+                        .HasForeignKey("TagsId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -2665,9 +2761,19 @@ namespace ProjectWarehouse.Server.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("ProjectWarehouse.Server.Domain.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("ProjectWarehouse.Server.Domain.Receipt", "Receipt")
                         .WithMany()
                         .HasForeignKey("ReceiptId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Stocktake", "Stocktake")
+                        .WithMany()
+                        .HasForeignKey("StocktakeId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("ProjectWarehouse.Server.Domain.StoragePlace", "StoragePlace")
@@ -2695,9 +2801,18 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasForeignKey("WarehouseId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("ProjectWarehouse.Server.Domain.Writeoff", "Writeoff")
+                        .WithMany()
+                        .HasForeignKey("WriteoffId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("CatalogItem");
 
+                    b.Navigation("Order");
+
                     b.Navigation("Receipt");
+
+                    b.Navigation("Stocktake");
 
                     b.Navigation("StoragePlace");
 
@@ -2708,6 +2823,8 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("User");
 
                     b.Navigation("Warehouse");
+
+                    b.Navigation("Writeoff");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.StockMovementReportPreset", b =>
@@ -2965,6 +3082,36 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasOne("ProjectWarehouse.Server.Domain.ReceiptTag", null)
                         .WithMany()
                         .HasForeignKey("TagsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("StocktakeTagLinks", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.Stocktake", null)
+                        .WithMany()
+                        .HasForeignKey("StocktakesId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.StocktakeTag", null)
+                        .WithMany()
+                        .HasForeignKey("TagsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("WriteoffTagLinks", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.WriteoffTag", null)
+                        .WithMany()
+                        .HasForeignKey("TagsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Writeoff", null)
+                        .WithMany()
+                        .HasForeignKey("WriteoffsId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

@@ -343,8 +343,8 @@ public class StockStatisticsService(
     }
 
     /// <summary>
-    /// The metric's own predicate, applied on top of the report filter. Same three clauses as
-    /// <see cref="BuildAsync"/>, because a metric is a filter that produces a column instead of a page.
+    /// The metric's own predicate, applied on top of the report filter. Same clauses as the report filter
+    /// in <see cref="BuildAsync"/>, because a metric is a filter that produces a column instead of a page.
     /// </summary>
     private static IQueryable<StockMovement> ApplyMetric(
         IQueryable<StockMovement> query,
@@ -358,6 +358,15 @@ public class StockStatisticsService(
 
         if (metric.ReceiptTagIds is { Length: > 0 } receiptTagIds)
             query = query.Where(m => m.Receipt != null && m.Receipt.Tags.Any(t => receiptTagIds.Contains(t.Id)));
+
+        if (metric.OrderTagIds is { Length: > 0 } orderTagIds)
+            query = query.Where(m => m.Order != null && m.Order.Tags.Any(t => orderTagIds.Contains(t.Id)));
+
+        if (metric.WriteoffTagIds is { Length: > 0 } writeoffTagIds)
+            query = query.Where(m => m.Writeoff != null && m.Writeoff.Tags.Any(t => writeoffTagIds.Contains(t.Id)));
+
+        if (metric.StocktakeTagIds is { Length: > 0 } stocktakeTagIds)
+            query = query.Where(m => m.Stocktake != null && m.Stocktake.Tags.Any(t => stocktakeTagIds.Contains(t.Id)));
 
         return query;
     }

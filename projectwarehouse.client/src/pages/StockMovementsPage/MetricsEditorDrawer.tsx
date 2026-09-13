@@ -40,7 +40,8 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import StarIcon from "@mui/icons-material/Star";
 import type {StockMovementDirection, StockMovementReportPresetDto} from "@/api/types.gen";
-import ReceiptTagsFilter from "@/components/receipts/ReceiptTagsFilter";
+import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
+import type {DocumentTagKind} from "@/components/tags/documentTags";
 import {type DraftMetric, newMetricKey} from "./metricDraft";
 import {useBackClosable} from "@/hooks/useBackClosable";
 import {useHasPermission} from "@/hooks/usePermission";
@@ -52,15 +53,26 @@ import {
 
 const DRAWER_WIDTH = 520;
 
+const DOCUMENT_TAG_FILTERS: {
+  kind: DocumentTagKind;
+  field: "receiptTagIds" | "orderTagIds" | "writeoffTagIds" | "stocktakeTagIds";
+  label: string;
+}[] = [
+  {kind: "receipt", field: "receiptTagIds", label: "Теги приёмки"},
+  {kind: "order", field: "orderTagIds", label: "Теги заказа"},
+  {kind: "writeoff", field: "writeoffTagIds", label: "Теги списания"},
+  {kind: "stocktake", field: "stocktakeTagIds", label: "Теги инвентаризации"},
+];
+
 interface MetricRowProps {
   id: string;
   metric: DraftMetric;
-  canViewReceipts: boolean;
+  visibleTagKinds: ReadonlySet<DocumentTagKind>;
   onChange: (metric: DraftMetric) => void;
   onRemove: () => void;
 }
 
-function MetricRow({id, metric, canViewReceipts, onChange, onRemove}: MetricRowProps) {
+function MetricRow({id, metric, visibleTagKinds, onChange, onRemove}: MetricRowProps) {
   const {attributes, listeners, setNodeRef, transform, transition, isDragging} = useSortable({id});
 
   return (
@@ -146,12 +158,16 @@ function MetricRow({id, metric, canViewReceipts, onChange, onRemove}: MetricRowP
         </FormControl>
       </Stack>
 
-      {canViewReceipts && (
-        <ReceiptTagsFilter
-          value={metric.receiptTagIds ?? []}
-          onChange={(receiptTagIds) => onChange({...metric, receiptTagIds})}
-          label="Теги приёмки"
-        />
+      {DOCUMENT_TAG_FILTERS.filter(({kind}) => visibleTagKinds.has(kind)).map(
+        ({kind, field, label}) => (
+          <DocumentTagsFilter
+            key={kind}
+            kind={kind}
+            value={metric[field] ?? []}
+            onChange={(ids) => onChange({...metric, [field]: ids})}
+            label={label}
+          />
+        ),
       )}
     </Stack>
   );
@@ -191,6 +207,22 @@ function MetricsEditorDrawer({
   error,
 }: MetricsEditorDrawerProps) {
   const canViewReceipts = useHasPermission(["receipts.view", "receipts.view_assigned"]);
+  const canViewOrders = useHasPermission([
+    "orders.view",
+    "orders.view_assigned",
+    "orders.assemble_assigned",
+  ]);
+  const canViewWriteoffs = useHasPermission(["writeoffs.view", "writeoffs.view_assigned"]);
+  const canViewStocktakes = useHasPermission(["stocktakes.view", "stocktakes.view_assigned"]);
+  // Each tag list endpoint is gated by its module's view permission
+  const visibleTagKinds = new Set<DocumentTagKind>(
+    [
+      canViewReceipts && "receipt",
+      canViewOrders && "order",
+      canViewWriteoffs && "writeoff",
+      canViewStocktakes && "stocktake",
+    ].filter((kind): kind is DocumentTagKind => typeof kind === "string"),
+  );
   const [newName, setNewName] = useState("");
   const [saveAsOpen, setSaveAsOpen] = useState(false);
 
@@ -274,7 +306,7 @@ function MetricsEditorDrawer({
                     key={ids[index]}
                     id={ids[index]}
                     metric={metric}
-                    canViewReceipts={canViewReceipts}
+                    visibleTagKinds={visibleTagKinds}
                     onChange={(next) => replaceAt(index, next)}
                     onRemove={() => onDraftChange(draft.filter((_, i) => i !== index))}
                   />

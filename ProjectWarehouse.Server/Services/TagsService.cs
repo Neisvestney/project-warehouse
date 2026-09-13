@@ -100,6 +100,18 @@ public class TagsService(ApplicationDbContext db) : ITagsService
         {
             Id = t.Id, Name = t.Name, Kind = TagKind.CatalogItem, UsageCount = t.Items.Count,
         }),
+        TagKind.Order => db.OrderTags.Select(t => new TagDto
+        {
+            Id = t.Id, Name = t.Name, Kind = TagKind.Order, UsageCount = t.Orders.Count,
+        }),
+        TagKind.Writeoff => db.WriteoffTags.Select(t => new TagDto
+        {
+            Id = t.Id, Name = t.Name, Kind = TagKind.Writeoff, UsageCount = t.Writeoffs.Count,
+        }),
+        TagKind.Stocktake => db.StocktakeTags.Select(t => new TagDto
+        {
+            Id = t.Id, Name = t.Name, Kind = TagKind.Stocktake, UsageCount = t.Stocktakes.Count,
+        }),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unmapped tag kind."),
     };
 
@@ -107,6 +119,9 @@ public class TagsService(ApplicationDbContext db) : ITagsService
     {
         TagKind.Receipt => db.ReceiptTags,
         TagKind.CatalogItem => db.CatalogItemTags,
+        TagKind.Order => db.OrderTags,
+        TagKind.Writeoff => db.WriteoffTags,
+        TagKind.Stocktake => db.StocktakeTags,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unmapped tag kind."),
     };
 
@@ -114,6 +129,9 @@ public class TagsService(ApplicationDbContext db) : ITagsService
     {
         TagKind.Receipt => new ReceiptTag { Id = Guid.NewGuid(), Name = name },
         TagKind.CatalogItem => new CatalogItemTag { Id = Guid.NewGuid(), Name = name },
+        TagKind.Order => new OrderTag { Id = Guid.NewGuid(), Name = name },
+        TagKind.Writeoff => new WriteoffTag { Id = Guid.NewGuid(), Name = name },
+        TagKind.Stocktake => new StocktakeTag { Id = Guid.NewGuid(), Name = name },
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unmapped tag kind."),
     };
 
@@ -121,6 +139,9 @@ public class TagsService(ApplicationDbContext db) : ITagsService
     {
         ReceiptTag => TagKind.Receipt,
         CatalogItemTag => TagKind.CatalogItem,
+        OrderTag => TagKind.Order,
+        WriteoffTag => TagKind.Writeoff,
+        StocktakeTag => TagKind.Stocktake,
         _ => throw new InvalidOperationException($"Unmapped tag subtype {tag.GetType().Name}."),
     };
 }
