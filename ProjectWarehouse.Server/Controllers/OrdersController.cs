@@ -234,6 +234,8 @@ public class OrdersController(
             OrderSortBy.CreatedAt        => baseQuery.Sort(o => o.CreatedAt, sortOrder).ThenBy(o => o.Id),
             OrderSortBy.PlannedShipmentAt => baseQuery.Sort(o => o.PlannedShipmentAt, sortOrder).ThenBy(o => o.Id),
             OrderSortBy.WarehouseName    => baseQuery.Sort(o => o.Warehouse.Name, sortOrder).ThenBy(o => o.Id),
+            OrderSortBy.AssembledAt      => baseQuery.Sort(o => o.AssembledAt, sortOrder).ThenBy(o => o.Id),
+            OrderSortBy.ShippedAt        => baseQuery.Sort(o => o.ShippedAt, sortOrder).ThenBy(o => o.Id),
             _                            => baseQuery.Sort(o => o.Number, sortOrder).ThenBy(o => o.Id),
         };
 

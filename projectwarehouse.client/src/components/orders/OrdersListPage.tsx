@@ -47,6 +47,7 @@ import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
 import LinkTableRow from "@/components/LinkTableRow";
 import NotesTableCell from "@/components/NotesTableCell";
+import DateTimeTableCell from "@/components/DateTimeTableCell";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
 import OrderStatusChip from "./OrderStatusChip";
@@ -75,6 +76,17 @@ const SORT_COLUMNS: {key: OrderSortBy; label: string}[] = [
   {key: "plannedShipmentAt", label: "Плановая отгрузка"},
   {key: "createdAt", label: "Создан"},
 ];
+
+/** Filtering by a status that stamps a timestamp adds that timestamp as a sortable column. */
+const STATUS_DATE_COLUMNS: Partial<
+  Record<
+    OrderStatus,
+    {key: OrderSortBy; label: string; get: (order: OrderSummaryDto) => string | null | undefined}
+  >
+> = {
+  assembled: {key: "assembledAt", label: "Собран", get: (o) => o.assembledAt},
+  shipped: {key: "shippedAt", label: "Отгружен", get: (o) => o.shippedAt},
+};
 
 const ALL_STATUSES: OrderStatus[] = [
   "draft",
@@ -182,7 +194,10 @@ function OrdersListPage({
     (v) => v || null,
   );
 
-  const {sortBy, sortOrder, handleSortClick} = useTableSort(SORT_COLUMNS, "number", {
+  const statusDateColumn = status ? STATUS_DATE_COLUMNS[status] : undefined;
+  const sortColumns = statusDateColumn ? [...SORT_COLUMNS, statusDateColumn] : SORT_COLUMNS;
+
+  const {sortBy, sortOrder, handleSortClick} = useTableSort(sortColumns, "number", {
     defaultSortOrder: "desc",
   });
 
@@ -286,7 +301,8 @@ function OrdersListPage({
   // the bulkActions term keeps the bar hidden on Direct and FBO, which pass no extra actions
   const showBulkBar =
     selectedItems.length > 0 && (showSelfAssign || showShip || bulkActions != null);
-  const columnCount = (showNotes ? 8 : 7) + (extraColumns?.length ?? 0);
+  const columnCount =
+    (showNotes ? 8 : 7) + (extraColumns?.length ?? 0) + (statusDateColumn ? 1 : 0);
 
   function handleSelfAssignSelected() {
     setFailedItems([]);
@@ -480,7 +496,7 @@ function OrdersListPage({
                   onChange={toggleAll}
                 />
               </TableCell>
-              {SORT_COLUMNS.map(({key, label}) => (
+              {sortColumns.map(({key, label}) => (
                 <TableCell key={key} sortDirection={sortBy === key ? sortOrder : false}>
                   <TableSortLabel
                     active={sortBy === key}
@@ -532,12 +548,9 @@ function OrdersListPage({
                     <OrderStatusChip status={order.status} />
                   </TableCell>
                   <TableCell>{order.warehouseName}</TableCell>
-                  <TableCell>
-                    {order.plannedShipmentAt
-                      ? new Date(order.plannedShipmentAt).toLocaleDateString("ru-RU")
-                      : "—"}
-                  </TableCell>
-                  <TableCell>{new Date(order.createdAt).toLocaleDateString("ru-RU")}</TableCell>
+                  <DateTimeTableCell value={order.plannedShipmentAt} />
+                  <DateTimeTableCell value={order.createdAt} />
+                  {statusDateColumn && <DateTimeTableCell value={statusDateColumn.get(order)} />}
                   {extraColumns?.map(({key, render, align}) => (
                     <TableCell key={key} align={align}>
                       {render(order)}

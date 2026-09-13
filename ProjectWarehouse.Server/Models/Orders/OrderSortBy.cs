@@ -7,4 +7,6 @@ public enum OrderSortBy
     CreatedAt = 2,
     PlannedShipmentAt = 3,
     WarehouseName = 4,
+    AssembledAt = 5,
+    ShippedAt = 6,
 }
