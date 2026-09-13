@@ -23,6 +23,7 @@ import {byOperation} from "@/utils/queryKeys";
 import {useEditLock} from "@/hooks/useEditLock";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import PageTitle from "@/components/PageTitle.tsx";
 import EditLockBanner from "@/components/EditLockBanner";
 import StaleDataBanner from "@/components/StaleDataBanner";
 import PageGenericHeader from "@/components/PageGenericHeader";
@@ -306,6 +307,7 @@ function StocktakePage() {
           onDismiss={lock.dismissStale}
         />
 
+        <PageTitle title={formatStocktakeNumber(stocktake.number)} />
         <AppBreadcrumbs
           path={[
             {name: "Инвентаризации", link: "/operations/stocktakes"},

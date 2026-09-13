@@ -19,6 +19,7 @@ import {usersCreateMutation} from "@/api/@tanstack/react-query.gen";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import PageTitle from "@/components/PageTitle.tsx";
 import PageGenericHeader from "@/components/PageGenericHeader";
 
 type CreateFormValues = {
@@ -59,6 +60,7 @@ function UserCreatePage() {
 
   return (
     <Stack spacing={2}>
+      <PageTitle title="Создать пользователя" />
       <AppBreadcrumbs
         path={[{name: "Сотрудники", link: "/settings/employees"}, {name: "Создать"}]}
       />

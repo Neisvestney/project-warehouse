@@ -4,6 +4,7 @@ import {useParams} from "react-router";
 import {useQuery} from "@tanstack/react-query";
 import {warehousesGetByIdOptions} from "@/api/@tanstack/react-query.gen";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import PageTitle from "@/components/PageTitle.tsx";
 import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
 import {isNotFoundError} from "@/utils/errorUtils";
@@ -31,6 +32,7 @@ function WarehouseInventoryPage() {
 
   return (
     <Stack spacing={2}>
+      <PageTitle title={`Остатки — ${warehouse.name}`} />
       <AppBreadcrumbs
         path={[
           {name: "Склады", link: "/storage/warehouses"},

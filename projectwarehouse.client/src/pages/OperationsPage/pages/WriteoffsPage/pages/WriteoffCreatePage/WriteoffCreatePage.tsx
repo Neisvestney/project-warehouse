@@ -16,6 +16,7 @@ import {writeoffsCreateMutation} from "@/api/@tanstack/react-query.gen";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import PageTitle from "@/components/PageTitle.tsx";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import {WRITEOFF_REASON_LABELS} from "@/components/writeoffs/writeoffUtils";
@@ -64,6 +65,7 @@ function WriteoffCreatePage() {
 
   return (
     <Stack spacing={2}>
+      <PageTitle title="Новое списание" />
       <AppBreadcrumbs
         path={[{name: "Списания", link: "/operations/writeoffs"}, {name: "Новое списание"}]}
       />

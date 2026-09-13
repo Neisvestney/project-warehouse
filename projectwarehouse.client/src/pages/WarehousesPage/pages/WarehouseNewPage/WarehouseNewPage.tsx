@@ -5,6 +5,7 @@ import {useNavigate} from "react-router";
 import {warehousesCreateMutation} from "@/api/@tanstack/react-query.gen";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import PageTitle from "@/components/PageTitle.tsx";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import WarehouseMetaForm from "@/pages/WarehousesPage/pages/WarehouseEditPage/components/WarehouseMetaForm";
 import type {WarehouseMetaFormValues} from "@/pages/WarehousesPage/pages/WarehouseEditPage/warehouseEditStore";
@@ -44,6 +45,7 @@ function WarehouseNewPage() {
 
   return (
     <Stack spacing={2}>
+      <PageTitle title="Создать склад" />
       <AppBreadcrumbs path={[{name: "Склады", link: "/storage/warehouses"}, {name: "Создать"}]} />
       <PageGenericHeader title="Создать склад" />
       <Paper>

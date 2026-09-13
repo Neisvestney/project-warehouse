@@ -15,6 +15,7 @@ import {stocktakesCreateMutation} from "@/api/@tanstack/react-query.gen";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import PageTitle from "@/components/PageTitle.tsx";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import {STOCKTAKE_TYPE_LABELS} from "@/components/stocktakes/stocktakeUtils";
@@ -65,6 +66,7 @@ function StocktakeCreatePage() {
 
   return (
     <Stack spacing={2}>
+      <PageTitle title="Новая инвентаризация" />
       <AppBreadcrumbs
         path={[
           {name: "Инвентаризации", link: "/operations/stocktakes"},

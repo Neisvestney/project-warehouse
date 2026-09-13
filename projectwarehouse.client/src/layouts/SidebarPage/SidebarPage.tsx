@@ -3,6 +3,7 @@ import {Navigate, Route, Routes} from "react-router";
 import type {PermissionName} from "@/api/types.gen";
 import {useAuth} from "@/hooks/useAuth";
 import AccessDenied from "@/components/AccessDenied";
+import PageTitle from "@/components/PageTitle.tsx";
 import SidebarLayout from "@/layouts/SidebarLayout/SidebarLayout.tsx";
 import {hasSectionPermission, isSectionVisible} from "./sectionVisibility.ts";
 import {toNavItems} from "./toNavItems.ts";
@@ -44,16 +45,22 @@ function RedirectToFirstVisible({
 
 function ProtectedRoute({
   section,
+  title,
   permissions,
 }: {
   section: Omit<SectionConfig, "children"> | SectionSubroute;
+  title: string;
   permissions: PermissionName[];
 }) {
-  return !section.component ||
-    ("requiredPermission" in section && !hasSectionPermission(section, permissions)) ? (
-    <AccessDenied />
-  ) : (
-    <section.component />
+  return (
+    <PageTitle title={title}>
+      {!section.component ||
+      ("requiredPermission" in section && !hasSectionPermission(section, permissions)) ? (
+        <AccessDenied />
+      ) : (
+        <section.component />
+      )}
+    </PageTitle>
   );
 }
 
@@ -71,7 +78,7 @@ function buildRoutes(
         <Route
           key={relativePath}
           path={relativePath}
-          element={<ProtectedRoute section={s} permissions={permissions} />}
+          element={<ProtectedRoute section={s} title={s.label} permissions={permissions} />}
         />
       ) : s.children ? (
         <Route
@@ -90,7 +97,7 @@ function buildRoutes(
         <Route
           key={`${relativePath}/${sr.path}`}
           path={`${relativePath}/${sr.path}`}
-          element={<ProtectedRoute section={sr} permissions={permissions} />}
+          element={<ProtectedRoute section={sr} title={s.label} permissions={permissions} />}
         />
       )),
       ...(s.children

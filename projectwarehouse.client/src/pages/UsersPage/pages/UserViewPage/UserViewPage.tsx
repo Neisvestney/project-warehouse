@@ -12,6 +12,7 @@ import {useStaleData} from "@/hooks/useStaleData";
 import {usersGetByIdOptions} from "@/api/@tanstack/react-query.gen";
 import {isNotFoundError} from "@/utils/errorUtils";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import PageTitle from "@/components/PageTitle.tsx";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
@@ -66,6 +67,7 @@ function UserViewPage() {
     <Box sx={{position: "relative"}}>
       <LoadingOverlay open={showLoadingOverlay} alignTop />
       <Stack spacing={2}>
+        <PageTitle title={user.username} />
         <AppBreadcrumbs
           path={[
             {name: "Сотрудники", link: "/settings/employees"},

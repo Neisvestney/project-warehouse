@@ -31,6 +31,7 @@ import {useHasPermission} from "@/hooks/usePermission";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import PageTitle from "@/components/PageTitle.tsx";
 import {byOperation} from "@/utils/queryKeys";
 import EditLockBanner from "@/components/EditLockBanner";
 import StaleDataBanner from "@/components/StaleDataBanner";
@@ -314,6 +315,7 @@ function ReceiptPage() {
           onDismiss={lock.dismissStale}
         />
 
+        <PageTitle title={receipt.name || formatReceiptNumber(receipt.number)} />
         <AppBreadcrumbs
           path={[
             {name: "Приемки", link: "/operations/receipts"},

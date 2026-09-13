@@ -23,6 +23,7 @@ import PageLoader from "@/components/PageLoader.tsx";
 import {usePeriodicUpdateCheck} from "@/hooks/usePeriodicUpdateCheck.ts";
 import TelemetryRouteLogger from "@/components/TelemetryRouteLogger.tsx";
 import ThemeColorMeta from "@/components/ThemeColorMeta.tsx";
+import PageTitle from "@/components/PageTitle.tsx";
 
 const HomePage = React.lazy(() => import("@/pages/HomePage/HomePage.tsx"));
 const MyProfilePage = React.lazy(() => import("@/pages/MyProfilePage/MyProfilePage.tsx"));
@@ -80,7 +81,9 @@ function App() {
         <SnackbarProvider>
           <CssBaseline />
           <ThemeColorMeta />
-          <ServerSetupPage />
+          <PageTitle title="Выбор сервера">
+            <ServerSetupPage />
+          </PageTitle>
         </SnackbarProvider>
       </ThemeProvider>
     );
@@ -102,25 +105,92 @@ function App() {
               <AuthProvider>
                 <Suspense fallback={<PageLoader />}>
                   <ProtectedRoutes>
-                    <Route path="/server-setup" element={<ServerSetupPage />} />
-                    <Route path="/login" element={<LoginPage />} />
+                    <Route
+                      path="/server-setup"
+                      element={
+                        <PageTitle title="Выбор сервера">
+                          <ServerSetupPage />
+                        </PageTitle>
+                      }
+                    />
+                    <Route
+                      path="/login"
+                      element={
+                        <PageTitle title="Вход">
+                          <LoginPage />
+                        </PageTitle>
+                      }
+                    />
                     <ProtectedRoute element={<MainLayout />}>
                       <ProtectedRoute element={<MainAppBarLayout />}>
                         <ProtectedRoute path="/" element={<HomePage />} />
-                        <ProtectedRoute path="/profile" element={<MyProfilePage />} />
+                        <ProtectedRoute
+                          path="/profile"
+                          element={
+                            <PageTitle title="Мой профиль">
+                              <MyProfilePage />
+                            </PageTitle>
+                          }
+                        />
                         <ProtectedRoute
                           path="/catalog"
-                          element={<CatalogPage />}
+                          element={
+                            <PageTitle title="Каталог">
+                              <CatalogPage />
+                            </PageTitle>
+                          }
                           requiredPermission="catalog.view"
                         />
-                        <ProtectedRoute path="/storage/*" element={<StoragePage />} />
-                        <ProtectedRoute path="/operations/*" element={<OperationsPage />} />
-                        <ProtectedRoute path="/settings/*" element={<SettingsPage />} />
+                        <ProtectedRoute
+                          path="/storage/*"
+                          element={
+                            <PageTitle title="Склад">
+                              <StoragePage />
+                            </PageTitle>
+                          }
+                        />
+                        <ProtectedRoute
+                          path="/operations/*"
+                          element={
+                            <PageTitle title="Операции">
+                              <OperationsPage />
+                            </PageTitle>
+                          }
+                        />
+                        <ProtectedRoute
+                          path="/settings/*"
+                          element={
+                            <PageTitle title="Настройки">
+                              <SettingsPage />
+                            </PageTitle>
+                          }
+                        />
                         <ProtectedRoute path="/throw-error" element={<ThrowErrorPage />} />
-                        <ProtectedRoute path="*" element={<PageNotFound />} />
+                        <ProtectedRoute
+                          path="*"
+                          element={
+                            <PageTitle title="Страница не найдена">
+                              <PageNotFound />
+                            </PageTitle>
+                          }
+                        />
                       </ProtectedRoute>
-                      <ProtectedRoute path="/scanner" element={<ScannerPage />} />
-                      <ProtectedRoute path="/print" element={<PrintPage />} />
+                      <ProtectedRoute
+                        path="/scanner"
+                        element={
+                          <PageTitle title="Сканер">
+                            <ScannerPage />
+                          </PageTitle>
+                        }
+                      />
+                      <ProtectedRoute
+                        path="/print"
+                        element={
+                          <PageTitle title="Печать">
+                            <PrintPage />
+                          </PageTitle>
+                        }
+                      />
                     </ProtectedRoute>
                   </ProtectedRoutes>
                 </Suspense>

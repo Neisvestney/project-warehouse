@@ -68,6 +68,8 @@ Routing wrapper on top of `SidebarLayout`. Takes `sections: SectionConfig[]` and
 - redirects a group with no `component` to its first visible child at runtime
 - wraps every rendered route in `ProtectedRoute`, rendering `<AccessDenied />` when the section's
   `requiredPermission` is not met — a deliberate second check beyond nav filtering, since a URL can be typed
+- wraps every leaf and subroute in `<PageTitle title={label}>`, so a subroute shows its parent section's
+  `label` until the page sets its own title
 
 **To create a new sidebar-based page**, declare a `SectionConfig[]`, call `createHasAccess(sections)`
 (`@/layouts/SidebarPage/createHasAccess.ts`) for an app-bar visibility helper, call `createFirstPageUrl(sections)`
@@ -78,7 +80,7 @@ See `settingsConfig.tsx` for the reference implementation.
 
 | Field                | Type                                  | Description                                                    |
 | -------------------- | ------------------------------------- | -------------------------------------------------------------- |
-| `label`              | `string`                              | Nav item label                                                 |
+| `label`              | `string`                              | Nav item label and default page title                          |
 | `path`               | `string`                              | Relative path segment (e.g. `"roles"`)                         |
 | `component`          | `ComponentType?`                      | Page component; absent → redirect to first visible child       |
 | `requiredPermission` | `PermissionName \| PermissionName[]?` | Hides the item unless the user has it (any of, for an array)   |
@@ -92,6 +94,22 @@ See `settingsConfig.tsx` for the reference implementation.
 The breadcrumb trail at the top of every page, built from `{name, link?}` objects; the last item is plain text.
 Two slots make it the page's whole top row: `viewersOf={{entityType, entityId}}` appends `EntityViewers` right
 after the trail (one line to add presence to a page), and `right` is a free slot pushed to the far end.
+
+### `PageTitle`
+
+Sets the browser tab title as `{title} · Project Warehouse` (`PW DEV` in dev builds); with no title registered
+the tab shows the app name alone. `PageTitleProvider` (`@/contexts/PageTitle/`, mounted in `main.tsx`) keeps
+every mounted `PageTitle` and writes `document.title` from the one with the greatest depth; at equal depth the
+last registered wins.
+
+- `<PageTitle title="…" />` registers at the current depth and renders nothing.
+- `<PageTitle title="…">{children}</PageTitle>` also opens the next depth for `children`, so any `PageTitle`
+  inside overrides it. Route boundaries use this form: `App.tsx` wraps top-level pages (`Склад`, `Операции`,
+  `Каталог`…), `SidebarPage` wraps each section with its `label`.
+- An empty or `undefined` `title` registers nothing, so the outer title stays while data loads.
+
+Detail pages render the leaf form next to `AppBreadcrumbs` in the loaded branch with a dynamic string,
+e.g. `<PageTitle title={formatOrderNumber(order.number)} />`. The `title` must be a plain string.
 
 ### `DataTableContainer`
 

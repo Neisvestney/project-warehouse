@@ -15,6 +15,7 @@ import {
 import {byOperation} from "@/utils/queryKeys";
 import {useEditLock} from "@/hooks/useEditLock";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import PageTitle from "@/components/PageTitle.tsx";
 import EditLockBanner from "@/components/EditLockBanner";
 import StaleDataBanner from "@/components/StaleDataBanner";
 import PageGenericHeader from "@/components/PageGenericHeader";
@@ -118,6 +119,7 @@ export default observer(function WarehouseEditPage() {
   return (
     <WarehouseEditStoreProvider store={store}>
       <Stack spacing={2}>
+        <PageTitle title={`Редактировать: ${warehouse.name}`} />
         <AppBreadcrumbs
           path={[
             {name: "Склады", link: "/storage/warehouses"},
