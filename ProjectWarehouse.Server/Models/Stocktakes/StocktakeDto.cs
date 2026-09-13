@@ -17,6 +17,7 @@ public class StocktakeDto
     public DateTime? FinishedAt { get; init; }
     public Guid WarehouseId { get; init; }
     public string WarehouseName { get; init; } = null!;
+    public IReadOnlyList<StocktakeTagDto> Tags { get; init; } = [];
     public IReadOnlyList<StocktakeNodeDto> Nodes { get; init; } = [];
     public IReadOnlyList<DataFileLinkDto> Attachments { get; init; } = [];
 }

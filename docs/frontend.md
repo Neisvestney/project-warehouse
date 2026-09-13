@@ -696,13 +696,15 @@ queries `GET /api/catalog/for-select` with `tagIds` + `types` + `take=200`, prev
 the found ids to the current selection (duplicates skipped). It's a one-shot action — the tag itself is not
 persisted in the URL. A warning is shown when the result hits the 200-item cap.
 
-**Receipt tags are per metric, not global.** `ReceiptTagsFilter` lives inside each metric row of
-`MetricsEditorDrawer`: a movement matches when the receipt it came from carries any of the picked tags, so a
-non-empty selection also excludes every movement made outside a receipt. That is a column-shaping decision —
-«сколько приняли с тегом HOT» next to «сколько ушло в заказы» — and as one bar-level filter it could only ever
-answer it for the whole table at once. The tag list comes from `GET /api/receipts/tags`, which needs
-`receipts.view` or `receipts.view_assigned`, so the picker is rendered only for a user holding one of them,
-the way the employee filter is gated on `users.view`.
+**Document tags are per metric, not global.** Each metric row of `MetricsEditorDrawer` holds one
+`DocumentTagsFilter` per document type (`DOCUMENT_TAG_FILTERS`: приёмка, заказ, списание, инвентаризация): a
+movement matches when the document of that type it came from carries any of the picked tags, so a non-empty
+selection also excludes every movement made by another document or none. That is a column-shaping decision —
+«сколько приняли с тегом HOT» next to «сколько ушло в заказы с тегом Акция» — and as one bar-level filter it could
+only ever answer it for the whole table at once. Each tag list comes from its module's `GET /api/{module}/tags`,
+gated by that module's view permission, so a picker is rendered only for a user holding it, the way the employee
+filter is gated on `users.view`. The pivot query key lists every predicate field explicitly — a new metric field
+that is left out of `predicates` in `useStockMovementsPivot` leaves the table stale when it changes.
 
 The applied time zone sits in the tooltip of an `InfoOutlinedIcon` beside the page title («Сутки считаются по
 часовому поясу Europe/Moscow»). It comes from `timeZoneId` on the pivot response and is not necessarily the
@@ -777,7 +779,8 @@ scopes what is listed.
 
 ### `TagsSettingsPage` (Теги)
 
-`/settings/tags`, requires `tags.manage`. One tab per tag kind (`receipt`, `catalogItem`) kept in `?kind=` via
+`/settings/tags`, requires `tags.manage`. One tab per tag kind (`receipt`, `order`, `writeoff`, `stocktake`,
+`catalogItem`) kept in `?kind=` via
 `useSyncedWithQueryState` — `ALL_TAG_KINDS` and the Russian labels live in `tagKinds.ts`, so a new kind on the
 backend is one entry there plus one enum value in the generated `TagKind`.
 
@@ -791,8 +794,9 @@ Deletion goes through `ConfirmDialog` and always states the count: «Тег пр
 would be asking someone to unbind a tag from a hundred receipts by hand.
 
 The page watches `("tags", empty guid)` — the backend publishes the list as one object — and on `entityChanged`
-invalidates three operations, not one: `tagsGetAll` plus `catalogGetTags` and `receiptsGetTags`. The pickers
-inside the catalog and receipt forms read their own module's endpoint, so their caches would otherwise keep
+invalidates every tag list, not one: `tagsGetAll`, `catalogGetTags` and `DOCUMENT_TAGS_QUERY_IDS` from
+`components/tags/documentTags.ts`. The pickers inside the catalog and the documents read their own module's
+endpoint, so their caches would otherwise keep
 showing a renamed tag under its old name and offering a deleted one until a reload. There is no edit lock: rows
 are independent and a rename is one field.
 

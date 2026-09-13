@@ -175,6 +175,9 @@ import type {
   OrdersCreateDirectData,
   OrdersCreateDirectErrors,
   OrdersCreateDirectResponses,
+  OrdersCreateTagData,
+  OrdersCreateTagErrors,
+  OrdersCreateTagResponses,
   OrdersDeleteAssemblyTaskData,
   OrdersDeleteAssemblyTaskErrors,
   OrdersDeleteAssemblyTaskResponses,
@@ -193,6 +196,9 @@ import type {
   OrdersGetLabelsData,
   OrdersGetLabelsErrors,
   OrdersGetLabelsResponses,
+  OrdersGetTagsData,
+  OrdersGetTagsErrors,
+  OrdersGetTagsResponses,
   OrdersGetTaskMoveTargetsData,
   OrdersGetTaskMoveTargetsErrors,
   OrdersGetTaskMoveTargetsResponses,
@@ -232,6 +238,9 @@ import type {
   OrdersUpdateData,
   OrdersUpdateErrors,
   OrdersUpdateResponses,
+  OrdersUpdateTagsData,
+  OrdersUpdateTagsErrors,
+  OrdersUpdateTagsResponses,
   OrdersUpdateTaskBoxComponentData,
   OrdersUpdateTaskBoxComponentErrors,
   OrdersUpdateTaskBoxComponentResponses,
@@ -320,6 +329,9 @@ import type {
   ReceiptsUpdateReceivedCountErrors,
   ReceiptsUpdateReceivedCountResponses,
   ReceiptsUpdateResponses,
+  ReceiptsUpdateTagsData,
+  ReceiptsUpdateTagsErrors,
+  ReceiptsUpdateTagsResponses,
   RolesGetAllData,
   RolesGetAllErrors,
   RolesGetAllResponses,
@@ -377,6 +389,9 @@ import type {
   StocktakesCreateData,
   StocktakesCreateErrors,
   StocktakesCreateResponses,
+  StocktakesCreateTagData,
+  StocktakesCreateTagErrors,
+  StocktakesCreateTagResponses,
   StocktakesDeleteData,
   StocktakesDeleteErrors,
   StocktakesDeleteResponses,
@@ -395,6 +410,9 @@ import type {
   StocktakesGetNodeStockData,
   StocktakesGetNodeStockErrors,
   StocktakesGetNodeStockResponses,
+  StocktakesGetTagsData,
+  StocktakesGetTagsErrors,
+  StocktakesGetTagsResponses,
   StocktakesRevertData,
   StocktakesRevertErrors,
   StocktakesRevertResponses,
@@ -419,6 +437,9 @@ import type {
   StocktakesUpdateData,
   StocktakesUpdateErrors,
   StocktakesUpdateResponses,
+  StocktakesUpdateTagsData,
+  StocktakesUpdateTagsErrors,
+  StocktakesUpdateTagsResponses,
   StoragePlacesAddNodeData,
   StoragePlacesAddNodeErrors,
   StoragePlacesAddNodeResponses,
@@ -512,6 +533,9 @@ import type {
   WriteoffsCreateData,
   WriteoffsCreateErrors,
   WriteoffsCreateResponses,
+  WriteoffsCreateTagData,
+  WriteoffsCreateTagErrors,
+  WriteoffsCreateTagResponses,
   WriteoffsDeleteData,
   WriteoffsDeleteErrors,
   WriteoffsDeleteResponses,
@@ -524,6 +548,9 @@ import type {
   WriteoffsGetByIdData,
   WriteoffsGetByIdErrors,
   WriteoffsGetByIdResponses,
+  WriteoffsGetTagsData,
+  WriteoffsGetTagsErrors,
+  WriteoffsGetTagsResponses,
   WriteoffsSyncItemsData,
   WriteoffsSyncItemsErrors,
   WriteoffsSyncItemsResponses,
@@ -533,6 +560,9 @@ import type {
   WriteoffsUpdateData,
   WriteoffsUpdateErrors,
   WriteoffsUpdateResponses,
+  WriteoffsUpdateTagsData,
+  WriteoffsUpdateTagsErrors,
+  WriteoffsUpdateTagsResponses,
 } from "./types.gen";
 
 export type Options<
@@ -1616,12 +1646,49 @@ export const marketplacesGetUnmappedCount = <ThrowOnError extends boolean = fals
   >({url: "/api/integrations/marketplaces/accounts/unmapped-count", ...options});
 
 /**
+ * List all order tags, optionally filtered by name.
+ *
+ * Query params: `search` (optional). Not paginated — ordered by name.
+ * Requires view access to orders (`orders.view`, `orders.view_assigned` or
+ * `orders.assemble_assigned` — the assembly worklist filters by tag too). No error codes beyond 403
+ * `permissionDenied`.
+ */
+export const ordersGetTags = <ThrowOnError extends boolean = false>(
+  options?: Options<OrdersGetTagsData, ThrowOnError>,
+): RequestResult<OrdersGetTagsResponses, OrdersGetTagsErrors, ThrowOnError> =>
+  (options?.client ?? client).get<OrdersGetTagsResponses, OrdersGetTagsErrors, ThrowOnError>({
+    url: "/api/orders/tags",
+    ...options,
+  });
+
+/**
+ * Create a new order tag.
+ *
+ * Requires `orders.edit` or `orders.edit_assigned`. Body: `CreateOrderTagRequest` — name
+ * (trimmed before saving). Errors: 422 `validationError` (field `name`) when the trimmed name is
+ * empty; 422 `tagNameDuplicate` (field `name`) when another order tag already has this name; 403
+ * `permissionDenied`.
+ */
+export const ordersCreateTag = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersCreateTagData, ThrowOnError>,
+): RequestResult<OrdersCreateTagResponses, OrdersCreateTagErrors, ThrowOnError> =>
+  (options.client ?? client).post<OrdersCreateTagResponses, OrdersCreateTagErrors, ThrowOnError>({
+    url: "/api/orders/tags",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
  * List orders (paginated, filtered, sorted).
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
  * `warehouseId`, `type`, `status`, `marketplaceType`, `marketplaceAccountId`,
- * `marketplaceStatus`, `catalogItemId`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
- * `catalogItemId` keeps orders that have a box component with that catalog item.
+ * `marketplaceStatus`, `catalogItemId`, `tagIds`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * `catalogItemId` keeps orders that have a box component with that catalog item; `tagIds` keeps
+ * orders carrying any of the tags.
  * Any of the three marketplace filters also excludes orders without a `MarketplaceOrder`, so they
  * never match Direct orders. `searchString` is the extended search — it also matches box labels and
  * the catalog items and marketplace cards of the order contents, see bool Order.MatchesExtendedSearch(string pattern).
@@ -1639,8 +1706,9 @@ export const ordersGetAll = <ThrowOnError extends boolean = false>(
 /**
  * The current user's personal assembly worklist: full details of Assembly-status orders that have a task assigned to them.
  *
- * Query params: `warehouseId`, `searchString`, `catalogItemId` (all optional). Not paginated — returns a plain list.
- * `catalogItemId` keeps orders that have a box component with that catalog item.
+ * Query params: `warehouseId`, `searchString`, `catalogItemId`, `tagIds` (all optional). Not paginated — returns a plain list.
+ * `catalogItemId` keeps orders that have a box component with that catalog item; `tagIds` keeps
+ * orders carrying any of the tags.
  * `searchString` is the extended search — see bool Order.MatchesExtendedSearch(string pattern).
  * Only orders in `Assembly` status with at least one `AssemblyTask` assigned to the caller are
  * returned, and each order carries only that caller's own tasks; other assemblers' tasks are filtered out.
@@ -1751,6 +1819,26 @@ export const ordersUpdateAttachments = <ThrowOnError extends boolean = false>(
       ...options.headers,
     },
   });
+
+/**
+ * Replace the order's tags. Allowed in any status.
+ *
+ * Body: `UpdateTagsRequest` — the full tag id set; unknown ids are ignored. Returns 404
+ * `orderNotFound`. Requires `orders.edit` or `orders.edit_assigned`.
+ */
+export const ordersUpdateTags = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersUpdateTagsData, ThrowOnError>,
+): RequestResult<OrdersUpdateTagsResponses, OrdersUpdateTagsErrors, ThrowOnError> =>
+  (options.client ?? client).patch<OrdersUpdateTagsResponses, OrdersUpdateTagsErrors, ThrowOnError>(
+    {
+      url: "/api/orders/{id}/tags",
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    },
+  );
 
 /**
  * Move the order to another status.
@@ -2585,6 +2673,28 @@ export const receiptsUpdate = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Replace the receipt's tags. Allowed in any status.
+ *
+ * Body: `UpdateTagsRequest` — the full tag id set; unknown ids are ignored. Errors: 404
+ * `receiptNotFound`; 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit access).
+ */
+export const receiptsUpdateTags = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsUpdateTagsData, ThrowOnError>,
+): RequestResult<ReceiptsUpdateTagsResponses, ReceiptsUpdateTagsErrors, ThrowOnError> =>
+  (options.client ?? client).patch<
+    ReceiptsUpdateTagsResponses,
+    ReceiptsUpdateTagsErrors,
+    ThrowOnError
+  >({
+    url: "/api/receipts/{id}/tags",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
  * Update the receipt's attachments. Allowed in any status.
  *
  * Errors: 404 `receiptNotFound`; 422 `dataFileNotFound` (field `attachments`) for an
@@ -3290,10 +3400,50 @@ export const stockMovementPresetsUpdatePreset = <ThrowOnError extends boolean = 
   });
 
 /**
+ * List all stocktake tags, optionally filtered by name.
+ *
+ * Query params: `search` (optional). Not paginated — ordered by name.
+ * Requires `stocktakes.view` or `stocktakes.view_assigned`. No error codes beyond 403
+ * `permissionDenied`.
+ */
+export const stocktakesGetTags = <ThrowOnError extends boolean = false>(
+  options?: Options<StocktakesGetTagsData, ThrowOnError>,
+): RequestResult<StocktakesGetTagsResponses, StocktakesGetTagsErrors, ThrowOnError> =>
+  (options?.client ?? client).get<
+    StocktakesGetTagsResponses,
+    StocktakesGetTagsErrors,
+    ThrowOnError
+  >({url: "/api/stocktakes/tags", ...options});
+
+/**
+ * Create a new stocktake tag.
+ *
+ * Requires `stocktakes.edit` or `stocktakes.edit_assigned`. Body: `CreateStocktakeTagRequest` —
+ * name (trimmed before saving). Errors: 422 `validationError` (field `name`) when the trimmed
+ * name is empty; 422 `tagNameDuplicate` (field `name`) when another stocktake tag already has
+ * this name; 403 `permissionDenied`.
+ */
+export const stocktakesCreateTag = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesCreateTagData, ThrowOnError>,
+): RequestResult<StocktakesCreateTagResponses, StocktakesCreateTagErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    StocktakesCreateTagResponses,
+    StocktakesCreateTagErrors,
+    ThrowOnError
+  >({
+    url: "/api/stocktakes/tags",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
  * List stocktakes with pagination, filtering, and search.
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
- * `warehouseId`, `status`, `sortBy` (default `Number`), `sortOrder`
+ * `warehouseId`, `status`, `tagIds`, `sortBy` (default `Number`), `sortOrder`
  * (default `Desc`).
  * Requires `stocktakes.view` or `stocktakes.view_assigned`; without either, 403
  * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
@@ -3404,6 +3554,28 @@ export const stocktakesUpdateAttachments = <ThrowOnError extends boolean = false
     ThrowOnError
   >({
     url: "/api/stocktakes/{id}/attachments",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Replace the stocktake's tags. Allowed in any status.
+ *
+ * Body: `UpdateTagsRequest` — the full tag id set; unknown ids are ignored. Errors: 404
+ * `stocktakeNotFound`; 403 `permissionDenied` / `stocktakeNotAssignedToWarehouse` (edit access).
+ */
+export const stocktakesUpdateTags = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesUpdateTagsData, ThrowOnError>,
+): RequestResult<StocktakesUpdateTagsResponses, StocktakesUpdateTagsErrors, ThrowOnError> =>
+  (options.client ?? client).patch<
+    StocktakesUpdateTagsResponses,
+    StocktakesUpdateTagsErrors,
+    ThrowOnError
+  >({
+    url: "/api/stocktakes/{id}/tags",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -4220,10 +4392,49 @@ export const warehousesGetDefaultNode = <ThrowOnError extends boolean = false>(
   >({url: "/api/warehouses/{id}/default-node", ...options});
 
 /**
+ * List all write-off tags, optionally filtered by name.
+ *
+ * Query params: `search` (optional). Not paginated — ordered by name.
+ * Requires `writeoffs.view` or `writeoffs.view_assigned`. No error codes beyond 403
+ * `permissionDenied`.
+ */
+export const writeoffsGetTags = <ThrowOnError extends boolean = false>(
+  options?: Options<WriteoffsGetTagsData, ThrowOnError>,
+): RequestResult<WriteoffsGetTagsResponses, WriteoffsGetTagsErrors, ThrowOnError> =>
+  (options?.client ?? client).get<WriteoffsGetTagsResponses, WriteoffsGetTagsErrors, ThrowOnError>({
+    url: "/api/writeoffs/tags",
+    ...options,
+  });
+
+/**
+ * Create a new write-off tag.
+ *
+ * Requires `writeoffs.edit` or `writeoffs.edit_assigned`. Body: `CreateWriteoffTagRequest` —
+ * name (trimmed before saving). Errors: 422 `validationError` (field `name`) when the trimmed
+ * name is empty; 422 `tagNameDuplicate` (field `name`) when another write-off tag already has
+ * this name; 403 `permissionDenied`.
+ */
+export const writeoffsCreateTag = <ThrowOnError extends boolean = false>(
+  options: Options<WriteoffsCreateTagData, ThrowOnError>,
+): RequestResult<WriteoffsCreateTagResponses, WriteoffsCreateTagErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    WriteoffsCreateTagResponses,
+    WriteoffsCreateTagErrors,
+    ThrowOnError
+  >({
+    url: "/api/writeoffs/tags",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
  * List write-offs with pagination, filtering, and search.
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
- * `warehouseId`, `status`, `reason`, `sortBy` (default `Number`),
+ * `warehouseId`, `status`, `reason`, `tagIds`, `sortBy` (default `Number`),
  * `sortOrder` (default `Desc`).
  * Requires `writeoffs.view` or `writeoffs.view_assigned`; without either, 403
  * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
@@ -4324,6 +4535,28 @@ export const writeoffsUpdateAttachments = <ThrowOnError extends boolean = false>
     ThrowOnError
   >({
     url: "/api/writeoffs/{id}/attachments",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Replace the write-off's tags. Allowed in any status.
+ *
+ * Body: `UpdateTagsRequest` — the full tag id set; unknown ids are ignored. Errors: 404
+ * `writeoffNotFound`; 403 `permissionDenied` or `writeoffNotAssignedToWarehouse` (edit access).
+ */
+export const writeoffsUpdateTags = <ThrowOnError extends boolean = false>(
+  options: Options<WriteoffsUpdateTagsData, ThrowOnError>,
+): RequestResult<WriteoffsUpdateTagsResponses, WriteoffsUpdateTagsErrors, ThrowOnError> =>
+  (options.client ?? client).patch<
+    WriteoffsUpdateTagsResponses,
+    WriteoffsUpdateTagsErrors,
+    ThrowOnError
+  >({
+    url: "/api/writeoffs/{id}/tags",
     ...options,
     headers: {
       "Content-Type": "application/json",

@@ -51,6 +51,7 @@ Order
 ├── MarketplaceItems[]      — список товаров с маркетплейса (только FBS и FBO)
 │     ├── MarketplaceCardId — FK на MarketplaceCard (маппинг на CatalogItem хранится на самой карточке)
 │     └── Quantity
+├── Tags[]                  — теги заказа (OrderTag), см. «Теги документов» в items-specification.md
 ├── Boxes[]                 — список коробок заказа
 └── AssemblyTasks[]         — задания на сборку
 ```

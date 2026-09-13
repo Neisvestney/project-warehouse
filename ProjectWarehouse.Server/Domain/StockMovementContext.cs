@@ -4,4 +4,8 @@ namespace ProjectWarehouse.Server.Domain;
 /// Origin of a stock change, passed down to <c>InventoryService</c> so the journal row can point back at
 /// the document that caused it. Every field is optional — a movement made outside any document carries none.
 /// </summary>
-public record StockMovementContext(Guid? ReceiptId = null);
+public record StockMovementContext(
+    Guid? ReceiptId = null,
+    Guid? OrderId = null,
+    Guid? WriteoffId = null,
+    Guid? StocktakeId = null);

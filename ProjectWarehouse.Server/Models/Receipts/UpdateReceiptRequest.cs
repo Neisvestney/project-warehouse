@@ -16,6 +16,4 @@ public class UpdateReceiptRequest
     public string? Notes { get; init; }
 
     public DateOnly? PlannedDeliveryDate { get; init; }
-
-    public IReadOnlyList<Guid> Tags { get; init; } = [];
 }

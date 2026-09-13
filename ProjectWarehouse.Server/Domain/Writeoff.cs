@@ -24,6 +24,8 @@ public class Writeoff : IHasIdentity
 
     public ICollection<WriteoffItem> Items { get; set; } = [];
 
+    public ICollection<WriteoffTag> Tags { get; set; } = [];
+
     public List<WriteoffImage> Images { get; set; } = [];
 
     [Projectable]

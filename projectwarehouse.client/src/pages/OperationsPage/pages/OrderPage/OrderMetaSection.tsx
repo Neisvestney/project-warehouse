@@ -4,7 +4,12 @@ import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import {useForm} from "react-hook-form";
 import {useMutation, useQueryClient} from "@tanstack/react-query";
-import {ordersGetByIdQueryKey, ordersUpdateMutation} from "@/api/@tanstack/react-query.gen";
+import {
+  ordersGetByIdQueryKey,
+  ordersUpdateMutation,
+  ordersUpdateTagsMutation,
+} from "@/api/@tanstack/react-query.gen";
+import DocumentTagsRow from "@/components/tags/DocumentTagsRow";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
 import type {OrderDetailsDto} from "@/api/types.gen";
@@ -124,7 +129,14 @@ interface OrderMetaSectionProps {
 }
 
 function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionProps) {
+  const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
+
+  const tagsMutation = useMutation({
+    ...ordersUpdateTagsMutation(),
+    onSuccess: (updated) =>
+      queryClient.setQueryData(ordersGetByIdQueryKey({path: {id: order.id}}), updated),
+  });
 
   function setEditing(value: boolean) {
     setIsEditing(value);
@@ -156,6 +168,13 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
       {order.shippedAt && <InfoRow label="Отгружен" value={formatDate(order.shippedAt)} />}
 
       <InfoRow label="Заметки" value={order.notes || "—"} />
+
+      <DocumentTagsRow
+        kind="order"
+        value={order.tags}
+        canEdit={canEdit}
+        save={(tags) => tagsMutation.mutateAsync({path: {id: order.id}, body: {tags}})}
+      />
 
       {order.marketplaceOrder && (
         <>

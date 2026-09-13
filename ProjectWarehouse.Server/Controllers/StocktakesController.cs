@@ -14,6 +14,7 @@ using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
 using ProjectWarehouse.Server.Models.Files;
 using ProjectWarehouse.Server.Models.Stocktakes;
+using ProjectWarehouse.Server.Models.Tags;
 using ProjectWarehouse.Server.Services;
 
 namespace ProjectWarehouse.Server.Controllers;
@@ -36,6 +37,7 @@ public class StocktakesController(
     {
         var q = db.Stocktakes
             .Include(s => s.Warehouse)
+            .Include(s => s.Tags)
             .Include(s => s.Images).ThenInclude(i => i.DataFile)
             .AsQueryable();
 
@@ -128,12 +130,77 @@ public class StocktakesController(
         return await BuildDtoAsync(reloaded, ct);
     }
 
+    // ── GET/POST tags ─────────────────────────────────────────────────────────
+
+    /// <summary>List all stocktake tags, optionally filtered by name.</summary>
+    /// <remarks>
+    /// Query params: <c>search</c> (optional). Not paginated — ordered by name.
+    /// Requires <c>stocktakes.view</c> or <c>stocktakes.view_assigned</c>. No error codes beyond 403
+    /// <c>permissionDenied</c>.
+    /// </remarks>
+    [HttpGet("tags")]
+    [Authorize]
+    [ProducesResponseType<IReadOnlyList<StocktakeTagDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTags([FromQuery] string? search = null, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
+
+        var tags = await db.StocktakeTags
+            .WhereMatchesSearch(t => t.SearchString, search)
+            .OrderBy(t => t.Name)
+            .Select(t => new StocktakeTagDto { Id = t.Id, Name = t.Name })
+            .ToListAsync(ct);
+
+        return Ok(tags);
+    }
+
+    /// <summary>Create a new stocktake tag.</summary>
+    /// <remarks>
+    /// Requires <c>stocktakes.edit</c> or <c>stocktakes.edit_assigned</c>. Body: <c>CreateStocktakeTagRequest</c> —
+    /// name (trimmed before saving). Errors: 422 <c>validationError</c> (field <c>name</c>) when the trimmed
+    /// name is empty; 422 <c>tagNameDuplicate</c> (field <c>name</c>) when another stocktake tag already has
+    /// this name; 403 <c>permissionDenied</c>.
+    /// </remarks>
+    [HttpPost("tags")]
+    [Authorize]
+    [ProducesResponseType<StocktakeTagDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> CreateTag([FromBody] CreateStocktakeTagRequest request, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
+
+        var name = request.Name.Trim();
+        if (name.Length == 0)
+            return UnprocessableEntity("name", ErrorCode.ValidationError, "Tag name cannot be blank.");
+
+        var duplicate = await db.StocktakeTags.AnyAsync(t => t.Name == name, ct);
+        if (duplicate)
+            return UnprocessableEntity("name", ErrorCode.TagNameDuplicate, $"A tag named '{name}' already exists.");
+
+        var tag = new StocktakeTag { Id = Guid.NewGuid(), Name = name };
+        db.StocktakeTags.Add(tag);
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException e) when (UniqueViolations.IsTagName(e))
+        {
+            return UnprocessableEntity("name", ErrorCode.TagNameDuplicate, $"A tag named '{name}' already exists.");
+        }
+
+        var dto = new StocktakeTagDto { Id = tag.Id, Name = tag.Name };
+        return Created($"/api/stocktakes/tags/{tag.Id}", dto);
+    }
+
     // ── GET list ──────────────────────────────────────────────────────────────
 
     /// <summary>List stocktakes with pagination, filtering, and search.</summary>
     /// <remarks>
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
-    /// <c>warehouseId</c>, <c>status</c>, <c>sortBy</c> (default <c>Number</c>), <c>sortOrder</c>
+    /// <c>warehouseId</c>, <c>status</c>, <c>tagIds</c>, <c>sortBy</c> (default <c>Number</c>), <c>sortOrder</c>
     /// (default <c>Desc</c>).
     /// Requires <c>stocktakes.view</c> or <c>stocktakes.view_assigned</c>; without either, 403
     /// <c>permissionDenied</c>. 401 <c>tokenInvalid</c> when an <c>_assigned</c> permission is used but the
@@ -148,6 +215,7 @@ public class StocktakesController(
         [FromQuery] string? searchString = null,
         [FromQuery] Guid? warehouseId = null,
         [FromQuery] StocktakeStatus? status = null,
+        [FromQuery] IReadOnlyList<Guid>? tagIds = null,
         [FromQuery] StocktakeSortBy sortBy = StocktakeSortBy.Number,
         [FromQuery] SortOrder sortOrder = SortOrder.Desc,
         CancellationToken ct = default)
@@ -160,6 +228,7 @@ public class StocktakesController(
         var baseQuery = accessible
             .Where(s => warehouseId == null || s.WarehouseId == warehouseId)
             .Where(s => status == null || s.Status == status)
+            .Where(s => tagIds == null || tagIds.Count == 0 || s.Tags.Any(t => tagIds.Contains(t.Id)))
             .WhereMatchesSearch(s => s.SearchString, searchString);
 
         var query = sortBy switch
@@ -356,6 +425,38 @@ public class StocktakesController(
         var problem = await fileBinding.BindListAsync(request.Attachments, stocktake!.Images,
             db.StocktakeImages, setOwner: img => img.StocktakeId = stocktake.Id, field: "attachments", ct);
         if (problem is not null) return Problem(problem);
+
+        await db.SaveChangesAsync(ct);
+
+        var after = await BuildDtoAsync(stocktake, ct);
+        await changeLog.CompareAndSaveToChangelog(before, after);
+
+        return Ok(after);
+    }
+
+    // ── PATCH tags ───────────────────────────────────────────────────────────
+
+    /// <summary>Replace the stocktake's tags. Allowed in any status.</summary>
+    /// <remarks>
+    /// Body: <c>UpdateTagsRequest</c> — the full tag id set; unknown ids are ignored. Errors: 404
+    /// <c>stocktakeNotFound</c>; 403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c> (edit access).
+    /// </remarks>
+    [HttpPatch("{id:guid}/tags")]
+    [Authorize]
+    [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateTags(Guid id, [FromBody] UpdateTagsRequest request,
+        CancellationToken ct = default)
+    {
+        var (stocktake, error) = await LoadStocktakeWithEditAccessAsync(id, ct, includeItems: true);
+        if (error is not null) return error;
+
+        var before = await BuildDtoAsync(stocktake!, ct);
+
+        var newTags = await db.StocktakeTags.Where(t => request.Tags.Contains(t.Id)).ToListAsync(ct);
+        stocktake!.Tags.Clear();
+        foreach (var tag in newTags)
+            stocktake.Tags.Add(tag);
 
         await db.SaveChangesAsync(ct);
 
@@ -1105,6 +1206,7 @@ public class StocktakesController(
     {
         var itemById = fresh.Nodes.SelectMany(n => n.Items).ToDictionary(i => i.Id);
         var scopeByNodeId = fresh.Nodes.ToDictionary(n => n.StoragePlaceNodeId);
+        var context = new StockMovementContext(StocktakeId: fresh.Id);
 
         foreach (var line in Ordered(plan.Lines))
         {
@@ -1113,19 +1215,19 @@ public class StocktakesController(
                 case StocktakeDifferenceResolution.Relocation:
                     await inventory.MoveUnitItemAsync(
                         line.UnitInventoryItemId!.Value, line.StoragePlaceNodeId,
-                        action: InventoryActions.StocktakeRelocation, ct: ct);
+                        action: InventoryActions.StocktakeRelocation, context: context, ct: ct);
                     break;
 
                 case StocktakeDifferenceResolution.DetachUnit:
                     await inventory.DetachUnitItemAsync(
                         line.UnitInventoryItemId!.Value, line.StoragePlaceNodeId,
-                        action: InventoryActions.StocktakeShortage, ct: ct);
+                        action: InventoryActions.StocktakeShortage, context: context, ct: ct);
                     break;
 
                 case StocktakeDifferenceResolution.ReattachUnit:
                     await inventory.ReattachUnitItemAsync(
                         line.UnitInventoryItemId!.Value, line.StoragePlaceNodeId,
-                        action: InventoryActions.StocktakeSurplus, ct: ct);
+                        action: InventoryActions.StocktakeSurplus, context: context, ct: ct);
                     break;
 
                 case StocktakeDifferenceResolution.CreateUnit:
@@ -1133,7 +1235,7 @@ public class StocktakesController(
                     {
                         await inventory.PlaceUnitItemToNodeAsync(
                             line.StoragePlaceNodeId, line.CatalogItemId, line.InventoryNumber!,
-                            action: InventoryActions.StocktakeSurplus, ct: ct);
+                            action: InventoryActions.StocktakeSurplus, context: context, ct: ct);
                     }
                     catch (DbUpdateException e) when (UniqueViolations.IsUnitInventoryNumber(e))
                     {
@@ -1147,13 +1249,13 @@ public class StocktakesController(
                 case StocktakeDifferenceResolution.Surplus:
                     await inventory.AddStandardItemsToNodeAsync(
                         line.StoragePlaceNodeId, line.CatalogItemId, line.Delta,
-                        action: InventoryActions.StocktakeSurplus, ct: ct);
+                        action: InventoryActions.StocktakeSurplus, context: context, ct: ct);
                     break;
 
                 case StocktakeDifferenceResolution.Shortage:
                     await inventory.RemoveStandardItemsFromNodeAsync(
                         line.StoragePlaceNodeId, line.CatalogItemId, -line.Delta,
-                        action: InventoryActions.StocktakeShortage, ct: ct);
+                        action: InventoryActions.StocktakeShortage, context: context, ct: ct);
                     break;
             }
 

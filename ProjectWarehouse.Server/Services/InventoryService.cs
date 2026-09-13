@@ -122,6 +122,9 @@ public class InventoryService(
             UnitInventoryNumber = unitItem?.InventoryNumber,
             UserId              = GetCurrentUserId(),
             ReceiptId           = context?.ReceiptId,
+            OrderId             = context?.OrderId,
+            WriteoffId          = context?.WriteoffId,
+            StocktakeId         = context?.StocktakeId,
         };
 
         db.StockMovements.Add(movement);

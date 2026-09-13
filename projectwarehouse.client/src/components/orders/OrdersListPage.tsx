@@ -50,6 +50,8 @@ import NotesTableCell from "@/components/NotesTableCell";
 import DateTimeTableCell from "@/components/DateTimeTableCell";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
+import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
+import TagChips from "@/components/tags/TagChips";
 import OrderStatusChip from "./OrderStatusChip";
 import MarketplaceOrderFilters from "./marketplace/MarketplaceOrderFilters";
 import {
@@ -194,6 +196,12 @@ function OrdersListPage({
     (v) => v || null,
   );
 
+  const [tagIds, setTagIds] = useSyncedWithQueryState<string[]>(
+    "tags",
+    (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
+    (v) => v.join(",") || null,
+  );
+
   const statusDateColumn = status ? STATUS_DATE_COLUMNS[status] : undefined;
   const sortColumns = statusDateColumn ? [...SORT_COLUMNS, statusDateColumn] : SORT_COLUMNS;
 
@@ -209,6 +217,7 @@ function OrdersListPage({
       warehouseId: warehouseId ?? undefined,
       status: (status as OrderStatus) || undefined,
       catalogItemId: catalogItemId ?? undefined,
+      tagIds: tagIds.length > 0 ? tagIds : undefined,
       marketplaceType: marketplaceFilters
         ? (marketplaceType as MarketplaceType) || undefined
         : undefined,
@@ -223,6 +232,7 @@ function OrdersListPage({
       warehouseId,
       status,
       catalogItemId,
+      tagIds,
       marketplaceType,
       marketplaceAccountId,
       marketplaceStatus,
@@ -302,7 +312,7 @@ function OrdersListPage({
   const showBulkBar =
     selectedItems.length > 0 && (showSelfAssign || showShip || bulkActions != null);
   const columnCount =
-    (showNotes ? 8 : 7) + (extraColumns?.length ?? 0) + (statusDateColumn ? 1 : 0);
+    (showNotes ? 9 : 8) + (extraColumns?.length ?? 0) + (statusDateColumn ? 1 : 0);
 
   function handleSelfAssignSelected() {
     setFailedItems([]);
@@ -373,6 +383,12 @@ function OrdersListPage({
           sx={{flexBasis: 300}}
           size="small"
           textFieldProps={{label: "Содержит позицию"}}
+        />
+        <DocumentTagsFilter
+          kind="order"
+          value={tagIds}
+          onChange={setTagIds}
+          sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
         />
         {marketplaceFilters && (
           <MarketplaceOrderFilters
@@ -514,6 +530,7 @@ function OrdersListPage({
               ))}
               {showNotes && <TableCell>Заметки</TableCell>}
               <TableCell>Позиций</TableCell>
+              <TableCell>Теги</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -565,6 +582,9 @@ function OrdersListPage({
                     ) : (
                       <Chip variant={"outlined"} size={"small"} label={order.componentCount} />
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <TagChips tags={order.tags} />
                   </TableCell>
                 </LinkTableRow>
               ))

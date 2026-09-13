@@ -23,4 +23,5 @@ public class OrderDetailsDto
     public IReadOnlyList<OrderBoxDto> Boxes { get; init; } = [];
     public IReadOnlyList<AssemblyTaskDto> AssemblyTasks { get; init; } = [];
     public IReadOnlyList<DataFileLinkDto> Attachments { get; init; } = [];
+    public IReadOnlyList<OrderTagDto> Tags { get; init; } = [];
 }

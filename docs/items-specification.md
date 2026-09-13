@@ -133,9 +133,13 @@ of erasing the movement — while the copied number stays, so the history of a p
 readable and searchable by its number.
 
 The document that caused the change is passed to `InventoryService` as an optional `StockMovementContext`
-(`ReceiptId`, extended as more document types get linked) and lands on the row as a nullable FK. Receipt placement
-endpoints supply the receipt they act on; movements made outside any document leave it `null`. Like the other
-references it is `ON DELETE SET NULL`, so deleting a receipt keeps its movements.
+(`ReceiptId`, `OrderId`, `WriteoffId`, `StocktakeId`) and lands on the row as nullable FKs. Every stock write made
+on behalf of a document supplies that document: receipt placements and their cancellation, order fulfillments and
+their rollback (the order is resolved from the task box component, since callers do not load the navigation
+chain), write-off finish, and stocktake finish. Transfers and other movements made outside any document leave all
+four `null`. Like the other references they are `ON DELETE SET NULL`, so deleting a document keeps its movements.
+A new document type that writes stock adds one field to the context, one FK on `StockMovement`, and passes the
+context at every inventory call it makes — a call without it silently drops out of the document's tag filters.
 
 ---
 
@@ -143,7 +147,28 @@ references it is `ON DELETE SET NULL`, so deleting a receipt keeps its movements
 
 A CatalogItem can have zero or more tags. Tags are a flat list with no hierarchy. The relationship is many-to-many with no primary/default concept — all tags are equal.
 
-Catalog tags and receipt tags are separate name pools of the same `Tag` table, told apart by the discriminator. A name is at most 100 characters — enforced by the column, not only by the request models — and unique within its kind. The list itself is administered under Настройки → Теги (`/api/tags`, `tags.manage`): renaming keeps every binding, deleting drops the tag from every item while leaving the items untouched. Creating one inline from the catalog form stays on `POST /api/catalog/tags` under `catalog.edit`.
+Catalog, receipt, order, write-off and stocktake tags are separate name pools of the same `Tag` table, told apart by the discriminator (`TagKind` mirrors it one-to-one). A name is at most 100 characters — enforced by the column, not only by the request models — and unique within its kind. The list itself is administered under Настройки → Теги (`/api/tags`, `tags.manage`): renaming keeps every binding, deleting drops the tag from every item while leaving the items untouched. Creating one inline from the catalog form stays on `POST /api/catalog/tags` under `catalog.edit`.
+
+### Document tags
+
+Receipts, orders, write-offs and stocktakes carry tags of their own kind (`ReceiptTag`, `OrderTag`, `WriteoffTag`,
+`StocktakeTag`) through implicit `*TagLinks` join tables. Each module exposes the same trio:
+
+- `GET /api/{module}/tags?search=` — the list, under the module's view access (for orders that includes
+  `orders.assemble_assigned`, since the assembly worklist filters by tag);
+- `POST /api/{module}/tags` — inline creation under the module's edit access, `tagNameDuplicate` on a clash;
+- `tagIds` on the module's list endpoint (and on `GET /api/orders/assembly`) — OR semantics.
+
+Tags are replaced through a dedicated `PATCH /api/{module}/{id}/tags` (`UpdateTagsRequest`, unknown ids ignored)
+that is allowed in any status and is not part of the module's own update request: a tag is an analytic label that
+changes no stock, and labelling a document after it is finished is the common case. Every tag change goes through
+the document's changelog, so the tag set must be loaded wherever the document DTO is mapped — an omitted `Include`
+records a phantom removal.
+
+In the stock movement report a metric has one tag list per document type (`receiptTagIds`, `orderTagIds`,
+`writeoffTagIds`, `stocktakeTagIds`). A non-empty list keeps only movements whose document of that type carries any
+of the tags, which also drops movements made by other documents or none; lists of different types combine with AND.
+Movements journalled before a document type was linked have no FK and never match its tag filter.
 
 **ProductGroup tag copying:** whenever a child item is created or updated via a ProductGroup's `children` list, the group's current tags are automatically merged into the child's tag set (union of the child's own `tags` from the request and the group's `tags`). This means changes to the group's tags propagate to all children on the next group update. Tags added to a child individually are preserved; however, tags removed from the group are not automatically removed from children.
 

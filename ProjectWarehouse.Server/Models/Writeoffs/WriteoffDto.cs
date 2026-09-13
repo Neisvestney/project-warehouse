@@ -14,6 +14,7 @@ public class WriteoffDto
     public DateTime CreatedAt { get; init; }
     public Guid WarehouseId { get; init; }
     public string WarehouseName { get; init; } = null!;
+    public IReadOnlyList<WriteoffTagDto> Tags { get; init; } = [];
     public IReadOnlyList<WriteoffItemDto> Items { get; init; } = [];
     public IReadOnlyList<DataFileLinkDto> Attachments { get; init; } = [];
 }

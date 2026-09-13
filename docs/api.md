@@ -30,7 +30,7 @@ Errors always use `AppProblemDetails` — see [errors.md](errors.md) for the env
 - **Sorting**: `sortBy` (per-endpoint enum) plus `sortOrder` (`asc` | `desc`).
 - **Multi-value filters**: repeatable params (`itemTypes`, `tagIds`, `catalogItemTypes`) use OR semantics.
 - **Read endpoints that POST**: two reads take a body. `POST /api/statistics/stock-movements/pivot` — its
-  `metrics` are objects, each an action set plus a direction set plus a receipt-tag set, and a list of those
+  `metrics` are objects, each an action set plus a direction set plus a tag set per document type, and a list of those
   does not survive a query string in any form worth parsing; the rest of the movement filter travels in the same
   body rather than being split across body and query. `POST /api/catalog/for-select/by-ids` — a selection
   restored from a URL runs to hundreds of ids, which no query string survives; the cap is 500 per request.

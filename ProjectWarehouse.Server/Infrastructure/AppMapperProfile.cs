@@ -79,6 +79,9 @@ public class AppMapperProfile : Profile
 
         CreateMap<CatalogItemTag, CatalogItemTagDto>();
         CreateMap<ReceiptTag, ReceiptTagDto>();
+        CreateMap<OrderTag, OrderTagDto>();
+        CreateMap<WriteoffTag, WriteoffTagDto>();
+        CreateMap<StocktakeTag, StocktakeTagDto>();
 
         CreateMap<StockMovementReportPreset, AppEntity>()
             .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.StockMovementReportPreset));

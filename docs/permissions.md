@@ -104,11 +104,12 @@ are narrowed to their warehouses. The trade is deliberate: an edit is visible to
 
 **`tags.manage` is tag administration, not tag use.** It gates `/api/tags` — the settings screen that lists
 every kind with its usage count, renames and deletes. Creating a tag while filling a form stays on the module's
-own endpoint (`POST /api/receipts/tags` under `receipts.edit`/`receipts.edit_assigned`, `POST /api/catalog/tags`
-under `catalog.edit`): naming a tag on the fly is part of writing the document, while a rename or a delete
-changes what every other user sees. Reading the list is administration too, so there is no separate view
-permission — the pickers inside receipts and the catalog read their own module's endpoint, gated by that
-module's view right.
+own endpoint (`POST /api/{receipts|orders|writeoffs|stocktakes}/tags` under that module's edit permission,
+`POST /api/catalog/tags` under `catalog.edit`): naming a tag on the fly is part of writing the document, while a
+rename or a delete changes what every other user sees. Reading the list is administration too, so there is no
+separate view permission — the pickers inside each module read their own module's endpoint, gated by that
+module's view right. The stock movement report therefore shows a document type's tag filter only to a user who
+can view that module.
 
 **Uploading and reading files needs no permission** — the right to attach a file is the right to edit the owning
 entity, already checked on that entity's endpoint. See

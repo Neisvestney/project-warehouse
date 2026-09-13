@@ -31,6 +31,7 @@ import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQu
 import SearchInput from "@/components/SearchInput.tsx";
 import WarehousesSelect from "@/components/WarehousesSelect.tsx";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect.tsx";
+import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
 import AssemblyOrderGroup from "./AssemblyOrderGroup";
 import {
   ASSEMBLY_GROUPING_LABELS,
@@ -63,6 +64,12 @@ function OrdersAssemblyPage() {
     (v) => v,
   );
 
+  const [tagIds, setTagIds] = useSyncedWithQueryState<string[]>(
+    "tags",
+    (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
+    (v) => v.join(",") || null,
+  );
+
   const [grouping, setGrouping] = useSyncedWithQueryState<AssemblyGrouping>(
     "group",
     parseAssemblyGrouping,
@@ -75,6 +82,7 @@ function OrdersAssemblyPage() {
         warehouseId: warehouseId ?? undefined,
         searchString: searchString || undefined,
         catalogItemId: catalogItemId ?? undefined,
+        tagIds: tagIds.length > 0 ? tagIds : undefined,
       },
     }),
     gcTime: 0,
@@ -227,6 +235,12 @@ function OrdersAssemblyPage() {
             sx={{flexBasis: 300}}
             size="small"
             textFieldProps={{label: "Содержит позицию"}}
+          />
+          <DocumentTagsFilter
+            kind="order"
+            value={tagIds}
+            onChange={setTagIds}
+            sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
           />
           <TextField
             select

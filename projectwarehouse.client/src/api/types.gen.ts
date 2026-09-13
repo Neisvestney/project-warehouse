@@ -425,6 +425,10 @@ export type CreateOrderBoxRequest = {
   label?: null | string;
 };
 
+export type CreateOrderTagRequest = {
+  name: string;
+};
+
 export type CreateReceiptRequest = {
   name?: null | string;
   reason: ReceiptReason;
@@ -451,6 +455,10 @@ export type CreateStocktakeRequest = {
    */
   plannedDate?: null | string;
   notes?: null | string;
+};
+
+export type CreateStocktakeTagRequest = {
+  name: string;
 };
 
 export type CreateStoragePlaceNodeRequest = {
@@ -497,6 +505,10 @@ export type CreateWriteoffRequest = {
   reason: WriteoffReason;
   warehouseId: string;
   notes?: null | string;
+};
+
+export type CreateWriteoffTagRequest = {
+  name: string;
 };
 
 export type DatabaseStatsDto = {
@@ -1100,6 +1112,7 @@ export type OrderDetailsDto = {
   boxes: Array<OrderBoxDto>;
   assemblyTasks: Array<AssemblyTaskDto>;
   attachments: Array<DataFileLinkDto>;
+  tags: Array<OrderTagDto>;
 };
 
 /**
@@ -1158,7 +1171,13 @@ export type OrderSummaryDto = {
   createdByName?: null | string;
   boxCount: number;
   componentCount: number;
+  tags: Array<OrderTagDto>;
   marketplaceOrder?: null | MarketplaceOrderDto;
+};
+
+export type OrderTagDto = {
+  id: string;
+  name: string;
 };
 
 export type OrderType = "fbs" | "fbo" | "direct";
@@ -1973,14 +1992,18 @@ export type StockMovementGroupBy =
   "action" | "catalogItem" | "warehouse" | "storagePlace" | "node" | "user";
 
 /**
- * One sub-column of the pivot. All three predicates are optional and combine with AND; leaving every
- * one of them empty is legal and means «every movement».
+ * One sub-column of the pivot. Every predicate is optional and they combine with AND; leaving all of
+ * them empty is legal and means «every movement». A non-empty document tag list keeps only movements
+ * made by a document of that type carrying any of the tags.
  */
 export type StockMovementMetricDto = {
   name: string;
   actions?: null | Array<string>;
   directions?: null | Array<StockMovementDirection>;
   receiptTagIds?: null | Array<string>;
+  orderTagIds?: null | Array<string>;
+  writeoffTagIds?: null | Array<string>;
+  stocktakeTagIds?: null | Array<string>;
 };
 
 export type StockMovementPivotCellDto = {
@@ -2211,6 +2234,7 @@ export type StocktakeDto = {
   finishedAt?: null | string;
   warehouseId: string;
   warehouseName: string;
+  tags: Array<StocktakeTagDto>;
   nodes: Array<StocktakeNodeDto>;
   attachments: Array<DataFileLinkDto>;
 };
@@ -2314,6 +2338,12 @@ export type StocktakeSummaryDto = {
   createdAt: string;
   startedAt?: null | string;
   finishedAt?: null | string;
+  tags: Array<StocktakeTagDto>;
+};
+
+export type StocktakeTagDto = {
+  id: string;
+  name: string;
 };
 
 export type StocktakeType = "unscheduled" | "scheduled";
@@ -2451,7 +2481,7 @@ export type TagDto = {
  * The tag subtype a management request addresses. Mirrors the `Tag` discriminator: every value here
  * has exactly one Tag descendant behind it.
  */
-export type TagKind = "receipt" | "catalogItem";
+export type TagKind = "receipt" | "catalogItem" | "order" | "writeoff" | "stocktake";
 
 /**
  * When ApiKey is supplied the route id is ignored, so a key can be checked before the account exists.
@@ -2574,7 +2604,6 @@ export type UpdateReceiptRequest = {
   reason: ReceiptReason;
   notes?: null | string;
   plannedDeliveryDate?: null | string;
-  tags: Array<string>;
 };
 
 export type UpdateReceivedCountRequest = {
@@ -2618,6 +2647,13 @@ export type UpdateStoragePlaceNodeRequest = {
   name: string;
   parentNodeId?: null | string;
   order: number;
+};
+
+/**
+ * Body of the dedicated tags endpoint of a document; replaces the whole tag set.
+ */
+export type UpdateTagsRequest = {
+  tags: Array<string>;
 };
 
 export type UpdateUserRequest = {
@@ -2722,6 +2758,7 @@ export type WriteoffDto = {
   createdAt: string;
   warehouseId: string;
   warehouseName: string;
+  tags: Array<WriteoffTagDto>;
   items: Array<WriteoffItemDto>;
   attachments: Array<DataFileLinkDto>;
 };
@@ -2766,6 +2803,12 @@ export type WriteoffSummaryDto = {
   warehouseName: string;
   itemsCount: number;
   createdAt: string;
+  tags: Array<WriteoffTagDto>;
+};
+
+export type WriteoffTagDto = {
+  id: string;
+  name: string;
 };
 
 export type GetHealthData = {
@@ -4355,6 +4398,70 @@ export type MarketplacesGetUnmappedCountResponses = {
 export type MarketplacesGetUnmappedCountResponse =
   MarketplacesGetUnmappedCountResponses[keyof MarketplacesGetUnmappedCountResponses];
 
+export type OrdersGetTagsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    search?: string;
+  };
+  url: "/api/orders/tags";
+};
+
+export type OrdersGetTagsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type OrdersGetTagsError = OrdersGetTagsErrors[keyof OrdersGetTagsErrors];
+
+export type OrdersGetTagsResponses = {
+  /**
+   * OK
+   */
+  200: Array<OrderTagDto>;
+};
+
+export type OrdersGetTagsResponse = OrdersGetTagsResponses[keyof OrdersGetTagsResponses];
+
+export type OrdersCreateTagData = {
+  body: CreateOrderTagRequest;
+  path?: never;
+  query?: never;
+  url: "/api/orders/tags";
+};
+
+export type OrdersCreateTagErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type OrdersCreateTagError = OrdersCreateTagErrors[keyof OrdersCreateTagErrors];
+
+export type OrdersCreateTagResponses = {
+  /**
+   * Created
+   */
+  201: OrderTagDto;
+};
+
+export type OrdersCreateTagResponse = OrdersCreateTagResponses[keyof OrdersCreateTagResponses];
+
 export type OrdersGetAllData = {
   body?: never;
   path?: never;
@@ -4369,6 +4476,7 @@ export type OrdersGetAllData = {
     marketplaceAccountId?: string;
     marketplaceStatus?: MarketplaceOrderStatus;
     catalogItemId?: string;
+    tagIds?: Array<string>;
     sortBy?: OrderSortBy;
     sortOrder?: SortOrder;
   };
@@ -4404,6 +4512,7 @@ export type OrdersGetAllAssemblyData = {
     warehouseId?: string;
     searchString?: string;
     catalogItemId?: string;
+    tagIds?: Array<string>;
   };
   url: "/api/orders/assembly";
 };
@@ -4615,6 +4724,41 @@ export type OrdersUpdateAttachmentsResponses = {
 
 export type OrdersUpdateAttachmentsResponse =
   OrdersUpdateAttachmentsResponses[keyof OrdersUpdateAttachmentsResponses];
+
+export type OrdersUpdateTagsData = {
+  body: UpdateTagsRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/orders/{id}/tags";
+};
+
+export type OrdersUpdateTagsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type OrdersUpdateTagsError = OrdersUpdateTagsErrors[keyof OrdersUpdateTagsErrors];
+
+export type OrdersUpdateTagsResponses = {
+  /**
+   * OK
+   */
+  200: OrderDetailsDto;
+};
+
+export type OrdersUpdateTagsResponse = OrdersUpdateTagsResponses[keyof OrdersUpdateTagsResponses];
 
 export type OrdersTransitionStatusData = {
   body: TransitionOrderStatusRequest;
@@ -5897,6 +6041,42 @@ export type ReceiptsUpdateResponses = {
 };
 
 export type ReceiptsUpdateResponse = ReceiptsUpdateResponses[keyof ReceiptsUpdateResponses];
+
+export type ReceiptsUpdateTagsData = {
+  body: UpdateTagsRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/receipts/{id}/tags";
+};
+
+export type ReceiptsUpdateTagsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type ReceiptsUpdateTagsError = ReceiptsUpdateTagsErrors[keyof ReceiptsUpdateTagsErrors];
+
+export type ReceiptsUpdateTagsResponses = {
+  /**
+   * OK
+   */
+  200: ReceiptDto;
+};
+
+export type ReceiptsUpdateTagsResponse =
+  ReceiptsUpdateTagsResponses[keyof ReceiptsUpdateTagsResponses];
 
 export type ReceiptsUpdateAttachmentsData = {
   body: UpdateAttachmentsRequest;
@@ -7183,6 +7363,72 @@ export type StockMovementPresetsUpdatePresetResponses = {
 export type StockMovementPresetsUpdatePresetResponse =
   StockMovementPresetsUpdatePresetResponses[keyof StockMovementPresetsUpdatePresetResponses];
 
+export type StocktakesGetTagsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    search?: string;
+  };
+  url: "/api/stocktakes/tags";
+};
+
+export type StocktakesGetTagsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type StocktakesGetTagsError = StocktakesGetTagsErrors[keyof StocktakesGetTagsErrors];
+
+export type StocktakesGetTagsResponses = {
+  /**
+   * OK
+   */
+  200: Array<StocktakeTagDto>;
+};
+
+export type StocktakesGetTagsResponse =
+  StocktakesGetTagsResponses[keyof StocktakesGetTagsResponses];
+
+export type StocktakesCreateTagData = {
+  body: CreateStocktakeTagRequest;
+  path?: never;
+  query?: never;
+  url: "/api/stocktakes/tags";
+};
+
+export type StocktakesCreateTagErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StocktakesCreateTagError = StocktakesCreateTagErrors[keyof StocktakesCreateTagErrors];
+
+export type StocktakesCreateTagResponses = {
+  /**
+   * Created
+   */
+  201: StocktakeTagDto;
+};
+
+export type StocktakesCreateTagResponse =
+  StocktakesCreateTagResponses[keyof StocktakesCreateTagResponses];
+
 export type StocktakesGetAllData = {
   body?: never;
   path?: never;
@@ -7192,6 +7438,7 @@ export type StocktakesGetAllData = {
     searchString?: string;
     warehouseId?: string;
     status?: StocktakeStatus;
+    tagIds?: Array<string>;
     sortBy?: StocktakeSortBy;
     sortOrder?: SortOrder;
   };
@@ -7407,6 +7654,43 @@ export type StocktakesUpdateAttachmentsResponses = {
 
 export type StocktakesUpdateAttachmentsResponse =
   StocktakesUpdateAttachmentsResponses[keyof StocktakesUpdateAttachmentsResponses];
+
+export type StocktakesUpdateTagsData = {
+  body: UpdateTagsRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/stocktakes/{id}/tags";
+};
+
+export type StocktakesUpdateTagsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type StocktakesUpdateTagsError =
+  StocktakesUpdateTagsErrors[keyof StocktakesUpdateTagsErrors];
+
+export type StocktakesUpdateTagsResponses = {
+  /**
+   * OK
+   */
+  200: StocktakeDto;
+};
+
+export type StocktakesUpdateTagsResponse =
+  StocktakesUpdateTagsResponses[keyof StocktakesUpdateTagsResponses];
 
 export type StocktakesSyncNodesData = {
   body: SyncStocktakeNodesRequest;
@@ -8830,6 +9114,71 @@ export type WarehousesGetDefaultNodeResponses = {
 export type WarehousesGetDefaultNodeResponse =
   WarehousesGetDefaultNodeResponses[keyof WarehousesGetDefaultNodeResponses];
 
+export type WriteoffsGetTagsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    search?: string;
+  };
+  url: "/api/writeoffs/tags";
+};
+
+export type WriteoffsGetTagsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type WriteoffsGetTagsError = WriteoffsGetTagsErrors[keyof WriteoffsGetTagsErrors];
+
+export type WriteoffsGetTagsResponses = {
+  /**
+   * OK
+   */
+  200: Array<WriteoffTagDto>;
+};
+
+export type WriteoffsGetTagsResponse = WriteoffsGetTagsResponses[keyof WriteoffsGetTagsResponses];
+
+export type WriteoffsCreateTagData = {
+  body: CreateWriteoffTagRequest;
+  path?: never;
+  query?: never;
+  url: "/api/writeoffs/tags";
+};
+
+export type WriteoffsCreateTagErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type WriteoffsCreateTagError = WriteoffsCreateTagErrors[keyof WriteoffsCreateTagErrors];
+
+export type WriteoffsCreateTagResponses = {
+  /**
+   * Created
+   */
+  201: WriteoffTagDto;
+};
+
+export type WriteoffsCreateTagResponse =
+  WriteoffsCreateTagResponses[keyof WriteoffsCreateTagResponses];
+
 export type WriteoffsGetAllData = {
   body?: never;
   path?: never;
@@ -8840,6 +9189,7 @@ export type WriteoffsGetAllData = {
     warehouseId?: string;
     status?: WriteoffStatus;
     reason?: WriteoffReason;
+    tagIds?: Array<string>;
     sortBy?: WriteoffSortBy;
     sortOrder?: SortOrder;
   };
@@ -9054,6 +9404,42 @@ export type WriteoffsUpdateAttachmentsResponses = {
 
 export type WriteoffsUpdateAttachmentsResponse =
   WriteoffsUpdateAttachmentsResponses[keyof WriteoffsUpdateAttachmentsResponses];
+
+export type WriteoffsUpdateTagsData = {
+  body: UpdateTagsRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/writeoffs/{id}/tags";
+};
+
+export type WriteoffsUpdateTagsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type WriteoffsUpdateTagsError = WriteoffsUpdateTagsErrors[keyof WriteoffsUpdateTagsErrors];
+
+export type WriteoffsUpdateTagsResponses = {
+  /**
+   * OK
+   */
+  200: WriteoffDto;
+};
+
+export type WriteoffsUpdateTagsResponse =
+  WriteoffsUpdateTagsResponses[keyof WriteoffsUpdateTagsResponses];
 
 export type WriteoffsSyncItemsData = {
   body: Array<WriteoffItemRequest>;

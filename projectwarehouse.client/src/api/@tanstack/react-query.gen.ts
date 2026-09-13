@@ -66,12 +66,14 @@ import {
   ordersBatchTransitionStatus,
   ordersCreateAssemblyTask,
   ordersCreateDirect,
+  ordersCreateTag,
   ordersDelete,
   ordersDeleteAssemblyTask,
   ordersGetAll,
   ordersGetAllAssembly,
   ordersGetById,
   ordersGetLabels,
+  ordersGetTags,
   ordersGetTaskMoveTargets,
   ordersMoveTaskComponent,
   ordersRemoveBox,
@@ -85,6 +87,7 @@ import {
   ordersUpdateAttachments,
   ordersUpdateBox,
   ordersUpdateComponent,
+  ordersUpdateTags,
   ordersUpdateTaskBoxComponent,
   permissionsGetAll,
   realtimeAcquireLock,
@@ -113,6 +116,7 @@ import {
   receiptsUpdate,
   receiptsUpdateAttachments,
   receiptsUpdateReceivedCount,
+  receiptsUpdateTags,
   rolesGetAll,
   rolesGetById,
   rolesSearch,
@@ -132,12 +136,14 @@ import {
   stockMovementPresetsUpdatePreset,
   stocktakesCancel,
   stocktakesCreate,
+  stocktakesCreateTag,
   stocktakesDelete,
   stocktakesFinish,
   stocktakesGetAll,
   stocktakesGetById,
   stocktakesGetDifferences,
   stocktakesGetNodeStock,
+  stocktakesGetTags,
   stocktakesRevert,
   stocktakesSchedule,
   stocktakesStart,
@@ -146,6 +152,7 @@ import {
   stocktakesToDraft,
   stocktakesUpdate,
   stocktakesUpdateAttachments,
+  stocktakesUpdateTags,
   storagePlacesAddNode,
   storagePlacesDeleteNode,
   storagePlacesGetNodeDetails,
@@ -177,13 +184,16 @@ import {
   warehousesUpdate,
   writeoffsCancel,
   writeoffsCreate,
+  writeoffsCreateTag,
   writeoffsDelete,
   writeoffsFinish,
   writeoffsGetAll,
   writeoffsGetById,
+  writeoffsGetTags,
   writeoffsSyncItems,
   writeoffsUpdate,
   writeoffsUpdateAttachments,
+  writeoffsUpdateTags,
 } from "../sdk.gen";
 import type {
   AuthChangeOwnPasswordData,
@@ -347,6 +357,9 @@ import type {
   OrdersCreateDirectData,
   OrdersCreateDirectError,
   OrdersCreateDirectResponse,
+  OrdersCreateTagData,
+  OrdersCreateTagError,
+  OrdersCreateTagResponse,
   OrdersDeleteAssemblyTaskData,
   OrdersDeleteAssemblyTaskError,
   OrdersDeleteAssemblyTaskResponse,
@@ -364,6 +377,9 @@ import type {
   OrdersGetByIdResponse,
   OrdersGetLabelsData,
   OrdersGetLabelsError,
+  OrdersGetTagsData,
+  OrdersGetTagsError,
+  OrdersGetTagsResponse,
   OrdersGetTaskMoveTargetsData,
   OrdersGetTaskMoveTargetsError,
   OrdersGetTaskMoveTargetsResponse,
@@ -403,6 +419,9 @@ import type {
   OrdersUpdateData,
   OrdersUpdateError,
   OrdersUpdateResponse,
+  OrdersUpdateTagsData,
+  OrdersUpdateTagsError,
+  OrdersUpdateTagsResponse,
   OrdersUpdateTaskBoxComponentData,
   OrdersUpdateTaskBoxComponentError,
   OrdersUpdateTaskBoxComponentResponse,
@@ -487,6 +506,9 @@ import type {
   ReceiptsUpdateReceivedCountError,
   ReceiptsUpdateReceivedCountResponse,
   ReceiptsUpdateResponse,
+  ReceiptsUpdateTagsData,
+  ReceiptsUpdateTagsError,
+  ReceiptsUpdateTagsResponse,
   RolesGetAllData,
   RolesGetAllError,
   RolesGetAllResponse,
@@ -544,6 +566,9 @@ import type {
   StocktakesCreateData,
   StocktakesCreateError,
   StocktakesCreateResponse,
+  StocktakesCreateTagData,
+  StocktakesCreateTagError,
+  StocktakesCreateTagResponse,
   StocktakesDeleteData,
   StocktakesDeleteError,
   StocktakesDeleteResponse,
@@ -562,6 +587,9 @@ import type {
   StocktakesGetNodeStockData,
   StocktakesGetNodeStockError,
   StocktakesGetNodeStockResponse,
+  StocktakesGetTagsData,
+  StocktakesGetTagsError,
+  StocktakesGetTagsResponse,
   StocktakesRevertData,
   StocktakesRevertError,
   StocktakesRevertResponse,
@@ -586,6 +614,9 @@ import type {
   StocktakesUpdateData,
   StocktakesUpdateError,
   StocktakesUpdateResponse,
+  StocktakesUpdateTagsData,
+  StocktakesUpdateTagsError,
+  StocktakesUpdateTagsResponse,
   StoragePlacesAddNodeData,
   StoragePlacesAddNodeError,
   StoragePlacesAddNodeResponse,
@@ -677,6 +708,9 @@ import type {
   WriteoffsCreateData,
   WriteoffsCreateError,
   WriteoffsCreateResponse,
+  WriteoffsCreateTagData,
+  WriteoffsCreateTagError,
+  WriteoffsCreateTagResponse,
   WriteoffsDeleteData,
   WriteoffsDeleteError,
   WriteoffsDeleteResponse,
@@ -689,6 +723,9 @@ import type {
   WriteoffsGetByIdData,
   WriteoffsGetByIdError,
   WriteoffsGetByIdResponse,
+  WriteoffsGetTagsData,
+  WriteoffsGetTagsError,
+  WriteoffsGetTagsResponse,
   WriteoffsSyncItemsData,
   WriteoffsSyncItemsError,
   WriteoffsSyncItemsResponse,
@@ -698,6 +735,9 @@ import type {
   WriteoffsUpdateData,
   WriteoffsUpdateError,
   WriteoffsUpdateResponse,
+  WriteoffsUpdateTagsData,
+  WriteoffsUpdateTagsError,
+  WriteoffsUpdateTagsResponse,
 } from "../types.gen";
 
 export type QueryKey<TOptions extends Options> = [
@@ -2756,6 +2796,68 @@ export const marketplacesGetUnmappedCountOptions = (
     queryKey: marketplacesGetUnmappedCountQueryKey(options),
   });
 
+export const ordersGetTagsQueryKey = (options?: Options<OrdersGetTagsData>) =>
+  createQueryKey("ordersGetTags", options);
+
+/**
+ * List all order tags, optionally filtered by name.
+ *
+ * Query params: `search` (optional). Not paginated — ordered by name.
+ * Requires view access to orders (`orders.view`, `orders.view_assigned` or
+ * `orders.assemble_assigned` — the assembly worklist filters by tag too). No error codes beyond 403
+ * `permissionDenied`.
+ */
+export const ordersGetTagsOptions = (options?: Options<OrdersGetTagsData>) =>
+  queryOptions<
+    OrdersGetTagsResponse,
+    OrdersGetTagsError,
+    OrdersGetTagsResponse,
+    ReturnType<typeof ordersGetTagsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await ordersGetTags({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: ordersGetTagsQueryKey(options),
+  });
+
+/**
+ * Create a new order tag.
+ *
+ * Requires `orders.edit` or `orders.edit_assigned`. Body: `CreateOrderTagRequest` — name
+ * (trimmed before saving). Errors: 422 `validationError` (field `name`) when the trimmed name is
+ * empty; 422 `tagNameDuplicate` (field `name`) when another order tag already has this name; 403
+ * `permissionDenied`.
+ */
+export const ordersCreateTagMutation = (
+  options?: Partial<Options<OrdersCreateTagData>>,
+): UseMutationOptions<
+  OrdersCreateTagResponse,
+  OrdersCreateTagError,
+  Options<OrdersCreateTagData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersCreateTagResponse,
+    OrdersCreateTagError,
+    Options<OrdersCreateTagData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersCreateTag({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
 export const ordersGetAllQueryKey = (options?: Options<OrdersGetAllData>) =>
   createQueryKey("ordersGetAll", options);
 
@@ -2764,8 +2866,9 @@ export const ordersGetAllQueryKey = (options?: Options<OrdersGetAllData>) =>
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
  * `warehouseId`, `type`, `status`, `marketplaceType`, `marketplaceAccountId`,
- * `marketplaceStatus`, `catalogItemId`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
- * `catalogItemId` keeps orders that have a box component with that catalog item.
+ * `marketplaceStatus`, `catalogItemId`, `tagIds`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * `catalogItemId` keeps orders that have a box component with that catalog item; `tagIds` keeps
+ * orders carrying any of the tags.
  * Any of the three marketplace filters also excludes orders without a `MarketplaceOrder`, so they
  * never match Direct orders. `searchString` is the extended search — it also matches box labels and
  * the catalog items and marketplace cards of the order contents, see bool Order.MatchesExtendedSearch(string pattern).
@@ -2800,8 +2903,9 @@ export const ordersGetAllInfiniteQueryKey = (
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
  * `warehouseId`, `type`, `status`, `marketplaceType`, `marketplaceAccountId`,
- * `marketplaceStatus`, `catalogItemId`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
- * `catalogItemId` keeps orders that have a box component with that catalog item.
+ * `marketplaceStatus`, `catalogItemId`, `tagIds`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * `catalogItemId` keeps orders that have a box component with that catalog item; `tagIds` keeps
+ * orders carrying any of the tags.
  * Any of the three marketplace filters also excludes orders without a `MarketplaceOrder`, so they
  * never match Direct orders. `searchString` is the extended search — it also matches box labels and
  * the catalog items and marketplace cards of the order contents, see bool Order.MatchesExtendedSearch(string pattern).
@@ -2852,8 +2956,9 @@ export const ordersGetAllAssemblyQueryKey = (options?: Options<OrdersGetAllAssem
 /**
  * The current user's personal assembly worklist: full details of Assembly-status orders that have a task assigned to them.
  *
- * Query params: `warehouseId`, `searchString`, `catalogItemId` (all optional). Not paginated — returns a plain list.
- * `catalogItemId` keeps orders that have a box component with that catalog item.
+ * Query params: `warehouseId`, `searchString`, `catalogItemId`, `tagIds` (all optional). Not paginated — returns a plain list.
+ * `catalogItemId` keeps orders that have a box component with that catalog item; `tagIds` keeps
+ * orders carrying any of the tags.
  * `searchString` is the extended search — see bool Order.MatchesExtendedSearch(string pattern).
  * Only orders in `Assembly` status with at least one `AssemblyTask` assigned to the caller are
  * returned, and each order carries only that caller's own tasks; other assemblers' tasks are filtered out.
@@ -3015,6 +3120,36 @@ export const ordersUpdateAttachmentsMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await ordersUpdateAttachments({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Replace the order's tags. Allowed in any status.
+ *
+ * Body: `UpdateTagsRequest` — the full tag id set; unknown ids are ignored. Returns 404
+ * `orderNotFound`. Requires `orders.edit` or `orders.edit_assigned`.
+ */
+export const ordersUpdateTagsMutation = (
+  options?: Partial<Options<OrdersUpdateTagsData>>,
+): UseMutationOptions<
+  OrdersUpdateTagsResponse,
+  OrdersUpdateTagsError,
+  Options<OrdersUpdateTagsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersUpdateTagsResponse,
+    OrdersUpdateTagsError,
+    Options<OrdersUpdateTagsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersUpdateTags({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -4230,6 +4365,36 @@ export const receiptsUpdateMutation = (
 };
 
 /**
+ * Replace the receipt's tags. Allowed in any status.
+ *
+ * Body: `UpdateTagsRequest` — the full tag id set; unknown ids are ignored. Errors: 404
+ * `receiptNotFound`; 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit access).
+ */
+export const receiptsUpdateTagsMutation = (
+  options?: Partial<Options<ReceiptsUpdateTagsData>>,
+): UseMutationOptions<
+  ReceiptsUpdateTagsResponse,
+  ReceiptsUpdateTagsError,
+  Options<ReceiptsUpdateTagsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsUpdateTagsResponse,
+    ReceiptsUpdateTagsError,
+    Options<ReceiptsUpdateTagsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsUpdateTags({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
  * Update the receipt's attachments. Allowed in any status.
  *
  * Errors: 404 `receiptNotFound`; 422 `dataFileNotFound` (field `attachments`) for an
@@ -5364,6 +5529,67 @@ export const stockMovementPresetsUpdatePresetMutation = (
   return mutationOptions;
 };
 
+export const stocktakesGetTagsQueryKey = (options?: Options<StocktakesGetTagsData>) =>
+  createQueryKey("stocktakesGetTags", options);
+
+/**
+ * List all stocktake tags, optionally filtered by name.
+ *
+ * Query params: `search` (optional). Not paginated — ordered by name.
+ * Requires `stocktakes.view` or `stocktakes.view_assigned`. No error codes beyond 403
+ * `permissionDenied`.
+ */
+export const stocktakesGetTagsOptions = (options?: Options<StocktakesGetTagsData>) =>
+  queryOptions<
+    StocktakesGetTagsResponse,
+    StocktakesGetTagsError,
+    StocktakesGetTagsResponse,
+    ReturnType<typeof stocktakesGetTagsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await stocktakesGetTags({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: stocktakesGetTagsQueryKey(options),
+  });
+
+/**
+ * Create a new stocktake tag.
+ *
+ * Requires `stocktakes.edit` or `stocktakes.edit_assigned`. Body: `CreateStocktakeTagRequest` —
+ * name (trimmed before saving). Errors: 422 `validationError` (field `name`) when the trimmed
+ * name is empty; 422 `tagNameDuplicate` (field `name`) when another stocktake tag already has
+ * this name; 403 `permissionDenied`.
+ */
+export const stocktakesCreateTagMutation = (
+  options?: Partial<Options<StocktakesCreateTagData>>,
+): UseMutationOptions<
+  StocktakesCreateTagResponse,
+  StocktakesCreateTagError,
+  Options<StocktakesCreateTagData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StocktakesCreateTagResponse,
+    StocktakesCreateTagError,
+    Options<StocktakesCreateTagData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stocktakesCreateTag({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
 export const stocktakesGetAllQueryKey = (options?: Options<StocktakesGetAllData>) =>
   createQueryKey("stocktakesGetAll", options);
 
@@ -5371,7 +5597,7 @@ export const stocktakesGetAllQueryKey = (options?: Options<StocktakesGetAllData>
  * List stocktakes with pagination, filtering, and search.
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
- * `warehouseId`, `status`, `sortBy` (default `Number`), `sortOrder`
+ * `warehouseId`, `status`, `tagIds`, `sortBy` (default `Number`), `sortOrder`
  * (default `Desc`).
  * Requires `stocktakes.view` or `stocktakes.view_assigned`; without either, 403
  * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
@@ -5404,7 +5630,7 @@ export const stocktakesGetAllInfiniteQueryKey = (
  * List stocktakes with pagination, filtering, and search.
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
- * `warehouseId`, `status`, `sortBy` (default `Number`), `sortOrder`
+ * `warehouseId`, `status`, `tagIds`, `sortBy` (default `Number`), `sortOrder`
  * (default `Desc`).
  * Requires `stocktakes.view` or `stocktakes.view_assigned`; without either, 403
  * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
@@ -5598,6 +5824,36 @@ export const stocktakesUpdateAttachmentsMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await stocktakesUpdateAttachments({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Replace the stocktake's tags. Allowed in any status.
+ *
+ * Body: `UpdateTagsRequest` — the full tag id set; unknown ids are ignored. Errors: 404
+ * `stocktakeNotFound`; 403 `permissionDenied` / `stocktakeNotAssignedToWarehouse` (edit access).
+ */
+export const stocktakesUpdateTagsMutation = (
+  options?: Partial<Options<StocktakesUpdateTagsData>>,
+): UseMutationOptions<
+  StocktakesUpdateTagsResponse,
+  StocktakesUpdateTagsError,
+  Options<StocktakesUpdateTagsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StocktakesUpdateTagsResponse,
+    StocktakesUpdateTagsError,
+    Options<StocktakesUpdateTagsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stocktakesUpdateTags({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -6981,6 +7237,67 @@ export const warehousesGetDefaultNodeOptions = (options: Options<WarehousesGetDe
     queryKey: warehousesGetDefaultNodeQueryKey(options),
   });
 
+export const writeoffsGetTagsQueryKey = (options?: Options<WriteoffsGetTagsData>) =>
+  createQueryKey("writeoffsGetTags", options);
+
+/**
+ * List all write-off tags, optionally filtered by name.
+ *
+ * Query params: `search` (optional). Not paginated — ordered by name.
+ * Requires `writeoffs.view` or `writeoffs.view_assigned`. No error codes beyond 403
+ * `permissionDenied`.
+ */
+export const writeoffsGetTagsOptions = (options?: Options<WriteoffsGetTagsData>) =>
+  queryOptions<
+    WriteoffsGetTagsResponse,
+    WriteoffsGetTagsError,
+    WriteoffsGetTagsResponse,
+    ReturnType<typeof writeoffsGetTagsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await writeoffsGetTags({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: writeoffsGetTagsQueryKey(options),
+  });
+
+/**
+ * Create a new write-off tag.
+ *
+ * Requires `writeoffs.edit` or `writeoffs.edit_assigned`. Body: `CreateWriteoffTagRequest` —
+ * name (trimmed before saving). Errors: 422 `validationError` (field `name`) when the trimmed
+ * name is empty; 422 `tagNameDuplicate` (field `name`) when another write-off tag already has
+ * this name; 403 `permissionDenied`.
+ */
+export const writeoffsCreateTagMutation = (
+  options?: Partial<Options<WriteoffsCreateTagData>>,
+): UseMutationOptions<
+  WriteoffsCreateTagResponse,
+  WriteoffsCreateTagError,
+  Options<WriteoffsCreateTagData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    WriteoffsCreateTagResponse,
+    WriteoffsCreateTagError,
+    Options<WriteoffsCreateTagData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await writeoffsCreateTag({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
 export const writeoffsGetAllQueryKey = (options?: Options<WriteoffsGetAllData>) =>
   createQueryKey("writeoffsGetAll", options);
 
@@ -6988,7 +7305,7 @@ export const writeoffsGetAllQueryKey = (options?: Options<WriteoffsGetAllData>) 
  * List write-offs with pagination, filtering, and search.
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
- * `warehouseId`, `status`, `reason`, `sortBy` (default `Number`),
+ * `warehouseId`, `status`, `reason`, `tagIds`, `sortBy` (default `Number`),
  * `sortOrder` (default `Desc`).
  * Requires `writeoffs.view` or `writeoffs.view_assigned`; without either, 403
  * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
@@ -7021,7 +7338,7 @@ export const writeoffsGetAllInfiniteQueryKey = (
  * List write-offs with pagination, filtering, and search.
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
- * `warehouseId`, `status`, `reason`, `sortBy` (default `Number`),
+ * `warehouseId`, `status`, `reason`, `tagIds`, `sortBy` (default `Number`),
  * `sortOrder` (default `Desc`).
  * Requires `writeoffs.view` or `writeoffs.view_assigned`; without either, 403
  * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
@@ -7207,6 +7524,36 @@ export const writeoffsUpdateAttachmentsMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await writeoffsUpdateAttachments({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Replace the write-off's tags. Allowed in any status.
+ *
+ * Body: `UpdateTagsRequest` — the full tag id set; unknown ids are ignored. Errors: 404
+ * `writeoffNotFound`; 403 `permissionDenied` or `writeoffNotAssignedToWarehouse` (edit access).
+ */
+export const writeoffsUpdateTagsMutation = (
+  options?: Partial<Options<WriteoffsUpdateTagsData>>,
+): UseMutationOptions<
+  WriteoffsUpdateTagsResponse,
+  WriteoffsUpdateTagsError,
+  Options<WriteoffsUpdateTagsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    WriteoffsUpdateTagsResponse,
+    WriteoffsUpdateTagsError,
+    Options<WriteoffsUpdateTagsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await writeoffsUpdateTags({
         ...options,
         ...fnOptions,
         throwOnError: true,

@@ -32,7 +32,7 @@ import TableRowEmpty from "@/components/TableRowEmpty";
 import LinkTableRow from "@/components/LinkTableRow";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import ReceiptStatusChip from "@/components/receipts/ReceiptStatusChip";
-import ReceiptTagsFilter from "@/components/receipts/ReceiptTagsFilter";
+import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
 import {
   RECEIPT_REASON_LABELS,
   RECEIPT_STATUS_LABELS,
@@ -173,7 +173,8 @@ function ReceiptsPage() {
             </MenuItem>
           ))}
         </Select>
-        <ReceiptTagsFilter
+        <DocumentTagsFilter
+          kind="receipt"
           value={tagIds}
           onChange={setTagIds}
           sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}

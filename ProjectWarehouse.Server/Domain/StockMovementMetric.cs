@@ -11,4 +11,7 @@ public class StockMovementMetric
     public string[]? Actions { get; set; }
     public StockMovementDirection[]? Directions { get; set; }
     public Guid[]? ReceiptTagIds { get; set; }
+    public Guid[]? OrderTagIds { get; set; }
+    public Guid[]? WriteoffTagIds { get; set; }
+    public Guid[]? StocktakeTagIds { get; set; }
 }

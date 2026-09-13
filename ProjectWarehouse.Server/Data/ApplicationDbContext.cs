@@ -32,6 +32,9 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<CatalogItem> CatalogItems => Set<CatalogItem>();
     public DbSet<CatalogItemTag> CatalogItemTags => Set<CatalogItemTag>();
     public DbSet<ReceiptTag> ReceiptTags => Set<ReceiptTag>();
+    public DbSet<OrderTag> OrderTags => Set<OrderTag>();
+    public DbSet<WriteoffTag> WriteoffTags => Set<WriteoffTag>();
+    public DbSet<StocktakeTag> StocktakeTags => Set<StocktakeTag>();
     public DbSet<CatalogItemImage> CatalogItemImages => Set<CatalogItemImage>();
     public DbSet<CatalogItemVariationMember> CatalogItemVariationMembers => Set<CatalogItemVariationMember>();
     public DbSet<BundleComponent> BundleComponents => Set<BundleComponent>();
@@ -130,9 +133,12 @@ public class ApplicationDbContext : IdentityDbContext<
             e.Property(x => x.Name).HasMaxLength(100);
             e.HasDiscriminator<string>("TagType")
                 .HasValue<CatalogItemTag>("CatalogItem")
-                .HasValue<ReceiptTag>("Receipt");
+                .HasValue<ReceiptTag>("Receipt")
+                .HasValue<OrderTag>("Order")
+                .HasValue<WriteoffTag>("Writeoff")
+                .HasValue<StocktakeTag>("Stocktake");
 
-            // Scoped by TagType: CatalogItemTag and ReceiptTag are separate name pools.
+            // Scoped by TagType: every subtype is a separate name pool.
             e.HasIndex("TagType", nameof(Tag.Name)).IsUnique();
         });
 
@@ -285,6 +291,21 @@ public class ApplicationDbContext : IdentityDbContext<
             e.HasOne(x => x.Receipt)
                 .WithMany()
                 .HasForeignKey(x => x.ReceiptId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.Order)
+                .WithMany()
+                .HasForeignKey(x => x.OrderId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.Writeoff)
+                .WithMany()
+                .HasForeignKey(x => x.WriteoffId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.Stocktake)
+                .WithMany()
+                .HasForeignKey(x => x.StocktakeId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
@@ -456,6 +477,10 @@ public class ApplicationDbContext : IdentityDbContext<
                 .WithMany()
                 .HasForeignKey(x => x.CreatedById)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasMany(x => x.Tags)
+                .WithMany(x => x.Writeoffs)
+                .UsingEntity("WriteoffTagLinks");
         });
 
         builder.Entity<WriteoffImage>(e =>
@@ -519,6 +544,10 @@ public class ApplicationDbContext : IdentityDbContext<
                 .WithMany()
                 .HasForeignKey(x => x.CreatedById)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasMany(x => x.Tags)
+                .WithMany(x => x.Stocktakes)
+                .UsingEntity("StocktakeTagLinks");
         });
 
         builder.Entity<StocktakeImage>(e =>
@@ -594,6 +623,10 @@ public class ApplicationDbContext : IdentityDbContext<
                 .WithMany()
                 .HasForeignKey(x => x.CreatedById)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasMany(x => x.Tags)
+                .WithMany(x => x.Orders)
+                .UsingEntity("OrderTagLinks");
         });
 
         builder.Entity<OrderImage>(e =>
