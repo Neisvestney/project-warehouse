@@ -31,6 +31,11 @@ public class LabelsOptions
 
     /// <summary>Distance from the top page edge, in points.</summary>
     public double MarginY { get; set; } = 6;
+
+    /// <summary>Age after which a cached label of a posting past awaiting_deliver is released.</summary>
+    public int CacheTtlDays { get; set; } = 7;
+
+    public string GcCron { get; set; } = "0 15 3 * * ?";
 }
 
 public class OzonOptions
