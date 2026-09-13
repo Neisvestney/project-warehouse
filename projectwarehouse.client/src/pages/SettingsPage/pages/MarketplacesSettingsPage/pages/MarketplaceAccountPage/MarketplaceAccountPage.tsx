@@ -20,6 +20,7 @@ import {useSilentRefresh} from "@/hooks/useSilentRefresh";
 import {useRealtimeEvent} from "@/hooks/useRealtimeEvent";
 import {byOperation} from "@/utils/queryKeys";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import PageTitle from "@/components/PageTitle.tsx";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
 import {CatalogItemDrawerHost} from "@/components/catalog/CatalogItemDrawerHost";
@@ -171,6 +172,7 @@ function MarketplaceAccountPage() {
     <Box sx={{position: "relative"}}>
       <LoadingOverlay open={showLoadingOverlay} alignTop />
       <Stack spacing={2}>
+        <PageTitle title={account.name} />
         <AppBreadcrumbs
           path={[{name: "Маркетплейсы", link: "/settings/integrations"}, {name: account.name}]}
         />

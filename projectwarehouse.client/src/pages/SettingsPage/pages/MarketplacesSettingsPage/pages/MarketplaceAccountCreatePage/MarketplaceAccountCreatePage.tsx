@@ -19,6 +19,7 @@ import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
 import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import PageTitle from "@/components/PageTitle.tsx";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import TestConnectionButton from "../../components/TestConnectionButton";
 import {MARKETPLACE_TYPE_LABELS} from "../../marketplaceUtils";
@@ -76,6 +77,7 @@ function MarketplaceAccountCreatePage() {
 
   return (
     <Stack spacing={2}>
+      <PageTitle title="Подключение магазина" />
       <AppBreadcrumbs
         path={[
           {name: "Маркетплейсы", link: "/settings/integrations"},

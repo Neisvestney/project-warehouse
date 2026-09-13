@@ -24,6 +24,7 @@ import PageLoader from "@/components/PageLoader";
 import EditLockBanner from "@/components/EditLockBanner";
 import StaleDataBanner from "@/components/StaleDataBanner";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import PageTitle from "@/components/PageTitle.tsx";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
@@ -189,6 +190,7 @@ function OrderPage() {
             onDismiss={lock.dismissStale}
           />
 
+          <PageTitle title={formatOrderNumber(order.number)} />
           <AppBreadcrumbs
             path={[
               {name: "Операции", link: "/operations"},

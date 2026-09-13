@@ -7,6 +7,7 @@ import {
   warehousesGetByIdOptions,
 } from "@/api/@tanstack/react-query.gen";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import PageTitle from "@/components/PageTitle.tsx";
 import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
 import {isNotFoundError} from "@/utils/errorUtils";
@@ -60,6 +61,7 @@ function NodeInventoryPage() {
 
   return (
     <Stack spacing={2}>
+      <PageTitle title={`Остатки — ${node?.name ?? "Ячейка"}`} />
       <AppBreadcrumbs
         path={[
           {name: "Склады", link: "/storage/warehouses"},

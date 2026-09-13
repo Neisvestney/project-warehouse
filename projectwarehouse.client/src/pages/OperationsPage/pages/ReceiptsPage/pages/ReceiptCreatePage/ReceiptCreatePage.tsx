@@ -16,6 +16,7 @@ import {receiptsCreateMutation} from "@/api/@tanstack/react-query.gen";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import PageTitle from "@/components/PageTitle.tsx";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import {RECEIPT_REASON_LABELS} from "@/components/receipts/receiptUtils";
@@ -67,6 +68,7 @@ function ReceiptCreatePage() {
 
   return (
     <Stack spacing={2}>
+      <PageTitle title="Новая приемка" />
       <AppBreadcrumbs
         path={[{name: "Приемки", link: "/operations/receipts"}, {name: "Новая приемка"}]}
       />

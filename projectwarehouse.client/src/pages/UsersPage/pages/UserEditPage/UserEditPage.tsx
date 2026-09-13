@@ -31,6 +31,7 @@ import {isNotFoundError} from "@/utils/errorUtils";
 import {byOperation} from "@/utils/queryKeys";
 import {useEditLock} from "@/hooks/useEditLock";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import PageTitle from "@/components/PageTitle.tsx";
 import EditLockBanner from "@/components/EditLockBanner";
 import StaleDataBanner from "@/components/StaleDataBanner";
 import PageGenericHeader from "@/components/PageGenericHeader";
@@ -147,6 +148,7 @@ function UserEditPage() {
     <Box sx={{position: "relative"}}>
       <LoadingOverlay open={lock.showLoadingOverlay && !form.formState.isDirty} alignTop />
       <Stack spacing={2}>
+        <PageTitle title={`Редактировать: ${user.username}`} />
         <AppBreadcrumbs
           path={[
             {name: "Сотрудники", link: "/settings/employees"},

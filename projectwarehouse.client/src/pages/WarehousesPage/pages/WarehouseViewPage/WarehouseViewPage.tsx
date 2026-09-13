@@ -23,6 +23,7 @@ import Inventory2Icon from "@mui/icons-material/Inventory2";
 import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import {isNotFoundError} from "@/utils/errorUtils";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import PageTitle from "@/components/PageTitle.tsx";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
@@ -121,6 +122,7 @@ function WarehouseViewPage() {
     <Box sx={{position: "relative"}}>
       <LoadingOverlay open={showLoadingOverlay} alignTop />
       <Stack spacing={2}>
+        <PageTitle title={warehouse.name} />
         <AppBreadcrumbs
           path={[
             {name: "Склады", link: "/storage/warehouses"},

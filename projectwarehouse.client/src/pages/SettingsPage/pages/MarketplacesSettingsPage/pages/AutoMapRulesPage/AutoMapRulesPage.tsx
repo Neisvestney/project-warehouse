@@ -29,6 +29,7 @@ import {
 import {useEditLock} from "@/hooks/useEditLock";
 import {useHasPermission} from "@/hooks/usePermission";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
+import PageTitle from "@/components/PageTitle.tsx";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EditLockBanner from "@/components/EditLockBanner";
 import PageGenericHeader from "@/components/PageGenericHeader";
@@ -121,6 +122,7 @@ function AutoMapRulesPage() {
 
   return (
     <Stack spacing={2}>
+      <PageTitle title="Правила автосопоставления" />
       <AppBreadcrumbs
         path={[
           {name: "Маркетплейсы", link: "/settings/integrations"},
