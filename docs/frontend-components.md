@@ -316,13 +316,23 @@ The `sx` prop is **merged** with the component's own defaults via MUI's array `s
 ### `BulkBar`
 
 Dense toolbar shown above a table while rows are selected: a `primary.main` band with the selected count on the
-left, a clear button pinned next to it, and `children` — the bulk action buttons — pushed to the right edge by
-that button's `mr: "auto"`.
+left, a clear button pinned next to it, and the bulk actions pushed to the right edge by that button's
+`mr: "auto"`.
 
 `count` is rendered through `pluralCount`, so `countLabel` takes the three Russian forms of the phrase
 (`{one: "заказ выбран", few: "заказа выбрано", many: "заказов выбрано"}`). `onClear` drops the whole selection —
-pair it with [`useSelectedItems`](./frontend-state.md#useselecteditemsgetid-freshitems)'s `clear`. Rendering the
-bar at all is the caller's decision; it does not hide itself at `count === 0`.
+pair it with [`useSelectedItems`](./frontend-state.md#useselecteditemsgetid-freshitems)'s `clear`.
+
+Actions arrive as data, `actions: BulkAction[]` — `{key, label, icon?, count?, onClick, pending?, disabled?,
+primary?, danger?}` — and the bar owns their markup. `primary` actions become toolbar buttons, the rest go under
+an «Ещё» dropdown; below `sm` every action goes into a single «Действия» dropdown. `count` is appended to the
+label as `(N)`, `pending` swaps the icon for a spinner (the dropdown button spins while any of its items is
+pending and is disabled only when all of them are), `danger` paints the menu item red. The bar renders nothing
+when `actions` is empty, so a caller builds the list only while something is selected and does not need a
+separate visibility flag.
+
+An action that needs its own dialog stays data too: a hook returns `{getAction, dialogs}`, the page puts
+`getAction(...)` into the list and renders `dialogs` next to the table (see `useDownloadLabelsAction`).
 
 ### `SearchInput`, `SelectAllHeader`, `InfoRow`, `TableRowLoader`, `TableRowEmpty`, `PageGenericHeader`
 
@@ -788,7 +798,7 @@ each switch and one id to `DOCUMENT_TAGS_QUERY_IDS`.
 ### `OrdersListPage` slots
 
 The orders list is shared by FBS, FBO and Direct, so type-specific behaviour arrives as props rather than an
-internal `type === "fbs"` branch: `headerActions?`, `bulkActions?: (selectedOrders: OrderSummaryDto[]) => ReactNode`,
+internal `type === "fbs"` branch: `headerActions?`, `bulkActions?: (selectedOrders: OrderSummaryDto[]) => BulkAction[]`,
 `extraColumns?: {key, label, render}[]`, `marketplaceFilters?` and `showNotes?`. That keeps marketplace imports —
 and the `integrations.sync` permission — out of the pages that have nothing to do with marketplaces.
 
@@ -796,8 +806,9 @@ and the `integrations.sync` permission — out of the pages that have nothing to
 status transitions come from `getOrderBulkTransitions(type)` in `orderBulkTransitions.tsx`: each entry names its
 source statuses, target, label and whether it is a toolbar button (`primary`), goes into the «Ещё» menu, or asks
 for confirmation first. A new bulk transition is one more entry there — the page filters the selection by `from`
-and sends it through `batch-transition-status`. The selection toolbar appears whenever something is selected and
-any action applies. The selection itself is
+and sends it through `batch-transition-status`. The page merges `bulkActions`, self-assign and the applicable
+transitions into one `BulkAction[]` in that order; the selection toolbar appears whenever something is selected
+and that list is non-empty. The selection itself is
 held by [`useSelectedItems`](./frontend-state.md#useselecteditemsgetid-freshitems) as full `OrderSummaryDto` rows, so it
 survives paging and filter changes: the toolbar count, the per-action subsets and `bulkActions`
 all read from the accumulated selection rather than from the visible page. The hook is handed the fetched page,
@@ -830,7 +841,7 @@ the request do not agree with.
 ### `src/components/orders/marketplace/`
 
 FBS-only pieces: `SyncOrdersButton` / `SyncOrdersDialog` / `SyncOrdersAccountAccordion` / `SkippedOrdersList`
-(the import dialog and its per-account results), `DownloadLabelsButton` / `DownloadLabelsDialog` /
+(the import dialog and its per-account results), `useDownloadLabelsAction` / `DownloadLabelsDialog` /
 `DownloadOrderLabelButton` / `LabelsErrorDialog` / `useDownloadLabels`, `MarketplaceOrderStatusChip`,
 `MarketplaceOrderFilters` (shared by FBS and FBO, reads `/accounts/short` so a warehouse role without
 `integrations.view` still gets the account picker), and `marketplaceOrderUtils` for the label and colour maps.
@@ -847,12 +858,14 @@ Printing fills `LabelFileId`, and button availability depends on it, so after a 
 invalidates the order list and every printed order's card — otherwise the button would stay greyed out until a
 manual refresh.
 
-- `DownloadLabelsButton` — the bulk button in the FBS list's selection toolbar. It opens `DownloadLabelsDialog`
-  with a «Группировать по» choice (`Не группировать` / `По артикулам`; the choice survives a reload in
+- `useDownloadLabelsAction` — the bulk action in the FBS list's selection toolbar. `getAction(orderIds)` returns
+  the `BulkAction`; its click captures those ids and opens `DownloadLabelsDialog`, which `OrdersFbsPage` renders
+  from the hook's `dialogs`. The dialog offers
+  a «Группировать по» choice (`Не группировать` / `По артикулам`; the choice survives a reload in
   `localStorage` under `orders-labels-grouping`) and a «Перегенерировать этикетки» checkbox that maps to
   `forceRegenerate` — unlike the grouping it is **not** remembered and resets whenever the dialog closes, since
   a stuck flag would refetch every label from the marketplace on each print. It sends **all** selected orders:
-  the button _could_ know in advance whether an order has a stored label, but filtering the user's selection for
+  the action _could_ know in advance whether an order has a stored label, but filtering the user's selection for
   them is not its job — the server's refusal comes back with a clear message.
 - `DownloadOrderLabelButton` — the button in the FBS order page header. A single order has nothing to group and
   nothing to regenerate on demand, so there is no dialog. The button is always visible but greys out when

@@ -1,6 +1,6 @@
 import OrdersListPage from "@/components/orders/OrdersListPage";
 import type {OrdersListExtraColumn} from "@/components/orders/OrdersListPage";
-import DownloadLabelsButton from "@/components/orders/marketplace/DownloadLabelsButton";
+import {useDownloadLabelsAction} from "@/components/orders/marketplace/useDownloadLabelsAction";
 import MarketplaceOrderStatusChip from "@/components/orders/marketplace/MarketplaceOrderStatusChip";
 import SyncOrdersButton from "@/components/orders/marketplace/SyncOrdersButton";
 import {useHasPermission} from "@/hooks/usePermission";
@@ -27,20 +27,24 @@ const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
 
 function OrdersFbsPage() {
   const canSync = useHasPermission("integrations.sync");
+  const downloadLabels = useDownloadLabelsAction();
 
   return (
-    <OrdersListPage
-      type="fbs"
-      title="Заказы FBS"
-      breadcrumbName="FBS"
-      breadcrumbLink="/operations/orders/fbs"
-      headerActions={canSync ? <SyncOrdersButton /> : null}
-      bulkActions={(orders) => <DownloadLabelsButton orderIds={orders.map((o) => o.id)} />}
-      marketplaceFilters
-      extraColumns={EXTRA_COLUMNS}
-      showNotes={false}
-      defaultPageSize={200}
-    />
+    <>
+      <OrdersListPage
+        type="fbs"
+        title="Заказы FBS"
+        breadcrumbName="FBS"
+        breadcrumbLink="/operations/orders/fbs"
+        headerActions={canSync ? <SyncOrdersButton /> : null}
+        bulkActions={(orders) => [downloadLabels.getAction(orders.map((o) => o.id))]}
+        marketplaceFilters
+        extraColumns={EXTRA_COLUMNS}
+        showNotes={false}
+        defaultPageSize={200}
+      />
+      {downloadLabels.dialogs}
+    </>
   );
 }
 
