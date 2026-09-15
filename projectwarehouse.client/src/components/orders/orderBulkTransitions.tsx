@@ -39,7 +39,7 @@ export function getOrderBulkTransitions(type: OrderType): OrderBulkTransition[] 
       label: "На сборку",
       failedVerb: "отправить на сборку",
       icon: <PlayArrowIcon />,
-      primary: true,
+      primary: false,
     },
     {
       key: "ship",
