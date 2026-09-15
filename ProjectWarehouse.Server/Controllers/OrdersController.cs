@@ -61,9 +61,9 @@ public class OrdersController(
     private IQueryable<Order> DetailsQuery() => WithDetailsIncludes(BaseQuery());
 
     /// <summary>Adds the full detail Include chain to an already-filtered order query — shared by
-    /// <see cref="DetailsQuery"/> and the batch endpoints, which need the same shape from a source other than
-    /// <see cref="BaseQuery"/>: <see cref="BatchTransitionStatus"/> from an access-rule-filtered
-    /// <c>Rule.QueryAsync</c>, <see cref="BatchSelfAssign"/> from a manually warehouse-narrowed <c>db.Orders</c>.</summary>
+    /// <see cref="DetailsQuery"/> and <see cref="LoadBatchDetailsAsync"/>, whose callers need the same shape from a
+    /// source other than <see cref="BaseQuery"/>: <see cref="BatchTransitionStatus"/> from an access-rule-filtered
+    /// <c>Rule.QueryAsync</c>, <see cref="BatchSelfAssign"/> from plain <c>db.Orders</c>.</summary>
     private IQueryable<Order> WithDetailsIncludes(IQueryable<Order> query) =>
         query
             // duplicated Include calls on an already-BaseQuery-shaped query are harmless no-ops
@@ -71,6 +71,7 @@ public class OrdersController(
             .Include(o => o.CreatedBy)
             .Include(o => o.MarketplaceOrder).ThenInclude(m => m!.MarketplaceAccount)
             .Include(o => o.Tags)
+            .Include(o => o.Images).ThenInclude(i => i.DataFile)
             .Include(o => o.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(o => o.AssemblyTasks).ThenInclude(t => t.AssignedTo)
             .Include(o => o.AssemblyTasks).ThenInclude(t => t.Boxes).ThenInclude(tb => tb.OrderBox)
@@ -153,10 +154,42 @@ public class OrdersController(
     private async Task<Order?> LoadOrderDetailsAsync(Guid id, CancellationToken ct) =>
         await DetailsQuery().FirstOrDefaultAsync(o => o.Id == id, ct);
 
-    private async Task<OrderDetailsDto> MapDetailsAsync(Order order, CancellationToken ct)
+    private async Task<OrderDetailsDto> MapDetailsAsync(Order order, CancellationToken ct) =>
+        MapDetails(order, await LoadWarehouseNodesAsync([order.WarehouseId], ct));
+
+    private OrderDetailsDto MapDetails(Order order, Dictionary<Guid, StoragePlaceNode> nodeById) =>
+        mapper.Map<OrderDetailsDto>(order, opts => opts.Items["nodeById"] = nodeById);
+
+    /// <summary>Loads the whole batch with the detail Include chain in one split query and the storage nodes
+    /// of every warehouse it touches in one more, instead of a round of each per order.</summary>
+    private async Task<(Dictionary<Guid, Order> orders, Dictionary<Guid, StoragePlaceNode> nodeById)>
+        LoadBatchDetailsAsync(IQueryable<Order> source, IReadOnlyCollection<Guid> orderIds, CancellationToken ct)
     {
-        var nodeById = await LoadWarehouseNodesAsync([order.WarehouseId], ct);
-        return mapper.Map<OrderDetailsDto>(order, opts => opts.Items["nodeById"] = nodeById);
+        var loaded   = await LoadBatchOrdersAsync(source, orderIds, ct);
+        var nodeById = await LoadWarehouseNodesAsync(loaded.Values.Select(o => o.WarehouseId).Distinct().ToList(), ct);
+        return (loaded, nodeById);
+    }
+
+    private async Task<Dictionary<Guid, Order>> LoadBatchOrdersAsync(
+        IQueryable<Order> source, IReadOnlyCollection<Guid> orderIds, CancellationToken ct) =>
+        await WithDetailsIncludes(source)
+            .Where(o => orderIds.Contains(o.Id))
+            .ToDictionaryAsync(o => o.Id, ct);
+
+    /// <summary>Reloads every changed order of a batch in one query and writes their changelog entries, which
+    /// also publishes realtime for each.</summary>
+    private async Task SaveBatchChangelogsAsync(
+        IReadOnlyList<(OrderDetailsDto before, string action)> changes,
+        Dictionary<Guid, StoragePlaceNode> nodeById, CancellationToken ct)
+    {
+        if (changes.Count == 0)
+            return;
+
+        var ids  = changes.Select(c => c.before.Id).ToList();
+        var full = await DetailsQuery().Where(o => ids.Contains(o.Id)).ToDictionaryAsync(o => o.Id, ct);
+
+        foreach (var (before, action) in changes)
+            await changeLog.CompareAndSaveToChangelog(before, MapDetails(full[before.Id], nodeById), action);
     }
 
     /// <summary>Picks the <see cref="OrderActions"/> constant that best describes a status transition, for the
@@ -866,8 +899,12 @@ public class OrdersController(
         if (userId is null)
             return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
 
+        var orderIds           = request.OrderIds.Distinct().ToList();
+        var (loaded, nodeById) = await LoadBatchDetailsAsync(db.Orders, orderIds, ct);
+
         var assignedOrderIds = new List<Guid>();
         var failedItems      = new List<BatchSelfAssignFailedItem>();
+        var changes          = new List<(OrderDetailsDto before, string action)>();
 
         void Fail(Guid orderId, ErrorCode code, string message, int? number = null) =>
             failedItems.Add(new BatchSelfAssignFailedItem
@@ -877,10 +914,9 @@ public class OrdersController(
                 Error       = AppProblems.MakeError(code, message),
             });
 
-        foreach (var orderId in request.OrderIds.Distinct())
+        foreach (var orderId in orderIds)
         {
-            var order = await WithDetailsIncludes(db.Orders).FirstOrDefaultAsync(o => o.Id == orderId, ct);
-            if (order is null)
+            if (!loaded.TryGetValue(orderId, out var order))
             {
                 Fail(orderId, ErrorCode.OrderNotFound, "Order not found.");
                 continue;
@@ -893,16 +929,13 @@ public class OrdersController(
                 continue;
             }
 
-            var beforeDto = await MapDetailsAsync(order, ct);
+            var beforeDto = MapDetails(order, nodeById);
 
             try
             {
                 await orders.SelfAssignOrderAsync(order, userId.Value, ct);
                 assignedOrderIds.Add(orderId);
-
-                var full = await LoadOrderDetailsAsync(orderId, ct);
-                await changeLog.CompareAndSaveToChangelog(
-                    beforeDto, await MapDetailsAsync(full!, ct), OrderActions.SelfAssigned);
+                changes.Add((beforeDto, OrderActions.SelfAssigned));
             }
             catch (ValidationException ex)
             {
@@ -910,7 +943,7 @@ public class OrdersController(
             }
         }
 
-        // realtime is published per order by the changelog write above, not looped here.
+        await SaveBatchChangelogsAsync(changes, nodeById, ct);
 
         return Ok(new BatchSelfAssignResponse
         {
@@ -950,10 +983,13 @@ public class OrdersController(
         // ValidateOrderTransition reads order.AssemblyTasks (and its Fulfillments) to block Assembly → Confirmed
         // with a Done task and any → Canceled with existing fulfillments — the full detail include chain covers
         // that, and also gives the changelog snapshot below a complete OrderDetailsDto to diff against.
-        var accessible = WithDetailsIncludes(await Rule.QueryAsync(User, AccessLevel.Edit, ct));
+        var orderIds           = request.OrderIds.Distinct().ToList();
+        var accessible         = await Rule.QueryAsync(User, AccessLevel.Edit, ct);
+        var (loaded, nodeById) = await LoadBatchDetailsAsync(accessible, orderIds, ct);
 
         var transitionedOrderIds = new List<Guid>();
         var failedItems          = new List<BatchTransitionStatusFailedItem>();
+        var changes              = new List<(OrderDetailsDto before, string action)>();
 
         void Fail(Guid orderId, ErrorCode code, string message, int? number = null) =>
             failedItems.Add(new BatchTransitionStatusFailedItem
@@ -963,39 +999,49 @@ public class OrdersController(
                 Error       = AppProblems.MakeError(code, message),
             });
 
-        foreach (var orderId in request.OrderIds.Distinct())
+        // Only Assembly → Confirmed fails from inside a transaction: the rollback leaves its task deletes
+        // pending and its inner saves accepted in the tracker, and the next order's save would flush them.
+        async Task ResetTrackerAfterRollbackAsync(OrderStatus fromStatus, int failedIndex)
         {
-            var order = await accessible.FirstOrDefaultAsync(o => o.Id == orderId, ct);
-            if (order is null)
+            if (fromStatus != OrderStatus.Assembly || request.TargetStatus != OrderStatus.Confirmed)
+                return;
+
+            db.ChangeTracker.Clear();
+            loaded = await LoadBatchOrdersAsync(accessible, orderIds.Skip(failedIndex + 1).ToList(), ct);
+        }
+
+        for (var i = 0; i < orderIds.Count; i++)
+        {
+            var orderId = orderIds[i];
+            if (!loaded.TryGetValue(orderId, out var order))
             {
                 Fail(orderId, ErrorCode.OrderNotFound, "Order not found.");
                 continue;
             }
 
             var fromStatus = order.Status;
-            var beforeDto  = await MapDetailsAsync(order, ct);
+            var beforeDto  = MapDetails(order, nodeById);
 
             try
             {
                 await orders.TransitionOrderStatusAsync(order, request.TargetStatus, ct);
                 transitionedOrderIds.Add(orderId);
-
-                var full = await LoadOrderDetailsAsync(orderId, ct);
-                await changeLog.CompareAndSaveToChangelog(
-                    beforeDto, await MapDetailsAsync(full!, ct), ActionForTransition(fromStatus, request.TargetStatus));
+                changes.Add((beforeDto, ActionForTransition(fromStatus, request.TargetStatus)));
             }
             catch (ValidationException ex)
             {
                 Fail(orderId, ex.ErrorCode, ex.Message, order.Number);
+                await ResetTrackerAfterRollbackAsync(fromStatus, i);
             }
             catch (InventoryWriteConflictException)
             {
                 Fail(orderId, ErrorCode.InventoryWriteConflict,
                     "Stock for this item was changed concurrently; nothing was written.", order.Number);
+                await ResetTrackerAfterRollbackAsync(fromStatus, i);
             }
         }
 
-        // realtime is published per order by the changelog write above, not looped here.
+        await SaveBatchChangelogsAsync(changes, nodeById, ct);
 
         return Ok(new BatchTransitionStatusResponse
         {
