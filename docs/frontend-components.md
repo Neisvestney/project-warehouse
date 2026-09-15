@@ -771,10 +771,14 @@ internal `type === "fbs"` branch: `headerActions?`, `bulkActions?: (selectedOrde
 `extraColumns?: {key, label, render}[]`, `marketplaceFilters?` and `showNotes?`. That keeps marketplace imports —
 and the `integrations.sync` permission — out of the pages that have nothing to do with marketplaces.
 
-`bulkActions` receives **every** selected order, not just the confirmed ones self-assign cares about, and the
-selection toolbar appears whenever something is selected and either action set applies. The selection itself is
+`bulkActions` receives **every** selected order, not just the subset a built-in action cares about. Built-in
+status transitions come from `getOrderBulkTransitions(type)` in `orderBulkTransitions.tsx`: each entry names its
+source statuses, target, label and whether it is a toolbar button (`primary`), goes into the «Ещё» menu, or asks
+for confirmation first. A new bulk transition is one more entry there — the page filters the selection by `from`
+and sends it through `batch-transition-status`. The selection toolbar appears whenever something is selected and
+any action applies. The selection itself is
 held by [`useSelectedItems`](./frontend-state.md#useselecteditemsgetid-freshitems) as full `OrderSummaryDto` rows, so it
-survives paging and filter changes: the toolbar count, the confirmed subset for self-assign and `bulkActions`
+survives paging and filter changes: the toolbar count, the per-action subsets and `bulkActions`
 all read from the accumulated selection rather than from the visible page. The hook is handed the fetched page,
 so a row selected long ago is re-checked against its current status instead of the snapshot taken when the
 checkbox was ticked. The bar itself is [`BulkBar`](#bulkbar). Adding an

@@ -5,6 +5,9 @@ import {
   Checkbox,
   CircularProgress,
   IconButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
   MenuItem,
   Select,
   Stack,
@@ -21,7 +24,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
-import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import {useQuery, useQueryClient} from "@tanstack/react-query";
 import {Link as RouterLink} from "react-router";
 import {
@@ -43,6 +46,7 @@ import SearchInput from "@/components/SearchInput";
 import FiltersBar from "@/components/FiltersBar";
 import DataTableContainer from "@/components/DataTableContainer";
 import BulkBar from "@/components/BulkBar";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
 import LinkTableRow from "@/components/LinkTableRow";
@@ -59,6 +63,8 @@ import {
   ALL_MARKETPLACE_TYPES,
 } from "./marketplace/marketplaceOrderUtils";
 import {ORDER_STATUS_LABELS, formatOrderNumber} from "./orderUtils";
+import {getOrderBulkTransitions, type OrderBulkTransition} from "./orderBulkTransitions";
+import {NOUNS, pluralCount} from "@/utils/pluralUtils";
 import type {
   BatchSelfAssignFailedItem,
   BatchTransitionStatusFailedItem,
@@ -146,8 +152,14 @@ function OrdersListPage({
   const [failedItems, setFailedItems] = useState<BatchSelfAssignFailedItem[]>([]);
   const [selfAssignError, setSelfAssignError] = useState<string | null>(null);
 
-  const [shipFailedItems, setShipFailedItems] = useState<BatchTransitionStatusFailedItem[]>([]);
-  const [shipError, setShipError] = useState<string | null>(null);
+  const [transitionFailed, setTransitionFailed] = useState<{
+    verb: string;
+    items: BatchTransitionStatusFailedItem[];
+  } | null>(null);
+  const [transitionError, setTransitionError] = useState<string | null>(null);
+  const [activeTransition, setActiveTransition] = useState<OrderBulkTransition | null>(null);
+  const [confirmTransition, setConfirmTransition] = useState<OrderBulkTransition | null>(null);
+  const [moreAnchor, setMoreAnchor] = useState<HTMLElement | null>(null);
 
   const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
     "search",
@@ -281,36 +293,44 @@ function OrdersListPage({
     (variables) => ({"order.count": variables.body?.orderIds.length ?? 0}),
   );
 
-  const shipMutation = useOperationMutation(
-    "order.ship",
+  const transitionMutation = useOperationMutation(
+    "order.transition_status",
     {
       ...ordersBatchTransitionStatusMutation(),
       meta: {suppressGlobalError: true},
       // Awaited so isPending covers the refetch and the button cannot re-send stale ids
       onSuccess: async (data) => {
         removeIds(data.transitionedOrderIds);
-        setShipFailedItems(data.failedItems);
         await queryClient.invalidateQueries({queryKey: ordersGetAllQueryKey()});
       },
-      onError: (error) => setShipError(extractErrorMessage(error)),
+      onError: (error) => setTransitionError(extractErrorMessage(error)),
     },
-    (variables) => ({"order.count": variables.body?.orderIds.length ?? 0}),
+    (variables) => ({
+      "order.count": variables.body?.orderIds.length ?? 0,
+      "order.target_status": variables.body?.targetStatus ?? "",
+    }),
   );
 
   const selectedConfirmedIds = selectedItems
     .filter((o) => o.status === "confirmed")
     .map((o) => o.id);
 
-  const selectedAssembledIds = selectedItems
-    .filter((o) => o.status === "assembled")
-    .map((o) => o.id);
+  const idsFor = (transition: OrderBulkTransition) =>
+    selectedItems.filter((o) => transition.from.includes(o.status)).map((o) => o.id);
+
+  // canCreate is really "can edit orders" (orders.edit / orders.edit_assigned) — status transitions need the same permission
+  const availableTransitions = canCreate
+    ? getOrderBulkTransitions(type)
+        .map((transition) => ({transition, count: idsFor(transition).length}))
+        .filter(({count}) => count > 0)
+    : [];
+  const primaryTransitions = availableTransitions.filter(({transition}) => transition.primary);
+  const menuTransitions = availableTransitions.filter(({transition}) => !transition.primary);
 
   const showSelfAssign = canSelfAssign && selectedConfirmedIds.length > 0;
-  // canCreate is really "can edit orders" (orders.edit / orders.edit_assigned) — shipping needs the same permission
-  const showShip = canCreate && selectedAssembledIds.length > 0;
-  // the bulkActions term keeps the bar hidden on Direct and FBO, which pass no extra actions
   const showBulkBar =
-    selectedItems.length > 0 && (showSelfAssign || showShip || bulkActions != null);
+    selectedItems.length > 0 &&
+    (showSelfAssign || availableTransitions.length > 0 || bulkActions != null);
   const columnCount =
     (showNotes ? 9 : 8) + (extraColumns?.length ?? 0) + (statusDateColumn ? 1 : 0);
 
@@ -320,10 +340,33 @@ function OrdersListPage({
     selfAssignMutation.mutate({body: {orderIds: selectedConfirmedIds}});
   }
 
-  function handleShipSelected() {
-    setShipFailedItems([]);
-    setShipError(null);
-    shipMutation.mutate({body: {orderIds: selectedAssembledIds, targetStatus: "shipped"}});
+  function runTransition(transition: OrderBulkTransition) {
+    const orderIds = idsFor(transition);
+    if (orderIds.length === 0) return;
+    setTransitionFailed(null);
+    setTransitionError(null);
+    setActiveTransition(transition);
+    transitionMutation.mutate(
+      {body: {orderIds, targetStatus: transition.to}},
+      {
+        onSuccess: (data) =>
+          setTransitionFailed(
+            data.failedItems.length > 0
+              ? {verb: transition.failedVerb, items: data.failedItems}
+              : null,
+          ),
+        onSettled: () => {
+          setConfirmTransition(null);
+          setActiveTransition(null);
+        },
+      },
+    );
+  }
+
+  function handleTransitionClick(transition: OrderBulkTransition) {
+    setMoreAnchor(null);
+    if (transition.confirm) setConfirmTransition(transition);
+    else runTransition(transition);
   }
 
   return (
@@ -430,26 +473,87 @@ function OrdersListPage({
               Взять на себя ({selectedConfirmedIds.length})
             </Button>
           )}
-          {showShip && (
+          {primaryTransitions.map(({transition, count}) => (
             <Button
+              key={transition.key}
               size="small"
               variant="contained"
               color="inherit"
               startIcon={
-                shipMutation.isPending ? (
+                transitionMutation.isPending && activeTransition?.key === transition.key ? (
                   <CircularProgress size={14} color="inherit" />
                 ) : (
-                  <LocalShippingIcon />
+                  transition.icon
                 )
               }
-              disabled={shipMutation.isPending}
-              onClick={handleShipSelected}
+              disabled={transitionMutation.isPending}
+              onClick={() => handleTransitionClick(transition)}
               sx={{color: "primary.main"}}
             >
-              Отгрузить ({selectedAssembledIds.length})
+              {transition.label} ({count})
             </Button>
+          ))}
+          {menuTransitions.length > 0 && (
+            <>
+              <Button
+                size="small"
+                variant="contained"
+                color="inherit"
+                endIcon={
+                  transitionMutation.isPending && activeTransition && !activeTransition.primary ? (
+                    <CircularProgress size={14} color="inherit" />
+                  ) : (
+                    <ArrowDropDownIcon />
+                  )
+                }
+                disabled={transitionMutation.isPending}
+                onClick={(e) => setMoreAnchor(e.currentTarget)}
+                sx={{color: "primary.main"}}
+              >
+                Ещё
+              </Button>
+              <Menu
+                anchorEl={moreAnchor}
+                open={moreAnchor != null}
+                onClose={() => setMoreAnchor(null)}
+              >
+                {menuTransitions.map(({transition, count}) => (
+                  <MenuItem
+                    key={transition.key}
+                    onClick={() => handleTransitionClick(transition)}
+                    sx={
+                      transition.danger
+                        ? {color: "error.main", "& .MuiListItemIcon-root": {color: "inherit"}}
+                        : undefined
+                    }
+                  >
+                    <ListItemIcon>{transition.icon}</ListItemIcon>
+                    <ListItemText>
+                      {transition.label} ({count})
+                    </ListItemText>
+                  </MenuItem>
+                ))}
+              </Menu>
+            </>
           )}
         </BulkBar>
+      )}
+
+      {confirmTransition?.confirm && (
+        <ConfirmDialog
+          open
+          onClose={() => setConfirmTransition(null)}
+          title={confirmTransition.confirm.title}
+          onConfirm={() => runTransition(confirmTransition)}
+          isPending={transitionMutation.isPending}
+          confirmText={confirmTransition.confirm.confirmText}
+          confirmColor={confirmTransition.danger ? "error" : "primary"}
+        >
+          <Typography variant="body2" sx={{mb: 1}}>
+            Будет затронуто: {pluralCount(idsFor(confirmTransition).length, NOUNS.order)}.
+          </Typography>
+          <Typography variant="body2">{confirmTransition.confirm.text}</Typography>
+        </ConfirmDialog>
       )}
 
       {failedItems.length > 0 && (
@@ -472,12 +576,12 @@ function OrdersListPage({
         </Alert>
       )}
 
-      {shipFailedItems.length > 0 && (
-        <Alert severity="error" onClose={() => setShipFailedItems([])}>
+      {transitionFailed && (
+        <Alert severity="error" onClose={() => setTransitionFailed(null)}>
           <Typography variant="body2" sx={{mb: 0.5}}>
-            Часть заказов не удалось отгрузить:
+            Часть заказов не удалось {transitionFailed.verb}:
           </Typography>
-          {shipFailedItems.map((f) => (
+          {transitionFailed.items.map((f) => (
             <Typography key={f.orderId} variant="caption" sx={{display: "block"}}>
               • {f.orderNumber != null ? formatOrderNumber(f.orderNumber) : "Заказ"}:{" "}
               {resolveErrorMessage(f.error)}
@@ -486,9 +590,9 @@ function OrdersListPage({
         </Alert>
       )}
 
-      {shipError && (
-        <Alert severity="error" onClose={() => setShipError(null)}>
-          {shipError}
+      {transitionError && (
+        <Alert severity="error" onClose={() => setTransitionError(null)}>
+          {transitionError}
         </Alert>
       )}
 
