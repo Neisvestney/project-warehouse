@@ -62,6 +62,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                 .Include(t => t.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem)
                 .Include(t => t.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.Fulfillments)
                     .ThenInclude(f => f.BundleComponents)
+                .AsSingleQuery()
                 .ToListAsync(ct);
 
             // The restored stock, the deleted tasks and the new status are one fact: a failure partway
@@ -316,6 +317,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
             .Include(t => t.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem)
             .Include(t => t.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.Fulfillments)
                 .ThenInclude(f => f.BundleComponents)
+            .AsSingleQuery()
             .FirstAsync(t => t.Id == task.Id, ct);
 
         await db.Database.ExecuteInTransactionAsync("orders.assembly_task.delete", async () =>
@@ -388,6 +390,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
             .Where(c => c.AssemblyTaskBox.AssemblyTaskId == taskId)
             .Include(c => c.Fulfillments)
                 .ThenInclude(f => f.BundleComponents)
+            .AsSingleQuery()
             .ToListAsync(ct);
 
         return components.Count > 0
@@ -402,6 +405,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
             .Where(c => c.AssemblyTaskBox.AssemblyTask.OrderId == orderId)
             .Include(c => c.Fulfillments)
                 .ThenInclude(f => f.BundleComponents)
+            .AsSingleQuery()
             .ToListAsync(ct);
 
         return components.Count > 0

@@ -48,6 +48,7 @@ public class WarehousesController(
 
         var paginated = await query
             .OrderBy(w => w.Name)
+            .ThenBy(w => w.Id)
             .ProjectTo<WarehouseSummaryDto>(mapper.ConfigurationProvider)
             .ToPaginatedAsync(page, pageSize, ct);
 
@@ -67,6 +68,7 @@ public class WarehousesController(
 
         var warehouse = await db.Warehouses
             .ProjectTo<WarehouseDto>(mapper.ConfigurationProvider)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(w => w.Id == id, ct);
 
         if (warehouse is null)
@@ -221,6 +223,7 @@ public class WarehousesController(
         var warehouse = await db.Warehouses
             .Include(w => w.StoragePlaces)
             .Include(w => w.LayoutObjects)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(w => w.Id == id, ct);
 
         if (warehouse is null)
@@ -228,6 +231,7 @@ public class WarehousesController(
 
         var beforeDto = await db.Warehouses
             .ProjectTo<WarehouseDto>(mapper.ConfigurationProvider)
+            .AsSplitQuery()
             .FirstAsync(w => w.Id == id, ct);
 
         var incomingWithId = request.StoragePlaces
@@ -335,6 +339,7 @@ public class WarehousesController(
 
         var warehouseDto = await db.Warehouses
             .ProjectTo<WarehouseDto>(mapper.ConfigurationProvider)
+            .AsSplitQuery()
             .FirstAsync(w => w.Id == id, ct);
 
         await changeLog.CompareAndSaveToChangelog(beforeDto, warehouseDto);
@@ -358,6 +363,7 @@ public class WarehousesController(
 
         var warehouseBeforeDto = await db.Warehouses
             .ProjectTo<WarehouseDto>(mapper.ConfigurationProvider)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(w => w.Id == id, ct);
 
         if (warehouseBeforeDto is null)

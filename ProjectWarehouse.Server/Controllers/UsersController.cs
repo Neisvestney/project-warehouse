@@ -32,6 +32,7 @@ public class UsersController(
             .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
             .Include(u => u.UserPermissions)
             .Include(u => u.AssignedWarehouses)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(u => u.Id == id, ct);
 
     /// <summary>List all users (paginated).</summary>
@@ -68,6 +69,7 @@ public class UsersController(
 
         var paginated = await users
             .ProjectTo<UserDetailDto>(mapper.ConfigurationProvider)
+            .AsSplitQuery()
             .ToPaginatedAsync(page, pageSize, ct);
 
         return Ok(paginated);
@@ -96,6 +98,7 @@ public class UsersController(
         var dto = await db.Users
             .Where(u => u.Id == id)
             .ProjectTo<UserDetailDto>(mapper.ConfigurationProvider)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(ct);
         if (dto is null)
             return NotFound(ErrorCode.UserNotFound, "User not found.");
@@ -144,6 +147,7 @@ public class UsersController(
         var dto = await db.Users
             .Where(u => u.Id == user.Id)
             .ProjectTo<UserDetailDto>(mapper.ConfigurationProvider)
+            .AsSplitQuery()
             .FirstAsync();
 
         await changeLogService.CompareAndSaveToChangelog(null, dto);
@@ -286,6 +290,7 @@ public class UsersController(
         var dto = await db.Users
             .Where(u => u.Id == id)
             .ProjectTo<UserDetailDto>(mapper.ConfigurationProvider)
+            .AsSplitQuery()
             .FirstAsync(ct);
 
         await changeLogService.CompareAndSaveToChangelog(beforeDto, dto);
@@ -313,6 +318,7 @@ public class UsersController(
         var beforeDto = await db.Users
             .Where(u => u.Id == id)
             .ProjectTo<UserDetailDto>(mapper.ConfigurationProvider)
+            .AsSplitQuery()
             .FirstAsync();
 
         var result = await userManager.DeleteAsync(user);
