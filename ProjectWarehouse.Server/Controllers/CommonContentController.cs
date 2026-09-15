@@ -17,7 +17,7 @@ public class CommonContentController(IMapper mapper, IUserQueryFilterService que
     /// <remarks>
     /// Requires authentication only; content is narrowed per entity type by what the caller may view, so a
     /// user without warehouse or receipt access simply gets fewer rows rather than a 403.
-    /// Returns up to 2 warehouses plus every visible receipt that is either <c>Processing</c> or a
+    /// Returns up to 2 warehouses (first by name) plus every visible receipt that is either <c>Processing</c> or a
     /// <c>Draft</c> the caller created.
     /// Returns 403 <c>permissionDenied</c> when the token carries no usable <c>sub</c> claim. No other error codes.
     /// </remarks>
@@ -32,7 +32,12 @@ public class CommonContentController(IMapper mapper, IUserQueryFilterService que
         var list = new List<AppEntity>();
 
         var warehousesQueryable = await queryFilter.GetWarehousesAsync(User, ct);
-        var warehouses = await warehousesQueryable.ProjectTo<AppEntity>(mapper.ConfigurationProvider).Take(2).ToListAsync(ct);
+        var warehouses = await warehousesQueryable
+            .OrderBy(w => w.Name)
+            .ThenBy(w => w.Id)
+            .ProjectTo<AppEntity>(mapper.ConfigurationProvider)
+            .Take(2)
+            .ToListAsync(ct);
         list.AddRange(warehouses);
 
         var receiptsQueryable = await queryFilter.GetReceiptsAsync(User, ct);
@@ -82,6 +87,8 @@ public class CommonContentController(IMapper mapper, IUserQueryFilterService que
         return queryable.ProjectTo<AppEntityWithSearchString>(mapper.ConfigurationProvider)
             .WhereMatchesSearch(x => x.SearchString, searchString)
             .Select(x => x.AppEntity)
+            .OrderBy(x => x.Name)
+            .ThenBy(x => x.Id)
             .Take(10)
             .ToListAsync(ct);
     }

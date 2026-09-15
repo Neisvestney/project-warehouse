@@ -319,14 +319,24 @@ if (problem is not null) return Problem(problem);
 **A file identifier must never be parked in `jsonb`, a string column, or an array without a FK** — the collector
 sees foreign keys and nothing else, and would delete such a file as an orphan.
 
-## Several `Include`d collections need `AsSplitQuery()`
+## A query loading more than one collection picks its splitting mode
 
-**Attaching images to an aggregate that already has several collections needs `AsSplitQuery()`.** EF's default
-single-query mode `JOIN`s every `Include`d collection together, so the row count is their *product*.
+**Every query that loads two or more collection navigations — through `Include` or through a projection such as
+`ProjectTo` — states `AsSplitQuery()` or `AsSingleQuery()` explicitly.** No global splitting behavior is
+configured, so EF logs `MultipleCollectionIncludeWarning` for each such query left unmarked.
+
+**Sibling collections take `AsSplitQuery()`.** EF's single-query mode `JOIN`s every loaded collection together,
+so for collections hanging off the same parent the row count is their *product*.
 `CatalogController.LoadItemWithDetailsAsync` pulls nine — tags, bundle components, both variation sides, images,
 marketplace cards and group children with their own tags and images — and a group of 20 children with 5 images
-each multiplies out into six figures of duplicated rows for one item. Split query (also used in
-`OrdersController`) issues one statement per collection instead.
+each multiplies out into six figures of duplicated rows for one item. Split query issues one statement per
+collection instead. The same applies to a DTO projection whose mapping reads several collections, as with
+`UserDetailDto` (roles, permissions, warehouses) and `WarehouseDto` (storage places, layout objects). A paginated
+split query needs a unique `OrderBy`, otherwise the per-collection statements can page over different rows.
+
+**A single chain of nested collections takes `AsSingleQuery()`.** `Fulfillments → BundleComponents` or
+`Boxes → Components → Fulfillments` yields one row per leaf, with no multiplication, so splitting would only add
+round trips — which matters in hot loops such as `OrderService.IsTaskFullyFulfilledAsync` during batch fulfillment.
 
 ---
 

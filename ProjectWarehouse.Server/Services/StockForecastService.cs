@@ -595,6 +595,7 @@ public class StockForecastService(
     private async Task<WarehouseDto> WarehouseDtoAsync(Guid warehouseId, CancellationToken ct) =>
         await db.Warehouses
             .ProjectTo<WarehouseDto>(mapper.ConfigurationProvider)
+            .AsSplitQuery()
             .FirstAsync(w => w.Id == warehouseId, ct);
 
     private static StockWarningOverrideDto OverrideSnapshot(
