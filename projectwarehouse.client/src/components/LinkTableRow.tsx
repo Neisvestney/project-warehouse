@@ -15,7 +15,7 @@ function LinkTableRow({to, ariaLabel, children, sx, ...props}: LinkTableRowProps
       component={RouterLink}
       to={to}
       aria-label={ariaLabel}
-      sx={{position: "absolute", inset: 0, zIndex: 0}}
+      sx={{position: "absolute", inset: 0, zIndex: 0, "&:focus-visible": {outlineOffset: -2}}}
     />
   );
 
@@ -33,8 +33,16 @@ function LinkTableRow({to, ariaLabel, children, sx, ...props}: LinkTableRowProps
     );
   }
 
+  // Safari ignores position: relative on <tr>; transform makes the row the containing block, clip-path trims the overflow
   return (
-    <TableRow hover sx={[{position: "relative"}, ...(Array.isArray(sx) ? sx : [sx])]} {...props}>
+    <TableRow
+      hover
+      sx={[
+        {position: "relative", transform: "translate(0)", clipPath: "inset(0)"},
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ]}
+      {...props}
+    >
       {cells}
     </TableRow>
   );

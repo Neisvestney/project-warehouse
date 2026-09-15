@@ -134,6 +134,11 @@ A clickable list row that navigates to `to`. It is a `TableRow` with `hover`, `p
 real anchor: middle-click and Ctrl+click open a new tab, the context menu offers «Копировать ссылку», and
 screen readers announce a link.
 
+Safari does not treat a `position: relative` row as a containing block, so the row also carries
+`transform: translate(0)` (makes it one) and `clip-path: inset(0)` (clips the overlay to the row). Anything inside
+the row that overflows its box is therefore clipped, which is why the overlay's focus ring uses a negative
+`outline-offset`.
+
 The overlay is cloned **into the first cell**, not rendered as a direct child of the row: a bare `<a>` under
 `<tr>` gets wrapped in an anonymous table cell and shifts every column one place. The first cell stays
 unpositioned so the overlay resolves against the row.
