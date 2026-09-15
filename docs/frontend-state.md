@@ -230,6 +230,13 @@ on it, `allPageSelected` / `somePageSelected` drive the header checkbox and its 
 selections untouched), `removeIds` drops the items a bulk action just consumed, and `clear` empties the
 selection.
 
+`toggle(item, extendRange?)` flips one row and remembers it as the range anchor. With `extendRange` (Shift+click,
+as reported by [`SelectionTableCell`](./frontend-components.md#selectiontablecell)) every row of the current page
+between the anchor and `item`, both inclusive, takes the state `item` switches to — ticking selects the whole
+range, unticking clears it. When there is no anchor or it is not on the current page, the call is a plain single
+toggle. `toggleAll`, `removeIds` and `clear` drop the anchor, so the Shift+click after a bulk change starts a
+new range.
+
 The second argument is the currently fetched page — it is also what the page-scoped members above operate on.
 Whenever it arrives with a new identity the hook writes the matching rows back into the stored selection, so a
 row ticked before a refetch carries its current values rather than the snapshot taken back then, and keeps them

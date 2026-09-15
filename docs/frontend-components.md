@@ -141,9 +141,10 @@ unpositioned so the overlay resolves against the row.
 `ariaLabel` is required — the overlay carries no visible text, so without it the row is an anonymous link.
 Pass the row's identity (`Заказ 000123`, `Склад Основной`).
 
-The overlay sits above the static cells, so any interactive cell content — a selection checkbox, an action
-button — must be lifted out of its way with `position: relative; zIndex: 1` **on the element itself**, not on
-its `TableCell` (a positioned cell would become the overlay's containing block and shrink it to that cell):
+The overlay sits above the static cells, so any interactive cell content — an action button, a tooltip — must
+be lifted out of its way with `position: relative; zIndex: 1` **on the element itself**, not on its `TableCell`
+(a positioned cell would become the overlay's containing block and shrink it to that cell). A selection
+checkbox goes through [`SelectionTableCell`](#selectiontablecell), which already does this:
 
 ```tsx
 <LinkTableRow
@@ -151,14 +152,10 @@ its `TableCell` (a positioned cell would become the overlay's containing block a
   ariaLabel={`Заказ ${formatOrderNumber(order.number)}`}
   selected={isSelected(order.id)}
 >
-  <TableCell padding="checkbox">
-    <Checkbox
-      size="small"
-      checked={isSelected(order.id)}
-      onClick={() => toggle(order)}
-      sx={{ position: "relative", zIndex: 1 }}
-    />
-  </TableCell>
+  <SelectionTableCell
+    checked={isSelected(order.id)}
+    onCheck={(extendRange) => toggle(order, extendRange)}
+  />
   <TableCell>{formatOrderNumber(order.number)}</TableCell>
 </LinkTableRow>
 ```
@@ -167,6 +164,30 @@ Remaining props are forwarded to `TableRow`, and `sx` is merged with the compone
 for the `isFetching` dim (`opacity: isFetching && !isLoading ? 0.5 : 1`).
 
 Used by the orders, receipts, stocktakes, writeoffs, marketplace accounts, employees and warehouses lists.
+
+### `SelectionTableCell`
+
+The checkbox column of a selectable table. The whole cell is the hit area, not just the checkbox glyph: its
+content is a flex box stretched to the row height (`height: 1px` on the cell lets `height: 100%` resolve) and
+raised above the `LinkTableRow` overlay, so a click anywhere in the column toggles the row instead of opening
+it. The cell itself stays unpositioned and renders its `children` ahead of the hit area, which keeps it usable
+as the first cell that hosts the overlay.
+
+`onCheck(extendRange)` receives `true` for Shift+click; pass it on to
+[`useSelectedItems`](./frontend-state.md#useselecteditemsgetid-freshitems)' `toggle` to get range selection.
+Shift+mousedown is `preventDefault`-ed so the range click does not also select the page text.
+
+The header uses the same cell with `indeterminate` and the hook's `toggleAll`:
+
+```tsx
+<SelectionTableCell
+  checked={allPageSelected}
+  indeterminate={!allPageSelected && somePageSelected}
+  onCheck={() => toggleAll()}
+/>
+```
+
+Remaining props are forwarded to `TableCell`. Used by the orders list.
 
 ### `NotesTableCell`
 

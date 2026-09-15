@@ -8,6 +8,7 @@ import {useState} from "react";
 export function useSelectedItems<T>(getId: (item: T) => string, freshItems?: T[]) {
   const [selectedItems, setSelectedItems] = useState<T[]>([]);
   const [lastFresh, setLastFresh] = useState(freshItems);
+  const [anchorId, setAnchorId] = useState<string | null>(null);
 
   const pageItems = freshItems ?? [];
 
@@ -29,16 +30,33 @@ export function useSelectedItems<T>(getId: (item: T) => string, freshItems?: T[]
     return selectedIds.has(id);
   }
 
-  function toggle(item: T) {
+  /**
+   * With `extendRange` (Shift+click) every page row between the previously toggled one and `item`
+   * takes the state `item` switches to; falls back to a single toggle when that row is not on the page.
+   */
+  function toggle(item: T, extendRange = false) {
     const id = getId(item);
-    setSelectedItems((prev) =>
-      prev.some((i) => getId(i) === id) ? prev.filter((i) => getId(i) !== id) : [...prev, item],
-    );
+    const index = pageItems.findIndex((i) => getId(i) === id);
+    const anchorIndex =
+      extendRange && anchorId != null ? pageItems.findIndex((i) => getId(i) === anchorId) : -1;
+    const range =
+      index >= 0 && anchorIndex >= 0
+        ? pageItems.slice(Math.min(index, anchorIndex), Math.max(index, anchorIndex) + 1)
+        : [item];
+    const rangeIds = new Set(range.map(getId));
+
+    setAnchorId(id);
+    setSelectedItems((prev) => {
+      const select = !prev.some((i) => getId(i) === id);
+      const rest = prev.filter((i) => !rangeIds.has(getId(i)));
+      return select ? [...rest, ...range] : rest;
+    });
   }
 
   /** Selects the whole current page, or clears it when it is already fully selected. */
   function toggleAll() {
     const pageIds = new Set(pageItems.map(getId));
+    setAnchorId(null);
     setSelectedItems((prev) => {
       const rest = prev.filter((i) => !pageIds.has(getId(i)));
       const allSelected = pageItems.length > 0 && prev.length - rest.length === pageItems.length;
@@ -48,10 +66,12 @@ export function useSelectedItems<T>(getId: (item: T) => string, freshItems?: T[]
 
   function removeIds(ids: string[]) {
     const removed = new Set(ids);
+    setAnchorId(null);
     setSelectedItems((prev) => prev.filter((i) => !removed.has(getId(i))));
   }
 
   function clear() {
+    setAnchorId(null);
     setSelectedItems([]);
   }
 

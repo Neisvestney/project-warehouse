@@ -2,7 +2,6 @@ import {useState, type ReactNode} from "react";
 import {
   Alert,
   Button,
-  Checkbox,
   CircularProgress,
   IconButton,
   ListItemIcon,
@@ -45,6 +44,7 @@ import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import SearchInput from "@/components/SearchInput";
 import FiltersBar from "@/components/FiltersBar";
 import DataTableContainer from "@/components/DataTableContainer";
+import SelectionTableCell from "@/components/SelectionTableCell";
 import BulkBar from "@/components/BulkBar";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import TableRowLoader from "@/components/TableRowLoader";
@@ -608,14 +608,11 @@ function OrdersListPage({
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell padding="checkbox">
-                <Checkbox
-                  size="small"
-                  checked={allPageSelected}
-                  indeterminate={!allPageSelected && somePageSelected}
-                  onChange={toggleAll}
-                />
-              </TableCell>
+              <SelectionTableCell
+                checked={allPageSelected}
+                indeterminate={!allPageSelected && somePageSelected}
+                onCheck={() => toggleAll()}
+              />
               {sortColumns.map(({key, label}) => (
                 <TableCell key={key} sortDirection={sortBy === key ? sortOrder : false}>
                   <TableSortLabel
@@ -654,14 +651,10 @@ function OrdersListPage({
                     transition: "opacity 0.2s",
                   }}
                 >
-                  <TableCell padding="checkbox">
-                    <Checkbox
-                      size="small"
-                      checked={isSelected(order.id)}
-                      onClick={() => toggle(order)}
-                      sx={{position: "relative", zIndex: 1}}
-                    />
-                  </TableCell>
+                  <SelectionTableCell
+                    checked={isSelected(order.id)}
+                    onCheck={(extendRange) => toggle(order, extendRange)}
+                  />
                   <TableCell sx={{fontFamily: "monospace"}}>
                     {formatOrderNumber(order.number)}
                   </TableCell>
