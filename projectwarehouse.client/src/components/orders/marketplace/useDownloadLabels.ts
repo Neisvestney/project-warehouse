@@ -26,7 +26,7 @@ function readPostingNumbers(args: Record<string, unknown> | null | undefined): s
   return value.filter((item): item is string => typeof item === "string");
 }
 
-/** Shared by the bulk button on the list and the single-order button on the order page. */
+/** Shared by the bulk action on the list and the single-order button on the order page. */
 export function useDownloadLabels() {
   const queryClient = useQueryClient();
   const [isPending, setIsPending] = useState(false);

@@ -1,19 +1,68 @@
-import type {ReactNode} from "react";
-import {IconButton, Toolbar, Tooltip, Typography} from "@mui/material";
+import {useState, type ReactNode} from "react";
+import {
+  Button,
+  CircularProgress,
+  IconButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Toolbar,
+  Tooltip,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from "@mui/material";
 import ClearIcon from "@mui/icons-material/Clear";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import {pluralCount, type PluralForms} from "@/utils/pluralUtils";
+
+export interface BulkAction {
+  key: string;
+  label: string;
+  icon?: ReactNode;
+  /** Appended to the label as "(N)"; omit when the action applies to the whole selection. */
+  count?: number;
+  onClick: () => void;
+  /** Replaces the icon with a spinner. */
+  pending?: boolean;
+  disabled?: boolean;
+  /** Shown as a toolbar button; the rest go under «Ещё». Ignored on mobile, where everything is in the menu. */
+  primary?: boolean;
+  /** Red styling in the menu. */
+  danger?: boolean;
+}
 
 interface BulkBarProps {
   count: number;
   /** Forms of the "N выбран/выбрано" phrase, e.g. `{one: "заказ выбран", ...}`. */
   countLabel: PluralForms;
   onClear: () => void;
-  /** Bulk action buttons, aligned to the right edge. */
-  children?: ReactNode;
+  actions: BulkAction[];
 }
 
-/** Toolbar shown above a table while rows are selected. */
-function BulkBar({count, countLabel, onClear, children}: BulkBarProps) {
+const buttonSx = {color: "primary.main"};
+
+function actionText(action: BulkAction) {
+  return action.count != null ? `${action.label} (${action.count})` : action.label;
+}
+
+/** Toolbar shown above a table while rows are selected. Renders nothing when no action applies. */
+function BulkBar({count, countLabel, onClear, actions}: BulkBarProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+
+  if (actions.length === 0) return null;
+
+  const buttonActions = isMobile ? [] : actions.filter((a) => a.primary);
+  const menuActions = isMobile ? actions : actions.filter((a) => !a.primary);
+
+  function handleMenuClick(action: BulkAction) {
+    setMenuAnchor(null);
+    action.onClick();
+  }
+
   return (
     <Toolbar
       variant="dense"
@@ -30,7 +79,62 @@ function BulkBar({count, countLabel, onClear, children}: BulkBarProps) {
           <ClearIcon fontSize="small" />
         </IconButton>
       </Tooltip>
-      {children}
+      {buttonActions.map((action) => (
+        <Button
+          key={action.key}
+          size="small"
+          variant="contained"
+          color="inherit"
+          startIcon={action.pending ? <CircularProgress size={14} color="inherit" /> : action.icon}
+          disabled={action.disabled}
+          onClick={action.onClick}
+          sx={buttonSx}
+        >
+          {actionText(action)}
+        </Button>
+      ))}
+      {menuActions.length > 0 && (
+        <>
+          <Button
+            size="small"
+            variant="contained"
+            color="inherit"
+            endIcon={
+              menuActions.some((a) => a.pending) ? (
+                <CircularProgress size={14} color="inherit" />
+              ) : (
+                <ArrowDropDownIcon />
+              )
+            }
+            disabled={menuActions.every((a) => a.disabled)}
+            onClick={(e) => setMenuAnchor(e.currentTarget)}
+            sx={buttonSx}
+          >
+            {isMobile ? "Действия" : "Ещё"}
+          </Button>
+          <Menu anchorEl={menuAnchor} open={menuAnchor != null} onClose={() => setMenuAnchor(null)}>
+            {menuActions.map((action) => (
+              <MenuItem
+                key={action.key}
+                disabled={action.disabled}
+                onClick={() => handleMenuClick(action)}
+                sx={
+                  action.danger
+                    ? {color: "error.main", "& .MuiListItemIcon-root": {color: "inherit"}}
+                    : undefined
+                }
+              >
+                {(action.icon || action.pending) && (
+                  <ListItemIcon>
+                    {action.pending ? <CircularProgress size={18} color="inherit" /> : action.icon}
+                  </ListItemIcon>
+                )}
+                <ListItemText>{actionText(action)}</ListItemText>
+              </MenuItem>
+            ))}
+          </Menu>
+        </>
+      )}
     </Toolbar>
   );
 }

@@ -2,11 +2,7 @@ import {useState, type ReactNode} from "react";
 import {
   Alert,
   Button,
-  CircularProgress,
   IconButton,
-  ListItemIcon,
-  ListItemText,
-  Menu,
   MenuItem,
   Select,
   Stack,
@@ -23,7 +19,6 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
-import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import {useQuery, useQueryClient} from "@tanstack/react-query";
 import {Link as RouterLink} from "react-router";
 import {
@@ -45,7 +40,7 @@ import SearchInput from "@/components/SearchInput";
 import FiltersBar from "@/components/FiltersBar";
 import DataTableContainer from "@/components/DataTableContainer";
 import SelectionTableCell from "@/components/SelectionTableCell";
-import BulkBar from "@/components/BulkBar";
+import BulkBar, {type BulkAction} from "@/components/BulkBar";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
@@ -120,8 +115,8 @@ interface OrdersListPageProps {
   createLink?: string;
   /** Rendered in the page header. Keeps marketplace specifics out of this shared component. */
   headerActions?: ReactNode;
-  /** Extra buttons for the selection toolbar. Receives every selected order, not just confirmed ones. */
-  bulkActions?: (selectedOrders: OrderSummaryDto[]) => ReactNode;
+  /** Extra selection toolbar actions. Receives every selected order, not just confirmed ones. */
+  bulkActions?: (selectedOrders: OrderSummaryDto[]) => BulkAction[];
   extraColumns?: OrdersListExtraColumn[];
   /** Marketplace / account / posting-status filters. Meaningless on Direct orders. */
   marketplaceFilters?: boolean;
@@ -159,7 +154,6 @@ function OrdersListPage({
   const [transitionError, setTransitionError] = useState<string | null>(null);
   const [activeTransition, setActiveTransition] = useState<OrderBulkTransition | null>(null);
   const [confirmTransition, setConfirmTransition] = useState<OrderBulkTransition | null>(null);
-  const [moreAnchor, setMoreAnchor] = useState<HTMLElement | null>(null);
 
   const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
     "search",
@@ -324,13 +318,37 @@ function OrdersListPage({
         .map((transition) => ({transition, count: idsFor(transition).length}))
         .filter(({count}) => count > 0)
     : [];
-  const primaryTransitions = availableTransitions.filter(({transition}) => transition.primary);
-  const menuTransitions = availableTransitions.filter(({transition}) => !transition.primary);
-
-  const showSelfAssign = canSelfAssign && selectedConfirmedIds.length > 0;
-  const showBulkBar =
-    selectedItems.length > 0 &&
-    (showSelfAssign || availableTransitions.length > 0 || bulkActions != null);
+  const selectionActions: BulkAction[] =
+    selectedItems.length > 0
+      ? [
+          ...(bulkActions?.(selectedItems) ?? []),
+          ...(canSelfAssign && selectedConfirmedIds.length > 0
+            ? [
+                {
+                  key: "selfAssign",
+                  label: "Взять на себя",
+                  icon: <AssignmentIndIcon />,
+                  count: selectedConfirmedIds.length,
+                  primary: true,
+                  pending: selfAssignMutation.isPending,
+                  disabled: selfAssignMutation.isPending,
+                  onClick: handleSelfAssignSelected,
+                },
+              ]
+            : []),
+          ...availableTransitions.map(({transition, count}) => ({
+            key: transition.key,
+            label: transition.label,
+            icon: transition.icon,
+            count,
+            primary: transition.primary,
+            danger: transition.danger,
+            pending: transitionMutation.isPending && activeTransition?.key === transition.key,
+            disabled: transitionMutation.isPending,
+            onClick: () => handleTransitionClick(transition),
+          })),
+        ]
+      : [];
   const columnCount =
     (showNotes ? 9 : 8) + (extraColumns?.length ?? 0) + (statusDateColumn ? 1 : 0);
 
@@ -364,7 +382,6 @@ function OrdersListPage({
   }
 
   function handleTransitionClick(transition: OrderBulkTransition) {
-    setMoreAnchor(null);
     if (transition.confirm) setConfirmTransition(transition);
     else runTransition(transition);
   }
@@ -447,97 +464,12 @@ function OrdersListPage({
 
       {type == "fbo" && <Alert severity={"warning"}>Раздел "Поставки FBO" еще не реализован</Alert>}
 
-      {showBulkBar && (
-        <BulkBar
-          count={selectedItems.length}
-          countLabel={{one: "заказ выбран", few: "заказа выбрано", many: "заказов выбрано"}}
-          onClear={clear}
-        >
-          {bulkActions?.(selectedItems)}
-          {showSelfAssign && (
-            <Button
-              size="small"
-              variant="contained"
-              color="inherit"
-              startIcon={
-                selfAssignMutation.isPending ? (
-                  <CircularProgress size={14} color="inherit" />
-                ) : (
-                  <AssignmentIndIcon />
-                )
-              }
-              disabled={selfAssignMutation.isPending}
-              onClick={handleSelfAssignSelected}
-              sx={{color: "primary.main"}}
-            >
-              Взять на себя ({selectedConfirmedIds.length})
-            </Button>
-          )}
-          {primaryTransitions.map(({transition, count}) => (
-            <Button
-              key={transition.key}
-              size="small"
-              variant="contained"
-              color="inherit"
-              startIcon={
-                transitionMutation.isPending && activeTransition?.key === transition.key ? (
-                  <CircularProgress size={14} color="inherit" />
-                ) : (
-                  transition.icon
-                )
-              }
-              disabled={transitionMutation.isPending}
-              onClick={() => handleTransitionClick(transition)}
-              sx={{color: "primary.main"}}
-            >
-              {transition.label} ({count})
-            </Button>
-          ))}
-          {menuTransitions.length > 0 && (
-            <>
-              <Button
-                size="small"
-                variant="contained"
-                color="inherit"
-                endIcon={
-                  transitionMutation.isPending && activeTransition && !activeTransition.primary ? (
-                    <CircularProgress size={14} color="inherit" />
-                  ) : (
-                    <ArrowDropDownIcon />
-                  )
-                }
-                disabled={transitionMutation.isPending}
-                onClick={(e) => setMoreAnchor(e.currentTarget)}
-                sx={{color: "primary.main"}}
-              >
-                Ещё
-              </Button>
-              <Menu
-                anchorEl={moreAnchor}
-                open={moreAnchor != null}
-                onClose={() => setMoreAnchor(null)}
-              >
-                {menuTransitions.map(({transition, count}) => (
-                  <MenuItem
-                    key={transition.key}
-                    onClick={() => handleTransitionClick(transition)}
-                    sx={
-                      transition.danger
-                        ? {color: "error.main", "& .MuiListItemIcon-root": {color: "inherit"}}
-                        : undefined
-                    }
-                  >
-                    <ListItemIcon>{transition.icon}</ListItemIcon>
-                    <ListItemText>
-                      {transition.label} ({count})
-                    </ListItemText>
-                  </MenuItem>
-                ))}
-              </Menu>
-            </>
-          )}
-        </BulkBar>
-      )}
+      <BulkBar
+        count={selectedItems.length}
+        countLabel={{one: "заказ выбран", few: "заказа выбрано", many: "заказов выбрано"}}
+        onClear={clear}
+        actions={selectionActions}
+      />
 
       {confirmTransition?.confirm && (
         <ConfirmDialog
