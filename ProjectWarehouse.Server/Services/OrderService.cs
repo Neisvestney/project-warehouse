@@ -692,8 +692,6 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
         {
             fulfillment.SourceNodeId = null;
 
-            db.AssemblyFulfillments.Add(fulfillment);
-
             foreach (var compReq in request.BundleComponents!)
             {
                 if (compReq.UnitInventoryItemId.HasValue)
@@ -725,6 +723,10 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                     });
                 }
             }
+
+            // Tracked only once every component resolved: a lookup failing above would otherwise leave the
+            // fulfillment Added for a batch caller's next save to flush without any stock taken.
+            db.AssemblyFulfillments.Add(fulfillment);
 
             await db.Database.ExecuteInTransactionAsync("orders.fulfillment.bundle", async () =>
             {

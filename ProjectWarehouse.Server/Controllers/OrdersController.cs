@@ -1895,9 +1895,13 @@ public class OrdersController(
                 {
                     Fail(item, ex.ErrorCode, ex.Message, catalogItemName: itemName);
                 }
+                // The stock failures below surface from inside the fulfillment's rolled-back transaction, whose
+                // saves the tracker still holds as accepted: nothing later in the loop reads tracked state it
+                // did not just query, so dropping it all is cheaper than knowing which entries went stale.
                 catch (InventoryWriteConflictException)
                 {
                     reachedStock = true;
+                    db.ChangeTracker.Clear();
                     Fail(item, ErrorCode.InventoryWriteConflict,
                         "Stock for this item was changed concurrently; nothing was written.",
                         catalogItemName: itemName);
@@ -1905,6 +1909,7 @@ public class OrdersController(
                 catch (InsufficientInventoryException ex)
                 {
                     reachedStock = true;
+                    db.ChangeTracker.Clear();
                     Fail(item, ErrorCode.InsufficientInventory,
                         $"Insufficient inventory at node '{ex.NodeId}': requested {ex.Requested}, available {ex.Available}.",
                         ex.ToArgs(), itemName);
@@ -1921,11 +1926,13 @@ public class OrdersController(
                 catch (UnitInventoryItemNotFoundException)
                 {
                     reachedStock = true;
+                    db.ChangeTracker.Clear();
                     Fail(item, ErrorCode.UnitInventoryItemNotFound, "Unit inventory item not found.", catalogItemName: itemName);
                 }
                 catch (InventoryItemNodeMismatchException)
                 {
                     reachedStock = true;
+                    db.ChangeTracker.Clear();
                     Fail(item, ErrorCode.InventoryItemNodeMismatch, "Item is not at the expected storage node.", catalogItemName: itemName);
                 }
                 catch (AssemblyComponentAlreadyFulfilledException)
@@ -1978,7 +1985,9 @@ public class OrdersController(
                 }
                 catch (Exception)
                 {
-                    // Auto-complete is best-effort; partial success is acceptable
+                    // Auto-complete is best-effort; partial success is acceptable, but a failed save leaves the
+                    // task and order statuses Modified for the next item's save to flush outside the savepoint.
+                    db.ChangeTracker.Clear();
                 }
 
                 if (completed)
