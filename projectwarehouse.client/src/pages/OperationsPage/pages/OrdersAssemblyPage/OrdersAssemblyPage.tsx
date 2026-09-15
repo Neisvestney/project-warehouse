@@ -2,7 +2,7 @@ import {useCallback, useEffect, useMemo, useState} from "react";
 import {
   Alert,
   Box,
-  Button,
+  Checkbox,
   CircularProgress,
   IconButton,
   MenuItem,
@@ -11,6 +11,10 @@ import {
   Typography,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import PlaylistAddCheckIcon from "@mui/icons-material/PlaylistAddCheck";
+import BulkBar, {type BulkAction} from "@/components/BulkBar";
+import {useDownloadLabelsAction} from "@/components/orders/marketplace/useDownloadLabelsAction";
+import {NOUNS, pluralCount} from "@/utils/pluralUtils";
 import {useQuery, useQueryClient} from "@tanstack/react-query";
 import {ordersGetAllAssemblyOptions} from "@/api/@tanstack/react-query.gen";
 import type {OrderDetailsDto} from "@/api/types.gen";
@@ -20,7 +24,7 @@ import {useRealtimeEvent} from "@/hooks/useRealtimeEvent";
 import {byOperation} from "@/utils/queryKeys";
 import {CatalogItemDrawerHost} from "@/components/catalog/CatalogItemDrawerHost";
 import AssemblyOrderAccordion from "./AssemblyOrderAccordion";
-import {checkBatchEligibility, hasRemainingWork} from "./batchEligibility";
+import {checkBatchEligibility, getBatchDisabledReason} from "./batchEligibility";
 import BatchAssemblyDialog from "./BatchAssemblyDialog";
 import type {SelectedTaskInfo} from "./batchGroups";
 import PageGenericHeader from "@/components/PageGenericHeader.tsx";
@@ -145,25 +149,35 @@ function OrdersAssemblyPage() {
     });
   }
 
-  function handleSelectAllEligible() {
-    const eligibleIds = new Set<string>();
-    for (const order of orders) {
-      for (const task of order.assemblyTasks) {
-        if (checkBatchEligibility(task) && hasRemainingWork(task) && task.status !== "done") {
-          eligibleIds.add(task.id);
-        }
+  const visibleTaskIds = orders.flatMap((o) => o.assemblyTasks.map((t) => t.id));
+  const visibleSelectedCount = visibleTaskIds.filter((id) => selectedTaskIds.has(id)).length;
+  const allVisibleSelected =
+    visibleTaskIds.length > 0 && visibleSelectedCount === visibleTaskIds.length;
+
+  function handleToggleAllVisible() {
+    setSelectedTaskIds((prev) => {
+      const next = new Set(prev);
+      for (const id of visibleTaskIds) {
+        if (allVisibleSelected) next.delete(id);
+        else next.add(id);
       }
-    }
-    setSelectedTaskIds(eligibleIds);
+      return next;
+    });
   }
 
   // Counts come from here, not from selectedTaskIds: ids of tasks hidden by the search/warehouse
-  // filter stay in the set, and the dialog only ever gets the visible ones.
-  const selectedTaskInfos = useMemo<SelectedTaskInfo[]>(() => {
+  // filter stay in the set, and actions only ever get the visible ones.
+  const selectedOrders = orders.filter((o) =>
+    o.assemblyTasks.some((t) => selectedTaskIds.has(t.id)),
+  );
+  const labelOrderIds = selectedOrders.filter((o) => o.marketplaceOrder).map((o) => o.id);
+
+  const batchTaskInfos = useMemo<SelectedTaskInfo[]>(() => {
     const result: SelectedTaskInfo[] = [];
     for (const order of orders) {
       for (const task of order.assemblyTasks) {
-        if (selectedTaskIds.has(task.id)) {
+        const eligible = eligibilityMap.get(task.id) ?? checkBatchEligibility(task);
+        if (selectedTaskIds.has(task.id) && getBatchDisabledReason(task, eligible) === "") {
           result.push({
             orderId: order.id,
             taskId: task.id,
@@ -176,7 +190,30 @@ function OrdersAssemblyPage() {
       }
     }
     return result;
-  }, [selectedTaskIds, orders]);
+  }, [selectedTaskIds, orders, eligibilityMap]);
+
+  const downloadLabels = useDownloadLabelsAction();
+
+  const selectionActions: BulkAction[] =
+    selectedOrders.length > 0
+      ? [
+          ...(canFulfill && batchTaskInfos.length > 0
+            ? [
+                {
+                  key: "batchAssembly",
+                  label: "Собрать задания",
+                  icon: <PlaylistAddCheckIcon />,
+                  count: batchTaskInfos.length,
+                  primary: true,
+                  onClick: () => setBatchDialogOpen(true),
+                },
+              ]
+            : []),
+          ...(labelOrderIds.length > 0
+            ? [{...downloadLabels.getAction(labelOrderIds), count: labelOrderIds.length}]
+            : []),
+        ]
+      : [];
 
   function renderOrder(order: OrderDetailsDto) {
     return (
@@ -203,20 +240,6 @@ function OrdersAssemblyPage() {
             <IconButton color="inherit" onClick={handleRefresh} disabled={showLoading}>
               <RefreshIcon />
             </IconButton>
-          }
-          actions={
-            canFulfill && (
-              <>
-                <Button size="small" variant="outlined" onClick={handleSelectAllEligible}>
-                  Выбрать все доступные для массовой сборки
-                </Button>
-                {selectedTaskInfos.length >= 1 && (
-                  <Button size="small" variant="contained" onClick={() => setBatchDialogOpen(true)}>
-                    Собрать выбранные ({selectedTaskInfos.length})
-                  </Button>
-                )}
-              </>
-            )
           }
         >
           <SearchInput value={searchInput} onChange={setSearchInput} />
@@ -258,6 +281,13 @@ function OrdersAssemblyPage() {
           </TextField>
         </FiltersBar>
 
+        <BulkBar
+          count={selectedOrders.length}
+          countLabel={{one: "заказ выбран", few: "заказа выбрано", many: "заказов выбрано"}}
+          onClear={() => setSelectedTaskIds(new Set())}
+          actions={selectionActions}
+        />
+
         {ordersQuery.isError && (
           <Alert severity="error">Не удалось загрузить заказы на сборке</Alert>
         )}
@@ -278,6 +308,23 @@ function OrdersAssemblyPage() {
           </Box>
         )}
 
+        {!showLoading && orders.length > 0 && (
+          <Stack direction="row" spacing={1} sx={{alignItems: "center", pl: 1}}>
+            <Checkbox
+              size="small"
+              checked={allVisibleSelected}
+              indeterminate={visibleSelectedCount > 0 && !allVisibleSelected}
+              onChange={handleToggleAllVisible}
+              slotProps={{input: {"aria-label": "Выбрать все"}}}
+              sx={{p: 0.5}}
+            />
+            <Typography variant="subtitle2">Выбрать все</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{whiteSpace: "nowrap"}}>
+              {pluralCount(orders.length, NOUNS.order)}
+            </Typography>
+          </Stack>
+        )}
+
         {!showLoading &&
           (grouping === "none"
             ? orders.map(renderOrder)
@@ -287,10 +334,8 @@ function OrdersAssemblyPage() {
                   key={`${grouping}:${group.key}`}
                   label={group.label}
                   orders={group.orders}
-                  canFulfill={canFulfill}
                   selectedTaskIds={selectedTaskIds}
                   onTaskCheckChange={handleTaskCheckChange}
-                  eligibilityMap={eligibilityMap}
                 >
                   {group.orders.map(renderOrder)}
                 </AssemblyOrderGroup>
@@ -302,8 +347,9 @@ function OrdersAssemblyPage() {
             setBatchDialogOpen(false);
             setSelectedTaskIds(new Set());
           }}
-          selectedTasks={selectedTaskInfos}
+          selectedTasks={batchTaskInfos}
         />
+        {downloadLabels.dialogs}
       </Stack>
     </CatalogItemDrawerHost>
   );

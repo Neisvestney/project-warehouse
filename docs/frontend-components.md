@@ -910,12 +910,17 @@ An order with exactly **one** task carries that task's status chip in its own `A
 `<AssemblyTaskAccordion inline />`: with `inline` the component returns just the body — boxes, component rows,
 «Начать»/«Завершить» — without an `Accordion` of its own.
 
-Every order summary opens with a batch-assembly checkbox covering all selectable tasks of that order: `checked`
-when they are all selected, MUI's `indeterminate` when only some are, disabled when the order has none.
-Toggling it calls `onTaskCheckChange` per selectable task, so the page keeps its flat `selectedTaskIds` set.
+Every order summary opens with a selection checkbox covering all tasks of that order: `checked` when they are all
+selected, MUI's `indeterminate` when only some are. Toggling it calls `onTaskCheckChange` per task, so the page
+keeps its flat `selectedTaskIds` set. Group headers and the «Выбрать все» row above the list do the same over
+their groups' orders and over every visible order.
 
-Selectable means `getBatchDisabledReason(task, eligible)` in `batchEligibility.ts` returns an empty string; that
-reason is also the tooltip and disabled state of the per-task checkboxes.
+Any task can be selected. The selection feeds a [`BulkBar`](#bulkbar) that counts selected orders and offers
+«Собрать задания» and «Скачать этикетки». «Собрать задания» takes only the selected tasks for which
+`getBatchDisabledReason(task, eligible)` in `batchEligibility.ts` returns an empty string, and needs
+`canFulfill`. «Скачать этикетки» takes the marketplace orders among the selected ones. That reason is also the
+tooltip of the per-task checkboxes. Selected ids hidden by filters stay in the set, but the counters and actions
+work only with visible orders.
 
 The order summary is split into two groups: a head (checkbox, order number link, progress caption pushed right
 with `margin-left: auto`) and a chip row (order type, warehouse, marketplace account, the sole task's status,
