@@ -291,14 +291,14 @@ public class WriteoffsController(
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateWriteoffRequest request,
         CancellationToken ct = default)
     {
-        var (writeoff, error) = await LoadWriteoffWithEditAccessAsync(id, ct);
+        var (writeoff, error) = await LoadWriteoffWithEditAccessAsync(id, ct, includeItems: true);
         if (error is not null) return error;
 
         if (writeoff!.Status != WriteoffStatus.Draft)
             return UnprocessableEntity("root", ErrorCode.WriteoffNotDraft,
                 "Write-off can only be updated in Draft status.");
 
-        var before = mapper.Map<WriteoffDto>(writeoff);
+        var before = await BuildDtoAsync(writeoff, ct);
 
         writeoff.Name   = request.Name;
         writeoff.Reason = request.Reason;
@@ -306,7 +306,7 @@ public class WriteoffsController(
 
         await db.SaveChangesAsync(ct);
 
-        var after = mapper.Map<WriteoffDto>(writeoff);
+        var after = await BuildDtoAsync(writeoff, ct);
         await changeLog.CompareAndSaveToChangelog(before, after);
 
         return Ok(after);
@@ -328,10 +328,10 @@ public class WriteoffsController(
     public async Task<IActionResult> UpdateAttachments(Guid id, [FromBody] UpdateAttachmentsRequest request,
         CancellationToken ct = default)
     {
-        var (writeoff, error) = await LoadWriteoffWithEditAccessAsync(id, ct);
+        var (writeoff, error) = await LoadWriteoffWithEditAccessAsync(id, ct, includeItems: true);
         if (error is not null) return error;
 
-        var before = mapper.Map<WriteoffDto>(writeoff);
+        var before = await BuildDtoAsync(writeoff!, ct);
 
         var problem = await fileBinding.BindListAsync(request.Attachments, writeoff!.Images,
             db.WriteoffImages, setOwner: img => img.WriteoffId = writeoff.Id, field: "attachments", ct);
@@ -339,7 +339,7 @@ public class WriteoffsController(
 
         await db.SaveChangesAsync(ct);
 
-        var after = mapper.Map<WriteoffDto>(writeoff);
+        var after = await BuildDtoAsync(writeoff, ct);
         await changeLog.CompareAndSaveToChangelog(before, after);
 
         return Ok(after);
