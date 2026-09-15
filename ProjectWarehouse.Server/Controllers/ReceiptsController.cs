@@ -285,14 +285,15 @@ public class ReceiptsController(
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateReceiptRequest request,
         CancellationToken ct = default)
     {
-        var (receipt, error) = await LoadReceiptWithEditAccessAsync(id, ct);
+        var (receipt, error) = await LoadReceiptWithEditAccessAsync(id, ct, includeItems: true);
         if (error is not null) return error;
 
         if (receipt!.Status != ReceiptStatus.Draft)
             return UnprocessableEntity("root", ErrorCode.ReceiptInvalidStatusTransition,
                 "Receipt can only be updated in Draft status.");
 
-        var before = mapper.Map<ReceiptDto>(receipt);
+        var nodeById = await LoadWarehouseNodesAsync(receipt.WarehouseId, ct);
+        var before = mapper.Map<ReceiptDto>(receipt, opts => opts.Items["nodeById"] = nodeById);
 
         receipt.Name                = request.Name;
         receipt.Reason              = request.Reason;
@@ -301,7 +302,7 @@ public class ReceiptsController(
 
         await db.SaveChangesAsync(ct);
 
-        var after = mapper.Map<ReceiptDto>(receipt);
+        var after = mapper.Map<ReceiptDto>(receipt, opts => opts.Items["nodeById"] = nodeById);
         await changeLog.CompareAndSaveToChangelog(before, after);
 
         return Ok(after);
@@ -321,19 +322,20 @@ public class ReceiptsController(
     public async Task<IActionResult> UpdateTags(Guid id, [FromBody] UpdateTagsRequest request,
         CancellationToken ct = default)
     {
-        var (receipt, error) = await LoadReceiptWithEditAccessAsync(id, ct);
+        var (receipt, error) = await LoadReceiptWithEditAccessAsync(id, ct, includeItems: true);
         if (error is not null) return error;
 
-        var before = mapper.Map<ReceiptDto>(receipt);
+        var nodeById = await LoadWarehouseNodesAsync(receipt!.WarehouseId, ct);
+        var before = mapper.Map<ReceiptDto>(receipt, opts => opts.Items["nodeById"] = nodeById);
 
         var newTags = await db.ReceiptTags.Where(t => request.Tags.Contains(t.Id)).ToListAsync(ct);
-        receipt!.Tags.Clear();
+        receipt.Tags.Clear();
         foreach (var tag in newTags)
             receipt.Tags.Add(tag);
 
         await db.SaveChangesAsync(ct);
 
-        var after = mapper.Map<ReceiptDto>(receipt);
+        var after = mapper.Map<ReceiptDto>(receipt, opts => opts.Items["nodeById"] = nodeById);
         await changeLog.CompareAndSaveToChangelog(before, after);
 
         return Ok(after);
@@ -355,18 +357,19 @@ public class ReceiptsController(
     public async Task<IActionResult> UpdateAttachments(Guid id, [FromBody] UpdateAttachmentsRequest request,
         CancellationToken ct = default)
     {
-        var (receipt, error) = await LoadReceiptWithEditAccessAsync(id, ct);
+        var (receipt, error) = await LoadReceiptWithEditAccessAsync(id, ct, includeItems: true);
         if (error is not null) return error;
 
-        var before = mapper.Map<ReceiptDto>(receipt);
+        var nodeById = await LoadWarehouseNodesAsync(receipt!.WarehouseId, ct);
+        var before = mapper.Map<ReceiptDto>(receipt, opts => opts.Items["nodeById"] = nodeById);
 
-        var problem = await fileBinding.BindListAsync(request.Attachments, receipt!.Images,
+        var problem = await fileBinding.BindListAsync(request.Attachments, receipt.Images,
             db.ReceiptImages, setOwner: img => img.ReceiptId = receipt.Id, field: "attachments", ct);
         if (problem is not null) return Problem(problem);
 
         await db.SaveChangesAsync(ct);
 
-        var after = mapper.Map<ReceiptDto>(receipt);
+        var after = mapper.Map<ReceiptDto>(receipt, opts => opts.Items["nodeById"] = nodeById);
         await changeLog.CompareAndSaveToChangelog(before, after);
 
         return Ok(after);

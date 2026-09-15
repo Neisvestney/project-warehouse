@@ -417,7 +417,7 @@ public class StocktakesController(
     public async Task<IActionResult> UpdateAttachments(Guid id, [FromBody] UpdateAttachmentsRequest request,
         CancellationToken ct = default)
     {
-        var (stocktake, error) = await LoadStocktakeWithEditAccessAsync(id, ct);
+        var (stocktake, error) = await LoadStocktakeWithEditAccessAsync(id, ct, includeItems: true);
         if (error is not null) return error;
 
         var before = await BuildDtoAsync(stocktake!, ct);
