@@ -60,18 +60,13 @@ function AssemblyOrderAccordion({
   const soleComponent = soleTask ? soleTask.task.boxes[0]?.components[0] : null;
   const singleSoleComponent = soleComponent && soleComponent.quantity == 1 ? soleComponent : null;
 
-  const selectable = taskStates.filter((s) => s.disabledReason === "");
-  const selectedCount = selectable.filter((s) => selectedTaskIds.has(s.task.id)).length;
-  const allSelected = selectable.length > 0 && selectedCount === selectable.length;
+  const selectedCount = tasks.filter((task) => selectedTaskIds.has(task.id)).length;
+  const allSelected = tasks.length > 0 && selectedCount === tasks.length;
 
-  const checkboxTitle = selectable.length
-    ? soleTask
-      ? ""
-      : "Выбрать все задания заказа"
-    : (soleTask?.disabledReason ?? "Нет заданий, доступных для массовой сборки");
+  const checkboxTitle = soleTask ? soleTask.disabledReason : "Выбрать все задания заказа";
 
   function handleToggleAll(checked: boolean) {
-    for (const {task} of selectable) onTaskCheckChange(order.id, task.id, checked);
+    for (const task of tasks) onTaskCheckChange(order.id, task.id, checked);
   }
 
   return (
@@ -90,7 +85,7 @@ function AssemblyOrderAccordion({
                   size="small"
                   checked={allSelected}
                   indeterminate={selectedCount > 0 && !allSelected}
-                  disabled={selectable.length === 0}
+                  disabled={tasks.length === 0}
                   onChange={(e) => handleToggleAll(e.target.checked)}
                   onClick={(e) => e.stopPropagation()}
                   sx={{p: 0.5}}

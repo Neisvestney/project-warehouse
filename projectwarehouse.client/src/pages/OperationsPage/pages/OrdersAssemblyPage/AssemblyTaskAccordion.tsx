@@ -371,7 +371,6 @@ function AssemblyTaskAccordion({
                 <Checkbox
                   size="small"
                   checked={checked}
-                  disabled={batchDisabledReason !== ""}
                   onChange={(e) => onCheckChange(e.target.checked)}
                   onClick={(e) => e.stopPropagation()}
                   sx={{p: 0.5}}
