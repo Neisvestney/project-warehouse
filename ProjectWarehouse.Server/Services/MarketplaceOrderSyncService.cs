@@ -59,6 +59,9 @@ public class MarketplaceOrderSyncService(
             var known = await db.MarketplaceOrders
                 .Where(o => o.MarketplaceAccountId == account.Id && numbers.Contains(o.PostingNumber))
                 .Include(o => o.Order)
+                .ThenInclude(o => o!.MarketplaceItems)
+                .ThenInclude(i => i.MarketplaceCard)
+                .AsSplitQuery()
                 .ToDictionaryAsync(o => o.PostingNumber, ct);
 
             var cards = await LoadCardsAsync(account.Id, page, ct);
@@ -260,6 +263,7 @@ public class MarketplaceOrderSyncService(
             || known.ExternalOrderNumber != posting.ExternalOrderNumber;
 
         changed |= ApplyCancellation(known, posting.Cancellation);
+        changed |= ApplyItemFinancials(known.Order, posting.Items);
 
         if (known.ShipmentDate != posting.ShipmentDate && known.Order is not null)
             known.Order.PlannedShipmentAt = posting.ShipmentDate;
@@ -305,6 +309,10 @@ public class MarketplaceOrderSyncService(
                         // phase 1 just refreshed everything the unfulfilled list returned; re-asking would
                         // cost one single-posting call per open order, every run, for no new information
                         && o.StatusSyncedAt < run.StartedAt)
+            .Include(o => o.Order)
+            .ThenInclude(o => o!.MarketplaceItems)
+            .ThenInclude(i => i.MarketplaceCard)
+            .AsSplitQuery()
             .ToListAsync(ct);
 
         if (open.Count == 0)
@@ -327,8 +335,10 @@ public class MarketplaceOrderSyncService(
             }
 
             var cancellationChanged = ApplyCancellation(order, status.Cancellation);
+            var financialsChanged = ApplyItemFinancials(order.Order, status.Items);
 
             if (cancellationChanged
+                || financialsChanged
                 || order.Status != status.Status
                 || order.RawStatus != status.RawStatus
                 || order.RawSubstatus != status.RawSubstatus
@@ -364,6 +374,63 @@ public class MarketplaceOrderSyncService(
 
         return changed;
     }
+
+    /// <summary>
+    /// Refreshes money only — which card and catalog item a line points at stays as imported. A line the
+    /// marketplace reports no amounts for keeps its last known ones: Ozon omits the block until it is computed.
+    /// </summary>
+    private static bool ApplyItemFinancials(Order? order, IReadOnlyList<ExternalPostingItem> items)
+    {
+        if (order is null)
+            return false;
+
+        var pending = items.Where(HasFinancials).ToList();
+        var changed = false;
+
+        foreach (var line in order.MarketplaceItems)
+        {
+            if (line.MarketplaceCard is not { } card)
+                continue;
+
+            // same precedence as CardLookup.Find: SKU first, seller article second
+            var index = pending.FindIndex(i => i.Sku is { Length: > 0 } && i.Sku == card.Sku);
+            if (index < 0)
+                index = pending.FindIndex(i => i.OfferId.Length > 0 && i.OfferId == card.OfferId);
+            if (index < 0)
+                continue;
+
+            var item = pending[index];
+            pending.RemoveAt(index);
+
+            changed |=
+                line.CustomerPrice != item.CustomerPrice
+                || line.CustomerCurrencyCode != item.CustomerCurrencyCode
+                || line.Price != item.Price
+                || line.OldPrice != item.OldPrice
+                || line.DiscountValue != item.DiscountValue
+                || line.Payout != item.Payout
+                || line.CurrencyCode != item.CurrencyCode
+                || line.CommissionAmount != item.CommissionAmount
+                || line.CommissionCurrencyCode != item.CommissionCurrencyCode;
+
+            line.CustomerPrice = item.CustomerPrice;
+            line.CustomerCurrencyCode = item.CustomerCurrencyCode;
+            line.Price = item.Price;
+            line.OldPrice = item.OldPrice;
+            line.DiscountValue = item.DiscountValue;
+            line.Payout = item.Payout;
+            line.CurrencyCode = item.CurrencyCode;
+            line.CommissionAmount = item.CommissionAmount;
+            line.CommissionCurrencyCode = item.CommissionCurrencyCode;
+        }
+
+        return changed;
+    }
+
+    // currency codes come from the product line itself, so they say nothing about whether amounts arrived
+    private static bool HasFinancials(ExternalPostingItem item) =>
+        item.CustomerPrice is not null || item.Price is not null || item.OldPrice is not null
+        || item.DiscountValue is not null || item.Payout is not null || item.CommissionAmount is not null;
 
     private sealed record CardRow(Guid Id, string? Sku, string OfferId, Guid? CatalogItemId);
 
