@@ -37,7 +37,7 @@ public class Order : IHasIdentity
     public ICollection<OrderTag> Tags { get; set; } = [];
 
     [Projectable]
-    public DateTime EffectiveDate => ShippedAt ?? AssembledAt ?? PlannedShipmentAt ?? CreatedAt;
+    public DateTime EffectiveDate => PlannedShipmentAt ?? ShippedAt ?? AssembledAt ?? CreatedAt;
     
     [Projectable]
     public bool TerminalStatus => Status == OrderStatus.Shipped || Status == OrderStatus.Assembled || Status == OrderStatus.Canceled;
