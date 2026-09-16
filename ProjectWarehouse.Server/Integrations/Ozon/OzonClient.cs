@@ -193,6 +193,7 @@ public class OzonClient(
                             Since = since,
                             To = to,
                         },
+                        With = new PostingFbsListRequestWith { Financial_data = true },
                     }, ct);
 
                 foreach (var posting in response.Postings ?? [])
@@ -201,13 +202,18 @@ public class OzonClient(
                     if (posting.Posting_number is not { Length: > 0 } number || !wanted.Contains(number))
                         continue;
 
+                    var financials = IndexFinancials(posting.Financial_data?.Products, p => p.Product_id);
+
                     statuses.Add(new ExternalPostingStatus(
                         number,
                         ToOrderStatus(posting.Status),
                         posting.Status,
                         posting.Substatus,
                         posting.Tracking_number,
-                        ToCancellation(posting.Cancellation)));
+                        ToCancellation(posting.Cancellation),
+                        (posting.Products ?? [])
+                            .Select(p => ToExternalPostingItem(p, financials))
+                            .ToList()));
                     matched++;
                 }
 
@@ -311,11 +317,7 @@ public class OzonClient(
         if (string.IsNullOrWhiteSpace(posting.Posting_number))
             return null;
 
-        // financial_data indexes products by product_id, which is the same number products[] calls sku
-        var financials = (posting.Financial_data?.Products ?? [])
-            .Where(p => p.Product_id is not null)
-            .GroupBy(p => p.Product_id!.Value)
-            .ToDictionary(g => g.Key, g => g.First());
+        var financials = IndexFinancials(posting.Financial_data?.Products, p => p.Product_id);
 
         return new ExternalPosting(
             posting.Posting_number,
@@ -336,28 +338,74 @@ public class OzonClient(
                 .ToList());
     }
 
+    // financial_data indexes products by product_id, which is the same number products[] calls sku
+    private static Dictionary<long, T> IndexFinancials<T>(IEnumerable<T>? products, Func<T, long?> productId) =>
+        (products ?? [])
+            .Where(p => productId(p) is not null)
+            .GroupBy(p => productId(p)!.Value)
+            .ToDictionary(g => g.Key, g => g.First());
+
+    // the two posting endpoints carry the same product and financial payloads under unrelated generated types
     private static ExternalPostingItem ToExternalPostingItem(
         PostingFbsUnfulfilledListResponsePostingsProducts product,
         IReadOnlyDictionary<long, PostingFbsUnfulfilledListResponsePostingsFinancialDataProducts> financials)
     {
-        var financial = product.Sku is { } sku && financials.TryGetValue(sku, out var found) ? found : null;
+        var f = product.Sku is { } sku && financials.TryGetValue(sku, out var found) ? found : null;
 
-        return new ExternalPostingItem(
-            product.Sku?.ToString(CultureInfo.InvariantCulture),
-            product.Offer_id ?? "",
-            product.Name ?? "",
-            product.Quantity ?? 0,
-            ParsePrice(financial?.Customer_price?.Amount),
-            Trim(financial?.Customer_price?.Currency),
-            ToMoney(financial?.Price),
-            ToMoney(financial?.Old_price),
-            ToMoney(financial?.Total_discount_value),
-            ToMoney(financial?.Payout),
-            // financial_data states no currency of its own for these; the line's own price carries it
-            Trim(product.Price?.Currency),
-            ToMoney(financial?.Commission?.Amount),
-            Trim(financial?.Commission?.Currency));
+        return ToExternalPostingItem(
+            sku: product.Sku,
+            offerId: product.Offer_id,
+            name: product.Name,
+            quantity: product.Quantity,
+            priceCurrency: product.Price?.Currency,
+            customerPrice: f?.Customer_price,
+            price: f?.Price,
+            oldPrice: f?.Old_price,
+            discountValue: f?.Total_discount_value,
+            payout: f?.Payout,
+            commissionAmount: f?.Commission?.Amount,
+            commissionCurrency: f?.Commission?.Currency);
     }
+
+    private static ExternalPostingItem ToExternalPostingItem(
+        PostingFbsListResponsePostingsProducts product,
+        IReadOnlyDictionary<long, PostingFbsListResponsePostingsFinancialDataProducts> financials)
+    {
+        var f = product.Sku is { } sku && financials.TryGetValue(sku, out var found) ? found : null;
+
+        return ToExternalPostingItem(
+            sku: product.Sku,
+            offerId: product.Offer_id,
+            name: product.Name,
+            quantity: product.Quantity,
+            priceCurrency: product.Price?.Currency,
+            customerPrice: f?.Customer_price,
+            price: f?.Price,
+            oldPrice: f?.Old_price,
+            discountValue: f?.Total_discount_value,
+            payout: f?.Payout,
+            commissionAmount: f?.Commission?.Amount,
+            commissionCurrency: f?.Commission?.Currency);
+    }
+
+    private static ExternalPostingItem ToExternalPostingItem(long? sku, string? offerId, string? name,
+        int? quantity, string? priceCurrency, PostingMoney? customerPrice, double? price, double? oldPrice,
+        double? discountValue, double? payout, double? commissionAmount, string? commissionCurrency) =>
+        new(
+            sku?.ToString(CultureInfo.InvariantCulture),
+            offerId ?? "",
+            name ?? "",
+            quantity ?? 0,
+            ParsePrice(customerPrice?.Amount),
+            Trim(customerPrice?.Currency),
+            ToMoney(price),
+            ToMoney(oldPrice),
+            ToMoney(discountValue),
+            ToMoney(payout),
+            // financial_data states no currency of its own for these; the line's own price carries it
+            Trim(priceCurrency),
+            ToMoney(commissionAmount),
+            Trim(commissionCurrency));
 
     /// <summary>Ozon types most financial amounts as <c>double</c>; money is kept as decimal in WMS.</summary>
     private static decimal? ToMoney(double? value) =>

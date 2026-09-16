@@ -22,10 +22,10 @@ public class OrderMarketplaceItem : IHasIdentity
 
     public int Quantity { get; set; }
 
-    // ── Financials, as the marketplace reported them at import ────────────────
+    // ── Financials, as the marketplace last reported them ─────────────────────
     // Ozon does not state whether these are per unit or per line; they are stored verbatim, and Quantity
-    // sits next to them so either reading stays recoverable. Never refreshed: a posting reaches WMS in
-    // awaiting_deliver, by which point the buyer has already paid.
+    // sits next to them so either reading stays recoverable. Refreshed by every order sync until the
+    // posting reaches a final status.
 
     /// <summary>What the buyer paid, in the buyer's own currency.</summary>
     public decimal? CustomerPrice { get; set; }

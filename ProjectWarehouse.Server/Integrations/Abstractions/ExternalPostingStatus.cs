@@ -8,4 +8,5 @@ public record ExternalPostingStatus(
     string? RawStatus,
     string? RawSubstatus,
     string? TrackingNumber,
-    ExternalCancellation? Cancellation);
+    ExternalCancellation? Cancellation,
+    IReadOnlyList<ExternalPostingItem> Items);
