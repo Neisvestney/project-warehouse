@@ -50,6 +50,36 @@ public class StockStatisticsService(
         public int Net { get; init; }
     }
 
+    /// <summary>A document type whose own cancellation action reverses its stock movements.</summary>
+    private enum NettedDocument
+    {
+        Receipt,
+        Order,
+    }
+
+    /// <summary>One document's moves of one direction and action, for one item on one day.</summary>
+    private sealed class DocumentDayRow
+    {
+        public DateTime Date { get; init; }
+        public Guid CatalogItemId { get; init; }
+        public Guid DocumentId { get; init; }
+        public StockMovementDirection Direction { get; init; }
+        public string Action { get; init; } = null!;
+        public int Quantity { get; init; }
+        public DateTime FirstAt { get; init; }
+        public DateTime LastAt { get; init; }
+    }
+
+    /// <summary>
+    /// How much of a cell's figures a document move cancelled on its own day takes back, per cell and per
+    /// metric. <see cref="MetricDeltaByCell"/> is signed and already accounts for which movements each
+    /// metric covers, so it is added to the metric's net as is.
+    /// </summary>
+    private sealed record SameDayNetting(
+        Dictionary<(DateOnly Date, Guid CatalogItemId), int> OffsetByCell,
+        Dictionary<Guid, int> OffsetByItem,
+        Dictionary<(DateOnly Date, Guid CatalogItemId), int[]> MetricDeltaByCell);
+
     public async Task<StockMovementDailySeriesDto> GetDailySeriesAsync(
         ClaimsPrincipal user,
         StockMovementFilterRequest filter,
@@ -176,6 +206,16 @@ public class StockStatisticsService(
 
         var metricCells = await GetMetricCellsAsync(query, columnIds, metrics, offsetMinutes, ct);
 
+        var netting = await GetSameDayNettingAsync(query, columnIds, metrics, offsetMinutes, ct);
+        foreach (var (key, delta) in netting.MetricDeltaByCell)
+        {
+            if (!metricCells.TryGetValue(key, out var values))
+                metricCells[key] = values = new int[metrics.Count];
+
+            for (var i = 0; i < metrics.Count; i++)
+                values[i] += delta[i];
+        }
+
         // Balance ignores the display filters (Action/Direction/User/receipt tag) — those only narrow what's
         // *shown*, but every movement, shown or not, moved real stock and has to count toward what's on the
         // shelf. Both the per-item and the total balance walk back over this scope, never over `query`:
@@ -242,8 +282,8 @@ public class StockStatisticsService(
                     .Select(c => new StockMovementPivotCellDto
                     {
                         CatalogItemId = c.CatalogItemId,
-                        InQuantity = c.InQuantity,
-                        OutQuantity = c.OutQuantity,
+                        InQuantity = c.InQuantity - netting.OffsetByCell.GetValueOrDefault((day, c.CatalogItemId)),
+                        OutQuantity = c.OutQuantity - netting.OffsetByCell.GetValueOrDefault((day, c.CatalogItemId)),
                         TransferInQuantity = c.TransferInQuantity,
                         TransferOutQuantity = c.TransferOutQuantity,
                         MovementsCount = c.MovementsCount,
@@ -280,8 +320,8 @@ public class StockStatisticsService(
                 {
                     CatalogItemId = c.CatalogItemId,
                     CatalogItem = catalogItems[c.CatalogItemId],
-                    InQuantity = c.InQuantity,
-                    OutQuantity = c.OutQuantity,
+                    InQuantity = c.InQuantity - netting.OffsetByItem.GetValueOrDefault(c.CatalogItemId),
+                    OutQuantity = c.OutQuantity - netting.OffsetByItem.GetValueOrDefault(c.CatalogItemId),
                     TransferInQuantity = c.TransferInQuantity,
                     TransferOutQuantity = c.TransferOutQuantity,
                     MovementsCount = c.MovementsCount,
@@ -340,6 +380,212 @@ public class StockStatisticsService(
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// A document movement cancelled on the day it was made is reported as never having happened: the
+    /// cancelled quantity is taken back out of the document's own figure and the cancellation column shows
+    /// zero. Pairing is per document, item and day, capped by what that document actually moved that day —
+    /// a cancellation that reaches back to an earlier day stays a movement of its own.
+    /// <para>
+    /// Pairs are taken from <paramref name="query"/>, so the report nets only what its filters let it see:
+    /// a direction, action or user filter that keeps one side of a pair and drops the other leaves the
+    /// remaining side raw. Location and document-tag filters never split a pair — both rows share the node
+    /// and the document — and neither does the date range, since a netted pair is same-day by definition.
+    /// </para>
+    /// </summary>
+    private async Task<SameDayNetting> GetSameDayNettingAsync(
+        IQueryable<StockMovement> query,
+        IReadOnlyCollection<Guid> columnIds,
+        IReadOnlyList<StockMovementMetricDto> metrics,
+        int offsetMinutes,
+        CancellationToken ct)
+    {
+        var offsetByCell = new Dictionary<(DateOnly, Guid), int>();
+        var offsetByItem = new Dictionary<Guid, int>();
+        var metricDeltaByCell = new Dictionary<(DateOnly, Guid), int[]>();
+
+        // A movement carries at most one document, so the two passes read disjoint rows and their offsets
+        // add up: either half of a pair is one In and one Out, whichever side the document's own move is on.
+        foreach (var document in Enum.GetValues<NettedDocument>())
+        {
+            var (baseDirection, cancelDirection, cancelAction) = Shape(document);
+            var rows = await FetchDocumentRowsAsync(query, columnIds, document, offsetMinutes, ct);
+
+            var netted = new List<(DateOnly Date, Guid CatalogItemId, Guid DocumentId, int Offset, List<(string Action, int Quantity)> Paired)>();
+
+            foreach (var g in rows.GroupBy(r => (Date: DateOnly.FromDateTime(r.Date), r.CatalogItemId, r.DocumentId)))
+            {
+                var cancellations = g.Where(r => r.Direction == cancelDirection && r.Action == cancelAction).ToList();
+                var cancelled = cancellations.Sum(r => r.Quantity);
+                if (cancelled == 0) continue;
+
+                // A cancellation only takes back a move that preceded it, the latest one first — a receipt
+                // whose reason changed mid-day moves under two actions, and picking between them by anything
+                // other than time gets the attribution backwards half of the time.
+                var lastCancelledAt = cancellations.Max(r => r.LastAt);
+                var moved = g
+                    .Where(r => r.Direction == baseDirection && r.FirstAt < lastCancelledAt)
+                    .OrderByDescending(r => r.LastAt)
+                    .ThenBy(r => r.Action)
+                    .ToList();
+
+                var offset = Math.Min(cancelled, moved.Sum(r => r.Quantity));
+                if (offset == 0) continue;
+
+                // The day is aggregated per action, so moves of one action interleaved with several
+                // cancellations are one entry and the split between two qualifying actions stays a guess. It
+                // moves quantity between metrics only — the In/Out figures take the same offset either way.
+                var remaining = offset;
+                var paired = new List<(string Action, int Quantity)>();
+                foreach (var p in moved)
+                {
+                    if (remaining == 0) break;
+                    var take = Math.Min(remaining, p.Quantity);
+                    paired.Add((p.Action, take));
+                    remaining -= take;
+                }
+
+                var cell = (g.Key.Date, g.Key.CatalogItemId);
+                offsetByCell[cell] = offsetByCell.GetValueOrDefault(cell) + offset;
+                offsetByItem[g.Key.CatalogItemId] = offsetByItem.GetValueOrDefault(g.Key.CatalogItemId) + offset;
+                netted.Add((g.Key.Date, g.Key.CatalogItemId, g.Key.DocumentId, offset, paired));
+            }
+
+            if (metrics.Count == 0 || netted.Count == 0) continue;
+
+            var tagsByDocument = await LoadDocumentTagsAsync(
+                document, metrics, netted.Select(n => n.DocumentId).Distinct().ToList(), ct);
+
+            foreach (var n in netted)
+            {
+                var tagIds = tagsByDocument.GetValueOrDefault(n.DocumentId) ?? [];
+                var cell = (n.Date, n.CatalogItemId);
+                if (!metricDeltaByCell.TryGetValue(cell, out var delta))
+                    metricDeltaByCell[cell] = delta = new int[metrics.Count];
+
+                for (var i = 0; i < metrics.Count; i++)
+                {
+                    // Removing a row from a metric's net removes it with the sign the direction gave it.
+                    if (MetricCovers(metrics[i], document, cancelAction, cancelDirection, tagIds))
+                        delta[i] -= Sign(cancelDirection) * n.Offset;
+
+                    foreach (var (action, quantity) in n.Paired)
+                        if (MetricCovers(metrics[i], document, action, baseDirection, tagIds))
+                            delta[i] -= Sign(baseDirection) * quantity;
+                }
+            }
+        }
+
+        return new SameDayNetting(offsetByCell, offsetByItem, metricDeltaByCell);
+    }
+
+    /// <summary>Which move a document's cancellation reverses, and the action that reverses it.</summary>
+    private static (StockMovementDirection Base, StockMovementDirection Cancel, string CancelAction) Shape(
+        NettedDocument document) =>
+        document switch
+        {
+            NettedDocument.Receipt => (StockMovementDirection.In, StockMovementDirection.Out,
+                InventoryActions.CancelledPlacement),
+            _ => (StockMovementDirection.Out, StockMovementDirection.In, InventoryActions.CancelledFulfillment),
+        };
+
+    private static int Sign(StockMovementDirection direction) =>
+        direction is StockMovementDirection.In or StockMovementDirection.TransferIn ? 1 : -1;
+
+    /// <summary>
+    /// The day's moves and cancellations of one document type, per document, item, direction and action.
+    /// Both branches project the same shape, so the aggregation below them is written once.
+    /// </summary>
+    private static async Task<List<DocumentDayRow>> FetchDocumentRowsAsync(
+        IQueryable<StockMovement> query,
+        IReadOnlyCollection<Guid> columnIds,
+        NettedDocument document,
+        int offsetMinutes,
+        CancellationToken ct)
+    {
+        var (baseDirection, cancelDirection, cancelAction) = Shape(document);
+        var scoped = query.Where(m => columnIds.Contains(m.CatalogItemId))
+            .Where(m => m.Direction == baseDirection || (m.Direction == cancelDirection && m.Action == cancelAction));
+
+        var keyed = document switch
+        {
+            NettedDocument.Receipt => scoped.Where(m => m.ReceiptId != null).Select(m => new
+            {
+                DocumentId = m.ReceiptId!.Value, m.CreatedAt, m.CatalogItemId, m.Direction, m.Action, m.Quantity,
+            }),
+            _ => scoped.Where(m => m.OrderId != null).Select(m => new
+            {
+                DocumentId = m.OrderId!.Value, m.CreatedAt, m.CatalogItemId, m.Direction, m.Action, m.Quantity,
+            }),
+        };
+
+        return await keyed
+            .GroupBy(x => new
+            {
+                Date = x.CreatedAt.AddMinutes(offsetMinutes).Date, x.CatalogItemId, x.DocumentId, x.Direction, x.Action,
+            })
+            .Select(g => new DocumentDayRow
+            {
+                Date = g.Key.Date,
+                CatalogItemId = g.Key.CatalogItemId,
+                DocumentId = g.Key.DocumentId,
+                Direction = g.Key.Direction,
+                Action = g.Key.Action,
+                Quantity = g.Sum(x => x.Quantity),
+                FirstAt = g.Min(x => x.CreatedAt),
+                LastAt = g.Max(x => x.CreatedAt),
+            })
+            .ToListAsync(ct);
+    }
+
+    /// <summary>Tags of the netted documents, loaded only when some metric filters on that document's tags.</summary>
+    private async Task<Dictionary<Guid, IReadOnlyCollection<Guid>>> LoadDocumentTagsAsync(
+        NettedDocument document,
+        IReadOnlyList<StockMovementMetricDto> metrics,
+        IReadOnlyCollection<Guid> documentIds,
+        CancellationToken ct)
+    {
+        if (!metrics.Any(m => OwnTagIds(m, document) is { Length: > 0 })) return [];
+
+        var tagged = document switch
+        {
+            NettedDocument.Receipt => db.Receipts
+                .Where(r => documentIds.Contains(r.Id))
+                .Select(r => new { r.Id, TagIds = r.Tags.Select(t => t.Id).ToList() }),
+            _ => db.Orders
+                .Where(o => documentIds.Contains(o.Id))
+                .Select(o => new { o.Id, TagIds = o.Tags.Select(t => t.Id).ToList() }),
+        };
+
+        return await tagged.ToDictionaryAsync(x => x.Id, x => (IReadOnlyCollection<Guid>)x.TagIds, ct);
+    }
+
+    private static Guid[]? OwnTagIds(StockMovementMetricDto metric, NettedDocument document) =>
+        document == NettedDocument.Receipt ? metric.ReceiptTagIds : metric.OrderTagIds;
+
+    /// <summary>
+    /// Whether a metric's predicate keeps a movement of <paramref name="document"/> with these attributes.
+    /// Mirrors <see cref="ApplyMetric"/>; a filter on any other document's tags never matches, because a
+    /// movement carries at most one document.
+    /// </summary>
+    private static bool MetricCovers(
+        StockMovementMetricDto metric,
+        NettedDocument document,
+        string action,
+        StockMovementDirection direction,
+        IReadOnlyCollection<Guid> documentTagIds)
+    {
+        if (metric.Actions is { Length: > 0 } actions && !actions.Contains(action)) return false;
+        if (metric.Directions is { Length: > 0 } directions && !directions.Contains(direction)) return false;
+        if (metric.WriteoffTagIds is { Length: > 0 } || metric.StocktakeTagIds is { Length: > 0 }) return false;
+
+        var foreignTagIds = OwnTagIds(metric, document == NettedDocument.Receipt
+            ? NettedDocument.Order
+            : NettedDocument.Receipt);
+        if (foreignTagIds is { Length: > 0 }) return false;
+
+        return OwnTagIds(metric, document) is not { Length: > 0 } tagIds || tagIds.Any(documentTagIds.Contains);
     }
 
     /// <summary>

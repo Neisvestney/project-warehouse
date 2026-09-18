@@ -141,6 +141,56 @@ four `null`. Like the other references they are `ON DELETE SET NULL`, so deletin
 A new document type that writes stock adds one field to the context, one FK on `StockMovement`, and passes the
 context at every inventory call it makes — a call without it silently drops out of the document's tag filters.
 
+### Same-day cancellation in the movements report
+
+The journal keeps both rows of a document movement that was cancelled — the movement itself and its
+cancellation. The pivot report (`StockStatisticsService.GetPivotAsync`) reports them as a single non-event when
+both fall on the same day: the cancelled quantity is subtracted from the document's own figure and the
+cancellation itself shows as zero. Two documents have the shape this needs — one document, one item, one day, a
+directed movement and an action that reverses it:
+
+| Document | Its move | Its cancellation |
+|----------|----------|------------------|
+| Receipt (`ReceiptId`) | In, `inventory.new_goods` / `inventory.return_stock` | Out, `inventory.canceled_placement` |
+| Order (`OrderId`) | Out, `inventory.spent_on_order` | In, `inventory.canceled_fulfillment` |
+
+A cancellation reaching back to an earlier day stays a movement of its own, and the part of it that exceeds
+what the document moved that day is reported in full.
+
+Pairing is per document, catalog item and day, the day cut in the report's own time zone, so the figures are
+whatever the table's grouping already is. A cancellation takes back only moves made before it, the latest one
+first: a receipt whose reason changed mid-day places under two actions, and attributing the cancelled quantity
+by anything other than time gets the wrong one half of the time. The day is aggregated per action, so the split
+between two actions that both precede a cancellation is still a guess — one that moves quantity between metrics
+only, since the In/Out figures take the same offset either way.
+
+Either pair is one In and one Out whichever side the document's own move is on, so both fixed columns take the
+same offset, and a movement carries at most one document, so the two document passes never read the same row
+twice. Metrics take the share each predicate covers — a metric selecting only the cancellation action lands on
+zero, one selecting only the document's own action loses the cancelled quantity, and one covering both is
+unchanged. `Net`, `Balance` and `MovementsCount` are untouched: the pair is net-neutral by construction, and the
+two movements really were written.
+
+Netting needs the document link, and every document FK is `ON DELETE SET NULL`. Deleting a receipt or an order
+leaves its movements in the journal with nothing to pair them by, and the report shows them raw from then on.
+
+The report nets what its filters let it see: pairs are read out of the same filtered query the table is built
+from, so a filter on direction, action or employee that keeps one side of a pair and drops the other leaves the
+remaining side raw — «только приходы» shows a placement at full size, «только отмены размещений» shows the
+cancellation. Filters on warehouse, storage place, node or document tag never split a pair, because the
+cancellation reverses the move in the same node under the same document, and neither does the date range,
+since a netted pair is same-day by definition. Note that `Balance` treats those same three filters the other
+way round and ignores them: an on-hand figure is a fact about the shelf that a narrowed selection cannot
+recompute, while the netting is a decision about how to present two rows of the table.
+
+Only the pivot nets. The daily series, the breakdown and the movement list report the journal as it stands —
+they are views of raw rows, and a figure netted in one of them could not be traced back to the rows it came from.
+
+No other document nets. Write-offs and stocktakes have no cancellation action — reverting the document is not
+a reverse movement — and a transfer pair carries no document to key on, besides living in its own
+`TransferIn`/`TransferOut` figures already. A new document joins by adding a case to `NettedDocument` with its
+FK, the direction of its own move and the action that reverses it.
+
 ---
 
 ## Tags
