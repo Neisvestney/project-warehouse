@@ -1334,7 +1334,8 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("availability")]
-        public string? Availability { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<GetProductInfoListResponseAvailabilityAvailability>))]
+        public GetProductInfoListResponseAvailabilityAvailability? Availability { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("reasons")]
         public System.Collections.Generic.IReadOnlyList<AvailabilityReason>? Reasons { get; set; } = default!;
@@ -5739,6 +5740,21 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
             get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
             set { _additionalProperties = value; }
         }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum GetProductInfoListResponseAvailabilityAvailability
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"HIDDEN")]
+        HIDDEN = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"AVAILABLE")]
+        AVAILABLE = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"UNAVAILABLE")]
+        UNAVAILABLE = 2,
 
     }
 
