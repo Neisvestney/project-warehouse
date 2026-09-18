@@ -1820,10 +1820,15 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
     {
 
         /// <summary>
-        /// Доступность товара.
+        /// Доступность товара:
+        /// <br/>- `HIDDEN` — скрыт;
+        /// <br/>- `AVAILABLE` — доступен;
+        /// <br/>- `UNAVAILABLE` — недоступен, SKU удалён.
+        /// <br/>
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("availability")]
-        public string? Availability { get; set; } = default!;
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<GetProductInfoListResponseAvailabilityAvailability>))]
+        public GetProductInfoListResponseAvailabilityAvailability? Availability { get; set; } = default!;
 
         /// <summary>
         /// Причина, почему товар скрыт.
@@ -3611,8 +3616,7 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         /// <br/>- `hybrid_aggregator` — гибридная интеграция с доставкой внешней службой, Ozon регистрирует заказ;
         /// <br/>- `hybrid_non_integrated` — гибридная интеграция с доставкой силами продавца;
         /// <br/>- `hybrid_3pl_tracking` — гибридная интеграция с доставкой внешней службой, продавец регистрирует заказ;
-        /// <br/>- `click_and_collect` — бронирование в магазине партнёра;
-        /// <br/>- `FBP` — доставка с партнёрских складов Ozon.
+        /// <br/>- `click_and_collect` — бронирование в магазине партнёра.
         /// <br/>
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("integration_type_flow")]
@@ -3974,8 +3978,7 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         /// <br/>- `hybrid_aggregator` — гибридная интеграция с доставкой внешней службой, Ozon регистрирует заказ;
         /// <br/>- `hybrid_non_integrated` — гибридная интеграция с доставкой силами продавца;
         /// <br/>- `hybrid_3pl_tracking` — гибридная интеграция с доставкой внешней службой, продавец регистрирует заказ;
-        /// <br/>- `click_and_collect` — бронирование в магазине партнёра;
-        /// <br/>- `FBP` — доставка с партнёрских складов Ozon.
+        /// <br/>- `click_and_collect` — бронирование в магазине партнёра.
         /// <br/>
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("integration_type_flow")]
@@ -5549,8 +5552,7 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         /// <br/>- `hybrid_aggregator` — гибридная интеграция с доставкой внешней службой, Ozon регистрирует заказ;
         /// <br/>- `hybrid_non_integrated` — гибридная интеграция с доставкой силами продавца;
         /// <br/>- `hybrid_3pl_tracking` — гибридная интеграция с доставкой внешней службой, продавец регистрирует заказ;
-        /// <br/>- `click_and_collect` — бронирование в магазине партнёра;
-        /// <br/>- `FBP` — доставка с партнёрских складов Ozon.
+        /// <br/>- `click_and_collect` — бронирование в магазине партнёра.
         /// <br/>
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("integration_type_flow")]
@@ -8071,8 +8073,7 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         /// <br/>- `hybrid_aggregator` — гибридная интеграция с доставкой внешней службой, Ozon регистрирует заказ;
         /// <br/>- `hybrid_non_integrated` — гибридная интеграция с доставкой силами продавца;
         /// <br/>- `hybrid_3pl_tracking` — гибридная интеграция с доставкой внешней службой, продавец регистрирует заказ;
-        /// <br/>- `click_and_collect` — бронирование в магазине партнёра;
-        /// <br/>- `FBP` — доставка с партнёрских складов Ozon.
+        /// <br/>- `click_and_collect` — бронирование в магазине партнёра.
         /// <br/>
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("integration_type_flow")]
@@ -8840,7 +8841,7 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         public bool? Is_super { get; set; } = default!;
 
         /// <summary>
-        /// Минимальная цена товара после применения акций.
+        /// Нижний порог предельной цены товара. Действует при автоприменении акций, автодобавлении товара в акции и в стратегиях ценообразования. Покупатели не видят это значение.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("min_price")]
         public string? Min_price { get; set; } = default!;
@@ -8861,13 +8862,13 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         public string? Offer_id { get; set; } = default!;
 
         /// <summary>
-        /// Цена до учёта скидок. На карточке товара отображается зачёркнутой.
+        /// Цена, которую покупатели видят зачёркнутой.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("old_price")]
         public string? Old_price { get; set; } = default!;
 
         /// <summary>
-        /// Цена товара с учётом скидок — это значение показывается на карточке товара.
+        /// Предельная цена товара без акций. Выше этого значения цену для покупателя не поднимем.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("price")]
         public string? Price { get; set; } = default!;
@@ -9142,6 +9143,21 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
             get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
             set { _additionalProperties = value; }
         }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum GetProductInfoListResponseAvailabilityAvailability
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"HIDDEN")]
+        HIDDEN = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"AVAILABLE")]
+        AVAILABLE = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"UNAVAILABLE")]
+        UNAVAILABLE = 2,
 
     }
 
