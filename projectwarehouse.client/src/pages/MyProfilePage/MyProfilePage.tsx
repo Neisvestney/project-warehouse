@@ -13,8 +13,13 @@ import QueryError from "@/components/QueryError";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import InfoRow from "@/components/InfoRow.tsx";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import {useHasPermission} from "@/hooks/usePermission.ts";
+import {Link as RouterLink} from "react-router";
+import EditIcon from "@mui/icons-material/Edit";
 
 function MyProfilePage() {
+  const canEdit = useHasPermission("users.edit_profile");
+
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   const {
@@ -49,6 +54,16 @@ function MyProfilePage() {
           title={user.username}
           actions={
             <>
+              {canEdit && (
+                <Button
+                  startIcon={<EditIcon />}
+                  component={RouterLink}
+                  to={`/settings/employees/${user.id}/edit`}
+                  variant="outlined"
+                >
+                  Редактировать профиль
+                </Button>
+              )}
               <Button
                 variant="outlined"
                 startIcon={<LockResetIcon />}
