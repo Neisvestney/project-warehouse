@@ -193,6 +193,9 @@ import type {
   OrdersGetByIdData,
   OrdersGetByIdErrors,
   OrdersGetByIdResponses,
+  OrdersGetCompositionPreviewData,
+  OrdersGetCompositionPreviewErrors,
+  OrdersGetCompositionPreviewResponses,
   OrdersGetLabelsData,
   OrdersGetLabelsErrors,
   OrdersGetLabelsResponses,
@@ -1773,6 +1776,26 @@ export const ordersUpdate = <ThrowOnError extends boolean = false>(
       ...options.headers,
     },
   });
+
+/**
+ * Boxes and components of one order, trimmed to the first few positions.
+ *
+ * Feeds the hover preview in the order list, so it carries neither assembly tasks nor marketplace data.
+ * Returns 404 `orderNotFound` if the order does not exist. Requires the same view access as
+ * Task&lt;IActionResult&gt; OrdersController.GetById(Guid id, CancellationToken ct = default(CancellationToken)).
+ */
+export const ordersGetCompositionPreview = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersGetCompositionPreviewData, ThrowOnError>,
+): RequestResult<
+  OrdersGetCompositionPreviewResponses,
+  OrdersGetCompositionPreviewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    OrdersGetCompositionPreviewResponses,
+    OrdersGetCompositionPreviewErrors,
+    ThrowOnError
+  >({url: "/api/orders/{id}/composition-preview", ...options});
 
 /**
  * Create a Direct (non-marketplace) order in Draft status.

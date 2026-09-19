@@ -14,7 +14,6 @@ import {
   TableRow,
   TableSortLabel,
   Typography,
-  Chip,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
@@ -53,6 +52,7 @@ import CatalogItemsSelect from "@/components/CatalogItemsSelect";
 import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
 import TagChips from "@/components/tags/TagChips";
 import OrderStatusChip from "./OrderStatusChip";
+import OrderCompositionPreview from "./OrderCompositionPreview";
 import MarketplaceOrderFilters from "./marketplace/MarketplaceOrderFilters";
 import {
   ALL_MARKETPLACE_ORDER_STATUSES,
@@ -310,7 +310,7 @@ function OrdersListPage({
     {key: "total", label: "Всего заказов:", value: (data?.total ?? 0).toLocaleString("ru-RU")},
     {
       key: "components",
-      label: "Позиций:",
+      label: "Штук:",
       value: (data?.meta.componentCount ?? 0).toLocaleString("ru-RU"),
     },
     {
@@ -581,7 +581,7 @@ function OrdersListPage({
                 </TableCell>
               ))}
               {showNotes && <TableCell>Заметки</TableCell>}
-              <TableCell>Позиций</TableCell>
+              <TableCell>Штук</TableCell>
               <TableCell>Теги</TableCell>
             </TableRow>
           </TableHead>
@@ -625,11 +625,7 @@ function OrdersListPage({
                     <NotesTableCell notes={order.notes} sx={{position: "relative", zIndex: 1}} />
                   )}
                   <TableCell>
-                    {!order.boxCount ? (
-                      "—"
-                    ) : (
-                      <Chip variant={"outlined"} size={"small"} label={order.componentCount} />
-                    )}
+                    <OrderCompositionPreview order={order} />
                   </TableCell>
                   <TableCell>
                     <TagChips tags={order.tags} />

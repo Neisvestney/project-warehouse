@@ -1093,6 +1093,42 @@ export type OrderBoxDto = {
   components: Array<OrderBoxComponentDto>;
 };
 
+export type OrderCompositionPreviewBoxDto = {
+  id: string;
+  label?: null | string;
+  /**
+   * Components of this box that fit into the preview limit. Empty when the whole box fell outside it —
+   * the box still ships in the list so that the client can number unlabeled boxes by position.
+   */
+  components: Array<OrderCompositionPreviewComponentDto>;
+};
+
+export type OrderCompositionPreviewComponentDto = {
+  catalogItemId: string;
+  catalogItemName: string;
+  quantity: number;
+};
+
+/**
+ * Trimmed composition of a single order, for the hover preview in the order list.
+ */
+export type OrderCompositionPreviewDto = {
+  boxCount: number;
+  /**
+   * Distinct box components across the order, before the preview limit is applied.
+   */
+  positionCount: number;
+  /**
+   * Summed quantity of those components — the number the order list shows in its own column.
+   */
+  totalQuantity: number;
+  boxes: Array<OrderCompositionPreviewBoxDto>;
+  /**
+   * Positions left out of IReadOnlyList&lt;OrderCompositionPreviewBoxDto&gt; OrderCompositionPreviewDto.Boxes by the preview limit.
+   */
+  hiddenPositionCount: number;
+};
+
 export type OrderDetailsDto = {
   id: string;
   number: number;
@@ -4667,6 +4703,43 @@ export type OrdersUpdateResponses = {
 };
 
 export type OrdersUpdateResponse = OrdersUpdateResponses[keyof OrdersUpdateResponses];
+
+export type OrdersGetCompositionPreviewData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/orders/{id}/composition-preview";
+};
+
+export type OrdersGetCompositionPreviewErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type OrdersGetCompositionPreviewError =
+  OrdersGetCompositionPreviewErrors[keyof OrdersGetCompositionPreviewErrors];
+
+export type OrdersGetCompositionPreviewResponses = {
+  /**
+   * OK
+   */
+  200: OrderCompositionPreviewDto;
+};
+
+export type OrdersGetCompositionPreviewResponse =
+  OrdersGetCompositionPreviewResponses[keyof OrdersGetCompositionPreviewResponses];
 
 export type OrdersCreateDirectData = {
   body: CreateDirectOrderRequest;
