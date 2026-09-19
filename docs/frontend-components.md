@@ -332,12 +332,32 @@ Actions arrive as data, `actions: BulkAction[]` — `{key, label, icon?, count?,
 primary?, danger?}` — and the bar owns their markup. `primary` actions become toolbar buttons, the rest go under
 an «Ещё» dropdown; below `sm` every action goes into a single «Действия» dropdown. `count` is appended to the
 label as `(N)`, `pending` swaps the icon for a spinner (the dropdown button spins while any of its items is
-pending and is disabled only when all of them are), `danger` paints the menu item red. The bar renders nothing
-when `actions` is empty, so a caller builds the list only while something is selected and does not need a
-separate visibility flag.
+pending and is disabled only when all of them are), `danger` paints the menu item red. With nothing selected
+the bar falls back to the list summary — `info: TableInfoStat[]` rendered as a [`TableInfoBar`](#tableinfobar),
+`infoLoading` while the page is loading — and renders nothing if `info` is omitted too. The fallback keys off
+`count`, not `actions`: a selection that happens to offer no action keeps the selection band with its clear
+button rather than silently turning into the list summary. So a caller builds the action list only while
+something is selected and never needs a separate visibility flag.
 
 An action that needs its own dialog stays data too: a hook returns `{getAction, dialogs}`, the page puts
 `getAction(...)` into the list and renders `dialogs` next to the table (see `useDownloadLabelsAction`).
+
+### `TableInfoBar`
+
+Dense toolbar with the summary of a whole list, sitting above a table at exactly the height of
+[`BulkBar`](#bulkbar) so the page does not jump when a selection starts. It is outlined rather than filled — a
+`divider` border around `text.secondary` labels on the bare surface — so the summary stays quieter than both
+the table and the `primary.main` selection band that replaces it.
+
+`stats: TableInfoStat[]` — `{key, label, value, color?, hidden?}` — is rendered as a row of «label value» pairs
+with the value in bold; `color` tints it (`error.main` for a counter that signals trouble) and `hidden` drops a
+stat that carries no meaning, such as a zero counter. `loading` replaces every value with a skeleton, and
+`children` are pushed to the right edge.
+
+The numbers describe the whole filtered set, not the current page, so they come from the endpoint's
+`PaginatedWithMeta` envelope (see [backend-patterns.md](./backend-patterns.md#paginatedwithmetat-tmeta)) rather
+than from `items`. A page normally passes the list through `BulkBar`'s `info` prop instead of mounting this
+component itself.
 
 ### `SearchInput`, `SelectAllHeader`, `InfoRow`, `TableRowLoader`, `TableRowEmpty`, `PageGenericHeader`
 
@@ -919,6 +939,11 @@ Every order summary opens with a selection checkbox covering all tasks of that o
 selected, MUI's `indeterminate` when only some are. Toggling it calls `onTaskCheckChange` per task, so the page
 keeps its flat `selectedTaskIds` set. Group headers and the «Выбрать все» row above the list do the same over
 their groups' orders and over every visible order.
+
+With nothing selected that bar shows the list summary instead: the number of orders on assembly and the
+positions progress — `fulfilled из total` over `getTaskProgress` of every visible task, so the counters follow
+the warehouse/search/tag filters. The assembly endpoint is not paginated, so both numbers are derived from the
+loaded orders rather than from a server-side meta block.
 
 Any task can be selected. The selection feeds a [`BulkBar`](#bulkbar) that counts selected orders and offers
 «Собрать задания» and «Скачать этикетки». «Собрать задания» takes only the selected tasks for which

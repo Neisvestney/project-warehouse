@@ -340,6 +340,32 @@ round trips — which matters in hot loops such as `OrderService.IsTaskFullyFulf
 
 ---
 
+## `PaginatedWithMeta<T, TMeta>`
+
+**A number describing the whole filtered list travels with the page, not in a second endpoint.**
+`PaginatedWithMeta<T, TMeta>` extends `Paginated<T>` with one extra property, `Meta`, and
+`paginated.WithMeta(meta)` wraps a page that has already been materialised:
+
+```csharp
+var paginated = await query.ProjectTo<OrderSummaryDto>(mapper.ConfigurationProvider)
+    .ToPaginatedAsync(page, pageSize, ct);
+
+var meta = new OrderListMetaDto {OverdueCount = await baseQuery.CountAsync(…, ct)};
+
+return Ok(paginated.WithMeta(meta));
+```
+
+The aggregates are computed over the **filtered, unpaged, unsorted** query — the one before `Skip`/`Take` —
+so they stay stable while the user walks the pages. Each of them is its own round trip, which is why the
+meta DTO stays small; a handful of counters over the same filter belongs in one `GroupBy` instead.
+
+`TMeta` is constrained to `notnull` so the generated OpenAPI schema marks `meta` required, and the client
+reads `data.meta.x` without a null check. The meta DTO lives next to its list DTO
+(`Models/Orders/OrderListMetaDto.cs`) and is documented per property — those comments become the TSDoc of the
+generated type. The front end shows the result in a [`TableInfoBar`](./frontend-components.md#tableinfobar).
+
+---
+
 ## Many aggregates over one table: `Concat` into a single `UNION ALL`
 
 **A caller-supplied list of filters, each needing its own aggregate over the same rows, is one query, not

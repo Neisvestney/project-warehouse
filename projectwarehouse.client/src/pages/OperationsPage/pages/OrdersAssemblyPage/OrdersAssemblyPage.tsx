@@ -13,6 +13,8 @@ import {
 import RefreshIcon from "@mui/icons-material/Refresh";
 import PlaylistAddCheckIcon from "@mui/icons-material/PlaylistAddCheck";
 import BulkBar, {type BulkAction} from "@/components/BulkBar";
+import type {TableInfoStat} from "@/components/TableInfoBar";
+import {getTaskProgress} from "@/components/orders/orderAssemblyUtils";
 import {useDownloadLabelsAction} from "@/components/orders/marketplace/useDownloadLabelsAction";
 import {NOUNS, pluralCount} from "@/utils/pluralUtils";
 import {useQuery, useQueryClient} from "@tanstack/react-query";
@@ -192,6 +194,27 @@ function OrdersAssemblyPage() {
     return result;
   }, [selectedTaskIds, orders, eligibilityMap]);
 
+  const listStats: TableInfoStat[] = (() => {
+    const progress = orders
+      .flatMap((o) => o.assemblyTasks)
+      .reduce(
+        (acc, task) => {
+          const {fulfilled, total} = getTaskProgress(task);
+          return {fulfilled: acc.fulfilled + fulfilled, total: acc.total + total};
+        },
+        {fulfilled: 0, total: 0},
+      );
+
+    return [
+      {key: "orders", label: "Заказов на сборке:", value: orders.length.toLocaleString("ru-RU")},
+      {
+        key: "positions",
+        label: "Позиций:",
+        value: `${progress.fulfilled.toLocaleString("ru-RU")} из ${progress.total.toLocaleString("ru-RU")}`,
+      },
+    ];
+  })();
+
   const downloadLabels = useDownloadLabelsAction();
 
   const selectionActions: BulkAction[] =
@@ -286,6 +309,8 @@ function OrdersAssemblyPage() {
           countLabel={{one: "заказ выбран", few: "заказа выбрано", many: "заказов выбрано"}}
           onClear={() => setSelectedTaskIds(new Set())}
           actions={selectionActions}
+          info={listStats}
+          infoLoading={showLoading}
         />
 
         {ordersQuery.isError && (

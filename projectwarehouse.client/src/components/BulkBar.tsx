@@ -16,6 +16,7 @@ import {
 import ClearIcon from "@mui/icons-material/Clear";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import {pluralCount, type PluralForms} from "@/utils/pluralUtils";
+import TableInfoBar, {type TableInfoStat} from "@/components/TableInfoBar";
 
 export interface BulkAction {
   key: string;
@@ -39,6 +40,9 @@ interface BulkBarProps {
   countLabel: PluralForms;
   onClear: () => void;
   actions: BulkAction[];
+  /** Shown instead of the selection toolbar while no action applies, at the same height. */
+  info?: TableInfoStat[];
+  infoLoading?: boolean;
 }
 
 const buttonSx = {color: "primary.main"};
@@ -47,13 +51,16 @@ function actionText(action: BulkAction) {
   return action.count != null ? `${action.label} (${action.count})` : action.label;
 }
 
-/** Toolbar shown above a table while rows are selected. Renders nothing when no action applies. */
-function BulkBar({count, countLabel, onClear, actions}: BulkBarProps) {
+/**
+ * Toolbar shown above a table while rows are selected. With nothing selected it falls back to the
+ * list summary in `info`, or renders nothing.
+ */
+function BulkBar({count, countLabel, onClear, actions, info, infoLoading}: BulkBarProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
 
-  if (actions.length === 0) return null;
+  if (count === 0) return info ? <TableInfoBar stats={info} loading={infoLoading} /> : null;
 
   const buttonActions = isMobile ? [] : actions.filter((a) => a.primary);
   const menuActions = isMobile ? actions : actions.filter((a) => !a.primary);

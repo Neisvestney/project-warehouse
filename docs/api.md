@@ -25,7 +25,9 @@ Errors always use `AppProblemDetails` — see [errors.md](errors.md) for the env
 
 ## Common query conventions
 
-- **Pagination**: `page` (default 1), `pageSize` (default 20, max 200) → `Paginated<T>`.
+- **Pagination**: `page` (default 1), `pageSize` (default 20, max 200) → `Paginated<T>`, or
+  `PaginatedWithMeta<T, TMeta>` where the list also carries aggregates over the whole filtered set
+  (`GET /api/orders` → `OrderListMetaDto`: `componentCount`, `overdueCount`).
 - **Search**: `searchString` matches against the entity's precomputed `SearchString` column.
 - **Sorting**: `sortBy` (per-endpoint enum) plus `sortOrder` (`asc` | `desc`).
 - **Multi-value filters**: repeatable params (`itemTypes`, `tagIds`, `catalogItemTypes`) use OR semantics.

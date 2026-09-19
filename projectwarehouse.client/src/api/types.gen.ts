@@ -1129,6 +1129,20 @@ export type OrderLabelsRequest = {
   forceRegenerate: boolean;
 };
 
+/**
+ * Aggregates of the whole filtered order list, shown above the table when nothing is selected.
+ */
+export type OrderListMetaDto = {
+  /**
+   * Total quantity of box components across the filtered orders.
+   */
+  componentCount: number;
+  /**
+   * Orders past their planned shipment date that are neither shipped nor canceled.
+   */
+  overdueCount: number;
+};
+
 export type OrderMarketplaceItemDto = {
   id: string;
   marketplaceCard?: null | MarketplaceCardDto;
@@ -1252,16 +1266,6 @@ export type PaginatedOfMarketplaceWarehouseDto = {
   hasPreviousPage: boolean;
 };
 
-export type PaginatedOfOrderSummaryDto = {
-  items: Array<OrderSummaryDto>;
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-};
-
 export type PaginatedOfReceiptSummaryDto = {
   items: Array<ReceiptSummaryDto>;
   total: number;
@@ -1334,6 +1338,20 @@ export type PaginatedOfWarehouseSummaryDto = {
 
 export type PaginatedOfWriteoffSummaryDto = {
   items: Array<WriteoffSummaryDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
+/**
+ * A page plus aggregates computed over the whole filtered set, not just the page.
+ */
+export type PaginatedWithMetaOfOrderSummaryDtoAndOrderListMetaDto = {
+  meta: OrderListMetaDto;
+  items: Array<OrderSummaryDto>;
   total: number;
   page: number;
   pageSize: number;
@@ -4500,7 +4518,7 @@ export type OrdersGetAllResponses = {
   /**
    * OK
    */
-  200: PaginatedOfOrderSummaryDto;
+  200: PaginatedWithMetaOfOrderSummaryDtoAndOrderListMetaDto;
 };
 
 export type OrdersGetAllResponse = OrdersGetAllResponses[keyof OrdersGetAllResponses];
