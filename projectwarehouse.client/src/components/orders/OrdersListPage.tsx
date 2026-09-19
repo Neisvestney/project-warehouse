@@ -41,6 +41,7 @@ import FiltersBar from "@/components/FiltersBar";
 import DataTableContainer from "@/components/DataTableContainer";
 import SelectionTableCell from "@/components/SelectionTableCell";
 import BulkBar, {type BulkAction} from "@/components/BulkBar";
+import type {TableInfoStat} from "@/components/TableInfoBar";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
@@ -305,6 +306,22 @@ function OrdersListPage({
     }),
   );
 
+  const listStats: TableInfoStat[] = [
+    {key: "total", label: "Всего заказов:", value: (data?.total ?? 0).toLocaleString("ru-RU")},
+    {
+      key: "components",
+      label: "Позиций:",
+      value: (data?.meta.componentCount ?? 0).toLocaleString("ru-RU"),
+    },
+    {
+      key: "overdue",
+      label: "Просрочено:",
+      value: (data?.meta.overdueCount ?? 0).toLocaleString("ru-RU"),
+      color: "error.main",
+      hidden: !isLoading && !data?.meta.overdueCount,
+    },
+  ];
+
   const selectedConfirmedIds = selectedItems
     .filter((o) => o.status === "confirmed")
     .map((o) => o.id);
@@ -469,6 +486,8 @@ function OrdersListPage({
         countLabel={{one: "заказ выбран", few: "заказа выбрано", many: "заказов выбрано"}}
         onClear={clear}
         actions={selectionActions}
+        info={listStats}
+        infoLoading={isLoading}
       />
 
       {confirmTransition?.confirm && (

@@ -37,4 +37,21 @@ public static class PaginatedExtensions
             PageSize = pageSize,
         };
     }
+
+    public static PaginatedWithMeta<T, TMeta> WithMeta<T, TMeta>(this Paginated<T> paginated, TMeta meta)
+        where TMeta : notnull =>
+        new()
+        {
+            Items = paginated.Items,
+            Total = paginated.Total,
+            Page = paginated.Page,
+            PageSize = paginated.PageSize,
+            Meta = meta,
+        };
+}
+
+/// <summary>A page plus aggregates computed over the whole filtered set, not just the page.</summary>
+public class PaginatedWithMeta<T, TMeta> : Paginated<T> where TMeta : notnull
+{
+    public required TMeta Meta { get; init; }
 }

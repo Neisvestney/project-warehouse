@@ -1432,7 +1432,7 @@ export const commonContentGetHomePageContentQueryKey = (
  *
  * Requires authentication only; content is narrowed per entity type by what the caller may view, so a
  * user without warehouse or receipt access simply gets fewer rows rather than a 403.
- * Returns up to 2 warehouses plus every visible receipt that is either `Processing` or a
+ * Returns up to 2 warehouses (first by name) plus every visible receipt that is either `Processing` or a
  * `Draft` the caller created.
  * Returns 403 `permissionDenied` when the token carries no usable `sub` claim. No other error codes.
  */

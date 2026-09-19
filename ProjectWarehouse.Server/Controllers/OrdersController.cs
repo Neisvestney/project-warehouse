@@ -290,7 +290,7 @@ public class OrdersController(
     /// </remarks>
     [HttpGet]
     [Authorize]
-    [ProducesResponseType<Paginated<OrderSummaryDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PaginatedWithMeta<OrderSummaryDto, OrderListMetaDto>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(
         [FromQuery][Range(1, int.MaxValue)] int page = 1,
         [FromQuery][Range(1, 200)] int pageSize = 20,
@@ -348,7 +348,22 @@ public class OrdersController(
             .ProjectTo<OrderSummaryDto>(mapper.ConfigurationProvider)
             .ToPaginatedAsync(page, pageSize, ct);
 
-        return Ok(paginated);
+        var now = DateTime.UtcNow;
+        var meta = new OrderListMetaDto
+        {
+            ComponentCount = await baseQuery
+                .SelectMany(o => o.Boxes)
+                .SelectMany(b => b.Components)
+                .SumAsync(c => (int?)c.Quantity, ct) ?? 0,
+            OverdueCount = await baseQuery.CountAsync(
+                o => o.PlannedShipmentAt != null
+                     && o.PlannedShipmentAt < now
+                     && o.Status != OrderStatus.Shipped
+                     && o.Status != OrderStatus.Canceled,
+                ct),
+        };
+
+        return Ok(paginated.WithMeta(meta));
     }
 
     // ── GET /api/orders/assembly ──────────────────────────────────────────────
