@@ -72,6 +72,7 @@ import {
   ordersGetAll,
   ordersGetAllAssembly,
   ordersGetById,
+  ordersGetCompositionPreview,
   ordersGetLabels,
   ordersGetTags,
   ordersGetTaskMoveTargets,
@@ -375,6 +376,9 @@ import type {
   OrdersGetByIdData,
   OrdersGetByIdError,
   OrdersGetByIdResponse,
+  OrdersGetCompositionPreviewData,
+  OrdersGetCompositionPreviewError,
+  OrdersGetCompositionPreviewResponse,
   OrdersGetLabelsData,
   OrdersGetLabelsError,
   OrdersGetTagsData,
@@ -3067,6 +3071,38 @@ export const ordersUpdateMutation = (
   };
   return mutationOptions;
 };
+
+export const ordersGetCompositionPreviewQueryKey = (
+  options: Options<OrdersGetCompositionPreviewData>,
+) => createQueryKey("ordersGetCompositionPreview", options);
+
+/**
+ * Boxes and components of one order, trimmed to the first few positions.
+ *
+ * Feeds the hover preview in the order list, so it carries neither assembly tasks nor marketplace data.
+ * Returns 404 `orderNotFound` if the order does not exist. Requires the same view access as
+ * Task&lt;IActionResult&gt; OrdersController.GetById(Guid id, CancellationToken ct = default(CancellationToken)).
+ */
+export const ordersGetCompositionPreviewOptions = (
+  options: Options<OrdersGetCompositionPreviewData>,
+) =>
+  queryOptions<
+    OrdersGetCompositionPreviewResponse,
+    OrdersGetCompositionPreviewError,
+    OrdersGetCompositionPreviewResponse,
+    ReturnType<typeof ordersGetCompositionPreviewQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await ordersGetCompositionPreview({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: ordersGetCompositionPreviewQueryKey(options),
+  });
 
 /**
  * Create a Direct (non-marketplace) order in Draft status.

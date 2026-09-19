@@ -27,5 +27,6 @@ export const NOUNS = {
   order: {one: "заказ", few: "заказа", many: "заказов"},
   item: {one: "товар", few: "товара", many: "товаров"},
   position: {one: "позиция", few: "позиции", many: "позиций"},
+  box: {one: "коробка", few: "коробки", many: "коробок"},
   itemType: {one: "тип", few: "типа", many: "типов"},
 } as const satisfies Record<string, PluralForms>;

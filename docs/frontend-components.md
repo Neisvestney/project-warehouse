@@ -863,6 +863,27 @@ list through the refetch, and on a deep link that carries `account=` before the 
 renders a temporary "Загрузка…" item for that id. Collapsing to the empty value would show a filter the URL and
 the request do not agree with.
 
+### `OrderCompositionPreview`
+
+Колонка «Штук» в списке заказов — это не просто чип с числом, а точка входа в состав заказа.
+`OrderCompositionPreview` рисует тот же чип (`order.componentCount`, прочерк при `boxCount === 0`) и по ховеру с
+задержкой 250 мс открывает `Popover` с составом: коробки, позиции с количествами, в подвале — «N коробок · M шт».
+Заголовки коробок появляются только когда коробок больше одной; имя коробки берётся у
+`formatBoxLabel(box, boxes)`, которому отдаётся весь список коробок превью, включая пустые — иначе нумерация
+поехала бы. Хвост за лимитом показан строкой «… ещё N позиций» по `hiddenPositionCount`.
+
+Запрос (`GET /api/orders/{id}/composition-preview`, см.
+[orders-specification.md](./orders-specification.md#превью-состава)) включается только после первого наведения
+(`enabled`) и живёт со `staleTime` в минуту, так что список заказов не платит за состав тех строк, к которым не
+притронулись. Пока ответа нет, в поповере стоят три скелетона фиксированной высоты — паддинги не прыгают.
+
+Две вещи, без которых это не работает внутри таблицы. Чип получает `position: relative; z-index: 1`: строка —
+[`LinkTableRow`](#linktablerow), её сплошная ссылка-оверлей лежит ниже и иначе съедает ховер. А у `Popover`
+корневой слот получает `pointerEvents: "none"`, бумага — `pointerEvents: "auto"`: невидимый бэкдроп модалки
+перехватил бы ховер на остальной таблице. `disableScrollLock` — чтобы открытие поповера не дёргало вёрстку
+страницы. Закрытие отложено на 150 мс, а бумага сама гасит таймер по `onMouseEnter`, так что курсор успевает
+переехать с чипа в поповер.
+
 ### `src/components/orders/marketplace/`
 
 FBS-only pieces: `SyncOrdersButton` / `SyncOrdersDialog` / `SyncOrdersAccountAccordion` / `SkippedOrdersList`

@@ -347,7 +347,7 @@ CLDR puts fractional values in the `"other"` category, which `PluralForms` does 
 into `few`, because «1,5 задания» is the correct Russian. Do not replace this with `forms[category]`
 indexing: that silently returns `undefined`.
 
-`NOUNS` is the shared dictionary of nouns **in the nominative case** (`task`, `item`, `position`, `itemType`).
+`NOUNS` is the shared dictionary of nouns **in the nominative case** (`task`, `order`, `item`, `position`, `itemType`, `box`).
 Add a word here rather than to a component when a counter is reused.
 
 The forms are arbitrary strings, so in phrases that require verb or adjective agreement, decline the whole

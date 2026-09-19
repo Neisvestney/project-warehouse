@@ -47,6 +47,9 @@ public class OrdersController(
     private bool CanBrowseOrders =>
         AccessScope.Has(User, Permissions.Orders.View) || AccessScope.Has(User, Permissions.Orders.ViewAssigned);
 
+    /// <summary>Positions the composition preview returns before it starts reporting the rest as a count.</summary>
+    private const int CompositionPreviewPositionLimit = 10;
+
     // ── Base query helpers ────────────────────────────────────────────────────
 
     private IQueryable<Order> BaseQuery() =>
@@ -72,7 +75,9 @@ public class OrdersController(
             .Include(o => o.MarketplaceOrder).ThenInclude(m => m!.MarketplaceAccount)
             .Include(o => o.Tags)
             .Include(o => o.Images).ThenInclude(i => i.DataFile)
-            .Include(o => o.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
+            // unlabeled boxes are named by their position in this list, so the order is pinned rather than
+            // left to EF — GetCompositionPreview sorts the same way to keep those names in agreement
+            .Include(o => o.Boxes.OrderBy(b => b.Id)).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(o => o.AssemblyTasks).ThenInclude(t => t.AssignedTo)
             .Include(o => o.AssemblyTasks).ThenInclude(t => t.Boxes).ThenInclude(tb => tb.OrderBox)
             .Include(o => o.AssemblyTasks).ThenInclude(t => t.Boxes)
@@ -405,7 +410,7 @@ public class OrdersController(
             .Include(o => o.MarketplaceOrder!.MarketplaceAccount)
             .Include(o => o.CreatedBy)
             .Include(o => o.Tags)
-            .Include(o => o.Boxes).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
+            .Include(o => o.Boxes.OrderBy(b => b.Id)).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
                 .ThenInclude(t => t.AssignedTo)
             .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
@@ -488,6 +493,86 @@ public class OrdersController(
             return denied;
 
         return Ok(await MapDetailsAsync(order, ct));
+    }
+
+    // ── GET /api/orders/{id}/composition-preview ──────────────────────────────
+
+    /// <summary>Boxes and components of one order, trimmed to the first few positions.</summary>
+    /// <remarks>
+    /// Feeds the hover preview in the order list, so it carries neither assembly tasks nor marketplace data.
+    /// Returns 404 <c>orderNotFound</c> if the order does not exist. Requires the same view access as
+    /// <see cref="GetById"/>.
+    /// </remarks>
+    [HttpGet("{id:guid}/composition-preview")]
+    [Authorize]
+    [ProducesResponseType<OrderCompositionPreviewDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetCompositionPreview(Guid id, CancellationToken ct = default)
+    {
+        if (!CanBrowseOrders)
+            return Forbidden();
+
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } prelude)
+            return prelude;
+
+        var order = await db.Orders
+            .AsNoTracking()
+            .Where(o => o.Id == id)
+            .Select(o => new
+            {
+                o.WarehouseId,
+                // same order as WithDetailsIncludes pins, so position-based box names agree with the order page
+                Boxes = o.Boxes
+                    .OrderBy(b => b.Id)
+                    .Select(b => new
+                    {
+                        b.Id,
+                        b.Label,
+                        Components = b.Components
+                            .OrderByDescending(c => c.Quantity)
+                            .ThenBy(c => c.CatalogItem.Name)
+                            .Select(c => new OrderCompositionPreviewComponentDto
+                            {
+                                CatalogItemId = c.CatalogItemId,
+                                CatalogItemName = c.CatalogItem.Name,
+                                Quantity = c.Quantity,
+                            })
+                            .ToList(),
+                    })
+                    .ToList(),
+            })
+            .FirstOrDefaultAsync(ct);
+
+        if (order is null)
+            return NotFound(ErrorCode.OrderNotFound, "Order not found.");
+
+        if (AccessError(await Rule.CheckWarehouseAsync(User, AccessLevel.View, order.WarehouseId, ct)) is { } denied)
+            return denied;
+
+        var positionCount = order.Boxes.Sum(b => b.Components.Count);
+        var budget = CompositionPreviewPositionLimit;
+        var boxes = new List<OrderCompositionPreviewBoxDto>(order.Boxes.Count);
+
+        foreach (var box in order.Boxes)
+        {
+            var take = Math.Min(budget, box.Components.Count);
+            budget -= take;
+            boxes.Add(new OrderCompositionPreviewBoxDto
+            {
+                Id = box.Id,
+                Label = box.Label,
+                Components = box.Components.Take(take).ToList(),
+            });
+        }
+
+        return Ok(new OrderCompositionPreviewDto
+        {
+            BoxCount = order.Boxes.Count,
+            PositionCount = positionCount,
+            TotalQuantity = order.Boxes.Sum(b => b.Components.Sum(c => c.Quantity)),
+            Boxes = boxes,
+            HiddenPositionCount = Math.Max(0, positionCount - CompositionPreviewPositionLimit),
+        });
     }
 
     // ── POST /api/orders/direct ───────────────────────────────────────────────
