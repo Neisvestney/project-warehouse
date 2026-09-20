@@ -407,7 +407,9 @@ blob. A user id is all it needs — that is what lets a presence tooltip or a ta
 loading the user record first. `previewWidth` (default 128) must be one of the allowed thumbnail widths; pass a
 larger one where the avatar is rendered large. Users without a photo answer 404, which the hook leaves as an
 error and the component renders as the coloured letter, so no caller has to branch. The blob is cached per
-user id — invalidate the `"user-avatar"` key after saving a new photo.
+user id — invalidate the `"user-avatar"` key after saving a new photo. The photo fades in over 300 ms once the
+`img` reports `load`, so it appears over the coloured letter instead of snapping in; the fade is keyed to the
+current url, so a changed avatar fades again rather than showing the new bytes instantly.
 
 The colour comes from `userColor(userId)` in `utils/userColor.ts`: FNV-1a over the id → hue, fixed `55% 45%`
 saturation/lightness, which keeps white text readable on every hue. A missing id falls back to `grey.500`. Use
