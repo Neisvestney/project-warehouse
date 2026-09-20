@@ -1,4 +1,5 @@
 ﻿using ProjectWarehouse.Server.Domain;
+using ProjectWarehouse.Server.Models.Files;
 using ProjectWarehouse.Server.Models.Users;
 
 namespace ProjectWarehouse.Server.Infrastructure.ChangeLog;
@@ -11,6 +12,12 @@ public class UserDetailDtoChangelogService(IChangeLogService changeLogService): 
         object? actionData = null)
     {
         var logic = AbstractChangeLogService.GetCompareLogic();
+
+        // Keep which file the avatar points at and drop the rest of its metadata — a file name or an
+        // upload timestamp is not an edit to the user.
+        foreach (var member in typeof(DataFileDto).GetProperties().Where(p => p.Name != nameof(DataFileDto.Id)))
+            logic.Config.MembersToIgnore.Add($"{nameof(DataFileDto)}.{member.Name}");
+
         return changeLogService.CompareAndSaveToChangelog(EntityType, before?.Id ?? after?.Id ?? Guid.Empty, before, after, logic, action, actionData);
     }
 

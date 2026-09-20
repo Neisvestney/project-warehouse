@@ -373,6 +373,7 @@ try
     builder.Services.AddScoped<IFileStorage, LocalFileStorage>();
     builder.Services.AddScoped<IDataFileBindingService, DataFileBindingService>();
     builder.Services.AddScoped<IDataFileFactory, DataFileFactory>();
+    builder.Services.AddScoped<IDataFileContentService, DataFileContentService>();
     builder.Services.AddScoped<IStorageStatsService, StorageStatsService>();
     builder.Services.AddScoped<IDatabaseStatsService, DatabaseStatsService>();
     builder.Services.AddMemoryCache();

@@ -9,6 +9,9 @@ public class ApplicationUser : IdentityUser<Guid>
     public string? LastName { get; set; }
     public int SecurityVersion { get; set; }
 
+    public Guid? AvatarFileId { get; set; }
+    public DataFile? AvatarFile { get; set; }
+
     [Projectable]
     public string SearchString =>
         (FirstName ?? "") + " " + (LastName ?? "") + " " + (UserName ?? "") + " " + (Email ?? "");

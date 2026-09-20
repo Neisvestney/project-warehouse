@@ -87,7 +87,16 @@ public class ApplicationDbContext : IdentityDbContext<
     {
         base.OnModelCreating(builder);
 
-        builder.Entity<ApplicationUser>(e => { e.HasMany(x => x.AssignedWarehouses).WithMany(x => x.AssignedUsers); });
+        builder.Entity<ApplicationUser>(e =>
+        {
+            e.HasMany(x => x.AssignedWarehouses).WithMany(x => x.AssignedUsers);
+
+            e.HasOne(x => x.AvatarFile)
+                .WithMany()
+                .HasForeignKey(x => x.AvatarFileId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
 
         builder.Entity<ApplicationUserRole>(e =>
         {

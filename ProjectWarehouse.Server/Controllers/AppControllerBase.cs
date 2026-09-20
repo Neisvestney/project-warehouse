@@ -4,11 +4,13 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Net.Http.Headers;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Models;
+using ProjectWarehouse.Server.Services;
 
 namespace ProjectWarehouse.Server.Controllers;
 
@@ -73,6 +75,36 @@ public abstract class AppControllerBase : ControllerBase
     {
         var raw = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
         return Guid.TryParse(raw, out var id) ? id : null;
+    }
+
+    /// <summary>Types the browser may render in place. Everything else is served as an attachment.</summary>
+    /// <remarks>
+    /// image/svg+xml is absent on purpose: an SVG is a scriptable document, and serving one inline
+    /// from our own origin is stored XSS.
+    /// </remarks>
+    private static readonly HashSet<string> InlineContentTypes =
+    [
+        "image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf",
+    ];
+
+    /// <summary>
+    /// Serves file content with the caching and disposition rules every binary endpoint shares.
+    /// </summary>
+    /// <remarks>
+    /// Content addressed by id is immutable — replacing a file creates a new row — so the ETag can
+    /// be derived from the identifier and lets the browser get a 304 without touching the disk.
+    /// </remarks>
+    protected FileStreamResult StreamDataFile(DataFileContent content)
+    {
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+
+        // passing a download name is what makes ASP.NET Core emit Content-Disposition: attachment
+        var downloadName = InlineContentTypes.Contains(content.ContentType) ? null : content.FileName;
+
+        return File(content.Stream, content.ContentType, downloadName,
+            lastModified: new DateTimeOffset(content.LastModified, TimeSpan.Zero),
+            entityTag: new EntityTagHeaderValue($"\"{content.ETagSource}\""),
+            enableRangeProcessing: true);
     }
 
     /// <summary>Null when access is granted; otherwise the response matching the refusal reason.</summary>

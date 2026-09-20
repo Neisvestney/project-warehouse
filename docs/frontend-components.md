@@ -397,14 +397,32 @@ Both forward the remaining `Chip` props.
 
 ### `UserAvatar`
 
-`<UserAvatar userId={…} name={…} />` — a MUI `Avatar` whose background is derived from the user id, so the same
-person keeps the same colour in presence avatars, the app bar and anywhere else. The letter is the first
-character of `name`, `?` when there is none. Accepts every `Avatar` prop except `children`; `sx` is merged, so
-sizing still works (`sx={{width: 32, height: 32}}`).
+`<UserAvatar userId={…} name={…} />` — a MUI `Avatar` showing the user's uploaded photo, falling back to a
+background derived from the user id, so the same person keeps the same colour in presence avatars, the app bar
+and anywhere else. The letter is the first character of `name`, `?` when there is none. Accepts every `Avatar`
+prop except `children`; `sx` is merged, so sizing still works (`sx={{width: 32, height: 32}}`).
+
+The photo comes from `useUserAvatarUrl(userId, previewWidth)`, which fetches `GET /api/users/{id}/avatar` as a
+blob. A user id is all it needs — that is what lets a presence tooltip or a table row show a photo without
+loading the user record first. `previewWidth` (default 128) must be one of the allowed thumbnail widths; pass a
+larger one where the avatar is rendered large. Users without a photo answer 404, which the hook leaves as an
+error and the component renders as the coloured letter, so no caller has to branch. The blob is cached per
+user id — invalidate the `"user-avatar"` key after saving a new photo.
 
 The colour comes from `userColor(userId)` in `utils/userColor.ts`: FNV-1a over the id → hue, fixed `55% 45%`
 saturation/lightness, which keeps white text readable on every hue. A missing id falls back to `grey.500`. Use
 `userColor` directly when something other than an avatar needs the same per-user tint.
+
+### `ViewableUserAvatar`
+
+`<ViewableUserAvatar userId={…} name={…} avatar={user.avatar} />` — the large profile-header avatar. Opens the
+photo in `FileViewerModal` on click, which is why it needs the `DataFileDto` itself and not just the user id:
+`UserAvatar` can render a photo from an id alone, but the viewer needs the file record. Without `avatar` it
+renders a plain `UserAvatar` with no click target, so a user who never uploaded a photo has nothing to press.
+
+The clickable form is a `ButtonBase`, so it is reachable with Tab and activates on `Enter`/`Space`. `size`
+(default 120) drives width, height and letter size together; `previewWidth` (default 256) is the thumbnail
+width requested for a retina-sized render.
 
 ## Placeholders & errors
 
@@ -705,6 +723,11 @@ keyed by id + width, so the same image in a list and in the modal is fetched onc
 > and setup again on mount, and the URL comes from a `useMemo` that the second setup does not re-run — revoking
 > in the cleanup would kill a URL nothing recreates. The revoke is queued in a module-level map and cancelled if
 > a setup follows immediately.
+
+That machinery lives in `useBlobUrl(queryKey, fetchBlob, enabled)` (`files/hooks/useFileBlobUrl.ts`). Any
+endpoint that answers with image bytes builds a hook on top of it rather than repeating the fetch-and-revoke
+dance — `useFileBlobUrl` for `/api/files/…`, `useUserAvatarUrl` for `/api/users/{id}/avatar`. Pass a query key
+that includes every request parameter, since the blob is cached under it forever (`staleTime: Infinity`).
 
 - **Lazy by default** via `IntersectionObserver` — a catalog page would otherwise fire a request per row. Where
   the observer is missing (oldest targeted WebViews) it degrades to eager loading, not to a blank box.

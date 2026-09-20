@@ -174,6 +174,7 @@ import {
   usersCreate,
   usersDelete,
   usersGetAll,
+  usersGetAvatar,
   usersGetById,
   usersUpdate,
   warehousesCreate,
@@ -679,6 +680,8 @@ import type {
   UsersGetAllData,
   UsersGetAllError,
   UsersGetAllResponse,
+  UsersGetAvatarData,
+  UsersGetAvatarError,
   UsersGetByIdData,
   UsersGetByIdError,
   UsersGetByIdResponse,
@@ -6953,6 +6956,7 @@ export const usersGetByIdOptions = (options: Options<UsersGetByIdData>) =>
  * `assignedWarehouseIds` needs `users.manage_assigned_warehouses`. The extra permission is only
  * demanded when the corresponding set actually differs from the stored one, so a plain profile save with
  * the current roles echoed back is allowed.
+ * `avatarFileId` points at an uploaded `DataFile`; null clears the avatar and leaves the file to the GC.
  * A role or permission change bumps the user's `security_version`, forcing their clients to refresh.
  * Error codes:
  * * 403 permissionDenied — roles/permissions or warehouses changed without the extra permission
@@ -6960,6 +6964,7 @@ export const usersGetByIdOptions = (options: Options<UsersGetByIdData>) =>
  * * 422 permissionNotFound (field directPermissions) — a string not in Permissions.All, one error per unknown value
  * * 422 roleNotFound (field roleIds) — one or more role ids do not exist
  * * 422 warehouseNotFound (field assignedWarehouseIds) — one or more warehouse ids do not exist
+ * * 422 dataFileNotFound (field avatarFileId) — the avatar file does not exist, or the GC already collected it
  * * 422 validationError (field root) — an Identity failure while saving the profile or role membership
  */
 export const usersUpdateMutation = (
@@ -6981,6 +6986,35 @@ export const usersUpdateMutation = (
   };
   return mutationOptions;
 };
+
+export const usersGetAvatarQueryKey = (options: Options<UsersGetAvatarData>) =>
+  createQueryKey("usersGetAvatar", options);
+
+/**
+ * Download a user's avatar image.
+ *
+ *     Requires authentication only — an avatar is visible to everyone signed in, exactly like
+ * `/api/files/{id}/content`, so presence indicators and tables can show it without `users.view`.
+ * Query param: `width` (optional) — a value from `DataFiles:ThumbnailWidths`; the original is
+ * served when it is omitted. Responses carry `nosniff` and the same ETag as the underlying file.
+ * Errors:
+ * * 404 dataFileNotFound — no such user, the user has no avatar, or the bytes are missing from storage
+ * * 422 dataFileWidthNotAllowed on width; args: allowed (comma-separated widths)
+ * * 422 dataFileNotAnImage on id — the stored avatar could not be decoded
+ */
+export const usersGetAvatarOptions = (options: Options<UsersGetAvatarData>) =>
+  queryOptions<unknown, UsersGetAvatarError, unknown, ReturnType<typeof usersGetAvatarQueryKey>>({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await usersGetAvatar({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: usersGetAvatarQueryKey(options),
+  });
 
 /**
  * Reset another user's password (admin action, no current password required).

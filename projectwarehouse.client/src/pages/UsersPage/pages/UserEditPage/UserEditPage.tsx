@@ -23,7 +23,7 @@ import {
   usersGetByIdQueryKey,
   usersUpdateMutation,
 } from "@/api/@tanstack/react-query.gen";
-import type {RoleDto, WarehouseSummaryDto} from "@/api/types.gen";
+import type {DataFileDto, RoleDto, WarehouseSummaryDto} from "@/api/types.gen";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {useHasPermission} from "@/hooks/usePermission";
 import {FormTextField} from "@/components/form/FormTextField";
@@ -40,11 +40,16 @@ import QueryError from "@/components/QueryError";
 import RolesSelect from "@/components/RolesSelect";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import SingleFileControl from "@/components/files/controls/SingleFileControl";
+import ImageCardFileView from "@/components/files/views/ImageCardFileView";
+import AddFileInput from "@/components/files/inputs/AddFileInput";
+import {userAvatarQueryKey} from "@/components/files/hooks/useUserAvatarUrl";
 
 type EditFormValues = {
   email: string;
   firstName: string;
   lastName: string;
+  avatar: DataFileDto | null;
   roles: RoleDto[];
   directPermissions: string[];
   assignedWarehouses: WarehouseSummaryDto[];
@@ -69,6 +74,7 @@ function UserEditPage() {
       email: "",
       firstName: "",
       lastName: "",
+      avatar: null,
       roles: [],
       directPermissions: [],
       assignedWarehouses: [],
@@ -84,6 +90,7 @@ function UserEditPage() {
         email: userQuery.data.email ?? "",
         firstName: userQuery.data.firstName ?? "",
         lastName: userQuery.data.lastName ?? "",
+        avatar: userQuery.data.avatar ?? null,
         roles: userQuery.data.roles,
         directPermissions: userQuery.data.directPermissions,
         assignedWarehouses: userQuery.data.assignedWarehouses,
@@ -111,6 +118,7 @@ function UserEditPage() {
     meta: {suppressGlobalError: true},
     onSuccess: async () => {
       await queryClient.invalidateQueries({queryKey: usersGetByIdQueryKey({path: {id: id!}})});
+      await queryClient.invalidateQueries({queryKey: [userAvatarQueryKey, id]});
       navigate(`/settings/employees/${id}`);
     },
     onError: setApiError,
@@ -123,6 +131,7 @@ function UserEditPage() {
         email: values.email || null,
         firstName: values.firstName || null,
         lastName: values.lastName || null,
+        avatarFileId: values.avatar?.id ?? null,
         roleIds: canManageRoles
           ? values.roles.map((r) => r.id)
           : (userQuery.data?.roles.map((r) => r.id) ?? []),
@@ -194,6 +203,22 @@ function UserEditPage() {
                 autoComplete="family-name"
                 disabled={mutation.isPending}
                 fullWidth
+              />
+
+              <Controller
+                control={form.control}
+                name="avatar"
+                render={({field}) => (
+                  <SingleFileControl
+                    value={field.value}
+                    onChange={field.onChange}
+                    View={ImageCardFileView}
+                    Input={AddFileInput}
+                    accept="image/*"
+                    disabled={mutation.isPending}
+                    inputLabel="Фото сотрудника"
+                  />
+                )}
               />
 
               {canManageAssignedWarehouses && (
