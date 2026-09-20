@@ -171,6 +171,27 @@ const changeTab = (next: TabKey) => {
 };
 ```
 
+### `useSyncedWithQueryAndStorageState(key, storageKey, fromQuery, toQuery)`
+
+Same contract as `useSyncedWithQueryState`, plus a `localStorage` fallback for a view preference that should
+survive a reload but still be overridable by a link. The param stays the source of truth: `setValue` writes the
+URL and `localStorage[storageKey]` together, and on mount — only when the URL carries no `key` — the stored
+string is parsed through `fromQuery` and pushed into the param. A shared link therefore always wins, and the
+restore is skipped when it would change nothing.
+
+```typescript
+const [grouping, setGrouping] = useSyncedWithQueryAndStorageState<AssemblyGrouping>(
+  "group",
+  ASSEMBLY_GROUPING_STORAGE_KEY,
+  parseAssemblyGrouping,
+  (v) => v,
+);
+```
+
+`toQuery` returns a plain `string` here, never `null`: the stored value has to round-trip, and «no param» must
+stay distinguishable from «the default was chosen on purpose». So the default value is written to the URL too,
+and `fromQuery` is what maps a missing param back onto it.
+
 ### `useDebouncedSyncedWithQueryState(key, fromQuery, toQuery, delay?)`
 
 Combines local state, `useDebounce` and `useSyncedWithQueryState` into one hook for lag-free inputs that sync to

@@ -14,6 +14,8 @@ export const ASSEMBLY_GROUPING_LABELS: Record<AssemblyGrouping, string> = {
   type: "По типу",
 };
 
+export const ASSEMBLY_GROUPING_STORAGE_KEY = "ordersAssembly.grouping";
+
 export function parseAssemblyGrouping(value: unknown): AssemblyGrouping {
   return typeof value === "string" && value in ASSEMBLY_GROUPING_LABELS
     ? (value as AssemblyGrouping)

@@ -1007,7 +1007,9 @@ two at the end of it. Below `md` the summary becomes a column of the two groups,
 ### `OrdersAssemblyPage` grouping
 
 The «Группировка» select in the filters bar splits the order accordions into groups; the value lives in the
-`group` query param (absent means `none`). `groupAssemblyOrders(orders, grouping)` in `assemblyGrouping.ts` is
+`group` query param and is mirrored into `localStorage` under `ASSEMBLY_GROUPING_STORAGE_KEY` via
+`useSyncedWithQueryAndStorageState`, so opening the page without the param restores the last chosen mode while a
+shared link still wins. `groupAssemblyOrders(orders, grouping)` in `assemblyGrouping.ts` is
 a pure client-side split of the already loaded list, so a new mode is one more `AssemblyGrouping` member plus a
 `case` in `getGroupKey` returning `{key, label, rank}`. Groups sort by `rank`, then by label — `rank` pins fixed
 orders (task status, order type) and pushes catch-all groups («Без магазина», «Пустой состав») to the end.

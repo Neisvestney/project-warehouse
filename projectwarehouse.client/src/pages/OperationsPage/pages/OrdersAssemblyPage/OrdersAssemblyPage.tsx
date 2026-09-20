@@ -33,6 +33,7 @@ import PageGenericHeader from "@/components/PageGenericHeader.tsx";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs.tsx";
 import FiltersBar from "@/components/FiltersBar.tsx";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState.ts";
+import {useSyncedWithQueryAndStorageState} from "@/hooks/useSyncedWithQueryAndStorageState.ts";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState.ts";
 import SearchInput from "@/components/SearchInput.tsx";
 import WarehousesSelect from "@/components/WarehousesSelect.tsx";
@@ -41,6 +42,7 @@ import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
 import AssemblyOrderGroup from "./AssemblyOrderGroup";
 import {
   ASSEMBLY_GROUPING_LABELS,
+  ASSEMBLY_GROUPING_STORAGE_KEY,
   type AssemblyGrouping,
   groupAssemblyOrders,
   parseAssemblyGrouping,
@@ -76,10 +78,11 @@ function OrdersAssemblyPage() {
     (v) => v.join(",") || null,
   );
 
-  const [grouping, setGrouping] = useSyncedWithQueryState<AssemblyGrouping>(
+  const [grouping, setGrouping] = useSyncedWithQueryAndStorageState<AssemblyGrouping>(
     "group",
+    ASSEMBLY_GROUPING_STORAGE_KEY,
     parseAssemblyGrouping,
-    (v) => (v === "none" ? null : v),
+    (v) => v,
   );
 
   const ordersQuery = useQuery({
