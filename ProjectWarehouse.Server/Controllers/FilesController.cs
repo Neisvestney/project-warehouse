@@ -4,15 +4,14 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Microsoft.Net.Http.Headers;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.Files;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Files;
+using ProjectWarehouse.Server.Services;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
 
 namespace ProjectWarehouse.Server.Controllers;
 
@@ -25,25 +24,11 @@ namespace ProjectWarehouse.Server.Controllers;
 public class FilesController(
     ApplicationDbContext db,
     IMapper mapper,
-    IFileStorage storage,
     IDataFileFactory dataFiles,
+    IDataFileContentService fileContent,
     IOptions<DataFilesOptions> options,
     ILogger<FilesController> logger) : AppControllerBase
 {
-    /// <summary>Types the browser may render in place. Everything else is served as an attachment.</summary>
-    /// <remarks>
-    /// image/svg+xml is absent on purpose: an SVG is a scriptable document, and serving one inline
-    /// from our own origin is stored XSS.
-    /// </remarks>
-    private static readonly HashSet<string> InlineContentTypes =
-    [
-        "image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf",
-    ];
-
-    /// <summary>Previews are always WebP regardless of the source format — one output format keeps
-    /// the cache layout and the response content type trivial.</summary>
-    private const string ThumbnailContentType = "image/webp";
-
     private DataFilesOptions Options => options.Value;
 
     /// <summary>Upload a file.</summary>
@@ -159,14 +144,10 @@ public class FilesController(
         var file = await db.DataFiles.FirstOrDefaultAsync(f => f.Id == id, ct);
         if (file is null) return NotFound(ErrorCode.DataFileNotFound, "File not found.");
 
-        var stream = await storage.OpenReadAsync(file.StorageKey, ct);
-        if (stream is null)
-        {
-            logger.LogError("DataFile {Id} has no bytes at {StorageKey}", id, file.StorageKey);
-            return NotFound(ErrorCode.DataFileNotFound, "File content is missing.");
-        }
-
-        return StreamFile(stream, file.ContentType, file.OriginalFileName, file.CreatedAt, $"{id:N}");
+        var content = await fileContent.OpenOriginalAsync(file, ct);
+        return content is null
+            ? NotFound(ErrorCode.DataFileNotFound, "File content is missing.")
+            : StreamDataFile(content);
     }
 
     /// <summary>Get a downscaled preview of an image.</summary>
@@ -198,67 +179,19 @@ public class FilesController(
         var file = await db.DataFiles.FirstOrDefaultAsync(f => f.Id == id, ct);
         if (file is null) return NotFound(ErrorCode.DataFileNotFound, "File not found.");
 
-        if (!file.ContentType.StartsWith("image/"))
-            return UnprocessableEntity("id", ErrorCode.DataFileNotAnImage, "File is not an image.");
-
-        // never upscale: an original narrower than the request is already the best preview available
-        if (file.ImageWidth is { } original && original <= width)
-            return await GetContent(id, ct);
-
-        var cached = await storage.OpenThumbnailAsync(file.StorageKey, width, ct);
-        if (cached is not null)
-            return StreamFile(cached, ThumbnailContentType, file.OriginalFileName, file.CreatedAt, $"{id:N}-w{width}");
-
-        var source = await storage.OpenReadAsync(file.StorageKey, ct);
-        if (source is null)
+        DataFileContent? content;
+        try
         {
-            logger.LogError("DataFile {Id} has no bytes at {StorageKey}", id, file.StorageKey);
-            return NotFound(ErrorCode.DataFileNotFound, "File content is missing.");
+            content = await fileContent.OpenPreviewAsync(file, width, ct);
+        }
+        catch (DataFileNotAnImageException ex)
+        {
+            return UnprocessableEntity("id", ErrorCode.DataFileNotAnImage, ex.Message);
         }
 
-        var rendered = new MemoryStream();
-        await using (source)
-        {
-            try
-            {
-                using var image = await Image.LoadAsync(source, ct);
-                image.Mutate(x => x.Resize(new ResizeOptions { Size = new Size(width, 0), Mode = ResizeMode.Max }));
-                await image.SaveAsWebpAsync(rendered, ct);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                logger.LogError(ex, "Failed to render a {Width}px preview of {Id}", width, id);
-                await rendered.DisposeAsync();
-                return UnprocessableEntity("id", ErrorCode.DataFileNotAnImage, "Image could not be read.");
-            }
-        }
-
-        rendered.Position = 0;
-        await storage.SaveThumbnailAsync(file.StorageKey, width, rendered, ct);
-        rendered.Position = 0;
-
-        return StreamFile(rendered, ThumbnailContentType, file.OriginalFileName, file.CreatedAt, $"{id:N}-w{width}");
-    }
-
-    /// <summary>
-    /// Serves a stream with the caching and disposition rules every binary endpoint here shares.
-    /// </summary>
-    /// <remarks>
-    /// Content addressed by id is immutable — replacing a file creates a new row — so the ETag can
-    /// be derived from the identifier and lets the browser get a 304 without touching the disk.
-    /// </remarks>
-    private FileStreamResult StreamFile(
-        Stream stream, string contentType, string fileName, DateTime lastModified, string etagSource)
-    {
-        Response.Headers["X-Content-Type-Options"] = "nosniff";
-
-        // passing a download name is what makes ASP.NET Core emit Content-Disposition: attachment
-        var downloadName = InlineContentTypes.Contains(contentType) ? null : fileName;
-
-        return File(stream, contentType, downloadName,
-            lastModified: new DateTimeOffset(lastModified, TimeSpan.Zero),
-            entityTag: new EntityTagHeaderValue($"\"{etagSource}\""),
-            enableRangeProcessing: true);
+        return content is null
+            ? NotFound(ErrorCode.DataFileNotFound, "File content is missing.")
+            : StreamDataFile(content);
     }
 
     private ObjectResult TypeNotAllowed() =>

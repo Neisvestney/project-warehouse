@@ -2714,6 +2714,7 @@ export type UpdateUserRequest = {
   email?: null | string;
   firstName?: null | string;
   lastName?: null | string;
+  avatarFileId?: null | string;
   roleIds: Array<string>;
   directPermissions: Array<string>;
   assignedWarehouseIds: Array<string>;
@@ -2749,6 +2750,7 @@ export type UserDetailDto = {
   email?: null | string;
   firstName?: null | string;
   lastName?: null | string;
+  avatar?: null | DataFileDto;
   roles: Array<RoleDto>;
   directPermissions: Array<string>;
   assignedWarehouses: Array<WarehouseSummaryDto>;
@@ -8914,6 +8916,45 @@ export type UsersUpdateResponses = {
 };
 
 export type UsersUpdateResponse = UsersUpdateResponses[keyof UsersUpdateResponses];
+
+export type UsersGetAvatarData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: {
+    width?: number;
+  };
+  url: "/api/users/{id}/avatar";
+};
+
+export type UsersGetAvatarErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type UsersGetAvatarError = UsersGetAvatarErrors[keyof UsersGetAvatarErrors];
+
+export type UsersGetAvatarResponses = {
+  /**
+   * OK
+   */
+  200: unknown;
+};
 
 export type UsersChangePasswordData = {
   body: ChangePasswordRequest;

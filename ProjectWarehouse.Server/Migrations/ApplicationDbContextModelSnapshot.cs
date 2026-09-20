@@ -197,6 +197,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("integer");
 
+                    b.Property<Guid?>("AvatarFileId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("text");
@@ -251,6 +254,8 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasColumnType("character varying(256)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AvatarFileId");
 
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");
@@ -2164,6 +2169,16 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasForeignKey("TagsId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.ApplicationUser", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.DataFile", "AvatarFile")
+                        .WithMany()
+                        .HasForeignKey("AvatarFileId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AvatarFile");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.ApplicationUserRole", b =>

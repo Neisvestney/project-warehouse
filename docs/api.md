@@ -18,8 +18,8 @@ Behavioural rules that are *not* readable off a signature live in the domain spe
 Base URL: `https://localhost:7095` (dev) / configured host (prod).
 
 Requests and responses are `application/json`, with three exceptions: `/api/files` upload takes
-`multipart/form-data` and its content endpoints return raw byte streams, `POST /api/orders/labels` returns
-`application/pdf`, and `/api/realtime/stream` returns `text/event-stream`.
+`multipart/form-data` while its content endpoints and `GET /api/users/{id}/avatar` return raw byte streams,
+`POST /api/orders/labels` returns `application/pdf`, and `/api/realtime/stream` returns `text/event-stream`.
 
 Errors always use `AppProblemDetails` — see [errors.md](errors.md) for the envelope and the full code list.
 

@@ -1,5 +1,5 @@
 import {useEffect, useMemo} from "react";
-import {useQuery} from "@tanstack/react-query";
+import {useQuery, type QueryKey} from "@tanstack/react-query";
 import {filesGetContent, filesGetThumbnail} from "@/api";
 
 /**
@@ -9,41 +9,32 @@ import {filesGetContent, filesGetThumbnail} from "@/api";
 const pendingRevokes = new Map<string, ReturnType<typeof setTimeout>>();
 
 /**
- * Loads file content as an object URL.
+ * Loads binary content as an object URL.
  *
  * Images cannot use a plain `<img src="/api/files/...">`: the bearer token is injected by the
  * request interceptor in `services/apiClient.ts`, and an `src` attribute carries no Authorization
- * header. The cost is no browser HTTP cache — React Query's cache replaces it, keyed by id + width,
- * so the same image in a list and in the viewer is fetched once.
+ * header. The cost is no browser HTTP cache — React Query's cache replaces it, keyed by the caller's
+ * key, so the same image in a list and in the viewer is fetched once.
  */
-export function useFileBlobUrl(fileId: string | undefined, width?: number) {
+export function useBlobUrl(
+  queryKey: QueryKey,
+  fetchBlob: (signal: AbortSignal) => Promise<Blob>,
+  enabled: boolean,
+) {
   const {
     data: blob,
     isPending,
     error,
   } = useQuery({
-    queryKey: ["file-blob", fileId, width ?? "original"],
-    // hand-written rather than the generated *Options: the generator's response type for binary
-    // endpoints is unreliable, and the width branch cannot be two conditional hooks
-    queryFn: async ({signal}) => {
-      const response = width
-        ? await filesGetThumbnail({
-            path: {id: fileId!},
-            query: {width},
-            parseAs: "blob",
-            signal,
-            throwOnError: true,
-          })
-        : await filesGetContent({path: {id: fileId!}, parseAs: "blob", signal, throwOnError: true});
-      return response.data as unknown as Blob;
-    },
-    enabled: !!fileId,
+    queryKey,
+    queryFn: ({signal}) => fetchBlob(signal),
+    enabled,
     staleTime: Infinity,
     // bounds memory: a long catalog session would otherwise pin hundreds of blobs
     gcTime: 30 * 60_000,
     // a broken preview already renders its own fallback icon — a global error dialog on top
     // would fire on every mount for anything the thumbnail endpoint can't serve
-    meta: {suppressGlobalError: true},
+    meta: {suppressGlobalError: true, suppressGlobalNotFound: true},
   });
 
   // createObjectURL returns a distinct URL per call, so consumers never revoke each other's
@@ -69,5 +60,26 @@ export function useFileBlobUrl(fileId: string | undefined, width?: number) {
     };
   }, [url]);
 
-  return {url, isLoading: !!fileId && isPending, error};
+  return {url, isLoading: enabled && isPending, error};
+}
+
+export function useFileBlobUrl(fileId: string | undefined, width?: number) {
+  return useBlobUrl(
+    ["file-blob", fileId, width ?? "original"],
+    // hand-written rather than the generated *Options: the generator's response type for binary
+    // endpoints is unreliable, and the width branch cannot be two conditional hooks
+    async (signal) => {
+      const response = width
+        ? await filesGetThumbnail({
+            path: {id: fileId!},
+            query: {width},
+            parseAs: "blob",
+            signal,
+            throwOnError: true,
+          })
+        : await filesGetContent({path: {id: fileId!}, parseAs: "blob", signal, throwOnError: true});
+      return response.data as unknown as Blob;
+    },
+    !!fileId,
+  );
 }

@@ -8,10 +8,12 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Files;
 using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Users;
@@ -25,6 +27,9 @@ public class UsersController(
     ApplicationDbContext db,
     SecurityVersionStore versionStore,
     IMapper mapper,
+    IDataFileBindingService fileBinding,
+    IDataFileContentService fileContent,
+    IOptions<DataFilesOptions> dataFilesOptions,
     IChangeLogService<UserDetailDto> changeLogService) : AppControllerBase
 {
     private Task<ApplicationUser?> LoadUserWithDetailsAsync(Guid id, CancellationToken ct = default) =>
@@ -32,6 +37,7 @@ public class UsersController(
             .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
             .Include(u => u.UserPermissions)
             .Include(u => u.AssignedWarehouses)
+            .Include(u => u.AvatarFile)
             .AsSplitQuery()
             .FirstOrDefaultAsync(u => u.Id == id, ct);
 
@@ -106,6 +112,53 @@ public class UsersController(
         return Ok(dto);
     }
 
+    /// <summary>Download a user's avatar image.</summary>
+    /// <remarks>
+    /// Requires authentication only — an avatar is visible to everyone signed in, exactly like
+    /// <c>/api/files/{id}/content</c>, so presence indicators and tables can show it without <c>users.view</c>.
+    /// Query param: <c>width</c> (optional) — a value from <c>DataFiles:ThumbnailWidths</c>; the original is
+    /// served when it is omitted. Responses carry <c>nosniff</c> and the same ETag as the underlying file.
+    /// Errors:
+    /// <list type="bullet">
+    ///   <item>404 <c>dataFileNotFound</c> — no such user, the user has no avatar, or the bytes are missing from storage</item>
+    ///   <item>422 <c>dataFileWidthNotAllowed</c> on <c>width</c>; <c>args</c>: <c>allowed</c> (comma-separated widths)</item>
+    ///   <item>422 <c>dataFileNotAnImage</c> on <c>id</c> — the stored avatar could not be decoded</item>
+    /// </list>
+    /// </remarks>
+    [HttpGet("{id:guid}/avatar")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> GetAvatar(Guid id, [FromQuery] int? width, CancellationToken ct = default)
+    {
+        var allowedWidths = dataFilesOptions.Value.ThumbnailWidths;
+        if (width is { } requested && !allowedWidths.Contains(requested))
+            return UnprocessableEntity("width", ErrorCode.DataFileWidthNotAllowed,
+                "Requested preview width is not allowed.",
+                new Dictionary<string, object> { ["allowed"] = string.Join(", ", allowedWidths) });
+
+        // an unknown user and a user without an avatar are the same 404 here — both mean "no image to serve"
+        var file = await db.Users.Where(u => u.Id == id).Select(u => u.AvatarFile).FirstOrDefaultAsync(ct);
+        if (file is null) return NotFound(ErrorCode.DataFileNotFound, "User has no avatar.");
+
+        DataFileContent? content;
+        try
+        {
+            content = width is { } previewWidth
+                ? await fileContent.OpenPreviewAsync(file, previewWidth, ct)
+                : await fileContent.OpenOriginalAsync(file, ct);
+        }
+        catch (DataFileNotAnImageException ex)
+        {
+            return UnprocessableEntity("id", ErrorCode.DataFileNotAnImage, ex.Message);
+        }
+
+        return content is null
+            ? NotFound(ErrorCode.DataFileNotFound, "File content is missing.")
+            : StreamDataFile(content);
+    }
+
     /// <summary>Create a new user.</summary>
     /// <remarks>
     /// Requires <c>users.create</c>. Body: <c>CreateUserRequest</c> — username, password, email, firstName,
@@ -165,6 +218,7 @@ public class UsersController(
     /// <c>assignedWarehouseIds</c> needs <c>users.manage_assigned_warehouses</c>. The extra permission is only
     /// demanded when the corresponding set actually differs from the stored one, so a plain profile save with
     /// the current roles echoed back is allowed.
+    /// <c>avatarFileId</c> points at an uploaded <c>DataFile</c>; null clears the avatar and leaves the file to the GC.
     /// A role or permission change bumps the user's <c>security_version</c>, forcing their clients to refresh.
     /// Error codes:
     /// <list type="bullet">
@@ -173,6 +227,7 @@ public class UsersController(
     ///   <item>422 <c>permissionNotFound</c> (field <c>directPermissions</c>) — a string not in <c>Permissions.All</c>, one error per unknown value</item>
     ///   <item>422 <c>roleNotFound</c> (field <c>roleIds</c>) — one or more role ids do not exist</item>
     ///   <item>422 <c>warehouseNotFound</c> (field <c>assignedWarehouseIds</c>) — one or more warehouse ids do not exist</item>
+    ///   <item>422 <c>dataFileNotFound</c> (field <c>avatarFileId</c>) — the avatar file does not exist, or the GC already collected it</item>
     ///   <item>422 <c>validationError</c> (field <c>root</c>) — an Identity failure while saving the profile or role membership</item>
     /// </list>
     /// </remarks>
@@ -248,6 +303,10 @@ public class UsersController(
 
         var toRemoveWarehouseIds = currentWarehouseIds.Except(requestedWarehouseIds).ToHashSet();
         var warehousesToRemove = user.AssignedWarehouses.Where(w => toRemoveWarehouseIds.Contains(w.Id)).ToList();
+
+        var avatarProblem = await fileBinding.BindSingleAsync(
+            request.AvatarFileId, v => user.AvatarFileId = v, "avatarFileId", ct);
+        if (avatarProblem is not null) return Problem(avatarProblem);
 
         // All mutations inside a single transaction
         try

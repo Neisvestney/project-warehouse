@@ -11,6 +11,7 @@ import PageGenericHeader from "@/components/PageGenericHeader";
 import NotFound from "@/components/NotFound";
 import QueryError from "@/components/QueryError";
 import ChangePasswordDialog from "./ChangePasswordDialog";
+import ViewableUserAvatar from "@/components/ViewableUserAvatar";
 import InfoRow from "@/components/InfoRow.tsx";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import {useHasPermission} from "@/hooks/usePermission.ts";
@@ -76,55 +77,68 @@ function MyProfilePage() {
         />
 
         <Paper>
-          <Stack spacing={1.5} sx={{p: 3}}>
-            <InfoRow label="Email" value={user.email ?? "—"} />
-            <InfoRow label="Имя" value={user.firstName ?? "—"} />
-            <InfoRow label="Фамилия" value={user.lastName ?? "—"} />
-            <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
-              <Typography color="text.secondary" sx={{width: 160, flexShrink: 0, pt: 0.25}}>
-                Роли
-              </Typography>
-              <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap", gap: 0.5}}>
-                {user.roles.length > 0 ? (
-                  user.roles.map((role, i) => <Chip key={i} label={role} size="small" />)
-                ) : (
-                  <Typography>—</Typography>
-                )}
-              </Stack>
-            </Stack>
-            <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
-              <Typography color="text.secondary" sx={{width: 160, flexShrink: 0, pt: 0.25}}>
-                Права
-              </Typography>
-              <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap", gap: 0.5}}>
-                {user.permissions.length > 0 ? (
-                  user.permissions.map((p, i) => (
-                    <Tooltip key={i} title={p} arrow>
-                      <Chip label={getPermissionLabel(p)} size="small" />
-                    </Tooltip>
-                  ))
-                ) : (
-                  <Typography>—</Typography>
-                )}
-              </Stack>
-            </Stack>
-            <Stack direction="row" spacing={1} sx={{alignItems: "flex-start"}}>
-              <Typography color="text.secondary" sx={{width: 160, flexShrink: 0, pt: 0.25}}>
-                Склады
-              </Typography>
-              <Stack direction="row" spacing={0.5} sx={{flexWrap: "wrap", gap: 0.5}}>
-                {userDetails ? (
-                  userDetails.assignedWarehouses.length > 0 ? (
-                    userDetails.assignedWarehouses.map((w) => (
-                      <Chip key={w.id} label={w.name} size="small" />
-                    ))
+          <Stack
+            direction={{xs: "column", sm: "row"}}
+            spacing={3}
+            sx={{p: 3, alignItems: {xs: "center", sm: "flex-start"}}}
+          >
+            <ViewableUserAvatar
+              userId={user.id}
+              name={user.firstName ?? user.username}
+              avatar={userDetails?.avatar}
+            />
+            <Stack spacing={1.5} sx={{flexGrow: 1, minWidth: 0, alignSelf: "stretch"}}>
+              <InfoRow label="Email" value={user.email ?? "—"} />
+              <InfoRow label="Имя" value={user.firstName ?? "—"} />
+              <InfoRow label="Фамилия" value={user.lastName ?? "—"} />
+              <InfoRow
+                label="Роли"
+                value={
+                  user.roles.length > 0 ? (
+                    <Stack direction="row" sx={{flexWrap: "wrap", gap: 0.5}}>
+                      {user.roles.map((role, i) => (
+                        <Chip key={i} label={role} size="small" />
+                      ))}
+                    </Stack>
                   ) : (
-                    <Typography>—</Typography>
+                    "—"
                   )
-                ) : (
-                  <Typography color="text.secondary">...</Typography>
-                )}
-              </Stack>
+                }
+              />
+              <InfoRow
+                label="Права"
+                value={
+                  user.permissions.length > 0 ? (
+                    <Stack direction="row" sx={{flexWrap: "wrap", gap: 0.5}}>
+                      {user.permissions.map((p, i) => (
+                        <Tooltip key={i} title={p} arrow>
+                          <Chip label={getPermissionLabel(p)} size="small" />
+                        </Tooltip>
+                      ))}
+                    </Stack>
+                  ) : (
+                    "—"
+                  )
+                }
+              />
+              <InfoRow
+                label="Склады"
+                value={
+                  !userDetails ? (
+                    <Typography component="span" color="text.secondary">
+                      ...
+                    </Typography>
+                  ) : userDetails.assignedWarehouses.length > 0 ? (
+                    <Stack direction="row" sx={{flexWrap: "wrap", gap: 0.5}}>
+                      {userDetails.assignedWarehouses.map((w) => (
+                        <Chip key={w.id} label={w.name} size="small" />
+                      ))}
+                    </Stack>
+                  ) : (
+                    "—"
+                  )
+                }
+              />
             </Stack>
           </Stack>
         </Paper>
