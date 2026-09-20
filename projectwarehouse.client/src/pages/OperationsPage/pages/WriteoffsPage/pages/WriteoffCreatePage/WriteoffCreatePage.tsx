@@ -19,7 +19,7 @@ import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import PageTitle from "@/components/PageTitle.tsx";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import WarehousesSelect from "@/components/WarehousesSelect";
-import {WRITEOFF_REASON_LABELS} from "@/components/writeoffs/writeoffUtils";
+import {WRITEOFF_REASON_LABELS, WRITEOFF_REASONS} from "@/components/writeoffs/writeoffUtils";
 import type {WriteoffReason} from "@/api/types.gen";
 
 type CreateFormValues = {
@@ -28,8 +28,6 @@ type CreateFormValues = {
   warehouseId: string | null;
   notes: string;
 };
-
-const ALL_REASONS: WriteoffReason[] = ["loss", "defect", "other"];
 
 function WriteoffCreatePage() {
   const navigate = useNavigate();
@@ -90,7 +88,7 @@ function WriteoffCreatePage() {
                     Причина списания
                   </Typography>
                   <Select {...field} size="small" fullWidth disabled={mutation.isPending}>
-                    {ALL_REASONS.map((r) => (
+                    {WRITEOFF_REASONS.map((r) => (
                       <MenuItem key={r} value={r}>
                         {WRITEOFF_REASON_LABELS[r]}
                       </MenuItem>
