@@ -2843,7 +2843,7 @@ export type WriteoffItemRequest = {
   notes?: null | string;
 };
 
-export type WriteoffReason = "loss" | "defect" | "other";
+export type WriteoffReason = "loss" | "defect" | "consumption" | "other";
 
 export type WriteoffSortBy = "number" | "name" | "status" | "createdAt" | "warehouseName";
 

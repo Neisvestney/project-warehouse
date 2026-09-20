@@ -32,7 +32,11 @@ import InfoRow from "@/components/InfoRow";
 import WarehouseChip from "@/components/shared/WarehouseChip";
 import WriteoffStatusChip from "@/components/writeoffs/WriteoffStatusChip";
 import WriteoffItemsSection from "@/components/writeoffs/WriteoffItemsSection";
-import {WRITEOFF_REASON_LABELS, formatWriteoffNumber} from "@/components/writeoffs/writeoffUtils";
+import {
+  WRITEOFF_REASON_LABELS,
+  WRITEOFF_REASONS,
+  formatWriteoffNumber,
+} from "@/components/writeoffs/writeoffUtils";
 import AttachmentsSection from "@/components/files/controls/AttachmentsSection";
 import DocumentTagsRow from "@/components/tags/DocumentTagsRow";
 import type {WriteoffDto, WriteoffReason} from "@/api/types.gen";
@@ -43,8 +47,6 @@ import BlockIcon from "@mui/icons-material/Block";
 import SaveIcon from "@mui/icons-material/Save";
 import {useSnackbar} from "notistack";
 import {pluralCount} from "@/utils/pluralUtils";
-
-const ALL_REASONS: WriteoffReason[] = ["loss", "defect", "other"];
 
 interface EditInfoFormValues {
   name: string;
@@ -105,7 +107,7 @@ function EditInfoForm({
                 Причина списания
               </Typography>
               <Select {...field} size="small" fullWidth disabled={mutation.isPending}>
-                {ALL_REASONS.map((r) => (
+                {WRITEOFF_REASONS.map((r) => (
                   <MenuItem key={r} value={r}>
                     {WRITEOFF_REASON_LABELS[r]}
                   </MenuItem>

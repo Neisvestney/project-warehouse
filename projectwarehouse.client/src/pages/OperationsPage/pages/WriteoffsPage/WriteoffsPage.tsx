@@ -36,6 +36,7 @@ import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
 import TagChips from "@/components/tags/TagChips";
 import {
   WRITEOFF_REASON_LABELS,
+  WRITEOFF_REASONS,
   WRITEOFF_STATUS_LABELS,
   formatWriteoffNumber,
 } from "@/components/writeoffs/writeoffUtils";
@@ -50,8 +51,6 @@ const SORT_COLUMNS: {key: WriteoffSortBy; label: string}[] = [
 ];
 
 const ALL_STATUSES: WriteoffStatus[] = ["draft", "finished", "canceled"];
-const ALL_REASONS: WriteoffReason[] = ["loss", "defect", "other"];
-
 function WriteoffsPage() {
   const canCreate = useHasPermission(["writeoffs.edit", "writeoffs.edit_assigned"]);
 
@@ -75,7 +74,7 @@ function WriteoffsPage() {
 
   const [reason, setReason] = useSyncedWithQueryState<WriteoffReason | "">(
     "reason",
-    (q) => (ALL_REASONS.includes(q as WriteoffReason) ? (q as WriteoffReason) : ""),
+    (q) => (WRITEOFF_REASONS.includes(q as WriteoffReason) ? (q as WriteoffReason) : ""),
     (v) => v || null,
   );
 
@@ -167,7 +166,7 @@ function WriteoffsPage() {
           sx={{minWidth: 160}}
         >
           <MenuItem value="">Все причины</MenuItem>
-          {ALL_REASONS.map((r) => (
+          {WRITEOFF_REASONS.map((r) => (
             <MenuItem key={r} value={r}>
               {WRITEOFF_REASON_LABELS[r]}
             </MenuItem>
