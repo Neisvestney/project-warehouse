@@ -23,11 +23,11 @@ public interface IOrderService
     // ── Box management ────────────────────────────────────────────────────────
 
     Task<OrderBox> AddBoxAsync(Order order, CreateOrderBoxRequest request, CancellationToken ct = default);
-    Task UpdateBoxAsync(OrderBox box, UpdateOrderBoxRequest request, CancellationToken ct = default);
-    Task RemoveBoxAsync(OrderBox box, CancellationToken ct = default);
+    Task UpdateBoxAsync(Order order, OrderBox box, UpdateOrderBoxRequest request, CancellationToken ct = default);
+    Task RemoveBoxAsync(Order order, OrderBox box, CancellationToken ct = default);
 
-    Task<OrderBoxComponent> UpsertBoxComponentAsync(OrderBox box, Guid catalogItemId, int quantity, CancellationToken ct = default);
-    Task RemoveBoxComponentAsync(OrderBoxComponent component, CancellationToken ct = default);
+    Task<OrderBoxComponent> UpsertBoxComponentAsync(Order order, OrderBox box, Guid catalogItemId, int quantity, CancellationToken ct = default);
+    Task RemoveBoxComponentAsync(Order order, OrderBoxComponent component, CancellationToken ct = default);
 
     // ── Assembly task management ──────────────────────────────────────────────
 

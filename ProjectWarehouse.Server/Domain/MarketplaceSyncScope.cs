@@ -19,5 +19,12 @@ public enum MarketplaceSyncScope
     /// </summary>
     OrdersBackground = 4,
 
+    /// <summary>
+    /// One-off history import over an administrator-chosen period, FBS and FBO alike. Manual only and
+    /// outside <see cref="All"/>: it creates nothing but external orders, and only for postings the
+    /// marketplace has already finished with. Its period lives on the run row, not in the queue.
+    /// </summary>
+    OrdersBackfill = 5,
+
     All = 2,
 }

@@ -307,13 +307,13 @@ public class AppMapperProfile : Profile
             .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
 
         CreateMap<Order, OrderSummaryDto>()
-            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
+            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse != null ? s.Warehouse.Name : null))
             .ForMember(d => d.CreatedByName, opt => opt.MapFrom(s => s.CreatedBy != null ? s.CreatedBy.FullName : null))
             .ForMember(d => d.BoxCount, opt => opt.MapFrom(s => s.Boxes.Count))
             .ForMember(d => d.ComponentCount, opt => opt.MapFrom(s => s.Boxes.SelectMany(b => b.Components).Sum(c => c.Quantity)));
 
         CreateMap<Order, OrderDetailsDto>()
-            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
+            .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse != null ? s.Warehouse.Name : null))
             .ForMember(d => d.CreatedByName, opt => opt.MapFrom(s => s.CreatedBy != null ? s.CreatedBy.FullName : null))
             .ForMember(d => d.Attachments, opt => opt.MapFrom(s => s.Images.OrderBy(i => i.Order)));
 

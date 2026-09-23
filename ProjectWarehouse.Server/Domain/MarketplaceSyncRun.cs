@@ -21,6 +21,13 @@ public class MarketplaceSyncRun : IHasIdentity
     public Guid? TriggeredById { get; set; }
     public ApplicationUser? TriggeredBy { get; set; }
 
+    /// <summary>
+    /// Period of an <see cref="MarketplaceSyncScope.OrdersBackfill"/> run, null for every other scope.
+    /// It lives here rather than in the queue message so a restart mid-run does not lose it.
+    /// </summary>
+    public DateTime? BackfillSince { get; set; }
+    public DateTime? BackfillTo { get; set; }
+
     public int WarehousesProcessed { get; set; }
     public int CardsProcessed { get; set; }
     public int CardsCreated { get; set; }

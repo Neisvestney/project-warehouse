@@ -62,7 +62,10 @@ public class EntityAccessRegistry
                 viewAssigned: [Permissions.Orders.ViewAssigned, Permissions.Orders.AssembleAssigned],
                 editAll: [Permissions.Orders.Edit],
                 editAssigned: [Permissions.Orders.EditAssigned],
-                warehouse: o => o.WarehouseId,
+                // An external order has no warehouse, and Guid.Empty is in nobody's assignment — so it is
+                // visible through orders.view and invisible through orders.view_assigned, which is right:
+                // there is no warehouse whose staff it belongs to.
+                warehouse: o => o.WarehouseId ?? Guid.Empty,
                 ErrorCode.OrderNotAssignedToWarehouse,
                 "You are not assigned to the warehouse of this order."),
 

@@ -261,6 +261,33 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<FileResponse> PostingAPI_PostingFBSPackageLabelAsync(PostingPostingFBSPackageLabelRequest body, System.Threading.CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Получить список отправлений
+        /// </summary>
+        /// <remarks>
+        /// Возвращает список отправлений за указанный период времени.
+        /// <br/>Если период больше года, вернётся ошибка `PERIOD_IS_TOO_LONG`.
+        /// <br/>
+        /// <br/>Дополнительно можно отфильтровать отправления по их статусу.
+        /// </remarks>
+        /// <returns>Список отправлений</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<PostingFboListResponse> PostingFboListAsync(PostingFboListRequest body);
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Получить список отправлений
+        /// </summary>
+        /// <remarks>
+        /// Возвращает список отправлений за указанный период времени.
+        /// <br/>Если период больше года, вернётся ошибка `PERIOD_IS_TOO_LONG`.
+        /// <br/>
+        /// <br/>Дополнительно можно отфильтровать отправления по их статусу.
+        /// </remarks>
+        /// <returns>Список отправлений</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<PostingFboListResponse> PostingFboListAsync(PostingFboListRequest body, System.Threading.CancellationToken cancellationToken);
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NSwag", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -1361,6 +1388,159 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
                             var fileResponse_ = new FileResponse(status_, headers_, responseStream_, null, response_);
                             disposeClient_ = false; disposeResponse_ = false; // response and client are disposed by FileResponse
                             return fileResponse_;
+                        }
+                        else
+                        if (status_ == 400)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 403)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u0414\u043e\u0441\u0442\u0443\u043f \u0437\u0430\u043f\u0440\u0435\u0449\u0451\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 404)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u041e\u0442\u0432\u0435\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 409)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u041a\u043e\u043d\u0444\u043b\u0438\u043a\u0442 \u0437\u0430\u043f\u0440\u043e\u0441\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 500)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u0412\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u044f\u044f \u043e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new OzonApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Получить список отправлений
+        /// </summary>
+        /// <remarks>
+        /// Возвращает список отправлений за указанный период времени.
+        /// <br/>Если период больше года, вернётся ошибка `PERIOD_IS_TOO_LONG`.
+        /// <br/>
+        /// <br/>Дополнительно можно отфильтровать отправления по их статусу.
+        /// </remarks>
+        /// <returns>Список отправлений</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        public virtual System.Threading.Tasks.Task<PostingFboListResponse> PostingFboListAsync(PostingFboListRequest body)
+        {
+            return PostingFboListAsync(body, System.Threading.CancellationToken.None);
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Получить список отправлений
+        /// </summary>
+        /// <remarks>
+        /// Возвращает список отправлений за указанный период времени.
+        /// <br/>Если период больше года, вернётся ошибка `PERIOD_IS_TOO_LONG`.
+        /// <br/>
+        /// <br/>Дополнительно можно отфильтровать отправления по их статусу.
+        /// </remarks>
+        /// <returns>Список отправлений</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<PostingFboListResponse> PostingFboListAsync(PostingFboListRequest body, System.Threading.CancellationToken cancellationToken)
+        {
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("POST");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                
+                    // Operation Path: "v3/posting/fbo/list"
+                    urlBuilder_.Append("v3/posting/fbo/list");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<PostingFboListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
                         }
                         else
                         if (status_ == 400)
@@ -3536,6 +3716,720 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string? Name { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListRequest
+    {
+
+        /// <summary>
+        /// Указатель для выборки следующих данных.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("cursor")]
+        public string? Cursor { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("filter")]
+        public PostingFboListRequestFilter? Filter { get; set; } = default!;
+
+        /// <summary>
+        /// Количество значений в ответе.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("limit")]
+        public long? Limit { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("sort_dir")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<PostingFboListRequestSortDirEnum>))]
+        public PostingFboListRequestSortDirEnum? Sort_dir { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, чтобы включить транслитерацию адреса из кириллицы в латиницу.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("translit")]
+        public bool? Translit { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("with")]
+        public PostingFboListRequestWith? With { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Фильтр для поиска отправлений.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListRequestFilter
+    {
+
+        /// <summary>
+        /// Номера заказов, к которым относятся отправления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("order_numbers")]
+        public System.Collections.Generic.IReadOnlyList<string>? Order_numbers { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификаторы отправлений.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("posting_numbers")]
+        public System.Collections.Generic.IReadOnlyList<string>? Posting_numbers { get; set; } = default!;
+
+        /// <summary>
+        /// Начало периода.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("since")]
+        public System.DateTimeOffset? Since { get; set; } = default!;
+
+        /// <summary>
+        /// Статус отправления:
+        /// <br/>  - `awaiting_packaging` — ожидает упаковки;
+        /// <br/>  - `awaiting_deliver` — ожидает отгрузки;
+        /// <br/>  - `delivering` — доставляется;
+        /// <br/>  - `delivered` — доставлено;
+        /// <br/>  - `cancelled` — отменено.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("statuses")]
+        public System.Collections.Generic.IReadOnlyList<string>? Statuses { get; set; } = default!;
+
+        /// <summary>
+        /// Конец периода.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("to")]
+        public System.DateTimeOffset? To { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Направление сортировки:
+    /// <br/>- `ASC` — по возрастанию;
+    /// <br/>- `DESC` — по убыванию.
+    /// <br/>
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum PostingFboListRequestSortDirEnum
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"ASC")]
+        ASC = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"DESC")]
+        DESC = 1,
+
+    }
+
+    /// <summary>
+    /// Дополнительные поля, которые нужно добавить в ответ.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListRequestWith
+    {
+
+        /// <summary>
+        /// `true`, чтобы добавить в ответ данные аналитики.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("analytics_data")]
+        public bool? Analytics_data { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, чтобы добавить в ответ финансовые данные.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("financial_data")]
+        public bool? Financial_data { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, чтобы добавить в ответ юридическую информацию.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("legal_info")]
+        public bool? Legal_info { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponse
+    {
+
+        /// <summary>
+        /// Указатель для выборки следующих данных.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("cursor")]
+        public string? Cursor { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, если в ответе вернулись не все отправления.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("has_next")]
+        public bool? Has_next { get; set; } = default!;
+
+        /// <summary>
+        /// Список отправлений.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("postings")]
+        public System.Collections.Generic.IReadOnlyList<PostingFboListResponsePostings>? Postings { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostings
+    {
+
+        /// <summary>
+        /// Дополнительные параметры.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("additional_data")]
+        public System.Collections.Generic.IReadOnlyList<PostingFboListResponsePostingsAdditionalData>? Additional_data { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("analytics_data")]
+        public PostingFboListResponsePostingsAnalyticsData? Analytics_data { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор причины отмены отправления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("cancel_reason_id")]
+        public long? Cancel_reason_id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("cancellation")]
+        public PostingFboListResponsePostingsCancellation? Cancellation { get; set; } = default!;
+
+        /// <summary>
+        /// Дата и время создания отправления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("created_at")]
+        public System.DateTimeOffset? Created_at { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("external_order")]
+        public PostingFboListResponsePostingsExternalOrder? External_order { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("financial_data")]
+        public PostingFboListResponsePostingsFinancialData? Financial_data { get; set; } = default!;
+
+        /// <summary>
+        /// Дата и время начала обработки отправления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("in_process_at")]
+        public System.DateTimeOffset? In_process_at { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("legal_info")]
+        public PostingFboListResponsePostingsLegalInfo? Legal_info { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор заказа, к которому относится отправление.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("order_id")]
+        public long? Order_id { get; set; } = default!;
+
+        /// <summary>
+        /// Номер заказа, к которому относится отправление.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("order_number")]
+        public string? Order_number { get; set; } = default!;
+
+        /// <summary>
+        /// Номер отправления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("posting_number")]
+        public string? Posting_number { get; set; } = default!;
+
+        /// <summary>
+        /// Список товаров в отправлении.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("products")]
+        public System.Collections.Generic.IReadOnlyList<PostingFboListResponsePostingsProducts>? Products { get; set; } = default!;
+
+        /// <summary>
+        /// Статус отправления:
+        /// <br/>- `awaiting_packaging` — ожидает упаковки;
+        /// <br/>- `awaiting_deliver` — ожидает отгрузки;
+        /// <br/>- `delivering` — доставляется;
+        /// <br/>- `delivered` — доставлено;
+        /// <br/>- `cancelled` — отменено.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        public string? Status { get; set; } = default!;
+
+        /// <summary>
+        /// Подстатус отправления:
+        /// <br/>- `posting_split_pending`, `posting_created` — создано;
+        /// <br/>- `posting_packing` — на упаковке;
+        /// <br/>- `posting_transferring_to_delivery` — передаётся в доставку;
+        /// <br/>- `posting_on_way_to_city` — на пути в город доставки;
+        /// <br/>- `posting_returned_to_warehouse` — возвращено на склад;
+        /// <br/>- `posting_transferred_to_courier_service` — передаётся в службу доставки;
+        /// <br/>- `posting_in_courier_service` — курьер в пути;
+        /// <br/>- `posting_on_way_to_pickup_point` — в пути в пункт выдачи;
+        /// <br/>- `posting_in_pickup_point` — в пункте выдачи;
+        /// <br/>- `posting_delivered` — доставлено курьером;
+        /// <br/>- `posting_received` — получено в пункте выдачи;
+        /// <br/>- `posting_canceled` — отменено.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("substatus")]
+        public string? Substatus { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostingsAdditionalData
+    {
+
+        /// <summary>
+        /// Ключ дополнительного параметра.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("key")]
+        public string? Key { get; set; } = default!;
+
+        /// <summary>
+        /// Значение дополнительного параметра.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("value")]
+        public string? Value { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Данные аналитики.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostingsAnalyticsData
+    {
+
+        /// <summary>
+        /// Город доставки. Только для продавцов из СНГ.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("city")]
+        public string? City { get; set; } = default!;
+
+        /// <summary>
+        /// Дата и время начала доставки. Только для отправлений, оформленных через [Ozon Доставку](#tag/OzonLogistics).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("client_delivery_date_begin")]
+        public System.DateTimeOffset? Client_delivery_date_begin { get; set; } = default!;
+
+        /// <summary>
+        /// Ожидаемая дата, до которой заказ будет доставлен. Только для отправлений, оформленных через [Ozon Доставку](#tag/OzonLogistics).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("client_delivery_date_end")]
+        public System.DateTimeOffset? Client_delivery_date_end { get; set; } = default!;
+
+        /// <summary>
+        /// Способ доставки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("delivery_type")]
+        public string? Delivery_type { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, если получатель юридическое лицо.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("is_legal")]
+        public bool? Is_legal { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, если у получателя есть подписка Premium.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("is_premium")]
+        public bool? Is_premium { get; set; } = default!;
+
+        /// <summary>
+        /// Способ оплаты: 
+        /// <br/>- `картой онлайн`;
+        /// <br/>- `карта Ozon Банка`;
+        /// <br/>- `автосписание с карты Ozon Банка при выдаче`;
+        /// <br/>- `сохранённой картой при получении`;
+        /// <br/>- `Система Быстрых Платежей`;
+        /// <br/>- `Ozon Рассрочка`;
+        /// <br/>- `оплата на расчётный счёт`;
+        /// <br/>- `SberPay`;
+        /// <br/>- `предоплата на стороне внешнего продавца`.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("payment_type_group_name")]
+        public string? Payment_type_group_name { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор склада.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("warehouse_id")]
+        public long? Warehouse_id { get; set; } = default!;
+
+        /// <summary>
+        /// Название склада отправки заказа.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("warehouse_name")]
+        public string? Warehouse_name { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Информация об отмене.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostingsCancellation
+    {
+
+        /// <summary>
+        /// Причина отмены.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("cancel_reason")]
+        public string? Cancel_reason { get; set; } = default!;
+
+        /// <summary>
+        /// Инициатор отмены:
+        /// <br/>- `Продавец`,
+        /// <br/>- `Клиент`,
+        /// <br/>- `Покупатель`,
+        /// <br/>- `Ozon`,
+        /// <br/>- `Система`,
+        /// <br/>- `Служба доставки`.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("cancellation_initiator")]
+        public string? Cancellation_initiator { get; set; } = default!;
+
+        /// <summary>
+        /// Тип отмены:
+        /// <br/>- `seller` — отменено продавцом;
+        /// <br/>- `client` или `customer` — отменено покупателем;
+        /// <br/>- `ozon` — отменено Ozon;
+        /// <br/>- `system` — отменено системой;
+        /// <br/>- `delivery` — отменено службой доставки.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("cancellation_type")]
+        public string? Cancellation_type { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Информация о заказе с внешней платформы.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostingsExternalOrder
+    {
+
+        /// <summary>
+        /// `true`, если заказ с внешней платформы.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("is_external")]
+        public bool? Is_external { get; set; } = default!;
+
+        /// <summary>
+        /// Название платформы, с которой сделали заказ.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("platform_name")]
+        public string? Platform_name { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Финансовые данные.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostingsFinancialData
+    {
+
+        /// <summary>
+        /// Код региона, откуда отправляется заказ.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("cluster_from")]
+        public string? Cluster_from { get; set; } = default!;
+
+        /// <summary>
+        /// Код региона, куда доставляется заказ.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("cluster_to")]
+        public string? Cluster_to { get; set; } = default!;
+
+        /// <summary>
+        /// Список товаров в заказе.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("products")]
+        public System.Collections.Generic.IReadOnlyList<PostingFboListResponsePostingsFinancialDataProducts>? Products { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostingsFinancialDataProducts
+    {
+
+        /// <summary>
+        /// Список акций.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("actions")]
+        public System.Collections.Generic.IReadOnlyList<string>? Actions { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("commission")]
+        public PostingFboListResponsePostingsFinancialDataProductsCommission? Commission { get; set; } = default!;
+
+        /// <summary>
+        /// Цена до учёта скидок. На карточке товара отображается зачёркнутой.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("old_price")]
+        public double? Old_price { get; set; } = default!;
+
+        /// <summary>
+        /// Выплата продавцу.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("payout")]
+        public double? Payout { get; set; } = default!;
+
+        /// <summary>
+        /// Цена товара с учётом акций, кроме акций за счёт Ozon.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public double? Price { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор товара в системе Ozon — SKU.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("product_id")]
+        public long? Product_id { get; set; } = default!;
+
+        /// <summary>
+        /// Процент скидки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("total_discount_percent")]
+        public double? Total_discount_percent { get; set; } = default!;
+
+        /// <summary>
+        /// Сумма скидки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("total_discount_value")]
+        public double? Total_discount_value { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Комиссия за товар.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostingsFinancialDataProductsCommission
+    {
+
+        /// <summary>
+        /// Размер комиссии за товар.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("amount")]
+        public double? Amount { get; set; } = default!;
+
+        /// <summary>
+        /// Код валюты, в которой рассчитывалась комиссия.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("currency")]
+        public string? Currency { get; set; } = default!;
+
+        /// <summary>
+        /// Процент комиссии.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("percent")]
+        public long? Percent { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Юридическая информация о покупателе.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostingsLegalInfo
+    {
+
+        /// <summary>
+        /// Название компании.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("company_name")]
+        public string? Company_name { get; set; } = default!;
+
+        /// <summary>
+        /// ИНН.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("inn")]
+        public string? Inn { get; set; } = default!;
+
+        /// <summary>
+        /// КПП.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("kpp")]
+        public string? Kpp { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostingsProducts
+    {
+
+        /// <summary>
+        /// Коды активации для услуг и цифровых товаров.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("digital_codes")]
+        public System.Collections.Generic.IReadOnlyList<string>? Digital_codes { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, если Ozon выкупил товар.
+        /// <br/>
+        /// <br/>[Подробнее о выкупе товаров в Базе знаний продавца](https://seller-edu.ozon.ru/commissions-tariffs/commissions-tariffs-ozon/prodaji-tovarov-v-eaes-i-drugie-strany#какие-товары-выкупает-ozon)
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("is_marketplace_buyout")]
+        public bool? Is_marketplace_buyout { get; set; } = default!;
+
+        /// <summary>
+        /// Название товара.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string? Name { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор товара в системе продавца — артикул.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("offer_id")]
+        public string? Offer_id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public PostingMoney? Price { get; set; } = default!;
+
+        /// <summary>
+        /// Количество товара в отправлении.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("quantity")]
+        public long? Quantity { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор товара в системе Ozon — SKU.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("sku")]
+        public long? Sku { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 

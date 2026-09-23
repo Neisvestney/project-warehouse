@@ -115,6 +115,9 @@ import type {
   MarketplacesGetAccountsShortData,
   MarketplacesGetAccountsShortErrors,
   MarketplacesGetAccountsShortResponses,
+  MarketplacesGetBackfillBoundsData,
+  MarketplacesGetBackfillBoundsErrors,
+  MarketplacesGetBackfillBoundsResponses,
   MarketplacesGetCardsData,
   MarketplacesGetCardsErrors,
   MarketplacesGetCardsResponses,
@@ -1384,7 +1387,9 @@ export const marketplacesTestConnection = <ThrowOnError extends boolean = false>
  * Queues a sync and returns 202 immediately — poll the run for progress.
  *
  *     Body: `StartSyncRequest` — `scope` (`All`, `Warehouses`, `Cards`, `Orders`,
- * `OrdersBackground`).
+ * `OrdersBackground`, `OrdersBackfill`), plus `since`/`to`, which
+ * `OrdersBackfill` requires and every other scope rejects (422 `validationError` /
+ * `required`). `GET accounts/{id}/backfill-bounds` suggests a start for the period.
  * Answers 202 with `StartSyncResponse.syncRunId`; poll it through `GET sync-runs?ids=`.
  * Errors returned by this call:
  * * 404 marketplaceAccountNotFound
@@ -1417,6 +1422,29 @@ export const marketplacesStartSync = <ThrowOnError extends boolean = false>(
       ...options.headers,
     },
   });
+
+/**
+ * Where a history import could start, for the period fields of the sync dialog.
+ *
+ * Query params: `probeMarketplace` (default false). Without it only `firstOrderAt` is filled,
+ * straight from the database. With it the marketplace is walked backwards for its oldest posting,
+ * which costs several calls — so it sits behind an explicit action rather than a dialog opening.
+ * Errors: 404 `marketplaceAccountNotFound`, 422 `marketplaceOrdersNotSupported`,
+ * 422 `marketplaceCredentialsUnreadable`, 422 `marketplaceApiError`.
+ * Requires `integrations.sync`.
+ */
+export const marketplacesGetBackfillBounds = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplacesGetBackfillBoundsData, ThrowOnError>,
+): RequestResult<
+  MarketplacesGetBackfillBoundsResponses,
+  MarketplacesGetBackfillBoundsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    MarketplacesGetBackfillBoundsResponses,
+    MarketplacesGetBackfillBoundsErrors,
+    ThrowOnError
+  >({url: "/api/integrations/marketplaces/accounts/{id}/backfill-bounds", ...options});
 
 /**
  * Sync history for an account, newest first (paginated).
@@ -1692,7 +1720,10 @@ export const ordersCreateTag = <ThrowOnError extends boolean = false>(
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
  * `warehouseId`, `type`, `status`, `marketplaceType`, `marketplaceAccountId`,
- * `marketplaceStatus`, `catalogItemId`, `tagIds`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * `marketplaceStatus`, `includeExternal` (default false), `catalogItemId`, `tagIds`,
+ * `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * External orders — imported from the marketplace, never assembled here — are left out unless
+ * `includeExternal` asks for them.
  * `catalogItemId` keeps orders that have a box component with that catalog item; `tagIds` keeps
  * orders carrying any of the tags.
  * Any of the three marketplace filters also excludes orders without a `MarketplaceOrder`, so they

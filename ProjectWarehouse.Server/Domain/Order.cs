@@ -14,14 +14,22 @@ public class Order : IHasIdentity
     public OrderType Type { get; set; }
     public OrderStatus Status { get; set; } = OrderStatus.Draft;
 
+    /// <summary>
+    /// The order exists on the marketplace but never passed through WMS: it is not assembled, deducts no
+    /// stock, and carries no fulfillments. <see cref="Status"/> is always <see cref="OrderStatus.Shipped"/>
+    /// regardless of the marketplace state — that lives in <see cref="MarketplaceOrder.Status"/>.
+    /// </summary>
+    public bool IsExternal { get; set; }
+
     public string? Notes { get; set; }
     public DateTime? PlannedShipmentAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? AssembledAt { get; set; }
     public DateTime? ShippedAt { get; set; }
 
-    public Guid WarehouseId { get; set; }
-    public Warehouse Warehouse { get; set; } = null!;
+    /// <summary>Required for every order WMS works on; null only for <see cref="IsExternal"/> ones.</summary>
+    public Guid? WarehouseId { get; set; }
+    public Warehouse? Warehouse { get; set; }
 
     public Guid? CreatedById { get; set; }
     public ApplicationUser? CreatedBy { get; set; }

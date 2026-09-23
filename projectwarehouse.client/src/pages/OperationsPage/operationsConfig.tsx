@@ -8,6 +8,7 @@ import AssemblyIcon from "@mui/icons-material/Handyman";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
+import PalletIcon from "@mui/icons-material/Pallet";
 import {createHasAccess} from "@/layouts/SidebarPage/createHasAccess.ts";
 import {createFirstPageUrl} from "@/layouts/SidebarPage/createFirstPageUrl.ts";
 import type {SectionConfig} from "@/layouts/SidebarPage/SidebarPage.tsx";
@@ -24,6 +25,7 @@ import StocktakePage from "./pages/StocktakesPage/pages/StocktakePage/StocktakeP
 import OrdersDirectPage from "./pages/OrdersDirectPage/OrdersDirectPage.tsx";
 import OrdersFbsPage from "./pages/OrdersFbsPage/OrdersFbsPage.tsx";
 import OrdersFboPage from "./pages/OrdersFboPage/OrdersFboPage.tsx";
+import OrdersFboSupplyPage from "./pages/OrdersFboSupplyPage/OrdersFboSupplyPage.tsx";
 import OrderDirectCreatePage from "./pages/OrderDirectCreatePage/OrderDirectCreatePage.tsx";
 import OrderPage from "./pages/OrderPage/OrderPage.tsx";
 import OrdersAssemblyPage from "./pages/OrdersAssemblyPage/OrdersAssemblyPage.tsx";
@@ -58,10 +60,17 @@ export const operationsSections: SectionConfig[] = [
         requiredPermission: ["orders.view", "orders.view_assigned"],
       },
       {
-        label: "FBO",
+        label: "Отправления FBO",
         path: "fbo",
         component: OrdersFboPage,
         icon: <WarehouseIcon fontSize="small" />,
+        requiredPermission: ["orders.view", "orders.view_assigned"],
+      },
+      {
+        label: "Поставки FBO",
+        path: "fbo-supply",
+        component: OrdersFboSupplyPage,
+        icon: <PalletIcon fontSize="small" />,
         requiredPermission: ["orders.view", "orders.view_assigned"],
       },
     ],

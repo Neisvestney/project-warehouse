@@ -147,10 +147,11 @@ function AssemblyOrderAccordion({
         <AssemblyOrderBoxesSection order={order} canManage={canFulfill} />
         {soleTask ? (
           <AssemblyTaskAccordion
+            // сборка живёт только в статусе Assembly, куда внешний заказ не попадает
             task={soleTask.task}
             orderId={order.id}
             orderBoxes={order.boxes}
-            warehouseId={order.warehouseId}
+            warehouseId={order.warehouseId!}
             canFulfill={canFulfill}
             batchEligible={soleTask.eligible}
             inline
@@ -162,7 +163,7 @@ function AssemblyOrderAccordion({
               task={task}
               orderId={order.id}
               orderBoxes={order.boxes}
-              warehouseId={order.warehouseId}
+              warehouseId={order.warehouseId!}
               canFulfill={canFulfill}
               checked={selectedTaskIds.has(task.id)}
               onCheckChange={(checked) => onTaskCheckChange(order.id, task.id, checked)}

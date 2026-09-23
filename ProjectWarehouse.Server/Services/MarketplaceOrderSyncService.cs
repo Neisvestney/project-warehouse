@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Infrastructure.Realtime;
 using ProjectWarehouse.Server.Integrations.Abstractions;
@@ -13,6 +15,7 @@ namespace ProjectWarehouse.Server.Services;
 public class MarketplaceOrderSyncService(
     ApplicationDbContext db,
     IRealtimeNotifier realtime,
+    IOptions<MarketplacesOptions> options,
     ILogger<MarketplaceOrderSyncService> logger) : IMarketplaceOrderSyncService
 {
     /// <summary>
@@ -20,6 +23,16 @@ public class MarketplaceOrderSyncService(
     /// catalog would otherwise inflate a single jsonb row into megabytes the UI never shows.
     /// </summary>
     private const int SkippedCap = 100;
+
+    /// <summary>
+    /// What the history import asks for: everything the marketplace will not move backwards from, plus the
+    /// in-transit state, which is as close to done as an old posting gets. Anything earlier is left to the
+    /// ordinary import, which knows how to assemble it.
+    /// </summary>
+    private static readonly MarketplaceOrderStatus[] BackfillStatuses =
+        [MarketplaceOrderStatus.Delivering, MarketplaceOrderStatus.Delivered, MarketplaceOrderStatus.Cancelled];
+
+    private readonly OzonOptions _ozon = options.Value.Ozon;
 
     public async Task SyncOrdersAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
         MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
@@ -46,24 +59,13 @@ public class MarketplaceOrderSyncService(
     private async Task DiscoverPostingsAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
         MarketplaceAccount account, MarketplaceSyncRun run, List<SkippedOrderInfo> skipped, CancellationToken ct)
     {
-        // warehouses are a handful per seller, so they are loaded once; cards are not, and go per page
-        var warehouses = await db.MarketplaceWarehouses
-            .Where(w => w.MarketplaceAccountId == account.Id && w.WarehouseId != null && !w.IsArchived)
-            .ToDictionaryAsync(w => w.ExternalId, w => w.WarehouseId!.Value, ct);
+        var warehouses = await LoadWarehousesAsync(account.Id, ct);
 
         await foreach (var page in provider.FetchActivePostingsAsync(credentials, ct))
         {
             run.OrdersProcessed += page.Count;
 
-            var numbers = page.Select(p => p.PostingNumber).ToList();
-            var known = await db.MarketplaceOrders
-                .Where(o => o.MarketplaceAccountId == account.Id && numbers.Contains(o.PostingNumber))
-                .Include(o => o.Order)
-                .ThenInclude(o => o!.MarketplaceItems)
-                .ThenInclude(i => i.MarketplaceCard)
-                .AsSplitQuery()
-                .ToDictionaryAsync(o => o.PostingNumber, ct);
-
+            var known = await LoadKnownAsync(account.Id, page, ct);
             var cards = await LoadCardsAsync(account.Id, page, ct);
 
             foreach (var posting in page)
@@ -94,6 +96,26 @@ public class MarketplaceOrderSyncService(
         }
     }
 
+    // warehouses are a handful per seller, so they are loaded once; cards are not, and go per page
+    private async Task<Dictionary<string, Guid>> LoadWarehousesAsync(Guid accountId, CancellationToken ct) =>
+        await db.MarketplaceWarehouses
+            .Where(w => w.MarketplaceAccountId == accountId && w.WarehouseId != null && !w.IsArchived)
+            .ToDictionaryAsync(w => w.ExternalId, w => w.WarehouseId!.Value, ct);
+
+    private async Task<Dictionary<string, MarketplaceOrder>> LoadKnownAsync(
+        Guid accountId, IReadOnlyList<ExternalPosting> page, CancellationToken ct)
+    {
+        var numbers = page.Select(p => p.PostingNumber).ToList();
+
+        return await db.MarketplaceOrders
+            .Where(o => o.MarketplaceAccountId == accountId && numbers.Contains(o.PostingNumber))
+            .Include(o => o.Order)
+            .ThenInclude(o => o!.MarketplaceItems)
+            .ThenInclude(i => i.MarketplaceCard)
+            .AsSplitQuery()
+            .ToDictionaryAsync(o => o.PostingNumber, ct);
+    }
+
     /// <summary>
     /// Postings carry <c>sku</c> and <c>offer_id</c> but never <c>product_id</c>, so cards are looked up
     /// by SKU first and by seller article second.
@@ -111,21 +133,20 @@ public class MarketplaceOrderSyncService(
             .Select(c => new CardRow(c.Id, c.Sku, c.OfferId, c.CatalogItemId))
             .ToListAsync(ct);
 
-        var bySku = new Dictionary<string, CardRow>();
-        var byOfferId = new Dictionary<string, CardRow>();
+        var lookup = new CardLookup();
 
         foreach (var row in rows)
         {
             if (row.Sku is { Length: > 0 })
-                bySku.TryAdd(row.Sku, row);
+                lookup.BySku.TryAdd(row.Sku, row);
 
             // offer_id is unique per Ozon account in practice, but nothing in the schema enforces it
-            if (row.OfferId.Length > 0 && !byOfferId.TryAdd(row.OfferId, row))
+            if (row.OfferId.Length > 0 && !lookup.ByOfferId.TryAdd(row.OfferId, row))
                 logger.LogWarning("Account {AccountId} has more than one card with offer_id {OfferId}",
                     accountId, row.OfferId);
         }
 
-        return new CardLookup(bySku, byOfferId);
+        return lookup;
     }
 
     private bool TryBuildOrder(ExternalPosting posting, MarketplaceAccount account,
@@ -144,7 +165,7 @@ public class MarketplaceOrderSyncService(
             return false;
         }
 
-        var resolved = new List<(CardRow Card, ExternalPostingItem Item)>(posting.Items.Count);
+        var lines = new List<OrderLine>(posting.Items.Count);
         var unmapped = new List<string>();
 
         foreach (var item in posting.Items)
@@ -153,7 +174,7 @@ public class MarketplaceOrderSyncService(
             if (card is null || card.CatalogItemId is null)
                 unmapped.Add(item.OfferId);
             else
-                resolved.Add((card, item));
+                lines.Add(new OrderLine(card.Id, card.CatalogItemId, item));
         }
 
         if (unmapped.Count > 0)
@@ -167,37 +188,53 @@ public class MarketplaceOrderSyncService(
             return false;
         }
 
+        order = BuildOrder(posting, account, warehouseId, lines, isExternal: false);
+        skip = null;
+        return true;
+    }
+
+    /// <summary>
+    /// The shared shape of an imported posting. An external one differs only in where it starts: already
+    /// shipped, with box components for whatever positions the catalog recognized and nothing for the rest.
+    /// </summary>
+    private static Order BuildOrder(ExternalPosting posting, MarketplaceAccount account,
+        Guid? warehouseId, IReadOnlyList<OrderLine> lines, bool isExternal)
+    {
         var now = DateTime.UtcNow;
         var orderId = Guid.NewGuid();
         var boxId = Guid.NewGuid();
 
-        order = new Order
+        return new Order
         {
             Id = orderId,
-            Type = OrderType.FBS,
+            Type = posting.Scheme == ExternalPostingScheme.Fbo ? OrderType.FboPosting : OrderType.FBS,
             // the posting arrives already packed on the marketplace side, so it is ready to assemble
-            Status = OrderStatus.Confirmed,
+            Status = isExternal ? OrderStatus.Shipped : OrderStatus.Confirmed,
+            IsExternal = isExternal,
             WarehouseId = warehouseId,
             PlannedShipmentAt = posting.ShipmentDate,
             CreatedAt = now,
+            // Shipped is where an external order starts, so it needs a date even for a cancelled posting;
+            // the marketplace state it really is in lives on MarketplaceOrder.Status.
+            ShippedAt = isExternal ? posting.InProcessAt ?? posting.CreatedAt ?? now : null,
             // created by the integration; who started the run is recorded on MarketplaceSyncRun
             CreatedById = null,
-            MarketplaceItems = [.. resolved.Select(r => new OrderMarketplaceItem
+            MarketplaceItems = [.. lines.Select(l => new OrderMarketplaceItem
             {
                 Id = Guid.NewGuid(),
                 OrderId = orderId,
-                MarketplaceCardId = r.Card.Id,
-                CatalogItemId = r.Card.CatalogItemId,
-                Quantity = r.Item.Quantity,
-                CustomerPrice = r.Item.CustomerPrice,
-                CustomerCurrencyCode = r.Item.CustomerCurrencyCode,
-                Price = r.Item.Price,
-                OldPrice = r.Item.OldPrice,
-                DiscountValue = r.Item.DiscountValue,
-                Payout = r.Item.Payout,
-                CurrencyCode = r.Item.CurrencyCode,
-                CommissionAmount = r.Item.CommissionAmount,
-                CommissionCurrencyCode = r.Item.CommissionCurrencyCode,
+                MarketplaceCardId = l.CardId,
+                CatalogItemId = l.CatalogItemId,
+                Quantity = l.Item.Quantity,
+                CustomerPrice = l.Item.CustomerPrice,
+                CustomerCurrencyCode = l.Item.CustomerCurrencyCode,
+                Price = l.Item.Price,
+                OldPrice = l.Item.OldPrice,
+                DiscountValue = l.Item.DiscountValue,
+                Payout = l.Item.Payout,
+                CurrencyCode = l.Item.CurrencyCode,
+                CommissionAmount = l.Item.CommissionAmount,
+                CommissionCurrencyCode = l.Item.CommissionCurrencyCode,
             })],
             Boxes =
             [
@@ -207,14 +244,15 @@ public class MarketplaceOrderSyncService(
                     OrderId = orderId,
                     // Always one box, even when MultiBoxQty > 1: the marketplace says how many packages
                     // but not what goes in which, so the packer splits them during assembly.
-                    Components = [.. resolved
-                        .GroupBy(r => r.Card.CatalogItemId!.Value)
+                    Components = [.. lines
+                        .Where(l => l.CatalogItemId is not null)
+                        .GroupBy(l => l.CatalogItemId!.Value)
                         .Select(g => new OrderBoxComponent
                         {
                             Id = Guid.NewGuid(),
                             OrderBoxId = boxId,
                             CatalogItemId = g.Key,
-                            Quantity = g.Sum(r => r.Item.Quantity),
+                            Quantity = g.Sum(l => l.Item.Quantity),
                         })],
                 },
             ],
@@ -240,9 +278,6 @@ public class MarketplaceOrderSyncService(
                 SyncedAt = now,
             },
         };
-
-        skip = null;
-        return true;
     }
 
     /// <summary>
@@ -292,7 +327,31 @@ public class MarketplaceOrderSyncService(
     {
         using var activity = AppTelemetry.Source.StartActivity("marketplace.sync.orders_background");
 
-        await CatchUpStatusesAsync(provider, credentials, account, run, ct);
+        await ImportFboPostingsAsync(provider, credentials, account, run, ct);
+        await CatchUpStatusesAsync(provider, credentials, account, run, ExternalPostingScheme.Fbs, ct);
+        await CatchUpStatusesAsync(provider, credentials, account, run, ExternalPostingScheme.Fbo, ct);
+    }
+
+    /// <summary>
+    /// Marketplace-fulfilled postings never reach the unfulfilled list — the goods are already at Ozon, so
+    /// there is nothing for a warehouse to do. They are asked for by period instead: from where the last
+    /// import got to, minus an overlap, up to now.
+    /// </summary>
+    private async Task ImportFboPostingsAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
+        MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
+    {
+        var to = DateTime.UtcNow;
+        var since = account.FboPostingsSyncedAt is { } syncedAt
+            ? syncedAt.AddHours(-_ozon.FboImportOverlapHours)
+            : to.AddDays(-_ozon.FboImportWindowPastDays);
+
+        await ImportExternalPostingsAsync(provider, credentials, account, run,
+            new ExternalPostingQuery(ExternalPostingScheme.Fbo, since, to), refreshKnown: true, ct);
+
+        // Only once the whole period is through: a run that threw halfway must leave the mark where it was,
+        // so the next one covers the same ground again rather than skipping what it never read.
+        account.FboPostingsSyncedAt = to;
+        await db.SaveChangesAsync(ct);
     }
 
     /// <summary>
@@ -300,12 +359,16 @@ public class MarketplaceOrderSyncService(
     /// indistinguishable from "cancelled" by absence alone — so open ones are asked about directly.
     /// </summary>
     private async Task CatchUpStatusesAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
-        MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
+        MarketplaceAccount account, MarketplaceSyncRun run, ExternalPostingScheme scheme, CancellationToken ct)
     {
+        var isFbo = scheme == ExternalPostingScheme.Fbo;
+
         var open = await db.MarketplaceOrders
             .Where(o => o.MarketplaceAccountId == account.Id
                         && o.Status != MarketplaceOrderStatus.Delivered
                         && o.Status != MarketplaceOrderStatus.Cancelled
+                        // the two schemes are asked about through different endpoints
+                        && (o.Order!.Type == OrderType.FboPosting) == isFbo
                         // phase 1 just refreshed everything the unfulfilled list returned; re-asking would
                         // cost one single-posting call per open order, every run, for no new information
                         && o.StatusSyncedAt < run.StartedAt)
@@ -319,7 +382,7 @@ public class MarketplaceOrderSyncService(
             return;
 
         var statuses = (await provider.FetchPostingStatusesAsync(
-                credentials, [.. open.Select(o => o.PostingNumber)], ct))
+                credentials, [.. open.Select(o => o.PostingNumber)], scheme, ct))
             .ToDictionary(s => s.PostingNumber);
 
         var now = DateTime.UtcNow;
@@ -353,6 +416,123 @@ public class MarketplaceOrderSyncService(
         }
 
         await db.SaveChangesAsync(ct);
+    }
+
+    // ── Phase 3: history backfill ─────────────────────────────────────────────
+
+    public async Task SyncOrdersBackfillAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
+        MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
+    {
+        using var activity = AppTelemetry.Source.StartActivity("marketplace.sync.orders_backfill");
+
+        if (run.BackfillSince is not { } since || run.BackfillTo is not { } to)
+            throw new ValidationException("since", ErrorCode.Required,
+                "A backfill run needs both ends of its period.");
+
+        foreach (var scheme in (ExternalPostingScheme[])[ExternalPostingScheme.Fbs, ExternalPostingScheme.Fbo])
+            await ImportExternalPostingsAsync(provider, credentials, account, run,
+                new ExternalPostingQuery(scheme, since, to, BackfillStatuses), refreshKnown: false, ct);
+
+        activity?.SetTag("marketplace.orders.created", run.OrdersCreated);
+    }
+
+    /// <summary>
+    /// Creates whatever the period holds and WMS does not, as external orders: no warehouse gate, no
+    /// catalog gate, and no box components for positions the catalog does not recognize. A posting WMS
+    /// already knows is either refreshed or left alone — history must never overwrite a live order.
+    /// </summary>
+    private async Task ImportExternalPostingsAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
+        MarketplaceAccount account, MarketplaceSyncRun run, ExternalPostingQuery query, bool refreshKnown,
+        CancellationToken ct)
+    {
+        // only consulted for FBS postings; an FBO one is fulfilled from stock that never was in a WMS warehouse
+        var warehouses = await LoadWarehousesAsync(account.Id, ct);
+
+        await foreach (var page in provider.FetchPostingsAsync(credentials, query, ct))
+        {
+            run.OrdersProcessed += page.Count;
+
+            var known = await LoadKnownAsync(account.Id, page, ct);
+            var cards = await LoadCardsAsync(account.Id, page, ct);
+
+            foreach (var posting in page)
+            {
+                if (known.TryGetValue(posting.PostingNumber, out var existing))
+                {
+                    if (refreshKnown && ApplyPosting(existing, posting))
+                        run.OrdersUpdated++;
+                    continue;
+                }
+
+                var lines = ResolveLines(posting, account.Id, cards);
+                var warehouseId = posting.Scheme == ExternalPostingScheme.Fbs
+                                  && posting.WarehouseExternalId is { } externalId
+                                  && warehouses.TryGetValue(externalId, out var mapped)
+                    ? mapped
+                    : (Guid?)null;
+
+                db.Orders.Add(BuildOrder(posting, account, warehouseId, lines, isExternal: true));
+                run.OrdersCreated++;
+            }
+
+            await db.SaveChangesAsync(ct);
+            await realtime.PublishProgressAsync(run, ct);
+        }
+    }
+
+    /// <summary>
+    /// Every position of the posting, recognized or not. A position whose product has no card at all gets a
+    /// placeholder one built from the posting — without it the line would carry no name, no article and
+    /// nothing to map later.
+    /// </summary>
+    private List<OrderLine> ResolveLines(ExternalPosting posting, Guid accountId, CardLookup cards)
+    {
+        var lines = new List<OrderLine>(posting.Items.Count);
+
+        foreach (var item in posting.Items)
+        {
+            var card = cards.Find(item) ?? CreatePlaceholderCard(item, accountId, cards);
+            lines.Add(new OrderLine(card?.Id, card?.CatalogItemId, item));
+        }
+
+        return lines;
+    }
+
+    /// <summary>
+    /// Archived on creation: the product is not in the card list the marketplace answers with, so it is not
+    /// on sale. The external id is derived from the posting because a posting never carries a product id —
+    /// the card sync adopts the row by SKU when the real card shows up.
+    /// </summary>
+    private CardRow? CreatePlaceholderCard(ExternalPostingItem item, Guid accountId, CardLookup cards)
+    {
+        var externalId = MarketplaceCardPlaceholder.ExternalIdFor(item.Sku, item.OfferId);
+        if (externalId is null)
+        {
+            logger.LogWarning("A posting item of account {AccountId} has neither sku nor offer_id", accountId);
+            return null;
+        }
+
+        var card = new MarketplaceCard
+        {
+            Id = Guid.NewGuid(),
+            MarketplaceAccountId = accountId,
+            ExternalId = externalId,
+            Sku = item.Sku,
+            OfferId = item.OfferId,
+            Name = item.Name,
+            IsArchived = true,
+            SyncedAt = DateTime.UtcNow,
+        };
+
+        db.MarketplaceCards.Add(card);
+
+        var row = new CardRow(card.Id, card.Sku, card.OfferId, null);
+        if (row.Sku is { Length: > 0 })
+            cards.BySku.TryAdd(row.Sku, row);
+        if (row.OfferId.Length > 0)
+            cards.ByOfferId.TryAdd(row.OfferId, row);
+
+        return row;
     }
 
     /// <summary>
@@ -434,10 +614,15 @@ public class MarketplaceOrderSyncService(
 
     private sealed record CardRow(Guid Id, string? Sku, string OfferId, Guid? CatalogItemId);
 
-    private sealed record CardLookup(
-        Dictionary<string, CardRow> BySku,
-        Dictionary<string, CardRow> ByOfferId)
+    /// <summary>One position of a posting, already resolved against the catalog; both ids are null when nothing matched.</summary>
+    private sealed record OrderLine(Guid? CardId, Guid? CatalogItemId, ExternalPostingItem Item);
+
+    private sealed class CardLookup
     {
+        public Dictionary<string, CardRow> BySku { get; } = [];
+
+        public Dictionary<string, CardRow> ByOfferId { get; } = [];
+
         public CardRow? Find(ExternalPostingItem item)
         {
             if (item.Sku is { Length: > 0 } sku && BySku.TryGetValue(sku, out var bySku))

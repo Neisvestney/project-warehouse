@@ -1,6 +1,6 @@
 import {useCallback, useState} from "react";
 import {useNavigate, useParams} from "react-router";
-import {Box, Button, Paper, Stack, Tooltip, Typography} from "@mui/material";
+import {Box, Button, Chip, Paper, Stack, Tooltip, Typography} from "@mui/material";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
   ordersDeleteMutation,
@@ -80,6 +80,9 @@ function OrderPage() {
   // Assembly is warehouse-bound for everyone, unscoped orders.edit included — picking stock requires the
   // assignment. Matches LoadOrderWithAssembleAccessAsync.
   const canAssemble = hasAssemblePermission && isAssignedToWarehouse;
+  // Внешний заказ — только запись о продаже на площадке: собирать и двигать по статусам нечего,
+  // заметки и вложения остаются. Те же запреты держит сервер (orderIsExternal).
+  const canWork = canEdit && !query.data?.isExternal;
 
   const refreshOrder = useCallback(() => {
     void queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: id!}})});
@@ -175,7 +178,7 @@ function OrderPage() {
     transitionMutation.isPending || selfAssignMutation.isPending || deleteMutation.isPending;
   const marketplaceOrder = order.type === "fbs" ? order.marketplaceOrder : null;
   const hasActions =
-    (canSelfAssign && order.status === "confirmed") || canEdit || marketplaceOrder != null;
+    (canSelfAssign && order.status === "confirmed") || canWork || marketplaceOrder != null;
 
   return (
     <Box sx={{position: "relative"}}>
@@ -209,6 +212,7 @@ function OrderPage() {
                 </Typography>
                 <OrderTypeChip type={order.type} />
                 <OrderStatusChip status={order.status} />
+                {order.isExternal && <Chip size="small" variant="outlined" label="Внешний" />}
               </Stack>
             }
             actions={
@@ -233,7 +237,7 @@ function OrderPage() {
                     </Button>
                   )}
 
-                  {canEdit && order.status === "draft" && (
+                  {canWork && order.status === "draft" && (
                     <>
                       <Button
                         variant="contained"
@@ -265,7 +269,7 @@ function OrderPage() {
                     </>
                   )}
 
-                  {canEdit && order.status === "confirmed" && (
+                  {canWork && order.status === "confirmed" && (
                     <>
                       <Button
                         variant="contained"
@@ -296,7 +300,7 @@ function OrderPage() {
                     </>
                   )}
 
-                  {canEdit && order.status === "assembly" && (
+                  {canWork && order.status === "assembly" && (
                     <>
                       {!hasDoneTasks && (
                         <Button
@@ -343,7 +347,7 @@ function OrderPage() {
                     </>
                   )}
 
-                  {canEdit && order.status === "assembled" && (
+                  {canWork && order.status === "assembled" && (
                     <Button
                       variant="contained"
                       color="success"
@@ -356,7 +360,7 @@ function OrderPage() {
                     </Button>
                   )}
 
-                  {canEdit && order.status === "shipped" && (
+                  {canWork && order.status === "shipped" && (
                     <Button
                       variant="outlined"
                       disabled={actionPending}
@@ -368,7 +372,7 @@ function OrderPage() {
                     </Button>
                   )}
 
-                  {canEdit && order.status === "canceled" && (
+                  {canWork && order.status === "canceled" && (
                     <Button
                       variant="outlined"
                       disabled={actionPending}
@@ -415,14 +419,14 @@ function OrderPage() {
             <Typography variant="subtitle1" sx={{fontWeight: 600, mb: 2}}>
               Коробки и состав
             </Typography>
-            <OrderBoxesSection order={order} canEdit={canEdit} />
+            <OrderBoxesSection order={order} canEdit={canWork} />
           </Paper>
 
           {(order.status === "assembly" || order.status === "assembled") && (
             <Paper sx={{p: 3}}>
               <OrderAssemblyTasksSection
                 order={order}
-                canEditTask={canEdit}
+                canEditTask={canWork}
                 canTransitionStatus={canAssemble}
               />
             </Paper>

@@ -135,13 +135,62 @@ public class OzonMarketplaceProvider(
         }
     }
 
+    public async IAsyncEnumerable<IReadOnlyList<ExternalPosting>> FetchPostingsAsync(
+        MarketplaceCredentials credentials, ExternalPostingQuery query,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var pages = client.GetPostingsAsync(query, ct).GetAsyncEnumerator(ct);
+        try
+        {
+            while (true)
+            {
+                bool hasNext;
+                try
+                {
+                    // Same reason as FetchCardsAsync: an AsyncLocal written inside an async iterator does
+                    // not survive the yield, so the scope is opened around every move.
+                    using var _ = requestContext.Use(credentials);
+                    hasNext = await pages.MoveNextAsync();
+                }
+                catch (OzonApiException ex)
+                {
+                    throw LogAndWrap(ex);
+                }
+
+                if (!hasNext)
+                    yield break;
+
+                yield return pages.Current;
+            }
+        }
+        finally
+        {
+            await pages.DisposeAsync();
+        }
+    }
+
     public async Task<IReadOnlyList<ExternalPostingStatus>> FetchPostingStatusesAsync(
-        MarketplaceCredentials credentials, IReadOnlyList<string> postingNumbers, CancellationToken ct)
+        MarketplaceCredentials credentials, IReadOnlyList<string> postingNumbers,
+        ExternalPostingScheme scheme, CancellationToken ct)
     {
         using var _ = requestContext.Use(credentials);
         try
         {
-            return await client.GetPostingStatusesAsync(postingNumbers, ct);
+            return await client.GetPostingStatusesAsync(postingNumbers, scheme, ct);
+        }
+        catch (OzonApiException ex)
+        {
+            throw LogAndWrap(ex);
+        }
+    }
+
+    public async Task<DateTime?> FetchEarliestPostingDateAsync(
+        MarketplaceCredentials credentials, CancellationToken ct)
+    {
+        using var _ = requestContext.Use(credentials);
+        try
+        {
+            return await client.GetEarliestPostingDateAsync(ct);
         }
         catch (OzonApiException ex)
         {

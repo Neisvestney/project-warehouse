@@ -343,7 +343,9 @@ public class MarketplacesController(
     /// <summary>Queues a sync and returns 202 immediately — poll the run for progress.</summary>
     /// <remarks>
     /// Body: <c>StartSyncRequest</c> — <c>scope</c> (<c>All</c>, <c>Warehouses</c>, <c>Cards</c>, <c>Orders</c>,
-    /// <c>OrdersBackground</c>).
+    /// <c>OrdersBackground</c>, <c>OrdersBackfill</c>), plus <c>since</c>/<c>to</c>, which
+    /// <c>OrdersBackfill</c> requires and every other scope rejects (422 <c>validationError</c> /
+    /// <c>required</c>). <c>GET accounts/{id}/backfill-bounds</c> suggests a start for the period.
     /// Answers 202 with <c>StartSyncResponse.syncRunId</c>; poll it through <c>GET sync-runs?ids=</c>.
     /// Errors returned by this call:
     /// <list type="bullet">
@@ -384,10 +386,89 @@ public class MarketplacesController(
         if (alreadyRunning)
             return Conflict(ErrorCode.MarketplaceSyncAlreadyRunning, "A sync is already running for this account.");
 
-        var runId = await EnqueueSyncAsync(account, request.Scope, ct);
+        if (ValidateBackfillPeriod(request) is { } invalid)
+            return invalid;
+
+        var runId = await EnqueueSyncAsync(account, request.Scope, ct,
+            ToUtc(request.Since), ToUtc(request.To));
 
         // plain Accepted(obj) would emit a bogus Location header
         return StatusCode(StatusCodes.Status202Accepted, new StartSyncResponse { SyncRunId = runId });
+    }
+
+    /// <summary>
+    /// A period belongs to the history import and to nothing else: silently ignoring one sent with another
+    /// scope would look like a backfill that imported nothing.
+    /// </summary>
+    private IActionResult? ValidateBackfillPeriod(StartSyncRequest request)
+    {
+        if (request.Scope != MarketplaceSyncScope.OrdersBackfill)
+            return request.Since is null && request.To is null
+                ? null
+                : UnprocessableEntity("since", ErrorCode.ValidationError,
+                    "A period can only be given for the ordersBackfill scope.");
+
+        if (request.Since is not { } since || request.To is not { } to)
+            return UnprocessableEntity("since", ErrorCode.Required,
+                "The ordersBackfill scope needs both ends of its period.");
+
+        return since < to
+            ? null
+            : UnprocessableEntity("since", ErrorCode.ValidationError, "The period starts after it ends.");
+    }
+
+    private static DateTime? ToUtc(DateTime? value) =>
+        value is { } v ? DateTime.SpecifyKind(v.ToUniversalTime(), DateTimeKind.Utc) : null;
+
+    /// <summary>Where a history import could start, for the period fields of the sync dialog.</summary>
+    /// <remarks>
+    /// Query params: <c>probeMarketplace</c> (default false). Without it only <c>firstOrderAt</c> is filled,
+    /// straight from the database. With it the marketplace is walked backwards for its oldest posting,
+    /// which costs several calls — so it sits behind an explicit action rather than a dialog opening.
+    /// Errors: 404 <c>marketplaceAccountNotFound</c>, 422 <c>marketplaceOrdersNotSupported</c>,
+    /// 422 <c>marketplaceCredentialsUnreadable</c>, 422 <c>marketplaceApiError</c>.
+    /// Requires <c>integrations.sync</c>.
+    /// </remarks>
+    [HttpGet("accounts/{id:guid}/backfill-bounds")]
+    [Authorize(Policy = Permissions.Integrations.Sync)]
+    [ProducesResponseType<BackfillBoundsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> GetBackfillBounds(Guid id,
+        [FromQuery] bool probeMarketplace = false, CancellationToken ct = default)
+    {
+        var account = await db.MarketplaceAccounts.FirstOrDefaultAsync(a => a.Id == id, ct);
+        if (account is null)
+            return NotFound(ErrorCode.MarketplaceAccountNotFound, "Marketplace account not found.");
+
+        var firstOrderAt = await db.MarketplaceOrders
+            .Where(o => o.MarketplaceAccountId == id)
+            .Select(o => (DateTime?)o.Order!.CreatedAt)
+            .OrderBy(d => d)
+            .FirstOrDefaultAsync(ct);
+
+        if (!probeMarketplace)
+            return Ok(new BackfillBoundsDto { FirstOrderAt = firstOrderAt });
+
+        if (!providers.TryGet(account.Type, out var provider)
+            || !provider.Capabilities.HasFlag(MarketplaceCapabilities.Orders))
+            return UnprocessableEntity("root", ErrorCode.MarketplaceOrdersNotSupported,
+                "This marketplace provider does not support order sync.");
+
+        if (!protector.TryUnprotect(account.ApiKeyProtected, out var apiKey))
+            return UnprocessableEntity("root", ErrorCode.MarketplaceCredentialsUnreadable,
+                "The stored API key can no longer be decrypted.");
+
+        try
+        {
+            var firstPostingAt = await provider.FetchEarliestPostingDateAsync(
+                new MarketplaceCredentials(account.ExternalClientId, apiKey), ct);
+
+            return Ok(new BackfillBoundsDto { FirstOrderAt = firstOrderAt, FirstPostingAt = firstPostingAt });
+        }
+        catch (MarketplaceApiException ex)
+        {
+            return UnprocessableEntity("root", ErrorCode.MarketplaceApiError, ex.Message, ex.Args);
+        }
     }
 
     /// <summary>Sync history for an account, newest first (paginated).</summary>
@@ -845,7 +926,8 @@ public class MarketplacesController(
     /// <summary>A dialog with more accounts than this is a mistake, not a use case.</summary>
     private const int MaxBatchAccounts = 50;
 
-    private async Task<Guid> EnqueueSyncAsync(MarketplaceAccount account, MarketplaceSyncScope scope, CancellationToken ct)
+    private async Task<Guid> EnqueueSyncAsync(MarketplaceAccount account, MarketplaceSyncScope scope,
+        CancellationToken ct, DateTime? backfillSince = null, DateTime? backfillTo = null)
     {
         var run = new MarketplaceSyncRun
         {
@@ -855,6 +937,9 @@ public class MarketplacesController(
             Status = MarketplaceSyncStatus.Running,
             StartedAt = DateTime.UtcNow,
             TriggeredById = GetCurrentUserId(),
+            // on the row rather than in the queue message, which a restart does not survive
+            BackfillSince = backfillSince,
+            BackfillTo = backfillTo,
         };
 
         db.MarketplaceSyncRuns.Add(run);

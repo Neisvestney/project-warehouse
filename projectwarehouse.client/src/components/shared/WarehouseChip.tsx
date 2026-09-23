@@ -5,14 +5,14 @@ import {useHasPermission} from "@/hooks/usePermission";
 
 interface WarehouseChipProps extends Omit<ChipProps, "label"> {
   warehouseId: string | null | undefined;
-  name: string;
+  name: string | null | undefined;
 }
 
 function WarehouseChip({warehouseId, name, ...chipProps}: WarehouseChipProps) {
   const canView = useHasPermission(["warehouses.view", "warehouses.view_assigned"]);
 
   if (!canView || !warehouseId) {
-    return <Chip variant="outlined" size="small" label={name} {...chipProps} />;
+    return <Chip variant="outlined" size="small" label={name ?? "—"} {...chipProps} />;
   }
 
   return (

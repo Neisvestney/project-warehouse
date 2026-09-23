@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -89,6 +90,11 @@ public class MarketplaceSyncService(
             {
                 RequireOrders(provider);
                 await orderSync.SyncOrdersBackgroundAsync(provider, credentials, account, run, ct);
+            }
+            else if (run.Scope is MarketplaceSyncScope.OrdersBackfill)
+            {
+                RequireOrders(provider);
+                await orderSync.SyncOrdersBackfillAsync(provider, credentials, account, run, ct);
             }
             else if (run.Scope is MarketplaceSyncScope.All
                      && provider.Capabilities.HasFlag(MarketplaceCapabilities.Orders))
@@ -241,8 +247,16 @@ public class MarketplaceSyncService(
         await foreach (var page in provider.FetchCardsAsync(credentials, ct))
         {
             var externalIds = page.Select(c => c.ExternalId).ToList();
+            // a placeholder the order import left behind answers to the id it was keyed on, not to the
+            // product id — so both are asked for, and an adopted row keeps its mapping and its history
+            var placeholderIds = page
+                .Select(c => MarketplaceCardPlaceholder.ExternalIdFor(c.Sku, c.OfferId))
+                .OfType<string>()
+                .ToList();
+
             var existing = await db.MarketplaceCards
-                .Where(c => c.MarketplaceAccountId == account.Id && externalIds.Contains(c.ExternalId))
+                .Where(c => c.MarketplaceAccountId == account.Id
+                            && (externalIds.Contains(c.ExternalId) || placeholderIds.Contains(c.ExternalId)))
                 .ToDictionaryAsync(c => c.ExternalId, ct);
 
             var now = DateTime.UtcNow;
@@ -250,7 +264,17 @@ public class MarketplaceSyncService(
 
             foreach (var item in page)
             {
-                if (!existing.TryGetValue(item.ExternalId, out var card))
+                if (existing.TryGetValue(item.ExternalId, out var card))
+                {
+                    run.CardsUpdated++;
+                }
+                else if (TryAdoptPlaceholder(existing, item, out card))
+                {
+                    card.ExternalId = item.ExternalId;
+                    fresh.Add(card);
+                    run.CardsUpdated++;
+                }
+                else
                 {
                     card = new MarketplaceCard
                     {
@@ -261,10 +285,6 @@ public class MarketplaceSyncService(
                     db.MarketplaceCards.Add(card);
                     fresh.Add(card);
                     run.CardsCreated++;
-                }
-                else
-                {
-                    run.CardsUpdated++;
                 }
 
                 card.Sku = item.Sku;
@@ -296,6 +316,26 @@ public class MarketplaceSyncService(
         activity?.SetTag("marketplace.cards.processed", run.CardsProcessed);
         activity?.SetTag("marketplace.cards.created", run.CardsCreated);
         activity?.SetTag("marketplace.cards.archived", run.CardsArchived);
+    }
+
+    /// <summary>
+    /// Re-keys the placeholder the order import created for this product, if there is one, onto the real
+    /// product id. Creating a second row instead would split the product in two: one card the operator
+    /// mapped, one the postings keep resolving to.
+    /// </summary>
+    private static bool TryAdoptPlaceholder(
+        IReadOnlyDictionary<string, MarketplaceCard> existing,
+        ExternalCard item,
+        [NotNullWhen(true)] out MarketplaceCard? card)
+    {
+        var placeholderId = MarketplaceCardPlaceholder.ExternalIdFor(item.Sku, item.OfferId);
+
+        card = placeholderId is not null && existing.TryGetValue(placeholderId, out var found)
+               && MarketplaceCardPlaceholder.IsPlaceholder(found.ExternalId)
+            ? found
+            : null;
+
+        return card is not null;
     }
 
     public async Task<int> AutoMapAccountAsync(Guid accountId, CancellationToken ct)

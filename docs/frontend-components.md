@@ -847,9 +847,10 @@ each switch and one id to `DOCUMENT_TAGS_QUERY_IDS`.
 
 ### `OrdersListPage` slots
 
-The orders list is shared by FBS, FBO and Direct, so type-specific behaviour arrives as props rather than an
+The orders list is shared by every order type, so type-specific behaviour arrives as props rather than an
 internal `type === "fbs"` branch: `headerActions?`, `bulkActions?: (selectedOrders: OrderSummaryDto[]) => BulkAction[]`,
-`extraColumns?: {key, label, render}[]`, `marketplaceFilters?` and `showNotes?`. That keeps marketplace imports —
+`extraColumns?: {key, label, render}[]`, `marketplaceFilters?`, `defaultIncludeExternal?`, `showExternalFilter?`,
+`hiddenColumns?: OrderSortBy[]`, `alwaysShownStatusDates?: OrderStatus[]`, `statusDateLabels?` and `showNotes?`. That keeps marketplace imports —
 and the `integrations.sync` permission — out of the pages that have nothing to do with marketplaces.
 
 `bulkActions` receives **every** selected order, not just the subset a built-in action cares about. Built-in
@@ -865,7 +866,19 @@ all read from the accumulated selection rather than from the visible page. The h
 so a row selected long ago is re-checked against its current status instead of the snapshot taken when the
 checkbox was ticked. The bar itself is [`BulkBar`](#bulkbar). Adding an
 `extraColumns` entry also widens the loader/empty-row `colSpan`, which is computed rather than hard-coded —
-as does dropping the notes column with `showNotes={false}` (FBO trades it for the posting number).
+as does dropping the notes column with `showNotes={false}` (the marketplace pages trade it for the posting number).
+
+Внешние заказы (`IsExternal`, см. [orders-specification.md](orders-specification.md#внешние-заказы)) скрыты из
+списка по умолчанию; тумблер «Внешние» рядом с маркетплейсными фильтрами шлёт `includeExternal`. Раздел, где
+внешними являются **все** заказы, поднимает тумблер пропсом `defaultIncludeExternal` — иначе он открывался бы
+пустым. Само стартовое положение в URL не пишется: параметр `external` появляется только тогда, когда
+пользователь отклонил его от умолчания раздела. Там, где выбор между внешними и складскими заказами
+бессмысленен, тумблер убирается совсем — `showExternalFilter={false}`.
+
+`hiddenColumns` перечисляет колонки из базового набора (`number`, `status`, `warehouseName`,
+`plannedShipmentAt`, `createdAt`), которые разделу не нужны: колонка исчезает и из шапки, и из строк, вместе с
+ней уходит парный фильтр в панели («Склад» для `warehouseName`, селект статусов для `status`) и его значение
+перестаёт попадать в запрос. `colSpan` пересчитывается сам.
 
 Даты в таблице (`Плановая отгрузка`, `Создан` и статусная колонка) рисует `DateTimeTableCell`: дата первой
 строкой, время под ней капшеном; вертикальные отступы ячейки поджаты, чтобы строка таблицы почти не подросла.
@@ -875,7 +888,11 @@ as does dropping the notes column with `showNotes={false}` (FBO trades it for th
 (`OrderSortBy.AssembledAt` / `OrderSortBy.ShippedAt`) и учитывается в вычисленном `colSpan`. Список колонок,
 переданный в `useTableSort`, меняется вместе с фильтром, поэтому при уходе
 со статуса сортировка по исчезнувшей дате откатывается к дефолтной (`number`, `desc`). Остальные статусы
-колонку не получают — в модели заказа других отметок времени нет.
+колонку не получают — в модели заказа других отметок времени нет. Раздел, которому такая дата нужна всегда,
+называет статусы в `alwaysShownStatusDates`: их колонки стоят независимо от фильтра и не дублируются, когда
+фильтр указывает на тот же статус. Заголовок такой колонки переопределяется через
+`statusDateLabels: Partial<Record<OrderStatus, string>>` — там, где отметка означает не то же, что в складском
+заказе.
 
 `marketplaceFilters` renders `MarketplaceOrderFilters` (marketplace / account / posting status) and is the only
 thing that puts `marketplaceType`, `marketplaceAccountId` and `marketplaceStatus` into the query — Direct never

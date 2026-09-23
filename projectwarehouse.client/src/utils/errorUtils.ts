@@ -114,6 +114,7 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   orderNotAssignedToWarehouse: "Вы не назначены на склад заказа",
   orderBoxNotFound: "Коробка заказа не найдена",
   orderBoxComponentNotFound: "Компонент коробки не найден",
+  orderIsExternal: "Заказ пришёл с площадки и в складе не обрабатывается",
   assemblyTaskNotFound: "Задание на сборку не найдено",
   assemblyTaskNotDeletable: "Задание нельзя удалить",
   assemblyTaskBoxNotFound: "Коробка задания не найдена",

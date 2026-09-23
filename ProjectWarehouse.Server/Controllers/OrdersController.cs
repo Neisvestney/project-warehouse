@@ -101,12 +101,36 @@ public class OrdersController(
                 .ThenInclude(i => i.MarketplaceCard).ThenInclude(c => c!.CatalogItem)
             .AsSplitQuery();
 
+    /// <summary>
+    /// An external order is bound to no warehouse, so it lies outside every assignment — only the
+    /// unscoped permissions reach it.
+    /// </summary>
+    /// <summary>
+    /// Refuses a claim of work on an order WMS never handled. Mostly belt-and-braces — an external order is
+    /// already Shipped, which the status checks refuse on their own — but the code says why.
+    /// </summary>
+    private IActionResult? ExternalOrderError(Order order) =>
+        order.IsExternal
+            ? UnprocessableEntity("root", ErrorCode.OrderIsExternal,
+                "This order was imported from the marketplace and is not handled by WMS.")
+            : null;
+
+    private static bool IsAssignedTo(IReadOnlySet<Guid> assignedIds, Order order) =>
+        order.WarehouseId is { } warehouseId && assignedIds.Contains(warehouseId);
+
+    /// <summary>Takes nullable ids and drops the nulls: an external order is bound to no warehouse.</summary>
     private async Task<Dictionary<Guid, StoragePlaceNode>> LoadWarehouseNodesAsync(
-        IReadOnlyCollection<Guid> warehouseIds, CancellationToken ct) =>
-        await db.StoragePlacesNodes
-            .Where(n => warehouseIds.Contains(n.RootStoragePlace.WarehouseId))
+        IEnumerable<Guid?> warehouseIds, CancellationToken ct)
+    {
+        var ids = warehouseIds.OfType<Guid>().Distinct().ToList();
+        if (ids.Count == 0)
+            return [];
+
+        return await db.StoragePlacesNodes
+            .Where(n => ids.Contains(n.RootStoragePlace.WarehouseId))
             .Include(n => n.RootStoragePlace)
             .ToDictionaryAsync(n => n.Id, ct);
+    }
 
     // ── Access helpers ────────────────────────────────────────────────────────
 
@@ -149,9 +173,12 @@ public class OrdersController(
         var assignedIds = await scope.GetAssignedWarehouseIdsAsync(User, ct);
         if (assignedIds is null)
             return (null, Unauthorized(ErrorCode.TokenInvalid, "Invalid token."));
-        if (!assignedIds.Contains(order.WarehouseId))
+        if (!IsAssignedTo(assignedIds, order))
             return (null, Forbidden(ErrorCode.OrderNotAssignedToWarehouse,
                 "You are not assigned to the warehouse of this order."));
+
+        if (ExternalOrderError(order) is { } external)
+            return (null, external);
 
         return (order, null);
     }
@@ -284,7 +311,10 @@ public class OrdersController(
     /// <remarks>
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
     /// <c>warehouseId</c>, <c>type</c>, <c>status</c>, <c>marketplaceType</c>, <c>marketplaceAccountId</c>,
-    /// <c>marketplaceStatus</c>, <c>catalogItemId</c>, <c>tagIds</c>, <c>sortBy</c> (default <c>Number</c>), <c>sortOrder</c> (default <c>Desc</c>).
+    /// <c>marketplaceStatus</c>, <c>includeExternal</c> (default false), <c>catalogItemId</c>, <c>tagIds</c>,
+    /// <c>sortBy</c> (default <c>Number</c>), <c>sortOrder</c> (default <c>Desc</c>).
+    /// External orders — imported from the marketplace, never assembled here — are left out unless
+    /// <c>includeExternal</c> asks for them.
     /// <c>catalogItemId</c> keeps orders that have a box component with that catalog item; <c>tagIds</c> keeps
     /// orders carrying any of the tags.
     /// Any of the three marketplace filters also excludes orders without a <c>MarketplaceOrder</c>, so they
@@ -306,6 +336,7 @@ public class OrdersController(
         [FromQuery] MarketplaceType? marketplaceType = null,
         [FromQuery] Guid? marketplaceAccountId = null,
         [FromQuery] MarketplaceOrderStatus? marketplaceStatus = null,
+        [FromQuery] bool includeExternal = false,
         [FromQuery] Guid? catalogItemId = null,
         [FromQuery] IReadOnlyList<Guid>? tagIds = null,
         [FromQuery] OrderSortBy sortBy = OrderSortBy.Number,
@@ -324,6 +355,7 @@ public class OrdersController(
             .Include(o => o.Warehouse)
             .Include(o => o.CreatedBy)
             .Include(o => o.Boxes).ThenInclude(b => b.Components)
+            .Where(o => includeExternal || !o.IsExternal)
             .Where(o => warehouseId == null || o.WarehouseId == warehouseId)
             .Where(o => type == null || o.Type == type)
             .Where(o => status == null || o.Status == status)
@@ -343,7 +375,7 @@ public class OrdersController(
             OrderSortBy.Status           => baseQuery.Sort(o => o.Status, sortOrder).ThenBy(o => o.Id),
             OrderSortBy.CreatedAt        => baseQuery.Sort(o => o.CreatedAt, sortOrder).ThenBy(o => o.Id),
             OrderSortBy.PlannedShipmentAt => baseQuery.Sort(o => o.PlannedShipmentAt, sortOrder).ThenBy(o => o.Id),
-            OrderSortBy.WarehouseName    => baseQuery.Sort(o => o.Warehouse.Name, sortOrder).ThenBy(o => o.Id),
+            OrderSortBy.WarehouseName    => baseQuery.Sort(o => o.Warehouse != null ? o.Warehouse.Name : null, sortOrder).ThenBy(o => o.Id),
             OrderSortBy.AssembledAt      => baseQuery.Sort(o => o.AssembledAt, sortOrder).ThenBy(o => o.Id),
             OrderSortBy.ShippedAt        => baseQuery.Sort(o => o.ShippedAt, sortOrder).ThenBy(o => o.Id),
             _                            => baseQuery.Sort(o => o.Number, sortOrder).ThenBy(o => o.Id),
@@ -546,7 +578,7 @@ public class OrdersController(
         if (order is null)
             return NotFound(ErrorCode.OrderNotFound, "Order not found.");
 
-        if (AccessError(await Rule.CheckWarehouseAsync(User, AccessLevel.View, order.WarehouseId, ct)) is { } denied)
+        if (AccessError(await Rule.CheckWarehouseAsync(User, AccessLevel.View, order.WarehouseId ?? Guid.Empty, ct)) is { } denied)
             return denied;
 
         var positionCount = order.Boxes.Sum(b => b.Components.Count);
@@ -827,7 +859,7 @@ public class OrdersController(
         if (order is null)
             return NotFound(ErrorCode.OrderNotFound, "Order not found.");
 
-        if (narrowing.Ids is { } assignedIds && !assignedIds.Contains(order.WarehouseId))
+        if (narrowing.Ids is { } assignedIds && !IsAssignedTo(assignedIds, order))
             return Forbidden(ErrorCode.OrderNotAssignedToWarehouse,
                 "You are not assigned to the warehouse of this order.");
 
@@ -914,7 +946,8 @@ public class OrdersController(
         if (narrowing.Ids is { } assignedIds)
         {
             var outside = await db.Orders
-                .AnyAsync(o => orderIds.Contains(o.Id) && !assignedIds.Contains(o.WarehouseId), ct);
+                .AnyAsync(o => orderIds.Contains(o.Id)
+                               && (o.WarehouseId == null || !assignedIds.Contains(o.WarehouseId.Value)), ct);
 
             if (outside)
                 return Forbidden(ErrorCode.OrderNotAssignedToWarehouse,
@@ -1022,7 +1055,7 @@ public class OrdersController(
                 continue;
             }
 
-            if (narrowing.Ids is { } assignedIds && !assignedIds.Contains(order.WarehouseId))
+            if (narrowing.Ids is { } assignedIds && !IsAssignedTo(assignedIds, order))
             {
                 Fail(orderId, ErrorCode.OrderNotAssignedToWarehouse,
                     "You are not assigned to the warehouse of this order.", order.Number);
@@ -1184,6 +1217,9 @@ public class OrdersController(
         if (order.Status == OrderStatus.Assembly && !canAssemble)
             return Forbidden();
 
+        if (ExternalOrderError(order) is { } external)
+            return external;
+
         if (order.Status is not (OrderStatus.Draft or OrderStatus.Confirmed or OrderStatus.Assembly))
             return UnprocessableEntity("root", ErrorCode.OrderInvalidStatusTransition,
                 "Boxes can only be added in Draft, Confirmed, or Assembly status.");
@@ -1192,7 +1228,7 @@ public class OrdersController(
             ? null
             : await scope.GetAssignedWarehouseIdsAsync(User, ct);
 
-        if (assignedIds is not null && !assignedIds.Contains(order.WarehouseId))
+        if (assignedIds is not null && !IsAssignedTo(assignedIds, order))
             return Forbidden(ErrorCode.OrderNotAssignedToWarehouse, "You are not assigned to this order's warehouse.");
 
         var box = await orders.AddBoxAsync(order, request, ct);
@@ -1218,11 +1254,14 @@ public class OrdersController(
         var (order, error) = await LoadOrderWithEditAccessAsync(id, ct);
         if (error is not null) return error;
 
+        if (ExternalOrderError(order!) is { } external)
+            return external;
+
         var box = await db.OrderBoxes.FirstOrDefaultAsync(b => b.Id == boxId && b.OrderId == id, ct);
         if (box is null)
             return NotFound(ErrorCode.OrderBoxNotFound, "Box not found.");
 
-        await orders.UpdateBoxAsync(box, request, ct);
+        await orders.UpdateBoxAsync(order!, box, request, ct);
         return Ok(mapper.Map<OrderBoxDto>(box));
     }
 
@@ -1257,6 +1296,9 @@ public class OrdersController(
         if (order.Status == OrderStatus.Assembly && !canAssemble)
             return Forbidden();
 
+        if (ExternalOrderError(order) is { } external)
+            return external;
+
         var box = await db.OrderBoxes.Include(b => b.Components)
             .FirstOrDefaultAsync(b => b.Id == boxId && b.OrderId == id, ct);
         if (box is null)
@@ -1264,7 +1306,7 @@ public class OrdersController(
 
         try
         {
-            await orders.RemoveBoxAsync(box, ct);
+            await orders.RemoveBoxAsync(order, box, ct);
         }
         catch (ValidationException ex)
         {
@@ -1295,6 +1337,9 @@ public class OrdersController(
         var (order, error) = await LoadOrderWithEditAccessAsync(id, ct);
         if (error is not null) return error;
 
+        if (ExternalOrderError(order!) is { } external)
+            return external;
+
         if (order!.Status is not (OrderStatus.Draft or OrderStatus.Confirmed))
             return UnprocessableEntity("root", ErrorCode.OrderInvalidStatusTransition,
                 "Components can only be added in Draft or Confirmed status.");
@@ -1309,7 +1354,7 @@ public class OrdersController(
         if (catalogItem is null)
             return UnprocessableEntity("catalogItemId", ErrorCode.CatalogItemNotFound, "Catalog item not found.");
 
-        var component = await orders.UpsertBoxComponentAsync(box, request.CatalogItemId, request.Quantity, ct);
+        var component = await orders.UpsertBoxComponentAsync(order!, box, request.CatalogItemId, request.Quantity, ct);
         await db.Entry(component).Reference(c => c.CatalogItem).LoadAsync(ct);
         await db.Entry(component.CatalogItem).Reference(c => c.Group).LoadAsync(ct);
 
@@ -1336,6 +1381,9 @@ public class OrdersController(
     {
         var (order, error) = await LoadOrderWithEditAccessAsync(id, ct);
         if (error is not null) return error;
+
+        if (ExternalOrderError(order!) is { } external)
+            return external;
 
         if (order!.Status is not (OrderStatus.Draft or OrderStatus.Confirmed))
             return UnprocessableEntity("root", ErrorCode.OrderInvalidStatusTransition,
@@ -1387,6 +1435,9 @@ public class OrdersController(
         var (order, error) = await LoadOrderWithEditAccessAsync(id, ct);
         if (error is not null) return error;
 
+        if (ExternalOrderError(order!) is { } external)
+            return external;
+
         if (order!.Status is not (OrderStatus.Draft or OrderStatus.Confirmed))
             return UnprocessableEntity("root", ErrorCode.OrderInvalidStatusTransition,
                 "Components can only be removed in Draft or Confirmed status.");
@@ -1396,7 +1447,7 @@ public class OrdersController(
         if (component is null)
             return NotFound(ErrorCode.OrderBoxComponentNotFound, "Component not found.");
 
-        await orders.RemoveBoxComponentAsync(component, ct);
+        await orders.RemoveBoxComponentAsync(order!, component, ct);
         return NoContent();
     }
 
@@ -1944,7 +1995,7 @@ public class OrdersController(
                 continue;
             }
 
-            if (!assignedWarehouseIds.Contains(order.WarehouseId))
+            if (!IsAssignedTo(assignedWarehouseIds, order))
             {
                 foreach (var item in orderGroup)
                     Fail(item, ErrorCode.OrderNotAssignedToWarehouse, "Not assigned to this order's warehouse.");

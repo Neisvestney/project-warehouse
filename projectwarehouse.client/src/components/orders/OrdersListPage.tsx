@@ -2,10 +2,13 @@ import {useState, type ReactNode} from "react";
 import {
   Alert,
   Button,
+  Chip,
+  FormControlLabel,
   IconButton,
   MenuItem,
   Select,
   Stack,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -121,10 +124,27 @@ interface OrdersListPageProps {
   extraColumns?: OrdersListExtraColumn[];
   /** Marketplace / account / posting-status filters. Meaningless on Direct orders. */
   marketplaceFilters?: boolean;
+  /**
+   * Стартовое положение тумблера «Внешние». Включено там, где внешними являются все заказы раздела —
+   * иначе список открывался бы пустым.
+   */
+  defaultIncludeExternal?: boolean;
+  /** Показывать тумблер «Внешние». */
+  showExternalFilter?: boolean;
+  /** Колонки, ненужные разделу, вместе со своими фильтрами в панели. */
+  hiddenColumns?: OrderSortBy[];
+  /** Статусы, чьи даты показываются всегда, а не только при фильтре по этому статусу. */
+  alwaysShownStatusDates?: OrderStatus[];
+  /** Заголовки статусных дат, если в разделе отметка означает не то же, что в складском заказе. */
+  statusDateLabels?: Partial<Record<OrderStatus, string>>;
   /** FBO trades the notes column for the posting number. */
   showNotes?: boolean;
   defaultPageSize?: number;
 }
+
+const EMPTY_HIDDEN_COLUMNS: OrderSortBy[] = [];
+const EMPTY_STATUS_DATES: OrderStatus[] = [];
+const EMPTY_STATUS_DATE_LABELS: Partial<Record<OrderStatus, string>> = {};
 
 const getOrderId = (order: OrderSummaryDto) => order.id;
 
@@ -138,6 +158,11 @@ function OrdersListPage({
   bulkActions,
   extraColumns,
   marketplaceFilters,
+  defaultIncludeExternal = false,
+  showExternalFilter = true,
+  hiddenColumns = EMPTY_HIDDEN_COLUMNS,
+  alwaysShownStatusDates = EMPTY_STATUS_DATES,
+  statusDateLabels = EMPTY_STATUS_DATE_LABELS,
   showNotes = true,
   defaultPageSize,
 }: OrdersListPageProps) {
@@ -203,14 +228,36 @@ function OrdersListPage({
     (v) => v || null,
   );
 
+  // внешние заказы разбавляют рабочий список тем, чего на складе никогда не было
+  const [includeExternal, setIncludeExternal] = useSyncedWithQueryState<boolean>(
+    "external",
+    (q) => (q === null ? defaultIncludeExternal : q === "1"),
+    (v) => (v === defaultIncludeExternal ? null : v ? "1" : "0"),
+  );
+
   const [tagIds, setTagIds] = useSyncedWithQueryState<string[]>(
     "tags",
     (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
     (v) => v.join(",") || null,
   );
 
-  const statusDateColumn = status ? STATUS_DATE_COLUMNS[status] : undefined;
-  const sortColumns = statusDateColumn ? [...SORT_COLUMNS, statusDateColumn] : SORT_COLUMNS;
+  const isHidden = (key: OrderSortBy) => hiddenColumns.includes(key);
+  const showStatusFilter = !isHidden("status");
+  const showWarehouseFilter = !isHidden("warehouseName");
+  const statusFilter = showStatusFilter ? status : "";
+
+  const statusDateStatuses = [
+    ...alwaysShownStatusDates,
+    ...(statusFilter && !alwaysShownStatusDates.includes(statusFilter) ? [statusFilter] : []),
+  ];
+  const statusDateColumns = statusDateStatuses
+    .map((s) => {
+      const column = STATUS_DATE_COLUMNS[s];
+      const label = statusDateLabels[s];
+      return column && label ? {...column, label} : column;
+    })
+    .filter((c) => c !== undefined);
+  const sortColumns = [...SORT_COLUMNS.filter((c) => !isHidden(c.key)), ...statusDateColumns];
 
   const {sortBy, sortOrder, handleSortClick} = useTableSort(sortColumns, "number", {
     defaultSortOrder: "desc",
@@ -221,10 +268,11 @@ function OrdersListPage({
     [searchString],
     {
       type,
-      warehouseId: warehouseId ?? undefined,
-      status: (status as OrderStatus) || undefined,
+      warehouseId: (showWarehouseFilter ? warehouseId : null) ?? undefined,
+      status: statusFilter || undefined,
       catalogItemId: catalogItemId ?? undefined,
       tagIds: tagIds.length > 0 ? tagIds : undefined,
+      includeExternal: includeExternal || undefined,
       marketplaceType: marketplaceFilters
         ? (marketplaceType as MarketplaceType) || undefined
         : undefined,
@@ -240,6 +288,7 @@ function OrdersListPage({
       status,
       catalogItemId,
       tagIds,
+      includeExternal,
       marketplaceType,
       marketplaceAccountId,
       marketplaceStatus,
@@ -366,8 +415,8 @@ function OrdersListPage({
           })),
         ]
       : [];
-  const columnCount =
-    (showNotes ? 9 : 8) + (extraColumns?.length ?? 0) + (statusDateColumn ? 1 : 0);
+  // чекбокс + сортируемые колонки + «Штук» + «Теги»
+  const columnCount = sortColumns.length + 3 + (showNotes ? 1 : 0) + (extraColumns?.length ?? 0);
 
   function handleSelfAssignSelected() {
     setFailedItems([]);
@@ -433,27 +482,31 @@ function OrdersListPage({
         <SearchInput value={inputValue} onChange={setInputValue} />
       </PageGenericHeader>
       <FiltersBar>
-        <WarehousesSelect
-          value={warehouseId}
-          onChange={setWarehouseId}
-          sx={{flexBasis: 200}}
-          size="small"
-          textFieldProps={{label: "Склад"}}
-        />
-        <Select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as OrderStatus | "")}
-          size="small"
-          displayEmpty
-          sx={{minWidth: 160}}
-        >
-          <MenuItem value="">Все статусы</MenuItem>
-          {ALL_STATUSES.map((s) => (
-            <MenuItem key={s} value={s}>
-              {ORDER_STATUS_LABELS[s]}
-            </MenuItem>
-          ))}
-        </Select>
+        {showWarehouseFilter && (
+          <WarehousesSelect
+            value={warehouseId}
+            onChange={setWarehouseId}
+            sx={{flexBasis: 200}}
+            size="small"
+            textFieldProps={{label: "Склад"}}
+          />
+        )}
+        {showStatusFilter && (
+          <Select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as OrderStatus | "")}
+            size="small"
+            displayEmpty
+            sx={{minWidth: 160}}
+          >
+            <MenuItem value="">Все статусы</MenuItem>
+            {ALL_STATUSES.map((s) => (
+              <MenuItem key={s} value={s}>
+                {ORDER_STATUS_LABELS[s]}
+              </MenuItem>
+            ))}
+          </Select>
+        )}
         <CatalogItemsSelect
           value={catalogItemId}
           onChange={setCatalogItemId}
@@ -467,6 +520,18 @@ function OrdersListPage({
           onChange={setTagIds}
           sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
         />
+        {marketplaceFilters && showExternalFilter && (
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={includeExternal}
+                onChange={(e) => setIncludeExternal(e.target.checked)}
+              />
+            }
+            label="Внешние"
+          />
+        )}
         {marketplaceFilters && (
           <MarketplaceOrderFilters
             type={marketplaceType}
@@ -479,7 +544,9 @@ function OrdersListPage({
         )}
       </FiltersBar>
 
-      {type == "fbo" && <Alert severity={"warning"}>Раздел "Поставки FBO" еще не реализован</Alert>}
+      {type == "fboSupply" && (
+        <Alert severity={"warning"}>Раздел "Поставки FBO" еще не реализован</Alert>
+      )}
 
       <BulkBar
         count={selectedItems.length}
@@ -606,16 +673,36 @@ function OrdersListPage({
                     checked={isSelected(order.id)}
                     onCheck={(extendRange) => toggle(order, extendRange)}
                   />
-                  <TableCell sx={{fontFamily: "monospace"}}>
-                    {formatOrderNumber(order.number)}
-                  </TableCell>
-                  <TableCell>
-                    <OrderStatusChip status={order.status} />
-                  </TableCell>
-                  <TableCell>{order.warehouseName}</TableCell>
-                  <DateTimeTableCell value={order.plannedShipmentAt} />
-                  <DateTimeTableCell value={order.createdAt} />
-                  {statusDateColumn && <DateTimeTableCell value={statusDateColumn.get(order)} />}
+                  {!isHidden("number") && (
+                    <TableCell sx={{fontFamily: "monospace"}}>
+                      {formatOrderNumber(order.number)}
+                    </TableCell>
+                  )}
+                  {!isHidden("status") && (
+                    <TableCell>
+                      <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}} useFlexGap>
+                        <OrderStatusChip status={order.status} />
+                        {order.isExternal && (
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            label="Внешний"
+                            title="Заказ с площадки: через склад не проходил"
+                          />
+                        )}
+                      </Stack>
+                    </TableCell>
+                  )}
+                  {!isHidden("warehouseName") && (
+                    <TableCell>{order.warehouseName ?? "—"}</TableCell>
+                  )}
+                  {!isHidden("plannedShipmentAt") && (
+                    <DateTimeTableCell value={order.plannedShipmentAt} />
+                  )}
+                  {!isHidden("createdAt") && <DateTimeTableCell value={order.createdAt} />}
+                  {statusDateColumns.map((column) => (
+                    <DateTimeTableCell key={column.key} value={column.get(order)} />
+                  ))}
                   {extraColumns?.map(({key, render, align}) => (
                     <TableCell key={key} align={align}>
                       {render(order)}

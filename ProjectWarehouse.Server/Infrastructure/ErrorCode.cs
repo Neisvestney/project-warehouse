@@ -92,6 +92,7 @@ public enum ErrorCode
     OrderNotAssignedToWarehouse = 64,
     OrderBoxNotFound = 65,
     OrderBoxComponentNotFound = 66,
+    OrderIsExternal = 148,
     AssemblyTaskNotFound = 67,
     AssemblyTaskNotDeletable = 68,
     AssemblyTaskBoxNotFound = 69,
