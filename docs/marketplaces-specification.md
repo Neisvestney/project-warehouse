@@ -44,7 +44,8 @@
 | `POST /v4/posting/fbs/unfulfilled/list` | `PostingFbsUnfulfilledList` | Отправления FBS, не переданные в доставку | Пагинация по `cursor` + `limit` 1…100 |
 | `POST /v4/posting/fbs/list` | `PostingFbsList` | Отправления FBS по фильтру | `filter.since`/`filter.to` обязательны, период до года; `filter.order_numbers` до 100; пагинация по `cursor` + `limit` 1…100 |
 | `POST /v3/posting/fbs/get` | `PostingAPI_GetFbsPostingV3` | Одно отправление по `posting_number` | Одно отправление за запрос |
-| `POST /v2/posting/fbs/package-label` | `PostingAPI_PostingFBSPackageLabel` | PDF с этикетками отправлений | Не больше 20 номеров за запрос; только статус `awaiting_deliver` |
+| `POST /v3/posting/fbs/package-label/create` | `PostingFbsPackageLabelCreate` | Задание на формирование этикеток | Только статус `awaiting_deliver`; повторный вызов по тем же номерам возвращает то же задание |
+| `POST /v2/posting/fbs/package-label/get` | `PostingFbsPackageLabelGet` | Статус задания и ссылка на файл с этикетками | Одно задание за запрос |
 
 > **Ограничение:** `POST /v1/warehouse/list` помечен в спецификации как устаревающий с датой отключения 7 апреля 2026 года. Использовать только `/v2/warehouse/list`.
 
@@ -116,7 +117,19 @@ products[]          — { sku, offer_id, name, quantity, price, product_color }
 
 Ответ `/v4/posting/fbs/list` **не является надмножеством** ответа `/v3/posting/fbs/get`. Только в карточке отдельного отправления есть `additional_data`, `courier`, `delivery_price`, `fact_delivery_date`, `previous_substatus`, `provider_status`, `product_exemplars`, `related_postings`, `related_weight_postings`; только в списке — `delivery_schema`, `destination_place_id`, `destination_place_name`, `is_click_and_collect`, `is_presortable`, `quantum_id`, `volume_weight`. Статус, подстатус и трек-номер есть в обоих, поэтому [догон статусов](marketplaces-orders-specification.md#догон-статусов) обходится списком.
 
-> **Найдено при реализации: спецификация сама себе противоречит по ответу `/v2/posting/fbs/package-label`.** Ответ 200 объявлен под media type `application/pdf`, но со схемой JSON-объекта `{ file_content (format: byte), file_name, content_type }`; ошибки при этом честно `application/json` → `rpcStatus`. Верить нельзя ни тому, ни другому, поэтому схема успешного ответа принудительно нормализуется в `type: string, format: binary` на шаге обрезки (ключ `binaryResponses` в whitelist-е) — NSwag тогда детерминированно генерирует `Task<FileResponse>`, а **что именно приехало, решают байты**: префикс `%PDF` → готовый PDF, первый непробельный байт `{` → JSON-конверт с base64, пустое тело → «ещё не готово». Один PDF на всю пачку отправлений.
+### Формирование этикеток
+
+Этикетка выдаётся двумя вызовами. `/v3/posting/fbs/package-label/create` принимает `posting_numbers` и отвечает списком `tasks[]`, каждый элемент — `task_id` и `task_type` (`big_label` или `small_label`). `/v2/posting/fbs/package-label/get` принимает один `task_id` и отвечает `status.code` (`pending`, `in_progress`, `completed`, `error`), счётчиками `postings_count` / `printed_postings_count`, списком `unprinted_postings[]` с причиной по каждому непропечатанному отправлению и — по готовности — ссылкой `file_url`.
+
+`create` **идемпотентен**: повторный вызов с тем же набором номеров возвращает тот же `task_id`, поэтому неоконченное задание нигде не хранится — следующий запрос подберёт его сам.
+
+`file_url` ведёт на публичный CDN (`ir.ozone.ru`) и скачивается **без** `Client-Id`/`Api-Key`; отдельный HTTP-клиент `ozon-label-download` намеренно не несёт учётных данных. Путь временный, поэтому файл забирается сразу. `Content-Type` приходит `application/octet-stream` и не используется — тип проставляется своим, а сигнатура `%PDF` проверяется по байтам.
+
+> **Найдено при реализации: задание отвечает `NO_POSTINGS_FOR_BATCH_DOWNLOAD`.** Так `create` отклоняет отправление, для которого этикетка не печатается. Это штатная неготовность, а не отказ интеграции, поэтому маркер лежит в общем хелпере распознавания вместе с текстовыми — см. [«Неготовность этикетки»](#неготовность-этикетки--не-ошибка).
+
+> **Найдено при реализации: на этикетке напечатан `scanit`.** Шрифт в PDF — сабсет с CID-кодировкой, поэтому штрихкод не виден ни в сыром файле, ни в распакованном контент-стриме: коды глифов приходится отображать обратно через `ToUnicode`-таблицу шрифта. Реализация — `Infrastructure/Labels/LabelTextReader.cs`; на этом стоит [сопоставление страниц отправлениям](marketplaces-orders-specification.md#получение-этикеток).
+>
+> **Границы склейки решают всё.** Ozon дробит один штрихкод на **разные текстовые объекты** `BT`/`ET` — `ii5008208` в одном, `7036` в другом, — поэтому внутри контент-стрима строки склеиваются в порядке потока без разделителей, иначе штрихкод распался бы. А вот сами контент-стримы разделяются: один стрим — один автор, этикетка площадки отдельно от всего, что нанесено поверх. Без этого разделения наши же артикулы прилипали бы к штрихкоду (`ii50082106071` + `WD-x24`) и ломали сопоставление. Сверх того совпадение отвергается, если к нему с любого края примыкает **цифра** — так более длинный код не выдаёт себя за более короткий. Примыкающая буква допустима: иначе совпадение терялось бы на любой этикетке, где напечатано хоть что-то ещё.
 
 > **Найдено при реализации: словарь статусов в фильтре уже, чем в ответе.** Спецификация перечисляет у `posting.v4.PostingFbsListRequest.Filter.statuses` тринадцать значений, но живой `/v4/posting/fbs/list` отвергает `sent_by_seller` с `400` и перечисляет в тексте ошибки двенадцать, которые действительно принимает. Поэтому набор, которым **спрашивают**, задаётся отдельно от набора, который **разбирают** в ответе (`RawStatusesOf` против `ToOrderStatus` в `OzonClient`): значение, которое площадка может вернуть, не обязано быть значением, по которому она даст фильтровать. Добавляя статус в фильтр, сверяйся с ответом площадки, а не со спецификацией.
 
@@ -618,14 +631,24 @@ ExternalCancellation    — record (bool? CancelledAfterShip, MarketplaceCancell
                           null у неотменённого отправления
 
 ExternalLabelDocument   — record (bool IsReady, IReadOnlyList<string> PostingNumbers,
-                                  string? ContentType, byte[]? Content)
+                                  string? ContentType, byte[]? Content,
+                                  IReadOnlyList<ExternalLabelFailure> Unprinted)
+ExternalLabelFailure    — record (string PostingNumber, string? Message)
 
 MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, Labels, StockPush, SellerInfo
 ```
 
 **`ExternalPostingItem` не несёт ссылки на карточку** — в отправлении нет `product_id` (см. раздел исходных данных). Разрешение позиции в `MarketplaceCard` по `Sku`, затем по `OfferId`, делает сервис синхронизации.
 
-`ExternalLabelDocument.IsReady = false` — это **не ошибка**, а штатный ответ «площадка ещё не сформировала этикетку». Ozon прямо рекомендует запрашивать этикетку через 45–60 секунд после сборки отправления и отвечает `The next postings aren't ready`. Провайдер распознаёт этот случай и возвращает `IsReady = false` вместо `MarketplaceApiException` — иначе временная неготовность выглядела бы как отказ интеграции. Распознавание живёт в одном общем хелпере, потому что Ozon сообщает о неготовности **двумя способами**: и как 200 с JSON-телом, и как 400/409.
+#### Неготовность этикетки — не ошибка
+
+`ExternalLabelDocument.IsReady = false` — это **не ошибка**, а штатный ответ «площадка ещё не сформировала этикетку». Провайдер возвращает его вместо `MarketplaceApiException` в трёх случаях: `create` не завёл ни одного задания; задание так и не дошло до `completed` за отведённые опросы; площадка отклонила запрос текстом, который распознан как неготовность. Иначе временная неготовность выглядела бы как отказ интеграции.
+
+**`IsReady = false` — приговор всей пачке, `Unprinted` — отдельным отправлениям.** Первое означает «детализации нет»: какое из отправлений тормозит, из ответа не видно. Второе приходит вместе с `IsReady = true` и готовыми страницами остальных — площадка сама назвала тех, кого не напечатала, и перезапрашивать из-за них всю пачку незачем.
+
+Распознавание живёт в одном общем хелпере (`OzonLabelHeuristics`), потому что Ozon сообщает о неготовности **двумя способами**: и как статус задания, и как отказ 400/409 с текстом — `The next postings aren't ready`, `NO_POSTINGS_FOR_BATCH_DOWNLOAD`.
+
+Опрос задания короткий: `LabelPollAttempts` (6) попыток через `LabelPollDelayMs` (1500 мс). Ozon рекомендует запрашивать этикетку через 45–60 секунд после сборки отправления, но задание по уже собранному отправлению доходит до `completed` за пару секунд, поэтому запрос не держится открытым — не успело, значит вызывающая сторона повторит.
 
 `ExternalLabelDocument` несёт `ContentType`, потому что формат этикетки у площадок разный: Ozon отдаёт PDF, Wildberries — растровый или SVG-стикер. Сборщик итогового файла обязан уметь и то, и другое: PDF-страницы берутся как есть, картинка заворачивается в страницу. *(Формат стикеров WB по их спецификации не проверялся — уточняется при подключении провайдера.)*
 
@@ -942,13 +965,16 @@ Quartz регистрируется с in-memory хранилищем задач
     "BaseUrl": "https://api-seller.ozon.ru",
     "TimeoutSeconds": 60,
     "PageDelayMs": 200,
-    "LabelBatchSize": 20,
+    "LabelBatchSize": 100,
+    "LabelPollAttempts": 6,
+    "LabelPollDelayMs": 1500,
     "FboImportOverlapHours": 6
   },
   "Labels": {
     "MaxArticlesOnLabel": 3,
     "FontResourceName": "ProjectWarehouse.Server.Resources.Fonts.LabelFont.ttf",
     "FontSize": 8,
+    "TextCorner": "BottomLeft",
     "MarginX": 6,
     "MarginY": 6,
     "CacheTtlDays": 7,
@@ -959,9 +985,11 @@ Quartz регистрируется с in-memory хранилищем задач
 
 `CacheTtlDays` и `GcCron` настраивают сборщик кешированных этикеток — см. [marketplaces-orders-specification.md](marketplaces-orders-specification.md#срок-жизни-кеша-этикеток).
 
-`MarginX` — отступ от правого края страницы, `MarginY` — от верхнего; строки артикулов прижаты к правому верхнему углу этикетки.
+`TextCorner` — угол этикетки, в который наносятся артикулы: `TopLeft`, `TopRight`, `BottomLeft` (по умолчанию), `BottomRight`. `MarginX` и `MarginY` — отступы от вертикального и горизонтального края **выбранного угла**. Строки читаются сверху вниз независимо от угла: первый артикул — верхняя строка блока.
 
-`LabelBatchSize` вынесен в конфигурацию, но потолок в 20 задан самим Ozon — значение выше вернётся ошибкой площадки, а не ошибкой валидации.
+`LabelPollAttempts` и `LabelPollDelayMs` задают опрос задания на формирование этикеток — см. [«Неготовность этикетки»](#неготовность-этикетки--не-ошибка).
+
+`LabelBatchSize` — сколько отправлений уходит в одно задание на этикетки. Потолок Ozon — 1000 (`maxItems` на `posting_numbers`); значение по умолчанию держится заметно ниже, потому что методы этикеток в бете, а задание готово не раньше самого медленного отправления в нём.
 
 `FboImportOverlapHours` — единственный регулятор стоимости фонового импорта FBO, и она линейна по нему: см. [«Докуда дочитали»](marketplaces-orders-specification.md#докуда-дочитали).
 

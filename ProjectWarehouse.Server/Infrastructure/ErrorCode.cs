@@ -125,6 +125,7 @@ public enum ErrorCode
     MarketplaceOrderCardNotMapped = 114,
     MarketplaceOrderWarehouseNotMapped = 115,
     MarketplaceLabelNotReady = 112,
+    MarketplaceLabelFormatChanged = 149,
     MarketplaceAutoMapRuleNotFound = 133,
     MarketplaceAutoMapRuleInvalidRegex = 134,
 

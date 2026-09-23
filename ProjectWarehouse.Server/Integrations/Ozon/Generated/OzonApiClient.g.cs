@@ -225,41 +225,64 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         System.Threading.Tasks.Task<V3GetFbsPostingResponseV3> PostingAPI_GetFbsPostingV3Async(Postingv3GetFbsPostingRequest body, System.Threading.CancellationToken cancellationToken);
 
         /// <summary>
-        /// Напечатать этикетку
+        /// Создать задание на формирование этикеток
         /// </summary>
         /// <remarks>
         /// &lt;aside class="warning"&gt;
         /// <br/>Если вы работаете по схеме rFBS или rFBS Express, изучите процесс печати этикетки в &lt;a href="https://seller-edu.ozon.ru/rfbs/scheme-of-work"&gt;Базе знаний продавца&lt;/a&gt;.
         /// <br/>&lt;/aside&gt;
         /// <br/>
-        /// <br/>Генерирует PDF-файл с этикетками для указанных отправлений в статусе «Ожидает отгрузки» — `awaiting_deliver`. В одном запросе можно передать не больше 20 идентификаторов. Если хотя бы для одного отправления возникнет ошибка, этикетки не будут подготовлены для всех отправлений в запросе.
-        /// <br/>
+        /// <br/>Создаёт задания на асинхронное формирование этикеток для отправлений в статусе «Ожидает отгрузки» — `awaiting_deliver`.
         /// <br/>Рекомендуем запрашивать этикетки через 45–60 секунд после сборки заказа.
         /// <br/>
-        /// <br/>Ошибка `The next postings aren't ready` означает, что этикетки ещё не готовы, повторите запрос позднее.
+        /// <br/>Чтобы получить созданные этикетки, используйте [/v2/posting/fbs/package-label/get](#operation/PostingFbsPackageLabelGet).
+        /// <br/>
+        /// <br/>Вы можете оставить обратную связь о работе метода в [комментариях](https://dev.ozon.ru/community/2346-Novye-beta-metody-dlia-raboty-s-etiketkami-FBS/) в сообществе разработчиков Ozon for dev.
         /// </remarks>
-        /// <returns>Маркировка напечатана</returns>
+        /// <returns>Задания на формирование этикеток</returns>
         /// <exception cref="OzonApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<FileResponse> PostingAPI_PostingFBSPackageLabelAsync(PostingPostingFBSPackageLabelRequest body);
+        System.Threading.Tasks.Task<PostingFbsPackageLabelCreateResponse> PostingFbsPackageLabelCreateAsync(PostingFbsPackageLabelCreateRequest body);
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// Напечатать этикетку
+        /// Создать задание на формирование этикеток
         /// </summary>
         /// <remarks>
         /// &lt;aside class="warning"&gt;
         /// <br/>Если вы работаете по схеме rFBS или rFBS Express, изучите процесс печати этикетки в &lt;a href="https://seller-edu.ozon.ru/rfbs/scheme-of-work"&gt;Базе знаний продавца&lt;/a&gt;.
         /// <br/>&lt;/aside&gt;
         /// <br/>
-        /// <br/>Генерирует PDF-файл с этикетками для указанных отправлений в статусе «Ожидает отгрузки» — `awaiting_deliver`. В одном запросе можно передать не больше 20 идентификаторов. Если хотя бы для одного отправления возникнет ошибка, этикетки не будут подготовлены для всех отправлений в запросе.
-        /// <br/>
+        /// <br/>Создаёт задания на асинхронное формирование этикеток для отправлений в статусе «Ожидает отгрузки» — `awaiting_deliver`.
         /// <br/>Рекомендуем запрашивать этикетки через 45–60 секунд после сборки заказа.
         /// <br/>
-        /// <br/>Ошибка `The next postings aren't ready` означает, что этикетки ещё не готовы, повторите запрос позднее.
+        /// <br/>Чтобы получить созданные этикетки, используйте [/v2/posting/fbs/package-label/get](#operation/PostingFbsPackageLabelGet).
+        /// <br/>
+        /// <br/>Вы можете оставить обратную связь о работе метода в [комментариях](https://dev.ozon.ru/community/2346-Novye-beta-metody-dlia-raboty-s-etiketkami-FBS/) в сообществе разработчиков Ozon for dev.
         /// </remarks>
-        /// <returns>Маркировка напечатана</returns>
+        /// <returns>Задания на формирование этикеток</returns>
         /// <exception cref="OzonApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<FileResponse> PostingAPI_PostingFBSPackageLabelAsync(PostingPostingFBSPackageLabelRequest body, System.Threading.CancellationToken cancellationToken);
+        System.Threading.Tasks.Task<PostingFbsPackageLabelCreateResponse> PostingFbsPackageLabelCreateAsync(PostingFbsPackageLabelCreateRequest body, System.Threading.CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Получить файл с этикетками
+        /// </summary>
+        /// <remarks>
+        /// Вы можете оставить обратную связь о работе метода в [комментариях](https://dev.ozon.ru/community/2346-Novye-beta-metody-dlia-raboty-s-etiketkami-FBS/) в сообществе разработчиков Ozon for dev.
+        /// </remarks>
+        /// <returns>Статус формирования этикеток или файл с ними</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<PostingFbsPackageLabelGetResponse> PostingFbsPackageLabelGetAsync(PostingFbsPackageLabelGetRequest body);
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Получить файл с этикетками
+        /// </summary>
+        /// <remarks>
+        /// Вы можете оставить обратную связь о работе метода в [комментариях](https://dev.ozon.ru/community/2346-Novye-beta-metody-dlia-raboty-s-etiketkami-FBS/) в сообществе разработчиков Ozon for dev.
+        /// </remarks>
+        /// <returns>Статус формирования этикеток или файл с ними</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<PostingFbsPackageLabelGetResponse> PostingFbsPackageLabelGetAsync(PostingFbsPackageLabelGetRequest body, System.Threading.CancellationToken cancellationToken);
 
         /// <summary>
         /// Получить список отправлений
@@ -1299,44 +1322,46 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         }
 
         /// <summary>
-        /// Напечатать этикетку
+        /// Создать задание на формирование этикеток
         /// </summary>
         /// <remarks>
         /// &lt;aside class="warning"&gt;
         /// <br/>Если вы работаете по схеме rFBS или rFBS Express, изучите процесс печати этикетки в &lt;a href="https://seller-edu.ozon.ru/rfbs/scheme-of-work"&gt;Базе знаний продавца&lt;/a&gt;.
         /// <br/>&lt;/aside&gt;
         /// <br/>
-        /// <br/>Генерирует PDF-файл с этикетками для указанных отправлений в статусе «Ожидает отгрузки» — `awaiting_deliver`. В одном запросе можно передать не больше 20 идентификаторов. Если хотя бы для одного отправления возникнет ошибка, этикетки не будут подготовлены для всех отправлений в запросе.
-        /// <br/>
+        /// <br/>Создаёт задания на асинхронное формирование этикеток для отправлений в статусе «Ожидает отгрузки» — `awaiting_deliver`.
         /// <br/>Рекомендуем запрашивать этикетки через 45–60 секунд после сборки заказа.
         /// <br/>
-        /// <br/>Ошибка `The next postings aren't ready` означает, что этикетки ещё не готовы, повторите запрос позднее.
+        /// <br/>Чтобы получить созданные этикетки, используйте [/v2/posting/fbs/package-label/get](#operation/PostingFbsPackageLabelGet).
+        /// <br/>
+        /// <br/>Вы можете оставить обратную связь о работе метода в [комментариях](https://dev.ozon.ru/community/2346-Novye-beta-metody-dlia-raboty-s-etiketkami-FBS/) в сообществе разработчиков Ozon for dev.
         /// </remarks>
-        /// <returns>Маркировка напечатана</returns>
+        /// <returns>Задания на формирование этикеток</returns>
         /// <exception cref="OzonApiException">A server side error occurred.</exception>
-        public virtual System.Threading.Tasks.Task<FileResponse> PostingAPI_PostingFBSPackageLabelAsync(PostingPostingFBSPackageLabelRequest body)
+        public virtual System.Threading.Tasks.Task<PostingFbsPackageLabelCreateResponse> PostingFbsPackageLabelCreateAsync(PostingFbsPackageLabelCreateRequest body)
         {
-            return PostingAPI_PostingFBSPackageLabelAsync(body, System.Threading.CancellationToken.None);
+            return PostingFbsPackageLabelCreateAsync(body, System.Threading.CancellationToken.None);
         }
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
-        /// Напечатать этикетку
+        /// Создать задание на формирование этикеток
         /// </summary>
         /// <remarks>
         /// &lt;aside class="warning"&gt;
         /// <br/>Если вы работаете по схеме rFBS или rFBS Express, изучите процесс печати этикетки в &lt;a href="https://seller-edu.ozon.ru/rfbs/scheme-of-work"&gt;Базе знаний продавца&lt;/a&gt;.
         /// <br/>&lt;/aside&gt;
         /// <br/>
-        /// <br/>Генерирует PDF-файл с этикетками для указанных отправлений в статусе «Ожидает отгрузки» — `awaiting_deliver`. В одном запросе можно передать не больше 20 идентификаторов. Если хотя бы для одного отправления возникнет ошибка, этикетки не будут подготовлены для всех отправлений в запросе.
-        /// <br/>
+        /// <br/>Создаёт задания на асинхронное формирование этикеток для отправлений в статусе «Ожидает отгрузки» — `awaiting_deliver`.
         /// <br/>Рекомендуем запрашивать этикетки через 45–60 секунд после сборки заказа.
         /// <br/>
-        /// <br/>Ошибка `The next postings aren't ready` означает, что этикетки ещё не готовы, повторите запрос позднее.
+        /// <br/>Чтобы получить созданные этикетки, используйте [/v2/posting/fbs/package-label/get](#operation/PostingFbsPackageLabelGet).
+        /// <br/>
+        /// <br/>Вы можете оставить обратную связь о работе метода в [комментариях](https://dev.ozon.ru/community/2346-Novye-beta-metody-dlia-raboty-s-etiketkami-FBS/) в сообществе разработчиков Ozon for dev.
         /// </remarks>
-        /// <returns>Маркировка напечатана</returns>
+        /// <returns>Задания на формирование этикеток</returns>
         /// <exception cref="OzonApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<FileResponse> PostingAPI_PostingFBSPackageLabelAsync(PostingPostingFBSPackageLabelRequest body, System.Threading.CancellationToken cancellationToken)
+        public virtual async System.Threading.Tasks.Task<PostingFbsPackageLabelCreateResponse> PostingFbsPackageLabelCreateAsync(PostingFbsPackageLabelCreateRequest body, System.Threading.CancellationToken cancellationToken)
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -1352,12 +1377,12 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
                     content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
                     request_.Content = content_;
                     request_.Method = new System.Net.Http.HttpMethod("POST");
-                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/pdf"));
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
 
                     var urlBuilder_ = new System.Text.StringBuilder();
                 
-                    // Operation Path: "v2/posting/fbs/package-label"
-                    urlBuilder_.Append("v2/posting/fbs/package-label");
+                    // Operation Path: "v3/posting/fbs/package-label/create"
+                    urlBuilder_.Append("v3/posting/fbs/package-label/create");
 
                     PrepareRequest(client_, request_, urlBuilder_);
 
@@ -1382,12 +1407,161 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
                         ProcessResponse(client_, response_);
 
                         var status_ = (int)response_.StatusCode;
-                        if (status_ == 200 || status_ == 206)
+                        if (status_ == 200)
                         {
-                            var responseStream_ = response_.Content == null ? System.IO.Stream.Null : await ReadAsStreamAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            var fileResponse_ = new FileResponse(status_, headers_, responseStream_, null, response_);
-                            disposeClient_ = false; disposeResponse_ = false; // response and client are disposed by FileResponse
-                            return fileResponse_;
+                            var objectResponse_ = await ReadObjectResponseAsync<PostingFbsPackageLabelCreateResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        if (status_ == 400)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 403)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u0414\u043e\u0441\u0442\u0443\u043f \u0437\u0430\u043f\u0440\u0435\u0449\u0451\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 404)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u041e\u0442\u0432\u0435\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 409)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u041a\u043e\u043d\u0444\u043b\u0438\u043a\u0442 \u0437\u0430\u043f\u0440\u043e\u0441\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 500)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u0412\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u044f\u044f \u043e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new OzonApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Получить файл с этикетками
+        /// </summary>
+        /// <remarks>
+        /// Вы можете оставить обратную связь о работе метода в [комментариях](https://dev.ozon.ru/community/2346-Novye-beta-metody-dlia-raboty-s-etiketkami-FBS/) в сообществе разработчиков Ozon for dev.
+        /// </remarks>
+        /// <returns>Статус формирования этикеток или файл с ними</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        public virtual System.Threading.Tasks.Task<PostingFbsPackageLabelGetResponse> PostingFbsPackageLabelGetAsync(PostingFbsPackageLabelGetRequest body)
+        {
+            return PostingFbsPackageLabelGetAsync(body, System.Threading.CancellationToken.None);
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Получить файл с этикетками
+        /// </summary>
+        /// <remarks>
+        /// Вы можете оставить обратную связь о работе метода в [комментариях](https://dev.ozon.ru/community/2346-Novye-beta-metody-dlia-raboty-s-etiketkami-FBS/) в сообществе разработчиков Ozon for dev.
+        /// </remarks>
+        /// <returns>Статус формирования этикеток или файл с ними</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<PostingFbsPackageLabelGetResponse> PostingFbsPackageLabelGetAsync(PostingFbsPackageLabelGetRequest body, System.Threading.CancellationToken cancellationToken)
+        {
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("POST");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                
+                    // Operation Path: "v2/posting/fbs/package-label/get"
+                    urlBuilder_.Append("v2/posting/fbs/package-label/get");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<PostingFbsPackageLabelGetResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
                         }
                         else
                         if (status_ == 400)
@@ -3647,6 +3821,158 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
 
     }
 
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsPackageLabelGetRequest
+    {
+
+        /// <summary>
+        /// Идентификатор задания из ответа метода [/v3/posting/fbs/package-label/create](#operation/PostingFbsPackageLabelCreate).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("task_id")]
+        public long Task_id { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsPackageLabelGetResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("error")]
+        public PostingFbsPackageLabelGetResponseError? Error { get; set; } = default!;
+
+        /// <summary>
+        /// Ссылка на файл с этикетками.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("file_url")]
+        public string? File_url { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        public PostingFbsPackageLabelGetResponseStatus? Status { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Ошибка, которая возникла при формировании этикеток.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsPackageLabelGetResponseError
+    {
+
+        /// <summary>
+        /// Код ошибки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("code")]
+        public string? Code { get; set; } = default!;
+
+        /// <summary>
+        /// Описание ошибки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("message")]
+        public string? Message { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Статус задания.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsPackageLabelGetResponseStatus
+    {
+
+        /// <summary>
+        /// Статус формирования этикеток:
+        /// <br/>- `pending` — задание в очереди;
+        /// <br/>- `in_progress` — формируются;
+        /// <br/>- `completed` — файл с этикетками готов;
+        /// <br/>- `error` — ошибка при создании файла.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("code")]
+        public string? Code { get; set; } = default!;
+
+        /// <summary>
+        /// Количество отправлений, по которым запрашивались этикетки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("postings_count")]
+        public int? Postings_count { get; set; } = default!;
+
+        /// <summary>
+        /// Количество отправлений, по которым получилось сгенерировать этикетки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("printed_postings_count")]
+        public int? Printed_postings_count { get; set; } = default!;
+
+        /// <summary>
+        /// Информация об ошибках, из-за которых не получилось сгенерировать этикетки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("unprinted_postings")]
+        public System.Collections.Generic.IReadOnlyList<PostingFbsPackageLabelGetResponseStatusUnprintedPostings>? Unprinted_postings { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsPackageLabelGetResponseStatusUnprintedPostings
+    {
+
+        /// <summary>
+        /// Описание ошибки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("message")]
+        public string? Message { get; set; } = default!;
+
+        /// <summary>
+        /// Номер отправления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("posting_number")]
+        public string? Posting_number { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
     /// <summary>
     /// Тип грузоместа: 
     /// <br/>  - `BOX` — коробка;
@@ -4443,6 +4769,78 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsPackageLabelCreateRequest
+    {
+
+        /// <summary>
+        /// Номера отправлений, для которых нужны этикетки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("posting_numbers")]
+        public System.Collections.Generic.IReadOnlyList<string> Posting_numbers { get; set; } = new System.Collections.Generic.List<string>();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsPackageLabelCreateResponse
+    {
+
+        /// <summary>
+        /// Список заданий.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("tasks")]
+        public System.Collections.Generic.IReadOnlyList<PostingFbsPackageLabelCreateResponseTasks>? Tasks { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFbsPackageLabelCreateResponseTasks
+    {
+
+        /// <summary>
+        /// Идентификатор задания. Получите файл с этикетками методом [/v2/posting/fbs/package-label/get](#operation/PostingFbsPackageLabelGet).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("task_id")]
+        public long? Task_id { get; set; } = default!;
+
+        /// <summary>
+        /// Тип задания:
+        /// <br/>- `big_label` — для обычной этикетки;
+        /// <br/>- `small_label` — для маленькой этикетки.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("task_type")]
+        public string? Task_type { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class PostingFbsListRequest
     {
 
@@ -4954,6 +5352,12 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
 
         [System.Text.Json.Serialization.JsonPropertyName("requirements")]
         public PostingFbsListResponsePostingsRequirements? Requirements { get; set; } = default!;
+
+        /// <summary>
+        /// Штрихкод ScanIt товара.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("scanit")]
+        public string? Scanit { get; set; } = default!;
 
         /// <summary>
         /// Дата и время, до которой нужно собрать отправление. Показываем рекомендованное время отгрузки. По истечении этого времени начнёт применяться новый тариф, информацию о нём получите в поле `tariffication`.
@@ -6561,6 +6965,12 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         public PostingFbsUnfulfilledListResponsePostingsRequirements? Requirements { get; set; } = default!;
 
         /// <summary>
+        /// Штрихкод ScanIt товара.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("scanit")]
+        public string? Scanit { get; set; } = default!;
+
+        /// <summary>
         /// Дата и время, до которой нужно собрать отправление. Показываем рекомендованное время отгрузки. По истечении этого времени начнёт применяться новый тариф, информацию о нём получите в поле `tariffication`.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("shipment_date")]
@@ -7672,27 +8082,6 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("tariff_type")]
         public string? Tariff_type { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class PostingPostingFBSPackageLabelRequest
-    {
-
-        /// <summary>
-        /// Идентификатор отправления.
-        /// </summary>
-        [System.Text.Json.Serialization.JsonPropertyName("posting_number")]
-        public System.Collections.Generic.IReadOnlyList<string> Posting_number { get; set; } = new System.Collections.Generic.List<string>();
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -9069,6 +9458,12 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         public V3FbsPostingRequirementsV3? Requirements { get; set; } = default!;
 
         /// <summary>
+        /// Штрихкод ScanIt товара.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("scanit")]
+        public string? Scanit { get; set; } = default!;
+
+        /// <summary>
         /// Дата и время, до которой необходимо собрать отправление. Показываем рекомендованное время отгрузки. По истечении этого времени начнёт применяться новый тариф, информацию о нём уточняйте в поле `tariffication`.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("shipment_date")]
@@ -10055,41 +10450,6 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
 
     }
 
-    [System.CodeDom.Compiler.GeneratedCode("NSwag", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class FileResponse : System.IDisposable
-    {
-        private System.IDisposable? _client;
-        private System.IDisposable? _response;
-
-        public int StatusCode { get; private set; }
-
-        public System.Collections.Generic.IReadOnlyDictionary<string, System.Collections.Generic.IEnumerable<string>> Headers { get; private set; }
-
-        public System.IO.Stream Stream { get; private set; }
-
-        public bool IsPartial
-        {
-            get { return StatusCode == 206; }
-        }
-
-        public FileResponse(int statusCode, System.Collections.Generic.IReadOnlyDictionary<string, System.Collections.Generic.IEnumerable<string>> headers, System.IO.Stream stream, System.IDisposable? client, System.IDisposable? response)
-        {
-            StatusCode = statusCode;
-            Headers = headers;
-            Stream = stream;
-            _client = client;
-            _response = response;
-        }
-
-        public void Dispose()
-        {
-            Stream.Dispose();
-            if (_response != null)
-                _response.Dispose();
-            if (_client != null)
-                _client.Dispose();
-        }
-    }
 
 
     [System.CodeDom.Compiler.GeneratedCode("NSwag", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]

@@ -440,6 +440,15 @@ try
             r.CircuitBreaker.SamplingDuration = ozonTimeout * 6;
         });
 
+    // the label file sits on a temporary CDN path, so a hiccup here loses a task that already completed
+    builder.Services.AddHttpClient(OzonClient.LabelDownloadClientName, c => c.Timeout = ozonTimeout)
+        .AddStandardResilienceHandler(r =>
+        {
+            r.AttemptTimeout.Timeout = ozonTimeout;
+            r.TotalRequestTimeout.Timeout = ozonTimeout * 3;
+            r.CircuitBreaker.SamplingDuration = ozonTimeout * 6;
+        });
+
     builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
         {
             options.Password.RequiredLength = 8;

@@ -151,6 +151,8 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   marketplaceAccountHasOrders: "По аккаунту импортированы заказы — сначала удалите их",
   marketplaceAccountInactive: "Аккаунт отключён",
   marketplaceLabelNotReady: "Маркетплейс ещё не сформировал этикетки — попробуйте через минуту",
+  marketplaceLabelFormatChanged:
+    "Маркетплейс изменил формат этикетки — печать остановлена, повторять бесполезно. Сообщите разработчикам",
   marketplaceOrderNotFromMarketplace: "Среди выбранных есть заказ не с маркетплейса",
   marketplaceOrderNotAwaitingDeliver:
     "Этикетка ещё не скачана, а отправление уже не ожидает отгрузки",
@@ -185,6 +187,8 @@ const errorCodeArgMessages: Partial<Record<ErrorCode, string>> = {
   editLockHeld: "Объект сейчас редактирует {userName}",
   marketplaceLabelNotReady:
     "Маркетплейс ещё не сформировал этикетки для {count:заказа|заказов|заказов} — попробуйте через минуту",
+  marketplaceLabelFormatChanged:
+    "Маркетплейс изменил формат этикетки — печать {count:заказа|заказов|заказов} остановлена, повторять бесполезно. Сообщите разработчикам",
   marketplaceOrderNotAwaitingDeliver:
     "Для {count:заказа|заказов|заказов} этикетка не скачана, а отправление уже не ожидает отгрузки",
   marketplaceOrderCardNotMapped: "Товары не привязаны к каталогу: {offerIds}",

@@ -26,16 +26,27 @@ public class LabelsOptions
 
     public double FontSize { get; set; } = 8;
 
-    /// <summary>Distance from the right page edge, in points.</summary>
+    /// <summary>Page corner the article lines are written into.</summary>
+    public LabelTextCorner TextCorner { get; set; } = LabelTextCorner.BottomLeft;
+
+    /// <summary>Distance from the corner's vertical page edge, in points.</summary>
     public double MarginX { get; set; } = 6;
 
-    /// <summary>Distance from the top page edge, in points.</summary>
+    /// <summary>Distance from the corner's horizontal page edge, in points.</summary>
     public double MarginY { get; set; } = 6;
 
     /// <summary>Age after which a cached label of a posting past awaiting_deliver is released.</summary>
     public int CacheTtlDays { get; set; } = 7;
 
     public string GcCron { get; set; } = "0 15 3 * * ?";
+}
+
+public enum LabelTextCorner
+{
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
 }
 
 public class OzonOptions
@@ -47,8 +58,20 @@ public class OzonOptions
     /// <summary>Pause between pages, on top of the resilience handler's 429 handling.</summary>
     public int PageDelayMs { get; set; } = 200;
 
-    /// <summary>Configurable, but 20 is Ozon's own ceiling — anything higher comes back as its error.</summary>
-    public int LabelBatchSize { get; set; } = 20;
+    /// <summary>
+    /// Postings per label task. Ozon's own ceiling is 1000; the default stays well under it because the
+    /// label methods are in beta and one task is only as fast as its slowest posting.
+    /// </summary>
+    public int LabelBatchSize { get; set; } = 100;
+
+    /// <summary>
+    /// How long a label task is waited on before the batch is reported as not ready. Ozon documents
+    /// 45–60 seconds after packing, but a task raised for an already packed posting completes in a
+    /// couple of seconds — so the wait is short and the caller retries rather than holding a request open.
+    /// </summary>
+    public int LabelPollAttempts { get; set; } = 6;
+
+    public int LabelPollDelayMs { get; set; } = 1500;
 
     /// <summary>
     /// Half-widths of the mandatory cutoff window on /v4/posting/fbs/unfulfilled/list, in days.

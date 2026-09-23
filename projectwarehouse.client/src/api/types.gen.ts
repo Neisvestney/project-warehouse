@@ -761,7 +761,8 @@ export type ErrorCode =
   | "tagNotFound"
   | "receiptNothingToAutoAccept"
   | "warehouseDefaultNodeNotSet"
-  | "orderIsExternal";
+  | "orderIsExternal"
+  | "marketplaceLabelFormatChanged";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -956,6 +957,10 @@ export type MarketplaceOrderDto = {
   trackingNumber?: null | string;
   deliveryMethodName?: null | string;
   multiBoxQty: number;
+  /**
+   * Barcode printed on the marketplace label. Null until the posting has been packed.
+   */
+  scanitBarcode?: null | string;
   /**
    * Set once the label has been printed; downloadable through /api/files/{id}/content.
    */

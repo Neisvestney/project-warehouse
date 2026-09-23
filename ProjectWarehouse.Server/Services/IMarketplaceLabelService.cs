@@ -10,11 +10,14 @@ namespace ProjectWarehouse.Server.Services;
 /// <param name="NotReadyPostingNumbers">Postings the marketplace has not printed yet.</param>
 /// <param name="NonMarketplaceOrderIds">Requested orders that are not marketplace orders at all.</param>
 /// <param name="NotAwaitingDeliverPostingNumbers">Postings the marketplace no longer prints labels for.</param>
+/// <param name="UnreadablePostingNumbers">Postings whose label arrived but could not be read, so no page
+/// can be tied to a posting.</param>
 public record LabelBundle(
     byte[]? Pdf,
     IReadOnlyList<string> NotReadyPostingNumbers,
     IReadOnlyList<Guid> NonMarketplaceOrderIds,
-    IReadOnlyList<string> NotAwaitingDeliverPostingNumbers);
+    IReadOnlyList<string> NotAwaitingDeliverPostingNumbers,
+    IReadOnlyList<string> UnreadablePostingNumbers);
 
 public interface IMarketplaceLabelService
 {
