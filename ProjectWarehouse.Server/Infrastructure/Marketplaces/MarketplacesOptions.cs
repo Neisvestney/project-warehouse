@@ -71,4 +71,32 @@ public class OzonOptions
     public int PostingWindowPastDays { get; set; } = 330;
 
     public int PostingWindowFutureDays { get; set; } = 30;
+
+    /// <summary>
+    /// Width of one <c>since</c>/<c>to</c> slice when listing postings over an explicit period. Ozon
+    /// answers <c>PERIOD_IS_TOO_LONG</c> past a year, so a longer request is cut into slices of this many
+    /// days. Same ceiling as <see cref="PostingWindowPastDays"/>, and kept under a year for the same reason.
+    /// </summary>
+    public int PostingPeriodWindowDays { get; set; } = 330;
+
+    /// <summary>
+    /// How far back the "when did this account start selling" probe walks, in
+    /// <see cref="PostingPeriodWindowDays"/> slices. It stops early at the first empty slice; this is only
+    /// the ceiling on how many calls one probe may cost.
+    /// </summary>
+    public int EarliestPostingProbeWindows { get; set; } = 5;
+
+    /// <summary>
+    /// How far back the background FBO import looks on an account it has never imported before. Afterwards
+    /// the period starts from <see cref="Domain.MarketplaceAccount.FboPostingsSyncedAt"/> instead.
+    /// </summary>
+    public int FboImportWindowPastDays { get; set; } = 14;
+
+    /// <summary>
+    /// How far before the last import the background FBO import starts anyway. A posting can surface in
+    /// Ozon's list later than it was created — replicas lag and its clock is not ours — and a period
+    /// beginning exactly at the last import would miss it for good, since no later period covers it
+    /// either. The cost of the overlap is re-reading that much of the period every run.
+    /// </summary>
+    public int FboImportOverlapHours { get; set; } = 6;
 }

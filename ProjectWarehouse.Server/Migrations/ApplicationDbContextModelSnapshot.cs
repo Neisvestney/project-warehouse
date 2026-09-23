@@ -747,6 +747,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<string>("ExternalClientId")
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("FboPostingsSyncedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Inn")
                         .HasColumnType("text");
 
@@ -985,6 +988,12 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<int>("AutoMapped")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("BackfillSince")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("BackfillTo")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("CardsArchived")
                         .HasColumnType("integer");
 
@@ -1109,6 +1118,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<Guid?>("CreatedById")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("IsExternal")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Notes")
                         .HasColumnType("text");
 
@@ -1130,7 +1142,7 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<int>("Type")
                         .HasColumnType("integer");
 
-                    b.Property<Guid>("WarehouseId")
+                    b.Property<Guid?>("WarehouseId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -2582,8 +2594,7 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasOne("ProjectWarehouse.Server.Domain.Warehouse", "Warehouse")
                         .WithMany()
                         .HasForeignKey("WarehouseId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("CreatedBy");
 

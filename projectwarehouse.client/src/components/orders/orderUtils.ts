@@ -13,7 +13,8 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 export const ORDER_TYPE_LABELS: Record<OrderType, string> = {
   direct: "Прямой",
   fbs: "FBS",
-  fbo: "FBO",
+  fboSupply: "Поставка FBO",
+  fboPosting: "Отправление FBO",
 };
 
 export const ORDER_STATUS_COLORS: Record<OrderStatus, ChipProps["color"]> = {
@@ -28,7 +29,8 @@ export const ORDER_STATUS_COLORS: Record<OrderStatus, ChipProps["color"]> = {
 export const ORDER_TYPE_COLORS: Record<OrderType, ChipProps["color"]> = {
   direct: "info",
   fbs: "secondary",
-  fbo: "primary",
+  fboSupply: "primary",
+  fboPosting: "primary",
 };
 
 export function formatOrderNumber(n: number): string {

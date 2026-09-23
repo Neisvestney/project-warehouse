@@ -35,6 +35,13 @@ public class MarketplaceAccount : IHasIdentity
     public DateTime? LastSyncAt { get; set; }
     public MarketplaceSyncStatus? LastSyncStatus { get; set; }
 
+    /// <summary>
+    /// Up to when marketplace-fulfilled postings have been imported. Moves only after the FBO import of a
+    /// run finished, so a failed run leaves no hole; null until the first one. Not <see cref="LastSyncAt"/>,
+    /// which any scope moves — a cards-only run would otherwise skip a day of postings.
+    /// </summary>
+    public DateTime? FboPostingsSyncedAt { get; set; }
+
     // ErrorCode lands in jsonb as a number — Npgsql serializes it, not the MVC options that stringify enums
     [Column(TypeName = "jsonb")] public AppFieldError? LastSyncError { get; set; }
 

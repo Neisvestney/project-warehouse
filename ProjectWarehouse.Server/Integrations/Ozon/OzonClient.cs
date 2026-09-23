@@ -23,8 +23,16 @@ public class OzonClient(
     /// <summary>Spec cap on <c>filter.order_numbers</c> of /v4/posting/fbs/list.</summary>
     private const int OrderNumberBatchSize = 100;
 
-    /// <summary>The only posting state WMS imports — see the FBS section of the marketplaces spec.</summary>
+    /// <summary>
+    /// Postings asked about by number in one call to /v3/posting/fbo/list. The spec allows 1000; a batch
+    /// the size of a page keeps one call to one page.
+    /// </summary>
+    private const int PostingNumberBatchSize = PostingPageSize;
+
+    /// <summary>The only posting state WMS assembles — see the FBS section of the marketplaces spec.</summary>
     private const string AwaitingDeliver = "awaiting_deliver";
+
+    private const string AwaitingPackaging = "awaiting_packaging";
 
     private readonly OzonOptions _options = options.Value.Ozon;
 
@@ -158,7 +166,222 @@ public class OzonClient(
         } while (!string.IsNullOrEmpty(cursor));
     }
 
+    public async IAsyncEnumerable<IReadOnlyList<ExternalPosting>> GetPostingsAsync(
+        ExternalPostingQuery query, [EnumeratorCancellation] CancellationToken ct)
+    {
+        var statuses = ToRawStatuses(query.Scheme, query.Statuses);
+        var firstCall = true;
+
+        foreach (var (since, to) in PeriodWindows(query.Since, query.To))
+        {
+            string? cursor = null;
+
+            do
+            {
+                if (!firstCall)
+                    await DelayBetweenPagesAsync(ct);
+                firstCall = false;
+
+                var page = await FetchPostingPageAsync(query.Scheme, since, to, statuses, null, cursor, ct);
+
+                if (page.Postings.Count > 0)
+                    yield return page.Postings;
+
+                cursor = page.Cursor;
+            } while (!string.IsNullOrEmpty(cursor));
+        }
+    }
+
+    public async Task<DateTime?> GetEarliestPostingDateAsync(CancellationToken ct)
+    {
+        var fbs = await ProbeEarliestPostingDateAsync(ExternalPostingScheme.Fbs, ct);
+        var fbo = await ProbeEarliestPostingDateAsync(ExternalPostingScheme.Fbo, ct);
+
+        if (fbs is null) return fbo;
+        if (fbo is null) return fbs;
+        return fbs < fbo ? fbs : fbo;
+    }
+
+    /// <summary>
+    /// Walks whole windows backwards asking for the single oldest posting in each, and stops at the first
+    /// one that is empty — a seller with no postings in a whole year had none before it either.
+    /// </summary>
+    private async Task<DateTime?> ProbeEarliestPostingDateAsync(ExternalPostingScheme scheme, CancellationToken ct)
+    {
+        var window = TimeSpan.FromDays(_options.PostingPeriodWindowDays);
+        var to = DateTimeOffset.UtcNow;
+        DateTime? earliest = null;
+
+        for (var step = 0; step < _options.EarliestPostingProbeWindows; step++)
+        {
+            if (step > 0)
+                await DelayBetweenPagesAsync(ct);
+
+            var since = to - window;
+            var page = await FetchPostingPageAsync(scheme, since, to, null, null, null, ct, limit: 1);
+
+            if (page.Postings.Count == 0)
+                break;
+
+            var posting = page.Postings[0];
+            // FBS postings carry no creation date of their own; in_process_at is the closest thing to one
+            earliest = posting.CreatedAt ?? posting.InProcessAt ?? since.UtcDateTime;
+            to = since;
+        }
+
+        return earliest;
+    }
+
+    private async Task<(List<ExternalPosting> Postings, string? Cursor)> FetchPostingPageAsync(
+        ExternalPostingScheme scheme, DateTimeOffset since, DateTimeOffset to,
+        IReadOnlyList<string>? statuses, IReadOnlyList<string>? postingNumbers, string? cursor,
+        CancellationToken ct, int limit = PostingPageSize)
+    {
+        if (scheme == ExternalPostingScheme.Fbo)
+        {
+            var fbo = await api.PostingFboListAsync(
+                new PostingFboListRequest
+                {
+                    Limit = limit,
+                    Cursor = cursor,
+                    // oldest first, so pages stay stable while new postings keep arriving
+                    Sort_dir = PostingFboListRequestSortDirEnum.ASC,
+                    Filter = new PostingFboListRequestFilter
+                    {
+                        Since = since,
+                        To = to,
+                        Statuses = statuses,
+                        Posting_numbers = postingNumbers,
+                    },
+                    With = new PostingFboListRequestWith { Financial_data = true },
+                }, ct);
+
+            return ((fbo.Postings ?? []).Select(ToExternalPosting).OfType<ExternalPosting>().ToList(),
+                fbo.Has_next == true ? fbo.Cursor : null);
+        }
+
+        var fbs = await api.PostingFbsListAsync(
+            new PostingFbsListRequest
+            {
+                Limit = limit,
+                Cursor = cursor,
+                Sort_dir = PostingFbsListRequestSortDirEnum.ASC,
+                Filter = new PostingFbsListRequestFilter
+                {
+                    Since = since,
+                    To = to,
+                    Statuses = statuses,
+                },
+                With = new PostingFbsListRequestWith { Financial_data = true },
+            }, ct);
+
+        return ((fbs.Postings ?? []).Select(ToExternalPosting).OfType<ExternalPosting>().ToList(),
+            fbs.Has_next == true ? fbs.Cursor : null);
+    }
+
+    /// <summary>Ozon answers <c>PERIOD_IS_TOO_LONG</c> past a year, so a longer period is asked for in slices.</summary>
+    private IEnumerable<(DateTimeOffset Since, DateTimeOffset To)> PeriodWindows(DateTime since, DateTime to)
+    {
+        var window = TimeSpan.FromDays(_options.PostingPeriodWindowDays);
+        var cursor = new DateTimeOffset(DateTime.SpecifyKind(since, DateTimeKind.Utc));
+        var end = new DateTimeOffset(DateTime.SpecifyKind(to, DateTimeKind.Utc));
+
+        while (cursor < end)
+        {
+            var next = cursor + window;
+            if (next > end)
+                next = end;
+
+            yield return (cursor, next);
+            cursor = next;
+        }
+    }
+
+    /// <summary>
+    /// WMS statuses expanded back into Ozon's own vocabulary. Null asks for every status — the two lists
+    /// answer with all of them when <c>filter.statuses</c> is omitted.
+    /// </summary>
+    private static IReadOnlyList<string>? ToRawStatuses(
+        ExternalPostingScheme scheme, IReadOnlyList<MarketplaceOrderStatus>? statuses)
+    {
+        if (statuses is null || statuses.Count == 0)
+            return null;
+
+        var names = statuses.SelectMany(s => RawStatusesOf(scheme, s)).Distinct().ToList();
+        return names.Count > 0 ? names : null;
+    }
+
+    /// <summary>
+    /// What may be <b>asked for</b>, which is not the same set as what may be <b>answered</b> — see
+    /// <see cref="ToOrderStatus"/>. FBO's vocabulary is a subset of FBS's: no carrier handover, no
+    /// arbitration, no refusal on acceptance.
+    /// </summary>
+    private static string[] RawStatusesOf(ExternalPostingScheme scheme, MarketplaceOrderStatus status) =>
+        (scheme, status) switch
+        {
+            (_, MarketplaceOrderStatus.AwaitingDeliver) => [AwaitingPackaging, AwaitingDeliver],
+            (ExternalPostingScheme.Fbo, MarketplaceOrderStatus.Delivering) => ["delivering"],
+            // sent_by_seller is documented as a filter value and rejected as one by the live API, which
+            // answers 400 listing what it really takes. It stays in ToOrderStatus: an answer may carry it.
+            (_, MarketplaceOrderStatus.Delivering) => ["delivering", "driver_pickup"],
+            (_, MarketplaceOrderStatus.Delivered) => ["delivered"],
+            (ExternalPostingScheme.Fbo, MarketplaceOrderStatus.Cancelled) => ["cancelled"],
+            (_, MarketplaceOrderStatus.Cancelled) => ["cancelled", "not_accepted"],
+            (ExternalPostingScheme.Fbo, MarketplaceOrderStatus.Arbitration) => [],
+            (_, MarketplaceOrderStatus.Arbitration) => ["arbitration", "client_arbitration"],
+            _ => [],
+        };
+
     public async Task<IReadOnlyList<ExternalPostingStatus>> GetPostingStatusesAsync(
+        IReadOnlyList<string> postingNumbers, ExternalPostingScheme scheme, CancellationToken ct)
+    {
+        return scheme == ExternalPostingScheme.Fbo
+            ? await GetFboPostingStatusesAsync(postingNumbers, ct)
+            : await GetFbsPostingStatusesAsync(postingNumbers, ct);
+    }
+
+    /// <summary>
+    /// Unlike its FBS counterpart, <c>/v3/posting/fbo/list</c> filters by posting number directly, so the
+    /// detour through order numbers — and the unrelated postings it drags in — is not needed here.
+    /// </summary>
+    private async Task<IReadOnlyList<ExternalPostingStatus>> GetFboPostingStatusesAsync(
+        IReadOnlyList<string> postingNumbers, CancellationToken ct)
+    {
+        var wanted = postingNumbers.Distinct().ToList();
+        var statuses = new List<ExternalPostingStatus>(wanted.Count);
+
+        var now = DateTimeOffset.UtcNow;
+        var since = now.AddDays(-_options.PostingWindowPastDays);
+        var to = now.AddDays(_options.PostingWindowFutureDays);
+
+        var firstCall = true;
+
+        foreach (var batch in wanted.Chunk(PostingNumberBatchSize))
+        {
+            string? cursor = null;
+
+            do
+            {
+                if (!firstCall)
+                    await DelayBetweenPagesAsync(ct);
+                firstCall = false;
+
+                var page = await FetchPostingPageAsync(
+                    ExternalPostingScheme.Fbo, since, to, null, batch, cursor, ct);
+
+                statuses.AddRange(page.Postings.Select(ToPostingStatus));
+                cursor = page.Cursor;
+            } while (!string.IsNullOrEmpty(cursor));
+        }
+
+        return statuses;
+    }
+
+    private static ExternalPostingStatus ToPostingStatus(ExternalPosting posting) =>
+        new(posting.PostingNumber, posting.Status, posting.RawStatus, posting.RawSubstatus,
+            posting.TrackingNumber, posting.Cancellation, posting.Items);
+
+    private async Task<IReadOnlyList<ExternalPostingStatus>> GetFbsPostingStatusesAsync(
         IReadOnlyList<string> postingNumbers, CancellationToken ct)
     {
         var wanted = postingNumbers.ToHashSet();
@@ -338,6 +561,66 @@ public class OzonClient(
                 .ToList());
     }
 
+    /// <summary>
+    /// An FBO posting has no seller warehouse, no carrier and no packages of its own: Ozon ships it from
+    /// its own stock, and <c>analytics_data.warehouse_id</c> names an Ozon warehouse that maps to nothing here.
+    /// </summary>
+    private ExternalPosting? ToExternalPosting(PostingFboListResponsePostings posting)
+    {
+        if (string.IsNullOrWhiteSpace(posting.Posting_number))
+            return null;
+
+        var financials = IndexFinancials(posting.Financial_data?.Products, p => p.Product_id);
+
+        return new ExternalPosting(
+            posting.Posting_number,
+            posting.Order_number,
+            ToOrderStatus(posting.Status),
+            posting.Status,
+            posting.Substatus,
+            WarehouseExternalId: null,
+            DeliveryMethodName: null,
+            ShipmentDate: null,
+            posting.In_process_at?.UtcDateTime,
+            TrackingNumber: null,
+            MultiBoxQty: 1,
+            ToCancellation(posting.Cancellation),
+            (posting.Products ?? [])
+                .Select(p => ToExternalPostingItem(p, financials))
+                .ToList(),
+            ExternalPostingScheme.Fbo,
+            posting.Created_at?.UtcDateTime);
+    }
+
+    /// <summary>
+    /// The history list, as opposed to the unfulfilled one: same payload, unrelated generated types, and
+    /// no creation date — <c>filter.since</c>/<c>to</c> select on it but the response never states it.
+    /// </summary>
+    private ExternalPosting? ToExternalPosting(PostingFbsListResponsePostings posting)
+    {
+        if (string.IsNullOrWhiteSpace(posting.Posting_number))
+            return null;
+
+        var financials = IndexFinancials(posting.Financial_data?.Products, p => p.Product_id);
+
+        return new ExternalPosting(
+            posting.Posting_number,
+            posting.Order_number,
+            ToOrderStatus(posting.Status),
+            posting.Status,
+            posting.Substatus,
+            posting.Delivery_method?.Warehouse_id?.ToString(CultureInfo.InvariantCulture),
+            posting.Delivery_method?.Name,
+            posting.Shipment_date?.UtcDateTime,
+            posting.In_process_at?.UtcDateTime,
+            posting.Tracking_number,
+            posting.Multi_box_qty is > 0 ? posting.Multi_box_qty.Value : 1,
+            ToCancellation(posting.Cancellation),
+            (posting.Products ?? [])
+                .Select(p => ToExternalPostingItem(p, financials))
+                .ToList());
+    }
+
     // financial_data indexes products by product_id, which is the same number products[] calls sku
     private static Dictionary<long, T> IndexFinancials<T>(IEnumerable<T>? products, Func<T, long?> productId) =>
         (products ?? [])
@@ -388,6 +671,28 @@ public class OzonClient(
             commissionCurrency: f?.Commission?.Currency);
     }
 
+    private static ExternalPostingItem ToExternalPostingItem(
+        PostingFboListResponsePostingsProducts product,
+        IReadOnlyDictionary<long, PostingFboListResponsePostingsFinancialDataProducts> financials)
+    {
+        var f = product.Sku is { } sku && financials.TryGetValue(sku, out var found) ? found : null;
+
+        return ToExternalPostingItem(
+            sku: product.Sku,
+            offerId: product.Offer_id,
+            name: product.Name,
+            quantity: (int?)product.Quantity,
+            priceCurrency: product.Price?.Currency,
+            // FBO financial_data states no customer_price; the line's own price is what the buyer paid
+            customerPrice: product.Price,
+            price: f?.Price,
+            oldPrice: f?.Old_price,
+            discountValue: f?.Total_discount_value,
+            payout: f?.Payout,
+            commissionAmount: f?.Commission?.Amount,
+            commissionCurrency: f?.Commission?.Currency);
+    }
+
     private static ExternalPostingItem ToExternalPostingItem(long? sku, string? offerId, string? name,
         int? quantity, string? priceCurrency, PostingMoney? customerPrice, double? price, double? oldPrice,
         double? discountValue, double? payout, double? commissionAmount, string? commissionCurrency) =>
@@ -416,7 +721,8 @@ public class OzonClient(
     {
         switch (status)
         {
-            case AwaitingDeliver:
+            // FBO packs at Ozon's own warehouse, so awaiting_packaging is the same "not moving yet" state
+            case AwaitingDeliver or AwaitingPackaging:
                 return MarketplaceOrderStatus.AwaitingDeliver;
             case "delivering" or "driver_pickup" or "sent_by_seller":
                 return MarketplaceOrderStatus.Delivering;
@@ -437,6 +743,10 @@ public class OzonClient(
     private ExternalCancellation? ToCancellation(PostingFbsListResponsePostingsCancellation? cancellation) =>
         ToCancellation(cancellation?.Cancelled_after_ship, cancellation?.Cancellation_type,
             cancellation?.Cancel_reason);
+
+    /// <summary>FBO states no <c>cancelled_after_ship</c> — there is no seller shipment to be after.</summary>
+    private ExternalCancellation? ToCancellation(PostingFboListResponsePostingsCancellation? cancellation) =>
+        ToCancellation(null, cancellation?.Cancellation_type, cancellation?.Cancel_reason);
 
     private ExternalCancellation? ToCancellation(
         PostingFbsUnfulfilledListResponsePostingsCancellation? cancellation) =>

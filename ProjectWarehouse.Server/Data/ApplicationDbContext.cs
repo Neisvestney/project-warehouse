@@ -623,9 +623,11 @@ public class ApplicationDbContext : IdentityDbContext<
             e.Property(x => x.Number).ValueGeneratedOnAdd();
             e.HasIndex(x => x.Number).IsUnique();
 
+            // optional at the schema level for external orders only; OrderService requires it for the rest
             e.HasOne(x => x.Warehouse)
                 .WithMany()
                 .HasForeignKey(x => x.WarehouseId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.Restrict);
 
             e.HasOne(x => x.CreatedBy)

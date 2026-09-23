@@ -36,7 +36,7 @@ interface GroupKey {
 }
 
 const STATUS_RANK: Record<AssemblyTaskStatus, number> = {pending: 0, inProgress: 1, done: 2};
-const TYPE_RANK: Record<OrderType, number> = {fbs: 0, fbo: 1, direct: 2};
+const TYPE_RANK: Record<OrderType, number> = {fbs: 0, fboSupply: 1, fboPosting: 2, direct: 3};
 
 export function getOrderAssemblyStatus(order: OrderDetailsDto): AssemblyTaskStatus {
   const tasks = order.assemblyTasks;
@@ -58,7 +58,10 @@ function getGroupKey(order: OrderDetailsDto, grouping: AssemblyGrouping): GroupK
           }
         : {key: "", label: "Без магазина", rank: 1};
     case "warehouse":
-      return {key: order.warehouseId, label: order.warehouseName, rank: 0};
+      // склада нет только у внешних заказов, а они до сборки не доходят
+      return order.warehouseId
+        ? {key: order.warehouseId, label: order.warehouseName ?? "", rank: 0}
+        : {key: "", label: "Без склада", rank: 1};
     case "status": {
       const status = getOrderAssemblyStatus(order);
       return {key: status, label: TASK_STATUS_LABELS[status], rank: STATUS_RANK[status]};

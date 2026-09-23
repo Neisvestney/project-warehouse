@@ -61,6 +61,10 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
 
         System.Threading.Tasks.Task<FileResponse> PostingAPI_PostingFBSPackageLabelAsync(PostingPostingFBSPackageLabelRequest body, System.Threading.CancellationToken cancellationToken);
 
+        System.Threading.Tasks.Task<PostingFboListResponse> PostingFboListAsync(PostingFboListRequest body);
+
+        System.Threading.Tasks.Task<PostingFboListResponse> PostingFboListAsync(PostingFboListRequest body, System.Threading.CancellationToken cancellationToken);
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NSwag", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -961,6 +965,136 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
                             var fileResponse_ = new FileResponse(status_, headers_, responseStream_, null, response_);
                             disposeClient_ = false; disposeResponse_ = false; // response and client are disposed by FileResponse
                             return fileResponse_;
+                        }
+                        else
+                        if (status_ == 400)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 403)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u0414\u043e\u0441\u0442\u0443\u043f \u0437\u0430\u043f\u0440\u0435\u0449\u0451\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 404)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u041e\u0442\u0432\u0435\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 409)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u041a\u043e\u043d\u0444\u043b\u0438\u043a\u0442 \u0437\u0430\u043f\u0440\u043e\u0441\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 500)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u0412\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u044f\u044f \u043e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new OzonApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        public virtual System.Threading.Tasks.Task<PostingFboListResponse> PostingFboListAsync(PostingFboListRequest body)
+        {
+            return PostingFboListAsync(body, System.Threading.CancellationToken.None);
+        }
+
+        public virtual async System.Threading.Tasks.Task<PostingFboListResponse> PostingFboListAsync(PostingFboListRequest body, System.Threading.CancellationToken cancellationToken)
+        {
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("POST");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                
+                    // Operation Path: "v3/posting/fbo/list"
+                    urlBuilder_.Append("v3/posting/fbo/list");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<PostingFboListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
                         }
                         else
                         if (status_ == 400)
@@ -2471,6 +2605,445 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
 
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string? Name { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("cursor")]
+        public string? Cursor { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("filter")]
+        public PostingFboListRequestFilter? Filter { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("limit")]
+        public long? Limit { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("sort_dir")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<PostingFboListRequestSortDirEnum>))]
+        public PostingFboListRequestSortDirEnum? Sort_dir { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("translit")]
+        public bool? Translit { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("with")]
+        public PostingFboListRequestWith? With { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListRequestFilter
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("order_numbers")]
+        public System.Collections.Generic.IReadOnlyList<string>? Order_numbers { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("posting_numbers")]
+        public System.Collections.Generic.IReadOnlyList<string>? Posting_numbers { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("since")]
+        public System.DateTimeOffset? Since { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("statuses")]
+        public System.Collections.Generic.IReadOnlyList<string>? Statuses { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("to")]
+        public System.DateTimeOffset? To { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum PostingFboListRequestSortDirEnum
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"ASC")]
+        ASC = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"DESC")]
+        DESC = 1,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListRequestWith
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("analytics_data")]
+        public bool? Analytics_data { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("financial_data")]
+        public bool? Financial_data { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("legal_info")]
+        public bool? Legal_info { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("cursor")]
+        public string? Cursor { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("has_next")]
+        public bool? Has_next { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("postings")]
+        public System.Collections.Generic.IReadOnlyList<PostingFboListResponsePostings>? Postings { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostings
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("additional_data")]
+        public System.Collections.Generic.IReadOnlyList<PostingFboListResponsePostingsAdditionalData>? Additional_data { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("analytics_data")]
+        public PostingFboListResponsePostingsAnalyticsData? Analytics_data { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("cancel_reason_id")]
+        public long? Cancel_reason_id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("cancellation")]
+        public PostingFboListResponsePostingsCancellation? Cancellation { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("created_at")]
+        public System.DateTimeOffset? Created_at { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("external_order")]
+        public PostingFboListResponsePostingsExternalOrder? External_order { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("financial_data")]
+        public PostingFboListResponsePostingsFinancialData? Financial_data { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("in_process_at")]
+        public System.DateTimeOffset? In_process_at { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("legal_info")]
+        public PostingFboListResponsePostingsLegalInfo? Legal_info { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("order_id")]
+        public long? Order_id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("order_number")]
+        public string? Order_number { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("posting_number")]
+        public string? Posting_number { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("products")]
+        public System.Collections.Generic.IReadOnlyList<PostingFboListResponsePostingsProducts>? Products { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        public string? Status { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("substatus")]
+        public string? Substatus { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostingsAdditionalData
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("key")]
+        public string? Key { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("value")]
+        public string? Value { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostingsAnalyticsData
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("city")]
+        public string? City { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("client_delivery_date_begin")]
+        public System.DateTimeOffset? Client_delivery_date_begin { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("client_delivery_date_end")]
+        public System.DateTimeOffset? Client_delivery_date_end { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("delivery_type")]
+        public string? Delivery_type { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("is_legal")]
+        public bool? Is_legal { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("is_premium")]
+        public bool? Is_premium { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("payment_type_group_name")]
+        public string? Payment_type_group_name { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("warehouse_id")]
+        public long? Warehouse_id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("warehouse_name")]
+        public string? Warehouse_name { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostingsCancellation
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("cancel_reason")]
+        public string? Cancel_reason { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("cancellation_initiator")]
+        public string? Cancellation_initiator { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("cancellation_type")]
+        public string? Cancellation_type { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostingsExternalOrder
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("is_external")]
+        public bool? Is_external { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("platform_name")]
+        public string? Platform_name { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostingsFinancialData
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("cluster_from")]
+        public string? Cluster_from { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("cluster_to")]
+        public string? Cluster_to { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("products")]
+        public System.Collections.Generic.IReadOnlyList<PostingFboListResponsePostingsFinancialDataProducts>? Products { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostingsFinancialDataProducts
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("actions")]
+        public System.Collections.Generic.IReadOnlyList<string>? Actions { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("commission")]
+        public PostingFboListResponsePostingsFinancialDataProductsCommission? Commission { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("old_price")]
+        public double? Old_price { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("payout")]
+        public double? Payout { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public double? Price { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("product_id")]
+        public long? Product_id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("total_discount_percent")]
+        public double? Total_discount_percent { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("total_discount_value")]
+        public double? Total_discount_value { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostingsFinancialDataProductsCommission
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("amount")]
+        public double? Amount { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("currency")]
+        public string? Currency { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("percent")]
+        public long? Percent { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostingsLegalInfo
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("company_name")]
+        public string? Company_name { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("inn")]
+        public string? Inn { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("kpp")]
+        public string? Kpp { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostingFboListResponsePostingsProducts
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("digital_codes")]
+        public System.Collections.Generic.IReadOnlyList<string>? Digital_codes { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("is_marketplace_buyout")]
+        public bool? Is_marketplace_buyout { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string? Name { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("offer_id")]
+        public string? Offer_id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public PostingMoney? Price { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("quantity")]
+        public long? Quantity { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("sku")]
+        public long? Sku { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 

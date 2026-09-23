@@ -33,11 +33,25 @@ public interface IMarketplaceProvider
         MarketplaceCredentials credentials, CancellationToken ct);
 
     /// <summary>
+    /// Postings of one scheme over an explicit period, whatever their state — the import path for history
+    /// and for marketplace-fulfilled orders, which never appear in <see cref="FetchActivePostingsAsync"/>.
+    /// </summary>
+    IAsyncEnumerable<IReadOnlyList<ExternalPosting>> FetchPostingsAsync(
+        MarketplaceCredentials credentials, ExternalPostingQuery query, CancellationToken ct);
+
+    /// <summary>
     /// Postings the marketplace no longer knows are <b>omitted</b> from the result rather than thrown:
     /// one dead posting must not fail a whole run.
     /// </summary>
     Task<IReadOnlyList<ExternalPostingStatus>> FetchPostingStatusesAsync(
-        MarketplaceCredentials credentials, IReadOnlyList<string> postingNumbers, CancellationToken ct);
+        MarketplaceCredentials credentials, IReadOnlyList<string> postingNumbers,
+        ExternalPostingScheme scheme, CancellationToken ct);
+
+    /// <summary>
+    /// Creation date of the oldest posting the account has, or null when it has none. Costs several calls,
+    /// so it is only ever asked for on an explicit operator action.
+    /// </summary>
+    Task<DateTime?> FetchEarliestPostingDateAsync(MarketplaceCredentials credentials, CancellationToken ct);
 
     /// <summary>
     /// Takes a list because marketplaces print in batches. Batch sizing and the "retry one at a time"

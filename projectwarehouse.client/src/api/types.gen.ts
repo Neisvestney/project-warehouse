@@ -151,6 +151,21 @@ export type AutoMapResponse = {
   remaining: number;
 };
 
+/**
+ * Where a history import can reasonably start. Both ends are null when there is nothing to go on.
+ */
+export type BackfillBoundsDto = {
+  /**
+   * Creation date of the oldest order WMS has for this account.
+   */
+  firstOrderAt?: null | string;
+  /**
+   * Creation date of the oldest posting the marketplace still knows about. Only filled when asked for
+   * explicitly — finding it costs several marketplace calls.
+   */
+  firstPostingAt?: null | string;
+};
+
 export type BatchFulfillFailedItem = {
   orderId: string;
   componentId: string;
@@ -745,7 +760,8 @@ export type ErrorCode =
   | "stockMovementPresetUnknownAction"
   | "tagNotFound"
   | "receiptNothingToAutoAccept"
-  | "warehouseDefaultNodeNotSet";
+  | "warehouseDefaultNodeNotSet"
+  | "orderIsExternal";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -1000,7 +1016,8 @@ export type MarketplaceSyncRunDto = {
   error?: null | AppFieldError;
 };
 
-export type MarketplaceSyncScope = "warehouses" | "cards" | "all" | "orders" | "ordersBackground";
+export type MarketplaceSyncScope =
+  "warehouses" | "cards" | "all" | "orders" | "ordersBackground" | "ordersBackfill";
 
 export type MarketplaceSyncStatus = "running" | "success" | "failed" | "canceled";
 
@@ -1134,13 +1151,20 @@ export type OrderDetailsDto = {
   number: number;
   type: OrderType;
   status: OrderStatus;
+  /**
+   * Exists on the marketplace but never passed through WMS — not assembled, deducts no stock.
+   */
+  isExternal: boolean;
   notes?: null | string;
   plannedShipmentAt?: null | string;
   createdAt: string;
   assembledAt?: null | string;
   shippedAt?: null | string;
-  warehouseId: string;
-  warehouseName: string;
+  /**
+   * Null for an external order: it never entered a WMS warehouse.
+   */
+  warehouseId?: null | string;
+  warehouseName?: null | string;
   createdById?: null | string;
   createdByName?: null | string;
   marketplaceOrder?: null | MarketplaceOrderDto;
@@ -1211,13 +1235,20 @@ export type OrderSummaryDto = {
   number: number;
   type: OrderType;
   status: OrderStatus;
+  /**
+   * Exists on the marketplace but never passed through WMS — not assembled, deducts no stock.
+   */
+  isExternal: boolean;
   notes?: null | string;
   plannedShipmentAt?: null | string;
   createdAt: string;
   assembledAt?: null | string;
   shippedAt?: null | string;
-  warehouseId: string;
-  warehouseName: string;
+  /**
+   * Null for an external order: it never entered a WMS warehouse.
+   */
+  warehouseId?: null | string;
+  warehouseName?: null | string;
   createdByName?: null | string;
   boxCount: number;
   componentCount: number;
@@ -1230,7 +1261,10 @@ export type OrderTagDto = {
   name: string;
 };
 
-export type OrderType = "fbs" | "fbo" | "direct";
+/**
+ * Values are pinned — they are stored as int and referenced from jsonb snapshots.
+ */
+export type OrderType = "fbs" | "fboSupply" | "direct" | "fboPosting";
 
 export type PaginatedOfCatalogItemSummaryDto = {
   items: Array<CatalogItemSummaryDto>;
@@ -1856,6 +1890,12 @@ export type SortOrder = "asc" | "desc";
 
 export type StartSyncRequest = {
   scope: MarketplaceSyncScope;
+  /**
+   * Period to import history for. Required by MarketplaceSyncScope.OrdersBackfill and
+   * rejected by every other scope — nothing else reads a period.
+   */
+  since?: null | string;
+  to?: null | string;
 };
 
 export type StartSyncResponse = {
@@ -2843,7 +2883,7 @@ export type WriteoffItemRequest = {
   notes?: null | string;
 };
 
-export type WriteoffReason = "loss" | "defect" | "consumption" | "other";
+export type WriteoffReason = "loss" | "defect" | "other" | "consumption";
 
 export type WriteoffSortBy = "number" | "name" | "status" | "createdAt" | "warehouseName";
 
@@ -4112,6 +4152,45 @@ export type MarketplacesStartSyncResponses = {
 export type MarketplacesStartSyncResponse =
   MarketplacesStartSyncResponses[keyof MarketplacesStartSyncResponses];
 
+export type MarketplacesGetBackfillBoundsData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: {
+    probeMarketplace?: boolean;
+  };
+  url: "/api/integrations/marketplaces/accounts/{id}/backfill-bounds";
+};
+
+export type MarketplacesGetBackfillBoundsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type MarketplacesGetBackfillBoundsError =
+  MarketplacesGetBackfillBoundsErrors[keyof MarketplacesGetBackfillBoundsErrors];
+
+export type MarketplacesGetBackfillBoundsResponses = {
+  /**
+   * OK
+   */
+  200: BackfillBoundsDto;
+};
+
+export type MarketplacesGetBackfillBoundsResponse =
+  MarketplacesGetBackfillBoundsResponses[keyof MarketplacesGetBackfillBoundsResponses];
+
 export type MarketplacesGetSyncRunsData = {
   body?: never;
   path: {
@@ -4531,6 +4610,7 @@ export type OrdersGetAllData = {
     marketplaceType?: MarketplaceType;
     marketplaceAccountId?: string;
     marketplaceStatus?: MarketplaceOrderStatus;
+    includeExternal?: boolean;
     catalogItemId?: string;
     tagIds?: Array<string>;
     sortBy?: OrderSortBy;

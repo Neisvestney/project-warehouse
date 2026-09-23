@@ -14,9 +14,10 @@ export function useHasPermission(
  * Whether the warehouse is in the user's assignment. `undefined` — nothing loaded yet — reads as "no",
  * so scoped UI stays closed instead of flashing.
  */
-export function useIsAssignedToWarehouse(warehouseId: string | undefined): boolean {
+export function useIsAssignedToWarehouse(warehouseId: string | null | undefined): boolean {
   const {user} = useAuth();
-  if (warehouseId === undefined) return false;
+  // null — внешний заказ, он не относится ни к одному складу
+  if (!warehouseId) return false;
   return user?.assignedWarehouseIds.includes(warehouseId) ?? false;
 }
 
@@ -27,7 +28,7 @@ export function useIsAssignedToWarehouse(warehouseId: string | undefined): boole
 export function useHasWarehousePermission(
   all: PermissionName | PermissionName[],
   assigned: PermissionName | PermissionName[],
-  warehouseId: string | undefined,
+  warehouseId: string | null | undefined,
 ): boolean {
   const granted = useAuth().user?.permissions ?? [];
   const isAssigned = useIsAssignedToWarehouse(warehouseId);

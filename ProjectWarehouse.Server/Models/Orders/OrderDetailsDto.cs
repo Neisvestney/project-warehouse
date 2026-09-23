@@ -9,13 +9,17 @@ public class OrderDetailsDto
     public int Number { get; init; }
     public OrderType Type { get; init; }
     public OrderStatus Status { get; init; }
+
+    /// <summary>Exists on the marketplace but never passed through WMS — not assembled, deducts no stock.</summary>
+    public bool IsExternal { get; init; }
     public string? Notes { get; init; }
     public DateTime? PlannedShipmentAt { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime? AssembledAt { get; init; }
     public DateTime? ShippedAt { get; init; }
-    public Guid WarehouseId { get; init; }
-    public string WarehouseName { get; init; } = null!;
+    /// <summary>Null for an external order: it never entered a WMS warehouse.</summary>
+    public Guid? WarehouseId { get; init; }
+    public string? WarehouseName { get; init; }
     public Guid? CreatedById { get; init; }
     public string? CreatedByName { get; init; }
     public MarketplaceOrderDto? MarketplaceOrder { get; init; }

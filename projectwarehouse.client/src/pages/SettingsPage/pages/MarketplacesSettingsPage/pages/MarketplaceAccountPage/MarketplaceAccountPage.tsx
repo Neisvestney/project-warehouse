@@ -34,13 +34,20 @@ import AccountCardsTab from "./AccountCardsTab";
 import AccountSyncRunsTab from "./AccountSyncRunsTab";
 import EditAccountDialog from "./EditAccountDialog";
 import DeleteAccountDialog from "./DeleteAccountDialog";
+import BackfillSyncDialog from "./BackfillSyncDialog";
 import type {MarketplaceSyncScope, MarketplaceSyncStatus} from "@/api/types.gen";
 
 const TAB_KEYS = ["overview", "warehouses", "cards", "runs"] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
 // "orders" отсутствует намеренно: импорт заказов запускается со страницы FBS
-const SYNC_SCOPES: MarketplaceSyncScope[] = ["all", "warehouses", "cards", "ordersBackground"];
+const SYNC_SCOPES: MarketplaceSyncScope[] = [
+  "all",
+  "warehouses",
+  "cards",
+  "ordersBackground",
+  "ordersBackfill",
+];
 
 /**
  * Вкладки делят один URL, поэтому у них общие имена параметров. При смене вкладки чистим их все —
@@ -75,6 +82,7 @@ function MarketplaceAccountPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [syncMenuAnchor, setSyncMenuAnchor] = useState<HTMLElement | null>(null);
+  const [backfillOpen, setBackfillOpen] = useState(false);
 
   const canEdit = useHasPermission("integrations.edit");
   const canSync = useHasPermission("integrations.sync");
@@ -228,7 +236,9 @@ function MarketplaceAccountPage() {
               key={scope}
               onClick={() => {
                 setSyncMenuAnchor(null);
-                syncMutation.mutate({path: {id: account.id}, body: {scope}});
+                // единственный scope с параметрами — период спрашивается в отдельном окне
+                if (scope === "ordersBackfill") setBackfillOpen(true);
+                else syncMutation.mutate({path: {id: account.id}, body: {scope}});
               }}
             >
               {SYNC_SCOPE_LABELS[scope]}
@@ -271,6 +281,11 @@ function MarketplaceAccountPage() {
           accountId={account.id}
           accountName={account.name}
           onClose={() => setDeleteOpen(false)}
+        />
+        <BackfillSyncDialog
+          open={backfillOpen}
+          accountId={account.id}
+          onClose={() => setBackfillOpen(false)}
         />
       </Stack>
     </Box>

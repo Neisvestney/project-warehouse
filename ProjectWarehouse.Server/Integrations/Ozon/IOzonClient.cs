@@ -17,12 +17,19 @@ public interface IOzonClient
     /// <summary>Postings in <c>awaiting_deliver</c> — packed on Ozon's side, ready to be assembled here.</summary>
     IAsyncEnumerable<IReadOnlyList<ExternalPosting>> GetActivePostingsAsync(CancellationToken ct);
 
+    /// <summary>Postings of one scheme over a period; the year-long cap Ozon enforces is handled here.</summary>
+    IAsyncEnumerable<IReadOnlyList<ExternalPosting>> GetPostingsAsync(
+        ExternalPostingQuery query, CancellationToken ct);
+
     /// <summary>
     /// Postings Ozon no longer knows are <b>absent</b> from the result rather than reported; every
     /// failure throws.
     /// </summary>
     Task<IReadOnlyList<ExternalPostingStatus>> GetPostingStatusesAsync(
-        IReadOnlyList<string> postingNumbers, CancellationToken ct);
+        IReadOnlyList<string> postingNumbers, ExternalPostingScheme scheme, CancellationToken ct);
+
+    /// <summary>Creation date of the oldest posting of either scheme, or null when the account has none.</summary>
+    Task<DateTime?> GetEarliestPostingDateAsync(CancellationToken ct);
 
     Task<ExternalLabelDocument> GetPackageLabelAsync(IReadOnlyList<string> postingNumbers, CancellationToken ct);
 

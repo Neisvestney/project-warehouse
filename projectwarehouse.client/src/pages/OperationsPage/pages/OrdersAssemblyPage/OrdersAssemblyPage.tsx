@@ -187,7 +187,8 @@ function OrdersAssemblyPage() {
             orderId: order.id,
             taskId: task.id,
             task,
-            warehouseId: order.warehouseId,
+            // список сборки отдаёт только заказы в статусе Assembly, до которого внешние не доходят
+            warehouseId: order.warehouseId!,
             orderNumber: `#${order.number}`,
             postingNumber: order.marketplaceOrder?.postingNumber,
           });

@@ -45,6 +45,7 @@ import {
   marketplacesGetAccount,
   marketplacesGetAccounts,
   marketplacesGetAccountsShort,
+  marketplacesGetBackfillBounds,
   marketplacesGetCards,
   marketplacesGetOrderSyncTargets,
   marketplacesGetSyncRuns,
@@ -299,6 +300,9 @@ import type {
   MarketplacesGetAccountsShortData,
   MarketplacesGetAccountsShortError,
   MarketplacesGetAccountsShortResponse,
+  MarketplacesGetBackfillBoundsData,
+  MarketplacesGetBackfillBoundsError,
+  MarketplacesGetBackfillBoundsResponse,
   MarketplacesGetCardsData,
   MarketplacesGetCardsError,
   MarketplacesGetCardsResponse,
@@ -2258,7 +2262,9 @@ export const marketplacesTestConnectionMutation = (
  * Queues a sync and returns 202 immediately — poll the run for progress.
  *
  *     Body: `StartSyncRequest` — `scope` (`All`, `Warehouses`, `Cards`, `Orders`,
- * `OrdersBackground`).
+ * `OrdersBackground`, `OrdersBackfill`), plus `since`/`to`, which
+ * `OrdersBackfill` requires and every other scope rejects (422 `validationError` /
+ * `required`). `GET accounts/{id}/backfill-bounds` suggests a start for the period.
  * Answers 202 with `StartSyncResponse.syncRunId`; poll it through `GET sync-runs?ids=`.
  * Errors returned by this call:
  * * 404 marketplaceAccountNotFound
@@ -2299,6 +2305,41 @@ export const marketplacesStartSyncMutation = (
   };
   return mutationOptions;
 };
+
+export const marketplacesGetBackfillBoundsQueryKey = (
+  options: Options<MarketplacesGetBackfillBoundsData>,
+) => createQueryKey("marketplacesGetBackfillBounds", options);
+
+/**
+ * Where a history import could start, for the period fields of the sync dialog.
+ *
+ * Query params: `probeMarketplace` (default false). Without it only `firstOrderAt` is filled,
+ * straight from the database. With it the marketplace is walked backwards for its oldest posting,
+ * which costs several calls — so it sits behind an explicit action rather than a dialog opening.
+ * Errors: 404 `marketplaceAccountNotFound`, 422 `marketplaceOrdersNotSupported`,
+ * 422 `marketplaceCredentialsUnreadable`, 422 `marketplaceApiError`.
+ * Requires `integrations.sync`.
+ */
+export const marketplacesGetBackfillBoundsOptions = (
+  options: Options<MarketplacesGetBackfillBoundsData>,
+) =>
+  queryOptions<
+    MarketplacesGetBackfillBoundsResponse,
+    MarketplacesGetBackfillBoundsError,
+    MarketplacesGetBackfillBoundsResponse,
+    ReturnType<typeof marketplacesGetBackfillBoundsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await marketplacesGetBackfillBounds({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: marketplacesGetBackfillBoundsQueryKey(options),
+  });
 
 export const marketplacesGetSyncRunsQueryKey = (options: Options<MarketplacesGetSyncRunsData>) =>
   createQueryKey("marketplacesGetSyncRuns", options);
@@ -2873,7 +2914,10 @@ export const ordersGetAllQueryKey = (options?: Options<OrdersGetAllData>) =>
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
  * `warehouseId`, `type`, `status`, `marketplaceType`, `marketplaceAccountId`,
- * `marketplaceStatus`, `catalogItemId`, `tagIds`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * `marketplaceStatus`, `includeExternal` (default false), `catalogItemId`, `tagIds`,
+ * `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * External orders — imported from the marketplace, never assembled here — are left out unless
+ * `includeExternal` asks for them.
  * `catalogItemId` keeps orders that have a box component with that catalog item; `tagIds` keeps
  * orders carrying any of the tags.
  * Any of the three marketplace filters also excludes orders without a `MarketplaceOrder`, so they
@@ -2910,7 +2954,10 @@ export const ordersGetAllInfiniteQueryKey = (
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
  * `warehouseId`, `type`, `status`, `marketplaceType`, `marketplaceAccountId`,
- * `marketplaceStatus`, `catalogItemId`, `tagIds`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * `marketplaceStatus`, `includeExternal` (default false), `catalogItemId`, `tagIds`,
+ * `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * External orders — imported from the marketplace, never assembled here — are left out unless
+ * `includeExternal` asks for them.
  * `catalogItemId` keeps orders that have a box component with that catalog item; `tagIds` keeps
  * orders carrying any of the tags.
  * Any of the three marketplace filters also excludes orders without a `MarketplaceOrder`, so they

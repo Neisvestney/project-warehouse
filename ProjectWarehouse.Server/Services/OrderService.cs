@@ -35,6 +35,17 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
         return order;
     }
 
+    /// <summary>
+    /// An external order records something the marketplace did without WMS: there is no stock behind it and
+    /// nothing to assemble, so everything that would claim work on it is refused. Notes and tags stay editable.
+    /// </summary>
+    public static void EnsureNotExternal(Order order)
+    {
+        if (order.IsExternal)
+            throw new ValidationException("root", ErrorCode.OrderIsExternal,
+                "This order was imported from the marketplace and is not handled by WMS.");
+    }
+
     public async Task UpdateOrderAsync(Order order, UpdateOrderRequest request, CancellationToken ct = default)
     {
         order.Notes            = request.Notes;
@@ -53,6 +64,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
 
     public async Task TransitionOrderStatusAsync(Order order, OrderStatus targetStatus, CancellationToken ct = default)
     {
+        EnsureNotExternal(order);
         ValidateOrderTransition(order, targetStatus);
 
         if (order.Status == OrderStatus.Assembly && targetStatus == OrderStatus.Confirmed)
@@ -117,6 +129,8 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
 
     public async Task SelfAssignOrderAsync(Order order, Guid userId, CancellationToken ct = default)
     {
+        EnsureNotExternal(order);
+
         if (order.Status != OrderStatus.Confirmed)
             throw new ValidationException("root", ErrorCode.OrderNotConfirmed,
                 "Only Confirmed orders can be self-assigned.");
@@ -168,6 +182,8 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
 
     public async Task<OrderBox> AddBoxAsync(Order order, CreateOrderBoxRequest request, CancellationToken ct = default)
     {
+        EnsureNotExternal(order);
+
         if (order.Status is not (OrderStatus.Draft or OrderStatus.Confirmed or OrderStatus.Assembly))
             throw new ValidationException("root", ErrorCode.OrderInvalidStatusTransition,
                 "Boxes can only be added in Draft, Confirmed, or Assembly status.");
@@ -185,14 +201,18 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
         return box;
     }
 
-    public async Task UpdateBoxAsync(OrderBox box, UpdateOrderBoxRequest request, CancellationToken ct = default)
+    public async Task UpdateBoxAsync(Order order, OrderBox box, UpdateOrderBoxRequest request, CancellationToken ct = default)
     {
+        EnsureNotExternal(order);
+
         box.Label = request.Label;
         await db.SaveChangesAsync(ct);
     }
 
-    public async Task RemoveBoxAsync(OrderBox box, CancellationToken ct = default)
+    public async Task RemoveBoxAsync(Order order, OrderBox box, CancellationToken ct = default)
     {
+        EnsureNotExternal(order);
+
         if (box.Components.Any())
             throw new ValidationException("root", ErrorCode.ValidationError, "Cannot remove a non-empty box.");
 
@@ -201,8 +221,10 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
     }
 
     public async Task<OrderBoxComponent> UpsertBoxComponentAsync(
-        OrderBox box, Guid catalogItemId, int quantity, CancellationToken ct = default)
+        Order order, OrderBox box, Guid catalogItemId, int quantity, CancellationToken ct = default)
     {
+        EnsureNotExternal(order);
+
         var existing = box.Components.FirstOrDefault(c => c.CatalogItemId == catalogItemId);
         if (existing is not null)
         {
@@ -225,8 +247,10 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
         return component;
     }
 
-    public async Task RemoveBoxComponentAsync(OrderBoxComponent component, CancellationToken ct = default)
+    public async Task RemoveBoxComponentAsync(Order order, OrderBoxComponent component, CancellationToken ct = default)
     {
+        EnsureNotExternal(order);
+
         db.OrderBoxComponents.Remove(component);
         await db.SaveChangesAsync(ct);
     }
@@ -236,6 +260,8 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
     public async Task<AssemblyTask> CreateAssemblyTaskAsync(
         Order order, CreateAssemblyTaskRequest request, CancellationToken ct = default)
     {
+        EnsureNotExternal(order);
+
         if (order.Status != OrderStatus.Assembly)
             throw new ValidationException("root", ErrorCode.OrderNotAssembly,
                 "Assembly tasks can only be created when the order is in Assembly status.");
@@ -923,7 +949,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
             (OrderStatus.Shipped,   OrderStatus.Assembled)  => true,
             // No Fulfillments check needed here: Canceled is only reachable when none exist.
             (OrderStatus.Canceled,  OrderStatus.Draft)      => order.Type == OrderType.Direct,
-            (OrderStatus.Canceled,  OrderStatus.Confirmed)  => order.Type is OrderType.FBO or OrderType.FBS,
+            (OrderStatus.Canceled,  OrderStatus.Confirmed)  => order.Type is OrderType.FboSupply or OrderType.FBS,
             _                                               => false,
         };
 
