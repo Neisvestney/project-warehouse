@@ -65,6 +65,12 @@ public class OzonOptions
     public int LabelBatchSize { get; set; } = 100;
 
     /// <summary>
+    /// A failed label batch larger than this is halved and each half retried; at or below it the postings
+    /// are retried one at a time. Keeps a single bad posting from costing a request per posting in the batch.
+    /// </summary>
+    public int LabelSplitThreshold { get; set; } = 10;
+
+    /// <summary>
     /// How long a label task is waited on before the batch is reported as not ready. Ozon documents
     /// 45–60 seconds after packing, but a task raised for an already packed posting completes in a
     /// couple of seconds — so the wait is short and the caller retries rather than holding a request open.

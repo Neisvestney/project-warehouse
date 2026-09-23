@@ -164,10 +164,22 @@ public class MarketplaceLabelService(
         {
             document = await provider.FetchLabelDocumentAsync(credentials, chunk, ct);
         }
-        catch (MarketplaceApiException) when (allowSplit && chunk.Count > 1)
+        // Rejected credentials fail every posting alike — marking them not ready would bury the real cause
+        catch (MarketplaceApiException ex) when (!ex.IsCredentialsRejected)
         {
-            await RetryIndividuallyAsync(provider, credentials, chunk, byPostingNumber, documents,
-                failures, userId, ct);
+            if (allowSplit && chunk.Count > 1)
+            {
+                logger.LogWarning(ex, "Ozon label request for {PostingCount} posting(s) failed with status {Status}; splitting",
+                    chunk.Count, ex.StatusCode);
+                await RetrySplitAsync(provider, credentials, chunk, byPostingNumber, documents,
+                    failures, userId, ct);
+                return;
+            }
+
+            logger.LogError(ex, "Ozon label request for {PostingNumbers} failed with status {Status}",
+                string.Join(", ", chunk), ex.StatusCode);
+            await MarkNotReadyAsync([.. chunk.Select(p => new ExternalLabelFailure(p, ex.Message))],
+                byPostingNumber, failures, ct);
             return;
         }
 
@@ -176,7 +188,7 @@ public class MarketplaceLabelService(
             // A verdict on the whole batch with no per-posting detail — the marketplace never started the
             // job, or did not finish it in time. Splitting is the only way to tell a stuck posting apart.
             if (allowSplit && chunk.Count > 1)
-                await RetryIndividuallyAsync(provider, credentials, chunk, byPostingNumber, documents,
+                await RetrySplitAsync(provider, credentials, chunk, byPostingNumber, documents,
                     failures, userId, ct);
             else
                 await MarkNotReadyAsync(chunk, byPostingNumber, failures, ct);
@@ -203,12 +215,12 @@ public class MarketplaceLabelService(
             var pageCount = LabelPdfComposer.PageCount(document.Content);
             if (pageCount != printed.Count)
             {
-                // Page count is the cheap check. If it does not hold, retrying one at a time costs HTTP
+                // Page count is the cheap check. If it does not hold, retrying in smaller chunks costs HTTP
                 // calls; guessing costs mislabelled boxes.
                 logger.LogWarning(
-                    "Ozon returned {PageCount} label page(s) for {PostingCount} printed posting(s); refetching individually",
+                    "Ozon returned {PageCount} label page(s) for {PostingCount} printed posting(s); refetching in smaller chunks",
                     pageCount, printed.Count);
-                await RetryIndividuallyAsync(provider, credentials, printed, byPostingNumber, documents,
+                await RetrySplitAsync(provider, credentials, printed, byPostingNumber, documents,
                     failures, userId, ct);
                 return;
             }
@@ -228,7 +240,7 @@ public class MarketplaceLabelService(
                     return;
 
                 default:
-                    await RetryIndividuallyAsync(provider, credentials, printed, byPostingNumber, documents,
+                    await RetrySplitAsync(provider, credentials, printed, byPostingNumber, documents,
                         failures, userId, ct);
                     return;
             }
@@ -251,7 +263,7 @@ public class MarketplaceLabelService(
     /// Postings whose barcode is unknown — imported before the barcode was stored, or never packed —
     /// keep their positional page among the ones no barcode claimed. A barcode that is known but found
     /// on no page, or on a page another posting already claimed, fails the whole chunk: one wrong page
-    /// means one wrong box, and refetching individually is the cheap way out.
+    /// means one wrong box, and refetching in smaller chunks is the cheap way out.
     /// </remarks>
     private LabelMatch MatchByBarcode(IReadOnlyList<string> chunk,
         IReadOnlyDictionary<string, Order> byPostingNumber, IReadOnlyList<byte[]> pages,
@@ -273,7 +285,7 @@ public class MarketplaceLabelService(
         var pageTexts = pages.Select(LabelTextReader.ReadText).ToList();
 
         // Not one page gave up its text. That is the reader failing to understand the file rather than a
-        // page landing on the wrong posting, and refetching one at a time would only hide it behind a
+        // page landing on the wrong posting, and refetching in smaller chunks would only hide it behind a
         // hundred extra calls. Refusing to print is what makes a format change visible on the first batch.
         if (pageTexts.TrueForAll(t => string.IsNullOrWhiteSpace(t)))
             return LabelMatch.Unreadable;
@@ -293,7 +305,7 @@ public class MarketplaceLabelService(
             if (hits.Count != 1)
             {
                 logger.LogWarning(
-                    "Label page for {PostingNumber} matched {HitCount} page(s) by barcode; refetching individually",
+                    "Label page for {PostingNumber} matched {HitCount} page(s) by barcode; refetching in smaller chunks",
                     chunk[i], hits.Count);
                 return LabelMatch.Mismatch;
             }
@@ -310,7 +322,7 @@ public class MarketplaceLabelService(
             // cannot happen while pages and postings are equal in number and a match takes exactly one
             // page — but the invariant spans three places, and guessing here costs mislabelled boxes
             logger.LogWarning(
-                "{Unclaimed} posting(s) without a barcode page but {Spare} page(s) left; refetching individually",
+                "{Unclaimed} posting(s) without a barcode page but {Spare} page(s) left; refetching in smaller chunks",
                 unclaimed, spare.Count);
             return LabelMatch.Mismatch;
         }
@@ -334,10 +346,23 @@ public class MarketplaceLabelService(
         Unreadable,
     }
 
-    private async Task RetryIndividuallyAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
+    private async Task RetrySplitAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
         IReadOnlyList<string> chunk, IReadOnlyDictionary<string, Order> byPostingNumber,
         Dictionary<Guid, byte[]> documents, LabelFailures failures, Guid? userId, CancellationToken ct)
     {
+        // Halving pays off when one or two postings sink the batch: a handful of requests instead of one
+        // per posting. When the whole batch is stuck every half fails too and it still ends one at a time,
+        // with the halving requests on top — an accepted cost.
+        if (chunk.Count > Math.Max(1, _options.Ozon.LabelSplitThreshold))
+        {
+            var half = (chunk.Count + 1) / 2;
+            await FetchChunkAsync(provider, credentials, [.. chunk.Take(half)], byPostingNumber, documents,
+                failures, userId, allowSplit: true, ct);
+            await FetchChunkAsync(provider, credentials, [.. chunk.Skip(half)], byPostingNumber, documents,
+                failures, userId, allowSplit: true, ct);
+            return;
+        }
+
         foreach (var postingNumber in chunk)
             await FetchChunkAsync(provider, credentials, [postingNumber], byPostingNumber, documents,
                 failures, userId, allowSplit: false, ct);

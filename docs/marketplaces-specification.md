@@ -966,6 +966,7 @@ Quartz регистрируется с in-memory хранилищем задач
     "TimeoutSeconds": 60,
     "PageDelayMs": 200,
     "LabelBatchSize": 100,
+    "LabelSplitThreshold": 10,
     "LabelPollAttempts": 6,
     "LabelPollDelayMs": 1500,
     "FboImportOverlapHours": 6
@@ -990,6 +991,8 @@ Quartz регистрируется с in-memory хранилищем задач
 `LabelPollAttempts` и `LabelPollDelayMs` задают опрос задания на формирование этикеток — см. [«Неготовность этикетки»](#неготовность-этикетки--не-ошибка).
 
 `LabelBatchSize` — сколько отправлений уходит в одно задание на этикетки. Потолок Ozon — 1000 (`maxItems` на `posting_numbers`); значение по умолчанию держится заметно ниже, потому что методы этикеток в бете, а задание готово не раньше самого медленного отправления в нём.
+
+`LabelSplitThreshold` — граница перезапроса неудавшейся пачки: больше неё пачка делится пополам, не больше — перезапрашивается по одному. См. [«Получение этикеток»](marketplaces-orders-specification.md#получение-этикеток).
 
 `FboImportOverlapHours` — единственный регулятор стоимости фонового импорта FBO, и она линейна по нему: см. [«Докуда дочитали»](marketplaces-orders-specification.md#докуда-дочитали).
 
