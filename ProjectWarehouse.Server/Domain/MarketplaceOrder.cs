@@ -54,6 +54,13 @@ public class MarketplaceOrder
     /// <summary>How many packages the marketplace expects. A hint for the packer, not a box count in WMS.</summary>
     public int MultiBoxQty { get; set; } = 1;
 
+    /// <summary>
+    /// Barcode printed on the marketplace label, which is what ties a label page back to this posting.
+    /// Ozon states it only while the posting is <c>awaiting_deliver</c> and blanks it afterwards, so once
+    /// stored it is never cleared — a label reprinted later still has to be matched.
+    /// </summary>
+    public string? ScanitBarcode { get; set; }
+
     public Guid? LabelFileId { get; set; }
     public DataFile? LabelFile { get; set; }
     public DateTime? LabelFetchedAt { get; set; }

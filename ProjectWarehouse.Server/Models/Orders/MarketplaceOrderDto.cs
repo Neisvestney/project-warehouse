@@ -31,6 +31,9 @@ public class MarketplaceOrderDto
     public string? DeliveryMethodName { get; init; }
     public int MultiBoxQty { get; init; }
 
+    /// <summary>Barcode printed on the marketplace label. Null until the posting has been packed.</summary>
+    public string? ScanitBarcode { get; init; }
+
     /// <summary>Set once the label has been printed; downloadable through /api/files/{id}/content.</summary>
     public Guid? LabelFileId { get; init; }
     public DateTime? LabelFetchedAt { get; init; }

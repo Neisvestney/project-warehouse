@@ -12,9 +12,16 @@ namespace ProjectWarehouse.Server.Integrations.Ozon;
 
 public class OzonClient(
     IOzonApiClient api,
+    IHttpClientFactory httpClients,
     IOptions<MarketplacesOptions> options,
     ILogger<OzonClient> logger) : IOzonClient
 {
+    /// <summary>Carries no Ozon credentials: the label file is served from a public CDN, not the API.</summary>
+    public const string LabelDownloadClientName = "ozon-label-download";
+
+    /// <summary>The only label task type seen so far; see <see cref="GetPackageLabelAsync"/>.</summary>
+    private const string SmallLabel = "small_label";
+
     // spec caps: /v2/warehouse/list rejects limit > 200; /v3/product/list allows up to 1000
     private const int WarehousePageSize = 200;
     private const int CardPageSize = 200;
@@ -463,50 +470,65 @@ public class OzonClient(
             ? postingNumber[..dash]
             : postingNumber;
 
+    /// <summary>
+    /// Two calls: /v3/…/package-label/create raises an asynchronous task, /v2/…/package-label/get reports
+    /// its progress and finally hands over a link to the file.
+    /// </summary>
+    /// <remarks>
+    /// Creating a task twice for the same posting is idempotent — Ozon answers with the task it already
+    /// has — so an unfinished task needs no bookkeeping here: the next call picks it back up.
+    /// </remarks>
     public async Task<ExternalLabelDocument> GetPackageLabelAsync(
         IReadOnlyList<string> postingNumbers, CancellationToken ct)
     {
-        using var response = await api.PostingAPI_PostingFBSPackageLabelAsync(
-            new PostingPostingFBSPackageLabelRequest { Posting_number = [.. postingNumbers] }, ct);
+        var created = await api.PostingFbsPackageLabelCreateAsync(
+            new PostingFbsPackageLabelCreateRequest { Posting_numbers = [.. postingNumbers] }, ct);
 
-        using var buffer = new MemoryStream();
-        await response.Stream.CopyToAsync(buffer, ct);
-        var bytes = buffer.ToArray();
-
-        return ReadLabelPayload(bytes, postingNumbers);
-    }
-
-    /// <summary>
-    /// The spec declares this response as `application/pdf` yet types it as a JSON envelope, so neither
-    /// declaration is trusted: the bytes decide. A 200 carrying nothing is Ozon's cheapest way of saying
-    /// "not yet".
-    /// </summary>
-    private ExternalLabelDocument ReadLabelPayload(byte[] bytes, IReadOnlyList<string> postingNumbers)
-    {
-        if (bytes.Length == 0)
-            return NotReady();
-
-        if (bytes.Length >= 4 && bytes[0] == '%' && bytes[1] == 'P' && bytes[2] == 'D' && bytes[3] == 'F')
-            return new ExternalLabelDocument(true, postingNumbers, "application/pdf", bytes);
-
-        var text = Encoding.UTF8.GetString(bytes);
-        if (text.TrimStart().StartsWith('{'))
+        var tasks = created.Tasks ?? [];
+        if (tasks.Count == 0 || tasks[0].Task_id is not { } taskId)
         {
-            var envelope = JsonSerializer.Deserialize<LabelEnvelope>(text, LabelEnvelopeOptions);
-
-            if (!string.IsNullOrWhiteSpace(envelope?.File_content))
-                return new ExternalLabelDocument(
-                    true,
-                    postingNumbers,
-                    envelope.Content_type ?? "application/pdf",
-                    DecodeFileContent(envelope.File_content));
-
-            if (OzonLabelHeuristics.LooksNotReady(text))
-                return NotReady();
+            logger.LogInformation("Ozon raised no label task for {Count} posting(s)", postingNumbers.Count);
+            return NotReady();
         }
 
-        throw new MarketplaceApiException(
-            "Ozon returned an unrecognized label payload.", null, Truncate(text));
+        // Only small_label has been seen in the wild. Anything else may lay the label out differently,
+        // which would move the article overlay and break the scanit read — so it is worth hearing about.
+        foreach (var task in tasks.Where(t => t.Task_type != SmallLabel))
+            logger.LogWarning("Ozon raised a {TaskType} label task ({TaskId}) for {Count} posting(s)",
+                task.Task_type, task.Task_id, postingNumbers.Count);
+
+        if (tasks.Count > 1)
+            logger.LogWarning("Ozon raised {TaskCount} label tasks for {Count} posting(s); using {TaskId}",
+                tasks.Count, postingNumbers.Count, taskId);
+
+        var attempts = Math.Max(1, _options.LabelPollAttempts);
+        var pollDelay = Math.Max(0, _options.LabelPollDelayMs);
+
+        for (var attempt = 1; attempt <= attempts; attempt++)
+        {
+            var state = await api.PostingFbsPackageLabelGetAsync(
+                new PostingFbsPackageLabelGetRequest { Task_id = taskId }, ct);
+
+            foreach (var unprinted in state.Status?.Unprinted_postings ?? [])
+                logger.LogWarning("Ozon could not produce a label for {PostingNumber}: {Message}",
+                    unprinted.Posting_number, unprinted.Message);
+
+            switch (state.Status?.Code)
+            {
+                case "completed":
+                    return await DownloadAsync(state, postingNumbers, ct);
+
+                case "error":
+                    throw new MarketplaceApiException(
+                        "Ozon failed to produce the labels.", null,
+                        $"{state.Error?.Code}: {state.Error?.Message}");
+            }
+
+            if (attempt < attempts)
+                await Task.Delay(pollDelay, ct);
+        }
+
+        return NotReady();
 
         ExternalLabelDocument NotReady()
         {
@@ -515,25 +537,43 @@ public class OzonClient(
         }
     }
 
-    private byte[] DecodeFileContent(string fileContent)
+    /// <summary>
+    /// The file sits on a public CDN under a temporary path, so it is fetched without credentials and
+    /// right away. Its Content-Type comes back as <c>application/octet-stream</c> and is not believed.
+    /// </summary>
+    private async Task<ExternalLabelDocument> DownloadAsync(
+        PostingFbsPackageLabelGetResponse state, IReadOnlyList<string> postingNumbers, CancellationToken ct)
     {
-        try
-        {
-            return Convert.FromBase64String(fileContent);
-        }
-        catch (FormatException)
-        {
-            // the spec's own example inlines a raw PDF into this string rather than base64
-            logger.LogWarning("Ozon label file_content is not base64; treating it as raw bytes");
-            return Encoding.UTF8.GetBytes(fileContent);
-        }
+        if (string.IsNullOrWhiteSpace(state.File_url))
+            throw new MarketplaceApiException(
+                "Ozon reported the labels as ready without a file link.", null, null);
+
+        using var http = httpClients.CreateClient(LabelDownloadClientName);
+        using var response = await http.GetAsync(state.File_url, ct);
+
+        if (!response.IsSuccessStatusCode)
+            throw new MarketplaceApiException(
+                "Ozon's label file could not be downloaded.", (int)response.StatusCode,
+                Truncate(await response.Content.ReadAsStringAsync(ct)));
+
+        var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+        if (bytes.Length < 4 || bytes[0] != '%' || bytes[1] != 'P' || bytes[2] != 'D' || bytes[3] != 'F')
+            throw new MarketplaceApiException(
+                "Ozon's label file is not a PDF.", null, Truncate(Encoding.UTF8.GetString(bytes)));
+
+        logger.LogInformation(
+            "Ozon produced labels for {Printed}/{Requested} posting(s)",
+            state.Status?.Printed_postings_count, state.Status?.Postings_count);
+
+        var unprinted = (state.Status?.Unprinted_postings ?? [])
+            .Where(u => !string.IsNullOrWhiteSpace(u.Posting_number))
+            .Select(u => new ExternalLabelFailure(u.Posting_number!, u.Message))
+            .ToList();
+
+        return new ExternalLabelDocument(true, postingNumbers, "application/pdf", bytes, unprinted);
     }
 
     private static string Truncate(string text) => text[..Math.Min(text.Length, 2000)];
-
-    private static readonly JsonSerializerOptions LabelEnvelopeOptions = new() { PropertyNameCaseInsensitive = true };
-
-    private sealed record LabelEnvelope(string? File_content, string? File_name, string? Content_type);
 
     private ExternalPosting? ToExternalPosting(PostingFbsUnfulfilledListResponsePostings posting)
     {
@@ -558,8 +598,12 @@ public class OzonClient(
             ToCancellation(posting.Cancellation),
             (posting.Products ?? [])
                 .Select(p => ToExternalPostingItem(p, financials))
-                .ToList());
+                .ToList(),
+            Scanit: NullIfBlank(posting.Scanit));
     }
+
+    /// <summary>Ozon writes an absent scanit as an empty string, which is a value the domain has no use for.</summary>
+    private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
     /// <summary>
     /// An FBO posting has no seller warehouse, no carrier and no packages of its own: Ozon ships it from
@@ -618,7 +662,8 @@ public class OzonClient(
             ToCancellation(posting.Cancellation),
             (posting.Products ?? [])
                 .Select(p => ToExternalPostingItem(p, financials))
-                .ToList());
+                .ToList(),
+            Scanit: NullIfBlank(posting.Scanit));
     }
 
     // financial_data indexes products by product_id, which is the same number products[] calls sku

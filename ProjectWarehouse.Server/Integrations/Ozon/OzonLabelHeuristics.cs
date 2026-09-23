@@ -13,6 +13,8 @@ internal static class OzonLabelHeuristics
         "are not ready",
         "not ready",
         "не готов",
+        // how /v3/posting/fbs/package-label/create rejects a posting it will not print a label for
+        "NO_POSTINGS_FOR_BATCH_DOWNLOAD",
     ];
 
     public static bool LooksNotReady(string? body) =>

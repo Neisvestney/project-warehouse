@@ -274,6 +274,7 @@ public class MarketplaceOrderSyncService(
                 TrackingNumber = posting.TrackingNumber,
                 DeliveryMethodName = posting.DeliveryMethodName,
                 MultiBoxQty = posting.MultiBoxQty,
+                ScanitBarcode = posting.Scanit,
                 StatusSyncedAt = now,
                 SyncedAt = now,
             },
@@ -295,6 +296,7 @@ public class MarketplaceOrderSyncService(
             || known.TrackingNumber != posting.TrackingNumber
             || known.DeliveryMethodName != posting.DeliveryMethodName
             || known.MultiBoxQty != posting.MultiBoxQty
+            || (posting.Scanit is not null && known.ScanitBarcode != posting.Scanit)
             || known.ExternalOrderNumber != posting.ExternalOrderNumber;
 
         changed |= ApplyCancellation(known, posting.Cancellation);
@@ -311,6 +313,8 @@ public class MarketplaceOrderSyncService(
         known.TrackingNumber = posting.TrackingNumber;
         known.DeliveryMethodName = posting.DeliveryMethodName;
         known.MultiBoxQty = posting.MultiBoxQty;
+        // Ozon blanks the barcode once the posting leaves awaiting_deliver; the stored one outlives that
+        known.ScanitBarcode = posting.Scanit ?? known.ScanitBarcode;
         known.ExternalOrderNumber = posting.ExternalOrderNumber;
 
         var now = DateTime.UtcNow;

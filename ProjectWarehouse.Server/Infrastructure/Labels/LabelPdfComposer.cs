@@ -9,7 +9,7 @@ namespace ProjectWarehouse.Server.Infrastructure.Labels;
 
 /// <summary>
 /// PDF surgery for marketplace labels: slice a batch into per-posting documents, stamp WMS articles
-/// into the top-right corner, merge the result for printing. No database, no HTTP.
+/// into a configured page corner, merge the result for printing. No database, no HTTP.
 /// </summary>
 public class LabelPdfComposer(IOptions<MarketplacesOptions> options)
 {
@@ -53,7 +53,8 @@ public class LabelPdfComposer(IOptions<MarketplacesOptions> options)
     }
 
     /// <summary>
-    /// Writes the article lines into the top-right corner of every page in the document.
+    /// Writes the article lines into the corner named by <see cref="LabelsOptions.TextCorner"/> on every
+    /// page in the document.
     /// </summary>
     /// <remarks>
     /// No rotation: Ozon already hands the label over rotated, so the page arrives in the orientation it
@@ -70,14 +71,29 @@ public class LabelPdfComposer(IOptions<MarketplacesOptions> options)
         var font = new XFont(EmbeddedLabelFontResolver.FamilyName, _options.FontSize);
         var lineHeight = _options.FontSize * 1.25;
 
+        var corner = _options.TextCorner;
+        var atTop = corner is LabelTextCorner.TopLeft or LabelTextCorner.TopRight;
+        var atLeft = corner is LabelTextCorner.TopLeft or LabelTextCorner.BottomLeft;
+        var format = atTop
+            ? (atLeft ? XStringFormats.TopLeft : XStringFormats.TopRight)
+            : (atLeft ? XStringFormats.BottomLeft : XStringFormats.BottomRight);
+
         foreach (var page in document.Pages)
         {
             using var gfx = XGraphics.FromPdfPage(page, XGraphicsPdfPageOptions.Append);
 
-            var right = page.Width.Point - _options.MarginX;
+            var x = atLeft ? _options.MarginX : page.Width.Point - _options.MarginX;
+            var edge = atTop ? _options.MarginY : page.Height.Point - _options.MarginY;
+
+            // Anchored at the bottom the block grows upwards, so the first article keeps the outermost
+            // line and the reading order stays the same in every corner.
             for (var i = 0; i < lines.Count; i++)
-                gfx.DrawString(lines[i], font, XBrushes.Black,
-                    right, _options.MarginY + i * lineHeight, XStringFormats.TopRight);
+            {
+                var y = atTop
+                    ? edge + i * lineHeight
+                    : edge - (lines.Count - 1 - i) * lineHeight;
+                gfx.DrawString(lines[i], font, XBrushes.Black, x, y, format);
+            }
         }
 
         return Save(document);

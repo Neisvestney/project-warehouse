@@ -21,7 +21,7 @@ import MarketplaceAccountChip from "@/components/marketplace/MarketplaceAccountC
 import InfoRow from "@/components/InfoRow";
 import UserChip from "@/components/shared/UserChip";
 import WarehouseChip from "@/components/shared/WarehouseChip";
-import {formatPostingNumber} from "@/utils/postingNumberUtils";
+import {formatPostingNumber, formatScanitBarcode} from "@/utils/postingNumberUtils";
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -186,6 +186,16 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
               </Box>
             }
           />
+          {order.marketplaceOrder.scanitBarcode && (
+            <InfoRow
+              label="Штрихкод отправления"
+              value={
+                <Box component="span" sx={{fontFamily: "monospace"}}>
+                  {formatScanitBarcode(order.marketplaceOrder.scanitBarcode)}
+                </Box>
+              }
+            />
+          )}
 
           <InfoRow
             label="Магазин"

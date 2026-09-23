@@ -7,12 +7,11 @@
     "/v4/posting/fbs/unfulfilled/list",
     "/v4/posting/fbs/list",
     "/v3/posting/fbs/get",
-    "/v2/posting/fbs/package-label",
+    "/v3/posting/fbs/package-label/create",
+    "/v2/posting/fbs/package-label/get",
     "/v3/posting/fbo/list"
   ],
-  "binaryResponses": [
-    "/v2/posting/fbs/package-label"
-  ],
+  "binaryResponses": [],
   "reserved": [
     "/v2/products/stocks",
     "/v2/product/info/stocks-by-warehouse/fbs"

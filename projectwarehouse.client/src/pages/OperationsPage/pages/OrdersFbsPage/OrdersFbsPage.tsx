@@ -4,7 +4,7 @@ import {useDownloadLabelsAction} from "@/components/orders/marketplace/useDownlo
 import MarketplaceOrderStatusChip from "@/components/orders/marketplace/MarketplaceOrderStatusChip";
 import SyncOrdersButton from "@/components/orders/marketplace/SyncOrdersButton";
 import {useHasPermission} from "@/hooks/usePermission";
-import {formatPostingNumber} from "@/utils/postingNumberUtils";
+import {formatPostingNumber, formatScanitBarcode} from "@/utils/postingNumberUtils";
 import {Typography} from "@mui/material";
 
 const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
@@ -18,9 +18,16 @@ const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
     label: "Номер отправления",
     align: "right",
     render: (order) => (
-      <Typography variant="body2" sx={{fontFamily: "monospace"}}>
-        {formatPostingNumber(order.marketplaceOrder?.postingNumber) ?? "—"}
-      </Typography>
+      <>
+        <Typography variant="body2" sx={{fontFamily: "monospace"}}>
+          {formatPostingNumber(order.marketplaceOrder?.postingNumber) ?? "—"}
+        </Typography>
+        {order.marketplaceOrder?.scanitBarcode && (
+          <Typography variant="caption" component="div" sx={{fontFamily: "monospace"}}>
+            {formatScanitBarcode(order.marketplaceOrder.scanitBarcode)}
+          </Typography>
+        )}
+      </>
     ),
   },
 ];

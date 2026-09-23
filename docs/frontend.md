@@ -208,14 +208,22 @@ if (query.isError)
 ### Номер отправления
 
 `formatPostingNumber(postingNumber)` from `@/utils/postingNumberUtils` returns a `ReactNode` where the last 4
-digits of the first segment are bold and slightly larger — that's the part warehouse staff actually reads off a
-label. `0132298262-0184-1` → `013229**8262**-0184-1`, `43468002-0359-1` → `4346**8002**-0359-1`, `1234567890` →
-`123456**7890**`. Strings that don't start with at least 4 digits are returned unchanged; `null`/`undefined`/`""`
-give `null`.
+digits of the first segment sit on a bold inverted plate (`text.primary` background, `background.paper` text) —
+that's the part warehouse staff actually reads off a label. `0132298262-0184-1` → `013229**8262**-0184-1`,
+`43468002-0359-1` → `4346**8002**-0359-1`, `1234567890` → `123456**7890**`. Strings that don't start with at least
+4 digits are returned unchanged; `null`/`undefined`/`""` give `null`.
 
 Used everywhere a posting number is rendered: the `postingNumber` extra column in `OrdersFbsPage`, the
 **Отправление** row in `OrderMetaSection`, and the failure list in `SkippedOrdersList` (there it sits inside the
-existing `<b>`, so the whole number stays bold and the 4 digits only gain the size bump).
+existing `<b>`, so the whole number stays bold and the 4 digits keep the plate).
+
+`formatScanitBarcode(scanitBarcode)` from the same module formats the Ozon shipment barcode (`scanitBarcode`,
+`ii` + 11 digits) with the same highlight plate, applied to the last 4 digits of the whole string:
+`ii50082087036` → `ii5008208**7036**`. Strings that don't end with 4 digits are returned unchanged;
+`null`/`undefined`/`""` give `null`. The barcode is filled only once a posting reaches `awaiting_deliver`, so
+both call sites skip it when empty: the **Штрихкод отправления** row in `OrderMetaSection` (right after
+**Отправление**, monospace) and a second `caption`-sized monospace line under the posting number in the
+`postingNumber` column of `OrdersFbsPage`.
 
 ### Resolving catalog ids
 

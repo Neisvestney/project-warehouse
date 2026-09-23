@@ -984,6 +984,16 @@ public class OrdersController(
                     ["count"] = bundle.NotAwaitingDeliverPostingNumbers.Count,
                 });
 
+        if (bundle.UnreadablePostingNumbers.Count > 0)
+            return Problem(AppProblems.Root(StatusCodes.Status409Conflict,
+                ErrorCode.MarketplaceLabelFormatChanged,
+                "The marketplace label format has changed and a label can no longer be matched to its posting.",
+                new Dictionary<string, object>
+                {
+                    ["postingNumbers"] = bundle.UnreadablePostingNumbers,
+                    ["count"] = bundle.UnreadablePostingNumbers.Count,
+                }));
+
         if (bundle.NotReadyPostingNumbers.Count > 0)
             // count travels separately: the client interpolates a scalar, an array does not pluralize
             return Problem(AppProblems.Root(StatusCodes.Status409Conflict, ErrorCode.MarketplaceLabelNotReady,
