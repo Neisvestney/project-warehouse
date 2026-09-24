@@ -26,6 +26,7 @@ public class OzonClient(
     private const int WarehousePageSize = 200;
     private const int CardPageSize = 200;
     private const int PostingPageSize = 100;
+    private const int ReturnPageSize = 500;
 
     /// <summary>Spec cap on <c>filter.order_numbers</c> of /v4/posting/fbs/list.</summary>
     private const int OrderNumberBatchSize = 100;
@@ -40,6 +41,12 @@ public class OzonClient(
     private const string AwaitingDeliver = "awaiting_deliver";
 
     private const string AwaitingPackaging = "awaiting_packaging";
+
+    /// <summary>Return states in which the item never went back: cancelled by the buyer or rejected.</summary>
+    private static readonly HashSet<string> CancelledReturnStatuses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Cancelled", "Rejected", "CrmRejected", "CancelledDisputeNotOpen",
+    };
 
     private readonly OzonOptions _options = options.Value.Ozon;
 
@@ -197,6 +204,54 @@ public class OzonClient(
                 cursor = page.Cursor;
             } while (!string.IsNullOrEmpty(cursor));
         }
+    }
+
+    public async IAsyncEnumerable<IReadOnlyList<ExternalReturn>> GetReturnsAsync(
+        ExternalReturnQuery query, [EnumeratorCancellation] CancellationToken ct)
+    {
+        // unlike postings, the period is not capped, so a multi-year history is asked for in one go
+        var filter = ToReturnsFilter(query);
+        long? lastId = null;
+
+        while (true)
+        {
+            var response = await api.ReturnsListAsync(
+                new V1GetReturnsListRequest { Limit = ReturnPageSize, Last_id = lastId, Filter = filter }, ct);
+
+            var items = response.Returns ?? [];
+            var returns = items.Select(ToExternalReturn).OfType<ExternalReturn>().ToList();
+
+            if (returns.Count > 0)
+                yield return returns;
+
+            lastId = items.LastOrDefault()?.Id;
+            if (response.Has_next != true || lastId is null)
+                yield break;
+
+            await DelayBetweenPagesAsync(ct);
+        }
+    }
+
+    /// <summary>Exactly one date filter or none — Ozon rejects a request carrying two.</summary>
+    private static GetReturnsListRequestFilter ToReturnsFilter(ExternalReturnQuery query)
+    {
+        var filter = new GetReturnsListRequestFilter
+        {
+            Compensation_status_id = (int?)query.CompensationStatus,
+        };
+
+        if (query is not { Since: { } since, To: { } to })
+            return filter;
+
+        var from = new DateTimeOffset(DateTime.SpecifyKind(since, DateTimeKind.Utc));
+        var till = new DateTimeOffset(DateTime.SpecifyKind(to, DateTimeKind.Utc));
+
+        if (query.DateKind == ExternalReturnDateKind.Returned)
+            filter.Logistic_return_date = new V1TimeRange_return_date { Time_from = from, Time_to = till };
+        else
+            filter.Visual_status_change_moment = new V1TimeRange_visual_status { Time_from = from, Time_to = till };
+
+        return filter;
     }
 
     public async Task<DateTime?> GetEarliestPostingDateAsync(CancellationToken ct)
@@ -836,6 +891,96 @@ public class OzonClient(
             default:
                 logger.LogWarning("Ozon returned an unknown cancellation type {OzonCancellationType}", type);
                 return MarketplaceCancellationType.Unknown;
+        }
+    }
+
+    private ExternalReturn? ToExternalReturn(GetReturnsListResponseReturnsItem item)
+    {
+        if (item.Id is not { } id || Trim(item.Posting_number) is not { } postingNumber)
+        {
+            logger.LogWarning("Ozon returned a return without an id or posting number, id {OzonReturnId}", item.Id);
+            return null;
+        }
+
+        var rawScheme = Trim(item.Schema);
+        var rawKind = Trim(item.Type);
+        var compensationId = item.Compensation_status?.Status?.Id;
+        var rawStatus = Trim(item.Visual?.Status?.Sys_name);
+
+        return new ExternalReturn(
+            id.ToString(CultureInfo.InvariantCulture),
+            postingNumber,
+            item.Product?.Sku?.ToString(CultureInfo.InvariantCulture),
+            item.Product?.Offer_id ?? "",
+            ToReturnScheme(rawScheme),
+            rawScheme,
+            ToReturnKind(rawKind),
+            rawKind,
+            // one record is one exemplar, so a missing quantity still means a single unit
+            item.Product?.Quantity ?? 1,
+            ToMoney(item.Product?.Price?.Price),
+            Trim(item.Product?.Price?.Currency_code),
+            Trim(item.Return_reason_name),
+            rawStatus,
+            Trim(item.Visual?.Status?.Display_name),
+            rawStatus is not null && CancelledReturnStatuses.Contains(rawStatus),
+            item.Visual?.Change_moment?.UtcDateTime,
+            item.Logistic?.Return_date?.UtcDateTime,
+            item.Logistic?.Final_moment?.UtcDateTime,
+            ToCompensationStatus(compensationId),
+            compensationId is > 0 ? item.Compensation_status?.Change_moment?.UtcDateTime : null,
+            item.Source_id?.ToString(CultureInfo.InvariantCulture),
+            item.Exemplars?.FirstOrDefault()?.Id?.ToString(CultureInfo.InvariantCulture));
+    }
+
+    /// <summary>Ozon spells the scheme in mixed case — <c>Fbs</c>, <c>FBO</c> — so it is compared case-insensitively.</summary>
+    private MarketplaceReturnScheme ToReturnScheme(string? schema)
+    {
+        switch (schema?.ToLowerInvariant())
+        {
+            case "fbs":
+                return MarketplaceReturnScheme.Fbs;
+            case "fbo":
+                return MarketplaceReturnScheme.Fbo;
+            default:
+                logger.LogWarning("Ozon returned an unknown return schema {OzonReturnSchema}", schema ?? "<null>");
+                return MarketplaceReturnScheme.Unknown;
+        }
+    }
+
+    /// <summary>Ozon return types collapsed to the WMS vocabulary; its own <c>Unknown</c> is a technical return.</summary>
+    private MarketplaceReturnKind ToReturnKind(string? type)
+    {
+        switch (type?.ToLowerInvariant())
+        {
+            case "cancellation":
+                return MarketplaceReturnKind.Cancellation;
+            case "fullreturn":
+                return MarketplaceReturnKind.FullRefusal;
+            case "partialreturn":
+                return MarketplaceReturnKind.PartialRefusal;
+            case "clientreturn":
+                return MarketplaceReturnKind.CustomerReturn;
+            case "unknown":
+                return MarketplaceReturnKind.Unknown;
+            default:
+                logger.LogWarning("Ozon returned an unknown return type {OzonReturnType}", type ?? "<null>");
+                return MarketplaceReturnKind.Unknown;
+        }
+    }
+
+    private MarketplaceReturnCompensationStatus? ToCompensationStatus(int? id)
+    {
+        switch (id)
+        {
+            case null or 0:
+                return null;
+            case >= (int)MarketplaceReturnCompensationStatus.Sent
+                and <= (int)MarketplaceReturnCompensationStatus.DecompensationSent:
+                return (MarketplaceReturnCompensationStatus)id.Value;
+            default:
+                logger.LogWarning("Ozon returned an unknown compensation status {OzonCompensationStatus}", id);
+                return null;
         }
     }
 

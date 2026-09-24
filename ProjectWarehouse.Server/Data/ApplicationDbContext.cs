@@ -69,6 +69,7 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<MarketplaceCard> MarketplaceCards => Set<MarketplaceCard>();
     public DbSet<MarketplaceSyncRun> MarketplaceSyncRuns => Set<MarketplaceSyncRun>();
     public DbSet<MarketplaceOrder> MarketplaceOrders => Set<MarketplaceOrder>();
+    public DbSet<MarketplaceReturn> MarketplaceReturns => Set<MarketplaceReturn>();
     public DbSet<MarketplaceAutoMapRule> MarketplaceAutoMapRules => Set<MarketplaceAutoMapRule>();
 
     public DbSet<Order> Orders => Set<Order>();
@@ -938,6 +939,40 @@ public class ApplicationDbContext : IdentityDbContext<
 
             e.HasIndex(x => new { x.MarketplaceAccountId, x.PostingNumber }).IsUnique();
             e.HasIndex(x => new { x.MarketplaceAccountId, x.Status });
+        });
+
+        builder.Entity<MarketplaceReturn>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.MarketplaceAccount)
+                .WithMany()
+                .HasForeignKey(x => x.MarketplaceAccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // SetNull throughout: the return keeps its PostingNumber and marketplace data without the links
+            e.HasOne(x => x.Order)
+                .WithMany()
+                .HasForeignKey(x => x.OrderId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.OrderMarketplaceItem)
+                .WithMany()
+                .HasForeignKey(x => x.OrderMarketplaceItemId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.CatalogItem)
+                .WithMany()
+                .HasForeignKey(x => x.CatalogItemId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.Property(x => x.Price).HasPrecision(18, 2);
+
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.ExternalId }).IsUnique();
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.PostingNumber });
         });
 
         builder.Entity<DataFile>(e =>

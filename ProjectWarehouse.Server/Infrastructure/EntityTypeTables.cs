@@ -69,6 +69,7 @@ public static class EntityTypeTables
         [typeof(MarketplaceAccount)] = AppEntityType.MarketplaceAccount,
         [typeof(MarketplaceWarehouse)] = AppEntityType.MarketplaceAccount,
         [typeof(MarketplaceSyncRun)] = AppEntityType.MarketplaceAccount,
+        [typeof(MarketplaceReturn)] = AppEntityType.MarketplaceAccount,
 
         [typeof(MarketplaceCard)] = AppEntityType.MarketplaceCard,
     };

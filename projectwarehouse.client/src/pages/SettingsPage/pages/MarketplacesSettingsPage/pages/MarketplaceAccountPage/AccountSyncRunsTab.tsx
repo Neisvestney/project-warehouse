@@ -60,6 +60,7 @@ function AccountSyncRunsTab({accountId, isRunning, isLive}: AccountSyncRunsTabPr
             <TableCell>Карточек</TableCell>
             <TableCell>Автосопоставлено</TableCell>
             <TableCell>Заказов</TableCell>
+            <TableCell>Возвратов</TableCell>
             <TableCell>Кем запущен</TableCell>
           </TableRow>
         </TableHead>
@@ -108,11 +109,17 @@ function AccountSyncRunsTab({accountId, isRunning, isLive}: AccountSyncRunsTabPr
                       ? `${run.ordersProcessed}\n(+${run.ordersCreated}) / ~${run.ordersUpdated} / >${run.ordersSkipped}`
                       : "—"}
                   </TableCell>
+                  <TableCell sx={{whiteSpace: "pre-wrap"}}>
+                    {["orders", "ordersBackground", "ordersBackfill", "all"].includes(run.scope)
+                      ? `${run.returnsProcessed}
+(+${run.returnsCreated} / ~${run.returnsUpdated})`
+                      : "—"}
+                  </TableCell>
                   <TableCell>{run.triggeredByName ?? "Планировщик"}</TableCell>
                 </TableRow>
                 {run.error && (
                   <TableRow>
-                    <TableCell sx={{py: 0, borderBottom: "none"}} colSpan={10}>
+                    <TableCell sx={{py: 0, borderBottom: "none"}} colSpan={11}>
                       <Collapse in={expandedId === run.id} unmountOnExit>
                         <SyncErrorAlert error={run.error} title="Запуск завершился ошибкой" />
                       </Collapse>

@@ -42,6 +42,12 @@ public class MarketplaceAccount : IHasIdentity
     /// </summary>
     public DateTime? FboPostingsSyncedAt { get; set; }
 
+    /// <summary>
+    /// Up to when the stream of return status changes has been read. Same rules as
+    /// <see cref="FboPostingsSyncedAt"/>; the history import never moves it.
+    /// </summary>
+    public DateTime? ReturnsSyncedAt { get; set; }
+
     // ErrorCode lands in jsonb as a number — Npgsql serializes it, not the MVC options that stringify enums
     [Column(TypeName = "jsonb")] public AppFieldError? LastSyncError { get; set; }
 

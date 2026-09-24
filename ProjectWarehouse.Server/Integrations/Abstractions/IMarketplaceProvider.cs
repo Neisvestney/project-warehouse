@@ -48,6 +48,13 @@ public interface IMarketplaceProvider
         ExternalPostingScheme scheme, CancellationToken ct);
 
     /// <summary>
+    /// Returns matching the query, both schemes together. Only called when the provider declares
+    /// <see cref="MarketplaceCapabilities.Returns"/>.
+    /// </summary>
+    IAsyncEnumerable<IReadOnlyList<ExternalReturn>> FetchReturnsAsync(
+        MarketplaceCredentials credentials, ExternalReturnQuery query, CancellationToken ct);
+
+    /// <summary>
     /// Creation date of the oldest posting the account has, or null when it has none. Costs several calls,
     /// so it is only ever asked for on an explicit operator action.
     /// </summary>

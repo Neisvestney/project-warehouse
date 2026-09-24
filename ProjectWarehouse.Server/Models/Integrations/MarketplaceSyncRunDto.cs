@@ -31,5 +31,9 @@ public class MarketplaceSyncRunDto : IHasIdentity
     /// <summary>Capped at 100; <see cref="OrdersSkipped"/> is the true total. Empty, never null.</summary>
     public IReadOnlyList<SkippedOrderInfo> SkippedOrders { get; init; } = [];
 
+    public int ReturnsProcessed { get; init; }
+    public int ReturnsCreated { get; init; }
+    public int ReturnsUpdated { get; init; }
+
     public AppFieldError? Error { get; init; }
 }

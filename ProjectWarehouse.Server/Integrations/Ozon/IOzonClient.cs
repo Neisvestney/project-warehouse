@@ -28,6 +28,9 @@ public interface IOzonClient
     Task<IReadOnlyList<ExternalPostingStatus>> GetPostingStatusesAsync(
         IReadOnlyList<string> postingNumbers, ExternalPostingScheme scheme, CancellationToken ct);
 
+    /// <summary>FBS and FBO returns together.</summary>
+    IAsyncEnumerable<IReadOnlyList<ExternalReturn>> GetReturnsAsync(ExternalReturnQuery query, CancellationToken ct);
+
     /// <summary>Creation date of the oldest posting of either scheme, or null when the account has none.</summary>
     Task<DateTime?> GetEarliestPostingDateAsync(CancellationToken ct);
 

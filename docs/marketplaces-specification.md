@@ -46,6 +46,7 @@
 | `POST /v3/posting/fbs/get` | `PostingAPI_GetFbsPostingV3` | Одно отправление по `posting_number` | Одно отправление за запрос |
 | `POST /v3/posting/fbs/package-label/create` | `PostingFbsPackageLabelCreate` | Задание на формирование этикеток | Только статус `awaiting_deliver`; повторный вызов по тем же номерам возвращает то же задание |
 | `POST /v2/posting/fbs/package-label/get` | `PostingFbsPackageLabelGet` | Статус задания и ссылка на файл с этикетками | Одно задание за запрос |
+| `POST /v1/returns/list` | `returnsList` | Возвраты FBS и FBO | Не больше одного фильтра по дате; пагинация по `last_id` + `limit` 1…500 |
 
 > **Ограничение:** `POST /v1/warehouse/list` помечен в спецификации как устаревающий с датой отключения 7 апреля 2026 года. Использовать только `/v2/warehouse/list`.
 
@@ -157,6 +158,8 @@ products[]          — { sku, offer_id, name, quantity, price, product_color }
 `POST /v4/posting/fbs/list` в whitelist входит, но **рабочий импорт FBS идёт не через него**: его фильтр требует `since` и `to`, то есть заставляет держать окно по датам и рисковать пропущенными заказами на его границе. Обнаружение работает через `/v4/posting/fbs/unfulfilled/list`, где обязательного окна нет (см. [«Обнаружение отправлений FBS»](marketplaces-orders-specification.md#обнаружение-отправлений-fbs)), а `/v4/posting/fbs/list` обслуживает [догон статусов](marketplaces-orders-specification.md#догон-статусов) и импорт истории: там период задан явно, и граница окна ничего не решает.
 
 `POST /v3/posting/fbo/list` — единственный источник отправлений FBO: и обнаружение, и догон статусов идут через него, во втором случае по `filter.posting_numbers`. Оба фильтра требуют `since`/`to` и ограничены годом, поэтому запрос за более длинный период режется на окна шириной `OzonOptions.PostingPeriodWindowDays`.
+
+`POST /v1/returns/list` — источник [возвратов](marketplaces-returns-specification.md). Годового предела у его периодов нет: импорт истории за несколько лет уходит одним запросом с курсором.
 
 ---
 
@@ -394,6 +397,7 @@ MarketplaceAccount : IHasIdentity
 ├── LastSyncStatus        — MarketplaceSyncStatus?
 ├── LastSyncError         — AppFieldError? (jsonb)
 ├── FboPostingsSyncedAt   — DateTime?, докуда дочитан фоновый импорт отправлений FBO
+├── ReturnsSyncedAt       — DateTime?, докуда дочитан поток изменений возвратов
 ├── CreatedAt             — DateTime
 ├── CreatedById           — Guid? → ApplicationUser (SetNull)
 ├── Warehouses            — MarketplaceWarehouse[]
@@ -530,6 +534,9 @@ MarketplaceSyncRun : IHasIdentity
 ├── OrdersCreated         — int   │ заполняются при Scope = Orders,
 ├── OrdersUpdated         — int   │ OrdersBackground и OrdersBackfill
 ├── OrdersSkipped         — int  ─┘
+├── ReturnsProcessed      — int  ─┐ заполняются там же, где заказы, если провайдер
+├── ReturnsCreated        — int   │ объявил Returns; см. marketplaces-returns-specification.md
+├── ReturnsUpdated        — int  ─┘
 ├── SkippedOrders         — jsonb SkippedOrderInfo[]?  — почему заказы не создались
 └── Error                 — AppFieldError? (jsonb)
 
@@ -560,10 +567,13 @@ MarketplaceSyncRun : IHasIdentity
 | `MarketplaceSyncScope` | `Warehouses = 0`, `Cards = 1`, `Orders = 3`, `OrdersBackground = 4`, `OrdersBackfill = 5`, `All = 2` |
 | `MarketplaceSyncStatus` | `Running = 0`, `Success = 1`, `Failed = 2`, `Canceled = 3` |
 | `MarketplaceOrderStatus` | `Unknown = 0`, `AwaitingDeliver = 1`, `Delivering = 2`, `Delivered = 3`, `Cancelled = 4`, `Arbitration = 5` |
+| `MarketplaceReturnKind` | `Unknown = 0`, `Cancellation = 1`, `FullRefusal = 2`, `PartialRefusal = 3`, `CustomerReturn = 4` |
+| `MarketplaceReturnScheme` | `Unknown = 0`, `Fbs = 1`, `Fbo = 2` |
+| `MarketplaceReturnCompensationStatus` | `Sent = 1`, `Received = 2`, `Canceled = 3`, `DecompensationSent = 4` |
 
 Номера идут не подряд: значение персистится числом в `MarketplaceSyncRun.Scope` и не перенумеровывается, поэтому новый scope занимает следующее свободное число, а не место по смыслу.
 
-Внутри `All` ездит только то, за чем не нужно следить человеку. `Orders` — импорт отправлений FBS, ручной и намеренно вне `All`, потому что при неразобранном каталоге он копит пропуски. `OrdersBackground` — догон статусов и импорт FBO: пропусков не даёт, входит в `All` и выполняется вторым шагом `Orders`. `OrdersBackfill` — разовый импорт истории за заданный период, вручную и вне `All` (см. [«Планировщик и запуск»](marketplaces-orders-specification.md#планировщик-и-запуск)).
+Внутри `All` ездит только то, за чем не нужно следить человеку. `Orders` — импорт отправлений FBS, ручной и намеренно вне `All`, потому что при неразобранном каталоге он копит пропуски. `OrdersBackground` — догон статусов, импорт FBO и импорт возвратов: пропусков не даёт, входит в `All` и выполняется вторым шагом `Orders`. `OrdersBackfill` — разовый импорт истории за заданный период, вручную и вне `All` (см. [«Планировщик и запуск»](marketplaces-orders-specification.md#планировщик-и-запуск)).
 
 `MarketplaceOrderStatus` — нормализованный набор состояний, схлопывать словарь площадки обязан **провайдер**, как это уже сделано для `MarketplaceWarehouseStatus`. Для Ozon: `awaiting_deliver` и `awaiting_packaging` → `AwaitingDeliver`; `delivering`, `driver_pickup`, `sent_by_seller` → `Delivering`; `delivered` → `Delivered`; `cancelled`, `not_accepted` → `Cancelled`; `arbitration`, `client_arbitration` → `Arbitration`; всё незнакомое → `Unknown` с `LogWarning`. Словарь FBO — подмножество этого: ни передачи перевозчику, ни арбитража, ни отказа при приёмке у него нет. `Unknown = 0` по той же причине, что `MarketplaceWarehouseStatus.Unavailable = 0`: неизвестное состояние не должно выглядеть рабочим.
 
@@ -576,6 +586,10 @@ MarketplaceOrder.OrderId               ──> Order.Id           (Cascade, он
 MarketplaceOrder.MarketplaceAccountId  ──> MarketplaceAccount (Restrict)
 MarketplaceOrder.LabelFileId           ──> DataFile.Id        (Restrict)
 OrderMarketplaceItem.MarketplaceCardId ──> MarketplaceCard.Id (Restrict)
+MarketplaceReturn.MarketplaceAccountId ──> MarketplaceAccount (Cascade)
+MarketplaceReturn.OrderId              ──> Order.Id           (SetNull)
+MarketplaceReturn.OrderMarketplaceItemId ──> OrderMarketplaceItem.Id (SetNull)
+MarketplaceReturn.CatalogItemId        ──> CatalogItem.Id     (SetNull)
 ```
 
 `Restrict` на привязках склада и карточки: удаление склада или позиции каталога, на которую ссылается карточка маркетплейса, должно явно блокироваться, а не тихо обнулять маппинг.
@@ -600,6 +614,7 @@ IMarketplaceProvider
 ├── Task<ExternalSellerInfo> FetchSellerInfoAsync(MarketplaceCredentials, ct)
 ├── IAsyncEnumerable<IReadOnlyList<ExternalPosting>> FetchActivePostingsAsync(MarketplaceCredentials, ct)
 ├── Task<IReadOnlyList<ExternalPostingStatus>> FetchPostingStatusesAsync(MarketplaceCredentials, IReadOnlyList<string> postingNumbers, ct)
+├── IAsyncEnumerable<IReadOnlyList<ExternalReturn>> FetchReturnsAsync(MarketplaceCredentials, ExternalReturnQuery, ct)
 └── Task<ExternalLabelDocument> FetchLabelDocumentAsync(MarketplaceCredentials, IReadOnlyList<string> postingNumbers, ct)
 
 MarketplaceCredentials  — record (string? ClientId, string ApiKey)
@@ -635,7 +650,10 @@ ExternalLabelDocument   — record (bool IsReady, IReadOnlyList<string> PostingN
                                   IReadOnlyList<ExternalLabelFailure> Unprinted)
 ExternalLabelFailure    — record (string PostingNumber, string? Message)
 
-MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, Labels, StockPush, SellerInfo
+ExternalReturn          — record: один вернувшийся экземпляр, поля MarketplaceReturn без связей
+ExternalReturnQuery     — либо период по дате (StatusChanged | Returned), либо статус компенсации
+
+MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, Labels, StockPush, SellerInfo, Returns
 ```
 
 **`ExternalPostingItem` не несёт ссылки на карточку** — в отправлении нет `product_id` (см. раздел исходных данных). Разрешение позиции в `MarketplaceCard` по `Sku`, затем по `OfferId`, делает сервис синхронизации.
@@ -969,7 +987,8 @@ Quartz регистрируется с in-memory хранилищем задач
     "LabelSplitThreshold": 10,
     "LabelPollAttempts": 6,
     "LabelPollDelayMs": 1500,
-    "FboImportOverlapHours": 6
+    "FboImportOverlapHours": 6,
+    "ReturnsImportOverlapHours": 6
   },
   "Labels": {
     "MaxArticlesOnLabel": 3,
@@ -995,6 +1014,8 @@ Quartz регистрируется с in-memory хранилищем задач
 `LabelSplitThreshold` — граница перезапроса неудавшейся пачки: больше неё пачка делится пополам, не больше — перезапрашивается по одному. См. [«Получение этикеток»](marketplaces-orders-specification.md#получение-этикеток).
 
 `FboImportOverlapHours` — единственный регулятор стоимости фонового импорта FBO, и она линейна по нему: см. [«Докуда дочитали»](marketplaces-orders-specification.md#докуда-дочитали).
+
+`ReturnsImportOverlapHours` и `ReturnsImportWindowPastDays` (по умолчанию 6 часов и 14 дней) — то же для потока изменений возвратов: см. [«Поток изменений»](marketplaces-returns-specification.md#поток-изменений).
 
 В `docker-compose.yml` и `docker-compose.prod.yml` добавляется том для кольца ключей Data Protection:
 

@@ -311,6 +311,27 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<PostingFboListResponse> PostingFboListAsync(PostingFboListRequest body, System.Threading.CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Информация о возвратах FBO и FBS
+        /// </summary>
+        /// <remarks>
+        /// Метод для получения информации о возвратах FBO и FBS.
+        /// </remarks>
+        /// <returns>Информация по возвратам</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<V1GetReturnsListResponse> ReturnsListAsync(V1GetReturnsListRequest? body);
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Информация о возвратах FBO и FBS
+        /// </summary>
+        /// <remarks>
+        /// Метод для получения информации о возвратах FBO и FBS.
+        /// </remarks>
+        /// <returns>Информация по возвратам</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<V1GetReturnsListResponse> ReturnsListAsync(V1GetReturnsListRequest? body, System.Threading.CancellationToken cancellationToken);
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NSwag", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -1786,6 +1807,104 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
             }
         }
 
+        /// <summary>
+        /// Информация о возвратах FBO и FBS
+        /// </summary>
+        /// <remarks>
+        /// Метод для получения информации о возвратах FBO и FBS.
+        /// </remarks>
+        /// <returns>Информация по возвратам</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        public virtual System.Threading.Tasks.Task<V1GetReturnsListResponse> ReturnsListAsync(V1GetReturnsListRequest? body)
+        {
+            return ReturnsListAsync(body, System.Threading.CancellationToken.None);
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Информация о возвратах FBO и FBS
+        /// </summary>
+        /// <remarks>
+        /// Метод для получения информации о возвратах FBO и FBS.
+        /// </remarks>
+        /// <returns>Информация по возвратам</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<V1GetReturnsListResponse> ReturnsListAsync(V1GetReturnsListRequest? body, System.Threading.CancellationToken cancellationToken)
+        {
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("POST");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                
+                    // Operation Path: "v1/returns/list"
+                    urlBuilder_.Append("v1/returns/list");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<V1GetReturnsListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u041e\u0448\u0438\u0431\u043a\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
         protected struct ObjectResponseResult<T>
         {
             public ObjectResponseResult(T responseObject, string responseText)
@@ -2573,6 +2692,668 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("has_stock")]
         public bool? Has_stock { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Фильтры. Используйте только один фильтр в запросе: `logistic_return_date`, `storage_tariffication_start_date` или `visual_status_change_moment`, иначе вернётся ошибка.
+    /// <br/>
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListRequestFilter
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("logistic_return_date")]
+        public V1TimeRange_return_date? Logistic_return_date { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("storage_tariffication_start_date")]
+        public V1TimeRange_storage_tariffication? Storage_tariffication_start_date { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("visual_status_change_moment")]
+        public V1TimeRange_visual_status? Visual_status_change_moment { get; set; } = default!;
+
+        /// <summary>
+        /// Фильтр по идентификатору заказа.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("order_id")]
+        public long? Order_id { get; set; } = default!;
+
+        /// <summary>
+        /// Фильтр по номеру отправления. Передавайте не больше 50 постингов.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("posting_numbers")]
+        public System.Collections.Generic.IReadOnlyList<string>? Posting_numbers { get; set; } = default!;
+
+        /// <summary>
+        /// Фильтр по названию товара.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("product_name")]
+        public string? Product_name { get; set; } = default!;
+
+        /// <summary>
+        /// Фильтр по артикулу товара.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("offer_id")]
+        public string? Offer_id { get; set; } = default!;
+
+        /// <summary>
+        /// Фильтр по статусу возврата:
+        /// <br/>- `DisputeOpened` — открыт спор с покупателем;
+        /// <br/>- `OnSellerApproval` — на согласовании у продавца;
+        /// <br/>- `ArrivedAtReturnPlace` — в пункте выдачи;
+        /// <br/>- `OnSellerClarification` — на уточнении у продавца;
+        /// <br/>- `OnSellerClarificationAfterPartialCompensation` — на уточнении у продавца после частичной компенсации;
+        /// <br/>- `OfferedPartialCompensation` — предложена частичная компенсация;
+        /// <br/>- `ReturnMoneyApproved` — одобрен возврат денег;
+        /// <br/>- `PartialCompensationReturned` — вернули часть денег;
+        /// <br/>- `CancelledDisputeNotOpen` — возврат отклонён, спор не открыт;
+        /// <br/>- `Rejected` — заявка отклонена;
+        /// <br/>- `CrmRejected` — заявка отклонена Ozon;
+        /// <br/>- `Cancelled` — заявка отменена;
+        /// <br/>- `Approved` — заявка одобрена продавцом;
+        /// <br/>- `ApprovedByOzon` — заявка одобрена Ozon;
+        /// <br/>- `ReceivedBySeller` — продавец получил возврат;
+        /// <br/>- `MovingToSeller` — возврат на пути к продавцу;
+        /// <br/>- `ReturningToSellerByCourier` — курьер везёт возврат продавцу;
+        /// <br/>- `Utilizing` — на утилизации;
+        /// <br/>- `Utilized` — утилизирован;
+        /// <br/>- `MoneyReturned` — покупателю вернули всю сумму;
+        /// <br/>- `PartialCompensationInProcess` — одобрен частичный возврат денег;
+        /// <br/>- `DisputeYouOpened` — продавец открыл спор;
+        /// <br/>- `CompensationRejected` — отказано в компенсации;
+        /// <br/>- `DisputeOpening` — обращение в поддержку отправлено;
+        /// <br/>- `CompensationOffered` — ожидает вашего решения по компенсации;
+        /// <br/>- `WaitingCompensation` — ожидает компенсации;
+        /// <br/>- `SendingError` — ошибка при отправке обращения в поддержку;
+        /// <br/>- `CompensationRejectedBySla` — истёк срок решения;
+        /// <br/>- `CompensationRejectedBySeller` — продавец отказался от компенсации;
+        /// <br/>- `MovingToOzon` — едет на склад Ozon;
+        /// <br/>- `ReturnedToOzon` — на складе Ozon;
+        /// <br/>- `MoneyReturnedBySystem` — быстрый возврат;
+        /// <br/>- `WaitingShipment` — ожидает отправки.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("visual_status_name")]
+        public string? Visual_status_name { get; set; } = default!;
+
+        /// <summary>
+        /// Фильтр по идентификатору склада. Можно получить с помощью метода [/v1/warehouse/list](#operation/WarehouseAPI_WarehouseList).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("warehouse_id")]
+        public long? Warehouse_id { get; set; } = default!;
+
+        /// <summary>
+        /// Фильтр по штрихкоду возвратной этикетки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("barcode")]
+        public string? Barcode { get; set; } = default!;
+
+        /// <summary>
+        /// Фильтр по схеме доставки: `FBS` или `FBO`.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("return_schema")]
+        public string? Return_schema { get; set; } = default!;
+
+        /// <summary>
+        /// Фильтр по статусу компенсации:
+        /// <br/>- `1` — отправлена;
+        /// <br/>- `2` — получена;
+        /// <br/>- `3` — отменена;
+        /// <br/>- `4` — проведена декомпенсация.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("compensation_status_id")]
+        public int? Compensation_status_id { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Дополнительная информация.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseAdditionalInfo
+    {
+
+        /// <summary>
+        /// `true`, если возврат вскрыт.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("is_opened")]
+        public bool? Is_opened { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, если возврат относится к товарам «Суперэконом».
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("is_super_econom")]
+        public bool? Is_super_econom { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Информация о статусе компенсации.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseCompensation
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        public GetReturnsListResponseCompensationStatus? Status { get; set; } = default!;
+
+        /// <summary>
+        /// Дата изменения статуса компенсации.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("change_moment")]
+        public System.DateTimeOffset? Change_moment { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Статус компенсации.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseCompensationStatus
+    {
+
+        /// <summary>
+        /// Идентификатор статуса.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public int? Id { get; set; } = default!;
+
+        /// <summary>
+        /// Название статуса:
+        /// <br/>- «Отправлено на компенсацию»,
+        /// <br/>- «Вы получили компенсацию»,
+        /// <br/>- «Компенсация отменена»,
+        /// <br/>- «Провели декомпенсацию».
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("display_name")]
+        public string? Display_name { get; set; } = default!;
+
+        /// <summary>
+        /// Системное название статуса:
+        /// <br/>- `Sent` — отправлена;
+        /// <br/>- `Received` — получена;
+        /// <br/>- `Canceled` — отменена;
+        /// <br/>- `DecompensationSent` — проведена декомпенсация.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("sys_name")]
+        public string? Sys_name { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseExemplar
+    {
+
+        /// <summary>
+        /// Идентификатор экземпляра.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public long? Id { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Информация о возврате.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseLogistic
+    {
+
+        /// <summary>
+        /// Дата, когда заказ поставили на технический возврат.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("technical_return_moment")]
+        public System.DateTimeOffset? Technical_return_moment { get; set; } = default!;
+
+        /// <summary>
+        /// Дата, когда возврат прибыл на фулфилмент или выдан продавцу.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("final_moment")]
+        public System.DateTimeOffset? Final_moment { get; set; } = default!;
+
+        /// <summary>
+        /// Дата, когда продавцу компенсировали возврат.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("cancelled_with_compensation_moment")]
+        public System.DateTimeOffset? Cancelled_with_compensation_moment { get; set; } = default!;
+
+        /// <summary>
+        /// Дата, когда покупатель вернул товар.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("return_date")]
+        public System.DateTimeOffset? Return_date { get; set; } = default!;
+
+        /// <summary>
+        /// Штрихкод этикетки возврата.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("barcode")]
+        public string? Barcode { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Склад, где находится возврат.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponsePlace_now
+    {
+
+        /// <summary>
+        /// Идентификатор склада.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public long? Id { get; set; } = default!;
+
+        /// <summary>
+        /// Название.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string? Name { get; set; } = default!;
+
+        /// <summary>
+        /// Адрес.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("address")]
+        public string? Address { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Склад, куда едет возврат.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponsePlace_target
+    {
+
+        /// <summary>
+        /// Идентификатор склада.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public long? Id { get; set; } = default!;
+
+        /// <summary>
+        /// Название.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string? Name { get; set; } = default!;
+
+        /// <summary>
+        /// Адрес.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("address")]
+        public string? Address { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Информация о товаре.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseProduct
+    {
+
+        /// <summary>
+        /// Идентификатор товара в системе Ozon — SKU.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("sku")]
+        public long? Sku { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор товара в системе продавца — артикул.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("offer_id")]
+        public string? Offer_id { get; set; } = default!;
+
+        /// <summary>
+        /// Название товара.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string? Name { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public Seller_returnsv1Money_product? Price { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("price_without_commission")]
+        public Seller_returnsv1Money_without_commission? Price_without_commission { get; set; } = default!;
+
+        /// <summary>
+        /// Процент комиссии.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("commission_percent")]
+        public double? Commission_percent { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("commission")]
+        public Seller_returnsv1Money_commission? Commission { get; set; } = default!;
+
+        /// <summary>
+        /// Количество товара.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("quantity")]
+        public int? Quantity { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseReturnsItem
+    {
+
+        /// <summary>
+        /// Информация об экземплярах.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("exemplars")]
+        public System.Collections.Generic.IReadOnlyList<GetReturnsListResponseExemplar>? Exemplars { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор возврата.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public long? Id { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор продавца.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("company_id")]
+        public long? Company_id { get; set; } = default!;
+
+        /// <summary>
+        /// Причина возврата или отмены.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("return_reason_name")]
+        public string? Return_reason_name { get; set; } = default!;
+
+        /// <summary>
+        /// Тип возврата: 
+        /// <br/>`Cancellation` - отмена (до вручения);
+        /// <br/>`FullReturn` - полный отказ при вручении;
+        /// <br/>`PartialReturn` - частичный отказ при вручении;
+        /// <br/>`ClientReturn` - клиентский возврат (после вручения);
+        /// <br/>`Unknown` - технический возврат.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        public string? Type { get; set; } = default!;
+
+        /// <summary>
+        /// Схема возврата:
+        /// <br/>`FBS`;
+        /// <br/>`FBO`.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("schema")]
+        public string? Schema { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор заказа.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("order_id")]
+        public long? Order_id { get; set; } = default!;
+
+        /// <summary>
+        /// Номер заказа.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("order_number")]
+        public string? Order_number { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("place")]
+        public GetReturnsListResponsePlace_now? Place { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("target_place")]
+        public GetReturnsListResponsePlace_target? Target_place { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("storage")]
+        public GetReturnsListResponseStorage? Storage { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("product")]
+        public GetReturnsListResponseProduct? Product { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("logistic")]
+        public GetReturnsListResponseLogistic? Logistic { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("visual")]
+        public GetReturnsListResponseVisual? Visual { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("additional_info")]
+        public GetReturnsListResponseAdditionalInfo? Additional_info { get; set; } = default!;
+
+        /// <summary>
+        /// Предыдущий идентификатор возврата.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("source_id")]
+        public long? Source_id { get; set; } = default!;
+
+        /// <summary>
+        /// Номер отправления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("posting_number")]
+        public string? Posting_number { get; set; } = default!;
+
+        /// <summary>
+        /// Штрихкод изначального отправления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("clearing_id")]
+        public long? Clearing_id { get; set; } = default!;
+
+        /// <summary>
+        /// Возвратный штрихкод изначального отправления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("return_clearing_id")]
+        public long? Return_clearing_id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("compensation_status")]
+        public GetReturnsListResponseCompensation? Compensation_status { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Информация о хранении.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseStorage
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("sum")]
+        public Seller_returnsv1Money_storage? Sum { get; set; } = default!;
+
+        /// <summary>
+        /// Первый день тарификации за хранение.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("tariffication_first_date")]
+        public System.DateTimeOffset? Tariffication_first_date { get; set; } = default!;
+
+        /// <summary>
+        /// Дата старта тарификации за хранение.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("tariffication_start_date")]
+        public System.DateTimeOffset? Tariffication_start_date { get; set; } = default!;
+
+        /// <summary>
+        /// Дата, когда возврат был готов к выдаче.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("arrived_moment")]
+        public System.DateTimeOffset? Arrived_moment { get; set; } = default!;
+
+        /// <summary>
+        /// Сколько дней возврат ожидает выдачи продавцу.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("days")]
+        public long? Days { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("utilization_sum")]
+        public Seller_returnsv1Money_utilization? Utilization_sum { get; set; } = default!;
+
+        /// <summary>
+        /// Планируемая дата утилизации.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("utilization_forecast_date")]
+        public string? Utilization_forecast_date { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Информация о статусе возврата.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseVisual
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        public GetReturnsListResponseVisualStatus? Status { get; set; } = default!;
+
+        /// <summary>
+        /// Дата изменения статуса возврата.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("change_moment")]
+        public System.DateTimeOffset? Change_moment { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Статус возврата.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseVisualStatus
+    {
+
+        /// <summary>
+        /// Идентификатор статуса возврата.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public int? Id { get; set; } = default!;
+
+        /// <summary>
+        /// Название статуса возврата.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("display_name")]
+        public string? Display_name { get; set; } = default!;
+
+        /// <summary>
+        /// Системное название статуса возврата.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("sys_name")]
+        public string? Sys_name { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -8578,6 +9359,214 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
     }
 
     /// <summary>
+    /// Информация о комиссии.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Seller_returnsv1Money_commission
+    {
+
+        /// <summary>
+        /// Валюта.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("currency_code")]
+        public string? Currency_code { get; set; } = default!;
+
+        /// <summary>
+        /// Размер комиссии.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public double? Price { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Стоимость товара.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Seller_returnsv1Money_product
+    {
+
+        /// <summary>
+        /// Валюта.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("currency_code")]
+        public string? Currency_code { get; set; } = default!;
+
+        /// <summary>
+        /// Стоимость товара.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public double? Price { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Стоимость хранения.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Seller_returnsv1Money_storage
+    {
+
+        /// <summary>
+        /// Валюта.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("currency_code")]
+        public string? Currency_code { get; set; } = default!;
+
+        /// <summary>
+        /// Стоимость хранения.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public double? Price { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Стоимость утилизации.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Seller_returnsv1Money_utilization
+    {
+
+        /// <summary>
+        /// Валюта.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("currency_code")]
+        public string? Currency_code { get; set; } = default!;
+
+        /// <summary>
+        /// Стоимость утилизации.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public double? Price { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Стоимость товара без комиссии.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Seller_returnsv1Money_without_commission
+    {
+
+        /// <summary>
+        /// Валюта.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("currency_code")]
+        public string? Currency_code { get; set; } = default!;
+
+        /// <summary>
+        /// Стоимость товара без комиссии.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public double? Price { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class V1GetReturnsListRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("filter")]
+        public GetReturnsListRequestFilter? Filter { get; set; } = default!;
+
+        /// <summary>
+        /// Количество подгружаемых возвратов. Максимальное значение — 500.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("limit")]
+        public int Limit { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор последнего подгруженного возврата.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("last_id")]
+        public long? Last_id { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class V1GetReturnsListResponse
+    {
+
+        /// <summary>
+        /// Информация о возвратах.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("returns")]
+        public System.Collections.Generic.IReadOnlyList<GetReturnsListResponseReturnsItem>? Returns { get; set; } = default!;
+
+        /// <summary>
+        /// `true`, если у продавца есть другие возвраты.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("has_next")]
+        public bool? Has_next { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
     /// Статус рейтинга.
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -8628,6 +9617,96 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
 
         [System.Text.Json.Serialization.JsonPropertyName("subscription")]
         public SellerInfoResponseSubscription? Subscription { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Фильтр по дате создания возврата.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class V1TimeRange_return_date
+    {
+
+        /// <summary>
+        /// Начало периода.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("time_from")]
+        public System.DateTimeOffset? Time_from { get; set; } = default!;
+
+        /// <summary>
+        /// Окончание периода.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("time_to")]
+        public System.DateTimeOffset? Time_to { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Фильтр по дате начала тарификации.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class V1TimeRange_storage_tariffication
+    {
+
+        /// <summary>
+        /// Начало периода.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("time_from")]
+        public System.DateTimeOffset? Time_from { get; set; } = default!;
+
+        /// <summary>
+        /// Окончание периода.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("time_to")]
+        public System.DateTimeOffset? Time_to { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Фильтр по дате изменения статуса возврата.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class V1TimeRange_visual_status
+    {
+
+        /// <summary>
+        /// Начало периода.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("time_from")]
+        public System.DateTimeOffset? Time_from { get; set; } = default!;
+
+        /// <summary>
+        /// Окончание периода.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("time_to")]
+        public System.DateTimeOffset? Time_to { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 

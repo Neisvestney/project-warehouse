@@ -41,6 +41,11 @@ public class MarketplaceSyncRun : IHasIdentity
     public int OrdersUpdated { get; set; }
     public int OrdersSkipped { get; set; }
 
+    // a return unchanged in every field is not counted as updated, or the overlap would inflate it each run
+    public int ReturnsProcessed { get; set; }
+    public int ReturnsCreated { get; set; }
+    public int ReturnsUpdated { get; set; }
+
     /// <summary>
     /// First 100 skipped postings with their reason; <see cref="OrdersSkipped"/> holds the true total.
     /// A silent skip is the worst failure mode here — it surfaces at the warehouse when it is too late.

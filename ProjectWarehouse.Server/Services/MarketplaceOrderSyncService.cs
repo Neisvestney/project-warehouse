@@ -15,6 +15,7 @@ namespace ProjectWarehouse.Server.Services;
 public class MarketplaceOrderSyncService(
     ApplicationDbContext db,
     IRealtimeNotifier realtime,
+    IMarketplaceReturnSyncService returnSync,
     IOptions<MarketplacesOptions> options,
     ILogger<MarketplaceOrderSyncService> logger) : IMarketplaceOrderSyncService
 {
@@ -334,6 +335,8 @@ public class MarketplaceOrderSyncService(
         await ImportFboPostingsAsync(provider, credentials, account, run, ct);
         await CatchUpStatusesAsync(provider, credentials, account, run, ExternalPostingScheme.Fbs, ct);
         await CatchUpStatusesAsync(provider, credentials, account, run, ExternalPostingScheme.Fbo, ct);
+        // last, so the postings its returns belong to are already in
+        await returnSync.SyncReturnsAsync(provider, credentials, account, run, ct);
     }
 
     /// <summary>
@@ -436,6 +439,8 @@ public class MarketplaceOrderSyncService(
         foreach (var scheme in (ExternalPostingScheme[])[ExternalPostingScheme.Fbs, ExternalPostingScheme.Fbo])
             await ImportExternalPostingsAsync(provider, credentials, account, run,
                 new ExternalPostingQuery(scheme, since, to, BackfillStatuses), refreshKnown: false, ct);
+
+        await returnSync.SyncReturnsBackfillAsync(provider, credentials, account, run, since, to, ct);
 
         activity?.SetTag("marketplace.orders.created", run.OrdersCreated);
     }

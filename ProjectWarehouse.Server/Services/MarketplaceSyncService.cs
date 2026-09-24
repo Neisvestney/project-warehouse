@@ -166,6 +166,8 @@ public class MarketplaceSyncService(
                 ordersCreated = run.OrdersCreated,
                 ordersUpdated = run.OrdersUpdated,
                 ordersSkipped = run.OrdersSkipped,
+                returnsCreated = run.ReturnsCreated,
+                returnsUpdated = run.ReturnsUpdated,
             });
 
     /// <summary>
