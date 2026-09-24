@@ -66,8 +66,8 @@ The third argument is an options object. `{blockBack: true}` inverts the hook's 
 but a Back landing below it is pushed straight back instead of closing the overlay, so Back becomes a no-op
 while the overlay lives and only the overlay's own controls can close it. It is for a dialog holding work that
 a stray Back would destroy — `BatchAssemblyDialog`, whose group composition exists nowhere but in its own
-state — and it pairs with dropping `onClose` on the MUI `Dialog`, which is what shuts the backdrop click and
-`Esc` in the same move.
+state — and it pairs with narrowing `onClose` on the MUI `Dialog` so the backdrop click is ignored (that
+dialog lets `Esc` through, behind a confirm).
 
 The marker is an **array of the `useId`s of every overlay open under that entry**, outermost first, not a
 plain flag, which is what keeps stacked overlays independent. Each push appends its own id to the chain the

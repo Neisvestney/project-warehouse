@@ -936,6 +936,14 @@ FBS-only pieces: `SyncOrdersButton` / `SyncOrdersDialog` / `SyncOrdersAccountAcc
 The maps live here rather than in `MarketplacesSettingsPage/marketplaceUtils` so the operations tree never
 imports from the settings tree.
 
+While the start request is in flight or any picked run is still `running`, `SyncOrdersDialog` shows an
+indeterminate `LinearProgress` under the title. While the start request is in flight the dialog cannot be
+closed at all, so its `onSuccess` never lands on a closed dialog; while a run is going, closing (backdrop,
+Escape, «Закрыть») goes through `showConfirm` — the runs keep going on the server, only the live view is lost.
+A failed runs fetch does not count as running. Back is blocked for that time
+(`useBackClosable` with `blockBack`), because the popped history entry could not be restored if the user
+chose to stay.
+
 Labels are downloaded from two places and both need the same request, so the call lives in the
 `useDownloadLabels` hook: it calls `ordersGetLabels` with `parseAs: "blob"`, unwraps the error via
 `parseProblemFromBlob` and returns it as `{message, postingNumbers}`. Labels open for a look before printing:
