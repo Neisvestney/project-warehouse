@@ -491,7 +491,8 @@ genuinely different screens:
   surface through the snackbar.
 - `inProgress` → `StocktakeCountingSection` — one `StocktakeNodeAccordion` per cell plus **Показать расхождения**.
 - `finished` / `canceled` → `StocktakeResultSection` — read-only, rendered from `appliedDelta` and never from
-  live stock.
+  live stock. Lines with a non-zero `appliedDelta` come first in each cell, both halves keeping catalog order;
+  below `sm` the tables become cards.
 
 Action buttons by status: `draft` and `planned` both get **Начать** (`POST /start`) / **Отменить** / **Удалить**;
 `draft` additionally gets **Запланировать** (`POST /schedule`) when the type is `scheduled` and a planned date is
@@ -511,6 +512,12 @@ simply "any of the three is non-empty". `buildDraftRows` (in `stocktakeDraft.ts`
 live position defaults to *counted = expected* so only discrepancies need touching, and saved lines with no live
 counterpart are appended — those are surpluses entered earlier.
 
+**Row order follows the catalog list** — archived items last, then by name, serial units of one item by
+inventory number in natural order («2» before «10», `SortExtensions.InventoryNumberComparer` on the server). The server returns node stock and document lines in that order (`GET .../stock` sorts in SQL,
+the same collation as the catalog). The client only interleaves the standard and unit lists with surpluses via
+`compareDraftRows`, so a surplus added from `StocktakeAddItemModal` lands in its alphabetical place, not at the
+bottom.
+
 Standard rows use `ClampedIntegerField` with an explicit **`min={0}`** — the component defaults to `min = 1`,
 which would make a zero count impossible to enter. Unit rows are a «Найден» checkbox (unchecked ⇒
 `countedQuantity = 0`). Only rows with `expected === 0` can be deleted; pre-populated rows are set to zero
@@ -519,9 +526,18 @@ instead, so "искали — нет" stays an explicit finding.
 Each accordion saves independently (`PUT .../nodes/{nodeId}/items`), so two operators can count different cells
 without clobbering each other.
 
+The rows themselves are `StocktakeCountRows`: a table on desktop and, below `sm`, one outlined card per row
+(name and inventory number on top, delete icon in the corner, the count control labelled «Посчитано» / «Найден»
+next to «Ожидается» and «Δ», the note field underneath). The action bar (surplus + save) is `position: sticky; bottom: 0`
+on every screen size, so a long cell keeps **Сохранить** in reach while scrolling; on a phone its buttons stack
+full-width and `StocktakeAddItemModal` opens full-screen. `StocktakeItemName` renders the name + monospace inventory
+number in all three stocktake screens.
+
 **`StocktakeDifferencesDialog`** is the only path to `POST /finish`. It renders `GET /{id}/differences`: totals,
 a per-cell table with a «Что будет сделано» column, `missingFromDocument` rows highlighted and labelled
-«нет в документе — будет списано», and a `problems` block that disables the finish button. This is deliberate —
+«нет в документе — будет списано», and a `problems` block that disables the finish button. Within a cell the
+server puts lines that change stock first (`resolution ≠ noChange`), then the rest in catalog order. Below `sm`
+the dialog is full-screen and each line is a card. This is deliberate —
 the cell-is-authoritative rule is destructive by omission and must never be applied blind.
 
 ### `OrdersAssemblyPage` — диалоги фулфилмента

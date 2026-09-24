@@ -23,8 +23,8 @@ function StocktakeCountingSection({
 
   return (
     <Paper>
-      <Stack spacing={2} sx={{p: 3}}>
-        <Stack direction="row" spacing={1.5} sx={{alignItems: "center"}}>
+      <Stack spacing={2} sx={{p: {xs: 2, sm: 3}}}>
+        <Stack direction="row" sx={{alignItems: "center", flexWrap: "wrap", gap: 1.5}}>
           <Typography variant="h6">Пересчёт</Typography>
           <Chip label={`${stocktake.nodes.length} яч.`} size="small" />
           <div style={{flexGrow: 1}} />

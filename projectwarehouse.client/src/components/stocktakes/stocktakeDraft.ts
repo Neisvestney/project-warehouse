@@ -9,6 +9,7 @@ export interface DraftRow {
   kind: "standard" | "unit";
   catalogItemId: string;
   catalogItemName: string;
+  isArchived: boolean;
   expected: number;
   counted: number;
   inventoryNumber?: string;
@@ -43,6 +44,7 @@ export function buildDraftRows(node: StocktakeNodeDto, stock: StocktakeNodeStock
       kind: "standard",
       catalogItemId: entry.catalogItemId,
       catalogItemName: entry.catalogItemName,
+      isArchived: entry.catalogItem?.isArchived ?? false,
       expected: entry.expected,
       counted: saved ? saved.countedQuantity : entry.expected,
       notes: saved?.notes ?? "",
@@ -58,6 +60,7 @@ export function buildDraftRows(node: StocktakeNodeDto, stock: StocktakeNodeStock
       kind: "unit",
       catalogItemId: entry.catalogItemId,
       catalogItemName: entry.catalogItemName,
+      isArchived: entry.catalogItem?.isArchived ?? false,
       inventoryNumber: entry.inventoryNumber,
       expected: 1,
       counted: saved ? saved.countedQuantity : 1,
@@ -73,6 +76,7 @@ export function buildDraftRows(node: StocktakeNodeDto, stock: StocktakeNodeStock
       kind: item.kind,
       catalogItemId: item.catalogItemId,
       catalogItemName: item.catalogItemName,
+      isArchived: item.catalogItem?.isArchived ?? false,
       inventoryNumber: item.inventoryNumber ?? undefined,
       expected: 0,
       counted: item.countedQuantity,
@@ -81,6 +85,19 @@ export function buildDraftRows(node: StocktakeNodeDto, stock: StocktakeNodeStock
   }
 
   return rows;
+}
+
+/**
+ * Catalog list order (archived last, then by name). The server already returns each list in this
+ * order; the comparator only interleaves standard and unit stock with surpluses added on the client.
+ */
+export function compareDraftRows(a: DraftRow, b: DraftRow): number {
+  if (a.isArchived !== b.isArchived) return a.isArchived ? 1 : -1;
+  return (
+    a.catalogItemName.localeCompare(b.catalogItemName, "ru") ||
+    a.catalogItemId.localeCompare(b.catalogItemId) ||
+    (a.inventoryNumber ?? "").localeCompare(b.inventoryNumber ?? "", "ru", {numeric: true})
+  );
 }
 
 export function draftToRequest(rows: DraftRow[]): StocktakeItemRequest[] {

@@ -605,6 +605,9 @@ public class StocktakesController(
         var groups = await db.StoragePlacesNodesItemsGroups
             .Where(g => g.StoragePlaceNodeId == nodeId && g.Count > 0)
             .Include(g => g.CatalogItem)
+            .OrderBy(g => g.CatalogItem.IsArchived)
+            .ThenBy(g => g.CatalogItem.Name)
+            .ThenBy(g => g.CatalogItemId)
             .ToListAsync(ct);
 
         var standard = groups
@@ -620,6 +623,10 @@ public class StocktakesController(
         var unitItems = await db.InventoryItems.OfType<UnitInventoryItem>()
             .Where(u => u.StoragePlaceNodeId == nodeId)
             .Include(u => u.CatalogItem)
+            .OrderBy(u => u.CatalogItem.IsArchived)
+            .ThenBy(u => u.CatalogItem.Name)
+            .ThenBy(u => u.CatalogItemId)
+            .ThenBy(u => u.InventoryNumber)
             .ToListAsync(ct);
 
         var units = unitItems
