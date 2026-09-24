@@ -8,10 +8,13 @@ import {
   Button,
   Chip,
   CircularProgress,
+  IconButton,
   Stack,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import PrintIcon from "@mui/icons-material/Print";
 import AddIcon from "@mui/icons-material/Add";
 import SaveIcon from "@mui/icons-material/Save";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
@@ -22,6 +25,7 @@ import {
   stocktakesSyncNodeItemsMutation,
 } from "@/api/@tanstack/react-query.gen";
 import {extractErrorMessage} from "@/utils/errorUtils";
+import {openStocktakeNodePrintPage} from "@/utils/printUtils";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import StocktakeAddItemModal from "@/components/stocktakes/StocktakeAddItemModal";
 import StocktakeCountRows from "@/components/stocktakes/StocktakeCountRows";
@@ -150,6 +154,21 @@ function StocktakeNodeAccordion({
           )}
           {node.items.length > 0 && <Chip label={`${node.items.length} поз.`} size="small" />}
           {dirty && <Chip label="Не сохранено" size="small" color="info" variant="outlined" />}
+          {stocktake.status === "inProgress" && (
+            <Tooltip title="Печать бланка">
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  // The summary toggles the accordion on click
+                  e.stopPropagation();
+                  openStocktakeNodePrintPage(stocktake.id, node.storagePlaceNodeId);
+                }}
+                onFocus={(e) => e.stopPropagation()}
+              >
+                <PrintIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
         </Stack>
       </AccordionSummary>
       <AccordionDetails sx={{px: {xs: 1, sm: 2}}}>

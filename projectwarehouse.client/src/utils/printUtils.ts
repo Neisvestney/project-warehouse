@@ -14,3 +14,7 @@ export function openPrintPage(items: PrintItem[]): void {
   }
   window.open(`/print?${params.toString()}`, "_blank");
 }
+
+export function openStocktakeNodePrintPage(stocktakeId: string, nodeId: string): void {
+  window.open(`/print/stocktakes/${stocktakeId}/nodes/${nodeId}`, "_blank");
+}
