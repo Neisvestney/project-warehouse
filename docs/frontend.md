@@ -939,7 +939,12 @@ Tabs:
   row's catalog cell is a `CatalogItemLink` opening `CatalogItemDrawer` (the tab is wrapped in
   `CatalogItemDrawerHost`, drawer state in `?catalogItem=`). The thumbnail is a `CardImage` — opens the
   full-size marketplace image in a new tab.
-- **История** — run history; rows carrying an error expand into a `SyncErrorAlert`.
+- **История** — run history. The **Обработано** column is `syncRunProcessedTotal` — the sum of the
+  `*Processed` counters of the sections the run's scope covers (`SYNC_SCOPE_SECTIONS`: склады, карточки,
+  заказы, возвраты); **Новых** is `syncRunCreatedTotal` — the same sum over the `*Created` counters (склады
+  have none). Clicking a row or its info button opens `SyncRunDetailsDialog` with the run's `SyncErrorAlert`, the full
+  per-section breakdown (created / updated / archived / auto-mapped / skipped) and `SkippedOrdersList`; an open
+  dialog shows the refetched copy of the run while it stays on the current page.
   `MarketplaceSyncStatus.canceled` is reserved and never produced by the current backend.
 
 ## Providers (in `App.tsx`)

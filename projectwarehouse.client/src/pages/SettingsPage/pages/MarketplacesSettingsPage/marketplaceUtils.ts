@@ -5,6 +5,7 @@ import type {
   MarketplaceCardMappingState,
   MarketplaceMappingSource,
   MarketplaceRuleOperator,
+  MarketplaceSyncRunDto,
   MarketplaceSyncScope,
   MarketplaceSyncStatus,
   MarketplaceType,
@@ -37,6 +38,40 @@ export const SYNC_SCOPE_LABELS: Record<MarketplaceSyncScope, string> = {
   ordersBackground: "Статусы заказов",
   ordersBackfill: "Импорт истории…",
 };
+
+export type SyncRunSection = "warehouses" | "cards" | "orders" | "returns";
+
+export const SYNC_SCOPE_SECTIONS: Record<MarketplaceSyncScope, SyncRunSection[]> = {
+  warehouses: ["warehouses"],
+  cards: ["cards"],
+  all: ["warehouses", "cards", "orders", "returns"],
+  orders: ["orders", "returns"],
+  ordersBackground: ["orders", "returns"],
+  ordersBackfill: ["orders", "returns"],
+};
+
+function sumSections(run: MarketplaceSyncRunDto, counters: Record<SyncRunSection, number>) {
+  return SYNC_SCOPE_SECTIONS[run.scope].reduce((sum, section) => sum + counters[section], 0);
+}
+
+export function syncRunProcessedTotal(run: MarketplaceSyncRunDto): number {
+  return sumSections(run, {
+    warehouses: run.warehousesProcessed,
+    cards: run.cardsProcessed,
+    orders: run.ordersProcessed,
+    returns: run.returnsProcessed,
+  });
+}
+
+// warehouses have no created counter
+export function syncRunCreatedTotal(run: MarketplaceSyncRunDto): number {
+  return sumSections(run, {
+    warehouses: 0,
+    cards: run.cardsCreated,
+    orders: run.ordersCreated,
+    returns: run.returnsCreated,
+  });
+}
 
 export const WAREHOUSE_KIND_LABELS: Record<MarketplaceWarehouseKind, string> = {
   unknown: "—",

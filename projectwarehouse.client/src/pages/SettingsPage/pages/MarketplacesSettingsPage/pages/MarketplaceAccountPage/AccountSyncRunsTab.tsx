@@ -1,24 +1,22 @@
-import {Fragment, useState} from "react";
-import {
-  Collapse,
-  IconButton,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-} from "@mui/material";
-import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import {useState} from "react";
+import {IconButton, Table, TableBody, TableCell, TableHead, TableRow, Tooltip} from "@mui/material";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import {useQuery} from "@tanstack/react-query";
 import {marketplacesGetSyncRunsOptions} from "@/api/@tanstack/react-query.gen";
+import type {MarketplaceSyncRunDto} from "@/api/types.gen";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import DataTableContainer from "@/components/DataTableContainer";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
 import MarketplaceStatusChip from "../../components/MarketplaceStatusChip";
-import SyncErrorAlert from "../../components/SyncErrorAlert";
-import {SYNC_SCOPE_LABELS, formatDateTime, formatDuration} from "../../marketplaceUtils";
+import {
+  SYNC_SCOPE_LABELS,
+  formatDateTime,
+  formatDuration,
+  syncRunCreatedTotal,
+  syncRunProcessedTotal,
+} from "../../marketplaceUtils";
+import SyncRunDetailsDialog from "./SyncRunDetailsDialog";
 
 /** Запасной опрос: работает, только пока страница не подписана на аккаунт по SSE. */
 const RUNNING_POLL_MS = 3000;
@@ -30,7 +28,7 @@ interface AccountSyncRunsTabProps {
 }
 
 function AccountSyncRunsTab({accountId, isRunning, isLive}: AccountSyncRunsTabProps) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<MarketplaceSyncRunDto | null>(null);
 
   const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams({}, [], {}, []);
 
@@ -39,99 +37,69 @@ function AccountSyncRunsTab({accountId, isRunning, isLive}: AccountSyncRunsTabPr
     refetchInterval: !isLive && isRunning ? RUNNING_POLL_MS : false,
   });
 
+  // prefer the refetched copy so an open dialog follows a running sync
+  const selectedRun = selected && (data?.items.find((run) => run.id === selected.id) ?? selected);
+
   return (
-    <DataTableContainer
-      isFetching={isFetching}
-      count={data?.total ?? 0}
-      page={page}
-      onPageChange={setPage}
-      rowsPerPage={pageSize}
-      onRowsPerPageChange={setPageSize}
-    >
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell />
-            <TableCell>Начат</TableCell>
-            <TableCell>Длительность</TableCell>
-            <TableCell>Объём</TableCell>
-            <TableCell>Статус</TableCell>
-            <TableCell>Складов</TableCell>
-            <TableCell>Карточек</TableCell>
-            <TableCell>Автосопоставлено</TableCell>
-            <TableCell>Заказов</TableCell>
-            <TableCell>Возвратов</TableCell>
-            <TableCell>Кем запущен</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {isLoading ? (
-            <TableRowLoader colSpan={9} />
-          ) : data?.items.length === 0 ? (
-            <TableRowEmpty colSpan={9} message="Синхронизаций ещё не было" />
-          ) : (
-            data?.items.map((run) => (
-              <Fragment key={run.id}>
-                <TableRow hover>
-                  <TableCell sx={{width: 48}}>
-                    {run.error && (
-                      <IconButton
-                        size="small"
-                        onClick={() => setExpandedId(expandedId === run.id ? null : run.id)}
-                      >
-                        {expandedId === run.id ? (
-                          <KeyboardArrowUpIcon />
-                        ) : (
-                          <KeyboardArrowDownIcon />
-                        )}
-                      </IconButton>
-                    )}
-                  </TableCell>
+    <>
+      <DataTableContainer
+        isFetching={isFetching}
+        count={data?.total ?? 0}
+        page={page}
+        onPageChange={setPage}
+        rowsPerPage={pageSize}
+        onRowsPerPageChange={setPageSize}
+      >
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Начат</TableCell>
+              <TableCell>Длительность</TableCell>
+              <TableCell>Объём</TableCell>
+              <TableCell>Статус</TableCell>
+              <TableCell align="right">Обработано</TableCell>
+              <TableCell align="right">Новых</TableCell>
+              <TableCell>Кем запущен</TableCell>
+              <TableCell />
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {isLoading ? (
+              <TableRowLoader colSpan={8} />
+            ) : data?.items.length === 0 ? (
+              <TableRowEmpty colSpan={8} message="Синхронизаций ещё не было" />
+            ) : (
+              data?.items.map((run) => (
+                <TableRow
+                  key={run.id}
+                  hover
+                  onClick={() => setSelected(run)}
+                  sx={{cursor: "pointer"}}
+                >
                   <TableCell>{formatDateTime(run.startedAt)}</TableCell>
                   <TableCell>{formatDuration(run.startedAt, run.finishedAt)}</TableCell>
                   <TableCell>{SYNC_SCOPE_LABELS[run.scope]}</TableCell>
                   <TableCell>
                     <MarketplaceStatusChip status={run.status} />
                   </TableCell>
-                  <TableCell>
-                    {["warehouse", "all"].includes(run.scope) ? run.warehousesProcessed : "—"}
-                  </TableCell>
-                  <TableCell sx={{whiteSpace: "pre-wrap"}}>
-                    {["cards", "all"].includes(run.scope)
-                      ? `${run.cardsProcessed}\n(+${run.cardsCreated} / ~${run.cardsUpdated} / −${run.cardsArchived})`
-                      : "—"}
-                  </TableCell>
-                  <TableCell>
-                    {["cards", "all"].includes(run.scope) ? run.autoMapped : "—"}
-                  </TableCell>
-                  <TableCell sx={{whiteSpace: "pre-wrap"}}>
-                    {["orders"].includes(run.scope)
-                      ? `${run.ordersProcessed}\n(+${run.ordersCreated}) / ~${run.ordersUpdated} / >${run.ordersSkipped}`
-                      : "—"}
-                  </TableCell>
-                  <TableCell sx={{whiteSpace: "pre-wrap"}}>
-                    {["orders", "ordersBackground", "ordersBackfill", "all"].includes(run.scope)
-                      ? `${run.returnsProcessed}
-(+${run.returnsCreated} / ~${run.returnsUpdated})`
-                      : "—"}
-                  </TableCell>
+                  <TableCell align="right">{syncRunProcessedTotal(run)}</TableCell>
+                  <TableCell align="right">{syncRunCreatedTotal(run)}</TableCell>
                   <TableCell>{run.triggeredByName ?? "Планировщик"}</TableCell>
+                  <TableCell sx={{width: 48}}>
+                    <Tooltip title="Подробнее">
+                      <IconButton size="small" onClick={() => setSelected(run)}>
+                        <InfoOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
                 </TableRow>
-                {run.error && (
-                  <TableRow>
-                    <TableCell sx={{py: 0, borderBottom: "none"}} colSpan={11}>
-                      <Collapse in={expandedId === run.id} unmountOnExit>
-                        <SyncErrorAlert error={run.error} title="Запуск завершился ошибкой" />
-                      </Collapse>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </Fragment>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </DataTableContainer>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </DataTableContainer>
+      <SyncRunDetailsDialog run={selectedRun} onClose={() => setSelected(null)} />
+    </>
   );
 }
 
