@@ -162,7 +162,7 @@ into one flag with `||` shows buttons that are certain to answer 403, whichever 
 
 Two layouts nest inside each other. `MainLayout` is the shell every authenticated page shares — realtime
 stream, service-worker update watcher, URL-synced state. `MainAppBarLayout` sits inside it and adds the visual
-chrome: app bar and the page `Container`. `/scanner` and `/print` are children of `MainLayout` directly, so
+chrome: app bar and the page `Container`. `/scanner` and `/print/*` are children of `MainLayout` directly, so
 they keep the stream and the shared providers but render full-bleed, with no app bar and no breadcrumbs.
 
 ## Cross-cutting conventions
@@ -440,6 +440,17 @@ To open the print page programmatically use `openPrintPage(items)` from `@/utils
 
 Example URL: `/print?item=DataMatrix:ABC123|Товар А&item=EAN13:5901234123457&item=Code128:HELLO&item=QR:test`
 
+### `StocktakeNodePrintPage`
+
+Paper count sheet for one stocktake cell at `/print/stocktakes/:id/nodes/:nodeId`, filled in by hand. Data comes
+from the same `GET /api/stocktakes/{id}/nodes/{nodeId}/stock` query as the counting accordion, so it reflects live
+stock, not the saved count. The page is the cell path plus one table — **№ / Наименование / Учёт / Факт** —
+with standard goods first, then serial units (name + inventory number, «Учёт» = 1), then five blank rows for
+surpluses. `window.print()` fires once, as soon as the data has loaded.
+
+Print styles: `@page` is A4 portrait with 10 mm margins, `thead` repeats on every sheet, rows never split across
+pages. Colours are fixed black on white so a dark theme does not leak into the printout.
+
 #### Barcode payload format
 
 Barcodes printed for app entities carry an entity tag so a scanner can tell what was scanned. Built with
@@ -525,6 +536,9 @@ instead, so "искали — нет" stays an explicit finding.
 
 Each accordion saves independently (`PUT .../nodes/{nodeId}/items`), so two operators can count different cells
 without clobbering each other.
+
+While the stocktake is `inProgress` the accordion header carries a printer icon that opens
+`StocktakeNodePrintPage` for that cell in a new tab (`openStocktakeNodePrintPage` from `@/utils/printUtils`).
 
 The rows themselves are `StocktakeCountRows`: a table on desktop and, below `sm`, one outlined card per row
 (name and inventory number on top, delete icon in the corner, the count control labelled «Посчитано» / «Найден»

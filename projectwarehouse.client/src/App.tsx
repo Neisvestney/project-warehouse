@@ -31,6 +31,9 @@ const ScannerPage = React.lazy(() => import("@/pages/ScannerPage/ScannerPage.tsx
 const LoginPage = React.lazy(() => import("@/pages/LoginPage/LoginPage.tsx"));
 const SettingsPage = React.lazy(() => import("@/pages/SettingsPage/SettingsPage.tsx"));
 const PrintPage = React.lazy(() => import("@/pages/PrintPage/PrintPage.tsx"));
+const StocktakeNodePrintPage = React.lazy(
+  () => import("@/pages/StocktakeNodePrintPage/StocktakeNodePrintPage.tsx"),
+);
 const CatalogPage = React.lazy(() => import("@/pages/CatalogPage/CatalogPage.tsx"));
 const StoragePage = React.lazy(() => import("@/pages/StoragePage/StoragePage.tsx"));
 const OperationsPage = React.lazy(() => import("@/pages/OperationsPage/OperationsPage.tsx"));
@@ -188,6 +191,14 @@ function App() {
                         element={
                           <PageTitle title="Печать">
                             <PrintPage />
+                          </PageTitle>
+                        }
+                      />
+                      <ProtectedRoute
+                        path="/print/stocktakes/:id/nodes/:nodeId"
+                        element={
+                          <PageTitle title="Бланк инвентаризации">
+                            <StocktakeNodePrintPage />
                           </PageTitle>
                         }
                       />
