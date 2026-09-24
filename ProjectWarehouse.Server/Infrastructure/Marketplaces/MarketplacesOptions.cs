@@ -128,4 +128,13 @@ public class OzonOptions
     /// either. The cost of the overlap is re-reading that much of the period every run.
     /// </summary>
     public int FboImportOverlapHours { get; set; } = 6;
+
+    /// <summary>
+    /// How far back the background return import looks on an account it has never imported before. Afterwards
+    /// the period starts from <see cref="Domain.MarketplaceAccount.ReturnsSyncedAt"/> instead.
+    /// </summary>
+    public int ReturnsImportWindowPastDays { get; set; } = 14;
+
+    /// <summary>Same guarantee as <see cref="FboImportOverlapHours"/>, for the stream of return status changes.</summary>
+    public int ReturnsImportOverlapHours { get; set; } = 6;
 }

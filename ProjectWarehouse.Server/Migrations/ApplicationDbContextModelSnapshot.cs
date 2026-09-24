@@ -775,6 +775,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<string>("OwnershipForm")
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("ReturnsSyncedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("SyncIntervalMinutes")
                         .HasColumnType("integer");
 
@@ -982,6 +985,113 @@ namespace ProjectWarehouse.Server.Migrations
                     b.ToTable("MarketplaceOrders");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceReturn", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CatalogItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("CompensationStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("CompensationStatusChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CurrencyCode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ExemplarId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("FinalAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsCancelled")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("MarketplaceAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("OfferId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OrderMarketplaceItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PostingNumber")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal?>("Price")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RawKind")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RawScheme")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RawStatus")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ReturnedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Scheme")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Sku")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SourceExternalId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("StatusChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("StatusName")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("SyncedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CatalogItemId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("OrderMarketplaceItemId");
+
+                    b.HasIndex("MarketplaceAccountId", "ExternalId")
+                        .IsUnique();
+
+                    b.HasIndex("MarketplaceAccountId", "PostingNumber");
+
+                    b.ToTable("MarketplaceReturns");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceSyncRun", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1028,6 +1138,15 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int>("OrdersUpdated")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ReturnsCreated")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ReturnsProcessed")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ReturnsUpdated")
                         .HasColumnType("integer");
 
                     b.Property<int>("Scope")
@@ -2549,6 +2668,38 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("MarketplaceAccount");
 
                     b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceReturn", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CatalogItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.MarketplaceAccount", "MarketplaceAccount")
+                        .WithMany()
+                        .HasForeignKey("MarketplaceAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.OrderMarketplaceItem", "OrderMarketplaceItem")
+                        .WithMany()
+                        .HasForeignKey("OrderMarketplaceItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CatalogItem");
+
+                    b.Navigation("MarketplaceAccount");
+
+                    b.Navigation("Order");
+
+                    b.Navigation("OrderMarketplaceItem");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceSyncRun", b =>

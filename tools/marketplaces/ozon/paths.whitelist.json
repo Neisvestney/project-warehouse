@@ -9,7 +9,8 @@
     "/v3/posting/fbs/get",
     "/v3/posting/fbs/package-label/create",
     "/v2/posting/fbs/package-label/get",
-    "/v3/posting/fbo/list"
+    "/v3/posting/fbo/list",
+    "/v1/returns/list"
   ],
   "binaryResponses": [],
   "reserved": [

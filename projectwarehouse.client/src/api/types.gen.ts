@@ -891,7 +891,7 @@ export type MarketplaceCancellationType =
   "unknown" | "seller" | "customer" | "marketplace" | "system" | "delivery";
 
 export type MarketplaceCapabilities =
-  "none" | "warehouses" | "cards" | "orders" | "stockPush" | "sellerInfo" | "labels";
+  "none" | "warehouses" | "cards" | "orders" | "stockPush" | "sellerInfo" | "labels" | "returns";
 
 export type MarketplaceCardDto = {
   id: string;
@@ -1018,6 +1018,9 @@ export type MarketplaceSyncRunDto = {
    * Capped at 100; int MarketplaceSyncRunDto.OrdersSkipped is the true total. Empty, never null.
    */
   skippedOrders: Array<SkippedOrderInfo>;
+  returnsProcessed: number;
+  returnsCreated: number;
+  returnsUpdated: number;
   error?: null | AppFieldError;
 };
 

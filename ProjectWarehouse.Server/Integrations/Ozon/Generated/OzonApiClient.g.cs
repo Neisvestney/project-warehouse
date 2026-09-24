@@ -69,6 +69,10 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
 
         System.Threading.Tasks.Task<PostingFboListResponse> PostingFboListAsync(PostingFboListRequest body, System.Threading.CancellationToken cancellationToken);
 
+        System.Threading.Tasks.Task<V1GetReturnsListResponse> ReturnsListAsync(V1GetReturnsListRequest? body);
+
+        System.Threading.Tasks.Task<V1GetReturnsListResponse> ReturnsListAsync(V1GetReturnsListRequest? body, System.Threading.CancellationToken cancellationToken);
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NSwag", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -1302,6 +1306,87 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
             }
         }
 
+        public virtual System.Threading.Tasks.Task<V1GetReturnsListResponse> ReturnsListAsync(V1GetReturnsListRequest? body)
+        {
+            return ReturnsListAsync(body, System.Threading.CancellationToken.None);
+        }
+
+        public virtual async System.Threading.Tasks.Task<V1GetReturnsListResponse> ReturnsListAsync(V1GetReturnsListRequest? body, System.Threading.CancellationToken cancellationToken)
+        {
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("POST");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                
+                    // Operation Path: "v1/returns/list"
+                    urlBuilder_.Append("v1/returns/list");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<V1GetReturnsListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u041e\u0448\u0438\u0431\u043a\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
         protected struct ObjectResponseResult<T>
         {
             public ObjectResponseResult(T responseObject, string responseText)
@@ -1870,6 +1955,414 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
 
         [System.Text.Json.Serialization.JsonPropertyName("has_stock")]
         public bool? Has_stock { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListRequestFilter
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("logistic_return_date")]
+        public V1TimeRange_return_date? Logistic_return_date { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("storage_tariffication_start_date")]
+        public V1TimeRange_storage_tariffication? Storage_tariffication_start_date { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("visual_status_change_moment")]
+        public V1TimeRange_visual_status? Visual_status_change_moment { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("order_id")]
+        public long? Order_id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("posting_numbers")]
+        public System.Collections.Generic.IReadOnlyList<string>? Posting_numbers { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("product_name")]
+        public string? Product_name { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("offer_id")]
+        public string? Offer_id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("visual_status_name")]
+        public string? Visual_status_name { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("warehouse_id")]
+        public long? Warehouse_id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("barcode")]
+        public string? Barcode { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("return_schema")]
+        public string? Return_schema { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("compensation_status_id")]
+        public int? Compensation_status_id { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseAdditionalInfo
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("is_opened")]
+        public bool? Is_opened { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("is_super_econom")]
+        public bool? Is_super_econom { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseCompensation
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        public GetReturnsListResponseCompensationStatus? Status { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("change_moment")]
+        public System.DateTimeOffset? Change_moment { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseCompensationStatus
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public int? Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("display_name")]
+        public string? Display_name { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("sys_name")]
+        public string? Sys_name { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseExemplar
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public long? Id { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseLogistic
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("technical_return_moment")]
+        public System.DateTimeOffset? Technical_return_moment { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("final_moment")]
+        public System.DateTimeOffset? Final_moment { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("cancelled_with_compensation_moment")]
+        public System.DateTimeOffset? Cancelled_with_compensation_moment { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("return_date")]
+        public System.DateTimeOffset? Return_date { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("barcode")]
+        public string? Barcode { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponsePlace_now
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public long? Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string? Name { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("address")]
+        public string? Address { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponsePlace_target
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public long? Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string? Name { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("address")]
+        public string? Address { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseProduct
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("sku")]
+        public long? Sku { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("offer_id")]
+        public string? Offer_id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string? Name { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public Seller_returnsv1Money_product? Price { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("price_without_commission")]
+        public Seller_returnsv1Money_without_commission? Price_without_commission { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("commission_percent")]
+        public double? Commission_percent { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("commission")]
+        public Seller_returnsv1Money_commission? Commission { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("quantity")]
+        public int? Quantity { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseReturnsItem
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("exemplars")]
+        public System.Collections.Generic.IReadOnlyList<GetReturnsListResponseExemplar>? Exemplars { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public long? Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("company_id")]
+        public long? Company_id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("return_reason_name")]
+        public string? Return_reason_name { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("type")]
+        public string? Type { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("schema")]
+        public string? Schema { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("order_id")]
+        public long? Order_id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("order_number")]
+        public string? Order_number { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("place")]
+        public GetReturnsListResponsePlace_now? Place { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("target_place")]
+        public GetReturnsListResponsePlace_target? Target_place { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("storage")]
+        public GetReturnsListResponseStorage? Storage { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("product")]
+        public GetReturnsListResponseProduct? Product { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("logistic")]
+        public GetReturnsListResponseLogistic? Logistic { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("visual")]
+        public GetReturnsListResponseVisual? Visual { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("additional_info")]
+        public GetReturnsListResponseAdditionalInfo? Additional_info { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("source_id")]
+        public long? Source_id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("posting_number")]
+        public string? Posting_number { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("clearing_id")]
+        public long? Clearing_id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("return_clearing_id")]
+        public long? Return_clearing_id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("compensation_status")]
+        public GetReturnsListResponseCompensation? Compensation_status { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseStorage
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("sum")]
+        public Seller_returnsv1Money_storage? Sum { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("tariffication_first_date")]
+        public System.DateTimeOffset? Tariffication_first_date { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("tariffication_start_date")]
+        public System.DateTimeOffset? Tariffication_start_date { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("arrived_moment")]
+        public System.DateTimeOffset? Arrived_moment { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("days")]
+        public long? Days { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("utilization_sum")]
+        public Seller_returnsv1Money_utilization? Utilization_sum { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("utilization_forecast_date")]
+        public string? Utilization_forecast_date { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseVisual
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        public GetReturnsListResponseVisualStatus? Status { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("change_moment")]
+        public System.DateTimeOffset? Change_moment { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetReturnsListResponseVisualStatus
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public int? Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("display_name")]
+        public string? Display_name { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("sys_name")]
+        public string? Sys_name { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -5547,6 +6040,156 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Seller_returnsv1Money_commission
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("currency_code")]
+        public string? Currency_code { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public double? Price { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Seller_returnsv1Money_product
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("currency_code")]
+        public string? Currency_code { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public double? Price { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Seller_returnsv1Money_storage
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("currency_code")]
+        public string? Currency_code { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public double? Price { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Seller_returnsv1Money_utilization
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("currency_code")]
+        public string? Currency_code { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public double? Price { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Seller_returnsv1Money_without_commission
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("currency_code")]
+        public string? Currency_code { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public double? Price { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class V1GetReturnsListRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("filter")]
+        public GetReturnsListRequestFilter? Filter { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("limit")]
+        public int Limit { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("last_id")]
+        public long? Last_id { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class V1GetReturnsListResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("returns")]
+        public System.Collections.Generic.IReadOnlyList<GetReturnsListResponseReturnsItem>? Returns { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("has_next")]
+        public bool? Has_next { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class V1RatingStatus
     {
 
@@ -5582,6 +6225,69 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
 
         [System.Text.Json.Serialization.JsonPropertyName("subscription")]
         public SellerInfoResponseSubscription? Subscription { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class V1TimeRange_return_date
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("time_from")]
+        public System.DateTimeOffset? Time_from { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("time_to")]
+        public System.DateTimeOffset? Time_to { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class V1TimeRange_storage_tariffication
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("time_from")]
+        public System.DateTimeOffset? Time_from { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("time_to")]
+        public System.DateTimeOffset? Time_to { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class V1TimeRange_visual_status
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("time_from")]
+        public System.DateTimeOffset? Time_from { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("time_to")]
+        public System.DateTimeOffset? Time_to { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 

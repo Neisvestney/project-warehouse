@@ -17,8 +17,8 @@ public interface IMarketplaceOrderSyncService
         CancellationToken ct);
 
     /// <summary>
-    /// The unattended half: it refreshes what is already imported and imports marketplace-fulfilled
-    /// postings, which are external and so cannot pile up skips. Safe on a background interval, and also
+    /// The unattended half: it refreshes what is already imported, imports marketplace-fulfilled
+    /// postings, which are external and so cannot pile up skips, and imports returns. Safe on a background interval, and also
     /// the second phase of <see cref="SyncOrdersAsync"/>.
     /// </summary>
     Task SyncOrdersBackgroundAsync(
@@ -31,7 +31,7 @@ public interface IMarketplaceOrderSyncService
     /// <summary>
     /// One-off history import over <see cref="MarketplaceSyncRun.BackfillSince"/>..<c>BackfillTo</c>:
     /// everything the marketplace has already finished with that WMS does not know, as external orders.
-    /// Postings WMS already has are left untouched.
+    /// Postings WMS already has are left untouched. Returns handed back within the period follow.
     /// </summary>
     Task SyncOrdersBackfillAsync(
         IMarketplaceProvider provider,

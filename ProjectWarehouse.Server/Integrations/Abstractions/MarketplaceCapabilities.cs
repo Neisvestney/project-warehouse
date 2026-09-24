@@ -10,4 +10,5 @@ public enum MarketplaceCapabilities
     StockPush = 8,
     SellerInfo = 16,
     Labels = 32,
+    Returns = 64,
 }

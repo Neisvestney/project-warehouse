@@ -42,7 +42,8 @@ function SyncOrdersAccountAccordion({
   }
 
   const summary = run
-    ? `создано ${run.ordersCreated}, обновлено ${run.ordersUpdated}, пропущено ${run.ordersSkipped}`
+    ? `создано ${run.ordersCreated}, обновлено ${run.ordersUpdated}, пропущено ${run.ordersSkipped}; ` +
+      `возвраты: новых ${run.returnsCreated}, обновлено ${run.returnsUpdated}`
     : "ожидание…";
 
   return (
