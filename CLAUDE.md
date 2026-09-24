@@ -1,4 +1,5 @@
 ﻿Before planning read `docs/` to understand project structure.  
+Before writing a new component, hook, dialog/drawer, table, form, endpoint, service, enum, permission or background job — however small the task — open the matching row of the **Recipes** table in `docs/README.md` and follow that recipe; when no row matches, read the doc file for that layer from the Docs Index. Grepping docs for a file or tab name does not count as reading them. Take a neighbouring file as a template only after checking it against the recipe: a neighbour can be the one outlier.  
 Use rider mcp to start and stop dev frontend and backend servers for testing and api gen but do not use rider mcp to simple cli commands (dotnet ef and etc).  
 Project uses MUI v9 that has some breaking changes.  
 The frontend build enables React Compiler, so memoization is automatic. Do not add `React.memo`, `useMemo` or `useCallback` for render-cost reasons, and never raise a missing one as a review finding — only keep them where they guard a non-render invariant such as a stable identity passed to an external API.  

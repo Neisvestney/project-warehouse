@@ -34,7 +34,7 @@ is rationale, invariants, cross-cutting conventions and decisions.
 | [permissions.md](permissions.md) | The `_assigned` convention, notable access rules, where access is checked, RBAC + direct permissions |
 | [errors.md](errors.md) | `AppProblemDetails` envelope, field-path conventions, persisted errors, controller helpers |
 | [validation.md](validation.md) | Validation pipeline, `[JsonRequired]`, ModelState mapping |
-| [backend-patterns.md](backend-patterns.md) | Recurring backend patterns — search, inheritable fields, list sync, background work, access rules, enums |
+| [backend-patterns.md](backend-patterns.md) | Recurring backend patterns — controller logic in services, search, inheritable fields, list sync, background work, access rules, enums |
 | [entity-audit-log.md](entity-audit-log.md) | Entity audit log — before/after diffs of every mutation, how to add tracking to a method, Action/ActionData |
 | [observability-specification.md](observability-specification.md) | Telemetry — OpenTelemetry traces and logs, file archive on prod, local analysis stack |
 | [backlog.md](backlog.md) | Deferred work — what is blocked, why, and the event that unblocks it |
@@ -45,7 +45,7 @@ is rationale, invariants, cross-cutting conventions and decisions.
 |------|----------|
 | [frontend.md](frontend.md) | Architecture: tech stack, directory layering, routing, cross-cutting conventions, pages, providers, PWA, API client |
 | [frontend-components.md](frontend-components.md) | Component reference grouped by domain — catalog, files, marketplace, orders, warehouse, forms |
-| [frontend-state.md](frontend-state.md) | How state enters and leaves components — URL state hooks, form hooks, `ObservableForm` |
+| [frontend-state.md](frontend-state.md) | How state enters and leaves components — URL state hooks, overlays, form hooks, `ObservableForm` |
 | [frontend-realtime.md](frontend-realtime.md) | `RealtimeProvider`, subscription hooks, presence, edit-lock and stale-data UI |
 | [native-client.md](native-client.md) | Capacitor build — predefined servers, hardware scanner plugin, native caveats |
 
@@ -65,11 +65,59 @@ is rationale, invariants, cross-cutting conventions and decisions.
 | [data-files-specification.md](data-files-specification.md) | File storage — upload, storage abstraction, FK attachments, orphan GC, serving rules |
 | [assembler-daily-routine.md](assembler-daily-routine.md) | Инструкция сборщика — рабочий день целиком: Ozon, волны отсечек, листик, вечерняя сборка и отгрузка |
 
-### Licence note
+## Recipes
 
-Image resizing uses **SixLabors.ImageSharp 3.x**, under the Six Labors Split License: free for organizations
-under $1M annual revenue, commercial licence required above it. If that threshold is crossed, the alternative is
-SkiaSharp (MIT), which needs native Linux assets in the image.
+Before adding a new piece of a known kind, open its recipe — the project already has a hook, component or
+pattern for it, and a neighbouring file is not a reliable template. When no row matches, read the doc file for
+that layer (the Docs Index above) before writing code.
+
+**Frontend**
+
+| Adding… | Recipe |
+|---------|--------|
+| A new component, hook or helper — where it goes | [frontend.md → Directory layering](frontend.md#directory-layering) |
+| A modal, drawer or any overlay | [frontend-state.md → Overlays](frontend-state.md#overlays) — `useBackClosable` / `useDrawerSearchParamsState`, `useRetainedValue` + `onExited` |
+| A confirmation dialog | [frontend-components.md → `ConfirmDialog`](frontend-components.md#confirmdialog) |
+| A list table with pagination | [frontend-state.md → `usePaginatedParams`](frontend-state.md#usepaginatedparamsdebouncedparams-debounceddeps-immediateparams-immediatedeps-options), [frontend-components.md → `DataTableContainer`, `LinkTableRow`, `TableRowLoader`](frontend-components.md#layout--tables) |
+| A table that must work on a phone | [frontend.md → Таблицы на узких экранах](frontend.md#таблицы-на-узких-экранах) |
+| Filters or any state kept in the URL | [frontend-state.md → URL State Hooks](frontend-state.md#url-state-hooks), [frontend-components.md → `FiltersBar`](frontend-components.md#filtersbar) |
+| A detail page with tabs | [frontend-state.md → Tabbed detail pages](frontend-state.md#tabbed-detail-pages) |
+| Row selection and bulk actions | [frontend-state.md → `useSelectedItems`](frontend-state.md#useselecteditemsgetid-freshitems), [frontend-components.md → `BulkBar`](frontend-components.md#bulkbar) |
+| A form | [frontend-state.md → Form Hooks](frontend-state.md#form-hooks), [frontend-components.md → Forms](frontend-components.md#forms) |
+| A permission check in the UI | [frontend.md → Checking permissions](frontend.md#checking-permissions) |
+| Query invalidation after a mutation | [frontend.md → Invalidating by operation](frontend.md#invalidating-by-operation) |
+| A query error for a whole page | [frontend-components.md → `QueryErrorHandler`](frontend-components.md#queryerrorhandler) |
+| An error shown inside a page section | [frontend.md → Inline error branches](frontend.md#inline-error-branches) |
+| A loading overlay | [frontend-components.md → `LoadingOverlay`](frontend-components.md#loadingoverlay) |
+| A date without time | [frontend.md → Date-only values](frontend.md#date-only-values) |
+| A count with a Russian noun | [frontend.md → `pluralUtils`](frontend.md#pluralutils) |
+| A file download | [frontend.md → Downloading a generated file](frontend.md#downloading-a-generated-file) |
+| A chip color | [frontend.md → Chip colors](frontend.md#chip-colors) |
+| Memoization, MobX or `watch()` in a component | [frontend.md → React Compiler](frontend.md#react-compiler) |
+| Live updates, presence or an edit lock | [frontend-realtime.md](frontend-realtime.md) |
+
+**Backend**
+
+| Adding… | Recipe |
+|---------|--------|
+| A controller action, or logic several actions share | [backend-patterns.md → Shared controller logic lives in a service](backend-patterns.md#shared-controller-logic-lives-in-a-service) |
+| Request validation | [validation.md → How Validation Works](validation.md#how-validation-works) |
+| An error returned from a controller | [errors.md → Controller Helpers](errors.md#controller-helpers) |
+| A new error code | [errors.md → Where the codes are documented](errors.md#where-the-codes-are-documented) |
+| Text search over a list | [backend-patterns.md → Search](backend-patterns.md#search-with-wherematchessearch--projectable) |
+| A field inherited from a parent entity | [backend-patterns.md → Inheritable fields](backend-patterns.md#inheritable-fields-with-projectable) |
+| Saving a nested list from a request | [backend-patterns.md → `IListUpdater`](backend-patterns.md#updating-related-entity-lists-with-ilistupdater) |
+| A query loading several collections | [backend-patterns.md → Splitting mode](backend-patterns.md#a-query-loading-more-than-one-collection-picks-its-splitting-mode) |
+| A paginated list with extra totals | [backend-patterns.md → `PaginatedWithMeta`](backend-patterns.md#paginatedwithmetat-tmeta) |
+| Several aggregates over one table | [backend-patterns.md → `Concat` into `UNION ALL`](backend-patterns.md#many-aggregates-over-one-table-concat-into-a-single-union-all) |
+| An invariant spanning a whole table | [backend-patterns.md → `pg_advisory_xact_lock`](backend-patterns.md#table-wide-invariants-pg_advisory_xact_lock-not-a-retry) |
+| A counter row | [backend-patterns.md → Counter rows](backend-patterns.md#counter-rows-unique-index--xmin--replay) |
+| A background job | [backend-patterns.md → Background work](backend-patterns.md#background-work-queue--worker--advisory-lock) |
+| A file attachment point | [backend-patterns.md → File attachments](backend-patterns.md#file-attachments-adding-a-new-attachment-point) |
+| An enum | [backend-patterns.md → Enums](backend-patterns.md#enums-pinned-values-free-ordering) |
+| An access rule for an entity | [backend-patterns.md → Access rules](backend-patterns.md#access-rules-one-predicate-per-entity-type), [permissions.md → Adding a rule for a new entity](permissions.md#adding-a-rule-for-a-new-entity) |
+| A permission | [permissions.md → Adding a New Permission](permissions.md#adding-a-new-permission) |
+| Audit tracking for a mutation | [entity-audit-log.md → Adding Changelog to a New Method](entity-audit-log.md#adding-changelog-to-a-new-method) |
 
 ## Local Dev Setup
 
@@ -131,3 +179,9 @@ through `/api/telemetry`) and the Aspire Dashboard on `http://localhost:18888`; 
 ### First Login
 
 Use the credentials set in `Seed:AdminPassword`. The admin user is seeded on startup with all permissions.
+
+## Licence note
+
+Image resizing uses **SixLabors.ImageSharp 3.x**, under the Six Labors Split License: free for organizations
+under $1M annual revenue, commercial licence required above it. If that threshold is crossed, the alternative is
+SkiaSharp (MIT), which needs native Linux assets in the image.
