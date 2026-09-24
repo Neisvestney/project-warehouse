@@ -383,6 +383,25 @@ The actions group is a wrapping row aligned to the right edge. Below `md` every 
 `flex: 0 0 auto` to stay square. Pass buttons to `actions` as a fragment rather than a nested `Stack` — a
 wrapper collapses into a single flex item and its buttons stop stretching.
 
+### `HoverActionLink`
+
+The base of every "click the text to act on it" label: pointer cursor, `fit-content` width, and an `icon` that
+stays hidden until hover. On a device without hover (`@media (hover: none)`) the icon is always shown, since
+nothing else there tells the text is clickable. The whole block is the click target, not just the icon. It is a `role="button"` in the tab order: Enter and Space fire `onClick` too, and
+keyboard focus reveals the icon the way hover does. Click and those keys `stopPropagation()` before calling
+`onClick`, which keeps it safe inside clickable table rows and accordion summaries. `ariaLabel` is only for a
+wrapper whose text does not name the action — `CopyableText` passes «Скопировать …», `CatalogItemLink` leaves the
+item name as the accessible name. A new action of this kind (open, copy, …) wraps it with a fixed
+icon rather than growing flags on the base; `CatalogItemLink` and `CopyableText` are the two wrappers.
+
+### `CopyableText`
+
+A `HoverActionLink` with `ContentCopyIcon` that copies `value` through `copyToClipboard` and reports the result in
+a snackbar (`successMessage`, «Скопировано» by default). `children` replaces the shown text when it must differ
+from the copied string — a highlighted posting number is rendered by `formatPostingNumber`, yet the raw number is
+what lands in the clipboard. `textStyle` goes onto the text span, which wraps anywhere so a long article does not
+push the layout.
+
 ### `WarehouseChip`, `UserChip`
 
 `<WarehouseChip warehouseId={…} name={…} />` and `<UserChip userId={…} name={…} />` (both in
@@ -528,9 +547,7 @@ nothing. Used by `OrderPage` and `OrdersAssemblyPage`.
 
 ### `CatalogItemLink`
 
-Gives any catalog item label the standard clickable look: pointer cursor, `fit-content` width and an
-`OpenInNewIcon` that appears on hover. Click calls `onOpen(catalogItemId)` and `stopPropagation()`s, so it stays
-safe inside clickable table rows.
+A `HoverActionLink` with `OpenInNewIcon`: click calls `onOpen(catalogItemId)`.
 
 Content is passed as **children** because the composition differs per call site (chip before or after the name,
 inventory number, archive icon, extra badges) — the wrapper stays flag-free.
@@ -935,6 +952,12 @@ FBS-only pieces: `SyncOrdersButton` / `SyncOrdersDialog` / `SyncOrdersAccountAcc
 `integrations.view` still gets the account picker), and `marketplaceOrderUtils` for the label and colour maps.
 The maps live here rather than in `MarketplacesSettingsPage/marketplaceUtils` so the operations tree never
 imports from the settings tree.
+
+`PostingNumberLabel` is the compact posting label for places with room for a single number, currently the
+`OrdersAssemblyPage` summary. Once the posting has a `scanitBarcode` it shows the barcode — what the assembler
+scans off the label — as a `CopyableText`, and puts the posting number into an interactive tooltip as a second
+`CopyableText`, so both stay copyable. Before packing there is no barcode yet, and the posting number itself is
+shown and copied.
 
 `MarketplaceOrderStatusChip` shows the posting's `returnState` in place of its status: «Частичный возврат»
 (`warning`) or «Полный возврат» (`error`), with the marketplace status moved into the tooltip. A `cancelled`

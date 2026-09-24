@@ -22,7 +22,7 @@ import {formatOrderNumber} from "@/components/orders/orderUtils";
 import {checkBatchEligibility, getBatchDisabledReason} from "./batchEligibility";
 import {getTaskProgress} from "@/components/orders/orderAssemblyUtils";
 import {NOUNS, plural, pluralCount} from "@/utils/pluralUtils";
-import {formatPostingNumber} from "@/utils/postingNumberUtils.tsx";
+import PostingNumberLabel from "@/components/orders/marketplace/PostingNumberLabel";
 import CheckIcon from "@mui/icons-material/Check";
 
 interface AssemblyOrderAccordionProps {
@@ -135,8 +135,8 @@ function AssemblyOrderAccordion({
             )}
             {soleTask && <AssemblyTaskStatusChip status={soleTask.task.status} />}
             {order.marketplaceOrder && (
-              <SummaryPosting variant={"body2"}>
-                {formatPostingNumber(order.marketplaceOrder.postingNumber)}
+              <SummaryPosting>
+                <PostingNumberLabel marketplaceOrder={order.marketplaceOrder} />
               </SummaryPosting>
             )}
           </SummaryChips>
@@ -233,8 +233,11 @@ const SummaryProgress = styled(Typography)(
   `,
 );
 
-const SummaryPosting = styled(Typography)(
+const SummaryPosting = styled("div")(
   ({theme}) => css`
+    font-size: ${theme.typography.body2.fontSize};
+    line-height: ${theme.typography.body2.lineHeight};
+
     ${theme.breakpoints.up("md")} {
       order: 2;
     }
