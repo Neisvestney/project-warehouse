@@ -306,6 +306,9 @@ public class MarketplaceOrderSyncService(
         if (known.ShipmentDate != posting.ShipmentDate && known.Order is not null)
             known.Order.PlannedShipmentAt = posting.ShipmentDate;
 
+        var now = DateTime.UtcNow;
+        StampFinalStatus(known, posting.Status, now);
+
         known.Status = posting.Status;
         known.RawStatus = posting.RawStatus;
         known.RawSubstatus = posting.RawSubstatus;
@@ -318,7 +321,6 @@ public class MarketplaceOrderSyncService(
         known.ScanitBarcode = posting.Scanit ?? known.ScanitBarcode;
         known.ExternalOrderNumber = posting.ExternalOrderNumber;
 
-        var now = DateTime.UtcNow;
         known.StatusSyncedAt = now;
         known.SyncedAt = now;
 
@@ -415,6 +417,7 @@ public class MarketplaceOrderSyncService(
                 || order.TrackingNumber != status.TrackingNumber)
                 run.OrdersUpdated++;
 
+            StampFinalStatus(order, status.Status, now);
             order.Status = status.Status;
             order.RawStatus = status.RawStatus;
             order.RawSubstatus = status.RawSubstatus;
@@ -542,6 +545,23 @@ public class MarketplaceOrderSyncService(
             cards.ByOfferId.TryAdd(row.OfferId, row);
 
         return row;
+    }
+
+    /// <summary>
+    /// The marketplace states neither moment, so a transition this sync observes is stamped with the time it was
+    /// seen; leaving the state clears the stamp. Must run before <c>Status</c> is overwritten.
+    /// </summary>
+    private static void StampFinalStatus(MarketplaceOrder order, MarketplaceOrderStatus next, DateTime now)
+    {
+        if (next != MarketplaceOrderStatus.Delivered)
+            order.DeliveredAt = null;
+        else if (order.Status != MarketplaceOrderStatus.Delivered)
+            order.DeliveredAt = now;
+
+        if (next != MarketplaceOrderStatus.Cancelled)
+            order.CancelledAt = null;
+        else if (order.Status != MarketplaceOrderStatus.Cancelled)
+            order.CancelledAt = now;
     }
 
     /// <summary>

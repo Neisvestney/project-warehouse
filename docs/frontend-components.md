@@ -936,6 +936,16 @@ FBS-only pieces: `SyncOrdersButton` / `SyncOrdersDialog` / `SyncOrdersAccountAcc
 The maps live here rather than in `MarketplacesSettingsPage/marketplaceUtils` so the operations tree never
 imports from the settings tree.
 
+`MarketplaceOrderStatusChip` shows the posting's `returnState` in place of its status: «Частичный возврат»
+(`warning`) or «Полный возврат» (`error`), with the marketplace status moved into the tooltip. A `cancelled`
+posting always reads «Отменён» — the cancellation outranks any return on it. The return badge itself is
+`MarketplaceOrderReturnChip`, which renders nothing for `none`. The order page passes `ignoreReturn` to the status
+chip and puts `MarketplaceOrderReturnChip` beside it in the «Статус на площадке» row, so both are visible there.
+The order page also shows returns per line and per record: `OrderMarketplaceItemsSection` puts a «Возвращено» chip beside the quantity of every line with
+`returnedQuantity > 0`, and `OrderMarketplaceReturnsDetails` adds a «Возвраты» row to `OrderMetaSection` whose
+button expands every return record of the posting. Records with `isCountedAsReturn = false` stay in that list,
+dimmed and marked «Не засчитан».
+
 While the start request is in flight or any picked run is still `running`, `SyncOrdersDialog` shows an
 indeterminate `LinearProgress` under the title. While the start request is in flight the dialog cannot be
 closed at all, so its `onSuccess` never lands on a closed dialog; while a run is going, closing (backdrop,

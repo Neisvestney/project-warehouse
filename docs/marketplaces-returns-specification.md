@@ -128,6 +128,37 @@ MarketplaceReturn
 
 Возвраты никогда не удаляются. Все поля площадки при каждой встрече переписываются тем, что она сообщила.
 
+### Возвраты в заказе
+
+Правило «что считается возвратом» живёт в одном месте — `[Projectable]` `MarketplaceReturn.IsCountedAsReturn`:
+`Kind ∈ {CustomerReturn, PartialRefusal}` и `IsCancelled = false`. Отмены и полные отказы — это отмена самого
+отправления, она видна по его статусу; отменённая заявка товар не двигала. На этом правиле стоят остальные
+вычисляемые поля:
+
+| Поле | Что даёт |
+|---|---|
+| `Order.MarketplaceReturns`, `OrderMarketplaceItem.MarketplaceReturns` | Навигации по `OrderId` и `OrderMarketplaceItemId` — все возвраты, отменённые включительно |
+| `Order.ReturnedQuantity`, `OrderMarketplaceItem.ReturnedQuantity` | Σ `Quantity` возвратов с `IsCountedAsReturn` |
+| `Order.MarketplaceQuantity` | Σ `Quantity` строк заказа |
+| `MarketplaceOrder.ReturnState` | `MarketplaceOrderReturnState`: `None = 0` — ничего не вернули, `Partial = 1` — меньше, чем продано, `Full = 2` — не меньше |
+
+`ReturnState` считается по заказу, а не по строкам: возврат, чей товар не совпал ни с одной строкой, всё равно
+засчитывается.
+
+Что отдаёт API заказов:
+
+- `MarketplaceOrderDto.ReturnState` — во всех DTO заказа, списочном и детальном. В списке `ProjectTo` превращает
+  его в подзапрос с суммой, сами возвраты не грузятся.
+- `OrderDetailsDto.MarketplaceReturns` — все возвраты отправления: вид, строка заказа, причина, статус,
+  `IsCancelled`, `IsCountedAsReturn`, даты и компенсация. Порядок — по `ReturnedAt`, а если его нет — по
+  `StatusChangedAt`; при равенстве — по `ExternalId`. Возврат без обеих дат идёт первым.
+- `OrderMarketplaceItemDto.ReturnedQuantity` — вернувшиеся штуки строки.
+
+`OrderDetailsDto` (страница заказа, пакетные операции, список сборки) мапится в памяти после `Include`, и там
+`[Projectable]` работает как обычный геттер. Поэтому каждый такой запрос в `OrdersController` грузит
+`Order.MarketplaceReturns` и `Order.MarketplaceItems`: без них поля молча дали бы `None` и ноль. По строкам
+возвраты раскладывает трекинг, по `OrderMarketplaceItemId`, отдельный `Include` для этого не нужен.
+
 ## Синхронизация
 
 Шаг входит в `Scope = OrdersBackground` и идёт после импорта FBO и догона статусов — к этому моменту отправления,

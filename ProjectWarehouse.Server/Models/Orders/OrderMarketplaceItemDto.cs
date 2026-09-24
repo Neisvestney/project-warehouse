@@ -19,4 +19,7 @@ public class OrderMarketplaceItemDto: IHasIdentity
     public string? CurrencyCode { get; set; }
     public decimal? CommissionAmount { get; set; }
     public string? CommissionCurrencyCode { get; set; }
+
+    /// <summary>Units of this line that came back; see <see cref="MarketplaceReturnDto.IsCountedAsReturn"/>.</summary>
+    public int ReturnedQuantity { get; set; }
 }

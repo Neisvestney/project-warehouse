@@ -1,3 +1,4 @@
+using EntityFrameworkCore.Projectables;
 using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Domain;
@@ -47,4 +48,10 @@ public class OrderMarketplaceItem : IHasIdentity
 
     public decimal? CommissionAmount { get; set; }
     public string? CommissionCurrencyCode { get; set; }
+
+    /// <summary>Returns matched to this line; a return whose product matched no line is on the order only.</summary>
+    public ICollection<MarketplaceReturn> MarketplaceReturns { get; set; } = [];
+
+    [Projectable]
+    public int ReturnedQuantity => MarketplaceReturns.Where(r => r.IsCountedAsReturn).Sum(r => r.Quantity);
 }

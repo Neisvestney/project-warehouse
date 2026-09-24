@@ -15,6 +15,12 @@ public class MarketplaceOrderDto
     public string? ExternalOrderNumber { get; init; }
 
     public MarketplaceOrderStatus Status { get; init; }
+
+    /// <summary>When a sync first saw the posting delivered, to within the sync interval; null if imported delivered.</summary>
+    public DateTime? DeliveredAt { get; init; }
+
+    /// <summary>Same as <see cref="DeliveredAt"/>, for cancelled.</summary>
+    public DateTime? CancelledAt { get; init; }
     public string? RawStatus { get; init; }
     public string? RawSubstatus { get; init; }
 
@@ -24,6 +30,9 @@ public class MarketplaceOrderDto
     public MarketplaceCancellationType? CancellationType { get; init; }
     public string? RawCancellationType { get; init; }
     public string? CancelReason { get; init; }
+
+    /// <summary>Whether the buyer sent the order back, fully or in part.</summary>
+    public MarketplaceOrderReturnState ReturnState { get; init; }
 
     public DateTime? ShipmentDate { get; init; }
     public DateTime? InProcessAt { get; init; }

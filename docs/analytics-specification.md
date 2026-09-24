@@ -45,9 +45,10 @@
 исключения для них не нужно. Заказы в прочих статусах (`AwaitingDeliver`, `Arbitration`, `Unknown`; у прямых — `Draft`,
 `Confirmed`, `Assembly`) в аналитику не попадают ни как продажа, ни как отмена.
 
-**Возврат** — `MarketplaceReturn` с `Kind ∈ {CustomerReturn, PartialRefusal}` и `IsCancelled = false`, связанный
-с заказом-продажей. Отменённая или отклонённая заявка (`IsCancelled`) возвратом не считается: товар остался у
-покупателя (см. [marketplaces-returns-specification.md](marketplaces-returns-specification.md#модель)).
+**Возврат** — `MarketplaceReturn` с `Kind ∈ {CustomerReturn, PartialRefusal}` и `IsCancelled = false`
+(`[Projectable]` `IsCountedAsReturn`), связанный с заказом-продажей. Отменённая или отклонённая заявка
+(`IsCancelled`) возвратом не считается: товар остался у покупателя (см.
+[marketplaces-returns-specification.md](marketplaces-returns-specification.md#возвраты-в-заказе)).
 Продажу возврат не отменяет: заказ остаётся продажей, а возвращённые штуки считаются отдельно. Возвраты с
 `Kind ∈ {Cancellation, FullRefusal}` в метрики не входят — это отказы при вручении и отмены после отгрузки,
 которые уже посчитаны отменами через `MarketplaceOrder.Status` (почему — в

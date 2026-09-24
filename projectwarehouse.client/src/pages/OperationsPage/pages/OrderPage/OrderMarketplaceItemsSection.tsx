@@ -1,5 +1,6 @@
-﻿import type {OrderDetailsDto} from "@/api";
+﻿import type {OrderDetailsDto, OrderMarketplaceItemDto} from "@/api";
 import {
+  Chip,
   Table,
   TableHead,
   TableRow,
@@ -17,6 +18,18 @@ import CopyableText from "@/components/CopyableText.tsx";
 import {useOpenCatalogItem} from "@/components/catalog/CatalogItemDrawerContext.ts";
 import CatalogItemLink from "@/components/catalog/CatalogItemLink.tsx";
 import InfoRow from "@/components/InfoRow.tsx";
+
+function ReturnedChip({item}: {item: OrderMarketplaceItemDto}) {
+  if (item.returnedQuantity <= 0) return null;
+  const isFull = item.returnedQuantity >= item.quantity;
+  return (
+    <Chip
+      size="small"
+      color={isFull ? "error" : "warning"}
+      label={isFull ? "Возвращено" : `Возвращено ${item.returnedQuantity} из ${item.quantity}`}
+    />
+  );
+}
 
 interface OrderBoxesSectionProps {
   order: OrderDetailsDto;
@@ -52,7 +65,15 @@ function OrderMarketplaceItemsSection({order}: OrderBoxesSectionProps) {
                       <Typography sx={{fontFamily: "monospace"}}>{card?.sku ?? "—"}</Typography>
                     }
                   />
-                  <InfoRow label="Количество" value={String(item.quantity)} />
+                  <InfoRow
+                    label="Количество"
+                    value={
+                      <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+                        <span>{item.quantity}</span>
+                        <ReturnedChip item={item} />
+                      </Stack>
+                    }
+                  />
                   <InfoRow
                     label="Позиция каталога"
                     value={
@@ -113,7 +134,12 @@ function OrderMarketplaceItemsSection({order}: OrderBoxesSectionProps) {
               <TableCell sx={{fontFamily: "monospace"}}>
                 {item.marketplaceCard?.sku ?? "—"}
               </TableCell>
-              <TableCell>{item.quantity}</TableCell>
+              <TableCell>
+                <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+                  <span>{item.quantity}</span>
+                  <ReturnedChip item={item} />
+                </Stack>
+              </TableCell>
               <TableCell>
                 {item.marketplaceCard?.catalogItemId ? (
                   <CatalogItemLink

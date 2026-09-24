@@ -156,7 +156,8 @@ export type AutoMapResponse = {
  */
 export type BackfillBoundsDto = {
   /**
-   * Creation date of the oldest order WMS has for this account.
+   * Date of the oldest posting WMS has for this account — when the marketplace started processing it, or
+   * the import time for one that states no such date.
    */
   firstOrderAt?: null | string;
   /**
@@ -943,6 +944,14 @@ export type MarketplaceOrderDto = {
   postingNumber: string;
   externalOrderNumber?: null | string;
   status: MarketplaceOrderStatus;
+  /**
+   * When a sync first saw the posting delivered, to within the sync interval; null if imported delivered.
+   */
+  deliveredAt?: null | string;
+  /**
+   * Same as DateTime? MarketplaceOrderDto.DeliveredAt, for cancelled.
+   */
+  cancelledAt?: null | string;
   rawStatus?: null | string;
   rawSubstatus?: null | string;
   /**
@@ -952,6 +961,10 @@ export type MarketplaceOrderDto = {
   cancellationType?: null | MarketplaceCancellationType;
   rawCancellationType?: null | string;
   cancelReason?: null | string;
+  /**
+   * Whether the buyer sent the order back, fully or in part.
+   */
+  returnState: MarketplaceOrderReturnState;
   shipmentDate?: null | string;
   inProcessAt?: null | string;
   trackingNumber?: null | string;
@@ -969,6 +982,11 @@ export type MarketplaceOrderDto = {
   labelError?: null | AppFieldError;
   statusSyncedAt: string;
 };
+
+/**
+ * How much of a sold posting came back, counted in units.
+ */
+export type MarketplaceOrderReturnState = "none" | "partial" | "full";
 
 /**
  * Normalized posting state. Collapsing the marketplace's own vocabulary is the provider's job.
@@ -992,6 +1010,55 @@ export type MarketplaceOrderSyncTargetDto = {
   unmappedWarehouseCount: number;
   unmappedCardCount: number;
 };
+
+export type MarketplaceReturnCompensationStatus =
+  "sent" | "received" | "canceled" | "decompensationSent";
+
+/**
+ * One returned unit of the order, as the marketplace reported it.
+ */
+export type MarketplaceReturnDto = {
+  id: string;
+  externalId: string;
+  /**
+   * The order line it was matched to; null when its product matched none.
+   */
+  orderMarketplaceItemId?: null | string;
+  catalogItemId?: null | string;
+  sku?: null | string;
+  offerId: string;
+  scheme: MarketplaceReturnScheme;
+  kind: MarketplaceReturnKind;
+  rawKind?: null | string;
+  quantity: number;
+  price?: null | number;
+  currencyCode?: null | string;
+  reason?: null | string;
+  rawStatus?: null | string;
+  statusName?: null | string;
+  statusChangedAt?: null | string;
+  isCancelled: boolean;
+  /**
+   * Whether it counts toward the order's returned units and MarketplaceOrderReturnState MarketplaceOrderDto.ReturnState.
+   */
+  isCountedAsReturn: boolean;
+  returnedAt?: null | string;
+  finalAt?: null | string;
+  compensationStatus?: null | MarketplaceReturnCompensationStatus;
+  compensationStatusChangedAt?: null | string;
+};
+
+/**
+ * What sent an item back, collapsed from the marketplace's own vocabulary. Unknown = 0 so an
+ * unrecognized type never reads as a real one; the raw value is kept alongside for diagnosis.
+ */
+export type MarketplaceReturnKind =
+  "unknown" | "cancellation" | "fullRefusal" | "partialRefusal" | "customerReturn";
+
+/**
+ * Fulfillment scheme of the posting a return belongs to. Unknown = 0, same rule as the other raw vocabularies.
+ */
+export type MarketplaceReturnScheme = "unknown" | "fbs" | "fbo";
 
 export type MarketplaceRuleOperator = "equals" | "contains" | "startsWith" | "endsWith" | "regex";
 
@@ -1177,6 +1244,10 @@ export type OrderDetailsDto = {
   createdByName?: null | string;
   marketplaceOrder?: null | MarketplaceOrderDto;
   marketplaceItems: Array<OrderMarketplaceItemDto>;
+  /**
+   * Every return reported for the posting, cancelled requests included, by return date.
+   */
+  marketplaceReturns: Array<MarketplaceReturnDto>;
   boxes: Array<OrderBoxDto>;
   assemblyTasks: Array<AssemblyTaskDto>;
   attachments: Array<DataFileLinkDto>;
@@ -1225,6 +1296,10 @@ export type OrderMarketplaceItemDto = {
   currencyCode?: null | string;
   commissionAmount?: null | number;
   commissionCurrencyCode?: null | string;
+  /**
+   * Units of this line that came back; see bool MarketplaceReturnDto.IsCountedAsReturn.
+   */
+  returnedQuantity: number;
 };
 
 export type OrderSortBy =

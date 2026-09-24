@@ -1,7 +1,10 @@
 import type {ChipProps} from "@mui/material";
 import type {
   MarketplaceCancellationType,
+  MarketplaceOrderReturnState,
   MarketplaceOrderStatus,
+  MarketplaceReturnCompensationStatus,
+  MarketplaceReturnKind,
   MarketplaceSyncStatus,
   MarketplaceType,
 } from "@/api/types.gen";
@@ -32,6 +35,39 @@ export const MARKETPLACE_ORDER_STATUS_COLORS: Record<MarketplaceOrderStatus, Chi
   delivered: "success",
   cancelled: "error",
   arbitration: "warning",
+};
+
+export const MARKETPLACE_ORDER_RETURN_STATE_LABELS: Record<MarketplaceOrderReturnState, string> = {
+  none: "Нет",
+  partial: "Частичный возврат",
+  full: "Полный возврат",
+};
+
+export const MARKETPLACE_ORDER_RETURN_STATE_COLORS: Record<
+  MarketplaceOrderReturnState,
+  ChipProps["color"]
+> = {
+  none: "default",
+  partial: "warning",
+  full: "error",
+};
+
+export const MARKETPLACE_RETURN_KIND_LABELS: Record<MarketplaceReturnKind, string> = {
+  unknown: "Технический возврат",
+  cancellation: "Отмена после отгрузки",
+  fullRefusal: "Полный отказ при вручении",
+  partialRefusal: "Частичный отказ при вручении",
+  customerReturn: "Возврат после вручения",
+};
+
+export const MARKETPLACE_RETURN_COMPENSATION_LABELS: Record<
+  MarketplaceReturnCompensationStatus,
+  string
+> = {
+  sent: "Отправлена",
+  received: "Получена",
+  canceled: "Отменена",
+  decompensationSent: "Отправлена декомпенсация",
 };
 
 export const MARKETPLACE_CANCELLATION_TYPE_LABELS: Record<MarketplaceCancellationType, string> = {
