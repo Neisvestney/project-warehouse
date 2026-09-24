@@ -4,6 +4,48 @@ Recurring implementation patterns used in the server project.
 
 ---
 
+## Shared controller logic lives in a service
+
+Logic that more than one controller action needs — or obviously will — goes into a `Services/IXxx.cs` +
+`Services/Xxx.cs` pair registered with `AddScoped` in `Program.cs`, never copied into each action. A copy is
+where a check gets forgotten, and a missing existence check turns a clean 422 into a 500 from a raw foreign-key
+violation.
+
+### Rules
+
+- **The contract returns the error, the controller returns the response.** A service method that can reject
+  its input returns `AppProblemDetails?` — `null` on success — and the action hands it to
+  `AppControllerBase.Problem(...)`. The service never builds an `IActionResult`.
+- **Existence is checked explicitly**, not left to the database constraint: only an `AppProblemDetails` renders
+  on the frontend.
+- **Shapes shared across entities are interfaces.** The service works against them and knows no concrete
+  entity or request type.
+- **One method per cardinality** when the same operation exists for a single reference (1:1) and for a list
+  (1:N).
+
+### Example
+
+`IDataFileBindingService` is the single way controllers attach files to entities:
+
+```csharp
+Task<AppProblemDetails?> BindSingleAsync(
+    Guid? fileId, Action<Guid?> assign, string field, CancellationToken ct);
+
+Task<AppProblemDetails?> BindListAsync<TLink, TRequest>(
+    IReadOnlyList<TRequest> requests, List<TLink> links, DbSet<TLink> dbSet,
+    Action<TLink> setOwner, string field, CancellationToken ct)
+    where TLink : class, IDataFileLink
+    where TRequest : class, IDataFileLinkRequest;
+```
+
+```csharp
+var imageProblem = await fileBinding.BindSingleAsync(
+    request.MainImageFileId, v => item.MainImageFileId = v, "mainImageFileId", ct);
+if (imageProblem is not null) return Problem(imageProblem);
+```
+
+---
+
 ## Search with `WhereMatchesSearch` + `[Projectable]`
 
 ### Pattern

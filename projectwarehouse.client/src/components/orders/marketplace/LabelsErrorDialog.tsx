@@ -1,4 +1,3 @@
-import {useState} from "react";
 import {
   Button,
   Dialog,
@@ -10,6 +9,7 @@ import {
   Typography,
 } from "@mui/material";
 import {useBackClosable} from "@/hooks/useBackClosable";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
 import {formatPostingNumber} from "@/utils/postingNumberUtils";
 import type {LabelsError} from "./useDownloadLabels";
 
@@ -19,14 +19,18 @@ interface LabelsErrorDialogProps {
 }
 
 function LabelsErrorDialog({error, onClose}: LabelsErrorDialogProps) {
-  // held over the closing transition, otherwise the dialog empties out while it fades
-  const [shown, setShown] = useState<LabelsError | null>(error);
-  if (error !== null && error !== shown) setShown(error);
+  const [shown, releaseShown] = useRetainedValue(error);
 
   useBackClosable(error !== null, onClose);
 
   return (
-    <Dialog open={error !== null} onClose={onClose} fullWidth maxWidth="xs">
+    <Dialog
+      open={error !== null}
+      onClose={onClose}
+      fullWidth
+      maxWidth="xs"
+      slotProps={{transition: {onExited: releaseShown}}}
+    >
       <DialogTitle>Не удалось скачать этикетки</DialogTitle>
       <DialogContent dividers>
         <Typography variant="body2">{shown?.message}</Typography>
