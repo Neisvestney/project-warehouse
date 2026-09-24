@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using EntityFrameworkCore.Projectables;
 using ProjectWarehouse.Server.Models;
 
 namespace ProjectWarehouse.Server.Domain;
@@ -25,6 +26,15 @@ public class MarketplaceOrder
     public string? ExternalOrderNumber { get; set; }
 
     public MarketplaceOrderStatus Status { get; set; }
+
+    /// <summary>
+    /// When a sync first saw <see cref="Status"/> become Delivered — the marketplace states no delivery moment of
+    /// its own, so this is accurate to the account's sync interval. Null for a posting imported already delivered.
+    /// </summary>
+    public DateTime? DeliveredAt { get; set; }
+
+    /// <summary>Same as <see cref="DeliveredAt"/>, for Cancelled.</summary>
+    public DateTime? CancelledAt { get; set; }
 
     // diagnostics only — the normalized Status is what the UI and queries use
     public string? RawStatus { get; set; }
@@ -69,4 +79,16 @@ public class MarketplaceOrder
 
     public DateTime StatusSyncedAt { get; set; }
     public DateTime SyncedAt { get; set; }
+
+    /// <summary>
+    /// Whether the buyer sent the order back, by the units of <see cref="Domain.Order.ReturnedQuantity"/>. Mapped in
+    /// memory it needs <c>Order.MarketplaceReturns</c> and <c>Order.MarketplaceItems</c> loaded, or it reads None.
+    /// </summary>
+    [Projectable]
+    public MarketplaceOrderReturnState ReturnState =>
+        Order.ReturnedQuantity == 0
+            ? MarketplaceOrderReturnState.None
+            : Order.ReturnedQuantity >= Order.MarketplaceQuantity
+                ? MarketplaceOrderReturnState.Full
+                : MarketplaceOrderReturnState.Partial;
 }

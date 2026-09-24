@@ -478,6 +478,8 @@ MarketplaceOrder
 ├── PostingNumber         — string, номер отправления
 ├── ExternalOrderNumber   — string?, номер заказа площадки, к которому относится отправление
 ├── Status                — MarketplaceOrderStatus, нормализованный статус
+├── DeliveredAt           — DateTime?, когда синхронизация впервые увидела Delivered
+├── CancelledAt           — DateTime?, когда синхронизация впервые увидела Cancelled
 ├── RawStatus             — string?, статус площадки как есть  ─┐ только диагностика
 ├── RawSubstatus          — string?, подстатус как есть         ─┘
 ├── CancelledAfterShip    — bool?, null пока отправление живо; true — отменено после отгрузки

@@ -918,6 +918,12 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<bool?>("CancelledAfterShip")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeliveredAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("DeliveryMethodName")
                         .HasColumnType("text");
 
@@ -2684,12 +2690,12 @@ namespace ProjectWarehouse.Server.Migrations
                         .IsRequired();
 
                     b.HasOne("ProjectWarehouse.Server.Domain.Order", "Order")
-                        .WithMany()
+                        .WithMany("MarketplaceReturns")
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("ProjectWarehouse.Server.Domain.OrderMarketplaceItem", "OrderMarketplaceItem")
-                        .WithMany()
+                        .WithMany("MarketplaceReturns")
                         .HasForeignKey("OrderMarketplaceItemId")
                         .OnDelete(DeleteBehavior.SetNull);
 
@@ -3380,11 +3386,18 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("MarketplaceItems");
 
                     b.Navigation("MarketplaceOrder");
+
+                    b.Navigation("MarketplaceReturns");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.OrderBox", b =>
                 {
                     b.Navigation("Components");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.OrderMarketplaceItem", b =>
+                {
+                    b.Navigation("MarketplaceReturns");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Receipt", b =>

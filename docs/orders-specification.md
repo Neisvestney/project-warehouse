@@ -89,7 +89,7 @@ Order
 └── AssemblyTasks[]         — задания на сборку
 ```
 
-> **`MarketplaceOrder`** — расширение заказа 1:1 с общим первичным ключом, которое хранит номер отправления, аккаунт маркетплейса, статус на площадке и этикетку. `SearchString` ищет по `MarketplaceOrder.PostingNumber`. Модель и обоснование — в [marketplaces-specification.md](marketplaces-specification.md#заказ-маркетплейса-marketplaceorder).
+> **`MarketplaceOrder`** — расширение заказа 1:1 с общим первичным ключом, которое хранит номер отправления, аккаунт маркетплейса, статус на площадке и этикетку. `SearchString` ищет по `MarketplaceOrder.PostingNumber` и `MarketplaceOrder.ScanitBarcode` — штрихкоду с этикетки. Модель и обоснование — в [marketplaces-specification.md](marketplaces-specification.md#заказ-маркетплейса-marketplaceorder).
 >
 > **Статус на площадке и статус WMS независимы.** `Order.Status` живёт по статусной машине этого документа, `MarketplaceOrder.Status` обновляется синхронизацией. Автоматических переходов между ними нет ни в одну сторону.
 
@@ -490,7 +490,7 @@ Draft → Confirmed → Assembly ⇄ Assembled ⇄ Shipped
 `searchString` в списке заказов и на странице сборки ищет не только по самому заказу, но и по его составу.
 Токены (слова через пробел) объединяются по **И**, а внутри токена источники — по **ИЛИ**:
 
-- `Order.SearchString` — номер заказа, заметки, `MarketplaceOrder.PostingNumber`;
+- `Order.SearchString` — номер заказа, заметки, `MarketplaceOrder.PostingNumber`, `MarketplaceOrder.ScanitBarcode`;
 - `OrderBox.Label` — метки коробок;
 - `CatalogItem.SearchString` позиций коробок — название, артикул, штрихкод, описание + поля группы;
 - `MarketplaceCard.SearchString` позиций маркетплейса — `Name`, `OfferId`, `ExternalId`, `Sku`.

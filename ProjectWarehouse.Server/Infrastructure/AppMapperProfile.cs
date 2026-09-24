@@ -319,7 +319,10 @@ public class AppMapperProfile : Profile
         CreateMap<Order, OrderDetailsDto>()
             .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse != null ? s.Warehouse.Name : null))
             .ForMember(d => d.CreatedByName, opt => opt.MapFrom(s => s.CreatedBy != null ? s.CreatedBy.FullName : null))
-            .ForMember(d => d.Attachments, opt => opt.MapFrom(s => s.Images.OrderBy(i => i.Order)));
+            .ForMember(d => d.Attachments, opt => opt.MapFrom(s => s.Images.OrderBy(i => i.Order)))
+            .ForMember(d => d.MarketplaceReturns, opt => opt.MapFrom(s => s.MarketplaceReturns
+                .OrderBy(r => r.ReturnedAt ?? r.StatusChangedAt)
+                .ThenBy(r => r.ExternalId)));
 
         CreateMap<OrderImage, DataFileLinkDto>()
             .ForMember(d => d.File, opt => opt.MapFrom(s => s.DataFile));
@@ -333,6 +336,8 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.MarketplaceType, opt => opt.MapFrom(s => s.MarketplaceAccount.Type));
         
         CreateMap<OrderMarketplaceItem, OrderMarketplaceItemDto>();
+
+        CreateMap<MarketplaceReturn, MarketplaceReturnDto>();
 
         CreateMap<OrderBox, OrderBoxDto>();
 

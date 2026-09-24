@@ -1,3 +1,4 @@
+using EntityFrameworkCore.Projectables;
 using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Domain;
@@ -65,6 +66,14 @@ public class MarketplaceReturn : IHasIdentity
     /// says that metrics need. Recomputed from each status the marketplace reports, so a reopened dispute clears it.
     /// </summary>
     public bool IsCancelled { get; set; }
+
+    /// <summary>
+    /// The buyer really sent the item back after the sale. Cancellations and full refusals are the posting's
+    /// own cancellation, already visible in its status, and a cancelled request never moved the item at all.
+    /// </summary>
+    [Projectable]
+    public bool IsCountedAsReturn =>
+        !IsCancelled && (Kind == MarketplaceReturnKind.CustomerReturn || Kind == MarketplaceReturnKind.PartialRefusal);
 
     /// <summary>When the buyer handed the item back or refused it.</summary>
     public DateTime? ReturnedAt { get; set; }

@@ -99,6 +99,9 @@ public class OrdersController(
                 .ThenInclude(f => f.CreatedBy)
             .Include(o => o.MarketplaceItems)
                 .ThenInclude(i => i.MarketplaceCard).ThenInclude(c => c!.CatalogItem)
+            // details map in memory, so ReturnState and ReturnedQuantity read nothing without this; tracking
+            // fix-up spreads the rows over the lines as well
+            .Include(o => o.MarketplaceReturns)
             .AsSplitQuery();
 
     /// <summary>
@@ -464,6 +467,10 @@ public class OrdersController(
             .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
                 .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
                 .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.CreatedBy)
+            // ReturnState compares the returned units with the lines, so both are needed
+            .Include(o => o.MarketplaceItems)
+                .ThenInclude(i => i.MarketplaceCard).ThenInclude(c => c!.CatalogItem)
+            .Include(o => o.MarketplaceReturns)
             .Where(o => o.Status == OrderStatus.Assembly)
             .Where(o => o.AssemblyTasks.Any(t => t.AssignedToId == userId))
             .AsSplitQuery();

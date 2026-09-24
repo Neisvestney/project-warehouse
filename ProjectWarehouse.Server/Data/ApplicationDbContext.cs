@@ -952,13 +952,13 @@ public class ApplicationDbContext : IdentityDbContext<
 
             // SetNull throughout: the return keeps its PostingNumber and marketplace data without the links
             e.HasOne(x => x.Order)
-                .WithMany()
+                .WithMany(x => x.MarketplaceReturns)
                 .HasForeignKey(x => x.OrderId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
 
             e.HasOne(x => x.OrderMarketplaceItem)
-                .WithMany()
+                .WithMany(x => x.MarketplaceReturns)
                 .HasForeignKey(x => x.OrderMarketplaceItemId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);

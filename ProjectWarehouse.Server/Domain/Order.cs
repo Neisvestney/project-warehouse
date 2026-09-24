@@ -38,6 +38,9 @@ public class Order : IHasIdentity
     public MarketplaceOrder? MarketplaceOrder { get; set; }
 
     public ICollection<OrderMarketplaceItem> MarketplaceItems { get; set; } = [];
+
+    /// <summary>Every return the marketplace reported for this posting, cancellations included.</summary>
+    public ICollection<MarketplaceReturn> MarketplaceReturns { get; set; } = [];
     public ICollection<OrderBox> Boxes { get; set; } = [];
     public ICollection<AssemblyTask> AssemblyTasks { get; set; } = [];
     public List<OrderImage> Images { get; set; } = [];
@@ -47,6 +50,13 @@ public class Order : IHasIdentity
     [Projectable]
     public DateTime EffectiveDate => PlannedShipmentAt ?? ShippedAt ?? AssembledAt ?? CreatedAt;
     
+    /// <summary>Units that actually came back — see <see cref="MarketplaceReturn.IsCountedAsReturn"/>.</summary>
+    [Projectable]
+    public int ReturnedQuantity => MarketplaceReturns.Where(r => r.IsCountedAsReturn).Sum(r => r.Quantity);
+
+    [Projectable]
+    public int MarketplaceQuantity => MarketplaceItems.Sum(i => i.Quantity);
+
     [Projectable]
     public bool TerminalStatus => Status == OrderStatus.Shipped || Status == OrderStatus.Assembled || Status == OrderStatus.Canceled;
 
@@ -54,7 +64,10 @@ public class Order : IHasIdentity
     // and ILIKE(NULL, …) is NULL — a bare concatenation would drop every Direct and FBO order from search.
     [Projectable]
     public string SearchString =>
-        Number + " " + Notes + " " + (MarketplaceOrder != null ? MarketplaceOrder.PostingNumber : "");
+        Number + " " + Notes + " "
+        + (MarketplaceOrder != null
+            ? MarketplaceOrder.PostingNumber + " " + (MarketplaceOrder.ScanitBarcode ?? "")
+            : "");
 
     /// <summary>
     /// Search over the order plus its contents — box labels, box component catalog items, marketplace item

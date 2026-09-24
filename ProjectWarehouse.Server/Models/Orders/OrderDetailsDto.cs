@@ -24,6 +24,10 @@ public class OrderDetailsDto
     public string? CreatedByName { get; init; }
     public MarketplaceOrderDto? MarketplaceOrder { get; init; }
     public IReadOnlyList<OrderMarketplaceItemDto> MarketplaceItems { get; init; } = [];
+
+    /// <summary>Every return reported for the posting, cancelled requests included, by return date.</summary>
+    public IReadOnlyList<MarketplaceReturnDto> MarketplaceReturns { get; init; } = [];
+
     public IReadOnlyList<OrderBoxDto> Boxes { get; init; } = [];
     public IReadOnlyList<AssemblyTaskDto> AssemblyTasks { get; init; } = [];
     public IReadOnlyList<DataFileLinkDto> Attachments { get; init; } = [];

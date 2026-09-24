@@ -14,6 +14,7 @@ import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
 import type {OrderDetailsDto} from "@/api/types.gen";
 import MarketplaceOrderStatusChip from "@/components/orders/marketplace/MarketplaceOrderStatusChip";
+import MarketplaceOrderReturnChip from "@/components/orders/marketplace/MarketplaceOrderReturnChip";
 import {MARKETPLACE_CANCELLATION_TYPE_LABELS} from "@/components/orders/marketplace/marketplaceOrderUtils";
 import {format} from "date-fns";
 import {ru} from "date-fns/locale";
@@ -22,6 +23,7 @@ import InfoRow from "@/components/InfoRow";
 import UserChip from "@/components/shared/UserChip";
 import WarehouseChip from "@/components/shared/WarehouseChip";
 import {formatPostingNumber, formatScanitBarcode} from "@/utils/postingNumberUtils";
+import OrderMarketplaceReturnsDetails from "./OrderMarketplaceReturnsDetails";
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -210,8 +212,19 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
 
           <InfoRow
             label="Статус на площадке"
-            value={<MarketplaceOrderStatusChip value={order.marketplaceOrder} />}
+            value={
+              <Stack direction="row" spacing={1} sx={{alignItems: "center", flexWrap: "wrap"}}>
+                <MarketplaceOrderStatusChip value={order.marketplaceOrder} ignoreReturn />
+                <MarketplaceOrderReturnChip value={order.marketplaceOrder.returnState} />
+              </Stack>
+            }
           />
+          {order.marketplaceOrder.deliveredAt && (
+            <InfoRow label="Доставлен" value={formatDate(order.marketplaceOrder.deliveredAt)} />
+          )}
+          {order.marketplaceOrder.cancelledAt && (
+            <InfoRow label="Отменён" value={formatDate(order.marketplaceOrder.cancelledAt)} />
+          )}
           {order.marketplaceOrder.status === "cancelled" && (
             <>
               <InfoRow
@@ -225,6 +238,7 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
               <InfoRow label="Причина отмены" value={order.marketplaceOrder.cancelReason} />
             </>
           )}
+          <OrderMarketplaceReturnsDetails order={order} />
 
           {order.marketplaceOrder.trackingNumber && (
             <InfoRow
