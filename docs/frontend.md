@@ -221,9 +221,11 @@ existing `<b>`, so the whole number stays bold and the 4 digits keep the plate).
 `ii` + 11 digits) with the same highlight plate, applied to the last 4 digits of the whole string:
 `ii50082087036` → `ii5008208**7036**`. Strings that don't end with 4 digits are returned unchanged;
 `null`/`undefined`/`""` give `null`. The barcode is filled only once a posting reaches `awaiting_deliver`, so
-both call sites skip it when empty: the **Штрихкод отправления** row in `OrderMetaSection` (right after
-**Отправление**, monospace) and a second `caption`-sized monospace line under the posting number in the
-`postingNumber` column of `OrdersFbsPage`.
+every call site skips it when empty: the **Штрихкод отправления** row in `OrderMetaSection` (right after
+**Отправление**, monospace), a second `caption`-sized monospace line under the posting number in the
+`postingNumber` column of `OrdersFbsPage`, and `PostingNumberLabel` in the `OrdersAssemblyPage` summary, which
+shows the barcode in place of the posting number. Both rows of `OrderMetaSection` are `CopyableText`, which copies
+the raw string while showing the highlighted one.
 
 ### Resolving catalog ids
 

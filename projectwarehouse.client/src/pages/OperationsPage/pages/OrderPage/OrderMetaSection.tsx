@@ -20,6 +20,7 @@ import {format} from "date-fns";
 import {ru} from "date-fns/locale";
 import MarketplaceAccountChip from "@/components/marketplace/MarketplaceAccountChip";
 import InfoRow from "@/components/InfoRow";
+import CopyableText from "@/components/CopyableText";
 import UserChip from "@/components/shared/UserChip";
 import WarehouseChip from "@/components/shared/WarehouseChip";
 import {formatPostingNumber, formatScanitBarcode} from "@/utils/postingNumberUtils";
@@ -183,18 +184,26 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
           <InfoRow
             label="Отправление"
             value={
-              <Box component="span" sx={{fontFamily: "monospace"}}>
+              <CopyableText
+                value={order.marketplaceOrder.postingNumber}
+                successMessage="Номер отправления скопирован"
+                textStyle={{fontFamily: "monospace"}}
+              >
                 {formatPostingNumber(order.marketplaceOrder.postingNumber)}
-              </Box>
+              </CopyableText>
             }
           />
           {order.marketplaceOrder.scanitBarcode && (
             <InfoRow
               label="Штрихкод отправления"
               value={
-                <Box component="span" sx={{fontFamily: "monospace"}}>
+                <CopyableText
+                  value={order.marketplaceOrder.scanitBarcode}
+                  successMessage="Штрихкод отправления скопирован"
+                  textStyle={{fontFamily: "monospace"}}
+                >
                   {formatScanitBarcode(order.marketplaceOrder.scanitBarcode)}
-                </Box>
+                </CopyableText>
               }
             />
           )}

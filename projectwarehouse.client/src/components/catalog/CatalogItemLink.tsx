@@ -1,7 +1,7 @@
 import type {ReactNode} from "react";
-import {Stack} from "@mui/material";
 import type {SxProps, Theme} from "@mui/material/styles";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import HoverActionLink from "@/components/HoverActionLink";
 
 interface CatalogItemLinkProps {
   catalogItemId: string;
@@ -19,30 +19,14 @@ export function CatalogItemLink({
   children,
 }: CatalogItemLinkProps) {
   return (
-    <Stack
-      direction="row"
+    <HoverActionLink
+      icon={OpenInNewIcon}
+      onClick={() => onOpen(catalogItemId)}
       spacing={spacing}
-      sx={[
-        {
-          alignItems: "center",
-          cursor: "pointer",
-          width: "fit-content",
-          "& .open-icon": {visibility: "hidden"},
-          "&:hover .open-icon": {visibility: "visible"},
-        },
-        ...(Array.isArray(sx) ? sx : [sx]),
-      ]}
-      onClick={(e) => {
-        e.stopPropagation();
-        onOpen(catalogItemId);
-      }}
+      sx={sx}
     >
       {children}
-      <OpenInNewIcon
-        className="open-icon"
-        sx={{fontSize: 14, color: "text.secondary", flexShrink: 0}}
-      />
-    </Stack>
+    </HoverActionLink>
   );
 }
 
