@@ -6,22 +6,13 @@ import {
   Alert,
   Box,
   Button,
-  Checkbox,
   Chip,
   CircularProgress,
-  IconButton,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  TextField,
   Typography,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AddIcon from "@mui/icons-material/Add";
-import DeleteIcon from "@mui/icons-material/Delete";
 import SaveIcon from "@mui/icons-material/Save";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {useSnackbar} from "notistack";
@@ -31,14 +22,13 @@ import {
   stocktakesSyncNodeItemsMutation,
 } from "@/api/@tanstack/react-query.gen";
 import {extractErrorMessage} from "@/utils/errorUtils";
-import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
-import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import StocktakeAddItemModal from "@/components/stocktakes/StocktakeAddItemModal";
-import {deltaColor, formatDelta} from "@/components/stocktakes/stocktakeUtils";
+import StocktakeCountRows from "@/components/stocktakes/StocktakeCountRows";
 import type {DraftRow} from "@/components/stocktakes/stocktakeDraft";
 import {
   buildDraftRows,
+  compareDraftRows,
   draftToRequest,
   hasDifferences,
   rowKey,
@@ -86,7 +76,8 @@ function StocktakeNodeAccordion({
     if (!baseline) return null;
     return [...baseline, ...added]
       .filter((row) => !removed.includes(row.key))
-      .map((row) => ({...row, ...edits[row.key]}));
+      .map((row) => ({...row, ...edits[row.key]}))
+      .sort(compareDraftRows);
   }, [baseline, added, removed, edits]);
 
   const dirty = Object.keys(edits).length > 0 || added.length > 0 || removed.length > 0;
@@ -125,7 +116,7 @@ function StocktakeNodeAccordion({
     setRemoved((prev) => (prev.includes(key) ? prev : [...prev, key]));
   };
 
-  const handleAdd = (row: Omit<DraftRow, "key" | "expected" | "notes">) => {
+  const handleAdd = (row: Omit<DraftRow, "key" | "expected" | "notes" | "isArchived">) => {
     const key = rowKey(row.kind, row.catalogItemId, row.inventoryNumber);
     setAddOpen(false);
     if (rows?.some((r) => r.key === key)) {
@@ -139,7 +130,7 @@ function StocktakeNodeAccordion({
       patchRow(key, {counted: row.counted});
       return;
     }
-    setAdded((prev) => [...prev, {...row, key, expected: 0, notes: ""}]);
+    setAdded((prev) => [...prev, {...row, key, isArchived: false, expected: 0, notes: ""}]);
   };
 
   const differencesCount = rows?.filter((r) => r.counted !== r.expected).length ?? 0;
@@ -147,8 +138,13 @@ function StocktakeNodeAccordion({
   return (
     <Accordion expanded={expanded} onChange={(_, v) => setExpanded(v)} disableGutters>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Stack direction="row" spacing={1} sx={{alignItems: "center", flexGrow: 1, pr: 2}}>
-          <Typography sx={{flexGrow: 1}}>{formatStoragePlaceNodeName(node.nodePath)}</Typography>
+        <Stack
+          direction="row"
+          sx={{alignItems: "center", flexGrow: 1, flexWrap: "wrap", gap: 1, pr: {xs: 1, sm: 2}}}
+        >
+          <Typography sx={{flexGrow: 1, minWidth: 0, overflowWrap: "anywhere"}}>
+            {formatStoragePlaceNodeName(node.nodePath)}
+          </Typography>
           {rows && differencesCount > 0 && (
             <Chip label={`Расхождений: ${differencesCount}`} size="small" color="warning" />
           )}
@@ -156,7 +152,7 @@ function StocktakeNodeAccordion({
           {dirty && <Chip label="Не сохранено" size="small" color="info" variant="outlined" />}
         </Stack>
       </AccordionSummary>
-      <AccordionDetails>
+      <AccordionDetails sx={{px: {xs: 1, sm: 2}}}>
         {stockQuery.isLoading || !rows ? (
           <Box sx={{display: "flex", justifyContent: "center", py: 3}}>
             <CircularProgress size={28} />
@@ -168,91 +164,14 @@ function StocktakeNodeAccordion({
                 В ячейке ничего не числится. Если товар всё же найден — добавьте его как излишек.
               </Alert>
             ) : (
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Товар</TableCell>
-                    <TableCell align="right">Ожидается</TableCell>
-                    <TableCell align="right">Посчитано</TableCell>
-                    <TableCell align="right">Δ</TableCell>
-                    <TableCell>Примечание</TableCell>
-                    <TableCell width={48} />
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {rows.map((row) => {
-                    const delta = row.counted - row.expected;
-                    return (
-                      <TableRow key={row.key} hover>
-                        <TableCell>
-                          <CatalogItemLink
-                            catalogItemId={row.catalogItemId}
-                            onOpen={onOpenCatalogItem}
-                          >
-                            <Stack>
-                              <Typography variant="body2">{row.catalogItemName}</Typography>
-                              {row.inventoryNumber && (
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  sx={{fontFamily: "monospace"}}
-                                >
-                                  {row.inventoryNumber}
-                                </Typography>
-                              )}
-                            </Stack>
-                          </CatalogItemLink>
-                        </TableCell>
-                        <TableCell align="right">{row.expected}</TableCell>
-                        <TableCell align="right">
-                          {row.kind === "unit" ? (
-                            <Checkbox
-                              size="small"
-                              checked={row.counted > 0}
-                              disabled={!canEdit || mutation.isPending}
-                              onChange={(e) =>
-                                patchRow(row.key, {counted: e.target.checked ? 1 : 0})
-                              }
-                            />
-                          ) : (
-                            <ClampedIntegerField
-                              value={row.counted}
-                              min={0}
-                              size="small"
-                              disabled={!canEdit || mutation.isPending}
-                              onCommit={(v) => patchRow(row.key, {counted: v})}
-                              sx={{width: 96}}
-                            />
-                          )}
-                        </TableCell>
-                        <TableCell align="right" sx={{color: deltaColor(delta)}}>
-                          {formatDelta(delta)}
-                        </TableCell>
-                        <TableCell>
-                          <TextField
-                            size="small"
-                            fullWidth
-                            value={row.notes}
-                            disabled={!canEdit || mutation.isPending}
-                            onChange={(e) => patchRow(row.key, {notes: e.target.value})}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {canEdit && row.expected === 0 && (
-                            <IconButton
-                              size="small"
-                              disabled={mutation.isPending}
-                              onClick={() => removeRow(row.key)}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <StocktakeCountRows
+                rows={rows}
+                canEdit={canEdit}
+                disabled={mutation.isPending}
+                onPatch={patchRow}
+                onRemove={removeRow}
+                onOpenCatalogItem={onOpenCatalogItem}
+              />
             )}
 
             {hasDifferences(rows) && (
@@ -262,7 +181,24 @@ function StocktakeNodeAccordion({
             )}
 
             {canEdit && (
-              <Stack direction="row" spacing={1} sx={{justifyContent: "flex-end"}}>
+              <Stack
+                direction={{xs: "column-reverse", sm: "row"}}
+                spacing={1}
+                sx={{
+                  justifyContent: "flex-end",
+                  position: "sticky",
+                  bottom: 0,
+                  // Above outlined input labels, which carry their own z-index
+                  zIndex: 2,
+                  mx: {xs: -1, sm: -2},
+                  px: {xs: 1, sm: 2},
+                  pt: 1,
+                  pb: "calc(8px + env(safe-area-inset-bottom))",
+                  bgcolor: "background.paper",
+                  borderTop: 1,
+                  borderColor: "divider",
+                }}
+              >
                 <Button
                   size="small"
                   startIcon={<AddIcon />}

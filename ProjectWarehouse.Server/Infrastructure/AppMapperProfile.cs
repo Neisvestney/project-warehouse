@@ -279,7 +279,11 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.Id, opt => opt.Ignore())
             .ForMember(d => d.DataFileId, opt => opt.MapFrom(s => s.FileId));
         CreateMap<StocktakeNode, StocktakeNodeDto>()
-            .ForMember(d => d.NodePath, opt => opt.MapFrom<StocktakeNodePathResolver>());
+            .ForMember(d => d.NodePath, opt => opt.MapFrom<StocktakeNodePathResolver>())
+            .ForMember(d => d.Items, opt => opt.MapFrom(s => s.Items
+                .OrderLikeCatalog(i => i.CatalogItem)
+                .ThenBy(i => i.CatalogItemId)
+                .ThenBy(i => i.InventoryNumber, SortExtensions.InventoryNumberComparer)));
         CreateMap<StocktakeItem, StocktakeItemDto>()
             .ForMember(d => d.CatalogItemName, opt => opt.MapFrom(s => s.CatalogItem.Name));
 

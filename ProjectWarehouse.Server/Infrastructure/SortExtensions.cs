@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Linq.Expressions;
+using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Models;
 
 namespace ProjectWarehouse.Server.Infrastructure;
@@ -20,4 +22,14 @@ public static class SortExtensions
         sortOrder == SortOrder.Asc
             ? query.ThenBy(keySelector)
             : query.ThenByDescending(keySelector);
+
+    /// <summary>In-memory counterpart of the catalog list's default order, for rows already loaded.</summary>
+    public static readonly StringComparer CatalogNameComparer = StringComparer.InvariantCulture;
+
+    /// <summary>"2" before "10" — matches the client's <c>localeCompare(..., {numeric: true})</c>.</summary>
+    public static readonly StringComparer InventoryNumberComparer =
+        StringComparer.Create(CultureInfo.InvariantCulture, CompareOptions.NumericOrdering);
+
+    public static IOrderedEnumerable<T> OrderLikeCatalog<T>(this IEnumerable<T> source, Func<T, CatalogItem?> item) =>
+        source.OrderBy(x => item(x)?.IsArchived ?? false).ThenBy(x => item(x)?.Name ?? "", CatalogNameComparer);
 }

@@ -7,6 +7,8 @@ import {
   DialogTitle,
   Stack,
   TextField,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import {useBackClosable} from "@/hooks/useBackClosable";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
@@ -32,6 +34,8 @@ function StocktakeAddItemModal({open, onClose, onAdd}: StocktakeAddItemModalProp
   const [dto, setDto] = useState<CatalogItemSelectDto | null>(null);
   const [count, setCount] = useState(1);
   const [inventoryNumber, setInventoryNumber] = useState("");
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const isUnit = dto?.type === "unit";
   const canSubmit = !!catalogItemId && !!dto && (!isUnit || inventoryNumber.trim().length > 0);
@@ -63,7 +67,7 @@ function StocktakeAddItemModal({open, onClose, onAdd}: StocktakeAddItemModalProp
   useBackClosable(open, handleClose);
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth fullScreen={isMobile}>
       <DialogTitle>Добавить товар</DialogTitle>
       <DialogContent>
         <Stack spacing={2.5} sx={{pt: 1}}>

@@ -337,7 +337,12 @@ public class StocktakeDiffCalculator(ApplicationDbContext db) : IStocktakeDiffCa
             {
                 StoragePlaceNodeId = g.Key,
                 NodePath = plan.NodePaths.GetValueOrDefault(g.Key, []),
-                Lines = [.. g.Select(l => new StocktakeDifferenceLineDto
+                Lines = [.. g
+                    .OrderBy(l => l.Resolution == StocktakeDifferenceResolution.NoChange)
+                    .ThenBy(l => l.CatalogItemName, SortExtensions.CatalogNameComparer)
+                    .ThenBy(l => l.CatalogItemId)
+                    .ThenBy(l => l.InventoryNumber, SortExtensions.InventoryNumberComparer)
+                    .Select(l => new StocktakeDifferenceLineDto
                 {
                     Kind = l.Kind,
                     CatalogItemId = l.CatalogItemId,

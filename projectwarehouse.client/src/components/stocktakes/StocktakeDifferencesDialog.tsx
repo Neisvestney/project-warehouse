@@ -8,6 +8,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Paper,
   Stack,
   Table,
   TableBody,
@@ -15,6 +16,8 @@ import {
   TableHead,
   TableRow,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import {useBackClosable} from "@/hooks/useBackClosable";
 import {useMutation, useQuery} from "@tanstack/react-query";
@@ -30,7 +33,32 @@ import {
   deltaColor,
   formatDelta,
 } from "@/components/stocktakes/stocktakeUtils";
-import type {StocktakeDto} from "@/api/types.gen";
+import StocktakeItemName from "@/components/stocktakes/StocktakeItemName";
+import type {StocktakeDifferenceLineDto, StocktakeDto} from "@/api/types.gen";
+
+function lineKey(line: StocktakeDifferenceLineDto, index: number): string {
+  return `${line.catalogItemId}-${line.inventoryNumber ?? index}`;
+}
+
+function ResolutionText({line}: {line: StocktakeDifferenceLineDto}) {
+  return (
+    <Stack>
+      <Typography variant="body2">{DIFFERENCE_RESOLUTION_LABELS[line.resolution]}</Typography>
+      {line.missingFromDocument && (
+        <Typography variant="caption" color="error.dark">
+          нет в документе — будет списано
+        </Typography>
+      )}
+      {line.currentNodePath && (
+        <Typography variant="caption" color="text.secondary">
+          сейчас в {formatStoragePlaceNodeName(line.currentNodePath)}
+        </Typography>
+      )}
+    </Stack>
+  );
+}
+
+const MISSING_ROW_SX = {backgroundColor: "error.light", opacity: 0.9};
 
 interface StocktakeDifferencesDialogProps {
   open: boolean;
@@ -46,6 +74,8 @@ function StocktakeDifferencesDialog({
   onFinished,
 }: StocktakeDifferencesDialogProps) {
   const canEdit = useHasPermission(["stocktakes.edit", "stocktakes.edit_assigned"]);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const {data, isLoading, isError, error} = useQuery({
     ...stocktakesGetDifferencesOptions({path: {id: stocktake.id}}),
@@ -70,9 +100,9 @@ function StocktakeDifferencesDialog({
   useBackClosable(open, onClose);
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth fullScreen={isMobile}>
       <DialogTitle>Расхождения</DialogTitle>
-      <DialogContent dividers>
+      <DialogContent dividers sx={{px: {xs: 1.5, sm: 3}}}>
         {isLoading ? (
           <Box sx={{display: "flex", justifyContent: "center", py: 4}}>
             <CircularProgress />
@@ -115,66 +145,84 @@ function StocktakeDifferencesDialog({
                 <Typography variant="subtitle2" sx={{mb: 0.5}}>
                   {formatStoragePlaceNodeName(node.nodePath)}
                 </Typography>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Товар</TableCell>
-                      <TableCell align="right">Ожидается</TableCell>
-                      <TableCell align="right">Посчитано</TableCell>
-                      <TableCell align="right">Δ</TableCell>
-                      <TableCell>Что будет сделано</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
+                {isMobile ? (
+                  <Stack spacing={1}>
                     {node.lines.map((line, i) => (
-                      <TableRow
-                        key={`${line.catalogItemId}-${line.inventoryNumber ?? i}`}
-                        sx={
-                          line.missingFromDocument
-                            ? {backgroundColor: "error.light", opacity: 0.9}
-                            : undefined
-                        }
+                      <Paper
+                        key={lineKey(line, i)}
+                        variant="outlined"
+                        sx={{p: 1.5, ...(line.missingFromDocument ? MISSING_ROW_SX : {})}}
                       >
-                        <TableCell>
-                          <Stack>
-                            <Typography variant="body2">{line.catalogItemName}</Typography>
-                            {line.inventoryNumber && (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                sx={{fontFamily: "monospace"}}
-                              >
-                                {line.inventoryNumber}
-                              </Typography>
-                            )}
+                        <Stack spacing={1}>
+                          <StocktakeItemName
+                            catalogItemId={line.catalogItemId}
+                            catalogItemName={line.catalogItemName}
+                            inventoryNumber={line.inventoryNumber}
+                          />
+                          <Stack direction="row" spacing={3}>
+                            {(
+                              [
+                                ["Ожидается", line.expected, undefined],
+                                ["Посчитано", line.counted, undefined],
+                                ["Δ", formatDelta(line.delta), deltaColor(line.delta)],
+                              ] as const
+                            ).map(([label, value, color]) => (
+                              <Box key={label}>
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  component="div"
+                                >
+                                  {label}
+                                </Typography>
+                                <Typography variant="body2" sx={{color}}>
+                                  {value}
+                                </Typography>
+                              </Box>
+                            ))}
                           </Stack>
-                        </TableCell>
-                        <TableCell align="right">{line.expected}</TableCell>
-                        <TableCell align="right">{line.counted}</TableCell>
-                        <TableCell align="right" sx={{color: deltaColor(line.delta)}}>
-                          {formatDelta(line.delta)}
-                        </TableCell>
-                        <TableCell>
-                          <Stack>
-                            <Typography variant="body2">
-                              {DIFFERENCE_RESOLUTION_LABELS[line.resolution]}
-                            </Typography>
-                            {line.missingFromDocument && (
-                              <Typography variant="caption" color="error.dark">
-                                нет в документе — будет списано
-                              </Typography>
-                            )}
-                            {line.currentNodePath && (
-                              <Typography variant="caption" color="text.secondary">
-                                сейчас в {formatStoragePlaceNodeName(line.currentNodePath)}
-                              </Typography>
-                            )}
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
+                          <ResolutionText line={line} />
+                        </Stack>
+                      </Paper>
                     ))}
-                  </TableBody>
-                </Table>
+                  </Stack>
+                ) : (
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Товар</TableCell>
+                        <TableCell align="right">Ожидается</TableCell>
+                        <TableCell align="right">Посчитано</TableCell>
+                        <TableCell align="right">Δ</TableCell>
+                        <TableCell>Что будет сделано</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {node.lines.map((line, i) => (
+                        <TableRow
+                          key={lineKey(line, i)}
+                          sx={line.missingFromDocument ? MISSING_ROW_SX : undefined}
+                        >
+                          <TableCell>
+                            <StocktakeItemName
+                              catalogItemId={line.catalogItemId}
+                              catalogItemName={line.catalogItemName}
+                              inventoryNumber={line.inventoryNumber}
+                            />
+                          </TableCell>
+                          <TableCell align="right">{line.expected}</TableCell>
+                          <TableCell align="right">{line.counted}</TableCell>
+                          <TableCell align="right" sx={{color: deltaColor(line.delta)}}>
+                            {formatDelta(line.delta)}
+                          </TableCell>
+                          <TableCell>
+                            <ResolutionText line={line} />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
               </Box>
             ))}
 
