@@ -440,9 +440,10 @@ public class MarketplacesController(
         if (account is null)
             return NotFound(ErrorCode.MarketplaceAccountNotFound, "Marketplace account not found.");
 
+        // the posting's own date: Order.CreatedAt is when WMS imported it, which for history is the import day
         var firstOrderAt = await db.MarketplaceOrders
             .Where(o => o.MarketplaceAccountId == id)
-            .Select(o => (DateTime?)o.Order!.CreatedAt)
+            .Select(o => o.InProcessAt ?? (DateTime?)o.Order!.CreatedAt)
             .OrderBy(d => d)
             .FirstOrDefaultAsync(ct);
 

@@ -22,7 +22,10 @@ public class StartSyncResponse
 /// <summary>Where a history import can reasonably start. Both ends are null when there is nothing to go on.</summary>
 public class BackfillBoundsDto
 {
-    /// <summary>Creation date of the oldest order WMS has for this account.</summary>
+    /// <summary>
+    /// Date of the oldest posting WMS has for this account — when the marketplace started processing it, or
+    /// the import time for one that states no such date.
+    /// </summary>
     public DateTime? FirstOrderAt { get; init; }
 
     /// <summary>
