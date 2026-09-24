@@ -60,6 +60,7 @@ is rationale, invariants, cross-cutting conventions and decisions.
 | [analytics-specification.md](analytics-specification.md) | Аналитика — сводка по каналам, выплаты маркетплейсов, ABC/XYZ-анализ |
 | [marketplaces-specification.md](marketplaces-specification.md) | Integration platform — Ozon Seller API, client codegen, credential storage, warehouse/card sync & mapping |
 | [marketplaces-orders-specification.md](marketplaces-orders-specification.md) | Order sync — FBS & FBO posting discovery, status catch-up, history backfill, order creation, label retrieval |
+| [marketplaces-returns-specification.md](marketplaces-returns-specification.md) | Returns sync — Ozon returns list, return kinds vs cancellations, compensation pass, link to orders |
 | [realtime-specification.md](realtime-specification.md) | Real-time transport — SSE, event schema, watch registry, advisory edit locks |
 | [data-files-specification.md](data-files-specification.md) | File storage — upload, storage abstraction, FK attachments, orphan GC, serving rules |
 | [assembler-daily-routine.md](assembler-daily-routine.md) | Инструкция сборщика — рабочий день целиком: Ozon, волны отсечек, листик, вечерняя сборка и отгрузка |
