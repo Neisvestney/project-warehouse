@@ -1,4 +1,12 @@
-import {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type Ref,
+} from "react";
 import {
   Alert,
   AlertTitle,
@@ -48,6 +56,7 @@ import type {
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {useBackClosable} from "@/hooks/useBackClosable";
 import {useDefaultStorageNode} from "@/hooks/useDefaultStorageNode";
+import {useModal} from "@/hooks/useModal";
 import {useNodeItemCount} from "@/hooks/useNodeItemCount";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
 import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
@@ -148,12 +157,18 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
   // The content is unmounted only after the exit animation; that is what resets the per-group picks.
   const [shownTasks, releaseShownTasks] = useRetainedValue(open ? selectedTasks : null);
 
-  // Closing goes through the dialog's own Cancel button only — no backdrop, no Esc, no Back.
+  // The confirm and the pending guard live with the content, which owns the mutation.
+  const requestCloseRef = useRef<(() => void) | null>(null);
+
+  // A misclick on the backdrop or Back would throw away every pick, so only Esc and Cancel close.
   useBackClosable(open, onClose, {blockBack: true});
 
   return (
     <Dialog
       open={open}
+      onClose={(_event, reason) => {
+        if (reason === "escapeKeyDown") requestCloseRef.current?.();
+      }}
       maxWidth="md"
       fullWidth
       fullScreen={isMobile}
@@ -163,19 +178,31 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
       }}
     >
       {shownTasks && (
-        <BatchAssemblyContent onClose={onClose} selectedTasks={shownTasks} isMobile={isMobile} />
+        <BatchAssemblyContent
+          onClose={onClose}
+          requestCloseRef={requestCloseRef}
+          selectedTasks={shownTasks}
+          isMobile={isMobile}
+        />
       )}
     </Dialog>
   );
 }
 
+interface BatchAssemblyContentProps extends Omit<BatchAssemblyDialogProps, "open"> {
+  requestCloseRef: Ref<(() => void) | null>;
+  isMobile: boolean;
+}
+
 function BatchAssemblyContent({
   onClose,
+  requestCloseRef,
   selectedTasks,
   isMobile,
-}: Omit<BatchAssemblyDialogProps, "open"> & {isMobile: boolean}) {
+}: BatchAssemblyContentProps) {
   const queryClient = useQueryClient();
   const {enqueueSnackbar} = useSnackbar();
+  const {showConfirm} = useModal();
   const groups = useMemo(() => buildBatchGroups(selectedTasks), [selectedTasks]);
   const {registry, scrollToFirst} = useTodoRegistry();
 
@@ -192,6 +219,7 @@ function BatchAssemblyContent({
   const [allowPartialSuccess, setAllowPartialSuccess] = useState(false);
   const [ignoreStock, setIgnoreStock] = useState(false);
   const submittingRef = useRef(false);
+  const confirmingCloseRef = useRef(false);
 
   const getState = useCallback(
     (key: string) => groupStates.get(key) ?? emptyGroupState(),
@@ -257,6 +285,22 @@ function BatchAssemblyContent({
       submittingRef.current = false;
     },
   });
+
+  async function requestClose() {
+    // submittingRef flips synchronously, before the re-render that would expose isPending
+    if (submittingRef.current || mutation.isPending || confirmingCloseRef.current) return;
+    confirmingCloseRef.current = true;
+    const ok = await showConfirm({
+      title: "Прервать сборку?",
+      message: "Выбранные ячейки и составы не сохранятся.",
+      confirmText: "Закрыть",
+      severity: "warning",
+    });
+    confirmingCloseRef.current = false;
+    if (ok) onClose();
+  }
+
+  useImperativeHandle(requestCloseRef, () => requestClose);
 
   // Every consumer below the row works on the trimmed group, so an excluded task is simply not there.
   const trimmedGroups = useMemo(
@@ -556,7 +600,11 @@ function BatchAssemblyContent({
           spacing={1}
           sx={{ml: isMobile ? 0 : "auto", width: isMobile ? "100%" : undefined}}
         >
-          <Button onClick={onClose} disabled={mutation.isPending} fullWidth={isMobile}>
+          <Button
+            onClick={() => void requestClose()}
+            disabled={mutation.isPending}
+            fullWidth={isMobile}
+          >
             Отмена
           </Button>
           <Button

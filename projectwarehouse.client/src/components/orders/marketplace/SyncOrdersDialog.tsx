@@ -9,11 +9,13 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  LinearProgress,
   Stack,
   Tooltip,
   Typography,
 } from "@mui/material";
 import {useBackClosable} from "@/hooks/useBackClosable";
+import {useModal} from "@/hooks/useModal";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
@@ -47,12 +49,14 @@ interface SyncOrdersDialogProps {
 
 function SyncOrdersDialog({open, onClose}: SyncOrdersDialogProps) {
   const queryClient = useQueryClient();
+  const {showConfirm} = useModal();
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [started, setStarted] = useState<SyncOrdersStartedItem[]>([]);
   const [failed, setFailed] = useState<SyncOrdersFailedItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const wasRunning = useRef(false);
+  const confirmingClose = useRef(false);
 
   const {data: targets, isLoading} = useQuery({
     ...marketplacesGetOrderSyncTargetsOptions(),
@@ -76,7 +80,7 @@ function SyncOrdersDialog({open, onClose}: SyncOrdersDialogProps) {
 
   const {isWatching} = useEntityWatchMany("marketplaceAccount", watchedIds, refreshRuns);
 
-  const {data: runs} = useQuery({
+  const {data: runs, isError: runsFailed} = useQuery({
     ...marketplacesGetSyncRunsByIdsOptions({query: {ids: runIds}}),
     enabled: open && runIds.length > 0,
     refetchInterval: (query) =>
@@ -93,7 +97,9 @@ function SyncOrdersDialog({open, onClose}: SyncOrdersDialogProps) {
     if (watchedIds.includes(payload.accountId)) refreshRuns();
   });
 
-  const anyRunning = runs?.some((r) => r.status === "running") ?? runIds.length > 0;
+  // A failed fetch must not pin the dialog as running — that would keep Back blocked for good.
+  const anyRunning =
+    !runsFailed && (runs?.some((r) => r.status === "running") ?? runIds.length > 0);
 
   // invalidate once, on the falling edge — the new orders appear in the list behind the dialog
   useEffect(() => {
@@ -136,15 +142,39 @@ function SyncOrdersDialog({open, onClose}: SyncOrdersDialogProps) {
     onClose();
   }
 
+  const busy = anyRunning || mutation.isPending;
+
+  async function requestClose() {
+    // onSuccess would land on a closed dialog and resurrect the run phase on the next open
+    if (mutation.isPending) return;
+    if (!busy) {
+      handleClose();
+      return;
+    }
+    if (confirmingClose.current) return;
+    confirmingClose.current = true;
+    const ok = await showConfirm({
+      title: "Закрыть окно?",
+      message:
+        "Синхронизация продолжится в фоне, но следить за её ходом в этом окне будет уже нельзя.",
+      confirmText: "Закрыть",
+      severity: "warning",
+    });
+    confirmingClose.current = false;
+    if (ok) handleClose();
+  }
+
   function nameOf(accountId: string) {
     return targets?.find((t) => t.id === accountId)?.name ?? "Магазин";
   }
 
-  useBackClosable(open, handleClose);
+  // Back can't wait for the confirm: the popped entry would already be gone if the user stays.
+  useBackClosable(open, handleClose, {blockBack: busy});
 
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={() => void requestClose()} fullWidth maxWidth="sm">
       <DialogTitle>Синхронизация заказов</DialogTitle>
+      <LinearProgress sx={{visibility: busy ? "visible" : "hidden"}} />
       <DialogContent dividers>
         {error && (
           <Alert severity="error" sx={{mb: 2}} onClose={() => setError(null)}>
@@ -198,7 +228,9 @@ function SyncOrdersDialog({open, onClose}: SyncOrdersDialogProps) {
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose}>{isRunningPhase ? "Закрыть" : "Отмена"}</Button>
+        <Button onClick={() => void requestClose()} disabled={mutation.isPending}>
+          {isRunningPhase ? "Закрыть" : "Отмена"}
+        </Button>
         {!isRunningPhase && (
           <Button
             variant="contained"
