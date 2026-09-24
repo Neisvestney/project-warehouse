@@ -798,22 +798,28 @@ public class OzonClient(
         ToCancellation(cancellation?.Cancelled_after_ship, cancellation?.Cancellation_type,
             cancellation?.Cancel_reason);
 
-    /// <summary>Ozon answers a live posting with an all-empty cancellation object rather than none.</summary>
+    /// <summary>
+    /// Ozon answers a live posting with an empty cancellation object rather than none — FBS with
+    /// <c>cancelled_after_ship: false</c> in it, so that flag alone does not make a cancellation.
+    /// </summary>
     private ExternalCancellation? ToCancellation(bool? afterShip, string? type, string? reason)
     {
         var rawType = Trim(type);
         var trimmedReason = Trim(reason);
 
-        if (afterShip is null && rawType is null && trimmedReason is null)
+        if (afterShip is null or false && rawType is null && trimmedReason is null)
             return null;
 
         return new ExternalCancellation(afterShip, ToCancellationType(rawType), rawType, trimmedReason);
     }
 
-    /// <summary>Ozon cancellation initiators collapsed to the WMS vocabulary.</summary>
+    /// <summary>
+    /// Ozon cancellation initiators collapsed to the WMS vocabulary. FBS spells them in lower case, FBO
+    /// capitalised.
+    /// </summary>
     private MarketplaceCancellationType ToCancellationType(string? type)
     {
-        switch (type)
+        switch (type?.ToLowerInvariant())
         {
             case null:
                 return MarketplaceCancellationType.Unknown;
