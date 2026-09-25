@@ -89,7 +89,7 @@ function StocktakeNodePrintPage() {
               <Box component="th" sx={{...cellSx, width: "20mm"}}>
                 Учёт
               </Box>
-              <Box component="th" sx={{...cellSx, width: "25mm"}}>
+              <Box component="th" sx={{...cellSx, width: "50mm"}}>
                 Факт
               </Box>
             </tr>
