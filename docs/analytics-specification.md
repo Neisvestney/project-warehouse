@@ -40,9 +40,9 @@
 Для маркетплейс-заказа учитывается **только статус площадки**. `Order.Status` на него не влияет: статусы WMS и
 площадки независимы (см. [orders-specification.md](orders-specification.md#заказ-order)), а продажа — факт на
 стороне площадки. Это же правило делает внешние заказы (`IsExternal`, см.
-[orders-specification.md](orders-specification.md#внешние-заказы)) полноценным материалом аналитики: у всех у них
-`Order.Status = Shipped`, а продажа это была или отмена — видно по `MarketplaceOrder.Status`. Отдельного
-исключения для них не нужно. Заказы в прочих статусах (`AwaitingDeliver`, `Arbitration`, `Unknown`; у прямых — `Draft`,
+[orders-specification.md](orders-specification.md#внешние-заказы)) полноценным материалом аналитики: их
+`Order.Status` — лишь грубое `Shipped` / `Canceled`, а продажа это была или отмена — видно по
+`MarketplaceOrder.Status`. Отдельного исключения для них не нужно. Заказы в прочих статусах (`AwaitingDeliver`, `Arbitration`, `Unknown`; у прямых — `Draft`,
 `Confirmed`, `Assembly`) в аналитику не попадают ни как продажа, ни как отмена.
 
 **Возврат** — `MarketplaceReturn` с `Kind ∈ {CustomerReturn, PartialRefusal}` и `IsCancelled = false`
@@ -65,7 +65,9 @@
 ### Дата заказа
 
 Заказ относится к дню своего `Order.EffectiveDate`
-(`PlannedShipmentAt ?? ShippedAt ?? AssembledAt ?? CreatedAt`). Сутки режутся в поясе из заголовка
+(`PlannedShipmentAt ?? ShippedAt ?? AssembledAt ?? MarketplaceOrder.InProcessAt ?? CreatedAt`). Дата
+отправления стоит раньше `CreatedAt`, потому что у импортированного заказа `CreatedAt` — момент импорта, а у
+отменённого внешнего отправления FBO нет ни срока отгрузки, ни `ShippedAt`. Сутки режутся в поясе из заголовка
 `X-Time-Zone` (см. [api.md](api.md#common-query-conventions)), применённый пояс возвращается в ответе и
 подписывается в UI рядом с заголовком страницы.
 

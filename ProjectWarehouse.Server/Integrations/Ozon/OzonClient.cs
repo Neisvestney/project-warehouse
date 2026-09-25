@@ -183,7 +183,15 @@ public class OzonClient(
     public async IAsyncEnumerable<IReadOnlyList<ExternalPosting>> GetPostingsAsync(
         ExternalPostingQuery query, [EnumeratorCancellation] CancellationToken ct)
     {
+        if (query is { Scheme: ExternalPostingScheme.Fbo, StatusChangedSince: not null })
+            throw new ArgumentException("FBO postings cannot be filtered by status change date.", nameof(query));
+
         var statuses = ToRawStatuses(query.Scheme, query.Statuses);
+        // the change range spans the whole query, not the creation slice being read
+        (DateTimeOffset From, DateTimeOffset To)? statusChanged = query.StatusChangedSince is { } changed
+            ? (new DateTimeOffset(DateTime.SpecifyKind(changed, DateTimeKind.Utc)),
+                new DateTimeOffset(DateTime.SpecifyKind(query.To, DateTimeKind.Utc)))
+            : null;
         var firstCall = true;
 
         foreach (var (since, to) in PeriodWindows(query.Since, query.To))
@@ -196,7 +204,8 @@ public class OzonClient(
                     await DelayBetweenPagesAsync(ct);
                 firstCall = false;
 
-                var page = await FetchPostingPageAsync(query.Scheme, since, to, statuses, null, cursor, ct);
+                var page = await FetchPostingPageAsync(query.Scheme, since, to, statuses, null, cursor, ct,
+                    statusChanged: statusChanged);
 
                 if (page.Postings.Count > 0)
                     yield return page.Postings;
@@ -297,7 +306,8 @@ public class OzonClient(
     private async Task<(List<ExternalPosting> Postings, string? Cursor)> FetchPostingPageAsync(
         ExternalPostingScheme scheme, DateTimeOffset since, DateTimeOffset to,
         IReadOnlyList<string>? statuses, IReadOnlyList<string>? postingNumbers, string? cursor,
-        CancellationToken ct, int limit = PostingPageSize)
+        CancellationToken ct, int limit = PostingPageSize,
+        (DateTimeOffset From, DateTimeOffset To)? statusChanged = null)
     {
         if (scheme == ExternalPostingScheme.Fbo)
         {
@@ -333,6 +343,9 @@ public class OzonClient(
                     Since = since,
                     To = to,
                     Statuses = statuses,
+                    Last_changed_status_date = statusChanged is { } changed
+                        ? new PostingFbsListRequestFilterLastChangedStatusDate { From = changed.From, To = changed.To }
+                        : null,
                 },
                 With = new PostingFbsListRequestWith { Financial_data = true },
             }, ct);

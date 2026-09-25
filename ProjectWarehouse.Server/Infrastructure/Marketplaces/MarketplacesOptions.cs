@@ -130,6 +130,16 @@ public class OzonOptions
     public int FboImportOverlapHours { get; set; } = 6;
 
     /// <summary>
+    /// How old, by creation date, an FBS posting the background import still picks up may be. The import asks
+    /// by status change date, but Ozon insists on a creation period as well, so it has to outlast the
+    /// longest delivery.
+    /// </summary>
+    public int FbsImportWindowPastDays { get; set; } = 60;
+
+    /// <summary>Same guarantee as <see cref="FboImportOverlapHours"/>, for FBS status changes.</summary>
+    public int FbsImportOverlapHours { get; set; } = 6;
+
+    /// <summary>
     /// How far back the background return import looks on an account it has never imported before. Afterwards
     /// the period starts from <see cref="Domain.MarketplaceAccount.ReturnsSyncedAt"/> instead.
     /// </summary>

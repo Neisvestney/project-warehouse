@@ -26,11 +26,11 @@ public class MarketplaceOrderSyncService(
     private const int SkippedCap = 100;
 
     /// <summary>
-    /// What the history import asks for: everything the marketplace will not move backwards from, plus the
-    /// in-transit state, which is as close to done as an old posting gets. Anything earlier is left to the
-    /// ordinary import, which knows how to assemble it.
+    /// What the history import and the FBS external import ask for: everything the marketplace will not move
+    /// backwards from, plus the in-transit state, which is as close to done as a posting past the warehouse
+    /// gets. Anything earlier is left to the ordinary import, which knows how to assemble it.
     /// </summary>
-    private static readonly MarketplaceOrderStatus[] BackfillStatuses =
+    private static readonly MarketplaceOrderStatus[] ExternalStatuses =
         [MarketplaceOrderStatus.Delivering, MarketplaceOrderStatus.Delivered, MarketplaceOrderStatus.Cancelled];
 
     private readonly OzonOptions _ozon = options.Value.Ozon;
@@ -204,20 +204,21 @@ public class MarketplaceOrderSyncService(
         var now = DateTime.UtcNow;
         var orderId = Guid.NewGuid();
         var boxId = Guid.NewGuid();
+        // the posting arrives already packed on the marketplace side, so it is ready to assemble
+        var status = isExternal
+            ? ExternalOrderStatus(posting.Status, posting.Cancellation?.CancelledAfterShip)
+            : OrderStatus.Confirmed;
 
         return new Order
         {
             Id = orderId,
             Type = posting.Scheme == ExternalPostingScheme.Fbo ? OrderType.FboPosting : OrderType.FBS,
-            // the posting arrives already packed on the marketplace side, so it is ready to assemble
-            Status = isExternal ? OrderStatus.Shipped : OrderStatus.Confirmed,
+            Status = status,
             IsExternal = isExternal,
             WarehouseId = warehouseId,
             PlannedShipmentAt = posting.ShipmentDate,
             CreatedAt = now,
-            // Shipped is where an external order starts, so it needs a date even for a cancelled posting;
-            // the marketplace state it really is in lives on MarketplaceOrder.Status.
-            ShippedAt = isExternal ? posting.InProcessAt ?? posting.CreatedAt ?? now : null,
+            ShippedAt = status == OrderStatus.Shipped ? posting.InProcessAt ?? posting.CreatedAt ?? now : null,
             // created by the integration; who started the run is recorded on MarketplaceSyncRun
             CreatedById = null,
             MarketplaceItems = [.. lines.Select(l => new OrderMarketplaceItem
@@ -320,11 +321,38 @@ public class MarketplaceOrderSyncService(
         // Ozon blanks the barcode once the posting leaves awaiting_deliver; the stored one outlives that
         known.ScanitBarcode = posting.Scanit ?? known.ScanitBarcode;
         known.ExternalOrderNumber = posting.ExternalOrderNumber;
+        ApplyExternalOrderStatus(known);
 
         known.StatusSyncedAt = now;
         known.SyncedAt = now;
 
         return changed;
+    }
+
+    /// <summary>
+    /// An external order whose goods never left the seller — cancelled before shipment, or an FBO sale that
+    /// fell through — did not happen, so it is Canceled; every other one is Shipped.
+    /// </summary>
+    private static OrderStatus ExternalOrderStatus(MarketplaceOrderStatus status, bool? cancelledAfterShip) =>
+        status == MarketplaceOrderStatus.Cancelled && cancelledAfterShip != true
+            ? OrderStatus.Canceled
+            : OrderStatus.Shipped;
+
+    /// <summary>
+    /// External orders follow the marketplace; working ones never do. Must run after the marketplace fields
+    /// are overwritten.
+    /// </summary>
+    private static void ApplyExternalOrderStatus(MarketplaceOrder known)
+    {
+        if (known.Order is not { IsExternal: true } order)
+            return;
+
+        var status = ExternalOrderStatus(known.Status, known.CancelledAfterShip);
+        if (order.Status == status)
+            return;
+
+        order.Status = status;
+        order.ShippedAt = status == OrderStatus.Shipped ? known.InProcessAt ?? order.CreatedAt : null;
     }
 
     // ── Phase 2: unattended refresh ───────────────────────────────────────────
@@ -335,6 +363,7 @@ public class MarketplaceOrderSyncService(
         using var activity = AppTelemetry.Source.StartActivity("marketplace.sync.orders_background");
 
         await ImportFboPostingsAsync(provider, credentials, account, run, ct);
+        await ImportFbsPostingsAsync(provider, credentials, account, run, ct);
         await CatchUpStatusesAsync(provider, credentials, account, run, ExternalPostingScheme.Fbs, ct);
         await CatchUpStatusesAsync(provider, credentials, account, run, ExternalPostingScheme.Fbo, ct);
         // last, so the postings its returns belong to are already in
@@ -360,6 +389,29 @@ public class MarketplaceOrderSyncService(
         // Only once the whole period is through: a run that threw halfway must leave the mark where it was,
         // so the next one covers the same ground again rather than skipping what it never read.
         account.FboPostingsSyncedAt = to;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// FBS postings that got past the warehouse without WMS ever importing them — cancelled before
+    /// awaiting_deliver, or shipped while the working import skipped them. They are asked for by status change
+    /// since the last import rather than by creation, because a posting may be cancelled days after it was made.
+    /// </summary>
+    private async Task ImportFbsPostingsAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
+        MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
+    {
+        var to = DateTime.UtcNow;
+        var createdSince = to.AddDays(-_ozon.FbsImportWindowPastDays);
+        var changedSince = account.FbsPostingsSyncedAt is { } syncedAt
+            ? syncedAt.AddHours(-_ozon.FbsImportOverlapHours)
+            : createdSince;
+
+        await ImportExternalPostingsAsync(provider, credentials, account, run,
+            new ExternalPostingQuery(ExternalPostingScheme.Fbs, createdSince, to, ExternalStatuses, changedSince),
+            refreshKnown: false, ct);
+
+        // same rule as FboPostingsSyncedAt: a run that threw halfway leaves the mark where it was
+        account.FbsPostingsSyncedAt = to;
         await db.SaveChangesAsync(ct);
     }
 
@@ -422,6 +474,7 @@ public class MarketplaceOrderSyncService(
             order.RawStatus = status.RawStatus;
             order.RawSubstatus = status.RawSubstatus;
             order.TrackingNumber = status.TrackingNumber ?? order.TrackingNumber;
+            ApplyExternalOrderStatus(order);
             order.StatusSyncedAt = now;
         }
 
@@ -441,7 +494,7 @@ public class MarketplaceOrderSyncService(
 
         foreach (var scheme in (ExternalPostingScheme[])[ExternalPostingScheme.Fbs, ExternalPostingScheme.Fbo])
             await ImportExternalPostingsAsync(provider, credentials, account, run,
-                new ExternalPostingQuery(scheme, since, to, BackfillStatuses), refreshKnown: false, ct);
+                new ExternalPostingQuery(scheme, since, to, ExternalStatuses), refreshKnown: false, ct);
 
         await returnSync.SyncReturnsBackfillAsync(provider, credentials, account, run, since, to, ct);
 

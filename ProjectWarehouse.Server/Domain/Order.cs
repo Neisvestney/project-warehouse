@@ -16,8 +16,9 @@ public class Order : IHasIdentity
 
     /// <summary>
     /// The order exists on the marketplace but never passed through WMS: it is not assembled, deducts no
-    /// stock, and carries no fulfillments. <see cref="Status"/> is always <see cref="OrderStatus.Shipped"/>
-    /// regardless of the marketplace state — that lives in <see cref="MarketplaceOrder.Status"/>.
+    /// stock, and carries no fulfillments. <see cref="Status"/> is <see cref="OrderStatus.Canceled"/> when the
+    /// goods never left the seller and <see cref="OrderStatus.Shipped"/> otherwise; the finer marketplace
+    /// state lives in <see cref="MarketplaceOrder.Status"/>.
     /// </summary>
     public bool IsExternal { get; set; }
 
@@ -47,8 +48,13 @@ public class Order : IHasIdentity
 
     public ICollection<OrderTag> Tags { get; set; } = [];
 
+    /// <summary>
+    /// The posting's own date comes before <see cref="CreatedAt"/>: for an imported order that is the import
+    /// moment, and a cancelled external FBO posting has neither a shipment date nor <see cref="ShippedAt"/>.
+    /// </summary>
     [Projectable]
-    public DateTime EffectiveDate => PlannedShipmentAt ?? ShippedAt ?? AssembledAt ?? CreatedAt;
+    public DateTime EffectiveDate => PlannedShipmentAt ?? ShippedAt ?? AssembledAt
+        ?? (MarketplaceOrder != null ? MarketplaceOrder.InProcessAt : null) ?? CreatedAt;
     
     /// <summary>Units that actually came back — see <see cref="MarketplaceReturn.IsCountedAsReturn"/>.</summary>
     [Projectable]

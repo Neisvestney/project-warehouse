@@ -20,7 +20,7 @@ namespace ProjectWarehouse.Server.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.11")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -748,6 +748,9 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("FboPostingsSyncedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FbsPostingsSyncedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Inn")
