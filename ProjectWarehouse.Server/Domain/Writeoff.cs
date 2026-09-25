@@ -15,6 +15,8 @@ public class Writeoff : IHasIdentity
     public WriteoffStatus Status { get; set; } = WriteoffStatus.Draft;
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? FinishedAt { get; set; }
+    public DateTime? CanceledAt { get; set; }
 
     public Guid WarehouseId { get; set; }
     public Warehouse Warehouse { get; set; } = null!;

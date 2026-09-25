@@ -1233,8 +1233,11 @@ export type OrderDetailsDto = {
   notes?: null | string;
   plannedShipmentAt?: null | string;
   createdAt: string;
+  confirmedAt?: null | string;
+  assemblyStartedAt?: null | string;
   assembledAt?: null | string;
   shippedAt?: null | string;
+  canceledAt?: null | string;
   /**
    * Null for an external order: it never entered a WMS warehouse.
    */
@@ -1814,6 +1817,9 @@ export type ReceiptDto = {
   notes?: null | string;
   plannedDeliveryDate?: null | string;
   createdAt: string;
+  startedAt?: null | string;
+  finishedAt?: null | string;
+  canceledAt?: null | string;
   warehouseId: string;
   warehouseName: string;
   totalPlannedCount: number;
@@ -1876,6 +1882,8 @@ export type ReceiptSummaryDto = {
   totalPlannedCount: number;
   totalReceivedCount: number;
   createdAt: string;
+  startedAt?: null | string;
+  finishedAt?: null | string;
   plannedDeliveryDate?: null | string;
   tags: Array<ReceiptTagDto>;
 };
@@ -2409,6 +2417,7 @@ export type StocktakeDto = {
   createdAt: string;
   startedAt?: null | string;
   finishedAt?: null | string;
+  canceledAt?: null | string;
   warehouseId: string;
   warehouseName: string;
   tags: Array<StocktakeTagDto>;
@@ -2935,6 +2944,8 @@ export type WriteoffDto = {
   status: WriteoffStatus;
   notes?: null | string;
   createdAt: string;
+  finishedAt?: null | string;
+  canceledAt?: null | string;
   warehouseId: string;
   warehouseName: string;
   tags: Array<WriteoffTagDto>;
@@ -2982,6 +2993,7 @@ export type WriteoffSummaryDto = {
   warehouseName: string;
   itemsCount: number;
   createdAt: string;
+  finishedAt?: null | string;
   tags: Array<WriteoffTagDto>;
 };
 

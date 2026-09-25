@@ -459,6 +459,12 @@ function StocktakePage() {
                       : "—"
                   }
                 />
+                {stocktake.canceledAt && (
+                  <InfoRow
+                    label="Отменена"
+                    value={new Date(stocktake.canceledAt).toLocaleString("ru-RU")}
+                  />
+                )}
                 <InfoRow label="Примечания" value={stocktake.notes ?? "—"} />
                 <DocumentTagsRow
                   kind="stocktake"

@@ -167,8 +167,13 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
       )}
 
       <InfoRow label="Плановая отгрузка" value={formatDate(order.plannedShipmentAt)} />
+      {order.confirmedAt && <InfoRow label="Подтверждён" value={formatDate(order.confirmedAt)} />}
+      {order.assemblyStartedAt && (
+        <InfoRow label="Сборка начата" value={formatDate(order.assemblyStartedAt)} />
+      )}
       {order.assembledAt && <InfoRow label="Собран" value={formatDate(order.assembledAt)} />}
       {order.shippedAt && <InfoRow label="Отгружен" value={formatDate(order.shippedAt)} />}
+      {order.canceledAt && <InfoRow label="Отменён" value={formatDate(order.canceledAt)} />}
 
       <InfoRow label="Заметки" value={order.notes || "—"} />
 

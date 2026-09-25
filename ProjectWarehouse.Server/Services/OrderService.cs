@@ -85,6 +85,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                     await RestoreAndDeleteTaskAsync(task, ct);
 
                 order.Status = targetStatus;
+                order.AssemblyStartedAt = null;
                 await db.SaveChangesAsync(ct);
             }, ct);
 
@@ -112,6 +113,20 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
 
         switch (targetStatus)
         {
+            case OrderStatus.Draft:
+                order.ConfirmedAt = null;
+                order.AssemblyStartedAt = null;
+                break;
+            case OrderStatus.Confirmed:
+                order.ConfirmedAt = DateTime.UtcNow;
+                order.AssemblyStartedAt = null;
+                break;
+            case OrderStatus.Assembly:
+                order.AssemblyStartedAt = DateTime.UtcNow;
+                break;
+            case OrderStatus.Canceled:
+                order.CanceledAt = DateTime.UtcNow;
+                break;
             case OrderStatus.Assembled when order.Status == OrderStatus.Shipped:
                 order.ShippedAt = null;
                 break;
@@ -122,6 +137,9 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                 order.ShippedAt = DateTime.UtcNow;
                 break;
         }
+
+        if (order.Status == OrderStatus.Canceled)
+            order.CanceledAt = null;
 
         order.Status = targetStatus;
         await db.SaveChangesAsync(ct);
@@ -142,6 +160,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
             .ToListAsync(ct);
 
         order.Status = OrderStatus.Assembly;
+        order.AssemblyStartedAt = DateTime.UtcNow;
 
         var task = new AssemblyTask
         {

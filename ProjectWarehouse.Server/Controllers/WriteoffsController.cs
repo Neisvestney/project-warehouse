@@ -606,7 +606,8 @@ public class WriteoffsController(
                     }
                 }
 
-                fresh.Status = WriteoffStatus.Finished;
+                fresh.Status     = WriteoffStatus.Finished;
+                fresh.FinishedAt = DateTime.UtcNow;
                 await db.SaveChangesAsync(ct);
             }, ct);
         }
@@ -664,7 +665,8 @@ public class WriteoffsController(
                 $"Cannot cancel a write-off in '{writeoff.Status}' status.");
 
         var before = await BuildDtoAsync(writeoff, ct);
-        writeoff.Status = WriteoffStatus.Canceled;
+        writeoff.Status     = WriteoffStatus.Canceled;
+        writeoff.CanceledAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
 
         var after = await BuildDtoAsync(writeoff, ct);

@@ -886,7 +886,7 @@ checkbox was ticked. The bar itself is [`BulkBar`](#bulkbar). Adding an
 as does dropping the notes column with `showNotes={false}` (the marketplace pages trade it for the posting number).
 
 Внешние заказы (`IsExternal`, см. [orders-specification.md](orders-specification.md#внешние-заказы)) скрыты из
-списка по умолчанию; тумблер «Внешние» рядом с маркетплейсными фильтрами шлёт `includeExternal`. Раздел, где
+списка по умолчанию; тумблер «Внешние» (одиночный `ToggleButton`) рядом с маркетплейсными фильтрами шлёт `includeExternal`. Раздел, где
 внешними являются **все** заказы, поднимает тумблер пропсом `defaultIncludeExternal` — иначе он открывался бы
 пустым. Само стартовое положение в URL не пишется: параметр `external` появляется только тогда, когда
 пользователь отклонил его от умолчания раздела. Там, где выбор между внешними и складскими заказами

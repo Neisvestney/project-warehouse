@@ -344,6 +344,20 @@ function WriteoffPage() {
                   label="Создано"
                   value={new Date(writeoff.createdAt).toLocaleString("ru-RU")}
                 />
+                <InfoRow
+                  label="Завершено"
+                  value={
+                    writeoff.finishedAt
+                      ? new Date(writeoff.finishedAt).toLocaleString("ru-RU")
+                      : "—"
+                  }
+                />
+                {writeoff.canceledAt && (
+                  <InfoRow
+                    label="Отменено"
+                    value={new Date(writeoff.canceledAt).toLocaleString("ru-RU")}
+                  />
+                )}
                 <InfoRow label="Примечания" value={writeoff.notes ?? "—"} />
                 <DocumentTagsRow
                   kind="writeoff"
