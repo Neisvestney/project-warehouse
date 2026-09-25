@@ -218,8 +218,8 @@ public class MarketplaceOrderSyncService(
             WarehouseId = warehouseId,
             PlannedShipmentAt = posting.ShipmentDate,
             CreatedAt = now,
-            ShippedAt = status == OrderStatus.Shipped ? posting.InProcessAt ?? posting.CreatedAt ?? now : null,
-            // created by the integration; who started the run is recorded on MarketplaceSyncRun
+            ConfirmedAt = status == OrderStatus.Confirmed ? now : null,
+            ShippedAt = status == OrderStatus.Shipped ? posting.InProcessAt ?? posting.CreatedAt ?? now : null,            // created by the integration; who started the run is recorded on MarketplaceSyncRun
             CreatedById = null,
             MarketplaceItems = [.. lines.Select(l => new OrderMarketplaceItem
             {
@@ -352,8 +352,7 @@ public class MarketplaceOrderSyncService(
             return;
 
         order.Status = status;
-        order.ShippedAt = status == OrderStatus.Shipped ? known.InProcessAt ?? order.CreatedAt : null;
-    }
+        order.ShippedAt = status == OrderStatus.Shipped ? known.InProcessAt ?? order.CreatedAt : null;    }
 
     // ── Phase 2: unattended refresh ───────────────────────────────────────────
 

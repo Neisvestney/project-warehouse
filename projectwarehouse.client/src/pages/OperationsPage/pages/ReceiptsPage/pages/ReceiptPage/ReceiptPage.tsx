@@ -435,6 +435,24 @@ function ReceiptPage() {
                   value={new Date(receipt.createdAt).toLocaleString("ru-RU")}
                 />
                 <InfoRow
+                  label="Начата"
+                  value={
+                    receipt.startedAt ? new Date(receipt.startedAt).toLocaleString("ru-RU") : "—"
+                  }
+                />
+                <InfoRow
+                  label="Завершена"
+                  value={
+                    receipt.finishedAt ? new Date(receipt.finishedAt).toLocaleString("ru-RU") : "—"
+                  }
+                />
+                {receipt.canceledAt && (
+                  <InfoRow
+                    label="Отменена"
+                    value={new Date(receipt.canceledAt).toLocaleString("ru-RU")}
+                  />
+                )}
+                <InfoRow
                   label="Дата поставки"
                   value={
                     receipt.plannedDeliveryDate

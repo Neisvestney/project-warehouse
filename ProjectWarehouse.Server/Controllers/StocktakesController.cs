@@ -1059,7 +1059,8 @@ public class StocktakesController(
                 $"Cannot cancel a stocktake in '{stocktake.Status}' status.");
 
         var before = await BuildDtoAsync(stocktake, ct);
-        stocktake.Status = StocktakeStatus.Canceled;
+        stocktake.Status     = StocktakeStatus.Canceled;
+        stocktake.CanceledAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
 
         var after = await BuildDtoAsync(stocktake, ct);

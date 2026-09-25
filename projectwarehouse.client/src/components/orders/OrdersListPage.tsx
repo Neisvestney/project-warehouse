@@ -3,12 +3,10 @@ import {
   Alert,
   Button,
   Chip,
-  FormControlLabel,
   IconButton,
   MenuItem,
   Select,
   Stack,
-  Switch,
   Table,
   TableBody,
   TableCell,
@@ -16,8 +14,10 @@ import {
   TableHead,
   TableRow,
   TableSortLabel,
+  ToggleButton,
   Typography,
 } from "@mui/material";
+import PublicIcon from "@mui/icons-material/Public";
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
@@ -521,16 +521,17 @@ function OrdersListPage({
           sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
         />
         {marketplaceFilters && showExternalFilter && (
-          <FormControlLabel
-            control={
-              <Switch
-                size="small"
-                checked={includeExternal}
-                onChange={(e) => setIncludeExternal(e.target.checked)}
-              />
-            }
-            label="Внешние"
-          />
+          <ToggleButton
+            size="small"
+            value="includeExternal"
+            selected={includeExternal}
+            onChange={() => setIncludeExternal(!includeExternal)}
+            title="Показать заказы с площадки, не проходившие через склад"
+            sx={{gap: 0.5}}
+          >
+            <PublicIcon fontSize="small" />
+            Внешние
+          </ToggleButton>
         )}
         {marketplaceFilters && (
           <MarketplaceOrderFilters

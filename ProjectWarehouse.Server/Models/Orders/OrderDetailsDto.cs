@@ -15,8 +15,11 @@ public class OrderDetailsDto
     public string? Notes { get; init; }
     public DateTime? PlannedShipmentAt { get; init; }
     public DateTime CreatedAt { get; init; }
+    public DateTime? ConfirmedAt { get; init; }
+    public DateTime? AssemblyStartedAt { get; init; }
     public DateTime? AssembledAt { get; init; }
     public DateTime? ShippedAt { get; init; }
+    public DateTime? CanceledAt { get; init; }
     /// <summary>Null for an external order: it never entered a WMS warehouse.</summary>
     public Guid? WarehouseId { get; init; }
     public string? WarehouseName { get; init; }

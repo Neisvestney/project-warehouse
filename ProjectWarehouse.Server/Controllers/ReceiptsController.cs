@@ -1160,7 +1160,8 @@ public class ReceiptsController(
                 $"Некоторые позиции размещены сверх принятого количества: {string.Join(", ", overplaced.Select(i => i.CatalogItem?.Name ?? i.Id.ToString()))}.");
 
         var before = mapper.Map<ReceiptDto>(receipt);
-        receipt.Status = ReceiptStatus.Finished;
+        receipt.Status     = ReceiptStatus.Finished;
+        receipt.FinishedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
 
         var nodeById = await LoadWarehouseNodesAsync(receipt.WarehouseId, ct);
@@ -1213,6 +1214,8 @@ public class ReceiptsController(
         }
 
         receipt.Status = nextStatus;
+        if (nextStatus == ReceiptStatus.Processing)
+            receipt.FinishedAt = null;
         await db.SaveChangesAsync(ct);
 
         var nodeById = await LoadWarehouseNodesAsync(receipt.WarehouseId, ct);
@@ -1248,7 +1251,8 @@ public class ReceiptsController(
                 "Cannot cancel: some items already have placements. Remove them first.");
 
         var before = mapper.Map<ReceiptDto>(receipt);
-        receipt.Status = ReceiptStatus.Canceled;
+        receipt.Status     = ReceiptStatus.Canceled;
+        receipt.CanceledAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
 
         var nodeById = await LoadWarehouseNodesAsync(receipt.WarehouseId, ct);
@@ -1272,6 +1276,8 @@ public class ReceiptsController(
 
         var before = mapper.Map<ReceiptDto>(receipt);
         receipt.Status = to;
+        if (to == ReceiptStatus.Processing)
+            receipt.StartedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
 
         var nodeById = await LoadWarehouseNodesAsync(receipt.WarehouseId, ct);

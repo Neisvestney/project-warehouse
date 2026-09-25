@@ -15,6 +15,7 @@ public class StocktakeDto
     public DateTime CreatedAt { get; init; }
     public DateTime? StartedAt { get; init; }
     public DateTime? FinishedAt { get; init; }
+    public DateTime? CanceledAt { get; init; }
     public Guid WarehouseId { get; init; }
     public string WarehouseName { get; init; } = null!;
     public IReadOnlyList<StocktakeTagDto> Tags { get; init; } = [];

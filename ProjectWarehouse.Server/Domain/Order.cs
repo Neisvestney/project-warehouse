@@ -25,8 +25,11 @@ public class Order : IHasIdentity
     public string? Notes { get; set; }
     public DateTime? PlannedShipmentAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? ConfirmedAt { get; set; }
+    public DateTime? AssemblyStartedAt { get; set; }
     public DateTime? AssembledAt { get; set; }
     public DateTime? ShippedAt { get; set; }
+    public DateTime? CanceledAt { get; set; }
 
     /// <summary>Required for every order WMS works on; null only for <see cref="IsExternal"/> ones.</summary>
     public Guid? WarehouseId { get; set; }

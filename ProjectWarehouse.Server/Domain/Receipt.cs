@@ -17,6 +17,11 @@ public class Receipt : IHasIdentity
     public DateOnly? PlannedDeliveryDate { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    /// <summary>When processing first began; kept when reverted to Planned, overwritten on the next start.</summary>
+    public DateTime? StartedAt { get; set; }
+    public DateTime? FinishedAt { get; set; }
+    public DateTime? CanceledAt { get; set; }
+
     public Guid WarehouseId { get; set; }
     public Warehouse Warehouse { get; set; } = null!;
 

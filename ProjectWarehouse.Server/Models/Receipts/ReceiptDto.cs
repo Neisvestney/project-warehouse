@@ -13,6 +13,9 @@ public class ReceiptDto
     public string? Notes { get; init; }
     public DateOnly? PlannedDeliveryDate { get; init; }
     public DateTime CreatedAt { get; init; }
+    public DateTime? StartedAt { get; init; }
+    public DateTime? FinishedAt { get; init; }
+    public DateTime? CanceledAt { get; init; }
     public Guid WarehouseId { get; init; }
     public string WarehouseName { get; init; } = null!;
     public int TotalPlannedCount { get; init; }

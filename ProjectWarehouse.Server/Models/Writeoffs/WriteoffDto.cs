@@ -12,6 +12,8 @@ public class WriteoffDto
     public WriteoffStatus Status { get; init; }
     public string? Notes { get; init; }
     public DateTime CreatedAt { get; init; }
+    public DateTime? FinishedAt { get; init; }
+    public DateTime? CanceledAt { get; init; }
     public Guid WarehouseId { get; init; }
     public string WarehouseName { get; init; } = null!;
     public IReadOnlyList<WriteoffTagDto> Tags { get; init; } = [];

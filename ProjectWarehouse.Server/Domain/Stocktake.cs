@@ -21,6 +21,7 @@ public class Stocktake : IHasIdentity
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? StartedAt { get; set; }
     public DateTime? FinishedAt { get; set; }
+    public DateTime? CanceledAt { get; set; }
 
     public Guid WarehouseId { get; set; }
     public Warehouse Warehouse { get; set; } = null!;

@@ -15,6 +15,8 @@ public class ReceiptSummaryDto
     public int TotalPlannedCount { get; init; }
     public int TotalReceivedCount { get; init; }
     public DateTime CreatedAt { get; init; }
+    public DateTime? StartedAt { get; init; }
+    public DateTime? FinishedAt { get; init; }
     public DateOnly? PlannedDeliveryDate { get; init; }
     public IReadOnlyList<ReceiptTagDto> Tags { get; init; } = [];
 }
