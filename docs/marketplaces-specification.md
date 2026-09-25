@@ -397,6 +397,7 @@ MarketplaceAccount : IHasIdentity
 ├── LastSyncStatus        — MarketplaceSyncStatus?
 ├── LastSyncError         — AppFieldError? (jsonb)
 ├── FboPostingsSyncedAt   — DateTime?, докуда дочитан фоновый импорт отправлений FBO
+├── FbsPostingsSyncedAt   — DateTime?, докуда дочитаны смены статусов FBS-отправлений мимо склада
 ├── ReturnsSyncedAt       — DateTime?, докуда дочитан поток изменений возвратов
 ├── CreatedAt             — DateTime
 ├── CreatedById           — Guid? → ApplicationUser (SetNull)
@@ -990,6 +991,8 @@ Quartz регистрируется с in-memory хранилищем задач
     "LabelPollAttempts": 6,
     "LabelPollDelayMs": 1500,
     "FboImportOverlapHours": 6,
+    "FbsImportOverlapHours": 6,
+    "FbsImportWindowPastDays": 60,
     "ReturnsImportOverlapHours": 6
   },
   "Labels": {
@@ -1016,6 +1019,8 @@ Quartz регистрируется с in-memory хранилищем задач
 `LabelSplitThreshold` — граница перезапроса неудавшейся пачки: больше неё пачка делится пополам, не больше — перезапрашивается по одному. См. [«Получение этикеток»](marketplaces-orders-specification.md#получение-этикеток).
 
 `FboImportOverlapHours` — единственный регулятор стоимости фонового импорта FBO, и она линейна по нему: см. [«Докуда дочитали»](marketplaces-orders-specification.md#докуда-дочитали).
+
+`FbsImportOverlapHours` — то же для фонового импорта FBS мимо склада. `FbsImportWindowPastDays` — обязательный период по дате создания для этого импорта; должен пережить самую долгую доставку: см. [«Отправления FBS мимо склада»](marketplaces-orders-specification.md#отправления-fbs-мимо-склада).
 
 `ReturnsImportOverlapHours` и `ReturnsImportWindowPastDays` (по умолчанию 6 часов и 14 дней) — то же для потока изменений возвратов: см. [«Поток изменений»](marketplaces-returns-specification.md#поток-изменений).
 

@@ -43,6 +43,12 @@ public class MarketplaceAccount : IHasIdentity
     public DateTime? FboPostingsSyncedAt { get; set; }
 
     /// <summary>
+    /// Up to when status changes of FBS postings WMS never imported have been read. Same rules as
+    /// <see cref="FboPostingsSyncedAt"/>; the history import never moves it.
+    /// </summary>
+    public DateTime? FbsPostingsSyncedAt { get; set; }
+
+    /// <summary>
     /// Up to when the stream of return status changes has been read. Same rules as
     /// <see cref="FboPostingsSyncedAt"/>; the history import never moves it.
     /// </summary>
