@@ -64,7 +64,7 @@ public class EventsController(
         var ordersQueryable = await queryFilter.GetOrdersAsync(User, ct);
         
         var fbsOrdersGroupedEvents = await ordersQueryable
-            .Where(x => x.Type == OrderType.FBS)
+            .Where(x => x.Type == OrderType.FBS && !x.IsExternal)
             .GroupBy(x => DateOnly.FromDateTime(x.EffectiveDate.AddMinutes(offsetMinutes)))
             .Select(x => new EventDto
             {
