@@ -23,6 +23,7 @@ const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
     key: "postingNumber",
     label: "Номер отправления",
     align: "right",
+    noWrap: true,
     render: (order) => (
       <Typography variant="body2" sx={{fontFamily: "monospace"}}>
         {formatPostingNumber(order.marketplaceOrder?.postingNumber) ?? "—"}

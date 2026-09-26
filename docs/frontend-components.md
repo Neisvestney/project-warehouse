@@ -312,9 +312,16 @@ cover a table that is already covered.
 Filter row rendered as an outlined card — rounded border in `divider`, a faint `primary` tint background and
 `px: 2 / py: 1.5` padding — so the filters read as a block separate from the table below.
 
-The leading label is a `FilterAltIcon` on a tinted rounded square plus a «Фильтры» caption; the caption is
-hidden below the `sm` breakpoint, leaving only the icon on narrow screens. Controls go in `children`; the
-optional `actions` slot renders at the right edge (`ml: "auto"`) for things like a reset button.
+The leading label is a `FilterAltIcon` on a tinted rounded square plus a «Фильтры» caption. Controls go in
+`children`; the optional `actions` slot renders at the right edge (`ml: "auto"`) for things like a reset button
+or a rarely used toggle. `activeCount` puts a badge with the number of filters that differ from their defaults
+next to the caption; the page computes it, since only the page knows what its defaults are.
+
+Below `sm` the bar collapses into a single row — label, badge, a chevron and the `actions` — and the controls open
+under it on tap, stacked, each at full width. The widths a page sets on its controls for the desktop row
+(`flexBasis`, `minWidth`, `maxWidth`) are overridden there, so a page never needs its own mobile layout for the
+bar. The collapsed row is why `activeCount` matters: without it a phone user cannot tell a filter is on. An
+`alignItems` passed through `sx` is meant for the desktop row; the collapsed column always stretches its content.
 
 The `sx` prop is **merged** with the component's own defaults via MUI's array `sx` syntax, not replaced.
 
@@ -349,9 +356,12 @@ Dense toolbar with the summary of a whole list, sitting above a table at exactly
 `divider` border around `text.secondary` labels on the bare surface — so the summary stays quieter than both
 the table and the `primary.main` selection band that replaces it.
 
-`stats: TableInfoStat[]` — `{key, label, value, color?, hidden?}` — is rendered as a row of «label value» pairs
-with the value in bold; `color` tints it (`error.main` for a counter that signals trouble) and `hidden` drops a
-stat that carries no meaning, such as a zero counter. `loading` replaces every value with a skeleton, and
+`stats: TableInfoStat[]` — `{key, label, value, color?, hidden?, onClick?, active?}` — is rendered as a row of
+«label value» pairs with the value in bold; `color` tints it (`error.main` for a counter that signals trouble) and
+`hidden` drops a stat that carries no meaning, such as a zero counter. On a phone the stats wrap onto new lines
+as whole «label value» pairs — a label never breaks in two — and the bar grows taller instead of overflowing. A stat with `onClick` becomes a toggle
+that narrows the list to what it counts: `active` outlines it in its own `color` and sets `aria-pressed`. Keep an
+active stat visible even when its count drops to zero, or the user loses the way to switch it off. `loading` replaces every value with a skeleton, and
 `children` are pushed to the right edge.
 
 The numbers describe the whole filtered set, not the current page, so they come from the endpoint's
@@ -368,6 +378,9 @@ the «Выбрать все» / «Снять выбор» buttons.
 
 `InfoRow`'s value slot renders as `Typography component="div"`, so a chip or any other block element can be
 passed as `value` without invalid nesting.
+
+`SearchInput` shows a clear button at the end of the field while it holds text; the button calls
+`onChange("")`, so the caller's debounced URL sync handles it like any other edit.
 
 Below `sm` `InfoRow` turns into a column: the label loses its fixed width, drops to `body2` size and sits above
 the value, which then gets the full width of the container for long strings and chips.
@@ -601,6 +614,23 @@ they survive search changes** — otherwise a selected chip would vanish as soon
 does not match it. `types?` is passed straight through to the endpoint as server-side filtering. Single mode
 resolves its id through `useCatalogItemsByIds`, so an id nobody knows leaves the field empty instead of
 raising an error.
+
+### `SearchWithItemsInput`
+
+One field for free-text search and a set of catalog items, used in the page header where a list is searched by
+text and filtered by «содержит позицию» at the same time (the orders list, the assembly page). It is a
+`multiple` + `freeSolo` `Autocomplete` whose value is the chosen items and whose input is the search text; the
+caller keeps both in the URL as usual (`search` through `useDebouncedSyncedWithQueryState`, `item` as a
+comma-separated id list) and the endpoint gets `catalogItemIds` with OR semantics.
+
+While the field holds text, the dropdown opens with «Искать «…»» as the first, auto-highlighted option — Enter
+or a click on it just closes the dropdown and keeps the text — followed by catalog items matching the same text.
+Picking an item adds it as a square chip and clears the text, so the next query starts from scratch; typing
+after the chips continues the text search. Backspace on an empty input removes the last chip, the clear button
+drops both the chips and the text. The chips are resolved through `useCatalogItemsByIds`, so ids restored from a
+link show up as names; an item picked in the dropdown is kept locally and shown at once, without waiting for that
+lookup. The dropdown stays closed while the text is empty: with nothing typed there is nothing to
+search and no catalog suggestion to make.
 
 ## Forecast
 
@@ -866,7 +896,7 @@ each switch and one id to `DOCUMENT_TAGS_QUERY_IDS`.
 
 The orders list is shared by every order type, so type-specific behaviour arrives as props rather than an
 internal `type === "fbs"` branch: `headerActions?`, `bulkActions?: (selectedOrders: OrderSummaryDto[]) => BulkAction[]`,
-`extraColumns?: {key, label, render}[]`, `marketplaceFilters?`, `defaultIncludeExternal?`, `showExternalFilter?`,
+`extraColumns?: {key, label, render, align?, noWrap?}[]` (`noWrap` keeps a column such as the posting number on one line, header included), `marketplaceFilters?`, `defaultIncludeExternal?`, `showExternalFilter?`,
 `hiddenColumns?: OrderSortBy[]`, `alwaysShownStatusDates?: OrderStatus[]`, `statusDateLabels?` and `showNotes?`. That keeps marketplace imports —
 and the `integrations.sync` permission — out of the pages that have nothing to do with marketplaces.
 
@@ -886,7 +916,9 @@ checkbox was ticked. The bar itself is [`BulkBar`](#bulkbar). Adding an
 as does dropping the notes column with `showNotes={false}` (the marketplace pages trade it for the posting number).
 
 Внешние заказы (`IsExternal`, см. [orders-specification.md](orders-specification.md#внешние-заказы)) скрыты из
-списка по умолчанию; тумблер «Внешние» (одиночный `ToggleButton`) рядом с маркетплейсными фильтрами шлёт `includeExternal`. Раздел, где
+списка по умолчанию; их показ включают редко, поэтому тумблер — квадратный `ToggleButton` с одной иконкой `AltRoute` (заказ шёл в обход склада) и
+подсказкой в слоте `actions` у `FiltersBar`, справа от фильтров. Он шлёт `includeExternal`, подсвечивается, пока
+включён, и сделан 40×40 — ровно по высоте соседних `size="small"` полей. Раздел, где
 внешними являются **все** заказы, поднимает тумблер пропсом `defaultIncludeExternal` — иначе он открывался бы
 пустым. Само стартовое положение в URL не пишется: параметр `external` появляется только тогда, когда
 пользователь отклонил его от умолчания раздела. Там, где выбор между внешними и складскими заказами
@@ -894,8 +926,19 @@ as does dropping the notes column with `showNotes={false}` (the marketplace page
 
 `hiddenColumns` перечисляет колонки из базового набора (`number`, `status`, `warehouseName`,
 `plannedShipmentAt`, `createdAt`), которые разделу не нужны: колонка исчезает и из шапки, и из строк, вместе с
-ней уходит парный фильтр в панели («Склад» для `warehouseName`, селект статусов для `status`) и его значение
+ней уходит парный фильтр («Склад» в панели для `warehouseName`, табы статусов для `status`) и его значение
 перестаёт попадать в запрос. `colSpan` пересчитывается сам.
+
+Статусный фильтр — это `OrderStatusTabs` над панелью фильтров: «Все» и по табу на статус, у каждого счётчик из
+`meta.statusCounts`. Счётчики учитывают все остальные фильтры, кроме самого статуса, так что таб показывает,
+сколько заказов окажется в списке, если на него перейти; «Все» — их сумма. На время перезагрузки списка табы
+держат прежние числа через `useRetainedValue`, иначе бейджи пропадали бы и табы прыгали по ширине. Колонка
+«Статус» в таблице остаётся и при выбранном табе.
+
+В сводке над таблицей две просрочки по `plannedShipmentAt`: «Просрочена сборка» (`error.main`) — заказ ещё не
+собран (черновик, подтверждён, на сборке), и «Просрочена отгрузка» (`warning.main`) — собран, но не отгружен.
+Обе кликабельны и включают фильтр `overdue=assembly|shipment` в URL, повторный клик его снимает. Числа
+учитывают выбранный таб, но не сам `overdue`, поэтому вторая просрочка не обнуляется, пока включена первая.
 
 Даты в таблице (`Плановая отгрузка`, `Создан` и статусная колонка) рисует `DateTimeTableCell`: дата первой
 строкой, время под ней капшеном; вертикальные отступы ячейки поджаты, чтобы строка таблицы почти не подросла.
@@ -914,13 +957,14 @@ as does dropping the notes column with `showNotes={false}` (the marketplace page
 `marketplaceFilters` renders `MarketplaceOrderFilters` (marketplace / account / posting status) and is the only
 thing that puts `marketplaceType`, `marketplaceAccountId` and `marketplaceStatus` into the query — Direct never
 sends them. The three filters live in the URL as `marketplace`, `account` and `mpStatus`; `status` stays the WMS
-status. Marketplace and account are cascaded: the account list is fetched scoped to the selected marketplace, so
-switching marketplace clears the account id in the same tick (`setParam` batches both into one navigation).
+status. Marketplace and account share one Select: each marketplace is a bold item followed by its accounts,
+indented, and a pick sets one half and clears the other (`onSourceChange(type, accountId)`, batched by
+`setParam` into one navigation). An account already implies its marketplace, so the two never travel together.
+The closed Select shows «Ozon · <аккаунт>» for an account. Item values are the account id or `type:<marketplace>`.
 
-The account picker never falls back to "Все аккаунты" while it is uncertain: `keepPreviousData` holds the old
-list through the refetch, and on a deep link that carries `account=` before the first list arrives the Select
-renders a temporary "Загрузка…" item for that id. Collapsing to the empty value would show a filter the URL and
-the request do not agree with.
+The picker never falls back to «Все маркетплейсы» while it is uncertain: on a deep link that carries `account=`
+before the account list arrives, the Select renders a temporary «Загрузка…» item for that id. Collapsing to the
+empty value would show a filter the URL and the request do not agree with.
 
 ### `OrderCompositionPreview`
 

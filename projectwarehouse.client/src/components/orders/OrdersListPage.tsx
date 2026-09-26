@@ -4,8 +4,6 @@ import {
   Button,
   Chip,
   IconButton,
-  MenuItem,
-  Select,
   Stack,
   Table,
   TableBody,
@@ -15,9 +13,10 @@ import {
   TableRow,
   TableSortLabel,
   ToggleButton,
+  Tooltip,
   Typography,
 } from "@mui/material";
-import PublicIcon from "@mui/icons-material/Public";
+import AltRouteIcon from "@mui/icons-material/AltRoute";
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
@@ -35,10 +34,10 @@ import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {useTableSort} from "@/hooks/useTableSort";
 import {useSelectedItems} from "@/hooks/useSelectedItems";
 import {useHasPermission} from "@/hooks/usePermission";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
 import {useOperationMutation} from "@/hooks/useOperationMutation";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
-import SearchInput from "@/components/SearchInput";
 import FiltersBar from "@/components/FiltersBar";
 import DataTableContainer from "@/components/DataTableContainer";
 import SelectionTableCell from "@/components/SelectionTableCell";
@@ -51,17 +50,18 @@ import LinkTableRow from "@/components/LinkTableRow";
 import NotesTableCell from "@/components/NotesTableCell";
 import DateTimeTableCell from "@/components/DateTimeTableCell";
 import WarehousesSelect from "@/components/WarehousesSelect";
-import CatalogItemsSelect from "@/components/CatalogItemsSelect";
+import SearchWithItemsInput from "@/components/catalog/SearchWithItemsInput";
 import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
 import TagChips from "@/components/tags/TagChips";
 import OrderStatusChip from "./OrderStatusChip";
+import OrderStatusTabs from "./OrderStatusTabs";
 import OrderCompositionPreview from "./OrderCompositionPreview";
 import MarketplaceOrderFilters from "./marketplace/MarketplaceOrderFilters";
 import {
   ALL_MARKETPLACE_ORDER_STATUSES,
   ALL_MARKETPLACE_TYPES,
 } from "./marketplace/marketplaceOrderUtils";
-import {ORDER_STATUS_LABELS, formatOrderNumber} from "./orderUtils";
+import {formatOrderNumber} from "./orderUtils";
 import {getOrderBulkTransitions, type OrderBulkTransition} from "./orderBulkTransitions";
 import {NOUNS, pluralCount} from "@/utils/pluralUtils";
 import type {
@@ -69,6 +69,7 @@ import type {
   BatchTransitionStatusFailedItem,
   MarketplaceOrderStatus,
   MarketplaceType,
+  OrderOverdueKind,
   OrderSortBy,
   OrderStatus,
   OrderSummaryDto,
@@ -104,11 +105,15 @@ const ALL_STATUSES: OrderStatus[] = [
   "canceled",
 ];
 
+const ALL_OVERDUE_KINDS: OrderOverdueKind[] = ["assembly", "shipment"];
+
 export interface OrdersListExtraColumn {
   key: string;
   label: string;
   render: (order: OrderSummaryDto) => ReactNode;
   align?: TableCellProps["align"];
+  /** Keeps the header and the cells on one line. */
+  noWrap?: boolean;
 }
 
 interface OrdersListPageProps {
@@ -193,10 +198,10 @@ function OrdersListPage({
     (v) => v,
   );
 
-  const [catalogItemId, setCatalogItemId] = useSyncedWithQueryState(
+  const [catalogItemIds, setCatalogItemIds] = useSyncedWithQueryState<string[]>(
     "item",
-    (q) => (typeof q === "string" ? q : null),
-    (v) => v,
+    (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
+    (v) => v.join(",") || null,
   );
 
   const [status, setStatus] = useSyncedWithQueryState<OrderStatus | "">(
@@ -235,6 +240,12 @@ function OrdersListPage({
     (v) => (v === defaultIncludeExternal ? null : v ? "1" : "0"),
   );
 
+  const [overdue, setOverdue] = useSyncedWithQueryState<OrderOverdueKind | "">(
+    "overdue",
+    (q) => (ALL_OVERDUE_KINDS.includes(q as OrderOverdueKind) ? (q as OrderOverdueKind) : ""),
+    (v) => v || null,
+  );
+
   const [tagIds, setTagIds] = useSyncedWithQueryState<string[]>(
     "tags",
     (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
@@ -270,8 +281,9 @@ function OrdersListPage({
       type,
       warehouseId: (showWarehouseFilter ? warehouseId : null) ?? undefined,
       status: statusFilter || undefined,
-      catalogItemId: catalogItemId ?? undefined,
+      catalogItemIds: catalogItemIds.length > 0 ? catalogItemIds : undefined,
       tagIds: tagIds.length > 0 ? tagIds : undefined,
+      overdue: overdue || undefined,
       includeExternal: includeExternal || undefined,
       marketplaceType: marketplaceFilters
         ? (marketplaceType as MarketplaceType) || undefined
@@ -286,8 +298,9 @@ function OrdersListPage({
     [
       warehouseId,
       status,
-      catalogItemId,
+      catalogItemIds,
       tagIds,
+      overdue,
       includeExternal,
       marketplaceType,
       marketplaceAccountId,
@@ -300,15 +313,16 @@ function OrdersListPage({
     },
   );
 
-  // the account list is scoped to the marketplace, so a stale id must not survive the switch
-  function handleMarketplaceTypeChange(value: MarketplaceType | "") {
-    setMarketplaceType(value);
-    setMarketplaceAccountId(null);
+  function handleMarketplaceSourceChange(type: MarketplaceType | "", accountId: string | null) {
+    setMarketplaceType(type);
+    setMarketplaceAccountId(accountId);
   }
 
   const {data, isLoading, isFetching, refetch} = useQuery(
     ordersGetAllOptions({query: fetchParams}),
   );
+  // the tabs keep their last numbers through a refetch instead of collapsing and shifting
+  const [statusCounts] = useRetainedValue(data?.meta.statusCounts);
 
   const {
     selectedItems,
@@ -363,11 +377,22 @@ function OrdersListPage({
       value: (data?.meta.componentCount ?? 0).toLocaleString("ru-RU"),
     },
     {
-      key: "overdue",
-      label: "Просрочено:",
-      value: (data?.meta.overdueCount ?? 0).toLocaleString("ru-RU"),
+      key: "overdueAssembly",
+      label: "Просрочена сборка:",
+      value: (data?.meta.overdueAssemblyCount ?? 0).toLocaleString("ru-RU"),
       color: "error.main",
-      hidden: !isLoading && !data?.meta.overdueCount,
+      hidden: !isLoading && !data?.meta.overdueAssemblyCount && overdue !== "assembly",
+      onClick: () => setOverdue(overdue === "assembly" ? "" : "assembly"),
+      active: overdue === "assembly",
+    },
+    {
+      key: "overdueShipment",
+      label: "Просрочена отгрузка:",
+      value: (data?.meta.overdueShipmentCount ?? 0).toLocaleString("ru-RU"),
+      color: "warning.main",
+      hidden: !isLoading && !data?.meta.overdueShipmentCount && overdue !== "shipment",
+      onClick: () => setOverdue(overdue === "shipment" ? "" : "shipment"),
+      active: overdue === "shipment",
     },
   ];
 
@@ -479,9 +504,56 @@ function OrdersListPage({
           </>
         }
       >
-        <SearchInput value={inputValue} onChange={setInputValue} />
+        <SearchWithItemsInput
+          text={inputValue}
+          onTextChange={setInputValue}
+          itemIds={catalogItemIds}
+          onItemIdsChange={setCatalogItemIds}
+          sx={{flexGrow: 1}}
+        />
       </PageGenericHeader>
-      <FiltersBar>
+      {showStatusFilter && (
+        <OrderStatusTabs
+          value={status}
+          onChange={setStatus}
+          statuses={ALL_STATUSES}
+          counts={statusCounts ?? undefined}
+        />
+      )}
+      <FiltersBar
+        activeCount={
+          [
+            showWarehouseFilter && warehouseId,
+            tagIds.length > 0,
+            marketplaceFilters && (marketplaceType || marketplaceAccountId),
+            marketplaceFilters && marketplaceStatus,
+            marketplaceFilters && showExternalFilter && includeExternal !== defaultIncludeExternal,
+          ].filter(Boolean).length
+        }
+        actions={
+          marketplaceFilters &&
+          showExternalFilter && (
+            <Tooltip
+              title={
+                includeExternal
+                  ? "Скрыть внешние заказы"
+                  : "Показать внешние заказы — с площадки, не проходившие через WMS"
+              }
+            >
+              <ToggleButton
+                value="includeExternal"
+                selected={includeExternal}
+                onChange={() => setIncludeExternal(!includeExternal)}
+                aria-label="Внешние заказы"
+                // matches the 40px height of the size="small" inputs next to it
+                sx={{width: 40, height: 40, p: 0}}
+              >
+                <AltRouteIcon fontSize="small" />
+              </ToggleButton>
+            </Tooltip>
+          )
+        }
+      >
         {showWarehouseFilter && (
           <WarehousesSelect
             value={warehouseId}
@@ -491,54 +563,17 @@ function OrdersListPage({
             textFieldProps={{label: "Склад"}}
           />
         )}
-        {showStatusFilter && (
-          <Select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as OrderStatus | "")}
-            size="small"
-            displayEmpty
-            sx={{minWidth: 160}}
-          >
-            <MenuItem value="">Все статусы</MenuItem>
-            {ALL_STATUSES.map((s) => (
-              <MenuItem key={s} value={s}>
-                {ORDER_STATUS_LABELS[s]}
-              </MenuItem>
-            ))}
-          </Select>
-        )}
-        <CatalogItemsSelect
-          value={catalogItemId}
-          onChange={setCatalogItemId}
-          sx={{flexBasis: 300}}
-          size="small"
-          textFieldProps={{label: "Содержит позицию"}}
-        />
         <DocumentTagsFilter
           kind="order"
           value={tagIds}
           onChange={setTagIds}
           sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
         />
-        {marketplaceFilters && showExternalFilter && (
-          <ToggleButton
-            size="small"
-            value="includeExternal"
-            selected={includeExternal}
-            onChange={() => setIncludeExternal(!includeExternal)}
-            title="Показать заказы с площадки, не проходившие через склад"
-            sx={{gap: 0.5}}
-          >
-            <PublicIcon fontSize="small" />
-            Внешние
-          </ToggleButton>
-        )}
         {marketplaceFilters && (
           <MarketplaceOrderFilters
             type={marketplaceType}
-            onTypeChange={handleMarketplaceTypeChange}
             accountId={marketplaceAccountId}
-            onAccountChange={setMarketplaceAccountId}
+            onSourceChange={handleMarketplaceSourceChange}
             status={marketplaceStatus}
             onStatusChange={setMarketplaceStatus}
           />
@@ -643,8 +678,8 @@ function OrdersListPage({
                   </TableSortLabel>
                 </TableCell>
               ))}
-              {extraColumns?.map(({key, label, align}) => (
-                <TableCell key={key} align={align}>
+              {extraColumns?.map(({key, label, align, noWrap}) => (
+                <TableCell key={key} align={align} sx={noWrap ? {whiteSpace: "nowrap"} : undefined}>
                   {label}
                 </TableCell>
               ))}
@@ -704,8 +739,12 @@ function OrdersListPage({
                   {statusDateColumns.map((column) => (
                     <DateTimeTableCell key={column.key} value={column.get(order)} />
                   ))}
-                  {extraColumns?.map(({key, render, align}) => (
-                    <TableCell key={key} align={align}>
+                  {extraColumns?.map(({key, render, align, noWrap}) => (
+                    <TableCell
+                      key={key}
+                      align={align}
+                      sx={noWrap ? {whiteSpace: "nowrap"} : undefined}
+                    >
                       {render(order)}
                     </TableCell>
                   ))}

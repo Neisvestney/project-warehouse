@@ -66,6 +66,15 @@ public class Order : IHasIdentity
     [Projectable]
     public int MarketplaceQuantity => MarketplaceItems.Sum(i => i.Quantity);
 
+    /// <summary>Which step is late once <see cref="PlannedShipmentAt"/> has passed; null when nothing is late.</summary>
+    [Projectable]
+    public OrderOverdueKind? OverdueKindAt(DateTime now) =>
+        PlannedShipmentAt == null || PlannedShipmentAt >= now ? (OrderOverdueKind?)null
+        : Status == OrderStatus.Draft || Status == OrderStatus.Confirmed || Status == OrderStatus.Assembly
+            ? OrderOverdueKind.Assembly
+        : Status == OrderStatus.Assembled ? OrderOverdueKind.Shipment
+        : null;
+
     [Projectable]
     public bool TerminalStatus => Status == OrderStatus.Shipped || Status == OrderStatus.Assembled || Status == OrderStatus.Canceled;
 

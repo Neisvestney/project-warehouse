@@ -392,7 +392,7 @@ round trips — which matters in hot loops such as `OrderService.IsTaskFullyFulf
 var paginated = await query.ProjectTo<OrderSummaryDto>(mapper.ConfigurationProvider)
     .ToPaginatedAsync(page, pageSize, ct);
 
-var meta = new OrderListMetaDto {OverdueCount = await baseQuery.CountAsync(…, ct)};
+var meta = new OrderListMetaDto {ComponentCount = await baseQuery.SelectMany(…).SumAsync(…, ct) ?? 0};
 
 return Ok(paginated.WithMeta(meta));
 ```
@@ -400,6 +400,10 @@ return Ok(paginated.WithMeta(meta));
 The aggregates are computed over the **filtered, unpaged, unsorted** query — the one before `Skip`/`Take` —
 so they stay stable while the user walks the pages. Each of them is its own round trip, which is why the
 meta DTO stays small; a handful of counters over the same filter belongs in one `GroupBy` instead.
+`OrdersController.GetAll` groups by `(Status, OverdueKindAt(now))` once over the query without the status and
+overdue filters, then derives both the per-status counts and the two overdue counts from those few rows in
+memory. The `overdue` filter calls the same `[Projectable]` `Order.OverdueKindAt`, so the counter and the list it
+opens cannot disagree.
 
 `TMeta` is constrained to `notnull` so the generated OpenAPI schema marks `meta` required, and the client
 reads `data.meta.x` without a null check. The meta DTO lives next to its list DTO

@@ -27,7 +27,9 @@ Errors always use `AppProblemDetails` — see [errors.md](errors.md) for the env
 
 - **Pagination**: `page` (default 1), `pageSize` (default 20, max 200) → `Paginated<T>`, or
   `PaginatedWithMeta<T, TMeta>` where the list also carries aggregates over the whole filtered set
-  (`GET /api/orders` → `OrderListMetaDto`: `componentCount`, `overdueCount`).
+  (`GET /api/orders` → `OrderListMetaDto`). An aggregate that doubles as a facet ignores its own filter and
+  honours every other one — the order status counts ignore `status`, the overdue counts ignore `overdue` — so
+  a tab or toggle shows what it would hold if picked.
 - **Search**: `searchString` matches against the entity's precomputed `SearchString` column.
 - **Sorting**: `sortBy` (per-endpoint enum) plus `sortOrder` (`asc` | `desc`).
 - **Multi-value filters**: repeatable params (`itemTypes`, `tagIds`, `catalogItemTypes`) use OR semantics.

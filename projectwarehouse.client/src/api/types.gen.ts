@@ -1280,9 +1280,20 @@ export type OrderListMetaDto = {
    */
   componentCount: number;
   /**
-   * Orders past their planned shipment date that are neither shipped nor canceled.
+   * Orders past their planned shipment date that are not assembled yet. Ignores the `overdue` filter so
+   * both counters stay visible while one of them is applied.
    */
-  overdueCount: number;
+  overdueAssemblyCount: number;
+  /**
+   * Orders past their planned shipment date that are assembled but not shipped. Ignores the `overdue`
+   * filter so both counters stay visible while one of them is applied.
+   */
+  overdueShipmentCount: number;
+  /**
+   * Order count per status, one entry for every status. Ignores the `status` filter, so the list tabs
+   * show what each of them would hold.
+   */
+  statusCounts: Array<OrderStatusCountDto>;
 };
 
 export type OrderMarketplaceItemDto = {
@@ -1305,6 +1316,8 @@ export type OrderMarketplaceItemDto = {
   returnedQuantity: number;
 };
 
+export type OrderOverdueKind = "assembly" | "shipment";
+
 export type OrderSortBy =
   | "number"
   | "status"
@@ -1315,6 +1328,11 @@ export type OrderSortBy =
   | "shippedAt";
 
 export type OrderStatus = "draft" | "confirmed" | "assembly" | "assembled" | "shipped" | "canceled";
+
+export type OrderStatusCountDto = {
+  status: OrderStatus;
+  count: number;
+};
 
 export type OrderSummaryDto = {
   id: string;
@@ -4706,8 +4724,9 @@ export type OrdersGetAllData = {
     marketplaceAccountId?: string;
     marketplaceStatus?: MarketplaceOrderStatus;
     includeExternal?: boolean;
-    catalogItemId?: string;
+    catalogItemIds?: Array<string>;
     tagIds?: Array<string>;
+    overdue?: OrderOverdueKind;
     sortBy?: OrderSortBy;
     sortOrder?: SortOrder;
   };
@@ -4742,7 +4761,7 @@ export type OrdersGetAllAssemblyData = {
   query?: {
     warehouseId?: string;
     searchString?: string;
-    catalogItemId?: string;
+    catalogItemIds?: Array<string>;
     tagIds?: Array<string>;
   };
   url: "/api/orders/assembly";

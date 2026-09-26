@@ -1,5 +1,5 @@
 import {MenuItem, Select} from "@mui/material";
-import {keepPreviousData, useQuery} from "@tanstack/react-query";
+import {useQuery} from "@tanstack/react-query";
 import {marketplacesGetAccountsShortOptions} from "@/api/@tanstack/react-query.gen";
 import type {MarketplaceOrderStatus, MarketplaceType} from "@/api/types.gen";
 import {
@@ -11,63 +11,68 @@ import {
 
 interface MarketplaceOrderFiltersProps {
   type: MarketplaceType | "";
-  onTypeChange: (value: MarketplaceType | "") => void;
   accountId: string | null;
-  onAccountChange: (value: string | null) => void;
+  /** One pick sets either a whole marketplace or a single account; the other half is cleared. */
+  onSourceChange: (type: MarketplaceType | "", accountId: string | null) => void;
   status: MarketplaceOrderStatus | "";
   onStatusChange: (value: MarketplaceOrderStatus | "") => void;
 }
 
+const TYPE_PREFIX = "type:";
+
 function MarketplaceOrderFilters({
   type,
-  onTypeChange,
   accountId,
-  onAccountChange,
+  onSourceChange,
   status,
   onStatusChange,
 }: MarketplaceOrderFiltersProps) {
-  const {data: accounts, isPending} = useQuery({
-    // the previous list stays on screen while the new marketplace's accounts load
-    ...marketplacesGetAccountsShortOptions({query: {type: type || undefined}}),
-    placeholderData: keepPreviousData,
-  });
+  const {data: accounts, isPending} = useQuery(marketplacesGetAccountsShortOptions());
 
-  const isKnownAccount = accounts?.some((a) => a.id === accountId) ?? false;
+  const account = accounts?.find((a) => a.id === accountId);
   // a deep link carries the id before the first list arrives; collapsing to "все" would misreport the filter
-  const isUnresolvedAccount = accountId != null && !isKnownAccount && isPending;
-  // an id left over from another marketplace would put the Select out of range until the reset lands
-  const accountValue = isKnownAccount || isUnresolvedAccount ? accountId! : "";
+  const isUnresolvedAccount = accountId != null && !account && isPending;
+  const sourceValue =
+    account || isUnresolvedAccount ? accountId! : type ? `${TYPE_PREFIX}${type}` : "";
+
+  function handleSourceChange(value: string) {
+    if (!value) onSourceChange("", null);
+    else if (value.startsWith(TYPE_PREFIX))
+      onSourceChange(value.slice(TYPE_PREFIX.length) as MarketplaceType, null);
+    else onSourceChange("", value);
+  }
+
+  function renderSource(value: string) {
+    if (!value) return "Все маркетплейсы";
+    if (value.startsWith(TYPE_PREFIX))
+      return MARKETPLACE_LABELS[value.slice(TYPE_PREFIX.length) as MarketplaceType];
+    return account ? `${MARKETPLACE_LABELS[account.type]} · ${account.name}` : "Загрузка…";
+  }
 
   return (
     <>
       <Select
-        value={type}
-        onChange={(e) => onTypeChange(e.target.value as MarketplaceType | "")}
+        value={sourceValue}
+        onChange={(e) => handleSourceChange(e.target.value)}
+        renderValue={renderSource}
         size="small"
         displayEmpty
-        sx={{minWidth: 160}}
+        sx={{minWidth: 200}}
       >
         <MenuItem value="">Все маркетплейсы</MenuItem>
-        {ALL_MARKETPLACE_TYPES.map((t) => (
-          <MenuItem key={t} value={t}>
-            {MARKETPLACE_LABELS[t]}
-          </MenuItem>
-        ))}
-      </Select>
-      <Select
-        value={accountValue}
-        onChange={(e) => onAccountChange(e.target.value || null)}
-        size="small"
-        displayEmpty
-        sx={{minWidth: 180}}
-      >
-        <MenuItem value="">Все аккаунты</MenuItem>
         {isUnresolvedAccount && <MenuItem value={accountId!}>Загрузка…</MenuItem>}
-        {accounts?.map((a) => (
-          <MenuItem key={a.id} value={a.id}>
-            {a.name}
-          </MenuItem>
-        ))}
+        {ALL_MARKETPLACE_TYPES.flatMap((t) => [
+          <MenuItem key={t} value={`${TYPE_PREFIX}${t}`} sx={{fontWeight: 600}}>
+            {MARKETPLACE_LABELS[t]}
+          </MenuItem>,
+          ...(accounts ?? [])
+            .filter((a) => a.type === t)
+            .map((a) => (
+              <MenuItem key={a.id} value={a.id} sx={{pl: 4}}>
+                {a.name}
+              </MenuItem>
+            )),
+        ])}
       </Select>
       <Select
         value={status}

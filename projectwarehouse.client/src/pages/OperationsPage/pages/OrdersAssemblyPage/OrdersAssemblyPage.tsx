@@ -35,9 +35,8 @@ import FiltersBar from "@/components/FiltersBar.tsx";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState.ts";
 import {useSyncedWithQueryAndStorageState} from "@/hooks/useSyncedWithQueryAndStorageState.ts";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState.ts";
-import SearchInput from "@/components/SearchInput.tsx";
 import WarehousesSelect from "@/components/WarehousesSelect.tsx";
-import CatalogItemsSelect from "@/components/CatalogItemsSelect.tsx";
+import SearchWithItemsInput from "@/components/catalog/SearchWithItemsInput";
 import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
 import AssemblyOrderGroup from "./AssemblyOrderGroup";
 import {
@@ -66,10 +65,10 @@ function OrdersAssemblyPage() {
     (v) => v,
   );
 
-  const [catalogItemId, setCatalogItemId] = useSyncedWithQueryState(
+  const [catalogItemIds, setCatalogItemIds] = useSyncedWithQueryState<string[]>(
     "item",
-    (q) => (typeof q === "string" ? q : null),
-    (v) => v,
+    (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
+    (v) => v.join(",") || null,
   );
 
   const [tagIds, setTagIds] = useSyncedWithQueryState<string[]>(
@@ -90,7 +89,7 @@ function OrdersAssemblyPage() {
       query: {
         warehouseId: warehouseId ?? undefined,
         searchString: searchString || undefined,
-        catalogItemId: catalogItemId ?? undefined,
+        catalogItemIds: catalogItemIds.length > 0 ? catalogItemIds : undefined,
         tagIds: tagIds.length > 0 ? tagIds : undefined,
       },
     }),
@@ -269,22 +268,21 @@ function OrdersAssemblyPage() {
             </IconButton>
           }
         >
-          <SearchInput value={searchInput} onChange={setSearchInput} />
+          <SearchWithItemsInput
+            text={searchInput}
+            onTextChange={setSearchInput}
+            itemIds={catalogItemIds}
+            onItemIdsChange={setCatalogItemIds}
+            sx={{flexGrow: 1}}
+          />
         </PageGenericHeader>
-        <FiltersBar>
+        <FiltersBar activeCount={[warehouseId, tagIds.length > 0].filter(Boolean).length}>
           <WarehousesSelect
             value={warehouseId}
             onChange={setWarehouseId}
             sx={{flexBasis: 200}}
             size="small"
             textFieldProps={{label: "Склад"}}
-          />
-          <CatalogItemsSelect
-            value={catalogItemId}
-            onChange={setCatalogItemId}
-            sx={{flexBasis: 300}}
-            size="small"
-            textFieldProps={{label: "Содержит позицию"}}
           />
           <DocumentTagsFilter
             kind="order"
@@ -330,7 +328,7 @@ function OrdersAssemblyPage() {
         {orders.length === 0 && !showLoading && (
           <Box sx={{p: 4, textAlign: "center"}}>
             <Typography color="text.secondary">
-              {searchString || warehouseId || catalogItemId
+              {searchString || warehouseId || catalogItemIds.length > 0
                 ? "Ничего не найдено"
                 : "Нет заказов на сборке"}
             </Typography>

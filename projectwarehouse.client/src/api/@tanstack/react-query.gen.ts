@@ -2914,11 +2914,14 @@ export const ordersGetAllQueryKey = (options?: Options<OrdersGetAllData>) =>
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
  * `warehouseId`, `type`, `status`, `marketplaceType`, `marketplaceAccountId`,
- * `marketplaceStatus`, `includeExternal` (default false), `catalogItemId`, `tagIds`,
- * `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * `marketplaceStatus`, `includeExternal` (default false), `catalogItemIds`, `tagIds`,
+ * `overdue`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * `overdue` keeps orders past their planned shipment date: `Assembly` — not assembled yet (draft,
+ * confirmed, assembly), `Shipment` — assembled but not shipped. In `meta` the status counts ignore
+ * the `status` filter and the overdue counts ignore the `overdue` filter; every other filter applies.
  * External orders — imported from the marketplace, never assembled here — are left out unless
  * `includeExternal` asks for them.
- * `catalogItemId` keeps orders that have a box component with that catalog item; `tagIds` keeps
+ * `catalogItemIds` keeps orders that have a box component with any of those catalog items; `tagIds` keeps
  * orders carrying any of the tags.
  * Any of the three marketplace filters also excludes orders without a `MarketplaceOrder`, so they
  * never match Direct orders. `searchString` is the extended search — it also matches box labels and
@@ -2954,11 +2957,14 @@ export const ordersGetAllInfiniteQueryKey = (
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
  * `warehouseId`, `type`, `status`, `marketplaceType`, `marketplaceAccountId`,
- * `marketplaceStatus`, `includeExternal` (default false), `catalogItemId`, `tagIds`,
- * `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * `marketplaceStatus`, `includeExternal` (default false), `catalogItemIds`, `tagIds`,
+ * `overdue`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * `overdue` keeps orders past their planned shipment date: `Assembly` — not assembled yet (draft,
+ * confirmed, assembly), `Shipment` — assembled but not shipped. In `meta` the status counts ignore
+ * the `status` filter and the overdue counts ignore the `overdue` filter; every other filter applies.
  * External orders — imported from the marketplace, never assembled here — are left out unless
  * `includeExternal` asks for them.
- * `catalogItemId` keeps orders that have a box component with that catalog item; `tagIds` keeps
+ * `catalogItemIds` keeps orders that have a box component with any of those catalog items; `tagIds` keeps
  * orders carrying any of the tags.
  * Any of the three marketplace filters also excludes orders without a `MarketplaceOrder`, so they
  * never match Direct orders. `searchString` is the extended search — it also matches box labels and
@@ -3010,8 +3016,8 @@ export const ordersGetAllAssemblyQueryKey = (options?: Options<OrdersGetAllAssem
 /**
  * The current user's personal assembly worklist: full details of Assembly-status orders that have a task assigned to them.
  *
- * Query params: `warehouseId`, `searchString`, `catalogItemId`, `tagIds` (all optional). Not paginated — returns a plain list.
- * `catalogItemId` keeps orders that have a box component with that catalog item; `tagIds` keeps
+ * Query params: `warehouseId`, `searchString`, `catalogItemIds`, `tagIds` (all optional). Not paginated — returns a plain list.
+ * `catalogItemIds` keeps orders that have a box component with any of those catalog items; `tagIds` keeps
  * orders carrying any of the tags.
  * `searchString` is the extended search — see bool Order.MatchesExtendedSearch(string pattern).
  * Only orders in `Assembly` status with at least one `AssemblyTask` assigned to the caller are
