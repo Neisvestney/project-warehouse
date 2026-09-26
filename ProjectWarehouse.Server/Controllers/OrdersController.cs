@@ -413,7 +413,7 @@ public class OrdersController(
                 .Where(f => f.Overdue == OrderOverdueKind.Shipment && (status == null || f.Status == status))
                 .Sum(f => f.Count),
             StatusCounts = Enum.GetValues<OrderStatus>()
-                .Select(s => new OrderStatusCountDto
+                .Select(s => new StatusCountDto<OrderStatus>
                 {
                     Status = s,
                     Count = facets

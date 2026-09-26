@@ -405,6 +405,12 @@ overdue filters, then derives both the per-status counts and the two overdue cou
 memory. The `overdue` filter calls the same `[Projectable]` `Order.OverdueKindAt`, so the counter and the list it
 opens cannot disagree.
 
+A list whose only facet is its status tabs uses the generic `StatusListMetaDto<TStatus>` (receipts, write-offs,
+stocktakes). The controller builds the filtered query **without** the status filter first, applies status on top
+of it for the page, and fills the meta with `facetQuery.CountByStatusAsync(x => x.Status, ct)` — one `GroupBy`,
+zeros filled in for every enum member, so the client always gets a full set of tabs. `Include`s go on the page
+query only; the grouping does not need them.
+
 `TMeta` is constrained to `notnull` so the generated OpenAPI schema marks `meta` required, and the client
 reads `data.meta.x` without a null check. The meta DTO lives next to its list DTO
 (`Models/Orders/OrderListMetaDto.cs`) and is documented per property — those comments become the TSDoc of the

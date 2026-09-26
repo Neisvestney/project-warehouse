@@ -138,6 +138,7 @@ public class ReceiptsController(
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
     /// <c>warehouseId</c>, <c>status</c>, <c>reason</c>, <c>tagIds</c>, <c>sortBy</c> (default <c>Number</c>),
     /// <c>sortOrder</c> (default <c>Desc</c>).
+    /// In <c>meta</c> the status counts ignore the <c>status</c> filter; every other filter applies.
     /// Requires <c>receipts.view</c> or <c>receipts.view_assigned</c>; <c>receipts.process_assigned</c> alone
     /// also opens the list but narrows it to receipts in <c>Processing</c> status. Without any of them, 403
     /// <c>permissionDenied</c>; 401 <c>tokenInvalid</c> when an <c>_assigned</c> permission is used but the
@@ -145,7 +146,7 @@ public class ReceiptsController(
     /// </remarks>
     [HttpGet]
     [Authorize]
-    [ProducesResponseType<Paginated<ReceiptSummaryDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PaginatedWithMeta<ReceiptSummaryDto, StatusListMetaDto<ReceiptStatus>>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(
         [FromQuery][Range(1, int.MaxValue)] int page = 1,
         [FromQuery][Range(1, 200)] int pageSize = 20,
@@ -163,15 +164,17 @@ public class ReceiptsController(
 
         var accessible = await Rule.QueryAsync(User, AccessLevel.View, ct);
 
-        var baseQuery = accessible
-            .Include(r => r.Warehouse)
-            .Include(r => r.Items)
-            .Include(r => r.Tags)
+        var facetQuery = accessible
             .Where(r => warehouseId == null || r.WarehouseId == warehouseId)
-            .Where(r => status == null || r.Status == status)
             .Where(r => reason == null || r.Reason == reason)
             .Where(r => tagIds == null || tagIds.Count == 0 || r.Tags.Any(t => tagIds.Contains(t.Id)))
             .WhereMatchesSearch(r => r.SearchString, searchString);
+
+        var baseQuery = facetQuery
+            .Include(r => r.Warehouse)
+            .Include(r => r.Items)
+            .Include(r => r.Tags)
+            .Where(r => status == null || r.Status == status);
 
         var query = sortBy switch
         {
@@ -187,7 +190,12 @@ public class ReceiptsController(
             .ProjectTo<ReceiptSummaryDto>(mapper.ConfigurationProvider)
             .ToPaginatedAsync(page, pageSize, ct);
 
-        return Ok(paginated);
+        var meta = new StatusListMetaDto<ReceiptStatus>
+        {
+            StatusCounts = await facetQuery.CountByStatusAsync(r => r.Status, ct),
+        };
+
+        return Ok(paginated.WithMeta(meta));
     }
 
     // ── GET single ────────────────────────────────────────────────────────────

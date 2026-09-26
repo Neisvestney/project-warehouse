@@ -202,13 +202,14 @@ public class StocktakesController(
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
     /// <c>warehouseId</c>, <c>status</c>, <c>tagIds</c>, <c>sortBy</c> (default <c>Number</c>), <c>sortOrder</c>
     /// (default <c>Desc</c>).
+    /// In <c>meta</c> the status counts ignore the <c>status</c> filter; every other filter applies.
     /// Requires <c>stocktakes.view</c> or <c>stocktakes.view_assigned</c>; without either, 403
     /// <c>permissionDenied</c>. 401 <c>tokenInvalid</c> when an <c>_assigned</c> permission is used but the
     /// token carries no resolvable user.
     /// </remarks>
     [HttpGet]
     [Authorize]
-    [ProducesResponseType<Paginated<StocktakeSummaryDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PaginatedWithMeta<StocktakeSummaryDto, StatusListMetaDto<StocktakeStatus>>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(
         [FromQuery][Range(1, int.MaxValue)] int page = 1,
         [FromQuery][Range(1, 200)] int pageSize = 20,
@@ -225,11 +226,12 @@ public class StocktakesController(
 
         var accessible = await Rule.QueryAsync(User, AccessLevel.View, ct);
 
-        var baseQuery = accessible
+        var facetQuery = accessible
             .Where(s => warehouseId == null || s.WarehouseId == warehouseId)
-            .Where(s => status == null || s.Status == status)
             .Where(s => tagIds == null || tagIds.Count == 0 || s.Tags.Any(t => tagIds.Contains(t.Id)))
             .WhereMatchesSearch(s => s.SearchString, searchString);
+
+        var baseQuery = facetQuery.Where(s => status == null || s.Status == status);
 
         var query = sortBy switch
         {
@@ -251,7 +253,12 @@ public class StocktakesController(
             .ProjectTo<StocktakeSummaryDto>(mapper.ConfigurationProvider)
             .ToPaginatedAsync(page, pageSize, ct);
 
-        return Ok(paginated);
+        var meta = new StatusListMetaDto<StocktakeStatus>
+        {
+            StatusCounts = await facetQuery.CountByStatusAsync(s => s.Status, ct),
+        };
+
+        return Ok(paginated.WithMeta(meta));
     }
 
     // ── GET single ────────────────────────────────────────────────────────────

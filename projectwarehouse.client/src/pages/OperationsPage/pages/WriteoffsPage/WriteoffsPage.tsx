@@ -22,10 +22,12 @@ import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {useTableSort} from "@/hooks/useTableSort";
 import {useHasPermission} from "@/hooks/usePermission";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import SearchInput from "@/components/SearchInput";
 import FiltersBar from "@/components/FiltersBar";
+import StatusTabs from "@/components/StatusTabs";
 import DataTableContainer from "@/components/DataTableContainer";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
@@ -102,9 +104,14 @@ function WriteoffsPage() {
     [warehouseId, status, reason, tagIds, sortBy, sortOrder],
   );
 
+  // sortable columns plus the fixed ones after them in the header
+  const columnCount = SORT_COLUMNS.length + 3;
+
   const {data, isLoading, isFetching, refetch} = useQuery(
     writeoffsGetAllOptions({query: fetchParams}),
   );
+  // the tabs keep their last numbers through a refetch instead of collapsing and shifting
+  const [statusCounts] = useRetainedValue(data?.meta.statusCounts);
 
   return (
     <Stack spacing={2}>
@@ -136,7 +143,14 @@ function WriteoffsPage() {
       >
         <SearchInput value={inputValue} onChange={setInputValue} />
       </PageGenericHeader>
-      <FiltersBar>
+      <StatusTabs
+        value={status}
+        onChange={setStatus}
+        statuses={ALL_STATUSES}
+        labels={WRITEOFF_STATUS_LABELS}
+        counts={statusCounts ?? undefined}
+      />
+      <FiltersBar activeCount={[warehouseId, reason, tagIds.length > 0].filter(Boolean).length}>
         <WarehousesSelect
           value={warehouseId}
           onChange={setWarehouseId}
@@ -144,20 +158,6 @@ function WriteoffsPage() {
           size="small"
           textFieldProps={{label: "Склад"}}
         />
-        <Select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as WriteoffStatus | "")}
-          size="small"
-          displayEmpty
-          sx={{minWidth: 160}}
-        >
-          <MenuItem value="">Все статусы</MenuItem>
-          {ALL_STATUSES.map((s) => (
-            <MenuItem key={s} value={s}>
-              {WRITEOFF_STATUS_LABELS[s]}
-            </MenuItem>
-          ))}
-        </Select>
         <Select
           value={reason}
           onChange={(e) => setReason(e.target.value as WriteoffReason | "")}
@@ -208,9 +208,9 @@ function WriteoffsPage() {
           </TableHead>
           <TableBody>
             {isLoading ? (
-              <TableRowLoader colSpan={8} />
+              <TableRowLoader colSpan={columnCount} />
             ) : data?.items.length === 0 ? (
-              <TableRowEmpty colSpan={8} message="Списания не найдены" />
+              <TableRowEmpty colSpan={columnCount} message="Списания не найдены" />
             ) : (
               data?.items.map((writeoff) => (
                 <LinkTableRow

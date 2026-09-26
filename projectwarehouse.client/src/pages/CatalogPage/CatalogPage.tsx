@@ -131,7 +131,15 @@ function CatalogPage() {
         >
           <SearchInput value={inputValue} onChange={setInputValue} />
         </PageGenericHeader>
-        <FiltersBar>
+        <FiltersBar
+          activeCount={
+            [
+              itemTypes.length < CATALOG_ITEM_TYPES.length,
+              tagIds.length > 0,
+              isArchived !== false,
+            ].filter(Boolean).length
+          }
+        >
           <CatalogTypesFilter value={itemTypes} onChange={setItemTypes} />
 
           <CatalogTagsFilter

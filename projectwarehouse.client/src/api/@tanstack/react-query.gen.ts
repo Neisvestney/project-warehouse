@@ -4269,6 +4269,7 @@ export const receiptsGetAllQueryKey = (options?: Options<ReceiptsGetAllData>) =>
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
  * `warehouseId`, `status`, `reason`, `tagIds`, `sortBy` (default `Number`),
  * `sortOrder` (default `Desc`).
+ * In `meta` the status counts ignore the `status` filter; every other filter applies.
  * Requires `receipts.view` or `receipts.view_assigned`; `receipts.process_assigned` alone
  * also opens the list but narrows it to receipts in `Processing` status. Without any of them, 403
  * `permissionDenied`; 401 `tokenInvalid` when an `_assigned` permission is used but the
@@ -4303,6 +4304,7 @@ export const receiptsGetAllInfiniteQueryKey = (
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
  * `warehouseId`, `status`, `reason`, `tagIds`, `sortBy` (default `Number`),
  * `sortOrder` (default `Desc`).
+ * In `meta` the status counts ignore the `status` filter; every other filter applies.
  * Requires `receipts.view` or `receipts.view_assigned`; `receipts.process_assigned` alone
  * also opens the list but narrows it to receipts in `Processing` status. Without any of them, 403
  * `permissionDenied`; 401 `tokenInvalid` when an `_assigned` permission is used but the
@@ -5691,6 +5693,7 @@ export const stocktakesGetAllQueryKey = (options?: Options<StocktakesGetAllData>
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
  * `warehouseId`, `status`, `tagIds`, `sortBy` (default `Number`), `sortOrder`
  * (default `Desc`).
+ * In `meta` the status counts ignore the `status` filter; every other filter applies.
  * Requires `stocktakes.view` or `stocktakes.view_assigned`; without either, 403
  * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
  * token carries no resolvable user.
@@ -5724,6 +5727,7 @@ export const stocktakesGetAllInfiniteQueryKey = (
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
  * `warehouseId`, `status`, `tagIds`, `sortBy` (default `Number`), `sortOrder`
  * (default `Desc`).
+ * In `meta` the status counts ignore the `status` filter; every other filter applies.
  * Requires `stocktakes.view` or `stocktakes.view_assigned`; without either, 403
  * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
  * token carries no resolvable user.
@@ -7430,6 +7434,7 @@ export const writeoffsGetAllQueryKey = (options?: Options<WriteoffsGetAllData>) 
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
  * `warehouseId`, `status`, `reason`, `tagIds`, `sortBy` (default `Number`),
  * `sortOrder` (default `Desc`).
+ * In `meta` the status counts ignore the `status` filter; every other filter applies.
  * Requires `writeoffs.view` or `writeoffs.view_assigned`; without either, 403
  * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
  * token carries no resolvable user.
@@ -7463,6 +7468,7 @@ export const writeoffsGetAllInfiniteQueryKey = (
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
  * `warehouseId`, `status`, `reason`, `tagIds`, `sortBy` (default `Number`),
  * `sortOrder` (default `Desc`).
+ * In `meta` the status counts ignore the `status` filter; every other filter applies.
  * Requires `writeoffs.view` or `writeoffs.view_assigned`; without either, 403
  * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
  * token carries no resolvable user.

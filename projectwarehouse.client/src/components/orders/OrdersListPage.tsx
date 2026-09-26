@@ -51,17 +51,17 @@ import NotesTableCell from "@/components/NotesTableCell";
 import DateTimeTableCell from "@/components/DateTimeTableCell";
 import WarehousesSelect from "@/components/WarehousesSelect";
 import SearchWithItemsInput from "@/components/catalog/SearchWithItemsInput";
+import StatusTabs from "@/components/StatusTabs";
 import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
 import TagChips from "@/components/tags/TagChips";
 import OrderStatusChip from "./OrderStatusChip";
-import OrderStatusTabs from "./OrderStatusTabs";
 import OrderCompositionPreview from "./OrderCompositionPreview";
 import MarketplaceOrderFilters from "./marketplace/MarketplaceOrderFilters";
 import {
   ALL_MARKETPLACE_ORDER_STATUSES,
   ALL_MARKETPLACE_TYPES,
 } from "./marketplace/marketplaceOrderUtils";
-import {formatOrderNumber} from "./orderUtils";
+import {ORDER_STATUS_LABELS, formatOrderNumber} from "./orderUtils";
 import {getOrderBulkTransitions, type OrderBulkTransition} from "./orderBulkTransitions";
 import {NOUNS, pluralCount} from "@/utils/pluralUtils";
 import type {
@@ -513,10 +513,11 @@ function OrdersListPage({
         />
       </PageGenericHeader>
       {showStatusFilter && (
-        <OrderStatusTabs
+        <StatusTabs
           value={status}
           onChange={setStatus}
           statuses={ALL_STATUSES}
+          labels={ORDER_STATUS_LABELS}
           counts={statusCounts ?? undefined}
         />
       )}

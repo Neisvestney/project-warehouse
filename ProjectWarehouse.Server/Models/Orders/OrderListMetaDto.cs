@@ -24,11 +24,5 @@ public class OrderListMetaDto
     /// Order count per status, one entry for every status. Ignores the <c>status</c> filter, so the list tabs
     /// show what each of them would hold.
     /// </summary>
-    public IReadOnlyList<OrderStatusCountDto> StatusCounts { get; init; } = [];
-}
-
-public class OrderStatusCountDto
-{
-    public OrderStatus Status { get; init; }
-    public int Count { get; init; }
+    public IReadOnlyList<StatusCountDto<OrderStatus>> StatusCounts { get; init; } = [];
 }

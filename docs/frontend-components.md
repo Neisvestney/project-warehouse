@@ -325,6 +325,19 @@ bar. The collapsed row is why `activeCount` matters: without it a phone user can
 
 The `sx` prop is **merged** with the component's own defaults via MUI's array `sx` syntax, not replaced.
 
+### `StatusTabs`
+
+The status filter of a document list (orders, receipts, write-offs, stocktakes) is a row of tabs above the
+`FiltersBar`, not a select inside it: «Все» plus one tab per status, each with a count badge. The page passes
+`statuses` (tab order), `labels` and `counts` — the endpoint's `meta.statusCounts`, which ignores the status filter
+and honours every other one, so a tab shows how many documents the list would hold if picked; «Все» is their
+sum, and a zero badge is greyed out. The value lives in the `status` URL param, `""` standing for «Все».
+
+Wire `counts` through `useRetainedValue(data?.meta.statusCounts)`: the list query has no placeholder data, so
+without it every filter change would drop the badges for the length of the request and the tabs would jump in
+width. Before the first response there is nothing to retain, so each badge is a skeleton of the badge's own
+size. The tabs are `scrollable`, which keeps five or six statuses usable on a phone.
+
 ### `BulkBar`
 
 Dense toolbar shown above a table while rows are selected: a `primary.main` band with the selected count on the
@@ -929,11 +942,8 @@ as does dropping the notes column with `showNotes={false}` (the marketplace page
 ней уходит парный фильтр («Склад» в панели для `warehouseName`, табы статусов для `status`) и его значение
 перестаёт попадать в запрос. `colSpan` пересчитывается сам.
 
-Статусный фильтр — это `OrderStatusTabs` над панелью фильтров: «Все» и по табу на статус, у каждого счётчик из
-`meta.statusCounts`. Счётчики учитывают все остальные фильтры, кроме самого статуса, так что таб показывает,
-сколько заказов окажется в списке, если на него перейти; «Все» — их сумма. На время перезагрузки списка табы
-держат прежние числа через `useRetainedValue`, иначе бейджи пропадали бы и табы прыгали по ширине. Колонка
-«Статус» в таблице остаётся и при выбранном табе.
+Статусный фильтр — это [`StatusTabs`](#statustabs) над панелью фильтров. Колонка «Статус» в таблице остаётся и
+при выбранном табе.
 
 В сводке над таблицей две просрочки по `plannedShipmentAt`: «Просрочена сборка» (`error.main`) — заказ ещё не
 собран (черновик, подтверждён, на сборке), и «Просрочена отгрузка» (`warning.main`) — собран, но не отгружен.
