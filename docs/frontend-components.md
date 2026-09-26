@@ -324,6 +324,9 @@ Below `sm` the bar collapses into a single row — label, the `activeCount` chip
 bar. The collapsed row is why `activeCount` matters: without it a phone user cannot tell a filter is on. An
 `alignItems` passed through `sx` is meant for the desktop row; the collapsed column always stretches its content.
 
+Every `Button` and `ToggleButton` inside the bar (controls and `actions` alike) is forced to 40px, the height of
+`size="small"` inputs — MUI's `size="small"` buttons are shorter. Pages do not set button heights themselves.
+
 The `sx` prop is **merged** with the component's own defaults via MUI's array `sx` syntax, not replaced.
 
 ### `StatusTabs`
