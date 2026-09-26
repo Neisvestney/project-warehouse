@@ -91,6 +91,6 @@ public class EventsController(
             .Where(x => endDate == null || x.EndDate <= endDate)
             .ToListAsync(ct);
 
-        return Ok(receiptsEvents.Concat(stocktakesEvents).Concat(fbsOrdersGroupedEvents).Concat(ordersEvents).ToList());
+        return Ok(fbsOrdersGroupedEvents.Concat(ordersEvents).Concat(receiptsEvents).Concat(stocktakesEvents).ToList());
     }
 }
