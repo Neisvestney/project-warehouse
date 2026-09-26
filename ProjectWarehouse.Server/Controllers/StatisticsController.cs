@@ -76,6 +76,39 @@ public class StatisticsController(IStockStatisticsService statistics) : AppContr
         }
     }
 
+    /// <summary>The movements behind one pivot cell, bursts by one user collapsed into groups.</summary>
+    /// <remarks>
+    /// The body is <c>StockMovementCellRequest</c> — the pivot's own filter with <c>from</c>/<c>to</c> set to
+    /// the cell's day and <c>catalogItemIds</c> to its item (or to every column for the total group), plus
+    /// the cell's <c>metric</c>, or null for the net and balance columns. More than 10 movements by one user
+    /// with the same action and direction, each within 5 minutes of the previous one, come back as a single
+    /// entry with <c>isGroup</c>. Rows are raw; <c>nettedQuantity</c> is how much of a row the pivot's
+    /// same-day netting takes out of the cell, and <c>counterparts</c> holds the halves of its pairs the
+    /// metric does not list, each under exactly one row. Paged newest first by the <c>before</c> cursor: a page holds about 500 movements and
+    /// ends on a pause longer than 5 minutes, so a group does not span two pages unless the activity ran
+    /// with no such pause for 4 hours, where the page is cut regardless; <c>nextBefore</c> is the
+    /// cursor for the next page and null on the last, <c>totalCount</c> comes with the first page only.
+    /// Same access rule and the same 422 <c>outOfRange</c> range errors as <c>stock-movements/daily</c>.
+    /// </remarks>
+    [HttpPost("stock-movements/cell")]
+    [Authorize]
+    [ProducesResponseType<StockMovementCellDto>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCell(
+        [FromBody] StockMovementCellRequest request,
+        CancellationToken ct = default)
+    {
+        if (CheckAccess() is { } forbidden) return forbidden;
+
+        try
+        {
+            return Ok(await statistics.GetCellAsync(User, request, ct));
+        }
+        catch (Infrastructure.ValidationException ex)
+        {
+            return UnprocessableEntity(ex);
+        }
+    }
+
     /// <summary>Same totals, grouped by one dimension instead of by day.</summary>
     /// <remarks>
     /// Query params: the shared filter plus <c>groupBy</c> (default <c>Action</c>) and <c>limit</c>

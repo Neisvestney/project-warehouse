@@ -24,4 +24,15 @@ public class StockMovementDto
 
     public Guid? UserId { get; init; }
     public string? UserName { get; init; }
+
+    public string? UnitInventoryNumber { get; init; }
+
+    public Guid? ReceiptId { get; init; }
+    public int? ReceiptNumber { get; init; }
+    public Guid? OrderId { get; init; }
+    public int? OrderNumber { get; init; }
+    public Guid? WriteoffId { get; init; }
+    public int? WriteoffNumber { get; init; }
+    public Guid? StocktakeId { get; init; }
+    public int? StocktakeNumber { get; init; }
 }

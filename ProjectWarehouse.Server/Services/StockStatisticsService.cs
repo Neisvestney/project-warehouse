@@ -21,6 +21,11 @@ public class StockStatisticsService(
     private const int DefaultDays = 30;
     private const int MaxDays = 366;
 
+    private const int CellPageSize = 500;
+    private static readonly TimeSpan MaxCutLookback = TimeSpan.FromHours(4);
+    private const int GroupThreshold = 10;
+    private static readonly TimeSpan GroupGap = TimeSpan.FromMinutes(5);
+
     /// <summary>The filtered query plus everything the day boundary was decided by.</summary>
     private sealed record MovementScope(
         IQueryable<StockMovement> Query, DateOnly From, DateOnly To, int OffsetMinutes, string TimeZoneId);
@@ -652,6 +657,242 @@ public class StockStatisticsService(
             TransferOutQuantity = list.Sum(t => t.TransferOutQuantity),
             MovementsCount = list.Sum(t => t.MovementsCount),
             Metrics = SumMetrics(list.Select(t => t.Metrics), metricCount),
+        };
+    }
+
+    public async Task<StockMovementCellDto> GetCellAsync(
+        ClaimsPrincipal user,
+        StockMovementCellRequest request,
+        CancellationToken ct = default)
+    {
+        var scope = await BuildAsync(user, request, ct);
+        var query = request.Metric is null ? scope.Query : ApplyMetric(scope.Query, request.Metric);
+
+        var older = request.Before is { } before ? query.Where(m => m.CreatedAt < before) : query;
+        var cut = await FindPageCutAsync(older, ct);
+        var page = cut is { } c ? older.Where(m => m.CreatedAt >= c) : older;
+
+        var movements = await page
+            .OrderBy(m => m.CreatedAt)
+            .ThenBy(m => m.Id)
+            .ProjectTo<StockMovementCellRowDto>(mapper.ConfigurationProvider)
+            .ToListAsync(ct);
+
+        await MarkNettedAsync(movements, scope.Query, request.Metric is null ? null : query, scope.OffsetMinutes, ct);
+
+        return new StockMovementCellDto
+        {
+            Entries = GroupBursts(movements),
+            TotalCount = request.Before is null ? await query.CountAsync(ct) : null,
+            NextBefore = cut is { } next && await older.AnyAsync(m => m.CreatedAt < next, ct) ? next : null,
+        };
+    }
+
+    /// <summary>
+    /// Sets how much of each row the pivot's same-day netting takes out of the cell and attaches the other
+    /// half of each pair that <paramref name="metricQuery"/> leaves out. Pairs are formed over
+    /// <paramref name="reportQuery"/> exactly as <see cref="GetSameDayNettingAsync"/> forms them. That
+    /// method works on per-action aggregates, so which rows a cancellation takes back is decided here, unit
+    /// by unit: each cancellation, earliest first, against the moves made before it, latest first.
+    /// </summary>
+    private async Task MarkNettedAsync(
+        List<StockMovementCellRowDto> movements,
+        IQueryable<StockMovement> reportQuery,
+        IQueryable<StockMovement>? metricQuery,
+        int offsetMinutes,
+        CancellationToken ct)
+    {
+        var orderIds = movements.Where(m => m.OrderId != null).Select(m => m.OrderId!.Value).Distinct().ToList();
+        var receiptIds = movements.Where(m => m.ReceiptId != null).Select(m => m.ReceiptId!.Value).Distinct().ToList();
+        if (orderIds.Count == 0 && receiptIds.Count == 0) return;
+
+        var candidates = await reportQuery
+            .Where(m => (m.OrderId != null && orderIds.Contains(m.OrderId.Value)) ||
+                        (m.ReceiptId != null && receiptIds.Contains(m.ReceiptId.Value)))
+            .ProjectTo<StockMovementCellRowDto>(mapper.ConfigurationProvider)
+            .ToListAsync(ct);
+
+        var links = new List<(StockMovementCellRowDto Cancellation, StockMovementCellRowDto Move, int Quantity)>();
+        foreach (var document in Enum.GetValues<NettedDocument>())
+        {
+            var (baseDirection, cancelDirection, cancelAction) = Shape(document);
+            var groups = candidates
+                .Where(m => (document == NettedDocument.Receipt ? m.ReceiptId : m.OrderId) != null)
+                .GroupBy(m => (
+                    Day: m.CreatedAt.AddMinutes(offsetMinutes).Date,
+                    m.CatalogItemId,
+                    Document: document == NettedDocument.Receipt ? m.ReceiptId : m.OrderId));
+
+            foreach (var g in groups)
+            {
+                var cancellations = g
+                    .Where(m => m.Direction == cancelDirection && m.Action == cancelAction)
+                    .OrderBy(m => m.CreatedAt)
+                    .ThenBy(m => m.Id)
+                    .ToList();
+                if (cancellations.Count == 0) continue;
+
+                var lastCancelledAt = cancellations[^1].CreatedAt;
+                var moved = g
+                    .Where(m => m.Direction == baseDirection && m.CreatedAt < lastCancelledAt)
+                    .OrderByDescending(m => m.CreatedAt)
+                    .ThenByDescending(m => m.Id)
+                    .ToList();
+
+                var offset = Math.Min(cancellations.Sum(m => m.Quantity), moved.Sum(m => m.Quantity));
+                var cancelLeft = cancellations.ToDictionary(m => m.Id, m => m.Quantity);
+                var moveLeft = moved.ToDictionary(m => m.Id, m => m.Quantity);
+
+                void Link(StockMovementCellRowDto cancellation, StockMovementCellRowDto move)
+                {
+                    var take = Math.Min(offset, Math.Min(cancelLeft[cancellation.Id], moveLeft[move.Id]));
+                    if (take == 0) return;
+                    links.Add((cancellation, move, take));
+                    offset -= take;
+                    cancelLeft[cancellation.Id] -= take;
+                    moveLeft[move.Id] -= take;
+                }
+
+                // Each cancellation first takes back the moves made before it, latest first — the order
+                // things actually happened in.
+                foreach (var cancellation in cancellations)
+                    foreach (var move in moved.Where(m => m.CreatedAt < cancellation.CreatedAt))
+                        Link(cancellation, move);
+
+                // The pivot's rule is coarser — any move before the day's last cancellation — so whatever it
+                // nets beyond the chronological pairs is matched regardless of order to keep the totals equal.
+                foreach (var cancellation in cancellations)
+                    foreach (var move in moved)
+                        Link(cancellation, move);
+            }
+        }
+
+        if (links.Count == 0) return;
+
+        var nettedById = new Dictionary<Guid, int>();
+        foreach (var (cancellation, move, quantity) in links)
+        {
+            nettedById[cancellation.Id] = nettedById.GetValueOrDefault(cancellation.Id) + quantity;
+            nettedById[move.Id] = nettedById.GetValueOrDefault(move.Id) + quantity;
+        }
+
+        var linkedIds = nettedById.Keys.ToList();
+        var coveredIds = metricQuery is null
+            ? linkedIds.ToHashSet()
+            : (await metricQuery.Where(m => linkedIds.Contains(m.Id)).Select(m => m.Id).ToListAsync(ct)).ToHashSet();
+
+        // A half the metric leaves out hangs under exactly one listed partner — the one it shares the most
+        // quantity with — so it is shown once however many rows it was matched against or pages they span.
+        var counterpartsByOwner = links
+            .SelectMany(l => new[] { (Half: l.Cancellation, Partner: l.Move, l.Quantity), (Half: l.Move, Partner: l.Cancellation, l.Quantity) })
+            .Where(x => !coveredIds.Contains(x.Half.Id) && coveredIds.Contains(x.Partner.Id))
+            .GroupBy(x => x.Half.Id)
+            .Select(g => g.OrderByDescending(x => x.Quantity).ThenBy(x => x.Partner.CreatedAt).ThenBy(x => x.Partner.Id).First())
+            .GroupBy(x => x.Partner.Id)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Half).OrderByDescending(h => h.CreatedAt).ToList());
+
+        foreach (var half in candidates)
+            half.NettedQuantity = nettedById.GetValueOrDefault(half.Id);
+
+        foreach (var row in movements)
+        {
+            row.NettedQuantity = nettedById.GetValueOrDefault(row.Id);
+            row.Counterparts = counterpartsByOwner.GetValueOrDefault(row.Id) ?? [];
+        }
+    }
+
+    /// <summary>
+    /// Where the page starting at the newest movement of <paramref name="older"/> ends, or null when the
+    /// rest fits in one page. The cut lands on a pause longer than <see cref="GroupGap"/>, which no burst
+    /// can span, so a group is never split between pages. A stream with no such pause for
+    /// <see cref="MaxCutLookback"/> is cut at the end of that window anyway, and the burst running there
+    /// may then be split.
+    /// </summary>
+    private static async Task<DateTime?> FindPageCutAsync(IQueryable<StockMovement> older, CancellationToken ct)
+    {
+        var newest = await older
+            .OrderByDescending(m => m.CreatedAt)
+            .Select(m => m.CreatedAt)
+            .Skip(CellPageSize)
+            .Take(1)
+            .ToListAsync(ct);
+        if (newest.Count == 0) return null;
+
+        var cut = newest[0];
+        var windowStart = cut - MaxCutLookback;
+        var preceding = await older
+            .Where(m => m.CreatedAt < cut && m.CreatedAt >= windowStart)
+            .OrderByDescending(m => m.CreatedAt)
+            .Select(m => m.CreatedAt)
+            .ToListAsync(ct);
+
+        // Running off the list without a break leaves the earliest movement read as the cut — either the
+        // pause before it lies past the window's start, or there was none for the whole lookback.
+        foreach (var at in preceding)
+        {
+            if (cut - at > GroupGap) break;
+            cut = at;
+        }
+
+        return cut;
+    }
+
+    /// <summary>
+    /// Chains each user's movements of one action and direction while the pause between neighbours stays
+    /// within <see cref="GroupGap"/>; a chain longer than <see cref="GroupThreshold"/> becomes one entry.
+    /// Chains of different keys may interleave. Movements without a user are never grouped.
+    /// </summary>
+    private static List<StockMovementEntryDto> GroupBursts(IReadOnlyList<StockMovementCellRowDto> oldestFirst)
+    {
+        var chains = new List<List<StockMovementCellRowDto>>();
+        var open = new Dictionary<(Guid, string, StockMovementDirection), List<StockMovementCellRowDto>>();
+
+        foreach (var m in oldestFirst)
+        {
+            if (m.UserId is { } userId)
+            {
+                var key = (userId, m.Action, m.Direction);
+                if (open.TryGetValue(key, out var chain) && m.CreatedAt - chain[^1].CreatedAt <= GroupGap)
+                {
+                    chain.Add(m);
+                    continue;
+                }
+
+                open[key] = chain = [m];
+                chains.Add(chain);
+            }
+            else
+            {
+                chains.Add([m]);
+            }
+        }
+
+        var entries = new List<StockMovementEntryDto>();
+        foreach (var chain in chains)
+        {
+            if (chain.Count > GroupThreshold)
+                entries.Add(ToEntry(chain, isGroup: true));
+            else
+                entries.AddRange(chain.Select(m => ToEntry([m], isGroup: false)));
+        }
+
+        return entries.OrderByDescending(e => e.LastAt).ToList();
+    }
+
+    private static StockMovementEntryDto ToEntry(List<StockMovementCellRowDto> oldestFirst, bool isGroup)
+    {
+        var first = oldestFirst[0];
+        return new StockMovementEntryDto
+        {
+            IsGroup = isGroup,
+            FirstAt = first.CreatedAt,
+            LastAt = oldestFirst[^1].CreatedAt,
+            Direction = first.Direction,
+            Action = first.Action,
+            UserId = first.UserId,
+            UserName = first.UserName,
+            Quantity = oldestFirst.Sum(m => m.Quantity),
+            Movements = Enumerable.Reverse(oldestFirst).ToList(),
         };
     }
 

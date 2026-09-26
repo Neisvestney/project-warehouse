@@ -183,7 +183,8 @@ since a netted pair is same-day by definition. Note that `Balance` treats those 
 way round and ignores them: an on-hand figure is a fact about the shelf that a narrowed selection cannot
 recompute, while the netting is a decision about how to present two rows of the table.
 
-Only the pivot nets. The daily series, the breakdown and the movement list report the journal as it stands —
+Only the pivot nets; its cell drill-down lists the raw rows and flags the netted ones. The daily series, the
+breakdown and the movement list report the journal as it stands —
 they are views of raw rows, and a figure netted in one of them could not be traced back to the rows it came from.
 
 No other document nets. Write-offs and stocktakes have no cancellation action — reverting the document is not

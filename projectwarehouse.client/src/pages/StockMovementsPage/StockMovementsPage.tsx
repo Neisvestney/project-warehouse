@@ -13,7 +13,8 @@ import MetricsEditorDrawer from "./MetricsEditorDrawer";
 import {type DraftMetric, stripKeys, withKeys} from "./metricDraft";
 import PresetBar from "./PresetBar";
 import StockMovementsFilters from "./StockMovementsFilters";
-import StockMovementsPivotTable from "./StockMovementsPivotTable";
+import StockMovementCellDialog, {type StockMovementCellTarget} from "./StockMovementCellDialog";
+import StockMovementsPivotTable, {type PivotCellRef} from "./StockMovementsPivotTable";
 import {MAX_METRICS} from "./stockMovementsConstants";
 import {useStockMovementPresets} from "./useStockMovementPresets";
 import {useStockMovementsFilters} from "./useStockMovementsFilters";
@@ -80,6 +81,26 @@ function StockMovementsPage() {
   );
 
   const pivot = useStockMovementsPivot(filter, metrics);
+
+  const [cellTarget, setCellTarget] = useState<StockMovementCellTarget | null>(null);
+
+  const openCell = ({date, catalogItemId, metricIndex}: PivotCellRef) => {
+    // Same placeholder the pivot request sends, since `name` is required server-side.
+    const metric =
+      metricIndex === null
+        ? null
+        : {
+            ...metrics[metricIndex],
+            name: metrics[metricIndex].name.trim() || `#${metricIndex + 1}`,
+          };
+    setCellTarget({
+      date,
+      catalogItemIds: catalogItemId ? [catalogItemId] : filter.catalogItemIds,
+      itemName: catalogItemId ? (knownItems.get(catalogItemId)?.fullName ?? "…") : null,
+      metric,
+      columnLabel: metric?.name ?? "Движения за день",
+    });
+  };
   const hasSelection = filter.catalogItemIds.length > 0;
   const columnCount = (items.length + 1) * (metrics.length + 2);
 
@@ -173,6 +194,7 @@ function StockMovementsPage() {
       isFetchingNextPage={pivot.isFetchingNextPage}
       hasNextPage={pivot.hasNextPage}
       onLoadMore={() => pivot.fetchNextPage()}
+      onCellClick={openCell}
       fill={expanded}
     />
   );
@@ -254,6 +276,13 @@ function StockMovementsPage() {
       ) : (
         table
       )}
+
+      <StockMovementCellDialog
+        target={cellTarget}
+        filter={filter}
+        timeZoneId={pivot.timeZoneId}
+        onClose={() => setCellTarget(null)}
+      />
 
       <MetricsEditorDrawer
         open={editorOpen}
