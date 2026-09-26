@@ -29,17 +29,24 @@ public class StockForecastDto
 
     /// <summary>
     /// Days since stock last hit zero within the window, counting backward from today. <c>0</c> means
-    /// stock is zero right now; <c>null</c> means it never hit zero anywhere in the window (the window
-    /// was not truncated). A positive value is both the age of the last zero day and the length the
-    /// consumption window was cut down to.
+    /// stock is zero right now; <c>null</c> means it never hit zero anywhere in the window.
     /// </summary>
     public int? DaysSinceLastZeroStock { get; init; }
+
+    /// <summary>Days of the window with nothing on the shelf; they are left out of the consumption average.</summary>
+    public int OutOfStockDays { get; init; }
 }
 
 /// <summary>A forecast row of the list, where the item does have to travel with the numbers.</summary>
 public class StockForecastRowDto : StockForecastDto
 {
     public CatalogItemSummaryDto CatalogItem { get; init; } = null!;
+
+    /// <summary>
+    /// Variation rows only: every member with its own forecast, unfiltered and in catalog order. Null on
+    /// item rows and on members themselves.
+    /// </summary>
+    public List<StockForecastRowDto>? Members { get; init; }
 }
 
 /// <summary>

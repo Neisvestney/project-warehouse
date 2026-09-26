@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {Fragment, useState} from "react";
 import {
   Box,
   Button,
@@ -13,21 +13,20 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Tooltip,
-  Typography,
   Checkbox,
   FormControlLabel,
 } from "@mui/material";
 import ArchiveIcon from "@mui/icons-material/Archive";
+import Inventory2Icon from "@mui/icons-material/Inventory2";
+import LayersIcon from "@mui/icons-material/Layers";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import StarIcon from "@mui/icons-material/Star";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SettingsIcon from "@mui/icons-material/Settings";
-import EditIcon from "@mui/icons-material/Edit";
-import PushPinIcon from "@mui/icons-material/PushPin";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import {useQuery} from "@tanstack/react-query";
 import {stockForecastGetListOptions} from "@/api/@tanstack/react-query.gen";
-import type {StockForecastSortBy} from "@/api/types.gen";
+import type {StockForecastRowDto, StockForecastSortBy} from "@/api/types.gen";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import DataTableContainer from "@/components/DataTableContainer";
 import FiltersBar from "@/components/FiltersBar";
@@ -35,12 +34,9 @@ import SearchInput from "@/components/SearchInput";
 import TableRowEmpty from "@/components/TableRowEmpty";
 import TableRowLoader from "@/components/TableRowLoader";
 import WarehousesSelect from "@/components/WarehousesSelect";
-import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import CatalogTagsFilter from "@/components/catalog/CatalogTagsFilter";
 import CatalogTypesFilter from "@/components/catalog/CatalogTypesFilter";
 import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
-import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
-import StockForecastChip from "@/components/forecast/StockForecastChip";
 import {PHYSICAL_CATALOG_ITEMS, useCatalogTypesFilter} from "@/features/catalog";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState";
@@ -48,12 +44,13 @@ import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useHasPermission} from "@/hooks/usePermission";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {useTableSort} from "@/hooks/useTableSort";
+import ForecastTableRow from "./ForecastTableRow";
 import StockForecastSettingsDialog from "./StockForecastSettingsDialog";
 import StockWarningOverrideDialog, {
   type StockWarningOverrideTarget,
 } from "./StockWarningOverrideDialog";
 
-const COLUMN_COUNT = 8;
+const COLUMN_COUNT = 9;
 
 const SORTABLE_COLUMNS: {key: StockForecastSortBy; label: string; align?: "right"}[] = [
   {key: "type", label: "Тип"},
@@ -63,16 +60,6 @@ const SORTABLE_COLUMNS: {key: StockForecastSortBy; label: string; align?: "right
   {key: "dailyConsumption", label: "Расход/день", align: "right"},
   {key: "daysLeft", label: "Осталось дней", align: "right"},
 ];
-
-/**
- * `0` — currently at zero. `null` — never hit zero anywhere in the window, so the label carries the
- * window length as a floor rather than an exact count.
- */
-function formatDaysSinceZeroStock(days: number | null, windowDays: number): string {
-  if (days === 0) return "—";
-  if (days === null) return `${windowDays}+ дн.`;
-  return `${days} дн.`;
-}
 
 interface ForecastBasePageProps {
   title: string;
@@ -107,6 +94,12 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
 
   const [isArchived, setIsArchived] = useSyncedWithQueryState<boolean | null>(
     "archived",
+    (q) => (q === "true" ? true : q === "null" ? null : false),
+    (v) => (v === false ? null : String(v)),
+  );
+
+  const [isVariation, setIsVariation] = useSyncedWithQueryState<boolean | null>(
+    "variations",
     (q) => (q === "true" ? true : q === "false" ? false : null),
     (v) => (v === null ? null : String(v)),
   );
@@ -131,6 +124,9 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
 
   const effectiveWarehouseId = warehouseId ?? filterWarehouseId;
 
+  // The type filter narrows physical rows only, so an empty selection leaves just the variations.
+  const effectiveIsVariation = itemTypes.length === 0 && isVariation === null ? true : isVariation;
+
   const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams(
     {},
     [],
@@ -140,6 +136,7 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
       CatalogItemTypes: itemTypes.length < PHYSICAL_CATALOG_ITEMS.length ? itemTypes : undefined,
       TagIds: tagIds.length > 0 ? tagIds : undefined,
       IsArchived: isArchived ?? undefined,
+      IsVariation: effectiveIsVariation ?? undefined,
       OnlyWarnings: onlyWarnings || undefined,
       AccountForAssembly: accountForAssembly,
       SortBy: sortBy,
@@ -151,6 +148,7 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
       itemTypes,
       tagIds,
       isArchived,
+      effectiveIsVariation,
       onlyWarnings,
       accountForAssembly,
       sortBy,
@@ -159,7 +157,7 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
   );
 
   // Empty type selection can't be expressed server-side (no types == no filter), so match nothing here
-  const noItemTypes = itemTypes.length === 0;
+  const noItemTypes = itemTypes.length === 0 && isVariation === false;
 
   const {
     data: queryData,
@@ -172,12 +170,29 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
   });
 
   const data = noItemTypes ? undefined : queryData;
+  const hasVariationRows = data?.items.items.some((row) => row.members) ?? false;
 
   const [catalogItemId, openCatalogDrawer, closeCatalogDrawer] =
     useDrawerSearchParamsState("catalogItem");
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [overrideTarget, setOverrideTarget] = useState<StockWarningOverrideTarget | null>(null);
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
+
+  const toggleExpanded = (id: string) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+
+  const editThreshold = (row: StockForecastRowDto) =>
+    setOverrideTarget({
+      catalogItemId: row.catalogItemId,
+      itemName: row.catalogItem.fullName,
+      warningDays: row.warningDays,
+      isWarningOverridden: row.isWarningOverridden,
+    });
 
   // Settings applied to the numbers. They live in a tooltip on a permanently rendered icon: as a line
   // of their own they came and went with every query key and made the whole page jump.
@@ -253,7 +268,8 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
             [
               itemTypes.length < PHYSICAL_CATALOG_ITEMS.length,
               tagIds.length > 0,
-              isArchived !== null,
+              isArchived !== false,
+              isVariation !== null,
               onlyWarnings,
             ].filter(Boolean).length
           }
@@ -296,6 +312,22 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
             </ToggleButton>
           </ToggleButtonGroup>
 
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={effectiveIsVariation}
+            onChange={(_, v: boolean | null) => setIsVariation(v)}
+          >
+            <ToggleButton value={false} sx={{gap: 0.5}}>
+              <Inventory2Icon fontSize="small" />
+              Товары
+            </ToggleButton>
+            <ToggleButton value={true} sx={{gap: 0.5}}>
+              <LayersIcon fontSize="small" />
+              Вариации
+            </ToggleButton>
+          </ToggleButtonGroup>
+
           <ToggleButton
             size="small"
             value="onlyWarnings"
@@ -309,7 +341,7 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
         </FiltersBar>
 
         <Stack direction="row" sx={{alignItems: "center"}} spacing={1}>
-          <Tooltip title={"Вариативные товары не учитываются в любом случае"}>
+          <Tooltip title="Вариация в заказе резервируется только в строке самой вариации: какой участник уйдёт, ещё не известно">
             <span>
               <FormControlLabel
                 control={
@@ -333,7 +365,7 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
           onRowsPerPageChange={setPageSize}
         >
           <Table size="small">
-            <TableHead>
+            <TableHead sx={{"& .MuiTableCell-root": {whiteSpace: "nowrap"}}}>
               <TableRow>
                 {SORTABLE_COLUMNS.map(({key, label, align}) => (
                   <TableCell key={key} align={align ?? "left"}>
@@ -352,6 +384,11 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
                   </Tooltip>
                 </TableCell>
                 <TableCell align="right">
+                  <Tooltip title="Сколько дней окна расчёта товара не было на складе — эти дни не входят в расход/день">
+                    <span>Без остатка</span>
+                  </Tooltip>
+                </TableCell>
+                <TableCell align="right">
                   <Tooltip title="Порог предупреждения в днях">
                     <span>Порог</span>
                   </Tooltip>
@@ -364,81 +401,38 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
               ) : (data?.items.items.length ?? 0) === 0 ? (
                 <TableRowEmpty colSpan={COLUMN_COUNT} message={emptyMessage} />
               ) : (
-                data?.items.items.map((row) => (
-                  <TableRow
-                    key={row.catalogItemId}
-                    sx={{
-                      opacity: isFetching && !isLoading ? 0.5 : 1,
-                      transition: "opacity 0.2s",
-                    }}
-                  >
-                    <TableCell sx={{width: 110}}>
-                      <CatalogItemTypeChip type={row.catalogItem.type} />
-                    </TableCell>
-                    <TableCell>
-                      <CatalogItemLink catalogItemId={row.catalogItemId} onOpen={openCatalogDrawer}>
-                        <Typography variant="body2">{row.catalogItem.fullName}</Typography>
-                        {row.catalogItem.isArchived && (
-                          <ArchiveIcon sx={{fontSize: 14, color: "warning.main", flexShrink: 0}} />
-                        )}
-                      </CatalogItemLink>
-                    </TableCell>
-                    <TableCell>{row.catalogItem.article}</TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" sx={{fontWeight: 500}}>
-                        {row.stock}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">{row.dailyConsumption}</TableCell>
-                    <TableCell align="right">
-                      <StockForecastChip forecast={row} />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" color="text.secondary">
-                        {formatDaysSinceZeroStock(
-                          row.daysSinceLastZeroStock ?? null,
-                          data?.windowDays ?? 0,
-                        )}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Stack
-                        direction="row"
-                        spacing={0.5}
-                        sx={{alignItems: "center", justifyContent: "flex-end"}}
-                      >
-                        <Typography
-                          variant="body2"
-                          sx={{fontWeight: row.isWarningOverridden ? 600 : 400}}
-                        >
-                          {row.warningDays} дн.
-                        </Typography>
-                        {row.isWarningOverridden && (
-                          <Tooltip title="Порог задан для этой позиции">
-                            <PushPinIcon sx={{fontSize: 14, color: "info.main"}} />
-                          </Tooltip>
-                        )}
-                        {canEditWarehouse && (
-                          <Tooltip title="Изменить порог">
-                            <IconButton
-                              size="small"
-                              onClick={() =>
-                                setOverrideTarget({
-                                  catalogItemId: row.catalogItemId,
-                                  itemName: row.catalogItem.fullName,
-                                  warningDays: row.warningDays,
-                                  isWarningOverridden: row.isWarningOverridden,
-                                })
-                              }
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))
+                data?.items.items.map((row) => {
+                  const expanded = expandedIds.has(row.catalogItemId);
+                  const rowProps = {
+                    windowDays: data.windowDays,
+                    dimmed: isFetching && !isLoading,
+                    canEditThreshold: canEditWarehouse,
+                    onOpenItem: openCatalogDrawer,
+                    onEditThreshold: editThreshold,
+                    withExpandSlot: hasVariationRows,
+                  };
+                  return (
+                    <Fragment key={row.catalogItemId}>
+                      <ForecastTableRow
+                        row={row}
+                        {...rowProps}
+                        expanded={expanded}
+                        onToggleExpanded={
+                          row.members ? () => toggleExpanded(row.catalogItemId) : undefined
+                        }
+                      />
+                      {expanded &&
+                        row.members?.map((member) => (
+                          <ForecastTableRow
+                            key={member.catalogItemId}
+                            row={member}
+                            {...rowProps}
+                            isMember
+                          />
+                        ))}
+                    </Fragment>
+                  );
+                })
               )}
             </TableBody>
           </Table>

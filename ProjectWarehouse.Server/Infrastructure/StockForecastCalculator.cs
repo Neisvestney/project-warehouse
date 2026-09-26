@@ -29,16 +29,26 @@ public static class StockForecastCalculator
     /// </param>
     /// <param name="options">Window size and half-life weighting configuration.</param>
     /// <param name="warningDays">Threshold in days below which the forecast is flagged as low.</param>
+    /// <param name="stockedDays">
+    /// Same indexing as <paramref name="dailyOutQuantities"/>; <c>false</c> days are left out of the average
+    /// entirely. Null counts every day. See <see cref="FindStockedDays"/>.
+    /// </param>
     public static StockForecastResult Calculate(
         int stock,
         IReadOnlyList<int> dailyOutQuantities,
         StockForecastOptions options,
-        int warningDays)
+        int warningDays,
+        IReadOnlyList<bool>? stockedDays = null)
     {
         if (dailyOutQuantities.Count != options.WindowDays)
             throw new ArgumentException(
                 $"Expected {options.WindowDays} daily quantities, got {dailyOutQuantities.Count}.",
                 nameof(dailyOutQuantities));
+
+        if (stockedDays is not null && stockedDays.Count != options.WindowDays)
+            throw new ArgumentException(
+                $"Expected {options.WindowDays} stocked-day flags, got {stockedDays.Count}.",
+                nameof(stockedDays));
 
         var consumedInWindow = dailyOutQuantities.Sum();
 
@@ -47,9 +57,12 @@ public static class StockForecastCalculator
         if (consumedInWindow == 0)
             return new StockForecastResult(0m, 0, null, StockForecastStatus.NoConsumption);
 
+        // Never zero here: a day with any Out is stocked by definition.
+        var countedDays = stockedDays?.Count(d => d) ?? options.WindowDays;
+
         var daily = options.UseWeightedConsumption
-            ? Weighted(dailyOutQuantities, options.WindowDays)
-            : (double)consumedInWindow / options.WindowDays;
+            ? Weighted(dailyOutQuantities, options.WindowDays, stockedDays)
+            : (double)consumedInWindow / countedDays;
 
         var rounded = Math.Round((decimal)daily, 2, MidpointRounding.AwayFromZero);
 
@@ -72,9 +85,9 @@ public static class StockForecastCalculator
     /// <summary>
     /// Days since the item's stock last hit zero, walking back from today through
     /// <paramref name="dailyNetChanges"/> (index 0 = today, signed: in - out for that day).
-    /// Returns <c>0</c> when <paramref name="stock"/> is already zero (nothing to truncate — it is already
-    /// <c>OutOfStock</c> by itself), a positive age when an earlier day in the window balanced to zero, or
-    /// <c>null</c> when no day in the window did.
+    /// Returns <c>0</c> when <paramref name="stock"/> is already zero, a positive age when an earlier day in
+    /// the window balanced to zero, or <c>null</c> when no day in the window did. Informational only — the
+    /// average leaves out out-of-stock days through <see cref="FindStockedDays"/> instead.
     /// </summary>
     public static int? FindLastZeroStockAge(int stock, IReadOnlyList<int> dailyNetChanges)
     {
@@ -88,6 +101,34 @@ public static class StockForecastCalculator
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Which days of the window the item was available on, reconstructing the end-of-day balance backward
+    /// from <paramref name="stock"/> through <paramref name="dailyNetChanges"/> (index 0 = today). A day is
+    /// left out only when it opened and closed at zero with nothing shipped: a day that sold out at noon or
+    /// was restocked and sold from still had goods to consume. Exact zero, not "≤ 0": a negative
+    /// reconstruction means the journal misses an earlier receipt, and the goods were most likely there.
+    /// </summary>
+    public static bool[] FindStockedDays(
+        int stock, IReadOnlyList<int> dailyNetChanges, IReadOnlyList<int> dailyOutQuantities)
+    {
+        if (dailyOutQuantities.Count != dailyNetChanges.Count)
+            throw new ArgumentException(
+                $"Expected {dailyNetChanges.Count} daily quantities, got {dailyOutQuantities.Count}.",
+                nameof(dailyOutQuantities));
+
+        var stocked = new bool[dailyNetChanges.Count];
+        var closing = stock;
+
+        for (var age = 0; age < dailyNetChanges.Count; age++)
+        {
+            var opening = closing - dailyNetChanges[age];
+            stocked[age] = opening != 0 || closing != 0 || dailyOutQuantities[age] > 0;
+            closing = opening;
+        }
+
+        return stocked;
     }
 
     /// <summary>
@@ -105,9 +146,11 @@ public static class StockForecastCalculator
 
     /// <summary>
     /// Exponentially decaying weights over the whole window, empty days included — they belong in the
-    /// denominator exactly as they do in the simple average.
+    /// denominator exactly as they do in the simple average. Out-of-stock days are skipped, keeping the
+    /// age-based weight of the rest.
     /// </summary>
-    private static double Weighted(IReadOnlyList<int> dailyOutQuantities, int windowDays)
+    private static double Weighted(
+        IReadOnlyList<int> dailyOutQuantities, int windowDays, IReadOnlyList<bool>? stockedDays)
     {
         var halfLife = windowDays / HalfLifeFraction;
         double weightedSum = 0;
@@ -115,6 +158,8 @@ public static class StockForecastCalculator
 
         for (var age = 0; age < windowDays; age++)
         {
+            if (stockedDays is not null && !stockedDays[age]) continue;
+
             var weight = Math.Pow(0.5, age / halfLife);
             weightedSum += dailyOutQuantities[age] * weight;
             weightTotal += weight;

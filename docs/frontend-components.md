@@ -651,9 +651,10 @@ search and no catalog suggestion to make.
 ### `StockForecastChip`
 
 `components/forecast/StockForecastChip.tsx` — takes a `StockForecastDto` and renders «12 дн.» /
-«Нет в наличии» / «∞» in the colour of its `status` (`outOfStock` → `error`, `warning` → `warning`,
-`ok` → `success`, `noConsumption` → `default`). Everything else of `ChipProps` passes through; `size`
-defaults to `small`.
+«< 1 дн.» / «Нет в наличии» / «∞» in the colour of its `status` (`outOfStock` → `error`, `warning` → `warning`,
+`ok` → `success`, `noConsumption` → `default`). `outOfStock` with a positive `stock` means the remainder runs
+out within the day, so it reads «< 1 дн.»; «Нет в наличии» is kept for a stock that is already zero.
+Everything else of `ChipProps` passes through; `size` defaults to `small`.
 
 The chip knows nothing about the forecast table and fetches nothing itself — the column «Осталось дней» is
 its first consumer, stock rows and `CatalogItemDrawer` are the next ones, and each of them already holds the
@@ -684,8 +685,13 @@ and its value lives in `?warehouse=`. Until one is picked the list query is `ena
 shows «Выберите склад». The select carries `canAutoSelect`, so a user with exactly one warehouse gets it
 filled in and loses the clear icon without the page counting warehouses itself.
 
-Columns: Тип · Название · Артикул · Остаток · Расход/день · Осталось дней (`StockForecastChip`) · Порог.
-All but «Порог» are sortable. The table starts on `sortBy: "default"` — the composite rule (warnings first,
+Columns: Тип · Название · Артикул · Остаток · Расход/день · Осталось дней (`StockForecastChip`) · С последнего 0 · Без остатка · Порог.
+The first six are sortable. A row is `ForecastTableRow` (`components/forecast/ForecastTableRow.tsx`); a
+variation row carries a chevron before its type chip that unfolds `row.members` right below it as tinted
+rows of the same component — no extra request, the members come with the page. Which variations are
+unfolded is local `useState`, not URL state, and it survives paging.
+Once any variation is on the page, every row reserves the chevron slot so the type chips line up. Every
+nested row keeps its own threshold editor. The table starts on `sortBy: "default"` — the composite rule (warnings first,
 then ascending days left, «∞» last); clicking a column replaces that rule entirely, so `default` is not one
 of the clickable columns and the URL carries no `sortBy` while it is in force. Getting back to it is the
 third click on the active column, through `useTableSort(…, {clearable: true})`: asc → desc → default, which
@@ -705,8 +711,10 @@ settings, not page filters, and the response is the only place the client learns
 > `primary.main`. The same reasoning puts the applied zone of `StockMovementsPage` on an icon rather than a
 > caption.
 
-Filters: search (`?search=`), types (`?types=`), tags (`?tags=`), archive toggle (`?archived=`) and
-«Только предупреждения» (`?warnings=true`, keeps `outOfStock` and `warning`). An empty type selection disables
+Filters: search (`?search=`), types (`?types=`), tags (`?tags=`), archive toggle (`?archived=`; starts on «Активные», `?archived=null` shows everything, as on `CatalogPage`),
+«Товары» / «Вариации» (`?variations=`, both by default; sent as `isVariation`) and
+«Только предупреждения» (`?warnings=true`, keeps `outOfStock` and `warning`). The type filter narrows
+physical rows only, so an empty type selection leaves just the variations; combined with «Товары» it disables
 the query, as on the other catalog-filtered pages.
 
 ### `StockForecastSettingsDialog` / `StockWarningOverrideDialog`

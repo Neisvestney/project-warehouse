@@ -2107,11 +2107,13 @@ export type StockForecastDto = {
   status: StockForecastStatus;
   /**
    * Days since stock last hit zero within the window, counting backward from today. `0` means
-   * stock is zero right now; `null` means it never hit zero anywhere in the window (the window
-   * was not truncated). A positive value is both the age of the last zero day and the length the
-   * consumption window was cut down to.
+   * stock is zero right now; `null` means it never hit zero anywhere in the window.
    */
   daysSinceLastZeroStock?: null | number;
+  /**
+   * Days of the window with nothing on the shelf; they are left out of the consumption average.
+   */
+  outOfStockDays: number;
 };
 
 /**
@@ -2134,6 +2136,11 @@ export type StockForecastListDto = {
  */
 export type StockForecastRowDto = {
   catalogItem: CatalogItemSummaryDto;
+  /**
+   * Variation rows only: every member with its own forecast, unfiltered and in catalog order. Null on
+   * item rows and on members themselves.
+   */
+  members?: null | Array<StockForecastRowDto>;
   catalogItemId: string;
   stock: number;
   /**
@@ -2153,11 +2160,13 @@ export type StockForecastRowDto = {
   status: StockForecastStatus;
   /**
    * Days since stock last hit zero within the window, counting backward from today. `0` means
-   * stock is zero right now; `null` means it never hit zero anywhere in the window (the window
-   * was not truncated). A positive value is both the age of the last zero day and the length the
-   * consumption window was cut down to.
+   * stock is zero right now; `null` means it never hit zero anywhere in the window.
    */
   daysSinceLastZeroStock?: null | number;
+  /**
+   * Days of the window with nothing on the shelf; they are left out of the consumption average.
+   */
+  outOfStockDays: number;
 };
 
 /**
@@ -7555,13 +7564,20 @@ export type StockForecastGetListData = {
     TagIds?: Array<string>;
     IsArchived?: boolean;
     /**
+     * `true` keeps only variation rows, `false` only physical items, `null` both — minus the
+     * items already nested as members of a variation row in the same result.
+     * `CatalogItemTypes` narrows the physical rows only.
+     */
+    IsVariation?: boolean;
+    /**
      * Leaves only `OutOfStock` and `Warning`.
      */
     OnlyWarnings?: boolean;
     /**
      * Reserves the not-yet-fulfilled quantity of items on orders currently in `Assembly` against
      * stock, as if it were already spoken for. A Bundle component is exploded into its own components
-     * recursively; a Variation component is dropped, since it has no single deterministic underlying item.
+     * recursively; a Variation component has no single deterministic underlying item, so it reserves
+     * against that variation's own row only.
      */
     AccountForAssembly?: boolean;
     SortBy?: StockForecastSortBy;
