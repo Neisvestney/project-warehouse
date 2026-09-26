@@ -769,7 +769,8 @@ export type ErrorCode =
   | "receiptNothingToAutoAccept"
   | "warehouseDefaultNodeNotSet"
   | "orderIsExternal"
-  | "marketplaceLabelFormatChanged";
+  | "marketplaceLabelFormatChanged"
+  | "orderHasAssemblyTasks";
 
 export type EventDto = {
   appEntity: AppEntity;

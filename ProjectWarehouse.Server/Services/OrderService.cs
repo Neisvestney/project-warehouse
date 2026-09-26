@@ -92,6 +92,17 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
             return;
         }
 
+        if (order.Status == OrderStatus.Canceled)
+        {
+            // Tasks from an order canceled mid-assembly stay visible while it is Canceled; a revived order
+            // starts over, otherwise self-assigning it again would stack a second task on the stale one.
+            // Canceled carries no fulfillments, so there is no stock to restore.
+            var staleTasks = await db.AssemblyTasks
+                .Where(t => t.OrderId == order.Id)
+                .ToListAsync(ct);
+            db.AssemblyTasks.RemoveRange(staleTasks);
+        }
+
         if (order.Status == OrderStatus.Assembly && targetStatus == OrderStatus.Assembled)
         {
             // Manual escape hatch for the same condition the auto-transition enforces in
@@ -152,6 +163,10 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
         if (order.Status != OrderStatus.Confirmed)
             throw new ValidationException("root", ErrorCode.OrderNotConfirmed,
                 "Only Confirmed orders can be self-assigned.");
+
+        if (await db.AssemblyTasks.AnyAsync(t => t.OrderId == order.Id, ct))
+            throw new ValidationException("root", ErrorCode.OrderHasAssemblyTasks,
+                "Order already has assembly tasks.");
 
         // Load boxes with components
         var boxes = await db.OrderBoxes

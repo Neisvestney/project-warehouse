@@ -869,7 +869,8 @@ public class OrdersController(
     /// <c>orderInvalidStatusTransition</c> otherwise. Shipped → Assembled is a pure status change — inventory was
     /// already deducted when fulfillments were added during assembly and is not touched by shipment or its
     /// rollback. Cancelling is refused with 422 <c>orderHasFulfillments</c>
-    /// while any fulfillment still exists. Returns 404 <c>orderNotFound</c>, 409 <c>inventoryWriteConflict</c>
+    /// while any fulfillment still exists. Leaving Canceled deletes the assembly tasks the order kept from
+    /// before it was canceled. Returns 404 <c>orderNotFound</c>, 409 <c>inventoryWriteConflict</c>
     /// when the inventory restored by Assembly → Confirmed loses to concurrent stock writes — nothing was
     /// written and the request can be repeated.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
@@ -918,7 +919,8 @@ public class OrdersController(
     /// Requires <c>orders.self_assign</c> and an assignment to the order's warehouse — otherwise 403, with
     /// <c>orderNotAssignedToWarehouse</c> in the latter case. The warehouse check is skipped for holders of the
     /// unscoped <c>orders.view</c>, who see every order anyway. Returns 422 <c>orderNotConfirmed</c> if the order
-    /// is in any other status, 404 <c>orderNotFound</c> if it does not exist.
+    /// is in any other status, 422 <c>orderHasAssemblyTasks</c> if it already has assembly tasks,
+    /// 404 <c>orderNotFound</c> if it does not exist.
     /// </remarks>
     [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
     [HttpPost("{id:guid}/self-assign")]
@@ -1098,7 +1100,7 @@ public class OrdersController(
     /// Body: <c>BatchSelfAssignRequest</c> — <c>orderIds</c> (duplicates are collapsed). Each order is checked
     /// independently and always answers 200 with <c>BatchSelfAssignResponse</c>: successful ids in
     /// <c>assignedOrderIds</c>, the rest in <c>failedItems</c> as <c>{ orderId, orderNumber, error }</c> with the
-    /// real error code (<c>orderNotFound</c>, <c>orderNotAssignedToWarehouse</c>, <c>orderNotConfirmed</c>, …).
+    /// real error code (<c>orderNotFound</c>, <c>orderNotAssignedToWarehouse</c>, <c>orderNotConfirmed</c>, <c>orderHasAssemblyTasks</c>, …).
     /// There is no transaction: already-assigned orders stay assigned when later ones fail.
     /// 403 is returned only for the request as a whole, when <c>orders.self_assign</c> is missing.
     /// Holders of the unscoped <c>orders.view</c> are not narrowed to their assigned warehouses.
