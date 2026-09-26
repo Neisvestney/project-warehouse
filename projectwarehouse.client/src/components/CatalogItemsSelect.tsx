@@ -60,7 +60,7 @@ function CatalogItemsSelect(props: CatalogItemsSelectProps): React.ReactElement 
   return <SingleSelect {...(props as CatalogItemsSelectSingleProps)} />;
 }
 
-function OptionContent({item}: {item: CatalogItemSelectDto}) {
+export function CatalogItemOptionContent({item}: {item: CatalogItemSelectDto}) {
   return (
     <Box sx={{display: "flex", alignItems: "center", gap: 1, width: "100%", minWidth: 0}}>
       <CatalogItemTypeChip type={item.type} />
@@ -114,7 +114,7 @@ function MultiSelect({
       renderInput={(params) => <TextField {...params} label={label} />}
       renderOption={(props, option) => (
         <li {...props} key={option.id}>
-          <OptionContent item={option} />
+          <CatalogItemOptionContent item={option} />
         </li>
       )}
       renderValue={(tagValue, getItemProps) =>
@@ -188,7 +188,7 @@ function SingleSelect({
       renderInput={(params) => <TextField {...params} label={label} {...textFieldProps} />}
       renderOption={(props, option) => (
         <li {...props} key={option.id}>
-          <OptionContent item={option} />
+          <CatalogItemOptionContent item={option} />
         </li>
       )}
     />

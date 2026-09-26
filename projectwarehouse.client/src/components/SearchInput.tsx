@@ -1,5 +1,6 @@
-import {InputAdornment, TextField, type TextFieldProps} from "@mui/material";
+import {IconButton, InputAdornment, TextField, type TextFieldProps} from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
+import ClearIcon from "@mui/icons-material/Clear";
 
 type SearchInputProps = Omit<TextFieldProps, "onChange" | "value"> & {
   value: string;
@@ -21,6 +22,18 @@ function SearchInput({value, onChange, label = "Поиск", ...rest}: SearchInp
               <SearchIcon />
             </InputAdornment>
           ),
+          endAdornment: value ? (
+            <InputAdornment position="end">
+              <IconButton
+                size="small"
+                edge="end"
+                aria-label="Очистить"
+                onClick={() => onChange("")}
+              >
+                <ClearIcon fontSize="small" />
+              </IconButton>
+            </InputAdornment>
+          ) : undefined,
         },
       }}
     />

@@ -314,11 +314,14 @@ public class OrdersController(
     /// <remarks>
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
     /// <c>warehouseId</c>, <c>type</c>, <c>status</c>, <c>marketplaceType</c>, <c>marketplaceAccountId</c>,
-    /// <c>marketplaceStatus</c>, <c>includeExternal</c> (default false), <c>catalogItemId</c>, <c>tagIds</c>,
-    /// <c>sortBy</c> (default <c>Number</c>), <c>sortOrder</c> (default <c>Desc</c>).
+    /// <c>marketplaceStatus</c>, <c>includeExternal</c> (default false), <c>catalogItemIds</c>, <c>tagIds</c>,
+    /// <c>overdue</c>, <c>sortBy</c> (default <c>Number</c>), <c>sortOrder</c> (default <c>Desc</c>).
+    /// <c>overdue</c> keeps orders past their planned shipment date: <c>Assembly</c> — not assembled yet (draft,
+    /// confirmed, assembly), <c>Shipment</c> — assembled but not shipped. In <c>meta</c> the status counts ignore
+    /// the <c>status</c> filter and the overdue counts ignore the <c>overdue</c> filter; every other filter applies.
     /// External orders — imported from the marketplace, never assembled here — are left out unless
     /// <c>includeExternal</c> asks for them.
-    /// <c>catalogItemId</c> keeps orders that have a box component with that catalog item; <c>tagIds</c> keeps
+    /// <c>catalogItemIds</c> keeps orders that have a box component with any of those catalog items; <c>tagIds</c> keeps
     /// orders carrying any of the tags.
     /// Any of the three marketplace filters also excludes orders without a <c>MarketplaceOrder</c>, so they
     /// never match Direct orders. <c>searchString</c> is the extended search — it also matches box labels and
@@ -340,8 +343,9 @@ public class OrdersController(
         [FromQuery] Guid? marketplaceAccountId = null,
         [FromQuery] MarketplaceOrderStatus? marketplaceStatus = null,
         [FromQuery] bool includeExternal = false,
-        [FromQuery] Guid? catalogItemId = null,
+        [FromQuery] IReadOnlyList<Guid>? catalogItemIds = null,
         [FromQuery] IReadOnlyList<Guid>? tagIds = null,
+        [FromQuery] OrderOverdueKind? overdue = null,
         [FromQuery] OrderSortBy sortBy = OrderSortBy.Number,
         [FromQuery] SortOrder sortOrder = SortOrder.Desc,
         CancellationToken ct = default)
@@ -354,24 +358,26 @@ public class OrdersController(
 
         var accessible = await Rule.QueryAsync(User, AccessLevel.View, ct);
 
-        var baseQuery = accessible
-            .Include(o => o.Warehouse)
-            .Include(o => o.CreatedBy)
-            .Include(o => o.Boxes).ThenInclude(b => b.Components)
+        var now = DateTime.UtcNow;
+
+        var facetQuery = accessible
             .Where(o => includeExternal || !o.IsExternal)
             .Where(o => warehouseId == null || o.WarehouseId == warehouseId)
             .Where(o => type == null || o.Type == type)
-            .Where(o => status == null || o.Status == status)
             .Where(o => marketplaceType == null ||
                         (o.MarketplaceOrder != null && o.MarketplaceOrder.MarketplaceAccount.Type == marketplaceType))
             .Where(o => marketplaceAccountId == null ||
                         (o.MarketplaceOrder != null && o.MarketplaceOrder.MarketplaceAccountId == marketplaceAccountId))
             .Where(o => marketplaceStatus == null ||
                         (o.MarketplaceOrder != null && o.MarketplaceOrder.Status == marketplaceStatus))
-            .Where(o => catalogItemId == null ||
-                        o.Boxes.Any(b => b.Components.Any(c => c.CatalogItemId == catalogItemId)))
+            .Where(o => catalogItemIds == null || catalogItemIds.Count == 0 ||
+                        o.Boxes.Any(b => b.Components.Any(c => catalogItemIds.Contains(c.CatalogItemId))))
             .Where(o => tagIds == null || tagIds.Count == 0 || o.Tags.Any(t => tagIds.Contains(t.Id)))
             .WhereMatchesExtendedSearch((o, pattern) => o.MatchesExtendedSearch(pattern), searchString);
+
+        var baseQuery = facetQuery
+            .Where(o => status == null || o.Status == status)
+            .Where(o => overdue == null || o.OverdueKindAt(now) == overdue);
 
         var query = sortBy switch
         {
@@ -388,19 +394,33 @@ public class OrdersController(
             .ProjectTo<OrderSummaryDto>(mapper.ConfigurationProvider)
             .ToPaginatedAsync(page, pageSize, ct);
 
-        var now = DateTime.UtcNow;
+        // one grouping feeds both facets: each drops its own filter and keeps the other one
+        var facets = await facetQuery
+            .GroupBy(o => new { o.Status, Overdue = o.OverdueKindAt(now) })
+            .Select(g => new { g.Key.Status, g.Key.Overdue, Count = g.Count() })
+            .ToListAsync(ct);
+
         var meta = new OrderListMetaDto
         {
             ComponentCount = await baseQuery
                 .SelectMany(o => o.Boxes)
                 .SelectMany(b => b.Components)
                 .SumAsync(c => (int?)c.Quantity, ct) ?? 0,
-            OverdueCount = await baseQuery.CountAsync(
-                o => o.PlannedShipmentAt != null
-                     && o.PlannedShipmentAt < now
-                     && o.Status != OrderStatus.Shipped
-                     && o.Status != OrderStatus.Canceled,
-                ct),
+            OverdueAssemblyCount = facets
+                .Where(f => f.Overdue == OrderOverdueKind.Assembly && (status == null || f.Status == status))
+                .Sum(f => f.Count),
+            OverdueShipmentCount = facets
+                .Where(f => f.Overdue == OrderOverdueKind.Shipment && (status == null || f.Status == status))
+                .Sum(f => f.Count),
+            StatusCounts = Enum.GetValues<OrderStatus>()
+                .Select(s => new OrderStatusCountDto
+                {
+                    Status = s,
+                    Count = facets
+                        .Where(f => f.Status == s && (overdue == null || f.Overdue == overdue))
+                        .Sum(f => f.Count),
+                })
+                .ToList(),
         };
 
         return Ok(paginated.WithMeta(meta));
@@ -410,8 +430,8 @@ public class OrdersController(
 
     /// <summary>The current user's personal assembly worklist: full details of Assembly-status orders that have a task assigned to them.</summary>
     /// <remarks>
-    /// Query params: <c>warehouseId</c>, <c>searchString</c>, <c>catalogItemId</c>, <c>tagIds</c> (all optional). Not paginated — returns a plain list.
-    /// <c>catalogItemId</c> keeps orders that have a box component with that catalog item; <c>tagIds</c> keeps
+    /// Query params: <c>warehouseId</c>, <c>searchString</c>, <c>catalogItemIds</c>, <c>tagIds</c> (all optional). Not paginated — returns a plain list.
+    /// <c>catalogItemIds</c> keeps orders that have a box component with any of those catalog items; <c>tagIds</c> keeps
     /// orders carrying any of the tags.
     /// <c>searchString</c> is the extended search — see <see cref="Order.MatchesExtendedSearch"/>.
     /// Only orders in <c>Assembly</c> status with at least one <c>AssemblyTask</c> assigned to the caller are
@@ -427,7 +447,7 @@ public class OrdersController(
     public async Task<IActionResult> GetAllAssembly(
         [FromQuery] Guid? warehouseId = null,
         [FromQuery] string? searchString = null,
-        [FromQuery] Guid? catalogItemId = null,
+        [FromQuery] IReadOnlyList<Guid>? catalogItemIds = null,
         [FromQuery] IReadOnlyList<Guid>? tagIds = null,
         CancellationToken ct = default)
     {
@@ -478,8 +498,8 @@ public class OrdersController(
         if (warehouseId is not null)
             query = query.Where(o => o.WarehouseId == warehouseId);
 
-        if (catalogItemId is not null)
-            query = query.Where(o => o.Boxes.Any(b => b.Components.Any(c => c.CatalogItemId == catalogItemId)));
+        if (catalogItemIds is { Count: > 0 })
+            query = query.Where(o => o.Boxes.Any(b => b.Components.Any(c => catalogItemIds.Contains(c.CatalogItemId))));
 
         if (tagIds is { Count: > 0 })
             query = query.Where(o => o.Tags.Any(t => tagIds.Contains(t.Id)));
