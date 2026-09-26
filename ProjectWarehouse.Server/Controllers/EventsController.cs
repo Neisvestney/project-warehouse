@@ -85,7 +85,7 @@ public class EventsController(
             .ToListAsync(ct);
         
         var ordersEvents = await ordersQueryable
-            .Where(x => x.Type != OrderType.FBS)
+            .Where(x => x.Type != OrderType.FBS && x.Type != OrderType.FboPosting)
             .ProjectTo<EventDto>(mapper.ConfigurationProvider, new { offsetMinutes })
             .Where(x => startDate == null || x.StartDate >= startDate)
             .Where(x => endDate == null || x.EndDate <= endDate)
