@@ -24,7 +24,6 @@ import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {
   ordersRemoveFulfillmentMutation,
-  ordersGetAllAssemblyQueryKey,
   ordersGetAllQueryKey,
   ordersGetByIdQueryKey,
   ordersTransitionTaskStatusMutation,
@@ -50,6 +49,8 @@ import AddFulfillmentDialog from "./AddFulfillmentDialog";
 import {getBatchDisabledReason} from "./batchEligibility";
 import MoveTaskComponentDialog from "./MoveTaskComponentDialog";
 import {NOUNS, plural} from "@/utils/pluralUtils";
+import RefreshingAccordionHeading from "./RefreshingAccordionHeading";
+import {useAssemblyOrderRefresh} from "./assemblyOrderRefresh";
 
 const TASK_STATUS_COLORS: Record<AssemblyTaskStatus, "default" | "warning" | "success"> = {
   pending: "default",
@@ -85,13 +86,14 @@ function FulfillmentItem({
   canDelete,
 }: FulfillmentItemProps) {
   const queryClient = useQueryClient();
+  const {refreshOrder} = useAssemblyOrderRefresh();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const deleteMutation = useMutation({
     ...ordersRemoveFulfillmentMutation(),
     onSuccess: () => {
       queryClient.invalidateQueries({queryKey: ordersGetAllQueryKey()});
-      queryClient.invalidateQueries({queryKey: ordersGetAllAssemblyQueryKey()});
+      void refreshOrder(orderId, taskId);
       queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: orderId}})});
       setConfirmOpen(false);
     },
@@ -272,6 +274,7 @@ function AssemblyTaskAccordion({
   inline,
 }: AssemblyTaskAccordionProps) {
   const queryClient = useQueryClient();
+  const {refreshOrder, isTaskRefreshing} = useAssemblyOrderRefresh();
   const [error, setError] = useState<string | null>(null);
 
   const {fulfilled: fulfilledComponents, total: totalComponents} = getTaskProgress(task);
@@ -283,7 +286,7 @@ function AssemblyTaskAccordion({
     meta: {suppressGlobalError: true},
     onSuccess: () => {
       queryClient.invalidateQueries({queryKey: ordersGetAllQueryKey()});
-      queryClient.invalidateQueries({queryKey: ordersGetAllAssemblyQueryKey()});
+      void refreshOrder(orderId, task.id);
       queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: orderId}})});
     },
     onError: () => setError("Не удалось обновить статус задания"),
@@ -362,7 +365,15 @@ function AssemblyTaskAccordion({
   if (inline) return body;
 
   return (
-    <Accordion disableGutters slotProps={{transition: {unmountOnExit: true}}}>
+    <Accordion
+      disableGutters
+      slots={{heading: RefreshingAccordionHeading}}
+      slotProps={{
+        transition: {unmountOnExit: true},
+        heading: {refreshing: isTaskRefreshing(task.id)},
+      }}
+      sx={{position: "relative"}}
+    >
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Stack direction="row" sx={{alignItems: "center", gap: 1.5, flex: 1, pr: 1}}>
           {onCheckChange !== undefined && (

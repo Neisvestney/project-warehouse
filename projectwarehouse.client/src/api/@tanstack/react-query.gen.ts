@@ -72,6 +72,7 @@ import {
   ordersDeleteAssemblyTask,
   ordersGetAll,
   ordersGetAllAssembly,
+  ordersGetAssemblyById,
   ordersGetById,
   ordersGetCompositionPreview,
   ordersGetLabels,
@@ -379,6 +380,9 @@ import type {
   OrdersGetAllData,
   OrdersGetAllError,
   OrdersGetAllResponse,
+  OrdersGetAssemblyByIdData,
+  OrdersGetAssemblyByIdError,
+  OrdersGetAssemblyByIdResponse,
   OrdersGetByIdData,
   OrdersGetByIdError,
   OrdersGetByIdResponse,
@@ -3048,6 +3052,37 @@ export const ordersGetAllAssemblyOptions = (options?: Options<OrdersGetAllAssemb
       return data;
     },
     queryKey: ordersGetAllAssemblyQueryKey(options),
+  });
+
+export const ordersGetAssemblyByIdQueryKey = (options: Options<OrdersGetAssemblyByIdData>) =>
+  createQueryKey("ordersGetAssemblyById", options);
+
+/**
+ * One order of the caller's assembly worklist, in exactly the shape `GET /assembly` returns it.
+ *
+ * Lets the assembly screen reread a single order after an `assemblyChanged` event or its own mutation
+ * instead of the whole list. The list filters (`warehouseId`, `searchString`, …) are not applied.
+ * Returns 404 `orderNotFound` when the order does not exist, is not in `Assembly`, carries no task
+ * assigned to the caller or lies outside the caller's warehouses — every case in which it is not on the list.
+ * Requires the same view access as `GET /assembly`.
+ */
+export const ordersGetAssemblyByIdOptions = (options: Options<OrdersGetAssemblyByIdData>) =>
+  queryOptions<
+    OrdersGetAssemblyByIdResponse,
+    OrdersGetAssemblyByIdError,
+    OrdersGetAssemblyByIdResponse,
+    ReturnType<typeof ordersGetAssemblyByIdQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await ordersGetAssemblyById({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: ordersGetAssemblyByIdQueryKey(options),
   });
 
 /**

@@ -65,7 +65,8 @@ export type AppEntityType =
   | "fbsOrdersGrouped"
   | "stockMovementReportPreset"
   | "tag"
-  | "tags";
+  | "tags"
+  | "orderAssembly";
 
 export type AppFieldError = {
   code: ErrorCode;
@@ -85,6 +86,11 @@ export type AppProblemDetails = {
     [key: string]: Array<AppFieldError>;
   };
 };
+
+/**
+ * What an AssemblyChangedPayload asks the assembly screen to reread.
+ */
+export type AssemblyChangeScope = "task" | "order" | "list";
 
 export type AssemblyFulfillmentBundleComponentDto = {
   id: string;
@@ -1647,7 +1653,31 @@ export type RealtimeEventPayload =
     } & RealtimeEventPayloadEditLockReleasedPayload)
   | ({
       type: "entityPresenceChanged";
-    } & RealtimeEventPayloadEntityPresenceChangedPayload);
+    } & RealtimeEventPayloadEntityPresenceChangedPayload)
+  | ({
+      type: "assemblyChanged";
+    } & RealtimeEventPayloadAssemblyChangedPayload);
+
+/**
+ * Addressed to the watchers of the AppEntityType.OrderAssembly collection, narrowed to the
+ * assignees of the order's tasks: the worklist is per user, so nobody else has the order on screen.
+ */
+export type RealtimeEventPayloadAssemblyChangedPayload = {
+  type:
+    | "connectionReady"
+    | "marketplaceSyncProgress"
+    | "marketplaceSyncFinished"
+    | "entityChanged"
+    | "editLockAcquired"
+    | "editLockReleased"
+    | "entityPresenceChanged"
+    | "assemblyChanged";
+  scope: AssemblyChangeScope;
+  orderId: string;
+  taskId?: null | string;
+  byUserId?: null | string;
+  byUserName?: null | string;
+};
 
 export type RealtimeEventPayloadConnectionReadyPayload = {
   type:
@@ -1657,7 +1687,8 @@ export type RealtimeEventPayloadConnectionReadyPayload = {
     | "entityChanged"
     | "editLockAcquired"
     | "editLockReleased"
-    | "entityPresenceChanged";
+    | "entityPresenceChanged"
+    | "assemblyChanged";
   connectionId: string;
 };
 
@@ -1669,7 +1700,8 @@ export type RealtimeEventPayloadEditLockAcquiredPayload = {
     | "entityChanged"
     | "editLockAcquired"
     | "editLockReleased"
-    | "entityPresenceChanged";
+    | "entityPresenceChanged"
+    | "assemblyChanged";
   entityType: AppEntityType;
   entityId: string;
   userId: string;
@@ -1688,7 +1720,8 @@ export type RealtimeEventPayloadEditLockReleasedPayload = {
     | "entityChanged"
     | "editLockAcquired"
     | "editLockReleased"
-    | "entityPresenceChanged";
+    | "entityPresenceChanged"
+    | "assemblyChanged";
   entityType: AppEntityType;
   entityId: string;
   userId: string;
@@ -1707,7 +1740,8 @@ export type RealtimeEventPayloadEntityChangedPayload = {
     | "entityChanged"
     | "editLockAcquired"
     | "editLockReleased"
-    | "entityPresenceChanged";
+    | "entityPresenceChanged"
+    | "assemblyChanged";
   entityType: AppEntityType;
   entityId: string;
   byUserId?: null | string;
@@ -1726,7 +1760,8 @@ export type RealtimeEventPayloadEntityPresenceChangedPayload = {
     | "entityChanged"
     | "editLockAcquired"
     | "editLockReleased"
-    | "entityPresenceChanged";
+    | "entityPresenceChanged"
+    | "assemblyChanged";
   entityType: AppEntityType;
   entityId: string;
   /**
@@ -1743,7 +1778,8 @@ export type RealtimeEventPayloadMarketplaceSyncFinishedPayload = {
     | "entityChanged"
     | "editLockAcquired"
     | "editLockReleased"
-    | "entityPresenceChanged";
+    | "entityPresenceChanged"
+    | "assemblyChanged";
   accountId: string;
   syncRunId: string;
   status: MarketplaceSyncStatus;
@@ -1761,7 +1797,8 @@ export type RealtimeEventPayloadMarketplaceSyncProgressPayload = {
     | "entityChanged"
     | "editLockAcquired"
     | "editLockReleased"
-    | "entityPresenceChanged";
+    | "entityPresenceChanged"
+    | "assemblyChanged";
   accountId: string;
   syncRunId: string;
 };
@@ -1773,7 +1810,8 @@ export type RealtimeEventType =
   | "entityChanged"
   | "editLockAcquired"
   | "editLockReleased"
-  | "entityPresenceChanged";
+  | "entityPresenceChanged"
+  | "assemblyChanged";
 
 /**
  * One heartbeat for the whole connection: everything it holds lives and dies with it.
@@ -4994,6 +5032,43 @@ export type OrdersGetAllAssemblyResponses = {
 
 export type OrdersGetAllAssemblyResponse =
   OrdersGetAllAssemblyResponses[keyof OrdersGetAllAssemblyResponses];
+
+export type OrdersGetAssemblyByIdData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/orders/{id}/assembly";
+};
+
+export type OrdersGetAssemblyByIdErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type OrdersGetAssemblyByIdError =
+  OrdersGetAssemblyByIdErrors[keyof OrdersGetAssemblyByIdErrors];
+
+export type OrdersGetAssemblyByIdResponses = {
+  /**
+   * OK
+   */
+  200: OrderDetailsDto;
+};
+
+export type OrdersGetAssemblyByIdResponse =
+  OrdersGetAssemblyByIdResponses[keyof OrdersGetAssemblyByIdResponses];
 
 export type OrdersDeleteData = {
   body?: never;

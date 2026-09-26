@@ -258,7 +258,8 @@ it is replaced by fresher data. Dialogs are portalled to `body` and stay reachab
 
 **For detail pages, not list pages.** A list already reports a background refetch through
 `DataTableContainer`'s `LinearProgress`, and dimming its filters would be a regression. A detail page has no
-such affordance, so this is where the overlay earns its place.
+such affordance, so this is where the overlay earns its place. The assembly screen is a list of cards without a
+`DataTableContainer`, so it takes the overlay too — over the cards only, never over its filters.
 
 The two layers are timed differently on purpose:
 
@@ -1104,6 +1105,9 @@ An order with exactly **one** task carries that task's status chip in its own `A
 `fulfilled/total позиций` instead of the tasks counter. The task itself is rendered as
 `<AssemblyTaskAccordion inline />`: with `inline` the component returns just the body — boxes, component rows,
 «Начать»/«Завершить» — without an `Accordion` of its own.
+
+Both accordions dim themselves while their order or task is being reread, through the `RefreshingAccordionHeading`
+slot — see [frontend-realtime.md → Assembly screen](frontend-realtime.md#assembly-screen).
 
 Every order summary opens with a selection checkbox covering all tasks of that order: `checked` when they are all
 selected, MUI's `indeterminate` when only some are. Toggling it calls `onTaskCheckChange` per task, so the page

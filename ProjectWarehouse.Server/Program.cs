@@ -625,6 +625,7 @@ try
     builder.Services.AddScoped<IEntityAccessService, EntityAccessService>();
     builder.Services.AddScoped<IUserQueryFilterService, UserQueryFilterService>();
     builder.Services.AddScoped<IOrderService, OrderService>();
+    builder.Services.AddScoped<IAssemblyChangeNotifier, AssemblyChangeNotifier>();
     builder.Services.AddScoped<IRequestTimeZoneAccessor, RequestTimeZoneAccessor>();
     builder.Services.AddScoped<IWarehouseTimeZoneResolver, WarehouseTimeZoneResolver>();
     builder.Services.AddScoped<IStockStatisticsService, StockStatisticsService>();

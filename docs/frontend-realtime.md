@@ -87,7 +87,7 @@ and `422` means the connection already died — in both cases the polling fallba
 fresh connection re-sends the watch.
 
 **One request per render, not per object.** The provider collects every `watch`/`unwatch` registered during a
-render into a microtask and sends one batched call — the assembly screen registers a watch per visible order,
+render into a microtask and sends one batched call — the storage place drawer registers a watch per visible node,
 and a request each would blow through the six-per-origin cap on its own. An entry registered and dropped
 within the same batch is skipped rather than raced against its own unwatch.
 
@@ -115,7 +115,7 @@ adds presence in one line. The catalog drawer and the card-mapping dialog place 
 
 Where it shows: order, receipt, writeoff, stocktake, warehouse, employee and roles pages, both the edit and the
 view variants, plus the card-mapping dialog. In the catalog drawer only in edit mode. Screens that watch many
-objects at once — assembly, storage nodes, the sync dialog — deliberately show nothing: a row of avatars per
+a list rather than one object — assembly, storage nodes, the sync dialog — deliberately show nothing: a row of avatars per
 table row is noise, not information.
 
 Names come from the stream connection, which reads them off the token's `given_name`/`family_name` claims —
@@ -219,7 +219,7 @@ the object, the staleness banner ("… сохранил изменения. Да
 released.
 
 Wired with a lock: order, receipt, writeoff, stocktake, warehouse edit and user edit pages, the roles screen,
-the catalog item drawer and the card mapping dialog. Watch-only, no lock: `/operations/assembly`, stocktake
+the catalog item drawer and the card mapping dialog. Watch-only, no lock: `/operations/orders/assembly`, stocktake
 counting, and the storage place drawer — parallel work there is normal, or the edits save immediately and
 there is no unsaved state to guard.
 
@@ -231,3 +231,33 @@ Two pages need a note. The **warehouse editor** passes `isDirty: true` unconditi
 unsaved layout from the moment it opens — and its `onRefresh` also resets the "loaded once" flag, since
 invalidating the query alone would never reach the mobx store. The **roles screen** has no per-object id at
 all: roles are versioned as one object, so it subscribes under the all-zero guid the changelog uses.
+
+## Assembly screen
+
+`OrdersAssemblyPage` watches the `orderAssembly` collection under the all-zero guid and listens to
+`assemblyChanged` — the protocol side, including why it is not a watch per order, is in
+[realtime-specification.md](realtime-specification.md#экран-сборки). The handler branches on `scope`:
+
+- `list` invalidates the list query; its `isFetching` drives the page's `LoadingOverlay`, the same one a focus
+  refetch or «Обновить» shows.
+- `task` and `order` for an order already on screen go through `refreshOrder(orderId, taskId)`; an order the
+  current filters hide is ignored — whether it now matches is a `list` question.
+
+**`refreshOrder` patches, it does not invalidate.** It reads `GET /orders/{id}/assembly` and writes the result into
+every cached `ordersGetAllAssembly` list with `setQueriesData`, or drops the order there on `404`. Invalidating
+the list instead would dim the whole screen for a change to one card. A per-order sequence number discards a
+response that lands after a newer request for the same order; any other error falls back to invalidating the list.
+
+The hook lives in the page (`useAssemblyOrderRefreshState`) and reaches the rows through context
+(`useAssemblyOrderRefresh`). **The page's own mutations use it too** — fulfilling, deleting a fulfillment, moving a
+component, removing a box, changing a task's status — so a scanner running through positions never dims the list.
+`BatchAssemblyDialog` is the exception: it touches many orders at once and awaits a full list refetch.
+
+**Overlays are per card.** `refreshOrder` with a task id marks the task, without one the order.
+`AssemblyTaskAccordion` and `AssemblyOrderAccordion` show it through `RefreshingAccordionHeading`, a `heading` slot
+that hosts a `LoadingOverlay`: Accordion accepts no children outside its collapsed region, and the heading is not
+positioned, so with the Accordion root at `position: relative` the overlay covers summary and details alike. An
+order with a single task draws that task inline, so its task refresh dims the order card.
+
+**The subscription refetch is silent** — `onWatched` calls `markSilent` from `useSilentRefresh` before
+invalidating, exactly like `useStaleData`, so opening the page does not flash the overlay right after the first read.
