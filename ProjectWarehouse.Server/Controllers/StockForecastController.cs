@@ -22,13 +22,16 @@ public class StockForecastController(IStockForecastService forecast, EntityAcces
     /// <summary>How long the stock on one warehouse lasts, one page at a time.</summary>
     /// <remarks>
     /// Query params come from <c>StockForecastListRequest</c>: <c>warehouseId</c> (required),
-    /// <c>searchString</c>, <c>catalogItemTypes</c>, <c>tagIds</c>, <c>isArchived</c>,
+    /// <c>searchString</c>, <c>catalogItemTypes</c>, <c>tagIds</c>, <c>isArchived</c>, <c>isVariation</c>,
     /// <c>onlyWarnings</c>, <c>sortBy</c> (default <c>default</c>), <c>sortOrder</c>, plus <c>page</c>
     /// (default 1) and <c>pageSize</c> (default 20, max 200). Window, averaging mode and time zone are
     /// warehouse settings and are not accepted here; the applied values come back on the response so the
     /// client can label them.
-    /// Only <c>Standard</c> and <c>Unit</c> items appear, and only those with stock or consumption in the
-    /// window. <c>onlyWarnings</c> keeps <c>outOfStock</c> and <c>warning</c>.
+    /// <c>Standard</c> and <c>Unit</c> items appear with stock or consumption in the window, plus every
+    /// <c>Variation</c> whose members are all <c>Standard</c> / <c>Unit</c>, summed over its members and
+    /// carrying them in <c>members</c>. Without <c>isVariation</c> an item nested in a variation row of the
+    /// result is not repeated as a row of its own.
+    /// <c>onlyWarnings</c> keeps <c>outOfStock</c> and <c>warning</c>.
     /// Requires <c>statistics.view</c> or <c>statistics.view_assigned</c>, and view access to the
     /// warehouse itself (<c>warehouses.view</c> / <c>warehouses.view_assigned</c>): another warehouse
     /// answers 403 <c>warehouseNotAssigned</c> rather than an empty page, and a caller with neither
@@ -62,7 +65,7 @@ public class StockForecastController(IStockForecastService forecast, EntityAcces
     /// Query params: <c>warehouseId</c> (required) and <c>catalogItemIds</c> (at most 200; an empty list
     /// returns an empty map).
     /// The response is keyed by catalog item id; an item with neither stock nor consumption on the
-    /// warehouse, or one of a virtual type, is simply absent from it.
+    /// warehouse, or a virtual one other than a qualifying <c>Variation</c>, is simply absent from it.
     /// Same access rule and the same 422 <c>required</c> / <c>warehouseNotFound</c> codes as
     /// <c>GET /api/stock-forecast</c>, plus 422 <c>outOfRange</c> on <c>catalogItemIds</c> when more
     /// than 200 are passed (no <c>args</c>) — in practice a query string that long is refused by the

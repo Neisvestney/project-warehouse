@@ -15,7 +15,7 @@ interface StockForecastChipProps extends Omit<ChipProps, "label" | "color"> {
 // The status is authoritative — never re-derive it from daysLeft here. A null daysLeft is
 // "never runs out", and `null <= warningDays` is true in JS, so comparing would paint «∞» as a warning.
 function label(forecast: StockForecastDto): string {
-  if (forecast.status === "outOfStock") return "Нет в наличии";
+  if (forecast.status === "outOfStock") return forecast.stock > 0 ? "< 1 дн." : "Нет в наличии";
   if (forecast.daysLeft == null) return "∞";
   return `${forecast.daysLeft} дн.`;
 }

@@ -3268,13 +3268,16 @@ export const statisticsGetMovements = <ThrowOnError extends boolean = false>(
  * How long the stock on one warehouse lasts, one page at a time.
  *
  * Query params come from `StockForecastListRequest`: `warehouseId` (required),
- * `searchString`, `catalogItemTypes`, `tagIds`, `isArchived`,
+ * `searchString`, `catalogItemTypes`, `tagIds`, `isArchived`, `isVariation`,
  * `onlyWarnings`, `sortBy` (default `default`), `sortOrder`, plus `page`
  * (default 1) and `pageSize` (default 20, max 200). Window, averaging mode and time zone are
  * warehouse settings and are not accepted here; the applied values come back on the response so the
  * client can label them.
- * Only `Standard` and `Unit` items appear, and only those with stock or consumption in the
- * window. `onlyWarnings` keeps `outOfStock` and `warning`.
+ * `Standard` and `Unit` items appear with stock or consumption in the window, plus every
+ * `Variation` whose members are all `Standard` / `Unit`, summed over its members and
+ * carrying them in `members`. Without `isVariation` an item nested in a variation row of the
+ * result is not repeated as a row of its own.
+ * `onlyWarnings` keeps `outOfStock` and `warning`.
  * Requires `statistics.view` or `statistics.view_assigned`, and view access to the
  * warehouse itself (`warehouses.view` / `warehouses.view_assigned`): another warehouse
  * answers 403 `warehouseNotAssigned` rather than an empty page, and a caller with neither
@@ -3297,7 +3300,7 @@ export const stockForecastGetList = <ThrowOnError extends boolean = false>(
  * Query params: `warehouseId` (required) and `catalogItemIds` (at most 200; an empty list
  * returns an empty map).
  * The response is keyed by catalog item id; an item with neither stock nor consumption on the
- * warehouse, or one of a virtual type, is simply absent from it.
+ * warehouse, or a virtual one other than a qualifying `Variation`, is simply absent from it.
  * Same access rule and the same 422 `required` / `warehouseNotFound` codes as
  * `GET /api/stock-forecast`, plus 422 `outOfRange` on `catalogItemIds` when more
  * than 200 are passed (no `args`) — in practice a query string that long is refused by the

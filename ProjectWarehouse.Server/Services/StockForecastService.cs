@@ -36,7 +36,9 @@ public class StockForecastService(
         IReadOnlyList<CatalogItemType>? Types = null,
         IReadOnlyList<Guid>? TagIds = null,
         bool? IsArchived = null,
-        bool OnlyWarnings = false);
+        bool OnlyWarnings = false,
+        bool? IsVariation = null,
+        bool HideVariationMembers = false);
 
     /// <summary>A computed row before it is sorted; the catalog fields are the sort keys.</summary>
     private sealed record ForecastEntry(
@@ -44,7 +46,8 @@ public class StockForecastService(
         string Name,
         string FullName,
         string Article,
-        StockForecastDto Forecast);
+        StockForecastDto Forecast,
+        IReadOnlyList<StockForecastDto>? Members = null);
 
     private sealed record ForecastComputation(
         IReadOnlyList<ForecastEntry> Entries,
@@ -62,7 +65,8 @@ public class StockForecastService(
         var warehouseId = request.WarehouseId!.Value;
 
         var filter = new CatalogFilter(
-            request.SearchString, request.CatalogItemTypes, request.TagIds, request.IsArchived, request.OnlyWarnings);
+            request.SearchString, request.CatalogItemTypes, request.TagIds, request.IsArchived, request.OnlyWarnings,
+            request.IsVariation, HideVariationMembers: request.IsVariation is null);
 
         var computed = await ComputeAsync(
             await SourceForAsync(user, warehouseId, ct), filter, restrictToIds: null, options: null,
@@ -114,7 +118,8 @@ public class StockForecastService(
         var filter = new CatalogFilter(
             Types: scope.CatalogItemTypes,
             IsArchived: scope.ExcludeArchived ? false : null,
-            OnlyWarnings: scope.OnlyWarnings);
+            OnlyWarnings: scope.OnlyWarnings,
+            IsVariation: false);
 
         // No query filter and no warehouse narrowing: this entry checks no permissions by contract.
         var source = new ForecastSource(warehouseId, db.StockMovements, [warehouseId]);
@@ -175,9 +180,9 @@ public class StockForecastService(
         if (type is null)
             throw new ValidationException("catalogItemId", ErrorCode.CatalogItemNotFound, "Catalog item not found.");
 
-        if (!PhysicalTypes.Contains(type.Value))
+        if (!PhysicalTypes.Contains(type.Value) && type != CatalogItemType.Variation)
             throw new ValidationException("catalogItemId", ErrorCode.InvalidValue,
-                "Only Standard and Unit items hold stock and can carry a threshold.");
+                "Only Standard, Unit and Variation items are forecast and can carry a threshold.");
 
         var existing = await db.CatalogItemStockWarnings
             .FirstOrDefaultAsync(
@@ -252,8 +257,18 @@ public class StockForecastService(
         var fromUtc = DateTime.SpecifyKind(from.ToDateTime(TimeOnly.MinValue) - offset, DateTimeKind.Utc);
         var toUtc = DateTime.SpecifyKind(today.AddDays(1).ToDateTime(TimeOnly.MinValue) - offset, DateTimeKind.Utc);
 
+        var variations = filter.IsVariation == false
+            ? []
+            : await LoadVariationsAsync(filter, restrictToIds, ct);
+
+        // A requested variation needs its members' numbers even when the members themselves were not asked for.
+        var physicalIds = restrictToIds?
+            .Concat(variations.SelectMany(v => v.MemberIds))
+            .Distinct()
+            .ToList();
+
         var stock = await inventoryService.GetCurrentStockAsync(
-            source.StockWarehouseIds, source.WarehouseId, null, null, restrictToIds, ct);
+            source.StockWarehouseIds, source.WarehouseId, null, null, physicalIds, ct);
 
         // Snapshot before the assembly reservation is folded in below: the zero-stock lookback
         // reconstructs the physical past, and assembly demand is a present-day reservation, not
@@ -261,11 +276,12 @@ public class StockForecastService(
         var physicalStock = new Dictionary<Guid, int>(stock);
 
         var movement = await LoadMovementAsync(
-            source, restrictToIds, fromUtc, toUtc, options, today, ct);
+            source, physicalIds, fromUtc, toUtc, options, today, ct);
 
-        var assemblyDemand = accountForAssembly
+        var assembly = accountForAssembly
             ? await LoadAssemblyDemandAsync(source.WarehouseId, ct)
-            : [];
+            : new AssemblyDemand([], []);
+        var assemblyDemand = assembly.Items;
 
         // Left negative on purpose: more is reserved for assembly than physically sits on the shelf,
         // and that shortfall is exactly what the flag exists to surface.
@@ -274,63 +290,101 @@ public class StockForecastService(
 
         // A row exists when the item has stock or consumption; an empty catalog is never unfolded into
         // the forecast. Zero stock with consumption is exactly the row a buyer needs to see.
-        var candidateIds = stock.Keys.Concat(movement.DailyOut.Keys).Concat(assemblyDemand.Keys).Distinct().ToList();
-        if (candidateIds.Count == 0)
+        var candidateIds = stock.Keys.Concat(movement.DailyOut.Keys).Concat(assemblyDemand.Keys).ToHashSet();
+
+        var liveVariations = variations
+            .Where(v => v.MemberIds.Any(candidateIds.Contains) || assembly.Variations.ContainsKey(v.Row.Id))
+            .ToList();
+
+        if (candidateIds.Count == 0 && liveVariations.Count == 0)
             return new ForecastComputation([], options, warehouseWarningDays);
 
-        var items = await LoadCatalogItemsAsync(candidateIds, filter, ct);
+        var physicalCandidates = filter.IsVariation == true
+            ? []
+            : candidateIds.Where(id => restrictToIds is null || restrictToIds.Contains(id)).ToList();
+        var items = physicalCandidates.Count == 0
+            ? []
+            : await LoadCatalogItemsAsync(physicalCandidates, filter, ct);
+
+        var overrideIds = items.Select(i => i.Id)
+            .Concat(liveVariations.SelectMany(v => v.MemberIds.Append(v.Row.Id)))
+            .Distinct()
+            .ToList();
         var overrides = await db.CatalogItemStockWarnings
-            .Where(o => o.WarehouseId == source.WarehouseId && candidateIds.Contains(o.CatalogItemId))
+            .Where(o => o.WarehouseId == source.WarehouseId && overrideIds.Contains(o.CatalogItemId))
             .ToDictionaryAsync(o => o.CatalogItemId, o => o.WarningDays, ct);
 
         var empty = new int[options.WindowDays];
-        var entries = new List<ForecastEntry>(items.Count);
+        var entries = new List<ForecastEntry>(items.Count + liveVariations.Count);
 
-        foreach (var item in items)
+        StockForecastDto Forecast(Guid id, int itemStock, int itemPhysicalStock, int[] dailyOut, int[] dailyNet)
         {
-            var itemOverride = overrides.TryGetValue(item.Id, out var days) ? days : (int?)null;
+            var itemOverride = overrides.TryGetValue(id, out var days) ? days : (int?)null;
             var warningDays = StockForecastCalculator.ResolveWarningDays(itemOverride, warehouse.StockWarningDays);
 
-            var dailyOut = movement.DailyOut.GetValueOrDefault(item.Id) ?? empty;
-            var dailyNet = movement.DailyNet.GetValueOrDefault(item.Id) ?? empty;
-            var zeroStockAge = StockForecastCalculator.FindLastZeroStockAge(
-                physicalStock.GetValueOrDefault(item.Id), dailyNet);
+            var zeroStockAge = StockForecastCalculator.FindLastZeroStockAge(itemPhysicalStock, dailyNet);
+            var stockedDays = StockForecastCalculator.FindStockedDays(itemPhysicalStock, dailyNet, dailyOut);
 
-            var calcOptions = options;
-            if (zeroStockAge is int age && age > 0)
+            var result = StockForecastCalculator.Calculate(itemStock, dailyOut, options, warningDays, stockedDays);
+
+            return new StockForecastDto
             {
-                dailyOut = dailyOut.Take(age).ToArray();
-                calcOptions = new StockForecastOptions
-                {
-                    WindowDays = age,
-                    UseWeightedConsumption = options.UseWeightedConsumption,
-                    TimeZoneId = options.TimeZoneId,
-                    OffsetMinutes = options.OffsetMinutes,
-                };
-            }
+                CatalogItemId = id,
+                Stock = itemStock,
+                DailyConsumption = result.DailyConsumption,
+                ConsumedInWindow = result.ConsumedInWindow,
+                DaysLeft = result.DaysLeft,
+                WarningDays = warningDays,
+                IsWarningOverridden = itemOverride is not null,
+                Status = result.Status,
+                DaysSinceLastZeroStock = zeroStockAge,
+                OutOfStockDays = stockedDays.Count(d => !d),
+            };
+        }
 
-            var result = StockForecastCalculator.Calculate(
-                stock.GetValueOrDefault(item.Id),
-                dailyOut,
-                calcOptions,
-                warningDays);
+        StockForecastDto ItemForecast(Guid id) =>
+            Forecast(id,
+                stock.GetValueOrDefault(id),
+                physicalStock.GetValueOrDefault(id),
+                movement.DailyOut.GetValueOrDefault(id) ?? empty,
+                movement.DailyNet.GetValueOrDefault(id) ?? empty);
 
-            if (filter.OnlyWarnings && !StockForecastCalculator.IsWarning(result.Status))
-                continue;
+        void AddEntry(CatalogRow item, StockForecastDto forecast, IReadOnlyList<StockForecastDto>? members = null)
+        {
+            if (filter.OnlyWarnings && !StockForecastCalculator.IsWarning(forecast.Status))
+                return;
 
-            entries.Add(new ForecastEntry(item.Type, item.Name, item.FullName, item.Article,
-                new StockForecastDto
-                {
-                    CatalogItemId = item.Id,
-                    Stock = stock.GetValueOrDefault(item.Id),
-                    DailyConsumption = result.DailyConsumption,
-                    ConsumedInWindow = result.ConsumedInWindow,
-                    DaysLeft = result.DaysLeft,
-                    WarningDays = warningDays,
-                    IsWarningOverridden = itemOverride is not null,
-                    Status = result.Status,
-                    DaysSinceLastZeroStock = zeroStockAge,
-                }));
+            entries.Add(new ForecastEntry(item.Type, item.Name, item.FullName, item.Article, forecast, members));
+        }
+
+        foreach (var item in items)
+            AddEntry(item, ItemForecast(item.Id));
+
+        // A variation component on an assembly order has no member picked yet, so it reserves against the
+        // variation's total only; each member row keeps just the demand that names it directly.
+        foreach (var variation in liveVariations)
+        {
+            var memberIds = variation.MemberIds;
+            var variationStock = memberIds.Sum(id => stock.GetValueOrDefault(id))
+                                 - assembly.Variations.GetValueOrDefault(variation.Row.Id);
+            var variationPhysicalStock = memberIds.Sum(id => physicalStock.GetValueOrDefault(id));
+            var variationDailyOut = SumDays(memberIds, movement.DailyOut, options.WindowDays);
+            var variationDailyNet = SumDays(memberIds, movement.DailyNet, options.WindowDays);
+
+            AddEntry(variation.Row,
+                Forecast(variation.Row.Id, variationStock, variationPhysicalStock, variationDailyOut, variationDailyNet),
+                memberIds.Select(ItemForecast).ToList());
+        }
+
+        // Only members of a variation row that made it into the result: when the variation was filtered out,
+        // the member stays on its own, so a warning on it is never lost.
+        if (filter.HideVariationMembers)
+        {
+            var nestedIds = entries
+                .SelectMany(e => e.Members ?? [])
+                .Select(m => m.CatalogItemId)
+                .ToHashSet();
+            entries.RemoveAll(e => e.Members is null && nestedIds.Contains(e.Forecast.CatalogItemId));
         }
 
         return new ForecastComputation(entries, options, warehouseWarningDays);
@@ -419,10 +473,12 @@ public class StockForecastService(
     /// <summary>
     /// The not-yet-picked quantity of every box component on orders currently in <c>Assembly</c> on this
     /// warehouse, exploded down to physical items: a Bundle component recurses into its own components,
-    /// a Variation component is dropped — it has no single member to credit, and the picker hasn't chosen
-    /// one yet.
+    /// a Variation component is kept apart under the variation's own id — it has no single member to credit,
+    /// and the picker hasn't chosen one yet.
     /// </summary>
-    private async Task<Dictionary<Guid, int>> LoadAssemblyDemandAsync(Guid warehouseId, CancellationToken ct)
+    private sealed record AssemblyDemand(Dictionary<Guid, int> Items, Dictionary<Guid, int> Variations);
+
+    private async Task<AssemblyDemand> LoadAssemblyDemandAsync(Guid warehouseId, CancellationToken ct)
     {
         var components = await db.AssemblyTaskBoxComponents
             .Where(c => c.AssemblyTaskBox.AssemblyTask.Order.WarehouseId == warehouseId
@@ -448,7 +504,7 @@ public class StockForecastService(
                 g => g.Key,
                 g => g.Select(bc => (bc.ComponentId, bc.Quantity, bc.Type)).ToList());
 
-        var demand = new Dictionary<Guid, int>();
+        var demand = new AssemblyDemand([], []);
         foreach (var component in components)
         {
             var remaining = component.Quantity - component.Fulfilled;
@@ -465,14 +521,18 @@ public class StockForecastService(
         CatalogItemType type,
         int quantity,
         IReadOnlyDictionary<Guid, List<(Guid ComponentId, int Quantity, CatalogItemType Type)>> childrenByBundle,
-        Dictionary<Guid, int> demand,
+        AssemblyDemand demand,
         HashSet<Guid> visiting)
     {
-        if (type == CatalogItemType.Variation) return;
+        if (type == CatalogItemType.Variation)
+        {
+            demand.Variations[catalogItemId] = demand.Variations.GetValueOrDefault(catalogItemId) + quantity;
+            return;
+        }
 
         if (type != CatalogItemType.Bundle)
         {
-            demand[catalogItemId] = demand.GetValueOrDefault(catalogItemId) + quantity;
+            demand.Items[catalogItemId] = demand.Items.GetValueOrDefault(catalogItemId) + quantity;
             return;
         }
 
@@ -487,22 +547,77 @@ public class StockForecastService(
 
     private sealed record CatalogRow(Guid Id, CatalogItemType Type, string Name, string FullName, string Article);
 
-    private async Task<List<CatalogRow>> LoadCatalogItemsAsync(
-        IReadOnlyList<Guid> candidateIds, CatalogFilter filter, CancellationToken ct)
-    {
-        var query = db.CatalogItems
-            .Where(c => candidateIds.Contains(c.Id))
-            .Where(c => PhysicalTypes.Contains(c.Type))
-            .WhereMatchesSearch(c => c.SearchString, filter.SearchString);
+    private sealed record VariationRow(CatalogRow Row, List<Guid> MemberIds);
 
-        if (filter.Types is { Count: > 0 } types)
-            query = query.Where(c => types.Contains(c.Type));
+    private static int[] SumDays(IEnumerable<Guid> ids, Dictionary<Guid, int[]> byItem, int windowDays)
+    {
+        var sum = new int[windowDays];
+        foreach (var id in ids)
+            if (byItem.TryGetValue(id, out var days))
+                for (var i = 0; i < windowDays; i++)
+                    sum[i] += days[i];
+
+        return sum;
+    }
+
+    /// <summary>
+    /// Variations forecast as the sum of their members. Only those made of physical members qualify: a Bundle
+    /// member holds no stock of its own, and exploding it would count shared components more than once.
+    /// </summary>
+    private async Task<List<VariationRow>> LoadVariationsAsync(
+        CatalogFilter filter, IReadOnlyCollection<Guid>? restrictToIds, CancellationToken ct)
+    {
+        var query = ApplyCommonFilter(
+            db.CatalogItems
+                .Where(c => c.Type == CatalogItemType.Variation)
+                .Where(c => c.VariationMembers.Any()
+                            && c.VariationMembers.All(m => PhysicalTypes.Contains(m.Item.Type))),
+            filter);
+
+        if (restrictToIds is not null)
+            query = query.Where(c => restrictToIds.Contains(c.Id));
+
+        var rows = await query
+            .Select(c => new
+            {
+                c.Id,
+                c.Type,
+                c.Name,
+                c.FullName,
+                c.Article,
+                MemberIds = c.VariationMembers.Select(m => m.ItemId).ToList(),
+            })
+            .ToListAsync(ct);
+
+        return rows
+            .Select(r => new VariationRow(new CatalogRow(r.Id, r.Type, r.Name, r.FullName, r.Article), r.MemberIds))
+            .ToList();
+    }
+
+    private static IQueryable<CatalogItem> ApplyCommonFilter(IQueryable<CatalogItem> query, CatalogFilter filter)
+    {
+        query = query.WhereMatchesSearch(c => c.SearchString, filter.SearchString);
 
         if (filter.TagIds is { Count: > 0 } tagIds)
             query = query.Where(c => c.Tags.Any(t => tagIds.Contains(t.Id)));
 
         if (filter.IsArchived is { } isArchived)
             query = query.Where(c => c.IsArchived == isArchived);
+
+        return query;
+    }
+
+    private async Task<List<CatalogRow>> LoadCatalogItemsAsync(
+        IReadOnlyList<Guid> candidateIds, CatalogFilter filter, CancellationToken ct)
+    {
+        var query = ApplyCommonFilter(
+            db.CatalogItems
+                .Where(c => candidateIds.Contains(c.Id))
+                .Where(c => PhysicalTypes.Contains(c.Type)),
+            filter);
+
+        if (filter.Types is { Count: > 0 } types)
+            query = query.Where(c => types.Contains(c.Type));
 
         return await query
             .Select(c => new CatalogRow(c.Id, c.Type, c.Name, c.FullName, c.Article))
@@ -515,27 +630,42 @@ public class StockForecastService(
     {
         if (entries.Count == 0) return [];
 
-        var ids = entries.Select(e => e.Forecast.CatalogItemId).ToList();
+        var ids = entries
+            .SelectMany(e => (e.Members ?? []).Append(e.Forecast))
+            .Select(f => f.CatalogItemId)
+            .Distinct()
+            .ToList();
         var items = await db.CatalogItems
             .Where(c => ids.Contains(c.Id))
             .ProjectTo<CatalogItemSummaryDto>(mapper.ConfigurationProvider)
             .ToDictionaryAsync(c => c.Id, ct);
 
+        StockForecastRowDto ToRow(StockForecastDto f, List<StockForecastRowDto>? members) => new()
+        {
+            CatalogItemId = f.CatalogItemId,
+            Stock = f.Stock,
+            DailyConsumption = f.DailyConsumption,
+            ConsumedInWindow = f.ConsumedInWindow,
+            DaysLeft = f.DaysLeft,
+            WarningDays = f.WarningDays,
+            IsWarningOverridden = f.IsWarningOverridden,
+            Status = f.Status,
+            DaysSinceLastZeroStock = f.DaysSinceLastZeroStock,
+            OutOfStockDays = f.OutOfStockDays,
+            CatalogItem = items[f.CatalogItemId],
+            Members = members,
+        };
+
         return entries
             .Where(e => items.ContainsKey(e.Forecast.CatalogItemId))
-            .Select(e => new StockForecastRowDto
-            {
-                CatalogItemId = e.Forecast.CatalogItemId,
-                Stock = e.Forecast.Stock,
-                DailyConsumption = e.Forecast.DailyConsumption,
-                ConsumedInWindow = e.Forecast.ConsumedInWindow,
-                DaysLeft = e.Forecast.DaysLeft,
-                WarningDays = e.Forecast.WarningDays,
-                IsWarningOverridden = e.Forecast.IsWarningOverridden,
-                Status = e.Forecast.Status,
-                DaysSinceLastZeroStock = e.Forecast.DaysSinceLastZeroStock,
-                CatalogItem = items[e.Forecast.CatalogItemId],
-            })
+            .Select(e => ToRow(e.Forecast, e.Members?
+                .Where(m => items.ContainsKey(m.CatalogItemId))
+                // Catalog order, the same every variation-member list keeps.
+                .OrderBy(m => items[m.CatalogItemId].IsArchived)
+                .ThenBy(m => items[m.CatalogItemId].FullName)
+                .ThenBy(m => m.CatalogItemId)
+                .Select(m => ToRow(m, null))
+                .ToList()))
             .ToList();
     }
 

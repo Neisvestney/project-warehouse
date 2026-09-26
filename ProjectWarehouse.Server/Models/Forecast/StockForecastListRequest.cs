@@ -24,13 +24,21 @@ public class StockForecastListRequest
 
     public bool? IsArchived { get; init; }
 
+    /// <summary>
+    /// <c>true</c> keeps only variation rows, <c>false</c> only physical items, <c>null</c> both — minus the
+    /// items already nested as members of a variation row in the same result.
+    /// <c>CatalogItemTypes</c> narrows the physical rows only.
+    /// </summary>
+    public bool? IsVariation { get; init; }
+
     /// <summary>Leaves only <c>OutOfStock</c> and <c>Warning</c>.</summary>
     public bool OnlyWarnings { get; init; }
 
     /// <summary>
     /// Reserves the not-yet-fulfilled quantity of items on orders currently in <c>Assembly</c> against
     /// stock, as if it were already spoken for. A Bundle component is exploded into its own components
-    /// recursively; a Variation component is dropped, since it has no single deterministic underlying item.
+    /// recursively; a Variation component has no single deterministic underlying item, so it reserves
+    /// against that variation's own row only.
     /// </summary>
     public bool AccountForAssembly { get; init; }
 
