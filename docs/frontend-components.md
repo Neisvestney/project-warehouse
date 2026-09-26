@@ -314,11 +314,12 @@ Filter row rendered as an outlined card — rounded border in `divider`, a faint
 
 The leading label is a `FilterAltIcon` on a tinted rounded square plus a «Фильтры» caption. Controls go in
 `children`; the optional `actions` slot renders at the right edge (`ml: "auto"`) for things like a reset button
-or a rarely used toggle. `activeCount` puts a badge with the number of filters that differ from their defaults
-next to the caption; the page computes it, since only the page knows what its defaults are.
+or a rarely used toggle. `activeCount` is the number of filters that differ from their defaults; the page computes
+it, since only the page knows what its defaults are. The desktop row does not show it: the controls are visible
+there, and a count next to the caption would shift them whenever it appears.
 
-Below `sm` the bar collapses into a single row — label, badge, a chevron and the `actions` — and the controls open
-under it on tap, stacked, each at full width. The widths a page sets on its controls for the desktop row
+Below `sm` the bar collapses into a single row — label, the `activeCount` chip after the caption, a chevron and the
+`actions` — and the controls open under it on tap, stacked, each at full width. The widths a page sets on its controls for the desktop row
 (`flexBasis`, `minWidth`, `maxWidth`) are overridden there, so a page never needs its own mobile layout for the
 bar. The collapsed row is why `activeCount` matters: without it a phone user cannot tell a filter is on. An
 `alignItems` passed through `sx` is meant for the desktop row; the collapsed column always stretches its content.
