@@ -447,8 +447,8 @@ Example URL: `/print?item=DataMatrix:ABC123|Товар А&item=EAN13:59012341234
 Paper count sheet for one stocktake cell at `/print/stocktakes/:id/nodes/:nodeId`, filled in by hand. Data comes
 from the same `GET /api/stocktakes/{id}/nodes/{nodeId}/stock` query as the counting accordion, so it reflects live
 stock, not the saved count. The page is the cell path plus one table — **№ / Наименование / Учёт / Факт** —
-with standard goods first, then serial units (name + inventory number, «Учёт» = 1), then five blank rows for
-surpluses. `window.print()` fires once, as soon as the data has loaded.
+with standard goods and serial units (name + inventory number, «Учёт» = 1) interleaved by `compareDraftRows`, so
+the sheet lists positions in the same order as the counting accordion, then five blank rows for surpluses. `window.print()` fires once, as soon as the data has loaded.
 
 Print styles: `@page` is A4 portrait with 10 mm margins, `thead` repeats on every sheet, rows never split across
 pages. Colours are fixed black on white so a dark theme does not leak into the printout.
@@ -526,8 +526,8 @@ live position defaults to *counted = expected* so only discrepancies need touchi
 counterpart are appended — those are surpluses entered earlier.
 
 **Row order follows the catalog list** — archived items last, then by name, serial units of one item by
-inventory number in natural order («2» before «10», `SortExtensions.InventoryNumberComparer` on the server). The server returns node stock and document lines in that order (`GET .../stock` sorts in SQL,
-the same collation as the catalog). The client only interleaves the standard and unit lists with surpluses via
+inventory number in natural order («2» before «10», `SortExtensions.InventoryNumberComparer` on the server). The server returns node stock and document lines in that order (`GET .../stock` and the
+document mapping both sort in memory with `OrderLikeCatalog`). The client only interleaves the standard and unit lists with surpluses via
 `compareDraftRows`, so a surplus added from `StocktakeAddItemModal` lands in its alphabetical place, not at the
 bottom.
 

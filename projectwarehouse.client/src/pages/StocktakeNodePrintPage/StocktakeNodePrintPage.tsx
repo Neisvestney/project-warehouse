@@ -4,6 +4,7 @@ import {Alert, Box, CircularProgress, GlobalStyles, Typography} from "@mui/mater
 import {useQuery} from "@tanstack/react-query";
 import {stocktakesGetNodeStockOptions} from "@/api/@tanstack/react-query.gen";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
+import {compareDraftRows} from "@/components/stocktakes/stocktakeDraft";
 import {extractErrorMessage} from "@/utils/errorUtils";
 
 const BLANK_ROWS = 5;
@@ -54,17 +55,28 @@ function StocktakeNodePrintPage() {
     );
   }
 
-  const rows: SheetRow[] = [
+  const stockRows = [
     ...stock.standard.map((s) => ({
       key: `s:${s.catalogItemId}`,
       name: s.catalogItemName,
       expected: s.expected,
+      catalogItemId: s.catalogItemId,
+      catalogItemName: s.catalogItemName,
+      isArchived: s.catalogItem?.isArchived ?? false,
     })),
     ...stock.units.map((u) => ({
       key: `u:${u.unitInventoryItemId}`,
       name: `${u.catalogItemName} — инв. № ${u.inventoryNumber}`,
       expected: 1,
+      catalogItemId: u.catalogItemId,
+      catalogItemName: u.catalogItemName,
+      isArchived: u.catalogItem?.isArchived ?? false,
+      inventoryNumber: u.inventoryNumber,
     })),
+  ].sort(compareDraftRows);
+
+  const rows: SheetRow[] = [
+    ...stockRows,
     ...Array.from({length: BLANK_ROWS}, (_, i) => ({key: `blank:${i}`, name: "", expected: null})),
   ];
 

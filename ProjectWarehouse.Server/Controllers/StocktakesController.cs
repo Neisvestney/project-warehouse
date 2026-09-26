@@ -49,6 +49,7 @@ public class StocktakesController(
                 .Include(s => s.Nodes)
                 .ThenInclude(n => n.Items)
                 .ThenInclude(i => i.CatalogItem)
+                .ThenInclude(c => c.Group)
                 .Include(s => s.Nodes)
                 .ThenInclude(n => n.Items)
                 .ThenInclude(i => i.UnitInventoryItem)
@@ -611,39 +612,38 @@ public class StocktakesController(
 
         var groups = await db.StoragePlacesNodesItemsGroups
             .Where(g => g.StoragePlaceNodeId == nodeId && g.Count > 0)
-            .Include(g => g.CatalogItem)
-            .OrderBy(g => g.CatalogItem.IsArchived)
-            .ThenBy(g => g.CatalogItem.Name)
-            .ThenBy(g => g.CatalogItemId)
+            .Include(g => g.CatalogItem).ThenInclude(c => c.Group)
             .ToListAsync(ct);
 
         var standard = groups
+            .OrderLikeCatalog(g => g.CatalogItem)
+            .ThenBy(g => g.CatalogItemId)
             .Select(g => new StocktakeNodeStandardStockDto
             {
                 CatalogItemId   = g.CatalogItemId,
                 CatalogItem     = mapper.Map<CatalogItemSummaryDto>(g.CatalogItem),
-                CatalogItemName = g.CatalogItem.Name,
+                CatalogItemName = g.CatalogItem.FullName,
                 Expected        = g.Count,
             })
             .ToList();
 
         var unitItems = await db.InventoryItems.OfType<UnitInventoryItem>()
             .Where(u => u.StoragePlaceNodeId == nodeId)
-            .Include(u => u.CatalogItem)
-            .OrderBy(u => u.CatalogItem.IsArchived)
-            .ThenBy(u => u.CatalogItem.Name)
-            .ThenBy(u => u.CatalogItemId)
-            .ThenBy(u => u.InventoryNumber)
+            .Include(u => u.CatalogItem).ThenInclude(c => c.Group)
             .ToListAsync(ct);
 
+        // natural inventory-number order has no SQL equivalent, so both lists sort in memory with one comparer
         var units = unitItems
+            .OrderLikeCatalog(u => u.CatalogItem)
+            .ThenBy(u => u.CatalogItemId)
+            .ThenBy(u => u.InventoryNumber, SortExtensions.InventoryNumberComparer)
             .Select(u => new StocktakeNodeUnitStockDto
             {
                 UnitInventoryItemId = u.Id,
                 InventoryNumber     = u.InventoryNumber,
                 CatalogItemId       = u.CatalogItemId,
                 CatalogItem         = mapper.Map<CatalogItemSummaryDto>(u.CatalogItem),
-                CatalogItemName     = u.CatalogItem.Name,
+                CatalogItemName     = u.CatalogItem.FullName,
             })
             .ToList();
 

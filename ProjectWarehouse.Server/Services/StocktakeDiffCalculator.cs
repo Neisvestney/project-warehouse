@@ -326,7 +326,7 @@ public class StocktakeDiffCalculator(ApplicationDbContext db) : IStocktakeDiffCa
 
         return await db.CatalogItems
             .Where(c => ids.Contains(c.Id))
-            .ToDictionaryAsync(c => c.Id, c => c.Name, ct);
+            .ToDictionaryAsync(c => c.Id, c => c.FullName, ct);
     }
 
     public StocktakeDifferencesDto ToDto(StocktakePlan plan)

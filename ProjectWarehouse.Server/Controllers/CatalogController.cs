@@ -130,7 +130,7 @@ public class CatalogController(
             CatalogSortBy.Article => orderedQuery.ThenSort(c => c.Article, sortOrder).ThenBy(c => c.Id),
             CatalogSortBy.Barcode => orderedQuery.ThenSort(c => c.Barcode, sortOrder).ThenBy(c => c.Id),
             CatalogSortBy.Type    => orderedQuery.ThenSort(c => c.Type, sortOrder).ThenBy(c => c.Id),
-            _                     => orderedQuery.ThenSort(c => c.Name, sortOrder).ThenBy(c => c.Id),
+            _                     => orderedQuery.ThenSort(c => c.FullName, sortOrder).ThenBy(c => c.Id),
         };
 
         var paginated = await query
@@ -167,9 +167,7 @@ public class CatalogController(
             query = query.Where(c => c.Tags.Any(t => tagIds.Contains(t.Id)));
 
         var items = await query
-            .OrderBy(c => c.IsArchived)
-            .ThenBy(c => c.Name)
-            .ThenBy(c => c.Id)
+            .OrderByCatalog()
             .Take(take)
             .ProjectTo<CatalogItemSelectDto>(mapper.ConfigurationProvider)
             .ToListAsync(ct);
@@ -326,7 +324,7 @@ public class CatalogController(
             .Include(c => c.Tags)
             .Include(c => c.BundleComponents).ThenInclude(bc => bc.Component)
             .Include(c => c.VariationMemberships)
-            .Include(c => c.VariationMembers)
+            .Include(c => c.VariationMembers.InCatalogOrder())
             .Include(c => c.Images)
             .FirstOrDefaultAsync(c => c.Id == id, ct);
 
@@ -403,6 +401,8 @@ public class CatalogController(
 
         await db.SaveChangesAsync(ct);
 
+        // tracked collections keep their in-memory order; a fresh load applies the include ordering
+        db.ChangeTracker.Clear();
         var afterItem = await LoadItemWithDetailsAsync(id, ct);
         var afterDto = mapper.Map<CatalogItemDto>(afterItem!);
         await changeLog.CompareAndSaveToChangelog(beforeDto, afterDto);
@@ -499,7 +499,7 @@ public class CatalogController(
             .Include(c => c.Tags)
             .Include(c => c.BundleComponents).ThenInclude(bc => bc.Component).ThenInclude(comp => comp.Group)
             .Include(c => c.VariationMemberships)
-            .Include(c => c.VariationMembers)
+            .Include(c => c.VariationMembers.InCatalogOrder())
             .Include(c => c.MainImageFile).ThenInclude(f => f!.CreatedBy)
             .Include(c => c.Images).ThenInclude(i => i.DataFile).ThenInclude(f => f.CreatedBy)
             .Include(c => c.GroupChildren).ThenInclude(child => child.Tags)

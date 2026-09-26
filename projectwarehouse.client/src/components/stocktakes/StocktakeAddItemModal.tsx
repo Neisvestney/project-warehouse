@@ -57,7 +57,7 @@ function StocktakeAddItemModal({open, onClose, onAdd}: StocktakeAddItemModalProp
     onAdd({
       kind: isUnit ? "unit" : "standard",
       catalogItemId,
-      catalogItemName: dto.name,
+      catalogItemName: dto.fullName,
       counted: isUnit ? 1 : count,
       inventoryNumber: isUnit ? inventoryNumber.trim() : undefined,
     });

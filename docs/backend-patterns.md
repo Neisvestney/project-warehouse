@@ -178,6 +178,20 @@ CreateMap<CatalogItem, CatalogItemDto>()
 
 ---
 
+## Shared orderings: one extension per shape, `[Projectable]` for Include
+
+An order that several queries must agree on (the catalog order: `IsArchived`, then `FullName`, then `Id`) lives in `SortExtensions` instead of being repeated at each call site:
+
+- **Query root** — a plain `IQueryable<T>` extension, e.g. `db.CatalogItems.OrderByCatalog()`.
+- **Collection inside a filtered Include** — an `IEnumerable<T>` extension marked `[Projectable]`, e.g. `.Include(c => c.VariationMembers.InCatalogOrder())`. EF Projectables inlines the method body before EF parses the Include, so it translates to an ordinary `ORDER BY`; without `[Projectable]` EF rejects the unknown method.
+- **Rows already in memory** — `OrderLikeCatalog(x => x.CatalogItem)`. It reads `FullName` in memory, so the query that loaded the rows must also include `CatalogItem.Group`.
+
+The name a DTO shows for a catalog item is `FullName` too. A client that re-sorts rows by that name then lands on the same order the server returned; a DTO carrying the bare `Name` makes the client order drift from the catalog.
+
+Keep both shapes side by side in `SortExtensions` so a change to the order touches one place. A filtered Include orders only freshly loaded collections: a collection that is already tracked keeps its in-memory order, so a reload after `SaveChangesAsync` that must come back ordered runs after `db.ChangeTracker.Clear()`.
+
+---
+
 ## Updating related entity lists with `IListUpdater`
 
 `IListUpdater` synchronises an in-memory EF Core navigation collection with a list of incoming DTOs using AutoMapper. It handles adds, updates, and deletes in one call, so callers don't need to diff collections manually.
