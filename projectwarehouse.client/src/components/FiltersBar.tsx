@@ -15,7 +15,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 type FiltersBarProps = Omit<StackProps, "direction" | "spacing"> & {
   children: React.ReactNode;
   actions?: React.ReactNode;
-  /** Filters that differ from their defaults; shown next to the caption, which matters most while collapsed. */
+  /** Filters that differ from their defaults; shown only in the collapsed mobile bar, where the controls are hidden. */
   activeCount?: number;
 };
 
@@ -114,7 +114,7 @@ function FiltersBar({children, actions, activeCount, sx, ...stackProps}: Filters
       sx={[{alignItems: "center", flexWrap: "wrap"}, ...cardSx]}
       {...stackProps}
     >
-      <FiltersLabel activeCount={activeCount} />
+      <FiltersLabel />
 
       {children}
 
