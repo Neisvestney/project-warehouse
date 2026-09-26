@@ -1,13 +1,11 @@
 import {useState} from "react";
 import {Alert, Chip, Stack, Typography} from "@mui/material";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
-import {useMutation, useQueryClient} from "@tanstack/react-query";
-import {
-  ordersGetAllAssemblyQueryKey,
-  ordersRemoveBoxMutation,
-} from "@/api/@tanstack/react-query.gen";
+import {useMutation} from "@tanstack/react-query";
+import {ordersRemoveBoxMutation} from "@/api/@tanstack/react-query.gen";
 import type {OrderDetailsDto} from "@/api/types.gen";
 import {formatBoxLabel} from "@/components/orders/orderUtils";
+import {useAssemblyOrderRefresh} from "./assemblyOrderRefresh";
 
 interface AssemblyOrderBoxesSectionProps {
   order: OrderDetailsDto;
@@ -15,8 +13,7 @@ interface AssemblyOrderBoxesSectionProps {
 }
 
 function AssemblyOrderBoxesSection({order, canManage}: AssemblyOrderBoxesSectionProps) {
-  const queryClient = useQueryClient();
-  const queryKey = ordersGetAllAssemblyQueryKey();
+  const {refreshOrder} = useAssemblyOrderRefresh();
 
   const [error, setError] = useState<string | null>(null);
 
@@ -24,7 +21,7 @@ function AssemblyOrderBoxesSection({order, canManage}: AssemblyOrderBoxesSection
     ...ordersRemoveBoxMutation(),
     meta: {suppressGlobalError: true},
     onSuccess: () => {
-      queryClient.invalidateQueries({queryKey});
+      void refreshOrder(order.id);
       setError(null);
     },
     onError: () => setError("Не удалось удалить коробку — возможно, она не пуста"),

@@ -20,7 +20,6 @@ import {
 import {useBackClosable} from "@/hooks/useBackClosable";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
-  ordersGetAllAssemblyQueryKey,
   ordersGetByIdQueryKey,
   ordersGetTaskMoveTargetsOptions,
   ordersMoveTaskComponentMutation,
@@ -29,6 +28,7 @@ import type {AssemblyTaskBoxComponentDto, OrderBoxDto} from "@/api/types.gen";
 import {formatBoxLabel} from "@/components/orders/orderUtils";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
 import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
+import {useAssemblyOrderRefresh} from "./assemblyOrderRefresh";
 
 interface MoveTaskComponentDialogProps {
   open: boolean;
@@ -73,6 +73,7 @@ function MoveTaskComponentContent({
   maxQuantity,
 }: Omit<MoveTaskComponentDialogProps, "open">) {
   const queryClient = useQueryClient();
+  const {refreshOrder} = useAssemblyOrderRefresh();
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [targetBoxId, setTargetBoxId] = useState<string>("");
   const [newBoxLabel, setNewBoxLabel] = useState("");
@@ -89,7 +90,7 @@ function MoveTaskComponentContent({
     ...ordersMoveTaskComponentMutation(),
     meta: {suppressGlobalError: true},
     onSuccess: () => {
-      queryClient.invalidateQueries({queryKey: ordersGetAllAssemblyQueryKey()});
+      void refreshOrder(orderId);
       queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: orderId}})});
       onClose();
     },

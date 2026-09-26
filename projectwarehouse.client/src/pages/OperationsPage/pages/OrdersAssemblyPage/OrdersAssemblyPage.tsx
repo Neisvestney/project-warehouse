@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useMemo, useState} from "react";
+import {useMemo, useState} from "react";
 import {
   Alert,
   Box,
@@ -21,8 +21,10 @@ import {useQuery, useQueryClient} from "@tanstack/react-query";
 import {ordersGetAllAssemblyOptions} from "@/api/@tanstack/react-query.gen";
 import type {OrderDetailsDto} from "@/api/types.gen";
 import {useHasPermission} from "@/hooks/usePermission";
-import {useEntityWatchMany} from "@/hooks/useEntityWatch";
+import {useEntityWatch} from "@/hooks/useEntityWatch";
 import {useRealtimeEvent} from "@/hooks/useRealtimeEvent";
+import {useSilentRefresh} from "@/hooks/useSilentRefresh";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import {byOperation} from "@/utils/queryKeys";
 import {CatalogItemDrawerHost} from "@/components/catalog/CatalogItemDrawerHost";
 import AssemblyOrderAccordion from "./AssemblyOrderAccordion";
@@ -46,6 +48,9 @@ import {
   groupAssemblyOrders,
   parseAssemblyGrouping,
 } from "./assemblyGrouping";
+import {AssemblyOrderRefreshProvider, useAssemblyOrderRefreshState} from "./assemblyOrderRefresh";
+
+const ASSEMBLY_ENTITY_ID = "00000000-0000-0000-0000-000000000000";
 
 function OrdersAssemblyPage() {
   const canFulfill = useHasPermission(
@@ -102,34 +107,28 @@ function OrdersAssemblyPage() {
   // to see each other's fulfillments instead of a "being edited" banner.
   const queryClient = useQueryClient();
   const groups = groupAssemblyOrders(orders, grouping);
-  const orderIds = useMemo(() => orders.map((o) => o.id), [orders]);
-  const refreshAssembly = useCallback(() => {
+  const orderRefresh = useAssemblyOrderRefreshState();
+  const {markSilent, showLoadingOverlay} = useSilentRefresh(
+    ordersQuery.isFetching,
+    ordersQuery.isLoading,
+  );
+
+  function refreshList() {
     void queryClient.invalidateQueries({queryKey: byOperation("ordersGetAllAssembly")});
-  }, [queryClient]);
+  }
 
-  // One refetch per completed subscription set, not one per order: the callback form of
-  // useEntityWatchMany fires per id and would invalidate the same key N times on mount.
-  const {isWatching} = useEntityWatchMany("order", orderIds);
-  useEffect(() => {
-    if (isWatching) refreshAssembly();
-  }, [isWatching, refreshAssembly]);
-
-  useRealtimeEvent("entityChanged", (_event, payload) => {
-    console.log("entityChanged", payload);
-    if (payload.entityType === "order" && orderIds.includes(payload.entityId)) refreshAssembly();
+  useEntityWatch("orderAssembly", ASSEMBLY_ENTITY_ID, () => {
+    markSilent();
+    refreshList();
   });
 
-  const [isManualRefetching, setIsManualRefetching] = useState(false);
-  const showLoading = ordersQuery.isLoading || isManualRefetching;
+  useRealtimeEvent("assemblyChanged", (_event, payload) => {
+    if (payload.scope === "list") refreshList();
+    else if (orders.some((o) => o.id === payload.orderId))
+      void orderRefresh.refreshOrder(payload.orderId, payload.taskId);
+  });
 
-  async function handleRefresh() {
-    setIsManualRefetching(true);
-    try {
-      await ordersQuery.refetch();
-    } finally {
-      setIsManualRefetching(false);
-    }
-  }
+  const showLoading = ordersQuery.isLoading;
 
   const eligibilityMap = useMemo(() => {
     const m = new Map<string, boolean>();
@@ -256,128 +255,140 @@ function OrdersAssemblyPage() {
 
   return (
     <CatalogItemDrawerHost>
-      <Stack spacing={2}>
-        <AppBreadcrumbs
-          path={[{name: "Операции", link: "/operations"}, {name: "Сборка заказов"}]}
-        />
-        <PageGenericHeader
-          title={"Сборка заказов"}
-          refresh={
-            <IconButton color="inherit" onClick={handleRefresh} disabled={showLoading}>
-              <RefreshIcon />
-            </IconButton>
-          }
-        >
-          <SearchWithItemsInput
-            text={searchInput}
-            onTextChange={setSearchInput}
-            itemIds={catalogItemIds}
-            onItemIdsChange={setCatalogItemIds}
-            sx={{flexGrow: 1}}
+      <AssemblyOrderRefreshProvider value={orderRefresh}>
+        <Stack spacing={2}>
+          <AppBreadcrumbs
+            path={[{name: "Операции", link: "/operations"}, {name: "Сборка заказов"}]}
           />
-        </PageGenericHeader>
-        <FiltersBar activeCount={[warehouseId, tagIds.length > 0].filter(Boolean).length}>
-          <WarehousesSelect
-            value={warehouseId}
-            onChange={setWarehouseId}
-            sx={{flexBasis: 200}}
-            size="small"
-            textFieldProps={{label: "Склад"}}
-          />
-          <DocumentTagsFilter
-            kind="order"
-            value={tagIds}
-            onChange={setTagIds}
-            sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
-          />
-          <TextField
-            select
-            size="small"
-            label="Группировка"
-            value={grouping}
-            onChange={(e) => setGrouping(parseAssemblyGrouping(e.target.value))}
-            sx={{flexBasis: 200}}
+          <PageGenericHeader
+            title={"Сборка заказов"}
+            refresh={
+              <IconButton
+                color="inherit"
+                onClick={() => void ordersQuery.refetch()}
+                disabled={ordersQuery.isFetching}
+              >
+                <RefreshIcon />
+              </IconButton>
+            }
           >
-            {(Object.keys(ASSEMBLY_GROUPING_LABELS) as AssemblyGrouping[]).map((g) => (
-              <MenuItem key={g} value={g}>
-                {ASSEMBLY_GROUPING_LABELS[g]}
-              </MenuItem>
-            ))}
-          </TextField>
-        </FiltersBar>
-
-        <BulkBar
-          count={selectedOrders.length}
-          countLabel={{one: "заказ выбран", few: "заказа выбрано", many: "заказов выбрано"}}
-          onClear={() => setSelectedTaskIds(new Set())}
-          actions={selectionActions}
-          info={listStats}
-          infoLoading={showLoading}
-        />
-
-        {ordersQuery.isError && (
-          <Alert severity="error">Не удалось загрузить заказы на сборке</Alert>
-        )}
-
-        {showLoading && (
-          <Box sx={{display: "flex", justifyContent: "center", p: 4}}>
-            <CircularProgress />
-          </Box>
-        )}
-
-        {orders.length === 0 && !showLoading && (
-          <Box sx={{p: 4, textAlign: "center"}}>
-            <Typography color="text.secondary">
-              {searchString || warehouseId || catalogItemIds.length > 0
-                ? "Ничего не найдено"
-                : "Нет заказов на сборке"}
-            </Typography>
-          </Box>
-        )}
-
-        {!showLoading && orders.length > 0 && (
-          <Stack direction="row" spacing={1} sx={{alignItems: "center", pl: 1}}>
-            <Checkbox
-              size="small"
-              checked={allVisibleSelected}
-              indeterminate={visibleSelectedCount > 0 && !allVisibleSelected}
-              onChange={handleToggleAllVisible}
-              slotProps={{input: {"aria-label": "Выбрать все"}}}
-              sx={{p: 0.5}}
+            <SearchWithItemsInput
+              text={searchInput}
+              onTextChange={setSearchInput}
+              itemIds={catalogItemIds}
+              onItemIdsChange={setCatalogItemIds}
+              sx={{flexGrow: 1}}
             />
-            <Typography variant="subtitle2">Выбрать все</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{whiteSpace: "nowrap"}}>
-              {pluralCount(orders.length, NOUNS.order)}
-            </Typography>
-          </Stack>
-        )}
+          </PageGenericHeader>
+          <FiltersBar activeCount={[warehouseId, tagIds.length > 0].filter(Boolean).length}>
+            <WarehousesSelect
+              value={warehouseId}
+              onChange={setWarehouseId}
+              sx={{flexBasis: 200}}
+              size="small"
+              textFieldProps={{label: "Склад"}}
+            />
+            <DocumentTagsFilter
+              kind="order"
+              value={tagIds}
+              onChange={setTagIds}
+              sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
+            />
+            <TextField
+              select
+              size="small"
+              label="Группировка"
+              value={grouping}
+              onChange={(e) => setGrouping(parseAssemblyGrouping(e.target.value))}
+              sx={{flexBasis: 200}}
+            >
+              {(Object.keys(ASSEMBLY_GROUPING_LABELS) as AssemblyGrouping[]).map((g) => (
+                <MenuItem key={g} value={g}>
+                  {ASSEMBLY_GROUPING_LABELS[g]}
+                </MenuItem>
+              ))}
+            </TextField>
+          </FiltersBar>
 
-        {!showLoading &&
-          (grouping === "none"
-            ? orders.map(renderOrder)
-            : groups.map((group) => (
-                // The mode prefix remounts groups on a mode switch, so they start collapsed again.
-                <AssemblyOrderGroup
-                  key={`${grouping}:${group.key}`}
-                  label={group.label}
-                  orders={group.orders}
-                  selectedTaskIds={selectedTaskIds}
-                  onTaskCheckChange={handleTaskCheckChange}
-                >
-                  {group.orders.map(renderOrder)}
-                </AssemblyOrderGroup>
-              )))}
+          <BulkBar
+            count={selectedOrders.length}
+            countLabel={{one: "заказ выбран", few: "заказа выбрано", many: "заказов выбрано"}}
+            onClear={() => setSelectedTaskIds(new Set())}
+            actions={selectionActions}
+            info={listStats}
+            infoLoading={showLoading}
+          />
 
-        <BatchAssemblyDialog
-          open={batchDialogOpen}
-          onClose={() => {
-            setBatchDialogOpen(false);
-            setSelectedTaskIds(new Set());
-          }}
-          selectedTasks={batchTaskInfos}
-        />
-        {downloadLabels.dialogs}
-      </Stack>
+          {ordersQuery.isError && (
+            <Alert severity="error">Не удалось загрузить заказы на сборке</Alert>
+          )}
+
+          {showLoading && (
+            <Box sx={{display: "flex", justifyContent: "center", p: 4}}>
+              <CircularProgress />
+            </Box>
+          )}
+
+          {orders.length === 0 && !showLoading && (
+            <Box sx={{p: 4, textAlign: "center"}}>
+              <Typography color="text.secondary">
+                {searchString || warehouseId || catalogItemIds.length > 0
+                  ? "Ничего не найдено"
+                  : "Нет заказов на сборке"}
+              </Typography>
+            </Box>
+          )}
+
+          {!showLoading && orders.length > 0 && (
+            <Stack direction="row" spacing={1} sx={{alignItems: "center", pl: 1}}>
+              <Checkbox
+                size="small"
+                checked={allVisibleSelected}
+                indeterminate={visibleSelectedCount > 0 && !allVisibleSelected}
+                onChange={handleToggleAllVisible}
+                slotProps={{input: {"aria-label": "Выбрать все"}}}
+                sx={{p: 0.5}}
+              />
+              <Typography variant="subtitle2">Выбрать все</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{whiteSpace: "nowrap"}}>
+                {pluralCount(orders.length, NOUNS.order)}
+              </Typography>
+            </Stack>
+          )}
+
+          {!showLoading && orders.length > 0 && (
+            <Box sx={{position: "relative"}}>
+              <LoadingOverlay open={showLoadingOverlay} />
+              <Stack spacing={2}>
+                {grouping === "none"
+                  ? orders.map(renderOrder)
+                  : groups.map((group) => (
+                      // The mode prefix remounts groups on a mode switch, so they start collapsed again.
+                      <AssemblyOrderGroup
+                        key={`${grouping}:${group.key}`}
+                        label={group.label}
+                        orders={group.orders}
+                        selectedTaskIds={selectedTaskIds}
+                        onTaskCheckChange={handleTaskCheckChange}
+                      >
+                        {group.orders.map(renderOrder)}
+                      </AssemblyOrderGroup>
+                    ))}
+              </Stack>
+            </Box>
+          )}
+
+          <BatchAssemblyDialog
+            open={batchDialogOpen}
+            onClose={() => {
+              setBatchDialogOpen(false);
+              setSelectedTaskIds(new Set());
+            }}
+            selectedTasks={batchTaskInfos}
+          />
+          {downloadLabels.dialogs}
+        </Stack>
+      </AssemblyOrderRefreshProvider>
     </CatalogItemDrawerHost>
   );
 }

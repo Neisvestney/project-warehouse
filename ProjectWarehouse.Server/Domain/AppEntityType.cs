@@ -48,4 +48,10 @@ public enum AppEntityType
     /// addresses the whole list, which is what the settings page watches.
     /// </summary>
     Tags = 20,
+
+    /// <summary>
+    /// The assembly worklist as one object — what the assembly screen watches. Nothing is journalled under it;
+    /// it only keys the subscription that <c>assemblyChanged</c> is addressed through.
+    /// </summary>
+    OrderAssembly = 21,
 }

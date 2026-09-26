@@ -16,7 +16,7 @@ public enum RealtimeAddressKind
 public readonly record struct RealtimeAddress
 {
     private RealtimeAddress(RealtimeAddressKind kind, Guid userId, AppEntityType entityType, Guid entityId,
-        Guid? exceptUserId = null, Guid? exceptConnectionId = null)
+        Guid? exceptUserId = null, Guid? exceptConnectionId = null, IReadOnlySet<Guid>? onlyUserIds = null)
     {
         Kind = kind;
         UserId = userId;
@@ -24,6 +24,7 @@ public readonly record struct RealtimeAddress
         EntityId = entityId;
         ExceptUserId = exceptUserId;
         ExceptConnectionId = exceptConnectionId;
+        OnlyUserIds = onlyUserIds;
     }
 
     public RealtimeAddressKind Kind { get; }
@@ -43,12 +44,19 @@ public readonly record struct RealtimeAddress
     /// </summary>
     public Guid? ExceptConnectionId { get; }
 
+    /// <summary>
+    /// When set, only watchers belonging to these users are told — for a collection whose rows differ per
+    /// user, where every other watcher would receive ids of objects it never sees.
+    /// </summary>
+    public IReadOnlySet<Guid>? OnlyUserIds { get; }
+
     public static RealtimeAddress ToUser(Guid userId) =>
         new(RealtimeAddressKind.User, userId, AppEntityType.Unknown, Guid.Empty);
 
     public static RealtimeAddress ToWatchers(AppEntityType entityType, Guid entityId, Guid? exceptUserId = null,
-        Guid? exceptConnectionId = null) =>
-        new(RealtimeAddressKind.Watchers, Guid.Empty, entityType, entityId, exceptUserId, exceptConnectionId);
+        Guid? exceptConnectionId = null, IReadOnlySet<Guid>? onlyUserIds = null) =>
+        new(RealtimeAddressKind.Watchers, Guid.Empty, entityType, entityId, exceptUserId, exceptConnectionId,
+            onlyUserIds);
 
     public static RealtimeAddress ToAll() =>
         new(RealtimeAddressKind.All, Guid.Empty, AppEntityType.Unknown, Guid.Empty);

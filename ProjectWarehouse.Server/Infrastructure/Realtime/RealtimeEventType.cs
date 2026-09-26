@@ -9,4 +9,5 @@ public enum RealtimeEventType
     EditLockAcquired,
     EditLockReleased,
     EntityPresenceChanged,
+    AssemblyChanged,
 }

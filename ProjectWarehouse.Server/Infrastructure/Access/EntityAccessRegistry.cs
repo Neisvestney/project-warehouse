@@ -69,6 +69,18 @@ public class EntityAccessRegistry
                 ErrorCode.OrderNotAssignedToWarehouse,
                 "You are not assigned to the warehouse of this order."),
 
+            // Registered under the collection type: only the assembly screen's subscription (Guid.Empty) goes
+            // through it, so the view rights mirror the order's. Keyed by AssemblyTask because the registry
+            // allows one rule per CLR type and Order already has its own.
+            new WarehouseScopedRule<AssemblyTask>(db, scope, AppEntityType.OrderAssembly,
+                viewAll: [Permissions.Orders.View],
+                viewAssigned: [Permissions.Orders.ViewAssigned, Permissions.Orders.AssembleAssigned],
+                editAll: [Permissions.Orders.Edit],
+                editAssigned: [Permissions.Orders.EditAssigned],
+                warehouse: t => t.Order.WarehouseId ?? Guid.Empty,
+                ErrorCode.OrderNotAssignedToWarehouse,
+                "You are not assigned to the warehouse of this order."),
+
             new StockMovementAccessRule(db, scope),
 
             new SimpleAccessRule<CatalogItem>(db, AppEntityType.CatalogItem,

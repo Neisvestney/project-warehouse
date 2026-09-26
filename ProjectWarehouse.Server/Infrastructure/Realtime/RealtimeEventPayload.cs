@@ -15,6 +15,7 @@ namespace ProjectWarehouse.Server.Infrastructure.Realtime;
 [JsonDerivedType(typeof(EditLockAcquiredPayload), "editLockAcquired")]
 [JsonDerivedType(typeof(EditLockReleasedPayload), "editLockReleased")]
 [JsonDerivedType(typeof(EntityPresenceChangedPayload), "entityPresenceChanged")]
+[JsonDerivedType(typeof(AssemblyChangedPayload), "assemblyChanged")]
 public abstract class RealtimeEventPayload
 {
     [JsonIgnore]
@@ -120,4 +121,37 @@ public class EntityPresenceChangedPayload : RealtimeEventPayload
 
     /// <summary>Deduplicated by user — several tabs of one person are one viewer.</summary>
     public required IReadOnlyList<RealtimeViewer> Viewers { get; init; }
+}
+
+/// <summary>What an <see cref="AssemblyChangedPayload"/> asks the assembly screen to reread.</summary>
+public enum AssemblyChangeScope
+{
+    /// <summary>One task of an order already on the list — reread that order, point at the task.</summary>
+    Task = 0,
+
+    /// <summary>An order already on the list — reread that order.</summary>
+    Order = 1,
+
+    /// <summary>The order entered or left someone's list — reread the whole list.</summary>
+    List = 2,
+}
+
+/// <summary>
+/// Addressed to the watchers of the <see cref="AppEntityType.OrderAssembly"/> collection, narrowed to the
+/// assignees of the order's tasks: the worklist is per user, so nobody else has the order on screen.
+/// </summary>
+public class AssemblyChangedPayload : RealtimeEventPayload
+{
+    [JsonIgnore]
+    public override RealtimeEventType Type => RealtimeEventType.AssemblyChanged;
+
+    public required AssemblyChangeScope Scope { get; init; }
+
+    public required Guid OrderId { get; init; }
+
+    public Guid? TaskId { get; init; }
+
+    public Guid? ByUserId { get; init; }
+
+    public string? ByUserName { get; init; }
 }

@@ -33,3 +33,10 @@ declare module "@mui/material/Chip" {
     itemBundle: true;
   }
 }
+
+declare module "@mui/material/Accordion" {
+  interface AccordionHeadingSlotPropsOverrides {
+    /** Read by the assembly screen's `RefreshingAccordionHeading` slot. */
+    refreshing?: boolean;
+  }
+}

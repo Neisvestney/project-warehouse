@@ -24,6 +24,8 @@ import {getTaskProgress} from "@/components/orders/orderAssemblyUtils";
 import {NOUNS, plural, pluralCount} from "@/utils/pluralUtils";
 import PostingNumberLabel from "@/components/orders/marketplace/PostingNumberLabel";
 import CheckIcon from "@mui/icons-material/Check";
+import RefreshingAccordionHeading from "./RefreshingAccordionHeading";
+import {useAssemblyOrderRefresh} from "./assemblyOrderRefresh";
 
 interface AssemblyOrderAccordionProps {
   order: OrderDetailsDto;
@@ -41,6 +43,7 @@ function AssemblyOrderAccordion({
   eligibilityMap,
 }: AssemblyOrderAccordionProps) {
   const tasks = order.assemblyTasks;
+  const {isOrderRefreshing, isTaskRefreshing} = useAssemblyOrderRefresh();
 
   const [expanded, setExpanded] = useState(false);
 
@@ -69,12 +72,18 @@ function AssemblyOrderAccordion({
     for (const task of tasks) onTaskCheckChange(order.id, task.id, checked);
   }
 
+  // a lone task is drawn inside this accordion, so its refresh dims the whole order
+  const isRefreshing =
+    isOrderRefreshing(order.id) || (soleTask !== null && isTaskRefreshing(soleTask.task.id));
+
   return (
     <Accordion
       expanded={expanded}
       onChange={(_, v) => setExpanded(v)}
       disableGutters
-      slotProps={{transition: {unmountOnExit: true}}}
+      slots={{heading: RefreshingAccordionHeading}}
+      slotProps={{transition: {unmountOnExit: true}, heading: {refreshing: isRefreshing}}}
+      sx={{position: "relative"}}
     >
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <SummaryUi>

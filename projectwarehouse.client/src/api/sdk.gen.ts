@@ -193,6 +193,9 @@ import type {
   OrdersGetAllData,
   OrdersGetAllErrors,
   OrdersGetAllResponses,
+  OrdersGetAssemblyByIdData,
+  OrdersGetAssemblyByIdErrors,
+  OrdersGetAssemblyByIdResponses,
   OrdersGetByIdData,
   OrdersGetByIdErrors,
   OrdersGetByIdResponses,
@@ -1768,6 +1771,24 @@ export const ordersGetAllAssembly = <ThrowOnError extends boolean = false>(
     OrdersGetAllAssemblyErrors,
     ThrowOnError
   >({url: "/api/orders/assembly", ...options});
+
+/**
+ * One order of the caller's assembly worklist, in exactly the shape `GET /assembly` returns it.
+ *
+ * Lets the assembly screen reread a single order after an `assemblyChanged` event or its own mutation
+ * instead of the whole list. The list filters (`warehouseId`, `searchString`, …) are not applied.
+ * Returns 404 `orderNotFound` when the order does not exist, is not in `Assembly`, carries no task
+ * assigned to the caller or lies outside the caller's warehouses — every case in which it is not on the list.
+ * Requires the same view access as `GET /assembly`.
+ */
+export const ordersGetAssemblyById = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersGetAssemblyByIdData, ThrowOnError>,
+): RequestResult<OrdersGetAssemblyByIdResponses, OrdersGetAssemblyByIdErrors, ThrowOnError> =>
+  (options.client ?? client).get<
+    OrdersGetAssemblyByIdResponses,
+    OrdersGetAssemblyByIdErrors,
+    ThrowOnError
+  >({url: "/api/orders/{id}/assembly", ...options});
 
 /**
  * Delete an order. Only allowed in Draft status.

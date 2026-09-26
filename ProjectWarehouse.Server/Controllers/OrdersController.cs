@@ -35,7 +35,8 @@ public class OrdersController(
     IRealtimeNotifier realtime,
     ICatalogService catalog,
     IChangeLogService<OrderDetailsDto> changeLog,
-    IDataFileBindingService fileBinding) : AppControllerBase
+    IDataFileBindingService fileBinding,
+    IAssemblyChangeNotifier assemblyChanges) : AppControllerBase
 {
     private EntityAccessRule<Order> Rule => access.For<Order>();
 
@@ -226,6 +227,14 @@ public class OrdersController(
         foreach (var (before, action) in changes)
             await changeLog.CompareAndSaveToChangelog(before, MapDetails(full[before.Id], nodeById), action);
     }
+
+    /// <summary>The batch counterpart of <see cref="PublishesAssemblyChangedAttribute"/>: the route carries no id,
+    /// so the state is captured by the action and only the orders that actually changed are announced.</summary>
+    private Task PublishBatchAssemblyChangedAsync(IReadOnlyDictionary<Guid, AssemblyOrderState> before,
+        IReadOnlyCollection<Guid> changedOrderIds, CancellationToken ct) =>
+        assemblyChanges.PublishAsync(
+            before.Where(kv => changedOrderIds.Contains(kv.Key)).ToDictionary(kv => kv.Key, kv => kv.Value),
+            AssemblyChangeScope.Order, null, HttpContext, ct);
 
     /// <summary>Picks the <see cref="OrderActions"/> constant that best describes a status transition, for the
     /// changelog entry <see cref="TransitionStatus"/> and <see cref="BatchTransitionStatus"/> write.</summary>
@@ -458,42 +467,7 @@ public class OrdersController(
         if (userId is null)
             return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
 
-        var accessible = await Rule.QueryAsync(User, AccessLevel.View, ct);
-
-        var query = accessible
-            .Include(o => o.Warehouse)
-            .Include(o => o.MarketplaceOrder!.MarketplaceAccount)
-            .Include(o => o.CreatedBy)
-            .Include(o => o.Tags)
-            .Include(o => o.Boxes.OrderBy(b => b.Id)).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
-            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
-                .ThenInclude(t => t.AssignedTo)
-            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
-                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.OrderBox)
-            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
-                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
-            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
-                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
-                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.BundleComponents).ThenInclude(bc => bc.CatalogItem).ThenInclude(ci => ci.Group)
-            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
-                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
-                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.BundleComponents).ThenInclude(bc => bc.SourceNode).ThenInclude(n => n.RootStoragePlace)
-            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
-                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
-                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.SourceNode).ThenInclude(n => n!.RootStoragePlace)
-            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
-                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
-                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.ResolvedCatalogItem).ThenInclude(ci => ci!.Group)
-            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
-                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
-                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.CreatedBy)
-            // ReturnState compares the returned units with the lines, so both are needed
-            .Include(o => o.MarketplaceItems)
-                .ThenInclude(i => i.MarketplaceCard).ThenInclude(c => c!.CatalogItem)
-            .Include(o => o.MarketplaceReturns)
-            .Where(o => o.Status == OrderStatus.Assembly)
-            .Where(o => o.AssemblyTasks.Any(t => t.AssignedToId == userId))
-            .AsSplitQuery();
+        var query = AssemblyQuery(await Rule.QueryAsync(User, AccessLevel.View, ct), userId.Value);
         
         if (warehouseId is not null)
             query = query.Where(o => o.WarehouseId == warehouseId);
@@ -506,7 +480,80 @@ public class OrdersController(
 
         query = query.WhereMatchesExtendedSearch((o, pattern) => o.MatchesExtendedSearch(pattern), searchString);
 
-        var result = await query.ToListAsync(ct);
+        return Ok(await MapAssemblyAsync(await query.ToListAsync(ct), ct));
+    }
+
+    // ── GET /api/orders/{id}/assembly ─────────────────────────────────────────
+
+    /// <summary>One order of the caller's assembly worklist, in exactly the shape <c>GET /assembly</c> returns it.</summary>
+    /// <remarks>
+    /// Lets the assembly screen reread a single order after an <c>assemblyChanged</c> event or its own mutation
+    /// instead of the whole list. The list filters (<c>warehouseId</c>, <c>searchString</c>, …) are not applied.
+    /// Returns 404 <c>orderNotFound</c> when the order does not exist, is not in <c>Assembly</c>, carries no task
+    /// assigned to the caller or lies outside the caller's warehouses — every case in which it is not on the list.
+    /// Requires the same view access as <c>GET /assembly</c>.
+    /// </remarks>
+    [HttpGet("{id:guid}/assembly")]
+    [Authorize]
+    [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetAssemblyById(Guid id, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
+
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+
+        var order = await AssemblyQuery(await Rule.QueryAsync(User, AccessLevel.View, ct), userId.Value)
+            .FirstOrDefaultAsync(o => o.Id == id, ct);
+        if (order is null)
+            return NotFound(ErrorCode.OrderNotFound, "Order not found.");
+
+        return Ok((await MapAssemblyAsync([order], ct))[0]);
+    }
+
+    /// <summary>Assembly-status orders carrying a task of <paramref name="userId"/>, with only that user's tasks loaded.</summary>
+    private static IQueryable<Order> AssemblyQuery(IQueryable<Order> accessible, Guid userId) =>
+        accessible
+            .Include(o => o.Warehouse)
+            .Include(o => o.MarketplaceOrder!.MarketplaceAccount)
+            .Include(o => o.CreatedBy)
+            .Include(o => o.Tags)
+            .Include(o => o.Boxes.OrderBy(b => b.Id)).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.AssignedTo)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.OrderBox)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
+                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.BundleComponents).ThenInclude(bc => bc.CatalogItem).ThenInclude(ci => ci.Group)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
+                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.BundleComponents).ThenInclude(bc => bc.SourceNode).ThenInclude(n => n.RootStoragePlace)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
+                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.SourceNode).ThenInclude(n => n!.RootStoragePlace)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
+                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.ResolvedCatalogItem).ThenInclude(ci => ci!.Group)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
+                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.CreatedBy)
+            // ReturnState compares the returned units with the lines, so both are needed
+            .Include(o => o.MarketplaceItems)
+                .ThenInclude(i => i.MarketplaceCard).ThenInclude(c => c!.CatalogItem)
+            .Include(o => o.MarketplaceReturns)
+            .Where(o => o.Status == OrderStatus.Assembly)
+            .Where(o => o.AssemblyTasks.Any(t => t.AssignedToId == userId))
+            .AsSplitQuery();
+
+    /// <summary>Maps worklist orders and annotates every task box component with <c>containsUnit</c>.</summary>
+    private async Task<List<OrderDetailsDto>> MapAssemblyAsync(List<Order> result, CancellationToken ct)
+    {
         var nodeById = await LoadWarehouseNodesAsync(
             result.Select(o => o.WarehouseId).Distinct().ToList(), ct);
         var dtos = mapper.Map<List<OrderDetailsDto>>(result, opts => opts.Items["nodeById"] = nodeById);
@@ -521,7 +568,7 @@ public class OrdersController(
         foreach (var componentDto in componentDtos)
             componentDto.ContainsUnit = containsUnitByCatalogItemId.GetValueOrDefault(componentDto.CatalogItemId);
 
-        return Ok(dtos);
+        return dtos;
     }
 
     // ── GET /api/orders/{id} ──────────────────────────────────────────────────
@@ -676,6 +723,7 @@ public class OrdersController(
     /// composition and status are changed through their own endpoints. Allowed in any status.
     /// Returns 404 <c>orderNotFound</c>. Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
+    [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
     [HttpPut("{id:guid}")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
@@ -703,6 +751,7 @@ public class OrdersController(
     /// Returns 404 <c>orderNotFound</c>; 422 <c>dataFileNotFound</c> (field <c>attachments</c>) for an
     /// unknown attachment id. Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
+    [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
     [HttpPatch("{id:guid}/attachments")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
@@ -736,6 +785,7 @@ public class OrdersController(
     /// Body: <c>UpdateTagsRequest</c> — the full tag id set; unknown ids are ignored. Returns 404
     /// <c>orderNotFound</c>. Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
+    [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
     [HttpPatch("{id:guid}/tags")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
@@ -769,6 +819,7 @@ public class OrdersController(
     /// Returns 422 <c>orderNotDraft</c> for any other status, 404 <c>orderNotFound</c> if it does not exist.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
+    [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
     [HttpDelete("{id:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -823,6 +874,7 @@ public class OrdersController(
     /// written and the request can be repeated.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
+    [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
     [HttpPut("{id:guid}/status")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
@@ -868,6 +920,7 @@ public class OrdersController(
     /// unscoped <c>orders.view</c>, who see every order anyway. Returns 422 <c>orderNotConfirmed</c> if the order
     /// is in any other status, 404 <c>orderNotFound</c> if it does not exist.
     /// </remarks>
+    [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
     [HttpPost("{id:guid}/self-assign")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
@@ -1071,6 +1124,7 @@ public class OrdersController(
 
         var orderIds           = request.OrderIds.Distinct().ToList();
         var (loaded, nodeById) = await LoadBatchDetailsAsync(db.Orders, orderIds, ct);
+        var assemblyBefore     = await assemblyChanges.CaptureAsync(loaded.Keys, ct);
 
         var assignedOrderIds = new List<Guid>();
         var failedItems      = new List<BatchSelfAssignFailedItem>();
@@ -1114,6 +1168,7 @@ public class OrdersController(
         }
 
         await SaveBatchChangelogsAsync(changes, nodeById, ct);
+        await PublishBatchAssemblyChangedAsync(assemblyBefore, assignedOrderIds, ct);
 
         return Ok(new BatchSelfAssignResponse
         {
@@ -1156,6 +1211,7 @@ public class OrdersController(
         var orderIds           = request.OrderIds.Distinct().ToList();
         var accessible         = await Rule.QueryAsync(User, AccessLevel.Edit, ct);
         var (loaded, nodeById) = await LoadBatchDetailsAsync(accessible, orderIds, ct);
+        var assemblyBefore     = await assemblyChanges.CaptureAsync(loaded.Keys, ct);
 
         var transitionedOrderIds = new List<Guid>();
         var failedItems          = new List<BatchTransitionStatusFailedItem>();
@@ -1212,6 +1268,7 @@ public class OrdersController(
         }
 
         await SaveBatchChangelogsAsync(changes, nodeById, ct);
+        await PublishBatchAssemblyChangedAsync(assemblyBefore, transitionedOrderIds, ct);
 
         return Ok(new BatchTransitionStatusResponse
         {
@@ -1233,6 +1290,7 @@ public class OrdersController(
     /// (403 <c>orderNotAssignedToWarehouse</c>). Returns 404 <c>orderNotFound</c>.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
+    [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
     [HttpPost("{id:guid}/boxes")]
     [Authorize]
     [ProducesResponseType<OrderBoxDto>(StatusCodes.Status201Created)]
@@ -1282,6 +1340,7 @@ public class OrdersController(
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
+    [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
     [HttpPut("{id:guid}/boxes/{boxId:guid}")]
     [Authorize]
     [ProducesResponseType<OrderBoxDto>(StatusCodes.Status200OK)]
@@ -1312,6 +1371,7 @@ public class OrdersController(
     /// order is in Assembly only <c>orders.assemble_assigned</c> is accepted.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
+    [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
     [HttpDelete("{id:guid}/boxes/{boxId:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -1364,6 +1424,7 @@ public class OrdersController(
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
+    [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
     [HttpPost("{id:guid}/boxes/{boxId:guid}/components")]
     [Authorize]
     [ProducesResponseType<OrderBoxComponentDto>(StatusCodes.Status201Created)]
@@ -1408,6 +1469,7 @@ public class OrdersController(
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
+    [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
     [HttpPut("{id:guid}/boxes/{boxId:guid}/components/{cid:guid}")]
     [Authorize]
     [ProducesResponseType<OrderBoxComponentDto>(StatusCodes.Status200OK)]
@@ -1461,6 +1523,7 @@ public class OrdersController(
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
+    [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
     [HttpDelete("{id:guid}/boxes/{boxId:guid}/components/{cid:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -1503,6 +1566,7 @@ public class OrdersController(
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
+    [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
     [HttpPost("{id:guid}/assembly-tasks")]
     [Authorize]
     [ProducesResponseType<AssemblyTaskDto>(StatusCodes.Status201Created)]
@@ -1542,6 +1606,7 @@ public class OrdersController(
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
+    [PublishesAssemblyChanged(AssemblyChangeScope.Task)]
     [HttpPut("{id:guid}/assembly-tasks/{taskId:guid}")]
     [Authorize]
     [ProducesResponseType<AssemblyTaskDto>(StatusCodes.Status200OK)]
@@ -1584,6 +1649,7 @@ public class OrdersController(
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
+    [PublishesAssemblyChanged(AssemblyChangeScope.Task)]
     [HttpDelete("{id:guid}/assembly-tasks/{taskId:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -1637,6 +1703,7 @@ public class OrdersController(
     /// assignment to the order's warehouse in every case (403 <c>orderNotAssignedToWarehouse</c>).
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
+    [PublishesAssemblyChanged(AssemblyChangeScope.Task)]
     [HttpPut("{id:guid}/assembly-tasks/{taskId:guid}/status")]
     [Authorize]
     [ProducesResponseType<AssemblyTaskDto>(StatusCodes.Status200OK)]
@@ -1679,6 +1746,7 @@ public class OrdersController(
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
+    [PublishesAssemblyChanged(AssemblyChangeScope.Task)]
     [HttpPut("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}")]
     [Authorize]
     [ProducesResponseType<AssemblyTaskBoxComponentDto>(StatusCodes.Status200OK)]
@@ -1768,6 +1836,7 @@ public class OrdersController(
     /// alone gets 403.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
+    [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
     [HttpPost("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}/move")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
@@ -1832,6 +1901,7 @@ public class OrdersController(
     /// assignment to the order's warehouse in every case.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
+    [PublishesAssemblyChanged(AssemblyChangeScope.Task)]
     [HttpPost("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}/fulfillments")]
     [Authorize]
     [ProducesResponseType<AssemblyFulfillmentDto>(StatusCodes.Status201Created)]
@@ -1907,6 +1977,7 @@ public class OrdersController(
     /// assignment to the order's warehouse in every case.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
+    [PublishesAssemblyChanged(AssemblyChangeScope.Task)]
     [HttpDelete("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}/fulfillments/{fid:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -1995,6 +2066,7 @@ public class OrdersController(
         var completedTaskIds = new List<string>();
         var failedItems      = new List<BatchFulfillFailedItem>();
         var changedOrderIds  = new HashSet<Guid>();
+        var assemblyBefore   = await assemblyChanges.CaptureAsync(request.Items.Select(i => i.OrderId).Distinct().ToList(), ct);
 
         var shortages = new Dictionary<(Guid NodeId, Guid CatalogItemId), List<InsufficientInventoryException>>();
 
@@ -2199,6 +2271,7 @@ public class OrdersController(
 
         foreach (var orderId in changedOrderIds)
             await realtime.PublishEntityChangedAsync(AppEntityType.Order, orderId, HttpContext, ct);
+        await PublishBatchAssemblyChangedAsync(assemblyBefore, changedOrderIds, ct);
 
         // Read after the transaction settled: the snapshot each exception carries was taken mid-batch, with
         // the stock already eaten by its neighbours — and under a rollback that stock is back on the shelf.

@@ -40,6 +40,6 @@ public static class EntityChangedEvents
     public static Guid? GetConnectionId(HttpContext? httpContext) =>
         Guid.TryParse(httpContext?.Request.Headers[ConnectionIdHeader], out var id) ? id : null;
 
-    private static Guid? GetUserId(ClaimsPrincipal? user) =>
+    public static Guid? GetUserId(ClaimsPrincipal? user) =>
         Guid.TryParse(user?.FindFirstValue(JwtRegisteredClaimNames.Sub), out var id) ? id : null;
 }

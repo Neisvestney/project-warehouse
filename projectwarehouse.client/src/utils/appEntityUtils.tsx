@@ -289,6 +289,12 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     typeName: "Теги",
     icon: <LocalOfferIcon />,
   },
+  // Only a subscription key of the assembly screen — nothing is journalled under it
+  orderAssembly: {
+    linkTemplate: "/operations/orders/assembly",
+    typeName: "Сборка заказов",
+    icon: <AssignmentIcon />,
+  },
 };
 
 export function resolveEntity(entity: AppEntity): ResolvedEntity {

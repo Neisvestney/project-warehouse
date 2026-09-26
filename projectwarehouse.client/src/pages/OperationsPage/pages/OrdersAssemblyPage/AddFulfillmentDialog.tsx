@@ -17,7 +17,6 @@ import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {
   ordersAddFulfillmentMutation,
   ordersBatchFulfillMutation,
-  ordersGetAllAssemblyQueryKey,
   ordersGetByIdQueryKey,
 } from "@/api/@tanstack/react-query.gen";
 import type {
@@ -43,6 +42,7 @@ import {NodeControl, UnitPicker, type NodePick} from "./FulfillmentControls";
 import {BundleTree} from "./FulfillmentTree";
 import {VariationChain} from "./VariationChain";
 import {chainLeaf, type VariantStep} from "./variationOptions";
+import {useAssemblyOrderRefresh} from "./assemblyOrderRefresh";
 
 interface AddFulfillmentDialogProps {
   open: boolean;
@@ -90,6 +90,7 @@ function AddFulfillmentContent({
   boxLabel,
 }: Omit<AddFulfillmentDialogProps, "open">) {
   const queryClient = useQueryClient();
+  const {refreshOrder} = useAssemblyOrderRefresh();
   const {registry, scrollToFirst} = useTodoRegistry();
 
   const [chain, setChain] = useState<VariantStep[]>([]);
@@ -133,7 +134,7 @@ function AddFulfillmentContent({
     ...ordersAddFulfillmentMutation(),
     meta: {suppressGlobalError: true},
     onSuccess: () => {
-      queryClient.invalidateQueries({queryKey: ordersGetAllAssemblyQueryKey()});
+      void refreshOrder(orderId, taskId);
       queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: orderId}})});
       onClose();
     },
@@ -147,7 +148,7 @@ function AddFulfillmentContent({
     ...ordersBatchFulfillMutation(),
     meta: {suppressGlobalError: true},
     onSuccess: (data) => {
-      queryClient.invalidateQueries({queryKey: ordersGetAllAssemblyQueryKey()});
+      void refreshOrder(orderId, taskId);
       queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: orderId}})});
       if (data.failedItems.length === 0) onClose();
       else setFailedItems(data.failedItems);
