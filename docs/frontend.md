@@ -696,6 +696,39 @@ row holds a name over an article and `height` on a `th` is only a minimum, so a 
 metric row over the group row and the column borders visibly merge as soon as the table scrolls. A thick left
 border opens a group, a thin one separates metrics inside it.
 
+**Column widths are fixed.** The table runs `table-layout: fixed` over a `<colgroup>` of `DATE_COLUMN_WIDTH`
+plus `VALUE_COLUMN_WIDTH` per sub-column. The automatic layout would size each column to the rows the
+virtualizer happens to have mounted, and the widths would jump while scrolling; a value too wide for its
+column is cut with an ellipsis instead.
+
+**Column hover.** Every value and metric-header cell carries `data-col` — its flat sub-column index — and the
+hovered column is tinted through a `<style>` element the table writes into directly, a `background-image`
+gradient at 60% of `action.hover` layered over whatever background the cell already has. It is not React
+state: a re-render per hovered cell would re-render every mounted cell of a table that can be thousands of
+columns wide.
+
+**Cell drill-down.** Clicking a body cell opens `StockMovementCellDialog` (local state + `useBackClosable`)
+with the raw movements behind it, from `POST /api/statistics/stock-movements/cell`: the cell's day and item
+(every selected item for the «Итого» group), and the metric's predicate for a metric sub-column, none for
+«Итого движение» and «Остаток». The server collapses a burst — more than 10 movements by one user with one
+action and direction, each within 5 minutes of the previous — into one expandable row, the shape a batch
+assembly of FBS orders leaves. The list loads as an infinite scroll over a `before` cursor; the server ends
+each page on a pause longer than that gap, so a group stays on one page — unless the activity ran for 4
+hours without such a pause, where the page is cut regardless and the burst there may split. Clicking «Итого
+движение» or «Остаток» lists the day's movements under the title «Движения за день»; the balance itself is a
+running total that no list of one day's rows can explain. The pivot nets a
+same-day cancellation against the move it reverses; the server pairs the listed rows the same way, matching
+unit by unit each cancellation, earliest first, against the moves made before it, latest first — whatever
+the pivot's coarser rule nets beyond those chronological pairs is matched regardless of order, so the
+totals agree — and reports per row how much of it
+is netted (`nettedQuantity` — the «взаимозачтено» / «взаимозачтено 1 из 2» chip). A half of a pair the cell's
+metric leaves out comes as a `counterpart` of exactly one listed row — the partner it shares the most
+quantity with — and renders greyed under it behind a `├─` / `└─` connector, so it appears once however many
+rows it was matched against or pages they span. A half the metric does cover is a row of the list in its own
+right and is never repeated as a counterpart. Times are
+shown in the pivot's `timeZoneId`, the zone the day was cut in. Document links navigate with `replace`, as
+every link inside a `useBackClosable` overlay must.
+
 **Metrics** are named filters — an action set, a direction set and a receipt-tag set, ANDed, all optional.
 The value is a signed net, so a metric restricted to `out` reports `−45` without the client deciding a sign.
 Metrics may overlap («Новый товар» covers «Приёмка HOT»), which is why the net and balance columns come from

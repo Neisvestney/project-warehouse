@@ -2210,6 +2210,100 @@ export type StockMovementBreakdownItemDto = {
   net: number;
 };
 
+export type StockMovementCellDto = {
+  /**
+   * Newest first; a group sits where its latest movement would.
+   */
+  entries: Array<StockMovementEntryDto>;
+  /**
+   * Movements in the whole cell; sent with the first page only.
+   */
+  totalCount?: null | number;
+  /**
+   * Pass back as `before` to load the next, older page; null on the last one.
+   */
+  nextBefore?: null | string;
+};
+
+/**
+ * The movements behind one pivot cell: the shared filter narrowed to the cell's day and item, plus the
+ * predicate of the metric the cell belongs to. A POST for the same reason as the pivot itself.
+ */
+export type StockMovementCellRequest = {
+  metric?: null | StockMovementMetricDto;
+  /**
+   * Paging cursor: the previous page's `nextBefore`, or null for the first page.
+   */
+  before?: null | string;
+  /**
+   * Inclusive first day, in the resolved time zone. Defaults to 29 days before DateOnly? StockMovementFilterRequest.To.
+   */
+  from?: null | string;
+  /**
+   * Inclusive last day, in the resolved time zone. Defaults to today.
+   */
+  to?: null | string;
+  /**
+   * Narrows the rows and, when the warehouse has a zone of its own, decides where the day breaks.
+   */
+  warehouseId?: null | string;
+  storagePlaceId?: null | string;
+  nodeId?: null | string;
+  userId?: null | string;
+  /**
+   * Catalog items to keep. Empty means all — in the pivot that also means the columns are picked by volume.
+   */
+  catalogItemIds?: null | Array<string>;
+  /**
+   * Receipt tags to keep — a row matches when its receipt carries any of them. Empty means all.
+   * Movements made outside a receipt never match, so a non-empty value also drops them.
+   */
+  receiptTagIds?: null | Array<string>;
+  /**
+   * Action constants to keep (`receipt.placement_added`, `transfer.standard`, …). Empty means all.
+   */
+  actions?: null | Array<string>;
+  directions?: null | Array<StockMovementDirection>;
+};
+
+export type StockMovementCellRowDto = {
+  /**
+   * How much of int StockMovementDto.Quantity the pivot's same-day netting takes out of the
+   * cell; zero for a row it counts in full.
+   */
+  nettedQuantity: number;
+  /**
+   * Halves of this row's cancellation pairs that the cell's metric does not cover and that would
+   * otherwise be missing from the list. Each hangs under exactly one row; a half the metric covers is
+   * listed as a row of its own instead.
+   */
+  counterparts: Array<StockMovementCellRowDto>;
+  id: string;
+  createdAt: string;
+  direction: StockMovementDirection;
+  action: string;
+  quantity: number;
+  catalogItemId: string;
+  catalogItem: CatalogItemSummaryDto;
+  warehouseId?: null | string;
+  warehouseName?: null | string;
+  storagePlaceId?: null | string;
+  storagePlaceName?: null | string;
+  storagePlaceNodeId?: null | string;
+  storagePlaceNodeName?: null | string;
+  userId?: null | string;
+  userName?: null | string;
+  unitInventoryNumber?: null | string;
+  receiptId?: null | string;
+  receiptNumber?: null | number;
+  orderId?: null | string;
+  orderNumber?: null | number;
+  writeoffId?: null | string;
+  writeoffNumber?: null | number;
+  stocktakeId?: null | string;
+  stocktakeNumber?: null | number;
+};
+
 export type StockMovementDailyPointDto = {
   date: string;
   inQuantity: number;
@@ -2261,6 +2355,35 @@ export type StockMovementDto = {
   storagePlaceNodeName?: null | string;
   userId?: null | string;
   userName?: null | string;
+  unitInventoryNumber?: null | string;
+  receiptId?: null | string;
+  receiptNumber?: null | number;
+  orderId?: null | string;
+  orderNumber?: null | number;
+  writeoffId?: null | string;
+  writeoffNumber?: null | number;
+  stocktakeId?: null | string;
+  stocktakeNumber?: null | number;
+};
+
+/**
+ * Either a single movement or a burst of them: more than the threshold, made by one user with one action
+ * and direction, with no pause between neighbours longer than the gap. Batch assembly of a hundred FBS
+ * orders is the case it exists for.
+ */
+export type StockMovementEntryDto = {
+  isGroup: boolean;
+  firstAt: string;
+  lastAt: string;
+  direction: StockMovementDirection;
+  action: string;
+  userId?: null | string;
+  userName?: null | string;
+  quantity: number;
+  /**
+   * Exactly one for a single movement; newest first.
+   */
+  movements: Array<StockMovementCellRowDto>;
 };
 
 export type StockMovementGroupBy =
@@ -7235,6 +7358,42 @@ export type StatisticsGetPivotResponses = {
 
 export type StatisticsGetPivotResponse =
   StatisticsGetPivotResponses[keyof StatisticsGetPivotResponses];
+
+export type StatisticsGetCellData = {
+  body: StockMovementCellRequest;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path?: never;
+  query?: never;
+  url: "/api/statistics/stock-movements/cell";
+};
+
+export type StatisticsGetCellErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type StatisticsGetCellError = StatisticsGetCellErrors[keyof StatisticsGetCellErrors];
+
+export type StatisticsGetCellResponses = {
+  /**
+   * OK
+   */
+  200: StockMovementCellDto;
+};
+
+export type StatisticsGetCellResponse =
+  StatisticsGetCellResponses[keyof StatisticsGetCellResponses];
 
 export type StatisticsGetBreakdownData = {
   body?: never;

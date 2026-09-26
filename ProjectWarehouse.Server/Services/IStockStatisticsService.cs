@@ -25,6 +25,12 @@ public interface IStockStatisticsService
         StockMovementPivotRequest request,
         CancellationToken ct = default);
 
+    /// <summary>Movements behind one pivot cell, with bursts by one user collapsed into groups.</summary>
+    Task<StockMovementCellDto> GetCellAsync(
+        ClaimsPrincipal user,
+        StockMovementCellRequest request,
+        CancellationToken ct = default);
+
     /// <summary>Top <paramref name="limit"/> groups over the filtered range, ordered by total quantity moved.</summary>
     Task<IReadOnlyList<StockMovementBreakdownItemDto>> GetBreakdownAsync(
         ClaimsPrincipal user,

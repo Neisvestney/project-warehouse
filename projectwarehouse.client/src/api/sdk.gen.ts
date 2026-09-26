@@ -353,6 +353,9 @@ import type {
   StatisticsGetBreakdownData,
   StatisticsGetBreakdownErrors,
   StatisticsGetBreakdownResponses,
+  StatisticsGetCellData,
+  StatisticsGetCellErrors,
+  StatisticsGetCellResponses,
   StatisticsGetDailyData,
   StatisticsGetDailyErrors,
   StatisticsGetDailyResponses,
@@ -3192,6 +3195,37 @@ export const statisticsGetPivot = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/api/statistics/stock-movements/pivot",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * The movements behind one pivot cell, bursts by one user collapsed into groups.
+ *
+ * The body is `StockMovementCellRequest` — the pivot's own filter with `from`/`to` set to
+ * the cell's day and `catalogItemIds` to its item (or to every column for the total group), plus
+ * the cell's `metric`, or null for the net and balance columns. More than 10 movements by one user
+ * with the same action and direction, each within 5 minutes of the previous one, come back as a single
+ * entry with `isGroup`. Rows are raw; `nettedQuantity` is how much of a row the pivot's
+ * same-day netting takes out of the cell, and `counterparts` holds the halves of its pairs the
+ * metric does not list, each under exactly one row. Paged newest first by the `before` cursor: a page holds about 500 movements and
+ * ends on a pause longer than 5 minutes, so a group does not span two pages unless the activity ran
+ * with no such pause for 4 hours, where the page is cut regardless; `nextBefore` is the
+ * cursor for the next page and null on the last, `totalCount` comes with the first page only.
+ * Same access rule and the same 422 `outOfRange` range errors as `stock-movements/daily`.
+ */
+export const statisticsGetCell = <ThrowOnError extends boolean = false>(
+  options: Options<StatisticsGetCellData, ThrowOnError>,
+): RequestResult<StatisticsGetCellResponses, StatisticsGetCellErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    StatisticsGetCellResponses,
+    StatisticsGetCellErrors,
+    ThrowOnError
+  >({
+    url: "/api/statistics/stock-movements/cell",
     ...options,
     headers: {
       "Content-Type": "application/json",

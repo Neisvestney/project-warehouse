@@ -146,7 +146,16 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse!.Name))
             .ForMember(d => d.StoragePlaceName, opt => opt.MapFrom(s => s.StoragePlace!.Name))
             .ForMember(d => d.StoragePlaceNodeName, opt => opt.MapFrom(s => s.StoragePlaceNode!.Name))
-            .ForMember(d => d.UserName, opt => opt.MapFrom(s => s.User!.FullName));
+            .ForMember(d => d.UserName, opt => opt.MapFrom(s => s.User!.FullName))
+            .ForMember(d => d.ReceiptNumber, opt => opt.MapFrom(s => (int?)s.Receipt!.Number))
+            .ForMember(d => d.OrderNumber, opt => opt.MapFrom(s => (int?)s.Order!.Number))
+            .ForMember(d => d.WriteoffNumber, opt => opt.MapFrom(s => (int?)s.Writeoff!.Number))
+            .ForMember(d => d.StocktakeNumber, opt => opt.MapFrom(s => (int?)s.Stocktake!.Number));
+
+        CreateMap<StockMovement, StockMovementCellRowDto>()
+            .IncludeBase<StockMovement, StockMovementDto>()
+            .ForMember(d => d.NettedQuantity, opt => opt.Ignore())
+            .ForMember(d => d.Counterparts, opt => opt.Ignore());
 
         CreateMap<Warehouse, AppEntity>()
             .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Warehouse))
