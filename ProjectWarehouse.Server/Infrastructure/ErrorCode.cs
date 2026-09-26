@@ -93,6 +93,7 @@ public enum ErrorCode
     OrderBoxNotFound = 65,
     OrderBoxComponentNotFound = 66,
     OrderIsExternal = 148,
+    OrderHasAssemblyTasks = 150,
     AssemblyTaskNotFound = 67,
     AssemblyTaskNotDeletable = 68,
     AssemblyTaskBoxNotFound = 69,

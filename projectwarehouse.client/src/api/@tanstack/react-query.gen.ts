@@ -3311,7 +3311,8 @@ export const ordersUpdateTagsMutation = (
  * `orderInvalidStatusTransition` otherwise. Shipped → Assembled is a pure status change — inventory was
  * already deducted when fulfillments were added during assembly and is not touched by shipment or its
  * rollback. Cancelling is refused with 422 `orderHasFulfillments`
- * while any fulfillment still exists. Returns 404 `orderNotFound`, 409 `inventoryWriteConflict`
+ * while any fulfillment still exists. Leaving Canceled deletes the assembly tasks the order kept from
+ * before it was canceled. Returns 404 `orderNotFound`, 409 `inventoryWriteConflict`
  * when the inventory restored by Assembly → Confirmed loses to concurrent stock writes — nothing was
  * written and the request can be repeated.
  * Requires `orders.edit` or `orders.edit_assigned`.
@@ -3346,7 +3347,8 @@ export const ordersTransitionStatusMutation = (
  * Requires `orders.self_assign` and an assignment to the order's warehouse — otherwise 403, with
  * `orderNotAssignedToWarehouse` in the latter case. The warehouse check is skipped for holders of the
  * unscoped `orders.view`, who see every order anyway. Returns 422 `orderNotConfirmed` if the order
- * is in any other status, 404 `orderNotFound` if it does not exist.
+ * is in any other status, 422 `orderHasAssemblyTasks` if it already has assembly tasks,
+ * 404 `orderNotFound` if it does not exist.
  */
 export const ordersSelfAssignMutation = (
   options?: Partial<Options<OrdersSelfAssignData>>,
@@ -3426,7 +3428,7 @@ export const ordersGetLabelsMutation = (
  * Body: `BatchSelfAssignRequest` — `orderIds` (duplicates are collapsed). Each order is checked
  * independently and always answers 200 with `BatchSelfAssignResponse`: successful ids in
  * `assignedOrderIds`, the rest in `failedItems` as `{ orderId, orderNumber, error }` with the
- * real error code (`orderNotFound`, `orderNotAssignedToWarehouse`, `orderNotConfirmed`, …).
+ * real error code (`orderNotFound`, `orderNotAssignedToWarehouse`, `orderNotConfirmed`, `orderHasAssemblyTasks`, …).
  * There is no transaction: already-assigned orders stay assigned when later ones fail.
  * 403 is returned only for the request as a whole, when `orders.self_assign` is missing.
  * Holders of the unscoped `orders.view` are not narrowed to their assigned warehouses.
