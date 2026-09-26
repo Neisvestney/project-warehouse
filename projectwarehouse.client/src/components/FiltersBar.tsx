@@ -64,7 +64,15 @@ function FiltersBar({children, actions, activeCount, sx, ...stackProps}: Filters
   const controlsId = useId();
 
   const cardSx = [
-    {px: 2, py: 1.5, borderRadius: 2, border: 1, borderColor: "divider"},
+    {
+      px: 2,
+      py: 1.5,
+      borderRadius: 2,
+      border: 1,
+      borderColor: "divider",
+      // size="small" buttons are shorter than the 40px size="small" inputs
+      "& .MuiButton-root, & .MuiToggleButton-root": {height: 40},
+    },
     ...(Array.isArray(sx) ? sx : [sx]),
   ];
 

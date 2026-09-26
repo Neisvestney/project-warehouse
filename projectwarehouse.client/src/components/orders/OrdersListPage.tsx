@@ -546,8 +546,7 @@ function OrdersListPage({
                 selected={includeExternal}
                 onChange={() => setIncludeExternal(!includeExternal)}
                 aria-label="Внешние заказы"
-                // matches the 40px height of the size="small" inputs next to it
-                sx={{width: 40, height: 40, p: 0}}
+                sx={{width: 40, p: 0}}
               >
                 <AltRouteIcon fontSize="small" />
               </ToggleButton>

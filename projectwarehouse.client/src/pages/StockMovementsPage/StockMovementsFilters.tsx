@@ -97,7 +97,7 @@ function StockMovementsFilters({
         variant="outlined"
         startIcon={<LocalOfferIcon />}
         onClick={() => setTagDialogOpen(true)}
-        sx={{flexShrink: 0, height: 40}}
+        sx={{flexShrink: 0}}
       >
         По тегу
       </Button>
