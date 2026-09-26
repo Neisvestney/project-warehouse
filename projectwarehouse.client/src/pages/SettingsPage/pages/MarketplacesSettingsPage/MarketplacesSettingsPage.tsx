@@ -122,7 +122,7 @@ function MarketplacesSettingsPage() {
       >
         <SearchInput value={inputValue} onChange={setInputValue} />
       </PageGenericHeader>
-      <FiltersBar>
+      <FiltersBar activeCount={[type, isActive].filter(Boolean).length}>
         <Select
           value={type}
           onChange={(e) => setType(e.target.value as MarketplaceType | "")}

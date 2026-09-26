@@ -67,7 +67,19 @@ function StockMovementsFilters({
   }, [nodes, warehouse, filter.storagePlaceId]);
 
   return (
-    <FiltersBar sx={{alignItems: "flex-start"}}>
+    <FiltersBar
+      sx={{alignItems: "flex-start"}}
+      activeCount={
+        [
+          filter.from,
+          filter.to,
+          filter.warehouseId,
+          filter.storagePlaceId,
+          filter.nodeId,
+          canViewUsers && filter.userId,
+        ].filter(Boolean).length
+      }
+    >
       <CatalogItemsSelect
         multiple
         fullWidth

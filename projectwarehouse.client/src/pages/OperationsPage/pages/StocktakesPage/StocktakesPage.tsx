@@ -2,8 +2,6 @@ import {
   Button,
   Chip,
   IconButton,
-  MenuItem,
-  Select,
   Stack,
   Table,
   TableBody,
@@ -23,10 +21,12 @@ import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {useTableSort} from "@/hooks/useTableSort";
 import {useHasPermission} from "@/hooks/usePermission";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import SearchInput from "@/components/SearchInput";
 import FiltersBar from "@/components/FiltersBar";
+import StatusTabs from "@/components/StatusTabs";
 import DataTableContainer from "@/components/DataTableContainer";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
@@ -97,9 +97,14 @@ function StocktakesPage() {
     [warehouseId, status, tagIds, sortBy, sortOrder],
   );
 
+  // sortable columns plus the fixed ones after them in the header
+  const columnCount = SORT_COLUMNS.length + 4;
+
   const {data, isLoading, isFetching, refetch} = useQuery(
     stocktakesGetAllOptions({query: fetchParams}),
   );
+  // the tabs keep their last numbers through a refetch instead of collapsing and shifting
+  const [statusCounts] = useRetainedValue(data?.meta.statusCounts);
 
   return (
     <Stack spacing={2}>
@@ -131,7 +136,14 @@ function StocktakesPage() {
       >
         <SearchInput value={inputValue} onChange={setInputValue} />
       </PageGenericHeader>
-      <FiltersBar>
+      <StatusTabs
+        value={status}
+        onChange={setStatus}
+        statuses={ALL_STATUSES}
+        labels={STOCKTAKE_STATUS_LABELS}
+        counts={statusCounts ?? undefined}
+      />
+      <FiltersBar activeCount={[warehouseId, tagIds.length > 0].filter(Boolean).length}>
         <WarehousesSelect
           value={warehouseId}
           onChange={setWarehouseId}
@@ -139,20 +151,6 @@ function StocktakesPage() {
           size="small"
           textFieldProps={{label: "Склад"}}
         />
-        <Select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as StocktakeStatus | "")}
-          size="small"
-          displayEmpty
-          sx={{minWidth: 160}}
-        >
-          <MenuItem value="">Все статусы</MenuItem>
-          {ALL_STATUSES.map((s) => (
-            <MenuItem key={s} value={s}>
-              {STOCKTAKE_STATUS_LABELS[s]}
-            </MenuItem>
-          ))}
-        </Select>
         <DocumentTagsFilter
           kind="stocktake"
           value={tagIds}
@@ -190,9 +188,9 @@ function StocktakesPage() {
           </TableHead>
           <TableBody>
             {isLoading ? (
-              <TableRowLoader colSpan={9} />
+              <TableRowLoader colSpan={columnCount} />
             ) : data?.items.length === 0 ? (
-              <TableRowEmpty colSpan={9} message="Инвентаризации не найдены" />
+              <TableRowEmpty colSpan={columnCount} message="Инвентаризации не найдены" />
             ) : (
               data?.items.map((stocktake) => (
                 <LinkTableRow

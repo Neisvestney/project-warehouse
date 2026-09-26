@@ -22,10 +22,12 @@ import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {useTableSort} from "@/hooks/useTableSort";
 import {useHasPermission} from "@/hooks/usePermission";
+import {useRetainedValue} from "@/hooks/useRetainedValue";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import SearchInput from "@/components/SearchInput";
 import FiltersBar from "@/components/FiltersBar";
+import StatusTabs from "@/components/StatusTabs";
 import DataTableContainer from "@/components/DataTableContainer";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
@@ -105,9 +107,14 @@ function ReceiptsPage() {
     [warehouseId, status, reason, tagIds, sortBy, sortOrder],
   );
 
+  // sortable columns plus the fixed ones after them in the header
+  const columnCount = SORT_COLUMNS.length + 4;
+
   const {data, isLoading, isFetching, refetch} = useQuery(
     receiptsGetAllOptions({query: fetchParams}),
   );
+  // the tabs keep their last numbers through a refetch instead of collapsing and shifting
+  const [statusCounts] = useRetainedValue(data?.meta.statusCounts);
 
   return (
     <Stack spacing={2}>
@@ -137,7 +144,14 @@ function ReceiptsPage() {
       >
         <SearchInput value={inputValue} onChange={setInputValue} />
       </PageGenericHeader>
-      <FiltersBar>
+      <StatusTabs
+        value={status}
+        onChange={setStatus}
+        statuses={ALL_STATUSES}
+        labels={RECEIPT_STATUS_LABELS}
+        counts={statusCounts ?? undefined}
+      />
+      <FiltersBar activeCount={[warehouseId, reason, tagIds.length > 0].filter(Boolean).length}>
         <WarehousesSelect
           value={warehouseId}
           onChange={setWarehouseId}
@@ -145,20 +159,6 @@ function ReceiptsPage() {
           size="small"
           textFieldProps={{label: "Склад"}}
         />
-        <Select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as ReceiptStatus | "")}
-          size="small"
-          displayEmpty
-          sx={{minWidth: 160}}
-        >
-          <MenuItem value="">Все статусы</MenuItem>
-          {ALL_STATUSES.map((s) => (
-            <MenuItem key={s} value={s}>
-              {RECEIPT_STATUS_LABELS[s]}
-            </MenuItem>
-          ))}
-        </Select>
         <Select
           value={reason}
           onChange={(e) => setReason(e.target.value as ReceiptReason | "")}
@@ -210,9 +210,9 @@ function ReceiptsPage() {
           </TableHead>
           <TableBody>
             {isLoading ? (
-              <TableRowLoader colSpan={9} />
+              <TableRowLoader colSpan={columnCount} />
             ) : data?.items.length === 0 ? (
-              <TableRowEmpty colSpan={9} message="Приемки не найдены" />
+              <TableRowEmpty colSpan={columnCount} message="Приемки не найдены" />
             ) : (
               data?.items.map((receipt) => (
                 <LinkTableRow

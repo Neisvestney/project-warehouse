@@ -157,13 +157,14 @@ public class WriteoffsController(
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
     /// <c>warehouseId</c>, <c>status</c>, <c>reason</c>, <c>tagIds</c>, <c>sortBy</c> (default <c>Number</c>),
     /// <c>sortOrder</c> (default <c>Desc</c>).
+    /// In <c>meta</c> the status counts ignore the <c>status</c> filter; every other filter applies.
     /// Requires <c>writeoffs.view</c> or <c>writeoffs.view_assigned</c>; without either, 403
     /// <c>permissionDenied</c>. 401 <c>tokenInvalid</c> when an <c>_assigned</c> permission is used but the
     /// token carries no resolvable user.
     /// </remarks>
     [HttpGet]
     [Authorize]
-    [ProducesResponseType<Paginated<WriteoffSummaryDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PaginatedWithMeta<WriteoffSummaryDto, StatusListMetaDto<WriteoffStatus>>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(
         [FromQuery][Range(1, int.MaxValue)] int page = 1,
         [FromQuery][Range(1, 200)] int pageSize = 20,
@@ -181,15 +182,17 @@ public class WriteoffsController(
 
         var accessible = await Rule.QueryAsync(User, AccessLevel.View, ct);
 
-        var baseQuery = accessible
-            .Include(w => w.Warehouse)
-            .Include(w => w.Items)
-            .Include(w => w.Tags)
+        var facetQuery = accessible
             .Where(w => warehouseId == null || w.WarehouseId == warehouseId)
-            .Where(w => status == null || w.Status == status)
             .Where(w => reason == null || w.Reason == reason)
             .Where(w => tagIds == null || tagIds.Count == 0 || w.Tags.Any(t => tagIds.Contains(t.Id)))
             .WhereMatchesSearch(w => w.SearchString, searchString);
+
+        var baseQuery = facetQuery
+            .Include(w => w.Warehouse)
+            .Include(w => w.Items)
+            .Include(w => w.Tags)
+            .Where(w => status == null || w.Status == status);
 
         var query = sortBy switch
         {
@@ -204,7 +207,12 @@ public class WriteoffsController(
             .ProjectTo<WriteoffSummaryDto>(mapper.ConfigurationProvider)
             .ToPaginatedAsync(page, pageSize, ct);
 
-        return Ok(paginated);
+        var meta = new StatusListMetaDto<WriteoffStatus>
+        {
+            StatusCounts = await facetQuery.CountByStatusAsync(w => w.Status, ct),
+        };
+
+        return Ok(paginated.WithMeta(meta));
     }
 
     // ── GET single ────────────────────────────────────────────────────────────

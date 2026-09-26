@@ -1293,7 +1293,7 @@ export type OrderListMetaDto = {
    * Order count per status, one entry for every status. Ignores the `status` filter, so the list tabs
    * show what each of them would hold.
    */
-  statusCounts: Array<OrderStatusCountDto>;
+  statusCounts: Array<StatusCountDtoOfOrderStatus>;
 };
 
 export type OrderMarketplaceItemDto = {
@@ -1328,11 +1328,6 @@ export type OrderSortBy =
   | "shippedAt";
 
 export type OrderStatus = "draft" | "confirmed" | "assembly" | "assembled" | "shipped" | "canceled";
-
-export type OrderStatusCountDto = {
-  status: OrderStatus;
-  count: number;
-};
 
 export type OrderSummaryDto = {
   id: string;
@@ -1440,16 +1435,6 @@ export type PaginatedOfMarketplaceWarehouseDto = {
   hasPreviousPage: boolean;
 };
 
-export type PaginatedOfReceiptSummaryDto = {
-  items: Array<ReceiptSummaryDto>;
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-};
-
 export type PaginatedOfStockForecastRowDto = {
   items: Array<StockForecastRowDto>;
   total: number;
@@ -1462,16 +1447,6 @@ export type PaginatedOfStockForecastRowDto = {
 
 export type PaginatedOfStockMovementDto = {
   items: Array<StockMovementDto>;
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-};
-
-export type PaginatedOfStocktakeSummaryDto = {
-  items: Array<StocktakeSummaryDto>;
   total: number;
   page: number;
   pageSize: number;
@@ -1510,8 +1485,12 @@ export type PaginatedOfWarehouseSummaryDto = {
   hasPreviousPage: boolean;
 };
 
-export type PaginatedOfWriteoffSummaryDto = {
-  items: Array<WriteoffSummaryDto>;
+/**
+ * A page plus aggregates computed over the whole filtered set, not just the page.
+ */
+export type PaginatedWithMetaOfOrderSummaryDtoAndOrderListMetaDto = {
+  meta: OrderListMetaDto;
+  items: Array<OrderSummaryDto>;
   total: number;
   page: number;
   pageSize: number;
@@ -1523,9 +1502,37 @@ export type PaginatedOfWriteoffSummaryDto = {
 /**
  * A page plus aggregates computed over the whole filtered set, not just the page.
  */
-export type PaginatedWithMetaOfOrderSummaryDtoAndOrderListMetaDto = {
-  meta: OrderListMetaDto;
-  items: Array<OrderSummaryDto>;
+export type PaginatedWithMetaOfReceiptSummaryDtoAndStatusListMetaDtoOfReceiptStatus = {
+  meta: StatusListMetaDtoOfReceiptStatus;
+  items: Array<ReceiptSummaryDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
+/**
+ * A page plus aggregates computed over the whole filtered set, not just the page.
+ */
+export type PaginatedWithMetaOfStocktakeSummaryDtoAndStatusListMetaDtoOfStocktakeStatus = {
+  meta: StatusListMetaDtoOfStocktakeStatus;
+  items: Array<StocktakeSummaryDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
+/**
+ * A page plus aggregates computed over the whole filtered set, not just the page.
+ */
+export type PaginatedWithMetaOfWriteoffSummaryDtoAndStatusListMetaDtoOfWriteoffStatus = {
+  meta: StatusListMetaDtoOfWriteoffStatus;
+  items: Array<WriteoffSummaryDto>;
   total: number;
   page: number;
   pageSize: number;
@@ -2009,6 +2016,71 @@ export type StartSyncRequest = {
 
 export type StartSyncResponse = {
   syncRunId: string;
+};
+
+/**
+ * How many documents of a filtered list sit in one status.
+ */
+export type StatusCountDtoOfOrderStatus = {
+  status: OrderStatus;
+  count: number;
+};
+
+/**
+ * How many documents of a filtered list sit in one status.
+ */
+export type StatusCountDtoOfReceiptStatus = {
+  status: ReceiptStatus;
+  count: number;
+};
+
+/**
+ * How many documents of a filtered list sit in one status.
+ */
+export type StatusCountDtoOfStocktakeStatus = {
+  status: StocktakeStatus;
+  count: number;
+};
+
+/**
+ * How many documents of a filtered list sit in one status.
+ */
+export type StatusCountDtoOfWriteoffStatus = {
+  status: WriteoffStatus;
+  count: number;
+};
+
+/**
+ * Aggregates of a document list whose only facet is its status tabs.
+ */
+export type StatusListMetaDtoOfReceiptStatus = {
+  /**
+   * Document count per status, one entry for every status. Ignores the `status` filter, so the list tabs
+   * show what each of them would hold.
+   */
+  statusCounts: Array<StatusCountDtoOfReceiptStatus>;
+};
+
+/**
+ * Aggregates of a document list whose only facet is its status tabs.
+ */
+export type StatusListMetaDtoOfStocktakeStatus = {
+  /**
+   * Document count per status, one entry for every status. Ignores the `status` filter, so the list tabs
+   * show what each of them would hold.
+   */
+  statusCounts: Array<StatusCountDtoOfStocktakeStatus>;
+};
+
+/**
+ * Aggregates of a document list whose only facet is its status tabs.
+ */
+export type StatusListMetaDtoOfWriteoffStatus = {
+  /**
+   * Document count per status, one entry for every status. Ignores the `status` filter, so the list tabs
+   * show what each of them would hold.
+   */
+  statusCounts: Array<StatusCountDtoOfWriteoffStatus>;
 };
 
 /**
@@ -6178,7 +6250,7 @@ export type ReceiptsGetAllResponses = {
   /**
    * OK
    */
-  200: PaginatedOfReceiptSummaryDto;
+  200: PaginatedWithMetaOfReceiptSummaryDtoAndStatusListMetaDtoOfReceiptStatus;
 };
 
 export type ReceiptsGetAllResponse = ReceiptsGetAllResponses[keyof ReceiptsGetAllResponses];
@@ -7749,7 +7821,7 @@ export type StocktakesGetAllResponses = {
   /**
    * OK
    */
-  200: PaginatedOfStocktakeSummaryDto;
+  200: PaginatedWithMetaOfStocktakeSummaryDtoAndStatusListMetaDtoOfStocktakeStatus;
 };
 
 export type StocktakesGetAllResponse = StocktakesGetAllResponses[keyof StocktakesGetAllResponses];
@@ -9539,7 +9611,7 @@ export type WriteoffsGetAllResponses = {
   /**
    * OK
    */
-  200: PaginatedOfWriteoffSummaryDto;
+  200: PaginatedWithMetaOfWriteoffSummaryDtoAndStatusListMetaDtoOfWriteoffStatus;
 };
 
 export type WriteoffsGetAllResponse = WriteoffsGetAllResponses[keyof WriteoffsGetAllResponses];

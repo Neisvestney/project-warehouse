@@ -160,7 +160,16 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
           <SearchInput value={inputValue} onChange={setInputValue} />
         </PageGenericHeader>
 
-        <FiltersBar>
+        <FiltersBar
+          activeCount={
+            [
+              showWarehouseFilter && filterWarehouseId,
+              itemTypes.length < PHYSICAL_CATALOG_ITEMS.length,
+              tagIds.length > 0,
+              isArchived !== null,
+            ].filter(Boolean).length
+          }
+        >
           {showWarehouseFilter && (
             <FormControl size="small" sx={{minWidth: 200}}>
               <InputLabel>Склад</InputLabel>

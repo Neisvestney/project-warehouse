@@ -248,7 +248,16 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
           <SearchInput value={inputValue} onChange={setInputValue} />
         </PageGenericHeader>
 
-        <FiltersBar>
+        <FiltersBar
+          activeCount={
+            [
+              itemTypes.length < PHYSICAL_CATALOG_ITEMS.length,
+              tagIds.length > 0,
+              isArchived !== null,
+              onlyWarnings,
+            ].filter(Boolean).length
+          }
+        >
           {showWarehouseFilter && (
             <WarehousesSelect
               value={filterWarehouseId}

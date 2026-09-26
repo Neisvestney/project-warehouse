@@ -135,6 +135,7 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
   return (
     <Stack spacing={2}>
       <FiltersBar
+        activeCount={[searchString, mappingState !== "all", includeArchived].filter(Boolean).length}
         actions={
           canMap ? (
             <Button
