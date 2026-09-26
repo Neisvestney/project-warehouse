@@ -16,6 +16,11 @@ export interface DraftRow {
   notes: string;
 }
 
+export type DraftSortKey = Pick<
+  DraftRow,
+  "isArchived" | "catalogItemName" | "catalogItemId" | "inventoryNumber"
+>;
+
 export function rowKey(kind: "standard" | "unit", catalogItemId: string, number?: string): string {
   return kind === "unit" ? `unit:${catalogItemId}:${number}` : `standard:${catalogItemId}`;
 }
@@ -91,7 +96,7 @@ export function buildDraftRows(node: StocktakeNodeDto, stock: StocktakeNodeStock
  * Catalog list order (archived last, then by name). The server already returns each list in this
  * order; the comparator only interleaves standard and unit stock with surpluses added on the client.
  */
-export function compareDraftRows(a: DraftRow, b: DraftRow): number {
+export function compareDraftRows(a: DraftSortKey, b: DraftSortKey): number {
   if (a.isArchived !== b.isArchived) return a.isArchived ? 1 : -1;
   return (
     a.catalogItemName.localeCompare(b.catalogItemName, "ru") ||

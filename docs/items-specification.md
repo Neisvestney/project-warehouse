@@ -52,6 +52,8 @@ A virtual grouping of related Standard or Unit items (e.g. a clothing item with 
 
 A virtual container that groups multiple Standard, Unit, or Bundle items as interchangeable variations (e.g. "iPhone 15 sizes") — **not** another Variation directly. A single item can belong to multiple Variation containers (many-to-many). The Variation itself carries no inventory. See [Bundle/Variation nesting](#bundlevariation-nesting) below.
 
+Members have no stored order: `memberIds` always comes back in catalog order (non-archived first, then by `FullName`, then by `Id` — the same order as the catalog list and the catalog pickers), and every UI that lists variation options keeps that order instead of sorting on its own.
+
 ### Bundle
 
 A configurable kit composed of any combination of Standard, Unit, ProductGroup, or Variation components — **not** another Bundle directly — each with a quantity. A Bundle can be modified over time.

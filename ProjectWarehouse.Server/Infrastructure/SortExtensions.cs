@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Linq.Expressions;
+using EntityFrameworkCore.Projectables;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Models;
 
@@ -23,6 +24,15 @@ public static class SortExtensions
             ? query.ThenBy(keySelector)
             : query.ThenByDescending(keySelector);
 
+    public static IOrderedQueryable<CatalogItem> OrderByCatalog(this IQueryable<CatalogItem> query) =>
+        query.OrderBy(c => c.IsArchived).ThenBy(c => c.FullName).ThenBy(c => c.Id);
+
+    // Projectable so it can be used inside a filtered Include
+    [Projectable]
+    public static IOrderedEnumerable<CatalogItemVariationMember> InCatalogOrder(
+        this IEnumerable<CatalogItemVariationMember> members) =>
+        members.OrderBy(m => m.Item.IsArchived).ThenBy(m => m.Item.FullName).ThenBy(m => m.ItemId);
+
     /// <summary>In-memory counterpart of the catalog list's default order, for rows already loaded.</summary>
     public static readonly StringComparer CatalogNameComparer = StringComparer.InvariantCulture;
 
@@ -31,5 +41,5 @@ public static class SortExtensions
         StringComparer.Create(CultureInfo.InvariantCulture, CompareOptions.NumericOrdering);
 
     public static IOrderedEnumerable<T> OrderLikeCatalog<T>(this IEnumerable<T> source, Func<T, CatalogItem?> item) =>
-        source.OrderBy(x => item(x)?.IsArchived ?? false).ThenBy(x => item(x)?.Name ?? "", CatalogNameComparer);
+        source.OrderBy(x => item(x)?.IsArchived ?? false).ThenBy(x => item(x)?.FullName ?? "", CatalogNameComparer);
 }

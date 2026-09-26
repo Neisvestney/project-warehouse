@@ -294,7 +294,7 @@ public class AppMapperProfile : Profile
                 .ThenBy(i => i.CatalogItemId)
                 .ThenBy(i => i.InventoryNumber, SortExtensions.InventoryNumberComparer)));
         CreateMap<StocktakeItem, StocktakeItemDto>()
-            .ForMember(d => d.CatalogItemName, opt => opt.MapFrom(s => s.CatalogItem.Name));
+            .ForMember(d => d.CatalogItemName, opt => opt.MapFrom(s => s.CatalogItem.FullName));
 
         // Scheduled documents sit on their planned date until finished, then move to the day of the fact.
         // Callers must keep out stocktakes with neither date and pass offsetMinutes — see EventsController.
