@@ -524,6 +524,10 @@ Reusable right-side drawer for viewing and editing any catalog item. Mount it on
 
 Edit is hidden for items with a `groupId` — those are managed by the parent group, shown as an info alert.
 
+The drawer sits on the dialogs' z-index layer (`zIndex.modal`), not on MUI's drawer layer below it, so a link
+inside a dialog opens it on top. Among equal layers the modal mounted last is on top, which keeps the drawer's
+own dialogs above it.
+
 **Header actions** (both modes, and also for group-managed items):
 
 - **Скопировать GUID** — copies the raw id via `copyToClipboard` (`utils/clipboardUtils.ts`:
@@ -745,6 +749,17 @@ whose `isWarningOverridden` is true marks its threshold with a pin icon.
 The warehouse threshold shown under the field comes from `warehouseWarningDays` of the list response and is
 `number | null`: while the list has not loaded the hint is dropped entirely rather than naming a threshold
 nobody set.
+
+## Analytics
+
+### `AnalyticsSettingsDialog`
+
+`components/analytics/`. One dialog for every analytics page; `group` picks the parameters that page's numbers
+depend on (`channels` — `returnsMaturityDays`). `PUT /api/analytics/settings` is a full write, so the submit
+sends `settings.saved` for every field the group does not show, plus the `version` it was opened with; a save by
+someone else in between comes back as a root `analyticsSettingsModified` error. The mutation lives in the
+dialog shell, so backdrop, Escape, Back and Cancel all wait for a running save; the form lives in a content
+child rendered from `useRetainedValue`, so it mounts fresh on every open.
 
 ## Files
 
@@ -1300,6 +1315,15 @@ RHF-поле выбора часового пояса: `Autocomplete` в реж�
   helperText="Пусто — пояс вызывающего или сервера"
 />
 ```
+
+### `DateField`
+
+Native `type="date"` `TextField` for a date bound to state that lands a render later — a URL param set through
+`setParam`, which commits in a transition. Takes `value: string | null` (`yyyy-MM-dd`) and calls
+`onChange(value | null)` on every keystroke. While focused it shows its own draft instead of `value`: a
+re-render with the stale value would reset the segment being typed, so `15` in the day would end up as `05`.
+On blur it goes back to showing `value`. The label is always shrunk. Every date filter kept in the URL uses it;
+a date in a form bound to local or RHF state can stay a plain `TextField`.
 
 ### `ClampedIntegerField`
 

@@ -49,6 +49,7 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
     public DbSet<StockMovementReportPreset> StockMovementReportPresets => Set<StockMovementReportPreset>();
     public DbSet<CatalogItemStockWarning> CatalogItemStockWarnings => Set<CatalogItemStockWarning>();
+    public DbSet<AnalyticsSettings> AnalyticsSettings => Set<AnalyticsSettings>();
 
     public DbSet<Receipt> Receipts => Set<Receipt>();
     public DbSet<ReceiptItem> ReceiptItems => Set<ReceiptItem>();
@@ -343,6 +344,28 @@ public class ApplicationDbContext : IdentityDbContext<
                 .HasForeignKey(x => x.UpdatedById)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<AnalyticsSettings>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.Property(x => x.AbcBoundaryA).HasPrecision(5, 1);
+            e.Property(x => x.AbcBoundaryB).HasPrecision(5, 1);
+            e.Property(x => x.XyzBoundaryX).HasPrecision(5, 1);
+            e.Property(x => x.XyzBoundaryY).HasPrecision(5, 1);
+
+            // Shared by everyone, so a save must not silently overwrite one made since the form was opened.
+            e.Property<uint>("Version").IsRowVersion();
+
+            e.HasOne(x => x.UpdatedBy)
+                .WithMany()
+                .HasForeignKey(x => x.UpdatedById)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Seeded so every write is an update guarded by xmin; two first saves cannot race on an insert.
+            e.HasData(new AnalyticsSettings { Id = Domain.AnalyticsSettings.SingletonId });
         });
 
         builder.Entity<InventoryItem>(e =>

@@ -14,6 +14,7 @@ ProjectWarehouse.Server/   ASP.NET Core 10 REST API
   ├── Models/              Request/response DTOs
   ├── Data/                DbContext, migrations, seeder
   └── Migrations/          EF Core migrations
+ProjectWarehouse.Server.Tests/   xUnit tests of the pure calculators (`dotnet test`)
 ```
 
 **Backend:** ASP.NET Core 10, Entity Framework Core, PostgreSQL, ASP.NET Core Identity, JWT Bearer auth, Quartz, SixLabors.ImageSharp  

@@ -4,6 +4,20 @@ export type ClientOptions = {
   baseUrl: "https://localhost:7095/" | (string & {});
 };
 
+export type AccountReturnsDto = {
+  marketplaceAccountId: string;
+  marketplaceType: MarketplaceType;
+  name: string;
+  soldUnits: number;
+  returnedUnits: number;
+  returnRate?: null | number;
+  byKind: Array<ReturnKindUnitsDto>;
+  /**
+   * Σ Price × Quantity of the returns, per currency; empty in the Payout mode.
+   */
+  money: Array<MoneyAmountDto>;
+};
+
 export type AddFulfillmentBundleComponentRequest = {
   catalogItemId: string;
   sourceNodeId: string;
@@ -34,6 +48,91 @@ export type AddFulfillmentRequest = {
    */
   resolvedCatalogItemId?: null | string;
 };
+
+export type AnalyticsChannelKind = "marketplace" | "direct" | "directTag" | "directUntagged";
+
+/**
+ * One step of a series, inclusive bounds clamped to the period.
+ */
+export type AnalyticsIntervalDto = {
+  start: string;
+  end: string;
+  /**
+   * The step sticks out of the period on one side, so the interval holds fewer days than its peers.
+   */
+  isPartial: boolean;
+  /**
+   * Contains today: the number is still growing.
+   */
+  isCurrent: boolean;
+  /**
+   * Starts after today; its values are null rather than zero.
+   */
+  isFuture: boolean;
+};
+
+export type AnalyticsMeasure = "orders" | "units";
+
+export type AnalyticsMoneyMode = "price" | "payout";
+
+/**
+ * Calculation parameters after a stored null has been replaced by the system default. Every report
+ * works only with this, and the responses that depend on it echo the values so the UI labels classes,
+ * windows and age columns by them rather than by constants of its own.
+ */
+export type AnalyticsOptions = {
+  abcBoundaryA: number;
+  abcBoundaryB: number;
+  xyzBoundaryX: number;
+  xyzBoundaryY: number;
+  xyzStep: AnalyticsXyzStep;
+  xyzMinIntervals: number;
+  payoutRatioWindowDays: number;
+  payoutAgeBoundaries: Array<number>;
+  payoutOverdueDays: number;
+  returnsMaturityDays: number;
+};
+
+export type AnalyticsSettingsDto = {
+  id: string;
+  saved: AnalyticsSettingsValuesDto;
+  /**
+   * System constants, so the form can show them as placeholders.
+   */
+  defaults: AnalyticsOptions;
+  /**
+   * What the reports will actually use.
+   */
+  effective: AnalyticsOptions;
+  /**
+   * Row version to send back with the update.
+   */
+  version: number;
+  updatedAt?: null | string;
+  updatedByName?: null | string;
+};
+
+/**
+ * The stored values as they are: null means "follow the system default", not "unset".
+ */
+export type AnalyticsSettingsValuesDto = {
+  abcBoundaryA?: null | number;
+  abcBoundaryB?: null | number;
+  xyzBoundaryX?: null | number;
+  xyzBoundaryY?: null | number;
+  xyzStep?: null | AnalyticsXyzStep;
+  xyzMinIntervals?: null | number;
+  payoutRatioWindowDays?: null | number;
+  payoutAgeBoundaries?: null | Array<number>;
+  payoutOverdueDays?: null | number;
+  returnsMaturityDays?: null | number;
+};
+
+export type AnalyticsStep = "day" | "week" | "month";
+
+export type AnalyticsTopItemsBy = "units" | "money";
+
+export type AnalyticsXyzStep = "week" | "month";
 
 export type AppEntity = {
   id?: null | string;
@@ -66,7 +165,8 @@ export type AppEntityType =
   | "stockMovementReportPreset"
   | "tag"
   | "tags"
-  | "orderAssembly";
+  | "orderAssembly"
+  | "analyticsSettings";
 
 export type AppFieldError = {
   code: ErrorCode;
@@ -275,6 +375,19 @@ export type BundleComponentRequest = {
   quantity: number;
 };
 
+export type CancellationTypeCountDto = {
+  /**
+   * A posting with no stated initiator counts as Unknown.
+   */
+  type: MarketplaceCancellationType;
+  count: number;
+};
+
+export type CancelReasonCountDto = {
+  reason: string;
+  count: number;
+};
+
 export type CatalogItemDto = {
   id: string;
   type: CatalogItemType;
@@ -388,6 +501,235 @@ export type ChangeOwnPasswordRequest = {
 
 export type ChangePasswordRequest = {
   newPassword: string;
+};
+
+export type ChannelCancellationsDto = {
+  marketplaceAccountId: string;
+  byType: Array<CancellationTypeCountDto>;
+  /**
+   * Cancelled after the marketplace had already taken the shipment.
+   */
+  afterShip: number;
+};
+
+export type ChannelMoneyDto = {
+  currencyCode: string;
+  /**
+   * In the requested money mode.
+   */
+  revenue: number;
+  /**
+   * Revenue / sales that have money in this currency in this mode.
+   */
+  averageCheck?: null | number;
+  /**
+   * Share of the shop in this currency's revenue among the selected shops.
+   */
+  revenueShare?: null | number;
+  /**
+   * 1 − Σ(Price × Q) / Σ(OldPrice × Q), weighted by money; null without an old price.
+   */
+  discountDepth?: null | number;
+  /**
+   * Σ DiscountValue × Q.
+   */
+  discountAmount: number;
+};
+
+/**
+ * Cancellations of the shops per interval, by the order date — the same orders the summary counts.
+ */
+export type ChannelsCancellationsDto = {
+  from: string;
+  to: string;
+  timeZoneId: string;
+  step: AnalyticsStep;
+  intervals: Array<AnalyticsIntervalDto>;
+  /**
+   * Cancelled orders, one per shop.
+   */
+  series: Array<ChannelSeriesDto>;
+  /**
+   * Sales plus cancellations, in the same order as List&lt;ChannelSeriesDto&gt; ChannelsCancellationsDto.Series: the base of the cancellation share.
+   */
+  orders: Array<ChannelSeriesDto>;
+};
+
+export type ChannelSeriesDto = {
+  kind: AnalyticsChannelKind;
+  marketplaceAccountId?: null | string;
+  marketplaceType?: null | MarketplaceType;
+  /**
+   * Shop name; null for the Direct channel.
+   */
+  name?: null | string;
+  /**
+   * One value per interval, in the same order; null for a future interval.
+   */
+  values: Array<null | number>;
+  total: number;
+};
+
+/**
+ * Sales of the selected channels per interval next to what was lost of them. Everything is tied to the order
+ * date: a return belongs to the interval its sale was made in, whenever the item came back.
+ */
+export type ChannelsLossesDto = {
+  from: string;
+  to: string;
+  timeZoneId: string;
+  step: AnalyticsStep;
+  measure: AnalyticsMeasure;
+  returnsMaturityDays: number;
+  /**
+   * One per interval of the step, clamped to the period.
+   */
+  points: Array<LossesPointDto>;
+};
+
+/**
+ * Everything but List&lt;ChannelSeriesDto&gt; ChannelsReturnsDto.Series is tied to the sales of the period (the order date), so the share does
+ * not depend on when the buyer brought the item back. List&lt;ChannelSeriesDto&gt; ChannelsReturnsDto.Series is tied to the return date instead:
+ * how much came back in each interval.
+ */
+export type ChannelsReturnsDto = {
+  from: string;
+  to: string;
+  timeZoneId: string;
+  moneyMode: AnalyticsMoneyMode;
+  returnsMaturityDays: number;
+  returnsImmature: boolean;
+  accounts: Array<AccountReturnsDto>;
+  step: AnalyticsStep;
+  intervals: Array<AnalyticsIntervalDto>;
+  /**
+   * Returned units by return date, one per shop.
+   */
+  series: Array<ChannelSeriesDto>;
+  topReasons: Array<ReturnReasonUnitsDto>;
+  compensations: Array<CompensationCountDto>;
+};
+
+export type ChannelsSummaryDto = {
+  from: string;
+  to: string;
+  /**
+   * The period of the same length right before the selected one, which Δ compares against.
+   */
+  previousFrom: string;
+  previousTo: string;
+  timeZoneId: string;
+  moneyMode: AnalyticsMoneyMode;
+  returnsMaturityDays: number;
+  /**
+   * The period ends closer to today than the maturity window: return shares are still growing.
+   */
+  returnsImmature: boolean;
+  rows: Array<ChannelSummaryRowDto>;
+  cancellations: Array<ChannelCancellationsDto>;
+  topCancelReasons: Array<CancelReasonCountDto>;
+};
+
+export type ChannelsTimeseriesDto = {
+  from: string;
+  to: string;
+  timeZoneId: string;
+  /**
+   * The step applied — the requested one, or the one picked by the period length.
+   */
+  step: AnalyticsStep;
+  measure: AnalyticsMeasure;
+  intervals: Array<AnalyticsIntervalDto>;
+  /**
+   * One per shop, then the whole Direct channel; Direct tag rows are not split out here.
+   */
+  series: Array<ChannelSeriesDto>;
+};
+
+export type ChannelsTopItemsDto = {
+  from: string;
+  to: string;
+  timeZoneId: string;
+  by: AnalyticsTopItemsBy;
+  moneyMode: AnalyticsMoneyMode;
+  /**
+   * Currency of decimal? TopItemDto.Money; null when the channels sold nothing with a price.
+   */
+  currencyCode?: null | string;
+  /**
+   * Currencies met on the sale lines, the most frequent first.
+   */
+  currencies: Array<string>;
+  /**
+   * Items with a positive ranking value, before `take` cuts the list.
+   */
+  totalItems: number;
+  /**
+   * Marketplace sale lines with no catalog item: counted by the channel, absent from the ranking.
+   */
+  unlinkedLines: number;
+  items: Array<TopItemDto>;
+};
+
+export type ChannelSummaryRowDto = {
+  kind: AnalyticsChannelKind;
+  marketplaceAccountId?: null | string;
+  marketplaceType?: null | MarketplaceType;
+  tagId?: null | string;
+  /**
+   * Shop or tag name; null for the whole Direct channel and for its untagged row.
+   */
+  name?: null | string;
+  orders: number;
+  previousOrders: number;
+  units: number;
+  cancellations: number;
+  /**
+   * Cancellations / (sales + cancellations); null when there were neither.
+   */
+  cancellationRate?: null | number;
+  /**
+   * Null for Direct, which has no returns.
+   */
+  returnedUnits?: null | number;
+  returnRate?: null | number;
+  /**
+   * Share of the channel's units among the selected channels.
+   */
+  unitsShare?: null | number;
+  /**
+   * Share of accrued lines among sale lines with a currency; filled in the Payout mode only.
+   */
+  payoutCoverage?: null | number;
+  /**
+   * One entry per currency, never summed across them. Empty for Direct.
+   */
+  money: Array<ChannelMoneyDto>;
+};
+
+export type ChannelsWeekdaysDto = {
+  from: string;
+  to: string;
+  timeZoneId: string;
+  measure: AnalyticsMeasure;
+  /**
+   * Last day averaged, yesterday at the latest: an unfinished day would drag the averages down.
+   */
+  countedTo?: null | string;
+  /**
+   * Every selected channel together, Monday first.
+   */
+  total: Array<null | number>;
+  /**
+   * One per shop, then the whole Direct channel, one per tag met in the period and the untagged; tag rows
+   * overlap, as in the summary.
+   */
+  rows: Array<WeekdayRowDto>;
+};
+
+export type CompensationCountDto = {
+  status: MarketplaceReturnCompensationStatus;
+  count: number;
 };
 
 export type ContentTypeStatDto = {
@@ -770,7 +1112,8 @@ export type ErrorCode =
   | "warehouseDefaultNodeNotSet"
   | "orderIsExternal"
   | "marketplaceLabelFormatChanged"
-  | "orderHasAssemblyTasks";
+  | "orderHasAssemblyTasks"
+  | "analyticsSettingsModified";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -813,6 +1156,37 @@ export type LargestFileDto = {
 export type LoginRequest = {
   username: string;
   password: string;
+};
+
+/**
+ * Counts are null for an interval that starts after today; the shop ones also when no shop is selected.
+ */
+export type LossesPointDto = {
+  interval: AnalyticsIntervalDto;
+  /**
+   * The interval ends closer to today than the maturity window: its returns are still coming in.
+   */
+  returnsImmature: boolean;
+  /**
+   * Sale orders or units of every selected channel, by the requested measure.
+   */
+  sales?: null | number;
+  /**
+   * Sale orders of every selected channel.
+   */
+  saleOrders?: null | number;
+  /**
+   * Cancelled orders of every selected channel; the share is taken of sales plus cancellations.
+   */
+  cancellations?: null | number;
+  /**
+   * Units sold by the shops alone — Direct has no returns, so the return share is taken of these.
+   */
+  shopUnits?: null | number;
+  /**
+   * Returned units of the sales dated in the interval.
+   */
+  returnedUnits?: null | number;
 };
 
 /**
@@ -895,6 +1269,10 @@ export type MarketplaceAutoMapRuleDto = {
   updatedAt: string;
 };
 
+/**
+ * Who cancelled a posting, collapsed from the marketplace's own vocabulary. Unknown = 0 so an
+ * unrecognized initiator never reads as a real one; the raw value is kept alongside for diagnosis.
+ */
 export type MarketplaceCancellationType =
   "unknown" | "seller" | "customer" | "marketplace" | "system" | "delivery";
 
@@ -1018,6 +1396,9 @@ export type MarketplaceOrderSyncTargetDto = {
   unmappedCardCount: number;
 };
 
+/**
+ * Mirrors Ozon's own compensation status ids, so the values double as the API filter.
+ */
 export type MarketplaceReturnCompensationStatus =
   "sent" | "received" | "canceled" | "decompensationSent";
 
@@ -1143,6 +1524,11 @@ export type MeResponse = {
    * Warehouses this user is assigned to — what every `_assigned` permission is scoped by.
    */
   assignedWarehouseIds: Array<string>;
+};
+
+export type MoneyAmountDto = {
+  currencyCode: string;
+  amount: number;
 };
 
 /**
@@ -1593,7 +1979,9 @@ export type PermissionName =
   | "integrations.view"
   | "integrations.edit"
   | "integrations.map"
-  | "integrations.sync";
+  | "integrations.sync"
+  | "analytics.view"
+  | "analytics.settings";
 
 export type ProductGroupChildRequest = {
   id?: null | string;
@@ -1963,6 +2351,16 @@ export type RefreshRequest = {
 
 export type RenameTagRequest = {
   name: string;
+};
+
+export type ReturnKindUnitsDto = {
+  kind: MarketplaceReturnKind;
+  units: number;
+};
+
+export type ReturnReasonUnitsDto = {
+  reason: string;
+  units: number;
 };
 
 export type RoleDto = {
@@ -2950,6 +3348,21 @@ export type TokenResponse = {
   expiresIn: number;
 };
 
+export type TopItemDto = {
+  catalogItemId: string;
+  name: string;
+  type: CatalogItemType;
+  units: number;
+  /**
+   * In string? ChannelsTopItemsDto.CurrencyCode; null when the item has none in it.
+   */
+  money?: null | number;
+  /**
+   * Share of the ranking value among all ranked items.
+   */
+  share: number;
+};
+
 export type TransferItemRequest = {
   /**
    * Filled for Standard (count-based) items. Requires int? TransferItemRequest.Count.
@@ -2993,6 +3406,29 @@ export type UnitInventoryItemSortBy =
  */
 export type UnmappedCardsCountDto = {
   count: number;
+};
+
+/**
+ * A full write of every field; null restores the system default.
+ */
+export type UpdateAnalyticsSettingsRequest = {
+  abcBoundaryA?: null | number;
+  abcBoundaryB?: null | number;
+  xyzBoundaryX?: null | number;
+  xyzBoundaryY?: null | number;
+  xyzStep?: null | AnalyticsXyzStep;
+  xyzMinIntervals?: null | number;
+  payoutRatioWindowDays?: null | number;
+  /**
+   * 1..5 values, strictly ascending, each within 1..365.
+   */
+  payoutAgeBoundaries?: null | Array<number>;
+  payoutOverdueDays?: null | number;
+  returnsMaturityDays?: null | number;
+  /**
+   * The version the edit started from; a save by someone else since then is a 409.
+   */
+  version: null | number;
 };
 
 export type UpdateAssemblyTaskBoxComponentRequest = {
@@ -3197,6 +3633,21 @@ export type WarehouseSummaryDto = {
   totalItemsCount: number;
 };
 
+export type WeekdayRowDto = {
+  kind: AnalyticsChannelKind;
+  marketplaceAccountId?: null | string;
+  marketplaceType?: null | MarketplaceType;
+  tagId?: null | string;
+  /**
+   * Shop or tag name; null for the whole Direct channel and the untagged row.
+   */
+  name?: null | string;
+  /**
+   * Average per occurrence of the weekday, Monday first; null for a weekday the period lacks.
+   */
+  values: Array<null | number>;
+};
+
 export type WriteoffDto = {
   id: string;
   number: number;
@@ -3276,6 +3727,413 @@ export type GetHealthResponses = {
    */
   200: unknown;
 };
+
+export type AnalyticsGetChannelsSummaryData = {
+  body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path?: never;
+  query?: {
+    MoneyMode?: AnalyticsMoneyMode;
+    From?: string;
+    To?: string;
+    IncludeMarketplaces?: boolean;
+    MarketplaceAccountIds?: Array<string>;
+    IncludeDirect?: boolean;
+    DirectTagIds?: Array<string>;
+  };
+  url: "/api/analytics/channels/summary";
+};
+
+export type AnalyticsGetChannelsSummaryErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type AnalyticsGetChannelsSummaryError =
+  AnalyticsGetChannelsSummaryErrors[keyof AnalyticsGetChannelsSummaryErrors];
+
+export type AnalyticsGetChannelsSummaryResponses = {
+  /**
+   * OK
+   */
+  200: ChannelsSummaryDto;
+};
+
+export type AnalyticsGetChannelsSummaryResponse =
+  AnalyticsGetChannelsSummaryResponses[keyof AnalyticsGetChannelsSummaryResponses];
+
+export type AnalyticsGetChannelsTimeseriesData = {
+  body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path?: never;
+  query?: {
+    /**
+     * Null picks one by the period length: day up to 31 days, week up to six months, month beyond.
+     */
+    Step?: AnalyticsStep;
+    Measure?: AnalyticsMeasure;
+    From?: string;
+    To?: string;
+    IncludeMarketplaces?: boolean;
+    MarketplaceAccountIds?: Array<string>;
+    IncludeDirect?: boolean;
+    DirectTagIds?: Array<string>;
+  };
+  url: "/api/analytics/channels/timeseries";
+};
+
+export type AnalyticsGetChannelsTimeseriesErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type AnalyticsGetChannelsTimeseriesError =
+  AnalyticsGetChannelsTimeseriesErrors[keyof AnalyticsGetChannelsTimeseriesErrors];
+
+export type AnalyticsGetChannelsTimeseriesResponses = {
+  /**
+   * OK
+   */
+  200: ChannelsTimeseriesDto;
+};
+
+export type AnalyticsGetChannelsTimeseriesResponse =
+  AnalyticsGetChannelsTimeseriesResponses[keyof AnalyticsGetChannelsTimeseriesResponses];
+
+export type AnalyticsGetChannelsReturnsData = {
+  body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path?: never;
+  query?: {
+    /**
+     * Returned money is listed in the Price mode only.
+     */
+    MoneyMode?: AnalyticsMoneyMode;
+    /**
+     * Step of the volume-by-return-date series; null picks one by the period length.
+     */
+    Step?: AnalyticsStep;
+    From?: string;
+    To?: string;
+    IncludeMarketplaces?: boolean;
+    MarketplaceAccountIds?: Array<string>;
+    IncludeDirect?: boolean;
+    DirectTagIds?: Array<string>;
+  };
+  url: "/api/analytics/channels/returns";
+};
+
+export type AnalyticsGetChannelsReturnsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type AnalyticsGetChannelsReturnsError =
+  AnalyticsGetChannelsReturnsErrors[keyof AnalyticsGetChannelsReturnsErrors];
+
+export type AnalyticsGetChannelsReturnsResponses = {
+  /**
+   * OK
+   */
+  200: ChannelsReturnsDto;
+};
+
+export type AnalyticsGetChannelsReturnsResponse =
+  AnalyticsGetChannelsReturnsResponses[keyof AnalyticsGetChannelsReturnsResponses];
+
+export type AnalyticsGetChannelsCancellationsData = {
+  body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path?: never;
+  query?: {
+    /**
+     * Null picks one by the period length, as in the timeseries.
+     */
+    Step?: AnalyticsStep;
+    From?: string;
+    To?: string;
+    IncludeMarketplaces?: boolean;
+    MarketplaceAccountIds?: Array<string>;
+    IncludeDirect?: boolean;
+    DirectTagIds?: Array<string>;
+  };
+  url: "/api/analytics/channels/cancellations";
+};
+
+export type AnalyticsGetChannelsCancellationsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type AnalyticsGetChannelsCancellationsError =
+  AnalyticsGetChannelsCancellationsErrors[keyof AnalyticsGetChannelsCancellationsErrors];
+
+export type AnalyticsGetChannelsCancellationsResponses = {
+  /**
+   * OK
+   */
+  200: ChannelsCancellationsDto;
+};
+
+export type AnalyticsGetChannelsCancellationsResponse =
+  AnalyticsGetChannelsCancellationsResponses[keyof AnalyticsGetChannelsCancellationsResponses];
+
+export type AnalyticsGetChannelsLossesData = {
+  body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path?: never;
+  query?: {
+    /**
+     * Null picks one by the period length, as in the timeseries.
+     */
+    Step?: AnalyticsStep;
+    /**
+     * What int? LossesPointDto.Sales counts; the shares do not depend on it.
+     */
+    Measure?: AnalyticsMeasure;
+    From?: string;
+    To?: string;
+    IncludeMarketplaces?: boolean;
+    MarketplaceAccountIds?: Array<string>;
+    IncludeDirect?: boolean;
+    DirectTagIds?: Array<string>;
+  };
+  url: "/api/analytics/channels/losses";
+};
+
+export type AnalyticsGetChannelsLossesErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type AnalyticsGetChannelsLossesError =
+  AnalyticsGetChannelsLossesErrors[keyof AnalyticsGetChannelsLossesErrors];
+
+export type AnalyticsGetChannelsLossesResponses = {
+  /**
+   * OK
+   */
+  200: ChannelsLossesDto;
+};
+
+export type AnalyticsGetChannelsLossesResponse =
+  AnalyticsGetChannelsLossesResponses[keyof AnalyticsGetChannelsLossesResponses];
+
+export type AnalyticsGetChannelsTopItemsData = {
+  body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path?: never;
+  query?: {
+    By?: AnalyticsTopItemsBy;
+    MoneyMode?: AnalyticsMoneyMode;
+    /**
+     * Currency of the money column; null takes the one with the most sale lines.
+     */
+    CurrencyCode?: string;
+    /**
+     * Null lists every ranked item.
+     */
+    Take?: number;
+    From?: string;
+    To?: string;
+    IncludeMarketplaces?: boolean;
+    MarketplaceAccountIds?: Array<string>;
+    IncludeDirect?: boolean;
+    DirectTagIds?: Array<string>;
+  };
+  url: "/api/analytics/channels/top-items";
+};
+
+export type AnalyticsGetChannelsTopItemsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type AnalyticsGetChannelsTopItemsError =
+  AnalyticsGetChannelsTopItemsErrors[keyof AnalyticsGetChannelsTopItemsErrors];
+
+export type AnalyticsGetChannelsTopItemsResponses = {
+  /**
+   * OK
+   */
+  200: ChannelsTopItemsDto;
+};
+
+export type AnalyticsGetChannelsTopItemsResponse =
+  AnalyticsGetChannelsTopItemsResponses[keyof AnalyticsGetChannelsTopItemsResponses];
+
+export type AnalyticsGetChannelsWeekdaysData = {
+  body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path?: never;
+  query?: {
+    Measure?: AnalyticsMeasure;
+    From?: string;
+    To?: string;
+    IncludeMarketplaces?: boolean;
+    MarketplaceAccountIds?: Array<string>;
+    IncludeDirect?: boolean;
+    DirectTagIds?: Array<string>;
+  };
+  url: "/api/analytics/channels/weekdays";
+};
+
+export type AnalyticsGetChannelsWeekdaysErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type AnalyticsGetChannelsWeekdaysError =
+  AnalyticsGetChannelsWeekdaysErrors[keyof AnalyticsGetChannelsWeekdaysErrors];
+
+export type AnalyticsGetChannelsWeekdaysResponses = {
+  /**
+   * OK
+   */
+  200: ChannelsWeekdaysDto;
+};
+
+export type AnalyticsGetChannelsWeekdaysResponse =
+  AnalyticsGetChannelsWeekdaysResponses[keyof AnalyticsGetChannelsWeekdaysResponses];
+
+export type AnalyticsGetSettingsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/analytics/settings";
+};
+
+export type AnalyticsGetSettingsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type AnalyticsGetSettingsError =
+  AnalyticsGetSettingsErrors[keyof AnalyticsGetSettingsErrors];
+
+export type AnalyticsGetSettingsResponses = {
+  /**
+   * OK
+   */
+  200: AnalyticsSettingsDto;
+};
+
+export type AnalyticsGetSettingsResponse =
+  AnalyticsGetSettingsResponses[keyof AnalyticsGetSettingsResponses];
+
+export type AnalyticsUpdateSettingsData = {
+  body: UpdateAnalyticsSettingsRequest;
+  path?: never;
+  query?: never;
+  url: "/api/analytics/settings";
+};
+
+export type AnalyticsUpdateSettingsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type AnalyticsUpdateSettingsError =
+  AnalyticsUpdateSettingsErrors[keyof AnalyticsUpdateSettingsErrors];
+
+export type AnalyticsUpdateSettingsResponses = {
+  /**
+   * OK
+   */
+  200: AnalyticsSettingsDto;
+};
+
+export type AnalyticsUpdateSettingsResponse =
+  AnalyticsUpdateSettingsResponses[keyof AnalyticsUpdateSettingsResponses];
 
 export type AuthLoginData = {
   body: LoginRequest;

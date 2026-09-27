@@ -10,6 +10,15 @@ import {
 
 import {client} from "../client.gen";
 import {
+  analyticsGetChannelsCancellations,
+  analyticsGetChannelsLosses,
+  analyticsGetChannelsReturns,
+  analyticsGetChannelsSummary,
+  analyticsGetChannelsTimeseries,
+  analyticsGetChannelsTopItems,
+  analyticsGetChannelsWeekdays,
+  analyticsGetSettings,
+  analyticsUpdateSettings,
   authChangeOwnPassword,
   authLogin,
   authLogout,
@@ -201,6 +210,33 @@ import {
   writeoffsUpdateTags,
 } from "../sdk.gen";
 import type {
+  AnalyticsGetChannelsCancellationsData,
+  AnalyticsGetChannelsCancellationsError,
+  AnalyticsGetChannelsCancellationsResponse,
+  AnalyticsGetChannelsLossesData,
+  AnalyticsGetChannelsLossesError,
+  AnalyticsGetChannelsLossesResponse,
+  AnalyticsGetChannelsReturnsData,
+  AnalyticsGetChannelsReturnsError,
+  AnalyticsGetChannelsReturnsResponse,
+  AnalyticsGetChannelsSummaryData,
+  AnalyticsGetChannelsSummaryError,
+  AnalyticsGetChannelsSummaryResponse,
+  AnalyticsGetChannelsTimeseriesData,
+  AnalyticsGetChannelsTimeseriesError,
+  AnalyticsGetChannelsTimeseriesResponse,
+  AnalyticsGetChannelsTopItemsData,
+  AnalyticsGetChannelsTopItemsError,
+  AnalyticsGetChannelsTopItemsResponse,
+  AnalyticsGetChannelsWeekdaysData,
+  AnalyticsGetChannelsWeekdaysError,
+  AnalyticsGetChannelsWeekdaysResponse,
+  AnalyticsGetSettingsData,
+  AnalyticsGetSettingsError,
+  AnalyticsGetSettingsResponse,
+  AnalyticsUpdateSettingsData,
+  AnalyticsUpdateSettingsError,
+  AnalyticsUpdateSettingsResponse,
   AuthChangeOwnPasswordData,
   AuthChangeOwnPasswordError,
   AuthChangeOwnPasswordResponse,
@@ -814,6 +850,340 @@ export const getHealthOptions = (options?: Options<GetHealthData>) =>
     },
     queryKey: getHealthQueryKey(options),
   });
+
+export const analyticsGetChannelsSummaryQueryKey = (
+  options?: Options<AnalyticsGetChannelsSummaryData>,
+) => createQueryKey("analyticsGetChannelsSummary", options);
+
+/**
+ * Per-channel summary: orders, units, cancellations, returns, revenue, discount and shares.
+ *
+ * Query params come from `ChannelsSummaryRequest`: `from` and `to` (required, inclusive
+ * days), `includeMarketplaces` (default true; false leaves every shop out),
+ * `marketplaceAccountIds` (empty — every shop), `includeDirect` (default true),
+ * `directTagIds` (Direct orders carrying any of them), `moneyMode` (`price` or
+ * `payout`, default `price`).
+ * An order belongs to the day of its `EffectiveDate`, cut in the zone sent as `X-Time-Zone`
+ * (otherwise the server's); the applied zone comes back as `timeZoneId`. A marketplace order is
+ * judged by the marketplace status only: `delivering` / `delivered` is a sale,
+ * `cancelled` a cancellation. A Direct order is a sale when `assembled` / `shipped`.
+ * Rows: one per shop, then — with `includeDirect` — the whole Direct channel, one row per tag met in
+ * the period and the untagged row; tag rows overlap, the Direct row counts every order once.
+ * Money is listed per currency and never summed across them; `payoutCoverage` is filled only in
+ * the `payout` mode. `returnsMaturityDays` echoes the applied setting.
+ * Requires `analytics.view`.
+ * Returns 422 `required` on a missing `from` / `to`, 422 `invalidValue` on
+ * `to` when it is earlier than `from`, and 422 `outOfRange` on `to` when the
+ * period exceeds 366 days (no `args` on any of them).
+ */
+export const analyticsGetChannelsSummaryOptions = (
+  options?: Options<AnalyticsGetChannelsSummaryData>,
+) =>
+  queryOptions<
+    AnalyticsGetChannelsSummaryResponse,
+    AnalyticsGetChannelsSummaryError,
+    AnalyticsGetChannelsSummaryResponse,
+    ReturnType<typeof analyticsGetChannelsSummaryQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await analyticsGetChannelsSummary({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: analyticsGetChannelsSummaryQueryKey(options),
+  });
+
+export const analyticsGetChannelsTimeseriesQueryKey = (
+  options?: Options<AnalyticsGetChannelsTimeseriesData>,
+) => createQueryKey("analyticsGetChannelsTimeseries", options);
+
+/**
+ * Orders or units per interval, one series per shop plus the whole Direct channel.
+ *
+ * Query params: the shared filter of `channels/summary`, plus `step` (`day` / `week` /
+ * `month`; omitted — day up to 31 days, week up to six months, month beyond) and `measure`
+ * (`orders` / `units`, default `orders`). Only sales count: a marketplace order in
+ * `delivering` / `delivered`, a Direct one `assembled` / `shipped`, each on the day of its
+ * `EffectiveDate`. Weeks start on Monday. Intervals are clamped to the period and flagged:
+ * `isPartial` when the step sticks out of it, `isCurrent` when it holds today, `isFuture` when
+ * it starts after today — values of a future interval are null. The applied step comes back as `step`.
+ * Requires `analytics.view`. Same 422 codes as `channels/summary`.
+ */
+export const analyticsGetChannelsTimeseriesOptions = (
+  options?: Options<AnalyticsGetChannelsTimeseriesData>,
+) =>
+  queryOptions<
+    AnalyticsGetChannelsTimeseriesResponse,
+    AnalyticsGetChannelsTimeseriesError,
+    AnalyticsGetChannelsTimeseriesResponse,
+    ReturnType<typeof analyticsGetChannelsTimeseriesQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await analyticsGetChannelsTimeseries({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: analyticsGetChannelsTimeseriesQueryKey(options),
+  });
+
+export const analyticsGetChannelsReturnsQueryKey = (
+  options?: Options<AnalyticsGetChannelsReturnsData>,
+) => createQueryKey("analyticsGetChannelsReturns", options);
+
+/**
+ * The returns card: shares by sale cohort, volume by return date, reasons and compensations.
+ *
+ * Query params: the shared filter of `channels/summary` (`includeDirect` and `directTagIds`
+ * are ignored — Direct has no returns), `moneyMode` and `step` as in `channels/timeseries`.
+ * Only returns counted as such (`customerReturn` / `partialRefusal`, not cancelled) of a sale
+ * order take part. `accounts`, `topReasons` and `compensations` are tied to the sales dated in
+ * the period, whenever the item came back; `series` is tied to `ReturnedAt` — a return with no
+ * such date is absent from it. Returned money is listed in the `price` mode only.
+ * `returnsImmature` marks a period ending closer to today than `returnsMaturityDays`.
+ * Requires `analytics.view`. Same 422 codes as `channels/summary`.
+ */
+export const analyticsGetChannelsReturnsOptions = (
+  options?: Options<AnalyticsGetChannelsReturnsData>,
+) =>
+  queryOptions<
+    AnalyticsGetChannelsReturnsResponse,
+    AnalyticsGetChannelsReturnsError,
+    AnalyticsGetChannelsReturnsResponse,
+    ReturnType<typeof analyticsGetChannelsReturnsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await analyticsGetChannelsReturns({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: analyticsGetChannelsReturnsQueryKey(options),
+  });
+
+export const analyticsGetChannelsCancellationsQueryKey = (
+  options?: Options<AnalyticsGetChannelsCancellationsData>,
+) => createQueryKey("analyticsGetChannelsCancellations", options);
+
+/**
+ * Cancelled and all counted orders of each shop per interval, for the cancellation chart.
+ *
+ * Query params: the shared filter of `channels/summary` (`includeDirect` and `directTagIds`
+ * are ignored — the cancellation card covers shops only) and `step` as in `channels/timeseries`.
+ * An order falls into the interval of its `EffectiveDate`, as in the summary, so the series add up to its
+ * cancellation counts. `series` holds the cancelled orders, `orders` the sales plus cancellations of
+ * the same shop in the same order — the share is `series / orders`. Values of a future interval are null.
+ * Requires `analytics.view`. Same 422 codes as `channels/summary`.
+ */
+export const analyticsGetChannelsCancellationsOptions = (
+  options?: Options<AnalyticsGetChannelsCancellationsData>,
+) =>
+  queryOptions<
+    AnalyticsGetChannelsCancellationsResponse,
+    AnalyticsGetChannelsCancellationsError,
+    AnalyticsGetChannelsCancellationsResponse,
+    ReturnType<typeof analyticsGetChannelsCancellationsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await analyticsGetChannelsCancellations({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: analyticsGetChannelsCancellationsQueryKey(options),
+  });
+
+export const analyticsGetChannelsLossesQueryKey = (
+  options?: Options<AnalyticsGetChannelsLossesData>,
+) => createQueryKey("analyticsGetChannelsLosses", options);
+
+/**
+ * Sales per interval next to their cancellations and returns, for the combined chart.
+ *
+ * Query params: the shared filter of `channels/summary`, `step` and `measure` as in
+ * `channels/timeseries`; the measure changes `sales` only. Every count of a point is tied to the order
+ * date: cancellations are the cancelled orders of the interval, `returnedUnits` the returns of the
+ * interval's sales whenever the item came back. The cancellation share is
+ * `cancellations / (saleOrders + cancellations)` over every selected channel, the return share
+ * `returnedUnits / shopUnits` — Direct has no returns, so its units stay out of the base; both shop
+ * counts are null when no shop is selected. `returnsImmature` marks an interval ending closer to today
+ * than `returnsMaturityDays`. Values of a future interval are null.
+ * Requires `analytics.view`. Same 422 codes as `channels/summary`.
+ */
+export const analyticsGetChannelsLossesOptions = (
+  options?: Options<AnalyticsGetChannelsLossesData>,
+) =>
+  queryOptions<
+    AnalyticsGetChannelsLossesResponse,
+    AnalyticsGetChannelsLossesError,
+    AnalyticsGetChannelsLossesResponse,
+    ReturnType<typeof analyticsGetChannelsLossesQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await analyticsGetChannelsLosses({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: analyticsGetChannelsLossesQueryKey(options),
+  });
+
+export const analyticsGetChannelsTopItemsQueryKey = (
+  options?: Options<AnalyticsGetChannelsTopItemsData>,
+) => createQueryKey("analyticsGetChannelsTopItems", options);
+
+/**
+ * Catalog items ranked by sales of the selected channels.
+ *
+ * Query params: the shared filter of `channels/summary` — one shop, Direct alone or several channels
+ * are asked for through it; `by` (`units` / `money`, default `units`),
+ * `moneyMode` as in `channels/summary`, `currencyCode` (omitted or unknown — the currency
+ * with the most sale lines; the ones met come back as `currencies`) and `take` (1..1000,
+ * omitted — every ranked item). A bundle ranks as itself. Units add up every selected channel; money exists
+ * on shop lines only, in the applied currency. Items whose ranking value is zero are left out, and
+ * `totalItems` counts the ranked ones before `take`. Shop lines with no catalog item are not
+ * ranked; their count is `unlinkedLines`.
+ * Requires `analytics.view`. Same 422 codes as `channels/summary`, plus 422
+ * `validationError` on `take` out of range.
+ */
+export const analyticsGetChannelsTopItemsOptions = (
+  options?: Options<AnalyticsGetChannelsTopItemsData>,
+) =>
+  queryOptions<
+    AnalyticsGetChannelsTopItemsResponse,
+    AnalyticsGetChannelsTopItemsError,
+    AnalyticsGetChannelsTopItemsResponse,
+    ReturnType<typeof analyticsGetChannelsTopItemsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await analyticsGetChannelsTopItems({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: analyticsGetChannelsTopItemsQueryKey(options),
+  });
+
+export const analyticsGetChannelsWeekdaysQueryKey = (
+  options?: Options<AnalyticsGetChannelsWeekdaysData>,
+) => createQueryKey("analyticsGetChannelsWeekdays", options);
+
+/**
+ * Average orders or units per weekday, by channel and by Direct tag.
+ *
+ * Query params: the shared filter of `channels/summary` and `measure` as in
+ * `channels/timeseries`. A value is the sum over every such weekday of the period divided by how many
+ * of them the period holds, Monday first. Only finished days count, today excluded: `countedTo` is the
+ * last day averaged, null when the period has no finished day yet (every value is then null).
+ * Rows follow `channels/summary`: one per shop, then — with `includeDirect` — the whole Direct
+ * channel, one per tag met in the period and the untagged row; tag rows overlap. `total` is every
+ * selected channel together, each Direct order counted once.
+ * Requires `analytics.view`. Same 422 codes as `channels/summary`.
+ */
+export const analyticsGetChannelsWeekdaysOptions = (
+  options?: Options<AnalyticsGetChannelsWeekdaysData>,
+) =>
+  queryOptions<
+    AnalyticsGetChannelsWeekdaysResponse,
+    AnalyticsGetChannelsWeekdaysError,
+    AnalyticsGetChannelsWeekdaysResponse,
+    ReturnType<typeof analyticsGetChannelsWeekdaysQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await analyticsGetChannelsWeekdays({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: analyticsGetChannelsWeekdaysQueryKey(options),
+  });
+
+export const analyticsGetSettingsQueryKey = (options?: Options<AnalyticsGetSettingsData>) =>
+  createQueryKey("analyticsGetSettings", options);
+
+/**
+ * Analytics calculation parameters: stored values, system defaults and what applies.
+ *
+ * A null in `saved` means the field follows the system default. `version` is to be sent back
+ * with the update. Requires `analytics.view`.
+ */
+export const analyticsGetSettingsOptions = (options?: Options<AnalyticsGetSettingsData>) =>
+  queryOptions<
+    AnalyticsGetSettingsResponse,
+    AnalyticsGetSettingsError,
+    AnalyticsGetSettingsResponse,
+    ReturnType<typeof analyticsGetSettingsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await analyticsGetSettings({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: analyticsGetSettingsQueryKey(options),
+  });
+
+/**
+ * Writes every analytics parameter at once; null restores the default.
+ *
+ * The settings are shared by the whole system and apply at once to any period, past ones included.
+ * Requires `analytics.settings`.
+ * Returns 422 `required` on a missing `version`; 422 `validationError` on a value outside
+ * its range, on `payoutAgeBoundaries` holding no or more than 5 values and on
+ * `payoutAgeBoundaries[i]` outside 1..365; 422 `invalidValue` on a boundary with more than one
+ * decimal place, on `abcBoundaryB` not above `abcBoundaryA`, on `xyzBoundaryY` not above
+ * `xyzBoundaryX` (both compared as they will apply, defaults included) and on
+ * `payoutAgeBoundaries` not strictly ascending; 409 `analyticsSettingsModified` when someone
+ * else saved since `version` (no `args` on any of them).
+ */
+export const analyticsUpdateSettingsMutation = (
+  options?: Partial<Options<AnalyticsUpdateSettingsData>>,
+): UseMutationOptions<
+  AnalyticsUpdateSettingsResponse,
+  AnalyticsUpdateSettingsError,
+  Options<AnalyticsUpdateSettingsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    AnalyticsUpdateSettingsResponse,
+    AnalyticsUpdateSettingsError,
+    Options<AnalyticsUpdateSettingsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await analyticsUpdateSettings({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 /**
  * Authenticate with username and password.
