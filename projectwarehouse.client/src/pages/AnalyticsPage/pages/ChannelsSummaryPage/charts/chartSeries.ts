@@ -1,5 +1,5 @@
 import type {ChannelSeriesDto} from "@/api/types.gen";
-import {formatNumber, formatPercent} from "../channelsSummaryUtils";
+import {formatNumber, formatPercent} from "@/components/analytics/analyticsFormat";
 
 /** A channel line: counts straight from the server, or shares derived from two of them. */
 export type ChartSeries = Omit<ChannelSeriesDto, "total"> & {total: number | null};

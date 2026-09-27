@@ -113,6 +113,9 @@ public class AnalyticsQueries(ApplicationDbContext db, IWarehouseTimeZoneResolve
         SaleReturns(accountIds).Where(r => r.ReturnedAt >= fromUtc && r.ReturnedAt < toUtc);
 
     /// <param name="tagIds">Keeps orders carrying any of them; empty keeps every Direct order.</param>
+    /// <param name="statuses">WMS statuses to keep.</param>
+    /// <param name="fromUtc">Inclusive lower bound of <c>EffectiveDate</c>.</param>
+    /// <param name="toUtc">Exclusive upper bound of <c>EffectiveDate</c>.</param>
     public IQueryable<Order> DirectOrders(Guid[]? tagIds, OrderStatus[] statuses, DateTime fromUtc, DateTime toUtc)
     {
         var query = db.Orders.Where(o => o.Type == OrderType.Direct

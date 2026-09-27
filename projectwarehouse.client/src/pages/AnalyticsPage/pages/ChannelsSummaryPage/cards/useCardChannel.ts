@@ -1,7 +1,7 @@
 import {useQuery} from "@tanstack/react-query";
 import {marketplacesGetAccountsShortOptions} from "@/api/@tanstack/react-query.gen";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
-import {DIRECT_CHANNEL} from "../channelsQuery";
+import {DIRECT_CHANNEL} from "@/components/analytics/channelsQuery";
 import type {useChannelsSummaryFilters} from "../useChannelsSummaryFilters";
 
 export interface CardChannelOption {

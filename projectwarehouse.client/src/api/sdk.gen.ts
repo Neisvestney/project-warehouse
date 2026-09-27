@@ -11,6 +11,9 @@ import {
 } from "./client";
 import {client} from "./client.gen";
 import type {
+  AnalyticsGetAbcData,
+  AnalyticsGetAbcErrors,
+  AnalyticsGetAbcResponses,
   AnalyticsGetChannelsCancellationsData,
   AnalyticsGetChannelsCancellationsErrors,
   AnalyticsGetChannelsCancellationsResponses,
@@ -817,6 +820,34 @@ export const analyticsGetChannelsWeekdays = <ThrowOnError extends boolean = fals
     AnalyticsGetChannelsWeekdaysErrors,
     ThrowOnError
   >({url: "/api/analytics/channels/weekdays", ...options});
+
+/**
+ * ABC and XYZ classes of the catalog items sold in the period: tiles, matrix, Pareto and a table page.
+ *
+ * Query params: the shared filter of `channels/summary`; `basis` (`units` / `price` /
+ * `payout`, default `units`) — a money basis analyses shops only, in one currency:
+ * `currencyCode`, omitted or unknown — the one with the most sale lines, the ones met come back as
+ * `currencies`. A bundle is an item of its own; items with no sales are not analysed. Items are ranked
+ * by value descending, ties by id, and classed by the cumulative share of the items before them against
+ * `abcBoundaryA` / `abcBoundaryB`. XYZ always counts units over the same channels and items, by the
+ * full `xyzStep` intervals of the period that are already over; with fewer than
+ * `xyzMinIntervals` of them (`xyzIntervals`) no item has an XYZ class. `xyzFromFirstSale`
+ * (default true) starts the series of an item that never sold before the period at the interval of its first
+ * sale, and an item left with fewer than `xyzMinIntervals` gets no class. `classes`,
+ * `matrix` and `pareto` cover the whole analysis; `abcClass`, `xyzClass`,
+ * `searchString`, `page` (default 1) and `pageSize` (default 25, max 200) narrow
+ * `items` only, whose `rank` stays the place in the whole analysis. `payoutCoverage` is filled
+ * for the `payout` basis only. `settings` echoes the applied parameters.
+ * Requires `analytics.view`. Same 422 codes as `channels/summary`, plus 422
+ * `validationError` on `page` / `pageSize` out of range.
+ */
+export const analyticsGetAbc = <ThrowOnError extends boolean = false>(
+  options?: Options<AnalyticsGetAbcData, ThrowOnError>,
+): RequestResult<AnalyticsGetAbcResponses, AnalyticsGetAbcErrors, ThrowOnError> =>
+  (options?.client ?? client).get<AnalyticsGetAbcResponses, AnalyticsGetAbcErrors, ThrowOnError>({
+    url: "/api/analytics/abc",
+    ...options,
+  });
 
 /**
  * Analytics calculation parameters: stored values, system defaults and what applies.

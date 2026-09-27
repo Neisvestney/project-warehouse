@@ -21,12 +21,12 @@ import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {formatDateOnly} from "@/utils/dateOnly";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import ChannelChip from "../ChannelChip";
-import {parseMeasure} from "../channelsQuery";
-import {formatAverage} from "../channelsSummaryUtils";
+import {parseMeasure} from "@/components/analytics/channelsQuery";
+import {formatAverage} from "@/components/analytics/analyticsFormat";
 import {useChannelColor} from "../charts/useChannelColor";
-import PeriodPicker from "../period/PeriodPicker";
-import {CARD_PERIOD_PRESETS, useCardPeriod} from "../period/usePeriodParam";
-import SummaryCard from "../SummaryCard";
+import PeriodPicker from "@/components/analytics/period/PeriodPicker";
+import {CARD_PERIOD_PRESETS, useCardPeriod} from "@/components/analytics/period/usePeriodParam";
+import SummaryCard from "@/components/analytics/SummaryCard";
 import type {useChannelsSummaryFilters} from "../useChannelsSummaryFilters";
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];

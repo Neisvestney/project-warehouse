@@ -1,6 +1,6 @@
 import {keepPreviousData, useQuery} from "@tanstack/react-query";
 import {analyticsGetChannelsCancellationsOptions} from "@/api/@tanstack/react-query.gen";
-import {channelSelectionQuery} from "../channelsQuery";
+import {channelSelectionQuery} from "@/components/analytics/channelsQuery";
 import {formatCount, formatShare, shareSeries} from "../charts/chartSeries";
 import ShareToggle from "../ShareToggle";
 import StepMeasureToggles from "../StepMeasureToggles";

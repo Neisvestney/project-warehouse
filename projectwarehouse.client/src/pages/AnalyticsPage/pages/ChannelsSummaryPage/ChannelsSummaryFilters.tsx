@@ -3,9 +3,9 @@ import type {AnalyticsMoneyMode} from "@/api/types.gen";
 import FiltersBar from "@/components/FiltersBar";
 import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
 import {useHasPermission} from "@/hooks/usePermission";
-import ChannelsSelect from "./ChannelsSelect";
-import PeriodPicker from "./period/PeriodPicker";
-import {PERIOD_PRESETS} from "./period/periodSelection";
+import ChannelsSelect from "@/components/analytics/ChannelsSelect";
+import PeriodPicker from "@/components/analytics/period/PeriodPicker";
+import {PERIOD_PRESETS} from "@/components/analytics/period/periodSelection";
 import type {useChannelsSummaryFilters} from "./useChannelsSummaryFilters";
 
 type ChannelsSummaryFiltersProps = ReturnType<typeof useChannelsSummaryFilters>;

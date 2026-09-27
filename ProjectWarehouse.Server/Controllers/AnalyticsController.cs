@@ -10,6 +10,7 @@ namespace ProjectWarehouse.Server.Controllers;
 [Route("api/analytics")]
 public class AnalyticsController(
     IAnalyticsChannelsService channels,
+    IAnalyticsAbcService abc,
     IAnalyticsSettingsService settings,
     IChangeLogService<AnalyticsSettingsDto> changeLog) : AppControllerBase
 {
@@ -219,6 +220,41 @@ public class AnalyticsController(
         try
         {
             return Ok(await channels.GetWeekdaysAsync(User, request, ct));
+        }
+        catch (Infrastructure.ValidationException ex)
+        {
+            return UnprocessableEntity(ex);
+        }
+    }
+
+    /// <summary>ABC and XYZ classes of the catalog items sold in the period: tiles, matrix, Pareto and a table page.</summary>
+    /// <remarks>
+    /// Query params: the shared filter of <c>channels/summary</c>; <c>basis</c> (<c>units</c> / <c>price</c> /
+    /// <c>payout</c>, default <c>units</c>) — a money basis analyses shops only, in one currency:
+    /// <c>currencyCode</c>, omitted or unknown — the one with the most sale lines, the ones met come back as
+    /// <c>currencies</c>. A bundle is an item of its own; items with no sales are not analysed. Items are ranked
+    /// by value descending, ties by id, and classed by the cumulative share of the items before them against
+    /// <c>abcBoundaryA</c> / <c>abcBoundaryB</c>. XYZ always counts units over the same channels and items, by the
+    /// full <c>xyzStep</c> intervals of the period that are already over; with fewer than
+    /// <c>xyzMinIntervals</c> of them (<c>xyzIntervals</c>) no item has an XYZ class. <c>xyzFromFirstSale</c>
+    /// (default true) starts the series of an item that never sold before the period at the interval of its first
+    /// sale, and an item left with fewer than <c>xyzMinIntervals</c> gets no class. <c>classes</c>,
+    /// <c>matrix</c> and <c>pareto</c> cover the whole analysis; <c>abcClass</c>, <c>xyzClass</c>,
+    /// <c>searchString</c>, <c>page</c> (default 1) and <c>pageSize</c> (default 25, max 200) narrow
+    /// <c>items</c> only, whose <c>rank</c> stays the place in the whole analysis. <c>payoutCoverage</c> is filled
+    /// for the <c>payout</c> basis only. <c>settings</c> echoes the applied parameters.
+    /// Requires <c>analytics.view</c>. Same 422 codes as <c>channels/summary</c>, plus 422
+    /// <c>validationError</c> on <c>page</c> / <c>pageSize</c> out of range.
+    /// </remarks>
+    [HttpGet("abc")]
+    [TimeZoneAware]
+    [Authorize(Policy = Permissions.Analytics.View)]
+    [ProducesResponseType<AbcDto>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAbc([FromQuery] AbcRequest request, CancellationToken ct = default)
+    {
+        try
+        {
+            return Ok(await abc.GetAbcAsync(User, request, ct));
         }
         catch (Infrastructure.ValidationException ex)
         {

@@ -1,5 +1,5 @@
 import {BarChart} from "@mui/x-charts/BarChart";
-import {formatNumber} from "../channelsSummaryUtils";
+import {formatNumber} from "@/components/analytics/analyticsFormat";
 
 export interface StackPart<K extends string> {
   key: K;

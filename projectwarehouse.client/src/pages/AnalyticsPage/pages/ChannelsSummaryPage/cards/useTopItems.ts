@@ -2,8 +2,8 @@ import {keepPreviousData, useQuery} from "@tanstack/react-query";
 import {analyticsGetChannelsTopItemsOptions} from "@/api/@tanstack/react-query.gen";
 import type {AnalyticsTopItemsBy} from "@/api/types.gen";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
-import {DIRECT_CHANNEL} from "../channelsQuery";
-import {useCardPeriod} from "../period/usePeriodParam";
+import {DIRECT_CHANNEL} from "@/components/analytics/channelsQuery";
+import {useCardPeriod} from "@/components/analytics/period/usePeriodParam";
 import type {useChannelsSummaryFilters} from "../useChannelsSummaryFilters";
 import {useCardChannel} from "./useCardChannel";
 

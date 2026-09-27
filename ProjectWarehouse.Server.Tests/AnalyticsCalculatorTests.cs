@@ -142,9 +142,30 @@ public class AnalyticsCalculatorTests
     public void FullIntervals_DropPartialEdges()
     {
         var intervals = AnalyticsCalculator.FullIntervals(
-            new DateOnly(2026, 9, 2), new DateOnly(2026, 9, 24), AnalyticsXyzStep.Week);
+            new DateOnly(2026, 9, 2), new DateOnly(2026, 9, 24), AnalyticsXyzStep.Week, new DateOnly(2026, 10, 1));
 
         Assert.Equal([new DateOnly(2026, 9, 7), new DateOnly(2026, 9, 14)], intervals.Select(i => i.Start));
+    }
+
+    [Fact]
+    public void FullIntervals_DropWeeksNotOverYet()
+    {
+        // The week of Sep 14 ends on Sunday the 20th, so on that day it is still selling
+        var intervals = AnalyticsCalculator.FullIntervals(
+            new DateOnly(2026, 9, 2), new DateOnly(2026, 9, 24), AnalyticsXyzStep.Week, new DateOnly(2026, 9, 20));
+
+        Assert.Equal([new DateOnly(2026, 9, 7)], intervals.Select(i => i.Start));
+    }
+
+    [Fact]
+    public void IntervalsSince_StartsAtTheWeekOfTheFirstSale()
+    {
+        var intervals = AnalyticsCalculator.FullIntervals(
+            new DateOnly(2026, 9, 7), new DateOnly(2026, 9, 27), AnalyticsXyzStep.Week, new DateOnly(2026, 10, 1));
+
+        var since = AnalyticsCalculator.IntervalsSince(intervals, new DateOnly(2026, 9, 16));
+
+        Assert.Equal([new DateOnly(2026, 9, 14), new DateOnly(2026, 9, 21)], since.Select(i => i.Start));
     }
 
     [Fact]

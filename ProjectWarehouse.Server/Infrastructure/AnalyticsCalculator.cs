@@ -71,6 +71,7 @@ public static class AnalyticsCalculator
     /// Ranks positive values descending (ties by id) and classes each by the cumulative share of the
     /// positions <b>before</b> it: the position that crosses boundary A is still A, and the first one always is.
     /// </summary>
+    /// <param name="values">Item values; zero and negative ones are left out.</param>
     /// <param name="boundaryA">Percent.</param>
     /// <param name="boundaryB">Percent.</param>
     public static IReadOnlyList<AbcRankedItem> RankAbc(
@@ -158,11 +159,23 @@ public static class AnalyticsCalculator
         return result;
     }
 
-    /// <summary>Only the intervals of <paramref name="step"/> that lie entirely inside the period.</summary>
-    public static IReadOnlyList<AnalyticsInterval> FullIntervals(DateOnly from, DateOnly to, AnalyticsXyzStep step) =>
+    /// <summary>
+    /// Only the intervals of <paramref name="step"/> that lie entirely inside the period and are over before
+    /// <paramref name="today"/>: a week still selling, or one ahead, would add a low value and read as unsteady.
+    /// </summary>
+    public static IReadOnlyList<AnalyticsInterval> FullIntervals(
+        DateOnly from, DateOnly to, AnalyticsXyzStep step, DateOnly today) =>
         SplitIntervals(from, to, step == AnalyticsXyzStep.Week ? AnalyticsStep.Week : AnalyticsStep.Month)
-            .Where(i => !i.IsPartial)
+            .Where(i => !i.IsPartial && i.End < today)
             .ToList();
+
+    /// <summary>
+    /// The intervals from the one holding <paramref name="firstSale"/> on: weeks before an item existed are not
+    /// zero demand, and counting them would class every newcomer as unsteady.
+    /// </summary>
+    public static IReadOnlyList<AnalyticsInterval> IntervalsSince(
+        IReadOnlyList<AnalyticsInterval> intervals, DateOnly firstSale) =>
+        intervals.Where(i => i.End >= firstSale).ToList();
 
     /// <summary>
     /// Sums daily values into their intervals. An interval that starts after <paramref name="today"/> gets

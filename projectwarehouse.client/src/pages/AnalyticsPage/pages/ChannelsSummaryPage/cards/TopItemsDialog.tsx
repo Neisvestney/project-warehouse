@@ -15,7 +15,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import SearchInput from "@/components/SearchInput";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
 import {extractErrorMessage} from "@/utils/errorUtils";
-import {periodLabel} from "../period/periodSelection";
+import {periodLabel} from "@/components/analytics/period/periodSelection";
 import type {useChannelsSummaryFilters} from "../useChannelsSummaryFilters";
 import TopItemsTable from "./TopItemsTable";
 import {useTopItemsQuery, useTopItemsState} from "./useTopItems";

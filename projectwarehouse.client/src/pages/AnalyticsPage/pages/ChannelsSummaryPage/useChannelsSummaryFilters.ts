@@ -7,9 +7,9 @@ import {
   parseMeasure,
   parseStep,
   serializeList,
-} from "./channelsQuery";
-import {type PeriodSelection, resolvePeriod} from "./period/periodSelection";
-import {usePeriodParam} from "./period/usePeriodParam";
+} from "@/components/analytics/channelsQuery";
+import {type PeriodSelection, resolvePeriod} from "@/components/analytics/period/periodSelection";
+import {usePeriodParam} from "@/components/analytics/period/usePeriodParam";
 
 export const DEFAULT_PAGE_PERIOD: PeriodSelection = {preset: "lastMonth"};
 

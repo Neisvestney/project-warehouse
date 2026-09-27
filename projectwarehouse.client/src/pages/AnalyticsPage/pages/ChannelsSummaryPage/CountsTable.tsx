@@ -1,5 +1,5 @@
 import {Table, TableBody, TableCell, TableHead, TableRow} from "@mui/material";
-import {formatNumber} from "./channelsSummaryUtils";
+import {formatNumber} from "@/components/analytics/analyticsFormat";
 
 interface CountsTableProps {
   label: string;

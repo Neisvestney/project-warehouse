@@ -1,9 +1,9 @@
 import {Alert, Button, Stack, Typography} from "@mui/material";
 import {extractErrorMessage} from "@/utils/errorUtils";
-import {formatNumber} from "../channelsSummaryUtils";
-import PeriodPicker from "../period/PeriodPicker";
-import {CARD_PERIOD_PRESETS} from "../period/usePeriodParam";
-import SummaryCard from "../SummaryCard";
+import {formatNumber} from "@/components/analytics/analyticsFormat";
+import PeriodPicker from "@/components/analytics/period/PeriodPicker";
+import {CARD_PERIOD_PRESETS} from "@/components/analytics/period/usePeriodParam";
+import SummaryCard from "@/components/analytics/SummaryCard";
 import type {useChannelsSummaryFilters} from "../useChannelsSummaryFilters";
 import TopItemsControls from "./TopItemsControls";
 import TopItemsTable from "./TopItemsTable";

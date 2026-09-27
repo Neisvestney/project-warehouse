@@ -17,7 +17,7 @@ import {
 import type {ChannelsSummaryDto, ChannelSummaryRowDto} from "@/api/types.gen";
 import {formatDateOnly} from "@/utils/dateOnly";
 import ChannelChip from "./ChannelChip";
-import {formatMoney, formatNumber, formatPercent} from "./channelsSummaryUtils";
+import {formatMoney, formatNumber, formatPercent} from "@/components/analytics/analyticsFormat";
 
 interface Column {
   label: string;

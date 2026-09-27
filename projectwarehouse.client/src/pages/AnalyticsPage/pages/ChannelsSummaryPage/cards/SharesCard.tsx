@@ -12,12 +12,12 @@ import {analyticsGetChannelsTimeseriesOptions} from "@/api/@tanstack/react-query
 import type {AnalyticsMeasure} from "@/api/types.gen";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {extractErrorMessage} from "@/utils/errorUtils";
-import {formatPercent} from "../channelsSummaryUtils";
+import {formatPercent} from "@/components/analytics/analyticsFormat";
 import SharesAreaChart from "../charts/SharesAreaChart";
 import {useChannelColor} from "../charts/useChannelColor";
-import PeriodPicker from "../period/PeriodPicker";
-import {CARD_PERIOD_PRESETS, useCardPeriod} from "../period/usePeriodParam";
-import SummaryCard from "../SummaryCard";
+import PeriodPicker from "@/components/analytics/period/PeriodPicker";
+import {CARD_PERIOD_PRESETS, useCardPeriod} from "@/components/analytics/period/usePeriodParam";
+import SummaryCard from "@/components/analytics/SummaryCard";
 import type {useChannelsSummaryFilters} from "../useChannelsSummaryFilters";
 import {useCardSummary} from "./useCardSummary";
 

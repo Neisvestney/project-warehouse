@@ -1,7 +1,7 @@
 import {keepPreviousData, useQuery} from "@tanstack/react-query";
 import {analyticsGetChannelsReturnsOptions} from "@/api/@tanstack/react-query.gen";
 import type {AnalyticsMoneyMode} from "@/api/types.gen";
-import {channelSelectionQuery} from "../channelsQuery";
+import {channelSelectionQuery} from "@/components/analytics/channelsQuery";
 import StepMeasureToggles from "../StepMeasureToggles";
 import ChartFullscreenDialog from "./ChartFullscreenDialog";
 import type {useChartFullscreen} from "./useChartFullscreen";

@@ -8,14 +8,14 @@ import {
   MARKETPLACE_RETURN_KIND_LABELS,
 } from "@/components/orders/marketplace/marketplaceOrderUtils";
 import {extractErrorMessage} from "@/utils/errorUtils";
-import {formatMoney, formatNumber, formatPercent} from "../channelsSummaryUtils";
+import {formatMoney, formatNumber, formatPercent} from "@/components/analytics/analyticsFormat";
 import ChannelsLineChart from "../charts/ChannelsLineChart";
 import StackedAccountsBar, {type StackPart} from "../charts/StackedAccountsBar";
 import CountsTable from "../CountsTable";
-import PeriodPicker from "../period/PeriodPicker";
-import type {PeriodSelection} from "../period/periodSelection";
-import {CARD_PERIOD_PRESETS, useCardPeriod} from "../period/usePeriodParam";
-import SummaryCard from "../SummaryCard";
+import PeriodPicker from "@/components/analytics/period/PeriodPicker";
+import type {PeriodSelection} from "@/components/analytics/period/periodSelection";
+import {CARD_PERIOD_PRESETS, useCardPeriod} from "@/components/analytics/period/usePeriodParam";
+import SummaryCard from "@/components/analytics/SummaryCard";
 import type {useChannelsSummaryFilters} from "../useChannelsSummaryFilters";
 
 interface ReturnsCardProps {

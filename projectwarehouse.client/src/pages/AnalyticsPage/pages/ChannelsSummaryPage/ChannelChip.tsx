@@ -3,7 +3,7 @@ import type {MarketplaceType} from "@/api/types.gen";
 import MarketplaceAccountChip from "@/components/marketplace/MarketplaceAccountChip";
 import {ORDER_TYPE_COLORS} from "@/components/orders/orderUtils";
 import {useHasPermission} from "@/hooks/usePermission";
-import {type ChannelRef, channelLabel} from "./channelsSummaryUtils";
+import {type ChannelRef, channelLabel} from "@/components/analytics/analyticsFormat";
 
 // Duplicated from the settings tree on purpose: analytics must not import from it
 const MARKETPLACE_CHIP_COLORS: Record<MarketplaceType, "ozon" | "wb"> = {
