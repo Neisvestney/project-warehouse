@@ -64,7 +64,7 @@ export const operationsSections: SectionConfig[] = [
         path: "fbo",
         component: OrdersFboPage,
         icon: <WarehouseIcon fontSize="small" />,
-        requiredPermission: ["orders.view", "orders.view_assigned"],
+        requiredPermission: ["orders.view"],
       },
       {
         label: "Поставки FBO",
