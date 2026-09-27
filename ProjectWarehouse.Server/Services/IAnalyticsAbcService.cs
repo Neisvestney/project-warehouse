@@ -12,4 +12,10 @@ namespace ProjectWarehouse.Server.Services;
 public interface IAnalyticsAbcService
 {
     Task<AbcDto> GetAbcAsync(ClaimsPrincipal user, AbcRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// The class of each item of the table's filters in a rolling window at the end of every month of the year up to
+    /// the period's end, or up to yesterday when the period is not over.
+    /// </summary>
+    Task<AbcTimelineDto> GetTimelineAsync(ClaimsPrincipal user, AbcFilterRequest request, CancellationToken ct = default);
 }

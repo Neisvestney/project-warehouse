@@ -1,4 +1,5 @@
 import {
+  Button,
   Chip,
   Stack,
   Table,
@@ -9,6 +10,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import CalendarViewMonthIcon from "@mui/icons-material/CalendarViewMonth";
 import type {AbcClass, AbcDto, XyzClass} from "@/api/types.gen";
 import {formatPercent} from "@/components/analytics/analyticsFormat";
 import {useOpenCatalogItem} from "@/components/catalog/CatalogItemDrawerContext";
@@ -35,6 +37,8 @@ interface AbcItemsTableProps {
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
+  /** Opens the month-by-month classes of the same rows. */
+  onShowTimeline: () => void;
 }
 
 function AbcItemsTable({
@@ -49,6 +53,7 @@ function AbcItemsTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
+  onShowTimeline,
 }: AbcItemsTableProps) {
   const openCatalogItem = useOpenCatalogItem();
   const {items, basis, currencyCode} = data;
@@ -72,7 +77,16 @@ function AbcItemsTable({
             onDelete={onClearClass}
           />
         )}
-        <SearchInput value={search} onChange={onSearchChange} sx={{ml: "auto", width: 240}} />
+        <Button
+          size="small"
+          startIcon={<CalendarViewMonthIcon />}
+          onClick={onShowTimeline}
+          disabled={items.total === 0}
+          sx={{ml: "auto"}}
+        >
+          По месяцам
+        </Button>
+        <SearchInput value={search} onChange={onSearchChange} sx={{width: 240}} />
       </Stack>
 
       <DataTableContainer

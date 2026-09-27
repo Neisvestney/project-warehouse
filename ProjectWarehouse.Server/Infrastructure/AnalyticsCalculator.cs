@@ -44,6 +44,11 @@ public static class AnalyticsCalculator
     /// <summary>A yearly chart fits; "all time" over raw orders without aggregates does not.</summary>
     public const int MaxPeriodDays = 366;
 
+    public const int TimelineMonths = 12;
+
+    /// <summary>13 weeks: a quarter's worth of weekly XYZ intervals behind every month.</summary>
+    public const int TimelineWindowDays = 91;
+
     public static AnalyticsOptions Defaults { get; } = Resolve(null);
 
     public static AnalyticsOptions Resolve(AnalyticsSettings? settings) => new()
@@ -194,6 +199,28 @@ public static class AnalyticsCalculator
         return intervals.Select((interval, i) => interval.Start > today ? (int?)null : sums[i]).ToList();
     }
 
+    /// <summary>
+    /// One window of <see cref="TimelineWindowDays"/> ending on the last day of each of the
+    /// <see cref="TimelineMonths"/> months up to the one holding the last day, oldest first. The last day is
+    /// <paramref name="to"/>, or yesterday when <paramref name="to"/> is not over: today still sells, and on the
+    /// 1st that moves the last column to the month before.
+    /// </summary>
+    public static IReadOnlyList<AnalyticsTimelineWindow> TimelineWindows(DateOnly to, DateOnly today)
+    {
+        var last = to < today ? to : today.AddDays(-1);
+        var lastMonth = new DateOnly(last.Year, last.Month, 1);
+
+        return Enumerable.Range(0, TimelineMonths)
+            .Select(i =>
+            {
+                var month = lastMonth.AddMonths(i - TimelineMonths + 1);
+                var monthEnd = month.AddMonths(1).AddDays(-1);
+                var end = monthEnd < last ? monthEnd : last;
+                return new AnalyticsTimelineWindow(month, end.AddDays(1 - TimelineWindowDays), end, end < monthEnd);
+            })
+            .ToList();
+    }
+
     /// <summary>Up to 31 days — day, up to six months — week, longer — month.</summary>
     public static AnalyticsStep DefaultStep(DateOnly from, DateOnly to)
     {
@@ -276,3 +303,9 @@ public sealed record AbcRankedItem(Guid Id, decimal Value, double Share, double 
 
 /// <summary>Inclusive bounds, clamped to the period.</summary>
 public sealed record AnalyticsInterval(DateOnly Start, DateOnly End, bool IsPartial);
+
+/// <param name="Month">First day of the month the window stands for.</param>
+/// <param name="From">Inclusive.</param>
+/// <param name="To">Inclusive.</param>
+/// <param name="IsPartial">The window ends before the month does.</param>
+public sealed record AnalyticsTimelineWindow(DateOnly Month, DateOnly From, DateOnly To, bool IsPartial);

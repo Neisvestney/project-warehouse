@@ -136,6 +136,7 @@ public class AnalyticsQueries(ApplicationDbContext db, IWarehouseTimeZoneResolve
             && accountIds.Contains(r.Order.MarketplaceOrder.MarketplaceAccountId)
             && MarketplaceSaleStatuses.Contains(r.Order.MarketplaceOrder.Status));
 
-    private static DateTime ToUtc(DateOnly day, TimeSpan offset) =>
+    /// <summary>Start of <paramref name="day"/> at the given zone offset, as UTC.</summary>
+    public static DateTime ToUtc(DateOnly day, TimeSpan offset) =>
         DateTime.SpecifyKind(day.ToDateTime(TimeOnly.MinValue) - offset, DateTimeKind.Utc);
 }

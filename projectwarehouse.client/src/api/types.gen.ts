@@ -118,6 +118,70 @@ export type AbcParetoPointDto = {
   class: AbcClass;
 };
 
+/**
+ * All null when the item sold nothing in the window.
+ */
+export type AbcTimelineCellDto = {
+  abcClass?: null | AbcClass;
+  /**
+   * Share of the window's value.
+   */
+  share?: null | number;
+  xyzClass?: null | XyzClass;
+  cv?: null | number;
+};
+
+export type AbcTimelineDto = {
+  timeZoneId: string;
+  basis: AnalyticsAbcBasis;
+  /**
+   * The currency of the period's analysis, applied to every window.
+   */
+  currencyCode?: null | string;
+  /**
+   * Length of each month's window in days.
+   */
+  windowDays: number;
+  xyzFromFirstSale: boolean;
+  settings: AbcAppliedSettingsDto;
+  /**
+   * Oldest first; every row carries one cell per month in the same order.
+   */
+  months: Array<AbcTimelineMonthDto>;
+  /**
+   * The items of the table's filters and search, in the period's rank order.
+   */
+  rows: Array<AbcTimelineRowDto>;
+};
+
+export type AbcTimelineMonthDto = {
+  /**
+   * First day of the month.
+   */
+  month: string;
+  from: string;
+  to: string;
+  /**
+   * The window ends before the month does: the month is not over yet or the period ends inside it.
+   */
+  isPartial: boolean;
+  /**
+   * Full XYZ intervals of the window; below int AbcAppliedSettingsDto.XyzMinIntervals no cell has an XYZ class.
+   */
+  xyzIntervals: number;
+};
+
+export type AbcTimelineRowDto = {
+  /**
+   * Place in the period's analysis, 1-based.
+   */
+  rank: number;
+  catalogItemId: string;
+  name: string;
+  type: CatalogItemType;
+  cells: Array<AbcTimelineCellDto>;
+};
+
 export type AccountReturnsDto = {
   marketplaceAccountId: string;
   marketplaceType: MarketplaceType;
@@ -4214,21 +4278,14 @@ export type AnalyticsGetAbcData = {
   };
   path?: never;
   query?: {
+    Page?: number;
+    PageSize?: number;
     Basis?: AnalyticsAbcBasis;
-    /**
-     * Currency of a money basis; null takes the one with the most sale lines.
-     */
     CurrencyCode?: string;
-    /**
-     * Starts an item's XYZ series at its first sale ever over the selected channels, so the weeks before it
-     * was launched do not count as zero demand.
-     */
     XyzFromFirstSale?: boolean;
     AbcClass?: AbcClass;
     XyzClass?: XyzClass;
     SearchString?: string;
-    Page?: number;
-    PageSize?: number;
     From?: string;
     To?: string;
     IncludeMarketplaces?: boolean;
@@ -4260,6 +4317,63 @@ export type AnalyticsGetAbcResponses = {
 };
 
 export type AnalyticsGetAbcResponse = AnalyticsGetAbcResponses[keyof AnalyticsGetAbcResponses];
+
+export type AnalyticsGetAbcTimelineData = {
+  body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path?: never;
+  query?: {
+    Basis?: AnalyticsAbcBasis;
+    /**
+     * Currency of a money basis; null takes the one with the most sale lines.
+     */
+    CurrencyCode?: string;
+    /**
+     * Starts an item's XYZ series at its first sale ever over the selected channels, so the weeks before it
+     * was launched do not count as zero demand.
+     */
+    XyzFromFirstSale?: boolean;
+    AbcClass?: AbcClass;
+    XyzClass?: XyzClass;
+    SearchString?: string;
+    From?: string;
+    To?: string;
+    IncludeMarketplaces?: boolean;
+    MarketplaceAccountIds?: Array<string>;
+    IncludeDirect?: boolean;
+    DirectTagIds?: Array<string>;
+  };
+  url: "/api/analytics/abc/timeline";
+};
+
+export type AnalyticsGetAbcTimelineErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type AnalyticsGetAbcTimelineError =
+  AnalyticsGetAbcTimelineErrors[keyof AnalyticsGetAbcTimelineErrors];
+
+export type AnalyticsGetAbcTimelineResponses = {
+  /**
+   * OK
+   */
+  200: AbcTimelineDto;
+};
+
+export type AnalyticsGetAbcTimelineResponse =
+  AnalyticsGetAbcTimelineResponses[keyof AnalyticsGetAbcTimelineResponses];
 
 export type AnalyticsGetSettingsData = {
   body?: never;
