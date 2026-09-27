@@ -24,7 +24,9 @@ function UserAvatar({
 }: UserAvatarProps) {
   const letter = name?.trim()?.[0]?.toUpperCase() ?? "?";
   const {url} = useUserAvatarUrl(userId, previewWidth);
-  const [loadedUrl, setLoadedUrl] = useState<string>();
+  // a blob already in the query cache arrives on the first render — show it without the fade
+  const [cachedUrl] = useState(url);
+  const [loadedUrl, setLoadedUrl] = useState(cachedUrl);
 
   return (
     <Avatar
@@ -35,7 +37,10 @@ function UserAvatar({
           color: "#fff",
           "& .MuiAvatar-img": {
             opacity: url && loadedUrl === url ? 1 : 0,
-            transition: (theme) => theme.transitions.create("opacity", {duration: 300}),
+            transition:
+              url && url === cachedUrl
+                ? "none"
+                : (theme) => theme.transitions.create("opacity", {duration: 300}),
           },
         },
         ...(Array.isArray(sx) ? sx : [sx]),
