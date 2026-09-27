@@ -13,12 +13,14 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import PageLoader from "@/components/PageLoader";
 import QueryError from "@/components/QueryError";
+import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState";
 import {useHasPermission} from "@/hooks/usePermission";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import AbcClassTiles from "./AbcClassTiles";
 import AbcFilters from "./AbcFilters";
 import AbcItemsTable from "./AbcItemsTable";
 import AbcMatrix from "./AbcMatrix";
+import AbcTimelineDialog from "./AbcTimelineDialog";
 import {formatBoundary} from "./abcClasses";
 import ParetoChart from "./ParetoChart";
 import {useAbcFilters} from "./useAbcFilters";
@@ -27,6 +29,7 @@ function AbcPage() {
   const filters = useAbcFilters();
   const canEditSettings = useHasPermission("analytics.settings");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [timeline, openTimeline, closeTimeline] = useDrawerSearchParamsState("abctimeline");
 
   const {data, error, isError, isFetching, isLoading, isPlaceholderData, refetch} = useQuery({
     ...analyticsGetAbcOptions({query: filters.query}),
@@ -178,12 +181,14 @@ function AbcPage() {
                   pageSize={filters.pageSize}
                   onPageChange={filters.setPage}
                   onPageSizeChange={filters.setPageSize}
+                  onShowTimeline={() => openTimeline("open")}
                 />
               </Stack>
             </Box>
           )
         )}
 
+        <AbcTimelineDialog open={!!timeline} onClose={closeTimeline} filters={filters} />
         <AnalyticsSettingsDialog
           open={settingsOpen}
           group="abc"

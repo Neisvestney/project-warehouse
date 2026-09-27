@@ -262,6 +262,33 @@ public class AnalyticsController(
         }
     }
 
+    /// <summary>ABC and XYZ class of every item of the <c>abc</c> table month by month, for the year up to the period's end.</summary>
+    /// <remarks>
+    /// Query params: those of <c>abc</c> without <c>page</c> / <c>pageSize</c>. The rows are the items the period's
+    /// analysis leaves after <c>abcClass</c>, <c>xyzClass</c> and <c>searchString</c>, in its rank order, with no
+    /// paging. <c>months</c> are the 12 months up to the one holding <c>to</c>, or yesterday when <c>to</c> is not
+    /// over; each is a window of <c>windowDays</c> (91) ending on the month's last day, cut at <c>to</c> and before
+    /// today (<c>isPartial</c>). A window is analysed on its own the way <c>abc</c> analyses a period, over the same
+    /// channels, basis and the period's currency; its XYZ counts the window's full <c>xyzStep</c> intervals
+    /// (<c>xyzIntervals</c>) and stays empty below <c>xyzMinIntervals</c>. A cell is empty when the item sold
+    /// nothing in the window. Requires <c>analytics.view</c>. Same 422 codes as <c>channels/summary</c>.
+    /// </remarks>
+    [HttpGet("abc/timeline")]
+    [TimeZoneAware]
+    [Authorize(Policy = Permissions.Analytics.View)]
+    [ProducesResponseType<AbcTimelineDto>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAbcTimeline([FromQuery] AbcFilterRequest request, CancellationToken ct = default)
+    {
+        try
+        {
+            return Ok(await abc.GetTimelineAsync(User, request, ct));
+        }
+        catch (Infrastructure.ValidationException ex)
+        {
+            return UnprocessableEntity(ex);
+        }
+    }
+
     /// <summary>Analytics calculation parameters: stored values, system defaults and what applies.</summary>
     /// <remarks>
     /// A null in <c>saved</c> means the field follows the system default. <c>version</c> is to be sent back

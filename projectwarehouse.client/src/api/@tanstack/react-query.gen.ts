@@ -11,6 +11,7 @@ import {
 import {client} from "../client.gen";
 import {
   analyticsGetAbc,
+  analyticsGetAbcTimeline,
   analyticsGetChannelsCancellations,
   analyticsGetChannelsLosses,
   analyticsGetChannelsReturns,
@@ -214,6 +215,9 @@ import type {
   AnalyticsGetAbcData,
   AnalyticsGetAbcError,
   AnalyticsGetAbcResponse,
+  AnalyticsGetAbcTimelineData,
+  AnalyticsGetAbcTimelineError,
+  AnalyticsGetAbcTimelineResponse,
   AnalyticsGetChannelsCancellationsData,
   AnalyticsGetChannelsCancellationsError,
   AnalyticsGetChannelsCancellationsResponse,
@@ -1164,6 +1168,40 @@ export const analyticsGetAbcOptions = (options?: Options<AnalyticsGetAbcData>) =
       return data;
     },
     queryKey: analyticsGetAbcQueryKey(options),
+  });
+
+export const analyticsGetAbcTimelineQueryKey = (options?: Options<AnalyticsGetAbcTimelineData>) =>
+  createQueryKey("analyticsGetAbcTimeline", options);
+
+/**
+ * ABC and XYZ class of every item of the `abc` table month by month, for the year up to the period's end.
+ *
+ * Query params: those of `abc` without `page` / `pageSize`. The rows are the items the period's
+ * analysis leaves after `abcClass`, `xyzClass` and `searchString`, in its rank order, with no
+ * paging. `months` are the 12 months up to the one holding `to`, or yesterday when `to` is not
+ * over; each is a window of `windowDays` (91) ending on the month's last day, cut at `to` and before
+ * today (`isPartial`). A window is analysed on its own the way `abc` analyses a period, over the same
+ * channels, basis and the period's currency; its XYZ counts the window's full `xyzStep` intervals
+ * (`xyzIntervals`) and stays empty below `xyzMinIntervals`. A cell is empty when the item sold
+ * nothing in the window. Requires `analytics.view`. Same 422 codes as `channels/summary`.
+ */
+export const analyticsGetAbcTimelineOptions = (options?: Options<AnalyticsGetAbcTimelineData>) =>
+  queryOptions<
+    AnalyticsGetAbcTimelineResponse,
+    AnalyticsGetAbcTimelineError,
+    AnalyticsGetAbcTimelineResponse,
+    ReturnType<typeof analyticsGetAbcTimelineQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await analyticsGetAbcTimeline({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: analyticsGetAbcTimelineQueryKey(options),
   });
 
 export const analyticsGetSettingsQueryKey = (options?: Options<AnalyticsGetSettingsData>) =>

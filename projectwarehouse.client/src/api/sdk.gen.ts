@@ -14,6 +14,9 @@ import type {
   AnalyticsGetAbcData,
   AnalyticsGetAbcErrors,
   AnalyticsGetAbcResponses,
+  AnalyticsGetAbcTimelineData,
+  AnalyticsGetAbcTimelineErrors,
+  AnalyticsGetAbcTimelineResponses,
   AnalyticsGetChannelsCancellationsData,
   AnalyticsGetChannelsCancellationsErrors,
   AnalyticsGetChannelsCancellationsResponses,
@@ -848,6 +851,27 @@ export const analyticsGetAbc = <ThrowOnError extends boolean = false>(
     url: "/api/analytics/abc",
     ...options,
   });
+
+/**
+ * ABC and XYZ class of every item of the `abc` table month by month, for the year up to the period's end.
+ *
+ * Query params: those of `abc` without `page` / `pageSize`. The rows are the items the period's
+ * analysis leaves after `abcClass`, `xyzClass` and `searchString`, in its rank order, with no
+ * paging. `months` are the 12 months up to the one holding `to`, or yesterday when `to` is not
+ * over; each is a window of `windowDays` (91) ending on the month's last day, cut at `to` and before
+ * today (`isPartial`). A window is analysed on its own the way `abc` analyses a period, over the same
+ * channels, basis and the period's currency; its XYZ counts the window's full `xyzStep` intervals
+ * (`xyzIntervals`) and stays empty below `xyzMinIntervals`. A cell is empty when the item sold
+ * nothing in the window. Requires `analytics.view`. Same 422 codes as `channels/summary`.
+ */
+export const analyticsGetAbcTimeline = <ThrowOnError extends boolean = false>(
+  options?: Options<AnalyticsGetAbcTimelineData, ThrowOnError>,
+): RequestResult<AnalyticsGetAbcTimelineResponses, AnalyticsGetAbcTimelineErrors, ThrowOnError> =>
+  (options?.client ?? client).get<
+    AnalyticsGetAbcTimelineResponses,
+    AnalyticsGetAbcTimelineErrors,
+    ThrowOnError
+  >({url: "/api/analytics/abc/timeline", ...options});
 
 /**
  * Analytics calculation parameters: stored values, system defaults and what applies.

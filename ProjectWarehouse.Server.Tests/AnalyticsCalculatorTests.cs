@@ -169,6 +169,55 @@ public class AnalyticsCalculatorTests
     }
 
     [Fact]
+    public void TimelineWindows_EndAtMonthEndsAndStopBeforeToday()
+    {
+        var windows = AnalyticsCalculator.TimelineWindows(new DateOnly(2026, 9, 30), new DateOnly(2026, 9, 27));
+
+        Assert.Equal(12, windows.Count);
+        Assert.Equal(new DateOnly(2025, 10, 1), windows[0].Month);
+        Assert.Equal(new DateOnly(2025, 10, 31), windows[0].To);
+        Assert.Equal(new DateOnly(2025, 8, 2), windows[0].From);
+        Assert.False(windows[0].IsPartial);
+        Assert.Equal(new DateOnly(2026, 9, 1), windows[^1].Month);
+        Assert.Equal(new DateOnly(2026, 9, 26), windows[^1].To);
+        Assert.True(windows[^1].IsPartial);
+        Assert.All(windows, w => Assert.Equal(AnalyticsCalculator.TimelineWindowDays, w.To.DayNumber - w.From.DayNumber + 1));
+    }
+
+    [Fact]
+    public void TimelineWindows_CutTheLastAtThePeriodEnd()
+    {
+        var windows = AnalyticsCalculator.TimelineWindows(new DateOnly(2026, 6, 15), new DateOnly(2026, 9, 27));
+
+        Assert.Equal(new DateOnly(2026, 6, 15), windows[^1].To);
+        Assert.True(windows[^1].IsPartial);
+        Assert.Equal(new DateOnly(2026, 5, 31), windows[^2].To);
+    }
+
+    [Fact]
+    public void TimelineWindows_OnTheFirstEndWithThePreviousMonth()
+    {
+        var windows = AnalyticsCalculator.TimelineWindows(new DateOnly(2026, 10, 31), new DateOnly(2026, 10, 1));
+
+        Assert.Equal(new DateOnly(2026, 9, 1), windows[^1].Month);
+        Assert.Equal(new DateOnly(2026, 9, 30), windows[^1].To);
+        Assert.False(windows[^1].IsPartial);
+    }
+
+    [Fact]
+    public void TimelineWindows_EndOnTheLastDayOfFebruary()
+    {
+        var leap = AnalyticsCalculator.TimelineWindows(new DateOnly(2028, 2, 29), new DateOnly(2028, 6, 1));
+        var common = AnalyticsCalculator.TimelineWindows(new DateOnly(2027, 2, 28), new DateOnly(2027, 6, 1));
+
+        Assert.Equal(new DateOnly(2028, 2, 29), leap[^1].To);
+        Assert.False(leap[^1].IsPartial);
+        Assert.Equal(new DateOnly(2027, 2, 28), common[^1].To);
+        Assert.False(common[^1].IsPartial);
+        Assert.Equal(new DateOnly(2026, 11, 30), common[^1].From);
+    }
+
+    [Fact]
     public void SumByInterval_BucketsDaysAndNullsTheFuture()
     {
         var intervals = AnalyticsCalculator.SplitIntervals(
