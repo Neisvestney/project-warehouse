@@ -21,7 +21,7 @@ import AbcFilters from "./AbcFilters";
 import AbcItemsTable from "./AbcItemsTable";
 import AbcMatrix from "./AbcMatrix";
 import AbcTimelineDialog from "./AbcTimelineDialog";
-import {formatBoundary} from "./abcClasses";
+import {formatBoundary} from "@/components/analytics/abc/abcClasses";
 import ParetoChart from "./ParetoChart";
 import {useAbcFilters} from "./useAbcFilters";
 

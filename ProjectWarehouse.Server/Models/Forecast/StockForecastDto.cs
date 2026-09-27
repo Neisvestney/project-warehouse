@@ -1,3 +1,4 @@
+using ProjectWarehouse.Server.Models.Analytics;
 using ProjectWarehouse.Server.Models.Catalog;
 
 namespace ProjectWarehouse.Server.Models.Forecast;
@@ -47,6 +48,14 @@ public class StockForecastRowDto : StockForecastDto
     /// item rows and on members themselves.
     /// </summary>
     public List<StockForecastRowDto>? Members { get; init; }
+
+    /// <summary>
+    /// Classes by the warehouse's consumption over <see cref="StockForecastListDto.ClassWindowDays"/>, not by
+    /// sales. Null when nothing was consumed in it.
+    /// </summary>
+    public AbcClass? AbcClass { get; init; }
+
+    public XyzClass? XyzClass { get; init; }
 }
 
 /// <summary>
@@ -62,4 +71,7 @@ public class StockForecastListDto
 
     /// <summary>Threshold every row without an override inherited.</summary>
     public int WarehouseWarningDays { get; init; }
+
+    /// <summary>Days of consumption, up to today, the row classes were analysed over.</summary>
+    public int ClassWindowDays { get; init; }
 }

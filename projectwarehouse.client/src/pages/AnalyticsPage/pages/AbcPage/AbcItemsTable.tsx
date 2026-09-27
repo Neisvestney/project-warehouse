@@ -19,8 +19,8 @@ import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import DataTableContainer from "@/components/DataTableContainer";
 import SearchInput from "@/components/SearchInput";
 import TableRowEmpty from "@/components/TableRowEmpty";
-import {BASIS_LABELS, formatAbcValue} from "./abcClasses";
-import {AbcChip, XyzChip} from "./ClassChips";
+import {BASIS_LABELS, formatAbcValue} from "@/components/analytics/abc/abcClasses";
+import {AbcChip, XyzChip} from "@/components/analytics/abc/ClassChips";
 
 const COLUMNS = 9;
 

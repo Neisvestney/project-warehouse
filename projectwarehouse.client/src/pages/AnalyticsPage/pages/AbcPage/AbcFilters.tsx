@@ -6,7 +6,7 @@ import {PERIOD_PRESETS} from "@/components/analytics/period/periodSelection";
 import FiltersBar from "@/components/FiltersBar";
 import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
 import {useHasPermission} from "@/hooks/usePermission";
-import {BASIS_LABELS} from "./abcClasses";
+import {BASIS_LABELS} from "@/components/analytics/abc/abcClasses";
 import type {useAbcFilters} from "./useAbcFilters";
 
 type AbcFiltersProps = ReturnType<typeof useAbcFilters> & {

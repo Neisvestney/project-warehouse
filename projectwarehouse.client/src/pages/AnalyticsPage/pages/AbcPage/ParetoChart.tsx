@@ -11,7 +11,7 @@ import {ChartsYAxis} from "@mui/x-charts/ChartsYAxis";
 import {LinePlot} from "@mui/x-charts/LineChart";
 import type {AbcClass, AbcDto} from "@/api/types.gen";
 import {formatNumber, formatPercent} from "@/components/analytics/analyticsFormat";
-import {ABC_CLASSES, formatAbcValue, formatBoundary} from "./abcClasses";
+import {ABC_CLASSES, formatAbcValue, formatBoundary} from "@/components/analytics/abc/abcClasses";
 
 interface ParetoChartProps {
   data: AbcDto;

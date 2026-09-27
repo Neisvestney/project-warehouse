@@ -516,14 +516,17 @@ StockForecastDto            // единица прогноза, переиспо
 
 StockForecastRowDto : StockForecastDto
   ├── catalogItem           CatalogItemSummaryDto
-  └── members               StockForecastRowDto[]?   // только у строки вариации
+  ├── members               StockForecastRowDto[]?   // только у строки вариации
+  ├── abcClass              AbcClass?  // см. Классы ABC / XYZ
+  └── xyzClass              XyzClass?
 
 StockForecastListDto
   ├── items                 Paginated<StockForecastRowDto>
   ├── windowDays            int
   ├── useWeightedConsumption bool
   ├── timeZoneId            string
-  └── warehouseWarningDays  int      // порог, который унаследовали строки без override
+  ├── warehouseWarningDays  int      // порог, который унаследовали строки без override
+  └── classWindowDays       int      // окно классов ABC / XYZ, дней
 
 StockForecastSettingsDto
   ├── warehouseId             Guid
@@ -549,6 +552,39 @@ StockForecastSettingsDto
 Потребитель на фронте — страница «Прогноз остатков» (`/storage/forecast`), её версия в разрезе одного склада
 (`/storage/warehouses/:id/forecast`) и `StockForecastChip`; их устройство описано в
 [frontend-components.md](frontend-components.md#forecastbasepage).
+
+---
+
+### Классы ABC / XYZ
+
+`GET /api/stock-forecast` отдаёт у строк страницы, включая участников вариаций, классы ABC и XYZ **по расходу
+склада** — тем же `Out`, что и расход/день, но за фиксированные `classWindowDays` = 91 день (13 недель) до
+сегодня, в поясе склада. Окно не зависит от `consumptionWindowDays`: при дефолтных 30 днях в нём 3–4 полных
+недели, и XYZ почти всегда был бы «—».
+
+- **ABC** — ранжирование расхода в штуках по правилу
+  [раздела «Аналитика»](analytics-specification.md#классы) (`AnalyticsCalculator.RankAbc`). Ранжируются все
+  товары склада с расходом за окно, а не строки страницы, поэтому фильтры и поиск класс не меняют.
+- **XYZ** — коэффициент вариации расхода по полным интервалам окна
+  ([расчёт](analytics-specification.md#расчёт)); шаг, минимум интервалов и границы — из настроек аналитики.
+  Недели без остатка входят в ряд нулями: позиция, которую в Z загнали дефициты, — сигнал о пополнении, и её
+  стоит видеть. Обрезки ряда по первому расходу нет: новинка в первые недели окна тоже уходит в Z.
+- **Комплекты** отгружаются компонентами, `Out` пишется по каждому компоненту, так что компонент, который
+  уходит только в комплектах, получает класс по своему реальному расходу.
+- **Вариация** получает класс, который сумма расхода её участников заняла бы среди товаров
+  (`AnalyticsCalculator.ClassifyAbcAmong`), не вставая в ранжирование — участники в нём уже есть. XYZ — по
+  сумме рядов участников.
+
+`abcClass = null` — расхода за окно не было; `xyzClass = null` при заданном `abcClass` — полных интервалов
+меньше `xyzMinIntervals`. Классы видны с правом прогноза, `analytics.view` не нужно. Точечный эндпоинт и алерты
+классов не несут, сортировки по классу нет. Классы считаются отдельным запросом к журналу за окно, только для
+страницы выдачи.
+
+Классы отвечают на вопрос «насколько товар важен для полки этого склада», а не «как он продаётся», и с
+классами страницы «ABC / XYZ» совпадать не обязаны.
+
+На фронте это колонка «ABC / XYZ» после артикула (см.
+[frontend-components.md](frontend-components.md#forecastbasepage)).
 
 ---
 

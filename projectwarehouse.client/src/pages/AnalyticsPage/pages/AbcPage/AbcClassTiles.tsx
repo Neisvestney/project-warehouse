@@ -2,8 +2,8 @@ import {Box, ButtonBase, Paper, Stack, Typography} from "@mui/material";
 import type {AbcClass, AbcDto} from "@/api/types.gen";
 import {formatPercent} from "@/components/analytics/analyticsFormat";
 import {NOUNS, pluralCount} from "@/utils/pluralUtils";
-import {formatBoundary} from "./abcClasses";
-import {AbcChip} from "./ClassChips";
+import {formatBoundary} from "@/components/analytics/abc/abcClasses";
+import {AbcChip} from "@/components/analytics/abc/ClassChips";
 
 const LINES = {one: "строка", few: "строки", many: "строк"};
 

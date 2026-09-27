@@ -2759,6 +2759,10 @@ export type StockForecastListDto = {
    * Threshold every row without an override inherited.
    */
   warehouseWarningDays: number;
+  /**
+   * Days of consumption, up to today, the row classes were analysed over.
+   */
+  classWindowDays: number;
 };
 
 /**
@@ -2771,6 +2775,8 @@ export type StockForecastRowDto = {
    * item rows and on members themselves.
    */
   members?: null | Array<StockForecastRowDto>;
+  abcClass?: null | AbcClass;
+  xyzClass?: null | XyzClass;
   catalogItemId: string;
   stock: number;
   /**
