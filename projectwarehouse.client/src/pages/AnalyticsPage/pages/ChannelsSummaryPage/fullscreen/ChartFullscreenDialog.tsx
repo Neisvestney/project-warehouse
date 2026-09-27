@@ -18,13 +18,13 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import type {AnalyticsIntervalDto, AnalyticsStep} from "@/api/types.gen";
 import {extractErrorMessage} from "@/utils/errorUtils";
-import ChannelsSelect from "../ChannelsSelect";
+import ChannelsSelect from "@/components/analytics/ChannelsSelect";
 import ChannelsLineChart from "../charts/ChannelsLineChart";
 import {type ChartSeries, formatCount, type ValueFormat} from "../charts/chartSeries";
 import {intervalLabel, seriesLabel} from "../charts/intervalLabels";
 import {useChannelColor} from "../charts/useChannelColor";
-import PeriodPicker from "../period/PeriodPicker";
-import {PERIOD_PRESETS} from "../period/periodSelection";
+import PeriodPicker from "@/components/analytics/period/PeriodPicker";
+import {PERIOD_PRESETS} from "@/components/analytics/period/periodSelection";
 import type {useChartFullscreen} from "./useChartFullscreen";
 
 export interface ChartData {

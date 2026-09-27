@@ -6,7 +6,7 @@ import type {AnalyticsMeasure, AnalyticsStep} from "@/api/types.gen";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import ChannelsLineChart from "../charts/ChannelsLineChart";
 import StepMeasureToggles from "../StepMeasureToggles";
-import SummaryCard from "../SummaryCard";
+import SummaryCard from "@/components/analytics/SummaryCard";
 import type {useChannelsSummaryFilters} from "../useChannelsSummaryFilters";
 
 interface DynamicsCardProps {

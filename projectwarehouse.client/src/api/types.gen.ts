@@ -4,6 +4,120 @@ export type ClientOptions = {
   baseUrl: "https://localhost:7095/" | (string & {});
 };
 
+/**
+ * The parameters the classes were computed with.
+ */
+export type AbcAppliedSettingsDto = {
+  abcBoundaryA: number;
+  abcBoundaryB: number;
+  xyzBoundaryX: number;
+  xyzBoundaryY: number;
+  xyzStep: AnalyticsXyzStep;
+  xyzMinIntervals: number;
+};
+
+export type AbcClass = "a" | "b" | "c";
+
+export type AbcClassSummaryDto = {
+  class: AbcClass;
+  items: number;
+  /**
+   * Share of the analysed items, not of the whole catalog.
+   */
+  itemsShare: number;
+  value: number;
+  valueShare: number;
+};
+
+export type AbcDto = {
+  from: string;
+  to: string;
+  timeZoneId: string;
+  basis: AnalyticsAbcBasis;
+  /**
+   * Currency of a money basis; null for units and when the shops sold nothing with a price.
+   */
+  currencyCode?: null | string;
+  /**
+   * Currencies met on the sale lines, the most frequent first.
+   */
+  currencies: Array<string>;
+  /**
+   * Accrued lines among the sale lines in the currency; filled for the payout basis only.
+   */
+  payoutCoverage?: null | number;
+  /**
+   * Marketplace sale lines with no catalog item: counted by the channel, absent from the analysis.
+   */
+  unlinkedLines: number;
+  /**
+   * Σ of every analysed item's value.
+   */
+  totalValue: number;
+  settings: AbcAppliedSettingsDto;
+  /**
+   * Full XYZ intervals the period holds that are already over; below int AbcAppliedSettingsDto.XyzMinIntervals no item gets a class.
+   */
+  xyzIntervals: number;
+  /**
+   * Whether each item's XYZ series starts at its first sale ever rather than at the period start.
+   */
+  xyzFromFirstSale: boolean;
+  /**
+   * A, B and C, in that order, each present even when empty.
+   */
+  classes: Array<AbcClassSummaryDto>;
+  /**
+   * Items per ABC × XYZ pair; the pairs with no XYZ class carry a null `xyzClass`.
+   */
+  matrix: Array<AbcMatrixCellDto>;
+  /**
+   * Every analysed item in rank order, for the Pareto chart.
+   */
+  pareto: Array<AbcParetoPointDto>;
+  /**
+   * The table page, narrowed by the class filters and the search; ranks stay those of the whole analysis.
+   */
+  items: PaginatedOfAbcItemDto;
+};
+
+export type AbcItemDto = {
+  /**
+   * Place in the whole analysis, 1-based.
+   */
+  rank: number;
+  catalogItemId: string;
+  name: string;
+  type: CatalogItemType;
+  value: number;
+  share: number;
+  /**
+   * Cumulative share up to and including this item.
+   */
+  cumulativeShare: number;
+  abcClass: AbcClass;
+  xyzClass?: null | XyzClass;
+  /**
+   * Full intervals the item's XYZ series spans; null when the period holds too few for anyone.
+   */
+  xyzIntervals?: null | number;
+  /**
+   * Coefficient of variation as a fraction; null under the same conditions as XyzClass? AbcItemDto.XyzClass.
+   */
+  cv?: null | number;
+};
+
+export type AbcMatrixCellDto = {
+  abcClass: AbcClass;
+  xyzClass?: null | XyzClass;
+  items: number;
+};
+
+export type AbcParetoPointDto = {
+  value: number;
+  class: AbcClass;
+};
+
 export type AccountReturnsDto = {
   marketplaceAccountId: string;
   marketplaceType: MarketplaceType;
@@ -48,6 +162,11 @@ export type AddFulfillmentRequest = {
    */
   resolvedCatalogItemId?: null | string;
 };
+
+/**
+ * What an item's ABC value is.
+ */
+export type AnalyticsAbcBasis = "units" | "price" | "payout";
 
 export type AnalyticsChannelKind = "marketplace" | "direct" | "directTag" | "directUntagged";
 
@@ -1757,6 +1876,16 @@ export type OrderTagDto = {
  * Values are pinned — they are stored as int and referenced from jsonb snapshots.
  */
 export type OrderType = "fbs" | "fboSupply" | "direct" | "fboPosting";
+
+export type PaginatedOfAbcItemDto = {
+  items: Array<AbcItemDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
 
 export type PaginatedOfCatalogItemSummaryDto = {
   items: Array<CatalogItemSummaryDto>;
@@ -3714,6 +3843,8 @@ export type WriteoffTagDto = {
   name: string;
 };
 
+export type XyzClass = "x" | "y" | "z";
+
 export type GetHealthData = {
   body?: never;
   path?: never;
@@ -4072,6 +4203,63 @@ export type AnalyticsGetChannelsWeekdaysResponses = {
 
 export type AnalyticsGetChannelsWeekdaysResponse =
   AnalyticsGetChannelsWeekdaysResponses[keyof AnalyticsGetChannelsWeekdaysResponses];
+
+export type AnalyticsGetAbcData = {
+  body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path?: never;
+  query?: {
+    Basis?: AnalyticsAbcBasis;
+    /**
+     * Currency of a money basis; null takes the one with the most sale lines.
+     */
+    CurrencyCode?: string;
+    /**
+     * Starts an item's XYZ series at its first sale ever over the selected channels, so the weeks before it
+     * was launched do not count as zero demand.
+     */
+    XyzFromFirstSale?: boolean;
+    AbcClass?: AbcClass;
+    XyzClass?: XyzClass;
+    SearchString?: string;
+    Page?: number;
+    PageSize?: number;
+    From?: string;
+    To?: string;
+    IncludeMarketplaces?: boolean;
+    MarketplaceAccountIds?: Array<string>;
+    IncludeDirect?: boolean;
+    DirectTagIds?: Array<string>;
+  };
+  url: "/api/analytics/abc";
+};
+
+export type AnalyticsGetAbcErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type AnalyticsGetAbcError = AnalyticsGetAbcErrors[keyof AnalyticsGetAbcErrors];
+
+export type AnalyticsGetAbcResponses = {
+  /**
+   * OK
+   */
+  200: AbcDto;
+};
+
+export type AnalyticsGetAbcResponse = AnalyticsGetAbcResponses[keyof AnalyticsGetAbcResponses];
 
 export type AnalyticsGetSettingsData = {
   body?: never;

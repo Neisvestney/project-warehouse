@@ -755,11 +755,26 @@ nobody set.
 ### `AnalyticsSettingsDialog`
 
 `components/analytics/`. One dialog for every analytics page; `group` picks the parameters that page's numbers
-depend on (`channels` — `returnsMaturityDays`). `PUT /api/analytics/settings` is a full write, so the submit
+depend on (`channels` — `returnsMaturityDays`; `abc` — the ABC and XYZ boundaries, `xyzStep`,
+`xyzMinIntervals`). A pair of boundaries is checked for order on the client against the value that will
+apply, the default included, as the server does. `PUT /api/analytics/settings` is a full write, so the submit
 sends `settings.saved` for every field the group does not show, plus the `version` it was opened with; a save by
 someone else in between comes back as a root `analyticsSettingsModified` error. The mutation lives in the
 dialog shell, so backdrop, Escape, Back and Cancel all wait for a running save; the form lives in a content
 child rendered from `useRetainedValue`, so it mounts fresh on every open.
+
+### Shared analytics pieces
+
+`components/analytics/` also holds what every analytics page builds its filters and cards from:
+
+| Piece | Role |
+|-------|------|
+| `period/PeriodPicker`, `period/periodSelection`, `period/usePeriodParam` | Period presets, their URL form and the page / card period params |
+| `ChannelsSelect`, `channelsQuery` | The shops + «Прямые» multiselect and its mapping onto `includeMarketplaces` / `marketplaceAccountIds` / `includeDirect` |
+| `SummaryCard` | Card shell: title, subtitle, actions on the right, a 2px fetch bar |
+| `analyticsFormat` | `ru-RU` number, money and percent formatting, channel labels |
+
+A piece used by one page only stays beside that page.
 
 ## Files
 

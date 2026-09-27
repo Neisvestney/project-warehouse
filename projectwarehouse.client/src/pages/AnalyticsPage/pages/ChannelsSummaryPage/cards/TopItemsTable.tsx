@@ -2,7 +2,7 @@ import {Table, TableBody, TableCell, TableHead, TableRow, Typography} from "@mui
 import type {TopItemDto} from "@/api/types.gen";
 import CatalogItemLink from "@/components/catalog/CatalogItemLink";
 import {useOpenCatalogItem} from "@/components/catalog/CatalogItemDrawerContext";
-import {formatMoney, formatNumber, formatPercent} from "../channelsSummaryUtils";
+import {formatMoney, formatNumber, formatPercent} from "@/components/analytics/analyticsFormat";
 
 interface TopItemsTableProps {
   /** Ranked items with their place, which a filtered list must keep. */

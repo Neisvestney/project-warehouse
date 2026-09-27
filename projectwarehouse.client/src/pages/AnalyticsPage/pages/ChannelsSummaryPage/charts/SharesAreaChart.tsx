@@ -1,6 +1,6 @@
 import {LineChart} from "@mui/x-charts/LineChart";
 import type {AnalyticsIntervalDto, AnalyticsStep, ChannelSeriesDto} from "@/api/types.gen";
-import {formatNumber, formatPercent} from "../channelsSummaryUtils";
+import {formatNumber, formatPercent} from "@/components/analytics/analyticsFormat";
 import {intervalLabel, seriesLabel} from "./intervalLabels";
 import {useChannelColor} from "./useChannelColor";
 

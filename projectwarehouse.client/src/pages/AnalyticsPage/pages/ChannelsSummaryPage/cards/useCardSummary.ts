@@ -1,6 +1,6 @@
 import {keepPreviousData, useQuery} from "@tanstack/react-query";
 import {analyticsGetChannelsSummaryOptions} from "@/api/@tanstack/react-query.gen";
-import type {Period} from "../period/periodSelection";
+import type {Period} from "@/components/analytics/period/periodSelection";
 import type {useChannelsSummaryFilters} from "../useChannelsSummaryFilters";
 
 /** The summary over a card's own period; while it matches the page's, the page's query is reused. */

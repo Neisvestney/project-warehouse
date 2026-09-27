@@ -2,15 +2,20 @@ import type {AnalyticsMeasure, AnalyticsStep} from "@/api/types.gen";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {useSearchParamsContext} from "@/contexts/SearchParams/SearchParamsContext";
 import {todayDateOnly} from "@/utils/dateOnly";
-import {parseList, parseMeasure, parseStep, serializeList} from "../channelsQuery";
+import {
+  parseList,
+  parseMeasure,
+  parseStep,
+  serializeList,
+} from "@/components/analytics/channelsQuery";
 import {
   type Period,
   type PeriodSelection,
   resolvePeriod,
   serializePeriod,
   withPreset,
-} from "../period/periodSelection";
-import {usePeriodParam} from "../period/usePeriodParam";
+} from "@/components/analytics/period/periodSelection";
+import {usePeriodParam} from "@/components/analytics/period/usePeriodParam";
 
 export type FullscreenView = "dynamics" | "returns" | "cancellations";
 

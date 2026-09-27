@@ -39,7 +39,7 @@ import SharesCard from "./cards/SharesCard";
 import TopItemsCard from "./cards/TopItemsCard";
 import TopItemsDialog from "./cards/TopItemsDialog";
 import WeekdaysCard from "./cards/WeekdaysCard";
-import {DIRECT_CHANNEL} from "./channelsQuery";
+import {DIRECT_CHANNEL} from "@/components/analytics/channelsQuery";
 import ChannelsSummaryFilters from "./ChannelsSummaryFilters";
 import CancellationsFullscreen from "./fullscreen/CancellationsFullscreen";
 import DynamicsFullscreen from "./fullscreen/DynamicsFullscreen";
