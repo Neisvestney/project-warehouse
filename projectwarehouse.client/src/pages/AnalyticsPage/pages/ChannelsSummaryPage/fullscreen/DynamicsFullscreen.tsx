@@ -1,0 +1,52 @@
+import {keepPreviousData, useQuery} from "@tanstack/react-query";
+import {analyticsGetChannelsTimeseriesOptions} from "@/api/@tanstack/react-query.gen";
+import {channelSelectionQuery} from "../channelsQuery";
+import StepMeasureToggles from "../StepMeasureToggles";
+import ChartFullscreenDialog from "./ChartFullscreenDialog";
+import type {useChartFullscreen} from "./useChartFullscreen";
+
+interface DynamicsFullscreenProps {
+  state: ReturnType<typeof useChartFullscreen>;
+  directTagIds: string[];
+}
+
+function DynamicsFullscreen({state, directTagIds}: DynamicsFullscreenProps) {
+  const open = state.view === "dynamics";
+  const {data, error, isFetching} = useQuery({
+    ...analyticsGetChannelsTimeseriesOptions({
+      query: {
+        From: state.period.from,
+        To: state.period.to,
+        ...channelSelectionQuery(state.channels),
+        DirectTagIds: directTagIds,
+        Step: state.step ?? undefined,
+        Measure: state.measure,
+      },
+    }),
+    enabled: open,
+    placeholderData: keepPreviousData,
+    meta: {suppressGlobalError: true},
+  });
+
+  return (
+    <ChartFullscreenDialog
+      open={open}
+      state={state}
+      title={state.measure === "units" ? "Штуки по периодам" : "Заказы по периодам"}
+      toggles={
+        <StepMeasureToggles
+          step={data?.step ?? state.step}
+          onStepChange={state.setStep}
+          measure={state.measure}
+          onMeasureChange={state.setMeasure}
+        />
+      }
+      withDirect
+      data={data}
+      isFetching={isFetching}
+      error={error}
+    />
+  );
+}
+
+export default DynamicsFullscreen;

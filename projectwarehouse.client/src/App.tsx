@@ -37,6 +37,7 @@ const StocktakeNodePrintPage = React.lazy(
 const CatalogPage = React.lazy(() => import("@/pages/CatalogPage/CatalogPage.tsx"));
 const StoragePage = React.lazy(() => import("@/pages/StoragePage/StoragePage.tsx"));
 const OperationsPage = React.lazy(() => import("@/pages/OperationsPage/OperationsPage.tsx"));
+const AnalyticsPage = React.lazy(() => import("@/pages/AnalyticsPage/AnalyticsPage.tsx"));
 const ThrowErrorPage = React.lazy(() => import("@/pages/ThrowErrorPage/ThrowErrorPage.tsx"));
 
 function App() {
@@ -157,6 +158,14 @@ function App() {
                           element={
                             <PageTitle title="Операции">
                               <OperationsPage />
+                            </PageTitle>
+                          }
+                        />
+                        <ProtectedRoute
+                          path="/analytics/*"
+                          element={
+                            <PageTitle title="Аналитика">
+                              <AnalyticsPage />
                             </PageTitle>
                           }
                         />

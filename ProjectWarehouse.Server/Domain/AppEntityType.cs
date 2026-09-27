@@ -54,4 +54,7 @@ public enum AppEntityType
     /// it only keys the subscription that <c>assemblyChanged</c> is addressed through.
     /// </summary>
     OrderAssembly = 21,
+
+    /// <summary>The single row of analytics calculation parameters.</summary>
+    AnalyticsSettings = 22,
 }

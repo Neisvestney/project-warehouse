@@ -13,6 +13,11 @@ import {
   getOperationsFirstPageUrl,
   operationsSections,
 } from "@/pages/OperationsPage/operationsConfig.tsx";
+import {
+  analyticsSections,
+  getAnalyticsFirstPageUrl,
+  hasAnalyticsAccess,
+} from "@/pages/AnalyticsPage/analyticsConfig.tsx";
 
 export interface MainNavPage {
   name: string;
@@ -43,6 +48,13 @@ export const mainNavPages: MainNavPage[] = [
     url: (p) => `/operations/${getOperationsFirstPageUrl(p)}`,
     basePath: "/operations",
     sections: operationsSections,
+  },
+  {
+    name: "Аналитика",
+    url: (p) => `/analytics/${getAnalyticsFirstPageUrl(p)}`,
+    showIf: hasAnalyticsAccess,
+    basePath: "/analytics",
+    sections: analyticsSections,
   },
   {
     name: "Настройки",

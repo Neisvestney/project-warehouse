@@ -11,6 +11,33 @@ import {
 } from "./client";
 import {client} from "./client.gen";
 import type {
+  AnalyticsGetChannelsCancellationsData,
+  AnalyticsGetChannelsCancellationsErrors,
+  AnalyticsGetChannelsCancellationsResponses,
+  AnalyticsGetChannelsLossesData,
+  AnalyticsGetChannelsLossesErrors,
+  AnalyticsGetChannelsLossesResponses,
+  AnalyticsGetChannelsReturnsData,
+  AnalyticsGetChannelsReturnsErrors,
+  AnalyticsGetChannelsReturnsResponses,
+  AnalyticsGetChannelsSummaryData,
+  AnalyticsGetChannelsSummaryErrors,
+  AnalyticsGetChannelsSummaryResponses,
+  AnalyticsGetChannelsTimeseriesData,
+  AnalyticsGetChannelsTimeseriesErrors,
+  AnalyticsGetChannelsTimeseriesResponses,
+  AnalyticsGetChannelsTopItemsData,
+  AnalyticsGetChannelsTopItemsErrors,
+  AnalyticsGetChannelsTopItemsResponses,
+  AnalyticsGetChannelsWeekdaysData,
+  AnalyticsGetChannelsWeekdaysErrors,
+  AnalyticsGetChannelsWeekdaysResponses,
+  AnalyticsGetSettingsData,
+  AnalyticsGetSettingsErrors,
+  AnalyticsGetSettingsResponses,
+  AnalyticsUpdateSettingsData,
+  AnalyticsUpdateSettingsErrors,
+  AnalyticsUpdateSettingsResponses,
   AuthChangeOwnPasswordData,
   AuthChangeOwnPasswordErrors,
   AuthChangeOwnPasswordResponses,
@@ -604,6 +631,235 @@ export const getHealth = <ThrowOnError extends boolean = false>(
   (options?.client ?? client).get<GetHealthResponses, unknown, ThrowOnError>({
     url: "/health",
     ...options,
+  });
+
+/**
+ * Per-channel summary: orders, units, cancellations, returns, revenue, discount and shares.
+ *
+ * Query params come from `ChannelsSummaryRequest`: `from` and `to` (required, inclusive
+ * days), `includeMarketplaces` (default true; false leaves every shop out),
+ * `marketplaceAccountIds` (empty — every shop), `includeDirect` (default true),
+ * `directTagIds` (Direct orders carrying any of them), `moneyMode` (`price` or
+ * `payout`, default `price`).
+ * An order belongs to the day of its `EffectiveDate`, cut in the zone sent as `X-Time-Zone`
+ * (otherwise the server's); the applied zone comes back as `timeZoneId`. A marketplace order is
+ * judged by the marketplace status only: `delivering` / `delivered` is a sale,
+ * `cancelled` a cancellation. A Direct order is a sale when `assembled` / `shipped`.
+ * Rows: one per shop, then — with `includeDirect` — the whole Direct channel, one row per tag met in
+ * the period and the untagged row; tag rows overlap, the Direct row counts every order once.
+ * Money is listed per currency and never summed across them; `payoutCoverage` is filled only in
+ * the `payout` mode. `returnsMaturityDays` echoes the applied setting.
+ * Requires `analytics.view`.
+ * Returns 422 `required` on a missing `from` / `to`, 422 `invalidValue` on
+ * `to` when it is earlier than `from`, and 422 `outOfRange` on `to` when the
+ * period exceeds 366 days (no `args` on any of them).
+ */
+export const analyticsGetChannelsSummary = <ThrowOnError extends boolean = false>(
+  options?: Options<AnalyticsGetChannelsSummaryData, ThrowOnError>,
+): RequestResult<
+  AnalyticsGetChannelsSummaryResponses,
+  AnalyticsGetChannelsSummaryErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    AnalyticsGetChannelsSummaryResponses,
+    AnalyticsGetChannelsSummaryErrors,
+    ThrowOnError
+  >({url: "/api/analytics/channels/summary", ...options});
+
+/**
+ * Orders or units per interval, one series per shop plus the whole Direct channel.
+ *
+ * Query params: the shared filter of `channels/summary`, plus `step` (`day` / `week` /
+ * `month`; omitted — day up to 31 days, week up to six months, month beyond) and `measure`
+ * (`orders` / `units`, default `orders`). Only sales count: a marketplace order in
+ * `delivering` / `delivered`, a Direct one `assembled` / `shipped`, each on the day of its
+ * `EffectiveDate`. Weeks start on Monday. Intervals are clamped to the period and flagged:
+ * `isPartial` when the step sticks out of it, `isCurrent` when it holds today, `isFuture` when
+ * it starts after today — values of a future interval are null. The applied step comes back as `step`.
+ * Requires `analytics.view`. Same 422 codes as `channels/summary`.
+ */
+export const analyticsGetChannelsTimeseries = <ThrowOnError extends boolean = false>(
+  options?: Options<AnalyticsGetChannelsTimeseriesData, ThrowOnError>,
+): RequestResult<
+  AnalyticsGetChannelsTimeseriesResponses,
+  AnalyticsGetChannelsTimeseriesErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    AnalyticsGetChannelsTimeseriesResponses,
+    AnalyticsGetChannelsTimeseriesErrors,
+    ThrowOnError
+  >({url: "/api/analytics/channels/timeseries", ...options});
+
+/**
+ * The returns card: shares by sale cohort, volume by return date, reasons and compensations.
+ *
+ * Query params: the shared filter of `channels/summary` (`includeDirect` and `directTagIds`
+ * are ignored — Direct has no returns), `moneyMode` and `step` as in `channels/timeseries`.
+ * Only returns counted as such (`customerReturn` / `partialRefusal`, not cancelled) of a sale
+ * order take part. `accounts`, `topReasons` and `compensations` are tied to the sales dated in
+ * the period, whenever the item came back; `series` is tied to `ReturnedAt` — a return with no
+ * such date is absent from it. Returned money is listed in the `price` mode only.
+ * `returnsImmature` marks a period ending closer to today than `returnsMaturityDays`.
+ * Requires `analytics.view`. Same 422 codes as `channels/summary`.
+ */
+export const analyticsGetChannelsReturns = <ThrowOnError extends boolean = false>(
+  options?: Options<AnalyticsGetChannelsReturnsData, ThrowOnError>,
+): RequestResult<
+  AnalyticsGetChannelsReturnsResponses,
+  AnalyticsGetChannelsReturnsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    AnalyticsGetChannelsReturnsResponses,
+    AnalyticsGetChannelsReturnsErrors,
+    ThrowOnError
+  >({url: "/api/analytics/channels/returns", ...options});
+
+/**
+ * Cancelled and all counted orders of each shop per interval, for the cancellation chart.
+ *
+ * Query params: the shared filter of `channels/summary` (`includeDirect` and `directTagIds`
+ * are ignored — the cancellation card covers shops only) and `step` as in `channels/timeseries`.
+ * An order falls into the interval of its `EffectiveDate`, as in the summary, so the series add up to its
+ * cancellation counts. `series` holds the cancelled orders, `orders` the sales plus cancellations of
+ * the same shop in the same order — the share is `series / orders`. Values of a future interval are null.
+ * Requires `analytics.view`. Same 422 codes as `channels/summary`.
+ */
+export const analyticsGetChannelsCancellations = <ThrowOnError extends boolean = false>(
+  options?: Options<AnalyticsGetChannelsCancellationsData, ThrowOnError>,
+): RequestResult<
+  AnalyticsGetChannelsCancellationsResponses,
+  AnalyticsGetChannelsCancellationsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    AnalyticsGetChannelsCancellationsResponses,
+    AnalyticsGetChannelsCancellationsErrors,
+    ThrowOnError
+  >({url: "/api/analytics/channels/cancellations", ...options});
+
+/**
+ * Sales per interval next to their cancellations and returns, for the combined chart.
+ *
+ * Query params: the shared filter of `channels/summary`, `step` and `measure` as in
+ * `channels/timeseries`; the measure changes `sales` only. Every count of a point is tied to the order
+ * date: cancellations are the cancelled orders of the interval, `returnedUnits` the returns of the
+ * interval's sales whenever the item came back. The cancellation share is
+ * `cancellations / (saleOrders + cancellations)` over every selected channel, the return share
+ * `returnedUnits / shopUnits` — Direct has no returns, so its units stay out of the base; both shop
+ * counts are null when no shop is selected. `returnsImmature` marks an interval ending closer to today
+ * than `returnsMaturityDays`. Values of a future interval are null.
+ * Requires `analytics.view`. Same 422 codes as `channels/summary`.
+ */
+export const analyticsGetChannelsLosses = <ThrowOnError extends boolean = false>(
+  options?: Options<AnalyticsGetChannelsLossesData, ThrowOnError>,
+): RequestResult<
+  AnalyticsGetChannelsLossesResponses,
+  AnalyticsGetChannelsLossesErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    AnalyticsGetChannelsLossesResponses,
+    AnalyticsGetChannelsLossesErrors,
+    ThrowOnError
+  >({url: "/api/analytics/channels/losses", ...options});
+
+/**
+ * Catalog items ranked by sales of the selected channels.
+ *
+ * Query params: the shared filter of `channels/summary` — one shop, Direct alone or several channels
+ * are asked for through it; `by` (`units` / `money`, default `units`),
+ * `moneyMode` as in `channels/summary`, `currencyCode` (omitted or unknown — the currency
+ * with the most sale lines; the ones met come back as `currencies`) and `take` (1..1000,
+ * omitted — every ranked item). A bundle ranks as itself. Units add up every selected channel; money exists
+ * on shop lines only, in the applied currency. Items whose ranking value is zero are left out, and
+ * `totalItems` counts the ranked ones before `take`. Shop lines with no catalog item are not
+ * ranked; their count is `unlinkedLines`.
+ * Requires `analytics.view`. Same 422 codes as `channels/summary`, plus 422
+ * `validationError` on `take` out of range.
+ */
+export const analyticsGetChannelsTopItems = <ThrowOnError extends boolean = false>(
+  options?: Options<AnalyticsGetChannelsTopItemsData, ThrowOnError>,
+): RequestResult<
+  AnalyticsGetChannelsTopItemsResponses,
+  AnalyticsGetChannelsTopItemsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    AnalyticsGetChannelsTopItemsResponses,
+    AnalyticsGetChannelsTopItemsErrors,
+    ThrowOnError
+  >({url: "/api/analytics/channels/top-items", ...options});
+
+/**
+ * Average orders or units per weekday, by channel and by Direct tag.
+ *
+ * Query params: the shared filter of `channels/summary` and `measure` as in
+ * `channels/timeseries`. A value is the sum over every such weekday of the period divided by how many
+ * of them the period holds, Monday first. Only finished days count, today excluded: `countedTo` is the
+ * last day averaged, null when the period has no finished day yet (every value is then null).
+ * Rows follow `channels/summary`: one per shop, then — with `includeDirect` — the whole Direct
+ * channel, one per tag met in the period and the untagged row; tag rows overlap. `total` is every
+ * selected channel together, each Direct order counted once.
+ * Requires `analytics.view`. Same 422 codes as `channels/summary`.
+ */
+export const analyticsGetChannelsWeekdays = <ThrowOnError extends boolean = false>(
+  options?: Options<AnalyticsGetChannelsWeekdaysData, ThrowOnError>,
+): RequestResult<
+  AnalyticsGetChannelsWeekdaysResponses,
+  AnalyticsGetChannelsWeekdaysErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    AnalyticsGetChannelsWeekdaysResponses,
+    AnalyticsGetChannelsWeekdaysErrors,
+    ThrowOnError
+  >({url: "/api/analytics/channels/weekdays", ...options});
+
+/**
+ * Analytics calculation parameters: stored values, system defaults and what applies.
+ *
+ * A null in `saved` means the field follows the system default. `version` is to be sent back
+ * with the update. Requires `analytics.view`.
+ */
+export const analyticsGetSettings = <ThrowOnError extends boolean = false>(
+  options?: Options<AnalyticsGetSettingsData, ThrowOnError>,
+): RequestResult<AnalyticsGetSettingsResponses, AnalyticsGetSettingsErrors, ThrowOnError> =>
+  (options?.client ?? client).get<
+    AnalyticsGetSettingsResponses,
+    AnalyticsGetSettingsErrors,
+    ThrowOnError
+  >({url: "/api/analytics/settings", ...options});
+
+/**
+ * Writes every analytics parameter at once; null restores the default.
+ *
+ * The settings are shared by the whole system and apply at once to any period, past ones included.
+ * Requires `analytics.settings`.
+ * Returns 422 `required` on a missing `version`; 422 `validationError` on a value outside
+ * its range, on `payoutAgeBoundaries` holding no or more than 5 values and on
+ * `payoutAgeBoundaries[i]` outside 1..365; 422 `invalidValue` on a boundary with more than one
+ * decimal place, on `abcBoundaryB` not above `abcBoundaryA`, on `xyzBoundaryY` not above
+ * `xyzBoundaryX` (both compared as they will apply, defaults included) and on
+ * `payoutAgeBoundaries` not strictly ascending; 409 `analyticsSettingsModified` when someone
+ * else saved since `version` (no `args` on any of them).
+ */
+export const analyticsUpdateSettings = <ThrowOnError extends boolean = false>(
+  options: Options<AnalyticsUpdateSettingsData, ThrowOnError>,
+): RequestResult<AnalyticsUpdateSettingsResponses, AnalyticsUpdateSettingsErrors, ThrowOnError> =>
+  (options.client ?? client).put<
+    AnalyticsUpdateSettingsResponses,
+    AnalyticsUpdateSettingsErrors,
+    ThrowOnError
+  >({
+    url: "/api/analytics/settings",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 
 /**

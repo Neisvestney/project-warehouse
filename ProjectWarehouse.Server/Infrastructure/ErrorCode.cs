@@ -187,4 +187,7 @@ public enum ErrorCode
     StockMovementPresetModified = 142,
     StockMovementPresetLastOne = 143,
     StockMovementPresetUnknownAction = 144,
+
+    // Analytics
+    AnalyticsSettingsModified = 151,
 }

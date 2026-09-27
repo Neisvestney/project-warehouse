@@ -305,7 +305,8 @@ const [selectedId, openDrawer, closeDrawer] = useDrawerSearchParamsState("item")
 ```
 
 Param names in use: `?item=` (`CatalogPage`, page-local), `?storagePlace=` (`WarehouseViewPage`),
-`?catalogItem=` / `?unitCatalogItem=` (`ItemsBasePage` and every page showing catalog item links).
+`?catalogItem=` / `?unitCatalogItem=` (`ItemsBasePage` and every page showing catalog item links),
+`?toplist=` (the full top-items list on `ChannelsSummaryPage`).
 `"catalogItem"` is the shared, cold-load-safe name and must never be reused for a nested drawer.
 
 ### `useDrawerLocalState()`

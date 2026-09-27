@@ -46,6 +46,8 @@ const permissionLabels: Record<PermissionName, string> = {
   "statistics.view": "Просмотр статистики по всем складам",
   "statistics.view_assigned": "Просмотр статистики назначенных складов",
   "system.view": "Просмотр системных показателей и хранилища",
+  "analytics.view": "Просмотр аналитики продаж",
+  "analytics.settings": "Изменение настроек аналитики",
 };
 
 export function getPermissionLabel(permission: PermissionName | string): string {

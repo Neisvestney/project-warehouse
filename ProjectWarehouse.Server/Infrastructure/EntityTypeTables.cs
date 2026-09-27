@@ -44,6 +44,8 @@ public static class EntityTypeTables
 
         [typeof(StockMovement)] = AppEntityType.StockMovement,
 
+        [typeof(AnalyticsSettings)] = AppEntityType.AnalyticsSettings,
+
         [typeof(Receipt)] = AppEntityType.Receipt,
         [typeof(ReceiptItem)] = AppEntityType.Receipt,
         [typeof(ReceiptItemPlacement)] = AppEntityType.Receipt,

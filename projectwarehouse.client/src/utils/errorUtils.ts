@@ -171,6 +171,8 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
     "Пресет изменил другой пользователь. Откройте его заново и повторите правку",
   stockMovementPresetLastOne: "Последний пресет удалить нельзя — без него у отчёта нет столбцов",
   stockMovementPresetUnknownAction: "Неизвестная операция в метрике",
+  analyticsSettingsModified:
+    "Настройки аналитики изменил другой пользователь. Откройте их заново и повторите правку",
 };
 
 /** Richer variants used only when the server supplied every placeholder in args. */

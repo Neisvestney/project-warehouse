@@ -21,6 +21,7 @@ import RuleIcon from "@mui/icons-material/Rule";
 import HistoryIcon from "@mui/icons-material/History";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import SwapVertIcon from "@mui/icons-material/SwapVert";
+import InsightsIcon from "@mui/icons-material/Insights";
 import React from "react";
 import {Chip, Typography} from "@mui/material";
 import ReceiptStatusChip from "@/components/receipts/ReceiptStatusChip.tsx";
@@ -294,6 +295,11 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     linkTemplate: "/operations/orders/assembly",
     typeName: "Сборка заказов",
     icon: <AssignmentIcon />,
+  },
+  analyticsSettings: {
+    linkTemplate: "/analytics/channels",
+    typeName: "Настройки аналитики",
+    icon: <InsightsIcon />,
   },
 };
 

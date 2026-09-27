@@ -122,8 +122,8 @@ its layout: the app bar stays on screen, and — the reason the inner boundary i
 All of them render `RouteFallback`.
 
 The route configs are the source of truth for paths and permissions: `App.tsx` for top-level routes, and
-`storageConfig.tsx` / `operationsConfig.tsx` / `settingsConfig.tsx` for the three `SidebarPage` modules
-(`/storage/*`, `/operations/*`, `/settings/*`). `@/components/MainNav/mainNavConfig.tsx` joins them into the
+`storageConfig.tsx` / `operationsConfig.tsx` / `analyticsConfig.tsx` / `settingsConfig.tsx` for the four
+`SidebarPage` modules (`/storage/*`, `/operations/*`, `/analytics/*`, `/settings/*`). `@/components/MainNav/mainNavConfig.tsx` joins them into the
 top-level nav: the app bar links on desktop, and the expandable section tree of `MainNavDrawer` on mobile.
 
 > **Convention:** subroutes carry no `requiredPermission` of their own — `SidebarPage` only gates the section

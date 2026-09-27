@@ -1,5 +1,5 @@
 import {useMemo, useState} from "react";
-import {Button, FormControl, InputLabel, MenuItem, Select, TextField} from "@mui/material";
+import {Button, FormControl, InputLabel, MenuItem, Select} from "@mui/material";
 import {useQuery} from "@tanstack/react-query";
 import {
   storagePlacesGetNodesOptions,
@@ -9,6 +9,7 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import type {CatalogItemSelectDto} from "@/api/types.gen";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
+import DateField from "@/components/DateField";
 import FiltersBar from "@/components/FiltersBar";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import {buildNodePath, formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
@@ -114,24 +115,8 @@ function StockMovementsFilters({
         }
       />
 
-      <TextField
-        size="small"
-        type="date"
-        label="С"
-        value={filter.from ?? ""}
-        onChange={(e) => setFrom(e.target.value || null)}
-        slotProps={{inputLabel: {shrink: true}}}
-        sx={{width: 165}}
-      />
-      <TextField
-        size="small"
-        type="date"
-        label="По"
-        value={filter.to ?? ""}
-        onChange={(e) => setTo(e.target.value || null)}
-        slotProps={{inputLabel: {shrink: true}}}
-        sx={{width: 165}}
-      />
+      <DateField size="small" label="С" value={filter.from} onChange={setFrom} sx={{width: 165}} />
+      <DateField size="small" label="По" value={filter.to} onChange={setTo} sx={{width: 165}} />
 
       <FormControl size="small" sx={{minWidth: 180}}>
         <InputLabel>Склад</InputLabel>

@@ -34,6 +34,7 @@ using ProjectWarehouse.Server.Integrations.Ozon;
 using ProjectWarehouse.Server.Integrations.Ozon.Generated;
 using ProjectWarehouse.Server.Integrations.Sync;
 using ProjectWarehouse.Server.Models;
+using ProjectWarehouse.Server.Models.Analytics;
 using ProjectWarehouse.Server.Models.Catalog;
 using ProjectWarehouse.Server.Models.Integrations;
 using ProjectWarehouse.Server.Models.Orders;
@@ -617,6 +618,7 @@ try
     builder.Services.AddScoped<IChangeLogService<StockMovementReportPresetDto>,
         StockMovementReportPresetDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<TagDto>, TagDtoChangelogService>();
+    builder.Services.AddScoped<IChangeLogService<AnalyticsSettingsDto>, AnalyticsSettingsDtoChangelogService>();
     builder.Services.AddScoped<IInventoryService, InventoryService>();
     builder.Services.AddScoped<ICatalogService, CatalogService>();
     builder.Services.AddScoped<ITagsService, TagsService>();
@@ -631,6 +633,9 @@ try
     builder.Services.AddScoped<IStockStatisticsService, StockStatisticsService>();
     builder.Services.AddScoped<IStockMovementPresetService, StockMovementPresetService>();
     builder.Services.AddScoped<IStockForecastService, StockForecastService>();
+    builder.Services.AddScoped<AnalyticsQueries>();
+    builder.Services.AddScoped<IAnalyticsSettingsService, AnalyticsSettingsService>();
+    builder.Services.AddScoped<IAnalyticsChannelsService, AnalyticsChannelsService>();
     builder.Services.AddScoped<IStocktakeDiffCalculator, StocktakeDiffCalculator>();
     var app = builder.Build();
 

@@ -140,4 +140,15 @@ public static class Permissions
         /// <summary>Allows triggering syncs. Split from Map so running imports does not imply re-mapping.</summary>
         public const string Sync = "integrations.sync";
     }
+
+    /// <summary>
+    /// No _assigned variants: shops belong to the company, and scoping only the Direct channel by warehouse
+    /// would produce channel shares that match no real cut. Settings are split from View because changing a
+    /// boundary recolours the assortment for everyone who opens the section.
+    /// </summary>
+    public static class Analytics
+    {
+        public const string View     = "analytics.view";
+        public const string Settings = "analytics.settings";
+    }
 }

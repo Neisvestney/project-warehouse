@@ -20,7 +20,7 @@ namespace ProjectWarehouse.Server.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -156,6 +156,71 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasIndex("TagsId");
 
                     b.ToTable("OrderTagLinks");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AnalyticsSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("AbcBoundaryA")
+                        .HasPrecision(5, 1)
+                        .HasColumnType("numeric(5,1)");
+
+                    b.Property<decimal?>("AbcBoundaryB")
+                        .HasPrecision(5, 1)
+                        .HasColumnType("numeric(5,1)");
+
+                    b.PrimitiveCollection<int[]>("PayoutAgeBoundaries")
+                        .HasColumnType("integer[]");
+
+                    b.Property<int?>("PayoutOverdueDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PayoutRatioWindowDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ReturnsMaturityDays")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<decimal?>("XyzBoundaryX")
+                        .HasPrecision(5, 1)
+                        .HasColumnType("numeric(5,1)");
+
+                    b.Property<decimal?>("XyzBoundaryY")
+                        .HasPrecision(5, 1)
+                        .HasColumnType("numeric(5,1)");
+
+                    b.Property<int?>("XyzMinIntervals")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("XyzStep")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpdatedById");
+
+                    b.ToTable("AnalyticsSettings");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("5b0f7c1e-3a44-4f7e-9d7a-2c1e8a6b9f01")
+                        });
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.ApplicationRole", b =>
@@ -2339,6 +2404,16 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasForeignKey("TagsId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.AnalyticsSettings", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", "UpdatedBy")
+                        .WithMany()
+                        .HasForeignKey("UpdatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("UpdatedBy");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.ApplicationUser", b =>

@@ -1223,6 +1223,9 @@ export function CatalogItemDrawer({
       anchor="right"
       open={!!itemId}
       onClose={handleClose}
+      // On the dialogs' layer rather than the drawers' one below it, so a link inside a dialog opens on top;
+      // among equal layers the one opened last wins, which keeps this drawer's own dialogs above it
+      sx={{zIndex: (theme) => theme.zIndex.modal}}
       slotProps={{
         transition: {onExited: releaseShownItem},
         paper: {
