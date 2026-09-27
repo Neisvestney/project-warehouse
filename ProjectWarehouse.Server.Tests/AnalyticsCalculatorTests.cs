@@ -43,6 +43,27 @@ public class AnalyticsCalculatorTests
         Assert.Equal(0.3, ranked[1].Share, 10);
     }
 
+    [Theory]
+    [InlineData(20, AbcClass.B)] // preceded by 50 + 30 = 80%
+    [InlineData(40, AbcClass.A)] // preceded by 50%
+    [InlineData(60, AbcClass.A)] // preceded by nothing
+    [InlineData(1, AbcClass.C)] // preceded by 100%
+    public void ClassifyAbcAmong_UsesThePrecedingShareOfTheRanking(int value, AbcClass expected)
+    {
+        var ranked = AnalyticsCalculator.RankAbc(
+            [(Id1, 50m), (Id2, 30m), (Id3, 15m), (Id4, 5m)], 80m, 95m);
+
+        Assert.Equal(expected, AnalyticsCalculator.ClassifyAbcAmong(value, ranked, 80m, 95m));
+    }
+
+    [Fact]
+    public void ClassifyAbcAmong_NullWithoutValue()
+    {
+        var ranked = AnalyticsCalculator.RankAbc([(Id1, 50m)], 80m, 95m);
+
+        Assert.Null(AnalyticsCalculator.ClassifyAbcAmong(0, ranked, 80m, 95m));
+    }
+
     [Fact]
     public void RankAbc_FirstPositionIsAlwaysA()
     {

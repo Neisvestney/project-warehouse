@@ -50,7 +50,7 @@ import StockWarningOverrideDialog, {
   type StockWarningOverrideTarget,
 } from "./StockWarningOverrideDialog";
 
-const COLUMN_COUNT = 9;
+const COLUMN_COUNT = 10;
 
 const SORTABLE_COLUMNS: {key: StockForecastSortBy; label: string; align?: "right"}[] = [
   {key: "type", label: "Тип"},
@@ -208,6 +208,18 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
       : noItemTypes
         ? "Типы не выбраны"
         : "Позиции не найдены";
+
+  const renderSortableHeader = ({key, label, align}: (typeof SORTABLE_COLUMNS)[number]) => (
+    <TableCell key={key} align={align ?? "left"}>
+      <TableSortLabel
+        active={sortBy === key}
+        direction={sortBy === key ? sortOrder : "asc"}
+        onClick={() => handleSortClick(key)}
+      >
+        {label}
+      </TableSortLabel>
+    </TableCell>
+  );
 
   return (
     <>
@@ -367,17 +379,15 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
           <Table size="small">
             <TableHead sx={{"& .MuiTableCell-root": {whiteSpace: "nowrap"}}}>
               <TableRow>
-                {SORTABLE_COLUMNS.map(({key, label, align}) => (
-                  <TableCell key={key} align={align ?? "left"}>
-                    <TableSortLabel
-                      active={sortBy === key}
-                      direction={sortBy === key ? sortOrder : "asc"}
-                      onClick={() => handleSortClick(key)}
-                    >
-                      {label}
-                    </TableSortLabel>
-                  </TableCell>
-                ))}
+                {SORTABLE_COLUMNS.slice(0, 3).map(renderSortableHeader)}
+                <TableCell>
+                  <Tooltip
+                    title={`Классы по расходу склада${data ? ` за ${data.classWindowDays} дн.` : ""}: ABC — доля в расходе, XYZ — его стабильность. Комплекты считаются по компонентам`}
+                  >
+                    <span>ABC / XYZ</span>
+                  </Tooltip>
+                </TableCell>
+                {SORTABLE_COLUMNS.slice(3).map(renderSortableHeader)}
                 <TableCell align="right">
                   <Tooltip title="Сколько дней назад остаток последний раз был нулевым в пределах окна расчёта">
                     <span>С последнего 0</span>

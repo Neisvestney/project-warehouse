@@ -2,7 +2,7 @@ import {Alert, Box, ButtonBase, Stack, Typography, alpha, useTheme} from "@mui/m
 import type {AbcClass, AbcDto, XyzClass} from "@/api/types.gen";
 import {formatNumber} from "@/components/analytics/analyticsFormat";
 import {NOUNS, pluralCount} from "@/utils/pluralUtils";
-import {ABC_CLASSES, XYZ_CLASSES, formatBoundary} from "./abcClasses";
+import {ABC_CLASSES, XYZ_CLASSES, formatBoundary} from "@/components/analytics/abc/abcClasses";
 
 const STEP_UNITS = {
   week: {one: "полная неделя", few: "полные недели", many: "полных недель"},

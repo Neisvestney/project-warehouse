@@ -5,6 +5,7 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import PushPinIcon from "@mui/icons-material/PushPin";
 import type {StockForecastRowDto} from "@/api/types.gen";
+import {AbcChip, XyzChip} from "@/components/analytics/abc/ClassChips";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
 import StockForecastChip from "@/components/forecast/StockForecastChip";
@@ -17,6 +18,23 @@ function formatDaysSinceZeroStock(days: number | null, windowDays: number): stri
   if (days === 0) return "—";
   if (days === null) return `${windowDays}+ дн.`;
   return `${days} дн.`;
+}
+
+function ItemClasses({row}: {row: StockForecastRowDto}) {
+  if (!row.abcClass) {
+    return (
+      <Typography variant="body2" color="text.disabled">
+        —
+      </Typography>
+    );
+  }
+
+  return (
+    <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
+      <AbcChip value={row.abcClass} />
+      <XyzChip value={row.xyzClass} />
+    </Stack>
+  );
 }
 
 interface ForecastTableRowProps {
@@ -84,6 +102,9 @@ function ForecastTableRow({
         </CatalogItemLink>
       </TableCell>
       <TableCell>{row.catalogItem.article}</TableCell>
+      <TableCell sx={{whiteSpace: "nowrap"}}>
+        <ItemClasses row={row} />
+      </TableCell>
       <TableCell align="right">
         <Typography variant="body2" sx={{fontWeight: 500}}>
           {row.stock}

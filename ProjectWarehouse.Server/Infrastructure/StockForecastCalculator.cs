@@ -12,6 +12,9 @@ public static class StockForecastCalculator
     public const int DefaultWarningDays = 14;
     public const int DefaultWindowDays = 30;
 
+    /// <summary>13 weeks: enough full weekly intervals for XYZ whatever the warehouse's forecast window is.</summary>
+    public const int ClassWindowDays = 91;
+
     public const int MaxWarningDays = 3650;
     public const int MinWindowDays = 1;
 

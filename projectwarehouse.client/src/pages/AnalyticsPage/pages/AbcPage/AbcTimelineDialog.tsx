@@ -30,7 +30,13 @@ import CatalogItemLink from "@/components/catalog/CatalogItemLink";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
 import {formatDateOnly, parseDateOnly} from "@/utils/dateOnly";
 import {extractErrorMessage} from "@/utils/errorUtils";
-import {ABC_CLASSES, ABC_COLORS, BASIS_LABELS, XYZ_CLASSES, XYZ_COLORS} from "./abcClasses";
+import {
+  ABC_CLASSES,
+  ABC_COLORS,
+  BASIS_LABELS,
+  XYZ_CLASSES,
+  XYZ_COLORS,
+} from "@/components/analytics/abc/abcClasses";
 import type {useAbcFilters} from "./useAbcFilters";
 
 type Mode = "abc" | "xyz";

@@ -6,6 +6,7 @@ using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Models;
+using ProjectWarehouse.Server.Models.Analytics;
 using ProjectWarehouse.Server.Models.Catalog;
 using ProjectWarehouse.Server.Models.Forecast;
 using ProjectWarehouse.Server.Models.Warehouses;
@@ -20,7 +21,8 @@ public class StockForecastService(
     IInventoryService inventoryService,
     IWarehouseTimeZoneResolver timeZones,
     IChangeLogService<WarehouseDto> warehouseChangeLog,
-    IChangeLogService changeLog) : IStockForecastService
+    IChangeLogService changeLog,
+    IAnalyticsSettingsService analyticsSettings) : IStockForecastService
 {
     /// <summary>Virtual types hold no stock, so there is nothing to forecast for them.</summary>
     private static readonly CatalogItemType[] PhysicalTypes = [CatalogItemType.Standard, CatalogItemType.Unit];
@@ -68,13 +70,14 @@ public class StockForecastService(
             request.SearchString, request.CatalogItemTypes, request.TagIds, request.IsArchived, request.OnlyWarnings,
             request.IsVariation, HideVariationMembers: request.IsVariation is null);
 
+        var source = await SourceForAsync(user, warehouseId, ct);
         var computed = await ComputeAsync(
-            await SourceForAsync(user, warehouseId, ct), filter, restrictToIds: null, options: null,
-            request.AccountForAssembly, ct);
+            source, filter, restrictToIds: null, options: null, request.AccountForAssembly, ct);
 
         var sorted = Sort(computed.Entries, request.SortBy, request.SortOrder).ToList();
         var pageEntries = sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList();
-        var rows = await ToRowsAsync(pageEntries, ct);
+        var classes = await ClassifyAsync(source, pageEntries, computed.Options, ct);
+        var rows = await ToRowsAsync(pageEntries, ct, classes);
 
         return new StockForecastListDto
         {
@@ -89,6 +92,7 @@ public class StockForecastService(
             UseWeightedConsumption = computed.Options.UseWeightedConsumption,
             TimeZoneId = computed.Options.TimeZoneId,
             WarehouseWarningDays = computed.WarehouseWarningDays,
+            ClassWindowDays = StockForecastCalculator.ClassWindowDays,
         };
     }
 
@@ -404,6 +408,88 @@ public class StockForecastService(
         };
     }
 
+    private sealed record ConsumptionClasses(AbcClass Abc, XyzClass? Xyz);
+
+    /// <summary>
+    /// ABC and XYZ of the page's rows by Out consumption over <see cref="StockForecastCalculator.ClassWindowDays"/>,
+    /// ranked across every item consumed on the warehouse, so page filters never change a class. A bundle ships as
+    /// its components, so they carry its consumption. A variation takes the class its members' total would have
+    /// among the items. Out-of-stock weeks stay in the XYZ series as zeros: an item made unsteady by shortages is
+    /// one to look at.
+    /// </summary>
+    private async Task<Dictionary<Guid, ConsumptionClasses>> ClassifyAsync(
+        ForecastSource source,
+        IReadOnlyList<ForecastEntry> entries,
+        StockForecastOptions forecastOptions,
+        CancellationToken ct)
+    {
+        if (entries.Count == 0) return [];
+
+        var options = await analyticsSettings.GetOptionsAsync(ct);
+        var offset = TimeSpan.FromMinutes(forecastOptions.OffsetMinutes);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow + offset);
+        var from = today.AddDays(1 - StockForecastCalculator.ClassWindowDays);
+        var fromUtc = DateTime.SpecifyKind(from.ToDateTime(TimeOnly.MinValue) - offset, DateTimeKind.Utc);
+        var toUtc = DateTime.SpecifyKind(today.AddDays(1).ToDateTime(TimeOnly.MinValue) - offset, DateTimeKind.Utc);
+
+        var rows = await source.Movements
+            .Where(m => m.WarehouseId == source.WarehouseId
+                        && m.Direction == StockMovementDirection.Out
+                        && m.CreatedAt >= fromUtc && m.CreatedAt < toUtc)
+            .GroupBy(m => new { m.CatalogItemId, Date = m.CreatedAt.AddMinutes(forecastOptions.OffsetMinutes).Date })
+            .Select(g => new { g.Key.CatalogItemId, g.Key.Date, Quantity = g.Sum(m => m.Quantity) })
+            .ToListAsync(ct);
+
+        var days = rows
+            .GroupBy(r => r.CatalogItemId)
+            .ToDictionary(g => g.Key, g => g.Select(r => (Day: DateOnly.FromDateTime(r.Date), r.Quantity)).ToList());
+        var ranked = AnalyticsCalculator.RankAbc(
+            days.Select(p => (p.Key, (decimal)p.Value.Sum(d => d.Quantity))), options.AbcBoundaryA, options.AbcBoundaryB);
+        var rankedById = ranked.ToDictionary(r => r.Id);
+
+        var intervals = AnalyticsCalculator.FullIntervals(from, today, options.XyzStep, today);
+
+        XyzClass? Xyz(IEnumerable<(DateOnly Day, int Quantity)> itemDays) =>
+            intervals.Count < options.XyzMinIntervals
+                ? null
+                : AnalyticsCalculator.ClassifyXyz(
+                    AnalyticsCalculator.CoefficientOfVariation(AnalyticsCalculator
+                        .SumByInterval(intervals, today, itemDays)
+                        .Select(v => v ?? 0)
+                        .ToList()),
+                    options.XyzBoundaryX, options.XyzBoundaryY);
+
+        var result = new Dictionary<Guid, ConsumptionClasses>();
+
+        void AddItem(Guid id)
+        {
+            if (rankedById.TryGetValue(id, out var item))
+                result[id] = new ConsumptionClasses(item.Class, Xyz(days[id]));
+        }
+
+        foreach (var entry in entries)
+        {
+            if (entry.Members is null)
+            {
+                AddItem(entry.Forecast.CatalogItemId);
+                continue;
+            }
+
+            var memberDays = entry.Members
+                .SelectMany(m => days.GetValueOrDefault(m.CatalogItemId) ?? [])
+                .ToList();
+            var abcClass = AnalyticsCalculator.ClassifyAbcAmong(
+                memberDays.Sum(d => d.Quantity), ranked, options.AbcBoundaryA, options.AbcBoundaryB);
+            if (abcClass is { } variationClass)
+                result[entry.Forecast.CatalogItemId] = new ConsumptionClasses(variationClass, Xyz(memberDays));
+
+            foreach (var member in entry.Members)
+                AddItem(member.CatalogItemId);
+        }
+
+        return result;
+    }
+
     private sealed record MovementData(
         Dictionary<Guid, int[]> DailyOut, Dictionary<Guid, int[]> DailyNet);
 
@@ -626,7 +712,9 @@ public class StockForecastService(
 
     /// <summary>Catalog summaries are loaded for the rows that survived paging, not for the whole set.</summary>
     private async Task<List<StockForecastRowDto>> ToRowsAsync(
-        IReadOnlyList<ForecastEntry> entries, CancellationToken ct)
+        IReadOnlyList<ForecastEntry> entries,
+        CancellationToken ct,
+        IReadOnlyDictionary<Guid, ConsumptionClasses>? classes = null)
     {
         if (entries.Count == 0) return [];
 
@@ -640,21 +728,27 @@ public class StockForecastService(
             .ProjectTo<CatalogItemSummaryDto>(mapper.ConfigurationProvider)
             .ToDictionaryAsync(c => c.Id, ct);
 
-        StockForecastRowDto ToRow(StockForecastDto f, List<StockForecastRowDto>? members) => new()
+        StockForecastRowDto ToRow(StockForecastDto f, List<StockForecastRowDto>? members)
         {
-            CatalogItemId = f.CatalogItemId,
-            Stock = f.Stock,
-            DailyConsumption = f.DailyConsumption,
-            ConsumedInWindow = f.ConsumedInWindow,
-            DaysLeft = f.DaysLeft,
-            WarningDays = f.WarningDays,
-            IsWarningOverridden = f.IsWarningOverridden,
-            Status = f.Status,
-            DaysSinceLastZeroStock = f.DaysSinceLastZeroStock,
-            OutOfStockDays = f.OutOfStockDays,
-            CatalogItem = items[f.CatalogItemId],
-            Members = members,
-        };
+            var itemClasses = classes?.GetValueOrDefault(f.CatalogItemId);
+            return new StockForecastRowDto
+            {
+                CatalogItemId = f.CatalogItemId,
+                Stock = f.Stock,
+                DailyConsumption = f.DailyConsumption,
+                ConsumedInWindow = f.ConsumedInWindow,
+                DaysLeft = f.DaysLeft,
+                WarningDays = f.WarningDays,
+                IsWarningOverridden = f.IsWarningOverridden,
+                Status = f.Status,
+                DaysSinceLastZeroStock = f.DaysSinceLastZeroStock,
+                OutOfStockDays = f.OutOfStockDays,
+                CatalogItem = items[f.CatalogItemId],
+                Members = members,
+                AbcClass = itemClasses?.Abc,
+                XyzClass = itemClasses?.Xyz,
+            };
+        }
 
         return entries
             .Where(e => items.ContainsKey(e.Forecast.CatalogItemId))

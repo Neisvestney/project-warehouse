@@ -693,8 +693,11 @@ and its value lives in `?warehouse=`. Until one is picked the list query is `ena
 shows «Выберите склад». The select carries `canAutoSelect`, so a user with exactly one warehouse gets it
 filled in and loses the clear icon without the page counting warehouses itself.
 
-Columns: Тип · Название · Артикул · Остаток · Расход/день · Осталось дней (`StockForecastChip`) · С последнего 0 · Без остатка · Порог.
-The first six are sortable. A row is `ForecastTableRow` (`components/forecast/ForecastTableRow.tsx`); a
+Columns: Тип · Название · Артикул · ABC / XYZ · Остаток · Расход/день · Осталось дней (`StockForecastChip`) · С последнего 0 · Без остатка · Порог.
+All but «ABC / XYZ» and the last three are sortable. «ABC / XYZ» shows `AbcChip` + `XyzChip`
+(`components/analytics/abc/ClassChips`) or «—» — classes by the warehouse's consumption, not by sales (see
+[stock-forecast-specification.md](stock-forecast-specification.md#классы-abc--xyz)); the header tooltip names
+`classWindowDays`. A row is `ForecastTableRow` (`components/forecast/ForecastTableRow.tsx`); a
 variation row carries a chevron before its type chip that unfolds `row.members` right below it as tinted
 rows of the same component — no extra request, the members come with the page. Which variations are
 unfolded is local `useState`, not URL state, and it survives paging.

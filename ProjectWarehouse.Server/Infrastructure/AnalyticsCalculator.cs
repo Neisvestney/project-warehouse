@@ -94,10 +94,7 @@ public static class AnalyticsCalculator
 
         foreach (var (id, value) in ranked)
         {
-            var precedingPercent = preceding / total * 100m;
-            var abcClass = precedingPercent < boundaryA ? AbcClass.A
-                : precedingPercent < boundaryB ? AbcClass.B
-                : AbcClass.C;
+            var abcClass = ClassifyAbc(preceding / total * 100m, boundaryA, boundaryB);
 
             preceding += value;
             result.Add(new AbcRankedItem(id, value, (double)(value / total), (double)(preceding / total), abcClass));
@@ -105,6 +102,27 @@ public static class AnalyticsCalculator
 
         return result;
     }
+
+    /// <summary>
+    /// The class <paramref name="value"/> would take among <paramref name="ranked"/> by the same preceding-share
+    /// rule, without joining the ranking — for a total of ranked items, such as a variation's members.
+    /// </summary>
+    public static AbcClass? ClassifyAbcAmong(
+        decimal value, IReadOnlyList<AbcRankedItem> ranked, decimal boundaryA, decimal boundaryB)
+    {
+        if (value <= 0) return null;
+
+        var total = ranked.Sum(r => r.Value);
+        if (total == 0) return AbcClass.A;
+
+        var preceding = ranked.Where(r => r.Value > value).Sum(r => r.Value);
+        return ClassifyAbc(preceding / total * 100m, boundaryA, boundaryB);
+    }
+
+    private static AbcClass ClassifyAbc(decimal precedingPercent, decimal boundaryA, decimal boundaryB) =>
+        precedingPercent < boundaryA ? AbcClass.A
+        : precedingPercent < boundaryB ? AbcClass.B
+        : AbcClass.C;
 
     /// <summary>
     /// σ / μ with the population deviation. Null for an empty series and for μ = 0 — sales that fell only
