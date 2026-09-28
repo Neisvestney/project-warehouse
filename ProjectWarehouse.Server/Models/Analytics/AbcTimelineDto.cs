@@ -6,6 +6,7 @@ public class AbcTimelineDto
 {
     public string TimeZoneId { get; init; } = null!;
     public AnalyticsAbcBasis Basis { get; init; }
+    public AnalyticsAbcSubject Subject { get; init; }
 
     /// <summary>The currency of the period's analysis, applied to every window.</summary>
     public string? CurrencyCode { get; init; }
@@ -43,9 +44,8 @@ public class AbcTimelineRowDto
     /// <summary>Place in the period's analysis, 1-based.</summary>
     public int Rank { get; init; }
 
-    public Guid CatalogItemId { get; init; }
-    public string Name { get; init; } = null!;
-    public CatalogItemType Type { get; init; }
+    public AbcSubjectDto Subject { get; init; } = null!;
+
     public List<AbcTimelineCellDto> Cells { get; init; } = [];
 }
 

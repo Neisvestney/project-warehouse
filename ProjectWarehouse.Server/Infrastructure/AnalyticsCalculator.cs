@@ -79,8 +79,9 @@ public static class AnalyticsCalculator
     /// <param name="values">Item values; zero and negative ones are left out.</param>
     /// <param name="boundaryA">Percent.</param>
     /// <param name="boundaryB">Percent.</param>
-    public static IReadOnlyList<AbcRankedItem> RankAbc(
-        IEnumerable<(Guid Id, decimal Value)> values, decimal boundaryA, decimal boundaryB)
+    public static IReadOnlyList<AbcRankedItem<TKey>> RankAbc<TKey>(
+        IEnumerable<(TKey Id, decimal Value)> values, decimal boundaryA, decimal boundaryB)
+        where TKey : IComparable<TKey>
     {
         var ranked = values
             .Where(v => v.Value > 0)
@@ -89,7 +90,7 @@ public static class AnalyticsCalculator
             .ToList();
 
         var total = ranked.Sum(v => v.Value);
-        var result = new List<AbcRankedItem>(ranked.Count);
+        var result = new List<AbcRankedItem<TKey>>(ranked.Count);
         var preceding = 0m;
 
         foreach (var (id, value) in ranked)
@@ -97,7 +98,7 @@ public static class AnalyticsCalculator
             var abcClass = ClassifyAbc(preceding / total * 100m, boundaryA, boundaryB);
 
             preceding += value;
-            result.Add(new AbcRankedItem(id, value, (double)(value / total), (double)(preceding / total), abcClass));
+            result.Add(new AbcRankedItem<TKey>(id, value, (double)(value / total), (double)(preceding / total), abcClass));
         }
 
         return result;
@@ -107,8 +108,8 @@ public static class AnalyticsCalculator
     /// The class <paramref name="value"/> would take among <paramref name="ranked"/> by the same preceding-share
     /// rule, without joining the ranking — for a total of ranked items, such as a variation's members.
     /// </summary>
-    public static AbcClass? ClassifyAbcAmong(
-        decimal value, IReadOnlyList<AbcRankedItem> ranked, decimal boundaryA, decimal boundaryB)
+    public static AbcClass? ClassifyAbcAmong<TKey>(
+        decimal value, IReadOnlyList<AbcRankedItem<TKey>> ranked, decimal boundaryA, decimal boundaryB)
     {
         if (value <= 0) return null;
 
@@ -317,7 +318,7 @@ public static class AnalyticsCalculator
     };
 }
 
-public sealed record AbcRankedItem(Guid Id, decimal Value, double Share, double CumulativeShare, AbcClass Class);
+public sealed record AbcRankedItem<TKey>(TKey Id, decimal Value, double Share, double CumulativeShare, AbcClass Class);
 
 /// <summary>Inclusive bounds, clamped to the period.</summary>
 public sealed record AnalyticsInterval(DateOnly Start, DateOnly End, bool IsPartial);

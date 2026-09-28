@@ -13,50 +13,65 @@ public class AnalyticsAbcService(
     AnalyticsQueries queries,
     IAnalyticsSettingsService settings) : IAnalyticsAbcService
 {
-    /// <summary>Shop sales of one item in one currency on one day; null item and currency still carry units.</summary>
-    private sealed class LineDay
+    /// <summary>A catalog item or a card by id, or an article by its normalized offer id.</summary>
+    private readonly record struct SubjectKey(Guid Id, string? Article) : IComparable<SubjectKey>
     {
-        public Guid? CatalogItemId { get; init; }
-        public string? CurrencyCode { get; init; }
-        public DateTime Day { get; init; }
-        public int Units { get; init; }
-        public int Lines { get; init; }
-        public int AccruedLines { get; init; }
-        public decimal Price { get; init; }
-        public decimal Payout { get; init; }
+        public int CompareTo(SubjectKey other)
+        {
+            var byId = Id.CompareTo(other.Id);
+            return byId != 0 ? byId : string.CompareOrdinal(Article, other.Article);
+        }
+
+        public override string ToString() => Article ?? Id.ToString();
     }
 
-    private sealed class ItemDay
-    {
-        public Guid CatalogItemId { get; init; }
-        public DateTime Day { get; init; }
-        public int Units { get; init; }
-    }
+    /// <summary>Shop sales of one subject in one currency on one day; a null key and currency still carry units.</summary>
+    /// <param name="CardId">The card the lines came from, for a card or article subject.</param>
+    private sealed record LineDay(
+        SubjectKey? Key,
+        Guid? CardId,
+        string? CurrencyCode,
+        DateTime Day,
+        int Units,
+        int Lines,
+        int AccruedLines,
+        decimal Price,
+        decimal Payout);
 
-    /// <param name="Lines">Shop lines, unlinked ones included.</param>
-    /// <param name="UnitDays">Units of linked shop lines and, on the units basis, of Direct orders.</param>
-    /// <param name="Currencies">Currencies of the linked lines, the most frequent first.</param>
-    private sealed record Sales(List<LineDay> Lines, List<ItemDay> UnitDays, List<string> Currencies);
+    private sealed record ItemDay(SubjectKey Key, DateTime Day, int Units);
 
-    private sealed record AnalysedItem(int Rank, AbcRankedItem Item, double? Cv, int? Intervals, XyzClass? Xyz);
+    /// <param name="Article">The offer id trimmed and upper-cased, as the article subject groups it.</param>
+    private sealed record CardInfo(
+        Guid Id, Guid AccountId, string OfferId, string Article, string Name, string? ImageUrl);
+
+    /// <param name="Lines">Shop lines, the ones with no subject included.</param>
+    /// <param name="UnitDays">Units of shop lines with a subject and, for catalog items on the units basis, of Direct orders.</param>
+    /// <param name="Currencies">Currencies of the lines with a subject, the most frequent first.</param>
+    /// <param name="Cards">The cards of the lines, for a card or article subject.</param>
+    private sealed record Sales(
+        List<LineDay> Lines, List<ItemDay> UnitDays, List<string> Currencies, Dictionary<Guid, CardInfo> Cards);
+
+    private sealed record AnalysedItem(
+        int Rank, AbcRankedItem<SubjectKey> Item, double? Cv, int? Intervals, XyzClass? Xyz);
 
     private sealed record Analysis(
         AnalyticsPeriod Period,
         AnalyticsOptions Options,
-        List<Guid> AccountIds,
+        List<AnalyticsAccount> Accounts,
         Sales Sales,
         string? Currency,
-        IReadOnlyList<AbcRankedItem> Ranked,
+        IReadOnlyList<AbcRankedItem<SubjectKey>> Ranked,
         int XyzIntervals,
         List<AnalysedItem> Items);
 
     public async Task<AbcDto> GetAbcAsync(ClaimsPrincipal user, AbcRequest request, CancellationToken ct = default)
     {
-        var (period, options, _, sales, currency, ranked, xyzIntervals, analysed) = await AnalyseAsync(request, ct);
+        var (period, options, accounts, sales, currency, ranked, xyzIntervals, analysed) =
+            await AnalyseAsync(request, ct);
 
-        var filtered = await FilterAsync(request, analysed, ct);
+        var filtered = await FilterAsync(request, analysed, sales, ct);
         var page = filtered.Skip((request.Page - 1) * request.PageSize).Take(request.PageSize).ToList();
-        var names = await LoadNamesAsync(page, ct);
+        var subjects = await LoadSubjectsAsync(request, page, sales, accounts, ct);
 
         var totalValue = ranked.Sum(r => r.Value);
         var currencyLines = sales.Lines.Where(l => l.CurrencyCode == currency).ToList();
@@ -67,12 +82,13 @@ public class AnalyticsAbcService(
             To = period.To,
             TimeZoneId = period.TimeZoneId,
             Basis = request.Basis,
+            Subject = request.Subject,
             CurrencyCode = currency,
             Currencies = sales.Currencies,
             PayoutCoverage = request.Basis == AnalyticsAbcBasis.Payout
                 ? AnalyticsCalculator.Ratio(currencyLines.Sum(l => l.AccruedLines), currencyLines.Sum(l => l.Lines))
                 : null,
-            UnlinkedLines = sales.Lines.Where(l => l.CatalogItemId == null).Sum(l => l.Lines),
+            UnlinkedLines = sales.Lines.Where(l => l.Key == null).Sum(l => l.Lines),
             TotalValue = totalValue,
             Settings = AppliedSettings(options),
             XyzIntervals = xyzIntervals,
@@ -109,9 +125,7 @@ public class AnalyticsAbcService(
                     .Select(a => new AbcItemDto
                     {
                         Rank = a.Rank,
-                        CatalogItemId = a.Item.Id,
-                        Name = names[a.Item.Id].FullName,
-                        Type = names[a.Item.Id].Type,
+                        Subject = subjects[a.Item.Id],
                         Value = a.Item.Value,
                         Share = a.Item.Share,
                         CumulativeShare = a.Item.CumulativeShare,
@@ -128,14 +142,15 @@ public class AnalyticsAbcService(
     public async Task<AbcTimelineDto> GetTimelineAsync(
         ClaimsPrincipal user, AbcFilterRequest request, CancellationToken ct = default)
     {
-        var (period, options, accountIds, _, currency, _, _, analysed) = await AnalyseAsync(request, ct);
-        var rows = await FilterAsync(request, analysed, ct);
+        var (period, options, accounts, periodSales, currency, _, _, analysed) = await AnalyseAsync(request, ct);
+        var rows = await FilterAsync(request, analysed, periodSales, ct);
+        var accountIds = accounts.Select(a => a.Id).ToList();
 
         var windows = AnalyticsCalculator.TimelineWindows(period.To, period.Today);
         var offset = TimeSpan.FromMinutes(period.OffsetMinutes);
         var rangeFromUtc = AnalyticsQueries.ToUtc(windows[0].From, offset);
         var sales = rows.Count == 0
-            ? new Sales([], [], [])
+            ? new Sales([], [], [], [])
             : await LoadSalesAsync(request, accountIds, rangeFromUtc,
                 AnalyticsQueries.ToUtc(windows[^1].To.AddDays(1), offset), period.OffsetMinutes, ct);
 
@@ -185,12 +200,14 @@ public class AnalyticsAbcService(
             }
         }
 
-        var names = await LoadNamesAsync(rows, ct);
+        // The period's sales hold every row's cards; the timeline's range may start after the period does
+        var subjects = await LoadSubjectsAsync(request, rows, periodSales, accounts, ct);
 
         return new AbcTimelineDto
         {
             TimeZoneId = period.TimeZoneId,
             Basis = request.Basis,
+            Subject = request.Subject,
             CurrencyCode = currency,
             WindowDays = AnalyticsCalculator.TimelineWindowDays,
             XyzFromFirstSale = request.XyzFromFirstSale,
@@ -200,9 +217,7 @@ public class AnalyticsAbcService(
                 .Select(r => new AbcTimelineRowDto
                 {
                     Rank = r.Rank,
-                    CatalogItemId = r.Item.Id,
-                    Name = names[r.Item.Id].FullName,
-                    Type = names[r.Item.Id].Type,
+                    Subject = subjects[r.Item.Id],
                     Cells = cells[r.Item.Id],
                 })
                 .ToList(),
@@ -224,7 +239,7 @@ public class AnalyticsAbcService(
 
         var intervals = AnalyticsCalculator.FullIntervals(period.From, period.To, options.XyzStep, period.Today);
         var xyzAvailable = intervals.Count >= options.XyzMinIntervals;
-        var xyz = new Dictionary<Guid, (double? Cv, int Intervals)>();
+        var xyz = new Dictionary<SubjectKey, (double? Cv, int Intervals)>();
         if (xyzAvailable)
         {
             var dayUnits = DayUnits(sales, ranked.Select(r => r.Id).ToHashSet());
@@ -246,7 +261,7 @@ public class AnalyticsAbcService(
             })
             .ToList();
 
-        return new Analysis(period, options, accountIds, sales, currency, ranked, intervals.Count, analysed);
+        return new Analysis(period, options, accounts, sales, currency, ranked, intervals.Count, analysed);
     }
 
     private async Task<Sales> LoadSalesAsync(
@@ -257,7 +272,8 @@ public class AnalyticsAbcService(
         int offset,
         CancellationToken ct)
     {
-        var lines = accountIds.Count == 0
+        var byCard = request.Subject != AnalyticsAbcSubject.CatalogItem;
+        var rows = accountIds.Count == 0
             ? []
             : await queries
                 .SaleLines(accountIds, fromUtc, toUtc)
@@ -266,16 +282,16 @@ public class AnalyticsAbcService(
                 // A day of an item may therefore come as two rows; every consumer below only sums them.
                 .GroupBy(i => new
                 {
-                    i.CatalogItemId,
+                    Id = byCard ? i.MarketplaceCardId : i.CatalogItemId,
                     i.CurrencyCode,
                     Day = i.Order.EffectiveDate.AddMinutes(offset).Date,
                     Accrued = i.Order.MarketplaceOrder!.Status == MarketplaceOrderStatus.Delivered && i.Payout > 0,
                 })
-                .Select(g => new LineDay
+                .Select(g => new
                 {
-                    CatalogItemId = g.Key.CatalogItemId,
-                    CurrencyCode = g.Key.CurrencyCode,
-                    Day = g.Key.Day,
+                    g.Key.Id,
+                    g.Key.CurrencyCode,
+                    g.Key.Day,
                     Units = g.Sum(i => i.Quantity),
                     Lines = g.Count(),
                     AccruedLines = g.Key.Accrued ? g.Count() : 0,
@@ -284,21 +300,41 @@ public class AnalyticsAbcService(
                 })
                 .ToListAsync(ct);
 
+        var cards = new Dictionary<Guid, CardInfo>();
+        if (byCard)
+        {
+            var cardIds = rows.Where(r => r.Id != null).Select(r => r.Id!.Value).Distinct().ToList();
+            cards = await db.MarketplaceCards
+                .Where(c => cardIds.Contains(c.Id))
+                .Select(c => new CardInfo(c.Id, c.MarketplaceAccountId, c.OfferId, c.OfferId.Trim().ToUpper(),
+                    c.Name, c.PrimaryImageUrl))
+                .ToDictionaryAsync(c => c.Id, ct);
+        }
+
+        SubjectKey? KeyOf(Guid? id) =>
+            id is not { } value ? null
+            : request.Subject == AnalyticsAbcSubject.Article ? new SubjectKey(Guid.Empty, cards[value].Article)
+            : new SubjectKey(value, null);
+
+        var lines = rows
+            .Select(r => new LineDay(KeyOf(r.Id), byCard ? r.Id : null, r.CurrencyCode, r.Day, r.Units, r.Lines,
+                r.AccruedLines, r.Price, r.Payout))
+            .ToList();
+
         // Money exists on shop lines only, so a money basis analyses the shops alone, XYZ included
-        var directDays = request.IncludeDirect && request.Basis == AnalyticsAbcBasis.Units
-            ? await queries
-                .DirectOrders(request.DirectTagIds, AnalyticsQueries.DirectSaleStatuses, fromUtc, toUtc)
-                .SelectMany(o => o.Boxes)
-                .SelectMany(b => b.Components)
-                .GroupBy(c => new { c.CatalogItemId, Day = c.OrderBox.Order.EffectiveDate.AddMinutes(offset).Date })
-                .Select(g => new ItemDay
-                {
-                    CatalogItemId = g.Key.CatalogItemId, Day = g.Key.Day, Units = g.Sum(c => c.Quantity),
-                })
-                .ToListAsync(ct)
+        var directDays = request.IncludeDirect && request.Basis == AnalyticsAbcBasis.Units && !byCard
+            ? (await queries
+                    .DirectOrders(request.DirectTagIds, AnalyticsQueries.DirectSaleStatuses, fromUtc, toUtc)
+                    .SelectMany(o => o.Boxes)
+                    .SelectMany(b => b.Components)
+                    .GroupBy(c => new { c.CatalogItemId, Day = c.OrderBox.Order.EffectiveDate.AddMinutes(offset).Date })
+                    .Select(g => new { g.Key.CatalogItemId, g.Key.Day, Units = g.Sum(c => c.Quantity) })
+                    .ToListAsync(ct))
+                .Select(d => new ItemDay(new SubjectKey(d.CatalogItemId, null), d.Day, d.Units))
+                .ToList()
             : [];
 
-        var linked = lines.Where(l => l.CatalogItemId != null).ToList();
+        var linked = lines.Where(l => l.Key != null).ToList();
         var currencies = linked
             .Where(l => l.CurrencyCode != null)
             .GroupBy(l => l.CurrencyCode!)
@@ -307,15 +343,15 @@ public class AnalyticsAbcService(
             .Select(g => g.Key)
             .ToList();
         var unitDays = linked
-            .Select(l => new ItemDay { CatalogItemId = l.CatalogItemId!.Value, Day = l.Day, Units = l.Units })
+            .Select(l => new ItemDay(l.Key!.Value, l.Day, l.Units))
             .Concat(directDays)
             .ToList();
 
-        return new Sales(lines, unitDays, currencies);
+        return new Sales(lines, unitDays, currencies, cards);
     }
 
     /// <summary>ABC over the loaded days from <paramref name="from"/> to <paramref name="to"/> inclusive.</summary>
-    private static IReadOnlyList<AbcRankedItem> Rank(
+    private static IReadOnlyList<AbcRankedItem<SubjectKey>> Rank(
         AbcFilterRequest request,
         AnalyticsOptions options,
         Sales sales,
@@ -331,11 +367,11 @@ public class AnalyticsAbcService(
         {
             AnalyticsAbcBasis.Units => sales.UnitDays
                 .Where(d => d.Day >= fromDay && d.Day <= toDay)
-                .GroupBy(d => d.CatalogItemId)
+                .GroupBy(d => d.Key)
                 .Select(g => (Id: g.Key, Value: (decimal)g.Sum(d => d.Units))),
             _ => sales.Lines
-                .Where(l => l.CatalogItemId != null && l.CurrencyCode == currency && l.Day >= fromDay && l.Day <= toDay)
-                .GroupBy(l => l.CatalogItemId!.Value)
+                .Where(l => l.Key != null && l.CurrencyCode == currency && l.Day >= fromDay && l.Day <= toDay)
+                .GroupBy(l => l.Key!.Value)
                 .Select(g => (Id: g.Key,
                     Value: g.Sum(l => request.Basis == AnalyticsAbcBasis.Payout ? l.Payout : l.Price))),
         };
@@ -343,10 +379,11 @@ public class AnalyticsAbcService(
         return AnalyticsCalculator.RankAbc(values, options.AbcBoundaryA, options.AbcBoundaryB);
     }
 
-    private static Dictionary<Guid, List<(DateOnly Day, int Units)>> DayUnits(Sales sales, HashSet<Guid> ids) =>
+    private static Dictionary<SubjectKey, List<(DateOnly Day, int Units)>> DayUnits(
+        Sales sales, HashSet<SubjectKey> keys) =>
         sales.UnitDays
-            .Where(d => ids.Contains(d.CatalogItemId))
-            .GroupBy(d => d.CatalogItemId)
+            .Where(d => keys.Contains(d.Key))
+            .GroupBy(d => d.Key)
             .ToDictionary(g => g.Key, g => g.Select(d => (DateOnly.FromDateTime(d.Day), d.Units)).ToList());
 
     /// <param name="intervals">The full intervals of the analysed span.</param>
@@ -378,10 +415,10 @@ public class AnalyticsAbcService(
     /// over the same channels. An item sold before then has no launch inside the loaded days: its quiet weeks are
     /// real zero demand.
     /// </summary>
-    private async Task<Dictionary<Guid, DateOnly>> LoadLaunchesAsync(
+    private async Task<Dictionary<SubjectKey, DateOnly>> LoadLaunchesAsync(
         AbcFilterRequest request,
         List<Guid> accountIds,
-        Dictionary<Guid, List<(DateOnly Day, int Units)>> dayUnits,
+        Dictionary<SubjectKey, List<(DateOnly Day, int Units)>> dayUnits,
         DateTime loadedFromUtc,
         CancellationToken ct)
     {
@@ -396,41 +433,70 @@ public class AnalyticsAbcService(
     /// <summary>
     /// The items that already sold before <paramref name="beforeUtc"/> over the same channels. A distinct list
     /// rather than a first-sale date per item: a <c>Min</c> over the order's date would read a navigation inside
-    /// an aggregate, and that becomes a subquery per item scanning the whole history.
+    /// an aggregate, and that becomes a subquery per item scanning the whole history. An article counts as sold
+    /// when any of its cards did, including a card that sold nothing in the loaded days.
     /// </summary>
-    private async Task<HashSet<Guid>> LoadSoldBeforeAsync(
+    private async Task<HashSet<SubjectKey>> LoadSoldBeforeAsync(
         AbcFilterRequest request,
         List<Guid> accountIds,
-        List<Guid> ids,
+        List<SubjectKey> keys,
         DateTime beforeUtc,
         CancellationToken ct)
     {
-        var result = new HashSet<Guid>();
+        var result = new HashSet<SubjectKey>();
+        var ids = keys.Select(k => k.Id).ToList();
+        var earlier = queries.SaleLines(accountIds, DateTime.UnixEpoch, beforeUtc);
 
         if (accountIds.Count > 0)
-            result.UnionWith(await queries
-                .SaleLines(accountIds, DateTime.UnixEpoch, beforeUtc)
-                .Where(i => i.CatalogItemId != null && ids.Contains(i.CatalogItemId.Value))
-                .Select(i => i.CatalogItemId!.Value)
-                .Distinct()
-                .ToListAsync(ct));
+        {
+            var sold = request.Subject switch
+            {
+                AnalyticsAbcSubject.Card => (await earlier
+                        .Where(i => i.MarketplaceCardId != null && ids.Contains(i.MarketplaceCardId.Value))
+                        .Select(i => i.MarketplaceCardId!.Value)
+                        .Distinct()
+                        .ToListAsync(ct))
+                    .Select(id => new SubjectKey(id, null)),
+                AnalyticsAbcSubject.Article => await LoadArticlesSoldAsync(
+                    earlier, keys.Select(k => k.Article!).ToList(), ct),
+                _ => (await earlier
+                        .Where(i => i.CatalogItemId != null && ids.Contains(i.CatalogItemId.Value))
+                        .Select(i => i.CatalogItemId!.Value)
+                        .Distinct()
+                        .ToListAsync(ct))
+                    .Select(id => new SubjectKey(id, null)),
+            };
+            result.UnionWith(sold);
+        }
 
-        if (request.IncludeDirect && request.Basis == AnalyticsAbcBasis.Units)
-            result.UnionWith(await queries
-                .DirectOrders(request.DirectTagIds, AnalyticsQueries.DirectSaleStatuses, DateTime.UnixEpoch, beforeUtc)
-                .SelectMany(o => o.Boxes)
-                .SelectMany(b => b.Components)
-                .Where(c => ids.Contains(c.CatalogItemId))
-                .Select(c => c.CatalogItemId)
-                .Distinct()
-                .ToListAsync(ct));
+        if (request.IncludeDirect && request.Basis == AnalyticsAbcBasis.Units
+                                  && request.Subject == AnalyticsAbcSubject.CatalogItem)
+            result.UnionWith((await queries
+                    .DirectOrders(request.DirectTagIds, AnalyticsQueries.DirectSaleStatuses, DateTime.UnixEpoch,
+                        beforeUtc)
+                    .SelectMany(o => o.Boxes)
+                    .SelectMany(b => b.Components)
+                    .Where(c => ids.Contains(c.CatalogItemId))
+                    .Select(c => c.CatalogItemId)
+                    .Distinct()
+                    .ToListAsync(ct))
+                .Select(id => new SubjectKey(id, null)));
 
         return result;
     }
 
+    private static async Task<IEnumerable<SubjectKey>> LoadArticlesSoldAsync(
+        IQueryable<OrderMarketplaceItem> lines, List<string> articles, CancellationToken ct) =>
+        (await lines
+            .Where(i => i.MarketplaceCard != null && articles.Contains(i.MarketplaceCard.OfferId.Trim().ToUpper()))
+            .Select(i => i.MarketplaceCard!.OfferId.Trim().ToUpper())
+            .Distinct()
+            .ToListAsync(ct))
+        .Select(article => new SubjectKey(Guid.Empty, article));
+
     /// <summary>The class filters and the search, keeping rank order.</summary>
     private async Task<List<AnalysedItem>> FilterAsync(
-        AbcFilterRequest request, List<AnalysedItem> items, CancellationToken ct)
+        AbcFilterRequest request, List<AnalysedItem> items, Sales sales, CancellationToken ct)
     {
         var filtered = items
             .Where(a => request.AbcClass == null || a.Item.Class == request.AbcClass)
@@ -438,24 +504,114 @@ public class AnalyticsAbcService(
             .ToList();
         if (string.IsNullOrWhiteSpace(request.SearchString)) return filtered;
 
-        var candidateIds = filtered.Select(a => a.Item.Id).ToList();
-        var matched = (await db.CatalogItems
-                .Where(c => candidateIds.Contains(c.Id))
-                .WhereMatchesSearch(c => c.SearchString, request.SearchString)
+        var candidates = filtered.Select(a => a.Item.Id).ToHashSet();
+        HashSet<SubjectKey> matched;
+        if (request.Subject == AnalyticsAbcSubject.CatalogItem)
+        {
+            var candidateIds = candidates.Select(k => k.Id).ToList();
+            matched = (await db.CatalogItems
+                    .Where(c => candidateIds.Contains(c.Id))
+                    .WhereMatchesSearch(c => c.SearchString, request.SearchString)
+                    .Select(c => c.Id)
+                    .ToListAsync(ct))
+                .Select(id => new SubjectKey(id, null))
+                .ToHashSet();
+        }
+        else
+        {
+            SubjectKey KeyOf(CardInfo card) => request.Subject == AnalyticsAbcSubject.Article
+                ? new SubjectKey(Guid.Empty, card.Article)
+                : new SubjectKey(card.Id, null);
+
+            // An article matches when any of its cards does
+            var candidateCards = sales.Cards.Values
+                .Where(c => candidates.Contains(KeyOf(c)))
                 .Select(c => c.Id)
-                .ToListAsync(ct))
-            .ToHashSet();
+                .ToList();
+            matched = (await db.MarketplaceCards
+                    .Where(c => candidateCards.Contains(c.Id))
+                    .WhereMatchesSearch(c => c.SearchString, request.SearchString)
+                    .Select(c => c.Id)
+                    .ToListAsync(ct))
+                .Select(id => KeyOf(sales.Cards[id]))
+                .ToHashSet();
+        }
+
         return filtered.Where(a => matched.Contains(a.Item.Id)).ToList();
     }
 
-    private async Task<Dictionary<Guid, (string FullName, CatalogItemType Type)>> LoadNamesAsync(
-        List<AnalysedItem> items, CancellationToken ct)
+    private async Task<Dictionary<SubjectKey, AbcSubjectDto>> LoadSubjectsAsync(
+        AbcFilterRequest request,
+        List<AnalysedItem> items,
+        Sales sales,
+        List<AnalyticsAccount> accounts,
+        CancellationToken ct)
     {
-        var ids = items.Select(a => a.Item.Id).ToList();
-        return await db.CatalogItems
-            .Where(c => ids.Contains(c.Id))
-            .Select(c => new { c.Id, c.FullName, c.Type })
-            .ToDictionaryAsync(c => c.Id, c => (c.FullName, c.Type), ct);
+        var keys = items.Select(a => a.Item.Id).ToList();
+
+        if (request.Subject == AnalyticsAbcSubject.CatalogItem)
+        {
+            var ids = keys.Select(k => k.Id).ToList();
+            var names = await db.CatalogItems
+                .Where(c => ids.Contains(c.Id))
+                .Select(c => new { c.Id, c.FullName, c.Type })
+                .ToDictionaryAsync(c => c.Id, ct);
+            return keys.ToDictionary(k => k, k => new AbcSubjectDto
+            {
+                Key = k.ToString(),
+                Name = names[k.Id].FullName,
+                CatalogItemId = k.Id,
+                Type = names[k.Id].Type,
+            });
+        }
+
+        var accountsById = accounts.ToDictionary(a => a.Id);
+        AbcSubjectAccountDto Account(Guid id) => new()
+        {
+            Id = id, Name = accountsById[id].Name, Type = accountsById[id].Type,
+        };
+
+        if (request.Subject == AnalyticsAbcSubject.Card)
+            return keys.ToDictionary(k => k, k =>
+            {
+                var card = sales.Cards[k.Id];
+                return new AbcSubjectDto
+                {
+                    Key = k.ToString(),
+                    Name = card.Name,
+                    MarketplaceCardId = card.Id,
+                    OfferId = card.OfferId,
+                    ImageUrl = card.ImageUrl,
+                    Accounts = [Account(card.AccountId)],
+                };
+            });
+
+        var unitsByCard = sales.Lines
+            .Where(l => l.CardId != null)
+            .GroupBy(l => l.CardId!.Value)
+            .ToDictionary(g => g.Key, g => g.Sum(l => l.Units));
+        var cardsByArticle = sales.Cards.Values
+            .Where(c => unitsByCard.ContainsKey(c.Id))
+            .ToLookup(c => c.Article);
+
+        return keys.ToDictionary(k => k, k =>
+        {
+            var cards = cardsByArticle[k.Article!].ToList();
+            var best = cards.OrderByDescending(c => unitsByCard[c.Id]).ThenBy(c => c.Id).First();
+            return new AbcSubjectDto
+            {
+                Key = k.ToString(),
+                Name = best.Name,
+                OfferId = best.OfferId,
+                ImageUrl = best.ImageUrl,
+                Accounts = cards
+                    .Select(c => c.AccountId)
+                    .Distinct()
+                    .Select(Account)
+                    .OrderBy(a => a.Name, StringComparer.CurrentCulture)
+                    .ToList(),
+            };
+        });
     }
 
     private static AbcAppliedSettingsDto AppliedSettings(AnalyticsOptions options) => new()

@@ -1,9 +1,10 @@
 import {Box, ButtonBase, Paper, Stack, Typography} from "@mui/material";
 import type {AbcClass, AbcDto} from "@/api/types.gen";
 import {formatPercent} from "@/components/analytics/analyticsFormat";
-import {NOUNS, pluralCount} from "@/utils/pluralUtils";
+import {pluralCount} from "@/utils/pluralUtils";
 import {formatBoundary} from "@/components/analytics/abc/abcClasses";
 import {AbcChip} from "@/components/analytics/abc/ClassChips";
+import {SUBJECT_NOUNS} from "./abcSubjects";
 
 const LINES = {one: "строка", few: "строки", many: "строк"};
 
@@ -48,7 +49,7 @@ function AbcClassTiles({data, selected, onSelect}: AbcClassTilesProps) {
               </Typography>
             </Stack>
             <Typography variant="h5" sx={{mt: 1}}>
-              {pluralCount(c.items, NOUNS.position)}
+              {pluralCount(c.items, SUBJECT_NOUNS[data.subject])}
             </Typography>
             <Typography variant="caption" color="text.secondary">
               {formatPercent(c.itemsShare)} ассортимента · {formatPercent(c.valueShare)} объёма
@@ -64,7 +65,9 @@ function AbcClassTiles({data, selected, onSelect}: AbcClassTilesProps) {
           {pluralCount(data.unlinkedLines, LINES)}
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          товар площадки не привязан к каталогу
+          {data.subject === "catalogItem"
+            ? "товар площадки не привязан к каталогу"
+            : "у строки заказа нет карточки"}
         </Typography>
       </Paper>
     </Box>

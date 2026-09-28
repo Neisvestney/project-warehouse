@@ -8,6 +8,9 @@ public class AbcFilterRequest : AnalyticsFilterRequest
 {
     public AnalyticsAbcBasis Basis { get; init; } = AnalyticsAbcBasis.Units;
 
+    /// <summary>A card or an article leaves Direct orders out: they have no cards.</summary>
+    public AnalyticsAbcSubject Subject { get; init; } = AnalyticsAbcSubject.CatalogItem;
+
     /// <summary>Currency of a money basis; null takes the one with the most sale lines.</summary>
     public string? CurrencyCode { get; init; }
 

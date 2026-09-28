@@ -227,13 +227,18 @@ public class AnalyticsController(
         }
     }
 
-    /// <summary>ABC and XYZ classes of the catalog items sold in the period: tiles, matrix, Pareto and a table page.</summary>
+    /// <summary>ABC and XYZ classes of the catalog items, cards or articles sold in the period: tiles, matrix, Pareto and a table page.</summary>
     /// <remarks>
     /// Query params: the shared filter of <c>channels/summary</c>; <c>basis</c> (<c>units</c> / <c>price</c> /
     /// <c>payout</c>, default <c>units</c>) — a money basis analyses shops only, in one currency:
     /// <c>currencyCode</c>, omitted or unknown — the one with the most sale lines, the ones met come back as
-    /// <c>currencies</c>. A bundle is an item of its own; items with no sales are not analysed. Items are ranked
-    /// by value descending, ties by id, and classed by the cumulative share of the items before them against
+    /// <c>currencies</c>. <c>subject</c> (<c>catalogItem</c> / <c>card</c> / <c>article</c>, default
+    /// <c>catalogItem</c>) picks what a row is: the catalog item a line was imported with, the card of one account,
+    /// or every selected account's cards sharing an offer id compared trimmed and case-blind; a card or an article
+    /// analyses shops only, and each row's <c>subject</c> carries its name, offer id, image and accounts.
+    /// <c>unlinkedLines</c> counts the lines with no catalog item, or with no card. A bundle is an item of its
+    /// own; items with no sales are not analysed. Items are ranked
+    /// by value descending, ties by id or article, and classed by the cumulative share of the items before them against
     /// <c>abcBoundaryA</c> / <c>abcBoundaryB</c>. XYZ always counts units over the same channels and items, by the
     /// full <c>xyzStep</c> intervals of the period that are already over; with fewer than
     /// <c>xyzMinIntervals</c> of them (<c>xyzIntervals</c>) no item has an XYZ class. <c>xyzFromFirstSale</c>
