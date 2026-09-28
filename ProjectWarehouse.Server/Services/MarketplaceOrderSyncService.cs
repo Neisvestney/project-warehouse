@@ -16,6 +16,7 @@ public class MarketplaceOrderSyncService(
     ApplicationDbContext db,
     IRealtimeNotifier realtime,
     IMarketplaceReturnSyncService returnSync,
+    IMarketplaceAccrualSyncService accrualSync,
     IOptions<MarketplacesOptions> options,
     ILogger<MarketplaceOrderSyncService> logger) : IMarketplaceOrderSyncService
 {
@@ -496,6 +497,8 @@ public class MarketplaceOrderSyncService(
                 new ExternalPostingQuery(scheme, since, to, ExternalStatuses), refreshKnown: false, ct);
 
         await returnSync.SyncReturnsBackfillAsync(provider, credentials, account, run, since, to, ct);
+        // last, so the postings its accruals belong to are already in
+        await accrualSync.SyncAccrualsBackfillAsync(provider, credentials, account, run, since, to, ct);
 
         activity?.SetTag("marketplace.orders.created", run.OrdersCreated);
     }

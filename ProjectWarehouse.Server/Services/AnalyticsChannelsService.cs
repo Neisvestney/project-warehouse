@@ -491,9 +491,8 @@ public class AnalyticsChannelsService(
                     Lines = g.Count(),
                     Money = payoutMode
                         ? g.Sum(i => i.Order.MarketplaceOrder!.Status == MarketplaceOrderStatus.Delivered
-                            && i.Payout > 0
-                                ? i.Payout!.Value
-                                : 0)
+                            ? i.KeptPayout
+                            : 0)
                         : g.Sum(i => i.Price != null ? i.Price.Value * i.Quantity : 0),
                 })
                 .ToListAsync(ct);
@@ -753,12 +752,12 @@ public class AnalyticsChannelsService(
                     i.Order.MarketplaceOrder!.Status == MarketplaceOrderStatus.Delivered && i.Payout > 0),
                 PriceRevenue = g.Sum(i => i.Price != null ? i.Price.Value * i.Quantity : 0),
                 PayoutRevenue = g.Sum(i =>
-                    i.Order.MarketplaceOrder!.Status == MarketplaceOrderStatus.Delivered && i.Payout > 0
-                        ? i.Payout!.Value
-                        : 0),
+                    i.Order.MarketplaceOrder!.Status == MarketplaceOrderStatus.Delivered ? i.KeptPayout : 0),
                 PricedOrders = g.Where(i => i.Price != null).Select(i => i.OrderId).Distinct().Count(),
+                // A fully returned order earned nothing, so it would only drag the average check down
                 AccruedOrders = g
-                    .Where(i => i.Order.MarketplaceOrder!.Status == MarketplaceOrderStatus.Delivered && i.Payout > 0)
+                    .Where(i => i.Order.MarketplaceOrder!.Status == MarketplaceOrderStatus.Delivered
+                        && i.KeptPayout > 0)
                     .Select(i => i.OrderId)
                     .Distinct()
                     .Count(),

@@ -26,5 +26,12 @@ public enum MarketplaceSyncScope
     /// </summary>
     OrdersBackfill = 5,
 
+    /// <summary>
+    /// The seller's accruals — what the marketplace paid and kept, day by day. Part of <see cref="All"/>: it
+    /// creates nothing but its own rows. Kept out of <see cref="OrdersBackground"/> so a slow or throttled
+    /// finance API cannot fail the order refresh. <see cref="OrdersBackfill"/> reads the same history for its period.
+    /// </summary>
+    Accruals = 6,
+
     All = 2,
 }

@@ -28,6 +28,7 @@ const SECTION_TITLES: Record<SyncRunSection, string> = {
   cards: "Карточки",
   orders: "Заказы",
   returns: "Возвраты",
+  accruals: "Начисления",
 };
 
 function sectionCounters(run: MarketplaceSyncRunDto, section: SyncRunSection): [string, number][] {
@@ -54,6 +55,12 @@ function sectionCounters(run: MarketplaceSyncRunDto, section: SyncRunSection): [
         ["Обработано", run.returnsProcessed],
         ["Создано", run.returnsCreated],
         ["Обновлено", run.returnsUpdated],
+      ];
+    case "accruals":
+      return [
+        ["Обработано", run.accrualsProcessed],
+        ["Создано", run.accrualsCreated],
+        ["Обновлено", run.accrualsUpdated],
       ];
   }
 }

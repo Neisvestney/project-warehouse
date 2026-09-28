@@ -10,7 +10,8 @@
     "/v3/posting/fbs/package-label/create",
     "/v2/posting/fbs/package-label/get",
     "/v3/posting/fbo/list",
-    "/v1/returns/list"
+    "/v1/returns/list",
+    "/v1/finance/accrual/by-day"
   ],
   "binaryResponses": [],
   "reserved": [

@@ -54,6 +54,19 @@ public class MarketplaceAccount : IHasIdentity
     /// </summary>
     public DateTime? ReturnsSyncedAt { get; set; }
 
+    /// <summary>
+    /// When accruals were last read. Same rules as <see cref="FboPostingsSyncedAt"/>; the history import never
+    /// moves it. A run starts the day before it, so a quiet account picks up the days it missed.
+    /// </summary>
+    public DateTime? AccrualsSyncedAt { get; set; }
+
+    /// <summary>
+    /// When accruals were last re-read over the whole overlap. The marketplace posts reversals and return
+    /// logistics days after the sale, but re-reading two weeks on every run would cost dozens of throttled calls,
+    /// so the long pass runs once a day and the runs in between read only the latest days.
+    /// </summary>
+    public DateTime? AccrualsFullPassAt { get; set; }
+
     // ErrorCode lands in jsonb as a number — Npgsql serializes it, not the MVC options that stringify enums
     [Column(TypeName = "jsonb")] public AppFieldError? LastSyncError { get; set; }
 

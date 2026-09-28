@@ -139,6 +139,7 @@ MarketplaceReturn
 |---|---|
 | `Order.MarketplaceReturns`, `OrderMarketplaceItem.MarketplaceReturns` | Навигации по `OrderId` и `OrderMarketplaceItemId` — все возвраты, отменённые включительно |
 | `Order.ReturnedQuantity`, `OrderMarketplaceItem.ReturnedQuantity` | Σ `Quantity` возвратов с `IsCountedAsReturn` |
+| `OrderMarketplaceItem.KeptPayout` | `Payout` за невернувшиеся штуки строки — см. [analytics-specification.md](analytics-specification.md#режим-денег) |
 | `Order.MarketplaceQuantity` | Σ `Quantity` строк заказа |
 | `MarketplaceOrder.ReturnState` | `MarketplaceOrderReturnState`: `None = 0` — ничего не вернули, `Partial = 1` — меньше, чем продано, `Full = 2` — не меньше |
 
@@ -236,8 +237,8 @@ WMS не знает вовсе, прогон не перечитывает.
 
 - **Приход возвратов на склад** — FBS-возврат, выданный продавцу (`ReceivedBySeller`), физически возвращается на
   склад WMS. Приёмка, движение остатков и сверка с `MarketplaceReturn` — отдельная складская фича.
-- **Суммы компенсаций** — в `/v1/returns/list` их нет, они приходят начислениями площадки. См.
-  [backlog.md](backlog.md#журнал-начислений-маркетплейса).
+- **Суммы компенсаций по возвратам** — в `/v1/returns/list` их нет, а начисления площадки дают их одной суммой по
+  магазину, см. [marketplaces-accruals-specification.md](marketplaces-accruals-specification.md#что-приходит).
 
 ---
 

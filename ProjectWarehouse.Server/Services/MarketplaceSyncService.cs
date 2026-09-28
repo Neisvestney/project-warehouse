@@ -24,6 +24,7 @@ public class MarketplaceSyncService(
     IMarketplaceCredentialProtector protector,
     IChangeLogService<MarketplaceAccountDto> changeLog,
     IMarketplaceOrderSyncService orderSync,
+    IMarketplaceAccrualSyncService accrualSync,
     IRealtimeNotifier realtime,
     IMapper mapper,
     ILogger<MarketplaceSyncService> logger) : IMarketplaceSyncService
@@ -103,6 +104,20 @@ public class MarketplaceSyncService(
                 await orderSync.SyncOrdersBackgroundAsync(provider, credentials, account, run, ct);
             }
 
+            // after the orders, so the postings its accruals belong to are already in; skipped inside All
+            // for a provider without accruals, by the service itself
+            if (run.Scope is MarketplaceSyncScope.Accruals)
+            {
+                if (!provider.Capabilities.HasFlag(MarketplaceCapabilities.Accruals))
+                    throw new ValidationException("accountId", ErrorCode.MarketplaceAccrualsNotSupported,
+                        "This marketplace provider does not support accrual sync.");
+                await accrualSync.SyncAccrualsAsync(provider, credentials, account, run, ct);
+            }
+            else if (run.Scope is MarketplaceSyncScope.All)
+            {
+                await accrualSync.SyncAccrualsAsync(provider, credentials, account, run, ct);
+            }
+
             run.Status = MarketplaceSyncStatus.Success;
             run.Error = null;
             run.FinishedAt = DateTime.UtcNow;
@@ -168,6 +183,8 @@ public class MarketplaceSyncService(
                 ordersSkipped = run.OrdersSkipped,
                 returnsCreated = run.ReturnsCreated,
                 returnsUpdated = run.ReturnsUpdated,
+                accrualsCreated = run.AccrualsCreated,
+                accrualsUpdated = run.AccrualsUpdated,
             });
 
     /// <summary>

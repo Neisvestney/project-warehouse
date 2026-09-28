@@ -332,6 +332,31 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<V1GetReturnsListResponse> ReturnsListAsync(V1GetReturnsListRequest? body, System.Threading.CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Получить начисления за день
+        /// </summary>
+        /// <remarks>
+        /// Если укажете `last_id` в запросе, передайте значение `date` из предыдущего запроса, иначе вернётся ошибка `400 Bad Request`.
+        /// <br/>
+        /// <br/>Вы можете оставить обратную связь о работе метода в [комментариях](https://dev.ozon.ru/community/2008-Novye-beta-metody-dlia-polucheniia-nachislenii/) в сообществе разработчиков Ozon for dev.
+        /// </remarks>
+        /// <returns>Начисления за день</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<GetFinanceAccrualByDayResponse> GetFinanceAccrualByDayAsync(GetFinanceAccrualByDayRequest body);
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Получить начисления за день
+        /// </summary>
+        /// <remarks>
+        /// Если укажете `last_id` в запросе, передайте значение `date` из предыдущего запроса, иначе вернётся ошибка `400 Bad Request`.
+        /// <br/>
+        /// <br/>Вы можете оставить обратную связь о работе метода в [комментариях](https://dev.ozon.ru/community/2008-Novye-beta-metody-dlia-polucheniia-nachislenii/) в сообществе разработчиков Ozon for dev.
+        /// </remarks>
+        /// <returns>Начисления за день</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<GetFinanceAccrualByDayResponse> GetFinanceAccrualByDayAsync(GetFinanceAccrualByDayRequest body, System.Threading.CancellationToken cancellationToken);
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NSwag", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -1889,6 +1914,111 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
                             throw new OzonApiException<RpcStatus>("\u041e\u0448\u0438\u0431\u043a\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Получить начисления за день
+        /// </summary>
+        /// <remarks>
+        /// Если укажете `last_id` в запросе, передайте значение `date` из предыдущего запроса, иначе вернётся ошибка `400 Bad Request`.
+        /// <br/>
+        /// <br/>Вы можете оставить обратную связь о работе метода в [комментариях](https://dev.ozon.ru/community/2008-Novye-beta-metody-dlia-polucheniia-nachislenii/) в сообществе разработчиков Ozon for dev.
+        /// </remarks>
+        /// <returns>Начисления за день</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        public virtual System.Threading.Tasks.Task<GetFinanceAccrualByDayResponse> GetFinanceAccrualByDayAsync(GetFinanceAccrualByDayRequest body)
+        {
+            return GetFinanceAccrualByDayAsync(body, System.Threading.CancellationToken.None);
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Получить начисления за день
+        /// </summary>
+        /// <remarks>
+        /// Если укажете `last_id` в запросе, передайте значение `date` из предыдущего запроса, иначе вернётся ошибка `400 Bad Request`.
+        /// <br/>
+        /// <br/>Вы можете оставить обратную связь о работе метода в [комментариях](https://dev.ozon.ru/community/2008-Novye-beta-metody-dlia-polucheniia-nachislenii/) в сообществе разработчиков Ozon for dev.
+        /// </remarks>
+        /// <returns>Начисления за день</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<GetFinanceAccrualByDayResponse> GetFinanceAccrualByDayAsync(GetFinanceAccrualByDayRequest body, System.Threading.CancellationToken cancellationToken)
+        {
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("POST");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                
+                    // Operation Path: "v1/finance/accrual/by-day"
+                    urlBuilder_.Append("v1/finance/accrual/by-day");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<GetFinanceAccrualByDayResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<GooglerpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<GooglerpcStatus>("\u041e\u0448\u0438\u0431\u043a\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                     }
                     finally
@@ -4420,6 +4550,462 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetFinanceAccrualByDayRequest
+    {
+
+        /// <summary>
+        /// Дата начислений. Самая ранняя — 1 января 2022 года.
+        /// <br/>
+        /// <br/>Если укажете `last_id`, передайте значение `date` из предыдущего запроса.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("date")]
+        public string Date { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор последнего значения на странице. При первом запросе оставьте это поле пустым.
+        /// <br/>
+        /// <br/>Чтобы получить следующие значения, укажите `last_id` из ответа предыдущего запроса.
+        /// <br/>
+        /// <br/>Срок жизни идентификатора — 15 минут.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("last_id")]
+        public string Last_id { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetFinanceAccrualByDayResponse
+    {
+
+        /// <summary>
+        /// Список начислений по отправлению.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("accruals")]
+        public System.Collections.Generic.IReadOnlyList<GetFinanceAccrualByDayResponseAccrual>? Accruals { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор последнего значения на странице.
+        /// <br/>
+        /// <br/>Срок жизни идентификатора — 15 минут.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("last_id")]
+        public string? Last_id { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetFinanceAccrualByDayResponseAccrual
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("accrued_category")]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<GetFinanceAccrualByDayResponseAccrualAccruedCategoryEnum>))]
+        public GetFinanceAccrualByDayResponseAccrualAccruedCategoryEnum? Accrued_category { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("container_fees")]
+        public GetFinanceAccrualByDayResponseAccrualContainerFees? Container_fees { get; set; } = default!;
+
+        /// <summary>
+        /// Дата начислений.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("date")]
+        public string? Date { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("item_fees")]
+        public GetFinanceAccrualByDayResponseAccrualItemFees? Item_fees { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("non_item_fee")]
+        public GetFinanceAccrualByDayResponseAccrualNonItemFee? Non_item_fee { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("posting")]
+        public GetFinanceAccrualByDayResponseAccrualPosting? Posting { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("total_amount")]
+        public MoneyTotalAmount? Total_amount { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор начисления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("accrual_id")]
+        public long? Accrual_id { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор заказа или услуги. Например, номер отправления или номер рекламного договора.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("unit_number")]
+        public string? Unit_number { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Тип начисления:
+    /// <br/>- `UNSPECIFIED` — не определён;
+    /// <br/>- `POSTING` — начисление по отправлению;
+    /// <br/>- `ITEM` — начисление по товару;
+    /// <br/>- `NON_ITEM` — начисление по продавцу без привязки к товару;
+    /// <br/>- `CONTAINER_FEES` — начисление по контейнеру.
+    /// <br/>
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum GetFinanceAccrualByDayResponseAccrualAccruedCategoryEnum
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"UNSPECIFIED")]
+        UNSPECIFIED = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"POSTING")]
+        POSTING = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"ITEM")]
+        ITEM = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"NON_ITEM")]
+        NON_ITEM = 3,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"CONTAINER_FEES")]
+        CONTAINER_FEES = 4,
+
+    }
+
+    /// <summary>
+    /// Начисления по контейнеру.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetFinanceAccrualByDayResponseAccrualContainerFees
+    {
+
+        /// <summary>
+        /// Начисления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("fees")]
+        public System.Collections.Generic.IReadOnlyList<GetFinanceAccrualByDayResponseAccrualContainerFeesContainerFee>? Fees { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetFinanceAccrualByDayResponseAccrualContainerFeesContainerFee
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("accrued")]
+        public MoneyAccrued? Accrued { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор типа начисления. Получите значение параметра методом [/v1/finance/accrual/types](#operation/GetFinanceAccrualTypes).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("type_id")]
+        public int? Type_id { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Начисления по товарам.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetFinanceAccrualByDayResponseAccrualItemFees
+    {
+
+        /// <summary>
+        /// Начисления по товару.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("fees")]
+        public System.Collections.Generic.IReadOnlyList<GetFinanceAccrualByDayResponseAccrualItemFeesItemFee>? Fees { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetFinanceAccrualByDayResponseAccrualItemFeesItemFee
+    {
+
+        /// <summary>
+        /// Начисления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("fees")]
+        public System.Collections.Generic.IReadOnlyList<GetFinanceAccrualByDayResponseAccrualItemFeesItemFeeFee>? Fees { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор товара в системе Ozon — SKU.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("sku")]
+        public long? Sku { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetFinanceAccrualByDayResponseAccrualItemFeesItemFeeFee
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("accrued")]
+        public MoneyAccrued? Accrued { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор типа начисления. Получите значение параметра методом [/v1/finance/accrual/types](#operation/GetFinanceAccrualTypes).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("type_id")]
+        public int? Type_id { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Начисление по продавцу без привязки к товару.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetFinanceAccrualByDayResponseAccrualNonItemFee
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("accrued")]
+        public MoneyAccrued? Accrued { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор типа начисления. Можно получить методом [/v1/finance/accrual/types](#operation/GetFinanceAccrualTypes).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("type_id")]
+        public int? Type_id { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Начисления по отправлению.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetFinanceAccrualByDayResponseAccrualPosting
+    {
+
+        /// <summary>
+        /// Схема продаж.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("delivery_schema")]
+        public string? Delivery_schema { get; set; } = default!;
+
+        /// <summary>
+        /// Скорость доставки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("delivery_speed")]
+        public int? Delivery_speed { get; set; } = default!;
+
+        /// <summary>
+        /// Данные по товарам из отправления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("products")]
+        public System.Collections.Generic.IReadOnlyList<GetFinanceAccrualByDayResponseAccrualPostingProduct>? Products { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetFinanceAccrualByDayResponseAccrualPostingProduct
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("commission")]
+        public GetFinanceAccrualByDayResponseAccrualPostingProductCommission? Commission { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("delivery")]
+        public GetFinanceAccrualByDayResponseAccrualPostingProductDelivery? Delivery { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор товара в системе Ozon — SKU.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("sku")]
+        public long? Sku { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Итоговая комиссия с учётом скидок и наценки.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetFinanceAccrualByDayResponseAccrualPostingProductCommission
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("bonus")]
+        public MoneyBonus? Bonus { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("coinvestment")]
+        public MoneyCoinvestment? Coinvestment { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("commission")]
+        public MoneyCommission? Commission { get; set; } = default!;
+
+        /// <summary>
+        /// Доля комиссии за продажу по категории.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("commission_ratio")]
+        public string? Commission_ratio { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("sale_amount")]
+        public MoneySaleAmount? Sale_amount { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("sale_commission")]
+        public MoneySaleCommission? Sale_commission { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("sale_price")]
+        public MoneySalePrice? Sale_price { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("seller_price")]
+        public MoneySellerPrice? Seller_price { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Начисления по доставке.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetFinanceAccrualByDayResponseAccrualPostingProductDelivery
+    {
+
+        /// <summary>
+        /// Начисления по услугам доставки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("services")]
+        public System.Collections.Generic.IReadOnlyList<GetFinanceAccrualByDayResponseAccrualPostingProductDeliveryService>? Services { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("total_accrued")]
+        public MoneyTotalAccrued? Total_accrued { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetFinanceAccrualByDayResponseAccrualPostingProductDeliveryService
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("accrued")]
+        public MoneyAccrued? Accrued { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор типа начисления. Получите значение параметра методом [/v1/finance/accrual/types](#operation/GetFinanceAccrualTypes).
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("type_id")]
+        public int? Type_id { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class GooglerpcStatus
     {
 
@@ -4547,6 +5133,306 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
     /// </summary>
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class MoneyNext_tariff_min_charge
+    {
+
+        /// <summary>
+        /// Сумма.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("amount")]
+        public string? Amount { get; set; } = default!;
+
+        /// <summary>
+        /// Валюта.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("currency")]
+        public string? Currency { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Начислено за услугу.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class MoneyAccrued
+    {
+
+        /// <summary>
+        /// Сумма. Значение может быть отрицательным.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("amount")]
+        public string? Amount { get; set; } = default!;
+
+        /// <summary>
+        /// Валюта.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("currency")]
+        public string? Currency { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Начислено баллов за скидки.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class MoneyBonus
+    {
+
+        /// <summary>
+        /// Сумма. Значение может быть отрицательным.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("amount")]
+        public string? Amount { get; set; } = default!;
+
+        /// <summary>
+        /// Валюта.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("currency")]
+        public string? Currency { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Начислено по программе партнёров.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class MoneyCoinvestment
+    {
+
+        /// <summary>
+        /// Сумма. Значение может быть отрицательным.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("amount")]
+        public string? Amount { get; set; } = default!;
+
+        /// <summary>
+        /// Валюта.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("currency")]
+        public string? Currency { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Итоговая комиссия с учётом скидок и наценки.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class MoneyCommission
+    {
+
+        /// <summary>
+        /// Сумма. Значение может быть отрицательным.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("amount")]
+        public string? Amount { get; set; } = default!;
+
+        /// <summary>
+        /// Валюта.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("currency")]
+        public string? Currency { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Реализовано на сумму.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class MoneySaleAmount
+    {
+
+        /// <summary>
+        /// Сумма. Значение может быть отрицательным.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("amount")]
+        public string? Amount { get; set; } = default!;
+
+        /// <summary>
+        /// Валюта.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("currency")]
+        public string? Currency { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Комиссия по прайс-листу.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class MoneySaleCommission
+    {
+
+        /// <summary>
+        /// Сумма. Значение может быть отрицательным.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("amount")]
+        public string? Amount { get; set; } = default!;
+
+        /// <summary>
+        /// Валюта.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("currency")]
+        public string? Currency { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Цена покупателя.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class MoneySalePrice
+    {
+
+        /// <summary>
+        /// Сумма. Значение может быть отрицательным.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("amount")]
+        public string? Amount { get; set; } = default!;
+
+        /// <summary>
+        /// Валюта.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("currency")]
+        public string? Currency { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Цена за единицу.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class MoneySellerPrice
+    {
+
+        /// <summary>
+        /// Сумма. Значение может быть отрицательным, если начисляется комиссия за продажу.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("amount")]
+        public string? Amount { get; set; } = default!;
+
+        /// <summary>
+        /// Валюта.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("currency")]
+        public string? Currency { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Общая сумма начислений за услугу.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class MoneyTotalAccrued
+    {
+
+        /// <summary>
+        /// Сумма. Значение может быть отрицательным.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("amount")]
+        public string? Amount { get; set; } = default!;
+
+        /// <summary>
+        /// Валюта.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("currency")]
+        public string? Currency { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Общая сумма начислений.
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class MoneyTotalAmount
     {
 
         /// <summary>

@@ -14,7 +14,8 @@ public class OzonMarketplaceProvider(
 
     public MarketplaceCapabilities Capabilities =>
         MarketplaceCapabilities.Warehouses | MarketplaceCapabilities.Cards | MarketplaceCapabilities.SellerInfo
-        | MarketplaceCapabilities.Orders | MarketplaceCapabilities.Labels | MarketplaceCapabilities.Returns;
+        | MarketplaceCapabilities.Orders | MarketplaceCapabilities.Labels | MarketplaceCapabilities.Returns
+        | MarketplaceCapabilities.Accruals;
 
     public bool RequiresClientId => true;
 
@@ -174,6 +175,40 @@ public class OzonMarketplaceProvider(
         [EnumeratorCancellation] CancellationToken ct)
     {
         var pages = client.GetReturnsAsync(query, ct).GetAsyncEnumerator(ct);
+        try
+        {
+            while (true)
+            {
+                bool hasNext;
+                try
+                {
+                    // Same reason as FetchCardsAsync: an AsyncLocal written inside an async iterator does
+                    // not survive the yield, so the scope is opened around every move.
+                    using var _ = requestContext.Use(credentials);
+                    hasNext = await pages.MoveNextAsync();
+                }
+                catch (OzonApiException ex)
+                {
+                    throw LogAndWrap(ex);
+                }
+
+                if (!hasNext)
+                    yield break;
+
+                yield return pages.Current;
+            }
+        }
+        finally
+        {
+            await pages.DisposeAsync();
+        }
+    }
+
+    public async IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> FetchAccrualsAsync(
+        MarketplaceCredentials credentials, DateOnly from, DateOnly to,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var pages = client.GetAccrualsAsync(from, to, ct).GetAsyncEnumerator(ct);
         try
         {
             while (true)

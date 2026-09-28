@@ -296,7 +296,7 @@ public class AnalyticsAbcService(
                     Lines = g.Count(),
                     AccruedLines = g.Key.Accrued ? g.Count() : 0,
                     Price = g.Sum(i => i.Price != null ? i.Price.Value * i.Quantity : 0),
-                    Payout = g.Key.Accrued ? g.Sum(i => i.Payout ?? 0) : 0,
+                    Payout = g.Key.Accrued ? g.Sum(i => i.KeptPayout) : 0,
                 })
                 .ToListAsync(ct);
 

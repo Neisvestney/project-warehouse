@@ -46,6 +46,7 @@ const SYNC_SCOPES: MarketplaceSyncScope[] = [
   "warehouses",
   "cards",
   "ordersBackground",
+  "accruals",
   "ordersBackfill",
 ];
 
