@@ -1,7 +1,8 @@
-import {useTheme} from "@mui/material";
+import {alpha, useTheme} from "@mui/material";
 import {rainbowSurgePalette} from "@mui/x-charts/colorPalettes";
 import {useQuery} from "@tanstack/react-query";
 import {marketplacesGetAccountsShortOptions} from "@/api/@tanstack/react-query.gen";
+import {useResolvedColorScheme} from "@/hooks/useResolvedColorScheme";
 
 /**
  * Color of a channel, the same on every card. A shop keeps its place in the full list sorted by name, so
@@ -10,17 +11,22 @@ import {marketplacesGetAccountsShortOptions} from "@/api/@tanstack/react-query.g
  */
 export function useChannelColor() {
   const theme = useTheme();
+  const {scheme} = useResolvedColorScheme();
   const {data: accounts} = useQuery(marketplacesGetAccountsShortOptions());
 
-  const palette = rainbowSurgePalette(theme.palette.mode);
+  const palette = rainbowSurgePalette(scheme);
   const order = [...(accounts ?? [])]
     .sort((a, b) => a.name.localeCompare(b.name, "ru"))
     .map((a) => a.id);
 
   return (accountId: string | null | undefined) => {
-    if (accountId == null) return theme.palette.grey[theme.palette.mode === "dark" ? 400 : 600];
+    if (accountId == null) return theme.palette.grey[scheme === "dark" ? 400 : 600];
     // Until the list arrives no shop gets a palette color it would lose a moment later
-    if (!accounts) return theme.palette.action.disabled;
+    if (!accounts)
+      return alpha(
+        scheme === "dark" ? theme.palette.common.white : theme.palette.common.black,
+        theme.palette.action.disabledOpacity,
+      );
     const index = order.indexOf(accountId);
     return palette[(index >= 0 ? index : hashIndex(accountId)) % palette.length];
   };

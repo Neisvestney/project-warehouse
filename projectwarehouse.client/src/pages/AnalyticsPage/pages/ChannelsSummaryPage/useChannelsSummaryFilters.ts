@@ -29,6 +29,11 @@ export function useChannelsSummaryFilters() {
   const [measure, setMeasure] = useSyncedWithQueryState("measure", parseMeasure, (v) =>
     v === "units" ? v : null,
   );
+  const [showTotal, setShowTotal] = useSyncedWithQueryState(
+    "total",
+    (q) => q !== "0",
+    (v) => (v ? null : "0"),
+  );
 
   const today = todayDateOnly();
   const {from, to} = resolvePeriod(selection, {from: today, to: today});
@@ -48,6 +53,7 @@ export function useChannelsSummaryFilters() {
     moneyMode,
     step,
     measure,
+    showTotal,
     setSelection: (value: PeriodSelection) => {
       // A new preset changes the period's scale, so the step goes back to the server's pick
       if (value.preset !== selection.preset) setStep(null);
@@ -58,5 +64,6 @@ export function useChannelsSummaryFilters() {
     setMoneyMode,
     setStep,
     setMeasure,
+    setShowTotal,
   };
 }

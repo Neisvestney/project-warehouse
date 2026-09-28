@@ -21,16 +21,17 @@ export type FullscreenView = "dynamics" | "returns" | "cancellations";
 
 const VIEWS: FullscreenView[] = ["dynamics", "returns", "cancellations"];
 
-/** What the chart opens with: the period, step, measure and share toggle its card was showing. */
+/** What the chart opens with: the period, step, measure, share and total toggles its card was showing. */
 export interface FullscreenStart {
   channels: string[];
   selection: PeriodSelection;
   step: AnalyticsStep | null;
   measure?: AnalyticsMeasure;
   share?: boolean;
+  total?: boolean;
 }
 
-const FULLSCREEN_PARAMS = ["full", "fsperiod", "fsstep", "fsmeasure", "fsshare", "fsch"];
+const FULLSCREEN_PARAMS = ["full", "fsperiod", "fsstep", "fsmeasure", "fsshare", "fstotal", "fsch"];
 
 /**
  * State of a fullscreen chart, kept in the URL next to the page's own filters and independent of them:
@@ -57,6 +58,11 @@ export function useChartFullscreen() {
     (q) => q === "1",
     (v) => (v ? "1" : null),
   );
+  const [showTotal, setShowTotal] = useSyncedWithQueryState(
+    "fstotal",
+    (q) => q !== "0",
+    (v) => (v ? null : "0"),
+  );
   const [channels, setChannels] = useSyncedWithQueryState("fsch", parseList, serializeList);
 
   const period: Period = resolvePeriod(selection, {from: today, to: today});
@@ -68,6 +74,7 @@ export function useChartFullscreen() {
     step,
     measure,
     share,
+    showTotal,
     channels,
     // Every fullscreen param goes in one batched navigation, so opening and closing cost one history entry
     openWith: (value: FullscreenView, start: FullscreenStart) => {
@@ -77,6 +84,7 @@ export function useChartFullscreen() {
       setParam("fsstep", start.step);
       setParam("fsmeasure", start.measure === "units" ? "units" : null);
       setParam("fsshare", start.share ? "1" : null);
+      setParam("fstotal", start.total === false ? "0" : null);
     },
     close: () => {
       for (const key of FULLSCREEN_PARAMS) setParam(key, null);
@@ -89,6 +97,7 @@ export function useChartFullscreen() {
     setStep,
     setMeasure,
     setShare,
+    setShowTotal,
     setChannels,
   };
 }

@@ -108,6 +108,7 @@ function ChannelsSummaryPage() {
               selection: filters.selection,
               step: filters.step,
               measure: filters.measure,
+              total: filters.showTotal,
             })
           }
         />
