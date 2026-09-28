@@ -68,19 +68,19 @@ function LossesCard({filters}: {filters: ReturnType<typeof useChannelsSummaryFil
       }
       actions={
         <>
-          <CardChannelSelect
-            options={channel.options}
-            value={channel.channel}
-            onChange={channel.setChannel}
-          />
           <StepMeasureToggles
             step={data?.step ?? step}
             onStepChange={setStep}
             measure={measure}
             onMeasureChange={(value: AnalyticsMeasure) => setMeasure(value)}
           />
+          <CardChannelSelect
+            options={channel.options}
+            value={channel.channel}
+            onChange={channel.setChannel}
+          />
           <PeriodPicker
-            variant="select"
+            variant="compact"
             presets={CARD_PERIOD_PRESETS}
             value={selection}
             onChange={(value: PeriodSelection) => {

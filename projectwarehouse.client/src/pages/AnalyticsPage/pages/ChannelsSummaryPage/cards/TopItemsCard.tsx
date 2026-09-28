@@ -24,7 +24,7 @@ function TopItemsCard({filters, onShowAll}: TopItemsCardProps) {
       isFetching={isFetching}
       actions={
         <PeriodPicker
-          variant="select"
+          variant="compact"
           presets={CARD_PERIOD_PRESETS}
           value={state.selection}
           onChange={state.setSelection}

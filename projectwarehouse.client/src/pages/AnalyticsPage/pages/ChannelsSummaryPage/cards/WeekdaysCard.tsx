@@ -115,7 +115,7 @@ function WeekdaysCard({filters}: {filters: ReturnType<typeof useChannelsSummaryF
             <ToggleButton value="units">Штуки</ToggleButton>
           </ToggleButtonGroup>
           <PeriodPicker
-            variant="select"
+            variant="compact"
             presets={CARD_PERIOD_PRESETS}
             value={selection}
             onChange={setSelection}

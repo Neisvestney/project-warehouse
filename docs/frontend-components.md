@@ -772,12 +772,26 @@ child rendered from `useRetainedValue`, so it mounts fresh on every open.
 
 | Piece | Role |
 |-------|------|
+| `AnalyticsPageHeader` | Page header: title with an info icon whose tooltip lists the applied settings, refresh, and the «Настройки» button with its `AnalyticsSettingsDialog` behind `analytics.settings` |
 | `period/PeriodPicker`, `period/periodSelection`, `period/usePeriodParam` | Period presets, their URL form and the page / card period params |
 | `ChannelsSelect`, `channelsQuery` | The shops + «Прямые» multiselect and its mapping onto `includeMarketplaces` / `marketplaceAccountIds` / `includeDirect` |
-| `SummaryCard` | Card shell: title, subtitle, actions on the right, a 2px fetch bar |
+| `SummaryCard` | Card shell: title, `hint`, subtitle, actions on the right, a 2px fetch bar |
 | `analyticsFormat` | `ru-RU` number, money and percent formatting, channel labels |
 
 A piece used by one page only stays beside that page.
+
+`PeriodPicker` has two variants. `toggles` is for the filter row of a page and a fullscreen chart: preset
+toggles, then the ‹ › stepper or the two date fields. `compact` is for a card header, where that row does not
+fit: one text button naming the period (`III квартал 2026`, `01.09 — 28.09.2026`, or the preset name for «Как у
+страницы» and the rolling presets, whose dates show on hover), flanked by ‹ › for a calendar preset. The button
+opens a `Popover` with the preset list; «Произвольный» keeps it open and shows the date fields under the list.
+The popover is a menu like a `select`, not an overlay: it holds no history entry, since every pick is written to
+the URL with `replace`.
+
+A `SummaryCard` header follows two rules. The subtitle carries only the card's headline figures; a note on how
+to read or use the card goes to `hint`, an info icon beside the title. Actions go in a fixed order — the card's
+own toggles, the channel select, the period, the expand button last — and wrap to the right edge when the card
+is narrow.
 
 ## Files
 
