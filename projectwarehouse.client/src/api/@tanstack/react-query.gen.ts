@@ -3969,7 +3969,8 @@ export const ordersBatchTransitionStatusMutation = (
  * Body: `BatchUpdateTagsRequest` — `ids` (duplicates are collapsed), `tagId` and
  * `operation` (`add` / `remove`). Nothing is written unless every order passes: 422
  * `tagNotFound` (field `tagId`) for an unknown tag, 404 `orderNotFound` when any order does not
- * exist or lies outside the caller's edit access. Orders that already have (or already lack) the tag are left
+ * exist or lies outside the caller's edit access — args `count` (every rejected id) and
+ * `orderNumbers` (only those the caller can view, ascending). Orders that already have (or already lack) the tag are left
  * untouched and get no changelog entry. Answers 204.
  * Requires `orders.edit` or `orders.edit_assigned`.
  */

@@ -170,8 +170,11 @@ export function formatDateTime(value: string | null | undefined): string {
   return value ? new Date(value).toLocaleString("ru-RU") : "—";
 }
 
-export function formatDuration(startedAt: string, finishedAt: string | null | undefined): string {
-  if (!finishedAt) return "—";
+export function formatDuration(
+  startedAt: string | null | undefined,
+  finishedAt: string | null | undefined,
+): string {
+  if (!startedAt || !finishedAt) return "—";
   const seconds = Math.max(
     0,
     Math.round((new Date(finishedAt).getTime() - new Date(startedAt).getTime()) / 1000),

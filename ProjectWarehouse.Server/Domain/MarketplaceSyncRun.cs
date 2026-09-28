@@ -14,7 +14,10 @@ public class MarketplaceSyncRun : IHasIdentity
     public MarketplaceSyncScope Scope { get; set; }
     public MarketplaceSyncStatus Status { get; set; }
 
-    public DateTime StartedAt { get; set; }
+    public DateTime QueuedAt { get; set; }
+
+    /// <summary>Set when the worker picks the run up; null while it waits in the queue.</summary>
+    public DateTime? StartedAt { get; set; }
     public DateTime? FinishedAt { get; set; }
 
     /// <summary>Null for scheduled runs.</summary>

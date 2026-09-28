@@ -10,7 +10,8 @@ public class MarketplaceSyncRunDto : IHasIdentity
     public MarketplaceSyncScope Scope { get; init; }
     public MarketplaceSyncStatus Status { get; init; }
 
-    public DateTime StartedAt { get; init; }
+    public DateTime QueuedAt { get; init; }
+    public DateTime? StartedAt { get; init; }
     public DateTime? FinishedAt { get; init; }
 
     public Guid? TriggeredById { get; init; }

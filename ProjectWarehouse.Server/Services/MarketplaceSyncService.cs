@@ -38,6 +38,10 @@ public class MarketplaceSyncService(
             return;
         }
 
+        run.StartedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await realtime.PublishProgressAsync(run, ct);
+
         // from the row rather than from the request: the branching below reads run.Scope, not request.Scope
         Activity.Current?.SetTag("marketplace.sync.scope", run.Scope.ToString());
 

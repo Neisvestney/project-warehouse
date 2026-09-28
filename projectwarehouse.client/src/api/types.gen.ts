@@ -1698,7 +1698,8 @@ export type MarketplaceSyncRunDto = {
   marketplaceAccountId: string;
   scope: MarketplaceSyncScope;
   status: MarketplaceSyncStatus;
-  startedAt: string;
+  queuedAt: string;
+  startedAt?: null | string;
   finishedAt?: null | string;
   triggeredById?: null | string;
   triggeredByName?: null | string;

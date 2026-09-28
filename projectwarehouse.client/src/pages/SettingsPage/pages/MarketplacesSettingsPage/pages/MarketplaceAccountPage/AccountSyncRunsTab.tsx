@@ -53,6 +53,7 @@ function AccountSyncRunsTab({accountId, isRunning, isLive}: AccountSyncRunsTabPr
         <Table size="small">
           <TableHead>
             <TableRow>
+              <TableCell>В очереди с</TableCell>
               <TableCell>Начат</TableCell>
               <TableCell>Длительность</TableCell>
               <TableCell>Объём</TableCell>
@@ -65,9 +66,9 @@ function AccountSyncRunsTab({accountId, isRunning, isLive}: AccountSyncRunsTabPr
           </TableHead>
           <TableBody>
             {isLoading ? (
-              <TableRowLoader colSpan={8} />
+              <TableRowLoader colSpan={9} />
             ) : data?.items.length === 0 ? (
-              <TableRowEmpty colSpan={8} message="Синхронизаций ещё не было" />
+              <TableRowEmpty colSpan={9} message="Синхронизаций ещё не было" />
             ) : (
               data?.items.map((run) => (
                 <TableRow
@@ -76,6 +77,7 @@ function AccountSyncRunsTab({accountId, isRunning, isLive}: AccountSyncRunsTabPr
                   onClick={() => setSelected(run)}
                   sx={{cursor: "pointer"}}
                 >
+                  <TableCell>{formatDateTime(run.queuedAt)}</TableCell>
                   <TableCell>{formatDateTime(run.startedAt)}</TableCell>
                   <TableCell>{formatDuration(run.startedAt, run.finishedAt)}</TableCell>
                   <TableCell>{SYNC_SCOPE_LABELS[run.scope]}</TableCell>
