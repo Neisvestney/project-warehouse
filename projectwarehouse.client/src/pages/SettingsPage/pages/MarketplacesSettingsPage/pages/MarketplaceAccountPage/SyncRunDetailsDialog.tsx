@@ -84,12 +84,28 @@ function SyncRunDetailsDialog({run, onClose}: SyncRunDetailsDialogProps) {
       slotProps={{transition: {onExited: releaseShown}}}
     >
       <DialogTitle>
-        {shown && `${SYNC_SCOPE_LABELS[shown.scope]} — ${formatDateTime(shown.startedAt)}`}
+        {shown && `${SYNC_SCOPE_LABELS[shown.scope]} — ${formatDateTime(shown.queuedAt)}`}
       </DialogTitle>
       <DialogContent dividers>
         {shown && (
           <Stack spacing={2}>
             <SyncErrorAlert error={shown.error} title="Запуск завершился ошибкой" />
+            <Table size="small">
+              <TableBody>
+                {(
+                  [
+                    ["Поставлен в очередь", shown.queuedAt],
+                    ["Начат", shown.startedAt],
+                    ["Завершён", shown.finishedAt],
+                  ] as const
+                ).map(([label, value]) => (
+                  <TableRow key={label}>
+                    <TableCell>{label}</TableCell>
+                    <TableCell align="right">{formatDateTime(value)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
             {SYNC_SCOPE_SECTIONS[shown.scope].map((section) => (
               <Stack key={section} spacing={0.5}>
                 <Typography variant="subtitle2">{SECTION_TITLES[section]}</Typography>

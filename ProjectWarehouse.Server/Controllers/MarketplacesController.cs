@@ -495,7 +495,7 @@ public class MarketplacesController(
     {
         var paginated = await db.MarketplaceSyncRuns
             .Where(r => r.MarketplaceAccountId == id)
-            .OrderByDescending(r => r.StartedAt)
+            .OrderByDescending(r => r.QueuedAt)
             .ThenBy(r => r.Id)
             .ProjectTo<MarketplaceSyncRunDto>(mapper.ConfigurationProvider)
             .ToPaginatedAsync(page, pageSize, ct);
@@ -937,7 +937,7 @@ public class MarketplacesController(
             MarketplaceAccountId = account.Id,
             Scope = scope,
             Status = MarketplaceSyncStatus.Running,
-            StartedAt = DateTime.UtcNow,
+            QueuedAt = DateTime.UtcNow,
             TriggeredById = GetCurrentUserId(),
             // on the row rather than in the queue message, which a restart does not survive
             BackfillSince = backfillSince,

@@ -1301,6 +1301,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<int>("OrdersUpdated")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime>("QueuedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("ReturnsCreated")
                         .HasColumnType("integer");
 
@@ -1316,7 +1319,7 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<IList<SkippedOrderInfo>>("SkippedOrders")
                         .HasColumnType("jsonb");
 
-                    b.Property<DateTime>("StartedAt")
+                    b.Property<DateTime?>("StartedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Status")
@@ -1332,7 +1335,7 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("TriggeredById");
 
-                    b.HasIndex("MarketplaceAccountId", "StartedAt")
+                    b.HasIndex("MarketplaceAccountId", "QueuedAt")
                         .IsDescending(false, true);
 
                     b.ToTable("MarketplaceSyncRuns");

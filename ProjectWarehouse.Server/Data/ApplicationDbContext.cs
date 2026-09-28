@@ -929,7 +929,7 @@ public class ApplicationDbContext : IdentityDbContext<
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            e.HasIndex(x => new { x.MarketplaceAccountId, x.StartedAt })
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.QueuedAt })
                 .IsDescending(false, true);
 
             // Explicit, unlike the single AppFieldError above: a collection of a complex type is also a

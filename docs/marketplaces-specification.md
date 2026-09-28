@@ -525,7 +525,8 @@ MarketplaceSyncRun : IHasIdentity
 ├── MarketplaceAccountId  — Guid → MarketplaceAccount (Cascade)
 ├── Scope                 — MarketplaceSyncScope (Warehouses | Cards | Orders | OrdersBackground | OrdersBackfill | Accruals | All)
 ├── Status                — MarketplaceSyncStatus (Running | Success | Failed | Canceled)
-├── StartedAt             — DateTime
+├── QueuedAt              — DateTime   — постановка в очередь
+├── StartedAt             — DateTime?  — воркер взял запуск в работу; null, пока ждёт в очереди
 ├── FinishedAt            — DateTime?
 ├── TriggeredById         — Guid? → ApplicationUser (SetNull); null = фоновый запуск
 ├── BackfillSince         — DateTime? ─┐ период импорта истории; заполнены
@@ -549,7 +550,7 @@ MarketplaceSyncRun : IHasIdentity
 ├── SkippedOrders         — jsonb SkippedOrderInfo[]?  — почему заказы не создались
 └── Error                 — AppFieldError? (jsonb)
 
-Индекс: (MarketplaceAccountId, StartedAt DESC)
+Индекс: (MarketplaceAccountId, QueuedAt DESC)
 ```
 
 `SkippedOrderInfo` — `{ PostingNumber, Reason, OfferIds[] }`, где `Reason` — тот же `ErrorCode`, что и в `AppFieldError` (`marketplaceOrderCardNotMapped` или `marketplaceOrderWarehouseNotMapped`). Список **ограничен первыми 100 записями**; сколько заказов пропущено всего, говорит `OrdersSkipped`. Без потолка прогон по магазину с неразобранным каталогом раздул бы одну строку таблицы на мегабайты, а UI всё равно не показывает больше сотни.
@@ -705,7 +706,7 @@ MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, Labels, Stock
 
 - **Работа выполняется вне запроса.** `POST /sync` отвечает `202` сразу, поэтому синхронизация идёт через очередь + `BackgroundService` + advisory-лок PostgreSQL — общий паттерн проекта, описанный в [backend-patterns.md](backend-patterns.md#background-work-queue--worker--advisory-lock) (`MarketplaceSyncQueue` ёмкостью 200, `MarketplaceSyncWorker`, лок по хэшу `MarketplaceAccountId`).
 - Один активный запуск на аккаунт: при занятом локе запрос получает `409 marketplaceSyncAlreadyRunning`. Запуск, зависший в `Running` после падения процесса, снимается реконсиляцией при старте с кодом `marketplaceSyncInterrupted` — вместе с откатом денормализованной сводки аккаунта (`LastSyncStatus`, `LastSyncError`, `LastSyncAt`).
-- Запуск создаёт `MarketplaceSyncRun` в статусе `Running` в отдельной транзакции и коммитит её сразу — прогресс должен быть виден в UI до окончания работы.
+- Запуск создаёт `MarketplaceSyncRun` в статусе `Running` с `QueuedAt` в отдельной транзакции и коммитит её сразу — прогресс должен быть виден в UI до окончания работы. Отдельного статуса очереди нет: запуск ждёт в очереди, пока `Running` и `StartedAt == null`. `StartedAt` воркер проставляет первым делом в `RunAsync`, сохраняет и шлёт progress-событие. Длительность в истории считается от `StartedAt`, отсечки «обновлено за этот запуск» (архивация карточек, догон статусов заказов) — тоже от него: изменения, пришедшие, пока запуск стоял в очереди, к этому запуску не относятся.
 - Ошибка провайдера переводит запуск в `Failed`, пишет сообщение в `Error` и `MarketplaceAccount.LastSyncError`. Уже сохранённые страницы не откатываются: частичная синхронизация полезнее полного отката.
 - Синхронизация **не пишет в changelog** — тысячи автоматических изменений затопили бы журнал. В журнал попадает только итог (`sync.finished` на аккаунте) и ручные действия пользователя.
 
@@ -839,7 +840,7 @@ Quartz регистрируется с in-memory хранилищем задач
 | `DELETE` | `/accounts/{id}` | `integrations.edit` | Удаление аккаунта со складами и карточками |
 | `POST` | `/accounts/{id}/test-connection` | `integrations.edit` | Проверка учётных данных без сохранения |
 | `POST` | `/accounts/{id}/sync` | `integrations.sync` | Запуск синхронизации, тело `{ scope }` → `202` + `syncRunId` |
-| `GET` | `/accounts/{id}/sync-runs` | `integrations.view` | История запусков |
+| `GET` | `/accounts/{id}/sync-runs` | `integrations.view` | История запусков, новые по `QueuedAt` сверху |
 | `GET` | `/accounts/{id}/warehouses` | `integrations.view` | Склады маркетплейса |
 | `PUT` | `/warehouses/{id}/mapping` | `integrations.map` | Привязка склада, `{ warehouseId }`, `null` — снять |
 | `GET` | `/accounts/{id}/cards` | `integrations.view` | Карточки (поиск, `mappingState` = `all`/`unmapped`/`mapped`/`archivedItem`, `includeArchived`) |

@@ -41,7 +41,7 @@ public class MarketplaceSyncScanJob(
                 // are pulled from the FBS page by hand, where someone sees the skips.
                 Scope = MarketplaceSyncScope.All,
                 Status = MarketplaceSyncStatus.Running,
-                StartedAt = DateTime.UtcNow,
+                QueuedAt = DateTime.UtcNow,
                 TriggeredById = null,
             };
             db.MarketplaceSyncRuns.Add(run);
