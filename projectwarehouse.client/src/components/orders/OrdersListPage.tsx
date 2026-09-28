@@ -63,6 +63,7 @@ import {
 } from "./marketplace/marketplaceOrderUtils";
 import {ORDER_STATUS_LABELS, formatOrderNumber} from "./orderUtils";
 import {getOrderBulkTransitions, type OrderBulkTransition} from "./orderBulkTransitions";
+import {useOrderTagsBulkAction} from "./useOrderTagsBulkAction";
 import {NOUNS, pluralCount} from "@/utils/pluralUtils";
 import type {
   BatchSelfAssignFailedItem,
@@ -369,6 +370,8 @@ function OrdersListPage({
     }),
   );
 
+  const tagsAction = useOrderTagsBulkAction();
+
   const listStats: TableInfoStat[] = [
     {key: "total", label: "Всего заказов:", value: (data?.total ?? 0).toLocaleString("ru-RU")},
     {
@@ -438,6 +441,7 @@ function OrdersListPage({
             disabled: transitionMutation.isPending,
             onClick: () => handleTransitionClick(transition),
           })),
+          ...(canCreate ? [tagsAction.getAction(selectedItems.map((o) => o.id))] : []),
         ]
       : [];
   // чекбокс + сортируемые колонки + «Штук» + «Теги»
@@ -592,6 +596,7 @@ function OrdersListPage({
         info={listStats}
         infoLoading={isLoading}
       />
+      {tagsAction.dialogs}
 
       {confirmTransition?.confirm && (
         <ConfirmDialog

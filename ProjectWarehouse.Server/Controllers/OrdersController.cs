@@ -517,38 +517,38 @@ public class OrdersController(
     /// <summary>Assembly-status orders carrying a task of <paramref name="userId"/>, with only that user's tasks loaded.</summary>
     private static IQueryable<Order> AssemblyQuery(IQueryable<Order> accessible, Guid userId) =>
         accessible
-            .Include(o => o.Warehouse)
-            .Include(o => o.MarketplaceOrder!.MarketplaceAccount)
-            .Include(o => o.CreatedBy)
-            .Include(o => o.Tags)
-            .Include(o => o.Boxes.OrderBy(b => b.Id)).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
-            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
-                .ThenInclude(t => t.AssignedTo)
-            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
-                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.OrderBox)
-            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
-                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
-            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
-                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
-                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.BundleComponents).ThenInclude(bc => bc.CatalogItem).ThenInclude(ci => ci.Group)
-            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
-                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
-                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.BundleComponents).ThenInclude(bc => bc.SourceNode).ThenInclude(n => n.RootStoragePlace)
-            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
-                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
-                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.SourceNode).ThenInclude(n => n!.RootStoragePlace)
-            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
-                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
-                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.ResolvedCatalogItem).ThenInclude(ci => ci!.Group)
-            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
-                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
-                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.CreatedBy)
-            // ReturnState compares the returned units with the lines, so both are needed
-            .Include(o => o.MarketplaceItems)
-                .ThenInclude(i => i.MarketplaceCard).ThenInclude(c => c!.CatalogItem)
-            .Include(o => o.MarketplaceReturns)
-            .Where(o => o.Status == OrderStatus.Assembly)
-            .Where(o => o.AssemblyTasks.Any(t => t.AssignedToId == userId))
+            .Include(o => o.Warehouse)
+            .Include(o => o.MarketplaceOrder!.MarketplaceAccount)
+            .Include(o => o.CreatedBy)
+            .Include(o => o.Tags)
+            .Include(o => o.Boxes.OrderBy(b => b.Id)).ThenInclude(b => b.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.AssignedTo)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.OrderBox)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components).ThenInclude(c => c.CatalogItem).ThenInclude(ci => ci.Group)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
+                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.BundleComponents).ThenInclude(bc => bc.CatalogItem).ThenInclude(ci => ci.Group)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
+                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.BundleComponents).ThenInclude(bc => bc.SourceNode).ThenInclude(n => n.RootStoragePlace)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
+                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.SourceNode).ThenInclude(n => n!.RootStoragePlace)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
+                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.ResolvedCatalogItem).ThenInclude(ci => ci!.Group)
+            .Include(o => o.AssemblyTasks.Where(t => t.AssignedToId == userId))
+                .ThenInclude(t => t.Boxes).ThenInclude(tb => tb.Components)
+                .ThenInclude(c => c.Fulfillments).ThenInclude(f => f.CreatedBy)
+            // ReturnState compares the returned units with the lines, so both are needed
+            .Include(o => o.MarketplaceItems)
+                .ThenInclude(i => i.MarketplaceCard).ThenInclude(c => c!.CatalogItem)
+            .Include(o => o.MarketplaceReturns)
+            .Where(o => o.Status == OrderStatus.Assembly)
+            .Where(o => o.AssemblyTasks.Any(t => t.AssignedToId == userId))
             .AsSplitQuery();
 
     /// <summary>Maps worklist orders and annotates every task box component with <c>containsUnit</c>.</summary>
@@ -1277,6 +1277,84 @@ public class OrdersController(
             TransitionedOrderIds = transitionedOrderIds,
             FailedItems          = failedItems,
         });
+    }
+
+    // ── POST /api/orders/batch-update-tags ────────────────────────────────────
+
+    /// <summary>Add or remove one tag on several orders in one request, all or nothing. Allowed in any status.</summary>
+    /// <remarks>
+    /// Body: <c>BatchUpdateTagsRequest</c> — <c>ids</c> (duplicates are collapsed), <c>tagId</c> and
+    /// <c>operation</c> (<c>add</c> / <c>remove</c>). Nothing is written unless every order passes: 422
+    /// <c>tagNotFound</c> (field <c>tagId</c>) for an unknown tag, 404 <c>orderNotFound</c> when any order does not
+    /// exist or lies outside the caller's edit access — args <c>count</c> (every rejected id) and
+    /// <c>orderNumbers</c> (only those the caller can view, ascending). Orders that already have (or already lack) the tag are left
+    /// untouched and get no changelog entry. Answers 204.
+    /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
+    [HttpPost("batch-update-tags")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> BatchUpdateTags(
+        [FromBody] BatchUpdateTagsRequest request, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
+
+        var tag = await db.OrderTags.FirstOrDefaultAsync(t => t.Id == request.TagId, ct);
+        if (tag is null)
+            return UnprocessableEntity("tagId", ErrorCode.TagNotFound, "Tag not found.");
+
+        var orderIds           = request.Ids.Distinct().ToList();
+        var accessible         = await Rule.QueryAsync(User, AccessLevel.Edit, ct);
+        var (loaded, nodeById) = await LoadBatchDetailsAsync(accessible, orderIds, ct);
+        if (loaded.Count != orderIds.Count)
+        {
+            var missingIds = orderIds.Where(id => !loaded.ContainsKey(id)).ToList();
+            // only the numbers the caller may see: an id outside view access must not reveal its order
+            var viewable = await Rule.QueryAsync(User, AccessLevel.View, ct);
+            var missingNumbers = await viewable
+                .Where(o => missingIds.Contains(o.Id))
+                .OrderBy(o => o.Number)
+                .Select(o => o.Number)
+                .ToListAsync(ct);
+
+            return Problem(AppProblems.Root(StatusCodes.Status404NotFound, ErrorCode.OrderNotFound,
+                $"{missingIds.Count} of {orderIds.Count} orders were not found or cannot be edited.",
+                new Dictionary<string, object>
+                {
+                    ["orderNumbers"] = missingNumbers,
+                    ["count"]        = missingIds.Count,
+                }));
+        }
+
+        var assemblyBefore  = await assemblyChanges.CaptureAsync(loaded.Keys, ct);
+        var changedOrderIds = new List<Guid>();
+        var changes         = new List<(OrderDetailsDto before, string action)>();
+
+        foreach (var order in loaded.Values)
+        {
+            var existing = order.Tags.FirstOrDefault(t => t.Id == tag.Id);
+            if ((existing is null) != (request.Operation == TagBatchOperation.Add))
+                continue;
+
+            changes.Add((MapDetails(order, nodeById), OrderActions.Updated));
+            changedOrderIds.Add(order.Id);
+
+            if (existing is null)
+                order.Tags.Add(tag);
+            else
+                order.Tags.Remove(existing);
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        await SaveBatchChangelogsAsync(changes, nodeById, ct);
+        await PublishBatchAssemblyChangedAsync(assemblyBefore, changedOrderIds, ct);
+
+        return NoContent();
     }
 
     // ── POST /api/orders/{id}/boxes ───────────────────────────────────────────

@@ -962,6 +962,11 @@ each switch and one id to `DOCUMENT_TAGS_QUERY_IDS`.
   the row edits itself instead of joining the status-gated info form and calls `save(tagIds)` on every change; the
   page passes a mutation of `PATCH /{module}/{id}/tags` that writes the returned DTO into its cache.
 - **`TagChips`** — read-only chips, a dash when empty; used in table cells and in `DocumentTagsRow`.
+- **`BulkTagsDialog`** — the «Теги» bulk action's dialog: an «Добавить / Удалить» switch and one tag picked
+  through `DocumentTagsAutocomplete` (the latest pick replaces the previous one, so a new name can still be
+  created inline). It knows nothing about the endpoint — `onConfirm(tagId, operation)` goes to a per-module
+  hook in the `{getAction, dialogs}` shape (`useOrderTagsBulkAction`), which sends the module's
+  `batch-update-tags` and keeps the dialog open with the error on failure, since the batch is all or nothing.
 
 ## Orders
 
@@ -977,8 +982,9 @@ and the `integrations.sync` permission — out of the pages that have nothing to
 status transitions come from `getOrderBulkTransitions(type)` in `orderBulkTransitions.tsx`: each entry names its
 source statuses, target, label and whether it is a toolbar button (`primary`), goes into the «Ещё» menu, or asks
 for confirmation first. A new bulk transition is one more entry there — the page filters the selection by `from`
-and sends it through `batch-transition-status`. The page merges `bulkActions`, self-assign and the applicable
-transitions into one `BulkAction[]` in that order; the selection toolbar appears whenever something is selected
+and sends it through `batch-transition-status`. The page merges `bulkActions`, self-assign, the applicable
+transitions and the «Теги» action (every selected order, under the same edit permission) into one `BulkAction[]`
+in that order; the selection toolbar appears whenever something is selected
 and that list is non-empty. The selection itself is
 held by [`useSelectedItems`](./frontend-state.md#useselecteditemsgetid-freshitems) as full `OrderSummaryDto` rows, so it
 survives paging and filter changes: the toolbar count, the per-action subsets and `bulkActions`

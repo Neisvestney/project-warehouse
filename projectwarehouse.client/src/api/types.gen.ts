@@ -586,6 +586,15 @@ export type BatchTransitionStatusResponse = {
   failedItems: Array<BatchTransitionStatusFailedItem>;
 };
 
+/**
+ * Body of a module's batch tags endpoint; adds or removes one tag on every listed document.
+ */
+export type BatchUpdateTagsRequest = {
+  ids: Array<string>;
+  tagId: string;
+  operation: TagBatchOperation;
+};
+
 export type BundleComponentDto = {
   id: string;
   componentId: string;
@@ -3552,6 +3561,8 @@ export type TableStatDto = {
    */
   rowEstimate?: null | number;
 };
+
+export type TagBatchOperation = "add" | "remove";
 
 export type TagDto = {
   id: string;
@@ -6716,6 +6727,45 @@ export type OrdersBatchTransitionStatusResponses = {
 
 export type OrdersBatchTransitionStatusResponse =
   OrdersBatchTransitionStatusResponses[keyof OrdersBatchTransitionStatusResponses];
+
+export type OrdersBatchUpdateTagsData = {
+  body: BatchUpdateTagsRequest;
+  path?: never;
+  query?: never;
+  url: "/api/orders/batch-update-tags";
+};
+
+export type OrdersBatchUpdateTagsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type OrdersBatchUpdateTagsError =
+  OrdersBatchUpdateTagsErrors[keyof OrdersBatchUpdateTagsErrors];
+
+export type OrdersBatchUpdateTagsResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type OrdersBatchUpdateTagsResponse =
+  OrdersBatchUpdateTagsResponses[keyof OrdersBatchUpdateTagsResponses];
 
 export type OrdersAddBoxData = {
   body: CreateOrderBoxRequest;
