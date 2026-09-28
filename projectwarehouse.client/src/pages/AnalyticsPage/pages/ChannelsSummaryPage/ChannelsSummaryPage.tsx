@@ -1,17 +1,4 @@
-import {useState} from "react";
-import {
-  Alert,
-  Box,
-  Button,
-  IconButton,
-  LinearProgress,
-  Stack,
-  Tooltip,
-  Typography,
-} from "@mui/material";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import SettingsIcon from "@mui/icons-material/Settings";
+import {Alert, Box, LinearProgress, Stack, Typography} from "@mui/material";
 import {keepPreviousData, useQuery, useQueryClient} from "@tanstack/react-query";
 import {
   analyticsGetChannelsCancellationsQueryKey,
@@ -23,12 +10,10 @@ import {
   analyticsGetChannelsTopItemsQueryKey,
   analyticsGetChannelsWeekdaysQueryKey,
 } from "@/api/@tanstack/react-query.gen";
-import AnalyticsSettingsDialog from "@/components/analytics/AnalyticsSettingsDialog";
+import AnalyticsPageHeader from "@/components/analytics/AnalyticsPageHeader";
 import CatalogItemDrawerHost from "@/components/catalog/CatalogItemDrawerHost";
-import PageGenericHeader from "@/components/PageGenericHeader";
 import QueryError from "@/components/QueryError";
 import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState";
-import {useHasPermission} from "@/hooks/usePermission";
 import {formatDateOnly} from "@/utils/dateOnly";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import CancellationsCard from "./cards/CancellationsCard";
@@ -50,8 +35,6 @@ import {useChannelsSummaryFilters} from "./useChannelsSummaryFilters";
 
 function ChannelsSummaryPage() {
   const filters = useChannelsSummaryFilters();
-  const canEditSettings = useHasPermission("analytics.settings");
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const fullscreen = useChartFullscreen();
   const [topList, openTopList, closeTopList] = useDrawerSearchParamsState("toplist");
@@ -85,47 +68,11 @@ function ChannelsSummaryPage() {
   return (
     <CatalogItemDrawerHost>
       <Stack spacing={2}>
-        <PageGenericHeader
-          title={
-            // Applied parameters hang off a permanently rendered icon so the header does not jump on reload
-            <>
-              Сводка по каналам
-              <Tooltip
-                title={
-                  appliedSettings && appliedSettings.map((line) => <Box key={line}>{line}</Box>)
-                }
-              >
-                <InfoOutlinedIcon
-                  sx={{
-                    fontSize: "0.7em",
-                    verticalAlign: "middle",
-                    ml: 0.5,
-                    color: "primary.main",
-                    opacity: appliedSettings ? 1 : 0,
-                    pointerEvents: appliedSettings ? "auto" : "none",
-                  }}
-                />
-              </Tooltip>
-            </>
-          }
-          refresh={
-            <Tooltip title="Обновить">
-              <IconButton color="inherit" onClick={refreshAll}>
-                <RefreshIcon />
-              </IconButton>
-            </Tooltip>
-          }
-          actions={
-            canEditSettings && (
-              <Button
-                variant="outlined"
-                startIcon={<SettingsIcon />}
-                onClick={() => setSettingsOpen(true)}
-              >
-                Настройки
-              </Button>
-            )
-          }
+        <AnalyticsPageHeader
+          title="Сводка по каналам"
+          appliedSettings={appliedSettings}
+          onRefresh={refreshAll}
+          settingsGroup="channels"
         />
 
         <ChannelsSummaryFilters {...filters} />
@@ -208,12 +155,6 @@ function ChannelsSummaryPage() {
         <DynamicsFullscreen state={fullscreen} directTagIds={filters.directTagIds} />
         <ReturnsFullscreen state={fullscreen} moneyMode={filters.moneyMode} />
         <CancellationsFullscreen state={fullscreen} />
-
-        <AnalyticsSettingsDialog
-          open={settingsOpen}
-          group="channels"
-          onClose={() => setSettingsOpen(false)}
-        />
       </Stack>
     </CatalogItemDrawerHost>
   );

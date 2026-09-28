@@ -1,12 +1,17 @@
+import {useState} from "react";
 import {
+  Button,
   IconButton,
   MenuItem,
+  MenuList,
+  Popover,
   Stack,
-  TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from "@mui/material";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import DateField from "@/components/DateField";
@@ -27,46 +32,39 @@ interface PeriodPickerProps {
   onChange: (value: PeriodSelection) => void;
   presets: readonly PeriodPreset[];
   pagePeriod: Period;
-  /** Toggle buttons for a roomy header, a compact select for a card. */
-  variant: "toggles" | "select";
+  /** Toggle buttons for a roomy header; for a card header, one button whose popover holds the presets and dates. */
+  variant: "toggles" | "compact";
 }
 
-function PeriodPicker({value, onChange, presets, pagePeriod, variant}: PeriodPickerProps) {
+function PeriodPicker({variant, ...props}: PeriodPickerProps) {
+  return variant === "compact" ? (
+    <CompactPeriodPicker {...props} />
+  ) : (
+    <TogglesPeriodPicker {...props} />
+  );
+}
+
+type VariantProps = Omit<PeriodPickerProps, "variant">;
+
+function TogglesPeriodPicker({value, onChange, presets, pagePeriod}: VariantProps) {
   const period = resolvePeriod(value, pagePeriod);
-  const selectPreset = (preset: PeriodPreset) => onChange(withPreset(preset, period));
-  const compact = variant === "select";
 
   return (
     <Stack direction="row" useFlexGap sx={{alignItems: "center", flexWrap: "wrap", gap: 1}}>
-      {compact ? (
-        <TextField
-          select
-          size="small"
-          value={value.preset}
-          onChange={(e) => selectPreset(e.target.value as PeriodPreset)}
-          sx={{width: 175}}
-          slotProps={{htmlInput: {"aria-label": "Период"}}}
-        >
-          {presets.map((p) => (
-            <MenuItem key={p} value={p}>
-              {PERIOD_PRESET_LABELS[p]}
-            </MenuItem>
-          ))}
-        </TextField>
-      ) : (
-        <ToggleButtonGroup
-          exclusive
-          size="small"
-          value={value.preset}
-          onChange={(_, preset: PeriodPreset | null) => preset && selectPreset(preset)}
-        >
-          {presets.map((p) => (
-            <ToggleButton key={p} value={p}>
-              {PERIOD_PRESET_LABELS[p]}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
-      )}
+      <ToggleButtonGroup
+        exclusive
+        size="small"
+        value={value.preset}
+        onChange={(_, preset: PeriodPreset | null) =>
+          preset && onChange(withPreset(preset, period))
+        }
+      >
+        {presets.map((p) => (
+          <ToggleButton key={p} value={p}>
+            {PERIOD_PRESET_LABELS[p]}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
 
       {value.preset === "custom" ? (
         <>
@@ -75,14 +73,14 @@ function PeriodPicker({value, onChange, presets, pagePeriod, variant}: PeriodPic
             label="С"
             value={value.from}
             onChange={(from) => from && onChange({...value, from})}
-            sx={{width: compact ? 150 : 165}}
+            sx={{width: 165}}
           />
           <DateField
             size="small"
             label="По"
             value={value.to}
             onChange={(to) => to && onChange({...value, to})}
-            sx={{width: compact ? 150 : 165}}
+            sx={{width: 165}}
           />
         </>
       ) : isCalendarPreset(value.preset) ? (
@@ -94,10 +92,7 @@ function PeriodPicker({value, onChange, presets, pagePeriod, variant}: PeriodPic
           >
             <ChevronLeftIcon />
           </IconButton>
-          <Typography
-            variant={compact ? "body2" : "body1"}
-            sx={{minWidth: compact ? 110 : 150, textAlign: "center"}}
-          >
+          <Typography sx={{minWidth: 150, textAlign: "center"}}>
             {periodLabel(value, period)}
           </Typography>
           <IconButton
@@ -116,6 +111,98 @@ function PeriodPicker({value, onChange, presets, pagePeriod, variant}: PeriodPic
         )
       )}
     </Stack>
+  );
+}
+
+function CompactPeriodPicker({value, onChange, presets, pagePeriod}: VariantProps) {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const period = resolvePeriod(value, pagePeriod);
+  const calendar = isCalendarPreset(value.preset);
+  // Presets named by their rule show the dates they resolve to on hover
+  const byRule =
+    value.preset === "page" || value.preset === "lastMonth" || value.preset === "lastYear";
+  const range = periodLabel({preset: "custom", ...period}, period);
+  const label = byRule ? PERIOD_PRESET_LABELS[value.preset] : periodLabel(value, period);
+
+  return (
+    <>
+      <Stack direction="row" sx={{alignItems: "center", flexShrink: 0}}>
+        {calendar && (
+          <IconButton
+            size="small"
+            onClick={() => onChange(shiftPeriod(value, -1))}
+            aria-label="Назад"
+          >
+            <ChevronLeftIcon />
+          </IconButton>
+        )}
+        <Tooltip title={byRule && !anchor ? range : ""}>
+          <Button
+            size="small"
+            color="inherit"
+            endIcon={<ArrowDropDownIcon />}
+            onClick={(e) => setAnchor(e.currentTarget)}
+            aria-haspopup="true"
+            aria-expanded={!!anchor}
+            aria-label={`Период: ${byRule ? `${label}, ${range}` : label}`}
+            sx={{textTransform: "none", whiteSpace: "nowrap", fontWeight: 400}}
+          >
+            {label}
+          </Button>
+        </Tooltip>
+        {calendar && (
+          <IconButton
+            size="small"
+            onClick={() => onChange(shiftPeriod(value, 1))}
+            aria-label="Вперёд"
+          >
+            <ChevronRightIcon />
+          </IconButton>
+        )}
+      </Stack>
+
+      <Popover
+        open={!!anchor}
+        anchorEl={anchor}
+        onClose={() => setAnchor(null)}
+        anchorOrigin={{vertical: "bottom", horizontal: "right"}}
+        transformOrigin={{vertical: "top", horizontal: "right"}}
+      >
+        <MenuList dense autoFocusItem variant="selectedMenu">
+          {presets.map((p) => (
+            <MenuItem
+              key={p}
+              selected={value.preset === p}
+              onClick={() => {
+                onChange(withPreset(p, period));
+                // Custom dates are edited right here, so that choice keeps the popover open
+                if (p !== "custom") setAnchor(null);
+              }}
+            >
+              {PERIOD_PRESET_LABELS[p]}
+            </MenuItem>
+          ))}
+        </MenuList>
+        {value.preset === "custom" && (
+          <Stack direction="row" spacing={1} sx={{px: 1.5, pb: 1.5, pt: 0.5}}>
+            <DateField
+              size="small"
+              label="С"
+              value={value.from}
+              onChange={(from) => from && onChange({...value, from})}
+              sx={{width: 150}}
+            />
+            <DateField
+              size="small"
+              label="По"
+              value={value.to}
+              onChange={(to) => to && onChange({...value, to})}
+              sx={{width: 150}}
+            />
+          </Stack>
+        )}
+      </Popover>
+    </>
   );
 }
 

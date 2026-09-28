@@ -1,20 +1,15 @@
 import {useState} from "react";
-import {Alert, Box, Button, IconButton, Stack, Tooltip, Typography} from "@mui/material";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import SettingsIcon from "@mui/icons-material/Settings";
+import {Alert, Box, Stack, Typography} from "@mui/material";
 import {keepPreviousData, useQuery} from "@tanstack/react-query";
 import {analyticsGetAbcOptions} from "@/api/@tanstack/react-query.gen";
 import {formatPercent} from "@/components/analytics/analyticsFormat";
-import AnalyticsSettingsDialog from "@/components/analytics/AnalyticsSettingsDialog";
+import AnalyticsPageHeader from "@/components/analytics/AnalyticsPageHeader";
 import SummaryCard from "@/components/analytics/SummaryCard";
 import CatalogItemDrawerHost from "@/components/catalog/CatalogItemDrawerHost";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import PageGenericHeader from "@/components/PageGenericHeader";
 import PageLoader from "@/components/PageLoader";
 import QueryError from "@/components/QueryError";
 import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState";
-import {useHasPermission} from "@/hooks/usePermission";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import AbcClassTiles from "./AbcClassTiles";
 import AbcFilters from "./AbcFilters";
@@ -27,8 +22,6 @@ import {useAbcFilters} from "./useAbcFilters";
 
 function AbcPage() {
   const filters = useAbcFilters();
-  const canEditSettings = useHasPermission("analytics.settings");
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [timeline, openTimeline, closeTimeline] = useDrawerSearchParamsState("abctimeline");
 
   const {data, error, isError, isFetching, isLoading, isPlaceholderData, refetch} = useQuery({
@@ -61,47 +54,11 @@ function AbcPage() {
   return (
     <CatalogItemDrawerHost>
       <Stack spacing={2}>
-        <PageGenericHeader
-          title={
-            // Applied parameters hang off a permanently rendered icon so the header does not jump on reload
-            <>
-              ABC / XYZ
-              <Tooltip
-                title={
-                  appliedSettings && appliedSettings.map((line) => <Box key={line}>{line}</Box>)
-                }
-              >
-                <InfoOutlinedIcon
-                  sx={{
-                    fontSize: "0.7em",
-                    verticalAlign: "middle",
-                    ml: 0.5,
-                    color: "primary.main",
-                    opacity: appliedSettings ? 1 : 0,
-                    pointerEvents: appliedSettings ? "auto" : "none",
-                  }}
-                />
-              </Tooltip>
-            </>
-          }
-          refresh={
-            <Tooltip title="Обновить">
-              <IconButton color="inherit" onClick={() => refetch()}>
-                <RefreshIcon />
-              </IconButton>
-            </Tooltip>
-          }
-          actions={
-            canEditSettings && (
-              <Button
-                variant="outlined"
-                startIcon={<SettingsIcon />}
-                onClick={() => setSettingsOpen(true)}
-              >
-                Настройки
-              </Button>
-            )
-          }
+        <AnalyticsPageHeader
+          title="ABC / XYZ"
+          appliedSettings={appliedSettings}
+          onRefresh={() => refetch()}
+          settingsGroup="abc"
         />
 
         <AbcFilters
@@ -159,7 +116,7 @@ function AbcPage() {
                       <ParetoChart data={data} height={260} />
                     )}
                   </SummaryCard>
-                  <SummaryCard title="Матрица ABC × XYZ" subtitle="клик фильтрует таблицу">
+                  <SummaryCard title="Матрица ABC × XYZ" hint="Клик по ячейке фильтрует таблицу">
                     <AbcMatrix
                       data={data}
                       abcClass={filters.abcClass}
@@ -189,11 +146,6 @@ function AbcPage() {
         )}
 
         <AbcTimelineDialog open={!!timeline} onClose={closeTimeline} filters={filters} />
-        <AnalyticsSettingsDialog
-          open={settingsOpen}
-          group="abc"
-          onClose={() => setSettingsOpen(false)}
-        />
       </Stack>
     </CatalogItemDrawerHost>
   );

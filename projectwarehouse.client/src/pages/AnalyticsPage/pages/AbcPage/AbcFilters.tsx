@@ -19,8 +19,8 @@ type AbcFiltersProps = ReturnType<typeof useAbcFilters> & {
 const BASES: AnalyticsAbcBasis[] = ["units", "price", "payout"];
 
 /**
- * The period takes the first row alone; what a row is, the basis and the currency reshape every class and share the
- * second, where the XYZ toggle is pinned to the right edge so a toggle appearing or wrapping never shifts it.
+ * Same layout as the channels summary: the period on the left and what is counted (basis, currency) on the right of
+ * the first row; what a row is and the XYZ series start share the second, the XYZ toggle pinned to the right edge.
  */
 function AbcFilters({
   selection,
@@ -47,13 +47,45 @@ function AbcFilters({
 
   return (
     <Stack spacing={1.5} sx={{"& .MuiToggleButton-root": {height: 40}}}>
-      <PeriodPicker
-        variant="toggles"
-        presets={PERIOD_PRESETS}
-        value={selection}
-        onChange={setSelection}
-        pagePeriod={{from, to}}
-      />
+      <Stack direction="row" useFlexGap sx={{alignItems: "center", flexWrap: "wrap", gap: 1.5}}>
+        <PeriodPicker
+          variant="toggles"
+          presets={PERIOD_PRESETS}
+          value={selection}
+          onChange={setSelection}
+          pagePeriod={{from, to}}
+        />
+        <Stack direction="row" useFlexGap sx={{alignItems: "center", gap: 1.5, ml: "auto"}}>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={basis}
+            onChange={(_, value: AnalyticsAbcBasis | null) => value && setBasis(value)}
+          >
+            {BASES.map((b) => (
+              <ToggleButton key={b} value={b}>
+                {BASIS_LABELS[b]}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+          {basis !== "units" && currencies.length > 1 && (
+            <TextField
+              select
+              size="small"
+              label="Валюта"
+              value={currencyCode ?? ""}
+              onChange={(e) => setCurrencyCode(e.target.value)}
+              sx={{width: 110}}
+            >
+              {currencies.map((c) => (
+                <MenuItem key={c} value={c}>
+                  {c}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+        </Stack>
+      </Stack>
       <Stack direction="row" useFlexGap sx={{alignItems: "center", flexWrap: "wrap", gap: 1.5}}>
         <ToggleButtonGroup
           exclusive
@@ -67,34 +99,6 @@ function AbcFilters({
             </Tooltip>
           ))}
         </ToggleButtonGroup>
-        <ToggleButtonGroup
-          exclusive
-          size="small"
-          value={basis}
-          onChange={(_, value: AnalyticsAbcBasis | null) => value && setBasis(value)}
-        >
-          {BASES.map((b) => (
-            <ToggleButton key={b} value={b}>
-              {BASIS_LABELS[b]}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
-        {basis !== "units" && currencies.length > 1 && (
-          <TextField
-            select
-            size="small"
-            label="Валюта"
-            value={currencyCode ?? ""}
-            onChange={(e) => setCurrencyCode(e.target.value)}
-            sx={{width: 110}}
-          >
-            {currencies.map((c) => (
-              <MenuItem key={c} value={c}>
-                {c}
-              </MenuItem>
-            ))}
-          </TextField>
-        )}
         <Tooltip title="Ряд XYZ позиции начинается с недели её первой продажи: недели до запуска товара — не нулевой спрос">
           <ToggleButton
             size="small"

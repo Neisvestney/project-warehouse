@@ -1,15 +1,19 @@
 import type {ReactNode} from "react";
-import {Box, LinearProgress, Paper, Stack, Typography} from "@mui/material";
+import {Box, LinearProgress, Paper, Stack, Tooltip, Typography} from "@mui/material";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 interface SummaryCardProps {
   title: string;
+  /** How to read or use the card; shown in a tooltip of an icon beside the title. */
+  hint?: ReactNode;
+  /** The card's headline figures. */
   subtitle?: ReactNode;
   actions?: ReactNode;
   isFetching?: boolean;
   children: ReactNode;
 }
 
-function SummaryCard({title, subtitle, actions, isFetching, children}: SummaryCardProps) {
+function SummaryCard({title, hint, subtitle, actions, isFetching, children}: SummaryCardProps) {
   return (
     <Paper variant="outlined" sx={{display: "flex", flexDirection: "column", minWidth: 0}}>
       <Stack
@@ -19,6 +23,13 @@ function SummaryCard({title, subtitle, actions, isFetching, children}: SummaryCa
       >
         <Typography variant="subtitle1" sx={{fontWeight: 600}}>
           {title}
+          {hint && (
+            <Tooltip title={hint}>
+              <InfoOutlinedIcon
+                sx={{fontSize: "1.1em", verticalAlign: "middle", ml: 0.5, color: "text.secondary"}}
+              />
+            </Tooltip>
+          )}
         </Typography>
         {subtitle && (
           <Typography variant="body2" color="text.secondary">
@@ -26,7 +37,17 @@ function SummaryCard({title, subtitle, actions, isFetching, children}: SummaryCa
           </Typography>
         )}
         {actions && (
-          <Stack direction="row" spacing={1} sx={{ml: "auto", alignItems: "center"}}>
+          <Stack
+            direction="row"
+            useFlexGap
+            sx={{
+              ml: "auto",
+              alignItems: "center",
+              flexWrap: "wrap",
+              justifyContent: "flex-end",
+              gap: 1,
+            }}
+          >
             {actions}
           </Stack>
         )}
