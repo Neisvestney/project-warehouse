@@ -11,7 +11,7 @@ import {ChartsYAxis} from "@mui/x-charts/ChartsYAxis";
 import {LinePlot} from "@mui/x-charts/LineChart";
 import type {ChannelsLossesDto} from "@/api/types.gen";
 import {formatNumber, formatPercent} from "@/components/analytics/analyticsFormat";
-import {intervalLabel} from "./intervalLabels";
+import {intervalLabel} from "@/components/analytics/charts/intervalLabels";
 
 const DASHED = "returns:immature";
 

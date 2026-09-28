@@ -52,23 +52,9 @@ public class AnalyticsPayoutsService(
     public async Task<PayoutsDto> GetPayoutsAsync(
         ClaimsPrincipal user, PayoutsRequest request, CancellationToken ct = default)
     {
-        if (request.From.HasValue != request.To.HasValue)
-            throw new ValidationException(request.From.HasValue ? "to" : "from", ErrorCode.InvalidValue,
-                "The period must have both ends or neither.");
-
-        var bounds = request is { From: { } from, To: { } to }
-            ? await queries.ResolvePeriodAsync(new AnalyticsFilterRequest { From = from, To = to }, ct)
-            : null;
-        var clock = bounds is null
-            ? await queries.ResolveClockAsync(ct)
-            : new AnalyticsClock(bounds.Today, bounds.OffsetMinutes, bounds.TimeZoneId);
-
+        var (bounds, clock) = await ResolvePeriodAsync(request, ct);
         var options = await settings.GetOptionsAsync(ct);
-        var accounts = await queries.LoadAccountsAsync(new AnalyticsFilterRequest
-        {
-            IncludeMarketplaces = request.IncludeMarketplaces,
-            MarketplaceAccountIds = request.MarketplaceAccountIds,
-        }, ct);
+        var accounts = await LoadAccountsAsync(request, ct);
         var accountIds = accounts.Select(a => a.Id).ToList();
 
         var coverage = accountIds.Count == 0
@@ -177,6 +163,104 @@ public class AnalyticsPayoutsService(
             Totals = BuildTotals(rows, options.PayoutAgeBoundaries.Count + 1),
         };
     }
+
+    public async Task<PayoutsTimeseriesDto> GetTimeseriesAsync(
+        ClaimsPrincipal user, PayoutsTimeseriesRequest request, CancellationToken ct = default)
+    {
+        var (bounds, clock) = await ResolvePeriodAsync(request, ct);
+        var accounts = await LoadAccountsAsync(request, ct);
+        var accountIds = accounts.Select(a => a.Id).ToList();
+        var periodFrom = bounds?.From;
+        var periodTo = bounds?.To;
+
+        var days = accountIds.Count == 0
+            ? []
+            : await db.MarketplaceAccruals
+                .Where(a => accountIds.Contains(a.MarketplaceAccountId)
+                    && a.CurrencyCode != null
+                    && (periodFrom == null || a.Date >= periodFrom)
+                    && (periodTo == null || a.Date <= periodTo))
+                .GroupBy(a => new { a.MarketplaceAccountId, a.CurrencyCode, a.Date })
+                .Select(g => new
+                {
+                    AccountId = g.Key.MarketplaceAccountId,
+                    CurrencyCode = g.Key.CurrencyCode!,
+                    g.Key.Date,
+                    Amount = g.Sum(a => a.Amount),
+                })
+                .ToListAsync(ct);
+
+        // Over all time a Moscow journal day can run ahead of the caller's today; it is not a future interval, or
+        // its lines would drop out and the intervals would no longer add up to «Начислено»
+        var today = bounds is not null || days.Count == 0
+            ? clock.Today
+            : DateOnly.FromDayNumber(Math.Max(days.Max(d => d.Date).DayNumber, clock.Today.DayNumber));
+        var to = bounds?.To ?? today;
+        var from = bounds?.From ?? (days.Count == 0 ? to : days.Min(d => d.Date));
+        var step = request.Step ?? AnalyticsCalculator.DefaultStep(from, to);
+
+        if (step == AnalyticsStep.Day && to.DayNumber - from.DayNumber + 1 > AnalyticsCalculator.MaxPeriodDays)
+            throw new ValidationException("step", ErrorCode.OutOfRange,
+                $"A day step allows at most {AnalyticsCalculator.MaxPeriodDays} days.");
+
+        var intervals = AnalyticsCalculator.SplitIntervals(from, to, step);
+        var byKey = days.ToLookup(d => (d.AccountId, d.CurrencyCode), d => (d.Date, d.Amount));
+
+        return new PayoutsTimeseriesDto
+        {
+            From = from,
+            To = to,
+            TimeZoneId = clock.TimeZoneId,
+            Step = step,
+            Intervals = AnalyticsCalculator.ToIntervalDtos(intervals, today),
+            Currencies = days
+                .Select(d => d.CurrencyCode)
+                .Distinct()
+                .Order(StringComparer.Ordinal)
+                .Select(currency => new PayoutsCurrencySeriesDto
+                {
+                    CurrencyCode = currency,
+                    Series = accounts
+                        .Select(account =>
+                        {
+                            var values = AnalyticsCalculator.SumByInterval(
+                                intervals, today, byKey[(account.Id, currency)]);
+                            return new PayoutsSeriesDto
+                            {
+                                MarketplaceAccountId = account.Id,
+                                MarketplaceType = account.Type,
+                                Name = account.Name,
+                                Values = values,
+                                Total = values.Sum(v => v ?? 0),
+                            };
+                        })
+                        .ToList(),
+                })
+                .ToList(),
+        };
+    }
+
+    /// <summary>The bounded period, or null for all time, and the caller's clock either way.</summary>
+    private async Task<(AnalyticsPeriod? Bounds, AnalyticsClock Clock)> ResolvePeriodAsync(
+        PayoutsRequest request, CancellationToken ct)
+    {
+        if (request.From.HasValue != request.To.HasValue)
+            throw new ValidationException(request.From.HasValue ? "to" : "from", ErrorCode.InvalidValue,
+                "The period must have both ends or neither.");
+
+        if (request is not { From: { } from, To: { } to })
+            return (null, await queries.ResolveClockAsync(ct));
+
+        var bounds = await queries.ResolvePeriodAsync(new AnalyticsFilterRequest { From = from, To = to }, ct);
+        return (bounds, new AnalyticsClock(bounds.Today, bounds.OffsetMinutes, bounds.TimeZoneId));
+    }
+
+    private Task<List<AnalyticsAccount>> LoadAccountsAsync(PayoutsRequest request, CancellationToken ct) =>
+        queries.LoadAccountsAsync(new AnalyticsFilterRequest
+        {
+            IncludeMarketplaces = request.IncludeMarketplaces,
+            MarketplaceAccountIds = request.MarketplaceAccountIds,
+        }, ct);
 
     /// <summary>
     /// Lines of the postings with no sale in the journal: every one in transit, and the delivered ones from the

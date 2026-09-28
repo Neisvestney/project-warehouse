@@ -1,5 +1,5 @@
 import {ToggleButton} from "@mui/material";
-import {TOTAL_LABEL} from "./charts/chartSeries";
+import {TOTAL_LABEL} from "./chartSeries";
 
 interface TotalToggleProps {
   value: boolean;

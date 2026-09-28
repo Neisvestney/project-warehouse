@@ -10,7 +10,7 @@ import LossesChart from "../charts/LossesChart";
 import PeriodPicker from "@/components/analytics/period/PeriodPicker";
 import type {PeriodSelection} from "@/components/analytics/period/periodSelection";
 import {CARD_PERIOD_PRESETS, useCardPeriod} from "@/components/analytics/period/usePeriodParam";
-import StepMeasureToggles from "../StepMeasureToggles";
+import StepMeasureToggles from "@/components/analytics/charts/StepMeasureToggles";
 import SummaryCard from "@/components/analytics/SummaryCard";
 import type {useChannelsSummaryFilters} from "../useChannelsSummaryFilters";
 import CardChannelSelect from "./CardChannelSelect";

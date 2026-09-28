@@ -23,7 +23,7 @@ import {extractErrorMessage} from "@/utils/errorUtils";
 import ChannelChip from "@/components/analytics/ChannelChip";
 import {parseMeasure} from "@/components/analytics/channelsQuery";
 import {formatAverage} from "@/components/analytics/analyticsFormat";
-import {useChannelColor} from "../charts/useChannelColor";
+import {useChannelColor} from "@/components/analytics/charts/useChannelColor";
 import PeriodPicker from "@/components/analytics/period/PeriodPicker";
 import {CARD_PERIOD_PRESETS, useCardPeriod} from "@/components/analytics/period/usePeriodParam";
 import SummaryCard from "@/components/analytics/SummaryCard";

@@ -2230,6 +2230,14 @@ export type PayoutsCategoryDto = {
   amount: number;
 };
 
+export type PayoutsCurrencySeriesDto = {
+  currencyCode: string;
+  /**
+   * One per selected shop, by name, zeros included.
+   */
+  series: Array<PayoutsSeriesDto>;
+};
+
 export type PayoutsDto = {
   /**
    * Period of the accrued bucket; the debt buckets ignore it.
@@ -2305,6 +2313,38 @@ export type PayoutsRowDto = {
    */
   uncoveredPostings: number;
   money: Array<PayoutsMoneyDto>;
+};
+
+export type PayoutsSeriesDto = {
+  marketplaceAccountId: string;
+  marketplaceType: MarketplaceType;
+  name: string;
+  /**
+   * Σ journal amounts per interval, shop-wide lines included; null for a future interval.
+   */
+  values: Array<null | number>;
+  total: number;
+};
+
+/**
+ * What the accrual journal credited per interval, per shop; the same money as «Начислено».
+ */
+export type PayoutsTimeseriesDto = {
+  /**
+   * The requested first day, or over all time the earliest journal day of the selected shops.
+   */
+  from: string;
+  to: string;
+  timeZoneId: string;
+  /**
+   * The step applied — the requested one, or the one picked by the period length.
+   */
+  step: AnalyticsStep;
+  intervals: Array<AnalyticsIntervalDto>;
+  /**
+   * One per currency of the period's journal lines; empty when there are none.
+   */
+  currencies: Array<PayoutsCurrencySeriesDto>;
 };
 
 export type PermissionName =
@@ -4622,6 +4662,52 @@ export type AnalyticsGetPayoutsResponses = {
 
 export type AnalyticsGetPayoutsResponse =
   AnalyticsGetPayoutsResponses[keyof AnalyticsGetPayoutsResponses];
+
+export type AnalyticsGetPayoutsTimeseriesData = {
+  body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path?: never;
+  query?: {
+    /**
+     * Null picks one by the period length: day up to 31 days, week up to six months, month beyond.
+     */
+    Step?: AnalyticsStep;
+    From?: string;
+    To?: string;
+    IncludeMarketplaces?: boolean;
+    MarketplaceAccountIds?: Array<string>;
+  };
+  url: "/api/analytics/payouts/timeseries";
+};
+
+export type AnalyticsGetPayoutsTimeseriesErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type AnalyticsGetPayoutsTimeseriesError =
+  AnalyticsGetPayoutsTimeseriesErrors[keyof AnalyticsGetPayoutsTimeseriesErrors];
+
+export type AnalyticsGetPayoutsTimeseriesResponses = {
+  /**
+   * OK
+   */
+  200: PayoutsTimeseriesDto;
+};
+
+export type AnalyticsGetPayoutsTimeseriesResponse =
+  AnalyticsGetPayoutsTimeseriesResponses[keyof AnalyticsGetPayoutsTimeseriesResponses];
 
 export type AnalyticsGetSettingsData = {
   body?: never;

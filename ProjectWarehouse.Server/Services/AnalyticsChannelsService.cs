@@ -174,7 +174,7 @@ public class AnalyticsChannelsService(
             TimeZoneId = period.TimeZoneId,
             Step = step,
             Measure = request.Measure,
-            Intervals = ToIntervalDtos(intervals, period.Today),
+            Intervals = AnalyticsCalculator.ToIntervalDtos(intervals, period.Today),
             Series = series,
         };
     }
@@ -199,7 +199,7 @@ public class AnalyticsChannelsService(
             ReturnsImmature =
                 AnalyticsCalculator.IsReturnsImmature(period.To, period.Today, options.ReturnsMaturityDays),
             Step = step,
-            Intervals = ToIntervalDtos(intervals, period.Today),
+            Intervals = AnalyticsCalculator.ToIntervalDtos(intervals, period.Today),
         };
 
         if (accountIds.Count == 0) return result;
@@ -354,7 +354,7 @@ public class AnalyticsChannelsService(
             To = period.To,
             TimeZoneId = period.TimeZoneId,
             Step = step,
-            Intervals = ToIntervalDtos(intervals, period.Today),
+            Intervals = AnalyticsCalculator.ToIntervalDtos(intervals, period.Today),
             Series = accounts
                 .Select(a => Series(AnalyticsChannelKind.Marketplace, a, intervals, period.Today,
                     days.Where(d => d.AccountId == a.Id && d.IsCancelled)))
@@ -452,7 +452,7 @@ public class AnalyticsChannelsService(
             Step = step,
             Measure = request.Measure,
             ReturnsMaturityDays = options.ReturnsMaturityDays,
-            Points = ToIntervalDtos(intervals, period.Today)
+            Points = AnalyticsCalculator.ToIntervalDtos(intervals, period.Today)
                 .Select((interval, i) => new LossesPointDto
                 {
                     Interval = interval,
@@ -939,16 +939,4 @@ public class AnalyticsChannelsService(
             Total = values.Sum(v => v ?? 0),
         };
     }
-
-    private static List<AnalyticsIntervalDto> ToIntervalDtos(IReadOnlyList<AnalyticsInterval> intervals, DateOnly today) =>
-        intervals
-            .Select(i => new AnalyticsIntervalDto
-            {
-                Start = i.Start,
-                End = i.End,
-                IsPartial = i.IsPartial,
-                IsCurrent = i.Start <= today && today <= i.End,
-                IsFuture = i.Start > today,
-            })
-            .ToList();
 }

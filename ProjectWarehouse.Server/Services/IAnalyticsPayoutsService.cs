@@ -12,4 +12,8 @@ namespace ProjectWarehouse.Server.Services;
 public interface IAnalyticsPayoutsService
 {
     Task<PayoutsDto> GetPayoutsAsync(ClaimsPrincipal user, PayoutsRequest request, CancellationToken ct = default);
+
+    /// <remarks>Also throws on a day step over all time longer than the period limit.</remarks>
+    Task<PayoutsTimeseriesDto> GetTimeseriesAsync(
+        ClaimsPrincipal user, PayoutsTimeseriesRequest request, CancellationToken ct = default);
 }

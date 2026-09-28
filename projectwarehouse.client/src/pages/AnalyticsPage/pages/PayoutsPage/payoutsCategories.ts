@@ -83,7 +83,6 @@ export function summarizeCategories(categories: PayoutsCategoryDto[]): Categorie
 }
 
 export function categoryColor(category: MarketplaceAccrualCategory): string | undefined {
-  if (category === "compensation") return "success.main";
   if (category === "unknown") return "warning.main";
   return undefined;
 }

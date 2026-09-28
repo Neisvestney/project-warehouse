@@ -41,6 +41,9 @@ import type {
   AnalyticsGetPayoutsData,
   AnalyticsGetPayoutsErrors,
   AnalyticsGetPayoutsResponses,
+  AnalyticsGetPayoutsTimeseriesData,
+  AnalyticsGetPayoutsTimeseriesErrors,
+  AnalyticsGetPayoutsTimeseriesResponses,
   AnalyticsGetSettingsData,
   AnalyticsGetSettingsErrors,
   AnalyticsGetSettingsResponses,
@@ -912,6 +915,29 @@ export const analyticsGetPayouts = <ThrowOnError extends boolean = false>(
     AnalyticsGetPayoutsErrors,
     ThrowOnError
   >({url: "/api/analytics/payouts", ...options});
+
+/**
+ * The «Начислено» bucket per interval and shop.
+ *
+ * Query params as in `payouts`, plus `step` — null picks one by the period length. Every journal line
+ * counts on its own date, shop-wide ones included, so the intervals add up to `accrued` of `payouts`
+ * for the same period. `currencies` holds a block per currency of the period's lines, each with a series per
+ * selected shop. A future interval has null values.
+ * Requires `analytics.view`. Same 422 codes as `payouts`, plus `outOfRange` on `step` for a
+ * day step over all time longer than 366 days.
+ */
+export const analyticsGetPayoutsTimeseries = <ThrowOnError extends boolean = false>(
+  options?: Options<AnalyticsGetPayoutsTimeseriesData, ThrowOnError>,
+): RequestResult<
+  AnalyticsGetPayoutsTimeseriesResponses,
+  AnalyticsGetPayoutsTimeseriesErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    AnalyticsGetPayoutsTimeseriesResponses,
+    AnalyticsGetPayoutsTimeseriesErrors,
+    ThrowOnError
+  >({url: "/api/analytics/payouts/timeseries", ...options});
 
 /**
  * Analytics calculation parameters: stored values, system defaults and what applies.

@@ -20,6 +20,7 @@ import {
   analyticsGetChannelsTopItems,
   analyticsGetChannelsWeekdays,
   analyticsGetPayouts,
+  analyticsGetPayoutsTimeseries,
   analyticsGetSettings,
   analyticsUpdateSettings,
   authChangeOwnPassword,
@@ -244,6 +245,9 @@ import type {
   AnalyticsGetPayoutsData,
   AnalyticsGetPayoutsError,
   AnalyticsGetPayoutsResponse,
+  AnalyticsGetPayoutsTimeseriesData,
+  AnalyticsGetPayoutsTimeseriesError,
+  AnalyticsGetPayoutsTimeseriesResponse,
   AnalyticsGetSettingsData,
   AnalyticsGetSettingsError,
   AnalyticsGetSettingsResponse,
@@ -1257,6 +1261,41 @@ export const analyticsGetPayoutsOptions = (options?: Options<AnalyticsGetPayouts
       return data;
     },
     queryKey: analyticsGetPayoutsQueryKey(options),
+  });
+
+export const analyticsGetPayoutsTimeseriesQueryKey = (
+  options?: Options<AnalyticsGetPayoutsTimeseriesData>,
+) => createQueryKey("analyticsGetPayoutsTimeseries", options);
+
+/**
+ * The «Начислено» bucket per interval and shop.
+ *
+ * Query params as in `payouts`, plus `step` — null picks one by the period length. Every journal line
+ * counts on its own date, shop-wide ones included, so the intervals add up to `accrued` of `payouts`
+ * for the same period. `currencies` holds a block per currency of the period's lines, each with a series per
+ * selected shop. A future interval has null values.
+ * Requires `analytics.view`. Same 422 codes as `payouts`, plus `outOfRange` on `step` for a
+ * day step over all time longer than 366 days.
+ */
+export const analyticsGetPayoutsTimeseriesOptions = (
+  options?: Options<AnalyticsGetPayoutsTimeseriesData>,
+) =>
+  queryOptions<
+    AnalyticsGetPayoutsTimeseriesResponse,
+    AnalyticsGetPayoutsTimeseriesError,
+    AnalyticsGetPayoutsTimeseriesResponse,
+    ReturnType<typeof analyticsGetPayoutsTimeseriesQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await analyticsGetPayoutsTimeseries({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: analyticsGetPayoutsTimeseriesQueryKey(options),
   });
 
 export const analyticsGetSettingsQueryKey = (options?: Options<AnalyticsGetSettingsData>) =>
