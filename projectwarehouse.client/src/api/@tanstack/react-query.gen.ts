@@ -76,6 +76,7 @@ import {
   ordersBatchFulfill,
   ordersBatchSelfAssign,
   ordersBatchTransitionStatus,
+  ordersBatchUpdateTags,
   ordersCreateAssemblyTask,
   ordersCreateDirect,
   ordersCreateTag,
@@ -403,6 +404,9 @@ import type {
   OrdersBatchTransitionStatusData,
   OrdersBatchTransitionStatusError,
   OrdersBatchTransitionStatusResponse,
+  OrdersBatchUpdateTagsData,
+  OrdersBatchUpdateTagsError,
+  OrdersBatchUpdateTagsResponse,
   OrdersCreateAssemblyTaskData,
   OrdersCreateAssemblyTaskError,
   OrdersCreateAssemblyTaskResponse,
@@ -1132,13 +1136,18 @@ export const analyticsGetAbcQueryKey = (options?: Options<AnalyticsGetAbcData>) 
   createQueryKey("analyticsGetAbc", options);
 
 /**
- * ABC and XYZ classes of the catalog items sold in the period: tiles, matrix, Pareto and a table page.
+ * ABC and XYZ classes of the catalog items, cards or articles sold in the period: tiles, matrix, Pareto and a table page.
  *
  * Query params: the shared filter of `channels/summary`; `basis` (`units` / `price` /
  * `payout`, default `units`) — a money basis analyses shops only, in one currency:
  * `currencyCode`, omitted or unknown — the one with the most sale lines, the ones met come back as
- * `currencies`. A bundle is an item of its own; items with no sales are not analysed. Items are ranked
- * by value descending, ties by id, and classed by the cumulative share of the items before them against
+ * `currencies`. `subject` (`catalogItem` / `card` / `article`, default
+ * `catalogItem`) picks what a row is: the catalog item a line was imported with, the card of one account,
+ * or every selected account's cards sharing an offer id compared trimmed and case-blind; a card or an article
+ * analyses shops only, and each row's `subject` carries its name, offer id, image and accounts.
+ * `unlinkedLines` counts the lines with no catalog item, or with no card. A bundle is an item of its
+ * own; items with no sales are not analysed. Items are ranked
+ * by value descending, ties by id or article, and classed by the cumulative share of the items before them against
  * `abcBoundaryA` / `abcBoundaryB`. XYZ always counts units over the same channels and items, by the
  * full `xyzStep` intervals of the period that are already over; with fewer than
  * `xyzMinIntervals` of them (`xyzIntervals`) no item has an XYZ class. `xyzFromFirstSale`
@@ -3943,6 +3952,40 @@ export const ordersBatchTransitionStatusMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await ordersBatchTransitionStatus({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Add or remove one tag on several orders in one request, all or nothing. Allowed in any status.
+ *
+ * Body: `BatchUpdateTagsRequest` — `ids` (duplicates are collapsed), `tagId` and
+ * `operation` (`add` / `remove`). Nothing is written unless every order passes: 422
+ * `tagNotFound` (field `tagId`) for an unknown tag, 404 `orderNotFound` when any order does not
+ * exist or lies outside the caller's edit access. Orders that already have (or already lack) the tag are left
+ * untouched and get no changelog entry. Answers 204.
+ * Requires `orders.edit` or `orders.edit_assigned`.
+ */
+export const ordersBatchUpdateTagsMutation = (
+  options?: Partial<Options<OrdersBatchUpdateTagsData>>,
+): UseMutationOptions<
+  OrdersBatchUpdateTagsResponse,
+  OrdersBatchUpdateTagsError,
+  Options<OrdersBatchUpdateTagsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersBatchUpdateTagsResponse,
+    OrdersBatchUpdateTagsError,
+    Options<OrdersBatchUpdateTagsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersBatchUpdateTags({
         ...options,
         ...fnOptions,
         throwOnError: true,
