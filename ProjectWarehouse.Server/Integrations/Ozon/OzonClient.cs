@@ -42,6 +42,9 @@ public class OzonClient(
 
     private const string AwaitingPackaging = "awaiting_packaging";
 
+    /// <summary>Ozon's accounting days are Moscow days; a later day is not asked for.</summary>
+    private const string MoscowZoneId = "Europe/Moscow";
+
     /// <summary>Return states in which the item never went back: cancelled by the buyer or rejected.</summary>
     private static readonly HashSet<string> CancelledReturnStatuses = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -240,6 +243,146 @@ public class OzonClient(
             await DelayBetweenPagesAsync(ct);
         }
     }
+
+    public async IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> GetAccrualsAsync(
+        DateOnly from, DateOnly to, [EnumeratorCancellation] CancellationToken ct)
+    {
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, MoscowZoneId));
+        var last = to > today ? today : to;
+        var firstCall = true;
+
+        for (var day = from; day <= last; day = day.AddDays(1))
+        {
+            var date = day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            // the cursor lives 15 minutes and is only valid for the day it was issued with
+            var lastId = "";
+            var seenCursors = new HashSet<string>();
+
+            do
+            {
+                if (!firstCall)
+                    await Task.Delay(_options.AccrualRequestDelayMs, ct);
+                firstCall = false;
+
+                var response = await api.GetFinanceAccrualByDayAsync(
+                    new GetFinanceAccrualByDayRequest { Date = date, Last_id = lastId }, ct);
+
+                var items = response.Accruals ?? [];
+                var accruals = items.Select(ToExternalAccrual).OfType<ExternalAccrual>().ToList();
+
+                if (accruals.Count > 0)
+                    yield return accruals;
+
+                lastId = items.Count > 0 ? response.Last_id ?? "" : "";
+                // the beta method has no has_next flag; a cursor handed out twice would page forever
+                if (lastId.Length > 0 && !seenCursors.Add(lastId))
+                {
+                    logger.LogWarning("Ozon accruals of {Date} repeated cursor {Cursor}, the rest of the day is skipped",
+                        date, lastId);
+                    break;
+                }
+            } while (lastId.Length > 0);
+        }
+    }
+
+    private ExternalAccrual? ToExternalAccrual(GetFinanceAccrualByDayResponseAccrual accrual)
+    {
+        if (accrual.Accrual_id is not { } id
+            || !DateOnly.TryParseExact(accrual.Date, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out var date))
+        {
+            logger.LogWarning("Ozon accrual without an id or a date skipped: {AccrualId} {Date}",
+                accrual.Accrual_id, accrual.Date);
+            return null;
+        }
+
+        var lines = new List<ExternalAccrualLine>();
+        MarketplaceAccrualScope scope;
+
+        if (accrual.Posting is { } posting)
+        {
+            scope = MarketplaceAccrualScope.Posting;
+            foreach (var product in posting.Products ?? [])
+            {
+                var sku = ToSku(product.Sku);
+
+                // the sale is not an accrued amount of its own but rides on the commission block;
+                // seller_price is per unit, sale_amount is the whole line
+                if (product.Commission is { } commission)
+                {
+                    AddLine(lines, MarketplaceAccrualCategory.Sale, OzonAccrualTypes.SaleCommission, sku,
+                        commission.Sale_amount?.Amount, commission.Sale_amount?.Currency);
+                    AddLine(lines, MarketplaceAccrualCategory.Commission, OzonAccrualTypes.SaleCommission, sku,
+                        commission.Commission?.Amount, commission.Commission?.Currency);
+                }
+
+                foreach (var service in product.Delivery?.Services ?? [])
+                    AddTyped(lines, service.Type_id, sku, service.Accrued?.Amount, service.Accrued?.Currency);
+            }
+        }
+        else if (accrual.Item_fees is { } itemFees)
+        {
+            scope = MarketplaceAccrualScope.Item;
+            foreach (var item in itemFees.Fees ?? [])
+            foreach (var fee in item.Fees ?? [])
+                AddTyped(lines, fee.Type_id, ToSku(item.Sku), fee.Accrued?.Amount, fee.Accrued?.Currency);
+        }
+        else if (accrual.Non_item_fee is { } nonItemFee)
+        {
+            scope = MarketplaceAccrualScope.Account;
+            AddTyped(lines, nonItemFee.Type_id, null, nonItemFee.Accrued?.Amount, nonItemFee.Accrued?.Currency);
+        }
+        else if (accrual.Container_fees is { } containerFees)
+        {
+            scope = MarketplaceAccrualScope.Container;
+            foreach (var fee in containerFees.Fees ?? [])
+                AddTyped(lines, fee.Type_id, null, fee.Accrued?.Amount, fee.Accrued?.Currency);
+        }
+        else
+        {
+            logger.LogWarning("Ozon accrual {AccrualId} of category {Category} carries no known block",
+                id, accrual.Accrued_category);
+            scope = MarketplaceAccrualScope.Unknown;
+        }
+
+        // the rows are meant to add up to the accrual; a mismatch means Ozon moved money somewhere unread
+        var total = ParseMoney(accrual.Total_amount?.Amount);
+        if (total is { } expected && lines.Sum(l => l.Amount) != expected)
+            logger.LogWarning("Ozon accrual {AccrualId} rows sum to {Sum}, its total is {Total}",
+                id, lines.Sum(l => l.Amount), expected);
+
+        return new ExternalAccrual(id.ToString(CultureInfo.InvariantCulture), date, scope,
+            Trim(accrual.Unit_number), lines);
+    }
+
+    private void AddTyped(List<ExternalAccrualLine> lines, int? typeId, string? sku, string? amount,
+        string? currency)
+    {
+        if (typeId is not { } type)
+        {
+            logger.LogWarning("Ozon accrual line without a type_id skipped");
+            return;
+        }
+
+        var category = OzonAccrualTypes.CategoryOf(type);
+        if (category == MarketplaceAccrualCategory.Unknown)
+            logger.LogWarning("Ozon accrual type {TypeId} has no category mapping", type);
+
+        AddLine(lines, category, type, sku, amount, currency);
+    }
+
+    private static void AddLine(List<ExternalAccrualLine> lines, MarketplaceAccrualCategory category, int typeId,
+        string? sku, string? amount, string? currency)
+    {
+        if (ParseMoney(amount) is { } value)
+            lines.Add(new ExternalAccrualLine(category, typeId.ToString(CultureInfo.InvariantCulture), sku, value,
+                Trim(currency)));
+    }
+
+    private static decimal? ParseMoney(string? amount) =>
+        decimal.TryParse(amount, NumberStyles.Number, CultureInfo.InvariantCulture, out var value) ? value : null;
+
+    private static string? ToSku(long? sku) => sku?.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>Exactly one date filter or none — Ozon rejects a request carrying two.</summary>
     private static GetReturnsListRequestFilter ToReturnsFilter(ExternalReturnQuery query)

@@ -31,6 +31,9 @@ public interface IOzonClient
     /// <summary>FBS and FBO returns together.</summary>
     IAsyncEnumerable<IReadOnlyList<ExternalReturn>> GetReturnsAsync(ExternalReturnQuery query, CancellationToken ct);
 
+    /// <summary>Accruals of the given days, one day at a time; days after today in Moscow are skipped.</summary>
+    IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> GetAccrualsAsync(DateOnly from, DateOnly to, CancellationToken ct);
+
     /// <summary>Creation date of the oldest posting of either scheme, or null when the account has none.</summary>
     Task<DateTime?> GetEarliestPostingDateAsync(CancellationToken ct);
 

@@ -55,6 +55,14 @@ public interface IMarketplaceProvider
         MarketplaceCredentials credentials, ExternalReturnQuery query, CancellationToken ct);
 
     /// <summary>
+    /// Accruals of the days from <paramref name="from"/> to <paramref name="to"/> inclusive, by the marketplace's
+    /// accounting day. Days past the marketplace's own today are skipped. Only called when the provider declares
+    /// <see cref="MarketplaceCapabilities.Accruals"/>.
+    /// </summary>
+    IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> FetchAccrualsAsync(
+        MarketplaceCredentials credentials, DateOnly from, DateOnly to, CancellationToken ct);
+
+    /// <summary>
     /// Creation date of the oldest posting the account has, or null when it has none. Costs several calls,
     /// so it is only ever asked for on an explicit operator action.
     /// </summary>

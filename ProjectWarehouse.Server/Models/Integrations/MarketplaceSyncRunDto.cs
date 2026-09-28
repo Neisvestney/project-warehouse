@@ -35,5 +35,9 @@ public class MarketplaceSyncRunDto : IHasIdentity
     public int ReturnsCreated { get; init; }
     public int ReturnsUpdated { get; init; }
 
+    public int AccrualsProcessed { get; init; }
+    public int AccrualsCreated { get; init; }
+    public int AccrualsUpdated { get; init; }
+
     public AppFieldError? Error { get; init; }
 }

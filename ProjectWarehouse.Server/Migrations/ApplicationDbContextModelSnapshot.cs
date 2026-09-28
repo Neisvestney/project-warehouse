@@ -20,7 +20,7 @@ namespace ProjectWarehouse.Server.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.11")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -789,6 +789,12 @@ namespace ProjectWarehouse.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("AccrualsFullPassAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("AccrualsSyncedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("ApiKeyLast4")
                         .IsRequired()
                         .HasColumnType("text");
@@ -859,6 +865,78 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasIndex("Type");
 
                     b.ToTable("MarketplaceAccounts");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceAccrual", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid?>("CatalogItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CurrencyCode")
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("LineNo")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("MarketplaceAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OrderMarketplaceItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RawTypeId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Scope")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Sku")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("SyncedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UnitNumber")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CatalogItemId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("OrderMarketplaceItemId");
+
+                    b.HasIndex("MarketplaceAccountId", "Date");
+
+                    b.HasIndex("MarketplaceAccountId", "UnitNumber");
+
+                    b.HasIndex("MarketplaceAccountId", "ExternalId", "LineNo")
+                        .IsUnique();
+
+                    b.ToTable("MarketplaceAccruals");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceAutoMapRule", b =>
@@ -1171,6 +1249,15 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<int>("AccrualsCreated")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("AccrualsProcessed")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("AccrualsUpdated")
+                        .HasColumnType("integer");
 
                     b.Property<int>("AutoMapped")
                         .HasColumnType("integer");
@@ -2726,6 +2813,38 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("CreatedBy");
                 });
 
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceAccrual", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CatalogItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.MarketplaceAccount", "MarketplaceAccount")
+                        .WithMany()
+                        .HasForeignKey("MarketplaceAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.Order", "Order")
+                        .WithMany("MarketplaceAccruals")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.OrderMarketplaceItem", "OrderMarketplaceItem")
+                        .WithMany("MarketplaceAccruals")
+                        .HasForeignKey("OrderMarketplaceItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CatalogItem");
+
+                    b.Navigation("MarketplaceAccount");
+
+                    b.Navigation("Order");
+
+                    b.Navigation("OrderMarketplaceItem");
+                });
+
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceAutoMapRule", b =>
                 {
                     b.HasOne("ProjectWarehouse.Server.Domain.CatalogItem", "CatalogItem")
@@ -3488,6 +3607,8 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.Navigation("Images");
 
+                    b.Navigation("MarketplaceAccruals");
+
                     b.Navigation("MarketplaceItems");
 
                     b.Navigation("MarketplaceOrder");
@@ -3502,6 +3623,8 @@ namespace ProjectWarehouse.Server.Migrations
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.OrderMarketplaceItem", b =>
                 {
+                    b.Navigation("MarketplaceAccruals");
+
                     b.Navigation("MarketplaceReturns");
                 });
 

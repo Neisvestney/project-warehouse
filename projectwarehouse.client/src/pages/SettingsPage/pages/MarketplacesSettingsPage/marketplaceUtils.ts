@@ -37,17 +37,19 @@ export const SYNC_SCOPE_LABELS: Record<MarketplaceSyncScope, string> = {
   orders: "Заказы",
   ordersBackground: "Статусы заказов",
   ordersBackfill: "Импорт истории…",
+  accruals: "Начисления",
 };
 
-export type SyncRunSection = "warehouses" | "cards" | "orders" | "returns";
+export type SyncRunSection = "warehouses" | "cards" | "orders" | "returns" | "accruals";
 
 export const SYNC_SCOPE_SECTIONS: Record<MarketplaceSyncScope, SyncRunSection[]> = {
   warehouses: ["warehouses"],
   cards: ["cards"],
-  all: ["warehouses", "cards", "orders", "returns"],
+  all: ["warehouses", "cards", "orders", "returns", "accruals"],
   orders: ["orders", "returns"],
   ordersBackground: ["orders", "returns"],
-  ordersBackfill: ["orders", "returns"],
+  ordersBackfill: ["orders", "returns", "accruals"],
+  accruals: ["accruals"],
 };
 
 function sumSections(run: MarketplaceSyncRunDto, counters: Record<SyncRunSection, number>) {
@@ -60,6 +62,7 @@ export function syncRunProcessedTotal(run: MarketplaceSyncRunDto): number {
     cards: run.cardsProcessed,
     orders: run.ordersProcessed,
     returns: run.returnsProcessed,
+    accruals: run.accrualsProcessed,
   });
 }
 
@@ -70,6 +73,7 @@ export function syncRunCreatedTotal(run: MarketplaceSyncRunDto): number {
     cards: run.cardsCreated,
     orders: run.ordersCreated,
     returns: run.returnsCreated,
+    accruals: run.accrualsCreated,
   });
 }
 

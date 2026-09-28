@@ -343,7 +343,7 @@ public class MarketplacesController(
     /// <summary>Queues a sync and returns 202 immediately — poll the run for progress.</summary>
     /// <remarks>
     /// Body: <c>StartSyncRequest</c> — <c>scope</c> (<c>All</c>, <c>Warehouses</c>, <c>Cards</c>, <c>Orders</c>,
-    /// <c>OrdersBackground</c>, <c>OrdersBackfill</c>), plus <c>since</c>/<c>to</c>, which
+    /// <c>OrdersBackground</c>, <c>OrdersBackfill</c>, <c>Accruals</c>), plus <c>since</c>/<c>to</c>, which
     /// <c>OrdersBackfill</c> requires and every other scope rejects (422 <c>validationError</c> /
     /// <c>required</c>). <c>GET accounts/{id}/backfill-bounds</c> suggests a start for the period.
     /// Answers 202 with <c>StartSyncResponse.syncRunId</c>; poll it through <c>GET sync-runs?ids=</c>.
@@ -362,6 +362,7 @@ public class MarketplacesController(
     ///   <item><c>marketplaceCredentialsUnreadable</c> — the stored key cannot be decrypted</item>
     ///   <item><c>marketplaceCredentialsInvalid</c> — the marketplace rejected the credentials; <c>args</c>: <c>marketplaceStatus</c>, optional <c>marketplaceResponse</c></item>
     ///   <item><c>marketplaceOrdersNotSupported</c> — <c>Orders</c> or <c>OrdersBackground</c> scope on a provider without the <c>Orders</c> capability; inside <c>All</c> the step is skipped instead</item>
+    ///   <item><c>marketplaceAccrualsNotSupported</c> — <c>Accruals</c> scope on a provider without the <c>Accruals</c> capability; inside <c>All</c> the step is skipped instead</item>
     ///   <item><c>marketplaceApiError</c> — any other marketplace or unexpected failure; <c>args</c>: <c>marketplaceStatus</c>, optional <c>marketplaceResponse</c> when it came from the API</item>
     ///   <item><c>marketplaceSyncInterrupted</c> — the run was left <c>Running</c> by an application shutdown and reconciled on the next start</item>
     /// </list>

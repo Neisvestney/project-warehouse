@@ -1347,7 +1347,8 @@ export type ErrorCode =
   | "orderIsExternal"
   | "marketplaceLabelFormatChanged"
   | "orderHasAssemblyTasks"
-  | "analyticsSettingsModified";
+  | "analyticsSettingsModified"
+  | "marketplaceAccrualsNotSupported";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -1511,7 +1512,15 @@ export type MarketplaceCancellationType =
   "unknown" | "seller" | "customer" | "marketplace" | "system" | "delivery";
 
 export type MarketplaceCapabilities =
-  "none" | "warehouses" | "cards" | "orders" | "stockPush" | "sellerInfo" | "labels" | "returns";
+  | "none"
+  | "warehouses"
+  | "cards"
+  | "orders"
+  | "stockPush"
+  | "sellerInfo"
+  | "labels"
+  | "returns"
+  | "accruals";
 
 export type MarketplaceCardDto = {
   id: string;
@@ -1710,11 +1719,14 @@ export type MarketplaceSyncRunDto = {
   returnsProcessed: number;
   returnsCreated: number;
   returnsUpdated: number;
+  accrualsProcessed: number;
+  accrualsCreated: number;
+  accrualsUpdated: number;
   error?: null | AppFieldError;
 };
 
 export type MarketplaceSyncScope =
-  "warehouses" | "cards" | "all" | "orders" | "ordersBackground" | "ordersBackfill";
+  "warehouses" | "cards" | "all" | "orders" | "ordersBackground" | "ordersBackfill" | "accruals";
 
 export type MarketplaceSyncStatus = "running" | "success" | "failed" | "canceled";
 

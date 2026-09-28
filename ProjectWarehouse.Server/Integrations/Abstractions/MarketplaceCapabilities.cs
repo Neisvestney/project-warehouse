@@ -11,4 +11,5 @@ public enum MarketplaceCapabilities
     SellerInfo = 16,
     Labels = 32,
     Returns = 64,
+    Accruals = 128,
 }

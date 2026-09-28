@@ -45,6 +45,9 @@ public class Order : IHasIdentity
 
     /// <summary>Every return the marketplace reported for this posting, cancellations included.</summary>
     public ICollection<MarketplaceReturn> MarketplaceReturns { get; set; } = [];
+
+    /// <summary>What the marketplace paid and kept for this posting, lines matched or not.</summary>
+    public ICollection<MarketplaceAccrual> MarketplaceAccruals { get; set; } = [];
     public ICollection<OrderBox> Boxes { get; set; } = [];
     public ICollection<AssemblyTask> AssemblyTasks { get; set; } = [];
     public List<OrderImage> Images { get; set; } = [];

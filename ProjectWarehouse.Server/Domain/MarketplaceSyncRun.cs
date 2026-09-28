@@ -46,6 +46,11 @@ public class MarketplaceSyncRun : IHasIdentity
     public int ReturnsCreated { get; set; }
     public int ReturnsUpdated { get; set; }
 
+    // counted per marketplace accrual, not per row; same rule as returns for the unchanged ones
+    public int AccrualsProcessed { get; set; }
+    public int AccrualsCreated { get; set; }
+    public int AccrualsUpdated { get; set; }
+
     /// <summary>
     /// First 100 skipped postings with their reason; <see cref="OrdersSkipped"/> holds the true total.
     /// A silent skip is the worst failure mode here — it surfaces at the warehouse when it is too late.

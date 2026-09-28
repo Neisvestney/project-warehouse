@@ -147,4 +147,22 @@ public class OzonOptions
 
     /// <summary>Same guarantee as <see cref="FboImportOverlapHours"/>, for the stream of return status changes.</summary>
     public int ReturnsImportOverlapHours { get; set; } = 6;
+
+    /// <summary>
+    /// Pause between calls to /v1/finance/accrual/by-day. It is asked once per day of the period, and at the
+    /// generic <see cref="PageDelayMs"/> Ozon answers 429 within a handful of calls.
+    /// </summary>
+    public int AccrualRequestDelayMs { get; set; } = 1000;
+
+    /// <summary>How far back the accrual sync looks on an account it has never read before.</summary>
+    public int AccrualsImportWindowPastDays { get; set; } = 14;
+
+    /// <summary>
+    /// How many days before today the daily full pass re-reads. Ozon posts a sale reversal and its return
+    /// logistics up to about ten days after the sale, and posts accruals under past dates.
+    /// </summary>
+    public int AccrualsOverlapDays { get; set; } = 14;
+
+    /// <summary>How often the full pass over <see cref="AccrualsOverlapDays"/> runs; runs in between read two days.</summary>
+    public int AccrualsFullPassIntervalHours { get; set; } = 24;
 }

@@ -115,6 +115,7 @@ public enum ErrorCode
     MarketplaceClientIdRequired = 81,
     MarketplaceApiError = 82,
     MarketplaceOrdersNotSupported = 109,
+    MarketplaceAccrualsNotSupported = 152,
     MarketplaceSyncAlreadyRunning = 83,
     MarketplaceSyncInterrupted = 84,
     MarketplaceWarehouseNotFound = 87,

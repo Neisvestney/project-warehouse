@@ -47,6 +47,7 @@
 | `POST /v3/posting/fbs/package-label/create` | `PostingFbsPackageLabelCreate` | Задание на формирование этикеток | Только статус `awaiting_deliver`; повторный вызов по тем же номерам возвращает то же задание |
 | `POST /v2/posting/fbs/package-label/get` | `PostingFbsPackageLabelGet` | Статус задания и ссылка на файл с этикетками | Одно задание за запрос |
 | `POST /v1/returns/list` | `returnsList` | Возвраты FBS и FBO | Не больше одного фильтра по дате; пагинация по `last_id` + `limit` 1…500 |
+| `POST /v1/finance/accrual/by-day` | `GetFinanceAccrualByDay` | [Начисления](marketplaces-accruals-specification.md) за один день | Beta; пагинация по `last_id`, курсор живёт 15 минут; `429` около одного запроса в секунду |
 
 > **Ограничение:** `POST /v1/warehouse/list` помечен в спецификации как устаревающий с датой отключения 7 апреля 2026 года. Использовать только `/v2/warehouse/list`.
 
@@ -399,6 +400,8 @@ MarketplaceAccount : IHasIdentity
 ├── FboPostingsSyncedAt   — DateTime?, докуда дочитан фоновый импорт отправлений FBO
 ├── FbsPostingsSyncedAt   — DateTime?, докуда дочитаны смены статусов FBS-отправлений мимо склада
 ├── ReturnsSyncedAt       — DateTime?, докуда дочитан поток изменений возвратов
+├── AccrualsSyncedAt      — DateTime?, когда последний раз читались начисления
+├── AccrualsFullPassAt    — DateTime?, когда начисления последний раз перечитывались за весь нахлёст
 ├── CreatedAt             — DateTime
 ├── CreatedById           — Guid? → ApplicationUser (SetNull)
 ├── Warehouses            — MarketplaceWarehouse[]
@@ -520,7 +523,7 @@ MarketplaceOrder
 MarketplaceSyncRun : IHasIdentity
 ├── Id                    — Guid
 ├── MarketplaceAccountId  — Guid → MarketplaceAccount (Cascade)
-├── Scope                 — MarketplaceSyncScope (Warehouses | Cards | Orders | OrdersBackground | OrdersBackfill | All)
+├── Scope                 — MarketplaceSyncScope (Warehouses | Cards | Orders | OrdersBackground | OrdersBackfill | Accruals | All)
 ├── Status                — MarketplaceSyncStatus (Running | Success | Failed | Canceled)
 ├── StartedAt             — DateTime
 ├── FinishedAt            — DateTime?
@@ -540,6 +543,9 @@ MarketplaceSyncRun : IHasIdentity
 ├── ReturnsProcessed      — int  ─┐ заполняются там же, где заказы, если провайдер
 ├── ReturnsCreated        — int   │ объявил Returns; см. marketplaces-returns-specification.md
 ├── ReturnsUpdated        — int  ─┘
+├── AccrualsProcessed     — int  ─┐ Scope = Accruals, All и OrdersBackfill, если провайдер
+├── AccrualsCreated       — int   │ объявил Accruals; см. marketplaces-accruals-specification.md
+├── AccrualsUpdated       — int  ─┘
 ├── SkippedOrders         — jsonb SkippedOrderInfo[]?  — почему заказы не создались
 └── Error                 — AppFieldError? (jsonb)
 
@@ -567,16 +573,18 @@ MarketplaceSyncRun : IHasIdentity
 | `MarketplaceType` | `Ozon = 0`, `Wildberries = 1` |
 | `MarketplaceWarehouseKind` | `Unknown = 0`, `Fbs = 1`, `Rfbs = 2`, `Express = 3`, `Fbo = 4` |
 | `MarketplaceMappingSource` | `Manual = 0`, `AutoOfferId = 1`, `AutoBarcode = 2` |
-| `MarketplaceSyncScope` | `Warehouses = 0`, `Cards = 1`, `Orders = 3`, `OrdersBackground = 4`, `OrdersBackfill = 5`, `All = 2` |
+| `MarketplaceSyncScope` | `Warehouses = 0`, `Cards = 1`, `Orders = 3`, `OrdersBackground = 4`, `OrdersBackfill = 5`, `Accruals = 6`, `All = 2` |
 | `MarketplaceSyncStatus` | `Running = 0`, `Success = 1`, `Failed = 2`, `Canceled = 3` |
 | `MarketplaceOrderStatus` | `Unknown = 0`, `AwaitingDeliver = 1`, `Delivering = 2`, `Delivered = 3`, `Cancelled = 4`, `Arbitration = 5` |
 | `MarketplaceReturnKind` | `Unknown = 0`, `Cancellation = 1`, `FullRefusal = 2`, `PartialRefusal = 3`, `CustomerReturn = 4` |
 | `MarketplaceReturnScheme` | `Unknown = 0`, `Fbs = 1`, `Fbo = 2` |
 | `MarketplaceReturnCompensationStatus` | `Sent = 1`, `Received = 2`, `Canceled = 3`, `DecompensationSent = 4` |
+| `MarketplaceAccrualScope` | `Unknown = 0`, `Posting = 1`, `Item = 2`, `Account = 3`, `Container = 4` |
+| `MarketplaceAccrualCategory` | `Unknown = 0`, `Sale = 1`, `Commission = 2`, `Logistics = 3`, `ReturnLogistics = 4`, `Processing = 5`, `Acquiring = 6`, `Advertising = 7`, `Storage = 8`, `Penalty = 9`, `Compensation = 10`, `Bonus = 11`, `Services = 12`, `Other = 13`, `DeliveryCharge = 14` |
 
 Номера идут не подряд: значение персистится числом в `MarketplaceSyncRun.Scope` и не перенумеровывается, поэтому новый scope занимает следующее свободное число, а не место по смыслу.
 
-Внутри `All` ездит только то, за чем не нужно следить человеку. `Orders` — импорт отправлений FBS, ручной и намеренно вне `All`, потому что при неразобранном каталоге он копит пропуски. `OrdersBackground` — догон статусов, импорт FBO и импорт возвратов: пропусков не даёт, входит в `All` и выполняется вторым шагом `Orders`. `OrdersBackfill` — разовый импорт истории за заданный период, вручную и вне `All` (см. [«Планировщик и запуск»](marketplaces-orders-specification.md#планировщик-и-запуск)).
+Внутри `All` ездит только то, за чем не нужно следить человеку. `Orders` — импорт отправлений FBS, ручной и намеренно вне `All`, потому что при неразобранном каталоге он копит пропуски. `OrdersBackground` — догон статусов, импорт FBO и импорт возвратов: пропусков не даёт, входит в `All` и выполняется вторым шагом `Orders`. `Accruals` — [начисления](marketplaces-accruals-specification.md): входит в `All` последним шагом, отдельно от `OrdersBackground`, чтобы лимитированный финансовый метод не валил догон заказов. `OrdersBackfill` — разовый импорт истории за заданный период, вручную и вне `All`; начисления периода он читает тоже (см. [«Планировщик и запуск»](marketplaces-orders-specification.md#планировщик-и-запуск)).
 
 `MarketplaceOrderStatus` — нормализованный набор состояний, схлопывать словарь площадки обязан **провайдер**, как это уже сделано для `MarketplaceWarehouseStatus`. Для Ozon: `awaiting_deliver` и `awaiting_packaging` → `AwaitingDeliver`; `delivering`, `driver_pickup`, `sent_by_seller` → `Delivering`; `delivered` → `Delivered`; `cancelled`, `not_accepted` → `Cancelled`; `arbitration`, `client_arbitration` → `Arbitration`; всё незнакомое → `Unknown` с `LogWarning`. Словарь FBO — подмножество этого: ни передачи перевозчику, ни арбитража, ни отказа при приёмке у него нет. `Unknown = 0` по той же причине, что `MarketplaceWarehouseStatus.Unavailable = 0`: неизвестное состояние не должно выглядеть рабочим.
 
@@ -618,6 +626,7 @@ IMarketplaceProvider
 ├── IAsyncEnumerable<IReadOnlyList<ExternalPosting>> FetchActivePostingsAsync(MarketplaceCredentials, ct)
 ├── Task<IReadOnlyList<ExternalPostingStatus>> FetchPostingStatusesAsync(MarketplaceCredentials, IReadOnlyList<string> postingNumbers, ct)
 ├── IAsyncEnumerable<IReadOnlyList<ExternalReturn>> FetchReturnsAsync(MarketplaceCredentials, ExternalReturnQuery, ct)
+├── IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> FetchAccrualsAsync(MarketplaceCredentials, DateOnly from, DateOnly to, ct)
 └── Task<ExternalLabelDocument> FetchLabelDocumentAsync(MarketplaceCredentials, IReadOnlyList<string> postingNumbers, ct)
 
 MarketplaceCredentials  — record (string? ClientId, string ApiKey)
@@ -655,8 +664,9 @@ ExternalLabelFailure    — record (string PostingNumber, string? Message)
 
 ExternalReturn          — record: один вернувшийся экземпляр, поля MarketplaceReturn без связей
 ExternalReturnQuery     — либо период по дате (StatusChanged | Returned), либо статус компенсации
+ExternalAccrual         — record: начисление, уже разложенное на строки ExternalAccrualLine
 
-MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, Labels, StockPush, SellerInfo, Returns
+MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, Labels, StockPush, SellerInfo, Returns, Accruals
 ```
 
 **`ExternalPostingItem` не несёт ссылки на карточку** — в отправлении нет `product_id` (см. раздел исходных данных). Разрешение позиции в `MarketplaceCard` по `Sku`, затем по `OfferId`, делает сервис синхронизации.
@@ -878,6 +888,7 @@ Quartz регистрируется с in-memory хранилищем задач
 | `marketplaceWarehouseNotFound` | 404 | Склад маркетплейса не найден |
 | `marketplaceCardNotFound` | 404 | Карточка маркетплейса не найдена |
 | `marketplaceOrdersNotSupported` | 422 | Провайдер аккаунта не объявил `Orders` |
+| `marketplaceAccrualsNotSupported` | — | Явный `Accruals` по провайдеру без `Accruals`; только в ошибке прогона |
 | `marketplaceAccountHasOrders` | 409 | Удаление аккаунта, по которому импортированы заказы |
 | `marketplaceAccountInactive` | — | Аккаунт отключён; только в `failedItems` у `sync-orders` |
 | `marketplaceLabelNotReady` | 409 | Площадка ещё не сформировала этикетки; `args.postingNumbers` — по каким, `args.count` — сколько |
@@ -993,7 +1004,11 @@ Quartz регистрируется с in-memory хранилищем задач
     "FboImportOverlapHours": 6,
     "FbsImportOverlapHours": 6,
     "FbsImportWindowPastDays": 60,
-    "ReturnsImportOverlapHours": 6
+    "ReturnsImportOverlapHours": 6,
+    "AccrualRequestDelayMs": 1000,
+    "AccrualsImportWindowPastDays": 14,
+    "AccrualsOverlapDays": 14,
+    "AccrualsFullPassIntervalHours": 24
   },
   "Labels": {
     "MaxArticlesOnLabel": 3,
@@ -1023,6 +1038,8 @@ Quartz регистрируется с in-memory хранилищем задач
 `FbsImportOverlapHours` — то же для фонового импорта FBS мимо склада. `FbsImportWindowPastDays` — обязательный период по дате создания для этого импорта; должен пережить самую долгую доставку: см. [«Отправления FBS мимо склада»](marketplaces-orders-specification.md#отправления-fbs-мимо-склада).
 
 `ReturnsImportOverlapHours` и `ReturnsImportWindowPastDays` (по умолчанию 6 часов и 14 дней) — то же для потока изменений возвратов: см. [«Поток изменений»](marketplaces-returns-specification.md#поток-изменений).
+
+`AccrualRequestDelayMs` — пауза между запросами начислений: общая `PageDelayMs` для этого метода слишком коротка. `AccrualsImportWindowPastDays`, `AccrualsOverlapDays` и `AccrualsFullPassIntervalHours` задают окна чтения начислений: см. [«Синхронизация»](marketplaces-accruals-specification.md#синхронизация).
 
 В `docker-compose.yml` и `docker-compose.prod.yml` добавляется том для кольца ключей Data Protection:
 

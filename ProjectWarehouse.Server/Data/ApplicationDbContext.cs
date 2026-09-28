@@ -71,6 +71,7 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<MarketplaceSyncRun> MarketplaceSyncRuns => Set<MarketplaceSyncRun>();
     public DbSet<MarketplaceOrder> MarketplaceOrders => Set<MarketplaceOrder>();
     public DbSet<MarketplaceReturn> MarketplaceReturns => Set<MarketplaceReturn>();
+    public DbSet<MarketplaceAccrual> MarketplaceAccruals => Set<MarketplaceAccrual>();
     public DbSet<MarketplaceAutoMapRule> MarketplaceAutoMapRules => Set<MarketplaceAutoMapRule>();
 
     public DbSet<Order> Orders => Set<Order>();
@@ -996,6 +997,41 @@ public class ApplicationDbContext : IdentityDbContext<
 
             e.HasIndex(x => new { x.MarketplaceAccountId, x.ExternalId }).IsUnique();
             e.HasIndex(x => new { x.MarketplaceAccountId, x.PostingNumber });
+        });
+
+        builder.Entity<MarketplaceAccrual>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.MarketplaceAccount)
+                .WithMany()
+                .HasForeignKey(x => x.MarketplaceAccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // SetNull throughout, as for returns: the row keeps its UnitNumber and amount without the links
+            e.HasOne(x => x.Order)
+                .WithMany(x => x.MarketplaceAccruals)
+                .HasForeignKey(x => x.OrderId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.OrderMarketplaceItem)
+                .WithMany(x => x.MarketplaceAccruals)
+                .HasForeignKey(x => x.OrderMarketplaceItemId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(x => x.CatalogItem)
+                .WithMany()
+                .HasForeignKey(x => x.CatalogItemId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.Property(x => x.Amount).HasPrecision(18, 2);
+
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.ExternalId, x.LineNo }).IsUnique();
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.Date });
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.UnitNumber });
         });
 
         builder.Entity<DataFile>(e =>
