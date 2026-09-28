@@ -2,13 +2,17 @@ import {addDays, parseDateOnly, toDateOnly, todayDateOnly} from "@/utils/dateOnl
 
 export type CalendarPreset = "month" | "quarter" | "year";
 export type RollingPreset = "lastMonth" | "lastYear";
-export type PeriodPreset = "page" | CalendarPreset | RollingPreset | "custom";
+export type PeriodPreset = "page" | CalendarPreset | RollingPreset | "allTime" | "custom";
 
-/** A period picked on its own, apart from the page filter; `page` follows the page. */
+/**
+ * A period picked on its own, apart from the page filter; `page` follows the page. `allTime` has no dates of
+ * its own and resolves to the bounds the caller passes as `page`.
+ */
 export type PeriodSelection =
   | {preset: "page"}
   | {preset: CalendarPreset; anchor: string}
   | {preset: RollingPreset}
+  | {preset: "allTime"}
   | {preset: "custom"; from: string; to: string};
 
 export interface Period {
@@ -23,6 +27,7 @@ export const PERIOD_PRESET_LABELS: Record<PeriodPreset, string> = {
   year: "Год",
   lastMonth: "Последний месяц",
   lastYear: "Последний год",
+  allTime: "За всё время",
   custom: "Произвольный",
 };
 
@@ -35,6 +40,9 @@ export const PERIOD_PRESETS = [
   "lastYear",
   "custom",
 ] as const;
+
+/** Mirrors `AnalyticsCalculator.MaxPeriodDays` on the server. */
+const MAX_PERIOD_DAYS = 366;
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const CALENDAR_PRESETS: string[] = ["month", "quarter", "year"];
@@ -63,13 +71,14 @@ function addMonths(date: string, months: number): string {
 const CALENDAR_MONTHS: Record<CalendarPreset, number> = {month: 1, quarter: 3, year: 12};
 
 /**
- * URL form: `page` is no param at all, `month:2026-09-01` keeps the period's first day, `lastYear`,
+ * URL form: `page` is no param at all, `month:2026-09-01` keeps the period's first day, `lastYear`, `allTime`,
  * `custom:2026-01-01_2026-03-31`. Anything unreadable falls back to `fallback`.
  */
 export function parsePeriod(query: string | null, fallback: PeriodSelection): PeriodSelection {
   if (!query) return fallback;
   const [preset, rest] = query.split(":");
   if (ROLLING_PRESETS.includes(preset)) return {preset: preset as RollingPreset};
+  if (preset === "allTime") return {preset};
   if (CALENDAR_PRESETS.includes(preset) && rest && DATE_PATTERN.test(rest))
     return {preset: preset as CalendarPreset, anchor: periodStart(preset as CalendarPreset, rest)};
   if (preset === "custom" && rest) {
@@ -87,6 +96,7 @@ export function serializePeriod(value: PeriodSelection): string | null {
       return `custom:${value.from}_${value.to}`;
     case "lastMonth":
     case "lastYear":
+    case "allTime":
       return value.preset;
     default:
       return `${value.preset}:${value.anchor}`;
@@ -97,6 +107,7 @@ export function serializePeriod(value: PeriodSelection): string | null {
 export function resolvePeriod(value: PeriodSelection, page: Period): Period {
   switch (value.preset) {
     case "page":
+    case "allTime":
       return page;
     case "custom":
       return {from: value.from, to: value.to};
@@ -119,7 +130,11 @@ export function resolvePeriod(value: PeriodSelection, page: Period): Period {
 /** Switches the preset, starting from where the current period is so the view does not jump. */
 export function withPreset(preset: PeriodPreset, current: Period): PeriodSelection {
   if (preset === "page") return {preset};
-  if (preset === "custom") return {preset, from: current.from, to: current.to};
+  if (preset === "custom") {
+    // «За всё время» can span more than the server accepts for dated periods
+    const earliest = addDays(current.to, 1 - MAX_PERIOD_DAYS);
+    return {preset, from: current.from < earliest ? earliest : current.from, to: current.to};
+  }
   if (isCalendarPreset(preset)) return {preset, anchor: periodStart(preset, current.to)};
   return {preset};
 }

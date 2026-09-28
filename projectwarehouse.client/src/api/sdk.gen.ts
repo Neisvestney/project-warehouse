@@ -38,6 +38,9 @@ import type {
   AnalyticsGetChannelsWeekdaysData,
   AnalyticsGetChannelsWeekdaysErrors,
   AnalyticsGetChannelsWeekdaysResponses,
+  AnalyticsGetPayoutsData,
+  AnalyticsGetPayoutsErrors,
+  AnalyticsGetPayoutsResponses,
   AnalyticsGetSettingsData,
   AnalyticsGetSettingsErrors,
   AnalyticsGetSettingsResponses,
@@ -880,6 +883,35 @@ export const analyticsGetAbcTimeline = <ThrowOnError extends boolean = false>(
     AnalyticsGetAbcTimelineErrors,
     ThrowOnError
   >({url: "/api/analytics/abc/timeline", ...options});
+
+/**
+ * What the marketplaces owe for postings in transit and delivered, and what they accrued in the period.
+ *
+ * Query params: `from`/`to` — both or neither; neither means all time, and the response then carries the
+ * earliest journal day of the selected shops as `from` and today as `to`; `includeMarketplaces` and
+ * `marketplaceAccountIds` as in `channels/summary`. A posting counts as accrued once the journal holds a `sale` accrual for it. Debt buckets
+ * ignore the period: `inTransit` — `delivering` postings with no sale; `deliveredNotAccrued` —
+ * `delivered` ones with no sale younger than `payoutNotAccruedDays`; `notAccruedByMarketplace` —
+ * the older ones, out of the debt. Age counts from the posting's `EffectiveDate`. A delivered posting dated
+ * before the shop's `coveredFrom` (first day of its journal, a Moscow day) with no sale is in no bucket and is
+ * counted in `uncoveredPostings`. Debt amounts are estimates: Σ price × quantity × the shop's
+ * `payoutRatio` — journal net without return logistics over sale price of the postings whose sale was accrued
+ * in the last `payoutRatioWindowDays` days, reversed ones excluded — and are null when there is no such
+ * posting or the net is not positive. `inTransit` is the sum of `inTransitByAge`. `accrued` is
+ * the sum of every journal line dated in the period, shop-wide ones included, and `categories` splits it by
+ * category, `byPosting` false for shop-wide lines. Money is per currency; `totals` sum each shop's own
+ * estimate and leave out shops with no ratio.
+ * `settings` echoes the applied parameters.
+ * Requires `analytics.view`. Same 422 codes as `channels/summary`.
+ */
+export const analyticsGetPayouts = <ThrowOnError extends boolean = false>(
+  options?: Options<AnalyticsGetPayoutsData, ThrowOnError>,
+): RequestResult<AnalyticsGetPayoutsResponses, AnalyticsGetPayoutsErrors, ThrowOnError> =>
+  (options?.client ?? client).get<
+    AnalyticsGetPayoutsResponses,
+    AnalyticsGetPayoutsErrors,
+    ThrowOnError
+  >({url: "/api/analytics/payouts", ...options});
 
 /**
  * Analytics calculation parameters: stored values, system defaults and what applies.

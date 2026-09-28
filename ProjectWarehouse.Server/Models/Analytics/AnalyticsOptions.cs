@@ -18,5 +18,6 @@ public class AnalyticsOptions
     public required int PayoutRatioWindowDays { get; init; }
     public required IReadOnlyList<int> PayoutAgeBoundaries { get; init; }
     public required int PayoutOverdueDays { get; init; }
+    public required int PayoutNotAccruedDays { get; init; }
     public required int ReturnsMaturityDays { get; init; }
 }

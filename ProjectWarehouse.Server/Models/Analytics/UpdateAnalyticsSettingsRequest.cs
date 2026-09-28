@@ -33,6 +33,9 @@ public class UpdateAnalyticsSettingsRequest
     [Range(AnalyticsCalculator.MinPayoutOverdueDays, AnalyticsCalculator.MaxPayoutOverdueDays)]
     public int? PayoutOverdueDays { get; init; }
 
+    [Range(AnalyticsCalculator.MinPayoutNotAccruedDays, AnalyticsCalculator.MaxPayoutNotAccruedDays)]
+    public int? PayoutNotAccruedDays { get; init; }
+
     [Range(AnalyticsCalculator.MinReturnsMaturityDays, AnalyticsCalculator.MaxReturnsMaturityDays)]
     public int? ReturnsMaturityDays { get; init; }
 

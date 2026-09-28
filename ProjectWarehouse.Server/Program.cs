@@ -638,6 +638,7 @@ try
     builder.Services.AddScoped<IAnalyticsSettingsService, AnalyticsSettingsService>();
     builder.Services.AddScoped<IAnalyticsChannelsService, AnalyticsChannelsService>();
     builder.Services.AddScoped<IAnalyticsAbcService, AnalyticsAbcService>();
+    builder.Services.AddScoped<IAnalyticsPayoutsService, AnalyticsPayoutsService>();
     builder.Services.AddScoped<IStocktakeDiffCalculator, StocktakeDiffCalculator>();
     var app = builder.Build();
 

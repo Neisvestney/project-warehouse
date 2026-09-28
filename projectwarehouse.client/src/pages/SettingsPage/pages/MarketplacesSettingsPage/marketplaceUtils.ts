@@ -36,7 +36,7 @@ export const SYNC_SCOPE_LABELS: Record<MarketplaceSyncScope, string> = {
   all: "Всё",
   orders: "Заказы",
   ordersBackground: "Статусы заказов",
-  ordersBackfill: "Импорт истории…",
+  ordersBackfill: "Импорт истории",
   accruals: "Начисления",
 };
 

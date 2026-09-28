@@ -32,6 +32,7 @@ public class AnalyticsSettings
     public int[]? PayoutAgeBoundaries { get; set; }
 
     public int? PayoutOverdueDays { get; set; }
+    public int? PayoutNotAccruedDays { get; set; }
     public int? ReturnsMaturityDays { get; set; }
 
     public DateTime? UpdatedAt { get; set; }

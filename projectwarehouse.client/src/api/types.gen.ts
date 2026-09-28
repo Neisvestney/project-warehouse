@@ -315,6 +315,7 @@ export type AnalyticsOptions = {
   payoutRatioWindowDays: number;
   payoutAgeBoundaries: Array<number>;
   payoutOverdueDays: number;
+  payoutNotAccruedDays: number;
   returnsMaturityDays: number;
 };
 
@@ -350,6 +351,7 @@ export type AnalyticsSettingsValuesDto = {
   payoutRatioWindowDays?: null | number;
   payoutAgeBoundaries?: null | Array<number>;
   payoutOverdueDays?: null | number;
+  payoutNotAccruedDays?: null | number;
   returnsMaturityDays?: null | number;
 };
 
@@ -1486,6 +1488,27 @@ export type MarketplaceAccountSummaryDto = {
   unmappedCardCount: number;
 };
 
+/**
+ * What an accrual row pays for, collapsed from the marketplace's type ids. Unknown = 0 marks a type the
+ * provider has no mapping for; the raw id is kept alongside.
+ */
+export type MarketplaceAccrualCategory =
+  | "unknown"
+  | "sale"
+  | "commission"
+  | "logistics"
+  | "returnLogistics"
+  | "processing"
+  | "acquiring"
+  | "advertising"
+  | "storage"
+  | "penalty"
+  | "compensation"
+  | "bonus"
+  | "services"
+  | "other"
+  | "deliveryCharge";
+
 export type MarketplaceAutoMapRuleDto = {
   id: string;
   field: MarketplaceCardField;
@@ -2189,6 +2212,99 @@ export type PaginatedWithMetaOfWriteoffSummaryDtoAndStatusListMetaDtoOfWriteoffS
   totalPages: number;
   hasNextPage: boolean;
   hasPreviousPage: boolean;
+};
+
+export type PayoutsAppliedSettingsDto = {
+  payoutRatioWindowDays: number;
+  payoutAgeBoundaries: Array<number>;
+  payoutOverdueDays: number;
+  payoutNotAccruedDays: number;
+};
+
+export type PayoutsCategoryDto = {
+  category: MarketplaceAccrualCategory;
+  /**
+   * The lines are tied to postings; otherwise they concern the shop as a whole.
+   */
+  byPosting: boolean;
+  amount: number;
+};
+
+export type PayoutsDto = {
+  /**
+   * Period of the accrued bucket; the debt buckets ignore it.
+   */
+  from: string;
+  to: string;
+  today: string;
+  timeZoneId: string;
+  settings: PayoutsAppliedSettingsDto;
+  /**
+   * One per selected shop, by name.
+   */
+  rows: Array<PayoutsRowDto>;
+  /**
+   * Every shop together, per currency; estimates are the sums of each shop's own estimate.
+   */
+  totals: Array<PayoutsMoneyDto>;
+};
+
+/**
+ * The buckets of one shop, or of all of them, in one currency. An estimate is Σ Price × Quantity × the shop's
+ * payout ratio and is null when the ratio is unknown; posting counts are exact either way.
+ */
+export type PayoutsMoneyDto = {
+  currencyCode: string;
+  /**
+   * Journal net over sale price of the shop's recently accrued postings; null on the totals row.
+   */
+  payoutRatio?: null | number;
+  inTransit?: null | number;
+  inTransitPostings: number;
+  /**
+   * `payoutAgeBoundaries.Count + 1` buckets of decimal? PayoutsMoneyDto.InTransit by age; empty when it is null.
+   */
+  inTransitByAge: Array<number>;
+  /**
+   * Part of decimal? PayoutsMoneyDto.InTransit at least `payoutOverdueDays` old.
+   */
+  inTransitOverdue?: null | number;
+  inTransitOverduePostings: number;
+  deliveredNotAccrued?: null | number;
+  deliveredNotAccruedPostings: number;
+  /**
+   * Delivered at least `payoutNotAccruedDays` ago with no sale — out of the marketplace's debt.
+   */
+  notAccruedByMarketplace?: null | number;
+  notAccruedByMarketplacePostings: number;
+  /**
+   * Σ journal amounts dated in the period, shop-wide lines included; exact.
+   */
+  accrued: number;
+  /**
+   * Postings with a journal line dated in the period.
+   */
+  accruedPostings: number;
+  /**
+   * Every journal line dated in the period by category; adds up to decimal PayoutsMoneyDto.Accrued.
+   */
+  categories: Array<PayoutsCategoryDto>;
+};
+
+export type PayoutsRowDto = {
+  marketplaceAccountId: string;
+  marketplaceType: MarketplaceType;
+  name: string;
+  /**
+   * First day of the shop's accrual journal; null when it has none. A delivered posting dated earlier and
+   * never accrued is left out of every bucket.
+   */
+  coveredFrom?: null | string;
+  /**
+   * Delivered postings dated before DateOnly? PayoutsRowDto.CoveredFrom with no sale in the journal.
+   */
+  uncoveredPostings: number;
+  money: Array<PayoutsMoneyDto>;
 };
 
 export type PermissionName =
@@ -3689,6 +3805,7 @@ export type UpdateAnalyticsSettingsRequest = {
    */
   payoutAgeBoundaries?: null | Array<number>;
   payoutOverdueDays?: null | number;
+  payoutNotAccruedDays?: null | number;
   returnsMaturityDays?: null | number;
   /**
    * The version the edit started from; a save by someone else since then is a 409.
@@ -4451,6 +4568,60 @@ export type AnalyticsGetAbcTimelineResponses = {
 
 export type AnalyticsGetAbcTimelineResponse =
   AnalyticsGetAbcTimelineResponses[keyof AnalyticsGetAbcTimelineResponses];
+
+export type AnalyticsGetPayoutsData = {
+  body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path?: never;
+  query?: {
+    /**
+     * Inclusive first day, in the caller's time zone.
+     */
+    From?: string;
+    /**
+     * Inclusive last day, in the caller's time zone.
+     */
+    To?: string;
+    /**
+     * False leaves every shop out, so the Direct channel alone can be asked for — an empty
+     * Guid[]? AnalyticsFilterRequest.MarketplaceAccountIds means all shops and cannot say "none".
+     */
+    IncludeMarketplaces?: boolean;
+    /**
+     * Shops to include. Empty means all.
+     */
+    MarketplaceAccountIds?: Array<string>;
+  };
+  url: "/api/analytics/payouts";
+};
+
+export type AnalyticsGetPayoutsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type AnalyticsGetPayoutsError = AnalyticsGetPayoutsErrors[keyof AnalyticsGetPayoutsErrors];
+
+export type AnalyticsGetPayoutsResponses = {
+  /**
+   * OK
+   */
+  200: PayoutsDto;
+};
+
+export type AnalyticsGetPayoutsResponse =
+  AnalyticsGetPayoutsResponses[keyof AnalyticsGetPayoutsResponses];
 
 export type AnalyticsGetSettingsData = {
   body?: never;

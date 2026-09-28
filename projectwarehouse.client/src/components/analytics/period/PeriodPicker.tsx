@@ -120,7 +120,10 @@ function CompactPeriodPicker({value, onChange, presets, pagePeriod}: VariantProp
   const calendar = isCalendarPreset(value.preset);
   // Presets named by their rule show the dates they resolve to on hover
   const byRule =
-    value.preset === "page" || value.preset === "lastMonth" || value.preset === "lastYear";
+    value.preset === "page" ||
+    value.preset === "lastMonth" ||
+    value.preset === "lastYear" ||
+    value.preset === "allTime";
   const range = periodLabel({preset: "custom", ...period}, period);
   const label = byRule ? PERIOD_PRESET_LABELS[value.preset] : periodLabel(value, period);
 

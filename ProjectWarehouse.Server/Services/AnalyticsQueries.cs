@@ -19,6 +19,8 @@ public sealed record AnalyticsPeriod(
     int OffsetMinutes,
     string TimeZoneId);
 
+public sealed record AnalyticsClock(DateOnly Today, int OffsetMinutes, string TimeZoneId);
+
 public sealed record AnalyticsAccount(Guid Id, string Name, MarketplaceType Type);
 
 /// <summary>
@@ -54,9 +56,8 @@ public class AnalyticsQueries(ApplicationDbContext db, IWarehouseTimeZoneResolve
             throw new ValidationException("to", ErrorCode.OutOfRange,
                 $"The period must not exceed {AnalyticsCalculator.MaxPeriodDays} days.");
 
-        var zone = await timeZones.ResolveAsync(null, ct);
-        var offsetMinutes = zone.CurrentOffsetMinutes();
-        var offset = TimeSpan.FromMinutes(offsetMinutes);
+        var clock = await ResolveClockAsync(ct);
+        var offset = TimeSpan.FromMinutes(clock.OffsetMinutes);
         var (previousFrom, previousTo) = AnalyticsCalculator.PreviousPeriod(from, to);
 
         return new AnalyticsPeriod(
@@ -67,7 +68,18 @@ public class AnalyticsQueries(ApplicationDbContext db, IWarehouseTimeZoneResolve
             ToUtc(from, offset),
             ToUtc(to.AddDays(1), offset),
             ToUtc(previousFrom, offset),
-            DateOnly.FromDateTime(DateTime.UtcNow + offset),
+            clock.Today,
+            clock.OffsetMinutes,
+            clock.TimeZoneId);
+    }
+
+    /// <summary>Today and the offset in the caller's zone, for a report that has no period of its own.</summary>
+    public async Task<AnalyticsClock> ResolveClockAsync(CancellationToken ct)
+    {
+        var zone = await timeZones.ResolveAsync(null, ct);
+        var offsetMinutes = zone.CurrentOffsetMinutes();
+        return new AnalyticsClock(
+            DateOnly.FromDateTime(DateTime.UtcNow + TimeSpan.FromMinutes(offsetMinutes)),
             offsetMinutes,
             zone.IanaId());
     }

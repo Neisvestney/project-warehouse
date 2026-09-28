@@ -16,7 +16,7 @@ import {
 } from "@mui/material";
 import type {ChannelsSummaryDto, ChannelSummaryRowDto} from "@/api/types.gen";
 import {formatDateOnly} from "@/utils/dateOnly";
-import ChannelChip from "./ChannelChip";
+import ChannelChip from "@/components/analytics/ChannelChip";
 import {formatMoney, formatNumber, formatPercent} from "@/components/analytics/analyticsFormat";
 
 interface Column {

@@ -20,7 +20,7 @@ import type {AnalyticsMeasure} from "@/api/types.gen";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {formatDateOnly} from "@/utils/dateOnly";
 import {extractErrorMessage} from "@/utils/errorUtils";
-import ChannelChip from "../ChannelChip";
+import ChannelChip from "@/components/analytics/ChannelChip";
 import {parseMeasure} from "@/components/analytics/channelsQuery";
 import {formatAverage} from "@/components/analytics/analyticsFormat";
 import {useChannelColor} from "../charts/useChannelColor";
