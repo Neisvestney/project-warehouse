@@ -84,7 +84,7 @@ public class AnalyticsCalculatorTests
     [Fact]
     public void RankAbc_EmptyInput()
     {
-        Assert.Empty(AnalyticsCalculator.RankAbc([], 80m, 95m));
+        Assert.Empty(AnalyticsCalculator.RankAbc<Guid>([], 80m, 95m));
     }
 
     [Fact]

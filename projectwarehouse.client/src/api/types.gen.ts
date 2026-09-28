@@ -34,6 +34,7 @@ export type AbcDto = {
   to: string;
   timeZoneId: string;
   basis: AnalyticsAbcBasis;
+  subject: AnalyticsAbcSubject;
   /**
    * Currency of a money basis; null for units and when the shops sold nothing with a price.
    */
@@ -47,7 +48,8 @@ export type AbcDto = {
    */
   payoutCoverage?: null | number;
   /**
-   * Marketplace sale lines with no catalog item: counted by the channel, absent from the analysis.
+   * Marketplace sale lines with no row of the subject — no catalog item, or no card: counted by the channel,
+   * absent from the analysis.
    */
   unlinkedLines: number;
   /**
@@ -86,9 +88,7 @@ export type AbcItemDto = {
    * Place in the whole analysis, 1-based.
    */
   rank: number;
-  catalogItemId: string;
-  name: string;
-  type: CatalogItemType;
+  subject: AbcSubjectDto;
   value: number;
   share: number;
   /**
@@ -118,6 +118,44 @@ export type AbcParetoPointDto = {
   class: AbcClass;
 };
 
+export type AbcSubjectAccountDto = {
+  id: string;
+  name: string;
+  type: MarketplaceType;
+};
+
+/**
+ * A row of the analysis: a catalog item, a card or an article, by AnalyticsAbcSubject AbcDto.Subject.
+ */
+export type AbcSubjectDto = {
+  /**
+   * The catalog item id, the card id or the normalized article; unique within one analysis.
+   */
+  key: string;
+  /**
+   * The item's full name, the card's name, or the name of the article's best-selling card.
+   */
+  name: string;
+  /**
+   * Set for a catalog item only, as is CatalogItemType? AbcSubjectDto.Type.
+   */
+  catalogItemId?: null | string;
+  type?: null | CatalogItemType;
+  /**
+   * Set for a card only.
+   */
+  marketplaceCardId?: null | string;
+  /**
+   * The card's offer id, or the article as its best-selling card spells it.
+   */
+  offerId?: null | string;
+  imageUrl?: null | string;
+  /**
+   * The card's account, or every account the article sold on; empty for a catalog item.
+   */
+  accounts: Array<AbcSubjectAccountDto>;
+};
+
 /**
  * All null when the item sold nothing in the window.
  */
@@ -134,6 +172,7 @@ export type AbcTimelineCellDto = {
 export type AbcTimelineDto = {
   timeZoneId: string;
   basis: AnalyticsAbcBasis;
+  subject: AnalyticsAbcSubject;
   /**
    * The currency of the period's analysis, applied to every window.
    */
@@ -176,9 +215,7 @@ export type AbcTimelineRowDto = {
    * Place in the period's analysis, 1-based.
    */
   rank: number;
-  catalogItemId: string;
-  name: string;
-  type: CatalogItemType;
+  subject: AbcSubjectDto;
   cells: Array<AbcTimelineCellDto>;
 };
 
@@ -231,6 +268,11 @@ export type AddFulfillmentRequest = {
  * What an item's ABC value is.
  */
 export type AnalyticsAbcBasis = "units" | "price" | "payout";
+
+/**
+ * What one row of the ABC analysis is.
+ */
+export type AnalyticsAbcSubject = "catalogItem" | "card" | "article";
 
 export type AnalyticsChannelKind = "marketplace" | "direct" | "directTag" | "directUntagged";
 
@@ -4287,6 +4329,7 @@ export type AnalyticsGetAbcData = {
     Page?: number;
     PageSize?: number;
     Basis?: AnalyticsAbcBasis;
+    Subject?: AnalyticsAbcSubject;
     CurrencyCode?: string;
     XyzFromFirstSale?: boolean;
     AbcClass?: AbcClass;
@@ -4335,6 +4378,10 @@ export type AnalyticsGetAbcTimelineData = {
   path?: never;
   query?: {
     Basis?: AnalyticsAbcBasis;
+    /**
+     * A card or an article leaves Direct orders out: they have no cards.
+     */
+    Subject?: AnalyticsAbcSubject;
     /**
      * Currency of a money basis; null takes the one with the most sale lines.
      */

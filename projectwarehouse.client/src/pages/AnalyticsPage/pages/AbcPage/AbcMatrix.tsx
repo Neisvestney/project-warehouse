@@ -1,7 +1,8 @@
 import {Alert, Box, ButtonBase, Stack, Typography, alpha, useTheme} from "@mui/material";
 import type {AbcClass, AbcDto, XyzClass} from "@/api/types.gen";
 import {formatNumber} from "@/components/analytics/analyticsFormat";
-import {NOUNS, pluralCount} from "@/utils/pluralUtils";
+import {pluralCount} from "@/utils/pluralUtils";
+import {SUBJECT_NOUNS} from "./abcSubjects";
 import {ABC_CLASSES, XYZ_CLASSES, formatBoundary} from "@/components/analytics/abc/abcClasses";
 
 const STEP_UNITS = {
@@ -21,6 +22,7 @@ function AbcMatrix({data, abcClass, xyzClass, onSelect}: AbcMatrixProps) {
   const theme = useTheme();
   const {xyzBoundaryX, xyzBoundaryY, xyzStep, xyzMinIntervals} = data.settings;
   const xyzAvailable = data.xyzIntervals >= xyzMinIntervals;
+  const nouns = SUBJECT_NOUNS[data.subject];
 
   const count = (abc: AbcClass, xyz: XyzClass | null) =>
     data.matrix.find((c) => c.abcClass === abc && (c.xyzClass ?? null) === xyz)?.items ?? 0;
@@ -70,7 +72,7 @@ function AbcMatrix({data, abcClass, xyzClass, onSelect}: AbcMatrixProps) {
                   key={x}
                   onClick={() => (selected ? onSelect(null, null) : onSelect(a, x))}
                   aria-pressed={selected}
-                  aria-label={`${a.toUpperCase()}${x.toUpperCase()}: ${pluralCount(items, NOUNS.position)}`}
+                  aria-label={`${a.toUpperCase()}${x.toUpperCase()}: ${pluralCount(items, nouns)}`}
                   sx={{
                     py: 1.5,
                     borderRadius: 1,
@@ -94,7 +96,7 @@ function AbcMatrix({data, abcClass, xyzClass, onSelect}: AbcMatrixProps) {
         коэффициент вариации продаж в штуках по полным {xyzStep === "week" ? "неделям" : "месяцам"}{" "}
         периода, их {data.xyzIntervals}.
         {unclassified > 0 &&
-          ` Без класса XYZ — ${pluralCount(unclassified, NOUNS.position)}: ${data.xyzFromFirstSale ? "слишком новые, меньше " + xyzMinIntervals + " полных интервалов с первой продажи, или " : ""}продажи пришлись только на неполные края периода.`}
+          ` Без класса XYZ — ${pluralCount(unclassified, nouns)}: ${data.xyzFromFirstSale ? "слишком новые, меньше " + xyzMinIntervals + " полных интервалов с первой продажи, или " : ""}продажи пришлись только на неполные края периода.`}
       </Typography>
     </Stack>
   );

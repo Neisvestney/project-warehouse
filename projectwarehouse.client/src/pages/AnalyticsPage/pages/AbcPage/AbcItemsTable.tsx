@@ -13,14 +13,15 @@ import {
 import CalendarViewMonthIcon from "@mui/icons-material/CalendarViewMonth";
 import type {AbcClass, AbcDto, XyzClass} from "@/api/types.gen";
 import {formatPercent} from "@/components/analytics/analyticsFormat";
-import {useOpenCatalogItem} from "@/components/catalog/CatalogItemDrawerContext";
-import CatalogItemLink from "@/components/catalog/CatalogItemLink";
 import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import DataTableContainer from "@/components/DataTableContainer";
 import SearchInput from "@/components/SearchInput";
 import TableRowEmpty from "@/components/TableRowEmpty";
 import {BASIS_LABELS, formatAbcValue} from "@/components/analytics/abc/abcClasses";
 import {AbcChip, XyzChip} from "@/components/analytics/abc/ClassChips";
+import MarketplaceAccountChip from "@/components/marketplace/MarketplaceAccountChip";
+import {SUBJECT_LABELS} from "./abcSubjects";
+import AbcSubjectName from "./AbcSubjectName";
 
 const COLUMNS = 9;
 
@@ -55,8 +56,8 @@ function AbcItemsTable({
   onPageSizeChange,
   onShowTimeline,
 }: AbcItemsTableProps) {
-  const openCatalogItem = useOpenCatalogItem();
-  const {items, basis, currencyCode} = data;
+  const {items, basis, subject, currencyCode} = data;
+  const labels = SUBJECT_LABELS[subject];
   const classFilter = `${abcClass?.toUpperCase() ?? ""}${xyzClass?.toUpperCase() ?? ""}`;
   const valueLabel =
     basis === "units"
@@ -67,7 +68,7 @@ function AbcItemsTable({
     <Stack spacing={1.5}>
       <Stack direction="row" useFlexGap sx={{alignItems: "center", flexWrap: "wrap", gap: 1.5}}>
         <Typography variant="subtitle1" sx={{fontWeight: 600}}>
-          Позиции
+          {labels.title}
         </Typography>
         {classFilter && (
           <Chip
@@ -102,8 +103,8 @@ function AbcItemsTable({
           <TableHead>
             <TableRow>
               <TableCell sx={{width: 40}}>#</TableCell>
-              <TableCell>Позиция</TableCell>
-              <TableCell>Тип</TableCell>
+              <TableCell>{labels.column}</TableCell>
+              <TableCell>{subject === "catalogItem" ? "Тип" : "Магазин"}</TableCell>
               <TableCell align="right">{valueLabel}</TableCell>
               <TableCell align="right">Доля</TableCell>
               <TableCell align="right">Накопл.</TableCell>
@@ -122,15 +123,27 @@ function AbcItemsTable({
               />
             ) : (
               items.items.map((item) => (
-                <TableRow key={item.catalogItemId}>
+                <TableRow key={item.subject.key}>
                   <TableCell sx={{color: "text.secondary"}}>{item.rank}</TableCell>
                   <TableCell sx={{wordBreak: "break-word", minWidth: 200}}>
-                    <CatalogItemLink catalogItemId={item.catalogItemId} onOpen={openCatalogItem}>
-                      <Typography variant="body2">{item.name}</Typography>
-                    </CatalogItemLink>
+                    <AbcSubjectName subject={item.subject} />
                   </TableCell>
                   <TableCell>
-                    <CatalogItemTypeChip type={item.type} />
+                    {item.subject.type ? (
+                      <CatalogItemTypeChip type={item.subject.type} />
+                    ) : (
+                      <Stack direction="row" useFlexGap sx={{flexWrap: "wrap", gap: 0.5}}>
+                        {item.subject.accounts.map((a) => (
+                          <MarketplaceAccountChip
+                            key={a.id}
+                            accountId={a.id}
+                            name={a.name}
+                            type={a.type}
+                            search={`?tab=cards&search=${encodeURIComponent(item.subject.offerId ?? "")}`}
+                          />
+                        ))}
+                      </Stack>
+                    )}
                   </TableCell>
                   <TableCell align="right" sx={{whiteSpace: "nowrap"}}>
                     {formatAbcValue(item.value, basis, currencyCode)}

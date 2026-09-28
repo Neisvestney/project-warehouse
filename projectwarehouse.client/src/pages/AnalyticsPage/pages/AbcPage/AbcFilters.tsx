@@ -1,5 +1,5 @@
 import {MenuItem, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip} from "@mui/material";
-import type {AnalyticsAbcBasis} from "@/api/types.gen";
+import type {AnalyticsAbcBasis, AnalyticsAbcSubject} from "@/api/types.gen";
 import ChannelsSelect from "@/components/analytics/ChannelsSelect";
 import PeriodPicker from "@/components/analytics/period/PeriodPicker";
 import {PERIOD_PRESETS} from "@/components/analytics/period/periodSelection";
@@ -7,6 +7,7 @@ import FiltersBar from "@/components/FiltersBar";
 import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
 import {useHasPermission} from "@/hooks/usePermission";
 import {BASIS_LABELS} from "@/components/analytics/abc/abcClasses";
+import {SUBJECT_LABELS, SUBJECT_TOOLTIPS, SUBJECTS} from "./abcSubjects";
 import type {useAbcFilters} from "./useAbcFilters";
 
 type AbcFiltersProps = ReturnType<typeof useAbcFilters> & {
@@ -17,7 +18,10 @@ type AbcFiltersProps = ReturnType<typeof useAbcFilters> & {
 
 const BASES: AnalyticsAbcBasis[] = ["units", "price", "payout"];
 
-/** Period, basis and currency reshape every class, so they stay in view above the channel filters. */
+/**
+ * The period takes the first row alone; what a row is, the basis and the currency reshape every class and share the
+ * second, where the XYZ toggle is pinned to the right edge so a toggle appearing or wrapping never shifts it.
+ */
 function AbcFilters({
   selection,
   from,
@@ -25,6 +29,7 @@ function AbcFilters({
   channels,
   directTagIds,
   basis,
+  subject,
   xyzFromFirstSale,
   currencies,
   currencyCode,
@@ -32,77 +37,84 @@ function AbcFilters({
   setChannels,
   setDirectTagIds,
   setBasis,
+  setSubject,
   setCurrencyCode,
   setXyzFromFirstSale,
 }: AbcFiltersProps) {
   const canViewOrderTags = useHasPermission(["orders.view", "orders.view_assigned"]);
+  // Cards and articles leave Direct orders out, so their tags would filter nothing
+  const showDirectTags = canViewOrderTags && subject === "catalogItem";
 
   return (
-    <Stack spacing={1.5}>
-      <Stack
-        direction="row"
-        useFlexGap
-        sx={{
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 1.5,
-          "& .MuiToggleButton-root": {height: 40},
-        }}
-      >
-        <PeriodPicker
-          variant="toggles"
-          presets={PERIOD_PRESETS}
-          value={selection}
-          onChange={setSelection}
-          pagePeriod={{from, to}}
-        />
-        <Stack direction="row" spacing={1.5} sx={{ml: "auto", alignItems: "center"}}>
-          {basis !== "units" && currencies.length > 1 && (
-            <TextField
-              select
-              size="small"
-              label="Валюта"
-              value={currencyCode ?? ""}
-              onChange={(e) => setCurrencyCode(e.target.value)}
-              sx={{width: 110}}
-            >
-              {currencies.map((c) => (
-                <MenuItem key={c} value={c}>
-                  {c}
-                </MenuItem>
-              ))}
-            </TextField>
-          )}
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={basis}
-            onChange={(_, value: AnalyticsAbcBasis | null) => value && setBasis(value)}
-          >
-            {BASES.map((b) => (
-              <ToggleButton key={b} value={b}>
-                {BASIS_LABELS[b]}
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
-          <Tooltip title="Ряд XYZ позиции начинается с недели её первой продажи: недели до запуска товара — не нулевой спрос">
-            <ToggleButton
-              size="small"
-              value="xyzFromFirstSale"
-              selected={xyzFromFirstSale}
-              onChange={() => setXyzFromFirstSale(!xyzFromFirstSale)}
-            >
-              XYZ с первой продажи
+    <Stack spacing={1.5} sx={{"& .MuiToggleButton-root": {height: 40}}}>
+      <PeriodPicker
+        variant="toggles"
+        presets={PERIOD_PRESETS}
+        value={selection}
+        onChange={setSelection}
+        pagePeriod={{from, to}}
+      />
+      <Stack direction="row" useFlexGap sx={{alignItems: "center", flexWrap: "wrap", gap: 1.5}}>
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={subject}
+          onChange={(_, value: AnalyticsAbcSubject | null) => value && setSubject(value)}
+        >
+          {SUBJECTS.map((s) => (
+            <Tooltip key={s} title={SUBJECT_TOOLTIPS[s]}>
+              <ToggleButton value={s}>{SUBJECT_LABELS[s].toggle}</ToggleButton>
+            </Tooltip>
+          ))}
+        </ToggleButtonGroup>
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={basis}
+          onChange={(_, value: AnalyticsAbcBasis | null) => value && setBasis(value)}
+        >
+          {BASES.map((b) => (
+            <ToggleButton key={b} value={b}>
+              {BASIS_LABELS[b]}
             </ToggleButton>
-          </Tooltip>
-        </Stack>
+          ))}
+        </ToggleButtonGroup>
+        {basis !== "units" && currencies.length > 1 && (
+          <TextField
+            select
+            size="small"
+            label="Валюта"
+            value={currencyCode ?? ""}
+            onChange={(e) => setCurrencyCode(e.target.value)}
+            sx={{width: 110}}
+          >
+            {currencies.map((c) => (
+              <MenuItem key={c} value={c}>
+                {c}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
+        <Tooltip title="Ряд XYZ позиции начинается с недели её первой продажи: недели до запуска товара — не нулевой спрос">
+          <ToggleButton
+            size="small"
+            value="xyzFromFirstSale"
+            selected={xyzFromFirstSale}
+            onChange={() => setXyzFromFirstSale(!xyzFromFirstSale)}
+            sx={{ml: "auto"}}
+          >
+            XYZ с первой продажи
+          </ToggleButton>
+        </Tooltip>
       </Stack>
 
       <FiltersBar
-        activeCount={[channels.length > 0, directTagIds.length > 0].filter(Boolean).length}
+        activeCount={
+          [channels.length > 0, showDirectTags && directTagIds.length > 0].filter(Boolean).length
+        }
       >
         <ChannelsSelect value={channels} onChange={setChannels} />
-        {canViewOrderTags && (
+        {showDirectTags && (
           <DocumentTagsFilter
             kind="order"
             label="Теги прямых заказов"

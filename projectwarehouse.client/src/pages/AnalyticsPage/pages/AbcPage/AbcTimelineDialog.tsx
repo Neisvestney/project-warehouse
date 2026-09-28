@@ -25,8 +25,6 @@ import {keepPreviousData, useQuery} from "@tanstack/react-query";
 import {analyticsGetAbcTimelineOptions} from "@/api/@tanstack/react-query.gen";
 import type {AbcTimelineCellDto, AbcTimelineMonthDto} from "@/api/types.gen";
 import {formatPercent} from "@/components/analytics/analyticsFormat";
-import {useOpenCatalogItem} from "@/components/catalog/CatalogItemDrawerContext";
-import CatalogItemLink from "@/components/catalog/CatalogItemLink";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
 import {formatDateOnly, parseDateOnly} from "@/utils/dateOnly";
 import {extractErrorMessage} from "@/utils/errorUtils";
@@ -37,6 +35,8 @@ import {
   XYZ_CLASSES,
   XYZ_COLORS,
 } from "@/components/analytics/abc/abcClasses";
+import {SUBJECT_LABELS} from "./abcSubjects";
+import AbcSubjectName from "./AbcSubjectName";
 import type {useAbcFilters} from "./useAbcFilters";
 
 type Mode = "abc" | "xyz";
@@ -119,7 +119,6 @@ function AbcTimelineDialogContent({
   filters,
   onClose,
 }: Pick<AbcTimelineDialogProps, "filters" | "onClose">) {
-  const openCatalogItem = useOpenCatalogItem();
   const [mode, setMode] = useState<Mode>("abc");
   const {Page: _page, PageSize: _pageSize, ...query} = filters.query;
 
@@ -183,7 +182,9 @@ function AbcTimelineDialogContent({
             <Table size="small" stickyHeader sx={{"& td, & th": {px: 0.5, py: 0.5}}}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{pl: "16px !important", minWidth: 200}}>Позиция</TableCell>
+                  <TableCell sx={{pl: "16px !important", minWidth: 200}}>
+                    {SUBJECT_LABELS[data.subject].column}
+                  </TableCell>
                   {data.months.map((month) => (
                     <TableCell key={month.month} align="center" sx={{minWidth: 40}}>
                       <Tooltip
@@ -213,16 +214,9 @@ function AbcTimelineDialogContent({
                 {data.rows.map((row) => {
                   const trend = trendOf(row.cells, mode);
                   return (
-                    <TableRow key={row.catalogItemId} hover>
+                    <TableRow key={row.subject.key} hover>
                       <TableCell sx={{pl: "16px !important", wordBreak: "break-word"}}>
-                        <CatalogItemLink catalogItemId={row.catalogItemId} onOpen={openCatalogItem}>
-                          <Typography variant="body2">
-                            <Box component="span" sx={{color: "text.secondary", mr: 0.75}}>
-                              {row.rank}
-                            </Box>
-                            {row.name}
-                          </Typography>
-                        </CatalogItemLink>
+                        <AbcSubjectName subject={row.subject} prefix={row.rank} showAccounts />
                       </TableCell>
                       {row.cells.map((cell, i) => {
                         const value = classOf(cell, mode);

@@ -1,4 +1,4 @@
-import type {AbcClass, AnalyticsAbcBasis, XyzClass} from "@/api/types.gen";
+import type {AbcClass, AnalyticsAbcBasis, AnalyticsAbcSubject, XyzClass} from "@/api/types.gen";
 import {
   channelSelectionQuery,
   parseList,
@@ -15,6 +15,7 @@ import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQu
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {todayDateOnly} from "@/utils/dateOnly";
+import {SUBJECTS} from "./abcSubjects";
 
 const BASES: AnalyticsAbcBasis[] = ["units", "price", "payout"];
 const ABC_CLASSES: AbcClass[] = ["a", "b", "c"];
@@ -38,6 +39,11 @@ export function useAbcFilters() {
     "basis",
     (q) => parseOneOf(BASES)(q) ?? "units",
     (v) => (v === "units" ? null : v),
+  );
+  const [subject, setSubject] = useSyncedWithQueryState<AnalyticsAbcSubject>(
+    "by",
+    (q) => parseOneOf(SUBJECTS)(q) ?? "catalogItem",
+    (v) => (v === "catalogItem" ? null : v),
   );
   // On by default: counting the weeks before an item existed as zero demand classes every newcomer as Z
   const [xyzFromFirstSale, setXyzFromFirstSale] = useSyncedWithQueryState(
@@ -65,6 +71,7 @@ export function useAbcFilters() {
     From: from,
     To: to,
     Basis: basis,
+    Subject: subject,
     CurrencyCode: basis === "units" ? undefined : (currencyCode ?? undefined),
     XyzFromFirstSale: xyzFromFirstSale,
     AbcClass: abcClass ?? undefined,
@@ -92,6 +99,7 @@ export function useAbcFilters() {
     channels,
     directTagIds,
     basis,
+    subject,
     xyzFromFirstSale,
     abcClass,
     xyzClass,
@@ -102,6 +110,7 @@ export function useAbcFilters() {
     setChannels,
     setDirectTagIds,
     setBasis,
+    setSubject,
     setXyzFromFirstSale,
     setCurrencyCode,
     setMatrixCell: (abc: AbcClass | null, xyz: XyzClass | null) => {

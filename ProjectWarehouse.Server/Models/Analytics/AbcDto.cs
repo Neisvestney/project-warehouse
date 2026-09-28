@@ -8,6 +8,7 @@ public class AbcDto
     public DateOnly To { get; init; }
     public string TimeZoneId { get; init; } = null!;
     public AnalyticsAbcBasis Basis { get; init; }
+    public AnalyticsAbcSubject Subject { get; init; }
 
     /// <summary>Currency of a money basis; null for units and when the shops sold nothing with a price.</summary>
     public string? CurrencyCode { get; init; }
@@ -18,7 +19,10 @@ public class AbcDto
     /// <summary>Accrued lines among the sale lines in the currency; filled for the payout basis only.</summary>
     public double? PayoutCoverage { get; init; }
 
-    /// <summary>Marketplace sale lines with no catalog item: counted by the channel, absent from the analysis.</summary>
+    /// <summary>
+    /// Marketplace sale lines with no row of the subject — no catalog item, or no card: counted by the channel,
+    /// absent from the analysis.
+    /// </summary>
     public int UnlinkedLines { get; init; }
 
     /// <summary>Σ of every analysed item's value.</summary>
@@ -81,14 +85,46 @@ public class AbcParetoPointDto
     public AbcClass Class { get; init; }
 }
 
+/// <summary>A row of the analysis: a catalog item, a card or an article, by <see cref="AbcDto.Subject"/>.</summary>
+public class AbcSubjectDto
+{
+    /// <summary>The catalog item id, the card id or the normalized article; unique within one analysis.</summary>
+    public string Key { get; init; } = null!;
+
+    /// <summary>The item's full name, the card's name, or the name of the article's best-selling card.</summary>
+    public string Name { get; init; } = null!;
+
+    /// <summary>Set for a catalog item only, as is <see cref="Type"/>.</summary>
+    public Guid? CatalogItemId { get; init; }
+
+    public CatalogItemType? Type { get; init; }
+
+    /// <summary>Set for a card only.</summary>
+    public Guid? MarketplaceCardId { get; init; }
+
+    /// <summary>The card's offer id, or the article as its best-selling card spells it.</summary>
+    public string? OfferId { get; init; }
+
+    public string? ImageUrl { get; init; }
+
+    /// <summary>The card's account, or every account the article sold on; empty for a catalog item.</summary>
+    public List<AbcSubjectAccountDto> Accounts { get; init; } = [];
+}
+
+public class AbcSubjectAccountDto
+{
+    public Guid Id { get; init; }
+    public string Name { get; init; } = null!;
+    public MarketplaceType Type { get; init; }
+}
+
 public class AbcItemDto
 {
     /// <summary>Place in the whole analysis, 1-based.</summary>
     public int Rank { get; init; }
 
-    public Guid CatalogItemId { get; init; }
-    public string Name { get; init; } = null!;
-    public CatalogItemType Type { get; init; }
+    public AbcSubjectDto Subject { get; init; } = null!;
+
     public decimal Value { get; init; }
     public double Share { get; init; }
 
