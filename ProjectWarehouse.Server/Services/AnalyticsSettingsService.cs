@@ -49,6 +49,7 @@ public class AnalyticsSettingsService(ApplicationDbContext db) : IAnalyticsSetti
         settings.PayoutRatioWindowDays = request.PayoutRatioWindowDays;
         settings.PayoutAgeBoundaries = request.PayoutAgeBoundaries;
         settings.PayoutOverdueDays = request.PayoutOverdueDays;
+        settings.PayoutNotAccruedDays = request.PayoutNotAccruedDays;
         settings.ReturnsMaturityDays = request.ReturnsMaturityDays;
         settings.UpdatedAt = DateTime.UtcNow;
         settings.UpdatedById = actorId;
@@ -139,6 +140,7 @@ public class AnalyticsSettingsService(ApplicationDbContext db) : IAnalyticsSetti
             PayoutRatioWindowDays = settings.PayoutRatioWindowDays,
             PayoutAgeBoundaries = settings.PayoutAgeBoundaries,
             PayoutOverdueDays = settings.PayoutOverdueDays,
+            PayoutNotAccruedDays = settings.PayoutNotAccruedDays,
             ReturnsMaturityDays = settings.ReturnsMaturityDays,
         },
         Defaults = AnalyticsCalculator.Defaults,

@@ -19,6 +19,7 @@ public static class AnalyticsCalculator
     public const int DefaultPayoutRatioWindowDays = 30;
     public static readonly IReadOnlyList<int> DefaultPayoutAgeBoundaries = [7, 14, 30];
     public const int DefaultPayoutOverdueDays = 30;
+    public const int DefaultPayoutNotAccruedDays = 30;
     public const int DefaultReturnsMaturityDays = 21;
 
     public const double MinAbcBoundaryA = 1;
@@ -38,6 +39,8 @@ public static class AnalyticsCalculator
     public const int MaxPayoutAgeBoundary = 365;
     public const int MinPayoutOverdueDays = 1;
     public const int MaxPayoutOverdueDays = 365;
+    public const int MinPayoutNotAccruedDays = 1;
+    public const int MaxPayoutNotAccruedDays = 365;
     public const int MinReturnsMaturityDays = 1;
     public const int MaxReturnsMaturityDays = 120;
 
@@ -62,6 +65,7 @@ public static class AnalyticsCalculator
         PayoutRatioWindowDays = settings?.PayoutRatioWindowDays ?? DefaultPayoutRatioWindowDays,
         PayoutAgeBoundaries = settings?.PayoutAgeBoundaries ?? DefaultPayoutAgeBoundaries,
         PayoutOverdueDays = settings?.PayoutOverdueDays ?? DefaultPayoutOverdueDays,
+        PayoutNotAccruedDays = settings?.PayoutNotAccruedDays ?? DefaultPayoutNotAccruedDays,
         ReturnsMaturityDays = settings?.ReturnsMaturityDays ?? DefaultReturnsMaturityDays,
     };
 

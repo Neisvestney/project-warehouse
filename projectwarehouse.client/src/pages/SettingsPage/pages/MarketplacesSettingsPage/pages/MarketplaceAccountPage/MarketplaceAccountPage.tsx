@@ -243,6 +243,7 @@ function MarketplaceAccountPage() {
               }}
             >
               {SYNC_SCOPE_LABELS[scope]}
+              {scope === "ordersBackfill" && "…"}
             </MenuItem>
           ))}
         </Menu>

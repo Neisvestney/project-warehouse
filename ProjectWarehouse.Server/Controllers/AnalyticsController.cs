@@ -11,6 +11,7 @@ namespace ProjectWarehouse.Server.Controllers;
 public class AnalyticsController(
     IAnalyticsChannelsService channels,
     IAnalyticsAbcService abc,
+    IAnalyticsPayoutsService payouts,
     IAnalyticsSettingsService settings,
     IChangeLogService<AnalyticsSettingsDto> changeLog) : AppControllerBase
 {
@@ -287,6 +288,41 @@ public class AnalyticsController(
         try
         {
             return Ok(await abc.GetTimelineAsync(User, request, ct));
+        }
+        catch (Infrastructure.ValidationException ex)
+        {
+            return UnprocessableEntity(ex);
+        }
+    }
+
+    /// <summary>What the marketplaces owe for postings in transit and delivered, and what they accrued in the period.</summary>
+    /// <remarks>
+    /// Query params: <c>from</c>/<c>to</c> — both or neither; neither means all time, and the response then carries the
+    /// earliest journal day of the selected shops as <c>from</c> and today as <c>to</c>; <c>includeMarketplaces</c> and
+    /// <c>marketplaceAccountIds</c> as in <c>channels/summary</c>. A posting counts as accrued once the journal holds a <c>sale</c> accrual for it. Debt buckets
+    /// ignore the period: <c>inTransit</c> — <c>delivering</c> postings with no sale; <c>deliveredNotAccrued</c> —
+    /// <c>delivered</c> ones with no sale younger than <c>payoutNotAccruedDays</c>; <c>notAccruedByMarketplace</c> —
+    /// the older ones, out of the debt. Age counts from the posting's <c>EffectiveDate</c>. A delivered posting dated
+    /// before the shop's <c>coveredFrom</c> (first day of its journal, a Moscow day) with no sale is in no bucket and is
+    /// counted in <c>uncoveredPostings</c>. Debt amounts are estimates: Σ price × quantity × the shop's
+    /// <c>payoutRatio</c> — journal net without return logistics over sale price of the postings whose sale was accrued
+    /// in the last <c>payoutRatioWindowDays</c> days, reversed ones excluded — and are null when there is no such
+    /// posting or the net is not positive. <c>inTransit</c> is the sum of <c>inTransitByAge</c>. <c>accrued</c> is
+    /// the sum of every journal line dated in the period, shop-wide ones included, and <c>categories</c> splits it by
+    /// category, <c>byPosting</c> false for shop-wide lines. Money is per currency; <c>totals</c> sum each shop's own
+    /// estimate and leave out shops with no ratio.
+    /// <c>settings</c> echoes the applied parameters.
+    /// Requires <c>analytics.view</c>. Same 422 codes as <c>channels/summary</c>.
+    /// </remarks>
+    [HttpGet("payouts")]
+    [TimeZoneAware]
+    [Authorize(Policy = Permissions.Analytics.View)]
+    [ProducesResponseType<PayoutsDto>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPayouts([FromQuery] PayoutsRequest request, CancellationToken ct = default)
+    {
+        try
+        {
+            return Ok(await payouts.GetPayoutsAsync(User, request, ct));
         }
         catch (Infrastructure.ValidationException ex)
         {

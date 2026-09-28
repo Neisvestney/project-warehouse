@@ -14,5 +14,6 @@ public class AnalyticsSettingsValuesDto
     public int? PayoutRatioWindowDays { get; init; }
     public int[]? PayoutAgeBoundaries { get; init; }
     public int? PayoutOverdueDays { get; init; }
+    public int? PayoutNotAccruedDays { get; init; }
     public int? ReturnsMaturityDays { get; init; }
 }

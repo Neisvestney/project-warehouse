@@ -15,6 +15,7 @@ import {
 import {
   analyticsGetAbcQueryKey,
   analyticsGetChannelsSummaryQueryKey,
+  analyticsGetPayoutsQueryKey,
   analyticsGetSettingsOptions,
   analyticsGetSettingsQueryKey,
   analyticsUpdateSettingsMutation,
@@ -34,11 +35,12 @@ const MIN_RETURNS_MATURITY_DAYS = 1;
 const MAX_RETURNS_MATURITY_DAYS = 120;
 
 /** Which page opened the dialog; each shows only the parameters its numbers depend on. */
-export type AnalyticsSettingsGroup = "channels" | "abc";
+export type AnalyticsSettingsGroup = "channels" | "abc" | "payouts";
 
 const GROUP_TITLES: Record<AnalyticsSettingsGroup, string> = {
   channels: "Настройки сводки по каналам",
   abc: "Настройки ABC / XYZ",
+  payouts: "Настройки выплат маркетплейсов",
 };
 
 interface ChannelsFormValues {
@@ -76,6 +78,7 @@ export function AnalyticsSettingsDialog({open, group, onClose}: AnalyticsSetting
         queryClient.invalidateQueries({queryKey: analyticsGetSettingsQueryKey()}),
         queryClient.invalidateQueries({queryKey: analyticsGetChannelsSummaryQueryKey()}),
         queryClient.invalidateQueries({queryKey: analyticsGetAbcQueryKey()}),
+        queryClient.invalidateQueries({queryKey: analyticsGetPayoutsQueryKey()}),
       ]);
       onClose();
     },
@@ -107,6 +110,13 @@ export function AnalyticsSettingsDialog({open, group, onClose}: AnalyticsSetting
               <CircularProgress size={32} />
             </Stack>
           </DialogContent>
+        ) : shownGroup === "payouts" ? (
+          <PayoutsSettingsContent
+            settings={settings}
+            isPending={isPending}
+            onSave={(body, onError) => mutation.mutate({body}, {onError})}
+            onClose={handleClose}
+          />
         ) : shownGroup === "abc" ? (
           <AbcSettingsContent
             settings={settings}
@@ -350,6 +360,148 @@ function AbcSettingsContent({settings, isPending, onSave, onClose}: ContentProps
           </FormTextField>
 
           {numberField("xyzMinIntervals")}
+
+          {formState.errors.root && <Alert severity="error">{formState.errors.root.message}</Alert>}
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={isPending}>
+          Отмена
+        </Button>
+        <Button onClick={onSubmit} variant="contained" disabled={isPending}>
+          {isPending ? <CircularProgress size={20} color="inherit" /> : "Сохранить"}
+        </Button>
+      </DialogActions>
+    </>
+  );
+}
+
+interface PayoutsFormValues {
+  payoutRatioWindowDays: string;
+  payoutAgeBoundaries: string;
+  payoutOverdueDays: string;
+  payoutNotAccruedDays: string;
+}
+
+type PayoutsDaysField = Exclude<keyof PayoutsFormValues, "payoutAgeBoundaries">;
+
+/** Mirrors the server ranges. */
+const PAYOUTS_FIELDS: Record<
+  PayoutsDaysField,
+  {label: string; min: number; max: number; helper: string}
+> = {
+  payoutRatioWindowDays: {
+    label: "Окно доли выплаты, дней",
+    min: 7,
+    max: 365,
+    helper: "Доля считается по отправлениям, начисленным за это окно",
+  },
+  payoutOverdueDays: {
+    label: "Застряло в пути, дней",
+    min: 1,
+    max: 365,
+    helper: "Отправление в пути дольше — подсвечивается",
+  },
+  payoutNotAccruedDays: {
+    label: "Площадка не начислила, дней",
+    min: 1,
+    max: 365,
+    helper: "Доставлено раньше и продажи в журнале нет — вне долга площадки",
+  },
+};
+
+const MAX_AGE_BOUNDARIES = 5;
+const MIN_AGE_BOUNDARY = 1;
+const MAX_AGE_BOUNDARY = 365;
+
+function parseAgeBoundaries(value: string): number[] {
+  return value
+    .split(/[,;\s]+/)
+    .filter(Boolean)
+    .map(Number);
+}
+
+function validateAgeBoundaries(value: string): string | true {
+  if (value.trim() === "") return true;
+  const parts = value.split(/[,;\s]+/).filter(Boolean);
+  if (parts.some((p) => !/^\d+$/.test(p))) return "Целые числа через запятую или пусто";
+  const ages = parts.map(Number);
+  if (ages.length > MAX_AGE_BOUNDARIES) return `Не больше ${MAX_AGE_BOUNDARIES} границ`;
+  if (ages.some((a) => a < MIN_AGE_BOUNDARY || a > MAX_AGE_BOUNDARY))
+    return `Каждая граница от ${MIN_AGE_BOUNDARY} до ${MAX_AGE_BOUNDARY}`;
+  return ages.every((a, i) => i === 0 || a > ages[i - 1]) ? true : "Строго по возрастанию";
+}
+
+function PayoutsSettingsContent({settings, isPending, onSave, onClose}: ContentProps) {
+  const {saved, defaults} = settings;
+  const form = useForm<PayoutsFormValues>({
+    defaultValues: {
+      payoutRatioWindowDays: saved.payoutRatioWindowDays?.toString() ?? "",
+      payoutAgeBoundaries: saved.payoutAgeBoundaries?.join(", ") ?? "",
+      payoutOverdueDays: saved.payoutOverdueDays?.toString() ?? "",
+      payoutNotAccruedDays: saved.payoutNotAccruedDays?.toString() ?? "",
+    },
+  });
+  const {setApiError} = useRhfApiErrors(form);
+  const {control, formState} = form;
+
+  const onSubmit = form.handleSubmit((values) => {
+    const ages = parseAgeBoundaries(values.payoutAgeBoundaries);
+    onSave(
+      {
+        ...saved,
+        payoutRatioWindowDays: toNullableNumber(values.payoutRatioWindowDays),
+        payoutAgeBoundaries: ages.length > 0 ? ages : null,
+        payoutOverdueDays: toNullableNumber(values.payoutOverdueDays),
+        payoutNotAccruedDays: toNullableNumber(values.payoutNotAccruedDays),
+        version: settings.version,
+      },
+      setApiError,
+    );
+  });
+
+  const daysField = (name: PayoutsDaysField) => {
+    const {label, min, max, helper} = PAYOUTS_FIELDS[name];
+    return (
+      <FormTextField
+        control={control}
+        name={name}
+        label={label}
+        placeholder={String(defaults[name])}
+        helperText={`${helper}. По умолчанию ${defaults[name]}`}
+        size="small"
+        fullWidth
+        disabled={isPending}
+        rules={{validate: (v) => optionalInteger(String(v ?? ""), min, max)}}
+      />
+    );
+  };
+
+  return (
+    <>
+      <DialogContent>
+        <Stack spacing={2} sx={{pt: 1}}>
+          <Typography variant="body2" color="text.secondary">
+            Настройки общие для всех пользователей и сразу действуют на оценки. Пустое поле —
+            системное значение по умолчанию.
+          </Typography>
+
+          {daysField("payoutRatioWindowDays")}
+
+          <FormTextField
+            control={control}
+            name="payoutAgeBoundaries"
+            label="Границы возраста в пути, дней"
+            placeholder={defaults.payoutAgeBoundaries.join(", ")}
+            helperText={`Через запятую, по возрастанию, до ${MAX_AGE_BOUNDARIES}. По умолчанию ${defaults.payoutAgeBoundaries.join(", ")}`}
+            size="small"
+            fullWidth
+            disabled={isPending}
+            rules={{validate: (v) => validateAgeBoundaries(String(v ?? ""))}}
+          />
+
+          {daysField("payoutOverdueDays")}
+          {daysField("payoutNotAccruedDays")}
 
           {formState.errors.root && <Alert severity="error">{formState.errors.root.message}</Alert>}
         </Stack>

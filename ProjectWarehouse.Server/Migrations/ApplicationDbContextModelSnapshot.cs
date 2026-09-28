@@ -175,6 +175,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.PrimitiveCollection<int[]>("PayoutAgeBoundaries")
                         .HasColumnType("integer[]");
 
+                    b.Property<int?>("PayoutNotAccruedDays")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("PayoutOverdueDays")
                         .HasColumnType("integer");
 
