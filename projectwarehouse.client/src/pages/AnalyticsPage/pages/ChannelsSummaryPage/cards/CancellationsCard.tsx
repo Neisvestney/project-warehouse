@@ -7,8 +7,8 @@ import {MARKETPLACE_CANCELLATION_TYPE_LABELS} from "@/components/orders/marketpl
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import {formatNumber, formatPercent} from "@/components/analytics/analyticsFormat";
-import ChannelsLineChart from "../charts/ChannelsLineChart";
-import {formatCount, formatShare, shareSeries} from "../charts/chartSeries";
+import ChannelsLineChart from "@/components/analytics/charts/ChannelsLineChart";
+import {formatCount, formatShare, shareSeries} from "@/components/analytics/charts/chartSeries";
 import StackedAccountsBar, {type StackPart, type StackRow} from "../charts/StackedAccountsBar";
 import CountsTable from "../CountsTable";
 import PeriodPicker from "@/components/analytics/period/PeriodPicker";

@@ -1,9 +1,9 @@
 import {keepPreviousData, useQuery} from "@tanstack/react-query";
 import {analyticsGetChannelsTimeseriesOptions} from "@/api/@tanstack/react-query.gen";
 import {channelSelectionQuery} from "@/components/analytics/channelsQuery";
-import StepMeasureToggles from "../StepMeasureToggles";
-import TotalToggle from "../TotalToggle";
-import ChartFullscreenDialog from "./ChartFullscreenDialog";
+import StepMeasureToggles from "@/components/analytics/charts/StepMeasureToggles";
+import TotalToggle from "@/components/analytics/charts/TotalToggle";
+import ChartFullscreenDialog from "@/components/analytics/charts/ChartFullscreenDialog";
 import type {useChartFullscreen} from "./useChartFullscreen";
 
 interface DynamicsFullscreenProps {

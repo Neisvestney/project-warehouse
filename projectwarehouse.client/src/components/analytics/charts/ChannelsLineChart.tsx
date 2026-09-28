@@ -69,6 +69,8 @@ interface ChannelsLineChartProps {
   height: number;
   /** How a value reads on the axis, in the tooltip and in the legend total; counts by default. */
   format?: ValueFormat;
+  /** How a value reads on the axis when `format` is too wide for it; `format` by default. */
+  axisFormat?: ValueFormat;
   /** Adds a line summing every channel; drawn only when there is more than one. */
   withTotal?: boolean;
 }
@@ -79,6 +81,7 @@ function ChannelsLineChart({
   step,
   height,
   format = formatCount,
+  axisFormat = format,
   withTotal = false,
 }: ChannelsLineChartProps) {
   const channelColor = useChannelColor();
@@ -87,6 +90,8 @@ function ChannelsLineChart({
   // `theme.palette` holds the light-scheme literals under cssVariables, and a chart stroke cannot take a CSS var
   const totalColor = scheme === "dark" ? theme.palette.common.white : theme.palette.common.black;
   const total = withTotal && series.length > 1 ? totalSeries(series) : null;
+  // Counts start at zero; money can dip below it on a day of penalties
+  const hasNegative = series.some((s) => s.values.some((v) => v != null && v < 0));
 
   if (series.length === 0)
     return (
@@ -110,7 +115,13 @@ function ChannelsLineChart({
               intervals[i] ? intervalLabel(intervals[i], step, i === 0) : "",
           },
         ]}
-        yAxis={[{min: 0, width: 48, valueFormatter: (v: number) => format(v)}]}
+        yAxis={[
+          {
+            min: hasNegative ? undefined : 0,
+            width: 48,
+            valueFormatter: (v: number) => axisFormat(v),
+          },
+        ]}
         series={[
           ...(total
             ? toChartSeries(TOTAL_KEY, TOTAL_LABEL, total, intervals, totalColor, format)

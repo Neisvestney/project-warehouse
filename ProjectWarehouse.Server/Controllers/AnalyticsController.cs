@@ -330,6 +330,32 @@ public class AnalyticsController(
         }
     }
 
+    /// <summary>The «Начислено» bucket per interval and shop.</summary>
+    /// <remarks>
+    /// Query params as in <c>payouts</c>, plus <c>step</c> — null picks one by the period length. Every journal line
+    /// counts on its own date, shop-wide ones included, so the intervals add up to <c>accrued</c> of <c>payouts</c>
+    /// for the same period. <c>currencies</c> holds a block per currency of the period's lines, each with a series per
+    /// selected shop. A future interval has null values.
+    /// Requires <c>analytics.view</c>. Same 422 codes as <c>payouts</c>, plus <c>outOfRange</c> on <c>step</c> for a
+    /// day step over all time longer than 366 days.
+    /// </remarks>
+    [HttpGet("payouts/timeseries")]
+    [TimeZoneAware]
+    [Authorize(Policy = Permissions.Analytics.View)]
+    [ProducesResponseType<PayoutsTimeseriesDto>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPayoutsTimeseries(
+        [FromQuery] PayoutsTimeseriesRequest request, CancellationToken ct = default)
+    {
+        try
+        {
+            return Ok(await payouts.GetTimeseriesAsync(User, request, ct));
+        }
+        catch (Infrastructure.ValidationException ex)
+        {
+            return UnprocessableEntity(ex);
+        }
+    }
+
     /// <summary>Analytics calculation parameters: stored values, system defaults and what applies.</summary>
     /// <remarks>
     /// A null in <c>saved</c> means the field follows the system default. <c>version</c> is to be sent back

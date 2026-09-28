@@ -6,14 +6,18 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import PageLoader from "@/components/PageLoader";
 import QueryError from "@/components/QueryError";
 import {extractErrorMessage} from "@/utils/errorUtils";
+import AccrualsDynamicsCard from "./AccrualsDynamicsCard";
+import AccrualsFullscreen from "./AccrualsFullscreen";
 import PayoutsCategoriesCard from "./PayoutsCategoriesCard";
 import PayoutsFilters from "./PayoutsFilters";
 import PayoutsShops from "./PayoutsShops";
 import PayoutsTiles from "./PayoutsTiles";
+import {useAccrualsFullscreen} from "./useAccrualsFullscreen";
 import {usePayoutsFilters} from "./usePayoutsFilters";
 
 function PayoutsPage() {
   const filters = usePayoutsFilters();
+  const fullscreen = useAccrualsFullscreen();
 
   const {data, error, isError, isFetching, isLoading, isPlaceholderData, refetch} = useQuery({
     ...analyticsGetPayoutsOptions({query: filters.query}),
@@ -54,12 +58,25 @@ function PayoutsPage() {
             <LoadingOverlay open={isFetching} alignTop />
             <Stack spacing={2}>
               <PayoutsTiles data={data} />
+              <AccrualsDynamicsCard
+                filters={filters}
+                onExpand={() =>
+                  fullscreen.openWith({
+                    channels: filters.channels,
+                    selection: filters.selection,
+                    step: filters.step,
+                    total: filters.showTotal,
+                  })
+                }
+              />
               <PayoutsCategoriesCard data={data} />
               <PayoutsShops data={data} />
             </Stack>
           </Box>
         )
       )}
+
+      <AccrualsFullscreen state={fullscreen} />
     </Stack>
   );
 }

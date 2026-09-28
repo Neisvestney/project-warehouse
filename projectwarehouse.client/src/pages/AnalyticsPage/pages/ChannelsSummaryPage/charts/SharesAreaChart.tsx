@@ -1,8 +1,8 @@
 import {LineChart} from "@mui/x-charts/LineChart";
 import type {AnalyticsIntervalDto, AnalyticsStep, ChannelSeriesDto} from "@/api/types.gen";
 import {formatNumber, formatPercent} from "@/components/analytics/analyticsFormat";
-import {intervalLabel, seriesLabel} from "./intervalLabels";
-import {useChannelColor} from "./useChannelColor";
+import {intervalLabel, seriesLabel} from "@/components/analytics/charts/intervalLabels";
+import {useChannelColor} from "@/components/analytics/charts/useChannelColor";
 
 interface SharesAreaChartProps {
   intervals: AnalyticsIntervalDto[];

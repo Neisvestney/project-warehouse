@@ -255,6 +255,22 @@ public class AnalyticsCalculatorTests
         Assert.Equal([5, 4, null], sums);
     }
 
+    [Fact]
+    public void SumByInterval_KeepsNegativeMoney()
+    {
+        var intervals = AnalyticsCalculator.SplitIntervals(
+            new DateOnly(2026, 9, 28), new DateOnly(2026, 9, 30), AnalyticsStep.Day);
+
+        var sums = AnalyticsCalculator.SumByInterval(intervals, new DateOnly(2026, 9, 29),
+        [
+            (new DateOnly(2026, 9, 28), 100.50m),
+            (new DateOnly(2026, 9, 28), -120.25m),
+            (new DateOnly(2026, 9, 29), 10m),
+        ]);
+
+        Assert.Equal([-19.75m, 10m, null], sums);
+    }
+
     [Theory]
     [InlineData("2026-09-01", "2026-10-01", AnalyticsStep.Day)]
     [InlineData("2026-09-01", "2026-10-02", AnalyticsStep.Week)]

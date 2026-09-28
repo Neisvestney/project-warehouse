@@ -9,7 +9,7 @@ import {
 } from "@/components/orders/marketplace/marketplaceOrderUtils";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import {formatMoney, formatNumber, formatPercent} from "@/components/analytics/analyticsFormat";
-import ChannelsLineChart from "../charts/ChannelsLineChart";
+import ChannelsLineChart from "@/components/analytics/charts/ChannelsLineChart";
 import StackedAccountsBar, {type StackPart} from "../charts/StackedAccountsBar";
 import CountsTable from "../CountsTable";
 import PeriodPicker from "@/components/analytics/period/PeriodPicker";

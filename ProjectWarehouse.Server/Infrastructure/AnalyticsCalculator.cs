@@ -222,6 +222,32 @@ public static class AnalyticsCalculator
         return intervals.Select((interval, i) => interval.Start > today ? (int?)null : sums[i]).ToList();
     }
 
+    public static List<AnalyticsIntervalDto> ToIntervalDtos(IReadOnlyList<AnalyticsInterval> intervals, DateOnly today) =>
+        intervals
+            .Select(i => new AnalyticsIntervalDto
+            {
+                Start = i.Start,
+                End = i.End,
+                IsPartial = i.IsPartial,
+                IsCurrent = i.Start <= today && today <= i.End,
+                IsFuture = i.Start > today,
+            })
+            .ToList();
+
+    /// <summary>The money counterpart of the count overload: same buckets, same null for a future interval.</summary>
+    public static List<decimal?> SumByInterval(
+        IReadOnlyList<AnalyticsInterval> intervals, DateOnly today, IEnumerable<(DateOnly Day, decimal Value)> values)
+    {
+        var sums = new decimal[intervals.Count];
+        foreach (var (day, value) in values)
+        {
+            var index = IntervalIndex(intervals, day);
+            if (index >= 0) sums[index] += value;
+        }
+
+        return intervals.Select((interval, i) => interval.Start > today ? (decimal?)null : sums[i]).ToList();
+    }
+
     /// <summary>
     /// One window of <see cref="TimelineWindowDays"/> ending on the last day of each of the
     /// <see cref="TimelineMonths"/> months up to the one holding the last day, oldest first. The last day is

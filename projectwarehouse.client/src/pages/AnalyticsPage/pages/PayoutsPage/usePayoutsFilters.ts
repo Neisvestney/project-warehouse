@@ -1,6 +1,7 @@
 import {
   channelSelectionQuery,
   parseList,
+  parseStep,
   serializeList,
 } from "@/components/analytics/channelsQuery";
 import {type PeriodSelection, resolvePeriod} from "@/components/analytics/period/periodSelection";
@@ -24,6 +25,13 @@ export const PAYOUTS_PERIOD_PRESETS = [
 export function usePayoutsFilters() {
   const [selection, setSelection] = usePeriodParam("period", DEFAULT_PERIOD);
   const [channels, setChannels] = useSyncedWithQueryState("channels", parseList, serializeList);
+  // Display state of the chart, kept out of `query` so switching it does not refetch the page
+  const [step, setStep] = useSyncedWithQueryState("step", parseStep, (v) => v);
+  const [showTotal, setShowTotal] = useSyncedWithQueryState(
+    "total",
+    (q) => q !== "0",
+    (v) => (v ? null : "0"),
+  );
 
   const today = todayDateOnly();
   const {from, to} = resolvePeriod(selection, {from: today, to: today});
@@ -35,7 +43,15 @@ export function usePayoutsFilters() {
     from,
     to,
     channels,
-    setSelection,
+    step,
+    showTotal,
+    setSelection: (value: PeriodSelection) => {
+      // A new preset changes the period's scale, so the step goes back to the server's pick
+      if (value.preset !== selection.preset) setStep(null);
+      setSelection(value);
+    },
     setChannels,
+    setStep,
+    setShowTotal,
   };
 }

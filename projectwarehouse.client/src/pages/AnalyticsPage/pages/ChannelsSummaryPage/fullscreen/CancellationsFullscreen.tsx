@@ -1,10 +1,10 @@
 import {keepPreviousData, useQuery} from "@tanstack/react-query";
 import {analyticsGetChannelsCancellationsOptions} from "@/api/@tanstack/react-query.gen";
 import {channelSelectionQuery} from "@/components/analytics/channelsQuery";
-import {formatCount, formatShare, shareSeries} from "../charts/chartSeries";
+import {formatCount, formatShare, shareSeries} from "@/components/analytics/charts/chartSeries";
 import ShareToggle from "../ShareToggle";
-import StepMeasureToggles from "../StepMeasureToggles";
-import ChartFullscreenDialog from "./ChartFullscreenDialog";
+import StepMeasureToggles from "@/components/analytics/charts/StepMeasureToggles";
+import ChartFullscreenDialog from "@/components/analytics/charts/ChartFullscreenDialog";
 import type {useChartFullscreen} from "./useChartFullscreen";
 
 function CancellationsFullscreen({state}: {state: ReturnType<typeof useChartFullscreen>}) {

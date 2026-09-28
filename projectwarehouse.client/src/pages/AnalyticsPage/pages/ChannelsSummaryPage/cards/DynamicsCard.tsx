@@ -4,9 +4,9 @@ import {keepPreviousData, useQuery} from "@tanstack/react-query";
 import {analyticsGetChannelsTimeseriesOptions} from "@/api/@tanstack/react-query.gen";
 import type {AnalyticsMeasure, AnalyticsStep} from "@/api/types.gen";
 import {extractErrorMessage} from "@/utils/errorUtils";
-import ChannelsLineChart from "../charts/ChannelsLineChart";
-import StepMeasureToggles from "../StepMeasureToggles";
-import TotalToggle from "../TotalToggle";
+import ChannelsLineChart from "@/components/analytics/charts/ChannelsLineChart";
+import StepMeasureToggles from "@/components/analytics/charts/StepMeasureToggles";
+import TotalToggle from "@/components/analytics/charts/TotalToggle";
 import SummaryCard from "@/components/analytics/SummaryCard";
 import type {useChannelsSummaryFilters} from "../useChannelsSummaryFilters";
 

@@ -19,19 +19,23 @@ import CloseIcon from "@mui/icons-material/Close";
 import type {AnalyticsIntervalDto, AnalyticsStep} from "@/api/types.gen";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import ChannelsSelect from "@/components/analytics/ChannelsSelect";
-import ChannelsLineChart from "../charts/ChannelsLineChart";
+import ChannelsLineChart from "./ChannelsLineChart";
 import {
   type ChartSeries,
   formatCount,
   TOTAL_LABEL,
   totalSeries,
   type ValueFormat,
-} from "../charts/chartSeries";
-import {intervalLabel, seriesLabel} from "../charts/intervalLabels";
-import {useChannelColor} from "../charts/useChannelColor";
+} from "./chartSeries";
+import {intervalLabel, seriesLabel} from "./intervalLabels";
+import {useChannelColor} from "./useChannelColor";
 import PeriodPicker from "@/components/analytics/period/PeriodPicker";
-import {PERIOD_PRESETS} from "@/components/analytics/period/periodSelection";
-import type {useChartFullscreen} from "./useChartFullscreen";
+import {
+  type Period,
+  PERIOD_PRESETS,
+  type PeriodPreset,
+  type PeriodSelection,
+} from "@/components/analytics/period/periodSelection";
 
 export interface ChartData {
   intervals: AnalyticsIntervalDto[];
@@ -40,10 +44,23 @@ export interface ChartData {
   timeZoneId: string;
 }
 
+/** The part of a page's fullscreen URL state the dialog itself drives. */
+export interface ChartFullscreenState {
+  selection: PeriodSelection;
+  period: Period;
+  channels: string[];
+  setSelection: (value: PeriodSelection) => void;
+  setChannels: (value: string[]) => void;
+  close: () => void;
+}
+
 interface ChartFullscreenDialogProps {
   open: boolean;
-  state: ReturnType<typeof useChartFullscreen>;
+  state: ChartFullscreenState;
   title: string;
+  presets?: readonly PeriodPreset[];
+  /** The span the server reports, shown as the dates of a preset that sends none. */
+  reportedPeriod?: Period;
   /** Step and measure toggles of the chart. */
   toggles: ReactNode;
   withDirect: boolean;
@@ -51,6 +68,7 @@ interface ChartFullscreenDialogProps {
   withTotal?: boolean;
   /** How the chart and the table read a value; counts by default. */
   format?: ValueFormat;
+  axisFormat?: ValueFormat;
   data: ChartData | undefined;
   isFetching: boolean;
   error: unknown;
@@ -62,10 +80,13 @@ function ChartFullscreenDialog({
   open,
   state,
   title,
+  presets = PERIOD_PRESETS,
+  reportedPeriod,
   toggles,
   withDirect,
   withTotal = false,
   format = formatCount,
+  axisFormat,
   data,
   isFetching,
   error,
@@ -91,10 +112,10 @@ function ChartFullscreenDialog({
 
         <PeriodPicker
           variant="toggles"
-          presets={PERIOD_PRESETS}
+          presets={presets}
           value={state.selection}
           onChange={state.setSelection}
-          pagePeriod={state.period}
+          pagePeriod={reportedPeriod ?? state.period}
         />
 
         {toggles}
@@ -130,6 +151,7 @@ function ChartFullscreenDialog({
                 step={data.step}
                 height={420}
                 format={format}
+                axisFormat={axisFormat}
                 withTotal={withTotal}
               />
             </Paper>

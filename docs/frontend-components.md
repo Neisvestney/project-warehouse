@@ -776,9 +776,18 @@ child rendered from `useRetainedValue`, so it mounts fresh on every open.
 | `period/PeriodPicker`, `period/periodSelection`, `period/usePeriodParam` | Period presets, their URL form and the page / card period params |
 | `ChannelsSelect`, `channelsQuery` | The shops + «Прямые» multiselect and its mapping onto `includeMarketplaces` / `marketplaceAccountIds` / `includeDirect` |
 | `SummaryCard` | Card shell: title, `hint`, subtitle, actions on the right, a 2px fetch bar |
-| `analyticsFormat` | `ru-RU` number, money and percent formatting, channel labels |
+| `analyticsFormat` | `ru-RU` number, money, compact and percent formatting, channel labels |
+| `charts/ChannelsLineChart`, `charts/chartSeries`, `charts/intervalLabels`, `charts/useChannelColor` | The line per channel over intervals with its dashed incomplete edges, the «Всего» sum, interval labels and the channel color |
+| `charts/StepMeasureToggles`, `charts/TotalToggle` | Step (and measure) toggles and the «Всего» toggle of a line chart card |
+| `charts/ChartFullscreenDialog` | A chart expanded to the whole tab with its own period, channel select and the «канал × интервал» table |
 
 A piece used by one page only stays beside that page.
+
+`ChannelsLineChart` takes the value format (`format`) for the tooltip, legend and table, and a separate
+`axisFormat` when the full figure is too wide for the axis — money charts pass `formatCompact`. The y axis starts
+at zero unless a value is negative. `ChartFullscreenDialog` knows nothing of a page's URL params: the page's own
+fullscreen hook hands it `ChartFullscreenState` (period, channels, their setters and `close`), the presets its
+period allows and, for a preset that sends no dates, the span the server reported.
 
 `PeriodPicker` has two variants. `toggles` is for the filter row of a page and a fullscreen chart: preset
 toggles, then the ‹ › stepper or the two date fields. `compact` is for a card header, where that row does not
