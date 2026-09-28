@@ -20,7 +20,13 @@ import type {AnalyticsIntervalDto, AnalyticsStep} from "@/api/types.gen";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import ChannelsSelect from "@/components/analytics/ChannelsSelect";
 import ChannelsLineChart from "../charts/ChannelsLineChart";
-import {type ChartSeries, formatCount, type ValueFormat} from "../charts/chartSeries";
+import {
+  type ChartSeries,
+  formatCount,
+  TOTAL_LABEL,
+  totalSeries,
+  type ValueFormat,
+} from "../charts/chartSeries";
 import {intervalLabel, seriesLabel} from "../charts/intervalLabels";
 import {useChannelColor} from "../charts/useChannelColor";
 import PeriodPicker from "@/components/analytics/period/PeriodPicker";
@@ -41,6 +47,8 @@ interface ChartFullscreenDialogProps {
   /** Step and measure toggles of the chart. */
   toggles: ReactNode;
   withDirect: boolean;
+  /** Adds the line and the table row summing every channel. */
+  withTotal?: boolean;
   /** How the chart and the table read a value; counts by default. */
   format?: ValueFormat;
   data: ChartData | undefined;
@@ -56,6 +64,7 @@ function ChartFullscreenDialog({
   title,
   toggles,
   withDirect,
+  withTotal = false,
   format = formatCount,
   data,
   isFetching,
@@ -121,9 +130,10 @@ function ChartFullscreenDialog({
                 step={data.step}
                 height={420}
                 format={format}
+                withTotal={withTotal}
               />
             </Paper>
-            <IntervalTable data={data} format={format} />
+            <IntervalTable data={data} format={format} withTotal={withTotal} />
           </>
         )}
       </Stack>
@@ -131,8 +141,16 @@ function ChartFullscreenDialog({
   );
 }
 
-function IntervalTable({data, format}: {data: ChartData; format: ValueFormat}) {
+interface IntervalTableProps {
+  data: ChartData;
+  format: ValueFormat;
+  withTotal: boolean;
+}
+
+function IntervalTable({data, format, withTotal}: IntervalTableProps) {
   const channelColor = useChannelColor();
+  // Same rule as the chart: a single channel is its own total
+  const total = withTotal && data.series.length > 1 ? totalSeries(data.series) : null;
 
   return (
     <TableContainer component={Paper} variant="outlined">
@@ -190,6 +208,33 @@ function IntervalTable({data, format}: {data: ChartData; format: ValueFormat}) {
               </TableCell>
             </TableRow>
           ))}
+          {total && (
+            <TableRow>
+              <TableCell
+                sx={{
+                  position: "sticky",
+                  left: 0,
+                  bgcolor: "background.paper",
+                  zIndex: 1,
+                  fontWeight: 600,
+                }}
+              >
+                {TOTAL_LABEL}
+              </TableCell>
+              {total.values.map((value, i) => (
+                <TableCell
+                  key={data.intervals[i].start}
+                  align="right"
+                  sx={{fontWeight: 600, color: value == null ? "text.disabled" : undefined}}
+                >
+                  {value == null ? "—" : format(value)}
+                </TableCell>
+              ))}
+              <TableCell align="right" sx={{fontWeight: 600}}>
+                {total.total == null ? "—" : format(total.total)}
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
     </TableContainer>

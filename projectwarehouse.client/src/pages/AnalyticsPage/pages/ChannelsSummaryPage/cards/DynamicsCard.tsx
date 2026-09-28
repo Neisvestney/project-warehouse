@@ -6,6 +6,7 @@ import type {AnalyticsMeasure, AnalyticsStep} from "@/api/types.gen";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import ChannelsLineChart from "../charts/ChannelsLineChart";
 import StepMeasureToggles from "../StepMeasureToggles";
+import TotalToggle from "../TotalToggle";
 import SummaryCard from "@/components/analytics/SummaryCard";
 import type {useChannelsSummaryFilters} from "../useChannelsSummaryFilters";
 
@@ -39,6 +40,7 @@ function DynamicsCard({filters, onExpand}: DynamicsCardProps) {
             onStepChange={(value: AnalyticsStep) => filters.setStep(value)}
             onMeasureChange={(value: AnalyticsMeasure) => filters.setMeasure(value)}
           />
+          <TotalToggle value={filters.showTotal} onChange={filters.setShowTotal} />
           <Tooltip title="Развернуть на всю вкладку">
             <IconButton onClick={onExpand}>
               <OpenInFullIcon />
@@ -54,6 +56,7 @@ function DynamicsCard({filters, onExpand}: DynamicsCardProps) {
           series={data.series}
           step={data.step}
           height={280}
+          withTotal={filters.showTotal}
         />
       )}
     </SummaryCard>

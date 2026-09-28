@@ -2,6 +2,7 @@ import {keepPreviousData, useQuery} from "@tanstack/react-query";
 import {analyticsGetChannelsTimeseriesOptions} from "@/api/@tanstack/react-query.gen";
 import {channelSelectionQuery} from "@/components/analytics/channelsQuery";
 import StepMeasureToggles from "../StepMeasureToggles";
+import TotalToggle from "../TotalToggle";
 import ChartFullscreenDialog from "./ChartFullscreenDialog";
 import type {useChartFullscreen} from "./useChartFullscreen";
 
@@ -34,14 +35,18 @@ function DynamicsFullscreen({state, directTagIds}: DynamicsFullscreenProps) {
       state={state}
       title={state.measure === "units" ? "Штуки по периодам" : "Заказы по периодам"}
       toggles={
-        <StepMeasureToggles
-          step={data?.step ?? state.step}
-          onStepChange={state.setStep}
-          measure={state.measure}
-          onMeasureChange={state.setMeasure}
-        />
+        <>
+          <StepMeasureToggles
+            step={data?.step ?? state.step}
+            onStepChange={state.setStep}
+            measure={state.measure}
+            onMeasureChange={state.setMeasure}
+          />
+          <TotalToggle value={state.showTotal} onChange={state.setShowTotal} />
+        </>
       }
       withDirect
+      withTotal={state.showTotal}
       data={data}
       isFetching={isFetching}
       error={error}

@@ -9,6 +9,24 @@ export type ValueFormat = (value: number) => string;
 export const formatCount: ValueFormat = formatNumber;
 export const formatShare: ValueFormat = (value) => formatPercent(value);
 
+export const TOTAL_LABEL = "Всего";
+
+export interface TotalSeries {
+  values: (number | null)[];
+  total: number | null;
+}
+
+/** Sum over the channels, interval by interval; an interval no channel has a value for stays empty. */
+export function totalSeries(series: ChartSeries[]): TotalSeries {
+  const sum = (values: (number | null | undefined)[]) =>
+    values.some((v) => v != null) ? values.reduce<number>((acc, v) => acc + (v ?? 0), 0) : null;
+  const length = Math.max(0, ...series.map((s) => s.values.length));
+  return {
+    values: Array.from({length}, (_, i) => sum(series.map((s) => s.values[i]))),
+    total: sum(series.map((s) => s.total)),
+  };
+}
+
 function ratio(part: number | null | undefined, whole: number | null | undefined) {
   return part == null || !whole ? null : part / whole;
 }

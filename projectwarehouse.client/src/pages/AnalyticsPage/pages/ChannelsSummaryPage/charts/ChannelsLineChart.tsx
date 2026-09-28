@@ -1,11 +1,20 @@
-import {Box, Stack, Typography} from "@mui/material";
+import {Box, Stack, Typography, useTheme} from "@mui/material";
 import {LineChart, type LineSeries} from "@mui/x-charts/LineChart";
 import type {AnalyticsIntervalDto, AnalyticsStep} from "@/api/types.gen";
-import {type ChartSeries, formatCount, type ValueFormat} from "./chartSeries";
+import {useResolvedColorScheme} from "@/hooks/useResolvedColorScheme";
+import {
+  type ChartSeries,
+  formatCount,
+  TOTAL_LABEL,
+  totalSeries,
+  type TotalSeries,
+  type ValueFormat,
+} from "./chartSeries";
 import {intervalLabel, isIncomplete, seriesLabel} from "./intervalLabels";
 import {useChannelColor} from "./useChannelColor";
 
 const DASHED_PREFIX = "dashed:";
+const TOTAL_KEY = "total";
 
 function seriesKey(series: ChartSeries): string {
   return series.marketplaceAccountId ?? series.kind;
@@ -17,19 +26,20 @@ function seriesKey(series: ChartSeries): string {
  * provisional. The dashed copy stays out of the tooltip and the legend.
  */
 function toChartSeries(
-  series: ChartSeries,
+  key: string,
+  label: string,
+  series: TotalSeries,
   intervals: AnalyticsIntervalDto[],
   color: string,
   format: ValueFormat,
 ): LineSeries[] {
   const incomplete = intervals.map(isIncomplete);
   const nearIncomplete = (i: number) => incomplete[i] || incomplete[i - 1] || incomplete[i + 1];
-  const key = seriesKey(series);
 
   return [
     {
       id: key,
-      label: seriesLabel(series),
+      label,
       color,
       // Straight segments: a smoothed curve overshoots between points and draws values that never happened
       curve: "linear",
@@ -59,6 +69,8 @@ interface ChannelsLineChartProps {
   height: number;
   /** How a value reads on the axis, in the tooltip and in the legend total; counts by default. */
   format?: ValueFormat;
+  /** Adds a line summing every channel; drawn only when there is more than one. */
+  withTotal?: boolean;
 }
 
 function ChannelsLineChart({
@@ -67,8 +79,14 @@ function ChannelsLineChart({
   step,
   height,
   format = formatCount,
+  withTotal = false,
 }: ChannelsLineChartProps) {
   const channelColor = useChannelColor();
+  const theme = useTheme();
+  const {scheme} = useResolvedColorScheme();
+  // `theme.palette` holds the light-scheme literals under cssVariables, and a chart stroke cannot take a CSS var
+  const totalColor = scheme === "dark" ? theme.palette.common.white : theme.palette.common.black;
+  const total = withTotal && series.length > 1 ? totalSeries(series) : null;
 
   if (series.length === 0)
     return (
@@ -93,14 +111,37 @@ function ChannelsLineChart({
           },
         ]}
         yAxis={[{min: 0, width: 48, valueFormatter: (v: number) => format(v)}]}
-        series={series.flatMap((s) =>
-          toChartSeries(s, intervals, channelColor(s.marketplaceAccountId), format),
-        )}
+        series={[
+          ...(total
+            ? toChartSeries(TOTAL_KEY, TOTAL_LABEL, total, intervals, totalColor, format)
+            : []),
+          ...series.flatMap((s) =>
+            toChartSeries(
+              seriesKey(s),
+              seriesLabel(s),
+              s,
+              intervals,
+              channelColor(s.marketplaceAccountId),
+              format,
+            ),
+          ),
+        ]}
         sx={{
           [`& .MuiLineChart-line[data-series^="${DASHED_PREFIX}"]`]: {strokeDasharray: "5 4"},
         }}
       />
       <Stack direction="row" useFlexGap sx={{flexWrap: "wrap", gap: 2, px: 1}}>
+        {total && (
+          <Stack direction="row" spacing={0.75} sx={{alignItems: "center"}}>
+            <Box sx={{width: 10, height: 10, borderRadius: 0.5, bgcolor: totalColor}} />
+            <Typography variant="caption" sx={{fontWeight: 600}}>
+              {TOTAL_LABEL}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {total.total == null ? "—" : format(total.total)}
+            </Typography>
+          </Stack>
+        )}
         {series.map((s) => (
           <Stack key={seriesKey(s)} direction="row" spacing={0.75} sx={{alignItems: "center"}}>
             <Box
