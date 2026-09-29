@@ -357,6 +357,31 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<GetFinanceAccrualByDayResponse> GetFinanceAccrualByDayAsync(GetFinanceAccrualByDayRequest body, System.Threading.CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Отчёт о выкупленных товарах
+        /// </summary>
+        /// <remarks>
+        /// Возвращает отчёт о товарах, которые выкупил Ozon. Соответствует разделу **Финансы → Документы → УПД по сделкам с юр. лицами → УПД по выкупленным товарам** в личном кабинете.
+        /// <br/>
+        /// <br/>[Подробнее о выкупе товаров в Базе знаний](https://seller-edu.ozon.ru/commissions-tariffs/commissions-tariffs-ozon/prodaji-tovarov-v-eaes-i-drugie-strany?search=выкупленные+товары)
+        /// </remarks>
+        /// <returns>Отчёт по выкупленным товарам</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<V1GetFinanceProductsBuyoutResponse> GetFinanceProductsBuyoutAsync(V1GetFinanceProductsBuyoutRequest? body);
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Отчёт о выкупленных товарах
+        /// </summary>
+        /// <remarks>
+        /// Возвращает отчёт о товарах, которые выкупил Ozon. Соответствует разделу **Финансы → Документы → УПД по сделкам с юр. лицами → УПД по выкупленным товарам** в личном кабинете.
+        /// <br/>
+        /// <br/>[Подробнее о выкупе товаров в Базе знаний](https://seller-edu.ozon.ru/commissions-tariffs/commissions-tariffs-ozon/prodaji-tovarov-v-eaes-i-drugie-strany?search=выкупленные+товары)
+        /// </remarks>
+        /// <returns>Отчёт по выкупленным товарам</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<V1GetFinanceProductsBuyoutResponse> GetFinanceProductsBuyoutAsync(V1GetFinanceProductsBuyoutRequest? body, System.Threading.CancellationToken cancellationToken);
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NSwag", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -2035,6 +2060,108 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
             }
         }
 
+        /// <summary>
+        /// Отчёт о выкупленных товарах
+        /// </summary>
+        /// <remarks>
+        /// Возвращает отчёт о товарах, которые выкупил Ozon. Соответствует разделу **Финансы → Документы → УПД по сделкам с юр. лицами → УПД по выкупленным товарам** в личном кабинете.
+        /// <br/>
+        /// <br/>[Подробнее о выкупе товаров в Базе знаний](https://seller-edu.ozon.ru/commissions-tariffs/commissions-tariffs-ozon/prodaji-tovarov-v-eaes-i-drugie-strany?search=выкупленные+товары)
+        /// </remarks>
+        /// <returns>Отчёт по выкупленным товарам</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        public virtual System.Threading.Tasks.Task<V1GetFinanceProductsBuyoutResponse> GetFinanceProductsBuyoutAsync(V1GetFinanceProductsBuyoutRequest? body)
+        {
+            return GetFinanceProductsBuyoutAsync(body, System.Threading.CancellationToken.None);
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Отчёт о выкупленных товарах
+        /// </summary>
+        /// <remarks>
+        /// Возвращает отчёт о товарах, которые выкупил Ozon. Соответствует разделу **Финансы → Документы → УПД по сделкам с юр. лицами → УПД по выкупленным товарам** в личном кабинете.
+        /// <br/>
+        /// <br/>[Подробнее о выкупе товаров в Базе знаний](https://seller-edu.ozon.ru/commissions-tariffs/commissions-tariffs-ozon/prodaji-tovarov-v-eaes-i-drugie-strany?search=выкупленные+товары)
+        /// </remarks>
+        /// <returns>Отчёт по выкупленным товарам</returns>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<V1GetFinanceProductsBuyoutResponse> GetFinanceProductsBuyoutAsync(V1GetFinanceProductsBuyoutRequest? body, System.Threading.CancellationToken cancellationToken)
+        {
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("POST");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                
+                    // Operation Path: "v1/finance/products/buyout"
+                    urlBuilder_.Append("v1/finance/products/buyout");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<V1GetFinanceProductsBuyoutResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RpcStatus>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new OzonApiException<RpcStatus>("\u041e\u0448\u0438\u0431\u043a\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
         protected struct ObjectResponseResult<T>
         {
             public ObjectResponseResult(T responseObject, string responseText)
@@ -2415,6 +2542,81 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
 
         [System.Runtime.Serialization.EnumMember(Value = @"DROP_OFF")]
         DROP_OFF = 2,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class GetFinanceProductsBuyoutResponseProduct
+    {
+
+        /// <summary>
+        /// Сумма к начислению.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("amount")]
+        public double? Amount { get; set; } = default!;
+
+        /// <summary>
+        /// Цена выкупа товара с НДС.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("buyout_price")]
+        public double? Buyout_price { get; set; } = default!;
+
+        /// <summary>
+        /// Скидка по категории в процентах.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("deduction_by_category_percent")]
+        public double? Deduction_by_category_percent { get; set; } = default!;
+
+        /// <summary>
+        /// Название товара.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string? Name { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор товара в системе продавца — артикул.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("offer_id")]
+        public string? Offer_id { get; set; } = default!;
+
+        /// <summary>
+        /// Номер отправления.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("posting_number")]
+        public string? Posting_number { get; set; } = default!;
+
+        /// <summary>
+        /// Количество товара.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("quantity")]
+        public int? Quantity { get; set; } = default!;
+
+        /// <summary>
+        /// Цена продавца с учётом скидки.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("seller_price_per_instance")]
+        public double? Seller_price_per_instance { get; set; } = default!;
+
+        /// <summary>
+        /// Идентификатор товара в системе Ozon — SKU.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("sku")]
+        public long? Sku { get; set; } = default!;
+
+        /// <summary>
+        /// Ставка НДС для товара в процентах.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("vat_percent")]
+        public int? Vat_percent { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
 
     }
 
@@ -10395,6 +10597,57 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class V1GetFinanceProductsBuyoutRequest
+    {
+
+        /// <summary>
+        /// Дата, с которой будут данные в отчёте.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("date_from")]
+        public string Date_from { get; set; } = default!;
+
+        /// <summary>
+        /// Дата, по которую будут данные в отчёте.
+        /// <br/>
+        /// <br/>Максимальный период — 31 день.
+        /// <br/>
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("date_to")]
+        public string Date_to { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class V1GetFinanceProductsBuyoutResponse
+    {
+
+        /// <summary>
+        /// Список выкупленных товаров
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("products")]
+        public System.Collections.Generic.IReadOnlyList<GetFinanceProductsBuyoutResponseProduct>? Products { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class V1GetReturnsListRequest
     {
 
@@ -11690,7 +11943,7 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         /// Фактический вес экземпляра.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("weight")]
-        public float? Weight { get; set; } = default!;
+        public double? Weight { get; set; } = default!;
 
         /// <summary>
         /// Список IMEI мобильных устройств.
@@ -12372,13 +12625,13 @@ namespace ProjectWarehouse.Server.Integrations.Ozon.Generated
         /// Максимальный вес экземпляра.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("weight_max")]
-        public float? Weight_max { get; set; } = default!;
+        public double? Weight_max { get; set; } = default!;
 
         /// <summary>
         /// Минимальный вес экземпляра.
         /// </summary>
         [System.Text.Json.Serialization.JsonPropertyName("weight_min")]
-        public float? Weight_min { get; set; } = default!;
+        public double? Weight_min { get; set; } = default!;
 
         /// <summary>
         /// Признак наличия IMEI.

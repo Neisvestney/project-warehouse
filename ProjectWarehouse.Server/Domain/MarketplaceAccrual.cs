@@ -27,8 +27,10 @@ public class MarketplaceAccrual : IHasIdentity
 
     public MarketplaceAccrualCategory Category { get; set; }
 
-    // the marketplace's type id; Category is what queries use
-    public string RawTypeId { get; set; } = null!;
+    public MarketplaceAccrualSource Source { get; set; }
+
+    // the marketplace's type id, null for a report that has none; Category is what queries use
+    public string? RawTypeId { get; set; }
 
     /// <summary>
     /// Posting, order or service number as the marketplace reports it. An Ozon item fee may name the order

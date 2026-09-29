@@ -41,6 +41,7 @@ public class AnalyticsPayoutsService(
         public Guid AccountId { get; init; }
         public string CurrencyCode { get; init; } = null!;
         public MarketplaceAccrualCategory Category { get; init; }
+        public MarketplaceAccrualSource Source { get; init; }
         public bool ByPosting { get; init; }
         public decimal Amount { get; init; }
     }
@@ -57,10 +58,12 @@ public class AnalyticsPayoutsService(
         var accounts = await LoadAccountsAsync(request, ct);
         var accountIds = accounts.Select(a => a.Id).ToList();
 
+        // buyout rows are dated by delivery, which may precede the journal
         var coverage = accountIds.Count == 0
             ? []
             : await db.MarketplaceAccruals
-                .Where(a => accountIds.Contains(a.MarketplaceAccountId))
+                .Where(a => accountIds.Contains(a.MarketplaceAccountId)
+                    && a.Source == MarketplaceAccrualSource.AccrualJournal)
                 .GroupBy(a => a.MarketplaceAccountId)
                 .Select(g => new { g.Key, From = g.Min(a => a.Date) })
                 .ToDictionaryAsync(x => x.Key, x => x.From, ct);
@@ -128,6 +131,7 @@ public class AnalyticsPayoutsService(
                         .Select(x => new PayoutsCategoryDto
                         {
                             Category = x.Category,
+                            Source = x.Source,
                             ByPosting = x.ByPosting,
                             Amount = x.Amount,
                         })
@@ -316,8 +320,9 @@ public class AnalyticsPayoutsService(
     /// <summary>
     /// Journal net over sale price, per shop and currency, of the postings whose sale was accrued within the
     /// window. Reversed sales and return logistics arrive days after the sale, so a fresh window would miss them
-    /// while an older one would not; both are left out and the ratio reads as what a kept sale brings. A net at or
-    /// below zero gives no ratio: it would turn the debt into a negative estimate.
+    /// while an older one would not; both are left out and the ratio reads as what a kept sale brings. Postings the
+    /// marketplace bought out are left out too: their price is far below a sale's and would drag the estimate of
+    /// ordinary sales down. A net at or below zero gives no ratio: it would turn the debt into a negative estimate.
     /// </summary>
     private async Task<Dictionary<Guid, Dictionary<string, decimal>>> LoadRatiosAsync(
         List<Guid> accountIds, DateOnly today, AnalyticsOptions options, CancellationToken ct)
@@ -329,7 +334,8 @@ public class AnalyticsPayoutsService(
                 && accountIds.Contains(o.MarketplaceOrder.MarketplaceAccountId)
                 && o.MarketplaceAccruals.Any(a => a.Category == MarketplaceAccrualCategory.Sale
                     && a.Date >= windowFrom && a.Date <= today)
-                && !o.MarketplaceAccruals.Any(a => a.Category == MarketplaceAccrualCategory.Sale && a.Amount < 0))
+                && !o.MarketplaceAccruals.Any(a => a.Category == MarketplaceAccrualCategory.Sale && a.Amount < 0)
+                && !o.MarketplaceAccruals.Any(a => a.Source == MarketplaceAccrualSource.BuyoutReport))
             .Select(o => o.Id);
 
         var net = await db.MarketplaceAccruals
@@ -394,12 +400,16 @@ public class AnalyticsPayoutsService(
                 && a.CurrencyCode != null
                 && (from == null || a.Date >= from)
                 && (to == null || a.Date <= to))
-            .GroupBy(a => new { a.MarketplaceAccountId, a.CurrencyCode, a.Category, ByPosting = a.OrderId != null })
+            .GroupBy(a => new
+            {
+                a.MarketplaceAccountId, a.CurrencyCode, a.Category, a.Source, ByPosting = a.OrderId != null,
+            })
             .Select(g => new CategorySum
             {
                 AccountId = g.Key.MarketplaceAccountId,
                 CurrencyCode = g.Key.CurrencyCode!,
                 Category = g.Key.Category,
+                Source = g.Key.Source,
                 ByPosting = g.Key.ByPosting,
                 Amount = g.Sum(a => a.Amount),
             })
@@ -478,10 +488,11 @@ public class AnalyticsPayoutsService(
                     AccruedPostings = money.Sum(m => m.AccruedPostings),
                     Categories = money
                         .SelectMany(m => m.Categories)
-                        .GroupBy(x => (x.Category, x.ByPosting))
+                        .GroupBy(x => (x.Category, x.Source, x.ByPosting))
                         .Select(x => new PayoutsCategoryDto
                         {
                             Category = x.Key.Category,
+                            Source = x.Key.Source,
                             ByPosting = x.Key.ByPosting,
                             Amount = x.Sum(y => y.Amount),
                         })

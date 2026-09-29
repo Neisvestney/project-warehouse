@@ -28,6 +28,12 @@ public class MarketplaceAccrualSyncService(
     private static readonly MarketplaceAccrualScope[] OrderNumberScopes =
         [MarketplaceAccrualScope.Posting, MarketplaceAccrualScope.Item];
 
+    /// <summary>Journal days are the marketplace's accounting days, which for Ozon are Moscow days.</summary>
+    private static readonly TimeZoneInfo JournalZone =
+        TimeZoneInfo.TryFindSystemTimeZoneById("Europe/Moscow", out var zone)
+            ? zone
+            : TimeZoneInfo.CreateCustomTimeZone("MSK", TimeSpan.FromHours(3), "MSK", "MSK");
+
     private readonly OzonOptions _ozon = options.Value.Ozon;
 
     public async Task SyncAccrualsAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
@@ -51,8 +57,22 @@ public class MarketplaceAccrualSyncService(
         if (fullPass && overlapStart < from)
             from = overlapStart;
 
+        // buyouts come in month-long windows, so a full pass of a shop without any yet reads its whole journal
+        // in a dozen calls; a shop that never has buyouts pays that once a day
+        var buyoutsFrom = from;
+        if (fullPass && !await db.MarketplaceAccruals.AnyAsync(a => a.MarketplaceAccountId == account.Id
+                && a.Source == MarketplaceAccrualSource.BuyoutReport, ct))
+        {
+            var journalStart = await db.MarketplaceAccruals
+                .Where(a => a.MarketplaceAccountId == account.Id && a.Source == MarketplaceAccrualSource.AccrualJournal)
+                .MinAsync(a => (DateOnly?)a.Date, ct);
+            if (journalStart < buyoutsFrom)
+                buyoutsFrom = journalStart.Value;
+        }
+
         // a day ahead of UTC: the marketplace's day may already have started, the provider cuts off its future
-        await ImportAsync(provider, credentials, account, run, from, today.AddDays(1), ct);
+        await ImportAsync(provider.FetchAccrualsAsync(credentials, from, today.AddDays(1), ct), account, run, ct);
+        await ImportBuyoutsAsync(provider, credentials, account, run, buyoutsFrom, today.AddDays(1), ct);
 
         // only once the whole period is through, for the same reason as FboPostingsSyncedAt
         account.AccrualsSyncedAt = now;
@@ -75,27 +95,37 @@ public class MarketplaceAccrualSyncService(
 
         using var activity = AppTelemetry.Source.StartActivity("marketplace.sync.accruals_backfill");
 
-        await ImportAsync(provider, credentials, account, run,
-            DateOnly.FromDateTime(since), DateOnly.FromDateTime(to), ct);
+        var from = DateOnly.FromDateTime(since);
+        var till = DateOnly.FromDateTime(to);
+        await ImportAsync(provider.FetchAccrualsAsync(credentials, from, till, ct), account, run, ct);
+        await ImportBuyoutsAsync(provider, credentials, account, run, from, till, ct);
         await RelinkAsync(account.Id, run, ct);
 
         activity?.SetTag("marketplace.accruals.created", run.AccrualsCreated);
     }
 
-    private async Task ImportAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
+    private async Task ImportBuyoutsAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
         MarketplaceAccount account, MarketplaceSyncRun run, DateOnly from, DateOnly to, CancellationToken ct)
     {
-        await foreach (var page in provider.FetchAccrualsAsync(credentials, from, to, ct))
-        {
-            run.AccrualsProcessed += page.Count;
+        if (provider.Capabilities.HasFlag(MarketplaceCapabilities.Buyouts))
+            await ImportAsync(provider.FetchBuyoutsAsync(credentials, from, to, ct), account, run, ct);
+    }
 
-            var ids = page.Select(a => a.ExternalId).Distinct().ToList();
+    private async Task ImportAsync(IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> pages,
+        MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
+    {
+        await foreach (var fetched in pages)
+        {
+            run.AccrualsProcessed += fetched.Count;
+
+            var ids = fetched.Select(a => a.ExternalId).Distinct().ToList();
             var known = (await db.MarketplaceAccruals
                     .Where(a => a.MarketplaceAccountId == account.Id && ids.Contains(a.ExternalId))
                     .ToListAsync(ct))
                 .GroupBy(a => a.ExternalId)
                 .ToDictionary(g => g.Key, g => g.OrderBy(a => a.LineNo).ToList());
 
+            var page = await DateBuyoutsAsync(account.Id, fetched, known, ct);
             var changed = page.Where(a => !known.TryGetValue(a.ExternalId, out var rows) || !Matches(rows, a)).ToList();
             var orders = await LoadOrdersAsync(account.Id,
                 changed.Where(a => LinkableScopes.Contains(a.Scope))
@@ -156,6 +186,7 @@ public class MarketplaceAccrualSyncService(
             var line = source.Lines[i];
             row.Date = source.Date;
             row.Scope = source.Scope;
+            row.Source = source.Source;
             row.UnitNumber = source.UnitNumber;
             row.Category = line.Category;
             row.RawTypeId = line.RawTypeId;
@@ -182,12 +213,46 @@ public class MarketplaceAccrualSyncService(
         && rows.Zip(source.Lines).All(p =>
             p.First.Date == source.Date
             && p.First.Scope == source.Scope
+            && p.First.Source == source.Source
             && p.First.UnitNumber == source.UnitNumber
             && p.First.Category == p.Second.Category
             && p.First.RawTypeId == p.Second.RawTypeId
             && p.First.Sku == p.Second.Sku
             && p.First.Amount == p.Second.Amount
             && p.First.CurrencyCode == p.Second.CurrencyCode);
+
+    /// <summary>
+    /// The buyout report dates no row. A buyout takes the Moscow day its posting was seen delivered, else the day
+    /// it is already stored on, else the provider's window end — so a later window does not move it again.
+    /// </summary>
+    private async Task<IReadOnlyList<ExternalAccrual>> DateBuyoutsAsync(Guid accountId,
+        IReadOnlyList<ExternalAccrual> page, Dictionary<string, List<MarketplaceAccrual>> known, CancellationToken ct)
+    {
+        var units = page
+            .Where(a => a.Source == MarketplaceAccrualSource.BuyoutReport)
+            .Select(a => a.UnitNumber)
+            .OfType<string>()
+            .ToHashSet();
+        if (units.Count == 0)
+            return page;
+
+        var delivered = await db.MarketplaceOrders
+            .Where(o => o.MarketplaceAccountId == accountId && units.Contains(o.PostingNumber) && o.DeliveredAt != null)
+            .ToDictionaryAsync(o => o.PostingNumber, o => o.DeliveredAt!.Value, ct);
+
+        return page
+            .Select(a =>
+            {
+                if (a.Source != MarketplaceAccrualSource.BuyoutReport)
+                    return a;
+                if (a.UnitNumber is { } unit && delivered.TryGetValue(unit, out var at))
+                    return a with { Date = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(at, JournalZone)) };
+                if (known.TryGetValue(a.ExternalId, out var rows) && rows.Count > 0)
+                    return a with { Date = rows[0].Date };
+                return a;
+            })
+            .ToList();
+    }
 
     /// <summary>
     /// Accruals saved before their posting was imported, which the order sync catches up with on its own

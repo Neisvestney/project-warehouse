@@ -48,6 +48,7 @@
 | `POST /v2/posting/fbs/package-label/get` | `PostingFbsPackageLabelGet` | Статус задания и ссылка на файл с этикетками | Одно задание за запрос |
 | `POST /v1/returns/list` | `returnsList` | Возвраты FBS и FBO | Не больше одного фильтра по дате; пагинация по `last_id` + `limit` 1…500 |
 | `POST /v1/finance/accrual/by-day` | `GetFinanceAccrualByDay` | [Начисления](marketplaces-accruals-specification.md) за один день | Beta; пагинация по `last_id`, курсор живёт 15 минут; `429` около одного запроса в секунду |
+| `POST /v1/finance/products/buyout` | `GetFinanceProductsBuyout` | [Выкупленные Ozon товары](marketplaces-accruals-specification.md#выкупленные-площадкой-товары) за период | Период не длиннее 31 дня, без пагинации; нет даты и валюты строки; лимит как у журнала |
 
 > **Ограничение:** `POST /v1/warehouse/list` помечен в спецификации как устаревающий с датой отключения 7 апреля 2026 года. Использовать только `/v2/warehouse/list`.
 
@@ -229,7 +230,8 @@ using System.Text.Json.Nodes;
 4. Прописать `servers[0].url = "https://api-seller.ozon.ru"` — исходное значение `//api-seller.ozon.ru` без схемы NSwag разбирает некорректно.
 5. **Санитайзинг.** Спека объявляет себя как OpenAPI 3.0.0, но содержит наследие Swagger 2.0, которое NJsonSchema не переваривает:
    - `required: true` булевым внутри схемы свойства (в 3.0 это массив имён на объекте-владельце) — падение при разборе;
-   - схемы массивов с `items`, но **без** `"type": "array"` — молча генерируются как `object?` вместо типизированной коллекции (задевает `productv3GetProductListResponseResult.items` и фильтры запроса).
+   - схемы массивов с `items`, но **без** `"type": "array"` — молча генерируются как `object?` вместо типизированной коллекции (задевает `productv3GetProductListResponseResult.items` и фильтры запроса);
+   - `format: float` расширяется до `double`: так в спеке объявлены и деньги (сумма выкупа), а `float` с его 7 значащими цифрами теряет копейки на суммах от ~131 тыс.
 
    Санитайзер обходит документ **по позициям схем** (`schema`, `schemas`, затем `properties`/`items`/`allOf`/…), а не рекурсией по всем узлам: слепой обход принял бы `properties`-словарь за схему всякий раз, когда у объекта есть свойство с именем `items` или `type` — в спеке Ozon есть и то, и другое.
 

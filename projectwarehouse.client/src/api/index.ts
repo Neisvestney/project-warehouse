@@ -524,6 +524,7 @@ export type {
   MarketplaceAccountSortBy,
   MarketplaceAccountSummaryDto,
   MarketplaceAccrualCategory,
+  MarketplaceAccrualSource,
   MarketplaceAutoMapRuleDto,
   MarketplaceAutoMapRulesCreateRuleData,
   MarketplaceAutoMapRulesCreateRuleError,

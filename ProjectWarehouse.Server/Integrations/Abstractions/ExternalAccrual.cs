@@ -1,4 +1,4 @@
-﻿using ProjectWarehouse.Server.Domain;
+using ProjectWarehouse.Server.Domain;
 
 namespace ProjectWarehouse.Server.Integrations.Abstractions;
 
@@ -8,11 +8,12 @@ public record ExternalAccrual(
     DateOnly Date,
     MarketplaceAccrualScope Scope,
     string? UnitNumber,
-    IReadOnlyList<ExternalAccrualLine> Lines);
+    IReadOnlyList<ExternalAccrualLine> Lines,
+    MarketplaceAccrualSource Source = MarketplaceAccrualSource.AccrualJournal);
 
 public record ExternalAccrualLine(
     MarketplaceAccrualCategory Category,
-    string RawTypeId,
+    string? RawTypeId,
     string? Sku,
     decimal Amount,
     string? CurrencyCode);

@@ -2103,6 +2103,79 @@
           }
         }
       }
+    },
+    "/v1/finance/products/buyout": {
+      "post": {
+        "summary": "\u041E\u0442\u0447\u0451\u0442 \u043E \u0432\u044B\u043A\u0443\u043F\u043B\u0435\u043D\u043D\u044B\u0445 \u0442\u043E\u0432\u0430\u0440\u0430\u0445",
+        "description": "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u043E\u0442\u0447\u0451\u0442 \u043E \u0442\u043E\u0432\u0430\u0440\u0430\u0445, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u0432\u044B\u043A\u0443\u043F\u0438\u043B Ozon. \u0421\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u0440\u0430\u0437\u0434\u0435\u043B\u0443 **\u0424\u0438\u043D\u0430\u043D\u0441\u044B \u2192 \u0414\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u044B \u2192 \u0423\u041F\u0414 \u043F\u043E \u0441\u0434\u0435\u043B\u043A\u0430\u043C \u0441 \u044E\u0440. \u043B\u0438\u0446\u0430\u043C\u0438 \u2192 \u0423\u041F\u0414 \u043F\u043E \u0432\u044B\u043A\u0443\u043F\u043B\u0435\u043D\u043D\u044B\u043C \u0442\u043E\u0432\u0430\u0440\u0430\u043C** \u0432 \u043B\u0438\u0447\u043D\u043E\u043C \u043A\u0430\u0431\u0438\u043D\u0435\u0442\u0435.\n\n[\u041F\u043E\u0434\u0440\u043E\u0431\u043D\u0435\u0435 \u043E \u0432\u044B\u043A\u0443\u043F\u0435 \u0442\u043E\u0432\u0430\u0440\u043E\u0432 \u0432 \u0411\u0430\u0437\u0435 \u0437\u043D\u0430\u043D\u0438\u0439](https://seller-edu.ozon.ru/commissions-tariffs/commissions-tariffs-ozon/prodaji-tovarov-v-eaes-i-drugie-strany?search=\u0432\u044B\u043A\u0443\u043F\u043B\u0435\u043D\u043D\u044B\u0435\u002B\u0442\u043E\u0432\u0430\u0440\u044B)\n",
+        "operationId": "GetFinanceProductsBuyout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/v1GetFinanceProductsBuyoutRequest"
+              },
+              "example": {
+                "date_from": "YYYY-MM-DD",
+                "date_to": "YYYY-MM-DD"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "\u041E\u0442\u0447\u0451\u0442 \u043F\u043E \u0432\u044B\u043A\u0443\u043F\u043B\u0435\u043D\u043D\u044B\u043C \u0442\u043E\u0432\u0430\u0440\u0430\u043C",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/v1GetFinanceProductsBuyoutResponse"
+                },
+                "example": {
+                  "products": [
+                    {
+                      "name": "\u0424\u0443\u0442\u0431\u043E\u043B\u043A\u0430 Daniele Patrici",
+                      "offer_id": "y9604060-S",
+                      "sku": "985111329",
+                      "posting_number": "0208194185-0001-1",
+                      "seller_price_per_instance": 95,
+                      "deduction_by_category_percent": "3.13",
+                      "buyout_price": 92.3,
+                      "vat_percent": 20,
+                      "quantity": 1,
+                      "amount": 92.3
+                    },
+                    {
+                      "name": "\u0421\u0430\u0431\u043E T.TACCARDI",
+                      "offer_id": "W1496390-41",
+                      "sku": "1505091950",
+                      "posting_number": "84189625-0009-3",
+                      "seller_price_per_instance": 2086,
+                      "deduction_by_category_percent": "3.01",
+                      "buyout_price": 2023.3,
+                      "vat_percent": 20,
+                      "quantity": 1,
+                      "amount": 2023.3
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "\u041E\u0448\u0438\u0431\u043A\u0430",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/rpcStatus"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "FinanceAPI"
+        ]
+      }
     }
   },
   "components": {
@@ -2235,6 +2308,58 @@
           "PICK_UP",
           "DROP_OFF"
         ]
+      },
+      "GetFinanceProductsBuyoutResponseProduct": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "format": "double",
+            "description": "\u0421\u0443\u043C\u043C\u0430 \u043A \u043D\u0430\u0447\u0438\u0441\u043B\u0435\u043D\u0438\u044E."
+          },
+          "buyout_price": {
+            "type": "number",
+            "format": "double",
+            "description": "\u0426\u0435\u043D\u0430 \u0432\u044B\u043A\u0443\u043F\u0430 \u0442\u043E\u0432\u0430\u0440\u0430 \u0441 \u041D\u0414\u0421."
+          },
+          "deduction_by_category_percent": {
+            "type": "number",
+            "format": "double",
+            "description": "\u0421\u043A\u0438\u0434\u043A\u0430 \u043F\u043E \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0438 \u0432 \u043F\u0440\u043E\u0446\u0435\u043D\u0442\u0430\u0445."
+          },
+          "name": {
+            "description": "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0442\u043E\u0432\u0430\u0440\u0430.",
+            "type": "string"
+          },
+          "offer_id": {
+            "type": "string",
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0442\u043E\u0432\u0430\u0440\u0430 \u0432 \u0441\u0438\u0441\u0442\u0435\u043C\u0435 \u043F\u0440\u043E\u0434\u0430\u0432\u0446\u0430 \u2014 \u0430\u0440\u0442\u0438\u043A\u0443\u043B."
+          },
+          "posting_number": {
+            "type": "string",
+            "description": "\u041D\u043E\u043C\u0435\u0440 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32",
+            "description": "\u041A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u0442\u043E\u0432\u0430\u0440\u0430."
+          },
+          "seller_price_per_instance": {
+            "type": "number",
+            "format": "double",
+            "description": "\u0426\u0435\u043D\u0430 \u043F\u0440\u043E\u0434\u0430\u0432\u0446\u0430 \u0441 \u0443\u0447\u0451\u0442\u043E\u043C \u0441\u043A\u0438\u0434\u043A\u0438."
+          },
+          "sku": {
+            "type": "integer",
+            "format": "int64",
+            "description": "\u0418\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440 \u0442\u043E\u0432\u0430\u0440\u0430 \u0432 \u0441\u0438\u0441\u0442\u0435\u043C\u0435 Ozon \u2014 SKU."
+          },
+          "vat_percent": {
+            "type": "integer",
+            "format": "int32",
+            "description": "\u0421\u0442\u0430\u0432\u043A\u0430 \u041D\u0414\u0421 \u0434\u043B\u044F \u0442\u043E\u0432\u0430\u0440\u0430 \u0432 \u043F\u0440\u043E\u0446\u0435\u043D\u0442\u0430\u0445."
+          }
+        }
       },
       "GetProductInfoListResponseAvailability": {
         "type": "object",
@@ -6842,6 +6967,35 @@
           }
         }
       },
+      "v1GetFinanceProductsBuyoutRequest": {
+        "type": "object",
+        "required": [
+          "date_from",
+          "date_to"
+        ],
+        "properties": {
+          "date_from": {
+            "description": "\u0414\u0430\u0442\u0430, \u0441 \u043A\u043E\u0442\u043E\u0440\u043E\u0439 \u0431\u0443\u0434\u0443\u0442 \u0434\u0430\u043D\u043D\u044B\u0435 \u0432 \u043E\u0442\u0447\u0451\u0442\u0435.",
+            "type": "string"
+          },
+          "date_to": {
+            "description": "\u0414\u0430\u0442\u0430, \u043F\u043E \u043A\u043E\u0442\u043E\u0440\u0443\u044E \u0431\u0443\u0434\u0443\u0442 \u0434\u0430\u043D\u043D\u044B\u0435 \u0432 \u043E\u0442\u0447\u0451\u0442\u0435.\n\n\u041C\u0430\u043A\u0441\u0438\u043C\u0430\u043B\u044C\u043D\u044B\u0439 \u043F\u0435\u0440\u0438\u043E\u0434 \u2014 31 \u0434\u0435\u043D\u044C.\n",
+            "type": "string"
+          }
+        }
+      },
+      "v1GetFinanceProductsBuyoutResponse": {
+        "type": "object",
+        "properties": {
+          "products": {
+            "description": "\u0421\u043F\u0438\u0441\u043E\u043A \u0432\u044B\u043A\u0443\u043F\u043B\u0435\u043D\u043D\u044B\u0445 \u0442\u043E\u0432\u0430\u0440\u043E\u0432",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GetFinanceProductsBuyoutResponseProduct"
+            }
+          }
+        }
+      },
       "v1GetReturnsListRequest": {
         "type": "object",
         "title": "object",
@@ -7591,7 +7745,7 @@
           },
           "weight": {
             "type": "number",
-            "format": "float",
+            "format": "double",
             "description": "\u0424\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u0432\u0435\u0441 \u044D\u043A\u0437\u0435\u043C\u043F\u043B\u044F\u0440\u0430."
           },
           "imei": {
@@ -8069,12 +8223,12 @@
           },
           "weight_max": {
             "type": "number",
-            "format": "float",
+            "format": "double",
             "description": "\u041C\u0430\u043A\u0441\u0438\u043C\u0430\u043B\u044C\u043D\u044B\u0439 \u0432\u0435\u0441 \u044D\u043A\u0437\u0435\u043C\u043F\u043B\u044F\u0440\u0430."
           },
           "weight_min": {
             "type": "number",
-            "format": "float",
+            "format": "double",
             "description": "\u041C\u0438\u043D\u0438\u043C\u0430\u043B\u044C\u043D\u044B\u0439 \u0432\u0435\u0441 \u044D\u043A\u0437\u0435\u043C\u043F\u043B\u044F\u0440\u0430."
           },
           "has_imei": {

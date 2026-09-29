@@ -141,6 +141,7 @@ static void Trim(string rawPath, string trimmedPath, string whitelistPath)
 /// The Ozon spec declares itself as OpenAPI 3 but keeps Swagger 2.0 leftovers NJsonSchema cannot read:
 /// a boolean `required` on a property schema (3.0 wants an array of names on the owning object),
 /// and array schemas that carry `items` without `"type": "array"` (silently generated as `object`).
+/// Also widens `format: float` to `double`, which the spec uses for money.
 /// </summary>
 static void Sanitize(JsonNode node)
 {
@@ -191,6 +192,10 @@ static void SanitizeSchema(JsonNode node)
 
     if (schema["items"] is JsonObject && !schema.ContainsKey("type"))
         schema["type"] = "array";
+
+    // money is declared as float in places (buyout amount); 7 significant digits lose kopecks above ~131k
+    if (schema["format"] is JsonValue format && format.TryGetValue<string>(out var formatName) && formatName == "float")
+        schema["format"] = "double";
 
     if (schema["properties"] is JsonObject properties)
         foreach (var property in properties.Select(p => p.Value).OfType<JsonNode>())

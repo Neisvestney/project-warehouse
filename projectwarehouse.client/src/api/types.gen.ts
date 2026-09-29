@@ -1514,6 +1514,11 @@ export type MarketplaceAccrualCategory =
   | "other"
   | "deliveryCharge";
 
+/**
+ * Which marketplace document an accrual row was read from.
+ */
+export type MarketplaceAccrualSource = "accrualJournal" | "buyoutReport";
+
 export type MarketplaceAutoMapRuleDto = {
   id: string;
   field: MarketplaceCardField;
@@ -1548,7 +1553,8 @@ export type MarketplaceCapabilities =
   | "sellerInfo"
   | "labels"
   | "returns"
-  | "accruals";
+  | "accruals"
+  | "buyouts";
 
 export type MarketplaceCardDto = {
   id: string;
@@ -2228,6 +2234,10 @@ export type PayoutsAppliedSettingsDto = {
 
 export type PayoutsCategoryDto = {
   category: MarketplaceAccrualCategory;
+  /**
+   * A category read from several documents comes as a line per document.
+   */
+  source: MarketplaceAccrualSource;
   /**
    * The lines are tied to postings; otherwise they concern the shop as a whole.
    */

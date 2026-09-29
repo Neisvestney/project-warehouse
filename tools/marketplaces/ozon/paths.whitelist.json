@@ -11,7 +11,8 @@
     "/v2/posting/fbs/package-label/get",
     "/v3/posting/fbo/list",
     "/v1/returns/list",
-    "/v1/finance/accrual/by-day"
+    "/v1/finance/accrual/by-day",
+    "/v1/finance/products/buyout"
   ],
   "binaryResponses": [],
   "reserved": [

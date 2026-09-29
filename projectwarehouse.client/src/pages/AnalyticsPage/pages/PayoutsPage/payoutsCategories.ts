@@ -1,5 +1,6 @@
 import type {
   MarketplaceAccrualCategory,
+  MarketplaceAccrualSource,
   PayoutsCategoryDto,
   PayoutsMoneyDto,
 } from "@/api/types.gen";
@@ -32,8 +33,17 @@ export function isWithheld(category: MarketplaceAccrualCategory): boolean {
   return !INCOME.includes(category);
 }
 
+/** A category read from another document than the journal gets a line of its own. */
+const SOURCE_LABELS: Partial<Record<MarketplaceAccrualSource, string>> = {
+  buyoutReport: "Выкуп маркетплейсом",
+};
+
 export interface CategoryLine {
+  /** Unique within one group: a category may come from several sources. */
+  key: string;
+  label: string;
   category: MarketplaceAccrualCategory;
+  source: MarketplaceAccrualSource;
   amount: number;
   /** Of the sales; null without sales. */
   share: number | null;
@@ -56,11 +66,18 @@ function lines(
   byPosting: boolean,
   sales: number,
 ): CategoryLine[] {
+  // a line from another source follows its category's journal line
+  const rank = (c: PayoutsCategoryDto) =>
+    ORDER.indexOf(c.category) * 2 + (c.source === "accrualJournal" ? 0 : 1);
+
   return categories
     .filter((c) => c.byPosting === byPosting && c.amount !== 0)
-    .sort((a, b) => ORDER.indexOf(a.category) - ORDER.indexOf(b.category))
+    .sort((a, b) => rank(a) - rank(b))
     .map((c) => ({
+      key: `${c.category}-${c.source}`,
+      label: SOURCE_LABELS[c.source] ?? CATEGORY_LABELS[c.category],
       category: c.category,
+      source: c.source,
       amount: c.amount,
       share: sales > 0 ? c.amount / sales : null,
     }));

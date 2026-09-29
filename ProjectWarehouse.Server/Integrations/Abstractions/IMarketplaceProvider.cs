@@ -63,6 +63,15 @@ public interface IMarketplaceProvider
         MarketplaceCredentials credentials, DateOnly from, DateOnly to, CancellationToken ct);
 
     /// <summary>
+    /// Sales the marketplace bought out itself between <paramref name="from"/> and <paramref name="to"/>
+    /// inclusive, one <see cref="MarketplaceAccrualSource.BuyoutReport"/> accrual per posting. The report dates
+    /// no row, so each carries the last day of the window it came in. Only called when the provider declares
+    /// <see cref="MarketplaceCapabilities.Buyouts"/>.
+    /// </summary>
+    IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> FetchBuyoutsAsync(
+        MarketplaceCredentials credentials, DateOnly from, DateOnly to, CancellationToken ct);
+
+    /// <summary>
     /// Creation date of the oldest posting the account has, or null when it has none. Costs several calls,
     /// so it is only ever asked for on an explicit operator action.
     /// </summary>
