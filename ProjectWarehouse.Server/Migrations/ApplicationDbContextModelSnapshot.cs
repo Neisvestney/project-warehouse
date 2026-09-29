@@ -809,6 +809,12 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<DateTime?>("ApiKeyUpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateOnly?>("BuyoutsLoadedFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("BuyoutsSyncedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("CompanyLegalName")
                         .HasColumnType("text");
 
@@ -1335,6 +1341,9 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.Property<int>("WarehousesProcessed")
                         .HasColumnType("integer");
+
+                    b.Property<AppFieldError>("Warning")
+                        .HasColumnType("jsonb");
 
                     b.HasKey("Id");
 

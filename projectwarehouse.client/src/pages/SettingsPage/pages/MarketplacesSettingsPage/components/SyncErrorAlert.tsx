@@ -5,18 +5,20 @@ import {resolveErrorMessage} from "@/utils/errorUtils";
 interface SyncErrorAlertProps {
   error: AppFieldError | null | undefined;
   title?: string;
+  severity?: "error" | "warning";
 }
 
 function SyncErrorAlert({
   error,
   title = "Последняя синхронизация завершилась ошибкой",
+  severity = "error",
 }: SyncErrorAlertProps) {
   if (!error) return null;
 
   const response = error.args?.["marketplaceResponse"];
 
   return (
-    <Alert severity="error" sx={{my: 2}}>
+    <Alert severity={severity} sx={{my: 2}}>
       <AlertTitle>{title}</AlertTitle>
       {resolveErrorMessage(error)}
       {typeof response === "string" && response && (

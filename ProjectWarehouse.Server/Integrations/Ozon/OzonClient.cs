@@ -48,6 +48,9 @@ public class OzonClient(
     /// <summary>Spec cap on the period of /v1/finance/products/buyout.</summary>
     private const int BuyoutWindowDays = 31;
 
+    /// <summary>Path of the buyout report, which the resilience handler never retries on a 429.</summary>
+    public const string BuyoutReportPath = "/v1/finance/products/buyout";
+
     /// <summary>Return states in which the item never went back: cancelled by the buyer or rejected.</summary>
     private static readonly HashSet<string> CancelledReturnStatuses = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -288,20 +291,22 @@ public class OzonClient(
         }
     }
 
-    public async IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> GetBuyoutsAsync(
-        DateOnly from, DateOnly to, [EnumeratorCancellation] CancellationToken ct)
+    public async IAsyncEnumerable<ExternalBuyoutWindow> GetBuyoutsAsync(
+        DateOnly from, DateOnly to, bool followsBuyoutCall, [EnumeratorCancellation] CancellationToken ct)
     {
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, MoscowZoneId));
         var last = to > today ? today : to;
 
-        for (var start = from; start <= last; start = start.AddDays(BuyoutWindowDays))
+        for (var end = last; end >= from; end = end.AddDays(-BuyoutWindowDays))
         {
-            var end = start.AddDays(BuyoutWindowDays - 1);
-            if (end > last)
-                end = last;
+            var start = end.AddDays(-(BuyoutWindowDays - 1));
+            if (start < from)
+                start = from;
 
-            // the first window follows the accrual journal's last call, which shares the finance rate limit
-            await Task.Delay(start == from ? _options.AccrualRequestDelayMs : _options.BuyoutRequestDelayMs, ct);
+            // otherwise the first window follows the accrual journal's last call, which shares the finance rate limit
+            await Task.Delay(end == last && !followsBuyoutCall
+                ? _options.AccrualRequestDelayMs
+                : _options.BuyoutRequestDelayMs, ct);
 
             var response = await api.GetFinanceProductsBuyoutAsync(new V1GetFinanceProductsBuyoutRequest
             {
@@ -336,8 +341,7 @@ public class OzonClient(
                     lines, MarketplaceAccrualSource.BuyoutReport));
             }
 
-            if (accruals.Count > 0)
-                yield return accruals;
+            yield return new ExternalBuyoutWindow(start, end, accruals);
         }
     }
 

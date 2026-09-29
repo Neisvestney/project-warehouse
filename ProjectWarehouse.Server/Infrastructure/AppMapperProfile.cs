@@ -407,7 +407,8 @@ public class AppMapperProfile : Profile
                 opt => opt.MapFrom(s => s.Warehouses.Count(w => w.WarehouseId == null && !w.IsArchived)))
             .ForMember(d => d.CardCount, opt => opt.MapFrom(s => s.Cards.Count))
             .ForMember(d => d.CredentialsUnreadable, opt => opt.Ignore())
-            .ForMember(d => d.Capabilities, opt => opt.Ignore());
+            .ForMember(d => d.Capabilities, opt => opt.Ignore())
+            .ForMember(d => d.AccrualsJournalFrom, opt => opt.Ignore());
 
         CreateMap<MarketplaceWarehouse, MarketplaceWarehouseDto>()
             .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse != null ? s.Warehouse.Name : null));

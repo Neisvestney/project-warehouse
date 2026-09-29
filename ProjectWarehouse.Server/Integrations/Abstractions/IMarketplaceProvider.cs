@@ -64,12 +64,13 @@ public interface IMarketplaceProvider
 
     /// <summary>
     /// Sales the marketplace bought out itself between <paramref name="from"/> and <paramref name="to"/>
-    /// inclusive, one <see cref="MarketplaceAccrualSource.BuyoutReport"/> accrual per posting. The report dates
-    /// no row, so each carries the last day of the window it came in. Only called when the provider declares
-    /// <see cref="MarketplaceCapabilities.Buyouts"/>.
+    /// inclusive, one <see cref="MarketplaceAccrualSource.BuyoutReport"/> accrual per posting, window by window
+    /// from the newest one back. The report dates no row, so each carries the last day of its window. Only called
+    /// when the provider declares <see cref="MarketplaceCapabilities.Buyouts"/>. <paramref name="followsBuyoutCall"/>
+    /// asks for the full pause between report calls before the first window too.
     /// </summary>
-    IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> FetchBuyoutsAsync(
-        MarketplaceCredentials credentials, DateOnly from, DateOnly to, CancellationToken ct);
+    IAsyncEnumerable<ExternalBuyoutWindow> FetchBuyoutsAsync(
+        MarketplaceCredentials credentials, DateOnly from, DateOnly to, bool followsBuyoutCall, CancellationToken ct);
 
     /// <summary>
     /// Creation date of the oldest posting the account has, or null when it has none. Costs several calls,

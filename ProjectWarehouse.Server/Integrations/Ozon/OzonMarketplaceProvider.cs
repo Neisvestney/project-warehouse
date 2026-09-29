@@ -238,11 +238,11 @@ public class OzonMarketplaceProvider(
         }
     }
 
-    public async IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> FetchBuyoutsAsync(
-        MarketplaceCredentials credentials, DateOnly from, DateOnly to,
+    public async IAsyncEnumerable<ExternalBuyoutWindow> FetchBuyoutsAsync(
+        MarketplaceCredentials credentials, DateOnly from, DateOnly to, bool followsBuyoutCall,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        var pages = client.GetBuyoutsAsync(from, to, ct).GetAsyncEnumerator(ct);
+        var pages = client.GetBuyoutsAsync(from, to, followsBuyoutCall, ct).GetAsyncEnumerator(ct);
         try
         {
             while (true)
@@ -254,6 +254,11 @@ public class OzonMarketplaceProvider(
                     // not survive the yield, so the scope is opened around every move.
                     using var _ = requestContext.Use(credentials);
                     hasNext = await pages.MoveNextAsync();
+                }
+                catch (OzonApiException ex) when (ex.StatusCode == StatusCodes.Status429TooManyRequests)
+                {
+                    // the report's quota runs out routinely; the sync stops and picks the rest up on a later run
+                    throw LogAndWrap(ex, LogLevel.Information);
                 }
                 catch (OzonApiException ex)
                 {

@@ -2,11 +2,13 @@
 using Microsoft.Extensions.Options;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
+using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Infrastructure.Realtime;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Integrations.Sync;
+using ProjectWarehouse.Server.Models;
 
 namespace ProjectWarehouse.Server.Services;
 
@@ -57,28 +59,17 @@ public class MarketplaceAccrualSyncService(
         if (fullPass && overlapStart < from)
             from = overlapStart;
 
-        // buyouts come in month-long windows, so a full pass of a shop without any yet reads its whole journal
-        // in a dozen calls; a shop that never has buyouts pays that once a day
-        var buyoutsFrom = from;
-        if (fullPass && !await db.MarketplaceAccruals.AnyAsync(a => a.MarketplaceAccountId == account.Id
-                && a.Source == MarketplaceAccrualSource.BuyoutReport, ct))
-        {
-            var journalStart = await db.MarketplaceAccruals
-                .Where(a => a.MarketplaceAccountId == account.Id && a.Source == MarketplaceAccrualSource.AccrualJournal)
-                .MinAsync(a => (DateOnly?)a.Date, ct);
-            if (journalStart < buyoutsFrom)
-                buyoutsFrom = journalStart.Value;
-        }
-
         // a day ahead of UTC: the marketplace's day may already have started, the provider cuts off its future
         await ImportAsync(provider.FetchAccrualsAsync(credentials, from, today.AddDays(1), ct), account, run, ct);
-        await ImportBuyoutsAsync(provider, credentials, account, run, buyoutsFrom, today.AddDays(1), ct);
 
         // only once the whole period is through, for the same reason as FboPostingsSyncedAt
         account.AccrualsSyncedAt = now;
         if (fullPass)
             account.AccrualsFullPassAt = now;
         await db.SaveChangesAsync(ct);
+
+        if (provider.Capabilities.HasFlag(MarketplaceCapabilities.Buyouts))
+            await SyncBuyoutsAsync(provider, credentials, account, run, from, today.AddDays(1), now, ct);
 
         await RelinkAsync(account.Id, run, ct);
 
@@ -98,64 +89,141 @@ public class MarketplaceAccrualSyncService(
         var from = DateOnly.FromDateTime(since);
         var till = DateOnly.FromDateTime(to);
         await ImportAsync(provider.FetchAccrualsAsync(credentials, from, till, ct), account, run, ct);
-        await ImportBuyoutsAsync(provider, credentials, account, run, from, till, ct);
+        if (provider.Capabilities.HasFlag(MarketplaceCapabilities.Buyouts)
+            && !await ImportBuyoutsAsync(provider, credentials, account, run, from, till, int.MaxValue, ct))
+            WarnBuyoutsRateLimited(run);
         await RelinkAsync(account.Id, run, ct);
 
         activity?.SetTag("marketplace.accruals.created", run.AccrualsCreated);
     }
 
-    private async Task ImportBuyoutsAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
-        MarketplaceAccount account, MarketplaceSyncRun run, DateOnly from, DateOnly to, CancellationToken ct)
+    /// <summary>
+    /// The latest buyouts, from the journal's first day of this run or from where the last full read stopped,
+    /// then one window of history below <see cref="MarketplaceAccount.BuyoutsLoadedFrom"/>. The report's quota
+    /// is tiny and lasts hours, so a refusal ends the step instead of the run.
+    /// </summary>
+    private async Task SyncBuyoutsAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
+        MarketplaceAccount account, MarketplaceSyncRun run, DateOnly from, DateOnly to, DateTime now,
+        CancellationToken ct)
     {
-        if (provider.Capabilities.HasFlag(MarketplaceCapabilities.Buyouts))
-            await ImportAsync(provider.FetchBuyoutsAsync(credentials, from, to, ct), account, run, ct);
+        if (account.BuyoutsSyncedAt is { } syncedAt && DateOnly.FromDateTime(syncedAt).AddDays(-1) < from)
+            from = DateOnly.FromDateTime(syncedAt).AddDays(-1);
+
+        if (!await ImportBuyoutsAsync(provider, credentials, account, run, from, to, int.MaxValue, ct))
+        {
+            WarnBuyoutsRateLimited(run);
+            return;
+        }
+
+        // a span starts only here: a read cut short leaves no proof the days above it are in
+        account.BuyoutsLoadedFrom ??= from;
+        account.BuyoutsSyncedAt = now;
+        await db.SaveChangesAsync(ct);
+
+        var journalStart = await db.MarketplaceAccruals
+            .Where(a => a.MarketplaceAccountId == account.Id && a.Source == MarketplaceAccrualSource.AccrualJournal)
+            .MinAsync(a => (DateOnly?)a.Date, ct);
+        if (journalStart is not { } start || account.BuyoutsLoadedFrom is not { } loaded || loaded <= start)
+            return;
+
+        // history is not worth a warning: the next run simply asks again
+        await ImportBuyoutsAsync(provider, credentials, account, run, start, loaded.AddDays(-1), 1, ct,
+            followsBuyoutCall: true);
     }
+
+    /// <summary>
+    /// Reads at most <paramref name="maxWindows"/> report windows from the newest back, moving
+    /// <see cref="MarketplaceAccount.BuyoutsLoadedFrom"/> down while they join the loaded span. False when the
+    /// marketplace refused with a 429; what was read by then is saved.
+    /// </summary>
+    private async Task<bool> ImportBuyoutsAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
+        MarketplaceAccount account, MarketplaceSyncRun run, DateOnly from, DateOnly to, int maxWindows,
+        CancellationToken ct, bool followsBuyoutCall = false)
+    {
+        try
+        {
+            var read = 0;
+            await foreach (var window in provider.FetchBuyoutsAsync(credentials, from, to, followsBuyoutCall, ct))
+            {
+                await ImportPageAsync(window.Accruals, account, run, ct);
+
+                // after the rows are in, or a failed page would leave the mark past a window never stored
+                if (account.BuyoutsLoadedFrom is { } loaded && window.From < loaded
+                    && window.To >= loaded.AddDays(-1))
+                {
+                    account.BuyoutsLoadedFrom = window.From;
+                    await db.SaveChangesAsync(ct);
+                }
+
+                if (++read >= maxWindows)
+                    break;
+            }
+
+            return true;
+        }
+        catch (MarketplaceApiException ex) when (ex.StatusCode == StatusCodes.Status429TooManyRequests)
+        {
+            return false;
+        }
+    }
+
+    private static void WarnBuyoutsRateLimited(MarketplaceSyncRun run) =>
+        run.Warning = new AppFieldError
+        {
+            Code = ErrorCode.MarketplaceBuyoutsRateLimited,
+            Detail = "The marketplace refused the buyout report with a 429; later runs read the rest.",
+        };
 
     private async Task ImportAsync(IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> pages,
         MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
     {
         await foreach (var fetched in pages)
+            await ImportPageAsync(fetched, account, run, ct);
+    }
+
+    /// <summary>Writes one page and saves it together with whatever else the account has pending.</summary>
+    private async Task ImportPageAsync(IReadOnlyList<ExternalAccrual> fetched, MarketplaceAccount account,
+        MarketplaceSyncRun run, CancellationToken ct)
+    {
+        run.AccrualsProcessed += fetched.Count;
+
+        var ids = fetched.Select(a => a.ExternalId).Distinct().ToList();
+        var known = (await db.MarketplaceAccruals
+                .Where(a => a.MarketplaceAccountId == account.Id && ids.Contains(a.ExternalId))
+                .ToListAsync(ct))
+            .GroupBy(a => a.ExternalId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(a => a.LineNo).ToList());
+
+        var page = await DateBuyoutsAsync(account.Id, fetched, known, ct);
+        var changed = page.Where(a => !known.TryGetValue(a.ExternalId, out var rows) || !Matches(rows, a)).ToList();
+        var orders = await LoadOrdersAsync(account.Id,
+            changed.Where(a => LinkableScopes.Contains(a.Scope))
+                .Select(a => a.UnitNumber)
+                .OfType<string>()
+                .ToHashSet(),
+            ct);
+
+        var now = DateTime.UtcNow;
+        foreach (var external in changed)
         {
-            run.AccrualsProcessed += fetched.Count;
+            var existing = known.GetValueOrDefault(external.ExternalId) ?? [];
+            // a row per line; LineNo keeps each in place, so an edited accrual updates rather than re-inserts
+            var rows = Replace(account.Id, existing, external, now);
 
-            var ids = fetched.Select(a => a.ExternalId).Distinct().ToList();
-            var known = (await db.MarketplaceAccruals
-                    .Where(a => a.MarketplaceAccountId == account.Id && ids.Contains(a.ExternalId))
-                    .ToListAsync(ct))
-                .GroupBy(a => a.ExternalId)
-                .ToDictionary(g => g.Key, g => g.OrderBy(a => a.LineNo).ToList());
+            foreach (var row in rows)
+                TryLink(row, orders);
 
-            var page = await DateBuyoutsAsync(account.Id, fetched, known, ct);
-            var changed = page.Where(a => !known.TryGetValue(a.ExternalId, out var rows) || !Matches(rows, a)).ToList();
-            var orders = await LoadOrdersAsync(account.Id,
-                changed.Where(a => LinkableScopes.Contains(a.Scope))
-                    .Select(a => a.UnitNumber)
-                    .OfType<string>()
-                    .ToHashSet(),
-                ct);
+            if (existing.Count == 0)
+                run.AccrualsCreated++;
+            else
+                run.AccrualsUpdated++;
 
-            var now = DateTime.UtcNow;
-            foreach (var external in changed)
-            {
-                var existing = known.GetValueOrDefault(external.ExternalId) ?? [];
-                // a row per line; LineNo keeps each in place, so an edited accrual updates rather than re-inserts
-                var rows = Replace(account.Id, existing, external, now);
-
-                foreach (var row in rows)
-                    TryLink(row, orders);
-
-                if (existing.Count == 0)
-                    run.AccrualsCreated++;
-                else
-                    run.AccrualsUpdated++;
-
-                // an accrual listed twice in one page must compare against its second sighting, not insert again
-                known[external.ExternalId] = rows;
-            }
-
-            await db.SaveChangesAsync(ct);
-            await realtime.PublishProgressAsync(run, ct);
+            // an accrual listed twice in one page must compare against its second sighting, not insert again
+            known[external.ExternalId] = rows;
         }
+
+        await db.SaveChangesAsync(ct);
+        await realtime.PublishProgressAsync(run, ct);
     }
 
     /// <summary>

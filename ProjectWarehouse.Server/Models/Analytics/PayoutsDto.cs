@@ -42,6 +42,15 @@ public class PayoutsRowDto
     /// <summary>Delivered postings dated before <see cref="CoveredFrom"/> with no sale in the journal.</summary>
     public int UncoveredPostings { get; init; }
 
+    /// <summary>First day the marketplace's own buyouts are read from; null before the first report window.</summary>
+    public DateOnly? BuyoutsLoadedFrom { get; init; }
+
+    /// <summary>
+    /// The buyout report is not yet read back to <see cref="CoveredFrom"/>: a posting the marketplace bought out
+    /// earlier than <see cref="BuyoutsLoadedFrom"/> still sits in the not-accrued buckets.
+    /// </summary>
+    public bool BuyoutsPending { get; init; }
+
     public List<PayoutsMoneyDto> Money { get; init; } = [];
 }
 

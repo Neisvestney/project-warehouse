@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Models.Analytics;
 
 namespace ProjectWarehouse.Server.Services;
@@ -10,7 +11,8 @@ namespace ProjectWarehouse.Server.Services;
 public class AnalyticsPayoutsService(
     ApplicationDbContext db,
     AnalyticsQueries queries,
-    IAnalyticsSettingsService settings) : IAnalyticsPayoutsService
+    IAnalyticsSettingsService settings,
+    IMarketplaceProviderRegistry providers) : IAnalyticsPayoutsService
 {
     /// <summary>Journal days are the marketplace's accounting days, which for Ozon are Moscow days.</summary>
     private static readonly TimeZoneInfo JournalZone =
@@ -67,6 +69,11 @@ public class AnalyticsPayoutsService(
                 .GroupBy(a => a.MarketplaceAccountId)
                 .Select(g => new { g.Key, From = g.Min(a => a.Date) })
                 .ToDictionaryAsync(x => x.Key, x => x.From, ct);
+        var buyoutsLoadedFrom = accountIds.Count == 0
+            ? []
+            : await db.MarketplaceAccounts
+                .Where(a => accountIds.Contains(a.Id))
+                .ToDictionaryAsync(a => a.Id, a => a.BuyoutsLoadedFrom, ct);
         var coverageStart = coverage.ToDictionary(
             c => c.Key,
             c => TimeZoneInfo.ConvertTimeToUtc(c.Value.ToDateTime(TimeOnly.MinValue), JournalZone));
@@ -145,6 +152,11 @@ public class AnalyticsPayoutsService(
                 MarketplaceType = account.Type,
                 Name = account.Name,
                 CoveredFrom = coveredFrom,
+                BuyoutsLoadedFrom = buyoutsLoadedFrom.GetValueOrDefault(account.Id),
+                BuyoutsPending = coveredFrom is { } journalFrom
+                    && providers.TryGet(account.Type, out var provider)
+                    && provider.Capabilities.HasFlag(MarketplaceCapabilities.Buyouts)
+                    && (buyoutsLoadedFrom.GetValueOrDefault(account.Id) is not { } loaded || loaded > journalFrom),
                 UncoveredPostings = uncoveredCounts.GetValueOrDefault(account.Id),
                 Money = money,
             });

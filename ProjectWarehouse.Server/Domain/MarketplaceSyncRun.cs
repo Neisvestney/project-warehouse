@@ -62,4 +62,7 @@ public class MarketplaceSyncRun : IHasIdentity
 
     // ErrorCode lands in jsonb as a number — Npgsql serializes it, not the MVC options that stringify enums
     [Column(TypeName = "jsonb")] public AppFieldError? Error { get; set; }
+
+    /// <summary>A step the run gave up on without failing, e.g. the buyout report refusing with a 429.</summary>
+    [Column(TypeName = "jsonb")] public AppFieldError? Warning { get; set; }
 }

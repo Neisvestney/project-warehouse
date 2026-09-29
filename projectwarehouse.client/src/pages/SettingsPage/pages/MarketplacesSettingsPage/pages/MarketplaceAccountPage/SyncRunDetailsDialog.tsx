@@ -90,6 +90,11 @@ function SyncRunDetailsDialog({run, onClose}: SyncRunDetailsDialogProps) {
         {shown && (
           <Stack spacing={2}>
             <SyncErrorAlert error={shown.error} title="Запуск завершился ошибкой" />
+            <SyncErrorAlert
+              error={shown.warning}
+              title="Запуск завершён с предупреждением"
+              severity="warning"
+            />
             <Table size="small">
               <TableBody>
                 {(
