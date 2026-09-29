@@ -29,7 +29,8 @@ public class MarketplaceOrder
 
     /// <summary>
     /// When a sync first saw <see cref="Status"/> become Delivered — the marketplace states no delivery moment of
-    /// its own, so this is accurate to the account's sync interval. Null for a posting imported already delivered.
+    /// its own, so this is accurate to the account's sync interval. A posting imported already delivered gets the
+    /// Moscow midnight of its delivery day from the accrual journal once the accrual sync has it, null until then.
     /// </summary>
     public DateTime? DeliveredAt { get; set; }
 
