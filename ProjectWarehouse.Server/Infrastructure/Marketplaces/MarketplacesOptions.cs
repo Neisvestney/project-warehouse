@@ -10,6 +10,9 @@ public class MarketplacesOptions
     /// <summary>Quartz cron of the job that picks accounts due for a background sync.</summary>
     public string SyncScanCron { get; set; } = "0 * * * * ?";
 
+    /// <summary>When false the scan job still fires but queues nothing; read on every run, so it can be flipped live.</summary>
+    public bool SyncScanEnabled { get; set; } = true;
+
     public int DefaultSyncIntervalMinutes { get; set; } = 30;
 
     public OzonOptions Ozon { get; set; } = new();
