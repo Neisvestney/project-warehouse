@@ -117,6 +117,7 @@ public enum ErrorCode
     MarketplaceOrdersNotSupported = 109,
     MarketplaceAccrualsNotSupported = 152,
     MarketplaceBuyoutsRateLimited = 153,
+    MarketplaceBuyoutsPaused = 154,
     MarketplaceSyncAlreadyRunning = 83,
     MarketplaceSyncInterrupted = 84,
     MarketplaceWarehouseNotFound = 87,

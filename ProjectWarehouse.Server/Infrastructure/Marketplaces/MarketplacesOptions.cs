@@ -169,6 +169,18 @@ public class OzonOptions
     /// </summary>
     public int BuyoutRequestDelayMs { get; set; } = 30000;
 
+    /// <summary>
+    /// Moscow hour a 429 from /v1/finance/products/buyout pauses the account's buyout reads until. The refusal
+    /// outlasts hours of calls while every attempt keeps it alive, and its <c>Retry-After</c> says one second.
+    /// </summary>
+    public int BuyoutsPauseResetHour { get; set; } = 4;
+
+    /// <summary>
+    /// Shortest pause after a buyout 429, for a refusal just before <see cref="BuyoutsPauseResetHour"/>: a few
+    /// minutes of quiet would not end it.
+    /// </summary>
+    public int BuyoutsMinPauseMinutes { get; set; } = 60;
+
     /// <summary>How far back the accrual sync looks on an account it has never read before.</summary>
     public int AccrualsImportWindowPastDays { get; set; } = 14;
 
