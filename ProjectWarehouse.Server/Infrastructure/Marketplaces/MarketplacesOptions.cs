@@ -163,6 +163,12 @@ public class OzonOptions
     /// </summary>
     public int AccrualRequestDelayMs { get; set; } = 1000;
 
+    /// <summary>
+    /// Pause between windows of /v1/finance/products/buyout. Its quota is far below the journal's: a few calls a
+    /// second apart get through, then 429 lasts past a minute of backoff.
+    /// </summary>
+    public int BuyoutRequestDelayMs { get; set; } = 30000;
+
     /// <summary>How far back the accrual sync looks on an account it has never read before.</summary>
     public int AccrualsImportWindowPastDays { get; set; } = 14;
 
