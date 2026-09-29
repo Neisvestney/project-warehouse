@@ -91,8 +91,9 @@ public class MarketplaceAccrualSyncService(
         var till = DateOnly.FromDateTime(to);
         await ImportAsync(provider.FetchAccrualsAsync(credentials, from, till, ct), account, run, ct);
         if (provider.Capabilities.HasFlag(MarketplaceCapabilities.Buyouts)
-            && !await ImportBuyoutsAsync(provider, credentials, account, run, from, till, int.MaxValue, ct))
-            WarnBuyoutsRateLimited(run);
+            && await ImportBuyoutsAsync(provider, credentials, account, run, from, till, int.MaxValue, ct)
+                is { } refused)
+            WarnBuyoutsRefused(run, refused);
         await RelinkAsync(account.Id, run, ct);
         await BackfillDeliveredAtAsync(account.Id, run, ct);
 
@@ -111,9 +112,9 @@ public class MarketplaceAccrualSyncService(
         if (account.BuyoutsSyncedAt is { } syncedAt && DateOnly.FromDateTime(syncedAt).AddDays(-1) < from)
             from = DateOnly.FromDateTime(syncedAt).AddDays(-1);
 
-        if (!await ImportBuyoutsAsync(provider, credentials, account, run, from, to, int.MaxValue, ct))
+        if (await ImportBuyoutsAsync(provider, credentials, account, run, from, to, int.MaxValue, ct) is { } refused)
         {
-            WarnBuyoutsRateLimited(run);
+            WarnBuyoutsRefused(run, refused);
             return;
         }
 
@@ -128,20 +129,24 @@ public class MarketplaceAccrualSyncService(
         if (journalStart is not { } start || account.BuyoutsLoadedFrom is not { } loaded || loaded <= start)
             return;
 
-        // history is not worth a warning: the next run simply asks again
+        // history is not worth a warning; its 429 still sets the pause
         await ImportBuyoutsAsync(provider, credentials, account, run, start, loaded.AddDays(-1), 1, ct,
             followsBuyoutCall: true);
     }
 
     /// <summary>
     /// Reads at most <paramref name="maxWindows"/> report windows from the newest back, moving
-    /// <see cref="MarketplaceAccount.BuyoutsLoadedFrom"/> down while they join the loaded span. False when the
-    /// marketplace refused with a 429; what was read by then is saved.
+    /// <see cref="MarketplaceAccount.BuyoutsLoadedFrom"/> down while they join the loaded span. Null when all were
+    /// read, else why not: a 429 now, or <see cref="MarketplaceAccount.BuyoutsPausedUntil"/> from an earlier one;
+    /// what was read by then is saved.
     /// </summary>
-    private async Task<bool> ImportBuyoutsAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
-        MarketplaceAccount account, MarketplaceSyncRun run, DateOnly from, DateOnly to, int maxWindows,
-        CancellationToken ct, bool followsBuyoutCall = false)
+    private async Task<ErrorCode?> ImportBuyoutsAsync(IMarketplaceProvider provider,
+        MarketplaceCredentials credentials, MarketplaceAccount account, MarketplaceSyncRun run, DateOnly from,
+        DateOnly to, int maxWindows, CancellationToken ct, bool followsBuyoutCall = false)
     {
+        if (account.BuyoutsPausedUntil > DateTime.UtcNow)
+            return ErrorCode.MarketplaceBuyoutsPaused;
+
         try
         {
             var read = 0;
@@ -161,19 +166,36 @@ public class MarketplaceAccrualSyncService(
                     break;
             }
 
-            return true;
+            return null;
         }
         catch (MarketplaceApiException ex) when (ex.StatusCode == StatusCodes.Status429TooManyRequests)
         {
-            return false;
+            account.BuyoutsPausedUntil = BuyoutsPauseEnd(DateTime.UtcNow);
+            await db.SaveChangesAsync(ct);
+            return ErrorCode.MarketplaceBuyoutsRateLimited;
         }
     }
 
-    private static void WarnBuyoutsRateLimited(MarketplaceSyncRun run) =>
+    /// <summary>The next reset hour in Moscow, but no sooner than the minimal pause.</summary>
+    private DateTime BuyoutsPauseEnd(DateTime utcNow)
+    {
+        var local = TimeZoneInfo.ConvertTimeFromUtc(utcNow, JournalZone);
+        var reset = local.Date.AddHours(_ozon.BuyoutsPauseResetHour);
+        if (reset <= local)
+            reset = reset.AddDays(1);
+        var resetUtc =
+            TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(reset, DateTimeKind.Unspecified), JournalZone);
+        var minimal = utcNow.AddMinutes(_ozon.BuyoutsMinPauseMinutes);
+        return resetUtc > minimal ? resetUtc : minimal;
+    }
+
+    private static void WarnBuyoutsRefused(MarketplaceSyncRun run, ErrorCode code) =>
         run.Warning = new AppFieldError
         {
-            Code = ErrorCode.MarketplaceBuyoutsRateLimited,
-            Detail = "The marketplace refused the buyout report with a 429; later runs read the rest.",
+            Code = code,
+            Detail = code == ErrorCode.MarketplaceBuyoutsPaused
+                ? "The buyout report is paused after an earlier 429; later runs read the rest."
+                : "The marketplace refused the buyout report with a 429; later runs read the rest.",
         };
 
     private async Task ImportAsync(IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> pages,

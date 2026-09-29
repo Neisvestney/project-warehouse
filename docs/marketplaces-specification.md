@@ -1016,7 +1016,10 @@ Quartz регистрируется с in-memory хранилищем задач
     "AccrualRequestDelayMs": 1000,
     "AccrualsImportWindowPastDays": 14,
     "AccrualsOverlapDays": 14,
-    "AccrualsFullPassIntervalHours": 24
+    "AccrualsFullPassIntervalHours": 24,
+    "BuyoutRequestDelayMs": 30000,
+    "BuyoutsPauseResetHour": 4,
+    "BuyoutsMinPauseMinutes": 60
   },
   "Labels": {
     "MaxArticlesOnLabel": 3,
@@ -1048,6 +1051,8 @@ Quartz регистрируется с in-memory хранилищем задач
 `ReturnsImportOverlapHours` и `ReturnsImportWindowPastDays` (по умолчанию 6 часов и 14 дней) — то же для потока изменений возвратов: см. [«Поток изменений»](marketplaces-returns-specification.md#поток-изменений).
 
 `AccrualRequestDelayMs` — пауза между запросами начислений: общая `PageDelayMs` для этого метода слишком коротка. `AccrualsImportWindowPastDays`, `AccrualsOverlapDays` и `AccrualsFullPassIntervalHours` задают окна чтения начислений: см. [«Синхронизация»](marketplaces-accruals-specification.md#синхронизация).
+
+`BuyoutRequestDelayMs` — пауза между окнами отчёта о выкупах. `BuyoutsPauseResetHour` и `BuyoutsMinPauseMinutes` задают паузу после его `429`: до ближайшего этого часа по Москве, но не короче минимума. См. [«Выкупленные площадкой товары»](marketplaces-accruals-specification.md#выкупленные-площадкой-товары).
 
 В `docker-compose.yml` и `docker-compose.prod.yml` добавляется том для кольца ключей Data Protection:
 

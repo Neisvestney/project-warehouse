@@ -1356,7 +1356,8 @@ export type ErrorCode =
   | "orderHasAssemblyTasks"
   | "analyticsSettingsModified"
   | "marketplaceAccrualsNotSupported"
-  | "marketplaceBuyoutsRateLimited";
+  | "marketplaceBuyoutsRateLimited"
+  | "marketplaceBuyoutsPaused";
 
 export type EventDto = {
   appEntity: AppEntity;

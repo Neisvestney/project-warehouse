@@ -79,6 +79,12 @@ public class MarketplaceAccount : IHasIdentity
     /// </summary>
     public DateOnly? BuyoutsLoadedFrom { get; set; }
 
+    /// <summary>
+    /// Until when the buyout report is not asked after it answered 429; null or past — ask as usual. Asking
+    /// through the refusal only keeps it going.
+    /// </summary>
+    public DateTime? BuyoutsPausedUntil { get; set; }
+
     // ErrorCode lands in jsonb as a number — Npgsql serializes it, not the MVC options that stringify enums
     [Column(TypeName = "jsonb")] public AppFieldError? LastSyncError { get; set; }
 
