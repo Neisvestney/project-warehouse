@@ -21,6 +21,7 @@ import PayoutsShops from "./PayoutsShops";
 import PayoutsTiles from "./PayoutsTiles";
 import {useAccrualsFullscreen} from "./useAccrualsFullscreen";
 import {usePayoutsFilters} from "./usePayoutsFilters";
+import WithholdingsCard from "./WithholdingsCard";
 
 function PayoutsPage() {
   const filters = usePayoutsFilters();
@@ -79,6 +80,7 @@ function PayoutsPage() {
                   })
                 }
               />
+              <WithholdingsCard filters={filters} />
               <PayoutsCategoriesCard data={data} />
               <PayoutsShops data={data} onOpenPostings={openPostings} />
             </Stack>

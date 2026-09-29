@@ -2275,6 +2275,7 @@ export type PayoutsCurrencySeriesDto = {
    * One per selected shop, by name, zeros included.
    */
   series: Array<PayoutsSeriesDto>;
+  withholdings: PayoutsWithholdingsDto;
 };
 
 export type PayoutsDto = {
@@ -2413,6 +2414,19 @@ export type PayoutsTimeseriesDto = {
    * One per currency of the period's journal lines; empty when there are none.
    */
   currencies: Array<PayoutsCurrencySeriesDto>;
+};
+
+/**
+ * Sales and what the marketplace withheld per interval, summed over the selected shops; null for a future interval.
+ * Withheld is every category but Sale, DeliveryCharge and Compensation, signed as in the journal.
+ */
+export type PayoutsWithholdingsDto = {
+  sales: Array<null | number>;
+  withheldByPosting: Array<null | number>;
+  /**
+   * Lines tied to no posting: storage, advertising, services, shop-wide penalties.
+   */
+  withheldByShop: Array<null | number>;
 };
 
 export type PermissionName =

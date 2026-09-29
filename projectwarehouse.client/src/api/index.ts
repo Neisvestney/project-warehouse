@@ -890,6 +890,7 @@ export type {
   PayoutsRowDto,
   PayoutsSeriesDto,
   PayoutsTimeseriesDto,
+  PayoutsWithholdingsDto,
   PermissionName,
   PermissionsGetAllData,
   PermissionsGetAllError,

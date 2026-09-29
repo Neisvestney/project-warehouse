@@ -27,6 +27,12 @@ export function usePayoutsFilters() {
   const [channels, setChannels] = useSyncedWithQueryState("channels", parseList, serializeList);
   // Display state of the chart, kept out of `query` so switching it does not refetch the page
   const [step, setStep] = useSyncedWithQueryState("step", parseStep, (v) => v);
+  // Until picked, the withholdings card follows the accruals step and shares its response
+  const [withholdingsStep, setWithholdingsStep] = useSyncedWithQueryState(
+    "whstep",
+    parseStep,
+    (v) => v,
+  );
   const [showTotal, setShowTotal] = useSyncedWithQueryState(
     "total",
     (q) => q !== "0",
@@ -44,14 +50,19 @@ export function usePayoutsFilters() {
     to,
     channels,
     step,
+    withholdingsStep: withholdingsStep ?? step,
     showTotal,
     setSelection: (value: PeriodSelection) => {
-      // A new preset changes the period's scale, so the step goes back to the server's pick
-      if (value.preset !== selection.preset) setStep(null);
+      // A new preset changes the period's scale, so the steps go back to the server's pick
+      if (value.preset !== selection.preset) {
+        setStep(null);
+        setWithholdingsStep(null);
+      }
       setSelection(value);
     },
     setChannels,
     setStep,
+    setWithholdingsStep,
     setShowTotal,
   };
 }

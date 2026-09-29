@@ -26,6 +26,21 @@ public class PayoutsCurrencySeriesDto
 
     /// <summary>One per selected shop, by name, zeros included.</summary>
     public List<PayoutsSeriesDto> Series { get; init; } = [];
+
+    public PayoutsWithholdingsDto Withholdings { get; init; } = null!;
+}
+
+/// <summary>
+/// Sales and what the marketplace withheld per interval, summed over the selected shops; null for a future interval.
+/// Withheld is every category but Sale, DeliveryCharge and Compensation, signed as in the journal.
+/// </summary>
+public class PayoutsWithholdingsDto
+{
+    public List<decimal?> Sales { get; init; } = [];
+    public List<decimal?> WithheldByPosting { get; init; } = [];
+
+    /// <summary>Lines tied to no posting: storage, advertising, services, shop-wide penalties.</summary>
+    public List<decimal?> WithheldByShop { get; init; } = [];
 }
 
 public class PayoutsSeriesDto
