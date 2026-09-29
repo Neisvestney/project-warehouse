@@ -72,6 +72,7 @@ public class MarketplaceAccrualSyncService(
             await SyncBuyoutsAsync(provider, credentials, account, run, from, today.AddDays(1), now, ct);
 
         await RelinkAsync(account.Id, run, ct);
+        await BackfillDeliveredAtAsync(account.Id, run, ct);
 
         activity?.SetTag("marketplace.accruals.full_pass", fullPass);
         activity?.SetTag("marketplace.accruals.created", run.AccrualsCreated);
@@ -93,6 +94,7 @@ public class MarketplaceAccrualSyncService(
             && !await ImportBuyoutsAsync(provider, credentials, account, run, from, till, int.MaxValue, ct))
             WarnBuyoutsRateLimited(run);
         await RelinkAsync(account.Id, run, ct);
+        await BackfillDeliveredAtAsync(account.Id, run, ct);
 
         activity?.SetTag("marketplace.accruals.created", run.AccrualsCreated);
     }
@@ -290,7 +292,7 @@ public class MarketplaceAccrualSyncService(
             && p.First.CurrencyCode == p.Second.CurrencyCode);
 
     /// <summary>
-    /// The buyout report dates no row. A buyout takes the Moscow day its posting was seen delivered, else the day
+    /// The buyout report dates no row. A buyout takes the Moscow day its posting was delivered, else the day
     /// it is already stored on, else the provider's window end — so a later window does not move it again.
     /// </summary>
     private async Task<IReadOnlyList<ExternalAccrual>> DateBuyoutsAsync(Guid accountId,
@@ -320,6 +322,81 @@ public class MarketplaceAccrualSyncService(
                 return a;
             })
             .ToList();
+    }
+
+    /// <summary>
+    /// Delivered postings the order sync never saw turn Delivered — imported already delivered — take the Moscow
+    /// day of their first journal sale, which Ozon books on the delivery day; a buyout, which has no sale in the
+    /// journal, takes the day of its latest fee. Any other posting waits for its sale: a fee may be a later return
+    /// or correction, and the day once set is never revisited. Buyouts are then moved onto their posting's day.
+    /// </summary>
+    private async Task BackfillDeliveredAtAsync(Guid accountId, MarketplaceSyncRun run, CancellationToken ct)
+    {
+        var days = await db.MarketplaceOrders
+            .Where(o => o.MarketplaceAccountId == accountId
+                        && o.Status == MarketplaceOrderStatus.Delivered
+                        && o.DeliveredAt == null)
+            .Select(o => new
+            {
+                o.OrderId,
+                Sale = db.MarketplaceAccruals
+                    .Where(a => a.OrderId == o.OrderId
+                                && a.Source == MarketplaceAccrualSource.AccrualJournal
+                                && a.Category == MarketplaceAccrualCategory.Sale
+                                && a.Amount > 0)
+                    .Min(a => (DateOnly?)a.Date),
+                LastFee = db.MarketplaceAccruals
+                    .Where(a => a.OrderId == o.OrderId
+                                && a.Source == MarketplaceAccrualSource.AccrualJournal
+                                && a.Category != MarketplaceAccrualCategory.Sale
+                                && db.MarketplaceAccruals.Any(b => b.OrderId == o.OrderId
+                                                                   && b.Source == MarketplaceAccrualSource.BuyoutReport))
+                    .Max(a => (DateOnly?)a.Date),
+            })
+            .Where(x => x.Sale != null || x.LastFee != null)
+            .ToListAsync(ct);
+
+        foreach (var day in days.GroupBy(x => (x.Sale ?? x.LastFee)!.Value))
+        {
+            var ids = day.Select(x => x.OrderId).ToList();
+            var at = TimeZoneInfo.ConvertTimeToUtc(day.Key.ToDateTime(TimeOnly.MinValue), JournalZone);
+            await db.MarketplaceOrders
+                .Where(o => ids.Contains(o.OrderId) && o.DeliveredAt == null)
+                .ExecuteUpdateAsync(s => s.SetProperty(o => o.DeliveredAt, at), ct);
+        }
+
+        var buyouts = await db.MarketplaceAccruals
+            .Where(a => a.MarketplaceAccountId == accountId
+                        && a.Source == MarketplaceAccrualSource.BuyoutReport
+                        && a.OrderId != null)
+            .Select(a => new
+            {
+                a.Id,
+                a.ExternalId,
+                a.Date,
+                DeliveredAt = db.MarketplaceOrders
+                    .Where(o => o.OrderId == a.OrderId)
+                    .Select(o => o.DeliveredAt)
+                    .FirstOrDefault(),
+            })
+            .Where(x => x.DeliveredAt != null)
+            .ToListAsync(ct);
+
+        var moved = buyouts
+            .Select(x => (x.Id, x.ExternalId, x.Date,
+                Day: DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(x.DeliveredAt!.Value, JournalZone))))
+            .Where(x => x.Date != x.Day)
+            .ToList();
+
+        foreach (var day in moved.GroupBy(x => x.Day))
+        {
+            var ids = day.Select(x => x.Id).ToList();
+            await db.MarketplaceAccruals
+                .Where(a => ids.Contains(a.Id))
+                .ExecuteUpdateAsync(s => s.SetProperty(a => a.Date, day.Key), ct);
+        }
+
+        run.AccrualsUpdated += moved.Select(x => x.ExternalId).Distinct().Count();
     }
 
     /// <summary>

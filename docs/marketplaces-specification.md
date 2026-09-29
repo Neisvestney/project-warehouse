@@ -489,7 +489,7 @@ MarketplaceOrder
 ├── PostingNumber         — string, номер отправления
 ├── ExternalOrderNumber   — string?, номер заказа площадки, к которому относится отправление
 ├── Status                — MarketplaceOrderStatus, нормализованный статус
-├── DeliveredAt           — DateTime?, когда синхронизация впервые увидела Delivered
+├── DeliveredAt           — DateTime?, когда синхронизация впервые увидела Delivered; у пришедших доставленными — день продажи из журнала начислений
 ├── CancelledAt           — DateTime?, когда синхронизация впервые увидела Cancelled
 ├── RawStatus             — string?, статус площадки как есть  ─┐ только диагностика
 ├── RawSubstatus          — string?, подстатус как есть         ─┘
