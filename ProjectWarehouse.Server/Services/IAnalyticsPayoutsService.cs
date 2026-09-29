@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Analytics;
 
 namespace ProjectWarehouse.Server.Services;
@@ -16,4 +17,8 @@ public interface IAnalyticsPayoutsService
     /// <remarks>Also throws on a day step over all time longer than the period limit.</remarks>
     Task<PayoutsTimeseriesDto> GetTimeseriesAsync(
         ClaimsPrincipal user, PayoutsTimeseriesRequest request, CancellationToken ct = default);
+
+    /// <summary>The postings behind one debt bucket, oldest first.</summary>
+    Task<Paginated<PayoutsPostingDto>> GetPostingsAsync(
+        ClaimsPrincipal user, PayoutsPostingsRequest request, CancellationToken ct = default);
 }

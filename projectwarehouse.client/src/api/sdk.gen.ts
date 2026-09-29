@@ -40,6 +40,9 @@ import type {
   AnalyticsGetChannelsWeekdaysResponses,
   AnalyticsGetPayoutsData,
   AnalyticsGetPayoutsErrors,
+  AnalyticsGetPayoutsPostingsData,
+  AnalyticsGetPayoutsPostingsErrors,
+  AnalyticsGetPayoutsPostingsResponses,
   AnalyticsGetPayoutsResponses,
   AnalyticsGetPayoutsTimeseriesData,
   AnalyticsGetPayoutsTimeseriesErrors,
@@ -916,6 +919,29 @@ export const analyticsGetPayouts = <ThrowOnError extends boolean = false>(
     AnalyticsGetPayoutsErrors,
     ThrowOnError
   >({url: "/api/analytics/payouts", ...options});
+
+/**
+ * The postings behind one debt bucket of `payouts`, oldest first.
+ *
+ * Query params: `bucket` — `inTransit`, `inTransitOverdue`, `deliveredNotAccrued` or
+ * `notAccruedByMarketplace`, the same buckets as `payouts` with the same rules, so `total` equals
+ * the bucket's posting count there; `currencyCode` — the money block the bucket belongs to;
+ * `includeMarketplaces` and `marketplaceAccountIds` as in `payouts`; `page`,
+ * `pageSize` (1…200, 50 by default). No period: the buckets ignore it. `amount` is Σ price × quantity of
+ * the posting's lines in that currency, not the payout estimate. Requires `analytics.view`.
+ */
+export const analyticsGetPayoutsPostings = <ThrowOnError extends boolean = false>(
+  options?: Options<AnalyticsGetPayoutsPostingsData, ThrowOnError>,
+): RequestResult<
+  AnalyticsGetPayoutsPostingsResponses,
+  AnalyticsGetPayoutsPostingsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    AnalyticsGetPayoutsPostingsResponses,
+    AnalyticsGetPayoutsPostingsErrors,
+    ThrowOnError
+  >({url: "/api/analytics/payouts/postings", ...options});
 
 /**
  * The «Начислено» bucket per interval and shop.

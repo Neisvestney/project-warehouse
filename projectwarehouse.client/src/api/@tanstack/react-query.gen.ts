@@ -20,6 +20,7 @@ import {
   analyticsGetChannelsTopItems,
   analyticsGetChannelsWeekdays,
   analyticsGetPayouts,
+  analyticsGetPayoutsPostings,
   analyticsGetPayoutsTimeseries,
   analyticsGetSettings,
   analyticsUpdateSettings,
@@ -244,6 +245,9 @@ import type {
   AnalyticsGetChannelsWeekdaysResponse,
   AnalyticsGetPayoutsData,
   AnalyticsGetPayoutsError,
+  AnalyticsGetPayoutsPostingsData,
+  AnalyticsGetPayoutsPostingsError,
+  AnalyticsGetPayoutsPostingsResponse,
   AnalyticsGetPayoutsResponse,
   AnalyticsGetPayoutsTimeseriesData,
   AnalyticsGetPayoutsTimeseriesError,
@@ -1262,6 +1266,41 @@ export const analyticsGetPayoutsOptions = (options?: Options<AnalyticsGetPayouts
       return data;
     },
     queryKey: analyticsGetPayoutsQueryKey(options),
+  });
+
+export const analyticsGetPayoutsPostingsQueryKey = (
+  options?: Options<AnalyticsGetPayoutsPostingsData>,
+) => createQueryKey("analyticsGetPayoutsPostings", options);
+
+/**
+ * The postings behind one debt bucket of `payouts`, oldest first.
+ *
+ * Query params: `bucket` — `inTransit`, `inTransitOverdue`, `deliveredNotAccrued` or
+ * `notAccruedByMarketplace`, the same buckets as `payouts` with the same rules, so `total` equals
+ * the bucket's posting count there; `currencyCode` — the money block the bucket belongs to;
+ * `includeMarketplaces` and `marketplaceAccountIds` as in `payouts`; `page`,
+ * `pageSize` (1…200, 50 by default). No period: the buckets ignore it. `amount` is Σ price × quantity of
+ * the posting's lines in that currency, not the payout estimate. Requires `analytics.view`.
+ */
+export const analyticsGetPayoutsPostingsOptions = (
+  options?: Options<AnalyticsGetPayoutsPostingsData>,
+) =>
+  queryOptions<
+    AnalyticsGetPayoutsPostingsResponse,
+    AnalyticsGetPayoutsPostingsError,
+    AnalyticsGetPayoutsPostingsResponse,
+    ReturnType<typeof analyticsGetPayoutsPostingsQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await analyticsGetPayoutsPostings({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: analyticsGetPayoutsPostingsQueryKey(options),
   });
 
 export const analyticsGetPayoutsTimeseriesQueryKey = (

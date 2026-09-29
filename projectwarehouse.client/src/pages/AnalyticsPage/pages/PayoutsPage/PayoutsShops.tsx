@@ -1,4 +1,4 @@
-import {Box, Divider, Paper, Stack, Tooltip, Typography} from "@mui/material";
+import {Box, ButtonBase, Divider, Paper, Stack, Tooltip, Typography} from "@mui/material";
 import type {
   PayoutsAppliedSettingsDto,
   PayoutsDto,
@@ -11,6 +11,7 @@ import {formatDateOnly} from "@/utils/dateOnly";
 import {NOUNS, pluralCount} from "@/utils/pluralUtils";
 import PayoutsAgeBar from "./PayoutsAgeBar";
 import {isWithheld, shopWideNote, summarizeCategories} from "./payoutsCategories";
+import type {PostingsTarget} from "./payoutsPostingsTarget";
 import {formatEstimate} from "./payoutsFormat";
 
 function Figure({
@@ -19,18 +20,33 @@ function Figure({
   postings,
   note,
   color,
+  onClick,
 }: {
   label: string;
   value: string;
   postings: number;
   note?: string | null;
   color?: string;
+  /** Lists the postings behind the figure; inert while there are none. */
+  onClick?: () => void;
 }) {
   const caption = [postings > 0 ? pluralCount(postings, NOUNS.posting) : null, note]
     .filter(Boolean)
     .join(" · ");
   return (
-    <Box sx={{minWidth: 0}}>
+    <ButtonBase
+      disabled={!onClick || postings === 0}
+      onClick={onClick}
+      sx={{
+        display: "block",
+        textAlign: "left",
+        minWidth: 0,
+        borderRadius: 1,
+        m: -0.5,
+        p: 0.5,
+        "&:hover": {bgcolor: "action.hover"},
+      }}
+    >
       <Typography variant="caption" color="text.secondary" component="div" noWrap>
         {label}
       </Typography>
@@ -40,7 +56,7 @@ function Figure({
       <Typography variant="caption" color="text.secondary" component="div">
         {caption || " "}
       </Typography>
-    </Box>
+    </ButtonBase>
   );
 }
 
@@ -83,11 +99,14 @@ function Withheld({money}: {money: PayoutsMoneyDto}) {
 function MoneyBlock({
   money,
   settings,
+  onOpenPostings,
 }: {
   money: PayoutsMoneyDto;
   settings: PayoutsAppliedSettingsDto;
+  onOpenPostings: (target: Omit<PostingsTarget, "accountId">) => void;
 }) {
   const {payoutNotAccruedDays} = settings;
+  const {currencyCode} = money;
   return (
     <Stack spacing={1.5}>
       <Box sx={{display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5}}>
@@ -95,16 +114,19 @@ function MoneyBlock({
           label="В пути"
           value={formatEstimate(money.inTransit, money.currencyCode)}
           postings={money.inTransitPostings}
+          onClick={() => onOpenPostings({bucket: "inTransit", currencyCode})}
         />
         <Figure
           label="Доставлено, не начислено"
           value={formatEstimate(money.deliveredNotAccrued, money.currencyCode)}
           postings={money.deliveredNotAccruedPostings}
+          onClick={() => onOpenPostings({bucket: "deliveredNotAccrued", currencyCode})}
         />
         <Figure
           label={`Не начислила за ${payoutNotAccruedDays}+ дн.`}
           value={formatEstimate(money.notAccruedByMarketplace, money.currencyCode)}
           postings={money.notAccruedByMarketplacePostings}
+          onClick={() => onOpenPostings({bucket: "notAccruedByMarketplace", currencyCode})}
           color={money.notAccruedByMarketplacePostings > 0 ? "error.main" : undefined}
         />
         <Figure
@@ -124,7 +146,15 @@ function MoneyBlock({
   );
 }
 
-function ShopCard({row, settings}: {row: PayoutsRowDto; settings: PayoutsAppliedSettingsDto}) {
+function ShopCard({
+  row,
+  settings,
+  onOpenPostings,
+}: {
+  row: PayoutsRowDto;
+  settings: PayoutsAppliedSettingsDto;
+  onOpenPostings: (target: PostingsTarget) => void;
+}) {
   const ratios = row.money.filter((m) => m.payoutRatio != null);
 
   return (
@@ -190,7 +220,14 @@ function ShopCard({row, settings}: {row: PayoutsRowDto; settings: PayoutsApplied
       ) : (
         <Stack spacing={2} divider={<Divider flexItem />}>
           {row.money.map((m) => (
-            <MoneyBlock key={m.currencyCode} money={m} settings={settings} />
+            <MoneyBlock
+              key={m.currencyCode}
+              money={m}
+              settings={settings}
+              onOpenPostings={(target) =>
+                onOpenPostings({...target, accountId: row.marketplaceAccountId})
+              }
+            />
           ))}
         </Stack>
       )}
@@ -198,7 +235,13 @@ function ShopCard({row, settings}: {row: PayoutsRowDto; settings: PayoutsApplied
   );
 }
 
-function PayoutsShops({data}: {data: PayoutsDto}) {
+function PayoutsShops({
+  data,
+  onOpenPostings,
+}: {
+  data: PayoutsDto;
+  onOpenPostings: (target: PostingsTarget) => void;
+}) {
   if (data.rows.length === 0)
     return (
       <Paper variant="outlined" sx={{p: 3, textAlign: "center"}}>
@@ -219,7 +262,12 @@ function PayoutsShops({data}: {data: PayoutsDto}) {
       }}
     >
       {data.rows.map((row) => (
-        <ShopCard key={row.marketplaceAccountId} row={row} settings={data.settings} />
+        <ShopCard
+          key={row.marketplaceAccountId}
+          row={row}
+          settings={data.settings}
+          onOpenPostings={onOpenPostings}
+        />
       ))}
     </Box>
   );

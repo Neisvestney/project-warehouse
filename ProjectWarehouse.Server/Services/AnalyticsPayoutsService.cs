@@ -4,6 +4,7 @@ using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Integrations.Abstractions;
+using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Analytics;
 
 namespace ProjectWarehouse.Server.Services;
@@ -60,23 +61,13 @@ public class AnalyticsPayoutsService(
         var accounts = await LoadAccountsAsync(request, ct);
         var accountIds = accounts.Select(a => a.Id).ToList();
 
-        // buyout rows are dated by delivery, which may precede the journal
-        var coverage = accountIds.Count == 0
-            ? []
-            : await db.MarketplaceAccruals
-                .Where(a => accountIds.Contains(a.MarketplaceAccountId)
-                    && a.Source == MarketplaceAccrualSource.AccrualJournal)
-                .GroupBy(a => a.MarketplaceAccountId)
-                .Select(g => new { g.Key, From = g.Min(a => a.Date) })
-                .ToDictionaryAsync(x => x.Key, x => x.From, ct);
+        var coverage = await LoadCoverageAsync(accountIds, ct);
         var buyoutsLoadedFrom = accountIds.Count == 0
             ? []
             : await db.MarketplaceAccounts
                 .Where(a => accountIds.Contains(a.Id))
                 .ToDictionaryAsync(a => a.Id, a => a.BuyoutsLoadedFrom, ct);
-        var coverageStart = coverage.ToDictionary(
-            c => c.Key,
-            c => TimeZoneInfo.ConvertTimeToUtc(c.Value.ToDateTime(TimeOnly.MinValue), JournalZone));
+        var coverageStart = ToCoverageStart(coverage);
 
         var openLines = (accountIds.Count == 0 ? [] : await LoadOpenLinesAsync(accountIds, coverageStart, ct))
             .ToLookup(l => l.AccountId);
@@ -100,28 +91,13 @@ public class AnalyticsPayoutsService(
 
             foreach (var posting in openLines[account.Id].GroupBy(l => (l.OrderId, l.CurrencyCode)))
             {
-                var first = posting.First();
-                var age = clock.Today.DayNumber - DateOnly.FromDateTime(first.EffectiveDate + offset).DayNumber;
-
-                Bucket bucket;
-                if (first.Status == MarketplaceOrderStatus.Delivering)
-                {
-                    bucket = Bucket.InTransit;
-                }
-                else
-                {
-                    // A sale older than the journal was accrued before it started; CountUncoveredAsync counts it
-                    if (first.EffectiveDate < coverageStart[account.Id])
-                        continue;
-
-                    bucket = age >= options.PayoutNotAccruedDays
-                        ? Bucket.NotAccruedByMarketplace
-                        : Bucket.DeliveredNotAccrued;
-                }
+                var (bucket, age) = Classify(posting.First(), coverageStart, clock.Today, offset, options);
+                if (bucket is not { } b)
+                    continue;
 
                 if (!open.TryGetValue(posting.Key.CurrencyCode, out var list))
                     open[posting.Key.CurrencyCode] = list = [];
-                list.Add(new OpenPosting(bucket, age, posting.Sum(l => l.Amount)));
+                list.Add(new OpenPosting(b, age, posting.Sum(l => l.Amount)));
             }
 
             var accountRatios = ratios.GetValueOrDefault(account.Id) ?? [];
@@ -255,6 +231,122 @@ public class AnalyticsPayoutsService(
                 .ToList(),
         };
     }
+
+    public async Task<Paginated<PayoutsPostingDto>> GetPostingsAsync(
+        ClaimsPrincipal user, PayoutsPostingsRequest request, CancellationToken ct = default)
+    {
+        var clock = await queries.ResolveClockAsync(ct);
+        var options = await settings.GetOptionsAsync(ct);
+        var accounts = await queries.LoadAccountsAsync(new AnalyticsFilterRequest
+        {
+            IncludeMarketplaces = request.IncludeMarketplaces,
+            MarketplaceAccountIds = request.MarketplaceAccountIds,
+        }, ct);
+        var accountIds = accounts.Select(a => a.Id).ToList();
+        if (accountIds.Count == 0)
+            return new Paginated<PayoutsPostingDto> { Page = request.Page, PageSize = request.PageSize };
+
+        var coverageStart = ToCoverageStart(await LoadCoverageAsync(accountIds, ct));
+        var offset = TimeSpan.FromMinutes(clock.OffsetMinutes);
+
+        // Classified in memory, as on the page itself, so the list always matches the bucket's count
+        var postings = (await LoadOpenLinesAsync(accountIds, coverageStart, ct))
+            .Where(l => l.CurrencyCode == request.CurrencyCode)
+            .GroupBy(l => l.OrderId)
+            .Select(g =>
+            {
+                var first = g.First();
+                var (bucket, age) = Classify(first, coverageStart, clock.Today, offset, options);
+                return (First: first, Bucket: bucket, Age: age, Amount: g.Sum(l => l.Amount));
+            })
+            .Where(p => request.Bucket switch
+            {
+                PayoutsBucket.InTransit => p.Bucket == Bucket.InTransit,
+                PayoutsBucket.InTransitOverdue => p.Bucket == Bucket.InTransit && p.Age >= options.PayoutOverdueDays,
+                PayoutsBucket.DeliveredNotAccrued => p.Bucket == Bucket.DeliveredNotAccrued,
+                PayoutsBucket.NotAccruedByMarketplace => p.Bucket == Bucket.NotAccruedByMarketplace,
+                _ => false,
+            })
+            .OrderByDescending(p => p.Age)
+            .ThenBy(p => p.First.OrderId)
+            .ToList();
+
+        var page = postings.Skip((request.Page - 1) * request.PageSize).Take(request.PageSize).ToList();
+        var pageIds = page.Select(p => p.First.OrderId).ToList();
+        var orders = await db.Orders
+            .Where(o => pageIds.Contains(o.Id))
+            .Select(o => new
+            {
+                o.Id,
+                o.Number,
+                o.MarketplaceOrder!.PostingNumber,
+                o.MarketplaceOrder.DeliveredAt,
+            })
+            .ToDictionaryAsync(o => o.Id, ct);
+        var accountsById = accounts.ToDictionary(a => a.Id);
+
+        return new Paginated<PayoutsPostingDto>
+        {
+            Items = page
+                .Select(p =>
+                {
+                    var order = orders[p.First.OrderId];
+                    var account = accountsById[p.First.AccountId];
+                    return new PayoutsPostingDto
+                    {
+                        OrderId = order.Id,
+                        OrderNumber = order.Number,
+                        PostingNumber = order.PostingNumber,
+                        MarketplaceAccountId = account.Id,
+                        MarketplaceType = account.Type,
+                        AccountName = account.Name,
+                        Status = p.First.Status,
+                        EffectiveDate = p.First.EffectiveDate,
+                        DeliveredAt = order.DeliveredAt,
+                        AgeDays = p.Age,
+                        Amount = p.Amount,
+                    };
+                })
+                .ToList(),
+            Total = postings.Count,
+            Page = request.Page,
+            PageSize = request.PageSize,
+        };
+    }
+
+    /// <summary>
+    /// The bucket of a posting with no sale, or null for a delivered one dated before its shop's journal: that sale
+    /// was accrued before the journal started, and <see cref="CountUncoveredAsync"/> counts it instead.
+    /// </summary>
+    private static (Bucket? Bucket, int AgeDays) Classify(
+        OpenLine line, Dictionary<Guid, DateTime> coverageStart, DateOnly today, TimeSpan offset,
+        AnalyticsOptions options)
+    {
+        var age = today.DayNumber - DateOnly.FromDateTime(line.EffectiveDate + offset).DayNumber;
+
+        if (line.Status == MarketplaceOrderStatus.Delivering)
+            return (Bucket.InTransit, age);
+        if (line.EffectiveDate < coverageStart[line.AccountId])
+            return (null, age);
+        return (age >= options.PayoutNotAccruedDays ? Bucket.NotAccruedByMarketplace : Bucket.DeliveredNotAccrued,
+            age);
+    }
+
+    /// <summary>First journal day per shop that has one. Buyout rows are dated by delivery, which may precede it.</summary>
+    private async Task<Dictionary<Guid, DateOnly>> LoadCoverageAsync(List<Guid> accountIds, CancellationToken ct) =>
+        accountIds.Count == 0
+            ? []
+            : await db.MarketplaceAccruals
+                .Where(a => accountIds.Contains(a.MarketplaceAccountId)
+                    && a.Source == MarketplaceAccrualSource.AccrualJournal)
+                .GroupBy(a => a.MarketplaceAccountId)
+                .Select(g => new { g.Key, From = g.Min(a => a.Date) })
+                .ToDictionaryAsync(x => x.Key, x => x.From, ct);
+
+    private static Dictionary<Guid, DateTime> ToCoverageStart(Dictionary<Guid, DateOnly> coverage) =>
+        coverage.ToDictionary(
+            c => c.Key,
+            c => TimeZoneInfo.ConvertTimeToUtc(c.Value.ToDateTime(TimeOnly.MinValue), JournalZone));
 
     /// <summary>The bounded period, or null for all time, and the caller's clock either way.</summary>
     private async Task<(AnalyticsPeriod? Bounds, AnalyticsClock Clock)> ResolvePeriodAsync(

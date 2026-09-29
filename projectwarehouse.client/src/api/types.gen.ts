@@ -2129,6 +2129,16 @@ export type PaginatedOfMarketplaceWarehouseDto = {
   hasPreviousPage: boolean;
 };
 
+export type PaginatedOfPayoutsPostingDto = {
+  items: Array<PayoutsPostingDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
 export type PaginatedOfStockForecastRowDto = {
   items: Array<StockForecastRowDto>;
   total: number;
@@ -2242,6 +2252,9 @@ export type PayoutsAppliedSettingsDto = {
   payoutNotAccruedDays: number;
 };
 
+export type PayoutsBucket =
+  "inTransit" | "inTransitOverdue" | "deliveredNotAccrued" | "notAccruedByMarketplace";
+
 export type PayoutsCategoryDto = {
   category: MarketplaceAccrualCategory;
   /**
@@ -2322,6 +2335,26 @@ export type PayoutsMoneyDto = {
    * Every journal line dated in the period by category; adds up to decimal PayoutsMoneyDto.Accrued.
    */
   categories: Array<PayoutsCategoryDto>;
+};
+
+export type PayoutsPostingDto = {
+  orderId: string;
+  orderNumber: number;
+  postingNumber: string;
+  marketplaceAccountId: string;
+  marketplaceType: MarketplaceType;
+  accountName: string;
+  status: MarketplaceOrderStatus;
+  /**
+   * The order's effective date, which the age counts from.
+   */
+  effectiveDate: string;
+  deliveredAt?: null | string;
+  ageDays: number;
+  /**
+   * Σ price × quantity of the posting's lines in the requested currency; not the payout estimate.
+   */
+  amount: number;
 };
 
 export type PayoutsRowDto = {
@@ -4696,6 +4729,57 @@ export type AnalyticsGetPayoutsResponses = {
 
 export type AnalyticsGetPayoutsResponse =
   AnalyticsGetPayoutsResponses[keyof AnalyticsGetPayoutsResponses];
+
+export type AnalyticsGetPayoutsPostingsData = {
+  body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path?: never;
+  query?: {
+    Bucket?: PayoutsBucket;
+    CurrencyCode?: string;
+    /**
+     * False leaves every shop out, so the Direct channel alone can be asked for — an empty
+     * Guid[]? AnalyticsFilterRequest.MarketplaceAccountIds means all shops and cannot say "none".
+     */
+    IncludeMarketplaces?: boolean;
+    /**
+     * Shops to include. Empty means all.
+     */
+    MarketplaceAccountIds?: Array<string>;
+    Page?: number;
+    PageSize?: number;
+  };
+  url: "/api/analytics/payouts/postings";
+};
+
+export type AnalyticsGetPayoutsPostingsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type AnalyticsGetPayoutsPostingsError =
+  AnalyticsGetPayoutsPostingsErrors[keyof AnalyticsGetPayoutsPostingsErrors];
+
+export type AnalyticsGetPayoutsPostingsResponses = {
+  /**
+   * OK
+   */
+  200: PaginatedOfPayoutsPostingDto;
+};
+
+export type AnalyticsGetPayoutsPostingsResponse =
+  AnalyticsGetPayoutsPostingsResponses[keyof AnalyticsGetPayoutsPostingsResponses];
 
 export type AnalyticsGetPayoutsTimeseriesData = {
   body?: never;
