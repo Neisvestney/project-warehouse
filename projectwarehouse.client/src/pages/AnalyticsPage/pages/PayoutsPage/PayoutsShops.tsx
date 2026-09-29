@@ -10,7 +10,7 @@ import ChannelChip from "@/components/analytics/ChannelChip";
 import {formatDateOnly} from "@/utils/dateOnly";
 import {NOUNS, pluralCount} from "@/utils/pluralUtils";
 import PayoutsAgeBar from "./PayoutsAgeBar";
-import {CATEGORY_LABELS, isWithheld, shopWideNote, summarizeCategories} from "./payoutsCategories";
+import {isWithheld, shopWideNote, summarizeCategories} from "./payoutsCategories";
 import {formatEstimate} from "./payoutsFormat";
 
 function Figure({
@@ -47,15 +47,11 @@ function Figure({
 function Withheld({money}: {money: PayoutsMoneyDto}) {
   const summary = summarizeCategories(money.categories);
   const lines = [
-    ...summary.byPosting.map((l) => ({
-      ...l,
-      key: `posting-${l.category}`,
-      label: CATEGORY_LABELS[l.category],
-    })),
+    ...summary.byPosting.map((l) => ({...l, key: `posting-${l.key}`})),
     ...summary.byShop.map((l) => ({
       ...l,
-      key: `shop-${l.category}`,
-      label: `${CATEGORY_LABELS[l.category]} (по магазину)`,
+      key: `shop-${l.key}`,
+      label: `${l.label} (по магазину)`,
     })),
   ].filter((l) => isWithheld(l.category));
   if (lines.length === 0) return null;

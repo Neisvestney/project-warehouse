@@ -12,4 +12,5 @@ public enum MarketplaceCapabilities
     Labels = 32,
     Returns = 64,
     Accruals = 128,
+    Buyouts = 256,
 }

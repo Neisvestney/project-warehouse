@@ -1,12 +1,7 @@
 import {Box, Divider, Paper, Stack, Tooltip, Typography} from "@mui/material";
 import type {PayoutsDto} from "@/api/types.gen";
 import {formatMoney, formatPercent} from "@/components/analytics/analyticsFormat";
-import {
-  CATEGORY_LABELS,
-  type CategoryLine,
-  categoryColor,
-  summarizeCategories,
-} from "./payoutsCategories";
+import {type CategoryLine, categoryColor, summarizeCategories} from "./payoutsCategories";
 
 const UNKNOWN_HINT = "Типы начислений, которые провайдер не умеет разложить по статьям";
 
@@ -76,7 +71,7 @@ function Group({
         lines.map((line) => {
           const row = (
             <Line
-              label={CATEGORY_LABELS[line.category]}
+              label={line.label}
               amount={line.amount}
               share={line.share}
               currencyCode={currencyCode}
@@ -84,11 +79,11 @@ function Group({
             />
           );
           return line.category === "unknown" ? (
-            <Tooltip key={line.category} title={UNKNOWN_HINT}>
+            <Tooltip key={line.key} title={UNKNOWN_HINT}>
               <Box sx={{cursor: "help"}}>{row}</Box>
             </Tooltip>
           ) : (
-            <Box key={line.category}>{row}</Box>
+            <Box key={line.key}>{row}</Box>
           );
         })
       )}

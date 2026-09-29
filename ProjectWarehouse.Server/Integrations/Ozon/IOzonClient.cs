@@ -34,6 +34,9 @@ public interface IOzonClient
     /// <summary>Accruals of the given days, one day at a time; days after today in Moscow are skipped.</summary>
     IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> GetAccrualsAsync(DateOnly from, DateOnly to, CancellationToken ct);
 
+    /// <summary>Buyout report in windows of at most 31 days, a page per window; days after today in Moscow are skipped.</summary>
+    IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> GetBuyoutsAsync(DateOnly from, DateOnly to, CancellationToken ct);
+
     /// <summary>Creation date of the oldest posting of either scheme, or null when the account has none.</summary>
     Task<DateTime?> GetEarliestPostingDateAsync(CancellationToken ct);
 

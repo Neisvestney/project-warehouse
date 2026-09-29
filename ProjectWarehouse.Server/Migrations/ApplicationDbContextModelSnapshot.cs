@@ -20,7 +20,7 @@ namespace ProjectWarehouse.Server.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -909,7 +909,6 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("RawTypeId")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<int>("Scope")
@@ -917,6 +916,9 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.Property<string>("Sku")
                         .HasColumnType("text");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("SyncedAt")
                         .HasColumnType("timestamp with time zone");

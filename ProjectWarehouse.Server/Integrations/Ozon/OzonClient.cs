@@ -45,6 +45,9 @@ public class OzonClient(
     /// <summary>Ozon's accounting days are Moscow days; a later day is not asked for.</summary>
     private const string MoscowZoneId = "Europe/Moscow";
 
+    /// <summary>Spec cap on the period of /v1/finance/products/buyout.</summary>
+    private const int BuyoutWindowDays = 31;
+
     /// <summary>Return states in which the item never went back: cancelled by the buyer or rejected.</summary>
     private static readonly HashSet<string> CancelledReturnStatuses = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -282,6 +285,59 @@ public class OzonClient(
                     break;
                 }
             } while (lastId.Length > 0);
+        }
+    }
+
+    public async IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> GetBuyoutsAsync(
+        DateOnly from, DateOnly to, [EnumeratorCancellation] CancellationToken ct)
+    {
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, MoscowZoneId));
+        var last = to > today ? today : to;
+
+        for (var start = from; start <= last; start = start.AddDays(BuyoutWindowDays))
+        {
+            var end = start.AddDays(BuyoutWindowDays - 1);
+            if (end > last)
+                end = last;
+
+            // shares the finance rate limit with the accrual journal, whose last call usually just went out
+            await Task.Delay(_options.AccrualRequestDelayMs, ct);
+
+            var response = await api.GetFinanceProductsBuyoutAsync(new V1GetFinanceProductsBuyoutRequest
+            {
+                Date_from = start.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                Date_to = end.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            }, ct);
+
+            var accruals = new List<ExternalAccrual>();
+            foreach (var posting in (response.Products ?? []).GroupBy(p => Trim(p.Posting_number)))
+            {
+                if (posting.Key is not { } number)
+                {
+                    logger.LogWarning("Ozon buyout rows without a posting number skipped: {Count}", posting.Count());
+                    continue;
+                }
+
+                // the report names no currency; Ozon settles with its sellers in roubles
+                var lines = posting
+                    .Where(p => p.Amount is not null)
+                    .Select(p => new ExternalAccrualLine(MarketplaceAccrualCategory.Sale, null, ToSku(p.Sku),
+                        Math.Round((decimal)p.Amount!.Value, 2), "RUB"))
+                    .ToList();
+
+                // nothing to store would read as a new accrual on every run
+                if (lines.Count == 0)
+                {
+                    logger.LogWarning("Ozon buyout of posting {PostingNumber} has no amounts, skipped", number);
+                    continue;
+                }
+
+                accruals.Add(new ExternalAccrual($"buyout:{number}", end, MarketplaceAccrualScope.Posting, number,
+                    lines, MarketplaceAccrualSource.BuyoutReport));
+            }
+
+            if (accruals.Count > 0)
+                yield return accruals;
         }
     }
 

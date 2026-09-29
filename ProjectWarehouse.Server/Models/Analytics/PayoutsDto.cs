@@ -89,6 +89,9 @@ public class PayoutsCategoryDto
 {
     public MarketplaceAccrualCategory Category { get; init; }
 
+    /// <summary>A category read from several documents comes as a line per document.</summary>
+    public MarketplaceAccrualSource Source { get; init; }
+
     /// <summary>The lines are tied to postings; otherwise they concern the shop as a whole.</summary>
     public bool ByPosting { get; init; }
 
