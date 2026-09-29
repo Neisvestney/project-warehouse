@@ -53,14 +53,14 @@ public class LabelPdfComposer(IOptions<MarketplacesOptions> options)
     }
 
     /// <summary>
-    /// Writes the article lines into the corner named by <see cref="LabelsOptions.TextCorner"/> on every
-    /// page in the document.
+    /// Writes the article lines into the corner the layout of <paramref name="kind"/> names, on every page
+    /// in the document.
     /// </summary>
     /// <remarks>
     /// No rotation: Ozon already hands the label over rotated, so the page arrives in the orientation it
     /// is printed in and the text only has to follow it.
     /// </remarks>
-    public byte[] Overlay(byte[] pdf, IReadOnlyList<LabelArticle> articles)
+    public byte[] Overlay(byte[] pdf, IReadOnlyList<LabelArticle> articles, LabelKind kind)
     {
         var lines = BuildLines(articles);
         if (lines.Count == 0)
@@ -71,7 +71,8 @@ public class LabelPdfComposer(IOptions<MarketplacesOptions> options)
         var font = new XFont(EmbeddedLabelFontResolver.FamilyName, _options.FontSize);
         var lineHeight = _options.FontSize * 1.25;
 
-        var corner = _options.TextCorner;
+        var layout = _options.Layouts.For(kind);
+        var corner = layout.TextCorner;
         var atTop = corner is LabelTextCorner.TopLeft or LabelTextCorner.TopRight;
         var atLeft = corner is LabelTextCorner.TopLeft or LabelTextCorner.BottomLeft;
         var format = atTop
@@ -82,8 +83,8 @@ public class LabelPdfComposer(IOptions<MarketplacesOptions> options)
         {
             using var gfx = XGraphics.FromPdfPage(page, XGraphicsPdfPageOptions.Append);
 
-            var x = atLeft ? _options.MarginX : page.Width.Point - _options.MarginX;
-            var edge = atTop ? _options.MarginY : page.Height.Point - _options.MarginY;
+            var x = atLeft ? layout.MarginX : page.Width.Point - layout.MarginX;
+            var edge = atTop ? layout.MarginY : page.Height.Point - layout.MarginY;
 
             // Anchored at the bottom the block grows upwards, so the first article keeps the outermost
             // line and the reading order stays the same in every corner.

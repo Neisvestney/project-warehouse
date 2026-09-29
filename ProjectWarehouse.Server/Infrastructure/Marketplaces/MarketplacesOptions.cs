@@ -29,6 +29,37 @@ public class LabelsOptions
 
     public double FontSize { get; set; } = 8;
 
+    /// <summary>Where the article lines go, per label format — each one leaves its free space elsewhere.</summary>
+    public LabelLayoutsOptions Layouts { get; set; } = new();
+
+    /// <summary>Age after which a cached label of a posting past awaiting_deliver is released.</summary>
+    public int CacheTtlDays { get; set; } = 7;
+
+    public string GcCron { get; set; } = "0 15 3 * * ?";
+}
+
+public class LabelLayoutsOptions
+{
+    /// <summary>Ozon's label carrying the <c>ii…</c> scanit barcode.</summary>
+    public LabelLayout OzonScanitLabel { get; set; } = new();
+
+    /// <summary>
+    /// Ozon's label carrying the posting number instead of a scanit — printed for accounts without the beta
+    /// labels and for postings of more than one unit. Its content is rotated, and the bottom-left corner
+    /// sits on the posting number.
+    /// </summary>
+    public LabelLayout OzonPostingLabel { get; set; } = new() { TextCorner = LabelTextCorner.TopRight };
+
+    public LabelLayout For(LabelKind kind) => kind switch
+    {
+        LabelKind.OzonScanitLabel => OzonScanitLabel,
+        LabelKind.OzonPostingLabel => OzonPostingLabel,
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+    };
+}
+
+public class LabelLayout
+{
     /// <summary>Page corner the article lines are written into.</summary>
     public LabelTextCorner TextCorner { get; set; } = LabelTextCorner.BottomLeft;
 
@@ -37,11 +68,12 @@ public class LabelsOptions
 
     /// <summary>Distance from the corner's horizontal page edge, in points.</summary>
     public double MarginY { get; set; } = 6;
+}
 
-    /// <summary>Age after which a cached label of a posting past awaiting_deliver is released.</summary>
-    public int CacheTtlDays { get; set; } = 7;
-
-    public string GcCron { get; set; } = "0 15 3 * * ?";
+public enum LabelKind
+{
+    OzonScanitLabel = 0,
+    OzonPostingLabel = 1,
 }
 
 public enum LabelTextCorner
