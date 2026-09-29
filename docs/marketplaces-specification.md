@@ -1000,6 +1000,7 @@ Quartz регистрируется с in-memory хранилищем задач
 "Marketplaces": {
   "KeyRingPath": "/keys",
   "SyncScanCron": "0 * * * * ?",
+  "SyncScanEnabled": true,
   "DefaultSyncIntervalMinutes": 30,
   "Ozon": {
     "BaseUrl": "https://api-seller.ozon.ru",

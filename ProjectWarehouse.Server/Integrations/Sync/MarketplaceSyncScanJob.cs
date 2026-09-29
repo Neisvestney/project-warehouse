@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
+using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using Quartz;
 
 namespace ProjectWarehouse.Server.Integrations.Sync;
@@ -13,12 +15,16 @@ namespace ProjectWarehouse.Server.Integrations.Sync;
 public class MarketplaceSyncScanJob(
     ApplicationDbContext db,
     IMarketplaceSyncQueue queue,
+    IOptionsMonitor<MarketplacesOptions> options,
     ILogger<MarketplaceSyncScanJob> logger) : IJob
 {
     public const string Key = "marketplace-sync-scan";
 
     public async Task Execute(IJobExecutionContext context)
     {
+        if (!options.CurrentValue.SyncScanEnabled)
+            return;
+
         var ct = context.CancellationToken;
         var now = DateTime.UtcNow;
 
