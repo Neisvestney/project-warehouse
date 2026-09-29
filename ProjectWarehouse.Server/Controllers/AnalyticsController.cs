@@ -28,8 +28,9 @@ public class AnalyticsController(
     /// <c>cancelled</c> a cancellation. A Direct order is a sale when <c>assembled</c> / <c>shipped</c>.
     /// Rows: one per shop, then — with <c>includeDirect</c> — the whole Direct channel, one row per tag met in
     /// the period and the untagged row; tag rows overlap, the Direct row counts every order once.
-    /// Money is listed per currency and never summed across them; <c>payoutCoverage</c> is filled only in
-    /// the <c>payout</c> mode. <c>returnsMaturityDays</c> echoes the applied setting.
+    /// Money is listed per currency and never summed across them. The <c>payout</c> mode sums the accrual journal
+    /// lines of the sales that hold a <c>sale</c> accrual, and <c>payoutCoverage</c>, filled in that mode only, is
+    /// the share of their lines. <c>returnsMaturityDays</c> echoes the applied setting.
     /// Requires <c>analytics.view</c>.
     /// Returns 422 <c>required</c> on a missing <c>from</c> / <c>to</c>, 422 <c>invalidValue</c> on
     /// <c>to</c> when it is earlier than <c>from</c>, and 422 <c>outOfRange</c> on <c>to</c> when the
@@ -247,8 +248,8 @@ public class AnalyticsController(
     /// sale, and an item left with fewer than <c>xyzMinIntervals</c> gets no class. <c>classes</c>,
     /// <c>matrix</c> and <c>pareto</c> cover the whole analysis; <c>abcClass</c>, <c>xyzClass</c>,
     /// <c>searchString</c>, <c>page</c> (default 1) and <c>pageSize</c> (default 25, max 200) narrow
-    /// <c>items</c> only, whose <c>rank</c> stays the place in the whole analysis. <c>payoutCoverage</c> is filled
-    /// for the <c>payout</c> basis only. <c>settings</c> echoes the applied parameters.
+    /// <c>items</c> only, whose <c>rank</c> stays the place in the whole analysis. <c>payoutCoverage</c> and
+    /// <c>unallocatedPayout</c> — journal net on no row of the subject — are filled for the <c>payout</c> basis only. <c>settings</c> echoes the applied parameters.
     /// Requires <c>analytics.view</c>. Same 422 codes as <c>channels/summary</c>, plus 422
     /// <c>validationError</c> on <c>page</c> / <c>pageSize</c> out of range.
     /// </remarks>

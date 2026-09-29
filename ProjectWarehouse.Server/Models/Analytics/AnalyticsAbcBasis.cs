@@ -9,6 +9,6 @@ public enum AnalyticsAbcBasis
     /// <summary>Σ Price × Quantity of shop sales in one currency.</summary>
     Price = 1,
 
-    /// <summary>Σ Payout of accrued shop lines in one currency.</summary>
+    /// <summary>Accrual journal net of the accrued shop sales in one currency.</summary>
     Payout = 2,
 }

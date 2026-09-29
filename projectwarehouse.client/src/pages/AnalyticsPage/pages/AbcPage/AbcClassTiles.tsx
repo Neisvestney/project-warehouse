@@ -1,6 +1,6 @@
 import {Box, ButtonBase, Paper, Stack, Typography} from "@mui/material";
 import type {AbcClass, AbcDto} from "@/api/types.gen";
-import {formatPercent} from "@/components/analytics/analyticsFormat";
+import {formatMoney, formatPercent} from "@/components/analytics/analyticsFormat";
 import {pluralCount} from "@/utils/pluralUtils";
 import {formatBoundary} from "@/components/analytics/abc/abcClasses";
 import {AbcChip} from "@/components/analytics/abc/ClassChips";
@@ -69,6 +69,12 @@ function AbcClassTiles({data, selected, onSelect}: AbcClassTilesProps) {
             ? "товар площадки не привязан к каталогу"
             : "у строки заказа нет карточки"}
         </Typography>
+        {data.unallocatedPayout != null && data.currencyCode && (
+          <Typography variant="caption" color="text.secondary" component="div">
+            {formatMoney(data.unallocatedPayout, data.currencyCode)} начислений не разнесено по
+            строкам
+          </Typography>
+        )}
       </Paper>
     </Box>
   );

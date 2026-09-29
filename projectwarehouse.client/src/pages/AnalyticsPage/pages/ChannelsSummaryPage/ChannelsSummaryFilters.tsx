@@ -57,7 +57,12 @@ function ChannelsSummaryFilters({
           sx={{ml: "auto"}}
         >
           <ToggleButton value="price">Цена продажи</ToggleButton>
-          <ToggleButton value="payout">Выплата</ToggleButton>
+          <ToggleButton
+            value="payout"
+            title="Нетто журнала начислений: продажа за вычетом комиссии, логистики, эквайринга и сторно — по начисленным заказам периода"
+          >
+            Выплата
+          </ToggleButton>
         </ToggleButtonGroup>
       </Stack>
 

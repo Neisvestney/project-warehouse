@@ -25,6 +25,12 @@ public class AbcDto
     /// </summary>
     public int UnlinkedLines { get; init; }
 
+    /// <summary>
+    /// Journal net in the currency on the orders but on no row of the subject — a fee about no line of the posting,
+    /// or a line with no row; filled for the payout basis only.
+    /// </summary>
+    public decimal? UnallocatedPayout { get; init; }
+
     /// <summary>Σ of every analysed item's value.</summary>
     public decimal TotalValue { get; init; }
 

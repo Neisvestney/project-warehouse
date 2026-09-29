@@ -112,6 +112,19 @@ public class AnalyticsQueries(ApplicationDbContext db, IWarehouseTimeZoneResolve
             && i.Order.EffectiveDate >= fromUtc && i.Order.EffectiveDate < toUtc);
 
     /// <summary>
+    /// Journal lines of the accrued sales dated inside the bounds — what the payout money is summed from. A sale
+    /// not accrued yet brings none of its lines, or a fee charged ahead of the sale would read as a loss.
+    /// </summary>
+    public IQueryable<MarketplaceAccrual> SaleAccruals(List<Guid> accountIds, DateTime fromUtc, DateTime toUtc) =>
+        db.MarketplaceAccruals.Where(a => a.CurrencyCode != null
+            && a.Order != null
+            && a.Order.MarketplaceOrder != null
+            && accountIds.Contains(a.Order.MarketplaceOrder.MarketplaceAccountId)
+            && MarketplaceSaleStatuses.Contains(a.Order.MarketplaceOrder.Status)
+            && a.Order.EffectiveDate >= fromUtc && a.Order.EffectiveDate < toUtc
+            && a.Order.IsAccrued);
+
+    /// <summary>
     /// Returns of the sales dated inside the bounds, whenever the item came back — the cohort a return share
     /// is taken over.
     /// </summary>
