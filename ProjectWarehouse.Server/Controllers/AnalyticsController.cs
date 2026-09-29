@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Analytics;
 using ProjectWarehouse.Server.Services;
 
@@ -330,6 +331,23 @@ public class AnalyticsController(
             return UnprocessableEntity(ex);
         }
     }
+
+    /// <summary>The postings behind one debt bucket of <c>payouts</c>, oldest first.</summary>
+    /// <remarks>
+    /// Query params: <c>bucket</c> — <c>inTransit</c>, <c>inTransitOverdue</c>, <c>deliveredNotAccrued</c> or
+    /// <c>notAccruedByMarketplace</c>, the same buckets as <c>payouts</c> with the same rules, so <c>total</c> equals
+    /// the bucket's posting count there; <c>currencyCode</c> — the money block the bucket belongs to;
+    /// <c>includeMarketplaces</c> and <c>marketplaceAccountIds</c> as in <c>payouts</c>; <c>page</c>,
+    /// <c>pageSize</c> (1…200, 50 by default). No period: the buckets ignore it. <c>amount</c> is Σ price × quantity of
+    /// the posting's lines in that currency, not the payout estimate. Requires <c>analytics.view</c>.
+    /// </remarks>
+    [HttpGet("payouts/postings")]
+    [TimeZoneAware]
+    [Authorize(Policy = Permissions.Analytics.View)]
+    [ProducesResponseType<Paginated<PayoutsPostingDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPayoutsPostings(
+        [FromQuery] PayoutsPostingsRequest request, CancellationToken ct = default) =>
+        Ok(await payouts.GetPostingsAsync(User, request, ct));
 
     /// <summary>The «Начислено» bucket per interval and shop.</summary>
     /// <remarks>

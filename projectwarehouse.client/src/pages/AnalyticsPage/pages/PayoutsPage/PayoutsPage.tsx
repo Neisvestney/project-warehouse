@@ -5,11 +5,18 @@ import AnalyticsPageHeader from "@/components/analytics/AnalyticsPageHeader";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageLoader from "@/components/PageLoader";
 import QueryError from "@/components/QueryError";
+import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import AccrualsDynamicsCard from "./AccrualsDynamicsCard";
 import AccrualsFullscreen from "./AccrualsFullscreen";
 import PayoutsCategoriesCard from "./PayoutsCategoriesCard";
 import PayoutsFilters from "./PayoutsFilters";
+import PayoutsPostingsDialog from "./PayoutsPostingsDialog";
+import {
+  decodePostingsTarget,
+  encodePostingsTarget,
+  type PostingsTarget,
+} from "./payoutsPostingsTarget";
 import PayoutsShops from "./PayoutsShops";
 import PayoutsTiles from "./PayoutsTiles";
 import {useAccrualsFullscreen} from "./useAccrualsFullscreen";
@@ -18,6 +25,9 @@ import {usePayoutsFilters} from "./usePayoutsFilters";
 function PayoutsPage() {
   const filters = usePayoutsFilters();
   const fullscreen = useAccrualsFullscreen();
+  const [postingsParam, openPostingsParam, closePostings] =
+    useDrawerSearchParamsState("payoutPostings");
+  const openPostings = (target: PostingsTarget) => openPostingsParam(encodePostingsTarget(target));
 
   const {data, error, isError, isFetching, isLoading, isPlaceholderData, refetch} = useQuery({
     ...analyticsGetPayoutsOptions({query: filters.query}),
@@ -57,7 +67,7 @@ function PayoutsPage() {
           <Box sx={{position: "relative"}}>
             <LoadingOverlay open={isFetching} alignTop />
             <Stack spacing={2}>
-              <PayoutsTiles data={data} />
+              <PayoutsTiles data={data} onOpenPostings={openPostings} />
               <AccrualsDynamicsCard
                 filters={filters}
                 onExpand={() =>
@@ -70,13 +80,21 @@ function PayoutsPage() {
                 }
               />
               <PayoutsCategoriesCard data={data} />
-              <PayoutsShops data={data} />
+              <PayoutsShops data={data} onOpenPostings={openPostings} />
             </Stack>
           </Box>
         )
       )}
 
       <AccrualsFullscreen state={fullscreen} />
+      {data && (
+        <PayoutsPostingsDialog
+          target={decodePostingsTarget(postingsParam)}
+          onClose={closePostings}
+          data={data}
+          channelsQuery={filters.query}
+        />
+      )}
     </Stack>
   );
 }
