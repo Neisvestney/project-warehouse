@@ -889,8 +889,9 @@ export const analyticsGetChannelsSummaryQueryKey = (
  * `cancelled` a cancellation. A Direct order is a sale when `assembled` / `shipped`.
  * Rows: one per shop, then — with `includeDirect` — the whole Direct channel, one row per tag met in
  * the period and the untagged row; tag rows overlap, the Direct row counts every order once.
- * Money is listed per currency and never summed across them; `payoutCoverage` is filled only in
- * the `payout` mode. `returnsMaturityDays` echoes the applied setting.
+ * Money is listed per currency and never summed across them. The `payout` mode sums the accrual journal
+ * lines of the sales that hold a `sale` accrual, and `payoutCoverage`, filled in that mode only, is
+ * the share of their lines. `returnsMaturityDays` echoes the applied setting.
  * Requires `analytics.view`.
  * Returns 422 `required` on a missing `from` / `to`, 422 `invalidValue` on
  * `to` when it is earlier than `from`, and 422 `outOfRange` on `to` when the
@@ -1163,8 +1164,8 @@ export const analyticsGetAbcQueryKey = (options?: Options<AnalyticsGetAbcData>) 
  * sale, and an item left with fewer than `xyzMinIntervals` gets no class. `classes`,
  * `matrix` and `pareto` cover the whole analysis; `abcClass`, `xyzClass`,
  * `searchString`, `page` (default 1) and `pageSize` (default 25, max 200) narrow
- * `items` only, whose `rank` stays the place in the whole analysis. `payoutCoverage` is filled
- * for the `payout` basis only. `settings` echoes the applied parameters.
+ * `items` only, whose `rank` stays the place in the whole analysis. `payoutCoverage` and
+ * `unallocatedPayout` — journal net on no row of the subject — are filled for the `payout` basis only. `settings` echoes the applied parameters.
  * Requires `analytics.view`. Same 422 codes as `channels/summary`, plus 422
  * `validationError` on `page` / `pageSize` out of range.
  */

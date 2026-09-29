@@ -125,22 +125,3 @@ mixed a wide mechanical edit into the change that has to be reviewed carefully.
 `useOperationMutation(...)` at the call site; one that sends several requests calls
 `withOperationSpan(...)` from the handler and spreads `op` into each request. Attributes are the ones the
 table already names.
-
-## Аналитика по журналу начислений
-
-**Что это даёт.** Режим «Выплата» в сводке и ABC считает деньги по
-`OrderMarketplaceItem.KeptPayout`, а `Payout` из posting-методов Ozon — это ровно `Price + CommissionAmount`:
-логистики, эквайринга и drop-off в нём нет. [Журнал начислений](marketplaces-accruals-specification.md) даёт
-нетто по заказу — Σ `MarketplaceAccrual.Amount` по `OrderId`, — и на живом магазине оно ниже `Payout` в среднем
-на 4% (до 17% на дешёвых позициях). Ещё журнал даёт то, чего в заказах нет вовсе: рекламу, хранение, штрафы и
-компенсации суммой по магазину.
-
-- **Сводка и ABC, режим «Выплата».** Сумма — нетто по журналу вместо `KeptPayout`; начисленная строка — строка,
-  у заказа которой есть начисление `Sale`. Сторно продажи при возврате журнал вычитает сам.
-- **Расходы вне заказов** — `Scope = Account`: отдельный блок по категориям за период.
-
-**Почему не сделано.** Журнал только начал наполняться: история за прошлые периоды приезжает импортом истории, и
-пока он не прогнан по магазинам, выплата по журналу за старые периоды была бы пустой, а не точной.
-
-**Триггер.** По каждому магазину прогнан импорт истории за период, который смотрят в аналитике, и журнал сходится
-с `Payout` по отправлениям без возвратов с точностью до логистики.

@@ -57,23 +57,4 @@ public class OrderMarketplaceItem : IHasIdentity
 
     [Projectable]
     public int ReturnedQuantity => MarketplaceReturns.Where(r => r.IsCountedAsReturn).Sum(r => r.Quantity);
-
-    [Projectable]
-    public int KeptQuantity => Quantity - ReturnedQuantity;
-
-    [Projectable]
-    public int ReturnedAfterDeliveryQuantity => MarketplaceReturns
-        .Where(r => !r.IsCancelled && r.Kind == MarketplaceReturnKind.CustomerReturn)
-        .Sum(r => r.Quantity);
-
-    /// <summary>
-    /// <see cref="Payout"/> of the units the buyer kept. The marketplace reverses the sale of a returned unit but
-    /// never refreshes <see cref="Payout"/> after delivery, so the reversal is applied here. A partial refusal
-    /// happens before the posting is delivered, and its <see cref="Payout"/> already leaves the refused units out.
-    /// </summary>
-    [Projectable]
-    public decimal KeptPayout =>
-        Payout > 0 && KeptQuantity > 0
-            ? Math.Round(Payout.Value * KeptQuantity / (KeptQuantity + ReturnedAfterDeliveryQuantity), 2)
-            : 0;
 }

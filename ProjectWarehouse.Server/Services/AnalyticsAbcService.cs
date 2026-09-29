@@ -35,8 +35,10 @@ public class AnalyticsAbcService(
         int Units,
         int Lines,
         int AccruedLines,
-        decimal Price,
-        decimal Payout);
+        decimal Price);
+
+    /// <summary>Journal net of one subject's accrued sales on one day; a null key is net on no row of the subject.</summary>
+    private sealed record PayoutDay(SubjectKey? Key, string CurrencyCode, DateTime Day, decimal Amount);
 
     private sealed record ItemDay(SubjectKey Key, DateTime Day, int Units);
 
@@ -47,9 +49,14 @@ public class AnalyticsAbcService(
     /// <param name="Lines">Shop lines, the ones with no subject included.</param>
     /// <param name="UnitDays">Units of shop lines with a subject and, for catalog items on the units basis, of Direct orders.</param>
     /// <param name="Currencies">Currencies of the lines with a subject, the most frequent first.</param>
+    /// <param name="Payouts">Loaded for the payout basis only.</param>
     /// <param name="Cards">The cards of the lines, for a card or article subject.</param>
     private sealed record Sales(
-        List<LineDay> Lines, List<ItemDay> UnitDays, List<string> Currencies, Dictionary<Guid, CardInfo> Cards);
+        List<LineDay> Lines,
+        List<PayoutDay> Payouts,
+        List<ItemDay> UnitDays,
+        List<string> Currencies,
+        Dictionary<Guid, CardInfo> Cards);
 
     private sealed record AnalysedItem(
         int Rank, AbcRankedItem<SubjectKey> Item, double? Cv, int? Intervals, XyzClass? Xyz);
@@ -89,6 +96,9 @@ public class AnalyticsAbcService(
                 ? AnalyticsCalculator.Ratio(currencyLines.Sum(l => l.AccruedLines), currencyLines.Sum(l => l.Lines))
                 : null,
             UnlinkedLines = sales.Lines.Where(l => l.Key == null).Sum(l => l.Lines),
+            UnallocatedPayout = request.Basis == AnalyticsAbcBasis.Payout
+                ? sales.Payouts.Where(p => p.Key == null && p.CurrencyCode == currency).Sum(p => p.Amount)
+                : null,
             TotalValue = totalValue,
             Settings = AppliedSettings(options),
             XyzIntervals = xyzIntervals,
@@ -150,7 +160,7 @@ public class AnalyticsAbcService(
         var offset = TimeSpan.FromMinutes(period.OffsetMinutes);
         var rangeFromUtc = AnalyticsQueries.ToUtc(windows[0].From, offset);
         var sales = rows.Count == 0
-            ? new Sales([], [], [], [])
+            ? new Sales([], [], [], [], [])
             : await LoadSalesAsync(request, accountIds, rangeFromUtc,
                 AnalyticsQueries.ToUtc(windows[^1].To.AddDays(1), offset), period.OffsetMinutes, ct);
 
@@ -285,7 +295,7 @@ public class AnalyticsAbcService(
                     Id = byCard ? i.MarketplaceCardId : i.CatalogItemId,
                     i.CurrencyCode,
                     Day = i.Order.EffectiveDate.AddMinutes(offset).Date,
-                    Accrued = i.Order.MarketplaceOrder!.Status == MarketplaceOrderStatus.Delivered && i.Payout > 0,
+                    Accrued = i.Order.IsAccrued,
                 })
                 .Select(g => new
                 {
@@ -296,14 +306,40 @@ public class AnalyticsAbcService(
                     Lines = g.Count(),
                     AccruedLines = g.Key.Accrued ? g.Count() : 0,
                     Price = g.Sum(i => i.Price != null ? i.Price.Value * i.Quantity : 0),
-                    Payout = g.Key.Accrued ? g.Sum(i => i.KeptPayout) : 0,
+                })
+                .ToListAsync(ct);
+
+        // The line's own card and item, not the order's: a fee about no line of the posting belongs to no row
+        var payoutRows = accountIds.Count == 0 || request.Basis != AnalyticsAbcBasis.Payout
+            ? []
+            : await queries
+                .SaleAccruals(accountIds, fromUtc, toUtc)
+                .GroupBy(a => new
+                {
+                    Id = a.OrderMarketplaceItem == null ? null
+                        : byCard ? a.OrderMarketplaceItem.MarketplaceCardId
+                        : a.OrderMarketplaceItem.CatalogItemId,
+                    a.CurrencyCode,
+                    Day = a.Order!.EffectiveDate.AddMinutes(offset).Date,
+                })
+                .Select(g => new
+                {
+                    g.Key.Id,
+                    CurrencyCode = g.Key.CurrencyCode!,
+                    g.Key.Day,
+                    Amount = g.Sum(a => a.Amount),
                 })
                 .ToListAsync(ct);
 
         var cards = new Dictionary<Guid, CardInfo>();
         if (byCard)
         {
-            var cardIds = rows.Where(r => r.Id != null).Select(r => r.Id!.Value).Distinct().ToList();
+            var cardIds = rows.Select(r => r.Id)
+                .Concat(payoutRows.Select(r => r.Id))
+                .Where(id => id != null)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToList();
             cards = await db.MarketplaceCards
                 .Where(c => cardIds.Contains(c.Id))
                 .Select(c => new CardInfo(c.Id, c.MarketplaceAccountId, c.OfferId, c.OfferId.Trim().ToUpper(),
@@ -318,7 +354,10 @@ public class AnalyticsAbcService(
 
         var lines = rows
             .Select(r => new LineDay(KeyOf(r.Id), byCard ? r.Id : null, r.CurrencyCode, r.Day, r.Units, r.Lines,
-                r.AccruedLines, r.Price, r.Payout))
+                r.AccruedLines, r.Price))
+            .ToList();
+        var payouts = payoutRows
+            .Select(r => new PayoutDay(KeyOf(r.Id), r.CurrencyCode, r.Day, r.Amount))
             .ToList();
 
         // Money exists on shop lines only, so a money basis analyses the shops alone, XYZ included
@@ -347,7 +386,7 @@ public class AnalyticsAbcService(
             .Concat(directDays)
             .ToList();
 
-        return new Sales(lines, unitDays, currencies, cards);
+        return new Sales(lines, payouts, unitDays, currencies, cards);
     }
 
     /// <summary>ABC over the loaded days from <paramref name="from"/> to <paramref name="to"/> inclusive.</summary>
@@ -369,11 +408,14 @@ public class AnalyticsAbcService(
                 .Where(d => d.Day >= fromDay && d.Day <= toDay)
                 .GroupBy(d => d.Key)
                 .Select(g => (Id: g.Key, Value: (decimal)g.Sum(d => d.Units))),
+            AnalyticsAbcBasis.Payout => sales.Payouts
+                .Where(p => p.Key != null && p.CurrencyCode == currency && p.Day >= fromDay && p.Day <= toDay)
+                .GroupBy(p => p.Key!.Value)
+                .Select(g => (Id: g.Key, Value: g.Sum(p => p.Amount))),
             _ => sales.Lines
                 .Where(l => l.Key != null && l.CurrencyCode == currency && l.Day >= fromDay && l.Day <= toDay)
                 .GroupBy(l => l.Key!.Value)
-                .Select(g => (Id: g.Key,
-                    Value: g.Sum(l => request.Basis == AnalyticsAbcBasis.Payout ? l.Payout : l.Price))),
+                .Select(g => (Id: g.Key, Value: g.Sum(l => l.Price))),
         };
 
         return AnalyticsCalculator.RankAbc(values, options.AbcBoundaryA, options.AbcBoundaryB);

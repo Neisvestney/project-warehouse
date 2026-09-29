@@ -53,6 +53,11 @@ export type AbcDto = {
    */
   unlinkedLines: number;
   /**
+   * Journal net in the currency on the orders but on no row of the subject — a fee about no line of the posting,
+   * or a line with no row; filled for the payout basis only.
+   */
+  unallocatedPayout?: null | number;
+  /**
    * Σ of every analysed item's value.
    */
   totalValue: number;
@@ -934,7 +939,7 @@ export type ChannelSummaryRowDto = {
    */
   unitsShare?: null | number;
   /**
-   * Share of accrued lines among sale lines with a currency; filled in the Payout mode only.
+   * Share of lines of accrued sales among sale lines with a currency; filled in the Payout mode only.
    */
   payoutCoverage?: null | number;
   /**

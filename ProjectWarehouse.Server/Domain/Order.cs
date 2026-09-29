@@ -69,6 +69,10 @@ public class Order : IHasIdentity
     [Projectable]
     public int MarketplaceQuantity => MarketplaceItems.Sum(i => i.Quantity);
 
+    /// <summary>The marketplace has accrued the sale: the journal holds its sale line, reversed or not.</summary>
+    [Projectable]
+    public bool IsAccrued => MarketplaceAccruals.Any(a => a.Category == MarketplaceAccrualCategory.Sale);
+
     /// <summary>Which step is late once <see cref="PlannedShipmentAt"/> has passed; null when nothing is late.</summary>
     [Projectable]
     public OrderOverdueKind? OverdueKindAt(DateTime now) =>

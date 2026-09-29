@@ -21,14 +21,25 @@ public class AnalyticsChannelsService(
         public string? CurrencyCode { get; init; }
         public int Units { get; init; }
         public int Lines { get; init; }
-        public int AccruedLines { get; init; }
+        public bool Accrued { get; init; }
         public decimal PriceRevenue { get; init; }
-        public decimal PayoutRevenue { get; init; }
         public int PricedOrders { get; init; }
-        public int AccruedOrders { get; init; }
         public decimal DiscountPrice { get; init; }
         public decimal DiscountOldPrice { get; init; }
         public decimal DiscountAmount { get; init; }
+    }
+
+    /// <summary>Journal net of one shop's accrued sales in one currency.</summary>
+    private sealed class PayoutAggregate
+    {
+        public Guid AccountId { get; init; }
+        public string CurrencyCode { get; init; } = null!;
+        public decimal Revenue { get; init; }
+
+        /// <summary>Net of the sales not reversed in full — the average check's numerator.</summary>
+        public decimal KeptRevenue { get; init; }
+
+        public int KeptOrders { get; init; }
     }
 
     private sealed class DirectOrderRow
@@ -489,12 +500,17 @@ public class AnalyticsChannelsService(
                     g.Key.CurrencyCode,
                     Units = g.Sum(i => i.Quantity),
                     Lines = g.Count(),
-                    Money = payoutMode
-                        ? g.Sum(i => i.Order.MarketplaceOrder!.Status == MarketplaceOrderStatus.Delivered
-                            ? i.KeptPayout
-                            : 0)
-                        : g.Sum(i => i.Price != null ? i.Price.Value * i.Quantity : 0),
+                    Price = g.Sum(i => i.Price != null ? i.Price.Value * i.Quantity : 0),
                 })
+                .ToListAsync(ct);
+
+        var payouts = accountIds.Count == 0 || !payoutMode
+            ? []
+            : await queries
+                .SaleAccruals(accountIds, period.FromUtc, period.ToUtc)
+                .Where(a => a.CatalogItemId != null)
+                .GroupBy(a => new { CatalogItemId = a.CatalogItemId!.Value, a.CurrencyCode })
+                .Select(g => new { g.Key.CatalogItemId, g.Key.CurrencyCode, Amount = g.Sum(a => a.Amount) })
                 .ToListAsync(ct);
 
         var directUnits = request.IncludeDirect
@@ -526,12 +542,14 @@ public class AnalyticsChannelsService(
             .GroupBy(u => u.Id)
             .ToDictionary(g => g.Key, g => g.Sum(u => u.Units));
         // Amounts with no currency cannot be ranked against anything, as in the summary
-        var money = currency == null
-            ? new Dictionary<Guid, decimal>()
+        var money = currency == null ? new Dictionary<Guid, decimal>()
+            : payoutMode ? payouts
+                .Where(p => p.CurrencyCode == currency)
+                .ToDictionary(p => p.CatalogItemId, p => p.Amount)
             : linked
                 .Where(l => l.CurrencyCode == currency)
                 .GroupBy(l => l.CatalogItemId!.Value)
-                .ToDictionary(g => g.Key, g => g.Sum(l => l.Money));
+                .ToDictionary(g => g.Key, g => g.Sum(l => l.Price));
 
         var ranked = (request.By == AnalyticsTopItemsBy.Money
                 ? money.Select(m => (Id: m.Key, m.Value))
@@ -741,26 +759,23 @@ public class AnalyticsChannelsService(
 
         var lines = await queries
             .SaleLines(accountIds, period.FromUtc, period.ToUtc)
-            .GroupBy(i => new { AccountId = i.Order.MarketplaceOrder!.MarketplaceAccountId, i.CurrencyCode })
+            // Accrual is in the key rather than in a Count: a navigation read inside an aggregate becomes a
+            // subquery per group. It is the order's, so an order's lines never split and distinct counts add up.
+            .GroupBy(i => new
+            {
+                AccountId = i.Order.MarketplaceOrder!.MarketplaceAccountId,
+                i.CurrencyCode,
+                Accrued = i.Order.IsAccrued,
+            })
             .Select(g => new LineAggregate
             {
                 AccountId = g.Key.AccountId,
                 CurrencyCode = g.Key.CurrencyCode,
+                Accrued = g.Key.Accrued,
                 Units = g.Sum(i => i.Quantity),
                 Lines = g.Count(),
-                AccruedLines = g.Count(i =>
-                    i.Order.MarketplaceOrder!.Status == MarketplaceOrderStatus.Delivered && i.Payout > 0),
                 PriceRevenue = g.Sum(i => i.Price != null ? i.Price.Value * i.Quantity : 0),
-                PayoutRevenue = g.Sum(i =>
-                    i.Order.MarketplaceOrder!.Status == MarketplaceOrderStatus.Delivered ? i.KeptPayout : 0),
                 PricedOrders = g.Where(i => i.Price != null).Select(i => i.OrderId).Distinct().Count(),
-                // A fully returned order earned nothing, so it would only drag the average check down
-                AccruedOrders = g
-                    .Where(i => i.Order.MarketplaceOrder!.Status == MarketplaceOrderStatus.Delivered
-                        && i.KeptPayout > 0)
-                    .Select(i => i.OrderId)
-                    .Distinct()
-                    .Count(),
                 DiscountPrice = g.Sum(i => i.Price != null && i.OldPrice > 0 ? i.Price.Value * i.Quantity : 0),
                 DiscountOldPrice = g.Sum(i => i.Price != null && i.OldPrice > 0 ? i.OldPrice!.Value * i.Quantity : 0),
                 DiscountAmount = g.Sum(i => i.DiscountValue != null ? i.DiscountValue.Value * i.Quantity : 0),
@@ -772,6 +787,30 @@ public class AnalyticsChannelsService(
             .GroupBy(r => r.Order!.MarketplaceOrder!.MarketplaceAccountId)
             .Select(g => new { AccountId = g.Key, Quantity = g.Sum(r => r.Quantity) })
             .ToDictionaryAsync(r => r.AccountId, r => r.Quantity, ct);
+
+        var payouts = moneyMode == AnalyticsMoneyMode.Payout
+            ? await queries
+                .SaleAccruals(accountIds, period.FromUtc, period.ToUtc)
+                .GroupBy(a => new { a.MarketplaceAccountId, a.CurrencyCode, a.OrderId })
+                .Select(g => new
+                {
+                    g.Key.MarketplaceAccountId,
+                    g.Key.CurrencyCode,
+                    Net = g.Sum(a => a.Amount),
+                    // A fully reversed sale earned nothing; its negative net would only drag the average check down
+                    Kept = g.Sum(a => a.Category == MarketplaceAccrualCategory.Sale ? a.Amount : 0) > 0,
+                })
+                .GroupBy(o => new { o.MarketplaceAccountId, o.CurrencyCode })
+                .Select(g => new PayoutAggregate
+                {
+                    AccountId = g.Key.MarketplaceAccountId,
+                    CurrencyCode = g.Key.CurrencyCode!,
+                    Revenue = g.Sum(o => o.Net),
+                    KeptRevenue = g.Sum(o => o.Kept ? o.Net : 0),
+                    KeptOrders = g.Count(o => o.Kept),
+                })
+                .ToListAsync(ct)
+            : [];
 
         var result = new Dictionary<Guid, ChannelSummaryRowDto>();
         foreach (var accountId in accountIds)
@@ -785,7 +824,8 @@ public class AnalyticsChannelsService(
             var accountLines = lines.Where(l => l.AccountId == accountId).ToList();
             var units = accountLines.Sum(l => l.Units);
             var returned = returnedUnits.GetValueOrDefault(accountId);
-            var moneyLines = accountLines.Where(l => l.CurrencyCode != null).ToList();
+            var moneyLines = accountLines.Where(l => l.CurrencyCode != null).ToLookup(l => l.CurrencyCode!);
+            var accountPayouts = payouts.Where(p => p.AccountId == accountId).ToDictionary(p => p.CurrencyCode);
 
             result[accountId] = new ChannelSummaryRowDto
             {
@@ -797,21 +837,28 @@ public class AnalyticsChannelsService(
                 ReturnedUnits = returned,
                 ReturnRate = AnalyticsCalculator.Ratio(returned, units),
                 PayoutCoverage = AnalyticsCalculator.Ratio(
-                    moneyLines.Sum(l => l.AccruedLines), moneyLines.Sum(l => l.Lines)),
+                    moneyLines.SelectMany(g => g).Where(l => l.Accrued).Sum(l => l.Lines),
+                    moneyLines.SelectMany(g => g).Sum(l => l.Lines)),
                 Money = moneyLines
-                    .OrderBy(l => l.CurrencyCode)
-                    .Select(l =>
+                    .Select(g => g.Key)
+                    .Union(accountPayouts.Keys)
+                    .Order(StringComparer.Ordinal)
+                    .Select(currency =>
                     {
-                        var (revenue, moneyOrders) = moneyMode == AnalyticsMoneyMode.Payout
-                            ? (l.PayoutRevenue, l.AccruedOrders)
-                            : (l.PriceRevenue, l.PricedOrders);
+                        var currencyLines = moneyLines[currency].ToList();
+                        var payout = accountPayouts.GetValueOrDefault(currency);
+                        var (revenue, checkRevenue, checkOrders) = moneyMode == AnalyticsMoneyMode.Payout
+                            ? (payout?.Revenue ?? 0, payout?.KeptRevenue ?? 0, payout?.KeptOrders ?? 0)
+                            : (currencyLines.Sum(l => l.PriceRevenue), currencyLines.Sum(l => l.PriceRevenue),
+                                currencyLines.Sum(l => l.PricedOrders));
                         return new ChannelMoneyDto
                         {
-                            CurrencyCode = l.CurrencyCode!,
+                            CurrencyCode = currency,
                             Revenue = revenue,
-                            AverageCheck = moneyOrders == 0 ? null : revenue / moneyOrders,
-                            DiscountDepth = AnalyticsCalculator.DiscountDepth(l.DiscountPrice, l.DiscountOldPrice),
-                            DiscountAmount = l.DiscountAmount,
+                            AverageCheck = checkOrders == 0 ? null : checkRevenue / checkOrders,
+                            DiscountDepth = AnalyticsCalculator.DiscountDepth(
+                                currencyLines.Sum(l => l.DiscountPrice), currencyLines.Sum(l => l.DiscountOldPrice)),
+                            DiscountAmount = currencyLines.Sum(l => l.DiscountAmount),
                         };
                     })
                     .ToList(),

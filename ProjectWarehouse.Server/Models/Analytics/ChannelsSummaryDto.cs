@@ -50,7 +50,7 @@ public class ChannelSummaryRowDto
     /// <summary>Share of the channel's units among the selected channels.</summary>
     public double? UnitsShare { get; init; }
 
-    /// <summary>Share of accrued lines among sale lines with a currency; filled in the Payout mode only.</summary>
+    /// <summary>Share of lines of accrued sales among sale lines with a currency; filled in the Payout mode only.</summary>
     public double? PayoutCoverage { get; init; }
 
     /// <summary>One entry per currency, never summed across them. Empty for Direct.</summary>

@@ -139,7 +139,6 @@ MarketplaceReturn
 |---|---|
 | `Order.MarketplaceReturns`, `OrderMarketplaceItem.MarketplaceReturns` | Навигации по `OrderId` и `OrderMarketplaceItemId` — все возвраты, отменённые включительно |
 | `Order.ReturnedQuantity`, `OrderMarketplaceItem.ReturnedQuantity` | Σ `Quantity` возвратов с `IsCountedAsReturn` |
-| `OrderMarketplaceItem.KeptPayout` | `Payout` за невернувшиеся штуки строки — см. [analytics-specification.md](analytics-specification.md#режим-денег) |
 | `Order.MarketplaceQuantity` | Σ `Quantity` строк заказа |
 | `MarketplaceOrder.ReturnState` | `MarketplaceOrderReturnState`: `None = 0` — ничего не вернули, `Partial = 1` — меньше, чем продано, `Full = 2` — не меньше |
 
