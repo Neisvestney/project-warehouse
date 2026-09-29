@@ -307,21 +307,26 @@ IOzonClient
 Заголовки `Client-Id` / `Api-Key` вырезаны из спецификации, поэтому подставляются транспортом. Один `HttpClient` обслуживает несколько аккаунтов, значит учётные данные нельзя фиксировать в `DefaultRequestHeaders`.
 
 ```
-services.AddHttpClient<IOzonApiClient, OzonApiClient>(c => c.BaseAddress = new Uri(options.BaseUrl))
+services.AddHttpClient<IOzonApiClient, OzonApiClient>(c =>
+    {
+        c.BaseAddress = new Uri(options.BaseUrl);
+        c.Timeout = Timeout.InfiniteTimeSpan;
+    })
     .AddHttpMessageHandler<OzonAuthHandler>()
     .AddStandardResilienceHandler(r =>
     {
         r.AttemptTimeout.Timeout = ozonTimeout;
-        r.TotalRequestTimeout.Timeout = ozonTimeout * 3;
+        r.TotalRequestTimeout.Timeout = ozonTimeout * 3;   // + сумма пауз 429, см. ниже
         r.CircuitBreaker.SamplingDuration = ozonTimeout * 6;
+        // ретраи 429, см. ниже
     });
 ```
 
-`HttpClient.Timeout` **не задаётся**: при подключённом resilience-хендлере он мёртвый код — таймауты хендлера срабатывают раньше. Настраивать их приходится явно, иначе действуют дефолты (10 с на попытку, 30 с суммарно), которые режут медленные ответы Ozon. Ограничение хендлера: `AttemptTimeout ≤ SamplingDuration / 2`, иначе валидация роняет приложение на старте.
+`HttpClient.Timeout` **выключен**: он оборачивает весь пайплайн вместе с ретраями, и дефолтные 100 с обрывали бы серию ретраев раньше `TotalRequestTimeout` — срабатывает меньший из двух. Все таймауты — у хендлера. Настраивать их приходится явно, иначе действуют дефолты (10 с на попытку, 30 с суммарно), которые режут медленные ответы Ozon. Ограничение хендлера: `AttemptTimeout ≤ SamplingDuration / 2`, иначе валидация роняет приложение на старте.
 
 `OzonAuthHandler` читает учётные данные из `MarketplaceRequestContext`. Контекст — **синглтон поверх `AsyncLocal`**, а не scoped-сервис: `IHttpClientFactory` собирает и кеширует цепочки хендлеров в собственном DI-скоупе, поэтому scoped-контекст, внедрённый в хендлер, — **другой экземпляр**, не тот, в который писал провайдер. Ambient-значение долетает независимо от скоупов. Одна оговорка: **через `yield return` скоуп не живёт**. Запись в `AsyncLocal` протекает вниз по `await`'ам, но не наверх к вызывающему, а асинхронный итератор на каждом yield возвращает управление потребителю — следующий `MoveNextAsync` продолжает тело уже в его контексте, не выполняя присваивание повторно. Поэтому в `FetchCardsAsync` скоуп открывается не в начале метода, а вокруг каждого шага энумератора, иначе учётные данные видит только первая страница. Обычные `async`-методы с постраничным циклом (например `FetchWarehousesAsync`) этим не затронуты. Один `HttpClient` обслуживает несколько аккаунтов, значит фиксировать заголовки в `DefaultRequestHeaders` в любом случае нельзя.
 
-`AddStandardResilienceHandler` (`Microsoft.Extensions.Http.Resilience`) даёт таймауты, ретраи с экспоненциальной задержкой и circuit breaker. Ozon отвечает `429` при превышении лимитов метода — обработчик уважает `Retry-After`; сверх этого сервис синхронизации выдерживает настраиваемую паузу между страницами.
+`AddStandardResilienceHandler` (`Microsoft.Extensions.Http.Resilience`) даёт таймауты, ретраи с экспоненциальной задержкой и circuit breaker. Ozon отвечает `429` при превышении лимитов метода, и финансовые методы после этого отказывают ещё несколько секунд. Поэтому `429` ретраится отдельно от прочих транзиентных ошибок: `RateLimitRetryAttempts` (6) попыток с паузой `RateLimitRetryDelayMs` (2 с), удваивающейся на каждой следующей, — около двух минут в сумме, на столько же растёт `TotalRequestTimeout`. `Retry-After` длиннее очередной паузы побеждает её. Остальные ошибки ретраятся по умолчаниям хендлера (3 попытки, `Retry-After`, его же предикат транзиентности). Circuit breaker `429` не считает — это троттлинг, а не отказ площадки. Сверх этого сервис синхронизации выдерживает настраиваемую паузу между страницами.
 
 Сгенерированный `OzonApiException` наружу модуля тоже не выходит: провайдер заворачивает его в провайдер-нейтральный `MarketplaceApiException` (`StatusCode`, усечённое до 2000 символов тело ответа, готовый набор `Args`). Ни сервис синхронизации, ни контроллер не ссылаются на сгенерированные типы.
 

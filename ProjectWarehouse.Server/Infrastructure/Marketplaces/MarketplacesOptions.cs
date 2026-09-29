@@ -59,6 +59,15 @@ public class OzonOptions
     public int PageDelayMs { get; set; } = 200;
 
     /// <summary>
+    /// Retries of a 429 answer. The finance methods keep refusing for a few seconds once the limit is hit,
+    /// so the standard handler's three quick retries run out before it lifts.
+    /// </summary>
+    public int RateLimitRetryAttempts { get; set; } = 6;
+
+    /// <summary>First pause after a 429; each next retry waits twice as long.</summary>
+    public int RateLimitRetryDelayMs { get; set; } = 2000;
+
+    /// <summary>
     /// Postings per label task. Ozon's own ceiling is 1000; the default stays well under it because the
     /// label methods are in beta and one task is only as fast as its slowest posting.
     /// </summary>

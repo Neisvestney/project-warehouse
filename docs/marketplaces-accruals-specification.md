@@ -20,7 +20,8 @@
 вовсе.
 
 **Лимит.** Метод отвечает `429` уже примерно на одном запросе в секунду. Между запросами клиент держит паузу
-`AccrualRequestDelayMs` (1 с), сами `429` дожимает стандартный resilience-хендлер `HttpClient`.
+`AccrualRequestDelayMs` (1 с), сами `429` дожимает resilience-хендлер нарастающими паузами — см.
+[marketplaces-specification.md](marketplaces-specification.md).
 
 ## Что приходит
 

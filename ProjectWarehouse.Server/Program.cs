@@ -432,16 +432,45 @@ try
 
     var ozonTimeout = TimeSpan.FromSeconds(marketplacesOptions.Ozon.TimeoutSeconds);
     builder.Services.AddHttpClient<IOzonApiClient, OzonApiClient>(c =>
-            c.BaseAddress = new Uri(marketplacesOptions.Ozon.BaseUrl))
+        {
+            c.BaseAddress = new Uri(marketplacesOptions.Ozon.BaseUrl);
+            // HttpClient.Timeout wraps the whole pipeline, retries included: the handler owns all timeouts
+            c.Timeout = Timeout.InfiniteTimeSpan;
+        })
         .AddHttpMessageHandler<OzonAuthHandler>()
         .AddStandardResilienceHandler(r =>
         {
-            // the handler's own timeouts win over HttpClient.Timeout; its defaults (10s per attempt)
-            // cut off Ozon's slower endpoints, and SamplingDuration must be >= 2x AttemptTimeout
+            // the handler's defaults (10s per attempt) cut off Ozon's slower endpoints,
+            // and SamplingDuration must be >= 2x AttemptTimeout
             r.AttemptTimeout.Timeout = ozonTimeout;
             r.TotalRequestTimeout.Timeout = ozonTimeout * 3;
             r.CircuitBreaker.SamplingDuration = ozonTimeout * 6;
+
+            // a 429 is throttling, not an outage: back off progressively instead of tripping the breaker
+            var rateLimitDelay = TimeSpan.FromMilliseconds(marketplacesOptions.Ozon.RateLimitRetryDelayMs);
+            var rateLimitAttempts = marketplacesOptions.Ozon.RateLimitRetryAttempts;
+            var defaultAttempts = r.Retry.MaxRetryAttempts;
+            r.Retry.MaxRetryAttempts = Math.Max(defaultAttempts, rateLimitAttempts);
+            var isTransient = r.Retry.ShouldHandle;
+            r.Retry.ShouldHandle = async args => IsRateLimited(args.Outcome)
+                ? args.AttemptNumber < rateLimitAttempts
+                : args.AttemptNumber < defaultAttempts && await isTransient(args);
+            var retryAfter = r.Retry.DelayGenerator;
+            r.Retry.DelayGenerator = async args =>
+            {
+                var headerDelay = retryAfter is null ? null : await retryAfter(args);
+                if (!IsRateLimited(args.Outcome))
+                    return headerDelay;
+                var backoff = rateLimitDelay * Math.Pow(2, args.AttemptNumber);
+                return headerDelay > backoff ? headerDelay : backoff;
+            };
+            var isFailure = r.CircuitBreaker.ShouldHandle;
+            r.CircuitBreaker.ShouldHandle = async args => !IsRateLimited(args.Outcome) && await isFailure(args);
+            r.TotalRequestTimeout.Timeout += rateLimitDelay * (Math.Pow(2, rateLimitAttempts) - 1);
         });
+
+    static bool IsRateLimited(Polly.Outcome<HttpResponseMessage> outcome) =>
+        outcome.Result?.StatusCode == System.Net.HttpStatusCode.TooManyRequests;
 
     // the label file sits on a temporary CDN path, so a hiccup here loses a task that already completed
     builder.Services.AddHttpClient(OzonClient.LabelDownloadClientName, c => c.Timeout = ozonTimeout)
