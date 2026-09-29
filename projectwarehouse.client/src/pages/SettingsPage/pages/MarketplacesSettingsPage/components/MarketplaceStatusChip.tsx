@@ -12,10 +12,13 @@ const STATUS_COLORS: Record<MarketplaceSyncStatus, ChipProps["color"]> = {
 
 interface MarketplaceStatusChipProps {
   status: MarketplaceSyncStatus | null | undefined;
+  hasWarning?: boolean;
 }
 
-function MarketplaceStatusChip({status}: MarketplaceStatusChipProps) {
+function MarketplaceStatusChip({status, hasWarning = false}: MarketplaceStatusChipProps) {
   if (!status) return <Chip label="Не синхронизировался" size="small" />;
+  if (status === "success" && hasWarning)
+    return <Chip label="С предупреждением" color="warning" size="small" />;
   return <Chip label={SYNC_STATUS_LABELS[status]} color={STATUS_COLORS[status]} size="small" />;
 }
 

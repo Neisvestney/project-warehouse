@@ -1355,7 +1355,8 @@ export type ErrorCode =
   | "marketplaceLabelFormatChanged"
   | "orderHasAssemblyTasks"
   | "analyticsSettingsModified"
-  | "marketplaceAccrualsNotSupported";
+  | "marketplaceAccrualsNotSupported"
+  | "marketplaceBuyoutsRateLimited";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -1461,6 +1462,14 @@ export type MarketplaceAccountDto = {
   lastSyncAt?: null | string;
   lastSyncStatus?: null | MarketplaceSyncStatus;
   lastSyncError?: null | AppFieldError;
+  /**
+   * See DateOnly? MarketplaceAccount.BuyoutsLoadedFrom.
+   */
+  buyoutsLoadedFrom?: null | string;
+  /**
+   * First day of the accrual journal, the day the buyout history is read back to; detail only.
+   */
+  accrualsJournalFrom?: null | string;
   createdAt: string;
   createdById?: null | string;
   createdByName?: null | string;
@@ -1758,6 +1767,7 @@ export type MarketplaceSyncRunDto = {
   accrualsCreated: number;
   accrualsUpdated: number;
   error?: null | AppFieldError;
+  warning?: null | AppFieldError;
 };
 
 export type MarketplaceSyncScope =
@@ -2327,6 +2337,15 @@ export type PayoutsRowDto = {
    * Delivered postings dated before DateOnly? PayoutsRowDto.CoveredFrom with no sale in the journal.
    */
   uncoveredPostings: number;
+  /**
+   * First day the marketplace's own buyouts are read from; null before the first report window.
+   */
+  buyoutsLoadedFrom?: null | string;
+  /**
+   * The buyout report is not yet read back to DateOnly? PayoutsRowDto.CoveredFrom: a posting the marketplace bought out
+   * earlier than DateOnly? PayoutsRowDto.BuyoutsLoadedFrom still sits in the not-accrued buckets.
+   */
+  buyoutsPending: boolean;
   money: Array<PayoutsMoneyDto>;
 };
 

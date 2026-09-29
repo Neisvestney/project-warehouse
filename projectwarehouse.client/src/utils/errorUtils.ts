@@ -150,6 +150,8 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   dataFileStorageError: "Не удалось сохранить файл",
   marketplaceOrdersNotSupported: "Эта площадка не поддерживает синхронизацию заказов",
   marketplaceAccrualsNotSupported: "Эта площадка не поддерживает синхронизацию начислений",
+  marketplaceBuyoutsRateLimited:
+    "Маркетплейс ограничил запросы отчёта о выкупах — остальное догрузит фоновая синхронизация",
   marketplaceAccountHasOrders: "По аккаунту импортированы заказы — сначала удалите их",
   marketplaceAccountInactive: "Аккаунт отключён",
   marketplaceLabelNotReady: "Маркетплейс ещё не сформировал этикетки — попробуйте через минуту",

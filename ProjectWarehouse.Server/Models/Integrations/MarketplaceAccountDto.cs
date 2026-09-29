@@ -36,6 +36,12 @@ public class MarketplaceAccountDto : IHasIdentity
     public MarketplaceSyncStatus? LastSyncStatus { get; init; }
     public AppFieldError? LastSyncError { get; init; }
 
+    /// <summary>See <see cref="MarketplaceAccount.BuyoutsLoadedFrom"/>.</summary>
+    public DateOnly? BuyoutsLoadedFrom { get; init; }
+
+    /// <summary>First day of the accrual journal, the day the buyout history is read back to; detail only.</summary>
+    public DateOnly? AccrualsJournalFrom { get; set; }
+
     public DateTime CreatedAt { get; init; }
     public Guid? CreatedById { get; init; }
     public string? CreatedByName { get; init; }

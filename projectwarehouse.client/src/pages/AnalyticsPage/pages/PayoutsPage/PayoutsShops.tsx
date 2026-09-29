@@ -171,6 +171,15 @@ function ShopCard({row, settings}: {row: PayoutsRowDto; settings: PayoutsApplied
               </Box>
             </Tooltip>
           )}
+          {row.buyoutsPending && (
+            <Tooltip title="Отчёт о выкупах маркетплейсом ещё догружается фоновой синхронизацией. Выкупленные площадкой отправления до этой даты пока числятся неначисленными">
+              <Box component="span" sx={{cursor: "help", color: "warning.main"}}>
+                {row.buyoutsLoadedFrom
+                  ? ` · выкупы с ${formatDateOnly(row.buyoutsLoadedFrom)}`
+                  : " · выкупы ещё не загружены"}
+              </Box>
+            </Tooltip>
+          )}
         </Typography>
       </Box>
 

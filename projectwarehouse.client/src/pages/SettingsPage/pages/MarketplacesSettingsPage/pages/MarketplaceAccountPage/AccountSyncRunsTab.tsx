@@ -82,7 +82,7 @@ function AccountSyncRunsTab({accountId, isRunning, isLive}: AccountSyncRunsTabPr
                   <TableCell>{formatDuration(run.startedAt, run.finishedAt)}</TableCell>
                   <TableCell>{SYNC_SCOPE_LABELS[run.scope]}</TableCell>
                   <TableCell>
-                    <MarketplaceStatusChip status={run.status} />
+                    <MarketplaceStatusChip status={run.status} hasWarning={!!run.warning} />
                   </TableCell>
                   <TableCell align="right">{syncRunProcessedTotal(run)}</TableCell>
                   <TableCell align="right">{syncRunCreatedTotal(run)}</TableCell>

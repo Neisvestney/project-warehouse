@@ -41,4 +41,5 @@ public class MarketplaceSyncRunDto : IHasIdentity
     public int AccrualsUpdated { get; init; }
 
     public AppFieldError? Error { get; init; }
+    public AppFieldError? Warning { get; init; }
 }

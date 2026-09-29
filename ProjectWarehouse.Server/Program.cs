@@ -453,7 +453,7 @@ try
             r.Retry.MaxRetryAttempts = Math.Max(defaultAttempts, rateLimitAttempts);
             var isTransient = r.Retry.ShouldHandle;
             r.Retry.ShouldHandle = async args => IsRateLimited(args.Outcome)
-                ? args.AttemptNumber < rateLimitAttempts
+                ? args.AttemptNumber < rateLimitAttempts && !IsQuotaMethod(args.Outcome)
                 : args.AttemptNumber < defaultAttempts && await isTransient(args);
             var retryAfter = r.Retry.DelayGenerator;
             r.Retry.DelayGenerator = async args =>
@@ -471,6 +471,11 @@ try
 
     static bool IsRateLimited(Polly.Outcome<HttpResponseMessage> outcome) =>
         outcome.Result?.StatusCode == System.Net.HttpStatusCode.TooManyRequests;
+
+    // its 429 lasts far longer than any backoff, and every retry seems to spend the quota further
+    static bool IsQuotaMethod(Polly.Outcome<HttpResponseMessage> outcome) =>
+        outcome.Result?.RequestMessage?.RequestUri?.AbsolutePath.EndsWith(OzonClient.BuyoutReportPath,
+            StringComparison.Ordinal) == true;
 
     // the label file sits on a temporary CDN path, so a hiccup here loses a task that already completed
     builder.Services.AddHttpClient(OzonClient.LabelDownloadClientName, c => c.Timeout = ozonTimeout)

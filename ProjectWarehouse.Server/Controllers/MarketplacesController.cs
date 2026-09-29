@@ -963,6 +963,9 @@ public class MarketplacesController(
         dto.Capabilities = providers.TryGet(account.Type, out var provider)
             ? provider.Capabilities
             : MarketplaceCapabilities.None;
+        dto.AccrualsJournalFrom = await db.MarketplaceAccruals
+            .Where(a => a.MarketplaceAccountId == account.Id && a.Source == MarketplaceAccrualSource.AccrualJournal)
+            .MinAsync(a => (DateOnly?)a.Date, ct);
 
         return dto;
     }
