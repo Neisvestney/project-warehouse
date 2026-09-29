@@ -172,12 +172,17 @@ public class AnalyticsPayoutsService(
                     && a.CurrencyCode != null
                     && (periodFrom == null || a.Date >= periodFrom)
                     && (periodTo == null || a.Date <= periodTo))
-                .GroupBy(a => new { a.MarketplaceAccountId, a.CurrencyCode, a.Date })
+                .GroupBy(a => new
+                {
+                    a.MarketplaceAccountId, a.CurrencyCode, a.Date, a.Category, ByPosting = a.OrderId != null,
+                })
                 .Select(g => new
                 {
                     AccountId = g.Key.MarketplaceAccountId,
                     CurrencyCode = g.Key.CurrencyCode!,
                     g.Key.Date,
+                    g.Key.Category,
+                    g.Key.ByPosting,
                     Amount = g.Sum(a => a.Amount),
                 })
                 .ToListAsync(ct);
@@ -197,6 +202,12 @@ public class AnalyticsPayoutsService(
 
         var intervals = AnalyticsCalculator.SplitIntervals(from, to, step);
         var byKey = days.ToLookup(d => (d.AccountId, d.CurrencyCode), d => (d.Date, d.Amount));
+        var byCurrency = days.ToLookup(d => d.CurrencyCode);
+
+        List<decimal?> SumWhere(string currency, Func<MarketplaceAccrualCategory, bool, bool> pick) =>
+            AnalyticsCalculator.SumByInterval(intervals, today, byCurrency[currency]
+                .Where(d => pick(d.Category, d.ByPosting))
+                .Select(d => (d.Date, d.Amount)));
 
         return new PayoutsTimeseriesDto
         {
@@ -227,10 +238,22 @@ public class AnalyticsPayoutsService(
                             };
                         })
                         .ToList(),
+                    Withholdings = new PayoutsWithholdingsDto
+                    {
+                        Sales = SumWhere(currency, (category, _) => category == MarketplaceAccrualCategory.Sale),
+                        WithheldByPosting = SumWhere(currency, (category, byPosting) => byPosting && IsWithheld(category)),
+                        WithheldByShop = SumWhere(currency, (category, byPosting) => !byPosting && IsWithheld(category)),
+                    },
                 })
                 .ToList(),
         };
     }
+
+    /// <summary>What the marketplace keeps: everything but sales, buyer delivery charges and compensations.</summary>
+    private static bool IsWithheld(MarketplaceAccrualCategory category) =>
+        category is not (MarketplaceAccrualCategory.Sale
+            or MarketplaceAccrualCategory.DeliveryCharge
+            or MarketplaceAccrualCategory.Compensation);
 
     public async Task<Paginated<PayoutsPostingDto>> GetPostingsAsync(
         ClaimsPrincipal user, PayoutsPostingsRequest request, CancellationToken ct = default)

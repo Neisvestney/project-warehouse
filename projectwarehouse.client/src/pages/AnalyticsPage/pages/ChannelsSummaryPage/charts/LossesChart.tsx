@@ -11,9 +11,9 @@ import {ChartsYAxis} from "@mui/x-charts/ChartsYAxis";
 import {LinePlot} from "@mui/x-charts/LineChart";
 import type {ChannelsLossesDto} from "@/api/types.gen";
 import {formatNumber, formatPercent} from "@/components/analytics/analyticsFormat";
-import {intervalLabel} from "@/components/analytics/charts/intervalLabels";
+import {intervalLabel, isIncomplete} from "@/components/analytics/charts/intervalLabels";
 
-const DASHED = "returns:immature";
+const DASHED_PREFIX = "dashed:";
 
 function share(part: number | null | undefined, whole: number | null | undefined) {
   return part == null || !whole ? null : part / whole;
@@ -26,8 +26,8 @@ interface LossesChartProps {
 
 /**
  * Sales as bars on the left axis, the cancellation and return shares as lines on the right one: in counts
- * both lines would only repeat the shape of the bars. The return line turns dashed where the interval's
- * returns are still coming in, the way an unfinished interval does on the other charts.
+ * both lines would only repeat the shape of the bars. An incomplete interval is dashed as on the other charts,
+ * and the return line also where the interval's returns are still coming in.
  */
 function LossesChart({data, height}: LossesChartProps) {
   const theme = useTheme();
@@ -35,6 +35,7 @@ function LossesChart({data, height}: LossesChartProps) {
   const hasShops = points.some((p) => p.shopUnits != null);
 
   const salesColor = alpha(theme.palette.primary.main, 0.35);
+  const incompleteSalesColor = alpha(theme.palette.primary.main, 0.12);
   const cancelColor = theme.palette.warning.main;
   const returnColor = theme.palette.error.main;
 
@@ -43,8 +44,12 @@ function LossesChart({data, height}: LossesChartProps) {
   );
   const returnShares = points.map((p) => share(p.returnedUnits, p.shopUnits));
   const immature = points.map((p) => p.returnsImmature);
-  // The dashed piece starts one point early so it joins the solid line instead of floating apart
-  const nearImmature = (i: number) => immature[i] || immature[i + 1];
+  const incomplete = points.map((p) => isIncomplete(p.interval));
+  const returnsDashed = immature.map((v, i) => v || incomplete[i]);
+  // The dashed piece spans the neighbours too, so it joins the solid line instead of floating apart
+  const near = (flags: boolean[]) => (i: number) => flags[i] || flags[i - 1] || flags[i + 1];
+  const nearIncomplete = near(incomplete);
+  const nearReturnsDashed = near(returnsDashed);
   const salesLabel = data.measure === "units" ? "Продано, шт." : "Продано, заказов";
 
   return (
@@ -89,11 +94,24 @@ function LossesChart({data, height}: LossesChartProps) {
             color: cancelColor,
             curve: "linear",
             showMark: false,
-            data: cancelShares,
-            valueFormatter: (v, {dataIndex}) =>
-              v == null
+            data: cancelShares.map((v, i) => (incomplete[i] ? null : v)),
+            valueFormatter: (_, {dataIndex}) => {
+              const v = cancelShares[dataIndex];
+              return v == null
                 ? null
-                : `${formatPercent(v)} · ${formatNumber(points[dataIndex].cancellations ?? 0)} отм.`,
+                : `${formatPercent(v)} · ${formatNumber(points[dataIndex].cancellations ?? 0)} отм.`;
+            },
+          },
+          {
+            type: "line",
+            id: `${DASHED_PREFIX}cancellations`,
+            yAxisId: "share",
+            color: cancelColor,
+            curve: "linear",
+            showMark: false,
+            disableHighlight: true,
+            data: cancelShares.map((v, i) => (nearIncomplete(i) ? v : null)),
+            valueFormatter: () => null,
           },
           ...(hasShops
             ? [
@@ -105,7 +123,7 @@ function LossesChart({data, height}: LossesChartProps) {
                   color: returnColor,
                   curve: "linear" as const,
                   showMark: false,
-                  data: returnShares.map((v, i) => (immature[i] ? null : v)),
+                  data: returnShares.map((v, i) => (returnsDashed[i] ? null : v)),
                   valueFormatter: (_: number | null, {dataIndex}: {dataIndex: number}) => {
                     const v = returnShares[dataIndex];
                     if (v == null) return null;
@@ -115,13 +133,13 @@ function LossesChart({data, height}: LossesChartProps) {
                 },
                 {
                   type: "line" as const,
-                  id: DASHED,
+                  id: `${DASHED_PREFIX}returns`,
                   yAxisId: "share",
                   color: returnColor,
                   curve: "linear" as const,
                   showMark: false,
                   disableHighlight: true,
-                  data: returnShares.map((v, i) => (nearImmature(i) ? v : null)),
+                  data: returnShares.map((v, i) => (nearReturnsDashed(i) ? v : null)),
                   valueFormatter: () => null,
                 },
               ]
@@ -130,10 +148,19 @@ function LossesChart({data, height}: LossesChartProps) {
       >
         <ChartsWrapper>
           <ChartsSurface
-            sx={{[`& .MuiLineChart-line[data-series="${DASHED}"]`]: {strokeDasharray: "5 4"}}}
+            sx={{
+              [`& .MuiLineChart-line[data-series^="${DASHED_PREFIX}"]`]: {strokeDasharray: "5 4"},
+            }}
           >
             <ChartsGrid horizontal />
-            <BarPlot />
+            <BarPlot
+              slotProps={{
+                bar: ({dataIndex}) =>
+                  incomplete[dataIndex]
+                    ? {fill: incompleteSalesColor, stroke: salesColor, strokeDasharray: "4 3"}
+                    : {},
+              }}
+            />
             <LinePlot />
             <ChartsAxisHighlight x="band" />
             <ChartsXAxis axisId="x" />
@@ -148,10 +175,15 @@ function LossesChart({data, height}: LossesChartProps) {
         <LegendItem color={salesColor} label={`${salesLabel} — левая шкала`} />
         <LegendItem color={cancelColor} label="Отмены, % от заказов" line />
         {hasShops && <LegendItem color={returnColor} label="Возвраты, % от проданных штук" line />}
+        {incomplete.some(Boolean) && (
+          <Typography variant="caption" color="text.secondary">
+            пунктир и * — неполный или ещё идущий интервал
+          </Typography>
+        )}
         {hasShops && immature.some(Boolean) && (
           <Typography variant="caption" color="text.secondary">
-            пунктир — возвраты ещё поступают: интервал закончился меньше {data.returnsMaturityDays}{" "}
-            дн. назад
+            пунктир возвратов — возвраты ещё поступают: интервал закончился меньше{" "}
+            {data.returnsMaturityDays} дн. назад
           </Typography>
         )}
       </Stack>
