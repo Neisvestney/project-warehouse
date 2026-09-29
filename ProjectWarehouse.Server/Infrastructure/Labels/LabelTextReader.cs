@@ -12,7 +12,8 @@ namespace ProjectWarehouse.Server.Infrastructure.Labels;
 /// Ozon embeds a subset font and addresses its glyphs by id, so the barcode digits never appear as
 /// literal bytes in the content stream — they have to be mapped back through the font's ToUnicode CMap.
 /// Only enough of the PDF text model is implemented to recover a barcode: strings are concatenated in
-/// stream order with no separator, because Ozon splits one barcode across several show operators.
+/// stream order, because Ozon splits one barcode across several show operators, and a line break goes in
+/// only where the font changes.
 /// Anything unreadable comes back as null, which the caller treats as "cannot tell", never as an error.
 /// </remarks>
 public static partial class LabelTextReader
@@ -34,8 +35,8 @@ public static partial class LabelTextReader
 
             // One content stream is one writer: the marketplace's own label is one, anything stamped on
             // afterwards is another. Keeping them apart stops a stamped article from reading as part of
-            // the barcode next to it. Inside a stream nothing is inserted — the marketplace splits one
-            // barcode across separate text objects, and those have to close back up.
+            // the barcode next to it. Inside a stream only a font change breaks the text — the marketplace
+            // splits one barcode across separate text objects, and those have to close back up.
             return string.Join('\n', streams.Select(s => Decode(s, map)));
         }
         catch (Exception)
@@ -136,10 +137,25 @@ public static partial class LabelTextReader
     private static string Decode(string content, IReadOnlyDictionary<int, string> map)
     {
         var text = new StringBuilder();
+        (string Name, double Size)? font = null;
 
         foreach (Match match in ShowOperand().Matches(content))
         {
-            if (match.Groups["hex"].Success)
+            if (match.Groups["font"].Success)
+            {
+                // A split barcode keeps one font across its pieces, while the text printed next to it does
+                // not — the posting label sets its warehouse name ending in a digit right before the number.
+                // The size is compared as a number, so "8" and "8.0" stay one font.
+                if (!double.TryParse(match.Groups["size"].Value, System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out var size))
+                    continue;
+
+                var next = (match.Groups["font"].Value, size);
+                if (font is not null && font != next && text.Length > 0 && text[^1] != '\n')
+                    text.Append('\n');
+                font = next;
+            }
+            else if (match.Groups["hex"].Success)
                 AppendHex(match.Groups["hex"].Value, map, text);
             else
                 AppendLiteral(match.Groups["lit"].Value, map, text);
@@ -224,7 +240,7 @@ public static partial class LabelTextReader
     [GeneratedRegex(@"<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>")]
     private static partial Regex HexTriple();
 
-    [GeneratedRegex(@"<(?<hex>[0-9A-Fa-f\s]*)>|\((?<lit>(?:[^()\\]|\\.)*)\)")]
+    [GeneratedRegex(@"<(?<hex>[0-9A-Fa-f\s]*)>|\((?<lit>(?:[^()\\]|\\.)*)\)|(?<font>/[^\s/\[\]()<>]+)\s+(?<size>[-+\d.]+)\s+Tf\b")]
     private static partial Regex ShowOperand();
 
     [GeneratedRegex(@"\s+")]

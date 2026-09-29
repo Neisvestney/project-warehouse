@@ -209,7 +209,7 @@ public class MarketplaceLabelService(
         if (printed.Count == 0)
             return;
 
-        IReadOnlyList<byte[]> perPosting;
+        IReadOnlyList<LabelPage> perPosting;
         if (allowSplit && printed.Count > 1)
         {
             var pageCount = LabelPdfComposer.PageCount(document.Content);
@@ -226,7 +226,7 @@ public class MarketplaceLabelService(
             }
 
             var pages = LabelPdfComposer.SplitPages(document.Content);
-            switch (MatchByBarcode(printed, byPostingNumber, pages, out var matched))
+            switch (MatchPages(printed, byPostingNumber, pages, out var matched))
             {
                 case LabelMatch.Matched:
                     perPosting = matched;
@@ -247,7 +247,14 @@ public class MarketplaceLabelService(
         }
         else
         {
-            perPosting = [document.Content];
+            // one posting, so the whole response is its label; the text only decides where the articles go
+            var marketplaceOrder = byPostingNumber[printed[0]].MarketplaceOrder!;
+            var kind = Identify(LabelTextReader.ReadText(document.Content), marketplaceOrder);
+            if (kind is null)
+                logger.LogWarning(
+                    "Label for {PostingNumber} carries neither its scanit nor its posting number; stamping with the {Kind} layout",
+                    marketplaceOrder.PostingNumber, LabelKind.OzonScanitLabel);
+            perPosting = [new LabelPage(document.Content, kind ?? LabelKind.OzonScanitLabel)];
         }
 
         for (var i = 0; i < printed.Count; i++)
@@ -255,32 +262,23 @@ public class MarketplaceLabelService(
                 document.ContentType ?? "application/pdf", documents, userId, ct);
     }
 
+    private sealed record LabelPage(byte[] Content, LabelKind Kind);
+
     /// <summary>
-    /// Lays the pages out in <paramref name="chunk"/> order using the barcode printed on each page, so
-    /// the mapping does not rest on the marketplace returning pages in the order they were asked for.
+    /// Lays the pages out in <paramref name="chunk"/> order using what each page prints to identify its
+    /// posting, so the mapping does not rest on the marketplace returning pages in the order they were
+    /// asked for.
     /// </summary>
     /// <remarks>
-    /// Postings whose barcode is unknown — imported before the barcode was stored, or never packed —
-    /// keep their positional page among the ones no barcode claimed. A barcode that is known but found
-    /// on no page, or on a page another posting already claimed, fails the whole chunk: one wrong page
-    /// means one wrong box, and refetching in smaller chunks is the cheap way out.
+    /// Every posting has to find exactly one page by its scanit or its posting number. A posting found on
+    /// no page, or on a page another posting already claimed, fails the whole chunk: one wrong page means
+    /// one wrong box, and refetching in smaller chunks is the cheap way out.
     /// </remarks>
-    private LabelMatch MatchByBarcode(IReadOnlyList<string> chunk,
+    private LabelMatch MatchPages(IReadOnlyList<string> chunk,
         IReadOnlyDictionary<string, Order> byPostingNumber, IReadOnlyList<byte[]> pages,
-        out IReadOnlyList<byte[]> matched)
+        out IReadOnlyList<LabelPage> matched)
     {
         matched = [];
-
-        var barcodes = chunk
-            .Select(p => byPostingNumber[p].MarketplaceOrder!.ScanitBarcode)
-            .ToList();
-
-        if (barcodes.All(string.IsNullOrWhiteSpace))
-        {
-            // nothing to match on: the pre-barcode behaviour, page order as requested
-            matched = pages;
-            return LabelMatch.Matched;
-        }
 
         var pageTexts = pages.Select(LabelTextReader.ReadText).ToList();
 
@@ -290,49 +288,47 @@ public class MarketplaceLabelService(
         if (pageTexts.TrueForAll(t => string.IsNullOrWhiteSpace(t)))
             return LabelMatch.Unreadable;
 
-        var result = new byte[chunk.Count][];
+        var result = new LabelPage[chunk.Count];
         var taken = new bool[pages.Count];
 
         for (var i = 0; i < chunk.Count; i++)
         {
-            if (string.IsNullOrWhiteSpace(barcodes[i]))
-                continue;
-
+            var marketplaceOrder = byPostingNumber[chunk[i]].MarketplaceOrder!;
             var hits = Enumerable.Range(0, pages.Count)
-                .Where(p => !taken[p] && LabelTextReader.ContainsBarcode(pageTexts[p], barcodes[i]))
+                .Select(p => (Page: p, Kind: taken[p] ? null : Identify(pageTexts[p], marketplaceOrder)))
+                .Where(h => h.Kind is not null)
                 .ToList();
 
             if (hits.Count != 1)
             {
                 logger.LogWarning(
-                    "Label page for {PostingNumber} matched {HitCount} page(s) by barcode; refetching in smaller chunks",
+                    "Label page for {PostingNumber} matched {HitCount} page(s); refetching in smaller chunks",
                     chunk[i], hits.Count);
                 return LabelMatch.Mismatch;
             }
 
-            result[i] = pages[hits[0]];
-            taken[hits[0]] = true;
+            result[i] = new LabelPage(pages[hits[0].Page], hits[0].Kind!.Value);
+            taken[hits[0].Page] = true;
         }
-
-        // whatever is left goes to the postings with no barcode, in the order both sides came in
-        var spare = new Queue<byte[]>(Enumerable.Range(0, pages.Count).Where(p => !taken[p]).Select(p => pages[p]));
-        var unclaimed = result.Count(r => r is null);
-        if (unclaimed != spare.Count)
-        {
-            // cannot happen while pages and postings are equal in number and a match takes exactly one
-            // page — but the invariant spans three places, and guessing here costs mislabelled boxes
-            logger.LogWarning(
-                "{Unclaimed} posting(s) without a barcode page but {Spare} page(s) left; refetching in smaller chunks",
-                unclaimed, spare.Count);
-            return LabelMatch.Mismatch;
-        }
-
-        for (var i = 0; i < chunk.Count; i++)
-            if (result[i] is null)
-                result[i] = spare.Dequeue();
 
         matched = result;
         return LabelMatch.Matched;
+    }
+
+    /// <summary>
+    /// Which label format <paramref name="text"/> is, provided it belongs to the posting at all. Ozon prints
+    /// the scanit on its beta labels, and the posting number where the beta is off or the posting holds more
+    /// than one unit.
+    /// </summary>
+    private static LabelKind? Identify(string? text, MarketplaceOrder marketplaceOrder)
+    {
+        if (LabelTextReader.ContainsBarcode(text, marketplaceOrder.ScanitBarcode))
+            return LabelKind.OzonScanitLabel;
+
+        if (LabelTextReader.ContainsBarcode(text, marketplaceOrder.PostingNumber))
+            return LabelKind.OzonPostingLabel;
+
+        return null;
     }
 
     private enum LabelMatch
@@ -404,11 +400,11 @@ public class MarketplaceLabelService(
         await db.SaveChangesAsync(ct);
     }
 
-    private async Task StoreAsync(Order order, byte[] pdf, string contentType,
+    private async Task StoreAsync(Order order, LabelPage page, string contentType,
         Dictionary<Guid, byte[]> documents, Guid? userId, CancellationToken ct)
     {
         var marketplaceOrder = order.MarketplaceOrder!;
-        var stamped = composer.Overlay(pdf, BuildArticles(order));
+        var stamped = composer.Overlay(page.Content, BuildArticles(order), page.Kind);
 
         // The DataFile row commits before LabelFileId is set. A crash in between leaves an orphan that
         // the file GC reclaims after OrphanTtlHours — self-healing, so no transaction is needed. The
