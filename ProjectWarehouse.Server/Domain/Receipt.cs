@@ -3,7 +3,7 @@ using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Domain;
 
-public class Receipt : IHasIdentity
+public class Receipt : ITaggedWarehouseDocument<ReceiptTag>
 {
     public Guid Id { get; set; }
 

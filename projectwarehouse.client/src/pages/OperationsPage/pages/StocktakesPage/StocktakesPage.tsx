@@ -13,9 +13,22 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import {useQuery} from "@tanstack/react-query";
+import {useQuery, useQueryClient} from "@tanstack/react-query";
 import {Link as RouterLink} from "react-router";
-import {stocktakesGetAllOptions} from "@/api/@tanstack/react-query.gen";
+import {
+  stocktakesBatchTransitionMutation,
+  stocktakesBatchUpdateTagsMutation,
+  stocktakesGetAllOptions,
+  stocktakesGetAllQueryKey,
+} from "@/api/@tanstack/react-query.gen";
+import {useSelectedItems} from "@/hooks/useSelectedItems";
+import BulkBar from "@/components/BulkBar";
+import SelectionTableCell from "@/components/SelectionTableCell";
+import {useDocumentBulkTransitions} from "@/components/useDocumentBulkTransitions";
+import {useBulkTagsAction} from "@/components/tags/useBulkTagsAction";
+import {STOCKTAKE_BULK_TRANSITIONS} from "@/components/stocktakes/stocktakeBulkTransitions";
+import {NOUNS} from "@/utils/pluralUtils";
+import {byOperation} from "@/utils/queryKeys";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
@@ -40,7 +53,7 @@ import {
   STOCKTAKE_TYPE_LABELS,
   formatStocktakeNumber,
 } from "@/components/stocktakes/stocktakeUtils";
-import type {StocktakeSortBy, StocktakeStatus} from "@/api/types.gen";
+import type {StocktakeSortBy, StocktakeStatus, StocktakeSummaryDto} from "@/api/types.gen";
 import {parseDateOnly} from "@/utils/dateOnly";
 
 const SORT_COLUMNS: {key: StocktakeSortBy; label: string}[] = [
@@ -53,7 +66,10 @@ const SORT_COLUMNS: {key: StocktakeSortBy; label: string}[] = [
 
 const ALL_STATUSES: StocktakeStatus[] = ["planned", "draft", "inProgress", "finished", "canceled"];
 
+const getStocktakeId = (stocktake: StocktakeSummaryDto) => stocktake.id;
+
 function StocktakesPage() {
+  const queryClient = useQueryClient();
   const canCreate = useHasPermission(["stocktakes.edit", "stocktakes.edit_assigned"]);
 
   const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
@@ -97,14 +113,64 @@ function StocktakesPage() {
     [warehouseId, status, tagIds, sortBy, sortOrder],
   );
 
-  // sortable columns plus the fixed ones after them in the header
-  const columnCount = SORT_COLUMNS.length + 4;
+  // sortable columns, the fixed ones after them and the checkbox for editors
+  const columnCount = SORT_COLUMNS.length + 4 + (canCreate ? 1 : 0);
 
   const {data, isLoading, isFetching, refetch} = useQuery(
     stocktakesGetAllOptions({query: fetchParams}),
   );
   // the tabs keep their last numbers through a refetch instead of collapsing and shifting
   const [statusCounts] = useRetainedValue(data?.meta.statusCounts);
+
+  const {
+    selectedItems,
+    isSelected,
+    allPageSelected,
+    somePageSelected,
+    toggle,
+    toggleAll,
+    removeIds,
+    clear,
+  } = useSelectedItems(getStocktakeId, data?.items);
+
+  const invalidateStocktakes = () =>
+    Promise.all([
+      queryClient.invalidateQueries({queryKey: stocktakesGetAllQueryKey()}),
+      queryClient.invalidateQueries({queryKey: byOperation("stocktakesGetById")}),
+    ]);
+
+  const transitions = useDocumentBulkTransitions({
+    entity: "stocktake",
+    transitions: STOCKTAKE_BULK_TRANSITIONS,
+    selectedItems,
+    enabled: canCreate,
+    mutation: stocktakesBatchTransitionMutation(),
+    invalidate: invalidateStocktakes,
+    onTransitioned: removeIds,
+    noun: NOUNS.stocktake,
+    formatNumber: formatStocktakeNumber,
+  });
+
+  const tagsAction = useBulkTagsAction({
+    kind: "stocktake",
+    entity: "stocktake",
+    mutation: stocktakesBatchUpdateTagsMutation(),
+    invalidate: invalidateStocktakes,
+    noun: NOUNS.stocktake,
+    notFound: {
+      code: "stocktakeNotFound",
+      numbersArg: "stocktakeNumbers",
+      formatNumber: formatStocktakeNumber,
+    },
+  });
+
+  const selectionActions =
+    selectedItems.length > 0
+      ? [
+          ...transitions.actions,
+          ...(canCreate ? [tagsAction.getAction(selectedItems.map((d) => d.id))] : []),
+        ]
+      : [];
 
   return (
     <Stack spacing={2}>
@@ -158,6 +224,21 @@ function StocktakesPage() {
           sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
         />
       </FiltersBar>
+      <BulkBar
+        count={selectedItems.length}
+        countLabel={{
+          one: "инвентаризация выбрана",
+          few: "инвентаризации выбрано",
+          many: "инвентаризаций выбрано",
+        }}
+        onClear={clear}
+        actions={selectionActions}
+        info={[{key: "total", label: "Всего:", value: (data?.total ?? 0).toLocaleString("ru-RU")}]}
+        infoLoading={isLoading}
+      />
+      {transitions.dialogs}
+      {tagsAction.dialogs}
+      {transitions.alerts}
       <DataTableContainer
         isFetching={isFetching}
         count={data?.total ?? 0}
@@ -169,6 +250,13 @@ function StocktakesPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
+              {canCreate && (
+                <SelectionTableCell
+                  checked={allPageSelected}
+                  indeterminate={!allPageSelected && somePageSelected}
+                  onCheck={() => toggleAll()}
+                />
+              )}
               {SORT_COLUMNS.map(({key, label}) => (
                 <TableCell key={key} sortDirection={sortBy === key ? sortOrder : false}>
                   <TableSortLabel
@@ -197,11 +285,18 @@ function StocktakesPage() {
                   key={stocktake.id}
                   to={`/operations/stocktakes/${stocktake.id}`}
                   ariaLabel={`Инвентаризация ${formatStocktakeNumber(stocktake.number)}`}
+                  selected={isSelected(stocktake.id)}
                   sx={{
                     opacity: isFetching && !isLoading ? 0.5 : 1,
                     transition: "opacity 0.2s",
                   }}
                 >
+                  {canCreate && (
+                    <SelectionTableCell
+                      checked={isSelected(stocktake.id)}
+                      onCheck={(extendRange) => toggle(stocktake, extendRange)}
+                    />
+                  )}
                   <TableCell sx={{fontFamily: "monospace"}}>
                     {formatStocktakeNumber(stocktake.number)}
                   </TableCell>

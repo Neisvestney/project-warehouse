@@ -117,6 +117,8 @@ import {
   receiptsAddStandardPlacementBatch,
   receiptsAddUnitPlacement,
   receiptsAutoAccept,
+  receiptsBatchTransition,
+  receiptsBatchUpdateTags,
   receiptsCancel,
   receiptsCreate,
   receiptsCreateTag,
@@ -153,6 +155,8 @@ import {
   stockMovementPresetsDeletePreset,
   stockMovementPresetsGetPresets,
   stockMovementPresetsUpdatePreset,
+  stocktakesBatchTransition,
+  stocktakesBatchUpdateTags,
   stocktakesCancel,
   stocktakesCreate,
   stocktakesCreateTag,
@@ -202,6 +206,8 @@ import {
   warehousesGetByIdForPrint,
   warehousesGetDefaultNode,
   warehousesUpdate,
+  writeoffsBatchTransition,
+  writeoffsBatchUpdateTags,
   writeoffsCancel,
   writeoffsCreate,
   writeoffsCreateTag,
@@ -529,6 +535,12 @@ import type {
   ReceiptsAutoAcceptData,
   ReceiptsAutoAcceptError,
   ReceiptsAutoAcceptResponse,
+  ReceiptsBatchTransitionData,
+  ReceiptsBatchTransitionError,
+  ReceiptsBatchTransitionResponse,
+  ReceiptsBatchUpdateTagsData,
+  ReceiptsBatchUpdateTagsError,
+  ReceiptsBatchUpdateTagsResponse,
   ReceiptsCancelData,
   ReceiptsCancelError,
   ReceiptsCancelResponse,
@@ -637,6 +649,12 @@ import type {
   StockMovementPresetsUpdatePresetData,
   StockMovementPresetsUpdatePresetError,
   StockMovementPresetsUpdatePresetResponse,
+  StocktakesBatchTransitionData,
+  StocktakesBatchTransitionError,
+  StocktakesBatchTransitionResponse,
+  StocktakesBatchUpdateTagsData,
+  StocktakesBatchUpdateTagsError,
+  StocktakesBatchUpdateTagsResponse,
   StocktakesCancelData,
   StocktakesCancelError,
   StocktakesCancelResponse,
@@ -781,6 +799,12 @@ import type {
   WarehousesUpdateData,
   WarehousesUpdateError,
   WarehousesUpdateResponse,
+  WriteoffsBatchTransitionData,
+  WriteoffsBatchTransitionError,
+  WriteoffsBatchTransitionResponse,
+  WriteoffsBatchUpdateTagsData,
+  WriteoffsBatchUpdateTagsError,
+  WriteoffsBatchUpdateTagsResponse,
   WriteoffsCancelData,
   WriteoffsCancelError,
   WriteoffsCancelResponse,
@@ -5612,6 +5636,77 @@ export const receiptsCancelMutation = (
   return mutationOptions;
 };
 
+/**
+ * Apply one transition to several receipts in one request, with partial-success semantics.
+ *
+ * Body: `BatchReceiptTransitionRequest` — `ids` (duplicates are collapsed) and `transition`
+ * (`plan`, `startProcessing`, `revert`, `cancel`). `finish` is rejected with 422
+ * `validationError` (field `transition`): a receipt is finished from its own page only. Each
+ * receipt goes through the same checks as its single-receipt endpoint and is saved on its own; the answer
+ * is always 200 with `DocumentBatchTransitionResponse` — successful ids in `transitionedIds`,
+ * the rest in `failedItems` as `{ id, number, error }`. A receipt that does not exist or lies
+ * outside the caller's edit access fails as `receiptNotFound` with a null `number`.
+ * Requires `receipts.edit` or `receipts.edit_assigned`.
+ */
+export const receiptsBatchTransitionMutation = (
+  options?: Partial<Options<ReceiptsBatchTransitionData>>,
+): UseMutationOptions<
+  ReceiptsBatchTransitionResponse,
+  ReceiptsBatchTransitionError,
+  Options<ReceiptsBatchTransitionData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsBatchTransitionResponse,
+    ReceiptsBatchTransitionError,
+    Options<ReceiptsBatchTransitionData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsBatchTransition({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Add or remove one tag on several receipts in one request, all or nothing. Allowed in any status.
+ *
+ * Body: `BatchUpdateTagsRequest` — `ids` (duplicates are collapsed), `tagId` and
+ * `operation` (`add` / `remove`). Nothing is written unless every receipt passes: 422
+ * `tagNotFound` (field `tagId`) for an unknown tag, 404 `receiptNotFound` when any receipt
+ * does not exist or lies outside the caller's edit access — args `count` (every rejected id) and
+ * `receiptNumbers` (only those the caller can view, ascending). Receipts that already have (or already lack)
+ * the tag are left untouched and get no changelog entry. Answers 204.
+ * Requires `receipts.edit` or `receipts.edit_assigned`.
+ */
+export const receiptsBatchUpdateTagsMutation = (
+  options?: Partial<Options<ReceiptsBatchUpdateTagsData>>,
+): UseMutationOptions<
+  ReceiptsBatchUpdateTagsResponse,
+  ReceiptsBatchUpdateTagsError,
+  Options<ReceiptsBatchUpdateTagsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ReceiptsBatchUpdateTagsResponse,
+    ReceiptsBatchUpdateTagsError,
+    Options<ReceiptsBatchUpdateTagsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await receiptsBatchUpdateTags({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
 export const rolesGetAllQueryKey = (options?: Options<RolesGetAllData>) =>
   createQueryKey("rolesGetAll", options);
 
@@ -6933,6 +7028,79 @@ export const stocktakesCancelMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await stocktakesCancel({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Apply one transition to several stocktakes in one request, with partial-success semantics.
+ *
+ * Body: `BatchStocktakeTransitionRequest` — `ids` (duplicates are collapsed) and `transition`
+ * (`schedule`, `toDraft`, `start`, `revert`, `cancel`). `finish` is rejected
+ * with 422 `validationError` (field `transition`), since it applies the count to stock and is run
+ * from the document's own page. Each stocktake goes through the same checks as its single-document
+ * endpoint and is saved on its own, in request order — so of two documents sharing a cell, `start`
+ * succeeds for the first and fails the second with `stocktakeNodeAlreadyInProgress`. The answer is
+ * always 200 with `DocumentBatchTransitionResponse` — successful ids in `transitionedIds`, the rest
+ * in `failedItems` as `{ id, number, error }`. A stocktake that does not exist or lies outside the
+ * caller's edit access fails as `stocktakeNotFound` with a null `number`.
+ * Requires `stocktakes.edit` or `stocktakes.edit_assigned`.
+ */
+export const stocktakesBatchTransitionMutation = (
+  options?: Partial<Options<StocktakesBatchTransitionData>>,
+): UseMutationOptions<
+  StocktakesBatchTransitionResponse,
+  StocktakesBatchTransitionError,
+  Options<StocktakesBatchTransitionData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StocktakesBatchTransitionResponse,
+    StocktakesBatchTransitionError,
+    Options<StocktakesBatchTransitionData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stocktakesBatchTransition({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Add or remove one tag on several stocktakes in one request, all or nothing. Allowed in any status.
+ *
+ * Body: `BatchUpdateTagsRequest` — `ids` (duplicates are collapsed), `tagId` and
+ * `operation` (`add` / `remove`). Nothing is written unless every stocktake passes: 422
+ * `tagNotFound` (field `tagId`) for an unknown tag, 404 `stocktakeNotFound` when any
+ * stocktake does not exist or lies outside the caller's edit access — args `count` (every rejected id)
+ * and `stocktakeNumbers` (only those the caller can view, ascending). Stocktakes that already have (or
+ * already lack) the tag are left untouched and get no changelog entry. Answers 204.
+ * Requires `stocktakes.edit` or `stocktakes.edit_assigned`.
+ */
+export const stocktakesBatchUpdateTagsMutation = (
+  options?: Partial<Options<StocktakesBatchUpdateTagsData>>,
+): UseMutationOptions<
+  StocktakesBatchUpdateTagsResponse,
+  StocktakesBatchUpdateTagsError,
+  Options<StocktakesBatchUpdateTagsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    StocktakesBatchUpdateTagsResponse,
+    StocktakesBatchUpdateTagsError,
+    Options<StocktakesBatchUpdateTagsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await stocktakesBatchUpdateTags({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -8507,6 +8675,77 @@ export const writeoffsCancelMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await writeoffsCancel({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Apply one transition to several write-offs in one request, with partial-success semantics.
+ *
+ * Body: `BatchWriteoffTransitionRequest` — `ids` (duplicates are collapsed) and `transition`.
+ * Only `cancel` is accepted; `finish` is rejected with 422 `validationError` (field
+ * `transition`), since it removes stock and is run from the document's own page. Each write-off goes
+ * through the same checks as `POST /{id}/cancel` and is saved on its own; the answer is always 200
+ * with `DocumentBatchTransitionResponse` — successful ids in `transitionedIds`, the rest in
+ * `failedItems` as `{ id, number, error }`. A write-off that does not exist or lies outside the
+ * caller's edit access fails as `writeoffNotFound` with a null `number`.
+ * Requires `writeoffs.edit` or `writeoffs.edit_assigned`.
+ */
+export const writeoffsBatchTransitionMutation = (
+  options?: Partial<Options<WriteoffsBatchTransitionData>>,
+): UseMutationOptions<
+  WriteoffsBatchTransitionResponse,
+  WriteoffsBatchTransitionError,
+  Options<WriteoffsBatchTransitionData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    WriteoffsBatchTransitionResponse,
+    WriteoffsBatchTransitionError,
+    Options<WriteoffsBatchTransitionData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await writeoffsBatchTransition({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Add or remove one tag on several write-offs in one request, all or nothing. Allowed in any status.
+ *
+ * Body: `BatchUpdateTagsRequest` — `ids` (duplicates are collapsed), `tagId` and
+ * `operation` (`add` / `remove`). Nothing is written unless every write-off passes: 422
+ * `tagNotFound` (field `tagId`) for an unknown tag, 404 `writeoffNotFound` when any write-off
+ * does not exist or lies outside the caller's edit access — args `count` (every rejected id) and
+ * `writeoffNumbers` (only those the caller can view, ascending). Write-offs that already have (or
+ * already lack) the tag are left untouched and get no changelog entry. Answers 204.
+ * Requires `writeoffs.edit` or `writeoffs.edit_assigned`.
+ */
+export const writeoffsBatchUpdateTagsMutation = (
+  options?: Partial<Options<WriteoffsBatchUpdateTagsData>>,
+): UseMutationOptions<
+  WriteoffsBatchUpdateTagsResponse,
+  WriteoffsBatchUpdateTagsError,
+  Options<WriteoffsBatchUpdateTagsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    WriteoffsBatchUpdateTagsResponse,
+    WriteoffsBatchUpdateTagsError,
+    Options<WriteoffsBatchUpdateTagsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await writeoffsBatchUpdateTags({
         ...options,
         ...fnOptions,
         throwOnError: true,

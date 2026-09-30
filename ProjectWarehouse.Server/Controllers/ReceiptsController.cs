@@ -27,34 +27,16 @@ public class ReceiptsController(
     EntityAccessRegistry access,
     AccessScope scope,
     IChangeLogService<ReceiptDto> changeLog,
-    IDataFileBindingService fileBinding) : AppControllerBase
+    IDataFileBindingService fileBinding,
+    IReceiptService receipts,
+    IDocumentBatchService batch) : AppControllerBase
 {
     private EntityAccessRule<Receipt> Rule => access.For<Receipt>();
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private IQueryable<Receipt> BaseQuery(bool includeItems = false)
-    {
-        var q = db.Receipts
-            .Include(r => r.Warehouse)
-            .Include(r => r.Tags)
-            .Include(r => r.Images).ThenInclude(i => i.DataFile)
-            .AsSplitQuery()
-            .AsQueryable();
-
-        if (includeItems)
-            q = q.Include(r => r.Items)
-                .ThenInclude(i => i.CatalogItem).ThenInclude(c => c.Group)
-                .Include(r => r.Items)
-                .ThenInclude(i => i.Placements)
-                .ThenInclude(p => p.StoragePlaceNode)
-                .ThenInclude(n => n.RootStoragePlace)
-                .Include(r => r.Items)
-                .ThenInclude(i => i.Placements)
-                .ThenInclude(p => p.UnitInventoryItem);
-
-        return q;
-    }
+    private IQueryable<Receipt> BaseQuery(bool includeItems = false) =>
+        receipts.WithDetails(db.Receipts, includeItems);
 
     private async Task<(bool canProcess, HashSet<Guid>? assignedIds)>
         GetProcessAccessAsync(CancellationToken ct)
@@ -844,7 +826,7 @@ public class ReceiptsController(
                 {
                     if (item.CatalogItem.Type != CatalogItemType.Standard) continue;
 
-                    var placed = TotalPlaced(item);
+                    var placed = ReceiptService.TotalPlaced(item);
                     var target = item.ReceivedCount ?? item.PlannedCount;
 
                     // An over-placed item is left to be sorted out by hand: stamping the planned count over it
@@ -1104,7 +1086,7 @@ public class ReceiptsController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public Task<IActionResult> Plan(Guid id, CancellationToken ct = default) =>
-        TransitionAsync(id, ReceiptStatus.Draft, ReceiptStatus.Planned, ReceiptActions.Planned, ct);
+        TransitionAsync(id, ReceiptTransition.Plan, ct);
 
     /// <summary>Transition: Planned → Processing.</summary>
     /// <remarks>
@@ -1117,7 +1099,7 @@ public class ReceiptsController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public Task<IActionResult> StartProcessing(Guid id, CancellationToken ct = default) =>
-        TransitionAsync(id, ReceiptStatus.Planned, ReceiptStatus.Processing, ReceiptActions.ProcessingStarted, ct);
+        TransitionAsync(id, ReceiptTransition.StartProcessing, ct);
 
     /// <summary>Transition: Processing → Finished. Validates that each item with a received count has enough placements.</summary>
     /// <remarks>
@@ -1132,52 +1114,8 @@ public class ReceiptsController(
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> Finish(Guid id, CancellationToken ct = default)
-    {
-        var (receipt, error) = await LoadReceiptWithEditAccessAsync(id, ct, includeItems: true);
-        if (error is not null) return error;
-
-        if (receipt!.Status != ReceiptStatus.Processing)
-            return UnprocessableEntity("root", ErrorCode.ReceiptInvalidStatusTransition,
-                $"Receipt must be in 'Processing' status to finish (current: '{receipt.Status}').");
-
-        var underplaced = receipt.Items
-            .Where(i => i.ReceivedCount.HasValue)
-            .Where(i =>
-            {
-                var placed = TotalPlaced(i);
-                return placed < i.ReceivedCount!.Value;
-            })
-            .ToList();
-
-        if (underplaced.Count > 0)
-            return UnprocessableEntity("root", ErrorCode.ReceiptItemsUnderplaced,
-                $"Некоторые позиции размещены не полностью: {string.Join(", ", underplaced.Select(i => i.CatalogItem?.Name ?? i.Id.ToString()))}.");
-
-        var overplaced = receipt.Items
-            .Where(i => i.ReceivedCount.HasValue)
-            .Where(i =>
-            {
-                var placed = TotalPlaced(i);
-                return placed > i.ReceivedCount!.Value;
-            })
-            .ToList();
-
-        if (overplaced.Count > 0)
-            return UnprocessableEntity("root", ErrorCode.ReceiptItemsOverplaced,
-                $"Некоторые позиции размещены сверх принятого количества: {string.Join(", ", overplaced.Select(i => i.CatalogItem?.Name ?? i.Id.ToString()))}.");
-
-        var before = mapper.Map<ReceiptDto>(receipt);
-        receipt.Status     = ReceiptStatus.Finished;
-        receipt.FinishedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
-
-        var nodeById = await LoadWarehouseNodesAsync(receipt.WarehouseId, ct);
-        var after = mapper.Map<ReceiptDto>(receipt, opts => opts.Items["nodeById"] = nodeById);
-        await changeLog.CompareAndSaveToChangelog(before, after, ReceiptActions.Finished);
-
-        return Ok(after);
-    }
+    public Task<IActionResult> Finish(Guid id, CancellationToken ct = default) =>
+        TransitionAsync(id, ReceiptTransition.Finish, ct);
 
     /// <summary>Revert one step back (Planned → Draft, Processing → Planned if no placements).</summary>
     /// <remarks>
@@ -1191,47 +1129,8 @@ public class ReceiptsController(
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> Revert(Guid id, CancellationToken ct = default)
-    {
-        var (receipt, error) = await LoadReceiptWithEditAccessAsync(id, ct, includeItems: true);
-        if (error is not null) return error;
-
-        var before = mapper.Map<ReceiptDto>(receipt!);
-
-        ReceiptStatus nextStatus;
-        switch (receipt!.Status)
-        {
-            case ReceiptStatus.Planned:
-                nextStatus = ReceiptStatus.Draft;
-                break;
-
-            case ReceiptStatus.Processing:
-                if (receipt.Items.Any(i => i.Placements.Count > 0))
-                    return UnprocessableEntity("root", ErrorCode.ReceiptHasPlacements,
-                        "Cannot revert from Processing: some items already have placements. Remove them first.");
-                nextStatus = ReceiptStatus.Planned;
-                break;
-
-            case ReceiptStatus.Finished:
-                nextStatus = ReceiptStatus.Processing;
-                break;
-
-            default:
-                return UnprocessableEntity("root", ErrorCode.ReceiptInvalidStatusTransition,
-                    $"Cannot revert from '{receipt.Status}' status.");
-        }
-
-        receipt.Status = nextStatus;
-        if (nextStatus == ReceiptStatus.Processing)
-            receipt.FinishedAt = null;
-        await db.SaveChangesAsync(ct);
-
-        var nodeById = await LoadWarehouseNodesAsync(receipt.WarehouseId, ct);
-        var after = mapper.Map<ReceiptDto>(receipt, opts => opts.Items["nodeById"] = nodeById);
-        await changeLog.CompareAndSaveToChangelog(before, after, ReceiptActions.Reverted);
-
-        return Ok(after);
-    }
+    public Task<IActionResult> Revert(Guid id, CancellationToken ct = default) =>
+        TransitionAsync(id, ReceiptTransition.Revert, ct);
 
     /// <summary>Cancel the receipt. Allowed from Draft, Planned, and Processing (if no placements).</summary>
     /// <remarks>
@@ -1244,56 +1143,113 @@ public class ReceiptsController(
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> Cancel(Guid id, CancellationToken ct = default)
+    public Task<IActionResult> Cancel(Guid id, CancellationToken ct = default) =>
+        TransitionAsync(id, ReceiptTransition.Cancel, ct);
+
+    // ── POST batch-transition ─────────────────────────────────────────────────
+
+    /// <summary>Apply one transition to several receipts in one request, with partial-success semantics.</summary>
+    /// <remarks>
+    /// Body: <c>BatchReceiptTransitionRequest</c> — <c>ids</c> (duplicates are collapsed) and <c>transition</c>
+    /// (<c>plan</c>, <c>startProcessing</c>, <c>revert</c>, <c>cancel</c>). <c>finish</c> is rejected with 422
+    /// <c>validationError</c> (field <c>transition</c>): a receipt is finished from its own page only. Each
+    /// receipt goes through the same checks as its single-receipt endpoint and is saved on its own; the answer
+    /// is always 200 with <c>DocumentBatchTransitionResponse</c> — successful ids in <c>transitionedIds</c>,
+    /// the rest in <c>failedItems</c> as <c>{ id, number, error }</c>. A receipt that does not exist or lies
+    /// outside the caller's edit access fails as <c>receiptNotFound</c> with a null <c>number</c>.
+    /// Requires <c>receipts.edit</c> or <c>receipts.edit_assigned</c>.
+    /// </remarks>
+    [HttpPost("batch-transition")]
+    [Authorize]
+    [ProducesResponseType<DocumentBatchTransitionResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> BatchTransition(
+        [FromBody] BatchReceiptTransitionRequest request, CancellationToken ct = default)
     {
-        var (receipt, error) = await LoadReceiptWithEditAccessAsync(id, ct, includeItems: true);
-        if (error is not null) return error;
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
 
-        if (receipt!.Status is ReceiptStatus.Finished or ReceiptStatus.Canceled)
-            return UnprocessableEntity("root", ErrorCode.ReceiptInvalidStatusTransition,
-                $"Cannot cancel a receipt in '{receipt.Status}' status.");
+        if (request.Transition == ReceiptTransition.Finish)
+            return UnprocessableEntity("transition", ErrorCode.ValidationError,
+                "Receipts cannot be finished in a batch.");
 
-        if (receipt.Status == ReceiptStatus.Processing &&
-            receipt.Items.Any(i => i.Placements.Count > 0))
-            return UnprocessableEntity("root", ErrorCode.ReceiptHasPlacements,
-                "Cannot cancel: some items already have placements. Remove them first.");
+        var editable = receipts.WithDetails(await Rule.QueryAsync(User, AccessLevel.Edit, ct), includeItems: true);
 
-        var before = mapper.Map<ReceiptDto>(receipt);
-        receipt.Status     = ReceiptStatus.Canceled;
-        receipt.CanceledAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
+        return Ok(await batch.TransitionAsync(
+            editable, request.Ids,
+            document => receipts.TransitionAsync(document, request.Transition, ct),
+            new DocumentBatchChangelog<Receipt, ReceiptDto>(changeLog, MapWithNodes),
+            ActionFor(request.Transition),
+            AppProblems.NotFound(ErrorCode.ReceiptNotFound, "Receipt not found."),
+            ct));
+    }
 
-        var nodeById = await LoadWarehouseNodesAsync(receipt.WarehouseId, ct);
-        var after = mapper.Map<ReceiptDto>(receipt, opts => opts.Items["nodeById"] = nodeById);
-        await changeLog.CompareAndSaveToChangelog(before, after, ReceiptActions.Canceled);
+    // ── POST batch-update-tags ────────────────────────────────────────────────
 
-        return Ok(after);
+    /// <summary>Add or remove one tag on several receipts in one request, all or nothing. Allowed in any status.</summary>
+    /// <remarks>
+    /// Body: <c>BatchUpdateTagsRequest</c> — <c>ids</c> (duplicates are collapsed), <c>tagId</c> and
+    /// <c>operation</c> (<c>add</c> / <c>remove</c>). Nothing is written unless every receipt passes: 422
+    /// <c>tagNotFound</c> (field <c>tagId</c>) for an unknown tag, 404 <c>receiptNotFound</c> when any receipt
+    /// does not exist or lies outside the caller's edit access — args <c>count</c> (every rejected id) and
+    /// <c>receiptNumbers</c> (only those the caller can view, ascending). Receipts that already have (or already lack)
+    /// the tag are left untouched and get no changelog entry. Answers 204.
+    /// Requires <c>receipts.edit</c> or <c>receipts.edit_assigned</c>.
+    /// </remarks>
+    [HttpPost("batch-update-tags")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> BatchUpdateTags(
+        [FromBody] BatchUpdateTagsRequest request, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
+
+        var problem = await batch.UpdateTagsAsync(
+            receipts.WithDetails(await Rule.QueryAsync(User, AccessLevel.Edit, ct), includeItems: true),
+            await Rule.QueryAsync(User, AccessLevel.View, ct),
+            db.ReceiptTags,
+            request,
+            new DocumentBatchChangelog<Receipt, ReceiptDto>(changeLog, MapWithNodes),
+            new DocumentBatchNotFound(ErrorCode.ReceiptNotFound, "receiptNumbers", "receipts"),
+            ct);
+
+        return problem is null ? NoContent() : Problem(problem);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private async Task<IActionResult> TransitionAsync(
-        Guid id, ReceiptStatus from, ReceiptStatus to, string action, CancellationToken ct)
+    private async Task<IActionResult> TransitionAsync(Guid id, ReceiptTransition transition, CancellationToken ct)
     {
         var (receipt, error) = await LoadReceiptWithEditAccessAsync(id, ct, includeItems: true);
         if (error is not null) return error;
 
-        if (receipt!.Status != from)
-            return UnprocessableEntity("root", ErrorCode.ReceiptInvalidStatusTransition,
-                $"Receipt must be in '{from}' status to perform this action (current: '{receipt.Status}').");
+        var nodeById = await LoadWarehouseNodesAsync(receipt!.WarehouseId, ct);
+        var before   = MapWithNodes(receipt, nodeById);
 
-        var before = mapper.Map<ReceiptDto>(receipt);
-        receipt.Status = to;
-        if (to == ReceiptStatus.Processing)
-            receipt.StartedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
+        if (await receipts.TransitionAsync(receipt, transition, ct) is { } problem)
+            return Problem(problem);
 
-        var nodeById = await LoadWarehouseNodesAsync(receipt.WarehouseId, ct);
-        var after = mapper.Map<ReceiptDto>(receipt, opts => opts.Items["nodeById"] = nodeById);
-        await changeLog.CompareAndSaveToChangelog(before, after, action);
+        var after = MapWithNodes(receipt, nodeById);
+        await changeLog.CompareAndSaveToChangelog(before, after, ActionFor(transition));
 
         return Ok(after);
     }
+
+    private static string ActionFor(ReceiptTransition transition) => transition switch
+    {
+        ReceiptTransition.Plan            => ReceiptActions.Planned,
+        ReceiptTransition.StartProcessing => ReceiptActions.ProcessingStarted,
+        ReceiptTransition.Finish          => ReceiptActions.Finished,
+        ReceiptTransition.Revert          => ReceiptActions.Reverted,
+        ReceiptTransition.Cancel          => ReceiptActions.Canceled,
+        _ => throw new ArgumentOutOfRangeException(nameof(transition), transition, null),
+    };
+
+    private ReceiptDto MapWithNodes(Receipt receipt, Dictionary<Guid, StoragePlaceNode> nodeById) =>
+        mapper.Map<ReceiptDto>(receipt, opts => opts.Items["nodeById"] = nodeById);
 
     private async Task<(Receipt? receipt, IActionResult? error)> LoadReceiptWithEditAccessAsync(
         Guid id, CancellationToken ct, bool includeItems = false)
@@ -1354,11 +1310,6 @@ public class ReceiptsController(
 
         return (receipt, item, null);
     }
-
-    /// <summary>Units one placement stands for: a Unit placement carries no count and always means one.</summary>
-    private static int PlacedUnits(ReceiptItemPlacement p) => p.Count == 0 ? 1 : p.Count;
-
-    private static int TotalPlaced(ReceiptItem item) => item.Placements.Sum(PlacedUnits);
 
     private static string InventoryActionFor(ReceiptReason reason) => reason switch
     {

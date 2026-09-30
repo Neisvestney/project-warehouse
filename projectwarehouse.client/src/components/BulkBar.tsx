@@ -28,9 +28,12 @@ export interface BulkAction {
   /** Replaces the icon with a spinner. */
   pending?: boolean;
   disabled?: boolean;
-  /** Shown as a toolbar button; the rest go under «Ещё». Ignored on mobile, where everything is in the menu. */
+  /**
+   * Shown as a toolbar button; the rest go under «Ещё». Ignored on mobile, where everything is in the menu —
+   * except a single action with no buttons beside it, which is always a button.
+   */
   primary?: boolean;
-  /** Red styling in the menu. */
+  /** Red styling in the menu, and on the button a lone action becomes. */
   danger?: boolean;
 }
 
@@ -46,6 +49,7 @@ interface BulkBarProps {
 }
 
 const buttonSx = {color: "primary.main"};
+const dangerButtonSx = {color: "error.main"};
 
 function actionText(action: BulkAction) {
   return action.count != null ? `${action.label} (${action.count})` : action.label;
@@ -62,8 +66,13 @@ function BulkBar({count, countLabel, onClear, actions, info, infoLoading}: BulkB
 
   if (count === 0) return info ? <TableInfoBar stats={info} loading={infoLoading} /> : null;
 
-  const buttonActions = isMobile ? [] : actions.filter((a) => a.primary);
-  const menuActions = isMobile ? actions : actions.filter((a) => !a.primary);
+  let buttonActions = isMobile ? [] : actions.filter((a) => a.primary);
+  let menuActions = isMobile ? actions : actions.filter((a) => !a.primary);
+  // a dropdown holding a single action and nothing beside it is just an extra click
+  if (buttonActions.length === 0 && menuActions.length === 1) {
+    buttonActions = menuActions;
+    menuActions = [];
+  }
 
   function handleMenuClick(action: BulkAction) {
     setMenuAnchor(null);
@@ -95,7 +104,7 @@ function BulkBar({count, countLabel, onClear, actions, info, infoLoading}: BulkB
           startIcon={action.pending ? <CircularProgress size={14} color="inherit" /> : action.icon}
           disabled={action.disabled}
           onClick={action.onClick}
-          sx={buttonSx}
+          sx={action.danger ? dangerButtonSx : buttonSx}
         >
           {actionText(action)}
         </Button>

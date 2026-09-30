@@ -3,7 +3,7 @@ using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Domain;
 
-public class Writeoff : IHasIdentity
+public class Writeoff : ITaggedWarehouseDocument<WriteoffTag>
 {
     public Guid Id { get; set; }
 

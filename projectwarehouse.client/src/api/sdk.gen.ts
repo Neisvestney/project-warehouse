@@ -332,6 +332,12 @@ import type {
   ReceiptsAutoAcceptData,
   ReceiptsAutoAcceptErrors,
   ReceiptsAutoAcceptResponses,
+  ReceiptsBatchTransitionData,
+  ReceiptsBatchTransitionErrors,
+  ReceiptsBatchTransitionResponses,
+  ReceiptsBatchUpdateTagsData,
+  ReceiptsBatchUpdateTagsErrors,
+  ReceiptsBatchUpdateTagsResponses,
   ReceiptsCancelData,
   ReceiptsCancelErrors,
   ReceiptsCancelResponses,
@@ -440,6 +446,12 @@ import type {
   StockMovementPresetsUpdatePresetData,
   StockMovementPresetsUpdatePresetErrors,
   StockMovementPresetsUpdatePresetResponses,
+  StocktakesBatchTransitionData,
+  StocktakesBatchTransitionErrors,
+  StocktakesBatchTransitionResponses,
+  StocktakesBatchUpdateTagsData,
+  StocktakesBatchUpdateTagsErrors,
+  StocktakesBatchUpdateTagsResponses,
   StocktakesCancelData,
   StocktakesCancelErrors,
   StocktakesCancelResponses,
@@ -587,6 +599,12 @@ import type {
   WarehousesUpdateData,
   WarehousesUpdateErrors,
   WarehousesUpdateResponses,
+  WriteoffsBatchTransitionData,
+  WriteoffsBatchTransitionErrors,
+  WriteoffsBatchTransitionResponses,
+  WriteoffsBatchUpdateTagsData,
+  WriteoffsBatchUpdateTagsErrors,
+  WriteoffsBatchUpdateTagsResponses,
   WriteoffsCancelData,
   WriteoffsCancelErrors,
   WriteoffsCancelResponses,
@@ -3538,6 +3556,61 @@ export const receiptsCancel = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Apply one transition to several receipts in one request, with partial-success semantics.
+ *
+ * Body: `BatchReceiptTransitionRequest` — `ids` (duplicates are collapsed) and `transition`
+ * (`plan`, `startProcessing`, `revert`, `cancel`). `finish` is rejected with 422
+ * `validationError` (field `transition`): a receipt is finished from its own page only. Each
+ * receipt goes through the same checks as its single-receipt endpoint and is saved on its own; the answer
+ * is always 200 with `DocumentBatchTransitionResponse` — successful ids in `transitionedIds`,
+ * the rest in `failedItems` as `{ id, number, error }`. A receipt that does not exist or lies
+ * outside the caller's edit access fails as `receiptNotFound` with a null `number`.
+ * Requires `receipts.edit` or `receipts.edit_assigned`.
+ */
+export const receiptsBatchTransition = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsBatchTransitionData, ThrowOnError>,
+): RequestResult<ReceiptsBatchTransitionResponses, ReceiptsBatchTransitionErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    ReceiptsBatchTransitionResponses,
+    ReceiptsBatchTransitionErrors,
+    ThrowOnError
+  >({
+    url: "/api/receipts/batch-transition",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Add or remove one tag on several receipts in one request, all or nothing. Allowed in any status.
+ *
+ * Body: `BatchUpdateTagsRequest` — `ids` (duplicates are collapsed), `tagId` and
+ * `operation` (`add` / `remove`). Nothing is written unless every receipt passes: 422
+ * `tagNotFound` (field `tagId`) for an unknown tag, 404 `receiptNotFound` when any receipt
+ * does not exist or lies outside the caller's edit access — args `count` (every rejected id) and
+ * `receiptNumbers` (only those the caller can view, ascending). Receipts that already have (or already lack)
+ * the tag are left untouched and get no changelog entry. Answers 204.
+ * Requires `receipts.edit` or `receipts.edit_assigned`.
+ */
+export const receiptsBatchUpdateTags = <ThrowOnError extends boolean = false>(
+  options: Options<ReceiptsBatchUpdateTagsData, ThrowOnError>,
+): RequestResult<ReceiptsBatchUpdateTagsResponses, ReceiptsBatchUpdateTagsErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    ReceiptsBatchUpdateTagsResponses,
+    ReceiptsBatchUpdateTagsErrors,
+    ThrowOnError
+  >({
+    url: "/api/receipts/batch-update-tags",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
  * List all roles with their permissions.
  *
  * Requires `roles.view`. Not paginated — ordered by `order` then name.
@@ -4301,6 +4374,71 @@ export const stocktakesCancel = <ThrowOnError extends boolean = false>(
   (options.client ?? client).post<StocktakesCancelResponses, StocktakesCancelErrors, ThrowOnError>({
     url: "/api/stocktakes/{id}/cancel",
     ...options,
+  });
+
+/**
+ * Apply one transition to several stocktakes in one request, with partial-success semantics.
+ *
+ * Body: `BatchStocktakeTransitionRequest` — `ids` (duplicates are collapsed) and `transition`
+ * (`schedule`, `toDraft`, `start`, `revert`, `cancel`). `finish` is rejected
+ * with 422 `validationError` (field `transition`), since it applies the count to stock and is run
+ * from the document's own page. Each stocktake goes through the same checks as its single-document
+ * endpoint and is saved on its own, in request order — so of two documents sharing a cell, `start`
+ * succeeds for the first and fails the second with `stocktakeNodeAlreadyInProgress`. The answer is
+ * always 200 with `DocumentBatchTransitionResponse` — successful ids in `transitionedIds`, the rest
+ * in `failedItems` as `{ id, number, error }`. A stocktake that does not exist or lies outside the
+ * caller's edit access fails as `stocktakeNotFound` with a null `number`.
+ * Requires `stocktakes.edit` or `stocktakes.edit_assigned`.
+ */
+export const stocktakesBatchTransition = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesBatchTransitionData, ThrowOnError>,
+): RequestResult<
+  StocktakesBatchTransitionResponses,
+  StocktakesBatchTransitionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StocktakesBatchTransitionResponses,
+    StocktakesBatchTransitionErrors,
+    ThrowOnError
+  >({
+    url: "/api/stocktakes/batch-transition",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Add or remove one tag on several stocktakes in one request, all or nothing. Allowed in any status.
+ *
+ * Body: `BatchUpdateTagsRequest` — `ids` (duplicates are collapsed), `tagId` and
+ * `operation` (`add` / `remove`). Nothing is written unless every stocktake passes: 422
+ * `tagNotFound` (field `tagId`) for an unknown tag, 404 `stocktakeNotFound` when any
+ * stocktake does not exist or lies outside the caller's edit access — args `count` (every rejected id)
+ * and `stocktakeNumbers` (only those the caller can view, ascending). Stocktakes that already have (or
+ * already lack) the tag are left untouched and get no changelog entry. Answers 204.
+ * Requires `stocktakes.edit` or `stocktakes.edit_assigned`.
+ */
+export const stocktakesBatchUpdateTags = <ThrowOnError extends boolean = false>(
+  options: Options<StocktakesBatchUpdateTagsData, ThrowOnError>,
+): RequestResult<
+  StocktakesBatchUpdateTagsResponses,
+  StocktakesBatchUpdateTagsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StocktakesBatchUpdateTagsResponses,
+    StocktakesBatchUpdateTagsErrors,
+    ThrowOnError
+  >({
+    url: "/api/stocktakes/batch-update-tags",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 
 /**
@@ -5213,4 +5351,59 @@ export const writeoffsCancel = <ThrowOnError extends boolean = false>(
   (options.client ?? client).post<WriteoffsCancelResponses, WriteoffsCancelErrors, ThrowOnError>({
     url: "/api/writeoffs/{id}/cancel",
     ...options,
+  });
+
+/**
+ * Apply one transition to several write-offs in one request, with partial-success semantics.
+ *
+ * Body: `BatchWriteoffTransitionRequest` — `ids` (duplicates are collapsed) and `transition`.
+ * Only `cancel` is accepted; `finish` is rejected with 422 `validationError` (field
+ * `transition`), since it removes stock and is run from the document's own page. Each write-off goes
+ * through the same checks as `POST /{id}/cancel` and is saved on its own; the answer is always 200
+ * with `DocumentBatchTransitionResponse` — successful ids in `transitionedIds`, the rest in
+ * `failedItems` as `{ id, number, error }`. A write-off that does not exist or lies outside the
+ * caller's edit access fails as `writeoffNotFound` with a null `number`.
+ * Requires `writeoffs.edit` or `writeoffs.edit_assigned`.
+ */
+export const writeoffsBatchTransition = <ThrowOnError extends boolean = false>(
+  options: Options<WriteoffsBatchTransitionData, ThrowOnError>,
+): RequestResult<WriteoffsBatchTransitionResponses, WriteoffsBatchTransitionErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    WriteoffsBatchTransitionResponses,
+    WriteoffsBatchTransitionErrors,
+    ThrowOnError
+  >({
+    url: "/api/writeoffs/batch-transition",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Add or remove one tag on several write-offs in one request, all or nothing. Allowed in any status.
+ *
+ * Body: `BatchUpdateTagsRequest` — `ids` (duplicates are collapsed), `tagId` and
+ * `operation` (`add` / `remove`). Nothing is written unless every write-off passes: 422
+ * `tagNotFound` (field `tagId`) for an unknown tag, 404 `writeoffNotFound` when any write-off
+ * does not exist or lies outside the caller's edit access — args `count` (every rejected id) and
+ * `writeoffNumbers` (only those the caller can view, ascending). Write-offs that already have (or
+ * already lack) the tag are left untouched and get no changelog entry. Answers 204.
+ * Requires `writeoffs.edit` or `writeoffs.edit_assigned`.
+ */
+export const writeoffsBatchUpdateTags = <ThrowOnError extends boolean = false>(
+  options: Options<WriteoffsBatchUpdateTagsData, ThrowOnError>,
+): RequestResult<WriteoffsBatchUpdateTagsResponses, WriteoffsBatchUpdateTagsErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    WriteoffsBatchUpdateTagsResponses,
+    WriteoffsBatchUpdateTagsErrors,
+    ThrowOnError
+  >({
+    url: "/api/writeoffs/batch-update-tags",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
