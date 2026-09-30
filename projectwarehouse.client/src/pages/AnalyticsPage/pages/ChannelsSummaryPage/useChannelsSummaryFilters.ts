@@ -18,6 +18,11 @@ export function useChannelsSummaryFilters() {
   // Empty means every channel — a selection that removes all of them would show nothing at all
   const [channels, setChannels] = useSyncedWithQueryState("channels", parseList, serializeList);
   const [directTagIds, setDirectTagIds] = useSyncedWithQueryState("tags", parseList, serializeList);
+  const [catalogItemIds, setCatalogItemIds] = useSyncedWithQueryState(
+    "items",
+    parseList,
+    serializeList,
+  );
   const [moneyMode, setMoneyMode] = useSyncedWithQueryState<AnalyticsMoneyMode>(
     "money",
     (q) => (q === "payout" ? "payout" : "price"),
@@ -39,7 +44,11 @@ export function useChannelsSummaryFilters() {
   const {from, to} = resolvePeriod(selection, {from: today, to: today});
 
   // The channel part alone, for the reports that count no money
-  const channelQuery = {...channelSelectionQuery(channels), DirectTagIds: directTagIds};
+  const channelQuery = {
+    ...channelSelectionQuery(channels),
+    DirectTagIds: directTagIds,
+    CatalogItemIds: catalogItemIds,
+  };
   const query = {From: from, To: to, MoneyMode: moneyMode, ...channelQuery};
 
   return {
@@ -50,6 +59,7 @@ export function useChannelsSummaryFilters() {
     to,
     channels,
     directTagIds,
+    catalogItemIds,
     moneyMode,
     step,
     measure,
@@ -61,6 +71,7 @@ export function useChannelsSummaryFilters() {
     },
     setChannels,
     setDirectTagIds,
+    setCatalogItemIds,
     setMoneyMode,
     setStep,
     setMeasure,

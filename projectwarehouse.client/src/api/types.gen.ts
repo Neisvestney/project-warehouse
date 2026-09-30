@@ -4291,6 +4291,7 @@ export type AnalyticsGetChannelsSummaryData = {
   path?: never;
   query?: {
     MoneyMode?: AnalyticsMoneyMode;
+    CatalogItemIds?: Array<string>;
     From?: string;
     To?: string;
     IncludeMarketplaces?: boolean;
@@ -4340,6 +4341,7 @@ export type AnalyticsGetChannelsTimeseriesData = {
      */
     Step?: AnalyticsStep;
     Measure?: AnalyticsMeasure;
+    CatalogItemIds?: Array<string>;
     From?: string;
     To?: string;
     IncludeMarketplaces?: boolean;
@@ -4392,6 +4394,7 @@ export type AnalyticsGetChannelsReturnsData = {
      * Step of the volume-by-return-date series; null picks one by the period length.
      */
     Step?: AnalyticsStep;
+    CatalogItemIds?: Array<string>;
     From?: string;
     To?: string;
     IncludeMarketplaces?: boolean;
@@ -4440,6 +4443,7 @@ export type AnalyticsGetChannelsCancellationsData = {
      * Null picks one by the period length, as in the timeseries.
      */
     Step?: AnalyticsStep;
+    CatalogItemIds?: Array<string>;
     From?: string;
     To?: string;
     IncludeMarketplaces?: boolean;
@@ -4492,6 +4496,7 @@ export type AnalyticsGetChannelsLossesData = {
      * What int? LossesPointDto.Sales counts; the shares do not depend on it.
      */
     Measure?: AnalyticsMeasure;
+    CatalogItemIds?: Array<string>;
     From?: string;
     To?: string;
     IncludeMarketplaces?: boolean;
@@ -4546,6 +4551,7 @@ export type AnalyticsGetChannelsTopItemsData = {
      * Null lists every ranked item.
      */
     Take?: number;
+    CatalogItemIds?: Array<string>;
     From?: string;
     To?: string;
     IncludeMarketplaces?: boolean;
@@ -4592,6 +4598,7 @@ export type AnalyticsGetChannelsWeekdaysData = {
   query?: {
     Measure?: AnalyticsMeasure;
     Scale?: WeekdayScale;
+    CatalogItemIds?: Array<string>;
     From?: string;
     To?: string;
     IncludeMarketplaces?: boolean;

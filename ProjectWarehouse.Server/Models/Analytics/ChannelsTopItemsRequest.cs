@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace ProjectWarehouse.Server.Models.Analytics;
 
 /// <summary>The channel is narrowed by the shared filter itself: one shop, Direct alone, or everything selected.</summary>
-public class ChannelsTopItemsRequest : AnalyticsFilterRequest
+public class ChannelsTopItemsRequest : ChannelsFilterRequest
 {
     public AnalyticsTopItemsBy By { get; init; } = AnalyticsTopItemsBy.Units;
 

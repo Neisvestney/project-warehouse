@@ -7,7 +7,12 @@ import StepMeasureToggles from "@/components/analytics/charts/StepMeasureToggles
 import ChartFullscreenDialog from "@/components/analytics/charts/ChartFullscreenDialog";
 import type {useChartFullscreen} from "./useChartFullscreen";
 
-function CancellationsFullscreen({state}: {state: ReturnType<typeof useChartFullscreen>}) {
+interface CancellationsFullscreenProps {
+  state: ReturnType<typeof useChartFullscreen>;
+  catalogItemIds: string[];
+}
+
+function CancellationsFullscreen({state, catalogItemIds}: CancellationsFullscreenProps) {
   const open = state.view === "cancellations";
   const {data, error, isFetching} = useQuery({
     ...analyticsGetChannelsCancellationsOptions({
@@ -15,6 +20,7 @@ function CancellationsFullscreen({state}: {state: ReturnType<typeof useChartFull
         From: state.period.from,
         To: state.period.to,
         ...channelSelectionQuery(state.channels),
+        CatalogItemIds: catalogItemIds,
         Step: state.step ?? undefined,
       },
     }),

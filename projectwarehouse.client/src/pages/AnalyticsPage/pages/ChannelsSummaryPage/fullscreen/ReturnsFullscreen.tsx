@@ -9,9 +9,10 @@ import type {useChartFullscreen} from "./useChartFullscreen";
 interface ReturnsFullscreenProps {
   state: ReturnType<typeof useChartFullscreen>;
   moneyMode: AnalyticsMoneyMode;
+  catalogItemIds: string[];
 }
 
-function ReturnsFullscreen({state, moneyMode}: ReturnsFullscreenProps) {
+function ReturnsFullscreen({state, moneyMode, catalogItemIds}: ReturnsFullscreenProps) {
   const open = state.view === "returns";
   const {data, error, isFetching} = useQuery({
     ...analyticsGetChannelsReturnsOptions({
@@ -20,6 +21,7 @@ function ReturnsFullscreen({state, moneyMode}: ReturnsFullscreenProps) {
         To: state.period.to,
         MoneyMode: moneyMode,
         ...channelSelectionQuery(state.channels),
+        CatalogItemIds: catalogItemIds,
         Step: state.step ?? undefined,
       },
     }),

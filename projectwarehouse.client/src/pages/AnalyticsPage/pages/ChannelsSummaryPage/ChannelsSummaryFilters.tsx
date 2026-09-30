@@ -1,7 +1,9 @@
 import {Stack, ToggleButton, ToggleButtonGroup} from "@mui/material";
 import type {AnalyticsMoneyMode} from "@/api/types.gen";
+import CatalogItemsSelect from "@/components/CatalogItemsSelect";
 import FiltersBar from "@/components/FiltersBar";
 import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
+import {useCatalogItemsByIds} from "@/hooks/useCatalogItemsByIds";
 import {useHasPermission} from "@/hooks/usePermission";
 import ChannelsSelect from "@/components/analytics/ChannelsSelect";
 import PeriodPicker from "@/components/analytics/period/PeriodPicker";
@@ -20,14 +22,30 @@ function ChannelsSummaryFilters({
   to,
   channels,
   directTagIds,
+  catalogItemIds,
   moneyMode,
   setSelection,
   setChannels,
   setDirectTagIds,
+  setCatalogItemIds,
   setMoneyMode,
 }: ChannelsSummaryFiltersProps) {
   // The tag list is served by the orders module; without its right the Direct channel stays unfiltered
   const canViewOrderTags = useHasPermission(["orders.view", "orders.view_assigned"]);
+
+  const {items: knownItems} = useCatalogItemsByIds(catalogItemIds);
+  // A placeholder keeps an unresolved id selected, so an edit made before the names load does not drop it
+  const items = catalogItemIds.map(
+    (id) =>
+      knownItems.get(id) ?? {
+        id,
+        type: "standard" as const,
+        name: "…",
+        fullName: "…",
+        article: "",
+        isArchived: false,
+      },
+  );
 
   return (
     <Stack spacing={1.5}>
@@ -67,9 +85,21 @@ function ChannelsSummaryFilters({
       </Stack>
 
       <FiltersBar
-        activeCount={[channels.length > 0, directTagIds.length > 0].filter(Boolean).length}
+        activeCount={
+          [channels.length > 0, directTagIds.length > 0, catalogItemIds.length > 0].filter(Boolean)
+            .length
+        }
       >
         <ChannelsSelect value={channels} onChange={setChannels} />
+
+        <CatalogItemsSelect
+          multiple
+          size="small"
+          label="Товары"
+          value={items}
+          onChange={(value) => setCatalogItemIds(value.map((item) => item.id))}
+          sx={{minWidth: 280, flexGrow: 1}}
+        />
 
         {canViewOrderTags && (
           <DocumentTagsFilter

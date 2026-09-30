@@ -1,6 +1,6 @@
 namespace ProjectWarehouse.Server.Models.Analytics;
 
-public class ChannelsReturnsRequest : AnalyticsFilterRequest
+public class ChannelsReturnsRequest : ChannelsFilterRequest
 {
     /// <summary>Returned money is listed in the Price mode only.</summary>
     public AnalyticsMoneyMode MoneyMode { get; init; } = AnalyticsMoneyMode.Price;

@@ -21,8 +21,9 @@ public class AnalyticsController(
     /// Query params come from <c>ChannelsSummaryRequest</c>: <c>from</c> and <c>to</c> (required, inclusive
     /// days), <c>includeMarketplaces</c> (default true; false leaves every shop out),
     /// <c>marketplaceAccountIds</c> (empty — every shop), <c>includeDirect</c> (default true),
-    /// <c>directTagIds</c> (Direct orders carrying any of them), <c>moneyMode</c> (<c>price</c> or
-    /// <c>payout</c>, default <c>price</c>).
+    /// <c>directTagIds</c> (Direct orders carrying any of them), <c>catalogItemIds</c> (only the lines of these
+    /// items, as ordered — a bundle is matched by itself, not by its components; an order counts when it holds any
+    /// of them), <c>moneyMode</c> (<c>price</c> or <c>payout</c>, default <c>price</c>).
     /// An order belongs to the day of its <c>EffectiveDate</c>, cut in the zone sent as <c>X-Time-Zone</c>
     /// (otherwise the server's); the applied zone comes back as <c>timeZoneId</c>. A marketplace order is
     /// judged by the marketplace status only: <c>delivering</c> / <c>delivered</c> is a sale,

@@ -675,8 +675,9 @@ export const getHealth = <ThrowOnError extends boolean = false>(
  * Query params come from `ChannelsSummaryRequest`: `from` and `to` (required, inclusive
  * days), `includeMarketplaces` (default true; false leaves every shop out),
  * `marketplaceAccountIds` (empty — every shop), `includeDirect` (default true),
- * `directTagIds` (Direct orders carrying any of them), `moneyMode` (`price` or
- * `payout`, default `price`).
+ * `directTagIds` (Direct orders carrying any of them), `catalogItemIds` (only the lines of these
+ * items, as ordered — a bundle is matched by itself, not by its components; an order counts when it holds any
+ * of them), `moneyMode` (`price` or `payout`, default `price`).
  * An order belongs to the day of its `EffectiveDate`, cut in the zone sent as `X-Time-Zone`
  * (otherwise the server's); the applied zone comes back as `timeZoneId`. A marketplace order is
  * judged by the marketplace status only: `delivering` / `delivered` is a sale,

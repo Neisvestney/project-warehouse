@@ -97,26 +97,46 @@ public class AnalyticsQueries(ApplicationDbContext db, IWarehouseTimeZoneResolve
             .ToListAsync(ct);
     }
 
+    /// <param name="itemIds">Keeps orders holding a line of any of them; null keeps every order.</param>
     public IQueryable<Order> MarketplaceOrders(
-        List<Guid> accountIds, MarketplaceOrderStatus[] statuses, DateTime fromUtc, DateTime toUtc) =>
-        db.Orders.Where(o => o.MarketplaceOrder != null
+        List<Guid> accountIds, MarketplaceOrderStatus[] statuses, DateTime fromUtc, DateTime toUtc,
+        Guid[]? itemIds = null)
+    {
+        var query = db.Orders.Where(o => o.MarketplaceOrder != null
             && accountIds.Contains(o.MarketplaceOrder.MarketplaceAccountId)
             && statuses.Contains(o.MarketplaceOrder.Status)
             && o.EffectiveDate >= fromUtc && o.EffectiveDate < toUtc);
 
+        return itemIds == null
+            ? query
+            : query.Where(o => o.MarketplaceItems.Any(i => i.CatalogItemId != null
+                && itemIds.Contains(i.CatalogItemId.Value)));
+    }
+
     /// <summary>Lines of the marketplace sales dated inside the bounds.</summary>
-    public IQueryable<OrderMarketplaceItem> SaleLines(List<Guid> accountIds, DateTime fromUtc, DateTime toUtc) =>
-        db.OrderMarketplaceItems.Where(i => i.Order.MarketplaceOrder != null
+    /// <param name="itemIds">Keeps the lines of these items; null keeps every line.</param>
+    public IQueryable<OrderMarketplaceItem> SaleLines(
+        List<Guid> accountIds, DateTime fromUtc, DateTime toUtc, Guid[]? itemIds = null)
+    {
+        var query = db.OrderMarketplaceItems.Where(i => i.Order.MarketplaceOrder != null
             && accountIds.Contains(i.Order.MarketplaceOrder.MarketplaceAccountId)
             && MarketplaceSaleStatuses.Contains(i.Order.MarketplaceOrder.Status)
             && i.Order.EffectiveDate >= fromUtc && i.Order.EffectiveDate < toUtc);
+
+        return itemIds == null
+            ? query
+            : query.Where(i => i.CatalogItemId != null && itemIds.Contains(i.CatalogItemId.Value));
+    }
 
     /// <summary>
     /// Journal lines of the accrued sales dated inside the bounds — what the payout money is summed from. A sale
     /// not accrued yet brings none of its lines, or a fee charged ahead of the sale would read as a loss.
     /// </summary>
-    public IQueryable<MarketplaceAccrual> SaleAccruals(List<Guid> accountIds, DateTime fromUtc, DateTime toUtc) =>
-        db.MarketplaceAccruals.Where(a => a.CurrencyCode != null
+    /// <param name="itemIds">Keeps the lines about these items; null keeps every line.</param>
+    public IQueryable<MarketplaceAccrual> SaleAccruals(
+        List<Guid> accountIds, DateTime fromUtc, DateTime toUtc, Guid[]? itemIds = null)
+    {
+        var query = db.MarketplaceAccruals.Where(a => a.CurrencyCode != null
             && a.Order != null
             && a.Order.MarketplaceOrder != null
             && accountIds.Contains(a.Order.MarketplaceOrder.MarketplaceAccountId)
@@ -124,42 +144,76 @@ public class AnalyticsQueries(ApplicationDbContext db, IWarehouseTimeZoneResolve
             && a.Order.EffectiveDate >= fromUtc && a.Order.EffectiveDate < toUtc
             && a.Order.IsAccrued);
 
+        return itemIds == null
+            ? query
+            : query.Where(a => a.CatalogItemId != null && itemIds.Contains(a.CatalogItemId.Value));
+    }
+
     /// <summary>
     /// Returns of the sales dated inside the bounds, whenever the item came back — the cohort a return share
     /// is taken over.
     /// </summary>
-    public IQueryable<MarketplaceReturn> CohortReturns(List<Guid> accountIds, DateTime fromUtc, DateTime toUtc) =>
-        SaleReturns(accountIds)
+    public IQueryable<MarketplaceReturn> CohortReturns(
+        List<Guid> accountIds, DateTime fromUtc, DateTime toUtc, Guid[]? itemIds = null) =>
+        SaleReturns(accountIds, itemIds)
             .Where(r => r.Order!.EffectiveDate >= fromUtc && r.Order.EffectiveDate < toUtc);
 
     /// <summary>Returns of any sale that came back inside the bounds.</summary>
     public IQueryable<MarketplaceReturn> ReturnsByReturnDate(
-        List<Guid> accountIds, DateTime fromUtc, DateTime toUtc) =>
-        SaleReturns(accountIds).Where(r => r.ReturnedAt >= fromUtc && r.ReturnedAt < toUtc);
+        List<Guid> accountIds, DateTime fromUtc, DateTime toUtc, Guid[]? itemIds = null) =>
+        SaleReturns(accountIds, itemIds).Where(r => r.ReturnedAt >= fromUtc && r.ReturnedAt < toUtc);
 
     /// <param name="tagIds">Keeps orders carrying any of them; empty keeps every Direct order.</param>
     /// <param name="statuses">WMS statuses to keep.</param>
     /// <param name="fromUtc">Inclusive lower bound of <c>EffectiveDate</c>.</param>
     /// <param name="toUtc">Exclusive upper bound of <c>EffectiveDate</c>.</param>
-    public IQueryable<Order> DirectOrders(Guid[]? tagIds, OrderStatus[] statuses, DateTime fromUtc, DateTime toUtc)
+    /// <param name="itemIds">Keeps orders holding a box component of any of them; null keeps every order.</param>
+    public IQueryable<Order> DirectOrders(
+        Guid[]? tagIds, OrderStatus[] statuses, DateTime fromUtc, DateTime toUtc, Guid[]? itemIds = null)
     {
         var query = db.Orders.Where(o => o.Type == OrderType.Direct
             && statuses.Contains(o.Status)
             && o.EffectiveDate >= fromUtc && o.EffectiveDate < toUtc);
 
-        return tagIds is { Length: > 0 } ? query.Where(o => o.Tags.Any(t => tagIds.Contains(t.Id))) : query;
+        if (tagIds is { Length: > 0 })
+            query = query.Where(o => o.Tags.Any(t => tagIds.Contains(t.Id)));
+        if (itemIds != null)
+            query = query.Where(o => o.Boxes.Any(b => b.Components.Any(c => itemIds.Contains(c.CatalogItemId))));
+
+        return query;
     }
+
+    /// <summary>Box components of <see cref="DirectOrders"/>, only those of the items when any are given.</summary>
+    public IQueryable<OrderBoxComponent> DirectComponents(
+        Guid[]? tagIds, OrderStatus[] statuses, DateTime fromUtc, DateTime toUtc, Guid[]? itemIds)
+    {
+        var query = DirectOrders(tagIds, statuses, fromUtc, toUtc, itemIds)
+            .SelectMany(o => o.Boxes)
+            .SelectMany(b => b.Components);
+
+        return itemIds == null ? query : query.Where(c => itemIds.Contains(c.CatalogItemId));
+    }
+
+    /// <summary>Null for an empty selection, so every query reads null as all items.</summary>
+    public static Guid[]? ItemIds(ChannelsFilterRequest request) =>
+        request.CatalogItemIds is { Length: > 0 } ids ? ids : null;
 
     /// <summary>
     /// A return counts when the buyer really sent the item back and it belongs to a sale; one without an
     /// order has neither a channel nor a sale to belong to.
     /// </summary>
-    private IQueryable<MarketplaceReturn> SaleReturns(List<Guid> accountIds) =>
-        db.MarketplaceReturns.Where(r => r.IsCountedAsReturn
+    private IQueryable<MarketplaceReturn> SaleReturns(List<Guid> accountIds, Guid[]? itemIds)
+    {
+        var query = db.MarketplaceReturns.Where(r => r.IsCountedAsReturn
             && r.Order != null
             && r.Order.MarketplaceOrder != null
             && accountIds.Contains(r.Order.MarketplaceOrder.MarketplaceAccountId)
             && MarketplaceSaleStatuses.Contains(r.Order.MarketplaceOrder.Status));
+
+        return itemIds == null
+            ? query
+            : query.Where(r => r.CatalogItemId != null && itemIds.Contains(r.CatalogItemId.Value));
+    }
 
     /// <summary>Start of <paramref name="day"/> at the given zone offset, as UTC.</summary>
     public static DateTime ToUtc(DateOnly day, TimeSpan offset) =>
