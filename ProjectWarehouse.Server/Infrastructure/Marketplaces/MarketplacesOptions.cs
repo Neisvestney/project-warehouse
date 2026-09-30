@@ -205,6 +205,12 @@ public class OzonOptions
     public int BuyoutRequestDelayMs { get; set; } = 30000;
 
     /// <summary>
+    /// Pause before the first /v1/finance/products/buyout call of a read that follows the accrual journal,
+    /// which shares the finance rate limit.
+    /// </summary>
+    public int BuyoutAfterAccrualDelayMs { get; set; } = 60000;
+
+    /// <summary>
     /// Moscow hour a 429 from /v1/finance/products/buyout pauses the account's buyout reads until. The refusal
     /// outlasts hours of calls while every attempt keeps it alive, and its <c>Retry-After</c> says one second.
     /// </summary>

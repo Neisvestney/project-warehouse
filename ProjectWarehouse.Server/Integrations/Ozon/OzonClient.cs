@@ -305,7 +305,7 @@ public class OzonClient(
 
             // otherwise the first window follows the accrual journal's last call, which shares the finance rate limit
             await Task.Delay(end == last && !followsBuyoutCall
-                ? _options.AccrualRequestDelayMs
+                ? _options.BuyoutAfterAccrualDelayMs
                 : _options.BuyoutRequestDelayMs, ct);
 
             var response = await api.GetFinanceProductsBuyoutAsync(new V1GetFinanceProductsBuyoutRequest
