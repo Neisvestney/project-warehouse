@@ -30,7 +30,6 @@ import {useBulkTagsAction} from "@/components/tags/useBulkTagsAction";
 import {RECEIPT_BULK_TRANSITIONS} from "@/components/receipts/receiptBulkTransitions";
 import {NOUNS} from "@/utils/pluralUtils";
 import {byOperation} from "@/utils/queryKeys";
-import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {useTableSort} from "@/hooks/useTableSort";
@@ -38,7 +37,7 @@ import {useHasPermission} from "@/hooks/usePermission";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
-import SearchInput from "@/components/SearchInput";
+import SearchWithItemsInput from "@/components/catalog/SearchWithItemsInput";
 import FiltersBar from "@/components/FiltersBar";
 import StatusTabs from "@/components/StatusTabs";
 import DataTableContainer from "@/components/DataTableContainer";
@@ -75,7 +74,7 @@ function ReceiptsPage() {
   const queryClient = useQueryClient();
   const canCreate = useHasPermission(["receipts.edit", "receipts.edit_assigned"]);
 
-  const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
+  const [searchString, setSearchString] = useSyncedWithQueryState(
     "search",
     (q) => (typeof q === "string" ? q : ""),
     (v) => v || null,
@@ -99,6 +98,12 @@ function ReceiptsPage() {
     (v) => v || null,
   );
 
+  const [catalogItemIds, setCatalogItemIds] = useSyncedWithQueryState<string[]>(
+    "item",
+    (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
+    (v) => v.join(",") || null,
+  );
+
   const [tagIds, setTagIds] = useSyncedWithQueryState<string[]>(
     "tags",
     (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
@@ -109,18 +114,21 @@ function ReceiptsPage() {
     defaultSortOrder: "desc",
   });
 
+  // searchString is already debounced by the search field, so it goes with the immediate params
   const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams(
-    {searchString: searchString || undefined},
-    [searchString],
+    {},
+    [],
     {
+      searchString: searchString || undefined,
       warehouseId: warehouseId ?? undefined,
       status: (status as ReceiptStatus) || undefined,
       reason: (reason as ReceiptReason) || undefined,
+      catalogItemIds: catalogItemIds.length > 0 ? catalogItemIds : undefined,
       tagIds: tagIds.length > 0 ? tagIds : undefined,
       sortBy,
       sortOrder,
     },
-    [warehouseId, status, reason, tagIds, sortBy, sortOrder],
+    [searchString, warehouseId, status, reason, catalogItemIds, tagIds, sortBy, sortOrder],
   );
 
   // sortable columns, the fixed ones after them and the checkbox for editors
@@ -208,7 +216,13 @@ function ReceiptsPage() {
           </>
         }
       >
-        <SearchInput value={inputValue} onChange={setInputValue} />
+        <SearchWithItemsInput
+          text={searchString}
+          onTextChange={setSearchString}
+          itemIds={catalogItemIds}
+          onItemIdsChange={setCatalogItemIds}
+          sx={{flexGrow: 1}}
+        />
       </PageGenericHeader>
       <StatusTabs
         value={status}

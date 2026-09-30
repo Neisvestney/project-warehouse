@@ -153,9 +153,13 @@ public class StocktakesController(
     /// <summary>List stocktakes with pagination, filtering, and search.</summary>
     /// <remarks>
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
-    /// <c>warehouseId</c>, <c>status</c>, <c>tagIds</c>, <c>sortBy</c> (default <c>Number</c>), <c>sortOrder</c>
-    /// (default <c>Desc</c>).
+    /// <c>warehouseId</c>, <c>status</c>, <c>catalogItemIds</c>, <c>tagIds</c>, <c>sortBy</c> (default
+    /// <c>Number</c>), <c>sortOrder</c> (default <c>Desc</c>).
     /// In <c>meta</c> the status counts ignore the <c>status</c> filter; every other filter applies.
+    /// <c>catalogItemIds</c> keeps stocktakes with a counted line of any of those catalog items — a stocktake with
+    /// nothing counted yet never matches; <c>tagIds</c> keeps stocktakes carrying any of the tags.
+    /// <c>searchString</c> is the extended search — it also matches the counted lines, see
+    /// <see cref="Stocktake.MatchesExtendedSearch"/>.
     /// Requires <c>stocktakes.view</c> or <c>stocktakes.view_assigned</c>; without either, 403
     /// <c>permissionDenied</c>. 401 <c>tokenInvalid</c> when an <c>_assigned</c> permission is used but the
     /// token carries no resolvable user.
@@ -169,6 +173,7 @@ public class StocktakesController(
         [FromQuery] string? searchString = null,
         [FromQuery] Guid? warehouseId = null,
         [FromQuery] StocktakeStatus? status = null,
+        [FromQuery] IReadOnlyList<Guid>? catalogItemIds = null,
         [FromQuery] IReadOnlyList<Guid>? tagIds = null,
         [FromQuery] StocktakeSortBy sortBy = StocktakeSortBy.Number,
         [FromQuery] SortOrder sortOrder = SortOrder.Desc,
@@ -181,8 +186,10 @@ public class StocktakesController(
 
         var facetQuery = accessible
             .Where(s => warehouseId == null || s.WarehouseId == warehouseId)
+            .Where(s => catalogItemIds == null || catalogItemIds.Count == 0 ||
+                        s.Nodes.Any(n => n.Items.Any(i => catalogItemIds.Contains(i.CatalogItemId))))
             .Where(s => tagIds == null || tagIds.Count == 0 || s.Tags.Any(t => tagIds.Contains(t.Id)))
-            .WhereMatchesSearch(s => s.SearchString, searchString);
+            .WhereMatchesExtendedSearch((s, pattern) => s.MatchesExtendedSearch(pattern), searchString);
 
         var baseQuery = facetQuery.Where(s => status == null || s.Status == status);
 

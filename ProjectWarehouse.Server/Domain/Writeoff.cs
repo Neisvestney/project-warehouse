@@ -1,4 +1,5 @@
 using EntityFrameworkCore.Projectables;
+using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Domain;
@@ -32,4 +33,17 @@ public class Writeoff : ITaggedWarehouseDocument<WriteoffTag>
 
     [Projectable]
     public string SearchString => Number + " " + Name + " " + Notes;
+
+    /// <summary>
+    /// Search over the write-off plus its lines — the catalog item of a standard line, the unit's catalog item
+    /// and inventory number of a unit line. Not used by global search. Call through <c>WhereMatchesExtendedSearch</c>.
+    /// </summary>
+    [Projectable]
+    public bool MatchesExtendedSearch(string pattern) =>
+        EF.Functions.ILike(SearchString, pattern, SearchExtensions.EscapeChar)
+        || Items.Any(i => i.CatalogItem != null
+            && EF.Functions.ILike(i.CatalogItem.SearchString, pattern, SearchExtensions.EscapeChar))
+        || Items.Any(i => i.UnitInventoryItem != null
+            && (EF.Functions.ILike(i.UnitInventoryItem.CatalogItem.SearchString, pattern, SearchExtensions.EscapeChar)
+                || EF.Functions.ILike(i.UnitInventoryItem.InventoryNumber ?? "", pattern, SearchExtensions.EscapeChar)));
 }

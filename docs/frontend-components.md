@@ -655,7 +655,8 @@ raising an error.
 ### `SearchWithItemsInput`
 
 One field for free-text search and a set of catalog items, used in the page header where a list is searched by
-text and filtered by «содержит позицию» at the same time (the orders list, the assembly page). It is a
+text and filtered by «содержит позицию» at the same time (the lists of orders, receipts, write-offs and
+stocktakes, the assembly page). It is a
 `multiple` + `freeSolo` `Autocomplete` whose value is the chosen items and whose input is the search text; the
 caller keeps both in the URL as usual (`search` through plain `useSyncedWithQueryState`, `item` as a
 comma-separated id list) and the endpoint gets `catalogItemIds` with OR semantics.

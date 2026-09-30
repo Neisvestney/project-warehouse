@@ -3128,9 +3128,12 @@ export const receiptsCreateTag = <ThrowOnError extends boolean = false>(
  * List receipts with pagination, filtering, and search.
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
- * `warehouseId`, `status`, `reason`, `tagIds`, `sortBy` (default `Number`),
- * `sortOrder` (default `Desc`).
+ * `warehouseId`, `status`, `reason`, `catalogItemIds`, `tagIds`, `sortBy`
+ * (default `Number`), `sortOrder` (default `Desc`).
  * In `meta` the status counts ignore the `status` filter; every other filter applies.
+ * `catalogItemIds` keeps receipts with a line of any of those catalog items; `tagIds` keeps receipts
+ * carrying any of the tags. `searchString` is the extended search — it also matches the catalog items of
+ * the lines, see bool Receipt.MatchesExtendedSearch(string pattern).
  * Requires `receipts.view` or `receipts.view_assigned`; `receipts.process_assigned` alone
  * also opens the list but narrows it to receipts in `Processing` status. Without any of them, 403
  * `permissionDenied`; 401 `tokenInvalid` when an `_assigned` permission is used but the
@@ -4072,9 +4075,13 @@ export const stocktakesCreateTag = <ThrowOnError extends boolean = false>(
  * List stocktakes with pagination, filtering, and search.
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
- * `warehouseId`, `status`, `tagIds`, `sortBy` (default `Number`), `sortOrder`
- * (default `Desc`).
+ * `warehouseId`, `status`, `catalogItemIds`, `tagIds`, `sortBy` (default
+ * `Number`), `sortOrder` (default `Desc`).
  * In `meta` the status counts ignore the `status` filter; every other filter applies.
+ * `catalogItemIds` keeps stocktakes with a counted line of any of those catalog items — a stocktake with
+ * nothing counted yet never matches; `tagIds` keeps stocktakes carrying any of the tags.
+ * `searchString` is the extended search — it also matches the counted lines, see
+ * bool Stocktake.MatchesExtendedSearch(string pattern).
  * Requires `stocktakes.view` or `stocktakes.view_assigned`; without either, 403
  * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
  * token carries no resolvable user.
@@ -5151,9 +5158,12 @@ export const writeoffsCreateTag = <ThrowOnError extends boolean = false>(
  * List write-offs with pagination, filtering, and search.
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
- * `warehouseId`, `status`, `reason`, `tagIds`, `sortBy` (default `Number`),
- * `sortOrder` (default `Desc`).
+ * `warehouseId`, `status`, `reason`, `catalogItemIds`, `tagIds`, `sortBy`
+ * (default `Number`), `sortOrder` (default `Desc`).
  * In `meta` the status counts ignore the `status` filter; every other filter applies.
+ * `catalogItemIds` keeps write-offs with a line of any of those catalog items — a unit line counts by
+ * its unit's catalog item; `tagIds` keeps write-offs carrying any of the tags. `searchString` is the
+ * extended search — it also matches the lines, see bool Writeoff.MatchesExtendedSearch(string pattern).
  * Requires `writeoffs.view` or `writeoffs.view_assigned`; without either, 403
  * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
  * token carries no resolvable user.
