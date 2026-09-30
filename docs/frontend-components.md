@@ -657,8 +657,14 @@ raising an error.
 One field for free-text search and a set of catalog items, used in the page header where a list is searched by
 text and filtered by «содержит позицию» at the same time (the orders list, the assembly page). It is a
 `multiple` + `freeSolo` `Autocomplete` whose value is the chosen items and whose input is the search text; the
-caller keeps both in the URL as usual (`search` through `useDebouncedSyncedWithQueryState`, `item` as a
+caller keeps both in the URL as usual (`search` through plain `useSyncedWithQueryState`, `item` as a
 comma-separated id list) and the endpoint gets `catalogItemIds` with OR semantics.
+
+`text` / `onTextChange` carry the committed search text, not what is being typed: the field keeps the typed text
+in its own `useDebouncedLocalState` and calls `onTextChange` after the debounce. Keystrokes re-render only the
+field; the page re-renders only when the committed query changes. Picking an item and the clear button commit
+the emptied text at once, together with the items, so the list reloads once. The caller passes `text` to the
+endpoint as is, without debouncing it again.
 
 While the field holds text, the dropdown opens with «Искать «…»» as the first, auto-highlighted option — Enter
 or a click on it just closes the dropdown and keeps the text — followed by catalog items matching the same text.

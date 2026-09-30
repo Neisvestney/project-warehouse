@@ -15,6 +15,7 @@ import {catalogGetForSelectOptions} from "@/api/@tanstack/react-query.gen";
 import type {CatalogItemSelectDto} from "@/api/types.gen";
 import {useCatalogItemsByIds} from "@/hooks/useCatalogItemsByIds";
 import {useDebounce} from "@/hooks/useDebounce";
+import {useDebouncedLocalState} from "@/hooks/useDebouncedLocalState";
 import {CatalogItemOptionContent} from "@/components/CatalogItemsSelect";
 
 interface TextOption {
@@ -29,6 +30,7 @@ const isTextOption = (option: Option | string): option is TextOption =>
   typeof option !== "string" && "kind" in option;
 
 interface SearchWithItemsInputProps {
+  /** The committed search text; the field keeps what is being typed and reports it after a debounce. */
   text: string;
   onTextChange: (value: string) => void;
   itemIds: string[];
@@ -49,8 +51,9 @@ function SearchWithItemsInput({
   label = "Поиск",
   sx,
 }: SearchWithItemsInputProps) {
+  const [inputText, setInputText, commitText] = useDebouncedLocalState(text, onTextChange);
   const [open, setOpen] = useState(false);
-  const debouncedText = useDebounce(text.trim(), 300);
+  const debouncedText = useDebounce(inputText.trim(), 300);
 
   const searchQuery = useQuery({
     ...catalogGetForSelectOptions({query: {searchString: debouncedText}}),
@@ -62,7 +65,7 @@ function SearchWithItemsInput({
   const known = useCatalogItemsByIds(itemIds);
   const selected = itemIds.flatMap((id) => known.items.get(id) ?? picked.get(id) ?? []);
 
-  const options: Option[] = text.trim() ? [TEXT_OPTION, ...(searchQuery.data ?? [])] : [];
+  const options: Option[] = inputText.trim() ? [TEXT_OPTION, ...(searchQuery.data ?? [])] : [];
 
   return (
     <Autocomplete<Option, true, false, true>
@@ -76,15 +79,16 @@ function SearchWithItemsInput({
       onClose={() => setOpen(false)}
       options={options}
       value={selected}
-      inputValue={text}
+      inputValue={inputText}
       onInputChange={(_, value, reason) => {
         // "reset" and "blur" would wipe or rewrite the text after a pick; the text changes only when typed or cleared
-        if (reason === "input" || reason === "clear") onTextChange(value);
+        if (reason === "input" || reason === "clear") setInputText(value);
       }}
       onChange={(_, __, reason, details) => {
         if (reason === "clear") {
+          // committed together with the items, so the list reloads once instead of again after the debounce
           onItemIdsChange([]);
-          onTextChange("");
+          commitText("");
           return;
         }
         const option = details?.option;
@@ -92,13 +96,13 @@ function SearchWithItemsInput({
         if (reason === "selectOption") {
           setPicked((prev) => new Map(prev).set(option.id, option));
           onItemIdsChange([...itemIds, option.id]);
-          onTextChange("");
+          commitText("");
         } else if (reason === "removeOption") {
           onItemIdsChange(itemIds.filter((id) => id !== option.id));
         }
       }}
       getOptionLabel={(option) =>
-        typeof option === "string" ? option : isTextOption(option) ? text : option.fullName
+        typeof option === "string" ? option : isTextOption(option) ? inputText : option.fullName
       }
       getOptionKey={(option) =>
         typeof option === "string" ? option : isTextOption(option) ? "__text" : option.id
@@ -114,7 +118,7 @@ function SearchWithItemsInput({
             <Box sx={{display: "flex", alignItems: "center", gap: 1, minWidth: 0}}>
               <SearchIcon fontSize="small" sx={{color: "text.secondary"}} />
               <Typography variant="body2" noWrap>
-                Искать «{text.trim()}»
+                Искать «{inputText.trim()}»
               </Typography>
             </Box>
           ) : (

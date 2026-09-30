@@ -28,7 +28,6 @@ import {
   ordersGetAllOptions,
   ordersGetAllQueryKey,
 } from "@/api/@tanstack/react-query.gen";
-import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {useTableSort} from "@/hooks/useTableSort";
@@ -187,7 +186,7 @@ function OrdersListPage({
   const [activeTransition, setActiveTransition] = useState<OrderBulkTransition | null>(null);
   const [confirmTransition, setConfirmTransition] = useState<OrderBulkTransition | null>(null);
 
-  const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
+  const [searchString, setSearchString] = useSyncedWithQueryState(
     "search",
     (q) => (typeof q === "string" ? q : ""),
     (v) => v || null,
@@ -275,10 +274,12 @@ function OrdersListPage({
     defaultSortOrder: "desc",
   });
 
+  // searchString is already debounced by the search field, so it goes with the immediate params
   const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams(
-    {searchString: searchString || undefined},
-    [searchString],
+    {},
+    [],
     {
+      searchString: searchString || undefined,
       type,
       warehouseId: (showWarehouseFilter ? warehouseId : null) ?? undefined,
       status: statusFilter || undefined,
@@ -297,6 +298,7 @@ function OrdersListPage({
       sortOrder,
     },
     [
+      searchString,
       warehouseId,
       status,
       catalogItemIds,
@@ -509,8 +511,8 @@ function OrdersListPage({
         }
       >
         <SearchWithItemsInput
-          text={inputValue}
-          onTextChange={setInputValue}
+          text={searchString}
+          onTextChange={setSearchString}
           itemIds={catalogItemIds}
           onItemIdsChange={setCatalogItemIds}
           sx={{flexGrow: 1}}
