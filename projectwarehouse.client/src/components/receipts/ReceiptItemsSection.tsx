@@ -29,6 +29,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import PrintIcon from "@mui/icons-material/Print";
 import SearchIcon from "@mui/icons-material/Search";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {useSnackbar} from "notistack";
@@ -52,6 +53,7 @@ import BatchStandardPlacementDialog from "@/components/receipts/BatchStandardPla
 import type {ReceiptDto, ReceiptItemDto, ReceiptItemPlacementDto} from "@/api/types.gen";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {calcTotalPlaced} from "@/components/receipts/receiptUtils";
+import {openReceiptPrintPage} from "@/utils/printUtils";
 
 const VIRTUAL_TYPES = new Set(["productGroup", "variation", "bundle"]);
 
@@ -601,6 +603,15 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
             onClick={() => setBatchDialogOpen(true)}
           >
             Разместить ({selectedItemIds.size})
+          </Button>
+        )}
+        {items.length > 0 && (
+          <Button
+            startIcon={<PrintIcon />}
+            size="small"
+            onClick={() => openReceiptPrintPage(receipt.id)}
+          >
+            Печать
           </Button>
         )}
         {isDraftOrPlanned && canEdit && (

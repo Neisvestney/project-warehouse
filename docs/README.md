@@ -95,6 +95,7 @@ that layer (the Docs Index above) before writing code.
 | A date without time | [frontend.md → Date-only values](frontend.md#date-only-values) |
 | A count with a Russian noun | [frontend.md → `pluralUtils`](frontend.md#pluralutils) |
 | A file download | [frontend.md → Downloading a generated file](frontend.md#downloading-a-generated-file) |
+| A printable paper sheet (table filled in by hand) | [frontend.md → Paper sheets — `PrintTablePage`](frontend.md#paper-sheets--printtablepage) |
 | A copyable value, or text that acts on click | [frontend-components.md → `HoverActionLink`](frontend-components.md#hoveractionlink), [`CopyableText`](frontend-components.md#copyabletext) |
 | A chip color | [frontend.md → Chip colors](frontend.md#chip-colors) |
 | Memoization, MobX or `watch()` in a component | [frontend.md → React Compiler](frontend.md#react-compiler) |

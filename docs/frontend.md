@@ -442,16 +442,35 @@ To open the print page programmatically use `openPrintPage(items)` from `@/utils
 
 Example URL: `/print?item=DataMatrix:ABC123|Товар А&item=EAN13:5901234123457&item=Code128:HELLO&item=QR:test`
 
-### `StocktakeNodePrintPage`
+### Paper sheets — `PrintTablePage`
 
-Paper count sheet for one stocktake cell at `/print/stocktakes/:id/nodes/:nodeId`, filled in by hand. Data comes
-from the same `GET /api/stocktakes/{id}/nodes/{nodeId}/stock` query as the counting accordion, so it reflects live
-stock, not the saved count. The page is the cell path plus one table — **№ / Наименование / Учёт / Факт** —
-with standard goods and serial units (name + inventory number, «Учёт» = 1) interleaved by `compareDraftRows`, so
-the sheet lists positions in the same order as the counting accordion, then five blank rows for surpluses. `window.print()` fires once, as soon as the data has loaded.
+A paper sheet filled in by hand is a route under `/print/*` that loads its own data and hands it to
+`PrintTablePage` from `@/components/print/PrintTablePage`: a title plus one table. The page describes its
+`columns` (`header`, optional `width` and `align`) and builds `sheet = {title, rows}` once the query has data,
+where each row is `{key, cells}` in column order. The component owns everything else — the loading spinner, the
+error alert (`errorMessage` is the fallback when the error carries no text), the leading **№** column, `blankRows`
+empty rows at the end for positions found beyond the list, and a single `window.print()` as soon as `sheet` first
+arrives.
 
 Print styles: `@page` is A4 portrait with 10 mm margins, `thead` repeats on every sheet, rows never split across
 pages. Colours are fixed black on white so a dark theme does not leak into the printout.
+
+Each sheet has an `open…PrintPage` helper in `@/utils/printUtils` that opens it in a new tab.
+
+### `StocktakeNodePrintPage`
+
+Count sheet for one stocktake cell at `/print/stocktakes/:id/nodes/:nodeId`. Data comes from the same
+`GET /api/stocktakes/{id}/nodes/{nodeId}/stock` query as the counting accordion, so it reflects live stock, not
+the saved count. Title is the cell path; columns are **Наименование / Учёт / Факт**, with standard goods and
+serial units (name + inventory number, «Учёт» = 1) interleaved by `compareDraftRows`, so the sheet lists
+positions in the same order as the counting accordion, then five blank rows.
+
+### `ReceiptPrintPage`
+
+Acceptance sheet for one receipt at `/print/receipts/:id`, opened by **Печать** in the header of
+`ReceiptItemsSection` whenever the receipt has items. Data comes from `GET /api/receipts/{id}`. Title is the
+receipt number, its name when set, and the warehouse; columns are **Наименование / План / Факт**, one row per
+receipt item in receipt order with `plannedCount` as «План», then five blank rows.
 
 #### Barcode payload format
 
