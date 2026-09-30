@@ -192,21 +192,46 @@ const [grouping, setGrouping] = useSyncedWithQueryAndStorageState<AssemblyGroupi
 stay distinguishable from «the default was chosen on purpose». So the default value is written to the URL too,
 and `fromQuery` is what maps a missing param back onto it.
 
+### `useDebouncedLocalState(committed, commit, delay?)`
+
+Local state for a lag-free input over a value that lives elsewhere. Returns
+`[localValue, setLocalValue, commitNow]`:
+
+- `localValue` / `setLocalValue` — bind to the input; `commit` is called with `localValue` after `delay` ms of
+  inactivity (default 300 ms)
+- `commitNow(v)` — sets the local value and commits it at once, skipping the debounce. Use it for discrete
+  actions made together with other state changes (picking an option, a clear button), so both land in one
+  navigation and the data reloads once
+- `localValue` is synced back from `committed` when that changes externally (browser back/forward, deep link, a
+  reset from the caller)
+- `commit` does not have to be stable; the latest one is always called
+
+A value equal to `committed`, or to the last value already sent, is never committed, so an external sync or a
+repeated debounce settle does not call `commit` again.
+
+The hook remembers the last value it committed and ignores that echo when it comes back through `committed`,
+then forgets it, so a later external change back to the same value is still synced. When the committed value
+lives in the URL, the navigation commits in a transition, so the echo can arrive after the user has typed
+further characters — syncing it back would rewind the input and swallow them.
+
+`T` is constrained to primitives (`string | number | boolean | null | undefined`) — a `committed` value that is
+a fresh object every render would make the external-change check fire on every render and loop.
+
+Keep this hook inside the input component rather than in the page. The state it holds changes on every
+keystroke, and whichever component owns it re-renders with it: owned by a list page, every keystroke re-renders
+the whole table. The page passes only the committed value and its setter — see `SearchWithItemsInput`. That
+value is already debounced, so a list page passes it to `usePaginatedParams` as an immediate param.
+
 ### `useDebouncedSyncedWithQueryState(key, fromQuery, toQuery, delay?)`
 
-Combines local state, `useDebounce` and `useSyncedWithQueryState` into one hook for lag-free inputs that sync to
-the URL after a debounce. Returns `[localValue, setLocalValue, urlValue]`.
+`useDebouncedLocalState` over `useSyncedWithQueryState`. Returns `[localValue, setLocalValue, urlValue]`.
 
 - `localValue` / `setLocalValue` — bind to the input element (updates instantly, no re-navigation per keystroke)
 - `urlValue` — the debounced URL-synced value; pass this to API query params
-- `localValue` is synced back from the URL when it changes externally (browser back/forward, deep link)
-- `T` is constrained to primitives (`string | number | boolean | null | undefined`) — a `fromQuery` returning a
-  fresh object every render would make the URL-change check fire on every render and loop. Object-valued params
-  belong in plain `useSyncedWithQueryState`, which has no sync-back effect
+- Object-valued params belong in plain `useSyncedWithQueryState`, which has no sync-back effect
 
-The hook remembers the last value it pushed and ignores that echo when it comes back from the URL. Since the
-navigation commits in a transition, the echo can arrive after the user has typed further characters — syncing it
-back would rewind the input and swallow them.
+The component that calls it re-renders on every keystroke, so on a page with a heavy list it belongs in a small
+input component, not in the page itself.
 
 ```typescript
 const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(

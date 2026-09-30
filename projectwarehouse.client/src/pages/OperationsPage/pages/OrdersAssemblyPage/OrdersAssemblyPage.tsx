@@ -36,7 +36,6 @@ import AppBreadcrumbs from "@/components/AppBreadcrumbs.tsx";
 import FiltersBar from "@/components/FiltersBar.tsx";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState.ts";
 import {useSyncedWithQueryAndStorageState} from "@/hooks/useSyncedWithQueryAndStorageState.ts";
-import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState.ts";
 import WarehousesSelect from "@/components/WarehousesSelect.tsx";
 import SearchWithItemsInput from "@/components/catalog/SearchWithItemsInput";
 import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
@@ -58,7 +57,7 @@ function OrdersAssemblyPage() {
     "any",
   );
 
-  const [searchInput, setSearchInput, searchString] = useDebouncedSyncedWithQueryState(
+  const [searchString, setSearchString] = useSyncedWithQueryState(
     "search",
     (q) => (typeof q === "string" ? q : ""),
     (v) => v || null,
@@ -273,8 +272,8 @@ function OrdersAssemblyPage() {
             }
           >
             <SearchWithItemsInput
-              text={searchInput}
-              onTextChange={setSearchInput}
+              text={searchString}
+              onTextChange={setSearchString}
               itemIds={catalogItemIds}
               onItemIdsChange={setCatalogItemIds}
               sx={{flexGrow: 1}}
