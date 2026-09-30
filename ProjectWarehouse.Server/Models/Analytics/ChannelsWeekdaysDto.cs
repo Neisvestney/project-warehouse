@@ -8,9 +8,13 @@ public class ChannelsWeekdaysDto
     public DateOnly To { get; init; }
     public string TimeZoneId { get; init; } = null!;
     public AnalyticsMeasure Measure { get; init; }
+    public WeekdayScale Scale { get; init; }
 
     /// <summary>Last day averaged, yesterday at the latest: an unfinished day would drag the averages down.</summary>
     public DateOnly? CountedTo { get; init; }
+
+    /// <summary>Full Monday–Sunday weeks between <c>From</c> and <c>CountedTo</c>; only <c>WeekShare</c> uses them.</summary>
+    public int FullWeeks { get; init; }
 
     /// <summary>Every selected channel together, Monday first.</summary>
     public List<decimal?> Total { get; init; } = [];
@@ -32,6 +36,9 @@ public class WeekdayRowDto
     /// <summary>Shop or tag name; null for the whole Direct channel and the untagged row.</summary>
     public string? Name { get; init; }
 
-    /// <summary>Average per occurrence of the weekday, Monday first; null for a weekday the period lacks.</summary>
+    /// <summary>
+    /// Monday first. <c>Average</c>: per occurrence of the weekday, null for a weekday the period lacks.
+    /// <c>WeekShare</c>: median share of the week, 0…1, null when the row has no full week with sales.
+    /// </summary>
     public List<decimal?> Values { get; init; } = [];
 }

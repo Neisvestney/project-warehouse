@@ -201,11 +201,14 @@ public class AnalyticsController(
         }
     }
 
-    /// <summary>Average orders or units per weekday, by channel and by Direct tag.</summary>
+    /// <summary>Average orders or units per weekday, or the weekday's share of the week, by channel and by Direct tag.</summary>
     /// <remarks>
-    /// Query params: the shared filter of <c>channels/summary</c> and <c>measure</c> as in
-    /// <c>channels/timeseries</c>. A value is the sum over every such weekday of the period divided by how many
-    /// of them the period holds, Monday first. Only finished days count, today excluded: <c>countedTo</c> is the
+    /// Query params: the shared filter of <c>channels/summary</c>, <c>measure</c> as in
+    /// <c>channels/timeseries</c> and <c>scale</c>. With <c>average</c> a value is the sum over every such weekday
+    /// of the period divided by how many of them the period holds, Monday first. With <c>weekShare</c> it is the
+    /// median, over the full Monday–Sunday weeks of the period, of the weekday's share of its week (0…1); weeks
+    /// without sales are skipped per row, and <c>fullWeeks</c> says how many weeks the period holds.
+    /// Only finished days count, today excluded: <c>countedTo</c> is the
     /// last day averaged, null when the period has no finished day yet (every value is then null).
     /// Rows follow <c>channels/summary</c>: one per shop, then — with <c>includeDirect</c> — the whole Direct
     /// channel, one per tag met in the period and the untagged row; tag rows overlap. <c>total</c> is every

@@ -317,6 +317,61 @@ public class AnalyticsCalculatorTests
     }
 
     [Theory]
+    [InlineData("2026-09-07", "2026-09-13", 1)]
+    [InlineData("2026-09-08", "2026-09-20", 1)]
+    [InlineData("2026-09-07", "2026-09-12", 0)]
+    [InlineData("2026-09-01", "2026-09-30", 3)]
+    public void FullWeeks_CountsOnlyWholeMondayToSunday(string from, string to, int expected)
+    {
+        Assert.Equal(expected, AnalyticsCalculator.FullWeeks(DateOnly.Parse(from), DateOnly.Parse(to)).Count);
+    }
+
+    [Fact]
+    public void WeekdayShareMedians_WeighWeeksEquallyAndSkipPartialOnes()
+    {
+        // Mon 7 – Sun 20 Sep 2026 plus a partial week; the second week is ten times bigger with the same shape
+        var from = new DateOnly(2026, 9, 7);
+        var values = new List<(DateOnly, decimal)>
+        {
+            (from, 3m), (from.AddDays(4), 1m),
+            (from.AddDays(7), 30m), (from.AddDays(11), 10m),
+            (from.AddDays(14), 1000m),
+        };
+
+        var shares = AnalyticsCalculator.WeekdayShareMedians(from, from.AddDays(15), values);
+
+        Assert.Equal(0.75m, shares[0]);
+        Assert.Equal(0.25m, shares[4]);
+        Assert.Equal(0m, shares[1]);
+    }
+
+    [Fact]
+    public void WeekdayShareMedians_TakesMedianAndSkipsEmptyWeeks()
+    {
+        // Three weeks with Monday shares 1, 0.5, 0.2, then an empty week
+        var from = new DateOnly(2026, 9, 7);
+        var values = new List<(DateOnly, decimal)>
+        {
+            (from, 4m),
+            (from.AddDays(7), 1m), (from.AddDays(8), 1m),
+            (from.AddDays(14), 1m), (from.AddDays(15), 4m),
+        };
+
+        var shares = AnalyticsCalculator.WeekdayShareMedians(from, from.AddDays(27), values);
+
+        Assert.Equal(0.5m, shares[0]);
+        Assert.Equal(0.5m, shares[1]);
+    }
+
+    [Fact]
+    public void WeekdayShareMedians_NullWithoutFullWeekOrSales()
+    {
+        var monday = new DateOnly(2026, 9, 7);
+        Assert.All(AnalyticsCalculator.WeekdayShareMedians(monday, monday.AddDays(5), [(monday, 5m)]), s => Assert.Null(s));
+        Assert.All(AnalyticsCalculator.WeekdayShareMedians(monday, monday.AddDays(6), []), s => Assert.Null(s));
+    }
+
+    [Theory]
     [InlineData("2026-09-10", "2026-09-30", 21, true)]
     [InlineData("2026-09-09", "2026-09-30", 21, false)]
     public void IsReturnsImmature_ComparesEndToToday(string to, string today, int days, bool expected)

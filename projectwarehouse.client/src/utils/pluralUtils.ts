@@ -32,4 +32,5 @@ export const NOUNS = {
   article: {one: "артикул", few: "артикула", many: "артикулов"},
   box: {one: "коробка", few: "коробки", many: "коробок"},
   itemType: {one: "тип", few: "типа", many: "типов"},
+  fullWeek: {one: "полной неделе", few: "полным неделям", many: "полным неделям"},
 } as const satisfies Record<string, PluralForms>;

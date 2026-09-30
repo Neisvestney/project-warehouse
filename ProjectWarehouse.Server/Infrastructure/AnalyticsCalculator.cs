@@ -311,6 +311,62 @@ public static class AnalyticsCalculator
             .ToArray();
     }
 
+    /// <summary>Full Monday–Sunday weeks inside the period: the Monday of each.</summary>
+    public static List<DateOnly> FullWeeks(DateOnly from, DateOnly to)
+    {
+        var weeks = new List<DateOnly>();
+        var monday = from.AddDays((7 - WeekdayIndex(from)) % 7);
+        for (; monday.AddDays(6) <= to; monday = monday.AddDays(7))
+            weeks.Add(monday);
+        return weeks;
+    }
+
+    /// <summary>
+    /// Each weekday's share of its week, as the median over the full weeks of the period: every week weighs
+    /// the same whatever its volume, so a trend or one promo week does not tilt the profile, and the median
+    /// keeps a thin week of a small channel from swinging it. A week without sales has no shares and is
+    /// skipped; null for every weekday when none is left. The seven medians need not add up to 1.
+    /// </summary>
+    public static decimal?[] WeekdayShareMedians(
+        DateOnly from, DateOnly to, IEnumerable<(DateOnly Day, decimal Value)> values)
+    {
+        var weeks = FullWeeks(from, to);
+        if (weeks.Count == 0)
+            return new decimal?[7];
+
+        var first = weeks[0];
+        var byWeek = new decimal[weeks.Count, 7];
+        foreach (var (day, value) in values)
+        {
+            var offset = day.DayNumber - first.DayNumber;
+            if (offset >= 0 && offset < weeks.Count * 7)
+                byWeek[offset / 7, offset % 7] += value;
+        }
+
+        var shares = Enumerable.Range(0, 7).Select(_ => new List<decimal>()).ToArray();
+        for (var w = 0; w < weeks.Count; w++)
+        {
+            var total = 0m;
+            for (var d = 0; d < 7; d++)
+                total += byWeek[w, d];
+            if (total <= 0)
+                continue;
+            for (var d = 0; d < 7; d++)
+                shares[d].Add(byWeek[w, d] / total);
+        }
+
+        return shares.Select(Median).ToArray();
+    }
+
+    private static decimal? Median(List<decimal> values)
+    {
+        if (values.Count == 0)
+            return null;
+        values.Sort();
+        var mid = values.Count / 2;
+        return values.Count % 2 == 1 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+    }
+
     /// <summary>
     /// A period whose end is closer to today than the maturity window still collects returns, so its return
     /// share reads low.

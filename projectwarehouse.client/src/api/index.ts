@@ -1514,6 +1514,7 @@ export type {
   WarehousesUpdateResponse,
   WarehousesUpdateResponses,
   WeekdayRowDto,
+  WeekdayScale,
   WriteoffDto,
   WriteoffItemDto,
   WriteoffItemRequest,
