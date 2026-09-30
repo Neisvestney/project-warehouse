@@ -14,9 +14,22 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import {useQuery} from "@tanstack/react-query";
+import {useQuery, useQueryClient} from "@tanstack/react-query";
 import {Link as RouterLink} from "react-router";
-import {receiptsGetAllOptions} from "@/api/@tanstack/react-query.gen";
+import {
+  receiptsBatchTransitionMutation,
+  receiptsBatchUpdateTagsMutation,
+  receiptsGetAllOptions,
+  receiptsGetAllQueryKey,
+} from "@/api/@tanstack/react-query.gen";
+import {useSelectedItems} from "@/hooks/useSelectedItems";
+import BulkBar from "@/components/BulkBar";
+import SelectionTableCell from "@/components/SelectionTableCell";
+import {useDocumentBulkTransitions} from "@/components/useDocumentBulkTransitions";
+import {useBulkTagsAction} from "@/components/tags/useBulkTagsAction";
+import {RECEIPT_BULK_TRANSITIONS} from "@/components/receipts/receiptBulkTransitions";
+import {NOUNS} from "@/utils/pluralUtils";
+import {byOperation} from "@/utils/queryKeys";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
@@ -40,7 +53,7 @@ import {
   RECEIPT_STATUS_LABELS,
   formatReceiptNumber,
 } from "@/components/receipts/receiptUtils";
-import type {ReceiptReason, ReceiptSortBy, ReceiptStatus} from "@/api/types.gen";
+import type {ReceiptReason, ReceiptSortBy, ReceiptStatus, ReceiptSummaryDto} from "@/api/types.gen";
 import {parseDateOnly} from "@/utils/dateOnly";
 
 const SORT_COLUMNS: {key: ReceiptSortBy; label: string}[] = [
@@ -56,7 +69,10 @@ const ALL_STATUSES: ReceiptStatus[] = ["draft", "planned", "processing", "finish
 
 const ALL_REASONS: ReceiptReason[] = ["newGoods", "return", "other"];
 
+const getReceiptId = (receipt: ReceiptSummaryDto) => receipt.id;
+
 function ReceiptsPage() {
+  const queryClient = useQueryClient();
   const canCreate = useHasPermission(["receipts.edit", "receipts.edit_assigned"]);
 
   const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
@@ -107,14 +123,64 @@ function ReceiptsPage() {
     [warehouseId, status, reason, tagIds, sortBy, sortOrder],
   );
 
-  // sortable columns plus the fixed ones after them in the header
-  const columnCount = SORT_COLUMNS.length + 4;
+  // sortable columns, the fixed ones after them and the checkbox for editors
+  const columnCount = SORT_COLUMNS.length + 4 + (canCreate ? 1 : 0);
 
   const {data, isLoading, isFetching, refetch} = useQuery(
     receiptsGetAllOptions({query: fetchParams}),
   );
   // the tabs keep their last numbers through a refetch instead of collapsing and shifting
   const [statusCounts] = useRetainedValue(data?.meta.statusCounts);
+
+  const {
+    selectedItems,
+    isSelected,
+    allPageSelected,
+    somePageSelected,
+    toggle,
+    toggleAll,
+    removeIds,
+    clear,
+  } = useSelectedItems(getReceiptId, data?.items);
+
+  const invalidateReceipts = () =>
+    Promise.all([
+      queryClient.invalidateQueries({queryKey: receiptsGetAllQueryKey()}),
+      queryClient.invalidateQueries({queryKey: byOperation("receiptsGetById")}),
+    ]);
+
+  const transitions = useDocumentBulkTransitions({
+    entity: "receipt",
+    transitions: RECEIPT_BULK_TRANSITIONS,
+    selectedItems,
+    enabled: canCreate,
+    mutation: receiptsBatchTransitionMutation(),
+    invalidate: invalidateReceipts,
+    onTransitioned: removeIds,
+    noun: NOUNS.receipt,
+    formatNumber: formatReceiptNumber,
+  });
+
+  const tagsAction = useBulkTagsAction({
+    kind: "receipt",
+    entity: "receipt",
+    mutation: receiptsBatchUpdateTagsMutation(),
+    invalidate: invalidateReceipts,
+    noun: NOUNS.receipt,
+    notFound: {
+      code: "receiptNotFound",
+      numbersArg: "receiptNumbers",
+      formatNumber: formatReceiptNumber,
+    },
+  });
+
+  const selectionActions =
+    selectedItems.length > 0
+      ? [
+          ...transitions.actions,
+          ...(canCreate ? [tagsAction.getAction(selectedItems.map((r) => r.id))] : []),
+        ]
+      : [];
 
   return (
     <Stack spacing={2}>
@@ -180,6 +246,17 @@ function ReceiptsPage() {
           sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
         />
       </FiltersBar>
+      <BulkBar
+        count={selectedItems.length}
+        countLabel={{one: "приемка выбрана", few: "приемки выбрано", many: "приемок выбрано"}}
+        onClear={clear}
+        actions={selectionActions}
+        info={[{key: "total", label: "Всего:", value: (data?.total ?? 0).toLocaleString("ru-RU")}]}
+        infoLoading={isLoading}
+      />
+      {transitions.dialogs}
+      {tagsAction.dialogs}
+      {transitions.alerts}
       <DataTableContainer
         isFetching={isFetching}
         count={data?.total ?? 0}
@@ -191,6 +268,13 @@ function ReceiptsPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
+              {canCreate && (
+                <SelectionTableCell
+                  checked={allPageSelected}
+                  indeterminate={!allPageSelected && somePageSelected}
+                  onCheck={() => toggleAll()}
+                />
+              )}
               {SORT_COLUMNS.map(({key, label}) => (
                 <TableCell key={key} sortDirection={sortBy === key ? sortOrder : false}>
                   <TableSortLabel
@@ -219,11 +303,18 @@ function ReceiptsPage() {
                   key={receipt.id}
                   to={`/operations/receipts/${receipt.id}`}
                   ariaLabel={`Приемка ${formatReceiptNumber(receipt.number)}`}
+                  selected={isSelected(receipt.id)}
                   sx={{
                     opacity: isFetching && !isLoading ? 0.5 : 1,
                     transition: "opacity 0.2s",
                   }}
                 >
+                  {canCreate && (
+                    <SelectionTableCell
+                      checked={isSelected(receipt.id)}
+                      onCheck={(extendRange) => toggle(receipt, extendRange)}
+                    />
+                  )}
                   <TableCell sx={{fontFamily: "monospace"}}>
                     {formatReceiptNumber(receipt.number)}
                   </TableCell>

@@ -546,6 +546,11 @@ export type BatchFulfillResponse = {
   insufficientInventoryErrors: Array<AppFieldError>;
 };
 
+export type BatchReceiptTransitionRequest = {
+  ids: Array<string>;
+  transition: ReceiptTransition;
+};
+
 export type BatchSelfAssignFailedItem = {
   orderId: string;
   /**
@@ -574,6 +579,11 @@ export type BatchStandardPlacementRequest = {
   items: Array<BatchStandardPlacementItemRequest>;
 };
 
+export type BatchStocktakeTransitionRequest = {
+  ids: Array<string>;
+  transition: StocktakeTransition;
+};
+
 export type BatchTransitionStatusFailedItem = {
   orderId: string;
   /**
@@ -600,6 +610,11 @@ export type BatchUpdateTagsRequest = {
   ids: Array<string>;
   tagId: string;
   operation: TagBatchOperation;
+};
+
+export type BatchWriteoffTransitionRequest = {
+  ids: Array<string>;
+  transition: WriteoffTransition;
 };
 
 export type BundleComponentDto = {
@@ -1178,6 +1193,23 @@ export type DiskSpaceDto = {
   totalBytes: number;
   freeBytes: number;
   usedBytes: number;
+};
+
+export type DocumentBatchTransitionFailedItem = {
+  id: string;
+  /**
+   * Null when the document could not be loaded — missing or outside the caller's edit access.
+   */
+  number?: null | number;
+  error: AppFieldError;
+};
+
+/**
+ * Result of a module's batch transition endpoint: each document is transitioned on its own.
+ */
+export type DocumentBatchTransitionResponse = {
+  transitionedIds: Array<string>;
+  failedItems: Array<DocumentBatchTransitionFailedItem>;
 };
 
 /**
@@ -2845,6 +2877,8 @@ export type ReceiptTagDto = {
   name: string;
 };
 
+export type ReceiptTransition = "plan" | "startProcessing" | "finish" | "revert" | "cancel";
+
 export type RefreshRequest = {
   refreshToken: string;
 };
@@ -3697,6 +3731,8 @@ export type StocktakeTagDto = {
   name: string;
 };
 
+export type StocktakeTransition = "schedule" | "toDraft" | "start" | "revert" | "finish" | "cancel";
+
 export type StocktakeType = "unscheduled" | "scheduled";
 
 export type StoragePlaceDto = {
@@ -4225,6 +4261,8 @@ export type WriteoffTagDto = {
   id: string;
   name: string;
 };
+
+export type WriteoffTransition = "finish" | "cancel";
 
 export type XyzClass = "x" | "y" | "z";
 
@@ -8889,6 +8927,80 @@ export type ReceiptsCancelResponses = {
 
 export type ReceiptsCancelResponse = ReceiptsCancelResponses[keyof ReceiptsCancelResponses];
 
+export type ReceiptsBatchTransitionData = {
+  body: BatchReceiptTransitionRequest;
+  path?: never;
+  query?: never;
+  url: "/api/receipts/batch-transition";
+};
+
+export type ReceiptsBatchTransitionErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsBatchTransitionError =
+  ReceiptsBatchTransitionErrors[keyof ReceiptsBatchTransitionErrors];
+
+export type ReceiptsBatchTransitionResponses = {
+  /**
+   * OK
+   */
+  200: DocumentBatchTransitionResponse;
+};
+
+export type ReceiptsBatchTransitionResponse =
+  ReceiptsBatchTransitionResponses[keyof ReceiptsBatchTransitionResponses];
+
+export type ReceiptsBatchUpdateTagsData = {
+  body: BatchUpdateTagsRequest;
+  path?: never;
+  query?: never;
+  url: "/api/receipts/batch-update-tags";
+};
+
+export type ReceiptsBatchUpdateTagsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type ReceiptsBatchUpdateTagsError =
+  ReceiptsBatchUpdateTagsErrors[keyof ReceiptsBatchUpdateTagsErrors];
+
+export type ReceiptsBatchUpdateTagsResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type ReceiptsBatchUpdateTagsResponse =
+  ReceiptsBatchUpdateTagsResponses[keyof ReceiptsBatchUpdateTagsResponses];
+
 export type RolesGetAllData = {
   body?: never;
   path?: never;
@@ -10293,6 +10405,80 @@ export type StocktakesCancelResponses = {
 };
 
 export type StocktakesCancelResponse = StocktakesCancelResponses[keyof StocktakesCancelResponses];
+
+export type StocktakesBatchTransitionData = {
+  body: BatchStocktakeTransitionRequest;
+  path?: never;
+  query?: never;
+  url: "/api/stocktakes/batch-transition";
+};
+
+export type StocktakesBatchTransitionErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StocktakesBatchTransitionError =
+  StocktakesBatchTransitionErrors[keyof StocktakesBatchTransitionErrors];
+
+export type StocktakesBatchTransitionResponses = {
+  /**
+   * OK
+   */
+  200: DocumentBatchTransitionResponse;
+};
+
+export type StocktakesBatchTransitionResponse =
+  StocktakesBatchTransitionResponses[keyof StocktakesBatchTransitionResponses];
+
+export type StocktakesBatchUpdateTagsData = {
+  body: BatchUpdateTagsRequest;
+  path?: never;
+  query?: never;
+  url: "/api/stocktakes/batch-update-tags";
+};
+
+export type StocktakesBatchUpdateTagsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type StocktakesBatchUpdateTagsError =
+  StocktakesBatchUpdateTagsErrors[keyof StocktakesBatchUpdateTagsErrors];
+
+export type StocktakesBatchUpdateTagsResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type StocktakesBatchUpdateTagsResponse =
+  StocktakesBatchUpdateTagsResponses[keyof StocktakesBatchUpdateTagsResponses];
 
 export type StocktakesGetDifferencesData = {
   body?: never;
@@ -11882,3 +12068,77 @@ export type WriteoffsCancelResponses = {
 };
 
 export type WriteoffsCancelResponse = WriteoffsCancelResponses[keyof WriteoffsCancelResponses];
+
+export type WriteoffsBatchTransitionData = {
+  body: BatchWriteoffTransitionRequest;
+  path?: never;
+  query?: never;
+  url: "/api/writeoffs/batch-transition";
+};
+
+export type WriteoffsBatchTransitionErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type WriteoffsBatchTransitionError =
+  WriteoffsBatchTransitionErrors[keyof WriteoffsBatchTransitionErrors];
+
+export type WriteoffsBatchTransitionResponses = {
+  /**
+   * OK
+   */
+  200: DocumentBatchTransitionResponse;
+};
+
+export type WriteoffsBatchTransitionResponse =
+  WriteoffsBatchTransitionResponses[keyof WriteoffsBatchTransitionResponses];
+
+export type WriteoffsBatchUpdateTagsData = {
+  body: BatchUpdateTagsRequest;
+  path?: never;
+  query?: never;
+  url: "/api/writeoffs/batch-update-tags";
+};
+
+export type WriteoffsBatchUpdateTagsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type WriteoffsBatchUpdateTagsError =
+  WriteoffsBatchUpdateTagsErrors[keyof WriteoffsBatchUpdateTagsErrors];
+
+export type WriteoffsBatchUpdateTagsResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type WriteoffsBatchUpdateTagsResponse =
+  WriteoffsBatchUpdateTagsResponses[keyof WriteoffsBatchUpdateTagsResponses];

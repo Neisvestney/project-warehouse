@@ -22,38 +22,18 @@ namespace ProjectWarehouse.Server.Controllers;
 public class WriteoffsController(
     ApplicationDbContext db,
     IMapper mapper,
-    IInventoryService inventory,
     EntityAccessRegistry access,
     IChangeLogService<WriteoffDto> changeLog,
-    IDataFileBindingService fileBinding) : AppControllerBase
+    IDataFileBindingService fileBinding,
+    IWriteoffService writeoffs,
+    IDocumentBatchService batch) : AppControllerBase
 {
     private EntityAccessRule<Writeoff> Rule => access.For<Writeoff>();
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private IQueryable<Writeoff> BaseQuery(bool includeItems = false)
-    {
-        var q = db.Writeoffs
-            .Include(w => w.Warehouse)
-            .Include(w => w.Tags)
-            .Include(w => w.Images).ThenInclude(i => i.DataFile)
-            .AsSplitQuery()
-            .AsQueryable();
-
-        if (includeItems)
-            q = q
-                .Include(w => w.Items)
-                .ThenInclude(i => i.SourceNode)
-                .ThenInclude(n => n.RootStoragePlace)
-                .Include(w => w.Items)
-                .ThenInclude(i => i.CatalogItem)
-                .Include(w => w.Items)
-                .ThenInclude(i => i.UnitInventoryItem)
-                .ThenInclude(u => u!.CatalogItem)
-                .AsSplitQuery();
-
-        return q;
-    }
+    private IQueryable<Writeoff> BaseQuery(bool includeItems = false) =>
+        writeoffs.WithDetails(db.Writeoffs, includeItems);
 
     private async Task<(Writeoff? writeoff, IActionResult? error)> LoadWriteoffWithAccessAsync(
         Guid id, AccessLevel level, CancellationToken ct, bool includeItems = false)
@@ -566,90 +546,8 @@ public class WriteoffsController(
     [ProducesResponseType<WriteoffDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> Finish(Guid id, CancellationToken ct = default)
-    {
-        var (writeoff, error) = await LoadWriteoffWithEditAccessAsync(id, ct, includeItems: true);
-        if (error is not null) return error;
-
-        if (writeoff!.Status != WriteoffStatus.Draft)
-            return UnprocessableEntity("root", ErrorCode.WriteoffNotDraft,
-                "Write-off must be in Draft status to finish.");
-
-        if (writeoff.Items.Count == 0)
-            return UnprocessableEntity("root", ErrorCode.WriteoffHasNoItems,
-                "Write-off has no items.");
-
-        var before = await BuildDtoAsync(writeoff, ct);
-
-        try
-        {
-            await db.Database.ExecuteInTransactionAsync("writeoffs.finish", async () =>
-            {
-                // Reload inside the transaction so the status check sees the committed state
-                var fresh = await BaseQuery(includeItems: true).FirstAsync(w => w.Id == id, ct);
-
-                if (fresh.Status != WriteoffStatus.Draft)
-                    return; // finished concurrently
-
-                foreach (var item in fresh.Items)
-                {
-                    if (item.CatalogItemId.HasValue)
-                    {
-                        await inventory.RemoveStandardItemsFromNodeAsync(
-                            item.SourceNodeId,
-                            item.CatalogItemId.Value,
-                            item.Count,
-                            action: InventoryActions.WrittenOff,
-                            context: new StockMovementContext(WriteoffId: id),
-                            ct: ct);
-                    }
-                    else if (item.UnitInventoryItemId.HasValue)
-                    {
-                        await inventory.RemoveUnitItemAsync(
-                            item.UnitInventoryItemId.Value,
-                            item.SourceNodeId,
-                            action: InventoryActions.WrittenOff,
-                            context: new StockMovementContext(WriteoffId: id),
-                            ct: ct);
-                    }
-                }
-
-                fresh.Status     = WriteoffStatus.Finished;
-                fresh.FinishedAt = DateTime.UtcNow;
-                await db.SaveChangesAsync(ct);
-            }, ct);
-        }
-        catch (InventoryWriteConflictException)
-        {
-            return Conflict(ErrorCode.InventoryWriteConflict,
-                "Stock for this item was changed concurrently; nothing was written.");
-        }
-        catch (InsufficientInventoryException ex)
-        {
-            return UnprocessableEntity("root", ErrorCode.WriteoffInsufficientInventory,
-                $"Insufficient inventory at node '{ex.NodeId}': requested {ex.Requested}, available {ex.Available}.",
-                ex.ToArgs());
-        }
-        catch (InventoryItemNodeMismatchException)
-        {
-            return UnprocessableEntity("root", ErrorCode.InventoryItemNodeMismatch,
-                "One or more items are no longer at the expected storage node.");
-        }
-        catch (UnitInventoryItemNotFoundException)
-        {
-            return UnprocessableEntity("root", ErrorCode.UnitInventoryItemNotFound,
-                "One or more unit items were not found.");
-        }
-
-        var nodeById = await LoadWarehouseNodesAsync(writeoff.WarehouseId, ct);
-
-        // Reload items after finish (unit FKs may be SetNull after removal)
-        var updated = await BaseQuery(includeItems: true).FirstAsync(w => w.Id == id, ct);
-        var after = MapWithNodes(updated, nodeById);
-        await changeLog.CompareAndSaveToChangelog(before, after, WriteoffActions.Finished);
-
-        return Ok(after);
-    }
+    public Task<IActionResult> Finish(Guid id, CancellationToken ct = default) =>
+        TransitionAsync(id, WriteoffTransition.Finish, ct);
 
     // ── POST cancel ───────────────────────────────────────────────────────────
 
@@ -663,27 +561,111 @@ public class WriteoffsController(
     [ProducesResponseType<WriteoffDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> Cancel(Guid id, CancellationToken ct = default)
+    public Task<IActionResult> Cancel(Guid id, CancellationToken ct = default) =>
+        TransitionAsync(id, WriteoffTransition.Cancel, ct);
+
+    // ── POST batch-transition ─────────────────────────────────────────────────
+
+    /// <summary>Apply one transition to several write-offs in one request, with partial-success semantics.</summary>
+    /// <remarks>
+    /// Body: <c>BatchWriteoffTransitionRequest</c> — <c>ids</c> (duplicates are collapsed) and <c>transition</c>.
+    /// Only <c>cancel</c> is accepted; <c>finish</c> is rejected with 422 <c>validationError</c> (field
+    /// <c>transition</c>), since it removes stock and is run from the document's own page. Each write-off goes
+    /// through the same checks as <c>POST /{id}/cancel</c> and is saved on its own; the answer is always 200
+    /// with <c>DocumentBatchTransitionResponse</c> — successful ids in <c>transitionedIds</c>, the rest in
+    /// <c>failedItems</c> as <c>{ id, number, error }</c>. A write-off that does not exist or lies outside the
+    /// caller's edit access fails as <c>writeoffNotFound</c> with a null <c>number</c>.
+    /// Requires <c>writeoffs.edit</c> or <c>writeoffs.edit_assigned</c>.
+    /// </remarks>
+    [HttpPost("batch-transition")]
+    [Authorize]
+    [ProducesResponseType<DocumentBatchTransitionResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> BatchTransition(
+        [FromBody] BatchWriteoffTransitionRequest request, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
+
+        if (request.Transition == WriteoffTransition.Finish)
+            return UnprocessableEntity("transition", ErrorCode.ValidationError,
+                "Write-offs cannot be finished in a batch.");
+
+        var editable = writeoffs.WithDetails(await Rule.QueryAsync(User, AccessLevel.Edit, ct), includeItems: true);
+
+        return Ok(await batch.TransitionAsync(
+            editable, request.Ids,
+            document => writeoffs.TransitionAsync(document, request.Transition, ct),
+            new DocumentBatchChangelog<Writeoff, WriteoffDto>(changeLog, MapWithNodes),
+            ActionFor(request.Transition),
+            AppProblems.NotFound(ErrorCode.WriteoffNotFound, "Write-off not found."),
+            ct));
+    }
+
+    // ── POST batch-update-tags ────────────────────────────────────────────────
+
+    /// <summary>Add or remove one tag on several write-offs in one request, all or nothing. Allowed in any status.</summary>
+    /// <remarks>
+    /// Body: <c>BatchUpdateTagsRequest</c> — <c>ids</c> (duplicates are collapsed), <c>tagId</c> and
+    /// <c>operation</c> (<c>add</c> / <c>remove</c>). Nothing is written unless every write-off passes: 422
+    /// <c>tagNotFound</c> (field <c>tagId</c>) for an unknown tag, 404 <c>writeoffNotFound</c> when any write-off
+    /// does not exist or lies outside the caller's edit access — args <c>count</c> (every rejected id) and
+    /// <c>writeoffNumbers</c> (only those the caller can view, ascending). Write-offs that already have (or
+    /// already lack) the tag are left untouched and get no changelog entry. Answers 204.
+    /// Requires <c>writeoffs.edit</c> or <c>writeoffs.edit_assigned</c>.
+    /// </remarks>
+    [HttpPost("batch-update-tags")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> BatchUpdateTags(
+        [FromBody] BatchUpdateTagsRequest request, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
+
+        var problem = await batch.UpdateTagsAsync(
+            writeoffs.WithDetails(await Rule.QueryAsync(User, AccessLevel.Edit, ct), includeItems: true),
+            await Rule.QueryAsync(User, AccessLevel.View, ct),
+            db.WriteoffTags,
+            request,
+            new DocumentBatchChangelog<Writeoff, WriteoffDto>(changeLog, MapWithNodes),
+            new DocumentBatchNotFound(ErrorCode.WriteoffNotFound, "writeoffNumbers", "write-offs"),
+            ct);
+
+        return problem is null ? NoContent() : Problem(problem);
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    private async Task<IActionResult> TransitionAsync(Guid id, WriteoffTransition transition, CancellationToken ct)
     {
         var (writeoff, error) = await LoadWriteoffWithEditAccessAsync(id, ct, includeItems: true);
         if (error is not null) return error;
 
-        if (writeoff!.Status is WriteoffStatus.Finished or WriteoffStatus.Canceled)
-            return UnprocessableEntity("root", ErrorCode.WriteoffNotDraft,
-                $"Cannot cancel a write-off in '{writeoff.Status}' status.");
+        var nodeById = await LoadWarehouseNodesAsync(writeoff!.WarehouseId, ct);
+        var before   = MapWithNodes(writeoff, nodeById);
 
-        var before = await BuildDtoAsync(writeoff, ct);
-        writeoff.Status     = WriteoffStatus.Canceled;
-        writeoff.CanceledAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
+        if (await writeoffs.TransitionAsync(writeoff, transition, ct) is { } problem)
+            return Problem(problem);
 
-        var after = await BuildDtoAsync(writeoff, ct);
-        await changeLog.CompareAndSaveToChangelog(before, after, WriteoffActions.Canceled);
+        // Reload items after finish (unit FKs may be SetNull after removal)
+        var updated = transition == WriteoffTransition.Finish
+            ? await BaseQuery(includeItems: true).FirstAsync(w => w.Id == id, ct)
+            : writeoff;
+        var after = MapWithNodes(updated, nodeById);
+        await changeLog.CompareAndSaveToChangelog(before, after, ActionFor(transition));
 
         return Ok(after);
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────
+    private static string ActionFor(WriteoffTransition transition) => transition switch
+    {
+        WriteoffTransition.Finish => WriteoffActions.Finished,
+        WriteoffTransition.Cancel => WriteoffActions.Canceled,
+        _ => throw new ArgumentOutOfRangeException(nameof(transition), transition, null),
+    };
 
     private async Task<WriteoffDto> BuildDtoAsync(Writeoff writeoff, CancellationToken ct)
     {

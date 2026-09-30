@@ -218,12 +218,13 @@ changes no stock, and labelling a document after it is finished is the common ca
 the document's changelog, so the tag set must be loaded wherever the document DTO is mapped — an omitted `Include`
 records a phantom removal.
 
-Orders also take `POST /api/orders/batch-update-tags` (`BatchUpdateTagsRequest`: `ids`, `tagId`, `operation`
-add/remove) — one tag on many documents, all or nothing: an unknown tag or any document outside the caller's edit
-access rejects the whole request, and documents that already match get no changelog entry. The rejection names
-the offending documents by number, but only those the caller can view — an id outside view access counts toward
-`count` without revealing which document it is. The request model
-lives in `Models/Tags` so another module can expose the same endpoint over its own documents.
+Orders, receipts, write-offs and stocktakes also take `POST /api/{module}/batch-update-tags`
+(`BatchUpdateTagsRequest`: `ids`, `tagId`, `operation` add/remove) — one tag on many documents, all or nothing: an
+unknown tag or any document outside the caller's edit access rejects the whole request, and documents that already
+match get no changelog entry. The rejection names the offending documents by number in `{module}Numbers`
+(`orderNumbers`, `receiptNumbers`, …), but only those the caller can view — an id outside view access counts toward
+`count` without revealing which document it is. The request model lives in `Models/Tags`, shared by every module;
+receipts, write-offs and stocktakes run it through `IDocumentBatchService.UpdateTagsAsync`.
 
 In the stock movement report a metric has one tag list per document type (`receiptTagIds`, `orderTagIds`,
 `writeoffTagIds`, `stocktakeTagIds`). A non-empty list keeps only movements whose document of that type carries any

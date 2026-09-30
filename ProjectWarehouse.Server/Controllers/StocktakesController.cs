@@ -23,42 +23,19 @@ namespace ProjectWarehouse.Server.Controllers;
 public class StocktakesController(
     ApplicationDbContext db,
     IMapper mapper,
-    IInventoryService inventory,
     IStocktakeDiffCalculator diffCalculator,
     EntityAccessRegistry access,
     IChangeLogService<StocktakeDto> changeLog,
-    IDataFileBindingService fileBinding) : AppControllerBase
+    IDataFileBindingService fileBinding,
+    IStocktakeService stocktakes,
+    IDocumentBatchService batch) : AppControllerBase
 {
     private EntityAccessRule<Stocktake> Rule => access.For<Stocktake>();
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private IQueryable<Stocktake> BaseQuery(bool includeItems = false)
-    {
-        var q = db.Stocktakes
-            .Include(s => s.Warehouse)
-            .Include(s => s.Tags)
-            .Include(s => s.Images).ThenInclude(i => i.DataFile)
-            .AsQueryable();
-
-        if (includeItems)
-            q = q
-                .Include(s => s.Nodes)
-                .ThenInclude(n => n.StoragePlaceNode)
-                .ThenInclude(n => n.RootStoragePlace)
-                .Include(s => s.Nodes)
-                .ThenInclude(n => n.Items)
-                .ThenInclude(i => i.CatalogItem)
-                .ThenInclude(c => c.Group)
-                .Include(s => s.Nodes)
-                .ThenInclude(n => n.Items)
-                .ThenInclude(i => i.UnitInventoryItem)
-                .AsSplitQuery();
-        else
-            q = q.Include(s => s.Nodes).AsSplitQuery();
-
-        return q;
-    }
+    private IQueryable<Stocktake> BaseQuery(bool includeItems = false) =>
+        stocktakes.WithDetails(db.Stocktakes, includeItems);
 
     private async Task<(Stocktake? stocktake, IActionResult? error)> LoadStocktakeWithAccessAsync(
         Guid id, AccessLevel level, CancellationToken ct, bool includeItems = false)
@@ -90,31 +67,6 @@ public class StocktakesController(
             .Where(n => n.RootStoragePlace.WarehouseId == warehouseId)
             .Include(n => n.RootStoragePlace)
             .ToDictionaryAsync(n => n.Id, ct);
-
-    /// <summary>
-    /// Two counts running over one cell would fight each other at finish — the second one to apply
-    /// overwrites the first with quantities measured before it. Checked wherever a cell can end up
-    /// in a running count: at start, and when the scope of an InProgress document grows.
-    /// </summary>
-    private async Task<IActionResult?> FindNodeCountedElsewhereAsync(
-        Guid stocktakeId, IReadOnlyCollection<Guid> nodeIds, CancellationToken ct)
-    {
-        if (nodeIds.Count == 0) return null;
-
-        var busy = await db.StocktakeNodes
-            .Where(n => nodeIds.Contains(n.StoragePlaceNodeId)
-                        && n.StocktakeId != stocktakeId
-                        && n.Stocktake.Status == StocktakeStatus.InProgress)
-            .OrderBy(n => n.StoragePlaceNode.Name)
-            .Select(n => new { n.StoragePlaceNodeId, n.StoragePlaceNode.Name })
-            .FirstOrDefaultAsync(ct);
-
-        return busy is null
-            ? null
-            : UnprocessableEntity("root", ErrorCode.StocktakeNodeAlreadyInProgress,
-                $"Storage node '{busy.Name}' is already being counted in another stocktake.",
-                new Dictionary<string, object> { ["nodeId"] = busy.StoragePlaceNodeId });
-    }
 
     private StocktakeDto MapWithNodes(Stocktake stocktake, Dictionary<Guid, StoragePlaceNode> nodeById) =>
         mapper.Map<StocktakeDto>(stocktake, opts => opts.Items["nodeById"] = nodeById);
@@ -561,8 +513,8 @@ public class StocktakesController(
 
         if (stocktake.Status == StocktakeStatus.InProgress)
         {
-            var conflict = await FindNodeCountedElsewhereAsync(id, addedIds, ct);
-            if (conflict is not null) return conflict;
+            var conflict = await stocktakes.FindNodeCountedElsewhereAsync(id, addedIds, ct);
+            if (conflict is not null) return Problem(conflict);
         }
 
         var before = await BuildDtoAsync(stocktake, ct);
@@ -912,33 +864,8 @@ public class StocktakesController(
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> Schedule(Guid id, CancellationToken ct = default)
-    {
-        var (stocktake, error) = await LoadStocktakeWithEditAccessAsync(id, ct, includeItems: true);
-        if (error is not null) return error;
-
-        if (stocktake!.Status != StocktakeStatus.Draft)
-            return UnprocessableEntity("root", ErrorCode.StocktakeInvalidStatusTransition,
-                "Only a Draft stocktake can be scheduled.");
-
-        if (stocktake.Type != StocktakeType.Scheduled || stocktake.PlannedDate is null)
-            return UnprocessableEntity("plannedDate", ErrorCode.ValidationError,
-                "Only a scheduled stocktake with a planned date can be scheduled.");
-
-        if (stocktake.Nodes.Count == 0)
-            return UnprocessableEntity("root", ErrorCode.StocktakeHasNoNodes,
-                "Select at least one storage node before scheduling.");
-
-        var before = await BuildDtoAsync(stocktake, ct);
-
-        stocktake.Status = StocktakeStatus.Planned;
-        await db.SaveChangesAsync(ct);
-
-        var after = await BuildDtoAsync(stocktake, ct);
-        await changeLog.CompareAndSaveToChangelog(before, after, StocktakeActions.Scheduled);
-
-        return Ok(after);
-    }
+    public Task<IActionResult> Schedule(Guid id, CancellationToken ct = default) =>
+        TransitionAsync(id, StocktakeTransition.Schedule, ct);
 
     /// <summary>Return a scheduled document to work. Planned → Draft.</summary>
     /// <remarks>
@@ -951,25 +878,8 @@ public class StocktakesController(
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> ToDraft(Guid id, CancellationToken ct = default)
-    {
-        var (stocktake, error) = await LoadStocktakeWithEditAccessAsync(id, ct, includeItems: true);
-        if (error is not null) return error;
-
-        if (stocktake!.Status != StocktakeStatus.Planned)
-            return UnprocessableEntity("root", ErrorCode.StocktakeInvalidStatusTransition,
-                "Only a Planned stocktake can be moved to Draft.");
-
-        var before = await BuildDtoAsync(stocktake, ct);
-
-        stocktake.Status = StocktakeStatus.Draft;
-        await db.SaveChangesAsync(ct);
-
-        var after = await BuildDtoAsync(stocktake, ct);
-        await changeLog.CompareAndSaveToChangelog(before, after, StocktakeActions.MovedToDraft);
-
-        return Ok(after);
-    }
+    public Task<IActionResult> ToDraft(Guid id, CancellationToken ct = default) =>
+        TransitionAsync(id, StocktakeTransition.ToDraft, ct);
 
     /// <summary>Start counting. Draft or Planned → InProgress.</summary>
     /// <remarks>
@@ -984,34 +894,8 @@ public class StocktakesController(
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> Start(Guid id, CancellationToken ct = default)
-    {
-        var (stocktake, error) = await LoadStocktakeWithEditAccessAsync(id, ct, includeItems: true);
-        if (error is not null) return error;
-
-        if (stocktake!.Status is not (StocktakeStatus.Draft or StocktakeStatus.Planned))
-            return UnprocessableEntity("root", ErrorCode.StocktakeInvalidStatusTransition,
-                "Only a Draft or Planned stocktake can be started.");
-
-        if (stocktake.Nodes.Count == 0)
-            return UnprocessableEntity("root", ErrorCode.StocktakeHasNoNodes,
-                "Select at least one storage node before starting.");
-
-        var conflict = await FindNodeCountedElsewhereAsync(
-            id, stocktake.Nodes.Select(n => n.StoragePlaceNodeId).ToList(), ct);
-        if (conflict is not null) return conflict;
-
-        var before = await BuildDtoAsync(stocktake, ct);
-
-        stocktake.Status    = StocktakeStatus.InProgress;
-        stocktake.StartedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
-
-        var after = await BuildDtoAsync(stocktake, ct);
-        await changeLog.CompareAndSaveToChangelog(before, after, StocktakeActions.Started);
-
-        return Ok(after);
-    }
+    public Task<IActionResult> Start(Guid id, CancellationToken ct = default) =>
+        TransitionAsync(id, StocktakeTransition.Start, ct);
 
     /// <summary>Return to scope editing. InProgress → Draft. Counted lines are kept.</summary>
     /// <remarks>
@@ -1024,26 +908,8 @@ public class StocktakesController(
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> Revert(Guid id, CancellationToken ct = default)
-    {
-        var (stocktake, error) = await LoadStocktakeWithEditAccessAsync(id, ct, includeItems: true);
-        if (error is not null) return error;
-
-        if (stocktake!.Status != StocktakeStatus.InProgress)
-            return UnprocessableEntity("root", ErrorCode.StocktakeInvalidStatusTransition,
-                "Only a stocktake in progress can be reverted to Draft.");
-
-        var before = await BuildDtoAsync(stocktake, ct);
-
-        // StartedAt is left in place: it records when counting first began, and Start overwrites it
-        stocktake.Status = StocktakeStatus.Draft;
-        await db.SaveChangesAsync(ct);
-
-        var after = await BuildDtoAsync(stocktake, ct);
-        await changeLog.CompareAndSaveToChangelog(before, after, StocktakeActions.Reverted);
-
-        return Ok(after);
-    }
+    public Task<IActionResult> Revert(Guid id, CancellationToken ct = default) =>
+        TransitionAsync(id, StocktakeTransition.Revert, ct);
 
     /// <summary>Cancel the stocktake without touching stock.</summary>
     /// <remarks>
@@ -1056,25 +922,112 @@ public class StocktakesController(
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> Cancel(Guid id, CancellationToken ct = default)
+    public Task<IActionResult> Cancel(Guid id, CancellationToken ct = default) =>
+        TransitionAsync(id, StocktakeTransition.Cancel, ct);
+
+    // ── POST batch-transition ─────────────────────────────────────────────────
+
+    /// <summary>Apply one transition to several stocktakes in one request, with partial-success semantics.</summary>
+    /// <remarks>
+    /// Body: <c>BatchStocktakeTransitionRequest</c> — <c>ids</c> (duplicates are collapsed) and <c>transition</c>
+    /// (<c>schedule</c>, <c>toDraft</c>, <c>start</c>, <c>revert</c>, <c>cancel</c>). <c>finish</c> is rejected
+    /// with 422 <c>validationError</c> (field <c>transition</c>), since it applies the count to stock and is run
+    /// from the document's own page. Each stocktake goes through the same checks as its single-document
+    /// endpoint and is saved on its own, in request order — so of two documents sharing a cell, <c>start</c>
+    /// succeeds for the first and fails the second with <c>stocktakeNodeAlreadyInProgress</c>. The answer is
+    /// always 200 with <c>DocumentBatchTransitionResponse</c> — successful ids in <c>transitionedIds</c>, the rest
+    /// in <c>failedItems</c> as <c>{ id, number, error }</c>. A stocktake that does not exist or lies outside the
+    /// caller's edit access fails as <c>stocktakeNotFound</c> with a null <c>number</c>.
+    /// Requires <c>stocktakes.edit</c> or <c>stocktakes.edit_assigned</c>.
+    /// </remarks>
+    [HttpPost("batch-transition")]
+    [Authorize]
+    [ProducesResponseType<DocumentBatchTransitionResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> BatchTransition(
+        [FromBody] BatchStocktakeTransitionRequest request, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
+
+        if (request.Transition == StocktakeTransition.Finish)
+            return UnprocessableEntity("transition", ErrorCode.ValidationError,
+                "Stocktakes cannot be finished in a batch.");
+
+        var editable = stocktakes.WithDetails(await Rule.QueryAsync(User, AccessLevel.Edit, ct), includeItems: true);
+
+        return Ok(await batch.TransitionAsync(
+            editable, request.Ids,
+            document => stocktakes.TransitionAsync(document, request.Transition, ct),
+            new DocumentBatchChangelog<Stocktake, StocktakeDto>(changeLog, MapWithNodes),
+            ActionFor(request.Transition),
+            AppProblems.NotFound(ErrorCode.StocktakeNotFound, "Stocktake not found."),
+            ct));
+    }
+
+    // ── POST batch-update-tags ────────────────────────────────────────────────
+
+    /// <summary>Add or remove one tag on several stocktakes in one request, all or nothing. Allowed in any status.</summary>
+    /// <remarks>
+    /// Body: <c>BatchUpdateTagsRequest</c> — <c>ids</c> (duplicates are collapsed), <c>tagId</c> and
+    /// <c>operation</c> (<c>add</c> / <c>remove</c>). Nothing is written unless every stocktake passes: 422
+    /// <c>tagNotFound</c> (field <c>tagId</c>) for an unknown tag, 404 <c>stocktakeNotFound</c> when any
+    /// stocktake does not exist or lies outside the caller's edit access — args <c>count</c> (every rejected id)
+    /// and <c>stocktakeNumbers</c> (only those the caller can view, ascending). Stocktakes that already have (or
+    /// already lack) the tag are left untouched and get no changelog entry. Answers 204.
+    /// Requires <c>stocktakes.edit</c> or <c>stocktakes.edit_assigned</c>.
+    /// </remarks>
+    [HttpPost("batch-update-tags")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> BatchUpdateTags(
+        [FromBody] BatchUpdateTagsRequest request, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
+
+        var problem = await batch.UpdateTagsAsync(
+            stocktakes.WithDetails(await Rule.QueryAsync(User, AccessLevel.Edit, ct), includeItems: true),
+            await Rule.QueryAsync(User, AccessLevel.View, ct),
+            db.StocktakeTags,
+            request,
+            new DocumentBatchChangelog<Stocktake, StocktakeDto>(changeLog, MapWithNodes),
+            new DocumentBatchNotFound(ErrorCode.StocktakeNotFound, "stocktakeNumbers", "stocktakes"),
+            ct);
+
+        return problem is null ? NoContent() : Problem(problem);
+    }
+
+    private async Task<IActionResult> TransitionAsync(Guid id, StocktakeTransition transition, CancellationToken ct)
     {
         var (stocktake, error) = await LoadStocktakeWithEditAccessAsync(id, ct, includeItems: true);
         if (error is not null) return error;
 
-        if (stocktake!.Status is StocktakeStatus.Finished or StocktakeStatus.Canceled)
-            return UnprocessableEntity("root", ErrorCode.StocktakeInvalidStatusTransition,
-                $"Cannot cancel a stocktake in '{stocktake.Status}' status.");
+        var before = await BuildDtoAsync(stocktake!, ct);
 
-        var before = await BuildDtoAsync(stocktake, ct);
-        stocktake.Status     = StocktakeStatus.Canceled;
-        stocktake.CanceledAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
+        if (await stocktakes.TransitionAsync(stocktake!, transition, ct) is { } problem)
+            return Problem(problem);
 
-        var after = await BuildDtoAsync(stocktake, ct);
-        await changeLog.CompareAndSaveToChangelog(before, after, StocktakeActions.Canceled);
+        var after = transition == StocktakeTransition.Finish
+            ? await ReloadDtoAsync(id, ct)
+            : await BuildDtoAsync(stocktake!, ct);
+        await changeLog.CompareAndSaveToChangelog(before, after, ActionFor(transition));
 
         return Ok(after);
     }
+
+    private static string ActionFor(StocktakeTransition transition) => transition switch
+    {
+        StocktakeTransition.Schedule => StocktakeActions.Scheduled,
+        StocktakeTransition.ToDraft  => StocktakeActions.MovedToDraft,
+        StocktakeTransition.Start    => StocktakeActions.Started,
+        StocktakeTransition.Revert   => StocktakeActions.Reverted,
+        StocktakeTransition.Finish   => StocktakeActions.Finished,
+        StocktakeTransition.Cancel   => StocktakeActions.Canceled,
+        _ => throw new ArgumentOutOfRangeException(nameof(transition), transition, null),
+    };
 
     // ── GET differences ───────────────────────────────────────────────────────
 
@@ -1135,186 +1088,6 @@ public class StocktakesController(
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> Finish(Guid id, CancellationToken ct = default)
-    {
-        var (stocktake, error) = await LoadStocktakeWithEditAccessAsync(id, ct, includeItems: true);
-        if (error is not null) return error;
-
-        if (stocktake!.Status != StocktakeStatus.InProgress)
-            return UnprocessableEntity("root", ErrorCode.StocktakeInvalidStatusTransition,
-                "Stocktake must be in progress to finish.");
-
-        if (stocktake.Nodes.Count == 0)
-            return UnprocessableEntity("root", ErrorCode.StocktakeHasNoNodes, "Stocktake has no nodes.");
-
-        var before = await BuildDtoAsync(stocktake, ct);
-
-        IActionResult? blocked = null;
-
-        try
-        {
-            await db.Database.ExecuteInTransactionAsync("stocktakes.finish", async () =>
-            {
-                // Reload inside the transaction so the status check sees the committed state
-                var fresh = await BaseQuery(includeItems: true).FirstAsync(s => s.Id == id, ct);
-                if (fresh.Status != StocktakeStatus.InProgress)
-                    return; // finished concurrently
-
-                var plan = await diffCalculator.BuildPlanAsync(fresh, ct);
-                if (plan.Problems.Count > 0)
-                {
-                    var problem = plan.Problems[0];
-                    blocked = UnprocessableEntity("root", problem.Code, problem.Message);
-                    return;
-                }
-
-                await ApplyPlanAsync(plan, fresh, ct);
-
-                fresh.Status     = StocktakeStatus.Finished;
-                fresh.FinishedAt = DateTime.UtcNow;
-                await db.SaveChangesAsync(ct);
-            }, ct);
-        }
-        catch (InventoryWriteConflictException)
-        {
-            return Conflict(ErrorCode.InventoryWriteConflict,
-                "Stock for this item was changed concurrently; nothing was written.");
-        }
-        catch (InsufficientInventoryException ex)
-        {
-            return UnprocessableEntity("root", ErrorCode.InsufficientInventory,
-                $"Insufficient inventory at node '{ex.NodeId}': requested {ex.Requested}, available {ex.Available}.",
-                ex.ToArgs());
-        }
-        catch (InventoryItemNodeMismatchException)
-        {
-            return UnprocessableEntity("root", ErrorCode.StocktakeConcurrentModification,
-                "Stock changed while the stocktake was being finished. Refresh and try again.");
-        }
-        catch (UnitInventoryItemNotFoundException)
-        {
-            return UnprocessableEntity("root", ErrorCode.UnitInventoryItemNotFound,
-                "One or more unit items were not found.");
-        }
-        catch (StoragePlaceNodeNotFoundException)
-        {
-            return UnprocessableEntity("root", ErrorCode.StoragePlaceNodeNotFound, "Storage node not found.");
-        }
-        catch (Infrastructure.ValidationException ex)
-        {
-            return UnprocessableEntity(ex);
-        }
-
-        if (blocked is not null) return blocked;
-
-        var after = await ReloadDtoAsync(id, ct);
-        await changeLog.CompareAndSaveToChangelog(before, after, StocktakeActions.Finished);
-
-        return Ok(after);
-    }
-
-    /// <summary>
-    /// Applies the plan in a fixed order: relocations first so a serial moved between two counted cells
-    /// is not detached by the cell that lost it, then detaches, then arrivals, then standard counts.
-    /// </summary>
-    private async Task ApplyPlanAsync(StocktakePlan plan, Stocktake fresh, CancellationToken ct)
-    {
-        var itemById = fresh.Nodes.SelectMany(n => n.Items).ToDictionary(i => i.Id);
-        var scopeByNodeId = fresh.Nodes.ToDictionary(n => n.StoragePlaceNodeId);
-        var context = new StockMovementContext(StocktakeId: fresh.Id);
-
-        foreach (var line in Ordered(plan.Lines))
-        {
-            switch (line.Resolution)
-            {
-                case StocktakeDifferenceResolution.Relocation:
-                    await inventory.MoveUnitItemAsync(
-                        line.UnitInventoryItemId!.Value, line.StoragePlaceNodeId,
-                        action: InventoryActions.StocktakeRelocation, context: context, ct: ct);
-                    break;
-
-                case StocktakeDifferenceResolution.DetachUnit:
-                    await inventory.DetachUnitItemAsync(
-                        line.UnitInventoryItemId!.Value, line.StoragePlaceNodeId,
-                        action: InventoryActions.StocktakeShortage, context: context, ct: ct);
-                    break;
-
-                case StocktakeDifferenceResolution.ReattachUnit:
-                    await inventory.ReattachUnitItemAsync(
-                        line.UnitInventoryItemId!.Value, line.StoragePlaceNodeId,
-                        action: InventoryActions.StocktakeSurplus, context: context, ct: ct);
-                    break;
-
-                case StocktakeDifferenceResolution.CreateUnit:
-                    try
-                    {
-                        await inventory.PlaceUnitItemToNodeAsync(
-                            line.StoragePlaceNodeId, line.CatalogItemId, line.InventoryNumber!,
-                            action: InventoryActions.StocktakeSurplus, context: context, ct: ct);
-                    }
-                    catch (DbUpdateException e) when (UniqueViolations.IsUnitInventoryNumber(e))
-                    {
-                        // Race: the soft check passed but the unique index on the number fired
-                        throw new Infrastructure.ValidationException("inventoryNumber",
-                            ErrorCode.UnitInventoryItemNumberDuplicate,
-                            $"Инвентарный номер «{line.InventoryNumber}» уже используется для этого товара.");
-                    }
-                    break;
-
-                case StocktakeDifferenceResolution.Surplus:
-                    await inventory.AddStandardItemsToNodeAsync(
-                        line.StoragePlaceNodeId, line.CatalogItemId, line.Delta,
-                        action: InventoryActions.StocktakeSurplus, context: context, ct: ct);
-                    break;
-
-                case StocktakeDifferenceResolution.Shortage:
-                    await inventory.RemoveStandardItemsFromNodeAsync(
-                        line.StoragePlaceNodeId, line.CatalogItemId, -line.Delta,
-                        action: InventoryActions.StocktakeShortage, context: context, ct: ct);
-                    break;
-            }
-
-            if (line.StocktakeItemId is { } itemId)
-            {
-                if (itemById.TryGetValue(itemId, out var item))
-                    item.AppliedDelta = line.Delta;
-            }
-            else if (line.Resolution != StocktakeDifferenceResolution.NoChange)
-            {
-                // Stock the document never mentioned still got written off — persist it as a line so
-                // the finished document shows the whole correction, not just the movement journal
-                MaterializeLine(line, scopeByNodeId);
-            }
-        }
-    }
-
-    private void MaterializeLine(StocktakePlanLine line, Dictionary<Guid, StocktakeNode> scopeByNodeId)
-    {
-        if (!scopeByNodeId.TryGetValue(line.StoragePlaceNodeId, out var scopeNode)) return;
-
-        db.StocktakeItems.Add(new StocktakeItem
-        {
-            Id                  = Guid.NewGuid(),
-            StocktakeNodeId     = scopeNode.Id,
-            Kind                = line.Kind,
-            CatalogItemId       = line.CatalogItemId,
-            CountedQuantity     = line.Counted,
-            InventoryNumber     = line.InventoryNumber,
-            UnitInventoryItemId = line.UnitInventoryItemId,
-            Notes               = "Не указано в документе — обнулено при проведении",
-            AppliedDelta        = line.Delta,
-        });
-    }
-
-    private static IEnumerable<StocktakePlanLine> Ordered(IReadOnlyList<StocktakePlanLine> lines)
-    {
-        static int Rank(StocktakeDifferenceResolution r) => r switch
-        {
-            StocktakeDifferenceResolution.Relocation => 0,
-            StocktakeDifferenceResolution.DetachUnit => 1,
-            _ => 2,
-        };
-
-        return lines.OrderBy(l => Rank(l.Resolution));
-    }
+    public Task<IActionResult> Finish(Guid id, CancellationToken ct = default) =>
+        TransitionAsync(id, StocktakeTransition.Finish, ct);
 }

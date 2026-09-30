@@ -192,7 +192,7 @@ The header uses the same cell with `indeterminate` and the hook's `toggleAll`:
 />
 ```
 
-Remaining props are forwarded to `TableCell`. Used by the orders list.
+Remaining props are forwarded to `TableCell`. Used by the orders, receipts, write-offs and stocktakes lists.
 
 ### `NotesTableCell`
 
@@ -355,7 +355,8 @@ pair it with [`useSelectedItems`](./frontend-state.md#useselecteditemsgetid-fres
 
 Actions arrive as data, `actions: BulkAction[]` — `{key, label, icon?, count?, onClick, pending?, disabled?,
 primary?, danger?}` — and the bar owns their markup. `primary` actions become toolbar buttons, the rest go under
-an «Ещё» dropdown; below `sm` every action goes into a single «Действия» dropdown. `count` is appended to the
+an «Ещё» dropdown; below `sm` every action goes into a single «Действия» dropdown. A dropdown that would hold a
+single action with no button beside it is dropped and that action becomes a button, red when it is `danger`. `count` is appended to the
 label as `(N)`, `pending` swaps the icon for a spinner (the dropdown button spins while any of its items is
 pending and is disabled only when all of them are), `danger` paints the menu item red. With nothing selected
 the bar falls back to the list summary — `info: TableInfoStat[]` rendered as a [`TableInfoBar`](#tableinfobar),
@@ -366,6 +367,20 @@ something is selected and never needs a separate visibility flag.
 
 An action that needs its own dialog stays data too: a hook returns `{getAction, dialogs}`, the page puts
 `getAction(...)` into the list and renders `dialogs` next to the table (see `useDownloadLabelsAction`).
+
+### `useDocumentBulkTransitions`
+
+Status transitions of a document list's selection, for modules whose backend exposes
+`POST /{module}/batch-transition` (receipts, write-offs, stocktakes). Returns `{actions, dialogs, alerts}`:
+`actions` go into the `BulkBar` list, `dialogs` is the `ConfirmDialog` of the transition being confirmed, `alerts`
+lists the documents the backend refused, one line per document with its error.
+
+The transitions come as data — `DocumentBulkTransition<TStatus, TTransition>[]` in a
+`components/{module}/{module}BulkTransitions.tsx` file: `{transition, from, label, failedVerb, icon, primary?,
+danger?, confirm?}`. An action appears only while the selection holds a document in one of its `from` statuses and
+sends only those; `confirm` asks first. `enabled` is the page's edit permission; `onTransitioned` gets the ids
+that went through — pass `useSelectedItems`' `removeIds`. The orders list keeps its own transitions
+(`orderBulkTransitions.tsx`), since its endpoint takes a target status rather than a transition name.
 
 ### `TableInfoBar`
 
@@ -973,9 +988,14 @@ each switch and one id to `DOCUMENT_TAGS_QUERY_IDS`.
 - **`TagChips`** — read-only chips, a dash when empty; used in table cells and in `DocumentTagsRow`.
 - **`BulkTagsDialog`** — the «Теги» bulk action's dialog: an «Добавить / Удалить» switch and one tag picked
   through `DocumentTagsAutocomplete` (the latest pick replaces the previous one, so a new name can still be
-  created inline). It knows nothing about the endpoint — `onConfirm(tagId, operation)` goes to a per-module
-  hook in the `{getAction, dialogs}` shape (`useOrderTagsBulkAction`), which sends the module's
-  `batch-update-tags` and keeps the dialog open with the error on failure, since the batch is all or nothing.
+  created inline). It knows nothing about the endpoint — `onConfirm(tagId, operation)` goes to
+  `useBulkTagsAction`, which sends the module's `batch-update-tags` and keeps the dialog open with the error on
+  failure, since the batch is all or nothing.
+- **`useBulkTagsAction`** — the «Теги» bulk action in the `{getAction, dialogs}` shape. The module passes its
+  generated `…BatchUpdateTagsMutation()`, an `invalidate` callback, its noun and
+  `notFound: {code, numbersArg, formatNumber}` — the 404 code and the arg that lists the blocking documents, which
+  the hook turns into «Не найдены или недоступны для редактирования: …». Orders wrap it in
+  `useOrderTagsBulkAction`; the receipt, write-off and stocktake lists call it directly.
 
 ## Orders
 

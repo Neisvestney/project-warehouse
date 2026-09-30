@@ -3,7 +3,7 @@ using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Domain;
 
-public class Stocktake : IHasIdentity
+public class Stocktake : ITaggedWarehouseDocument<StocktakeTag>
 {
     public Guid Id { get; set; }
 

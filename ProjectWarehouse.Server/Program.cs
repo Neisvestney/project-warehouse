@@ -662,6 +662,10 @@ try
     builder.Services.AddScoped<IEntityAccessService, EntityAccessService>();
     builder.Services.AddScoped<IUserQueryFilterService, UserQueryFilterService>();
     builder.Services.AddScoped<IOrderService, OrderService>();
+    builder.Services.AddScoped<IReceiptService, ReceiptService>();
+    builder.Services.AddScoped<IWriteoffService, WriteoffService>();
+    builder.Services.AddScoped<IStocktakeService, StocktakeService>();
+    builder.Services.AddScoped<IDocumentBatchService, DocumentBatchService>();
     builder.Services.AddScoped<IAssemblyChangeNotifier, AssemblyChangeNotifier>();
     builder.Services.AddScoped<IRequestTimeZoneAccessor, RequestTimeZoneAccessor>();
     builder.Services.AddScoped<IWarehouseTimeZoneResolver, WarehouseTimeZoneResolver>();
