@@ -1,7 +1,6 @@
 import React from "react";
 import {Collapse, Divider, List, ListItemButton, ListItemIcon, ListItemText} from "@mui/material";
 import type {Theme} from "@mui/material/styles";
-import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {Link, useLocation} from "react-router";
 import {isActive, isGroup, isSection} from "./navItems.ts";
@@ -127,8 +126,16 @@ function NavGroup({
       >
         {item.icon && <ListItemIcon sx={{minWidth: 32}}>{item.icon}</ListItemIcon>}
         <ListItemText primary={item.label} slotProps={{primary: {noWrap: true}}} />
-        {!rail &&
-          (open ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />)}
+        {!rail && (
+          <ExpandMoreIcon
+            fontSize="small"
+            sx={{
+              transition: (t: Theme) =>
+                t.transitions.create("transform", {duration: t.transitions.duration.shorter}),
+              transform: open ? "rotate(180deg)" : "none",
+            }}
+          />
+        )}
       </ListItemButton>
       <Collapse in={open} timeout="auto" unmountOnExit>
         <List disablePadding dense>
