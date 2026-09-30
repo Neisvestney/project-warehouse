@@ -1,6 +1,6 @@
 namespace ProjectWarehouse.Server.Models.Analytics;
 
-public class ChannelsLossesRequest : AnalyticsFilterRequest
+public class ChannelsLossesRequest : ChannelsFilterRequest
 {
     /// <summary>Null picks one by the period length, as in the timeseries.</summary>
     public AnalyticsStep? Step { get; init; }

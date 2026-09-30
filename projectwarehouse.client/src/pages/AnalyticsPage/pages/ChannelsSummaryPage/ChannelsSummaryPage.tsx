@@ -153,9 +153,17 @@ function ChannelsSummaryPage() {
         </Box>
 
         <TopItemsDialog open={!!topList} onClose={closeTopList} filters={filters} />
-        <DynamicsFullscreen state={fullscreen} directTagIds={filters.directTagIds} />
-        <ReturnsFullscreen state={fullscreen} moneyMode={filters.moneyMode} />
-        <CancellationsFullscreen state={fullscreen} />
+        <DynamicsFullscreen
+          state={fullscreen}
+          directTagIds={filters.directTagIds}
+          catalogItemIds={filters.catalogItemIds}
+        />
+        <ReturnsFullscreen
+          state={fullscreen}
+          moneyMode={filters.moneyMode}
+          catalogItemIds={filters.catalogItemIds}
+        />
+        <CancellationsFullscreen state={fullscreen} catalogItemIds={filters.catalogItemIds} />
       </Stack>
     </CatalogItemDrawerHost>
   );

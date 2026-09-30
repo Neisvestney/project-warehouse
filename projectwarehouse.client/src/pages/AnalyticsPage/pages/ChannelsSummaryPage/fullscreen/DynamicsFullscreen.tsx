@@ -9,9 +9,10 @@ import type {useChartFullscreen} from "./useChartFullscreen";
 interface DynamicsFullscreenProps {
   state: ReturnType<typeof useChartFullscreen>;
   directTagIds: string[];
+  catalogItemIds: string[];
 }
 
-function DynamicsFullscreen({state, directTagIds}: DynamicsFullscreenProps) {
+function DynamicsFullscreen({state, directTagIds, catalogItemIds}: DynamicsFullscreenProps) {
   const open = state.view === "dynamics";
   const {data, error, isFetching} = useQuery({
     ...analyticsGetChannelsTimeseriesOptions({
@@ -20,6 +21,7 @@ function DynamicsFullscreen({state, directTagIds}: DynamicsFullscreenProps) {
         To: state.period.to,
         ...channelSelectionQuery(state.channels),
         DirectTagIds: directTagIds,
+        CatalogItemIds: catalogItemIds,
         Step: state.step ?? undefined,
         Measure: state.measure,
       },

@@ -76,13 +76,14 @@ public class AnalyticsChannelsService(
         var options = await settings.GetOptionsAsync(ct);
         var accounts = await queries.LoadAccountsAsync(request, ct);
         var accountIds = accounts.Select(a => a.Id).ToList();
+        var itemIds = AnalyticsQueries.ItemIds(request);
 
         var marketplaceRows = accountIds.Count == 0
             ? []
-            : await BuildMarketplaceRowsAsync(accountIds, period, request.MoneyMode, ct);
+            : await BuildMarketplaceRowsAsync(accountIds, itemIds, period, request.MoneyMode, ct);
 
         var directRows = request.IncludeDirect
-            ? await BuildDirectRowsAsync(request.DirectTagIds, period, ct)
+            ? await BuildDirectRowsAsync(request.DirectTagIds, itemIds, period, ct)
             : [];
 
         // Shares are taken among the selected channels; the Direct total counts once, its tag rows overlap
@@ -141,7 +142,7 @@ public class AnalyticsChannelsService(
 
         var (cancellations, topReasons) = accountIds.Count == 0
             ? ([], [])
-            : await BuildCancellationsAsync(accountIds, period, ct);
+            : await BuildCancellationsAsync(accountIds, itemIds, period, ct);
 
         return new ChannelsSummaryDto
         {
@@ -199,6 +200,7 @@ public class AnalyticsChannelsService(
         var intervals = AnalyticsCalculator.SplitIntervals(period.From, period.To, step);
         var accounts = await queries.LoadAccountsAsync(request, ct);
         var accountIds = accounts.Select(a => a.Id).ToList();
+        var itemIds = AnalyticsQueries.ItemIds(request);
 
         var result = new ChannelsReturnsDto
         {
@@ -216,10 +218,10 @@ public class AnalyticsChannelsService(
         if (accountIds.Count == 0) return result;
 
         var offset = period.OffsetMinutes;
-        var cohort = queries.CohortReturns(accountIds, period.FromUtc, period.ToUtc);
+        var cohort = queries.CohortReturns(accountIds, period.FromUtc, period.ToUtc, itemIds);
 
         var soldUnits = await queries
-            .SaleLines(accountIds, period.FromUtc, period.ToUtc)
+            .SaleLines(accountIds, period.FromUtc, period.ToUtc, itemIds)
             .GroupBy(i => i.Order.MarketplaceOrder!.MarketplaceAccountId)
             .Select(g => new { AccountId = g.Key, Units = g.Sum(i => i.Quantity) })
             .ToDictionaryAsync(r => r.AccountId, r => r.Units, ct);
@@ -278,7 +280,7 @@ public class AnalyticsChannelsService(
             .ToList();
 
         var days = await queries
-            .ReturnsByReturnDate(accountIds, period.FromUtc, period.ToUtc)
+            .ReturnsByReturnDate(accountIds, period.FromUtc, period.ToUtc, itemIds)
             .GroupBy(r => new
             {
                 AccountId = r.Order!.MarketplaceOrder!.MarketplaceAccountId,
@@ -346,7 +348,7 @@ public class AnalyticsChannelsService(
             ? []
             : await queries
                 .MarketplaceOrders(accountIds, AnalyticsQueries.MarketplaceCountedStatuses, period.FromUtc,
-                    period.ToUtc)
+                    period.ToUtc, AnalyticsQueries.ItemIds(request))
                 .GroupBy(o => new
                 {
                     AccountId = o.MarketplaceOrder!.MarketplaceAccountId,
@@ -387,6 +389,7 @@ public class AnalyticsChannelsService(
         var accounts = await queries.LoadAccountsAsync(request, ct);
         var accountIds = accounts.Select(a => a.Id).ToList();
         var offset = period.OffsetMinutes;
+        var itemIds = AnalyticsQueries.ItemIds(request);
 
         // Every channel of the selection, marketplace and Direct alike; the date is always the order's
         var outcomes = new List<OrderOutcomeDay>();
@@ -398,7 +401,7 @@ public class AnalyticsChannelsService(
         {
             outcomes.AddRange(await queries
                 .MarketplaceOrders(accountIds, AnalyticsQueries.MarketplaceCountedStatuses, period.FromUtc,
-                    period.ToUtc)
+                    period.ToUtc, itemIds)
                 .GroupBy(o => new
                 {
                     Day = o.EffectiveDate.AddMinutes(offset).Date,
@@ -408,13 +411,13 @@ public class AnalyticsChannelsService(
                 .ToListAsync(ct));
 
             shopUnits = await queries
-                .SaleLines(accountIds, period.FromUtc, period.ToUtc)
+                .SaleLines(accountIds, period.FromUtc, period.ToUtc, itemIds)
                 .GroupBy(i => i.Order.EffectiveDate.AddMinutes(offset).Date)
                 .Select(g => new DayValue { Day = g.Key, Value = g.Sum(i => i.Quantity) })
                 .ToListAsync(ct);
 
             returned = await queries
-                .CohortReturns(accountIds, period.FromUtc, period.ToUtc)
+                .CohortReturns(accountIds, period.FromUtc, period.ToUtc, itemIds)
                 .GroupBy(r => r.Order!.EffectiveDate.AddMinutes(offset).Date)
                 .Select(g => new DayValue { Day = g.Key, Value = g.Sum(r => r.Quantity) })
                 .ToListAsync(ct);
@@ -424,7 +427,7 @@ public class AnalyticsChannelsService(
         {
             outcomes.AddRange(await queries
                 .DirectOrders(request.DirectTagIds, AnalyticsQueries.DirectCountedStatuses, period.FromUtc,
-                    period.ToUtc)
+                    period.ToUtc, itemIds)
                 .GroupBy(o => new
                 {
                     Day = o.EffectiveDate.AddMinutes(offset).Date,
@@ -435,10 +438,8 @@ public class AnalyticsChannelsService(
 
             if (request.Measure == AnalyticsMeasure.Units)
                 directUnits = await queries
-                    .DirectOrders(request.DirectTagIds, AnalyticsQueries.DirectSaleStatuses, period.FromUtc,
-                        period.ToUtc)
-                    .SelectMany(o => o.Boxes)
-                    .SelectMany(b => b.Components)
+                    .DirectComponents(request.DirectTagIds, AnalyticsQueries.DirectSaleStatuses, period.FromUtc,
+                        period.ToUtc, itemIds)
                     .GroupBy(c => c.OrderBox.Order.EffectiveDate.AddMinutes(offset).Date)
                     .Select(g => new DayValue { Day = g.Key, Value = g.Sum(c => c.Quantity) })
                     .ToListAsync(ct);
@@ -487,12 +488,13 @@ public class AnalyticsChannelsService(
         var accounts = await queries.LoadAccountsAsync(request, ct);
         var accountIds = accounts.Select(a => a.Id).ToList();
         var payoutMode = request.MoneyMode == AnalyticsMoneyMode.Payout;
+        var itemIds = AnalyticsQueries.ItemIds(request);
 
         // Grouped with the null item and currency as well: those lines still count units and unlinked lines
         var lines = accountIds.Count == 0
             ? []
             : await queries
-                .SaleLines(accountIds, period.FromUtc, period.ToUtc)
+                .SaleLines(accountIds, period.FromUtc, period.ToUtc, itemIds)
                 .GroupBy(i => new { i.CatalogItemId, i.CurrencyCode })
                 .Select(g => new
                 {
@@ -507,7 +509,7 @@ public class AnalyticsChannelsService(
         var payouts = accountIds.Count == 0 || !payoutMode
             ? []
             : await queries
-                .SaleAccruals(accountIds, period.FromUtc, period.ToUtc)
+                .SaleAccruals(accountIds, period.FromUtc, period.ToUtc, itemIds)
                 .Where(a => a.CatalogItemId != null)
                 .GroupBy(a => new { CatalogItemId = a.CatalogItemId!.Value, a.CurrencyCode })
                 .Select(g => new { g.Key.CatalogItemId, g.Key.CurrencyCode, Amount = g.Sum(a => a.Amount) })
@@ -515,10 +517,8 @@ public class AnalyticsChannelsService(
 
         var directUnits = request.IncludeDirect
             ? await queries
-                .DirectOrders(request.DirectTagIds, AnalyticsQueries.DirectSaleStatuses, period.FromUtc,
-                    period.ToUtc)
-                .SelectMany(o => o.Boxes)
-                .SelectMany(b => b.Components)
+                .DirectComponents(request.DirectTagIds, AnalyticsQueries.DirectSaleStatuses, period.FromUtc,
+                    period.ToUtc, itemIds)
                 .GroupBy(c => c.CatalogItemId)
                 .Select(g => new { CatalogItemId = g.Key, Units = g.Sum(c => c.Quantity) })
                 .ToListAsync(ct)
@@ -600,7 +600,8 @@ public class AnalyticsChannelsService(
         // Direct is loaded per order below: its tag rows need each order's tags
         var days = await LoadSaleDaysAsync(request, accounts, request.Measure, includeDirect: false, period, ct);
         var directOrders = request.IncludeDirect
-            ? await LoadDirectOrderDaysAsync(request.DirectTagIds, request.Measure, period, ct)
+            ? await LoadDirectOrderDaysAsync(
+                request.DirectTagIds, AnalyticsQueries.ItemIds(request), request.Measure, period, ct)
             : [];
 
         // Only finished days count: today and the days ahead have not sold out yet and would drag the averages down
@@ -672,7 +673,7 @@ public class AnalyticsChannelsService(
 
     /// <summary>Sale orders or units per channel and day; Direct counts as one channel, tags only narrow it.</summary>
     private async Task<List<DayValue>> LoadSaleDaysAsync(
-        AnalyticsFilterRequest request,
+        ChannelsFilterRequest request,
         List<AnalyticsAccount> accounts,
         AnalyticsMeasure measure,
         bool includeDirect,
@@ -680,6 +681,7 @@ public class AnalyticsChannelsService(
         CancellationToken ct)
     {
         var accountIds = accounts.Select(a => a.Id).ToList();
+        var itemIds = AnalyticsQueries.ItemIds(request);
         var offset = period.OffsetMinutes;
         var days = new List<DayValue>();
 
@@ -688,7 +690,7 @@ public class AnalyticsChannelsService(
             days.AddRange(measure == AnalyticsMeasure.Orders
                 ? await queries
                     .MarketplaceOrders(accountIds, AnalyticsQueries.MarketplaceSaleStatuses, period.FromUtc,
-                        period.ToUtc)
+                        period.ToUtc, itemIds)
                     .GroupBy(o => new
                     {
                         AccountId = o.MarketplaceOrder!.MarketplaceAccountId,
@@ -697,7 +699,7 @@ public class AnalyticsChannelsService(
                     .Select(g => new DayValue { AccountId = g.Key.AccountId, Day = g.Key.Day, Value = g.Count() })
                     .ToListAsync(ct)
                 : await queries
-                    .SaleLines(accountIds, period.FromUtc, period.ToUtc)
+                    .SaleLines(accountIds, period.FromUtc, period.ToUtc, itemIds)
                     .GroupBy(i => new
                     {
                         AccountId = i.Order.MarketplaceOrder!.MarketplaceAccountId,
@@ -712,17 +714,16 @@ public class AnalyticsChannelsService(
 
         if (includeDirect)
         {
-            var direct = queries.DirectOrders(
-                request.DirectTagIds, AnalyticsQueries.DirectSaleStatuses, period.FromUtc, period.ToUtc);
-
             days.AddRange(measure == AnalyticsMeasure.Orders
-                ? await direct
+                ? await queries
+                    .DirectOrders(request.DirectTagIds, AnalyticsQueries.DirectSaleStatuses, period.FromUtc,
+                        period.ToUtc, itemIds)
                     .GroupBy(o => o.EffectiveDate.AddMinutes(offset).Date)
                     .Select(g => new DayValue { Day = g.Key, Value = g.Count() })
                     .ToListAsync(ct)
-                : await direct
-                    .SelectMany(o => o.Boxes)
-                    .SelectMany(b => b.Components)
+                : await queries
+                    .DirectComponents(request.DirectTagIds, AnalyticsQueries.DirectSaleStatuses, period.FromUtc,
+                        period.ToUtc, itemIds)
                     .GroupBy(c => c.OrderBox.Order.EffectiveDate.AddMinutes(offset).Date)
                     .Select(g => new DayValue { Day = g.Key, Value = g.Sum(c => c.Quantity) })
                     .ToListAsync(ct));
@@ -733,28 +734,33 @@ public class AnalyticsChannelsService(
 
     /// <summary>One entry per Direct sale order with its tags: the value is the order itself or its units.</summary>
     private Task<List<DirectOrderDay>> LoadDirectOrderDaysAsync(
-        Guid[]? tagIds, AnalyticsMeasure measure, AnalyticsPeriod period, CancellationToken ct)
+        Guid[]? tagIds, Guid[]? itemIds, AnalyticsMeasure measure, AnalyticsPeriod period, CancellationToken ct)
     {
         var offset = period.OffsetMinutes;
         var units = measure == AnalyticsMeasure.Units;
 
         return queries
-            .DirectOrders(tagIds, AnalyticsQueries.DirectSaleStatuses, period.FromUtc, period.ToUtc)
+            .DirectOrders(tagIds, AnalyticsQueries.DirectSaleStatuses, period.FromUtc, period.ToUtc, itemIds)
             .Select(o => new DirectOrderDay
             {
                 Day = o.EffectiveDate.AddMinutes(offset).Date,
-                Value = units ? o.Boxes.SelectMany(b => b.Components).Sum(c => c.Quantity) : 1,
+                Value = units
+                    ? o.Boxes.SelectMany(b => b.Components)
+                        .Where(c => itemIds == null || itemIds.Contains(c.CatalogItemId))
+                        .Sum(c => c.Quantity)
+                    : 1,
                 TagIds = o.Tags.Select(t => t.Id).ToList(),
             })
             .ToListAsync(ct);
     }
 
     private async Task<Dictionary<Guid, ChannelSummaryRowDto>> BuildMarketplaceRowsAsync(
-        List<Guid> accountIds, AnalyticsPeriod period, AnalyticsMoneyMode moneyMode, CancellationToken ct)
+        List<Guid> accountIds, Guid[]? itemIds, AnalyticsPeriod period, AnalyticsMoneyMode moneyMode,
+        CancellationToken ct)
     {
         var orderCounts = await queries
             .MarketplaceOrders(accountIds, AnalyticsQueries.MarketplaceCountedStatuses, period.PreviousFromUtc,
-                period.ToUtc)
+                period.ToUtc, itemIds)
             .GroupBy(o => new
             {
                 AccountId = o.MarketplaceOrder!.MarketplaceAccountId,
@@ -765,7 +771,7 @@ public class AnalyticsChannelsService(
             .ToListAsync(ct);
 
         var lines = await queries
-            .SaleLines(accountIds, period.FromUtc, period.ToUtc)
+            .SaleLines(accountIds, period.FromUtc, period.ToUtc, itemIds)
             // Accrual is in the key rather than in a Count: a navigation read inside an aggregate becomes a
             // subquery per group. It is the order's, so an order's lines never split and distinct counts add up.
             .GroupBy(i => new
@@ -790,14 +796,14 @@ public class AnalyticsChannelsService(
             .ToListAsync(ct);
 
         var returnedUnits = await queries
-            .CohortReturns(accountIds, period.FromUtc, period.ToUtc)
+            .CohortReturns(accountIds, period.FromUtc, period.ToUtc, itemIds)
             .GroupBy(r => r.Order!.MarketplaceOrder!.MarketplaceAccountId)
             .Select(g => new { AccountId = g.Key, Quantity = g.Sum(r => r.Quantity) })
             .ToDictionaryAsync(r => r.AccountId, r => r.Quantity, ct);
 
         var payouts = moneyMode == AnalyticsMoneyMode.Payout
             ? await queries
-                .SaleAccruals(accountIds, period.FromUtc, period.ToUtc)
+                .SaleAccruals(accountIds, period.FromUtc, period.ToUtc, itemIds)
                 .GroupBy(a => new { a.MarketplaceAccountId, a.CurrencyCode, a.OrderId })
                 .Select(g => new
                 {
@@ -876,15 +882,18 @@ public class AnalyticsChannelsService(
     }
 
     private async Task<List<ChannelSummaryRowDto>> BuildDirectRowsAsync(
-        Guid[]? tagIds, AnalyticsPeriod period, CancellationToken ct)
+        Guid[]? tagIds, Guid[]? itemIds, AnalyticsPeriod period, CancellationToken ct)
     {
         var orders = await queries
-            .DirectOrders(tagIds, AnalyticsQueries.DirectCountedStatuses, period.PreviousFromUtc, period.ToUtc)
+            .DirectOrders(tagIds, AnalyticsQueries.DirectCountedStatuses, period.PreviousFromUtc, period.ToUtc,
+                itemIds)
             .Select(o => new DirectOrderRow
             {
                 IsCurrent = o.EffectiveDate >= period.FromUtc,
                 IsSale = o.Status != OrderStatus.Canceled,
-                Units = o.Boxes.SelectMany(b => b.Components).Sum(c => c.Quantity),
+                Units = o.Boxes.SelectMany(b => b.Components)
+                    .Where(c => itemIds == null || itemIds.Contains(c.CatalogItemId))
+                    .Sum(c => c.Quantity),
                 TagIds = o.Tags.Select(t => t.Id).ToList(),
             })
             .ToListAsync(ct);
@@ -928,10 +937,10 @@ public class AnalyticsChannelsService(
     }
 
     private async Task<(List<ChannelCancellationsDto> ByAccount, List<CancelReasonCountDto> TopReasons)>
-        BuildCancellationsAsync(List<Guid> accountIds, AnalyticsPeriod period, CancellationToken ct)
+        BuildCancellationsAsync(List<Guid> accountIds, Guid[]? itemIds, AnalyticsPeriod period, CancellationToken ct)
     {
         var cancelled = queries
-            .MarketplaceOrders(accountIds, [MarketplaceOrderStatus.Cancelled], period.FromUtc, period.ToUtc)
+            .MarketplaceOrders(accountIds, [MarketplaceOrderStatus.Cancelled], period.FromUtc, period.ToUtc, itemIds)
             .Select(o => o.MarketplaceOrder!);
 
         var byType = await cancelled
