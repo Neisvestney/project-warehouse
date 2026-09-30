@@ -9,15 +9,26 @@ export interface SidebarNavLeafItem {
 
 export interface SidebarNavGroup {
   label: string;
-  defaultPath: string;
+  key: string;
   children: SidebarNavLeafItem[];
   icon?: React.ReactElement;
 }
 
 export type SidebarNavItem = SidebarNavLeafItem | SidebarNavGroup;
 
-export function isGroup(item: SidebarNavItem): item is SidebarNavGroup {
+export interface SidebarNavSection {
+  key: string;
+  items: SidebarNavItem[];
+}
+
+export type SidebarNavEntry = SidebarNavItem | SidebarNavSection;
+
+export function isGroup(item: SidebarNavEntry): item is SidebarNavGroup {
   return "children" in item;
+}
+
+export function isSection(entry: SidebarNavEntry): entry is SidebarNavSection {
+  return "items" in entry;
 }
 
 export function isActive(path: string, locationPathname: string): boolean {

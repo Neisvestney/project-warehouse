@@ -24,21 +24,17 @@ import {usePeriodicUpdateCheck} from "@/hooks/usePeriodicUpdateCheck.ts";
 import TelemetryRouteLogger from "@/components/TelemetryRouteLogger.tsx";
 import ThemeColorMeta from "@/components/ThemeColorMeta.tsx";
 import PageTitle from "@/components/PageTitle.tsx";
+import {buildNavRoutes} from "@/navigation/buildNavRoutes.tsx";
 
 const HomePage = React.lazy(() => import("@/pages/HomePage/HomePage.tsx"));
 const MyProfilePage = React.lazy(() => import("@/pages/MyProfilePage/MyProfilePage.tsx"));
 const ScannerPage = React.lazy(() => import("@/pages/ScannerPage/ScannerPage.tsx"));
 const LoginPage = React.lazy(() => import("@/pages/LoginPage/LoginPage.tsx"));
-const SettingsPage = React.lazy(() => import("@/pages/SettingsPage/SettingsPage.tsx"));
 const PrintPage = React.lazy(() => import("@/pages/PrintPage/PrintPage.tsx"));
 const StocktakeNodePrintPage = React.lazy(
   () => import("@/pages/StocktakeNodePrintPage/StocktakeNodePrintPage.tsx"),
 );
 const ReceiptPrintPage = React.lazy(() => import("@/pages/ReceiptPrintPage/ReceiptPrintPage.tsx"));
-const CatalogPage = React.lazy(() => import("@/pages/CatalogPage/CatalogPage.tsx"));
-const StoragePage = React.lazy(() => import("@/pages/StoragePage/StoragePage.tsx"));
-const OperationsPage = React.lazy(() => import("@/pages/OperationsPage/OperationsPage.tsx"));
-const AnalyticsPage = React.lazy(() => import("@/pages/AnalyticsPage/AnalyticsPage.tsx"));
 const ThrowErrorPage = React.lazy(() => import("@/pages/ThrowErrorPage/ThrowErrorPage.tsx"));
 
 function App() {
@@ -137,47 +133,7 @@ function App() {
                             </PageTitle>
                           }
                         />
-                        <ProtectedRoute
-                          path="/catalog"
-                          element={
-                            <PageTitle title="Каталог">
-                              <CatalogPage />
-                            </PageTitle>
-                          }
-                          requiredPermission="catalog.view"
-                        />
-                        <ProtectedRoute
-                          path="/storage/*"
-                          element={
-                            <PageTitle title="Склад">
-                              <StoragePage />
-                            </PageTitle>
-                          }
-                        />
-                        <ProtectedRoute
-                          path="/operations/*"
-                          element={
-                            <PageTitle title="Операции">
-                              <OperationsPage />
-                            </PageTitle>
-                          }
-                        />
-                        <ProtectedRoute
-                          path="/analytics/*"
-                          element={
-                            <PageTitle title="Аналитика">
-                              <AnalyticsPage />
-                            </PageTitle>
-                          }
-                        />
-                        <ProtectedRoute
-                          path="/settings/*"
-                          element={
-                            <PageTitle title="Настройки">
-                              <SettingsPage />
-                            </PageTitle>
-                          }
-                        />
+                        {buildNavRoutes()}
                         <ProtectedRoute path="/throw-error" element={<ThrowErrorPage />} />
                         <ProtectedRoute
                           path="*"

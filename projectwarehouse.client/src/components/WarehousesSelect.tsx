@@ -149,8 +149,11 @@ function SingleSelect({
     enabled: canAutoSelect,
     meta: {suppressGlobalError: true},
   });
+  // enabled: false still serves cached data another select may have fetched, so gate on the flag too
   const onlyWarehouse =
-    onlyWarehouseQuery.data?.total === 1 ? onlyWarehouseQuery.data.items[0] : undefined;
+    canAutoSelect && onlyWarehouseQuery.data?.total === 1
+      ? onlyWarehouseQuery.data.items[0]
+      : undefined;
 
   const autoSelectedRef = useRef(false);
   useEffect(() => {

@@ -32,7 +32,7 @@ import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip.tsx";
 import {
   MARKETPLACE_TYPE_COLORS,
   MARKETPLACE_TYPE_LABELS,
-} from "@/pages/SettingsPage/pages/MarketplacesSettingsPage/marketplaceUtils.ts";
+} from "@/components/marketplace/marketplaceUtils.ts";
 import {formatOrderNumber} from "@/components/orders/orderUtils.ts";
 
 type EntityTypeConfig = {
@@ -220,7 +220,7 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     ),
   },
   marketplaceAccount: {
-    linkTemplate: "/settings/integrations/{id}",
+    linkTemplate: "/marketplaces/{id}",
     typeName: "Аккаунт маркетплейса",
     icon: <StorefrontIcon />,
     renderAdditionalCardContent: (e) => (
@@ -242,12 +242,12 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
     icon: <LocalOfferIcon />,
   },
   marketplaceAutoMapRule: {
-    linkTemplate: "/settings/integrations/auto-map-rules",
+    linkTemplate: "/marketplaces/auto-map-rules",
     typeName: "Правило автосопоставления",
     icon: <RuleIcon />,
   },
   marketplaceAutoMapRules: {
-    linkTemplate: "/settings/integrations/auto-map-rules",
+    linkTemplate: "/marketplaces/auto-map-rules",
     typeName: "Правила автосопоставления",
     icon: <RuleIcon />,
   },

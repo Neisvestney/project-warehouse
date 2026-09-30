@@ -1,118 +1,88 @@
-import React from "react";
-import {Box, List, ListItemButton, ListItemIcon, ListItemText} from "@mui/material";
-import {Link, useLocation} from "react-router";
-import {isActive, isGroup} from "./navItems.ts";
-import type {SidebarNavGroup, SidebarNavItem, SidebarNavLeafItem} from "./navItems.ts";
+import React, {useEffect, useRef, useState} from "react";
+import {Box, Paper, useMediaQuery, useTheme} from "@mui/material";
+import {useLocation} from "react-router";
+import {useFloatTop} from "@/hooks/useFloatTop.ts";
+import SidebarNavTree from "./SidebarNavTree.tsx";
+import type {SidebarNavEntry} from "./navItems.ts";
 
-// The active section takes the accent outright: the `Mui-selected` plate alone does not stand out
-// among a dozen otherwise identical rows.
-const navItemSx = {
-  borderRadius: 1,
-  "&.Mui-selected": {
-    "& .MuiListItemIcon-root": {color: "primary.main"},
-    "& .MuiListItemText-primary": {color: "primary.main", fontWeight: 600},
-  },
-};
+export const SIDEBAR_WIDTH = 270;
+const RAIL_WIDTH = 60;
+const PEEK_DELAY_MS = 200;
+const RAIL_BELOW_PX = 1700;
 
 export interface SidebarLayoutProps {
-  navItems: SidebarNavItem[];
+  entries: SidebarNavEntry[];
   children: React.ReactNode;
 }
 
-function SidebarDesktopLeaf({
-  item,
-  locationPathname,
-}: {
-  item: SidebarNavLeafItem;
-  locationPathname: string;
-}) {
-  return (
-    <ListItemButton
-      component={Link}
-      to={item.path}
-      selected={isActive(item.path, locationPathname)}
-      sx={navItemSx}
-    >
-      {item.icon && <ListItemIcon sx={{minWidth: 36}}>{item.icon}</ListItemIcon>}
-      <ListItemText primary={item.label} />
-    </ListItemButton>
-  );
-}
+function SidebarLayout({entries, children}: SidebarLayoutProps) {
+  const theme = useTheme();
+  const isRail = useMediaQuery(theme.breakpoints.down(RAIL_BELOW_PX), {noSsr: true});
+  const top = useFloatTop(0);
+  const {pathname} = useLocation();
+  // Pinned to the page it was opened on, so any navigation folds the overlay back — a touch tap on
+  // a rail icon fires mouseenter and would otherwise leave it hanging open.
+  const [peekPath, setPeekPath] = useState<string | null>(null);
+  const peekTimer = useRef<number | undefined>(undefined);
+  const expanded = !isRail || peekPath === pathname;
 
-function SidebarDesktopGroup({
-  item,
-  locationPathname,
-}: {
-  item: SidebarNavGroup;
-  locationPathname: string;
-}) {
-  const _groupActive = item.children.some((c) => isActive(c.path, locationPathname));
-  return (
-    <>
-      <ListItemButton
-        component={Link}
-        to={item.defaultPath}
-        // selected={groupActive}
-        sx={navItemSx}
-      >
-        {item.icon && <ListItemIcon sx={{minWidth: 36}}>{item.icon}</ListItemIcon>}
-        <ListItemText
-          primary={item.label}
-          slotProps={{primary: {variant: "body2", sx: {fontWeight: 600}}}}
-        />
-      </ListItemButton>
-      {item.children.map((child) => (
-        <ListItemButton
-          key={child.path}
-          component={Link}
-          to={child.path}
-          selected={isActive(child.path, locationPathname)}
-          sx={[navItemSx, {pl: 4}]}
-        >
-          {child.icon && <ListItemIcon sx={{minWidth: 36}}>{child.icon}</ListItemIcon>}
-          <ListItemText primary={child.label} />
-        </ListItemButton>
-      ))}
-    </>
-  );
-}
+  useEffect(() => () => window.clearTimeout(peekTimer.current), []);
 
-function SidebarLayout({navItems, children}: SidebarLayoutProps) {
-  const location = useLocation();
+  const openPeek = () => {
+    window.clearTimeout(peekTimer.current);
+    peekTimer.current = window.setTimeout(() => setPeekPath(pathname), PEEK_DELAY_MS);
+  };
+
+  const closePeek = () => {
+    window.clearTimeout(peekTimer.current);
+    setPeekPath(null);
+  };
 
   return (
-    <Box sx={{display: "flex", flexDirection: {xs: "column", md: "row"}, gap: 2}}>
+    <Box sx={{display: "flex"}}>
       <Box
-        component="nav"
         sx={{
           display: {xs: "none", md: "block"},
-          width: 200,
+          displayPrint: "none",
+          width: isRail ? RAIL_WIDTH : SIDEBAR_WIDTH,
           flexShrink: 0,
-          borderRight: 1,
-          borderColor: "divider",
-          pr: 1,
         }}
       >
-        <List disablePadding dense>
-          {navItems.map((item) =>
-            isGroup(item) ? (
-              <SidebarDesktopGroup
-                key={item.defaultPath}
-                item={item}
-                locationPathname={location.pathname}
-              />
-            ) : (
-              <SidebarDesktopLeaf
-                key={item.path}
-                item={item}
-                locationPathname={location.pathname}
-              />
-            ),
-          )}
-        </List>
+        <Paper
+          component="nav"
+          aria-label="Основная навигация"
+          square
+          elevation={isRail && expanded ? 8 : 0}
+          onMouseEnter={isRail ? openPeek : undefined}
+          onMouseLeave={isRail ? closePeek : undefined}
+          onFocus={(e) => {
+            if (isRail && e.target.matches(":focus-visible")) setPeekPath(pathname);
+          }}
+          onBlur={(e) => {
+            if (isRail && !e.currentTarget.contains(e.relatedTarget)) closePeek();
+          }}
+          style={{top}}
+          sx={{
+            position: "fixed",
+            left: 0,
+            bottom: 0,
+            width: expanded ? SIDEBAR_WIDTH : RAIL_WIDTH,
+            py: 1,
+            borderRight: 1,
+            borderColor: "divider",
+            overflowX: "hidden",
+            overflowY: "auto",
+            scrollbarWidth: "thin",
+            zIndex: theme.zIndex.appBar - 1,
+            transition: theme.transitions.create(["width", "box-shadow"], {
+              duration: theme.transitions.duration.shorter,
+            }),
+          }}
+        >
+          <SidebarNavTree entries={entries} rail={!expanded} />
+        </Paper>
       </Box>
 
-      {/* Content */}
       <Box sx={{flexGrow: 1, minWidth: 0}}>{children}</Box>
     </Box>
   );

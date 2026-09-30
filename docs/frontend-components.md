@@ -9,33 +9,33 @@ checklist in [frontend-state.md → Overlays](frontend-state.md#overlays).
 
 ### `MainAppBar`
 
-Top navigation bar. It lives in `@/components/MainNav/` together with `MainNavDrawer` and the shared
-`mainNavConfig.tsx` they both read. The link set lives in `mainNavConfig.tsx`: `mainNavPages` declares
-the entries, `resolveMainNavPages(permissions)` filters them and resolves each `url`. An entry supports
-`requiredPermission` (`PermissionName | PermissionName[]` — an array means "any of"), `showIf` (an arbitrary
-predicate over permissions) and `url`, which may be a plain string **or** a
-`(permissions: PermissionName[]) => string` factory. The sidebar modules use the factory form
-(`getStorageFirstPageUrl`, `getOperationsFirstPageUrl`, `getSettingsFirstPageUrl`) so the app bar links
-straight to the first section the user can actually reach instead of a redirect that might bounce them to
-`AccessDenied`.
+Thin top bar: brand, global search (double Shift), user menu, and on mobile (below md) the burger that opens
+`MainNavDrawer`. It carries no navigation links — those live in the sidebar. The bar spans the full width;
+only the page content under it is capped, at `CONTENT_MAX_WIDTH` in `MainAppBarLayout` — `1920 - SIDEBAR_WIDTH`,
+so on a 1920px screen the content takes the whole width beside the sidebar and on a wider one stops growing.
 
-An entry may also carry `basePath` + `sections: SectionConfig[]` — the module's own sidebar config.
-`resolveMainNavPages` feeds those through `toNavItems` so each resolved page also exposes `navItems`, the
-same permission-filtered tree `SidebarPage` renders. That is what `MainNavDrawer` expands.
+The whole navigation tree — and with it the route table of every page it links to — is declared once in
+`@/navigation/mainNavConfig.tsx`. `mainNavBlocks` is a list of blocks, each one becoming a
+divider-separated `SidebarNavSection`, and a block is a list of nodes. Every node carries a `NavModule`
+(`basePath` + `sections: SectionConfig[]`, from the module's `*Config.tsx`):
 
-On desktop (md+) the entries render as flat `Button` links; on mobile the burger opens `MainNavDrawer`.
+- `rows` — the module's sections laid out as rows of the block (Каталог, Склад, Операции, Маркетплейсы), with
+  an optional `showIf` over the permission list that hides the rows from the nav only;
+- `group` — the module's sections folded into one collapsible group with its own `label` and `icon` (Аналитика,
+  Настройки). Nested groups of the module are flattened into the group's children.
+
+A module with `basePath: ""` mounts its sections at the root (`/catalog`, `/marketplaces`) — that is how a
+standalone page is declared.
+
+`resolveMainNav(permissions)` runs every section through `toNavItems` (permission and `showIf` filtering), drops
+a group with no visible children and a block with no visible rows. `MainAppBarLayout` resolves the tree and
+hands it both to `SidebarLayout` and to `MainAppBar` for the drawer. Routes come from the same blocks — see
+[Nav routes](#nav-routes).
 
 ### `MainNavDrawer`
 
-Left-anchored mobile navigation `Drawer`. Pages without
-`navItems` (e.g. Каталог) are plain links; pages with them are accordion rows — **only one section is
-expanded at a time**, and the header row only toggles, it never navigates, so a mistap on a touch screen
-cannot throw the user onto another page.
-
-Expansion is derived, not stored: `expandedOverride === undefined` means "nobody picked one yet" and the
-section containing the current route is shown open; toggling writes an explicit override, and closing the
-drawer clears it back to `undefined`. Nested `SidebarNavGroup`s render as a non-clickable caption with their
-children indented under it. Any navigation (link tap, logo) closes the drawer.
+Left-anchored mobile navigation `Drawer` rendering the same `SidebarNavTree` as the desktop sidebar. Any
+navigation (link tap, logo) closes the drawer.
 
 Back closes the drawer instead of leaving the page — see
 [`useBackClosable`](frontend-state.md#usebackclosableopen-onclose). Every link inside therefore navigates with
@@ -47,47 +47,98 @@ permissions".
 
 ### `SidebarLayout`
 
-Generic visual layout for pages with left-panel navigation: a MUI `List` sidebar on desktop (md+), hidden on
-mobile, where the same items are reachable through `MainNavDrawer`.
+The app-wide navigation shell, rendered by `MainAppBarLayout` around the page `Container`. It takes the
+resolved `entries` and a `children` slot. The sidebar is a `position: fixed` panel on the left edge whose `top`
+comes from `useFloatTop(0)`: under the app bar at the top of the page, flush with the viewport once the app bar
+has scrolled away. An in-flow placeholder of the same width pushes the content aside. The panel is hidden for
+print.
 
-The nav vocabulary both renderers share lives in `@/layouts/SidebarLayout/navItems.ts`: the
-`SidebarNavLeafItem` / `SidebarNavGroup` / `SidebarNavItem` types plus `isGroup` and `isActive`. Active item
-detection goes through `matchPath({end: false})`, so sub-routes highlight the parent item.
+| Width               | Sidebar                                                                                               |
+| ------------------- | ----------------------------------------------------------------------------------------------------- |
+| 1700px and up       | Expanded, `SIDEBAR_WIDTH` (270px)                                                                     |
+| `md` – 1700px       | Rail of icons, 60px; expands to `SIDEBAR_WIDTH` as an overlay over the content, without reflowing it |
+| below `md`          | Hidden; the same tree opens from the burger in `MainNavDrawer`                                        |
 
-The active item carries the accent, not just the `Mui-selected` plate: `navItemSx` paints its icon and
-label `primary.main` and bumps the label to weight 600, so one row stands out among a dozen otherwise
-identical ones. Group headers and indented children share the same `sx`, children adding only `pl`.
+The 1700px boundary is `RAIL_BELOW_PX`, passed to `theme.breakpoints.down` as a number rather than added to the
+theme's breakpoints.
 
-### `SidebarPage`
+The rail expands after the pointer rests on it for `PEEK_DELAY_MS` (so passing the mouse across it does
+nothing) or when keyboard focus (`:focus-visible`) enters it, and folds on pointer leave or focus leave. The
+expanded state is bound to the pathname it was opened on, so any navigation folds it — a touch tap fires
+`mouseenter` and would otherwise leave it hanging open.
 
-Routing wrapper on top of `SidebarLayout`. Takes `sections: SectionConfig[]` and a `basePath`, and:
+#### `SidebarNavTree`
 
-- builds the nav filtered by user permissions and `showIf` via `toNavItems`
-  (`@/layouts/SidebarPage/toNavItems.ts`, also used by `MainNavDrawer`)
-- creates `<Routes>` with relative paths (leaves, subroutes, and redirect routes for groups)
-- redirects a group with no `component` to its first visible child at runtime
-- wraps every rendered route in `ProtectedRoute`, rendering `<AccessDenied />` when the section's
-  `requiredPermission` is not met — a deliberate second check beyond nav filtering, since a URL can be typed
-- wraps every leaf and subroute in `<PageTitle title={label}>`, so a subroute shows its parent section's
-  `label` until the page sets its own title
+Renders a `SidebarNavEntry[]`, shared by `SidebarLayout` and `MainNavDrawer`. The vocabulary lives in
+`@/layouts/SidebarLayout/navItems.ts`:
 
-**To create a new sidebar-based page**, declare a `SectionConfig[]`, call `createHasAccess(sections)`
-(`@/layouts/SidebarPage/createHasAccess.ts`) for an app-bar visibility helper, call `createFirstPageUrl(sections)`
-(sibling file) for the permission-aware deep-link factory, and render `<SidebarPage sections={…} basePath="…" />`.
-See `settingsConfig.tsx` for the reference implementation.
+- `SidebarNavLeafItem` — a link with an icon;
+- `SidebarNavGroup` — a collapsible header with its children indented under it;
+- `SidebarNavSection` — an untitled block of leaves and groups.
 
-**`SectionConfig` fields:**
+Groups and sections carry a stable `key` — for a group, its own path, never the path of a child, since which
+children are visible depends on permissions and a changing key would reset the group's expansion.
+
+Leaves and groups may also sit at the root. A divider separates a section from whatever precedes it and a root
+item from a section above it. Sections do not collapse.
+
+A group header only toggles the group, it never navigates, so a mistap on a touch screen cannot throw the user
+onto another page. **At most one group is open across the whole tree.** Navigating to a page inside a group opens
+that group; navigating to a page outside every group keeps whichever group was open, picked by hand or not. A
+toggle opens another group or closes the open one. The open key is stored with the pathname it belongs to and
+carried over to a new pathname during render — no effect, so there is no frame showing the stale group. A
+collapsed group holding the active page highlights its header instead. The state lives in the tree, and
+`MainNavDrawer` unmounts its content when closed, so on mobile every opening starts from the group holding the
+current page, or none.
+
+The rail and the expanded panel render the same rows in the same order, with the same group expansion — the
+tree stays mounted across the switch, so group state carries over. Only the labels are clipped, the group chevron
+is dropped, and group children lose their indent to keep their icons inside 60px — `padding-left` transitions
+with the panel's `width` (both `duration.shorter`), so the icons slide rather than jump. That is what lets the rail
+expand under the pointer without moving it onto another row, so do not make the two modes differ in which rows
+they show. Every leaf and every group carries an icon, since the rail shows nothing else.
+
+Active item detection goes through `matchPath({end: false})`, so sub-routes highlight the parent item. The
+active item carries the accent, not just the `Mui-selected` plate: `navItemSx` paints its icon and label
+`primary.main` and bumps the label to weight 600, so one row stands out among a dozen otherwise identical
+ones. Row paddings are sized so a top-level icon sits at the same x in the rail and in the expanded panel.
+
+### Nav routes
+
+`buildNavRoutes()` (`@/navigation/buildNavRoutes.tsx`) walks `mainNavBlocks` and returns
+`ProtectedRoute` markers with absolute paths; `App.tsx` spreads them inside `MainAppBarLayout`, and
+`ProtectedRoutes` turns them into routes like any hand-written marker. `App.tsx` itself declares only the
+routes the sidebar does not link to (`/`, `/profile`, print and scanner pages, 404). For every module:
+
+- a leaf becomes a route gated by its `requiredPermission` — `AccessDenied` on a typed URL the nav would have
+  hidden;
+- a section with `children` and no `component`, and the module root itself (unless `basePath` is `""`), become
+  a `NavRedirect` to the first page the user may open, or `AccessDenied` when there is none;
+- every leaf and subroute is wrapped in `<PageTitle title={label}>`, so a subroute shows its parent section's
+  `label` until the page sets its own title.
+
+Page components in a config are `React.lazy` (`PageComponent`), written inline in the `component:` field:
+`mainNavConfig` imports every config, so an eager page import would land in the entry chunk. A top-level
+`const X = React.lazy(…)` in a config file trips `react-refresh/only-export-components`; the inline call does
+not. `MainAppBarLayout`'s `Suspense` covers the chunk load.
+
+**To add a page to a module**, add a `SectionConfig` to its `*Config.tsx`. **To add a module or a standalone
+page**, create a `*Config.tsx` exporting its `SectionConfig[]` and place it in `mainNavBlocks` as a `rows` or
+`group` node. A module the user can see nothing of disappears from the nav on its own. See
+`settingsConfig.tsx` for a module and `catalogConfig.tsx` for a standalone page.
+
+**`SectionConfig` fields** (`@/navigation/navSection.ts`):
 
 | Field                | Type                                  | Description                                                    |
 | -------------------- | ------------------------------------- | -------------------------------------------------------------- |
 | `label`              | `string`                              | Nav item label and default page title                          |
-| `path`               | `string`                              | Relative path segment (e.g. `"roles"`)                         |
-| `component`          | `ComponentType?`                      | Page component; absent → redirect to first visible child       |
+| `path`               | `string`                              | Path segment under the module's `basePath` (e.g. `"roles"`)    |
+| `component`          | `PageComponent?`                      | Lazy page component; absent → redirect to first visible child  |
 | `requiredPermission` | `PermissionName \| PermissionName[]?` | Hides the item unless the user has it (any of, for an array)   |
 | `showIf`             | `() => boolean?`                      | Additional visibility predicate (feature flags etc.)           |
 | `subroutes`          | `SectionSubroute[]?`                  | Sub-paths (e.g. `":id"`) that highlight the parent nav item    |
 | `children`           | `SectionConfig[]?`                    | Nested nav sections (max depth 1); the section becomes a group |
-| `icon`               | `React.ReactElement?`                 | Icon in the sidebar group header (desktop only)                |
+| `icon`               | `React.ReactElement?`                 | Nav icon; give one to every leaf and group, the rail needs it  |
 
 ### `AppBreadcrumbs`
 
@@ -104,8 +155,8 @@ last registered wins.
 
 - `<PageTitle title="…" />` registers at the current depth and renders nothing.
 - `<PageTitle title="…">{children}</PageTitle>` also opens the next depth for `children`, so any `PageTitle`
-  inside overrides it. Route boundaries use this form: `App.tsx` wraps top-level pages (`Склад`, `Операции`,
-  `Каталог`…), `SidebarPage` wraps each section with its `label`.
+  inside overrides it. Route boundaries use this form: `App.tsx` wraps the pages it declares by hand
+  (`Мой профиль`, print pages…), `buildNavRoutes` wraps each section with its `label`.
 - An empty or `undefined` `title` registers nothing, so the outer title stays while data loads.
 
 Detail pages render the leaf form next to `AppBreadcrumbs` in the loaded branch with a dynamic string,
@@ -947,7 +998,9 @@ a cross-origin link.
 
 ### `marketplaceUtils`
 
-Label maps for the marketplace enums plus date/duration/price formatters.
+`components/marketplace/marketplaceUtils.ts` — label and colour maps for the marketplace enums plus
+date/duration/price formatters. It sits in `components/` because the marketplace pages, `MarketplaceAccountChip`
+and `appEntityUtils` all read it.
 
 `hasCapability(capabilities, flag)` exists because `MarketplaceCapabilities` is a **`[Flags]` enum**:
 `JsonStringEnumConverter` sends a combination as one comma-separated string (`"warehouses, cards, sellerInfo"`),
@@ -972,8 +1025,9 @@ which the generated union of single values does not describe. **Never compare `c
 
 ### `CardImage`
 
-The one place in the app where the image lives on a foreign host. Without a `src` it is a plain letter `Avatar`;
-with one it wraps `FileImage` in external mode (direct `src`, `referrerPolicy="no-referrer"`, no resize) under a
+`components/marketplace/CardImage.tsx` — the marketplace card thumbnail, shared by the account cards tab, the
+order items section and the ABC analysis. The one place in the app where the image lives on a foreign host.
+Without a `src` it is a plain letter `Avatar`; with one it wraps `FileImage` in external mode (direct `src`, `referrerPolicy="no-referrer"`, no resize) under a
 tooltip and hover overlay, and opens `FileViewerModal` on click rather than a new tab. Click propagation is
 stopped so it does not also trigger the surrounding row.
 
@@ -1106,8 +1160,6 @@ FBS-only pieces: `SyncOrdersButton` / `SyncOrdersDialog` / `SyncOrdersAccountAcc
 `DownloadOrderLabelButton` / `LabelsErrorDialog` / `useDownloadLabels`, `MarketplaceOrderStatusChip`,
 `MarketplaceOrderFilters` (shared by FBS and FBO, reads `/accounts/short` so a warehouse role without
 `integrations.view` still gets the account picker), and `marketplaceOrderUtils` for the label and colour maps.
-The maps live here rather than in `MarketplacesSettingsPage/marketplaceUtils` so the operations tree never
-imports from the settings tree.
 
 `PostingNumberLabel` is the compact posting label for places with room for a single number, currently the
 `OrdersAssemblyPage` summary. Once the posting has a `scanitBarcode` it shows the barcode — what the assembler
@@ -1250,7 +1302,7 @@ wrapper.
 ### `components/marketplace/MarketplaceAccountChip`
 
 The marketplace account chip: account name, colored by `MARKETPLACE_TYPE_COLORS`, linking to
-`/settings/integrations/{accountId}`. Takes `accountId` / `name` / `type` — the sources differ (an account
+`/marketplaces/{accountId}`. Takes `accountId` / `name` / `type` — the sources differ (an account
 object, a flattened `MarketplaceOrderDto`) — plus an optional `search` for the link's query string
 (`?tab=warehouses`, `?tab=cards&catalogItemId=…`), and passes the remaining `ChipProps` through. The click
 `stopPropagation()`s, so it stays safe inside accordion summaries and clickable rows.
@@ -1275,7 +1327,9 @@ the value is empty and the search box is untouched. The count comes from a separ
 query the flag enables, not from the search query — a search narrowing the list to one result must not
 silently change the value. That same query also turns the select `disableClearable` while exactly one
 warehouse exists, so the caller does not have to count them itself; passing `disableClearable` explicitly
-still wins.
+still wins. Both behaviours are gated on the flag itself, not just on the query's `enabled`: a disabled
+query still serves data another select put in the cache, so a select without `canAutoSelect` never
+auto-selects or locks the clear button.
 
 ### `features/warehouse/`
 

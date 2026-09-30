@@ -13,7 +13,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import CardImage from "@/pages/SettingsPage/pages/MarketplacesSettingsPage/components/CardImage.tsx";
+import CardImage from "@/components/marketplace/CardImage.tsx";
 import CopyableText from "@/components/CopyableText.tsx";
 import {useOpenCatalogItem} from "@/components/catalog/CatalogItemDrawerContext.ts";
 import CatalogItemLink from "@/components/catalog/CatalogItemLink.tsx";

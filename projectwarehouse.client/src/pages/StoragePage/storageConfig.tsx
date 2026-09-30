@@ -3,66 +3,82 @@ import WarehouseIcon from "@mui/icons-material/Warehouse";
 import InventoryIcon from "@mui/icons-material/Inventory2";
 import SwapVertIcon from "@mui/icons-material/SwapVert";
 import TrendingDownIcon from "@mui/icons-material/TrendingDown";
-import {createHasAccess} from "@/layouts/SidebarPage/createHasAccess.ts";
-import {createFirstPageUrl} from "@/layouts/SidebarPage/createFirstPageUrl.ts";
-import type {SectionConfig} from "@/layouts/SidebarPage/SidebarPage.tsx";
-import WarehousesPage from "@/pages/WarehousesPage/WarehousesPage.tsx";
-import InventoryPage from "@/pages/InventoryPage/InventoryPage.tsx";
-import WarehouseViewPage from "@/pages/WarehousesPage/pages/WarehouseViewPage/WarehouseViewPage.tsx";
-import WarehouseEditPage from "@/pages/WarehousesPage/pages/WarehouseEditPage/WarehouseEditPage.tsx";
-import WarehouseNewPage from "@/pages/WarehousesPage/pages/WarehouseNewPage/WarehouseNewPage.tsx";
-import WarehouseInventoryPage from "@/pages/WarehousesPage/pages/WarehouseInventoryPage/WarehouseInventoryPage.tsx";
-import WarehouseForecastPage from "@/pages/WarehousesPage/pages/WarehouseForecastPage/WarehouseForecastPage.tsx";
-import StoragePlaceInventoryPage from "@/pages/WarehousesPage/pages/StoragePlaceInventoryPage/StoragePlaceInventoryPage.tsx";
-import NodeInventoryPage from "@/pages/WarehousesPage/pages/NodeInventoryPage/NodeInventoryPage.tsx";
-import StockMovementsPage from "@/pages/StockMovementsPage/StockMovementsPage.tsx";
-import StockForecastPage from "@/pages/StockForecastPage/StockForecastPage.tsx";
+import type {SectionConfig} from "@/navigation/navSection.ts";
 
 export const storageSections: SectionConfig[] = [
   {
     label: "Склады",
     path: "warehouses",
     icon: <WarehouseIcon fontSize="small" />,
-    component: WarehousesPage,
+    component: React.lazy(() => import("./pages/WarehousesPage/WarehousesPage.tsx")),
     requiredPermission: ["warehouses.view", "warehouses.view_assigned"],
     subroutes: [
-      {path: "new", component: WarehouseNewPage},
-      {path: ":id/edit", component: WarehouseEditPage},
-      {path: ":id/inventory", component: WarehouseInventoryPage},
-      {path: ":id/forecast", component: WarehouseForecastPage},
+      {
+        path: "new",
+        component: React.lazy(
+          () => import("./pages/WarehousesPage/pages/WarehouseNewPage/WarehouseNewPage.tsx"),
+        ),
+      },
+      {
+        path: ":id/edit",
+        component: React.lazy(
+          () => import("./pages/WarehousesPage/pages/WarehouseEditPage/WarehouseEditPage.tsx"),
+        ),
+      },
+      {
+        path: ":id/inventory",
+        component: React.lazy(
+          () =>
+            import("./pages/WarehousesPage/pages/WarehouseInventoryPage/WarehouseInventoryPage.tsx"),
+        ),
+      },
+      {
+        path: ":id/forecast",
+        component: React.lazy(
+          () =>
+            import("./pages/WarehousesPage/pages/WarehouseForecastPage/WarehouseForecastPage.tsx"),
+        ),
+      },
       {
         path: ":warehouseId/storage-places/:storagePlaceId/nodes/:nodeId/inventory",
-        component: NodeInventoryPage,
+        component: React.lazy(
+          () => import("./pages/WarehousesPage/pages/NodeInventoryPage/NodeInventoryPage.tsx"),
+        ),
       },
       {
         path: ":warehouseId/storage-places/:storagePlaceId/inventory",
-        component: StoragePlaceInventoryPage,
+        component: React.lazy(
+          () =>
+            import("./pages/WarehousesPage/pages/StoragePlaceInventoryPage/StoragePlaceInventoryPage.tsx"),
+        ),
       },
-      {path: ":id", component: WarehouseViewPage},
+      {
+        path: ":id",
+        component: React.lazy(
+          () => import("./pages/WarehousesPage/pages/WarehouseViewPage/WarehouseViewPage.tsx"),
+        ),
+      },
     ],
   },
   {
     label: "Остатки",
     path: "inventory",
     icon: <InventoryIcon fontSize="small" />,
-    component: InventoryPage,
+    component: React.lazy(() => import("./pages/InventoryPage/InventoryPage.tsx")),
     requiredPermission: ["warehouses.view", "warehouses.view_assigned"],
   },
   {
     label: "Движения товаров",
     path: "stock-movements",
     icon: <SwapVertIcon fontSize="small" />,
-    component: StockMovementsPage,
+    component: React.lazy(() => import("./pages/StockMovementsPage/StockMovementsPage.tsx")),
     requiredPermission: ["statistics.view", "statistics.view_assigned"],
   },
   {
     label: "Прогноз остатков",
     path: "forecast",
     icon: <TrendingDownIcon fontSize="small" />,
-    component: StockForecastPage,
+    component: React.lazy(() => import("./pages/StockForecastPage/StockForecastPage.tsx")),
     requiredPermission: ["statistics.view", "statistics.view_assigned"],
   },
 ];
-
-export const hasStorageAccess = createHasAccess(storageSections);
-export const getStorageFirstPageUrl = createFirstPageUrl(storageSections);

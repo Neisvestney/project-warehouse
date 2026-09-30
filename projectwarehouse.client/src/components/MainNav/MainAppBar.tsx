@@ -6,7 +6,6 @@ import {
   Box,
   IconButton,
   Menu,
-  Button,
   MenuItem,
   Tooltip,
   Typography,
@@ -21,21 +20,22 @@ import LightModeIcon from "@mui/icons-material/LightMode";
 import PersonIcon from "@mui/icons-material/Person";
 import LogoutIcon from "@mui/icons-material/Logout";
 import GlobalSearchModal from "@/components/GlobalSearch/GlobalSearchModal";
-import {Link, useNavigate} from "react-router";
+import {useNavigate} from "react-router";
 import {useAuth} from "@/hooks/useAuth";
 import {useResolvedColorScheme} from "@/hooks/useResolvedColorScheme.ts";
 import UserAvatar from "@/components/UserAvatar";
-import type {PermissionName} from "@/api/types.gen";
+import type {SidebarNavEntry} from "@/layouts/SidebarLayout/navItems.ts";
 import MainNavDrawer from "./MainNavDrawer.tsx";
 import MainNavBrand from "./MainNavBrand.tsx";
-import {resolveMainNavPages} from "./mainNavConfig.tsx";
 import {extractErrorMessage} from "@/utils/errorUtils.ts";
 
-export const MAIN_APP_BAR_HEIGHT = 50;
+export const MAIN_APP_BAR_HEIGHT = 40;
 
-export interface AppBarProps {}
+export interface AppBarProps {
+  navEntries: SidebarNavEntry[];
+}
 
-function MainAppBar({}: AppBarProps) {
+function MainAppBar({navEntries}: AppBarProps) {
   const [navDrawerOpen, setNavDrawerOpen] = React.useState(false);
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
   const [searchOpen, setSearchOpen] = React.useState(false);
@@ -115,12 +115,12 @@ function MainAppBar({}: AppBarProps) {
     };
   }, []);
 
-  const filteredPages = resolveMainNavPages((user?.permissions ?? []) as PermissionName[]);
-
   return (
     <>
-      <AppBar position="static">
-        <Container maxWidth="xl">
+      {/* Positioned and above the fixed sidebar, which would otherwise paint over the shadow. */}
+      <AppBar position="relative" sx={{zIndex: (t) => t.zIndex.appBar}}>
+        {/* 18px centres the 24px logo over the sidebar icons (20px icon at 20px from the edge). */}
+        <Container maxWidth={false} sx={{pl: {md: "18px"}}}>
           <Toolbar disableGutters variant="dense" sx={{minHeight: MAIN_APP_BAR_HEIGHT}}>
             <Box sx={{display: {xs: "none", md: "flex"}, mr: 2}}>
               <MainNavBrand />
@@ -128,7 +128,6 @@ function MainAppBar({}: AppBarProps) {
 
             <Box sx={{flex: 1, display: {xs: "flex", md: "none"}}}>
               <IconButton
-                size="large"
                 aria-label="Открыть меню навигации"
                 onClick={() => setNavDrawerOpen(true)}
                 color="inherit"
@@ -139,18 +138,7 @@ function MainAppBar({}: AppBarProps) {
             <Box sx={{display: {xs: "flex", md: "none"}, alignItems: "center", minWidth: 0}}>
               <MainNavBrand typographyVariant="h5" />
             </Box>
-            <Box sx={{flexGrow: 1, display: {xs: "none", md: "flex"}}}>
-              {filteredPages.map((page) => (
-                <Button
-                  key={page.url}
-                  sx={{color: "white", display: "block", mt: "5px"}}
-                  component={Link}
-                  to={page.url}
-                >
-                  {page.name}
-                </Button>
-              ))}
-            </Box>
+            <Box sx={{flexGrow: 1, display: {xs: "none", md: "flex"}}} />
             <Box sx={{display: {xs: "none", md: "flex"}, mx: 2, flexShrink: 0}}>
               <ButtonBase
                 onClick={() => setSearchOpen(true)}
@@ -277,7 +265,7 @@ function MainAppBar({}: AppBarProps) {
       <MainNavDrawer
         open={navDrawerOpen}
         onClose={() => setNavDrawerOpen(false)}
-        pages={filteredPages}
+        entries={navEntries}
       />
       <GlobalSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
     </>
