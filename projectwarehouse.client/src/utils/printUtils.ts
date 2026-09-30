@@ -18,3 +18,7 @@ export function openPrintPage(items: PrintItem[]): void {
 export function openStocktakeNodePrintPage(stocktakeId: string, nodeId: string): void {
   window.open(`/print/stocktakes/${stocktakeId}/nodes/${nodeId}`, "_blank");
 }
+
+export function openReceiptPrintPage(receiptId: string): void {
+  window.open(`/print/receipts/${receiptId}`, "_blank");
+}

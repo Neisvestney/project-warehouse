@@ -34,6 +34,7 @@ const PrintPage = React.lazy(() => import("@/pages/PrintPage/PrintPage.tsx"));
 const StocktakeNodePrintPage = React.lazy(
   () => import("@/pages/StocktakeNodePrintPage/StocktakeNodePrintPage.tsx"),
 );
+const ReceiptPrintPage = React.lazy(() => import("@/pages/ReceiptPrintPage/ReceiptPrintPage.tsx"));
 const CatalogPage = React.lazy(() => import("@/pages/CatalogPage/CatalogPage.tsx"));
 const StoragePage = React.lazy(() => import("@/pages/StoragePage/StoragePage.tsx"));
 const OperationsPage = React.lazy(() => import("@/pages/OperationsPage/OperationsPage.tsx"));
@@ -208,6 +209,14 @@ function App() {
                         element={
                           <PageTitle title="Бланк инвентаризации">
                             <StocktakeNodePrintPage />
+                          </PageTitle>
+                        }
+                      />
+                      <ProtectedRoute
+                        path="/print/receipts/:id"
+                        element={
+                          <PageTitle title="Бланк приёмки">
+                            <ReceiptPrintPage />
                           </PageTitle>
                         }
                       />
