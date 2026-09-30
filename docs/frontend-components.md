@@ -1106,6 +1106,10 @@ A failed runs fetch does not count as running. Back is blocked for that time
 (`useBackClosable` with `blockBack`), because the popped history entry could not be restored if the user
 chose to stay.
 
+Once any run reports a skipped order with non-empty `offerIds` (a card problem, not a warehouse one),
+`SyncOrdersDialog` puts a `warning` `Alert` at the top of the content telling the user to contact an
+administrator to map the cards.
+
 Labels are downloaded from two places and both need the same request, so the call lives in the
 `useDownloadLabels` hook: it calls `ordersGetLabels` with `parseAs: "blob"`, unwraps the error via
 `parseProblemFromBlob` and returns it as `{message, postingNumbers}`. Labels open for a look before printing:

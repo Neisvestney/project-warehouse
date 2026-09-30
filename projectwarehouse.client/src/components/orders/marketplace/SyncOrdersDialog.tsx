@@ -143,6 +143,10 @@ function SyncOrdersDialog({open, onClose}: SyncOrdersDialogProps) {
   }
 
   const busy = anyRunning || mutation.isPending;
+  // offerIds is empty when the warehouse, not a card, caused the skip
+  const hasCardSkips =
+    isRunningPhase &&
+    (runs?.some((r) => r.skippedOrders.some((s) => s.offerIds.length > 0)) ?? false);
 
   async function requestClose() {
     // onSuccess would land on a closed dialog and resurrect the run phase on the next open
@@ -179,6 +183,13 @@ function SyncOrdersDialog({open, onClose}: SyncOrdersDialogProps) {
         {error && (
           <Alert severity="error" sx={{mb: 2}} onClose={() => setError(null)}>
             {error}
+          </Alert>
+        )}
+
+        {hasCardSkips && (
+          <Alert severity="warning" sx={{mb: 2}}>
+            Часть заказов пропущена из-за непривязанных карточек. Обратитесь к администратору, чтобы
+            привязать карточки.
           </Alert>
         )}
 
