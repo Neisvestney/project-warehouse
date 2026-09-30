@@ -813,11 +813,14 @@ export const analyticsGetChannelsTopItems = <ThrowOnError extends boolean = fals
   >({url: "/api/analytics/channels/top-items", ...options});
 
 /**
- * Average orders or units per weekday, by channel and by Direct tag.
+ * Average orders or units per weekday, or the weekday's share of the week, by channel and by Direct tag.
  *
- * Query params: the shared filter of `channels/summary` and `measure` as in
- * `channels/timeseries`. A value is the sum over every such weekday of the period divided by how many
- * of them the period holds, Monday first. Only finished days count, today excluded: `countedTo` is the
+ * Query params: the shared filter of `channels/summary`, `measure` as in
+ * `channels/timeseries` and `scale`. With `average` a value is the sum over every such weekday
+ * of the period divided by how many of them the period holds, Monday first. With `weekShare` it is the
+ * median, over the full Monday–Sunday weeks of the period, of the weekday's share of its week (0…1); weeks
+ * without sales are skipped per row, and `fullWeeks` says how many weeks the period holds.
+ * Only finished days count, today excluded: `countedTo` is the
  * last day averaged, null when the period has no finished day yet (every value is then null).
  * Rows follow `channels/summary`: one per shop, then — with `includeDirect` — the whole Direct
  * channel, one per tag met in the period and the untagged row; tag rows overlap. `total` is every

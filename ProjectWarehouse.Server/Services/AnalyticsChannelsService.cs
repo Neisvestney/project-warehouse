@@ -609,11 +609,16 @@ public class AnalyticsChannelsService(
             : period.From <= yesterday ? yesterday
             : null;
 
-        List<decimal?> Averages(IEnumerable<DayValue> values) => countedTo is { } to
-            ? AnalyticsCalculator
-                .WeekdayAverages(period.From, to, values.Select(d => (DateOnly.FromDateTime(d.Day), (decimal)d.Value)))
-                .ToList()
-            : Enumerable.Repeat<decimal?>(null, 7).ToList();
+        List<decimal?> Averages(IEnumerable<DayValue> values)
+        {
+            if (countedTo is not { } to)
+                return Enumerable.Repeat<decimal?>(null, 7).ToList();
+            var dayValues = values.Select(d => (DateOnly.FromDateTime(d.Day), (decimal)d.Value));
+            return (request.Scale == WeekdayScale.WeekShare
+                    ? AnalyticsCalculator.WeekdayShareMedians(period.From, to, dayValues)
+                    : AnalyticsCalculator.WeekdayAverages(period.From, to, dayValues))
+                .ToList();
+        }
 
         var rows = accounts
             .Select(a => new WeekdayRowDto
@@ -657,7 +662,9 @@ public class AnalyticsChannelsService(
             To = period.To,
             TimeZoneId = period.TimeZoneId,
             Measure = request.Measure,
+            Scale = request.Scale,
             CountedTo = countedTo,
+            FullWeeks = countedTo is { } counted ? AnalyticsCalculator.FullWeeks(period.From, counted).Count : 0,
             Total = Averages(days.Concat(directOrders)),
             Rows = rows,
         };

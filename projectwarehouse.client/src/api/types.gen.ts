@@ -953,10 +953,15 @@ export type ChannelsWeekdaysDto = {
   to: string;
   timeZoneId: string;
   measure: AnalyticsMeasure;
+  scale: WeekdayScale;
   /**
    * Last day averaged, yesterday at the latest: an unfinished day would drag the averages down.
    */
   countedTo?: null | string;
+  /**
+   * Full Monday–Sunday weeks between `From` and `CountedTo`; only `WeekShare` uses them.
+   */
+  fullWeeks: number;
   /**
    * Every selected channel together, Monday first.
    */
@@ -4147,10 +4152,13 @@ export type WeekdayRowDto = {
    */
   name?: null | string;
   /**
-   * Average per occurrence of the weekday, Monday first; null for a weekday the period lacks.
+   * Monday first. `Average`: per occurrence of the weekday, null for a weekday the period lacks.
+   * `WeekShare`: median share of the week, 0…1, null when the row has no full week with sales.
    */
   values: Array<null | number>;
 };
+
+export type WeekdayScale = "average" | "weekShare";
 
 export type WriteoffDto = {
   id: string;
@@ -4545,6 +4553,7 @@ export type AnalyticsGetChannelsWeekdaysData = {
   path?: never;
   query?: {
     Measure?: AnalyticsMeasure;
+    Scale?: WeekdayScale;
     From?: string;
     To?: string;
     IncludeMarketplaces?: boolean;
