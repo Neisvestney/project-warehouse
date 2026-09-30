@@ -124,6 +124,11 @@ public bool MatchesExtendedSearch(string pattern) =>
 query.WhereMatchesExtendedSearch((o, pattern) => o.MatchesExtendedSearch(pattern), searchString)
 ```
 
+`Receipt`, `Writeoff` and `Stocktake` follow the same shape over their lines: the line's catalog item (for a
+write-off unit line — the unit's catalog item) and the inventory number (a receipt line has none of its own, so
+its units are reached through the placements). Their list
+endpoints pair it with a `catalogItemIds` filter over the same lines.
+
 `WhereMatchesExtendedSearch` keeps the same contract as `WhereMatchesSearch` — it owns tokenization and `%`, `_`,
 `\` escaping, and substitutes the finished pattern into the predicate once per token. Semantics stay **AND across
 tokens, OR across sources**. Nested `SearchString` properties on related entities expand normally inside it.

@@ -1,4 +1,5 @@
 using EntityFrameworkCore.Projectables;
+using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Domain;
@@ -39,4 +40,15 @@ public class Stocktake : ITaggedWarehouseDocument<StocktakeTag>
 
     [Projectable]
     public string SearchString => Number + " " + Name + " " + Notes;
+
+    /// <summary>
+    /// Search over the stocktake plus its counted lines — their catalog items and inventory numbers. Not used by
+    /// global search. Call through <c>WhereMatchesExtendedSearch</c>.
+    /// </summary>
+    [Projectable]
+    public bool MatchesExtendedSearch(string pattern) =>
+        EF.Functions.ILike(SearchString, pattern, SearchExtensions.EscapeChar)
+        || Nodes.Any(n => n.Items.Any(i =>
+            EF.Functions.ILike(i.CatalogItem.SearchString, pattern, SearchExtensions.EscapeChar)
+            || EF.Functions.ILike(i.InventoryNumber ?? "", pattern, SearchExtensions.EscapeChar)));
 }

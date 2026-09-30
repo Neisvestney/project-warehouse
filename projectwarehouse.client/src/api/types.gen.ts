@@ -8147,6 +8147,7 @@ export type ReceiptsGetAllData = {
     warehouseId?: string;
     status?: ReceiptStatus;
     reason?: ReceiptReason;
+    catalogItemIds?: Array<string>;
     tagIds?: Array<string>;
     sortBy?: ReceiptSortBy;
     sortOrder?: SortOrder;
@@ -9835,6 +9836,7 @@ export type StocktakesGetAllData = {
     searchString?: string;
     warehouseId?: string;
     status?: StocktakeStatus;
+    catalogItemIds?: Array<string>;
     tagIds?: Array<string>;
     sortBy?: StocktakeSortBy;
     sortOrder?: SortOrder;
@@ -11699,6 +11701,7 @@ export type WriteoffsGetAllData = {
     warehouseId?: string;
     status?: WriteoffStatus;
     reason?: WriteoffReason;
+    catalogItemIds?: Array<string>;
     tagIds?: Array<string>;
     sortBy?: WriteoffSortBy;
     sortOrder?: SortOrder;

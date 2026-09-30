@@ -1,4 +1,5 @@
 using EntityFrameworkCore.Projectables;
+using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Domain;
@@ -36,4 +37,15 @@ public class Receipt : ITaggedWarehouseDocument<ReceiptTag>
 
     [Projectable]
     public string SearchString => Number + " " +  Name + " " + Notes;
+
+    /// <summary>
+    /// Search over the receipt plus its lines — their catalog items and the inventory numbers of the units placed
+    /// by them. Not used by global search. Call through <c>WhereMatchesExtendedSearch</c>.
+    /// </summary>
+    [Projectable]
+    public bool MatchesExtendedSearch(string pattern) =>
+        EF.Functions.ILike(SearchString, pattern, SearchExtensions.EscapeChar)
+        || Items.Any(i => EF.Functions.ILike(i.CatalogItem.SearchString, pattern, SearchExtensions.EscapeChar))
+        || Items.Any(i => i.Placements.Any(p => p.UnitInventoryItem != null
+            && EF.Functions.ILike(p.UnitInventoryItem.InventoryNumber, pattern, SearchExtensions.EscapeChar)));
 }
