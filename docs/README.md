@@ -78,6 +78,7 @@ that layer (the Docs Index above) before writing code.
 | Adding… | Recipe |
 |---------|--------|
 | A new component, hook or helper — where it goes | [frontend.md → Directory layering](frontend.md#directory-layering) |
+| A page, a route or a sidebar entry | [frontend-components.md → Nav routes](frontend-components.md#nav-routes) — declare it in a `*Config.tsx` and `mainNavBlocks`, not in `App.tsx` |
 | A modal, drawer or any overlay | [frontend-state.md → Overlays](frontend-state.md#overlays) — `useBackClosable` / `useDrawerSearchParamsState`, `useRetainedValue` + `onExited` |
 | A confirmation dialog | [frontend-components.md → `ConfirmDialog`](frontend-components.md#confirmdialog) |
 | A list table with pagination | [frontend-state.md → `usePaginatedParams`](frontend-state.md#usepaginatedparamsdebouncedparams-debounceddeps-immediateparams-immediatedeps-options), [frontend-components.md → `DataTableContainer`, `LinkTableRow`, `TableRowLoader`](frontend-components.md#layout--tables) |

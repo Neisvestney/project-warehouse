@@ -1,73 +1,57 @@
 import React from "react";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import PeopleIcon from "@mui/icons-material/People";
-import StorefrontIcon from "@mui/icons-material/Storefront";
 import StorageIcon from "@mui/icons-material/Storage";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
-import {createHasAccess} from "@/layouts/SidebarPage/createHasAccess.ts";
-import {createFirstPageUrl} from "@/layouts/SidebarPage/createFirstPageUrl.ts";
-import type {SectionConfig} from "@/layouts/SidebarPage/SidebarPage.tsx";
-import RolesSettingsPage from "./pages/RolesSettingsPage/RolesSettingsPage.tsx";
-import UsersPage from "@/pages/UsersPage/UsersPage.tsx";
-import UserViewPage from "@/pages/UsersPage/pages/UserViewPage/UserViewPage.tsx";
-import UserEditPage from "@/pages/UsersPage/pages/UserEditPage/UserEditPage.tsx";
-import UserCreatePage from "@/pages/UsersPage/pages/UserCreatePage/UserCreatePage.tsx";
-import MarketplacesSettingsPage from "./pages/MarketplacesSettingsPage/MarketplacesSettingsPage.tsx";
-import MarketplaceAccountCreatePage from "./pages/MarketplacesSettingsPage/pages/MarketplaceAccountCreatePage/MarketplaceAccountCreatePage.tsx";
-import MarketplaceAccountPage from "./pages/MarketplacesSettingsPage/pages/MarketplaceAccountPage/MarketplaceAccountPage.tsx";
-import AutoMapRulesPage from "./pages/MarketplacesSettingsPage/pages/AutoMapRulesPage/AutoMapRulesPage.tsx";
-import StorageSettingsPage from "./pages/StorageSettingsPage/StorageSettingsPage.tsx";
-import TagsSettingsPage from "./pages/TagsSettingsPage/TagsSettingsPage.tsx";
+import type {SectionConfig} from "@/navigation/navSection.ts";
 
 export const settingsSections: SectionConfig[] = [
   {
     label: "Роли",
     path: "roles",
     icon: <AdminPanelSettingsIcon fontSize="small" />,
-    component: RolesSettingsPage,
+    component: React.lazy(() => import("./pages/RolesSettingsPage/RolesSettingsPage.tsx")),
     requiredPermission: "roles.view",
   },
   {
     label: "Сотрудники",
     path: "employees",
     icon: <PeopleIcon fontSize="small" />,
-    component: UsersPage,
+    component: React.lazy(() => import("./pages/UsersPage/UsersPage.tsx")),
     requiredPermission: "users.view",
     subroutes: [
-      {path: "new", component: UserCreatePage},
-      {path: ":id/edit", component: UserEditPage},
-      {path: ":id", component: UserViewPage},
-    ],
-  },
-  {
-    label: "Маркетплейсы",
-    path: "integrations",
-    icon: <StorefrontIcon fontSize="small" />,
-    component: MarketplacesSettingsPage,
-    requiredPermission: "integrations.view",
-    subroutes: [
-      // before ":id", otherwise the dynamic segment swallows the static path
-      {path: "auto-map-rules", component: AutoMapRulesPage},
-      {path: "new", component: MarketplaceAccountCreatePage},
-      {path: ":id", component: MarketplaceAccountPage},
+      {
+        path: "new",
+        component: React.lazy(
+          () => import("./pages/UsersPage/pages/UserCreatePage/UserCreatePage.tsx"),
+        ),
+      },
+      {
+        path: ":id/edit",
+        component: React.lazy(
+          () => import("./pages/UsersPage/pages/UserEditPage/UserEditPage.tsx"),
+        ),
+      },
+      {
+        path: ":id",
+        component: React.lazy(
+          () => import("./pages/UsersPage/pages/UserViewPage/UserViewPage.tsx"),
+        ),
+      },
     ],
   },
   {
     label: "Теги",
     path: "tags",
     icon: <LocalOfferIcon fontSize="small" />,
-    component: TagsSettingsPage,
+    component: React.lazy(() => import("./pages/TagsSettingsPage/TagsSettingsPage.tsx")),
     requiredPermission: "tags.manage",
   },
   {
     label: "Хранилище",
     path: "storage",
     icon: <StorageIcon fontSize="small" />,
-    component: StorageSettingsPage,
+    component: React.lazy(() => import("./pages/StorageSettingsPage/StorageSettingsPage.tsx")),
     requiredPermission: "system.view",
   },
 ];
-
-export const hasSettingsAccess = createHasAccess(settingsSections);
-
-export const getSettingsFirstPageUrl = createFirstPageUrl(settingsSections);

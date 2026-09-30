@@ -7,69 +7,59 @@ import FactCheckIcon from "@mui/icons-material/FactCheck";
 import AssemblyIcon from "@mui/icons-material/Handyman";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
-import WarehouseIcon from "@mui/icons-material/Warehouse";
+import HubIcon from "@mui/icons-material/Hub";
 import PalletIcon from "@mui/icons-material/Pallet";
-import {createHasAccess} from "@/layouts/SidebarPage/createHasAccess.ts";
-import {createFirstPageUrl} from "@/layouts/SidebarPage/createFirstPageUrl.ts";
-import type {SectionConfig} from "@/layouts/SidebarPage/SidebarPage.tsx";
-import ReceiptsPage from "./pages/ReceiptsPage/ReceiptsPage.tsx";
-import ReceiptCreatePage from "./pages/ReceiptsPage/pages/ReceiptCreatePage/ReceiptCreatePage.tsx";
-import ReceiptPage from "./pages/ReceiptsPage/pages/ReceiptPage/ReceiptPage.tsx";
-import TransfersPage from "./pages/TransfersPage/TransfersPage.tsx";
-import WriteoffsPage from "./pages/WriteoffsPage/WriteoffsPage.tsx";
-import WriteoffCreatePage from "./pages/WriteoffsPage/pages/WriteoffCreatePage/WriteoffCreatePage.tsx";
-import WriteoffPage from "./pages/WriteoffsPage/pages/WriteoffPage/WriteoffPage.tsx";
-import StocktakesPage from "./pages/StocktakesPage/StocktakesPage.tsx";
-import StocktakeCreatePage from "./pages/StocktakesPage/pages/StocktakeCreatePage/StocktakeCreatePage.tsx";
-import StocktakePage from "./pages/StocktakesPage/pages/StocktakePage/StocktakePage.tsx";
-import OrdersDirectPage from "./pages/OrdersDirectPage/OrdersDirectPage.tsx";
-import OrdersFbsPage from "./pages/OrdersFbsPage/OrdersFbsPage.tsx";
-import OrdersFboPage from "./pages/OrdersFboPage/OrdersFboPage.tsx";
-import OrdersFboSupplyPage from "./pages/OrdersFboSupplyPage/OrdersFboSupplyPage.tsx";
-import OrderDirectCreatePage from "./pages/OrderDirectCreatePage/OrderDirectCreatePage.tsx";
-import OrderPage from "./pages/OrderPage/OrderPage.tsx";
-import OrdersAssemblyPage from "./pages/OrdersAssemblyPage/OrdersAssemblyPage.tsx";
+import type {SectionConfig} from "@/navigation/navSection.ts";
 
 export const operationsSections: SectionConfig[] = [
   {
     label: "Заказы",
     path: "orders",
     icon: <ShoppingCartIcon fontSize="small" />,
-    subroutes: [{path: ":id", component: OrderPage}],
+    subroutes: [
+      {path: ":id", component: React.lazy(() => import("./pages/OrderPage/OrderPage.tsx"))},
+    ],
     children: [
       {
         label: "Сборка",
         path: "assembly",
-        component: OrdersAssemblyPage,
+        component: React.lazy(() => import("./pages/OrdersAssemblyPage/OrdersAssemblyPage.tsx")),
         icon: <AssemblyIcon fontSize="small" />,
         requiredPermission: ["orders.assemble_assigned", "orders.edit", "orders.edit_assigned"],
       },
       {
         label: "Прямые",
         path: "direct",
-        component: OrdersDirectPage,
-        subroutes: [{path: "new", component: OrderDirectCreatePage}],
+        component: React.lazy(() => import("./pages/OrdersDirectPage/OrdersDirectPage.tsx")),
+        subroutes: [
+          {
+            path: "new",
+            component: React.lazy(
+              () => import("./pages/OrderDirectCreatePage/OrderDirectCreatePage.tsx"),
+            ),
+          },
+        ],
         icon: <StorefrontIcon fontSize="small" />,
         requiredPermission: ["orders.view", "orders.view_assigned"],
       },
       {
         label: "FBS",
         path: "fbs",
-        component: OrdersFbsPage,
+        component: React.lazy(() => import("./pages/OrdersFbsPage/OrdersFbsPage.tsx")),
         icon: <LocalShippingIcon fontSize="small" />,
         requiredPermission: ["orders.view", "orders.view_assigned"],
       },
       {
         label: "Отправления FBO",
         path: "fbo",
-        component: OrdersFboPage,
-        icon: <WarehouseIcon fontSize="small" />,
+        component: React.lazy(() => import("./pages/OrdersFboPage/OrdersFboPage.tsx")),
+        icon: <HubIcon fontSize="small" />,
         requiredPermission: ["orders.view"],
       },
       {
         label: "Поставки FBO",
         path: "fbo-supply",
-        component: OrdersFboSupplyPage,
+        component: React.lazy(() => import("./pages/OrdersFboSupplyPage/OrdersFboSupplyPage.tsx")),
         icon: <PalletIcon fontSize="small" />,
         requiredPermission: ["orders.view", "orders.view_assigned"],
       },
@@ -79,43 +69,70 @@ export const operationsSections: SectionConfig[] = [
     label: "Приемки",
     path: "receipts",
     icon: <MoveToInboxIcon fontSize="small" />,
-    component: ReceiptsPage,
+    component: React.lazy(() => import("./pages/ReceiptsPage/ReceiptsPage.tsx")),
     requiredPermission: ["receipts.view", "receipts.view_assigned"],
     subroutes: [
-      {path: "new", component: ReceiptCreatePage},
-      {path: ":id", component: ReceiptPage},
+      {
+        path: "new",
+        component: React.lazy(
+          () => import("./pages/ReceiptsPage/pages/ReceiptCreatePage/ReceiptCreatePage.tsx"),
+        ),
+      },
+      {
+        path: ":id",
+        component: React.lazy(
+          () => import("./pages/ReceiptsPage/pages/ReceiptPage/ReceiptPage.tsx"),
+        ),
+      },
     ],
   },
   {
     label: "Перемещения",
     path: "transfers",
     icon: <SwapHorizIcon fontSize="small" />,
-    component: TransfersPage,
+    component: React.lazy(() => import("./pages/TransfersPage/TransfersPage.tsx")),
     requiredPermission: ["transfers.execute", "transfers.execute_assigned"],
   },
   {
     label: "Списания",
     path: "writeoffs",
     icon: <DeleteSweepIcon fontSize="small" />,
-    component: WriteoffsPage,
+    component: React.lazy(() => import("./pages/WriteoffsPage/WriteoffsPage.tsx")),
     requiredPermission: ["writeoffs.view", "writeoffs.view_assigned"],
     subroutes: [
-      {path: "new", component: WriteoffCreatePage},
-      {path: ":id", component: WriteoffPage},
+      {
+        path: "new",
+        component: React.lazy(
+          () => import("./pages/WriteoffsPage/pages/WriteoffCreatePage/WriteoffCreatePage.tsx"),
+        ),
+      },
+      {
+        path: ":id",
+        component: React.lazy(
+          () => import("./pages/WriteoffsPage/pages/WriteoffPage/WriteoffPage.tsx"),
+        ),
+      },
     ],
   },
   {
     label: "Инвентаризации",
     path: "stocktakes",
     icon: <FactCheckIcon fontSize="small" />,
-    component: StocktakesPage,
+    component: React.lazy(() => import("./pages/StocktakesPage/StocktakesPage.tsx")),
     requiredPermission: ["stocktakes.view", "stocktakes.view_assigned"],
     subroutes: [
-      {path: "new", component: StocktakeCreatePage},
-      {path: ":id", component: StocktakePage},
+      {
+        path: "new",
+        component: React.lazy(
+          () => import("./pages/StocktakesPage/pages/StocktakeCreatePage/StocktakeCreatePage.tsx"),
+        ),
+      },
+      {
+        path: ":id",
+        component: React.lazy(
+          () => import("./pages/StocktakesPage/pages/StocktakePage/StocktakePage.tsx"),
+        ),
+      },
     ],
   },
 ];
-
-export const hasOperationsAccess = createHasAccess(operationsSections);
-export const getOperationsFirstPageUrl = createFirstPageUrl(operationsSections);

@@ -3,7 +3,7 @@ import {Box, Stack, Typography} from "@mui/material";
 import type {AbcSubjectDto} from "@/api/types.gen";
 import {useOpenCatalogItem} from "@/components/catalog/CatalogItemDrawerContext";
 import CatalogItemLink from "@/components/catalog/CatalogItemLink";
-import CardImage from "@/pages/SettingsPage/pages/MarketplacesSettingsPage/components/CardImage.tsx";
+import CardImage from "@/components/marketplace/CardImage.tsx";
 
 interface AbcSubjectNameProps {
   subject: AbcSubjectDto;

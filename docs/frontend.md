@@ -98,10 +98,15 @@ the repository; the rule is not.
   (`catalog/`, `files/`, `orders/`, `receipts/`, …) when a cluster of components belongs together. A component
   here must not import from `pages/`.
 - **`pages/`** — route targets. A page's own subroutes live in a nested `pages/` folder beside it; a page's
-  private components live beside the page file. **The operations tree must not import from the settings tree**
-  and vice versa — shared pieces move down into `components/` or `features/` instead (see the label maps in
-  `components/orders/marketplace/marketplaceOrderUtils`, deliberately duplicated away from
-  `MarketplacesSettingsPage/marketplaceUtils`).
+  private components live beside the page file, and a section module's pages live under that module
+  (`StoragePage/pages/…`, `SettingsPage/pages/…`). **One module's page tree must not import from another's** —
+  shared pieces move down into `components/` or `features/` instead (`CardImage` and `marketplaceUtils` live in
+  `components/marketplace/` because the marketplaces, operations and analytics pages all use them).
+- **`navigation/`** — the one layer that sits above `pages/`: `mainNavConfig` imports every module's
+  `*Config.tsx` and turns them into the sidebar tree and the route table (`buildNavRoutes`), and `navSection.ts`
+  holds the `SectionConfig` vocabulary the configs import back as types. `App.tsx` and `MainAppBarLayout` read
+  it; nothing in `components/` does — the nav UI (`components/MainNav/`, `layouts/SidebarLayout/`) takes the
+  resolved tree as props.
 - **`layouts/`** — shells that host an `<Outlet />` or a `children` slot and own nothing domain-specific.
 - **`contexts/`** — providers. The context object and its consumer hook live in a `*Context.ts` file separate
   from the `*Provider.tsx` component, so the provider file exports only components (react-refresh rule). The
@@ -121,14 +126,17 @@ its layout: the app bar stays on screen, and — the reason the inner boundary i
 `RealtimeProvider`'s effects are not torn down, which would drop and re-open the stream on every cold chunk.
 All of them render `RouteFallback`.
 
-The route configs are the source of truth for paths and permissions: `App.tsx` for top-level routes, and
-`storageConfig.tsx` / `operationsConfig.tsx` / `analyticsConfig.tsx` / `settingsConfig.tsx` for the four
-`SidebarPage` modules (`/storage/*`, `/operations/*`, `/analytics/*`, `/settings/*`). `@/components/MainNav/mainNavConfig.tsx` joins them into the
-top-level nav: the app bar links on desktop, and the expandable section tree of `MainNavDrawer` on mobile.
+The `*Config.tsx` files are the source of truth for the paths and permissions of every page the sidebar links
+to — `catalogConfig`, `storageConfig`, `operationsConfig`, `marketplacesConfig`, `analyticsConfig`,
+`settingsConfig`. `@/navigation/mainNavConfig.tsx` joins them into one tree that yields both the nav
+(the fixed left sidebar of `SidebarLayout` on desktop, `MainNavDrawer` on mobile) and the routes
+(`buildNavRoutes`, see [frontend-components.md → Nav routes](frontend-components.md#nav-routes)). `App.tsx`
+declares by hand only the routes outside the nav: `/`, `/profile`, `/scanner`, `/print/*`, `/login` and the 404.
 
-> **Convention:** subroutes carry no `requiredPermission` of their own — `SidebarPage` only gates the section
-> route. Sub-pages that need a stronger right (`integrations.edit`, `integrations.map`, `integrations.sync`) hide their actions with
-> `useHasPermission`, and the server enforces it regardless.
+> **Convention:** subroutes carry no `requiredPermission` of their own and are not gated at the route level —
+> a section's permission gates the section's own route only. Sub-pages that need a stronger right
+> (`integrations.edit`, `integrations.map`, `integrations.sync`) hide their actions with `useHasPermission`, and
+> the server enforces it regardless.
 
 ### Checking permissions
 
@@ -138,7 +146,7 @@ One predicate answers the question everywhere: `hasPermission(granted, required,
 is a filter, and an empty filter removes nothing, which matters because the route configs are generated.
 
 `useHasPermission(required, mode?)` is the same function reading the user out of `AuthContext`; the places that
-already hold a permission list — `sectionVisibility.ts`, `mainNavConfig.tsx` — call the pure function with it.
+already hold a permission list — `navSection.ts`, `mainNavConfig.tsx` — call the pure function with it.
 Nothing re-implements the check inline.
 
 `useHasWarehousePermission(all, assigned, warehouseId)` is the warehouse-scoped form, and it is what gates any
@@ -162,7 +170,7 @@ into one flag with `||` shows buttons that are certain to answer 403, whichever 
 
 Two layouts nest inside each other. `MainLayout` is the shell every authenticated page shares — realtime
 stream, service-worker update watcher, URL-synced state. `MainAppBarLayout` sits inside it and adds the visual
-chrome: app bar and the page `Container`. `/scanner` and `/print/*` are children of `MainLayout` directly, so
+chrome: app bar, the navigation sidebar (`SidebarLayout`) and the page `Container`. `/scanner` and `/print/*` are children of `MainLayout` directly, so
 they keep the stream and the shared providers but render full-bleed, with no app bar and no breadcrumbs.
 
 ## Cross-cutting conventions
@@ -920,12 +928,12 @@ estimates and print «—» when a table has never been analysed; never present 
 
 > Not to be confused with `StoragePage` («Места хранения»), which is about warehouse storage places.
 
-### `MarketplacesSettingsPage` / `MarketplaceAccountCreatePage`
+### `MarketplacesPage` / `MarketplaceAccountCreatePage`
 
-The account list at `/settings/integrations` sorts on **Магазин** and **Синхронизация** only — the backend
+The account list at `/marketplaces` sorts on **Магазин** and **Синхронизация** only — the backend
 `MarketplaceAccountSortBy` accepts nothing else. **Подключить магазин** requires `integrations.edit`.
 
-The create form at `/settings/integrations/new` offers Ozon only for now, and **has no name field**:
+The create form at `/marketplaces/new` offers Ozon only for now, and **has no name field**:
 `MarketplaceAccount.Name` comes from the marketplace's own seller info and is overwritten by every sync; until
 the first run the server stores a `Ozon ••••1234` placeholder. An inline `Alert` says so, otherwise the missing
 field reads as a bug.
@@ -939,10 +947,10 @@ client does not call `/sync` after creating.
 
 ### `AutoMapRulesPage`
 
-Auto-mapping rules at `/settings/integrations/auto-map-rules`, reached from **Правила автосопоставления** in the
+Auto-mapping rules at `/marketplaces/auto-map-rules`, reached from **Правила автосопоставления** in the
 account-list header. The rules are global — one set for every shop — so the page is a sibling of the account
-list, not a tab on an account. The route is declared **before** `:id` in `settingsConfig.tsx`, otherwise the
-dynamic segment swallows it.
+list, not a tab on an account. It is a subroute in `marketplacesConfig.tsx`; react-router ranks the static
+segment above `:id`, so the two never collide.
 
 One unpaginated table ordered by **Приоритет** descending — the order the backend applies them in, highest first. The **Активно** switch
 saves through the same `PUT` as the dialog, sending the row unchanged apart from `isEnabled`. A rule whose
@@ -965,7 +973,7 @@ the `acquire` call is deferred.
 
 ### `MarketplaceAccountPage`
 
-Account shell at `/settings/integrations/:id`. Header shows the sync status chip plus **Синхронизировать**
+Account shell at `/marketplaces/:id`. Header shows the sync status chip plus **Синхронизировать**
 (a `Menu` picking scope: Всё / Склады / Карточки, requires `integrations.sync`), **Изменить** and **Удалить**
 (both `integrations.edit`).
 
@@ -1023,7 +1031,7 @@ ServiceWorkerContext.Provider
                                                         └── SearchParamsProvider
                                                               └── Suspense
                                                                     ├── MainAppBarLayout
-                                                                    │     └── app bar + Container + Suspense
+                                                                    │     └── app bar + SidebarLayout + Container + Suspense
                                                                     ├── /scanner
                                                                     └── /print
 ```
@@ -1241,7 +1249,8 @@ The plaques are positioned by `useFloatTop`, which returns a CSS `max(...)` expr
 mounted and removes it on unmount, so a route without an app bar (`/login`, `/scanner`, `/print`) falls back
 to the declared `0px` and the plaque sits at the top of the viewport. The property is the only channel
 available: `UpdatePrompt` is mounted above the router in `App.tsx` and cannot see the layout tree. The height
-itself comes from `MAIN_APP_BAR_HEIGHT`, exported by `MainAppBar` and also used for its own `Toolbar`.
+itself comes from `MAIN_APP_BAR_HEIGHT`, exported by `MainAppBar` and also used for its own `Toolbar`. The
+gap below the app bar is `useFloatTop`'s argument; the navigation sidebar passes `0` to sit flush under it.
 
 The installing plaque floats over the page and carries nothing to click, so it fades out and lets clicks
 through while the pointer is on it, via `useFadeOnHover`. The plaque shown after "Отложить" keeps its
