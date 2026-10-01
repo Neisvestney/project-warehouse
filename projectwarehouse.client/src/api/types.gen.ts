@@ -1394,7 +1394,10 @@ export type ErrorCode =
   | "analyticsSettingsModified"
   | "marketplaceAccrualsNotSupported"
   | "marketplaceBuyoutsRateLimited"
-  | "marketplaceBuyoutsPaused";
+  | "marketplaceBuyoutsPaused"
+  | "catalogItemIsBundleComponent"
+  | "catalogItemHasHistory"
+  | "catalogItemHasMarketplaceLinks";
 
 export type EventDto = {
   appEntity: AppEntity;

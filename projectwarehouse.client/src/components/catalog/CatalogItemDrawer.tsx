@@ -1194,6 +1194,7 @@ export function CatalogItemDrawer({
       onClose();
       setDeleteOpen(false);
     },
+    onError: () => setDeleteOpen(false),
   });
 
   const handleClose = () => {

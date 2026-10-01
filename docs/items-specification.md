@@ -70,6 +70,21 @@ Both Bundle saves and Variation saves run a standalone circular-dependency check
 
 ---
 
+## Deleting vs archiving
+
+Deletion is for items that never entered the warehouse's life — created by mistake, or a draft nobody used. Once an
+item is part of history (stock movements, document lines, orders and assembly tasks, an emptied node group) or of
+another live definition (a Bundle component, a mapped marketplace card, an auto-map rule), it can only be archived:
+those references are `Restrict`, and `DELETE /api/catalog/{id}` checks every one of them up front so the client gets a
+`409` with a specific code instead of a raw foreign-key violation. The codes and their conditions are in the
+endpoint's remarks.
+
+Links that only describe the deleted item itself go with it: a ProductGroup takes its children, a Bundle its
+component rows, a Variation its member links — the member items stay. Reporting snapshots that point at the item
+(marketplace returns, accruals, order marketplace lines) are `SET NULL` and survive the deletion.
+
+---
+
 ## FullName Rule
 
 **Always use `FullName` (not `Name`) when displaying a CatalogItem to the user.**
