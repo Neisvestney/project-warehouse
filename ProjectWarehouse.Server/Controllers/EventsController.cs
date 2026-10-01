@@ -70,6 +70,7 @@ public class EventsController(
             {
                 AppEntity = new AppEntity
                 {
+                    Id = Guid.NewGuid(),
                     Type = AppEntityType.FbsOrdersGrouped,
                     AdditionalFields = new Dictionary<string, object>
                     {
