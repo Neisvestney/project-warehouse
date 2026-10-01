@@ -1,4 +1,4 @@
-import {useCallback, useMemo, useState} from "react";
+import {useMemo} from "react";
 import {useQuery} from "@tanstack/react-query";
 import {useNavigate} from "react-router";
 import {EventCalendar} from "@mui/x-scheduler";
@@ -28,13 +28,28 @@ const ru = {
 import {eventsGetEventsOptions} from "@/api/@tanstack/react-query.gen";
 import {resolveEntity} from "@/utils/appEntityUtils";
 import {toDateOnly} from "@/utils/dateOnly";
-import type React from "react";
+import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
+
+const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+function parseMonth(q: string | null): Date {
+  const match = q?.match(/^(\d{4})-(\d{2})$/);
+  const month = match ? Number(match[2]) : 0;
+  if (!match || month < 1 || month > 12) return new Date();
+  return new Date(Number(match[1]), month - 1, 1);
+}
+
+// The current month is the default, so it is dropped from the URL.
+function formatMonth(d: Date): string | null {
+  const key = monthKey(d);
+  return key === monthKey(new Date()) ? null : key;
+}
 
 export interface AppEventsProps {}
 
 function AppEvents({}: AppEventsProps) {
   const navigate = useNavigate();
-  const [visibleDate, setVisibleDate] = useState(() => new Date());
+  const [visibleDate, setVisibleDate] = useSyncedWithQueryState("month", parseMonth, formatMonth);
 
   const startDate = useMemo(
     () => toDateOnly(new Date(visibleDate.getFullYear(), visibleDate.getMonth(), 1)),
@@ -60,7 +75,7 @@ function AppEvents({}: AppEventsProps) {
   const events: SchedulerEvent[] = useMemo(
     () =>
       resolved.map((r, i) => ({
-        id: r.id ?? i,
+        id: `${r.type}:${r.id ?? i}`,
         title: r.eventCalendarTitle,
         start: data[i].startDate,
         end: data[i].endDate,
@@ -70,40 +85,7 @@ function AppEvents({}: AppEventsProps) {
     [data, resolved],
   );
 
-  // Map eventCalendarTitle → first ResolvedEntity with that title (collisions warned, first wins)
-  const resolvedByTitle = useMemo(() => {
-    const map = new Map<string, (typeof resolved)[number]>();
-    for (let i = resolved.length - 1; i >= 0; i--) {
-      const title = resolved[i].eventCalendarTitle;
-      if (map.has(title)) {
-        console.warn(`AppEvents: duplicate eventCalendarTitle "${title}", last occurrence wins`);
-      }
-      map.set(title, resolved[i]);
-    }
-    return map;
-  }, [resolved]);
-
-  // EventCalendar (alpha) has no onEventClick — intercept via capture phase DOM delegation.
-  // In readOnly mode, clicking an event opens a readonly dialog; we prevent that and navigate instead.
-  const handleClickCapture = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      const eventEl = (e.target as HTMLElement).closest<HTMLElement>(
-        '[data-variant="filled"], [data-variant="compact"]',
-      );
-      if (!eventEl) return;
-
-      const titleEl = eventEl.querySelector<HTMLElement>('[class*="EventTitle"]');
-      const title = titleEl?.textContent?.trim();
-      if (!title) return;
-
-      const r = resolvedByTitle.get(title);
-      if (!r || r.link === "no-link" || r.link === "#") return;
-
-      e.stopPropagation();
-      navigate(r.link);
-    },
-    [resolvedByTitle, navigate],
-  );
+  const linkById = new Map(events.map((e, i) => [e.id, resolved[i].link]));
 
   return (
     <div style={{height: "calc(min(800px, 100vh - 120px))", width: "100%", position: "relative"}}>
@@ -119,7 +101,11 @@ function AppEvents({}: AppEventsProps) {
           hiddenEvents: (c) => `еще ${c}..`,
         }}
         defaultPreferences={{ampm: false, isSidePanelOpen: false}}
-        onClickCapture={handleClickCapture}
+        onEventEditingStart={(occurrence, details) => {
+          details.cancel();
+          const link = linkById.get(occurrence.id);
+          if (link && link !== "no-link" && link !== "#") navigate(link);
+        }}
         visibleDate={visibleDate}
         onVisibleDateChange={(d) => setVisibleDate(d as Date)}
       />
