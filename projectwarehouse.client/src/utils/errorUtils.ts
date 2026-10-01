@@ -44,6 +44,11 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   warehouseHasItems: "Нельзя удалить склад — в нём есть товары",
   storagePlaceHasItems: "Нельзя удалить место хранения — в нём есть товары",
   catalogItemIsInUse: "Нельзя удалить позицию — она хранится на складе",
+  catalogItemIsBundleComponent: "Нельзя удалить позицию — она входит в комплект",
+  catalogItemHasHistory:
+    "Нельзя удалить позицию — по ней есть движения, документы или заказы. Её можно только заархивировать",
+  catalogItemHasMarketplaceLinks:
+    "Нельзя удалить позицию — к ней привязаны карточки или правила маркетплейса",
   catalogItemIsImmutable: "Позиция неизменяема",
   catalogItemArticleDuplicate: "Товар с таким артикулом уже существует",
   catalogItemBarcodeDuplicate: "Товар с таким штрихкодом уже существует",

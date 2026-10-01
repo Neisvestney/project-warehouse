@@ -1273,11 +1273,15 @@ export const catalogGetForSelectByIds = <ThrowOnError extends boolean = false>(
 /**
  * Delete a catalog item.
  *
- * Requires `catalog.edit`. Deleting a ProductGroup deletes its children with it, and the in-use
- * check covers them too.
- * Returns 404 `catalogItemNotFound` if no such item, and 409 `catalogItemIsInUse` if the item
- * (or one of its group children) is stored in any warehouse — as a node item group or as a unit
- * inventory item.
+ * Requires `catalog.edit`. Deleting a ProductGroup deletes its children with it, and every check
+ * below covers them too. Deleting a Variation drops its member links; the member items stay.
+ * Returns 404 `catalogItemNotFound` if no such item, and 409 when the item is still referenced:
+ * * `catalogItemIsInUse` — stored in any warehouse, as a node item group or as a unit inventory item
+ * * `catalogItemIsBundleComponent` — a component of a bundle that is not being deleted with it
+ * * `catalogItemHasHistory` — appears in a stock movement, a receipt, write-off or stocktake line,
+ * an order box or an assembly task; such an item can only be archived
+ * * `catalogItemHasMarketplaceLinks` — a marketplace card is mapped to it or an auto-map rule
+ * points at it
  */
 export const catalogDelete = <ThrowOnError extends boolean = false>(
   options: Options<CatalogDeleteData, ThrowOnError>,

@@ -439,11 +439,15 @@ public class CatalogController(
 
     /// <summary>Delete a catalog item.</summary>
     /// <remarks>
-    /// Requires <c>catalog.edit</c>. Deleting a ProductGroup deletes its children with it, and the in-use
-    /// check covers them too.
-    /// Returns 404 <c>catalogItemNotFound</c> if no such item, and 409 <c>catalogItemIsInUse</c> if the item
-    /// (or one of its group children) is stored in any warehouse — as a node item group or as a unit
-    /// inventory item.
+    /// Requires <c>catalog.edit</c>. Deleting a ProductGroup deletes its children with it, and every check
+    /// below covers them too. Deleting a Variation drops its member links; the member items stay.
+    /// Returns 404 <c>catalogItemNotFound</c> if no such item, and 409 when the item is still referenced:
+    /// * <c>catalogItemIsInUse</c> — stored in any warehouse, as a node item group or as a unit inventory item
+    /// * <c>catalogItemIsBundleComponent</c> — a component of a bundle that is not being deleted with it
+    /// * <c>catalogItemHasHistory</c> — appears in a stock movement, a receipt, write-off or stocktake line,
+    ///   an order box or an assembly task; such an item can only be archived
+    /// * <c>catalogItemHasMarketplaceLinks</c> — a marketplace card is mapped to it or an auto-map rule
+    ///   points at it
     /// </remarks>
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = Permissions.Catalog.Edit)]
@@ -470,8 +474,26 @@ public class CatalogController(
         if (isInItemsGroup || isInInventory)
             return Conflict(ErrorCode.CatalogItemIsInUse, "Cannot delete a catalog item that is stored in a warehouse.");
 
+        if (await db.BundleComponents.AnyAsync(bc => allIds.Contains(bc.ComponentId) && !allIds.Contains(bc.BundleId), ct))
+            return Conflict(ErrorCode.CatalogItemIsBundleComponent, "Cannot delete a catalog item that is a bundle component.");
+
+        if (await HasHistoryAsync(allIds, ct))
+            return Conflict(ErrorCode.CatalogItemHasHistory, "Cannot delete a catalog item that has warehouse or order history.");
+
+        var hasMarketplaceLinks =
+            await db.MarketplaceCards.AnyAsync(c => c.CatalogItemId != null && allIds.Contains(c.CatalogItemId.Value), ct)
+            || await db.MarketplaceAutoMapRules.AnyAsync(r => allIds.Contains(r.CatalogItemId), ct);
+        if (hasMarketplaceLinks)
+            return Conflict(ErrorCode.CatalogItemHasMarketplaceLinks, "Cannot delete a catalog item mapped to marketplace cards.");
+
         var itemForLog = await LoadItemWithDetailsAsync(id, ct);
         var dto = mapper.Map<CatalogItemDto>(itemForLog!);
+
+        // Variation side of the link is Restrict, so the rows must go before the item does
+        var memberLinks = await db.CatalogItemVariationMembers
+            .Where(m => allIds.Contains(m.VariationId))
+            .ToListAsync(ct);
+        db.CatalogItemVariationMembers.RemoveRange(memberLinks);
 
         foreach (var child in item.GroupChildren)
             db.CatalogItems.Remove(child);
@@ -490,6 +512,19 @@ public class CatalogController(
             v => child.MainImageFileId = v, "children.mainImageFileId", ct)
         ?? await fileBinding.BindListAsync(request.Images, child.Images, db.CatalogItemImages,
             setOwner: img => img.CatalogItemId = child.Id, field: "children.images", ct);
+
+    // An emptied node group is history too: its row stays at Count 0 and still holds the Restrict FK
+    private async Task<bool> HasHistoryAsync(List<Guid> ids, CancellationToken ct) =>
+        await db.StockMovements.AnyAsync(m => ids.Contains(m.CatalogItemId), ct)
+        || await db.StoragePlacesNodesItemsGroups.AnyAsync(g => ids.Contains(g.CatalogItemId), ct)
+        || await db.ReceiptItems.AnyAsync(i => ids.Contains(i.CatalogItemId), ct)
+        || await db.WriteoffItems.AnyAsync(i => i.CatalogItemId != null && ids.Contains(i.CatalogItemId.Value), ct)
+        || await db.StocktakeItems.AnyAsync(i => ids.Contains(i.CatalogItemId), ct)
+        || await db.OrderBoxComponents.AnyAsync(c => ids.Contains(c.CatalogItemId), ct)
+        || await db.AssemblyTaskBoxComponents.AnyAsync(c => ids.Contains(c.CatalogItemId), ct)
+        || await db.AssemblyFulfillments.AnyAsync(
+            f => f.ResolvedCatalogItemId != null && ids.Contains(f.ResolvedCatalogItemId.Value), ct)
+        || await db.AssemblyFulfillmentBundleComponents.AnyAsync(c => ids.Contains(c.CatalogItemId), ct);
 
     // nine collection includes in one query multiply into each other; images pushed it over the edge
     private Task<CatalogItem?> LoadItemWithDetailsAsync(Guid id, CancellationToken ct) =>
