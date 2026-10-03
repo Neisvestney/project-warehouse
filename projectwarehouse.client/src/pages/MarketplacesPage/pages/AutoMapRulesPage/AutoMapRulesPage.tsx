@@ -16,6 +16,7 @@ import {
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
@@ -38,6 +39,7 @@ import TableRowEmpty from "@/components/TableRowEmpty";
 import TableRowLoader from "@/components/TableRowLoader";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import AutoMapRuleDialog from "./AutoMapRuleDialog";
+import AutoMapCardsDialog from "../../components/AutoMapCardsDialog";
 import {
   CARD_FIELD_LABELS,
   RULE_OPERATOR_LABELS,
@@ -54,6 +56,7 @@ function AutoMapRulesPage() {
   const [editing, setEditing] = useState<MarketplaceAutoMapRuleDto | null>(null);
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState<MarketplaceAutoMapRuleDto | null>(null);
+  const [isAutoMapOpen, setAutoMapOpen] = useState(false);
 
   // Claiming the set on a plain read would lock colleagues out of a page most people only look at, so
   // the claim waits for intent to edit and then sticks for the rest of the visit.
@@ -134,14 +137,24 @@ function AutoMapRulesPage() {
         title="Правила автосопоставления"
         actions={
           canEdit && (
-            <Button
-              variant="outlined"
-              endIcon={<AddIcon />}
-              size="small"
-              onClick={() => openDialog(null)}
-            >
-              Добавить правило
-            </Button>
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant="outlined"
+                startIcon={<AutoFixHighIcon />}
+                size="small"
+                onClick={() => setAutoMapOpen(true)}
+              >
+                Сопоставить карточки
+              </Button>
+              <Button
+                variant="outlined"
+                endIcon={<AddIcon />}
+                size="small"
+                onClick={() => openDialog(null)}
+              >
+                Добавить правило
+              </Button>
+            </Stack>
           )
         }
       />
@@ -237,6 +250,8 @@ function AutoMapRulesPage() {
         onClose={() => setDialogOpen(false)}
         onSaved={invalidate}
       />
+
+      <AutoMapCardsDialog open={isAutoMapOpen} onClose={() => setAutoMapOpen(false)} />
 
       <ConfirmDialog
         open={!!deleting}

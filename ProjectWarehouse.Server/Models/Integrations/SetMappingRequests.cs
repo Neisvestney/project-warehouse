@@ -12,9 +12,3 @@ public class SetCardMappingRequest
     public Guid? CatalogItemId { get; init; }
     public bool IsMarkedArchived { get; init; }
 }
-
-public class AutoMapResponse
-{
-    public int Mapped { get; init; }
-    public int Remaining { get; init; }
-}

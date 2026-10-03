@@ -27,6 +27,7 @@ public class MarketplacesController(
     IMarketplaceSyncQueue syncQueue,
     IMarketplaceSyncService syncService,
     IOptions<MarketplacesOptions> options,
+    IChangeLogService changeLog,
     IChangeLogService<MarketplaceAccountDto> accountChangeLog,
     IChangeLogService<MarketplaceCardDto> cardChangeLog) : AppControllerBase
 {
@@ -876,35 +877,127 @@ public class MarketplacesController(
         return Ok(after);
     }
 
-    /// <summary>Matches still-unmapped cards to catalog items by article, then by barcode. Existing mappings are left alone.</summary>
+    /// <summary>Auto-maps the cards of several accounts by rules, then article, then barcode.</summary>
     /// <remarks>
-    /// Anything ambiguous (no candidate or more than one) is left for a human, so the operation never fails
-    /// on a card: 404 <c>marketplaceAccountNotFound</c> is the only error besides 403 <c>permissionDenied</c>.
+    /// Body: <c>AutoMapCardsRequest</c> — <c>accountIds</c> (1 to 50, duplicates collapsed) and the flags
+    /// <c>overwriteAuto</c> / <c>overwriteManual</c> (re-match cards already mapped automatically / by hand),
+    /// <c>clearUnmatched</c> (a re-matched card with no unambiguous match loses its mapping) and <c>dryRun</c>
+    /// (compute without saving). Unmapped active cards are always in scope; archived cards never are.
+    /// The response lists only cards whose mapping changes, ordered by account and offer id.
+    /// Errors: 422 <c>tooShort</c> / <c>tooLong</c> on <c>accountIds</c>, 404 <c>marketplaceAccountNotFound</c>
+    /// when any id matches no account (nothing is applied), 403 <c>permissionDenied</c>.
     /// Requires <c>integrations.map</c>.
     /// </remarks>
-    [HttpPost("accounts/{id:guid}/cards/auto-map")]
+    [HttpPost("accounts/cards/auto-map")]
     [Authorize(Policy = Permissions.Integrations.Map)]
-    [ProducesResponseType<AutoMapResponse>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> AutoMapCards(Guid id, CancellationToken ct)
+    [ProducesResponseType<AutoMapCardsResponse>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> AutoMapCards([FromBody] AutoMapCardsRequest request, CancellationToken ct)
     {
-        var account = await db.MarketplaceAccounts
+        var accountIds = request.AccountIds.Distinct().ToList();
+        var accounts = await db.MarketplaceAccounts
             .Include(a => a.CreatedBy)
-            .FirstOrDefaultAsync(a => a.Id == id, ct);
+            .Where(a => accountIds.Contains(a.Id))
+            .ToListAsync(ct);
 
-        if (account is null)
+        if (accounts.Count != accountIds.Count)
             return NotFound(ErrorCode.MarketplaceAccountNotFound, "Marketplace account not found.");
 
-        var before = await ToDetailDtoAsync(account, ct);
-        var mapped = await syncService.AutoMapAccountAsync(id, ct);
+        var changes = await syncService.PlanAutoMapAsync(accountIds,
+            new MarketplaceAutoMapScope(request.OverwriteAuto, request.OverwriteManual, request.ClearUnmatched), ct);
 
-        var remaining = await db.MarketplaceCards
-            .CountAsync(c => c.MarketplaceAccountId == id && c.CatalogItemId == null && !c.EffectiveIsArchived, ct);
+        var unmappedBefore = await db.MarketplaceCards
+            .CountAsync(c => accountIds.Contains(c.MarketplaceAccountId) && c.CatalogItemId == null
+                             && !c.EffectiveIsArchived, ct);
+        var mapped = changes.Count(c => c.OldCatalogItemId is null);
+        var cleared = changes.Count(c => c.NewCatalogItemId is null);
+        var remaining = unmappedBefore - mapped + cleared;
 
-        // diffs on unmappedCardCount, so a run that mapped nothing writes no entry
-        await accountChangeLog.CompareAndSaveToChangelog(before, await ToDetailDtoAsync(account, ct),
-            MarketplaceActions.MappingAuto, new { matched = mapped, remaining });
+        var catalogItemIds = changes
+            .SelectMany(c => new[] { c.OldCatalogItemId, c.NewCatalogItemId })
+            .OfType<Guid>()
+            .Distinct()
+            .ToList();
+        var catalogItems = await db.CatalogItems
+            .Where(i => catalogItemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.FullName, i.Article })
+            .ToDictionaryAsync(i => i.Id, ct);
+        var accountNames = accounts.ToDictionary(a => a.Id, a => a.Name);
 
-        return Ok(new AutoMapResponse { Mapped = mapped, Remaining = remaining });
+        var items = changes.Select(c =>
+        {
+            var oldItem = c.OldCatalogItemId is { } oldId ? catalogItems[oldId] : null;
+            var newItem = c.NewCatalogItemId is { } newId ? catalogItems[newId] : null;
+            return new AutoMapCardChangeDto
+            {
+                CardId = c.Card.Id,
+                AccountId = c.Card.MarketplaceAccountId,
+                AccountName = accountNames[c.Card.MarketplaceAccountId],
+                OfferId = c.Card.OfferId,
+                CardName = c.Card.Name,
+                OldCatalogItemId = c.OldCatalogItemId,
+                OldCatalogItemFullName = oldItem?.FullName,
+                OldCatalogItemArticle = oldItem?.Article,
+                OldMappingSource = c.OldMappingSource,
+                NewCatalogItemId = c.NewCatalogItemId,
+                NewCatalogItemFullName = newItem?.FullName,
+                NewCatalogItemArticle = newItem?.Article,
+                NewMappingSource = c.NewMappingSource,
+            };
+        }).ToList();
+
+        var response = new AutoMapCardsResponse { Mapped = mapped, Cleared = cleared, Remaining = remaining, Items = items };
+        if (request.DryRun || changes.Count == 0)
+            return Ok(response);
+
+        var now = DateTime.UtcNow;
+        foreach (var change in changes)
+            change.Apply(now);
+        await db.SaveChangesAsync(ct);
+
+        // the default cap of 100 differences would truncate the diff past ~33 changed cards
+        var compareLogic = AbstractChangeLogService.GetCompareLogic();
+        compareLogic.Config.MaxDifferences = int.MaxValue;
+
+        foreach (var group in items.GroupBy(i => i.AccountId))
+        {
+            var before = new MarketplaceCardMappingsSnapshot
+            {
+                Id = group.Key,
+                Cards = group.Select(i => new MarketplaceCardMappingSnapshotItem
+                {
+                    Id = i.CardId,
+                    OfferId = i.OfferId,
+                    CatalogItemId = i.OldCatalogItemId,
+                    CatalogItemArticle = i.OldCatalogItemArticle,
+                    MappingSource = i.OldMappingSource,
+                }).ToList(),
+            };
+            var after = new MarketplaceCardMappingsSnapshot
+            {
+                Id = group.Key,
+                Cards = group.Select(i => new MarketplaceCardMappingSnapshotItem
+                {
+                    Id = i.CardId,
+                    OfferId = i.OfferId,
+                    CatalogItemId = i.NewCatalogItemId,
+                    CatalogItemArticle = i.NewCatalogItemArticle,
+                    MappingSource = i.NewMappingSource,
+                }).ToList(),
+            };
+
+            await changeLog.CompareAndSaveToChangelog(AppEntityType.MarketplaceAccount, group.Key, before, after,
+                compareLogic, MarketplaceActions.MappingAuto,
+                new
+                {
+                    matched = group.Count(i => i.OldCatalogItemId is null),
+                    cleared = group.Count(i => i.NewCatalogItemId is null),
+                    request.OverwriteAuto,
+                    request.OverwriteManual,
+                    request.ClearUnmatched,
+                });
+        }
+
+        return Ok(response);
     }
 
     /// <summary>Unmapped card count across all active accounts — feeds the sidebar badge.</summary>

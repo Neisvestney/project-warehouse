@@ -2,13 +2,11 @@ import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {
   Alert,
   Button,
-  Checkbox,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControlLabel,
   LinearProgress,
   Stack,
   Tooltip,
@@ -26,7 +24,6 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import type {
   MarketplaceOrderSyncTargetDto,
-  MarketplaceType,
   SyncOrdersFailedItem,
   SyncOrdersStartedItem,
 } from "@/api/types.gen";
@@ -34,13 +31,11 @@ import {extractErrorMessage} from "@/utils/errorUtils";
 import {byOperation} from "@/utils/queryKeys";
 import {useEntityWatchMany} from "@/hooks/useEntityWatch";
 import {useRealtimeEvent} from "@/hooks/useRealtimeEvent";
+import MarketplaceAccountPicker from "@/components/marketplace/MarketplaceAccountPicker";
 import SyncOrdersAccountAccordion from "./SyncOrdersAccountAccordion";
-import {MARKETPLACE_LABELS} from "./marketplaceOrderUtils";
 
 /** Fallback poll: runs only while the SSE subscriptions on the picked accounts aren't live. */
 const RUNNING_POLL_MS = 2000;
-
-const SHORTCUT_TYPES: MarketplaceType[] = ["ozon", "wildberries"];
 
 interface SyncOrdersDialogProps {
   open: boolean;
@@ -119,20 +114,6 @@ function SyncOrdersDialog({open, onClose}: SyncOrdersDialogProps) {
     },
     onError: (e) => setError(extractErrorMessage(e)),
   });
-
-  function toggle(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function selectAllOfType(type: MarketplaceType) {
-    const ids = (targets ?? []).filter((t) => t.type === type).map((t) => t.id);
-    setSelected((prev) => new Set([...prev, ...ids]));
-  }
 
   function handleClose() {
     setSelected(new Set());
@@ -217,25 +198,12 @@ function SyncOrdersDialog({open, onClose}: SyncOrdersDialogProps) {
             Нет магазинов, поддерживающих синхронизацию заказов.
           </Typography>
         ) : (
-          <Stack spacing={1}>
-            <Stack direction="row" spacing={1}>
-              {SHORTCUT_TYPES.filter((type) => targets?.some((t) => t.type === type)).map(
-                (type) => (
-                  <Button key={type} size="small" onClick={() => selectAllOfType(type)}>
-                    Все {MARKETPLACE_LABELS[type]}
-                  </Button>
-                ),
-              )}
-            </Stack>
-            {targets?.map((target) => (
-              <TargetRow
-                key={target.id}
-                target={target}
-                checked={selected.has(target.id)}
-                onToggle={() => toggle(target.id)}
-              />
-            ))}
-          </Stack>
+          <MarketplaceAccountPicker
+            accounts={targets ?? []}
+            selected={selected}
+            onChange={setSelected}
+            renderExtra={(target) => <TargetWarning target={target} />}
+          />
         )}
       </DialogContent>
       <DialogActions>
@@ -257,14 +225,8 @@ function SyncOrdersDialog({open, onClose}: SyncOrdersDialogProps) {
   );
 }
 
-interface TargetRowProps {
-  target: MarketplaceOrderSyncTargetDto;
-  checked: boolean;
-  onToggle: () => void;
-}
-
 /** Accounts with gaps stay selectable — a warning explains far more than a missing checkbox. */
-function TargetRow({target, checked, onToggle}: TargetRowProps) {
+function TargetWarning({target}: {target: MarketplaceOrderSyncTargetDto}) {
   const warnings = [
     target.mappedWarehouseCount === 0 ? "ни один склад не привязан" : null,
     target.unmappedCardCount > 0 ? `${target.unmappedCardCount} карточек без привязки` : null,
@@ -272,19 +234,12 @@ function TargetRow({target, checked, onToggle}: TargetRowProps) {
     target.isSyncRunning ? "уже идёт синхронизация" : null,
   ].filter((w): w is string => w !== null);
 
+  if (warnings.length === 0) return null;
+
   return (
-    <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
-      <FormControlLabel
-        control={<Checkbox size="small" checked={checked} onChange={onToggle} />}
-        label={`${target.name} · ${MARKETPLACE_LABELS[target.type]}`}
-        sx={{flexGrow: 1}}
-      />
-      {warnings.length > 0 && (
-        <Tooltip title={`Будут пропуски: ${warnings.join(", ")}`}>
-          <WarningAmberIcon color="warning" fontSize="small" />
-        </Tooltip>
-      )}
-    </Stack>
+    <Tooltip title={`Будут пропуски: ${warnings.join(", ")}`}>
+      <WarningAmberIcon color="warning" fontSize="small" />
+    </Tooltip>
   );
 }
 

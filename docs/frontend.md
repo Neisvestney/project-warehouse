@@ -957,6 +957,27 @@ saves through the same `PUT` as the dialog, sending the row unchanged apart from
 target got archived carries an **Архив** chip — the backend skips it until it is repointed. Everything that
 mutates requires `integrations.map`; without it the page is read-only.
 
+**Сопоставить карточки** in the header opens `AutoMapCardsDialog` with an account picker, so the rules can be
+run over several shops at once.
+
+#### `AutoMapCardsDialog`
+
+`pages/MarketplacesPage/components/AutoMapCardsDialog.tsx`, the single client of `POST /accounts/cards/auto-map`.
+With `accountId` the run is fixed to that account; without it the dialog lists `/accounts/short` in a
+`MarketplaceAccountPicker`. Switches: **Перебивать автоматически сопоставленные**, **Перебивать сопоставленные
+вручную**, **Сбрасывать привязку, если новое совпадение не найдено** (enabled only with one of the first two)
+and **Пробный прогон**, on by default. The result view lists only changed cards — card, «Было», «Стало» with the
+mapping source, plus the shop column when several were picked — under a summary of mapped / remapped /
+cleared / remaining. A dry-run result offers **Применить**, which repeats the same request with `dryRun: false`.
+A real run invalidates `marketplacesGetCards`, `marketplacesGetAccount` and `marketplacesGetUnmappedCount`.
+
+The shell owns the `Dialog`, the mutation and the last result (request + response) in its own state — a repeated
+`mutate()` clears the mutation's `data` while pending, so the dry-run preview stays on screen during
+**Применить** and after a failed apply. The form lives in a `…Content` child kept alive by `useRetainedValue`;
+result and mutation are reset in `onExited`. Turning on both «Перебивать сопоставленные вручную» and the reset
+switch shows a `warning` `Alert`: most manual mappings are exactly the ones heuristics cannot find. Closing and
+Back are refused while the request is in flight.
+
 `AutoMapRuleDialog` serves both create and edit (`rule === null` means create) and picks the target with the
 shared `CatalogItemsSelect`, restricted to `standard | unit | bundle | variation`. An invalid regular expression
 comes back as a 422 on `value` and lands on the field through `useRhfApiErrors`.
@@ -996,8 +1017,7 @@ Tabs:
   warehouses.
 - **Карточки** — image, название, артикул, цена, обновлена, SKU, позиция каталога, `CardMappingChip`. Filters
   in URL (`?search=`, `?mappingState=`, `?archived=`); **`mappingState` defaults to `unmapped`** because that is
-  the working list. **Сопоставить автоматически** runs account-wide auto-mapping and reports «Сопоставлено N,
-  требует ручного разбора M». Clicking a row opens `CardMappingDialog` (requires `integrations.map`); a mapped
+  the working list. **Сопоставить автоматически** opens `AutoMapCardsDialog` fixed to this account. Clicking a row opens `CardMappingDialog` (requires `integrations.map`); a mapped
   row's catalog cell is a `CatalogItemLink` opening `CatalogItemDrawer` (the tab is wrapped in
   `CatalogItemDrawerHost`, drawer state in `?catalogItem=`). The thumbnail is a `CardImage` — opens the
   full-size marketplace image in a new tab.

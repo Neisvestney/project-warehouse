@@ -2082,10 +2082,15 @@ export const marketplacesSetCardMapping = <ThrowOnError extends boolean = false>
   });
 
 /**
- * Matches still-unmapped cards to catalog items by article, then by barcode. Existing mappings are left alone.
+ * Auto-maps the cards of several accounts by rules, then article, then barcode.
  *
- * Anything ambiguous (no candidate or more than one) is left for a human, so the operation never fails
- * on a card: 404 `marketplaceAccountNotFound` is the only error besides 403 `permissionDenied`.
+ * Body: `AutoMapCardsRequest` — `accountIds` (1 to 50, duplicates collapsed) and the flags
+ * `overwriteAuto` / `overwriteManual` (re-match cards already mapped automatically / by hand),
+ * `clearUnmatched` (a re-matched card with no unambiguous match loses its mapping) and `dryRun`
+ * (compute without saving). Unmapped active cards are always in scope; archived cards never are.
+ * The response lists only cards whose mapping changes, ordered by account and offer id.
+ * Errors: 422 `tooShort` / `tooLong` on `accountIds`, 404 `marketplaceAccountNotFound`
+ * when any id matches no account (nothing is applied), 403 `permissionDenied`.
  * Requires `integrations.map`.
  */
 export const marketplacesAutoMapCards = <ThrowOnError extends boolean = false>(
@@ -2095,7 +2100,14 @@ export const marketplacesAutoMapCards = <ThrowOnError extends boolean = false>(
     MarketplacesAutoMapCardsResponses,
     MarketplacesAutoMapCardsErrors,
     ThrowOnError
-  >({url: "/api/integrations/marketplaces/accounts/{id}/cards/auto-map", ...options});
+  >({
+    url: "/api/integrations/marketplaces/accounts/cards/auto-map",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
 
 /**
  * Unmapped card count across all active accounts — feeds the sidebar badge.

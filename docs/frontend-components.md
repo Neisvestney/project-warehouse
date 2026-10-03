@@ -1177,6 +1177,9 @@ The order page also shows returns per line and per record: `OrderMarketplaceItem
 button expands every return record of the posting. Records with `isCountedAsReturn = false` stay in that list,
 dimmed and marked «Не засчитан».
 
+`SyncOrdersDialog` picks accounts with `MarketplaceAccountPicker` and puts a warning icon at the end of a row
+through `renderExtra` when the run will skip something for that account.
+
 While the start request is in flight or any picked run is still `running`, `SyncOrdersDialog` shows an
 indeterminate `LinearProgress` under the title. While the start request is in flight the dialog cannot be
 closed at all, so its `onSuccess` never lands on a closed dialog; while a run is going, closing (backdrop,
@@ -1309,6 +1312,13 @@ object, a flattened `MarketplaceOrderDto`) — plus an optional `search` for the
 
 Call sites: `OrderMetaSection` («Магазин»), the `OrdersAssemblyPage` order row, `CatalogItemDrawer`
 («Привязан к карточкам») and `WarehouseViewPage` («Привязано к складам маркетплейсов»).
+
+### `components/marketplace/MarketplaceAccountPicker`
+
+Checkbox list of marketplace accounts with «Все Ozon» / «Все Wildberries» shortcuts (shown only for types
+present in the list). Generic over any `{id, name, type}` row; the selection is a controlled `Set<string>`
+(`selected` / `onChange`). `renderExtra(account)` puts per-row content at the end of the row, such as a warning
+icon. Used by `SyncOrdersDialog` and `AutoMapCardsDialog`.
 
 ## Warehouse & scanning
 

@@ -3412,10 +3412,15 @@ export const marketplacesSetCardMappingMutation = (
 };
 
 /**
- * Matches still-unmapped cards to catalog items by article, then by barcode. Existing mappings are left alone.
+ * Auto-maps the cards of several accounts by rules, then article, then barcode.
  *
- * Anything ambiguous (no candidate or more than one) is left for a human, so the operation never fails
- * on a card: 404 `marketplaceAccountNotFound` is the only error besides 403 `permissionDenied`.
+ * Body: `AutoMapCardsRequest` — `accountIds` (1 to 50, duplicates collapsed) and the flags
+ * `overwriteAuto` / `overwriteManual` (re-match cards already mapped automatically / by hand),
+ * `clearUnmatched` (a re-matched card with no unambiguous match loses its mapping) and `dryRun`
+ * (compute without saving). Unmapped active cards are always in scope; archived cards never are.
+ * The response lists only cards whose mapping changes, ordered by account and offer id.
+ * Errors: 422 `tooShort` / `tooLong` on `accountIds`, 404 `marketplaceAccountNotFound`
+ * when any id matches no account (nothing is applied), 403 `permissionDenied`.
  * Requires `integrations.map`.
  */
 export const marketplacesAutoMapCardsMutation = (

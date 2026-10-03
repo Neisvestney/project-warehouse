@@ -361,27 +361,81 @@ public class MarketplaceSyncService(
         return card is not null;
     }
 
-    public async Task<int> AutoMapAccountAsync(Guid accountId, CancellationToken ct)
+    public async Task<IReadOnlyList<MarketplaceAutoMapChange>> PlanAutoMapAsync(
+        IReadOnlyCollection<Guid> accountIds, MarketplaceAutoMapScope scope, CancellationToken ct)
     {
-        var unmapped = await db.MarketplaceCards
-            .Where(c => c.MarketplaceAccountId == accountId && c.CatalogItemId == null && !c.EffectiveIsArchived)
+        // a mapping with no recorded source is treated as manual — nobody can vouch it came from a heuristic
+        var cards = await db.MarketplaceCards
+            .Where(c => accountIds.Contains(c.MarketplaceAccountId) && !c.EffectiveIsArchived)
+            .Where(c => c.CatalogItemId == null
+                        || (scope.OverwriteAuto && c.MappingSource != null
+                                                && c.MappingSource != MarketplaceMappingSource.Manual)
+                        || (scope.OverwriteManual && (c.MappingSource == null
+                                                      || c.MappingSource == MarketplaceMappingSource.Manual)))
+            .OrderBy(c => c.MarketplaceAccountId)
+            .ThenBy(c => c.OfferId)
             .ToListAsync(ct);
 
-        var mapped = await AutoMapAsync(unmapped, ct);
-        await db.SaveChangesAsync(ct);
-        return mapped;
+        var matches = await MatchAsync(cards, ct);
+        var changes = new List<MarketplaceAutoMapChange>();
+
+        foreach (var card in cards)
+        {
+            if (matches.TryGetValue(card, out var match))
+            {
+                // same target found again is not a change, even if a different heuristic found it
+                if (card.CatalogItemId == match.CatalogItemId)
+                    continue;
+
+                changes.Add(Change(card, match.CatalogItemId, match.Source));
+            }
+            else if (card.CatalogItemId is not null && scope.ClearUnmatched)
+            {
+                changes.Add(Change(card, null, null));
+            }
+        }
+
+        return changes;
+
+        static MarketplaceAutoMapChange Change(MarketplaceCard card, Guid? catalogItemId,
+            MarketplaceMappingSource? source) => new()
+        {
+            Card = card,
+            OldCatalogItemId = card.CatalogItemId,
+            OldMappingSource = card.MappingSource,
+            NewCatalogItemId = catalogItemId,
+            NewMappingSource = source,
+        };
+    }
+
+    /// <summary>Maps the still-unmapped cards among <paramref name="cards"/>. An existing mapping is never overwritten.</summary>
+    private async Task<int> AutoMapAsync(IReadOnlyCollection<MarketplaceCard> cards, CancellationToken ct)
+    {
+        var matches = await MatchAsync(cards.Where(c => c.CatalogItemId is null).ToList(), ct);
+        var now = DateTime.UtcNow;
+
+        foreach (var (card, match) in matches)
+        {
+            card.CatalogItemId = match.CatalogItemId;
+            card.MappingSource = match.Source;
+            card.MappedAt = now;
+        }
+
+        return matches.Count;
     }
 
     /// <summary>
-    /// Applies the global auto-mapping rules first, then maps by seller article, then by barcode. An
-    /// existing mapping is never overwritten, and anything ambiguous (zero or more than one candidate)
-    /// is left for a human.
+    /// Matches by the global auto-mapping rules first, then by seller article, then by barcode, ignoring
+    /// the cards' current mapping. Anything ambiguous (zero or more than one candidate) gets no entry —
+    /// it is left for a human.
     /// </summary>
-    private async Task<int> AutoMapAsync(IReadOnlyCollection<MarketplaceCard> cards, CancellationToken ct)
+    private async Task<Dictionary<MarketplaceCard, (Guid CatalogItemId, MarketplaceMappingSource Source)>> MatchAsync(
+        IReadOnlyCollection<MarketplaceCard> candidates, CancellationToken ct)
     {
-        var candidates = cards.Where(c => c.CatalogItemId is null).ToList();
+        var result = new Dictionary<MarketplaceCard, (Guid CatalogItemId, MarketplaceMappingSource Source)>(
+            ReferenceEqualityComparer.Instance);
         if (candidates.Count == 0)
-            return 0;
+            return result;
 
         var rules = await LoadRulesAsync(ct);
 
@@ -413,36 +467,17 @@ public class MarketplaceSyncService(
                 .GroupBy(i => i.Barcode.ToLower())
                 .ToDictionaryAsync(g => g.Key, g => g.Select(i => i.Id).ToList(), ct);
 
-        var now = DateTime.UtcNow;
-        var mapped = 0;
-
         foreach (var card in candidates)
         {
             if (TryApplyRule(card, rules, out var ruleTarget))
-            {
-                Apply(card, ruleTarget, MarketplaceMappingSource.Rule);
-                mapped++;
-            }
+                result[card] = (ruleTarget, MarketplaceMappingSource.Rule);
             else if (TryResolveSingle(byArticle, [card.OfferId.ToLowerInvariant()], out var catalogItemId))
-            {
-                Apply(card, catalogItemId, MarketplaceMappingSource.AutoOfferId);
-                mapped++;
-            }
+                result[card] = (catalogItemId, MarketplaceMappingSource.AutoOfferId);
             else if (TryResolveSingle(byBarcode, card.Barcodes.Select(b => b.ToLowerInvariant()), out catalogItemId))
-            {
-                Apply(card, catalogItemId, MarketplaceMappingSource.AutoBarcode);
-                mapped++;
-            }
+                result[card] = (catalogItemId, MarketplaceMappingSource.AutoBarcode);
         }
 
-        return mapped;
-
-        void Apply(MarketplaceCard card, Guid catalogItemId, MarketplaceMappingSource source)
-        {
-            card.CatalogItemId = catalogItemId;
-            card.MappingSource = source;
-            card.MappedAt = now;
-        }
+        return result;
     }
 
     /// <summary>
