@@ -16,14 +16,11 @@ import {
   Typography,
 } from "@mui/material";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
-import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
-import {useSnackbar} from "notistack";
+import {useQuery, useQueryClient} from "@tanstack/react-query";
 import {
-  marketplacesAutoMapCardsMutation,
   marketplacesGetAccountQueryKey,
   marketplacesGetCardsOptions,
 } from "@/api/@tanstack/react-query.gen";
-import {extractErrorMessage} from "@/utils/errorUtils";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
@@ -39,6 +36,7 @@ import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
 import {useOpenCatalogItem} from "@/components/catalog/CatalogItemDrawerContext";
 import CardImage from "@/components/marketplace/CardImage.tsx";
 import CardMappingChip from "../../components/CardMappingChip";
+import AutoMapCardsDialog from "../../components/AutoMapCardsDialog";
 import CardMappingDialog from "./CardMappingDialog";
 import {
   ALL_MAPPING_STATES,
@@ -64,11 +62,11 @@ interface AccountCardsTabProps {
 
 function AccountCardsTab({accountId}: AccountCardsTabProps) {
   const queryClient = useQueryClient();
-  const {enqueueSnackbar} = useSnackbar();
   const canMap = useHasPermission("integrations.map");
   const openCatalogItem = useOpenCatalogItem();
 
   const [editingCard, setEditingCard] = useState<MarketplaceCardDto | null>(null);
+  const [isAutoMapOpen, setAutoMapOpen] = useState(false);
 
   const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
     "search",
@@ -120,22 +118,6 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
     });
   };
 
-  const autoMapMutation = useMutation({
-    ...marketplacesAutoMapCardsMutation(),
-    meta: {suppressGlobalError: true},
-    onSuccess: async (result) => {
-      enqueueSnackbar(
-        `Сопоставлено ${result.mapped}, требует ручного разбора ${result.remaining}`,
-        {variant: "success"},
-      );
-      await invalidate();
-    },
-    onError: (err) =>
-      enqueueSnackbar(extractErrorMessage(err) || "Не удалось выполнить автосопоставление", {
-        variant: "error",
-      }),
-  });
-
   return (
     <Stack spacing={2}>
       <FiltersBar
@@ -146,8 +128,7 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
               variant="outlined"
               size="small"
               startIcon={<AutoFixHighIcon />}
-              disabled={autoMapMutation.isPending}
-              onClick={() => autoMapMutation.mutate({path: {id: accountId}})}
+              onClick={() => setAutoMapOpen(true)}
             >
               Сопоставить автоматически
             </Button>
@@ -283,6 +264,12 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
         onClose={() => setEditingCard(null)}
         onSaved={invalidate}
         dataUpdatedAt={dataUpdatedAt}
+      />
+
+      <AutoMapCardsDialog
+        open={isAutoMapOpen}
+        onClose={() => setAutoMapOpen(false)}
+        accountId={accountId}
       />
     </Stack>
   );

@@ -484,9 +484,53 @@ export type AssemblyTaskDto = {
 
 export type AssemblyTaskStatus = "pending" | "inProgress" | "done";
 
-export type AutoMapResponse = {
+export type AutoMapCardChangeDto = {
+  cardId: string;
+  accountId: string;
+  accountName: string;
+  offerId: string;
+  cardName: string;
+  oldCatalogItemId?: null | string;
+  oldCatalogItemFullName?: null | string;
+  oldCatalogItemArticle?: null | string;
+  oldMappingSource?: null | MarketplaceMappingSource;
+  newCatalogItemId?: null | string;
+  newCatalogItemFullName?: null | string;
+  newCatalogItemArticle?: null | string;
+  newMappingSource?: null | MarketplaceMappingSource;
+};
+
+export type AutoMapCardsRequest = {
+  accountIds: Array<string>;
+  /**
+   * Re-match cards mapped by a rule, by article or by barcode.
+   */
+  overwriteAuto: boolean;
+  /**
+   * Re-match cards a human mapped by hand.
+   */
+  overwriteManual: boolean;
+  /**
+   * A re-matched card that finds no unambiguous match loses its mapping instead of keeping it.
+   */
+  clearUnmatched: boolean;
+  /**
+   * Compute and return the changes without saving them.
+   */
+  dryRun: boolean;
+};
+
+export type AutoMapCardsResponse = {
   mapped: number;
+  cleared: number;
+  /**
+   * Active unmapped cards across the requested accounts once the changes are applied.
+   */
   remaining: number;
+  /**
+   * Only cards whose mapping changes.
+   */
+  items: Array<AutoMapCardChangeDto>;
 };
 
 /**
@@ -6510,12 +6554,10 @@ export type MarketplacesSetCardMappingResponse =
   MarketplacesSetCardMappingResponses[keyof MarketplacesSetCardMappingResponses];
 
 export type MarketplacesAutoMapCardsData = {
-  body?: never;
-  path: {
-    id: string;
-  };
+  body: AutoMapCardsRequest;
+  path?: never;
   query?: never;
-  url: "/api/integrations/marketplaces/accounts/{id}/cards/auto-map";
+  url: "/api/integrations/marketplaces/accounts/cards/auto-map";
 };
 
 export type MarketplacesAutoMapCardsErrors = {
@@ -6536,7 +6578,7 @@ export type MarketplacesAutoMapCardsResponses = {
   /**
    * OK
    */
-  200: AutoMapResponse;
+  200: AutoMapCardsResponse;
 };
 
 export type MarketplacesAutoMapCardsResponse =
