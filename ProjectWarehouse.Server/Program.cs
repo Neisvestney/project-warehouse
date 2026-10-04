@@ -57,6 +57,16 @@ using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Sinks.OpenTelemetry;
 
+// Without it the Windows console best-fits non-ASCII in logged SQL to control bytes such as BEL.
+try
+{
+    Console.OutputEncoding = Encoding.UTF8;
+}
+catch (IOException)
+{
+    // No console attached (e.g. running as a Windows service).
+}
+
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .CreateBootstrapLogger();

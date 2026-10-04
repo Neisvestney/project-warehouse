@@ -29,16 +29,17 @@ public class MarketplaceAutoMapRulesController(
 
     /// <summary>All auto-mapping rules, in the order they are applied.</summary>
     /// <remarks>
-    /// Takes no parameters and is not paginated — the rule set is small by design. Ordered by
-    /// <c>priority</c> descending, then by <c>id</c>. Requires <c>integrations.view</c>;
-    /// 403 <c>permissionDenied</c> otherwise.
+    /// Not paginated — the rule set is small by design. Query params: <c>searchString</c> (optional) matches
+    /// the rule value and the target's full name and article. Ordered by <c>priority</c> descending, then by
+    /// <c>id</c>. Requires <c>integrations.view</c>; 403 <c>permissionDenied</c> otherwise.
     /// </remarks>
     [HttpGet]
     [Authorize(Policy = Permissions.Integrations.View)]
     [ProducesResponseType<List<MarketplaceAutoMapRuleDto>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetRules(CancellationToken ct)
+    public async Task<IActionResult> GetRules([FromQuery] string? searchString, CancellationToken ct)
     {
         var rules = await db.MarketplaceAutoMapRules
+            .WhereMatchesSearch(r => r.SearchString, searchString)
             .OrderByDescending(r => r.Priority)
             .ThenBy(r => r.Id)
             .ProjectTo<MarketplaceAutoMapRuleDto>(mapper.ConfigurationProvider)

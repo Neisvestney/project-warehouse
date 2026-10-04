@@ -954,7 +954,10 @@ segment above `:id`, so the two never collide.
 
 One unpaginated table ordered by **Приоритет** descending — the order the backend applies them in, highest first. The **Активно** switch
 saves through the same `PUT` as the dialog, sending the row unchanged apart from `isEnabled`. A rule whose
-target got archived carries an **Архив** chip — the backend skips it until it is repointed. Everything that
+target got archived carries an **Архив** chip — the backend skips it until it is repointed. The search field
+in the header goes to the endpoint's `searchString`, which matches the rule value and the target's name and
+article. A `TableInfoBar` above the table shows the row count — **Всего правил**, or **Найдено** while a search
+is on; the endpoint returns a bare list, so the page has no total beside the filtered one. Everything that
 mutates requires `integrations.map`; without it the page is read-only.
 
 **Сопоставить карточки** in the header opens `AutoMapCardsDialog` with an account picker, so the rules can be

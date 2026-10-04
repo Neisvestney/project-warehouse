@@ -100,10 +100,10 @@ public class Order : IHasIdentity
     /// </summary>
     [Projectable]
     public bool MatchesExtendedSearch(string pattern) =>
-        EF.Functions.ILike(SearchString, pattern, SearchExtensions.EscapeChar)
-        || Boxes.Any(b => EF.Functions.ILike(b.Label ?? "", pattern, SearchExtensions.EscapeChar))
+        EF.Functions.ILike(SearchExtensions.Normalize(SearchString), pattern, SearchExtensions.EscapeChar)
+        || Boxes.Any(b => EF.Functions.ILike(SearchExtensions.Normalize(b.Label ?? ""), pattern, SearchExtensions.EscapeChar))
         || Boxes.Any(b => b.Components.Any(c =>
-            EF.Functions.ILike(c.CatalogItem.SearchString, pattern, SearchExtensions.EscapeChar)))
+            EF.Functions.ILike(SearchExtensions.Normalize(c.CatalogItem.SearchString), pattern, SearchExtensions.EscapeChar)))
         || MarketplaceItems.Any(i => i.MarketplaceCard != null
-            && EF.Functions.ILike(i.MarketplaceCard.SearchString, pattern, SearchExtensions.EscapeChar));
+            && EF.Functions.ILike(SearchExtensions.Normalize(i.MarketplaceCard.SearchString), pattern, SearchExtensions.EscapeChar));
 }

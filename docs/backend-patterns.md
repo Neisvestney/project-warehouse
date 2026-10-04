@@ -113,10 +113,10 @@ own `EXISTS` subquery:
 ```csharp
 [Projectable]
 public bool MatchesExtendedSearch(string pattern) =>
-    EF.Functions.ILike(SearchString, pattern, SearchExtensions.EscapeChar)
-    || Boxes.Any(b => EF.Functions.ILike(b.Label ?? "", pattern, SearchExtensions.EscapeChar))
+    EF.Functions.ILike(SearchExtensions.Normalize(SearchString), pattern, SearchExtensions.EscapeChar)
+    || Boxes.Any(b => EF.Functions.ILike(SearchExtensions.Normalize(b.Label ?? ""), pattern, SearchExtensions.EscapeChar))
     || Boxes.Any(b => b.Components.Any(c =>
-        EF.Functions.ILike(c.CatalogItem.SearchString, pattern, SearchExtensions.EscapeChar)));
+        EF.Functions.ILike(SearchExtensions.Normalize(c.CatalogItem.SearchString), pattern, SearchExtensions.EscapeChar)));
 ```
 
 **Controller** (`OrdersController.cs`):
@@ -133,6 +133,21 @@ endpoints pair it with a `catalogItemIds` filter over the same lines.
 `\` escaping, and substitutes the finished pattern into the predicate once per token. Semantics stay **AND across
 tokens, OR across sources**. Nested `SearchString` properties on related entities expand normally inside it.
 
+### Cyrillic/Latin look-alikes — `SearchExtensions.Normalize`
+
+Search treats visually identical Cyrillic and Latin letters (`А`/`A`, `Р`/`P`, `С`/`C`, …) as the same letter, so
+"PE-100" typed in Latin finds "РЕ-100" stored in Cyrillic and vice versa. `Normalize` folds both upper- and
+lowercase Cyrillic look-alikes (`HomoglyphsFrom` → `HomoglyphsTo`) onto Latin; lowercase letters without a visual
+twin (`в`, `м`, `н`, `т`, `к`) are folded too, so `ILIKE` keeps matching regardless of case.
+
+- `ToPattern` normalizes every token, so the pattern is always folded.
+- `WhereMatchesSearch` wraps the search field in `Normalize` itself.
+- In a `MatchesXxxSearch(pattern)` predicate **every column passed to `ILike` must be wrapped in
+  `SearchExtensions.Normalize(...)`** — an unwrapped column never matches a Cyrillic token, since the pattern is
+  folded and the column is not.
+- `Normalize` is registered with `HasDbFunction` in `ApplicationDbContext` and translates to
+  `translate(value, '<from>', '<to>')`; the C# body only runs on client evaluation.
+
 Cost: one correlated `EXISTS` per collection per token, with no index behind `ILIKE`. Fine for small or paginated
 sets; reach for `pg_trgm` or a materialized column before pointing it at a large table.
 
@@ -145,6 +160,7 @@ sets; reach for `pg_trgm` or a materialized column before pointing it at a large
 - Scalar fields → `SearchString` + `WhereMatchesSearch`. Anything reached through a collection →
   `MatchesXxxSearch(pattern)` + `WhereMatchesExtendedSearch`. Never `string.Join` over a navigation.
 - Both live in `SearchExtensions`; escaping is `SearchExtensions.EscapeChar`, never a bare `"\\"` literal.
+- Every column inside a `MatchesXxxSearch` predicate goes through `SearchExtensions.Normalize`.
 
 ---
 

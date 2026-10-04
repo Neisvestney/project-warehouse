@@ -1,7 +1,11 @@
+using System.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+using Microsoft.EntityFrameworkCore.Storage;
 using ProjectWarehouse.Server.Domain;
+using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Data;
 
@@ -89,6 +93,20 @@ public class ApplicationDbContext : IdentityDbContext<
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+        var textMapping = new StringTypeMapping("text", DbType.String);
+        builder.HasDbFunction(SearchExtensions.NormalizeMethod)
+            .HasTranslation(args => new SqlFunctionExpression(
+                "translate",
+                [
+                    args[0],
+                    new SqlConstantExpression(SearchExtensions.HomoglyphsFrom, typeof(string), textMapping),
+                    new SqlConstantExpression(SearchExtensions.HomoglyphsTo, typeof(string), textMapping),
+                ],
+                nullable: true,
+                argumentsPropagateNullability: [true, false, false],
+                typeof(string),
+                textMapping));
 
         builder.Entity<ApplicationUser>(e =>
         {

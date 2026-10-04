@@ -2484,9 +2484,9 @@ export const marketplaceAutoMapRulesGetRulesQueryKey = (
 /**
  * All auto-mapping rules, in the order they are applied.
  *
- * Takes no parameters and is not paginated — the rule set is small by design. Ordered by
- * `priority` descending, then by `id`. Requires `integrations.view`;
- * 403 `permissionDenied` otherwise.
+ * Not paginated — the rule set is small by design. Query params: `searchString` (optional) matches
+ * the rule value and the target's full name and article. Ordered by `priority` descending, then by
+ * `id`. Requires `integrations.view`; 403 `permissionDenied` otherwise.
  */
 export const marketplaceAutoMapRulesGetRulesOptions = (
   options?: Options<MarketplaceAutoMapRulesGetRulesData>,

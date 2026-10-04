@@ -1,3 +1,4 @@
+using EntityFrameworkCore.Projectables;
 using ProjectWarehouse.Server.Infrastructure;
 
 namespace ProjectWarehouse.Server.Domain;
@@ -24,4 +25,7 @@ public class MarketplaceAutoMapRule : IHasIdentity
 
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+
+    [Projectable]
+    public string SearchString => Value + " " + CatalogItem.FullName + " " + (CatalogItem.Article ?? "");
 }
