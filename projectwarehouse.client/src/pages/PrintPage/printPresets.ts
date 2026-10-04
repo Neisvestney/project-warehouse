@@ -30,6 +30,19 @@ export const SYSTEM_PRESETS: PrintPreset[] = [
     },
   },
   {
+    id: "thermal-120x75mm",
+    name: "Термо 120x75мм",
+    settings: {
+      labelWidthMm: 120,
+      labelHeightMm: 75,
+      columns: 1,
+      gapMm: 0,
+      pagePaddingMm: 0,
+      labelPaddingMm: 5,
+      fontSizePx: 14,
+    },
+  },
+  {
     id: "a4-4x7",
     name: "A4, 4×7",
     settings: {

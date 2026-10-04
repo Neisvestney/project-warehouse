@@ -459,7 +459,7 @@ changes. This allows removing individual labels before printing without navigati
 floating **×** `IconButton` that removes it, hidden via `@media print`.
 
 Print layout is controlled by `PrintSettings` (also hidden on print):
-- **Preset selector** — built-in presets (A4 4×7, A4 2×5, A5 2×4, Термо 58мм) plus user-saved custom presets in
+- **Preset selector** — built-in presets (Термо 58×40, Термо 120×75, A4 4×7, A4 2×5, A5 2×4) plus user-saved custom presets in
   `localStorage` under `print-page-presets`; the last selected preset is restored from `print-page-last-preset`.
 - **Manual fields** — label width/height (mm), columns, gap, page padding, label padding. All use `NumField` —
   the input can be cleared while focused and only snaps to the minimum on blur.
