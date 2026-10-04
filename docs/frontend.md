@@ -433,8 +433,8 @@ barcode/datamatrix labels:
   still finds its labels. Stored entries are validated the same way as URL ones; bad entries are dropped.
 - **`?item=TYPE:VALUE|LABEL`** (repeatable) — hand-written URLs, and the fallback `openPrintPage` uses when
   `sessionStorage` throws.
- Supported types: `DataMatrix`, `EAN13`, `Code128`, `QR`. Uses
-`bwip-js` for canvas rendering.
+
+Supported types: `DataMatrix`, `EAN13`, `Code128`, `QR`. Uses `bwip-js` for canvas rendering.
 
 Query param format: `TYPE:VALUE` or `TYPE:VALUE|LABEL` — pipe separates value from an optional human-readable
 label shown above the barcode. The value may contain colons (e.g. URLs).
@@ -447,7 +447,8 @@ side of the label's inner area (minus `labelPaddingMm`); both texts wrap around 
 that, with an ellipsis, still lets the subtitle fit — a long name is cut before the subtitle is. The subtitle is
 cut only when it does not fit on its own; the title is then a bare ellipsis. Overflow is checked with a 1 px
 tolerance for sub-pixel rounding of mm-sized boxes, and the measurement reruns whenever a web font finishes
-loading (`document.fonts` `loadingdone` and `ready`), since the first pass usually runs on the fallback font.
+loading (`document.fonts` `loadingdone`, plus `ready` when fonts are still loading at mount), since the first
+pass usually runs on the fallback font.
 Without `LABEL` the title is the value itself. `openPrintPage(items, "text")` sets the param.
 
 Both label kinds render their canvas with `image-rendering: pixelated`, so code modules stay sharp when the
@@ -473,13 +474,14 @@ To open the print page programmatically use `openPrintPage(items)` from `@/utils
 
 Example URL: `/print?item=DataMatrix:ABC123|Товар А&item=EAN13:5901234123457&item=Code128:HELLO&item=QR:test`
 
-Every `/print/*` page — `PrintPage` and each `PrintTablePage` sheet — calls `useForcedLightScheme()` so its preview
-matches the paper. The hook sets `data-mui-color-scheme="light"` on `<html>` (the attribute MUI's
+Every `/print/*` page — `PrintPage` and each `PrintTablePage` sheet — calls `useForcedLightScheme()` so its
+preview matches the paper. The hook sets `data-mui-color-scheme="light"` on `<html>` (the attribute MUI's
 `colorSchemeSelector` drives), keeps it there with a `MutationObserver` whenever MUI rewrites it (on mount and
-on every change of its `colorScheme`), and puts the user's resolved scheme back on unmount. `setMode` is not called, so the saved preference stays
-as it was; portalled dialogs and menus turn light too, since the attribute sits on the root. A new print route
-calls the hook as well. The inline script in `index.html` already stamps `light` on these paths before React
-loads (see [Pre-mount paint](#pre-mount-paint)).
+on every change of its `colorScheme`), and puts the user's resolved scheme back on unmount. `setMode` is not
+called, so the saved preference stays as it was; portalled dialogs and menus turn light too, since the
+attribute sits on the root. A new print route calls the hook as well. The inline script in `index.html` already
+stamps `light` on these paths before React loads (see [Pre-mount paint](#pre-mount-paint)), and
+`ThemeColorMeta` keeps the status bar light there (see [Browser theme color](#browser-theme-color)).
 
 ### Paper sheets — `PrintTablePage`
 
@@ -1129,9 +1131,10 @@ default white ground for the first frames of every load. A blocking inline scrip
 that gap: it reads `mui-mode` from `localStorage` (falling back to `matchMedia("(prefers-color-scheme: dark)")`
 when the mode is `system`), resolves it through `mui-color-scheme-{light,dark}` and stamps
 `data-mui-color-scheme` on `<html>` — the same attribute MUI writes itself, so mounting adds no second
-repaint. On `/print` and `/print/*` it stamps `light` regardless of the mode and collapses the `theme-color`
-metas onto the light color, matching what `useForcedLightScheme` holds once the page mounts. An inline `<style>` in the same head paints `<html>` from that attribute and sets `color-scheme`
-so the browser's own scrollbars and native controls start out in the right scheme. Both the script and
+repaint. On `/print` and `/print/*` it stamps `light` regardless of the mode and collapses the
+`theme-color` metas onto the light color, matching what `useForcedLightScheme` and `ThemeColorMeta` hold once
+the page mounts. An inline `<style>` in the same head paints `<html>` from that attribute and sets
+`color-scheme` so the browser's own scrollbars and native controls start out in the right scheme. Both the script and
 the style are duplicated state: the color there must track `palette.background.default`, and the whole
 block runs before any bundle, so it stays dependency-free ES5-shaped JS wrapped in `try`/`catch`.
 
@@ -1146,7 +1149,9 @@ Media-scoped tags answer the OS, not the user, so an explicit choice has to over
 script collapses both tags onto the picked colour when `mui-mode` is not `system`, and `ThemeColorMeta`
 (mounted next to `CssBaseline` inside `ThemeProvider`) keeps doing that from `useResolvedColorScheme()`
 for the rest of the session, so flipping the switch updates the status bar without a reload. Going back
-to `system` restores one colour per tag and lets the media queries decide again.
+to `system` restores one colour per tag and lets the media queries decide again. On print paths
+(`isPrintPath` from `@/utils/printUtils`, the same check as the pre-mount script) both tags hold the light
+colour whatever the mode, since those pages are forced light.
 
 `manifest.background_color` cannot follow the scheme — it paints the Android splash screen before any
 page code runs, and the manifest has no media queries.

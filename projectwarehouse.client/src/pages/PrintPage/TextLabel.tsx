@@ -39,7 +39,8 @@ function TextLabel({type, value, label, widthMm, heightMm, paddingMm, fontSizePx
     const fonts = document.fonts;
     const bump = () => setFontsVersion((v) => v + 1);
     fonts.addEventListener("loadingdone", bump);
-    void fonts.ready.then(bump);
+    // fonts already settled at mount need no second pass
+    if (fonts.status === "loading") void fonts.ready.then(bump);
     return () => fonts.removeEventListener("loadingdone", bump);
   }, []);
 

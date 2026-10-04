@@ -543,8 +543,8 @@ public class CatalogController(
         var add     = request.Operation == TagBatchOperation.Add;
         var changed = items.Where(i => i.Tags.Any(t => t.Id == tag.Id) != add).ToList();
 
-        // A group and its child can share one batch; snapshot every item before touching any, or the group's
-        // `before` would already carry its child's new tags depending on iteration order.
+        // A group and its child can share one batch; snapshot every item before touching any, so the group's
+        // diff includes its child's tag change in `Children` regardless of iteration order.
         var changes = changed.Select(item => (item, before: mapper.Map<CatalogItemDto>(item))).ToList();
 
         foreach (var item in changed)

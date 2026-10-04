@@ -23,14 +23,12 @@ export function openPrintPage(items: PrintItem[], layout: PrintLayout = "barcode
   try {
     sessionStorage.setItem(PRINT_ITEMS_STORAGE_KEY, JSON.stringify(items));
     params.set("from", PRINT_FROM_STORAGE);
-    window.open(`/print?${params.toString()}`, "_blank");
-    return;
   } catch {
     // storage blocked or over quota — the query string is the only channel left
-  }
-  for (const item of items) {
-    const raw = item.label ? `${item.value}|${item.label}` : item.value;
-    params.append("item", `${item.type}:${raw}`);
+    for (const item of items) {
+      const raw = item.label ? `${item.value}|${item.label}` : item.value;
+      params.append("item", `${item.type}:${raw}`);
+    }
   }
   window.open(`/print?${params.toString()}`, "_blank");
 }
@@ -43,6 +41,11 @@ export function readStoredPrintItems(): unknown {
   } catch {
     return null;
   }
+}
+
+/** Mirrors the path check of the inline scheme script in index.html. */
+export function isPrintPath(pathname: string): boolean {
+  return pathname === "/print" || pathname.startsWith("/print/");
 }
 
 export function openStocktakeNodePrintPage(stocktakeId: string, nodeId: string): void {
