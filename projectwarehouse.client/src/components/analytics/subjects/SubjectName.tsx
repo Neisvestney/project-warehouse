@@ -5,7 +5,7 @@ import {useOpenCatalogItem} from "@/components/catalog/CatalogItemDrawerContext"
 import CatalogItemLink from "@/components/catalog/CatalogItemLink";
 import CardImage from "@/components/marketplace/CardImage.tsx";
 
-interface AbcSubjectNameProps {
+interface SubjectNameProps {
   subject: AbcSubjectDto;
   /** Rendered before the name, e.g. the rank. */
   prefix?: ReactNode;
@@ -14,7 +14,7 @@ interface AbcSubjectNameProps {
 }
 
 /** A catalog item links to its drawer; a card or an article shows its image and offer id. */
-function AbcSubjectName({subject, prefix, showAccounts}: AbcSubjectNameProps) {
+function SubjectName({subject, prefix, showAccounts}: SubjectNameProps) {
   const openCatalogItem = useOpenCatalogItem();
 
   const name = (
@@ -53,4 +53,4 @@ function AbcSubjectName({subject, prefix, showAccounts}: AbcSubjectNameProps) {
   );
 }
 
-export default AbcSubjectName;
+export default SubjectName;

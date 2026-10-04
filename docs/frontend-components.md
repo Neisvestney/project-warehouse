@@ -866,6 +866,7 @@ child rendered from `useRetainedValue`, so it mounts fresh on every open.
 | `charts/ChannelsLineChart`, `charts/chartSeries`, `charts/intervalLabels`, `charts/useChannelColor` | The line per channel over intervals with its dashed incomplete edges, the «Всего» sum, interval labels and the channel color |
 | `charts/StepMeasureToggles`, `charts/TotalToggle` | Step (and measure) toggles and the «Всего» toggle of a line chart card |
 | `charts/ChartFullscreenDialog` | A chart expanded to the whole tab with its own period, channel select and the «канал × интервал» table |
+| `subjects/subjects`, `subjects/SubjectName` | What a per-item row is — position, article or card: toggle labels, tooltips and nouns, and the row's name (a catalog item link, or a card image with its offer id and shops) |
 
 A piece used by one page only stays beside that page.
 

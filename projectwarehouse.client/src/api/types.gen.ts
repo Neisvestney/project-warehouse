@@ -301,6 +301,13 @@ export type AnalyticsIntervalDto = {
   isFuture: boolean;
 };
 
+/**
+ * Which loss a per-item reasons report counts; both are dated by the order.
+ */
+export type AnalyticsLossKind = "cancellations" | "returns";
+
+export type AnalyticsLossReasonsBy = "units" | "share";
+
 export type AnalyticsMeasure = "orders" | "units";
 
 export type AnalyticsMoneyMode = "price" | "payout";
@@ -885,6 +892,39 @@ export type ChannelsLossesDto = {
    * One per interval of the step, clamped to the period.
    */
   points: Array<LossesPointDto>;
+};
+
+export type ChannelsLossReasonsDto = {
+  from: string;
+  to: string;
+  timeZoneId: string;
+  kind: AnalyticsLossKind;
+  subject: AnalyticsAbcSubject;
+  by: AnalyticsLossReasonsBy;
+  step: AnalyticsStep;
+  intervals: Array<AnalyticsIntervalDto>;
+  /**
+   * Per interval: its returns are still coming in. All false for cancellations.
+   */
+  immatureIntervals: Array<boolean>;
+  returnsMaturityDays: number;
+  /**
+   * The base a subject needs to be ranked by share.
+   */
+  minShareBase: number;
+  /**
+   * Lost units of every subject, the ones without a subject excluded.
+   */
+  totalUnits: number;
+  /**
+   * Rows in the ranking before `take` cuts the list.
+   */
+  totalRows: number;
+  /**
+   * Lost units with no catalog item or card for the subject: counted nowhere in the ranking.
+   */
+  unlinkedUnits: number;
+  rows: Array<LossReasonRowDto>;
 };
 
 /**
@@ -1515,6 +1555,30 @@ export type LossesPointDto = {
    * Returned units of the sales dated in the interval.
    */
   returnedUnits?: null | number;
+};
+
+/**
+ * One subject and one reason.
+ */
+export type LossReasonRowDto = {
+  subject: AbcSubjectDto;
+  /**
+   * Null when the marketplace gave none.
+   */
+  reason?: null | string;
+  units: number;
+  /**
+   * Units the share is taken of: the subject's sold units for returns, sold plus cancelled for cancellations.
+   */
+  baseUnits: number;
+  /**
+   * int LossReasonRowDto.Units over int LossReasonRowDto.BaseUnits; null on a zero base.
+   */
+  share?: null | number;
+  /**
+   * Lost units by the order's interval; null for an interval after today.
+   */
+  values: Array<null | number>;
 };
 
 /**
@@ -4617,6 +4681,62 @@ export type AnalyticsGetChannelsLossesResponses = {
 
 export type AnalyticsGetChannelsLossesResponse =
   AnalyticsGetChannelsLossesResponses[keyof AnalyticsGetChannelsLossesResponses];
+
+export type AnalyticsGetChannelsLossReasonsData = {
+  body?: never;
+  headers?: {
+    /**
+     * IANA time zone of the caller (Europe/Moscow). Used when the request is not narrowed to a warehouse that has its own zone; an unreadable value is ignored.
+     */
+    "X-Time-Zone"?: string;
+  };
+  path?: never;
+  query?: {
+    Kind?: AnalyticsLossKind;
+    Subject?: AnalyticsAbcSubject;
+    By?: AnalyticsLossReasonsBy;
+    /**
+     * Null picks one by the period length, as in the timeseries.
+     */
+    Step?: AnalyticsStep;
+    /**
+     * Null lists every ranked row.
+     */
+    Take?: number;
+    CatalogItemIds?: Array<string>;
+    From?: string;
+    To?: string;
+    IncludeMarketplaces?: boolean;
+    MarketplaceAccountIds?: Array<string>;
+    IncludeDirect?: boolean;
+    DirectTagIds?: Array<string>;
+  };
+  url: "/api/analytics/channels/loss-reasons";
+};
+
+export type AnalyticsGetChannelsLossReasonsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type AnalyticsGetChannelsLossReasonsError =
+  AnalyticsGetChannelsLossReasonsErrors[keyof AnalyticsGetChannelsLossReasonsErrors];
+
+export type AnalyticsGetChannelsLossReasonsResponses = {
+  /**
+   * OK
+   */
+  200: ChannelsLossReasonsDto;
+};
+
+export type AnalyticsGetChannelsLossReasonsResponse =
+  AnalyticsGetChannelsLossReasonsResponses[keyof AnalyticsGetChannelsLossReasonsResponses];
 
 export type AnalyticsGetChannelsTopItemsData = {
   body?: never;

@@ -15,7 +15,7 @@ import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQu
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {todayDateOnly} from "@/utils/dateOnly";
-import {SUBJECTS} from "./abcSubjects";
+import {SUBJECTS} from "@/components/analytics/subjects/subjects";
 
 const BASES: AnalyticsAbcBasis[] = ["units", "price", "payout"];
 const ABC_CLASSES: AbcClass[] = ["a", "b", "c"];

@@ -14,7 +14,11 @@ export interface CardChannelOption {
  * A card's pick of «every channel» or one of the page's, kept in `key`. `query` narrows the shared filter to
  * the pick and is spread over the page's channel params.
  */
-export function useCardChannel(filters: ReturnType<typeof useChannelsSummaryFilters>, key: string) {
+export function useCardChannel(
+  filters: ReturnType<typeof useChannelsSummaryFilters>,
+  key: string,
+  {shopsOnly = false}: {shopsOnly?: boolean} = {},
+) {
   const [stored, setChannel] = useSyncedWithQueryState<string | null>(
     key,
     (q) => q || null,
@@ -23,10 +27,12 @@ export function useCardChannel(filters: ReturnType<typeof useChannelsSummaryFilt
 
   const {data: accounts} = useQuery(marketplacesGetAccountsShortOptions());
   const pageChannels = filters.channels;
-  const onPage = (channel: string) => pageChannels.length === 0 || pageChannels.includes(channel);
+  const onPage = (channel: string) =>
+    !(shopsOnly && channel === DIRECT_CHANNEL) &&
+    (pageChannels.length === 0 || pageChannels.includes(channel));
 
   const options: CardChannelOption[] = [
-    {value: null, label: "Все каналы"},
+    {value: null, label: shopsOnly ? "Все магазины" : "Все каналы"},
     ...[...(accounts ?? [])]
       .sort((a, b) => a.name.localeCompare(b.name, "ru"))
       .filter((a) => onPage(a.id))

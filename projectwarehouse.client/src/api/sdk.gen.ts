@@ -23,6 +23,9 @@ import type {
   AnalyticsGetChannelsLossesData,
   AnalyticsGetChannelsLossesErrors,
   AnalyticsGetChannelsLossesResponses,
+  AnalyticsGetChannelsLossReasonsData,
+  AnalyticsGetChannelsLossReasonsErrors,
+  AnalyticsGetChannelsLossReasonsResponses,
   AnalyticsGetChannelsReturnsData,
   AnalyticsGetChannelsReturnsErrors,
   AnalyticsGetChannelsReturnsResponses,
@@ -809,6 +812,29 @@ export const analyticsGetChannelsLosses = <ThrowOnError extends boolean = false>
     AnalyticsGetChannelsLossesErrors,
     ThrowOnError
   >({url: "/api/analytics/channels/losses", ...options});
+
+/**
+ * Catalog items, cards or articles paired with the reasons they were cancelled or returned for.
+ *
+ * Query params: the shared filter of `channels/summary` narrowed to the shops (Direct orders carry no
+ * reasons); `kind` (`cancellations` / `returns`, default `returns`), `subject` as in
+ * `abc`, `by` (`units` / `share`, default `units`; by share only rows whose subject
+ * has at least `minShareBase` units of base), `step` (omitted — picked by the period length) and
+ * `take` (1..1000, omitted — every row). Both kinds are dated by the order. Values of a future interval
+ * are null. Requires `analytics.view`. Same 422 codes as `channels/summary`.
+ */
+export const analyticsGetChannelsLossReasons = <ThrowOnError extends boolean = false>(
+  options?: Options<AnalyticsGetChannelsLossReasonsData, ThrowOnError>,
+): RequestResult<
+  AnalyticsGetChannelsLossReasonsResponses,
+  AnalyticsGetChannelsLossReasonsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    AnalyticsGetChannelsLossReasonsResponses,
+    AnalyticsGetChannelsLossReasonsErrors,
+    ThrowOnError
+  >({url: "/api/analytics/channels/loss-reasons", ...options});
 
 /**
  * Catalog items ranked by sales of the selected channels.
@@ -2233,7 +2259,7 @@ export const ordersCreateTag = <ThrowOnError extends boolean = false>(
 /**
  * List orders (paginated, filtered, sorted).
  *
- * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
+ * Query params: `page` (default 1), `pageSize` (default 20, max 500), `searchString`,
  * `warehouseId`, `type`, `status`, `marketplaceType`, `marketplaceAccountId`,
  * `marketplaceStatus`, `includeExternal` (default false), `catalogItemIds`, `tagIds`,
  * `overdue`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
@@ -2497,13 +2523,13 @@ export const ordersSelfAssign = <ThrowOnError extends boolean = false>(
  *
  *     Lives here rather than under integrations because it is invoked from the order list and is
  * scoped by warehouse like every other order operation.
- * Body: `orderIds` (deduplicated, at most int OrdersController.MaxLabelOrders), an optional
+ * Body: `orderIds` (deduplicated, at most `Marketplaces:Labels:MaxOrdersPerJob`), an optional
  * `grouping` and an optional `forceRegenerate`. Answers `application/pdf` — one merged
  * document in the order the ids were sent.
  * All or nothing: if any requested label is missing the file is withheld entirely. A batch of 30
  * quietly arriving with 28 labels means two unshipped boxes.
  * * 422 required — empty orderIds
- * * 422 outOfRange (args.max) — more than int OrdersController.MaxLabelOrders requested
+ * * 422 outOfRange (args.max) — more than MaxOrdersPerJob requested
  * * 403 orderNotAssignedToWarehouse — an order lies outside the caller's warehouses
  * * 422 marketplaceOrderNotFromMarketplace (args.orderIds) — an order has no posting
  * * 422 marketplaceOrderNotAwaitingDeliver (args.postingNumbers, args.count) —

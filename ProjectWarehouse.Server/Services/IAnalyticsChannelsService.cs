@@ -29,6 +29,9 @@ public interface IAnalyticsChannelsService
     Task<ChannelsTopItemsDto> GetTopItemsAsync(
         ClaimsPrincipal user, ChannelsTopItemsRequest request, CancellationToken ct = default);
 
+    Task<ChannelsLossReasonsDto> GetLossReasonsAsync(
+        ClaimsPrincipal user, ChannelsLossReasonsRequest request, CancellationToken ct = default);
+
     Task<ChannelsWeekdaysDto> GetWeekdaysAsync(
         ClaimsPrincipal user, ChannelsWeekdaysRequest request, CancellationToken ct = default);
 }
