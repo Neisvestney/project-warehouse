@@ -68,6 +68,9 @@ import type {
   AuthRefreshData,
   AuthRefreshErrors,
   AuthRefreshResponses,
+  CatalogBatchUpdateTagsData,
+  CatalogBatchUpdateTagsErrors,
+  CatalogBatchUpdateTagsResponses,
   CatalogCreateData,
   CatalogCreateErrors,
   CatalogCreateResponses,
@@ -1341,6 +1344,32 @@ export const catalogUpdate = <ThrowOnError extends boolean = false>(
 ): RequestResult<CatalogUpdateResponses, CatalogUpdateErrors, ThrowOnError> =>
   (options.client ?? client).put<CatalogUpdateResponses, CatalogUpdateErrors, ThrowOnError>({
     url: "/api/catalog/{id}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Add or remove one catalog tag on several items in one request, all or nothing.
+ *
+ * Body: `BatchUpdateTagsRequest` — `ids` (duplicates are collapsed), `tagId` and
+ * `operation` (`add` / `remove`). Touches only the listed items: a ProductGroup's children are
+ * not changed with it, and a child of a group may be listed directly. Nothing is written unless every item
+ * passes: 422 `tagNotFound` (field `tagId`) for an unknown catalog tag, 404 `catalogItemNotFound`
+ * when any item does not exist — arg `count` (the missing ids). Items that already have (or already lack)
+ * the tag are left untouched and get no changelog entry. Answers 204. Requires `catalog.edit`.
+ */
+export const catalogBatchUpdateTags = <ThrowOnError extends boolean = false>(
+  options: Options<CatalogBatchUpdateTagsData, ThrowOnError>,
+): RequestResult<CatalogBatchUpdateTagsResponses, CatalogBatchUpdateTagsErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    CatalogBatchUpdateTagsResponses,
+    CatalogBatchUpdateTagsErrors,
+    ThrowOnError
+  >({
+    url: "/api/catalog/batch-update-tags",
     ...options,
     headers: {
       "Content-Type": "application/json",

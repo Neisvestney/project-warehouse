@@ -5478,6 +5478,45 @@ export type CatalogUpdateResponses = {
 
 export type CatalogUpdateResponse = CatalogUpdateResponses[keyof CatalogUpdateResponses];
 
+export type CatalogBatchUpdateTagsData = {
+  body: BatchUpdateTagsRequest;
+  path?: never;
+  query?: never;
+  url: "/api/catalog/batch-update-tags";
+};
+
+export type CatalogBatchUpdateTagsErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type CatalogBatchUpdateTagsError =
+  CatalogBatchUpdateTagsErrors[keyof CatalogBatchUpdateTagsErrors];
+
+export type CatalogBatchUpdateTagsResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type CatalogBatchUpdateTagsResponse =
+  CatalogBatchUpdateTagsResponses[keyof CatalogBatchUpdateTagsResponses];
+
 export type ChangelogGetAllData = {
   body?: never;
   path?: never;

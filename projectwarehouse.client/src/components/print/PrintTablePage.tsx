@@ -1,6 +1,7 @@
 import {useEffect, useRef, type ReactNode} from "react";
 import {Alert, Box, CircularProgress, GlobalStyles, Typography} from "@mui/material";
 import {extractErrorMessage} from "@/utils/errorUtils";
+import {useForcedLightScheme} from "@/hooks/useForcedLightScheme";
 
 const cellSx = {
   border: "0.5pt solid #000",
@@ -43,6 +44,7 @@ function PrintTablePage({
   errorMessage,
   blankRows = 0,
 }: PrintTablePageProps) {
+  useForcedLightScheme();
   const printedRef = useRef(false);
 
   useEffect(() => {

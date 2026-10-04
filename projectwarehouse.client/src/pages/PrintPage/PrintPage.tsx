@@ -5,9 +5,12 @@ import GlobalStyles from "@mui/material/GlobalStyles";
 import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
 import CloseIcon from "@mui/icons-material/Close";
+import {useForcedLightScheme} from "@/hooks/useForcedLightScheme";
+import {PRINT_FROM_STORAGE, readStoredPrintItems} from "@/utils/printUtils";
 import BarcodeLabel from "./BarcodeLabel.tsx";
 import type {BarcodeType} from "./BarcodeLabel.tsx";
 import PrintSettings from "./PrintSettings.tsx";
+import TextLabel from "./TextLabel.tsx";
 import {SYSTEM_PRESETS, loadCustomPresets, loadLastPresetId} from "./printPresets.ts";
 import type {PrintPreset, PrintSettings as PrintSettingsType} from "./printPresets.ts";
 
@@ -33,6 +36,23 @@ function parseItems(raw: string[]): ParsedItem[] {
   });
 }
 
+function parseStoredItems(raw: unknown): ParsedItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((x: unknown) => {
+    if (typeof x !== "object" || x === null) return [];
+    const {type, value, label} = x as Record<string, unknown>;
+    if (typeof type !== "string" || !VALID_TYPES.has(type)) return [];
+    if (typeof value !== "string" || !value) return [];
+    return [
+      {
+        type: type as BarcodeType,
+        value,
+        label: typeof label === "string" && label ? label : undefined,
+      },
+    ];
+  });
+}
+
 function resolveInitialPreset(customPresets: PrintPreset[]): {
   id: string;
   settings: PrintSettingsType;
@@ -45,8 +65,14 @@ function resolveInitialPreset(customPresets: PrintPreset[]): {
 }
 
 function PrintPage() {
+  useForcedLightScheme();
   const [searchParams] = useSearchParams();
-  const [items, setItems] = useState(() => parseItems(searchParams.getAll("item")));
+  const [items, setItems] = useState(() =>
+    searchParams.get("from") === PRINT_FROM_STORAGE
+      ? parseStoredItems(readStoredPrintItems())
+      : parseItems(searchParams.getAll("item")),
+  );
+  const Label = searchParams.get("layout") === "text" ? TextLabel : BarcodeLabel;
 
   const removeItem = (index: number) => setItems((prev) => prev.filter((_, i) => i !== index));
 
@@ -126,7 +152,7 @@ function PrintPage() {
                 key={`${item.type}:${item.value}:${i}`}
                 sx={{position: "relative", "@media print": {"& .delete-btn": {display: "none"}}}}
               >
-                <BarcodeLabel
+                <Label
                   type={item.type}
                   value={item.value}
                   label={item.label}

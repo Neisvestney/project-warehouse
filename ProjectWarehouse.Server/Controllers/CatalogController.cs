@@ -10,6 +10,7 @@ using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
+using ProjectWarehouse.Server.Models.Tags;
 using ProjectWarehouse.Server.Services;
 
 namespace ProjectWarehouse.Server.Controllers;
@@ -506,6 +507,62 @@ public class CatalogController(
         return NoContent();
     }
 
+    /// <summary>Add or remove one catalog tag on several items in one request, all or nothing.</summary>
+    /// <remarks>
+    /// Body: <c>BatchUpdateTagsRequest</c> — <c>ids</c> (duplicates are collapsed), <c>tagId</c> and
+    /// <c>operation</c> (<c>add</c> / <c>remove</c>). Touches only the listed items: a ProductGroup's children are
+    /// not changed with it, and a child of a group may be listed directly. The next save of the group form still
+    /// merges the group's tags into every child, so a tag added to a group reaches the children then, and a tag
+    /// removed from a child comes back if the group carries it. Nothing is written unless every item passes: 422
+    /// <c>tagNotFound</c> (field <c>tagId</c>) for an unknown catalog tag, 404 <c>catalogItemNotFound</c> when any
+    /// item does not exist — arg <c>count</c> (the number of missing ids). Items that already have (or already lack)
+    /// the tag are left untouched and get no changelog entry. Answers 204. Requires <c>catalog.edit</c>.
+    /// </remarks>
+    [HttpPost("batch-update-tags")]
+    [Authorize(Policy = Permissions.Catalog.Edit)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> BatchUpdateTags([FromBody] BatchUpdateTagsRequest request, CancellationToken ct = default)
+    {
+        var tag = await db.CatalogItemTags.FirstOrDefaultAsync(t => t.Id == request.TagId, ct);
+        if (tag is null)
+            return UnprocessableEntity("tagId", ErrorCode.TagNotFound, "Tag not found.");
+
+        var ids   = request.Ids.Distinct().ToList();
+        var items = await ItemsWithDetails().Where(c => ids.Contains(c.Id)).ToListAsync(ct);
+
+        if (items.Count != ids.Count)
+        {
+            var missing = ids.Count - items.Count;
+            return Problem(AppProblems.Root(StatusCodes.Status404NotFound, ErrorCode.CatalogItemNotFound,
+                $"{missing} of {ids.Count} catalog items were not found.",
+                new Dictionary<string, object> { ["count"] = missing }));
+        }
+
+        var add     = request.Operation == TagBatchOperation.Add;
+        var changed = items.Where(i => i.Tags.Any(t => t.Id == tag.Id) != add).ToList();
+
+        // A group and its child can share one batch; snapshot every item before touching any, or the group's
+        // `before` would already carry its child's new tags depending on iteration order.
+        var changes = changed.Select(item => (item, before: mapper.Map<CatalogItemDto>(item))).ToList();
+
+        foreach (var item in changed)
+        {
+            if (add)
+                item.Tags.Add(tag);
+            else
+                item.Tags.Remove(item.Tags.First(t => t.Id == tag.Id));
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        foreach (var (item, before) in changes)
+            await changeLog.CompareAndSaveToChangelog(before, mapper.Map<CatalogItemDto>(item));
+
+        return NoContent();
+    }
+
     private async Task<AppProblemDetails?> BindChildImagesAsync(
         ProductGroupChildRequest request, CatalogItem child, CancellationToken ct) =>
         await fileBinding.BindSingleAsync(request.MainImageFileId,
@@ -528,6 +585,9 @@ public class CatalogController(
 
     // nine collection includes in one query multiply into each other; images pushed it over the edge
     private Task<CatalogItem?> LoadItemWithDetailsAsync(Guid id, CancellationToken ct) =>
+        ItemsWithDetails().FirstOrDefaultAsync(c => c.Id == id, ct);
+
+    private IQueryable<CatalogItem> ItemsWithDetails() =>
         db.CatalogItems
             .AsSplitQuery()
             .Include(c => c.Group).ThenInclude(g => g!.MainImageFile).ThenInclude(f => f!.CreatedBy)
@@ -541,8 +601,7 @@ public class CatalogController(
             .Include(c => c.GroupChildren).ThenInclude(child => child.VariationMemberships)
             .Include(c => c.GroupChildren).ThenInclude(child => child.MainImageFile).ThenInclude(f => f!.CreatedBy)
             .Include(c => c.GroupChildren).ThenInclude(child => child.Images).ThenInclude(i => i.DataFile)
-            .Include(c => c.MarketplaceCards).ThenInclude(child => child.MarketplaceAccount)
-            .FirstOrDefaultAsync(c => c.Id == id, ct);
+            .Include(c => c.MarketplaceCards).ThenInclude(child => child.MarketplaceAccount);
 
     private async Task<IActionResult?> ValidateGroupId(Guid? groupId, CancellationToken ct)
     {
