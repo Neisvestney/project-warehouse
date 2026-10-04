@@ -664,7 +664,7 @@ function OrdersListPage({
         onPageChange={setPage}
         rowsPerPage={pageSize}
         onRowsPerPageChange={setPageSize}
-        rowsPerPageOptions={[10, 20, 50, 100, 200]}
+        rowsPerPageOptions={[10, 20, 50, 100, 200, 300, 500]}
       >
         <Table size="small">
           <TableHead>

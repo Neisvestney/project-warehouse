@@ -401,6 +401,7 @@ ART-777 ×2
 
 ```
 Запрос:  { orderIds: Guid[], grouping?: "none" | "article", forceRegenerate?: boolean }
+         — не более Marketplaces:Labels:MaxOrdersPerJob (1000), иначе 422 outOfRange
 Ответ:   200 application/pdf — склеенный файл
          409 marketplaceLabelNotReady — args.postingNumbers[] с номерами неготовых отправлений
          409 marketplaceLabelFormatChanged — args.postingNumbers[] с номерами отправлений,
