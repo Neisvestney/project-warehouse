@@ -19,6 +19,7 @@ import AddIcon from "@mui/icons-material/Add";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import SyncAltIcon from "@mui/icons-material/SyncAlt";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {enqueueSnackbar} from "notistack";
 import {
@@ -43,6 +44,7 @@ import TableRowLoader from "@/components/TableRowLoader";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import AutoMapRuleDialog from "./AutoMapRuleDialog";
 import AutoMapCardsDialog from "../../components/AutoMapCardsDialog";
+import RebindExternalOrdersDialog from "../../components/RebindExternalOrdersDialog";
 import {
   CARD_FIELD_LABELS,
   RULE_OPERATOR_LABELS,
@@ -60,6 +62,7 @@ function AutoMapRulesPage() {
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState<MarketplaceAutoMapRuleDto | null>(null);
   const [isAutoMapOpen, setAutoMapOpen] = useState(false);
+  const [isRebindOpen, setRebindOpen] = useState(false);
 
   // Claiming the set on a plain read would lock colleagues out of a page most people only look at, so
   // the claim waits for intent to edit and then sticks for the rest of the visit.
@@ -154,6 +157,14 @@ function AutoMapRulesPage() {
                 onClick={() => setAutoMapOpen(true)}
               >
                 Сопоставить карточки
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<SyncAltIcon />}
+                size="small"
+                onClick={() => setRebindOpen(true)}
+              >
+                Перепривязать внешние заказы
               </Button>
               <Button
                 variant="outlined"
@@ -276,6 +287,7 @@ function AutoMapRulesPage() {
       />
 
       <AutoMapCardsDialog open={isAutoMapOpen} onClose={() => setAutoMapOpen(false)} />
+      <RebindExternalOrdersDialog open={isRebindOpen} onClose={() => setRebindOpen(false)} />
 
       <ConfirmDialog
         open={!!deleting}

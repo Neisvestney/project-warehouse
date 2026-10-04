@@ -25,6 +25,7 @@ public class MarketplaceSyncService(
     IChangeLogService<MarketplaceAccountDto> changeLog,
     IMarketplaceOrderSyncService orderSync,
     IMarketplaceAccrualSyncService accrualSync,
+    IExternalOrderRebindService rebind,
     IRealtimeNotifier realtime,
     IMapper mapper,
     ILogger<MarketplaceSyncService> logger) : IMarketplaceSyncService
@@ -325,8 +326,13 @@ public class MarketplaceSyncService(
             run.CardsProcessed += page.Count;
             await db.SaveChangesAsync(ct);
 
-            run.AutoMapped += await AutoMapAsync(fresh, ct);
-            await db.SaveChangesAsync(ct);
+            await db.Database.ExecuteInTransactionAsync("marketplaces.cards.auto_map", async () =>
+            {
+                run.AutoMapped += await AutoMapAsync(fresh, ct);
+                await db.SaveChangesAsync(ct);
+                // an adopted placeholder brings along the external orders imported through it
+                await rebind.BindUnmappedAsync([.. fresh.Where(c => c.CatalogItemId is not null).Select(c => c.Id)], ct);
+            }, ct);
 
             await realtime.PublishProgressAsync(run, ct);
         }

@@ -181,6 +181,9 @@ import type {
   MarketplacesGetWarehousesData,
   MarketplacesGetWarehousesErrors,
   MarketplacesGetWarehousesResponses,
+  MarketplacesRebindExternalOrdersData,
+  MarketplacesRebindExternalOrdersErrors,
+  MarketplacesRebindExternalOrdersResponses,
   MarketplacesSetCardMappingData,
   MarketplacesSetCardMappingErrors,
   MarketplacesSetCardMappingResponses,
@@ -1356,9 +1359,11 @@ export const catalogUpdate = <ThrowOnError extends boolean = false>(
  *
  * Body: `BatchUpdateTagsRequest` — `ids` (duplicates are collapsed), `tagId` and
  * `operation` (`add` / `remove`). Touches only the listed items: a ProductGroup's children are
- * not changed with it, and a child of a group may be listed directly. Nothing is written unless every item
- * passes: 422 `tagNotFound` (field `tagId`) for an unknown catalog tag, 404 `catalogItemNotFound`
- * when any item does not exist — arg `count` (the missing ids). Items that already have (or already lack)
+ * not changed with it, and a child of a group may be listed directly. The next save of the group form still
+ * merges the group's tags into every child, so a tag added to a group reaches the children then, and a tag
+ * removed from a child comes back if the group carries it. Nothing is written unless every item passes: 422
+ * `tagNotFound` (field `tagId`) for an unknown catalog tag, 404 `catalogItemNotFound` when any
+ * item does not exist — arg `count` (the number of missing ids). Items that already have (or already lack)
  * the tag are left untouched and get no changelog entry. Answers 204. Requires `catalog.edit`.
  */
 export const catalogBatchUpdateTags = <ThrowOnError extends boolean = false>(
@@ -2103,6 +2108,38 @@ export const marketplacesSetCardMapping = <ThrowOnError extends boolean = false>
     ThrowOnError
   >({
     url: "/api/integrations/marketplaces/cards/{id}/mapping",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Moves the external orders of several accounts from a date onto their cards' current mappings.
+ *
+ * Body: `RebindExternalOrdersRequest` — `accountIds` (1 to 50, duplicates collapsed),
+ * `since` (orders whose effective date is at or after it) and `dryRun` (compute without saving).
+ * Every line of those accounts' external orders in the period whose catalog item differs from its mapped
+ * card's is moved onto the card's mapping, together with its box component and the returns and accruals
+ * linked to the line. Lines of unmapped cards and non-external orders are never touched. The response
+ * groups the moved lines by card and the catalog item they leave. Errors: 422 `tooShort` /
+ * `tooLong` on `accountIds`, 404 `marketplaceAccountNotFound` when any id matches no account
+ * (nothing is applied). Requires `integrations.map`.
+ */
+export const marketplacesRebindExternalOrders = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplacesRebindExternalOrdersData, ThrowOnError>,
+): RequestResult<
+  MarketplacesRebindExternalOrdersResponses,
+  MarketplacesRebindExternalOrdersErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    MarketplacesRebindExternalOrdersResponses,
+    MarketplacesRebindExternalOrdersErrors,
+    ThrowOnError
+  >({
+    url: "/api/integrations/marketplaces/accounts/external-orders/rebind",
     ...options,
     headers: {
       "Content-Type": "application/json",

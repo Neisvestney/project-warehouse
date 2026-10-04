@@ -2839,6 +2839,46 @@ export type RealtimeWatchResponse = {
   presence: Array<EntityPresenceDto>;
 };
 
+export type RebindExternalOrdersItemDto = {
+  cardId: string;
+  accountId: string;
+  accountName: string;
+  offerId: string;
+  cardName: string;
+  /**
+   * Null for lines imported while the card had no mapping.
+   */
+  oldCatalogItemId?: null | string;
+  oldCatalogItemFullName?: null | string;
+  oldCatalogItemArticle?: null | string;
+  newCatalogItemId: string;
+  newCatalogItemFullName: string;
+  newCatalogItemArticle?: null | string;
+  orders: number;
+  lines: number;
+};
+
+export type RebindExternalOrdersRequest = {
+  accountIds: Array<string>;
+  /**
+   * Orders whose effective date is at or after this instant are rebound.
+   */
+  since: string;
+  /**
+   * Compute and return the changes without saving them.
+   */
+  dryRun: boolean;
+};
+
+export type RebindExternalOrdersResponse = {
+  orders: number;
+  lines: number;
+  /**
+   * One row per card and catalog item its lines move away from, ordered by account and offer id.
+   */
+  items: Array<RebindExternalOrdersItemDto>;
+};
+
 export type ReceiptDto = {
   id: string;
   number: number;
@@ -6593,6 +6633,37 @@ export type MarketplacesSetCardMappingResponses = {
 
 export type MarketplacesSetCardMappingResponse =
   MarketplacesSetCardMappingResponses[keyof MarketplacesSetCardMappingResponses];
+
+export type MarketplacesRebindExternalOrdersData = {
+  body: RebindExternalOrdersRequest;
+  path?: never;
+  query?: never;
+  url: "/api/integrations/marketplaces/accounts/external-orders/rebind";
+};
+
+export type MarketplacesRebindExternalOrdersErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesRebindExternalOrdersError =
+  MarketplacesRebindExternalOrdersErrors[keyof MarketplacesRebindExternalOrdersErrors];
+
+export type MarketplacesRebindExternalOrdersResponses = {
+  /**
+   * OK
+   */
+  200: RebindExternalOrdersResponse;
+};
+
+export type MarketplacesRebindExternalOrdersResponse =
+  MarketplacesRebindExternalOrdersResponses[keyof MarketplacesRebindExternalOrdersResponses];
 
 export type MarketplacesAutoMapCardsData = {
   body: AutoMapCardsRequest;
