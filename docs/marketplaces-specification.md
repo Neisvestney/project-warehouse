@@ -868,7 +868,7 @@ Quartz регистрируется с in-memory хранилищем задач
 | `GET` | `/accounts/{id}/cards` | `integrations.view` | Карточки (поиск, `mappingState` = `all`/`unmapped`/`mapped`/`archivedItem`, `includeArchived`) |
 | `PUT` | `/cards/{id}/mapping` | `integrations.map` | Привязка карточки, `{ catalogItemId, isMarkedArchived }`, `catalogItemId: null` — снять привязку |
 | `POST` | `/accounts/cards/auto-map` | `integrations.map` | Автосопоставление по нескольким аккаунтам с режимами перезаписи и пробным прогоном (см. «Ручной запуск») |
-| `GET` | `/auto-map-rules` | `integrations.view` | Правила автосопоставления в порядке применения (`priority` по убыванию), без пагинации |
+| `GET` | `/auto-map-rules` | `integrations.view` | Правила автосопоставления в порядке применения (`priority` по убыванию), без пагинации; `searchString` ищет по значению правила, имени и артикулу товара |
 | `POST` | `/auto-map-rules` | `integrations.map` | Создание правила |
 | `PUT` | `/auto-map-rules/{id}` | `integrations.map` | Изменение правила |
 | `DELETE` | `/auto-map-rules/{id}` | `integrations.map` | Удаление правила, `204`. Сопоставленные им карточки сохраняют привязку |

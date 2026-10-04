@@ -5843,7 +5843,9 @@ export type InventoryItemsGetAllUnitsResponse =
 export type MarketplaceAutoMapRulesGetRulesData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    searchString?: string;
+  };
   url: "/api/integrations/marketplaces/auto-map-rules";
 };
 

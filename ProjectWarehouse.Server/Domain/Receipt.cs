@@ -44,8 +44,8 @@ public class Receipt : ITaggedWarehouseDocument<ReceiptTag>
     /// </summary>
     [Projectable]
     public bool MatchesExtendedSearch(string pattern) =>
-        EF.Functions.ILike(SearchString, pattern, SearchExtensions.EscapeChar)
-        || Items.Any(i => EF.Functions.ILike(i.CatalogItem.SearchString, pattern, SearchExtensions.EscapeChar))
+        EF.Functions.ILike(SearchExtensions.Normalize(SearchString), pattern, SearchExtensions.EscapeChar)
+        || Items.Any(i => EF.Functions.ILike(SearchExtensions.Normalize(i.CatalogItem.SearchString), pattern, SearchExtensions.EscapeChar))
         || Items.Any(i => i.Placements.Any(p => p.UnitInventoryItem != null
-            && EF.Functions.ILike(p.UnitInventoryItem.InventoryNumber, pattern, SearchExtensions.EscapeChar)));
+            && EF.Functions.ILike(SearchExtensions.Normalize(p.UnitInventoryItem.InventoryNumber), pattern, SearchExtensions.EscapeChar)));
 }

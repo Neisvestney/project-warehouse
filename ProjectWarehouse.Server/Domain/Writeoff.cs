@@ -40,10 +40,10 @@ public class Writeoff : ITaggedWarehouseDocument<WriteoffTag>
     /// </summary>
     [Projectable]
     public bool MatchesExtendedSearch(string pattern) =>
-        EF.Functions.ILike(SearchString, pattern, SearchExtensions.EscapeChar)
+        EF.Functions.ILike(SearchExtensions.Normalize(SearchString), pattern, SearchExtensions.EscapeChar)
         || Items.Any(i => i.CatalogItem != null
-            && EF.Functions.ILike(i.CatalogItem.SearchString, pattern, SearchExtensions.EscapeChar))
+            && EF.Functions.ILike(SearchExtensions.Normalize(i.CatalogItem.SearchString), pattern, SearchExtensions.EscapeChar))
         || Items.Any(i => i.UnitInventoryItem != null
-            && (EF.Functions.ILike(i.UnitInventoryItem.CatalogItem.SearchString, pattern, SearchExtensions.EscapeChar)
-                || EF.Functions.ILike(i.UnitInventoryItem.InventoryNumber ?? "", pattern, SearchExtensions.EscapeChar)));
+            && (EF.Functions.ILike(SearchExtensions.Normalize(i.UnitInventoryItem.CatalogItem.SearchString), pattern, SearchExtensions.EscapeChar)
+                || EF.Functions.ILike(SearchExtensions.Normalize(i.UnitInventoryItem.InventoryNumber ?? ""), pattern, SearchExtensions.EscapeChar)));
 }

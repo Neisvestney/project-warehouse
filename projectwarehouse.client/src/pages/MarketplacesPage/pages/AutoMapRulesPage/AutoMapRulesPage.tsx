@@ -27,6 +27,7 @@ import {
   marketplaceAutoMapRulesGetRulesQueryKey,
   marketplaceAutoMapRulesUpdateRuleMutation,
 } from "@/api/@tanstack/react-query.gen";
+import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {useEditLock} from "@/hooks/useEditLock";
 import {useHasPermission} from "@/hooks/usePermission";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
@@ -34,7 +35,9 @@ import PageTitle from "@/components/PageTitle.tsx";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EditLockBanner from "@/components/EditLockBanner";
 import PageGenericHeader from "@/components/PageGenericHeader";
+import SearchInput from "@/components/SearchInput";
 import StaleDataBanner from "@/components/StaleDataBanner";
+import TableInfoBar from "@/components/TableInfoBar";
 import TableRowEmpty from "@/components/TableRowEmpty";
 import TableRowLoader from "@/components/TableRowLoader";
 import {extractErrorMessage} from "@/utils/errorUtils";
@@ -62,8 +65,14 @@ function AutoMapRulesPage() {
   // the claim waits for intent to edit and then sticks for the rest of the visit.
   const [hasEditIntent, setEditIntent] = useState(false);
 
+  const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
+    "search",
+    (q) => (typeof q === "string" ? q : ""),
+    (v) => v || null,
+  );
+
   const {data, isLoading, isFetching, dataUpdatedAt} = useQuery(
-    marketplaceAutoMapRulesGetRulesOptions(),
+    marketplaceAutoMapRulesGetRulesOptions({query: {searchString: searchString || undefined}}),
   );
 
   const invalidate = useCallback(
@@ -157,7 +166,9 @@ function AutoMapRulesPage() {
             </Stack>
           )
         }
-      />
+      >
+        <SearchInput value={inputValue} onChange={setInputValue} />
+      </PageGenericHeader>
       <EditLockBanner heldBy={lock.heldBy} />
       <StaleDataBanner
         isStale={!lock.heldBy && lock.isStale}
@@ -169,6 +180,16 @@ function AutoMapRulesPage() {
         Правила общие для всех магазинов и применяются к несопоставленным карточкам раньше подбора
         по артикулу и штрихкоду. Побеждает первое подошедшее правило.
       </Typography>
+      <TableInfoBar
+        loading={isLoading}
+        stats={[
+          {
+            key: "count",
+            label: searchString ? "Найдено:" : "Всего правил:",
+            value: data?.length ?? 0,
+          },
+        ]}
+      />
       <TableContainer component={Paper}>
         <Table size="small">
           <TableHead>
@@ -186,7 +207,10 @@ function AutoMapRulesPage() {
             {isLoading ? (
               <TableRowLoader colSpan={7} />
             ) : data?.length === 0 ? (
-              <TableRowEmpty colSpan={7} message="Правил пока нет" />
+              <TableRowEmpty
+                colSpan={7}
+                message={searchString ? "Ничего не найдено" : "Правил пока нет"}
+              />
             ) : (
               data?.map((rule) => (
                 <TableRow
