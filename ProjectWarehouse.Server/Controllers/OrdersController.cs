@@ -5,11 +5,13 @@ using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Infrastructure.Realtime;
 using ProjectWarehouse.Server.Integrations.Abstractions;
@@ -36,7 +38,8 @@ public class OrdersController(
     ICatalogService catalog,
     IChangeLogService<OrderDetailsDto> changeLog,
     IDataFileBindingService fileBinding,
-    IAssemblyChangeNotifier assemblyChanges) : AppControllerBase
+    IAssemblyChangeNotifier assemblyChanges,
+    IOptions<MarketplacesOptions> marketplacesOptions) : AppControllerBase
 {
     private EntityAccessRule<Order> Rule => access.For<Order>();
 
@@ -321,7 +324,7 @@ public class OrdersController(
 
     /// <summary>List orders (paginated, filtered, sorted).</summary>
     /// <remarks>
-    /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
+    /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 500), <c>searchString</c>,
     /// <c>warehouseId</c>, <c>type</c>, <c>status</c>, <c>marketplaceType</c>, <c>marketplaceAccountId</c>,
     /// <c>marketplaceStatus</c>, <c>includeExternal</c> (default false), <c>catalogItemIds</c>, <c>tagIds</c>,
     /// <c>overdue</c>, <c>sortBy</c> (default <c>Number</c>), <c>sortOrder</c> (default <c>Desc</c>).
@@ -343,7 +346,7 @@ public class OrdersController(
     [ProducesResponseType<PaginatedWithMeta<OrderSummaryDto, OrderListMetaDto>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(
         [FromQuery][Range(1, int.MaxValue)] int page = 1,
-        [FromQuery][Range(1, 200)] int pageSize = 20,
+        [FromQuery][Range(1, 500)] int pageSize = 20,
         [FromQuery] string? searchString = null,
         [FromQuery] Guid? warehouseId = null,
         [FromQuery] OrderType? type = null,
@@ -973,14 +976,14 @@ public class OrdersController(
     /// <remarks>
     /// Lives here rather than under integrations because it is invoked from the order list and is
     /// scoped by warehouse like every other order operation.
-    /// Body: <c>orderIds</c> (deduplicated, at most <see cref="MaxLabelOrders"/>), an optional
+    /// Body: <c>orderIds</c> (deduplicated, at most <c>Marketplaces:Labels:MaxOrdersPerJob</c>), an optional
     /// <c>grouping</c> and an optional <c>forceRegenerate</c>. Answers <c>application/pdf</c> — one merged
     /// document in the order the ids were sent.
     /// <para>All or nothing: if any requested label is missing the file is withheld entirely. A batch of 30
     /// quietly arriving with 28 labels means two unshipped boxes.</para>
     /// <list type="bullet">
     ///   <item>422 <c>required</c> — empty <c>orderIds</c></item>
-    ///   <item>422 <c>outOfRange</c> (<c>args.max</c>) — more than <see cref="MaxLabelOrders"/> requested</item>
+    ///   <item>422 <c>outOfRange</c> (<c>args.max</c>) — more than <c>MaxOrdersPerJob</c> requested</item>
     ///   <item>403 <c>orderNotAssignedToWarehouse</c> — an order lies outside the caller's warehouses</item>
     ///   <item>422 <c>marketplaceOrderNotFromMarketplace</c> (<c>args.orderIds</c>) — an order has no posting</item>
     ///   <item>422 <c>marketplaceOrderNotAwaitingDeliver</c> (<c>args.postingNumbers</c>, <c>args.count</c>) —
@@ -1010,10 +1013,11 @@ public class OrdersController(
         if (orderIds.Count == 0)
             return UnprocessableEntity(nameof(request.OrderIds), ErrorCode.Required, "No orders were requested.");
 
-        if (orderIds.Count > MaxLabelOrders)
+        var maxLabelOrders = marketplacesOptions.Value.Labels.MaxOrdersPerJob;
+        if (orderIds.Count > maxLabelOrders)
             return UnprocessableEntity(nameof(request.OrderIds), ErrorCode.OutOfRange,
-                $"At most {MaxLabelOrders} labels can be printed at once.",
-                new Dictionary<string, object> { ["max"] = MaxLabelOrders });
+                $"At most {maxLabelOrders} labels can be printed at once.",
+                new Dictionary<string, object> { ["max"] = maxLabelOrders });
 
         if (!CanBrowseOrders)
             return Forbidden();
@@ -1089,9 +1093,6 @@ public class OrdersController(
         // a MemoryStream, because PdfDocument.Save needs a seekable target and Response.Body is not one
         return File(new MemoryStream(bundle.Pdf!), "application/pdf", "labels.pdf");
     }
-
-    /// <summary>A print job bigger than this is a misclick, not a shift's work.</summary>
-    private const int MaxLabelOrders = 200;
 
     // ── POST /api/orders/batch-self-assign ────────────────────────────────────
 

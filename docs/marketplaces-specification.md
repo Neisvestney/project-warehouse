@@ -1047,12 +1047,15 @@ Quartz регистрируется с in-memory хранилищем задач
       "OzonPostingLabel": { "TextCorner": "TopRight", "MarginX": 6, "MarginY": 6 }
     },
     "CacheTtlDays": 7,
-    "GcCron": "0 15 3 * * ?"
+    "GcCron": "0 15 3 * * ?",
+    "MaxOrdersPerJob": 1000
   }
 }
 ```
 
 `CacheTtlDays` и `GcCron` настраивают сборщик кешированных этикеток — см. [marketplaces-orders-specification.md](marketplaces-orders-specification.md#срок-жизни-кеша-этикеток).
+
+`MaxOrdersPerJob` — сколько заказов принимает один вызов `POST /api/orders/labels`; больше — `422 outOfRange` с `args.max`.
 
 `Layouts` задаёт место для артикулов отдельно для каждого формата этикетки — `OzonScanitLabel` и `OzonPostingLabel`, см. [«Получение этикеток»](marketplaces-orders-specification.md#получение-этикеток). У старой этикетки с номером отправления содержимое повёрнуто, и её левый нижний угол занят номером. `TextCorner` — угол, в который наносятся артикулы: `TopLeft`, `TopRight`, `BottomLeft` (по умолчанию), `BottomRight`. `MarginX` и `MarginY` — отступы от вертикального и горизонтального края **выбранного угла**. Строки читаются сверху вниз независимо от угла: первый артикул — верхняя строка блока. Новый формат этикетки — это новое свойство в `LabelLayoutsOptions`, член `LabelKind` и ветка его опознания в `MarketplaceLabelService.Identify`.
 

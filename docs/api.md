@@ -25,7 +25,7 @@ Errors always use `AppProblemDetails` — see [errors.md](errors.md) for the env
 
 ## Common query conventions
 
-- **Pagination**: `page` (default 1), `pageSize` (default 20, max 200) → `Paginated<T>`, or
+- **Pagination**: `page` (default 1), `pageSize` (default 20, max 200; `GET /api/orders` — max 500) → `Paginated<T>`, or
   `PaginatedWithMeta<T, TMeta>` where the list also carries aggregates over the whole filtered set
   (`GET /api/orders` → `OrderListMetaDto`). An aggregate that doubles as a facet ignores its own filter and
   honours every other one — the order status counts ignore `status`, the overdue counts ignore `overdue` — so

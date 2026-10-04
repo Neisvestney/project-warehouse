@@ -36,6 +36,9 @@ public class LabelsOptions
     public int CacheTtlDays { get; set; } = 7;
 
     public string GcCron { get; set; } = "0 15 3 * * ?";
+
+    /// <summary>Orders one <c>POST /api/orders/labels</c> call may ask for; a bigger job is a misclick.</summary>
+    public int MaxOrdersPerJob { get; set; } = 1000;
 }
 
 public class LabelLayoutsOptions
