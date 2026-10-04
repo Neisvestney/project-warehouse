@@ -246,8 +246,8 @@ all-or-nothing and no-op rules. It changes only the listed items: a ProductGroup
 it, and a child may be listed directly. The next save of the group form still applies the
 [tag copying](#tags) rule: a tag added to a child stays (the form loads the child's tags), a tag added to the group
 reaches every child at that save, and a tag removed from a child comes back if the group carries it. Every item
-is snapshotted for the changelog before any of them changes, so a group listed together with its child does not
-log the child's new tags as its own diff. Catalog items have no numbers and no per-item access, so the 404 `catalogItemNotFound` carries only `count`.
+is snapshotted for the changelog before any of them changes, so a group listed together with its child always logs
+the child's tag change under `Children` as well; a child listed without its group leaves the group's log alone. Catalog items have no numbers and no per-item access, so the 404 `catalogItemNotFound` carries only `count`.
 
 In the stock movement report a metric has one tag list per document type (`receiptTagIds`, `orderTagIds`,
 `writeoffTagIds`, `stocktakeTagIds`). A non-empty list keeps only movements whose document of that type carries any

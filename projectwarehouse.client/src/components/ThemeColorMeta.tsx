@@ -1,5 +1,7 @@
 import {useEffect} from "react";
+import {useLocation} from "react-router";
 import {useResolvedColorScheme} from "@/hooks/useResolvedColorScheme.ts";
+import {isPrintPath} from "@/utils/printUtils";
 import {APP_BAR_DARK_BG, APP_BAR_LIGHT_BG} from "@/theme.ts";
 
 const SCHEME_COLORS = {light: APP_BAR_LIGHT_BG, dark: APP_BAR_DARK_BG};
@@ -8,15 +10,19 @@ const SCHEME_COLORS = {light: APP_BAR_LIGHT_BG, dark: APP_BAR_DARK_BG};
 // choice no longer follows the OS, so both tags collapse onto the picked color until it goes back to system.
 function ThemeColorMeta() {
   const {mode, scheme} = useResolvedColorScheme();
+  // print pages are forced light (useForcedLightScheme), so the status bar follows suit
+  const forceLight = isPrintPath(useLocation().pathname);
 
   useEffect(() => {
     const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
 
     metas.forEach((meta) => {
       const osScheme = meta.media.includes("dark") ? "dark" : "light";
-      meta.content = SCHEME_COLORS[mode === "system" ? osScheme : scheme];
+      meta.content = forceLight
+        ? SCHEME_COLORS.light
+        : SCHEME_COLORS[mode === "system" ? osScheme : scheme];
     });
-  }, [mode, scheme]);
+  }, [mode, scheme, forceLight]);
 
   return null;
 }
