@@ -10,6 +10,7 @@ import {
   DialogTitle,
   LinearProgress,
   Paper,
+  type Theme,
   Typography,
 } from "@mui/material";
 import DownloadingIcon from "@mui/icons-material/Downloading";
@@ -40,7 +41,7 @@ function UpdatePrompt({}: UpdatePromptProps) {
     position: "fixed",
     top: floatTop,
     left: FLOAT_LEFT,
-    zIndex: 1050,
+    zIndex: (t: Theme) => t.zIndex.appBar,
     p: 2,
     maxWidth: 280,
     display: "flex",
