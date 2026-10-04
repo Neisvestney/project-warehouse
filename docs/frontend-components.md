@@ -1475,6 +1475,10 @@ this instead of hand-rolling `Math.max(min, Number(e.target.value))` in an `onCh
 field back to the min on every keystroke.
 
 `min` defaults to **1**; pass `min={0}` wherever zero is a legitimate value (stocktake counting relies on this).
+
+For a quantity where "not entered yet" differs from zero, pass `nullable`: `value` and `onCommit` then take
+`number | null`, and an emptied field commits `null` on blur instead of snapping to `min` (receipt «Принято»
+column, with `placeholder="—"`).
 If `value` changes externally — after a mutation invalidates and refetches — the displayed text re-syncs,
 **unless the field is currently focused**, so it never clobbers an in-progress edit.
 

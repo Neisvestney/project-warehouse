@@ -10,15 +10,16 @@ import {
   Typography,
 } from "@mui/material";
 
-interface ClampedIntegerFieldProps extends Omit<
+type ClampedIntegerFieldProps = Omit<
   TextFieldProps,
   "value" | "onChange" | "onBlur" | "onFocus" | "type"
-> {
-  value: number;
+> & {
   min?: number;
   max?: number;
-  onCommit: (value: number) => void;
-}
+} & (
+    | {nullable?: false; value: number; onCommit: (value: number) => void}
+    | {nullable: true; value: number | null; onCommit: (value: number | null) => void}
+  );
 
 type Operator = "+" | "-" | "*" | "/";
 
@@ -67,6 +68,10 @@ function previewResult(state: CalcState): string | null {
   return String(Number(result.toFixed(4)));
 }
 
+function toRaw(n: number | null): string {
+  return n === null ? "" : String(n);
+}
+
 function assignRef<T>(ref: Ref<T> | undefined, node: T) {
   if (typeof ref === "function") ref(node);
   else if (ref) (ref as {current: T}).current = node;
@@ -76,18 +81,20 @@ function assignRef<T>(ref: Ref<T> | undefined, node: T) {
  * Number field that keeps raw keystrokes (including an empty field) uncommitted
  * until blur, so clamping doesn't fight the user while they're typing/clearing it.
  * Typing an operator opens a calculator popover anchored under the field.
+ * With `nullable`, an emptied field commits `null` instead of snapping to `min`.
  */
 export function ClampedIntegerField({
   value,
   min = 1,
   max,
+  nullable,
   onCommit,
   slotProps,
   inputRef,
   onKeyDown,
   ...rest
 }: ClampedIntegerFieldProps) {
-  const [raw, setRaw] = useState(String(value));
+  const [raw, setRaw] = useState(toRaw(value));
   const [calc, setCalc] = useState<CalcState | null>(null);
   const [calcError, setCalcError] = useState(false);
   const focusedRef = useRef(false);
@@ -96,7 +103,7 @@ export function ClampedIntegerField({
   const innerInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    if (!focusedRef.current && !calcOpenRef.current) setRaw(String(value));
+    if (!focusedRef.current && !calcOpenRef.current) setRaw(toRaw(value));
   }, [value]);
 
   const clamp = (n: number) => {
@@ -104,9 +111,15 @@ export function ClampedIntegerField({
     return max !== undefined ? Math.min(max, atLeast) : atLeast;
   };
 
-  const commit = (n: number) => {
-    setRaw(String(n));
-    if (n !== value) onCommit(n);
+  const commit = (n: number | null) => {
+    setRaw(toRaw(n));
+    // The null branch is only reachable with `nullable`, whose onCommit accepts null.
+    if (n !== value) (onCommit as (value: number | null) => void)(n);
+  };
+
+  const commitRaw = () => {
+    if (nullable && raw === "") commit(null);
+    else commit(clamp(Number(raw) || min));
   };
 
   // Stable identity on purpose: a fresh callback ref would make React re-register
@@ -173,12 +186,12 @@ export function ClampedIntegerField({
           e.preventDefault();
           setCalcError(false);
           calcOpenRef.current = true;
-          setCalc({left: raw === "" ? String(value) : raw, op: e.key, right: ""});
+          setCalc({left: raw === "" ? String(value ?? min) : raw, op: e.key, right: ""});
         }}
         onBlur={() => {
           focusedRef.current = false;
           if (calcOpenRef.current) return;
-          commit(clamp(Number(raw) || min));
+          commitRaw();
         }}
         slotProps={{
           ...slotProps,
@@ -199,7 +212,7 @@ export function ClampedIntegerField({
       >
         <ClickAwayListener
           onClickAway={() => {
-            commit(clamp(Number(raw) || min));
+            commitRaw();
             closeCalc(false);
           }}
         >
