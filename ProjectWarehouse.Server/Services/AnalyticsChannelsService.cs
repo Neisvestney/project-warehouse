@@ -10,9 +10,13 @@ namespace ProjectWarehouse.Server.Services;
 public class AnalyticsChannelsService(
     ApplicationDbContext db,
     AnalyticsQueries queries,
+    AnalyticsSubjects subjectInfo,
     IAnalyticsSettingsService settings) : IAnalyticsChannelsService
 {
     private const int TopReasons = 10;
+
+    /// <summary>Below this base a share is noise: one sale and one return reads as 100%.</summary>
+    private const int MinShareBase = 10;
 
     /// <summary>Sales of one shop in one currency; a null currency still carries units.</summary>
     private sealed class LineAggregate
@@ -67,6 +71,15 @@ public class AnalyticsChannelsService(
     private sealed class OrderOutcomeDay : DayValue
     {
         public bool IsCancelled { get; init; }
+    }
+
+    /// <summary>Lost units of one catalog item or card for one reason on one order day.</summary>
+    private sealed class LostDay
+    {
+        public Guid? Id { get; init; }
+        public string? Reason { get; init; }
+        public DateTime Day { get; init; }
+        public int Units { get; init; }
     }
 
     public async Task<ChannelsSummaryDto> GetSummaryAsync(
@@ -587,6 +600,153 @@ public class AnalyticsChannelsService(
                     Units = units.GetValueOrDefault(v.Id),
                     Money = money.TryGetValue(v.Id, out var amount) ? amount : null,
                     Share = (double)(v.Value / total),
+                })
+                .ToList(),
+        };
+    }
+
+    public async Task<ChannelsLossReasonsDto> GetLossReasonsAsync(
+        ClaimsPrincipal user, ChannelsLossReasonsRequest request, CancellationToken ct = default)
+    {
+        var period = await queries.ResolvePeriodAsync(request, ct);
+        var options = await settings.GetOptionsAsync(ct);
+        var step = request.Step ?? AnalyticsCalculator.DefaultStep(period.From, period.To);
+        var intervals = AnalyticsCalculator.SplitIntervals(period.From, period.To, step);
+        var intervalDtos = AnalyticsCalculator.ToIntervalDtos(intervals, period.Today);
+        var accounts = await queries.LoadAccountsAsync(request, ct);
+        var accountIds = accounts.Select(a => a.Id).ToList();
+        var itemIds = AnalyticsQueries.ItemIds(request);
+        var offset = period.OffsetMinutes;
+        var byCard = request.Subject != AnalyticsAbcSubject.CatalogItem;
+        var isReturns = request.Kind == AnalyticsLossKind.Returns;
+
+        // Both kinds are dated by the order, so a reason's interval is when the lost units were sold
+        List<LostDay> lost = [];
+        var sold = new Dictionary<Guid, int>();
+        if (accountIds.Count > 0)
+        {
+            lost = isReturns
+                ? await queries
+                    .CohortReturns(accountIds, period.FromUtc, period.ToUtc, itemIds)
+                    .GroupBy(r => new
+                    {
+                        Id = byCard ? r.OrderMarketplaceItem!.MarketplaceCardId : r.CatalogItemId,
+                        r.Reason,
+                        Day = r.Order!.EffectiveDate.AddMinutes(offset).Date,
+                    })
+                    .Select(g => new LostDay
+                    {
+                        Id = g.Key.Id, Reason = g.Key.Reason, Day = g.Key.Day, Units = g.Sum(r => r.Quantity),
+                    })
+                    .ToListAsync(ct)
+                : await queries
+                    .MarketplaceLines(accountIds, [MarketplaceOrderStatus.Cancelled], period.FromUtc, period.ToUtc,
+                        itemIds)
+                    .GroupBy(i => new
+                    {
+                        Id = byCard ? i.MarketplaceCardId : i.CatalogItemId,
+                        Reason = i.Order.MarketplaceOrder!.CancelReason,
+                        Day = i.Order.EffectiveDate.AddMinutes(offset).Date,
+                    })
+                    .Select(g => new LostDay
+                    {
+                        Id = g.Key.Id, Reason = g.Key.Reason, Day = g.Key.Day, Units = g.Sum(i => i.Quantity),
+                    })
+                    .ToListAsync(ct);
+
+            sold = (await queries
+                    .SaleLines(accountIds, period.FromUtc, period.ToUtc, itemIds)
+                    .GroupBy(i => byCard ? i.MarketplaceCardId : i.CatalogItemId)
+                    .Select(g => new { Id = g.Key, Units = g.Sum(i => i.Quantity) })
+                    .ToListAsync(ct))
+                .Where(r => r.Id != null)
+                .ToDictionary(r => r.Id!.Value, r => r.Units);
+        }
+
+        var cards = byCard
+            ? await subjectInfo.LoadCardsAsync(lost.Select(l => l.Id).Concat(sold.Keys.Select(id => (Guid?)id)), ct)
+            : new Dictionary<Guid, CardInfo>();
+        SubjectKey KeyOf(Guid id) => AnalyticsSubjects.KeyOf(request.Subject, id, cards)!.Value;
+
+        var linked = lost.Where(l => l.Id != null).ToList();
+        var lostBySubject = linked
+            .GroupBy(l => KeyOf(l.Id!.Value))
+            .ToDictionary(g => g.Key, g => g.Sum(l => l.Units));
+        var baseBySubject = sold
+            .GroupBy(s => KeyOf(s.Key))
+            .ToDictionary(g => g.Key, g => g.Sum(s => s.Value));
+        // A cancelled unit was never sold, so it joins its own base, as in the summary's cancellation rate
+        if (!isReturns)
+            foreach (var (key, units) in lostBySubject)
+                baseBySubject[key] = baseBySubject.GetValueOrDefault(key) + units;
+
+        var rows = linked
+            .GroupBy(l => (Key: KeyOf(l.Id!.Value), Reason: string.IsNullOrWhiteSpace(l.Reason) ? null : l.Reason.Trim()))
+            .Select(g =>
+            {
+                var units = g.Sum(l => l.Units);
+                var baseUnits = baseBySubject.GetValueOrDefault(g.Key.Key);
+                return new
+                {
+                    g.Key.Key,
+                    g.Key.Reason,
+                    Units = units,
+                    BaseUnits = baseUnits,
+                    Share = AnalyticsCalculator.Ratio(units, baseUnits),
+                    Values = AnalyticsCalculator.SumByInterval(intervals, period.Today,
+                        g.Select(l => (DateOnly.FromDateTime(l.Day), l.Units))),
+                };
+            })
+            .Where(r => r.Units > 0);
+
+        var ranked = (request.By == AnalyticsLossReasonsBy.Share
+                ? rows.Where(r => r.BaseUnits >= MinShareBase)
+                    .OrderByDescending(r => r.Share)
+                    .ThenByDescending(r => r.Units)
+                : rows.OrderByDescending(r => r.Units)
+                    .ThenByDescending(r => r.Share))
+            .ThenBy(r => r.Key)
+            .ThenBy(r => r.Reason, StringComparer.Ordinal)
+            .ToList();
+        var shown = request.Take is { } take ? ranked.Take(take).ToList() : ranked;
+
+        // The article's name comes from its card with the most units, lost ones included: a card may sell none
+        var unitsByCard = (byCard ? linked : [])
+            .Select(l => (Id: l.Id!.Value, l.Units))
+            .Concat(byCard ? sold.Select(s => (Id: s.Key, Units: s.Value)) : [])
+            .GroupBy(u => u.Id)
+            .ToDictionary(g => g.Key, g => g.Sum(u => u.Units));
+        var subjects = await subjectInfo.DescribeAsync(
+            request.Subject, shown.Select(r => r.Key).Distinct().ToList(), cards, unitsByCard, accounts, ct);
+
+        return new ChannelsLossReasonsDto
+        {
+            From = period.From,
+            To = period.To,
+            TimeZoneId = period.TimeZoneId,
+            Kind = request.Kind,
+            Subject = request.Subject,
+            By = request.By,
+            Step = step,
+            Intervals = intervalDtos,
+            ImmatureIntervals = intervalDtos
+                .Select(i => isReturns && !i.IsFuture
+                    && AnalyticsCalculator.IsReturnsImmature(i.End, period.Today, options.ReturnsMaturityDays))
+                .ToList(),
+            ReturnsMaturityDays = options.ReturnsMaturityDays,
+            MinShareBase = MinShareBase,
+            TotalUnits = linked.Sum(l => l.Units),
+            TotalRows = ranked.Count,
+            UnlinkedUnits = lost.Where(l => l.Id == null).Sum(l => l.Units),
+            Rows = shown
+                .Select(r => new LossReasonRowDto
+                {
+                    Subject = subjects[r.Key],
+                    Reason = r.Reason,
+                    Units = r.Units,
+                    BaseUnits = r.BaseUnits,
+                    Share = r.Share,
+                    Values = r.Values,
                 })
                 .ToList(),
         };

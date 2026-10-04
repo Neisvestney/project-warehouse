@@ -116,11 +116,18 @@ public class AnalyticsQueries(ApplicationDbContext db, IWarehouseTimeZoneResolve
     /// <summary>Lines of the marketplace sales dated inside the bounds.</summary>
     /// <param name="itemIds">Keeps the lines of these items; null keeps every line.</param>
     public IQueryable<OrderMarketplaceItem> SaleLines(
-        List<Guid> accountIds, DateTime fromUtc, DateTime toUtc, Guid[]? itemIds = null)
+        List<Guid> accountIds, DateTime fromUtc, DateTime toUtc, Guid[]? itemIds = null) =>
+        MarketplaceLines(accountIds, MarketplaceSaleStatuses, fromUtc, toUtc, itemIds);
+
+    /// <summary>Lines of the marketplace orders in the given statuses dated inside the bounds.</summary>
+    /// <param name="itemIds">Keeps the lines of these items; null keeps every line.</param>
+    public IQueryable<OrderMarketplaceItem> MarketplaceLines(
+        List<Guid> accountIds, MarketplaceOrderStatus[] statuses, DateTime fromUtc, DateTime toUtc,
+        Guid[]? itemIds = null)
     {
         var query = db.OrderMarketplaceItems.Where(i => i.Order.MarketplaceOrder != null
             && accountIds.Contains(i.Order.MarketplaceOrder.MarketplaceAccountId)
-            && MarketplaceSaleStatuses.Contains(i.Order.MarketplaceOrder.Status)
+            && statuses.Contains(i.Order.MarketplaceOrder.Status)
             && i.Order.EffectiveDate >= fromUtc && i.Order.EffectiveDate < toUtc);
 
         return itemIds == null

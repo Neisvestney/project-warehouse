@@ -7,7 +7,7 @@ import FiltersBar from "@/components/FiltersBar";
 import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
 import {useHasPermission} from "@/hooks/usePermission";
 import {BASIS_LABELS} from "@/components/analytics/abc/abcClasses";
-import {SUBJECT_LABELS, SUBJECT_TOOLTIPS, SUBJECTS} from "./abcSubjects";
+import {SUBJECT_LABELS, SUBJECT_TOOLTIPS, SUBJECTS} from "@/components/analytics/subjects/subjects";
 import type {useAbcFilters} from "./useAbcFilters";
 
 type AbcFiltersProps = ReturnType<typeof useAbcFilters> & {

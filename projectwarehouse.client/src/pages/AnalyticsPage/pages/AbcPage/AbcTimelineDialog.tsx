@@ -35,8 +35,8 @@ import {
   XYZ_CLASSES,
   XYZ_COLORS,
 } from "@/components/analytics/abc/abcClasses";
-import {SUBJECT_LABELS} from "./abcSubjects";
-import AbcSubjectName from "./AbcSubjectName";
+import {SUBJECT_LABELS} from "@/components/analytics/subjects/subjects";
+import SubjectName from "@/components/analytics/subjects/SubjectName";
 import type {useAbcFilters} from "./useAbcFilters";
 
 type Mode = "abc" | "xyz";
@@ -216,7 +216,7 @@ function AbcTimelineDialogContent({
                   return (
                     <TableRow key={row.subject.key} hover>
                       <TableCell sx={{pl: "16px !important", wordBreak: "break-word"}}>
-                        <AbcSubjectName subject={row.subject} prefix={row.rank} showAccounts />
+                        <SubjectName subject={row.subject} prefix={row.rank} showAccounts />
                       </TableCell>
                       {row.cells.map((cell, i) => {
                         const value = classOf(cell, mode);

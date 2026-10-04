@@ -4,7 +4,7 @@ import {formatMoney, formatPercent} from "@/components/analytics/analyticsFormat
 import {pluralCount} from "@/utils/pluralUtils";
 import {formatBoundary} from "@/components/analytics/abc/abcClasses";
 import {AbcChip} from "@/components/analytics/abc/ClassChips";
-import {SUBJECT_NOUNS} from "./abcSubjects";
+import {SUBJECT_NOUNS} from "@/components/analytics/subjects/subjects";
 
 const LINES = {one: "строка", few: "строки", many: "строк"};
 

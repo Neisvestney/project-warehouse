@@ -20,8 +20,8 @@ import TableRowEmpty from "@/components/TableRowEmpty";
 import {BASIS_LABELS, formatAbcValue} from "@/components/analytics/abc/abcClasses";
 import {AbcChip, XyzChip} from "@/components/analytics/abc/ClassChips";
 import MarketplaceAccountChip from "@/components/marketplace/MarketplaceAccountChip";
-import {SUBJECT_LABELS} from "./abcSubjects";
-import AbcSubjectName from "./AbcSubjectName";
+import {SUBJECT_LABELS} from "@/components/analytics/subjects/subjects";
+import SubjectName from "@/components/analytics/subjects/SubjectName";
 
 const COLUMNS = 9;
 
@@ -126,7 +126,7 @@ function AbcItemsTable({
                 <TableRow key={item.subject.key}>
                   <TableCell sx={{color: "text.secondary"}}>{item.rank}</TableCell>
                   <TableCell sx={{wordBreak: "break-word", minWidth: 200}}>
-                    <AbcSubjectName subject={item.subject} />
+                    <SubjectName subject={item.subject} />
                   </TableCell>
                   <TableCell>
                     {item.subject.type ? (

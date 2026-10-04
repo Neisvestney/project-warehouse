@@ -18,6 +18,7 @@ import {formatDateOnly} from "@/utils/dateOnly";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import CancellationsCard from "./cards/CancellationsCard";
 import DynamicsCard from "./cards/DynamicsCard";
+import LossReasonsCard from "./cards/LossReasonsCard";
 import LossesCard from "./cards/LossesCard";
 import ReturnsCard from "./cards/ReturnsCard";
 import SharesCard from "./cards/SharesCard";
@@ -151,6 +152,7 @@ function ChannelsSummaryPage() {
           <TopItemsCard filters={filters} onShowAll={() => openTopList("all")} />
           <WeekdaysCard filters={filters} />
         </Box>
+        <LossReasonsCard filters={filters} />
 
         <TopItemsDialog open={!!topList} onClose={closeTopList} filters={filters} />
         <DynamicsFullscreen

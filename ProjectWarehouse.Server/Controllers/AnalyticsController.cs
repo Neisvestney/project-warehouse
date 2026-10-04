@@ -171,6 +171,33 @@ public class AnalyticsController(
         }
     }
 
+    /// <summary>Catalog items, cards or articles paired with the reasons they were cancelled or returned for.</summary>
+    /// <remarks>
+    /// Query params: the shared filter of <c>channels/summary</c> narrowed to the shops (Direct orders carry no
+    /// reasons); <c>kind</c> (<c>cancellations</c> / <c>returns</c>, default <c>returns</c>), <c>subject</c> as in
+    /// <c>abc</c>, <c>by</c> (<c>units</c> / <c>share</c>, default <c>units</c>; by share only rows whose subject
+    /// has at least <c>minShareBase</c> units of base), <c>step</c> (omitted — picked by the period length) and
+    /// <c>take</c> (1..1000, omitted — every row). Both kinds are dated by the order. Values of a future interval
+    /// are null. Requires <c>analytics.view</c>. Same 422 codes as <c>channels/summary</c>.
+    /// </remarks>
+    [HttpGet("channels/loss-reasons")]
+    [TimeZoneAware]
+    [Authorize(Policy = Permissions.Analytics.View)]
+    [ProducesResponseType<ChannelsLossReasonsDto>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetChannelsLossReasons(
+        [FromQuery] ChannelsLossReasonsRequest request,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            return Ok(await channels.GetLossReasonsAsync(User, request, ct));
+        }
+        catch (Infrastructure.ValidationException ex)
+        {
+            return UnprocessableEntity(ex);
+        }
+    }
+
     /// <summary>Catalog items ranked by sales of the selected channels.</summary>
     /// <remarks>
     /// Query params: the shared filter of <c>channels/summary</c> — one shop, Direct alone or several channels

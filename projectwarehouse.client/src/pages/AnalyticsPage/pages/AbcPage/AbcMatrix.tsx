@@ -2,7 +2,7 @@ import {Alert, Box, ButtonBase, Stack, Typography, alpha, useTheme} from "@mui/m
 import type {AbcClass, AbcDto, XyzClass} from "@/api/types.gen";
 import {formatNumber} from "@/components/analytics/analyticsFormat";
 import {pluralCount} from "@/utils/pluralUtils";
-import {SUBJECT_NOUNS} from "./abcSubjects";
+import {SUBJECT_NOUNS} from "@/components/analytics/subjects/subjects";
 import {ABC_CLASSES, XYZ_CLASSES, formatBoundary} from "@/components/analytics/abc/abcClasses";
 
 const STEP_UNITS = {

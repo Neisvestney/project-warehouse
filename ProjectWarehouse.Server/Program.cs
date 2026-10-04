@@ -684,6 +684,7 @@ try
     builder.Services.AddScoped<IStockMovementPresetService, StockMovementPresetService>();
     builder.Services.AddScoped<IStockForecastService, StockForecastService>();
     builder.Services.AddScoped<AnalyticsQueries>();
+    builder.Services.AddScoped<AnalyticsSubjects>();
     builder.Services.AddScoped<IAnalyticsSettingsService, AnalyticsSettingsService>();
     builder.Services.AddScoped<IAnalyticsChannelsService, AnalyticsChannelsService>();
     builder.Services.AddScoped<IAnalyticsAbcService, AnalyticsAbcService>();

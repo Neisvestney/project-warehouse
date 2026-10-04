@@ -11,20 +11,9 @@ namespace ProjectWarehouse.Server.Services;
 public class AnalyticsAbcService(
     ApplicationDbContext db,
     AnalyticsQueries queries,
+    AnalyticsSubjects subjectInfo,
     IAnalyticsSettingsService settings) : IAnalyticsAbcService
 {
-    /// <summary>A catalog item or a card by id, or an article by its normalized offer id.</summary>
-    private readonly record struct SubjectKey(Guid Id, string? Article) : IComparable<SubjectKey>
-    {
-        public int CompareTo(SubjectKey other)
-        {
-            var byId = Id.CompareTo(other.Id);
-            return byId != 0 ? byId : string.CompareOrdinal(Article, other.Article);
-        }
-
-        public override string ToString() => Article ?? Id.ToString();
-    }
-
     /// <summary>Shop sales of one subject in one currency on one day; a null key and currency still carry units.</summary>
     /// <param name="CardId">The card the lines came from, for a card or article subject.</param>
     private sealed record LineDay(
@@ -41,10 +30,6 @@ public class AnalyticsAbcService(
     private sealed record PayoutDay(SubjectKey? Key, string CurrencyCode, DateTime Day, decimal Amount);
 
     private sealed record ItemDay(SubjectKey Key, DateTime Day, int Units);
-
-    /// <param name="Article">The offer id trimmed and upper-cased, as the article subject groups it.</param>
-    private sealed record CardInfo(
-        Guid Id, Guid AccountId, string OfferId, string Article, string Name, string? ImageUrl);
 
     /// <param name="Lines">Shop lines, the ones with no subject included.</param>
     /// <param name="UnitDays">Units of shop lines with a subject and, for catalog items on the units basis, of Direct orders.</param>
@@ -334,23 +319,11 @@ public class AnalyticsAbcService(
         var cards = new Dictionary<Guid, CardInfo>();
         if (byCard)
         {
-            var cardIds = rows.Select(r => r.Id)
-                .Concat(payoutRows.Select(r => r.Id))
-                .Where(id => id != null)
-                .Select(id => id!.Value)
-                .Distinct()
-                .ToList();
-            cards = await db.MarketplaceCards
-                .Where(c => cardIds.Contains(c.Id))
-                .Select(c => new CardInfo(c.Id, c.MarketplaceAccountId, c.OfferId, c.OfferId.Trim().ToUpper(),
-                    c.Name, c.PrimaryImageUrl))
-                .ToDictionaryAsync(c => c.Id, ct);
+            cards = await subjectInfo.LoadCardsAsync(
+                rows.Select(r => r.Id).Concat(payoutRows.Select(r => r.Id)), ct);
         }
 
-        SubjectKey? KeyOf(Guid? id) =>
-            id is not { } value ? null
-            : request.Subject == AnalyticsAbcSubject.Article ? new SubjectKey(Guid.Empty, cards[value].Article)
-            : new SubjectKey(value, null);
+        SubjectKey? KeyOf(Guid? id) => AnalyticsSubjects.KeyOf(request.Subject, id, cards);
 
         var lines = rows
             .Select(r => new LineDay(KeyOf(r.Id), byCard ? r.Id : null, r.CurrencyCode, r.Day, r.Units, r.Lines,
@@ -582,78 +555,20 @@ public class AnalyticsAbcService(
         return filtered.Where(a => matched.Contains(a.Item.Id)).ToList();
     }
 
-    private async Task<Dictionary<SubjectKey, AbcSubjectDto>> LoadSubjectsAsync(
+    private Task<Dictionary<SubjectKey, AbcSubjectDto>> LoadSubjectsAsync(
         AbcFilterRequest request,
         List<AnalysedItem> items,
         Sales sales,
         List<AnalyticsAccount> accounts,
         CancellationToken ct)
     {
-        var keys = items.Select(a => a.Item.Id).ToList();
-
-        if (request.Subject == AnalyticsAbcSubject.CatalogItem)
-        {
-            var ids = keys.Select(k => k.Id).ToList();
-            var names = await db.CatalogItems
-                .Where(c => ids.Contains(c.Id))
-                .Select(c => new { c.Id, c.FullName, c.Type })
-                .ToDictionaryAsync(c => c.Id, ct);
-            return keys.ToDictionary(k => k, k => new AbcSubjectDto
-            {
-                Key = k.ToString(),
-                Name = names[k.Id].FullName,
-                CatalogItemId = k.Id,
-                Type = names[k.Id].Type,
-            });
-        }
-
-        var accountsById = accounts.ToDictionary(a => a.Id);
-        AbcSubjectAccountDto Account(Guid id) => new()
-        {
-            Id = id, Name = accountsById[id].Name, Type = accountsById[id].Type,
-        };
-
-        if (request.Subject == AnalyticsAbcSubject.Card)
-            return keys.ToDictionary(k => k, k =>
-            {
-                var card = sales.Cards[k.Id];
-                return new AbcSubjectDto
-                {
-                    Key = k.ToString(),
-                    Name = card.Name,
-                    MarketplaceCardId = card.Id,
-                    OfferId = card.OfferId,
-                    ImageUrl = card.ImageUrl,
-                    Accounts = [Account(card.AccountId)],
-                };
-            });
-
         var unitsByCard = sales.Lines
             .Where(l => l.CardId != null)
             .GroupBy(l => l.CardId!.Value)
             .ToDictionary(g => g.Key, g => g.Sum(l => l.Units));
-        var cardsByArticle = sales.Cards.Values
-            .Where(c => unitsByCard.ContainsKey(c.Id))
-            .ToLookup(c => c.Article);
 
-        return keys.ToDictionary(k => k, k =>
-        {
-            var cards = cardsByArticle[k.Article!].ToList();
-            var best = cards.OrderByDescending(c => unitsByCard[c.Id]).ThenBy(c => c.Id).First();
-            return new AbcSubjectDto
-            {
-                Key = k.ToString(),
-                Name = best.Name,
-                OfferId = best.OfferId,
-                ImageUrl = best.ImageUrl,
-                Accounts = cards
-                    .Select(c => c.AccountId)
-                    .Distinct()
-                    .Select(Account)
-                    .OrderBy(a => a.Name, StringComparer.CurrentCulture)
-                    .ToList(),
-            };
-        });
+        return subjectInfo.DescribeAsync(
+            request.Subject, items.Select(a => a.Item.Id).ToList(), sales.Cards, unitsByCard, accounts, ct);
     }
 
     private static AbcAppliedSettingsDto AppliedSettings(AnalyticsOptions options) => new()
