@@ -106,7 +106,7 @@ MarketplaceAccrual : IHasIdentity
 ├── CurrencyCode          — string?
 ├── OrderId               — Guid? → Order (SetNull)
 ├── OrderMarketplaceItemId — Guid? → OrderMarketplaceItem (SetNull)
-├── CatalogItemId         — Guid? → CatalogItem (SetNull), снимок с позиции
+├── CatalogItemId         — Guid? → CatalogItem (SetNull), снимок с позиции; следует за ней при перепривязке внешних заказов
 └── SyncedAt
 
 Индексы: (MarketplaceAccountId, ExternalId, LineNo) unique, (MarketplaceAccountId, Date),

@@ -10,6 +10,7 @@ using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Infrastructure.Marketplaces;
+using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Integrations.Sync;
 using ProjectWarehouse.Server.Models;
@@ -26,6 +27,7 @@ public class MarketplacesController(
     IMarketplaceCredentialProtector protector,
     IMarketplaceSyncQueue syncQueue,
     IMarketplaceSyncService syncService,
+    IExternalOrderRebindService rebind,
     IOptions<MarketplacesOptions> options,
     IChangeLogService changeLog,
     IChangeLogService<MarketplaceAccountDto> accountChangeLog,
@@ -867,7 +869,11 @@ public class MarketplacesController(
         card.MappingSource = request.CatalogItemId is null ? null : MarketplaceMappingSource.Manual;
         card.MappedAt = request.CatalogItemId is null ? null : DateTime.UtcNow;
         card.IsMarkedArchived = request.IsMarkedArchived;
-        await db.SaveChangesAsync(ct);
+        await db.Database.ExecuteInTransactionAsync("marketplaces.card_mapping", async () =>
+        {
+            await db.SaveChangesAsync(ct);
+            await rebind.BindUnmappedAsync([id], ct);
+        }, ct);
 
         var after = await ProjectCardAsync(id, ct);
         await cardChangeLog.CompareAndSaveToChangelog(before, after,
@@ -875,6 +881,132 @@ public class MarketplacesController(
             request.CatalogItemId is null ? null : new { catalogItemId = request.CatalogItemId, source = "manual" });
 
         return Ok(after);
+    }
+
+    /// <summary>Moves the external orders of several accounts from a date onto their cards' current mappings.</summary>
+    /// <remarks>
+    /// Body: <c>RebindExternalOrdersRequest</c> — <c>accountIds</c> (1 to 50, duplicates collapsed),
+    /// <c>since</c> (orders whose effective date is at or after it) and <c>dryRun</c> (compute without saving).
+    /// Every line of those accounts' external orders in the period whose catalog item differs from its mapped
+    /// card's is moved onto the card's mapping, together with its box component and the returns and accruals
+    /// linked to the line. Lines of unmapped cards and non-external orders are never touched. The response
+    /// groups the moved lines by card and the catalog item they leave. Errors: 422 <c>tooShort</c> /
+    /// <c>tooLong</c> on <c>accountIds</c>, 404 <c>marketplaceAccountNotFound</c> when any id matches no account
+    /// (nothing is applied). Requires <c>integrations.map</c>.
+    /// </remarks>
+    [HttpPost("accounts/external-orders/rebind")]
+    [Authorize(Policy = Permissions.Integrations.Map)]
+    [ProducesResponseType<RebindExternalOrdersResponse>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> RebindExternalOrders([FromBody] RebindExternalOrdersRequest request,
+        CancellationToken ct)
+    {
+        var accountIds = request.AccountIds.Distinct().ToList();
+        var accountNames = await db.MarketplaceAccounts
+            .Where(a => accountIds.Contains(a.Id))
+            .ToDictionaryAsync(a => a.Id, a => a.Name, ct);
+
+        if (accountNames.Count != accountIds.Count)
+            return NotFound(ErrorCode.MarketplaceAccountNotFound, "Marketplace account not found.");
+
+        var changes = await rebind.PlanRebindAsync(accountIds, request.Since, ct);
+
+        var cardIds = changes.Select(c => c.CardId).Distinct().ToList();
+        var cards = await db.MarketplaceCards
+            .Where(c => cardIds.Contains(c.Id))
+            .Select(c => new { c.Id, c.OfferId, c.Name })
+            .ToDictionaryAsync(c => c.Id, ct);
+        var catalogItemIds = changes
+            .SelectMany(c => new[] { c.OldCatalogItemId, c.NewCatalogItemId })
+            .OfType<Guid>()
+            .Distinct()
+            .ToList();
+        var catalogItems = await db.CatalogItems
+            .Where(i => catalogItemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.FullName, i.Article })
+            .ToDictionaryAsync(i => i.Id, ct);
+
+        var items = changes
+            .GroupBy(c => (c.CardId, c.OldCatalogItemId))
+            .Select(g =>
+            {
+                var first = g.First();
+                var card = cards[first.CardId];
+                var oldItem = first.OldCatalogItemId is { } oldId ? catalogItems[oldId] : null;
+                var newItem = catalogItems[first.NewCatalogItemId];
+                return new RebindExternalOrdersItemDto
+                {
+                    CardId = card.Id,
+                    AccountId = first.AccountId,
+                    AccountName = accountNames[first.AccountId],
+                    OfferId = card.OfferId,
+                    CardName = card.Name,
+                    OldCatalogItemId = first.OldCatalogItemId,
+                    OldCatalogItemFullName = oldItem?.FullName,
+                    OldCatalogItemArticle = oldItem?.Article,
+                    NewCatalogItemId = first.NewCatalogItemId,
+                    NewCatalogItemFullName = newItem.FullName,
+                    NewCatalogItemArticle = newItem.Article,
+                    Orders = g.Select(c => c.OrderId).Distinct().Count(),
+                    Lines = g.Count(),
+                };
+            })
+            .OrderBy(i => i.AccountName)
+            .ThenBy(i => i.OfferId)
+            .ToList();
+
+        var response = new RebindExternalOrdersResponse
+        {
+            Orders = changes.Select(c => c.OrderId).Distinct().Count(),
+            Lines = changes.Count,
+            Items = items,
+        };
+
+        if (request.DryRun || changes.Count == 0)
+            return Ok(response);
+
+        var compareLogic = AbstractChangeLogService.GetCompareLogic();
+        compareLogic.Config.MaxDifferences = int.MaxValue;
+
+        // one transaction with the changelog: a rewritten period of history must never go unrecorded
+        await db.Database.ExecuteInTransactionAsync("marketplaces.external_orders.rebind_logged", async () =>
+        {
+            var applied = await rebind.ApplyAsync(changes, ct);
+            foreach (var account in applied.GroupBy(c => c.AccountId))
+            {
+                var byCard = account.GroupBy(c => c.CardId).ToList();
+                var before = new ExternalOrderBindingsSnapshot
+                {
+                    Id = account.Key,
+                    Cards = byCard.Select(g => new ExternalOrderBindingSnapshotItem
+                    {
+                        Id = g.Key,
+                        OfferId = cards[g.Key].OfferId,
+                        CatalogItemIds = g.Select(c => c.OldCatalogItemId).Distinct().ToList(),
+                    }).ToList(),
+                };
+                var after = new ExternalOrderBindingsSnapshot
+                {
+                    Id = account.Key,
+                    Cards = byCard.Select(g => new ExternalOrderBindingSnapshotItem
+                    {
+                        Id = g.Key,
+                        OfferId = cards[g.Key].OfferId,
+                        CatalogItemIds = [g.First().NewCatalogItemId],
+                    }).ToList(),
+                };
+
+                await changeLog.CompareAndSaveToChangelog(AppEntityType.MarketplaceAccount, account.Key, before, after,
+                    compareLogic, MarketplaceActions.ExternalOrdersRebound,
+                    new
+                    {
+                        since = request.Since,
+                        orders = account.Select(c => c.OrderId).Distinct().Count(),
+                        lines = account.Count(),
+                    });
+            }
+        }, ct);
+
+        return Ok(response);
     }
 
     /// <summary>Auto-maps the cards of several accounts by rules, then article, then barcode.</summary>
@@ -952,7 +1084,12 @@ public class MarketplacesController(
         var now = DateTime.UtcNow;
         foreach (var change in changes)
             change.Apply(now);
-        await db.SaveChangesAsync(ct);
+        await db.Database.ExecuteInTransactionAsync("marketplaces.cards.auto_map", async () =>
+        {
+            await db.SaveChangesAsync(ct);
+            await rebind.BindUnmappedAsync(
+                [.. changes.Where(c => c.NewCatalogItemId is not null).Select(c => c.Card.Id)], ct);
+        }, ct);
 
         // the default cap of 100 differences would truncate the diff past ~33 changed cards
         var compareLogic = AbstractChangeLogService.GetCompareLogic();

@@ -1002,7 +1002,8 @@ is on; the endpoint returns a bare list, so the page has no total beside the fil
 mutates requires `integrations.map`; without it the page is read-only.
 
 **Сопоставить карточки** in the header opens `AutoMapCardsDialog` with an account picker, so the rules can be
-run over several shops at once.
+run over several shops at once; **Перепривязать внешние заказы** next to it opens `RebindExternalOrdersDialog`
+the same way.
 
 #### `AutoMapCardsDialog`
 
@@ -1021,6 +1022,16 @@ The shell owns the `Dialog`, the mutation and the last result (request + respons
 result and mutation are reset in `onExited`. Turning on both «Перебивать сопоставленные вручную» and the reset
 switch shows a `warning` `Alert`: most manual mappings are exactly the ones heuristics cannot find. Closing and
 Back are refused while the request is in flight.
+
+#### `RebindExternalOrdersDialog`
+
+`pages/MarketplacesPage/components/RebindExternalOrdersDialog.tsx`, the single client of
+`POST /accounts/external-orders/rebind`. Same shell / content split, account handling and dry-run flow as
+`AutoMapCardsDialog`. The form is a **С даты** date field — sent as the start of that local day — and the
+**Пробный прогон** switch. The result lists one row per card and catalog item its lines leave — card, «Было»
+(«не сопоставлено» for blank snapshots), «Стало», order count — under an orders / lines summary. A real run
+invalidates `ordersGetAll` and `ordersGetById`. Business rules are in
+[marketplaces-orders-specification.md](marketplaces-orders-specification.md#перепривязка-внешних-заказов).
 
 `AutoMapRuleDialog` serves both create and edit (`rule === null` means create) and picks the target with the
 shared `CatalogItemsSelect`, restricted to `standard | unit | bundle | variation`. An invalid regular expression
@@ -1061,7 +1072,8 @@ Tabs:
   warehouses.
 - **Карточки** — image, название, артикул, цена, обновлена, SKU, позиция каталога, `CardMappingChip`. Filters
   in URL (`?search=`, `?mappingState=`, `?archived=`); **`mappingState` defaults to `unmapped`** because that is
-  the working list. **Сопоставить автоматически** opens `AutoMapCardsDialog` fixed to this account. Clicking a row opens `CardMappingDialog` (requires `integrations.map`); a mapped
+  the working list. **Сопоставить автоматически** opens `AutoMapCardsDialog` fixed to this account, **Перепривязать внешние
+  заказы** — `RebindExternalOrdersDialog`, likewise. Clicking a row opens `CardMappingDialog` (requires `integrations.map`); a mapped
   row's catalog cell is a `CatalogItemLink` opening `CatalogItemDrawer` (the tab is wrapped in
   `CatalogItemDrawerHost`, drawer state in `?catalogItem=`). The thumbnail is a `CardImage` — opens the
   full-size marketplace image in a new tab.

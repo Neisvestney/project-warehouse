@@ -16,6 +16,7 @@ import {
   Typography,
 } from "@mui/material";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
+import SyncAltIcon from "@mui/icons-material/SyncAlt";
 import {useQuery, useQueryClient} from "@tanstack/react-query";
 import {
   marketplacesGetAccountQueryKey,
@@ -37,6 +38,7 @@ import {useOpenCatalogItem} from "@/components/catalog/CatalogItemDrawerContext"
 import CardImage from "@/components/marketplace/CardImage.tsx";
 import CardMappingChip from "../../components/CardMappingChip";
 import AutoMapCardsDialog from "../../components/AutoMapCardsDialog";
+import RebindExternalOrdersDialog from "../../components/RebindExternalOrdersDialog";
 import CardMappingDialog from "./CardMappingDialog";
 import {
   ALL_MAPPING_STATES,
@@ -67,6 +69,7 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
 
   const [editingCard, setEditingCard] = useState<MarketplaceCardDto | null>(null);
   const [isAutoMapOpen, setAutoMapOpen] = useState(false);
+  const [isRebindOpen, setRebindOpen] = useState(false);
 
   const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
     "search",
@@ -124,14 +127,24 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
         activeCount={[searchString, mappingState !== "all", includeArchived].filter(Boolean).length}
         actions={
           canMap ? (
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<AutoFixHighIcon />}
-              onClick={() => setAutoMapOpen(true)}
-            >
-              Сопоставить автоматически
-            </Button>
+            <>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AutoFixHighIcon />}
+                onClick={() => setAutoMapOpen(true)}
+              >
+                Сопоставить автоматически
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<SyncAltIcon />}
+                onClick={() => setRebindOpen(true)}
+              >
+                Перепривязать внешние заказы
+              </Button>
+            </>
           ) : null
         }
       >
@@ -269,6 +282,12 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
       <AutoMapCardsDialog
         open={isAutoMapOpen}
         onClose={() => setAutoMapOpen(false)}
+        accountId={accountId}
+      />
+
+      <RebindExternalOrdersDialog
+        open={isRebindOpen}
+        onClose={() => setRebindOpen(false)}
         accountId={accountId}
       />
     </Stack>
