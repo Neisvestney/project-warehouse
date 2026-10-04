@@ -29,6 +29,7 @@ import {
   authLogout,
   authMe,
   authRefresh,
+  catalogBatchUpdateTags,
   catalogCreate,
   catalogCreateTag,
   catalogDelete,
@@ -279,6 +280,9 @@ import type {
   AuthRefreshData,
   AuthRefreshError,
   AuthRefreshResponse,
+  CatalogBatchUpdateTagsData,
+  CatalogBatchUpdateTagsError,
+  CatalogBatchUpdateTagsResponse,
   CatalogCreateData,
   CatalogCreateError,
   CatalogCreateResponse,
@@ -1966,6 +1970,40 @@ export const catalogUpdateMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await catalogUpdate({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Add or remove one catalog tag on several items in one request, all or nothing.
+ *
+ * Body: `BatchUpdateTagsRequest` — `ids` (duplicates are collapsed), `tagId` and
+ * `operation` (`add` / `remove`). Touches only the listed items: a ProductGroup's children are
+ * not changed with it, and a child of a group may be listed directly. Nothing is written unless every item
+ * passes: 422 `tagNotFound` (field `tagId`) for an unknown catalog tag, 404 `catalogItemNotFound`
+ * when any item does not exist — arg `count` (the missing ids). Items that already have (or already lack)
+ * the tag are left untouched and get no changelog entry. Answers 204. Requires `catalog.edit`.
+ */
+export const catalogBatchUpdateTagsMutation = (
+  options?: Partial<Options<CatalogBatchUpdateTagsData>>,
+): UseMutationOptions<
+  CatalogBatchUpdateTagsResponse,
+  CatalogBatchUpdateTagsError,
+  Options<CatalogBatchUpdateTagsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    CatalogBatchUpdateTagsResponse,
+    CatalogBatchUpdateTagsError,
+    Options<CatalogBatchUpdateTagsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await catalogBatchUpdateTags({
         ...options,
         ...fnOptions,
         throwOnError: true,

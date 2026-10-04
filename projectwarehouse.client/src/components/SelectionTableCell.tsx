@@ -26,7 +26,11 @@ function SelectionTableCell({
       {children}
       {/* positioned above the LinkTableRow overlay; the cell itself must stay static */}
       <Box
-        onClick={(e) => onCheck(e.shiftKey)}
+        onClick={(e) => {
+          // rows with their own onClick (e.g. opening a drawer) must not react to a selection click
+          e.stopPropagation();
+          onCheck(e.shiftKey);
+        }}
         onMouseDown={(e) => {
           if (e.shiftKey) e.preventDefault();
         }}

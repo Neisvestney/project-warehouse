@@ -29,10 +29,14 @@
             mode = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
           }
           var scheme = localStorage.getItem("mui-color-scheme-" + mode) || mode;
+          // Print pages are always light (useForcedLightScheme); deciding it here avoids a dark first paint.
+          var path = window.location.pathname;
+          var isPrint = path === "/print" || path.indexOf("/print/") === 0;
+          if (isPrint) scheme = "light";
           document.documentElement.setAttribute("data-mui-color-scheme", scheme);
 
           // The media-scoped meta tags answer the OS, not an explicit choice — collapse them onto one color.
-          if (stored !== "system") {
+          if (stored !== "system" || isPrint) {
             var color = scheme === "dark" ? "#1c1c22" : "#1976d2";
             document.querySelectorAll('meta[name="theme-color"]').forEach(function (meta) {
               meta.setAttribute("content", color);

@@ -241,6 +241,14 @@ match get no changelog entry. The rejection names the offending documents by num
 `count` without revealing which document it is. The request model lives in `Models/Tags`, shared by every module;
 receipts, write-offs and stocktakes run it through `IDocumentBatchService.UpdateTagsAsync`.
 
+Catalog items take the same request at `POST /api/catalog/batch-update-tags` under `catalog.edit`, with the same
+all-or-nothing and no-op rules. It changes only the listed items: a ProductGroup's children are not touched with
+it, and a child may be listed directly. The next save of the group form still applies the
+[tag copying](#tags) rule: a tag added to a child stays (the form loads the child's tags), a tag added to the group
+reaches every child at that save, and a tag removed from a child comes back if the group carries it. Every item
+is snapshotted for the changelog before any of them changes, so a group listed together with its child does not
+log the child's new tags as its own diff. Catalog items have no numbers and no per-item access, so the 404 `catalogItemNotFound` carries only `count`.
+
 In the stock movement report a metric has one tag list per document type (`receiptTagIds`, `orderTagIds`,
 `writeoffTagIds`, `stocktakeTagIds`). A non-empty list keeps only movements whose document of that type carries any
 of the tags, which also drops movements made by other documents or none; lists of different types combine with AND.

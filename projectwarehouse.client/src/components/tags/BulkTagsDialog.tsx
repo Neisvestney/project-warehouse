@@ -14,10 +14,10 @@ import {
 import type {TagBatchOperation} from "@/api/types.gen";
 import {useBackClosable} from "@/hooks/useBackClosable";
 import DocumentTagsAutocomplete from "./DocumentTagsAutocomplete";
-import type {DocumentTag, DocumentTagKind} from "./documentTags";
+import type {DocumentTag, TagPickerKind} from "./documentTags";
 
 interface BulkTagsDialogProps {
-  kind: DocumentTagKind;
+  kind: TagPickerKind;
   open: boolean;
   isPending: boolean;
   /** Line above the form, e.g. how many documents the change touches. */
@@ -27,7 +27,7 @@ interface BulkTagsDialogProps {
   onConfirm: (tagId: string, operation: TagBatchOperation) => void;
 }
 
-/** Adds or removes one tag on a selection of documents of one kind. */
+/** Adds or removes one tag on a selection of entities of one kind. */
 function BulkTagsDialog({
   kind,
   open,

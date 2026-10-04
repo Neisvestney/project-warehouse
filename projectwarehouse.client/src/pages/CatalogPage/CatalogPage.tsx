@@ -20,9 +20,12 @@ import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
 import FileImage from "@/components/files/FileImage";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import StarIcon from "@mui/icons-material/Star";
-import {useQuery} from "@tanstack/react-query";
-import {catalogGetAllOptions} from "@/api/@tanstack/react-query.gen";
-import {type CatalogSortBy} from "@/api/types.gen";
+import {useQuery, useQueryClient} from "@tanstack/react-query";
+import {
+  catalogBatchUpdateTagsMutation,
+  catalogGetAllOptions,
+} from "@/api/@tanstack/react-query.gen";
+import {type CatalogItemSummaryDto, type CatalogSortBy} from "@/api/types.gen";
 import {CATALOG_ITEM_TYPES, useCatalogTypesFilter} from "@/features/catalog";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
@@ -44,6 +47,13 @@ import AddIcon from "@mui/icons-material/Add";
 import FiltersBar from "@/components/FiltersBar.tsx";
 import CatalogTypesFilter from "@/components/catalog/CatalogTypesFilter";
 import CatalogTagsFilter from "@/components/catalog/CatalogTagsFilter";
+import {useCatalogLabelsPrintAction} from "@/components/catalog/useCatalogLabelsPrintAction";
+import BulkBar from "@/components/BulkBar";
+import SelectionTableCell from "@/components/SelectionTableCell";
+import {useBulkTagsAction} from "@/components/tags/useBulkTagsAction";
+import {useSelectedItems} from "@/hooks/useSelectedItems";
+import {byOperation} from "@/utils/queryKeys";
+import {NOUNS} from "@/utils/pluralUtils";
 
 const SORTABLE_COLUMNS: {key: CatalogSortBy; label: string}[] = [
   {key: "type", label: "Тип"},
@@ -51,6 +61,10 @@ const SORTABLE_COLUMNS: {key: CatalogSortBy; label: string}[] = [
   {key: "article", label: "Артикул"},
   {key: "barcode", label: "Штрихкод"},
 ];
+
+const COLUMN_COUNT = SORTABLE_COLUMNS.length + 3;
+
+const getItemId = (item: CatalogItemSummaryDto) => item.id;
 
 function CatalogPage() {
   const [selectedItemId, openDrawer, closeDrawer] = useDrawerSearchParamsState("item");
@@ -104,6 +118,40 @@ function CatalogPage() {
   } = useQuery({...catalogGetAllOptions({query: fetchParams}), enabled: !noItemTypes});
 
   const data = noItemTypes ? undefined : queryData;
+
+  const queryClient = useQueryClient();
+  const {
+    selectedItems,
+    isSelected,
+    allPageSelected,
+    somePageSelected,
+    toggle,
+    toggleAll,
+    removeIds,
+    clear,
+  } = useSelectedItems(getItemId, data?.items);
+
+  const tagsAction = useBulkTagsAction({
+    kind: "catalog",
+    entity: "catalog_item",
+    mutation: catalogBatchUpdateTagsMutation(),
+    invalidate: () =>
+      Promise.all([
+        queryClient.invalidateQueries({queryKey: byOperation("catalogGetAll")}),
+        queryClient.invalidateQueries({queryKey: byOperation("catalogGetById")}),
+      ]),
+    noun: NOUNS.position,
+    notFound: {code: "catalogItemNotFound"},
+  });
+  const labelsAction = useCatalogLabelsPrintAction();
+
+  const selectionActions =
+    selectedItems.length > 0
+      ? [
+          labelsAction.getAction(selectedItems),
+          ...(canEdit ? [tagsAction.getAction(selectedItems.map((i) => i.id))] : []),
+        ]
+      : [];
 
   return (
     <>
@@ -164,6 +212,16 @@ function CatalogPage() {
             </ToggleButton>
           </ToggleButtonGroup>
         </FiltersBar>
+        <BulkBar
+          count={selectedItems.length}
+          countLabel={{one: "позиция выбрана", few: "позиции выбрано", many: "позиций выбрано"}}
+          onClear={clear}
+          actions={selectionActions}
+          info={[
+            {key: "total", label: "Всего:", value: (data?.total ?? 0).toLocaleString("ru-RU")},
+          ]}
+          infoLoading={isLoading}
+        />
         <DataTableContainer
           isFetching={isFetching}
           count={data?.total ?? 0}
@@ -175,6 +233,11 @@ function CatalogPage() {
           <Table size="small">
             <TableHead>
               <TableRow>
+                <SelectionTableCell
+                  checked={allPageSelected}
+                  indeterminate={!allPageSelected && somePageSelected}
+                  onCheck={() => toggleAll()}
+                />
                 <TableCell sx={{width: 56}} />
                 {SORTABLE_COLUMNS.map(({key, label}) => (
                   <TableCell key={key}>
@@ -192,15 +255,15 @@ function CatalogPage() {
             </TableHead>
             <TableBody>
               {isLoading ? (
-                <TableRowLoader colSpan={6} />
+                <TableRowLoader colSpan={COLUMN_COUNT} />
               ) : (data?.items.length ?? 0) === 0 ? (
-                <TableRowEmpty colSpan={6} message="Позиции не найдены" />
+                <TableRowEmpty colSpan={COLUMN_COUNT} message="Позиции не найдены" />
               ) : (
                 data?.items.map((item) => (
                   <TableRow
                     key={item.id}
                     hover
-                    selected={item.id === selectedItemId}
+                    selected={isSelected(item.id) || item.id === selectedItemId}
                     sx={{
                       cursor: "pointer",
                       opacity: isFetching && !isLoading ? 0.5 : 1,
@@ -208,6 +271,10 @@ function CatalogPage() {
                     }}
                     onClick={() => openDrawer(item.id)}
                   >
+                    <SelectionTableCell
+                      checked={isSelected(item.id)}
+                      onCheck={(extendRange) => toggle(item, extendRange)}
+                    />
                     <TableCell sx={{width: 56}}>
                       <Box
                         sx={{
@@ -268,7 +335,15 @@ function CatalogPage() {
         </DataTableContainer>
       </Stack>
 
-      <CatalogItemDrawer itemId={selectedItemId} onClose={closeDrawer} onOpenItem={openDrawer} />
+      {tagsAction.dialogs}
+      {labelsAction.dialogs}
+
+      <CatalogItemDrawer
+        itemId={selectedItemId}
+        onClose={closeDrawer}
+        onOpenItem={openDrawer}
+        onDeleted={removeIds}
+      />
 
       <CreateCatalogItemDialog
         open={createOpen}

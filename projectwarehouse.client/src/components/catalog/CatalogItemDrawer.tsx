@@ -10,17 +10,11 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Divider,
   Drawer,
   FormControlLabel,
   IconButton,
   MenuItem,
-  Radio,
-  RadioGroup,
   Select,
   Stack,
   Switch,
@@ -82,9 +76,7 @@ import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {useDebounce} from "@/hooks/useDebounce";
 import {isNotFoundError} from "@/utils/errorUtils";
 import {copyToClipboard} from "@/utils/clipboardUtils";
-import {formatEntityBarcode} from "@/utils/barcodeUtils";
-import {openPrintPage, type PrintItem} from "@/utils/printUtils";
-import type {BarcodeType} from "@/pages/PrintPage/BarcodeLabel";
+import {CatalogLabelsPrintDialog} from "@/components/catalog/CatalogLabelsPrintDialog";
 import MarketplaceAccountChip from "@/components/marketplace/MarketplaceAccountChip";
 import {useBackClosable} from "@/hooks/useBackClosable.ts";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
@@ -92,7 +84,6 @@ import CatalogItemLink from "@/components/catalog/CatalogItemLink.tsx";
 import BundleComponentsEditor from "@/components/catalog/BundleComponentsEditor";
 import type {CatalogItemFormValues, ImageValue} from "@/components/catalog/catalogItemFormValues";
 import {CATALOG_ITEM_TYPE_CONFIG} from "@/features/catalog";
-import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 
 const DRAWER_WIDTH = 1000;
 
@@ -1050,92 +1041,14 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
   );
 }
 
-// ─── PrintLabelDialog ─────────────────────────────────────────────────────────
-
-type LabelKind = "internal" | "barcode";
-
-/** bwip-js rejects EAN13 payloads that are not 12–13 digits, so anything else prints as Code128. */
-function barcodeTypeFor(barcode: string): BarcodeType {
-  return /^\d{12,13}$/.test(barcode) ? "EAN13" : "Code128";
-}
-
-function PrintLabelDialog({
-  item,
-  open,
-  onClose,
-}: {
-  item: CatalogItemDto;
-  open: boolean;
-  onClose: () => void;
-}) {
-  const [kind, setKind] = useState<LabelKind>("internal");
-  const [copies, setCopies] = useState(1);
-  const [prevOpen, setPrevOpen] = useState(open);
-
-  if (prevOpen !== open) {
-    setPrevOpen(open);
-    if (open) {
-      setKind("internal");
-      setCopies(1);
-    }
-  }
-
-  const label = item.article ? `${item.fullName} · ${item.article}` : item.fullName;
-
-  const handlePrint = () => {
-    const printItem: PrintItem =
-      kind === "internal"
-        ? {type: "DataMatrix", value: formatEntityBarcode("catalogItem", item.id), label}
-        : {type: barcodeTypeFor(item.barcode!), value: item.barcode!, label};
-    openPrintPage(Array.from({length: copies}, () => printItem));
-    onClose();
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Печать этикетки</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{pt: 1}}>
-          <RadioGroup value={kind} onChange={(e) => setKind(e.target.value as LabelKind)}>
-            <FormControlLabel
-              value="internal"
-              control={<Radio size="small" />}
-              label="Внутренний код (DataMatrix)"
-            />
-            <FormControlLabel
-              value="barcode"
-              control={<Radio size="small" />}
-              disabled={!item.barcode}
-              label={
-                item.barcode ? `Штрихкод товара — ${item.barcode}` : "Штрихкод товара — не заполнен"
-              }
-            />
-          </RadioGroup>
-          <ClampedIntegerField
-            label="Количество копий"
-            size="small"
-            value={copies}
-            max={200}
-            onCommit={setCopies}
-          />
-        </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Отмена</Button>
-        <Button variant="contained" startIcon={<PrintIcon />} onClick={handlePrint}>
-          Печать
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
 // ─── CatalogItemDrawer ────────────────────────────────────────────────────────
 
 export interface CatalogItemDrawerProps {
   itemId: string | null;
   onClose: () => void;
   onOpenItem?: (id: string) => void;
+  /** Ids gone with a delete: the item and, for a ProductGroup, its children. */
+  onDeleted?: (ids: string[]) => void;
   backClosable?: boolean;
 }
 
@@ -1143,6 +1056,7 @@ export function CatalogItemDrawer({
   itemId,
   onClose,
   onOpenItem,
+  onDeleted,
   backClosable,
 }: CatalogItemDrawerProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -1189,7 +1103,8 @@ export function CatalogItemDrawer({
 
   const deleteMutation = useMutation({
     ...catalogDeleteMutation(),
-    onSuccess: async () => {
+    onSuccess: async (_, {path: {id}}) => {
+      onDeleted?.([id, ...(data?.children.map((c) => c.id) ?? [])]);
       await queryClient.invalidateQueries({queryKey: catalogGetAllQueryKey()});
       onClose();
       setDeleteOpen(false);
@@ -1316,7 +1231,11 @@ export function CatalogItemDrawer({
       </ConfirmDialog>
 
       {data && (
-        <PrintLabelDialog item={data} open={printOpen} onClose={() => setPrintOpen(false)} />
+        <CatalogLabelsPrintDialog
+          items={[data]}
+          open={printOpen}
+          onClose={() => setPrintOpen(false)}
+        />
       )}
     </Drawer>
   );

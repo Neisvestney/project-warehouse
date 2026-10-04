@@ -4,7 +4,7 @@ import {useMutation, useQuery} from "@tanstack/react-query";
 import {
   createDocumentTag,
   type DocumentTag,
-  type DocumentTagKind,
+  type TagPickerKind,
   documentTagsQueryOptions,
 } from "@/components/tags/documentTags";
 import {useDebounce} from "@/hooks/useDebounce";
@@ -12,13 +12,13 @@ import {useDebounce} from "@/hooks/useDebounce";
 const NEW_TAG_PREFIX = "__new__:";
 
 type DocumentTagsAutocompleteProps = {
-  kind: DocumentTagKind;
+  kind: TagPickerKind;
   value: DocumentTag[];
   onChange: (v: DocumentTag[]) => void;
   disabled?: boolean;
 };
 
-/** Free-solo multiselect over the tags of one document type — typing a new name creates the tag on selection. */
+/** Free-solo multiselect over the tags of one kind — typing a new name creates the tag on selection. */
 function DocumentTagsAutocomplete({
   kind,
   value,

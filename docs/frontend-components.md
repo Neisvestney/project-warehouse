@@ -226,7 +226,8 @@ Used by the orders, receipts, stocktakes, writeoffs, marketplace accounts, emplo
 The checkbox column of a selectable table. The whole cell is the hit area, not just the checkbox glyph: its
 content is a flex box stretched to the row height (`height: 1px` on the cell lets `height: 100%` resolve) and
 raised above the `LinkTableRow` overlay, so a click anywhere in the column toggles the row instead of opening
-it. The cell itself stays unpositioned and renders its `children` ahead of the hit area, which keeps it usable
+it. The click is `stopPropagation`-ed too, so a row with its own `onClick` (the catalog list opens a drawer) does
+not react to it. The cell itself stays unpositioned and renders its `children` ahead of the hit area, which keeps it usable
 as the first cell that hosts the overlay.
 
 `onCheck(extendRange)` receives `true` for Shift+click; pass it on to
@@ -599,13 +600,25 @@ own dialogs above it.
 - **Скопировать GUID** — copies the raw id via `copyToClipboard` (`utils/clipboardUtils.ts`:
   `navigator.clipboard` with a hidden-textarea + `execCommand` fallback for insecure origins and the Capacitor
   shell), then reports the result via snackbar.
-- **Печать этикетки** — opens `PrintLabelDialog`: payload + copy count (1–200), then `openPrintPage` with the
-  item repeated N times.
-  - _Внутренний код_ — `DataMatrix` with `pw:ci:<guid>` (see
-    [barcode payload format](frontend.md#barcode-payload-format))
-  - _Штрихкод товара_ — the item's own `barcode`; disabled when empty. Encoded as `EAN13` for 12–13 digit
-    values, otherwise `Code128`, since bwip-js rejects non-numeric EAN13 payloads.
-  - Label caption for both: `fullName · article`.
+- **Печать этикетки** — opens [`CatalogLabelsPrintDialog`](#cataloglabelsprintdialog) with this one item.
+
+### `CatalogLabelsPrintDialog`
+
+Label printing for one or many catalog items (`components/catalog/CatalogLabelsPrintDialog.tsx`), used by the
+drawer's **Печать этикетки** and by the catalog list's «Этикетки» bulk action through
+`useCatalogLabelsPrintAction` (`{getAction(items), dialogs}`, the items captured on click). It takes
+`CatalogLabelItem` — `id`, `fullName`, `article`, `barcode` — so both `CatalogItemDto` and the list's summary rows
+fit. The user picks a kind and a copy count (1–200, «копий на позицию» for several items); `openPrintPage` gets
+every item repeated that many times, in selection order.
+
+- _Внутренний код_ — `DataMatrix` with `pw:ci:<guid>` (see
+  [barcode payload format](frontend.md#barcode-payload-format)), caption `fullName · article`.
+- _Название и артикул_ — the same internal `DataMatrix`, printed with the `text` layout of `PrintPage`:
+  `fullName` as the title, `Арт. <article>` below it (omitted when the article is empty), both wrapping around
+  the small code in the corner.
+- _Штрихкод товара_ — the item's own `barcode`, caption `fullName · article`; encoded as `EAN13` for 12–13 digit
+  values, otherwise `Code128`, since bwip-js rejects non-numeric EAN13 payloads. Disabled when no item has a
+  barcode; items without one are skipped, and the dialog says how many.
 
 **Convention:** wherever a catalog item name is rendered — table cell, card headline, drawer row — it should be
 a `CatalogItemLink` that opens this drawer. When building a new page or drawer that shows catalog items, add the
@@ -1034,6 +1047,8 @@ stopped so it does not also trigger the surrounding row.
 ## Document tags (`src/components/tags/`)
 
 Receipts, orders, write-offs and stocktakes share one set of tag components keyed by `kind: DocumentTagKind`.
+The picker, the bulk dialog and the bulk hook take the wider `TagPickerKind` (`DocumentTagKind | "catalog"`), so
+the catalog list reuses them for its own tag pool; the filter and `DocumentTagsRow` stay document-only.
 `documentTags.ts` is the only place that knows which generated endpoint serves which kind:
 `documentTagsQueryOptions(kind, search?)` and `createDocumentTag(kind, name)`. The per-kind responses are all
 `{id, name}`, so the options are cast to one type there and nowhere else. A new tagged document adds one arm to
@@ -1054,9 +1069,10 @@ each switch and one id to `DOCUMENT_TAGS_QUERY_IDS`.
   failure, since the batch is all or nothing.
 - **`useBulkTagsAction`** — the «Теги» bulk action in the `{getAction, dialogs}` shape. The module passes its
   generated `…BatchUpdateTagsMutation()`, an `invalidate` callback, its noun and
-  `notFound: {code, numbersArg, formatNumber}` — the 404 code and the arg that lists the blocking documents, which
-  the hook turns into «Не найдены или недоступны для редактирования: …». Orders wrap it in
-  `useOrderTagsBulkAction`; the receipt, write-off and stocktake lists call it directly.
+  `notFound: {code, numbersArg?, formatNumber?}` — the 404 code and the arg that lists the blocking documents, which
+  the hook turns into «Не найдены или недоступны для редактирования: …». Without `numbersArg` (catalog items have
+  no numbers) the message is just the `count`: «Не найдено: N позиций». Orders wrap it in
+  `useOrderTagsBulkAction`; the receipt, write-off and stocktake lists and `CatalogPage` call it directly.
 
 ## Orders
 

@@ -2,15 +2,9 @@ import {useEffect, useRef, useState} from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import * as bwipjs from "bwip-js/browser";
+import {BCID_MAP} from "./bcidMap.ts";
 
 export type BarcodeType = "DataMatrix" | "EAN13" | "Code128" | "QR";
-
-const BCID_MAP: Record<BarcodeType, string> = {
-  DataMatrix: "datamatrix",
-  EAN13: "ean13",
-  Code128: "code128",
-  QR: "qrcode",
-};
 
 const IS_1D: Record<BarcodeType, boolean> = {
   DataMatrix: false,
@@ -114,8 +108,13 @@ function BarcodeLabel({
           ref={canvasRef}
           style={
             IS_1D[type]
-              ? {width: "100%", maxHeight: `${canvasHeightMm}mm`}
-              : {maxWidth: "100%", maxHeight: `${canvasHeightMm}mm`, objectFit: "contain"}
+              ? {width: "100%", maxHeight: `${canvasHeightMm}mm`, imageRendering: "pixelated"}
+              : {
+                  maxWidth: "100%",
+                  maxHeight: `${canvasHeightMm}mm`,
+                  objectFit: "contain",
+                  imageRendering: "pixelated",
+                }
           }
         />
       )}

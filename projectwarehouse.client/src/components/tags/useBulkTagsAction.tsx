@@ -9,23 +9,23 @@ import {useRetainedValue} from "@/hooks/useRetainedValue";
 import type {OperationScope} from "@/services/withOperationSpan";
 import {extractErrorMessage, isAppProblemDetails} from "@/utils/errorUtils";
 import {pluralCount, type PluralForms} from "@/utils/pluralUtils";
-import type {DocumentTagKind} from "./documentTags";
+import type {TagPickerKind} from "./documentTags";
 
 type BatchTagsVariables = {body: BatchUpdateTagsRequest} & Partial<OperationScope>;
 
 interface BulkTagsActionOptions<TData, TError, TVariables extends BatchTagsVariables> {
-  kind: DocumentTagKind;
+  kind: TagPickerKind;
   /** Operation span name and the prefix of its `.count` attribute, e.g. `order` → `order.update_tags`. */
   entity: string;
   /** The module's generated `…BatchUpdateTagsMutation()`. */
   mutation: UseMutationOptions<TData, TError, TVariables>;
   invalidate: () => Promise<unknown>;
   noun: PluralForms;
-  /** The module's 404 code and the arg that lists the blocking documents' numbers. */
-  notFound: {code: ErrorCode; numbersArg: string; formatNumber: (n: number) => string};
+  /** The module's 404 code and, for documents, the arg that lists the blocking documents' numbers. */
+  notFound: {code: ErrorCode; numbersArg?: string; formatNumber?: (n: number) => string};
 }
 
-/** Bulk «Теги» action for one document module; `dialogs` must be rendered by the caller. */
+/** Bulk «Теги» action for one module; `dialogs` must be rendered by the caller. */
 export function useBulkTagsAction<TData, TError, TVariables extends BatchTagsVariables>({
   kind,
   entity,
@@ -45,9 +45,13 @@ export function useBulkTagsAction<TData, TError, TVariables extends BatchTagsVar
     if (isAppProblemDetails(e)) {
       const args = e.errors.root?.find((x) => x.code === notFound.code)?.args;
       const count = Number(args?.count);
-      const numbers = args?.[notFound.numbersArg];
+      if (Number.isFinite(count) && !notFound.numbersArg) {
+        return `Не найдено: ${pluralCount(count, noun)}. Теги не изменены.`;
+      }
+      const numbers = notFound.numbersArg && args?.[notFound.numbersArg];
       if (Number.isFinite(count) && Array.isArray(numbers)) {
-        const parts = numbers.map((n) => notFound.formatNumber(Number(n)));
+        const format = notFound.formatNumber ?? String;
+        const parts = numbers.map((n) => format(Number(n)));
         const hidden = count - numbers.length;
         if (hidden > 0) parts.push(`ещё ${pluralCount(hidden, noun)}`);
         return `Не найдены или недоступны для редактирования: ${parts.join(", ")}. Теги не изменены.`;
