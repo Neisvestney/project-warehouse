@@ -11,10 +11,11 @@ namespace ProjectWarehouse.Server.Services;
 
 public class OrganizationService(
     ApplicationDbContext db,
+    IEntityLockService locks,
     IMapper mapper,
     IChangeLogService<OrganizationDto> changeLog) : IOrganizationService
 {
-    public async Task LinkByInnAsync(MarketplaceAccount account, CancellationToken ct)
+    public async Task LinkByInnAsync(MarketplaceAccount account, CancellationToken ct, TimeSpan? lockTimeout = null)
     {
         if (account.IsOrganizationLinkedManually)
             return;
@@ -24,7 +25,7 @@ public class OrganizationService(
         if (string.IsNullOrEmpty(inn))
             return;
 
-        var existing = await db.Organizations.FirstOrDefaultAsync(o => o.Inn == inn, ct);
+        var existing = await FindLockedByInnAsync(inn, lockTimeout, ct);
         if (existing is not null)
         {
             if (account.OrganizationId == existing.Id)
@@ -56,13 +57,28 @@ public class OrganizationService(
         {
             // Another account's sync or an operator created it between the read and the insert
             db.Entry(organization).State = EntityState.Detached;
-            account.Organization = await db.Organizations.FirstAsync(o => o.Inn == inn, ct);
+            // null only if it was deleted again meanwhile; the next sync links the account anew
+            account.Organization = await FindLockedByInnAsync(inn, lockTimeout, ct);
             await db.SaveChangesAsync(ct);
             return;
         }
 
         await changeLog.CompareAndSaveToChangelog(null, await GetDtoAsync(organization.Id, ct),
             OrganizationActions.AutoCreated, new { accountId = account.Id });
+    }
+
+    /// <summary>
+    /// Locked before it is read: a delete of the organization holds FOR UPDATE, and linking to a row that is
+    /// about to vanish would fail on the foreign key. Once the lock is ours a deleted row simply reads as absent.
+    /// </summary>
+    private async Task<Organization?> FindLockedByInnAsync(string inn, TimeSpan? lockTimeout, CancellationToken ct)
+    {
+        var id = await db.Organizations.Where(o => o.Inn == inn).Select(o => (Guid?)o.Id).FirstOrDefaultAsync(ct);
+        if (id is null)
+            return null;
+
+        await locks.LockAsync<Organization>(id.Value, ct, lockTimeout);
+        return await db.Organizations.FirstOrDefaultAsync(o => o.Id == id, ct);
     }
 
     public Task<OrganizationDto?> GetDtoAsync(Guid id, CancellationToken ct) =>

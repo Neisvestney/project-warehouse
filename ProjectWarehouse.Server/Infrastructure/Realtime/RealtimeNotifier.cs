@@ -3,10 +3,17 @@
 public class RealtimeNotifier(
     RealtimeConnectionManager connections,
     EntityWatchRegistry watchRegistry,
+    IHttpContextAccessor httpContextAccessor,
     ILogger<RealtimeNotifier> logger) : IRealtimeNotifier
 {
     public ValueTask PublishAsync(RealtimeAddress address, RealtimeEvent evt, CancellationToken ct = default)
     {
+        if (RealtimeOutbox.Current(httpContextAccessor.HttpContext) is { } outbox)
+        {
+            outbox.Add(address, evt);
+            return ValueTask.CompletedTask;
+        }
+
         foreach (var connection in Resolve(address))
         {
             if (connection.TryEnqueue(evt)) continue;

@@ -8,6 +8,7 @@ using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Concurrency;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Organizations;
 using ProjectWarehouse.Server.Services;
@@ -128,12 +129,15 @@ public class OrganizationsController(
     ///   <item>404 <c>organizationNotFound</c></item>
     ///   <item>422 <c>organizationInnInvalid</c> on <c>inn</c> — not 10 or 12 digits</item>
     ///   <item>422 <c>organizationInnDuplicate</c> on <c>inn</c> — another organization has this INN</item>
+    ///   <item>409 <c>entityLocked</c> — another request is changing the organization; nothing was written</item>
     /// </list>
     /// Requires <c>organizations.edit</c>.
     /// </remarks>
+    [LocksEntity<Organization>]
     [HttpPut("{id:guid}")]
     [Authorize(Policy = Permissions.Organizations.Edit)]
     [ProducesResponseType<OrganizationDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Update(Guid id, [FromBody] SaveOrganizationRequest request, CancellationToken ct)
     {
         var organization = await db.Organizations.FirstOrDefaultAsync(o => o.Id == id, ct);
@@ -158,11 +162,14 @@ public class OrganizationsController(
     /// <summary>Deletes an organization that no account is linked to.</summary>
     /// <remarks>
     /// Returns 404 <c>organizationNotFound</c>, or 409 <c>organizationHasAccounts</c> while any marketplace
-    /// account is linked to it. Requires <c>organizations.edit</c>.
+    /// account is linked to it, or 409 <c>entityLocked</c> while another request is changing it.
+    /// Requires <c>organizations.edit</c>.
     /// </remarks>
+    [LocksEntity<Organization>(ForDelete = true)]
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = Permissions.Organizations.Edit)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         var organization = await db.Organizations.FirstOrDefaultAsync(o => o.Id == id, ct);

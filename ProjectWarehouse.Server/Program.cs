@@ -382,6 +382,7 @@ try
     Directory.CreateDirectory(Path.Combine(dataFilesOptions.StorageRoot, "files"));
     Directory.CreateDirectory(Path.Combine(dataFilesOptions.StorageRoot, "thumbs"));
 
+    builder.Services.AddScoped<IEntityLockService, EntityLockService>();
     builder.Services.AddScoped<IFileStorage, LocalFileStorage>();
     builder.Services.AddScoped<IDataFileBindingService, DataFileBindingService>();
     builder.Services.AddScoped<IDataFileFactory, DataFileFactory>();

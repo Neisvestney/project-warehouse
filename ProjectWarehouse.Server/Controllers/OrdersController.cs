@@ -11,6 +11,7 @@ using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Concurrency;
 using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Infrastructure.Realtime;
@@ -39,6 +40,7 @@ public class OrdersController(
     IChangeLogService<OrderDetailsDto> changeLog,
     IDataFileBindingService fileBinding,
     IAssemblyChangeNotifier assemblyChanges,
+    IEntityLockService locks,
     IOptions<MarketplacesOptions> marketplacesOptions) : AppControllerBase
 {
     private EntityAccessRule<Order> Rule => access.For<Order>();
@@ -693,6 +695,7 @@ public class OrdersController(
     /// Returns 422 <c>warehouseNotFound</c> for an unknown warehouse.
     /// Requires <c>orders.edit</c>, or <c>orders.edit_assigned</c> for the target warehouse.
     /// </remarks>
+    [Transactional]
     [HttpPost("direct")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status201Created)]
@@ -724,13 +727,16 @@ public class OrdersController(
     /// <remarks>
     /// Body: <c>UpdateOrderRequest</c> — only <c>notes</c> and <c>plannedShipmentAt</c> are writable here;
     /// composition and status are changed through their own endpoints. Allowed in any status.
-    /// Returns 404 <c>orderNotFound</c>. Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// Returns 404 <c>orderNotFound</c>, 409 <c>entityLocked</c> when another request is changing the order —
+    /// nothing was written. Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
+    [LocksEntity<Order>]
     [HttpPut("{id:guid}")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateOrderRequest request, CancellationToken ct = default)
     {
         var (order, error) = await LoadOrderWithEditAccessAsync(id, ct, fullDetails: true);
@@ -752,13 +758,16 @@ public class OrdersController(
     /// <summary>Update the order's attachments. Allowed in any status.</summary>
     /// <remarks>
     /// Returns 404 <c>orderNotFound</c>; 422 <c>dataFileNotFound</c> (field <c>attachments</c>) for an
-    /// unknown attachment id. Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// unknown attachment id; 409 <c>entityLocked</c> when another request is changing the order — nothing
+    /// was written. Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
+    [LocksEntity<Order>]
     [HttpPatch("{id:guid}/attachments")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> UpdateAttachments(Guid id, [FromBody] UpdateAttachmentsRequest request,
         CancellationToken ct = default)
@@ -786,13 +795,16 @@ public class OrdersController(
     /// <summary>Replace the order's tags. Allowed in any status.</summary>
     /// <remarks>
     /// Body: <c>UpdateTagsRequest</c> — the full tag id set; unknown ids are ignored. Returns 404
-    /// <c>orderNotFound</c>. Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// <c>orderNotFound</c>, 409 <c>entityLocked</c> when another request is changing the order — nothing
+    /// was written. Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
+    [LocksEntity<Order>]
     [HttpPatch("{id:guid}/tags")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateTags(Guid id, [FromBody] UpdateTagsRequest request,
         CancellationToken ct = default)
     {
@@ -819,14 +831,17 @@ public class OrdersController(
 
     /// <summary>Delete an order. Only allowed in Draft status.</summary>
     /// <remarks>
-    /// Returns 422 <c>orderNotDraft</c> for any other status, 404 <c>orderNotFound</c> if it does not exist.
+    /// Returns 422 <c>orderNotDraft</c> for any other status, 404 <c>orderNotFound</c> if it does not exist,
+    /// 409 <c>entityLocked</c> when another request is changing the order — nothing was written.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
+    [LocksEntity<Order>(ForDelete = true)]
     [HttpDelete("{id:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct = default)
     {
@@ -875,10 +890,12 @@ public class OrdersController(
     /// while any fulfillment still exists. Leaving Canceled deletes the assembly tasks the order kept from
     /// before it was canceled. Returns 404 <c>orderNotFound</c>, 409 <c>inventoryWriteConflict</c>
     /// when the inventory restored by Assembly → Confirmed loses to concurrent stock writes — nothing was
-    /// written and the request can be repeated.
+    /// written and the request can be repeated; 409 <c>entityLocked</c> when another request is changing the
+    /// order — nothing was written.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
+    [LocksEntity<Order>]
     [HttpPut("{id:guid}/status")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
@@ -923,13 +940,16 @@ public class OrdersController(
     /// <c>orderNotAssignedToWarehouse</c> in the latter case. The warehouse check is skipped for holders of the
     /// unscoped <c>orders.view</c>, who see every order anyway. Returns 422 <c>orderNotConfirmed</c> if the order
     /// is in any other status, 422 <c>orderHasAssemblyTasks</c> if it already has assembly tasks,
-    /// 404 <c>orderNotFound</c> if it does not exist.
+    /// 404 <c>orderNotFound</c> if it does not exist, 409 <c>entityLocked</c> when another request is changing
+    /// the order — nothing was written.
     /// </remarks>
     [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
+    [LocksEntity<Order>]
     [HttpPost("{id:guid}/self-assign")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> SelfAssign(Guid id, CancellationToken ct = default)
     {
@@ -1102,15 +1122,19 @@ public class OrdersController(
     /// independently and always answers 200 with <c>BatchSelfAssignResponse</c>: successful ids in
     /// <c>assignedOrderIds</c>, the rest in <c>failedItems</c> as <c>{ orderId, orderNumber, error }</c> with the
     /// real error code (<c>orderNotFound</c>, <c>orderNotAssignedToWarehouse</c>, <c>orderNotConfirmed</c>, <c>orderHasAssemblyTasks</c>, …).
-    /// There is no transaction: already-assigned orders stay assigned when later ones fail.
+    /// A business failure of one order does not undo the others: already-assigned orders stay assigned when
+    /// later ones fail. 409 <c>entityLocked</c> when another request is changing one of the orders — nothing
+    /// was written.
     /// 403 is returned only for the request as a whole, when <c>orders.self_assign</c> is missing.
     /// Holders of the unscoped <c>orders.view</c> are not narrowed to their assigned warehouses.
     /// The route carries no id, so realtime change events are published explicitly for each assigned order.
     /// </remarks>
+    [Transactional]
     [HttpPost("batch-self-assign")]
     [Authorize]
     [ProducesResponseType<BatchSelfAssignResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> BatchSelfAssign(
         [FromBody] BatchSelfAssignRequest request, CancellationToken ct = default)
     {
@@ -1125,7 +1149,9 @@ public class OrdersController(
         if (userId is null)
             return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
 
-        var orderIds           = request.OrderIds.Distinct().ToList();
+        var orderIds = request.OrderIds.Distinct().ToList();
+        await locks.LockManyAsync<Order>(orderIds, ct);
+
         var (loaded, nodeById) = await LoadBatchDetailsAsync(db.Orders, orderIds, ct);
         var assemblyBefore     = await assemblyChanges.CaptureAsync(loaded.Keys, ct);
 
@@ -1190,18 +1216,21 @@ public class OrdersController(
     /// single-order <c>PUT /{id}/status</c> — and the endpoint always answers 200 with
     /// <c>BatchTransitionStatusResponse</c>: successful ids in <c>transitionedOrderIds</c>, the rest in
     /// <c>failedItems</c> as <c>{ orderId, orderNumber, error }</c> with the real error code (<c>orderNotFound</c>,
-    /// <c>orderInvalidStatusTransition</c>, …). There is no transaction: orders already transitioned stay
-    /// transitioned when later ones fail.
+    /// <c>orderInvalidStatusTransition</c>, …). A business failure of one order does not undo the others:
+    /// orders already transitioned stay transitioned when later ones fail. 409 <c>entityLocked</c> when
+    /// another request is changing one of the orders — nothing was written.
     /// 403 is returned only for the request as a whole, when edit access is missing entirely. An order the
     /// caller cannot edit (outside their assigned warehouses) is reported as <c>orderNotFound</c> in
     /// <c>failedItems</c> rather than a distinct forbidden error, matching <see cref="LoadOrderWithEditAccessAsync"/>'s
     /// underlying access rule.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
+    [Transactional]
     [HttpPost("batch-transition-status")]
     [Authorize]
     [ProducesResponseType<BatchTransitionStatusResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> BatchTransitionStatus(
         [FromBody] BatchTransitionStatusRequest request, CancellationToken ct = default)
     {
@@ -1211,7 +1240,9 @@ public class OrdersController(
         // ValidateOrderTransition reads order.AssemblyTasks (and its Fulfillments) to block Assembly → Confirmed
         // with a Done task and any → Canceled with existing fulfillments — the full detail include chain covers
         // that, and also gives the changelog snapshot below a complete OrderDetailsDto to diff against.
-        var orderIds           = request.OrderIds.Distinct().ToList();
+        var orderIds = request.OrderIds.Distinct().ToList();
+        await locks.LockManyAsync<Order>(orderIds, ct);
+
         var accessible         = await Rule.QueryAsync(User, AccessLevel.Edit, ct);
         var (loaded, nodeById) = await LoadBatchDetailsAsync(accessible, orderIds, ct);
         var assemblyBefore     = await assemblyChanges.CaptureAsync(loaded.Keys, ct);
@@ -1289,14 +1320,17 @@ public class OrdersController(
     /// <c>tagNotFound</c> (field <c>tagId</c>) for an unknown tag, 404 <c>orderNotFound</c> when any order does not
     /// exist or lies outside the caller's edit access — args <c>count</c> (every rejected id) and
     /// <c>orderNumbers</c> (only those the caller can view, ascending). Orders that already have (or already lack) the tag are left
-    /// untouched and get no changelog entry. Answers 204.
+    /// untouched and get no changelog entry. Answers 204; 409 <c>entityLocked</c> when another request is
+    /// changing one of the orders — nothing was written.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
+    [Transactional]
     [HttpPost("batch-update-tags")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> BatchUpdateTags(
         [FromBody] BatchUpdateTagsRequest request, CancellationToken ct = default)
@@ -1308,7 +1342,9 @@ public class OrdersController(
         if (tag is null)
             return UnprocessableEntity("tagId", ErrorCode.TagNotFound, "Tag not found.");
 
-        var orderIds           = request.Ids.Distinct().ToList();
+        var orderIds = request.Ids.Distinct().ToList();
+        await locks.LockManyAsync<Order>(orderIds, ct);
+
         var accessible         = await Rule.QueryAsync(User, AccessLevel.Edit, ct);
         var (loaded, nodeById) = await LoadBatchDetailsAsync(accessible, orderIds, ct);
         if (loaded.Count != orderIds.Count)
@@ -1368,13 +1404,16 @@ public class OrdersController(
     /// <c>orders.assemble_assigned</c> is enough, but in Assembly only <c>orders.assemble_assigned</c> is
     /// accepted — during assembly boxes are managed by the assembler, not the admin page.
     /// Callers without the unscoped <c>orders.edit</c> must be assigned to the order's warehouse
-    /// (403 <c>orderNotAssignedToWarehouse</c>). Returns 404 <c>orderNotFound</c>.
+    /// (403 <c>orderNotAssignedToWarehouse</c>). Returns 404 <c>orderNotFound</c>, 409 <c>entityLocked</c> when
+    /// another request is changing the order — nothing was written.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
     [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
+    [LocksEntity<Order>]
     [HttpPost("{id:guid}/boxes")]
     [Authorize]
     [ProducesResponseType<OrderBoxDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> AddBox(Guid id, [FromBody] CreateOrderBoxRequest request, CancellationToken ct = default)
     {
@@ -1417,15 +1456,18 @@ public class OrdersController(
     /// <remarks>
     /// Body: <c>UpdateOrderBoxRequest</c> — <c>label</c>; the box contents are not touched, and no status
     /// restriction applies (the label stays editable even during Assembly).
-    /// Returns 404 <c>orderNotFound</c> or <c>orderBoxNotFound</c>.
+    /// Returns 404 <c>orderNotFound</c> or <c>orderBoxNotFound</c>, 409 <c>entityLocked</c> when another
+    /// request is changing the order — nothing was written.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
     [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
+    [LocksEntity<Order>]
     [HttpPut("{id:guid}/boxes/{boxId:guid}")]
     [Authorize]
     [ProducesResponseType<OrderBoxDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateBox(Guid id, Guid boxId, [FromBody] UpdateOrderBoxRequest request, CancellationToken ct = default)
     {
         var (order, error) = await LoadOrderWithEditAccessAsync(id, ct);
@@ -1447,16 +1489,19 @@ public class OrdersController(
     /// <summary>Delete a box. Only an empty box can be deleted.</summary>
     /// <remarks>
     /// Returns 422 <c>validationError</c> if the box still has components, 404 <c>orderNotFound</c> or
-    /// <c>orderBoxNotFound</c>.
+    /// <c>orderBoxNotFound</c>, 409 <c>entityLocked</c> when another request is changing the order — nothing
+    /// was written.
     /// Requires <c>orders.edit</c> / <c>orders.edit_assigned</c> or <c>orders.assemble_assigned</c>; while the
     /// order is in Assembly only <c>orders.assemble_assigned</c> is accepted.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
     [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
+    [LocksEntity<Order>]
     [HttpDelete("{id:guid}/boxes/{boxId:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> RemoveBox(Guid id, Guid boxId, CancellationToken ct = default)
     {
@@ -1501,14 +1546,17 @@ public class OrdersController(
     /// Body: <c>UpsertOrderBoxComponentRequest</c> — <c>catalogItemId</c>, <c>quantity</c>. Upsert: an existing
     /// component for the same catalog item has its quantity replaced rather than summed.
     /// Allowed only in Draft or Confirmed — otherwise 422 <c>orderInvalidStatusTransition</c>.
-    /// Returns 422 <c>catalogItemNotFound</c>, 404 <c>orderNotFound</c> or <c>orderBoxNotFound</c>.
+    /// Returns 422 <c>catalogItemNotFound</c>, 404 <c>orderNotFound</c> or <c>orderBoxNotFound</c>, 409
+    /// <c>entityLocked</c> when another request is changing the order — nothing was written.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
     [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
+    [LocksEntity<Order>]
     [HttpPost("{id:guid}/boxes/{boxId:guid}/components")]
     [Authorize]
     [ProducesResponseType<OrderBoxComponentDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> AddComponent(
         Guid id, Guid boxId, [FromBody] UpsertOrderBoxComponentRequest request, CancellationToken ct = default)
@@ -1546,15 +1594,18 @@ public class OrdersController(
     /// <remarks>
     /// Body: <c>UpsertOrderBoxComponentRequest</c>. Allowed only in Draft or Confirmed — otherwise 422
     /// <c>orderInvalidStatusTransition</c>. Returns 422 <c>catalogItemNotFound</c> when switching to an unknown
-    /// item, 404 <c>orderNotFound</c>, <c>orderBoxNotFound</c> or <c>orderBoxComponentNotFound</c>.
+    /// item, 404 <c>orderNotFound</c>, <c>orderBoxNotFound</c> or <c>orderBoxComponentNotFound</c>, 409
+    /// <c>entityLocked</c> when another request is changing the order — nothing was written.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
     [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
+    [LocksEntity<Order>]
     [HttpPut("{id:guid}/boxes/{boxId:guid}/components/{cid:guid}")]
     [Authorize]
     [ProducesResponseType<OrderBoxComponentDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> UpdateComponent(
         Guid id, Guid boxId, Guid cid, [FromBody] UpsertOrderBoxComponentRequest request, CancellationToken ct = default)
@@ -1600,15 +1651,18 @@ public class OrdersController(
     /// <summary>Remove a component from a box.</summary>
     /// <remarks>
     /// Allowed only in Draft or Confirmed — otherwise 422 <c>orderInvalidStatusTransition</c>.
-    /// Returns 404 <c>orderNotFound</c> or <c>orderBoxComponentNotFound</c>.
+    /// Returns 404 <c>orderNotFound</c> or <c>orderBoxComponentNotFound</c>, 409 <c>entityLocked</c> when
+    /// another request is changing the order — nothing was written.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
     [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
+    [LocksEntity<Order>]
     [HttpDelete("{id:guid}/boxes/{boxId:guid}/components/{cid:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> RemoveComponent(
         Guid id, Guid boxId, Guid cid, CancellationToken ct = default)
@@ -1624,7 +1678,7 @@ public class OrdersController(
                 "Components can only be removed in Draft or Confirmed status.");
 
         var component = await db.OrderBoxComponents
-            .FirstOrDefaultAsync(c => c.Id == cid && c.OrderBoxId == boxId, ct);
+            .FirstOrDefaultAsync(c => c.Id == cid && c.OrderBoxId == boxId && c.OrderBox.OrderId == id, ct);
         if (component is null)
             return NotFound(ErrorCode.OrderBoxComponentNotFound, "Component not found.");
 
@@ -1643,14 +1697,17 @@ public class OrdersController(
     /// Errors: 422 <c>orderNotAssembly</c> if the order is not in Assembly, 422 <c>orderBoxNotFound</c> for a box
     /// outside this order, 422 <c>orderBoxComponentNotFound</c> for an item absent from the box, 422
     /// <c>assemblyTaskQuantityExceedsAvailable</c> when the requested quantity exceeds what other tasks left
-    /// free. Returns 404 <c>orderNotFound</c>.
+    /// free. Returns 404 <c>orderNotFound</c>, 409 <c>entityLocked</c> when another request is changing the
+    /// order — nothing was written.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
     [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
+    [LocksEntity<Order>]
     [HttpPost("{id:guid}/assembly-tasks")]
     [Authorize]
     [ProducesResponseType<AssemblyTaskDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> CreateAssemblyTask(
         Guid id, [FromBody] CreateAssemblyTaskRequest request, CancellationToken ct = default)
@@ -1683,14 +1740,17 @@ public class OrdersController(
     /// <remarks>
     /// Body: <c>UpdateAssemblyTaskRequest</c> — <c>assignedToId</c>; the task's boxes and components are not
     /// changed here. Returns 422 <c>assemblyTaskAlreadyDone</c> once the task is <c>Done</c>, 404
-    /// <c>orderNotFound</c> or <c>assemblyTaskNotFound</c>.
+    /// <c>orderNotFound</c> or <c>assemblyTaskNotFound</c>, 409 <c>entityLocked</c> when another request is
+    /// changing the order — nothing was written.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
     [PublishesAssemblyChanged(AssemblyChangeScope.Task)]
+    [LocksEntity<Order>]
     [HttpPut("{id:guid}/assembly-tasks/{taskId:guid}")]
     [Authorize]
     [ProducesResponseType<AssemblyTaskDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> UpdateAssemblyTask(
         Guid id, Guid taskId, [FromBody] UpdateAssemblyTaskRequest request, CancellationToken ct = default)
@@ -1726,11 +1786,13 @@ public class OrdersController(
     /// Deletion cascades to the task's boxes, components and fulfillments; picked stock is returned to its source
     /// nodes first. Returns 404 <c>orderNotFound</c> or <c>assemblyTaskNotFound</c>, 409
     /// <c>inventoryWriteConflict</c> when returning that stock loses to concurrent writes — nothing was
-    /// written and the request can be repeated.
+    /// written and the request can be repeated; 409 <c>entityLocked</c> when another request is changing the
+    /// order — nothing was written.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
     [PublishesAssemblyChanged(AssemblyChangeScope.Task)]
+    [LocksEntity<Order>]
     [HttpDelete("{id:guid}/assembly-tasks/{taskId:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -1779,15 +1841,18 @@ public class OrdersController(
     /// left unfulfilled, but the order then stays in <c>Assembly</c> until the shortfall is fulfilled and the
     /// check re-runs on a later task transition. Rolling a task back out of Done while the order is
     /// <c>Assembled</c> moves the order back to <c>Assembly</c>.
-    /// Returns 404 <c>orderNotFound</c> or <c>assemblyTaskNotFound</c>.
+    /// Returns 404 <c>orderNotFound</c> or <c>assemblyTaskNotFound</c>, 409 <c>entityLocked</c> when another
+    /// request is changing the order — nothing was written.
     /// Requires <c>orders.assemble_assigned</c>, <c>orders.edit</c> or <c>orders.edit_assigned</c>, plus an
     /// assignment to the order's warehouse in every case (403 <c>orderNotAssignedToWarehouse</c>).
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
     [PublishesAssemblyChanged(AssemblyChangeScope.Task)]
+    [LocksEntity<Order>]
     [HttpPut("{id:guid}/assembly-tasks/{taskId:guid}/status")]
     [Authorize]
     [ProducesResponseType<AssemblyTaskDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> TransitionTaskStatus(
         Guid id, Guid taskId, [FromBody] TransitionAssemblyTaskStatusRequest request, CancellationToken ct = default)
@@ -1823,15 +1888,18 @@ public class OrdersController(
     /// while assembly is running: allowed only in Assembly status, otherwise 422 <c>orderNotAssembly</c>.
     /// The new quantity may not exceed what the order box has left after the other tasks' allocations (this
     /// task's own current value is excluded from that sum) — 422 <c>assemblyTaskQuantityExceedsAvailable</c>.
-    /// Returns 404 <c>orderNotFound</c> or <c>assemblyTaskBoxComponentNotFound</c>.
+    /// Returns 404 <c>orderNotFound</c> or <c>assemblyTaskBoxComponentNotFound</c>, 409 <c>entityLocked</c>
+    /// when another request is changing the order — nothing was written.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
     [PublishesAssemblyChanged(AssemblyChangeScope.Task)]
+    [LocksEntity<Order>]
     [HttpPut("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}")]
     [Authorize]
     [ProducesResponseType<AssemblyTaskBoxComponentDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> UpdateTaskBoxComponent(
         Guid id, Guid taskId, Guid tbid, Guid cid,
@@ -1849,7 +1917,8 @@ public class OrdersController(
             .Include(c => c.AssemblyTaskBox)
             .Include(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(c => c.Fulfillments)
-            .FirstOrDefaultAsync(c => c.Id == cid && c.AssemblyTaskBoxId == tbid, ct);
+            .FirstOrDefaultAsync(c => c.Id == cid && c.AssemblyTaskBoxId == tbid
+                && c.AssemblyTaskBox.AssemblyTaskId == taskId && c.AssemblyTaskBox.AssemblyTask.OrderId == id, ct);
         if (component is null)
             return NotFound(ErrorCode.AssemblyTaskBoxComponentNotFound, "Task box component not found.");
 
@@ -1892,7 +1961,8 @@ public class OrdersController(
 
         var component = await db.AssemblyTaskBoxComponents
             .Include(c => c.AssemblyTaskBox).ThenInclude(b => b.OrderBox)
-            .FirstOrDefaultAsync(c => c.Id == cid && c.AssemblyTaskBoxId == tbid && c.AssemblyTaskBox.AssemblyTaskId == taskId, ct);
+            .FirstOrDefaultAsync(c => c.Id == cid && c.AssemblyTaskBoxId == tbid
+                && c.AssemblyTaskBox.AssemblyTaskId == taskId && c.AssemblyTaskBox.AssemblyTask.OrderId == id, ct);
         if (component is null)
             return NotFound(ErrorCode.AssemblyTaskBoxComponentNotFound, "Task box component not found.");
 
@@ -1912,15 +1982,18 @@ public class OrdersController(
     /// <c>outOfRange</c> otherwise. A task box left empty by the move is deleted.
     /// Further errors: 422 <c>orderBoxNotFound</c> for a target box that does not exist or belongs to another
     /// order, 422 <c>validationError</c> if the target equals the source box, 422 <c>orderNotAssembly</c>
-    /// outside Assembly status, 404 <c>orderNotFound</c> or <c>assemblyTaskBoxComponentNotFound</c>.
+    /// outside Assembly status, 404 <c>orderNotFound</c> or <c>assemblyTaskBoxComponentNotFound</c>, 409
+    /// <c>entityLocked</c> when another request is changing the order — nothing was written.
     /// Requires <c>orders.assemble_assigned</c> and an assignment to the order's warehouse; <c>orders.edit</c>
     /// alone gets 403.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
     [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
+    [LocksEntity<Order>]
     [HttpPost("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}/move")]
     [Authorize]
     [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> MoveTaskComponent(
         Guid id, Guid taskId, Guid tbid, Guid cid, [FromBody] MoveTaskBoxComponentRequest request, CancellationToken ct = default)
@@ -1939,7 +2012,8 @@ public class OrdersController(
             .Include(c => c.AssemblyTaskBox).ThenInclude(b => b.OrderBox)
             .Include(c => c.AssemblyTaskBox).ThenInclude(b => b.Components)
             .Include(c => c.Fulfillments)
-            .FirstOrDefaultAsync(c => c.Id == cid && c.AssemblyTaskBoxId == tbid && c.AssemblyTaskBox.AssemblyTaskId == taskId, ct);
+            .FirstOrDefaultAsync(c => c.Id == cid && c.AssemblyTaskBoxId == tbid
+                && c.AssemblyTaskBox.AssemblyTaskId == taskId && c.AssemblyTaskBox.AssemblyTask.OrderId == id, ct);
         if (component is null)
             return NotFound(ErrorCode.AssemblyTaskBoxComponentNotFound, "Task box component not found.");
 
@@ -1977,15 +2051,18 @@ public class OrdersController(
     /// <c>unitInventoryItemNotFound</c>, <c>inventoryItemNodeMismatch</c>, <c>catalogItemNotFound</c>,
     /// 422 <c>orderNotAssembly</c> outside Assembly status, 404 <c>orderNotFound</c> or
     /// <c>assemblyTaskBoxComponentNotFound</c>, 409 <c>inventoryWriteConflict</c> when concurrent stock writes
-    /// outlast the retry budget — nothing was written and the request can be repeated.
+    /// outlast the retry budget — nothing was written and the request can be repeated; 409
+    /// <c>entityLocked</c> when another request is changing the order — nothing was written.
     /// Requires <c>orders.assemble_assigned</c>, <c>orders.edit</c> or <c>orders.edit_assigned</c>, plus an
     /// assignment to the order's warehouse in every case.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
     [PublishesAssemblyChanged(AssemblyChangeScope.Task)]
+    [LocksEntity<Order>]
     [HttpPost("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}/fulfillments")]
     [Authorize]
     [ProducesResponseType<AssemblyFulfillmentDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> AddFulfillment(
         Guid id, Guid taskId, Guid tbid, Guid cid,
@@ -2002,7 +2079,8 @@ public class OrdersController(
         var component = await db.AssemblyTaskBoxComponents
             .Include(c => c.CatalogItem).ThenInclude(ci => ci.Group)
             .Include(c => c.Fulfillments)
-            .FirstOrDefaultAsync(c => c.Id == cid && c.AssemblyTaskBoxId == tbid, ct);
+            .FirstOrDefaultAsync(c => c.Id == cid && c.AssemblyTaskBoxId == tbid
+                && c.AssemblyTaskBox.AssemblyTaskId == taskId && c.AssemblyTaskBox.AssemblyTask.OrderId == id, ct);
         if (component is null)
             return NotFound(ErrorCode.AssemblyTaskBoxComponentNotFound, "Task box component not found.");
 
@@ -2053,12 +2131,14 @@ public class OrdersController(
     /// leaf. No status guard: this works whatever status the order is in.
     /// Returns 404 <c>orderNotFound</c> or <c>assemblyFulfillmentNotFound</c> (the fulfillment must belong to the
     /// component, task box and task named in the route), 409 <c>inventoryWriteConflict</c> when concurrent stock
-    /// writes outlast the retry budget — nothing was returned and the request can be repeated.
+    /// writes outlast the retry budget — nothing was returned and the request can be repeated; 409
+    /// <c>entityLocked</c> when another request is changing the order — nothing was written.
     /// Requires <c>orders.assemble_assigned</c>, <c>orders.edit</c> or <c>orders.edit_assigned</c>, plus an
     /// assignment to the order's warehouse in every case.
     /// </remarks>
     [PublishesEntityChanged(AppEntityType.Order)]
     [PublishesAssemblyChanged(AssemblyChangeScope.Task)]
+    [LocksEntity<Order>]
     [HttpDelete("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}/fulfillments/{fid:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -2076,7 +2156,8 @@ public class OrdersController(
             .FirstOrDefaultAsync(f => f.Id == fid
                 && f.TaskBoxComponent.Id == cid
                 && f.TaskBoxComponent.AssemblyTaskBox.Id == tbid
-                && f.TaskBoxComponent.AssemblyTaskBox.AssemblyTaskId == taskId, ct);
+                && f.TaskBoxComponent.AssemblyTaskBox.AssemblyTaskId == taskId
+                && f.TaskBoxComponent.AssemblyTaskBox.AssemblyTask.OrderId == id, ct);
 
         if (fulfillment is null)
             return NotFound(ErrorCode.AssemblyFulfillmentNotFound, "Fulfillment not found.");
@@ -2113,10 +2194,11 @@ public class OrdersController(
     /// …). Alongside it <c>insufficientInventoryErrors</c> folds just the <c>insufficientInventory</c> failures
     /// per catalog item and storage node into one <c>AppFieldError</c> each, summing the demand. Both lists
     /// report what went wrong, not what survived, so a rollback leaves them untouched.
-    /// With <c>allowPartialSuccess: true</c> successful items are committed and stay committed; there is no
-    /// overall transaction. With <c>false</c> the whole batch runs in one transaction: every item is still
-    /// attempted so <c>failedItems</c> comes back complete, but a single failure rolls back every fulfillment
-    /// and task transition of the request, empties <c>completedTaskIds</c> and publishes no change events.
+    /// With <c>allowPartialSuccess: true</c> successful items are committed and a failed item undoes only
+    /// itself. With <c>false</c> every item is still attempted so <c>failedItems</c> comes back complete, but
+    /// a single failure rolls back every fulfillment and task transition of the request, empties
+    /// <c>completedTaskIds</c> and publishes no change events.
+    /// 409 <c>entityLocked</c> when another request is changing one of the orders — nothing was written.
     /// With <c>autoCompleteTasks: false</c> task statuses are never touched and <c>completedTaskIds</c> comes back
     /// empty. With <c>true</c>, every touched task is advanced Pending → InProgress, and InProgress → Done only
     /// when all of its components are fully fulfilled; only genuinely completed tasks are listed in
@@ -2127,9 +2209,11 @@ public class OrdersController(
     /// <c>orders.edit</c> / <c>orders.edit_assigned</c> is held; warehouse assignment is then checked per order.
     /// The route carries no id, so realtime change events are published explicitly for each affected order.
     /// </remarks>
+    [Transactional]
     [HttpPost("assembly-tasks/batch-fulfill")]
     [Authorize]
     [ProducesResponseType<BatchFulfillResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> BatchFulfill(
         [FromBody] BatchFulfillRequest request, CancellationToken ct = default)
     {
@@ -2144,10 +2228,13 @@ public class OrdersController(
         if (assignedWarehouseIds is null)
             return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
 
+        var requestedOrderIds = request.Items.Select(i => i.OrderId).Distinct().ToList();
+        await locks.LockManyAsync<Order>(requestedOrderIds, ct);
+
         var completedTaskIds = new List<string>();
         var failedItems      = new List<BatchFulfillFailedItem>();
         var changedOrderIds  = new HashSet<Guid>();
-        var assemblyBefore   = await assemblyChanges.CaptureAsync(request.Items.Select(i => i.OrderId).Distinct().ToList(), ct);
+        var assemblyBefore   = await assemblyChanges.CaptureAsync(requestedOrderIds, ct);
 
         var shortages = new Dictionary<(Guid NodeId, Guid CatalogItemId), List<InsufficientInventoryException>>();
 
@@ -2165,12 +2252,14 @@ public class OrdersController(
                 Error = AppProblems.MakeError(code, message, args),
             });
 
-        // All-or-nothing mode holds one transaction open across the whole batch; the per-fulfillment
-        // transactions inside the service degrade to savepoints under it, so a failed item still
-        // undoes only itself and the loop can carry on collecting the remaining failures.
-        await using var batchTx = request.AllowPartialSuccess
-            ? null
-            : await db.Database.BeginTransactionAsync(ct);
+        // The request transaction spans the whole batch and the per-fulfillment transactions inside the
+        // service run as savepoints under it, so a failed item undoes only itself and the loop carries on
+        // collecting the remaining failures. All-or-nothing mode adds a savepoint to undo the batch as a whole.
+        const string batchSavepoint = "batch_fulfill";
+        var requestTx = db.Database.CurrentTransaction
+            ?? throw new InvalidOperationException("Batch fulfill must run inside the request transaction.");
+        if (!request.AllowPartialSuccess)
+            await requestTx.CreateSavepointAsync(batchSavepoint, ct);
 
         // Process items grouped by order to avoid redundant DB lookups
         var itemsByOrder = request.Items.GroupBy(i => i.OrderId).ToList();
@@ -2215,7 +2304,10 @@ public class OrdersController(
                     var component = await db.AssemblyTaskBoxComponents
                         .Include(c => c.CatalogItem).ThenInclude(ci => ci.Group)
                         .Include(c => c.Fulfillments)
-                        .FirstOrDefaultAsync(c => c.Id == item.ComponentId && c.AssemblyTaskBoxId == item.TaskBoxId, ct);
+                        // anchored to the item's order: access and the lock were both checked against that one
+                        .FirstOrDefaultAsync(c => c.Id == item.ComponentId && c.AssemblyTaskBoxId == item.TaskBoxId
+                            && c.AssemblyTaskBox.AssemblyTaskId == item.TaskId
+                            && c.AssemblyTaskBox.AssemblyTask.OrderId == order.Id, ct);
 
                     if (component is null)
                     {
@@ -2336,18 +2428,11 @@ public class OrdersController(
             }
         }
 
-        if (batchTx is not null)
+        if (!request.AllowPartialSuccess && failedItems.Count > 0)
         {
-            if (failedItems.Count == 0)
-            {
-                await batchTx.CommitAsync(ct);
-            }
-            else
-            {
-                await batchTx.RollbackAsync(ct);
-                completedTaskIds.Clear();
-                changedOrderIds.Clear();
-            }
+            await requestTx.RollbackToSavepointAsync(batchSavepoint, ct);
+            completedTaskIds.Clear();
+            changedOrderIds.Clear();
         }
 
         foreach (var orderId in changedOrderIds)

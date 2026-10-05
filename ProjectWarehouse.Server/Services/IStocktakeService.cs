@@ -13,6 +13,7 @@ public interface IStocktakeService
     /// Two counts running over one cell would fight each other at finish — the second one to apply
     /// overwrites the first with quantities measured before it. Checked wherever a cell can end up
     /// in a running count: at start, and when the scope of an InProgress document grows.
+    /// Row-locks the cells until the caller's transaction ends, so it must run inside one.
     /// </summary>
     Task<AppProblemDetails?> FindNodeCountedElsewhereAsync(
         Guid stocktakeId, IReadOnlyCollection<Guid> nodeIds, CancellationToken ct = default);

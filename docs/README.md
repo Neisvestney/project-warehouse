@@ -117,6 +117,7 @@ that layer (the Docs Index above) before writing code.
 | A query loading several collections | [backend-patterns.md → Splitting mode](backend-patterns.md#a-query-loading-more-than-one-collection-picks-its-splitting-mode) |
 | A paginated list with extra totals | [backend-patterns.md → `PaginatedWithMeta`](backend-patterns.md#paginatedwithmetat-tmeta) |
 | Several aggregates over one table | [backend-patterns.md → `Concat` into `UNION ALL`](backend-patterns.md#many-aggregates-over-one-table-concat-into-a-single-union-all) |
+| A mutating endpoint or service method on a document, marketplace account or organization | [backend-patterns.md → Entity locks](backend-patterns.md#entity-locks-locksentityt-transactional-ientitylockservice) |
 | An invariant spanning a whole table | [backend-patterns.md → `pg_advisory_xact_lock`](backend-patterns.md#table-wide-invariants-pg_advisory_xact_lock-not-a-retry) |
 | A counter row | [backend-patterns.md → Counter rows](backend-patterns.md#counter-rows-unique-index--xmin--replay) |
 | A background job | [backend-patterns.md → Background work](backend-patterns.md#background-work-queue--worker--advisory-lock) |

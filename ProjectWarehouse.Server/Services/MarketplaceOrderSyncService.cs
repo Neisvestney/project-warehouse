@@ -14,6 +14,7 @@ namespace ProjectWarehouse.Server.Services;
 
 public class MarketplaceOrderSyncService(
     ApplicationDbContext db,
+    IEntityLockService locks,
     IRealtimeNotifier realtime,
     IMarketplaceReturnSyncService returnSync,
     IMarketplaceAccrualSyncService accrualSync,
@@ -25,6 +26,8 @@ public class MarketplaceOrderSyncService(
     /// catalog would otherwise inflate a single jsonb row into megabytes the UI never shows.
     /// </summary>
     private const int SkippedCap = 100;
+
+    private const int CatchUpChunkSize = 200;
 
     /// <summary>
     /// What the history import and the FBS external import ask for: everything the marketplace will not move
@@ -65,35 +68,38 @@ public class MarketplaceOrderSyncService(
 
         await foreach (var page in provider.FetchActivePostingsAsync(credentials, ct))
         {
-            run.OrdersProcessed += page.Count;
-
-            var known = await LoadKnownAsync(account.Id, page, ct);
-            var cards = await LoadCardsAsync(account.Id, page, ct);
-
-            foreach (var posting in page)
+            await db.Database.ExecuteInTransactionAsync("marketplace.sync.orders.page", async () =>
             {
-                if (known.TryGetValue(posting.PostingNumber, out var existing))
+                run.OrdersProcessed += page.Count;
+
+                var known = await LockAndLoadKnownAsync(account.Id, page, ct);
+                var cards = await LoadCardsAsync(account.Id, page, ct);
+
+                foreach (var posting in page)
                 {
-                    if (ApplyPosting(existing, posting))
-                        run.OrdersUpdated++;
-                    continue;
+                    if (known.TryGetValue(posting.PostingNumber, out var existing))
+                    {
+                        if (ApplyPosting(existing, posting))
+                            run.OrdersUpdated++;
+                        continue;
+                    }
+
+                    if (TryBuildOrder(posting, account, warehouses, cards, out var order, out var skip))
+                    {
+                        db.Orders.Add(order!);
+                        run.OrdersCreated++;
+                    }
+                    else
+                    {
+                        run.OrdersSkipped++;
+                        if (skipped.Count < SkippedCap)
+                            skipped.Add(skip!);
+                    }
                 }
 
-                if (TryBuildOrder(posting, account, warehouses, cards, out var order, out var skip))
-                {
-                    db.Orders.Add(order!);
-                    run.OrdersCreated++;
-                }
-                else
-                {
-                    run.OrdersSkipped++;
-                    if (skipped.Count < SkippedCap)
-                        skipped.Add(skip!);
-                }
-            }
-
-            // per page, so the sync modal's counters advance while the run is still going
-            await db.SaveChangesAsync(ct);
+                // per page, so the sync modal's counters advance while the run is still going
+                await db.SaveChangesAsync(ct);
+            }, ct);
             await realtime.PublishProgressAsync(run, ct);
         }
     }
@@ -103,6 +109,24 @@ public class MarketplaceOrderSyncService(
         await db.MarketplaceWarehouses
             .Where(w => w.MarketplaceAccountId == accountId && w.WarehouseId != null && !w.IsArchived)
             .ToDictionaryAsync(w => w.ExternalId, w => w.WarehouseId!.Value, ct);
+
+    /// <summary>
+    /// Locks the orders behind the page's known postings before reading them, so the page is applied to
+    /// state no user request can change until it commits. Runs inside the page's transaction.
+    /// </summary>
+    private async Task<Dictionary<string, MarketplaceOrder>> LockAndLoadKnownAsync(
+        Guid accountId, IReadOnlyList<ExternalPosting> page, CancellationToken ct)
+    {
+        var numbers = page.Select(p => p.PostingNumber).ToList();
+
+        var orderIds = await db.MarketplaceOrders
+            .Where(o => o.MarketplaceAccountId == accountId && numbers.Contains(o.PostingNumber))
+            .Select(o => o.OrderId)
+            .ToListAsync(ct);
+        await locks.LockManyAsync<Order>(orderIds, ct, IEntityLockService.BackgroundTimeout);
+
+        return await LoadKnownAsync(accountId, page, ct);
+    }
 
     private async Task<Dictionary<string, MarketplaceOrder>> LoadKnownAsync(
         Guid accountId, IReadOnlyList<ExternalPosting> page, CancellationToken ct)
@@ -424,7 +448,7 @@ public class MarketplaceOrderSyncService(
     {
         var isFbo = scheme == ExternalPostingScheme.Fbo;
 
-        var open = await db.MarketplaceOrders
+        var openKeys = await db.MarketplaceOrders
             .Where(o => o.MarketplaceAccountId == account.Id
                         && o.Status != MarketplaceOrderStatus.Delivered
                         && o.Status != MarketplaceOrderStatus.Cancelled
@@ -433,19 +457,46 @@ public class MarketplaceOrderSyncService(
                         // phase 1 just refreshed everything the unfulfilled list returned; re-asking would
                         // cost one single-posting call per open order, every run, for no new information
                         && o.StatusSyncedAt < run.StartedAt)
-            .Include(o => o.Order)
-            .ThenInclude(o => o!.MarketplaceItems)
-            .ThenInclude(i => i.MarketplaceCard)
-            .AsSplitQuery()
+            .Select(o => new { o.OrderId, o.PostingNumber })
             .ToListAsync(ct);
 
-        if (open.Count == 0)
+        if (openKeys.Count == 0)
             return;
 
+        // asked before the transaction opens, so no lock is held across the marketplace call
         var statuses = (await provider.FetchPostingStatusesAsync(
-                credentials, [.. open.Select(o => o.PostingNumber)], scheme, ct))
+                credentials, [.. openKeys.Select(o => o.PostingNumber)], scheme, ct))
             .ToDictionary(s => s.PostingNumber);
 
+        // chunked like the discovery pages: one transaction over every open order would hold them all at once
+        foreach (var chunk in openKeys.Chunk(CatchUpChunkSize))
+        {
+            await db.Database.ExecuteInTransactionAsync("marketplace.sync.orders.catch_up", async () =>
+            {
+                var orderIds = chunk.Select(o => o.OrderId).ToList();
+                await locks.LockManyAsync<Order>(orderIds, ct, IEntityLockService.BackgroundTimeout);
+
+                // the filters again: an order closed while the marketplace was being asked must not be reopened
+                var open = await db.MarketplaceOrders
+                    .Where(o => orderIds.Contains(o.OrderId)
+                                && o.Status != MarketplaceOrderStatus.Delivered
+                                && o.Status != MarketplaceOrderStatus.Cancelled
+                                && o.StatusSyncedAt < run.StartedAt)
+                    .Include(o => o.Order)
+                    .ThenInclude(o => o!.MarketplaceItems)
+                    .ThenInclude(i => i.MarketplaceCard)
+                    .AsSplitQuery()
+                    .ToListAsync(ct);
+
+                ApplyStatuses(open, statuses, run);
+                await db.SaveChangesAsync(ct);
+            }, ct);
+        }
+    }
+
+    private void ApplyStatuses(List<MarketplaceOrder> open, Dictionary<string, ExternalPostingStatus> statuses,
+        MarketplaceSyncRun run)
+    {
         var now = DateTime.UtcNow;
         foreach (var order in open)
         {
@@ -477,8 +528,6 @@ public class MarketplaceOrderSyncService(
             ApplyExternalOrderStatus(order);
             order.StatusSyncedAt = now;
         }
-
-        await db.SaveChangesAsync(ct);
     }
 
     // ── Phase 3: history backfill ─────────────────────────────────────────────
@@ -517,32 +566,38 @@ public class MarketplaceOrderSyncService(
 
         await foreach (var page in provider.FetchPostingsAsync(credentials, query, ct))
         {
-            run.OrdersProcessed += page.Count;
-
-            var known = await LoadKnownAsync(account.Id, page, ct);
-            var cards = await LoadCardsAsync(account.Id, page, ct);
-
-            foreach (var posting in page)
+            await db.Database.ExecuteInTransactionAsync("marketplace.sync.orders.external_page", async () =>
             {
-                if (known.TryGetValue(posting.PostingNumber, out var existing))
+                run.OrdersProcessed += page.Count;
+
+                // without a refresh known orders are only looked up, never written, so they need no lock
+                var known = refreshKnown
+                    ? await LockAndLoadKnownAsync(account.Id, page, ct)
+                    : await LoadKnownAsync(account.Id, page, ct);
+                var cards = await LoadCardsAsync(account.Id, page, ct);
+
+                foreach (var posting in page)
                 {
-                    if (refreshKnown && ApplyPosting(existing, posting))
-                        run.OrdersUpdated++;
-                    continue;
+                    if (known.TryGetValue(posting.PostingNumber, out var existing))
+                    {
+                        if (refreshKnown && ApplyPosting(existing, posting))
+                            run.OrdersUpdated++;
+                        continue;
+                    }
+
+                    var lines = ResolveLines(posting, account.Id, cards);
+                    var warehouseId = posting.Scheme == ExternalPostingScheme.Fbs
+                                      && posting.WarehouseExternalId is { } externalId
+                                      && warehouses.TryGetValue(externalId, out var mapped)
+                        ? mapped
+                        : (Guid?)null;
+
+                    db.Orders.Add(BuildOrder(posting, account, warehouseId, lines, isExternal: true));
+                    run.OrdersCreated++;
                 }
 
-                var lines = ResolveLines(posting, account.Id, cards);
-                var warehouseId = posting.Scheme == ExternalPostingScheme.Fbs
-                                  && posting.WarehouseExternalId is { } externalId
-                                  && warehouses.TryGetValue(externalId, out var mapped)
-                    ? mapped
-                    : (Guid?)null;
-
-                db.Orders.Add(BuildOrder(posting, account, warehouseId, lines, isExternal: true));
-                run.OrdersCreated++;
-            }
-
-            await db.SaveChangesAsync(ct);
+                await db.SaveChangesAsync(ct);
+            }, ct);
             await realtime.PublishProgressAsync(run, ct);
         }
     }

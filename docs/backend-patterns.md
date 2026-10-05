@@ -493,6 +493,114 @@ an edit started minutes ago fail instead of overwriting someone else's save.
 
 ---
 
+## Entity locks: `[LocksEntity<T>]`, `[Transactional]`, `IEntityLockService`
+
+Every mutation of a document (order, receipt, write-off, stocktake), a marketplace account, card or warehouse,
+or an organization runs inside one transaction that first takes a pessimistic lock on the object
+it changes. The lock is held until the commit, so the checks an action makes — status, remaining quantity,
+"is it already assigned" — hold against state no other writer can change until the write lands.
+
+**On the controller** the lock is an attribute, not code in the action:
+
+```csharp
+[PublishesEntityChanged(AppEntityType.Order)]
+[LocksEntity<Order>]
+[HttpPost("{id:guid}/assembly-tasks/{taskId:guid}/boxes/{tbid:guid}/components/{cid:guid}/fulfillments")]
+public async Task<IActionResult> AddFulfillment(Guid id, ...)
+```
+
+- `[LocksEntity<T>(routeKey = "id")]` opens the transaction and row-locks `T` by the route value **before the
+  action runs**, so the action's own loading reads the locked, current row. A child route locks its aggregate
+  root: anything under `/orders/{id}/…` locks the order, never the box, task or component — the aggregate's
+  invariants (an order turning `Assembled` when its last task is done, a move that rewrites the order's own
+  composition) are facts about the whole order.
+- `[Transactional]` is the same filter without the lock, for actions whose targets come from the body. The
+  action locks them itself as its first database statement:
+  `await locks.LockManyAsync<Order>(request.OrderIds, ct);`. A batch addressed by child ids resolves the
+  distinct parent ids with one light query, locks them, and only then loads.
+- The transaction **commits only on a 2xx result**. Any other result, or an exception, rolls back everything
+  the action wrote — a request rejected halfway leaves nothing behind. An action that must persist something
+  *and* answer 4xx (a stored failure record) is not wrapped.
+- An endpoint deleting the entity itself sets `[LocksEntity<T>(ForDelete = true)]` — see `FOR UPDATE` below.
+- Filter order: `[PublishesEntityChanged]` sits outside and runs after the commit. `[PublishesAssemblyChanged]`
+  sits inside (`TransactionalAttribute.FilterOrder + 1`): its "before" snapshot of the worklist is read under the
+  lock, so no other commit can land between the snapshot and the action, and its event goes through the outbox
+  below. Its reads run on a savepoint: a failed one costs only the event, never the request's transaction. A second transactional filter on one action throws. Inner `ExecuteInTransactionAsync` calls become
+  savepoints of the request's transaction.
+- A create needs no lock — the new row has nobody to race with — unless it changes an existing object too, in
+  which case it locks that one. A transfer is such a create: it makes a new document and moves stock, which the
+  counter rows below already protect, so `TransfersController` takes no entity lock.
+
+**`IEntityLockService`** is what both filters call, and what services use directly:
+
+| Method | SQL | Use for |
+|--------|-----|---------|
+| `LockAsync<T>(id)` | `SELECT 1 … WHERE "Id" = ANY(@ids) ORDER BY "Id" FOR NO KEY UPDATE` | an existing row |
+| `LockAsync<T>(id, forDelete: true)` | same, `FOR UPDATE` | the row about to be deleted |
+| `LockManyAsync<T>(ids)` | same, many ids | batches |
+| `LockKeyAsync(scope, key)` | `pg_advisory_xact_lock(hash(scope:key))` | a row that does not exist yet, or a logical resource spanning rows |
+| `LockKeysAsync(scope, keys)` | same over `unnest` of the sorted hashes, one statement | many such keys |
+
+- **Row locks by default.** The database enforces a row lock against every writer — any `UPDATE` of that row
+  waits, including code that never heard of the lock. An advisory lock binds only the code that remembers to
+  take it. Row locks also live in the row itself, while advisory locks fill the shared lock table
+  (`max_locks_per_transaction × max_connections`), which a batch over a thousand orders could exhaust.
+- **`FOR NO KEY UPDATE` for changes, `FOR UPDATE` for deletes.** Inserting or relinking a child row takes
+  `FOR KEY SHARE` on its parent for the foreign-key check. `FOR NO KEY UPDATE` does not conflict with it, so
+  adding a box never waits on an unrelated edit of its order. A delete needs the opposite: its "nothing refers
+  to it" check must hold until the commit, and only `FOR UPDATE` makes a concurrent child insert wait. A writer
+  that links to an existing parent it found by lookup — `OrganizationService.LinkByInnAsync` — locks the parent
+  first and reads it again, so a parent deleted meanwhile reads as absent instead of failing on the key.
+- **Rows are locked in id order**, so two batches over overlapping sets cannot deadlock each other.
+- Every method throws outside a transaction — a lock there would be released by the very statement that took it.
+- The table and key column come from the EF model; the entity needs a single `Guid` primary key.
+
+**A check that reads other documents** is not covered by the document's own lock — two stocktakes each hold
+their own row and both pass "this cell is not counted elsewhere". Such a check locks what the documents share
+before reading it: `StocktakeService.FindNodeCountedElsewhereAsync` row-locks the cells, and
+`StocktakesController.SyncNodeItems` takes `LockKeysAsync("stocktake-unit", numbers)` over the claimed
+serials — advisory keys, because a surplus serial may have no inventory row to lock. A batch Start takes the
+cells of every stocktake in the batch in one sorted pass before the first document starts, so two batches over
+crossing cells cannot lock them in opposite orders.
+
+**Contention** waits rather than failing at once: the lock call sets `lock_timeout`
+(`IEntityLockService.DefaultTimeout`, 5 s) for its own statement only and resets it once the lock is granted —
+a later wait inside the action, such as a stock row behind another writer, keeps the server default. A lock not
+granted in that time raises `EntityLockedException`
+(`IExpectedFailure`), which the filter turns into `409 entityLocked` — nothing was written, and the request
+can be repeated. Two users acting on one order at once are serialised for the few milliseconds the first
+request takes and never see the error.
+
+**Inside the transaction** a failed `SaveChanges` stays recoverable — EF wraps it in a savepoint, which is what
+lets `InventoryService` replay a unique-violation conflict and `OrganizationService.LinkByInnAsync` catch a
+duplicate INN. A batch holds the stock rows of every item it has written until its single commit, so two
+batches touching the same groups in different orders can deadlock. The savepoint undoes only the victim's last
+save while the rows it wrote earlier stay locked, so a replay would close the same cycle again: the victim's item
+fails at once with `inventoryWriteConflict`, the rest of its batch carries on, and the other batch proceeds. A failed raw statement (`ExecuteSql…`, `ExecuteUpdate`, `FromSql`) has no such savepoint and
+aborts the whole transaction: catching it and carrying on is not an option inside a locked action.
+
+**Realtime events wait for the commit.** A watcher told about a change before the commit refetches the old state
+and is never told again. While a filter's transaction is open, `IRealtimeNotifier` puts every event into the
+request's `RealtimeOutbox`; the filter flushes it after the commit and drops it on rollback. Publishing code
+calls the notifier directly and does not need to know whether a transaction is open.
+
+**Background sync** takes the same locks in short transactions instead of holding them across a run:
+
+- Order import locks the orders of one page, reads them, applies and commits. The status catch-up asks the
+  marketplace first, so no lock is held across an external call, then applies the answers in chunks of 200 orders,
+  each re-read under its lock with the original "still open" filters.
+  The external-history import locks only when it refreshes known orders — without a refresh it never writes them.
+- The card import locks one page of cards before reading them: auto-map writes only cards it reads as unmapped,
+  and an operator's mapping saved meanwhile must not be overwritten by a stale read.
+- Seller info reloads the account under its row lock before writing it and linking its organization by INN.
+- Sync waits longer (`IEntityLockService.BackgroundTimeout`, 30 s). A lock still not granted fails the run with
+  `entityLocked`; the next scheduled run catches up.
+
+Columns only sync writes — `LastSync*`, a warehouse's marketplace fields — are not locked: EF updates only the
+columns that changed, so a user's concurrent edit of other columns is not lost.
+
+---
+
 ## Counter rows: unique index + `xmin` + replay
 
 A row whose value is read, changed in C# and written back (`Count` on `StoragePlaceNodeItemsGroup`) cannot be

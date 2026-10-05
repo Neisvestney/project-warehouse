@@ -202,6 +202,8 @@ public interface IRealtimeNotifier
 
 Регистрируется как singleton — публиковать события должны и scoped-сервисы контроллеров, и Quartz-джобы, живущие вне HTTP-запроса.
 
+Внутри запроса, обёрнутого в `[Transactional]` / `[LocksEntity<T>]`, событие не уходит сразу: notifier кладёт его в `RealtimeOutbox` запроса, а фильтр отправляет накопленное после commit и выбрасывает при rollback. Иначе наблюдатель перезапросил бы объект до commit, получил старое состояние и больше не узнал бы об изменении. Подробнее — [backend-patterns.md → Entity locks](backend-patterns.md#entity-locks-locksentityt-transactional-ientitylockservice).
+
 ### Адресация
 
 ```csharp
