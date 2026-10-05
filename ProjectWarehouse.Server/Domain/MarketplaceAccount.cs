@@ -22,6 +22,13 @@ public class MarketplaceAccount : IHasIdentity
     public string? Ogrn { get; set; }
     public string? OwnershipForm { get; set; }
 
+    /// <summary>Linked by <see cref="Inn"/> on every sync unless <see cref="IsOrganizationLinkedManually"/>.</summary>
+    public Guid? OrganizationId { get; set; }
+    public Organization? Organization { get; set; }
+
+    /// <summary>Set by an operator's choice; sync leaves such a link alone.</summary>
+    public bool IsOrganizationLinkedManually { get; set; }
+
     /// <summary>Ozon Client-Id. Left null for providers that authenticate with a token alone.</summary>
     public string? ExternalClientId { get; set; }
 

@@ -142,6 +142,16 @@ public static class Permissions
     }
 
     /// <summary>
+    /// Split from Integrations: an organization carries no API keys, and the marking codes that will hang off
+    /// it are a separate area of responsibility.
+    /// </summary>
+    public static class Organizations
+    {
+        public const string View = "organizations.view";
+        public const string Edit = "organizations.edit";
+    }
+
+    /// <summary>
     /// No _assigned variants: shops belong to the company, and scoping only the Direct channel by warehouse
     /// would produce channel shares that match no real cut. Settings are split from View because changing a
     /// boundary recolours the assortment for everyone who opens the section.

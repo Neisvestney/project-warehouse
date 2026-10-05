@@ -91,6 +91,12 @@ so that the person who runs an order import is not thereby allowed to re-point c
 unusable; `integrations.sync` needs neither. There are no `_assigned` variants: an account belongs to the shop
 rather than to a warehouse.
 
+**`organizations.*` is separate from `integrations.*`.** An organization holds no API keys, and the marking codes
+that hang off it are a separate area of responsibility. Linking an account to an organization by hand
+(`PUT /api/integrations/marketplaces/accounts/{id}/organization`) checks `organizations.edit`, not
+`integrations.edit`: it changes which company a shop belongs to, not the connection. The organization page lists
+linked accounts without `integrations.view`; only the links into account pages need it.
+
 **`system.*` is instance-wide technical readout**, not a business area. There is deliberately no `system.manage`:
 an unused permission is a checkbox in the roles matrix that grants nothing. Add it with the first action needing it.
 
@@ -151,8 +157,8 @@ new WarehouseScopedRule<Writeoff>(db, scope, AppEntityType.Writeoff,
     "You are not assigned to the warehouse of this write-off.")
 ```
 
-Use `SimpleAccessRule<T>` when the entity has no warehouse scope (catalog, users, roles, marketplace accounts,
-auto-mapping rules).
+Use `SimpleAccessRule<T>` when the entity has no warehouse scope (catalog, users, roles, organizations,
+marketplace accounts, auto-mapping rules).
 Permissions are lists because several can behave identically — `orders.assemble_assigned` grants the same view as
 `orders.view_assigned`. An entity type with **no** registered rule is inaccessible: realtime cannot subscribe to it
 and every filter returns nothing.

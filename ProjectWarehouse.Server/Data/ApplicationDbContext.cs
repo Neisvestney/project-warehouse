@@ -69,6 +69,8 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<StocktakeItem> StocktakeItems => Set<StocktakeItem>();
     public DbSet<StocktakeImage> StocktakeImages => Set<StocktakeImage>();
 
+    public DbSet<Organization> Organizations => Set<Organization>();
+
     public DbSet<MarketplaceAccount> MarketplaceAccounts => Set<MarketplaceAccount>();
     public DbSet<MarketplaceWarehouse> MarketplaceWarehouses => Set<MarketplaceWarehouse>();
     public DbSet<MarketplaceCard> MarketplaceCards => Set<MarketplaceCard>();
@@ -861,6 +863,19 @@ public class ApplicationDbContext : IdentityDbContext<
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
+        builder.Entity<Organization>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.CreatedBy)
+                .WithMany()
+                .HasForeignKey(x => x.CreatedById)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(x => x.Inn).IsUnique();
+        });
+
         builder.Entity<MarketplaceAccount>(e =>
         {
             e.HasKey(x => x.Id);
@@ -870,6 +885,13 @@ public class ApplicationDbContext : IdentityDbContext<
                 .HasForeignKey(x => x.CreatedById)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // Restrict: deleting an organization with linked accounts is refused up front with a 409
+            e.HasOne(x => x.Organization)
+                .WithMany(x => x.Accounts)
+                .HasForeignKey(x => x.OrganizationId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
 
             e.HasIndex(x => x.Type);
         });

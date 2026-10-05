@@ -22,6 +22,11 @@ public class MarketplaceAccountDto : IHasIdentity
     public string? Ogrn { get; init; }
     public string? OwnershipForm { get; init; }
 
+    public Guid? OrganizationId { get; init; }
+    public string? OrganizationName { get; init; }
+    public string? OrganizationInn { get; init; }
+    public bool IsOrganizationLinkedManually { get; init; }
+
     /// <summary>Key tail only — the client renders the mask.</summary>
     public string ApiKeyLast4 { get; init; } = null!;
     public DateTime? ApiKeyUpdatedAt { get; init; }

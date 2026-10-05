@@ -6,6 +6,7 @@ import {isGroup} from "@/layouts/SidebarLayout/navItems.ts";
 import type {SidebarNavItem, SidebarNavSection} from "@/layouts/SidebarLayout/navItems.ts";
 import {catalogSections} from "@/pages/CatalogPage/catalogConfig.tsx";
 import {marketplacesSections} from "@/pages/MarketplacesPage/marketplacesConfig.tsx";
+import {organizationsSections} from "@/pages/OrganizationsPage/organizationsConfig.tsx";
 import {settingsSections} from "@/pages/SettingsPage/settingsConfig.tsx";
 import {storageSections} from "@/pages/StoragePage/storageConfig.tsx";
 import {operationsSections} from "@/pages/OperationsPage/operationsConfig.tsx";
@@ -47,6 +48,7 @@ export const mainNavBlocks: MainNavNode[][] = [
   [{kind: "rows", module: {basePath: "/operations", sections: operationsSections}}],
   [
     {kind: "rows", module: {basePath: "", sections: marketplacesSections}},
+    {kind: "rows", module: {basePath: "", sections: organizationsSections}},
     {
       kind: "group",
       label: "Аналитика",

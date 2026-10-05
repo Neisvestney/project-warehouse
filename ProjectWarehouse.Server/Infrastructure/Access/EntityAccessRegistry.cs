@@ -92,6 +92,9 @@ public class EntityAccessRegistry
             new SimpleAccessRule<ApplicationRole>(db, AppEntityType.Roles,
                 Permissions.Roles.View, Permissions.Roles.Edit),
 
+            new SimpleAccessRule<Organization>(db, AppEntityType.Organization,
+                Permissions.Organizations.View, Permissions.Organizations.Edit),
+
             new SimpleAccessRule<MarketplaceAccount>(db, AppEntityType.MarketplaceAccount,
                 Permissions.Integrations.View, Permissions.Integrations.Edit),
 

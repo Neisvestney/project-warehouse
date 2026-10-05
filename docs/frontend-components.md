@@ -1045,6 +1045,15 @@ Without a `src` it is a plain letter `Avatar`; with one it wraps `FileImage` in 
 tooltip and hover overlay, and opens `FileViewerModal` on click rather than a new tab. Click propagation is
 stopped so it does not also trigger the surrounding row.
 
+## Organizations
+
+### `OrganizationsSelect`
+
+`components/organizations/OrganizationsSelect.tsx` — single-value `Autocomplete` over `GET
+/api/organizations/short`. The whole list is loaded once and filtered locally, unlike `WarehousesSelect`:
+organizations are a handful of rows. Takes `value: string | null` and `onChange(id | null)`; options show the
+name with the INN underneath. Needs `organizations.view`.
+
 ## Document tags (`src/components/tags/`)
 
 Receipts, orders, write-offs and stocktakes share one set of tag components keyed by `kind: DocumentTagKind`.

@@ -183,6 +183,10 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   stockMovementPresetUnknownAction: "Неизвестная операция в метрике",
   analyticsSettingsModified:
     "Настройки аналитики изменил другой пользователь. Откройте их заново и повторите правку",
+  organizationNotFound: "Организация не найдена",
+  organizationInnInvalid: "ИНН должен состоять из 10 или 12 цифр",
+  organizationInnDuplicate: "Организация с таким ИНН уже есть",
+  organizationHasAccounts: "К организации привязаны аккаунты — сначала перепривяжите их",
 };
 
 /** Richer variants used only when the server supplied every placeholder in args. */

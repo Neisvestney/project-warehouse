@@ -10,6 +10,9 @@ public static class MarketplaceActions
     /// <summary>Records that the key changed — never the value, old or new.</summary>
     public const string AccountKeyRotated = "account.key_rotated";
 
+    /// <summary>An operator linked the account to an organization or handed it back to linking by INN.</summary>
+    public const string AccountOrganizationSet = "account.organization_set";
+
     // No sync.started: the changelog only records real state diffs, and a start changes nothing on the
     // account. The running state is visible in MarketplaceSyncRun, which is committed immediately.
     public const string SyncFinished = "sync.finished";

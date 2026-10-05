@@ -187,6 +187,9 @@ import type {
   MarketplacesRebindExternalOrdersData,
   MarketplacesRebindExternalOrdersErrors,
   MarketplacesRebindExternalOrdersResponses,
+  MarketplacesSetAccountOrganizationData,
+  MarketplacesSetAccountOrganizationErrors,
+  MarketplacesSetAccountOrganizationResponses,
   MarketplacesSetCardMappingData,
   MarketplacesSetCardMappingErrors,
   MarketplacesSetCardMappingResponses,
@@ -307,6 +310,24 @@ import type {
   OrdersUpdateTaskBoxComponentData,
   OrdersUpdateTaskBoxComponentErrors,
   OrdersUpdateTaskBoxComponentResponses,
+  OrganizationsCreateData,
+  OrganizationsCreateErrors,
+  OrganizationsCreateResponses,
+  OrganizationsDeleteData,
+  OrganizationsDeleteErrors,
+  OrganizationsDeleteResponses,
+  OrganizationsGetAllData,
+  OrganizationsGetAllErrors,
+  OrganizationsGetAllResponses,
+  OrganizationsGetByIdData,
+  OrganizationsGetByIdErrors,
+  OrganizationsGetByIdResponses,
+  OrganizationsGetShortData,
+  OrganizationsGetShortErrors,
+  OrganizationsGetShortResponses,
+  OrganizationsUpdateData,
+  OrganizationsUpdateErrors,
+  OrganizationsUpdateResponses,
   PermissionsGetAllData,
   PermissionsGetAllErrors,
   PermissionsGetAllResponses,
@@ -1453,7 +1474,7 @@ export const commonContentGetHomePageContent = <ThrowOnError extends boolean = f
  * Global search for entities.
  *
  * Query params: `searchString` (required). Searches warehouses, receipts, catalog items,
- * marketplace accounts, users and stocktakes, each already filtered to what the caller may view, then
+ * marketplace accounts, organizations, users and stocktakes, each already filtered to what the caller may view, then
  * returns at most 10 results overall (up to 10 per source before the union).
  * Requires authentication only — no permission opens or closes the endpoint itself.
  * No error codes; a missing `searchString` is a model-binding 422 (`required`).
@@ -1836,6 +1857,36 @@ export const marketplacesUpdateAccount = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/api/integrations/marketplaces/accounts/{id}",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Links the account to an organization by hand, or hands it back to linking by INN.
+ *
+ *     Body: `SetAccountOrganizationRequest` — `organizationId`. A value pins the link: sync no longer
+ * moves it. `null` clears the pin and relinks by the account's INN at once, creating the organization
+ * when none has that INN; an account without an INN is left unlinked. Errors:
+ * * 404 marketplaceAccountNotFound
+ * * 422 organizationNotFound on organizationId
+ * Requires `organizations.edit`.
+ */
+export const marketplacesSetAccountOrganization = <ThrowOnError extends boolean = false>(
+  options: Options<MarketplacesSetAccountOrganizationData, ThrowOnError>,
+): RequestResult<
+  MarketplacesSetAccountOrganizationResponses,
+  MarketplacesSetAccountOrganizationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    MarketplacesSetAccountOrganizationResponses,
+    MarketplacesSetAccountOrganizationErrors,
+    ThrowOnError
+  >({
+    url: "/api/integrations/marketplaces/accounts/{id}/organization",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -3064,6 +3115,115 @@ export const ordersBatchFulfill = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/api/orders/assembly-tasks/batch-fulfill",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * List organizations (paginated, searchable).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString` (name,
+ * legal name, INN), `sortBy` (default `Name`), `sortOrder` (default `Asc`).
+ * Requires `organizations.view`; 403 `permissionDenied` otherwise.
+ */
+export const organizationsGetAll = <ThrowOnError extends boolean = false>(
+  options?: Options<OrganizationsGetAllData, ThrowOnError>,
+): RequestResult<OrganizationsGetAllResponses, OrganizationsGetAllErrors, ThrowOnError> =>
+  (options?.client ?? client).get<
+    OrganizationsGetAllResponses,
+    OrganizationsGetAllErrors,
+    ThrowOnError
+  >({url: "/api/organizations", ...options});
+
+/**
+ * Creates an organization by hand. Sync links accounts with the same INN to it from then on.
+ *
+ *     Body: `SaveOrganizationRequest`. Errors:
+ * * 422 organizationInnInvalid on inn — not 10 or 12 digits
+ * * 422 organizationInnDuplicate on inn — another organization has this INN
+ * Requires `organizations.edit`.
+ */
+export const organizationsCreate = <ThrowOnError extends boolean = false>(
+  options: Options<OrganizationsCreateData, ThrowOnError>,
+): RequestResult<OrganizationsCreateResponses, OrganizationsCreateErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    OrganizationsCreateResponses,
+    OrganizationsCreateErrors,
+    ThrowOnError
+  >({
+    url: "/api/organizations",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Id, name and INN of every organization, for pickers.
+ *
+ * Query params: `searchString` (optional). Requires `organizations.view`; 403
+ * `permissionDenied` otherwise.
+ */
+export const organizationsGetShort = <ThrowOnError extends boolean = false>(
+  options?: Options<OrganizationsGetShortData, ThrowOnError>,
+): RequestResult<OrganizationsGetShortResponses, OrganizationsGetShortErrors, ThrowOnError> =>
+  (options?.client ?? client).get<
+    OrganizationsGetShortResponses,
+    OrganizationsGetShortErrors,
+    ThrowOnError
+  >({url: "/api/organizations/short", ...options});
+
+/**
+ * Deletes an organization that no account is linked to.
+ *
+ * Returns 404 `organizationNotFound`, or 409 `organizationHasAccounts` while any marketplace
+ * account is linked to it. Requires `organizations.edit`.
+ */
+export const organizationsDelete = <ThrowOnError extends boolean = false>(
+  options: Options<OrganizationsDeleteData, ThrowOnError>,
+): RequestResult<OrganizationsDeleteResponses, OrganizationsDeleteErrors, ThrowOnError> =>
+  (options.client ?? client).delete<
+    OrganizationsDeleteResponses,
+    OrganizationsDeleteErrors,
+    ThrowOnError
+  >({url: "/api/organizations/{id}", ...options});
+
+/**
+ * Organization with its linked marketplace accounts.
+ *
+ * Returns 404 `organizationNotFound`. Requires `organizations.view`.
+ */
+export const organizationsGetById = <ThrowOnError extends boolean = false>(
+  options: Options<OrganizationsGetByIdData, ThrowOnError>,
+): RequestResult<OrganizationsGetByIdResponses, OrganizationsGetByIdErrors, ThrowOnError> =>
+  (options.client ?? client).get<
+    OrganizationsGetByIdResponses,
+    OrganizationsGetByIdErrors,
+    ThrowOnError
+  >({url: "/api/organizations/{id}", ...options});
+
+/**
+ * Updates the organization's own requisites. Linked accounts are not touched.
+ *
+ *     Body: `SaveOrganizationRequest`. Errors:
+ * * 404 organizationNotFound
+ * * 422 organizationInnInvalid on inn — not 10 or 12 digits
+ * * 422 organizationInnDuplicate on inn — another organization has this INN
+ * Requires `organizations.edit`.
+ */
+export const organizationsUpdate = <ThrowOnError extends boolean = false>(
+  options: Options<OrganizationsUpdateData, ThrowOnError>,
+): RequestResult<OrganizationsUpdateResponses, OrganizationsUpdateErrors, ThrowOnError> =>
+  (options.client ?? client).put<
+    OrganizationsUpdateResponses,
+    OrganizationsUpdateErrors,
+    ThrowOnError
+  >({
+    url: "/api/organizations/{id}",
     ...options,
     headers: {
       "Content-Type": "application/json",

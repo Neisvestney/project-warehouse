@@ -57,4 +57,6 @@ public enum AppEntityType
 
     /// <summary>The single row of analytics calculation parameters.</summary>
     AnalyticsSettings = 22,
+
+    Organization = 23,
 }

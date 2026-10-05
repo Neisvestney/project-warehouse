@@ -397,6 +397,8 @@ MarketplaceAccount : IHasIdentity
 ├── Inn                   — string?                        │ реквизиты продавца,
 ├── Ogrn                  — string?                        │ заполняются синхронизацией
 ├── OwnershipForm         — string?, форма собственности   ─┘
+├── OrganizationId        — Guid? → Organization (Restrict)
+├── IsOrganizationLinkedManually — bool, привязку выбрал оператор; синхронизация её не трогает
 ├── ApiKeyProtected       — string, шифротекст
 ├── ApiKeyLast4           — string, хвост ключа для маски
 ├── ApiKeyUpdatedAt       — DateTime?
@@ -726,7 +728,9 @@ MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, Labels, Stock
 2. Пустое `name` от маркетплейса **не перезаписывает** текущее — иначе аккаунт пропал бы из всех списков.
 3. Остальные реквизиты пишутся как есть, включая `null`: реквизит, исчезнувший у продавца, должен исчезнуть и в WMS.
 
-Изменения реквизитов попадают в changelog как диф `sync.finished` на аккаунте — отдельного действия для них нет.
+4. Привязка к организации по `Inn` — `IOrganizationService.LinkByInnAsync`, см. [organizations-specification.md](organizations-specification.md#привязка-аккаунтов).
+
+Изменения реквизитов и привязки попадают в changelog как диф `sync.finished` на аккаунте — отдельного действия для них нет.
 
 ### Склады
 
@@ -861,6 +865,7 @@ Quartz регистрируется с in-memory хранилищем задач
 | `POST` | `/accounts` | `integrations.edit` | Создание аккаунта |
 | `PUT` | `/accounts/{id}` | `integrations.edit` | Изменение (пустой `apiKey` — не менять ключ) |
 | `DELETE` | `/accounts/{id}` | `integrations.edit` | Удаление аккаунта со складами и карточками |
+| `PUT` | `/accounts/{id}/organization` | `organizations.edit` | Ручная привязка к организации `{ organizationId }`; `null` — вернуть привязку по ИНН |
 | `POST` | `/accounts/{id}/test-connection` | `integrations.edit` | Проверка учётных данных без сохранения |
 | `POST` | `/accounts/{id}/sync` | `integrations.sync` | Запуск синхронизации, тело `{ scope }` → `202` + `syncRunId` |
 | `GET` | `/accounts/{id}/sync-runs` | `integrations.view` | История запусков, новые по `QueuedAt` сверху |
@@ -935,6 +940,7 @@ Quartz регистрируется с in-memory хранилищем задач
 | Изменение аккаунта | `account.updated` | `{ marketplace }` |
 | Ротация ключа | `account.key_rotated` | `{ marketplace }` — без значений ключа |
 | Удаление аккаунта | `account.deleted` | `{ marketplace }` |
+| Смена организации вручную | `account.organization_set` | `{ marketplace }` |
 | Итог синхронизации | `sync.finished` | `{ syncRunId, scope, status, cardsCreated, cardsArchived, autoMapped, ordersCreated, ordersUpdated, ordersSkipped }` |
 | Ручная привязка карточки | `mapping.set` | `{ catalogItemId, source: "manual" }` |
 | Снятие привязки | `mapping.cleared` | — |

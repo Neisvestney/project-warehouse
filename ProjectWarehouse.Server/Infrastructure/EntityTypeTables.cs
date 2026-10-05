@@ -68,6 +68,8 @@ public static class EntityTypeTables
         [typeof(AssemblyFulfillment)] = AppEntityType.Order,
         [typeof(AssemblyFulfillmentBundleComponent)] = AppEntityType.Order,
 
+        [typeof(Organization)] = AppEntityType.Organization,
+
         [typeof(MarketplaceAccount)] = AppEntityType.MarketplaceAccount,
         [typeof(MarketplaceWarehouse)] = AppEntityType.MarketplaceAccount,
         [typeof(MarketplaceSyncRun)] = AppEntityType.MarketplaceAccount,

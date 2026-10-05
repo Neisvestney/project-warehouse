@@ -17,6 +17,7 @@ using ProjectWarehouse.Server.Models.Writeoffs;
 using ProjectWarehouse.Server.Models.Users;
 using ProjectWarehouse.Server.Models.Warehouses;
 using ProjectWarehouse.Server.Models.Orders;
+using ProjectWarehouse.Server.Models.Organizations;
 
 namespace ProjectWarehouse.Server.Infrastructure;
 
@@ -188,6 +189,13 @@ public class AppMapperProfile : Profile
                 { "type", r.Type },
             }));
         
+        CreateMap<Organization, AppEntity>()
+            .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.Organization))
+            .ForMember(x => x.AdditionalFields, opt => opt.MapFrom(r => new Dictionary<string, object>
+            {
+                { "inn", r.Inn },
+            }));
+
         CreateMap<ApplicationUser, AppEntity>()
             .ForMember(x => x.Type, opt => opt.MapFrom(_ => AppEntityType.User))
             .ForMember(x => x.Name, opt => opt.MapFrom(ci => ci.FullName))
@@ -207,6 +215,9 @@ public class AppMapperProfile : Profile
             .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
         
         CreateMap<MarketplaceAccount, AppEntityWithSearchString>()
+            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
+
+        CreateMap<Organization, AppEntityWithSearchString>()
             .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
         
         CreateMap<ApplicationUser, AppEntityWithSearchString>()
@@ -393,6 +404,14 @@ public class AppMapperProfile : Profile
         CreateMap<Order, AppEntityWithSearchString>()
             .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
 
+        CreateMap<Organization, OrganizationDto>()
+            .ForMember(d => d.CreatedByName, opt => opt.MapFrom(s => s.CreatedBy != null ? s.CreatedBy.UserName : null))
+            .ForMember(d => d.Accounts, opt => opt.MapFrom(s => s.Accounts.OrderBy(a => a.Name).ThenBy(a => a.Id)));
+        CreateMap<MarketplaceAccount, OrganizationAccountDto>();
+        CreateMap<Organization, OrganizationSummaryDto>()
+            .ForMember(d => d.AccountCount, opt => opt.MapFrom(s => s.Accounts.Count));
+        CreateMap<Organization, OrganizationShortSummaryDto>();
+
         // Marketplaces. MarketplaceAccountDto deliberately has no ApiKey member — only a mask.
         CreateMap<MarketplaceAccount, MarketplaceAccountSummaryDto>()
             .ForMember(d => d.WarehouseCount, opt => opt.MapFrom(s => s.Warehouses.Count))
@@ -402,6 +421,8 @@ public class AppMapperProfile : Profile
 
         CreateMap<MarketplaceAccount, MarketplaceAccountDto>()
             .ForMember(d => d.CreatedByName, opt => opt.MapFrom(s => s.CreatedBy != null ? s.CreatedBy.UserName : null))
+            .ForMember(d => d.OrganizationName, opt => opt.MapFrom(s => s.Organization != null ? s.Organization.Name : null))
+            .ForMember(d => d.OrganizationInn, opt => opt.MapFrom(s => s.Organization != null ? s.Organization.Inn : null))
             .ForMember(d => d.WarehouseCount, opt => opt.MapFrom(s => s.Warehouses.Count))
             .ForMember(d => d.UnmappedWarehouseCount,
                 opt => opt.MapFrom(s => s.Warehouses.Count(w => w.WarehouseId == null && !w.IsArchived)))
