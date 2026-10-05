@@ -55,10 +55,10 @@ public class MarketplaceLabelService(
             return new LabelBundle(null, [], [], notAwaitingDeliver, []);
 
         var failures = new LabelFailures();
-        var documents = new Dictionary<Guid, byte[]>();
+        var labels = new Dictionary<Guid, LabelPage>();
 
         foreach (var group in orders.Values.GroupBy(o => o.MarketplaceOrder!.MarketplaceAccountId))
-            await BuildForAccountAsync(group.Key, [.. group], documents, failures, userId, forceRegenerate, ct);
+            await BuildForAccountAsync(group.Key, [.. group], labels, failures, userId, forceRegenerate, ct);
 
         // an unreadable label outranks a missing one: it is a defect to fix, not a wait to sit out
         if (failures.Unreadable.Count > 0)
@@ -68,7 +68,10 @@ public class MarketplaceLabelService(
             return new LabelBundle(null, failures.NotReady, [], [], []);
 
         var order = OrderPages(orderIds, orders, grouping);
-        var merged = LabelPdfComposer.Merge([.. order.Select(id => documents[id])]);
+        var merged = LabelPdfComposer.Merge([
+            .. order.Select(id => composer.Overlay(labels[id].Content, BuildArticles(orders[id]),
+                ResolveKind(labels[id], orders[id].MarketplaceOrder!))),
+        ]);
         return new LabelBundle(merged, [], [], [], []);
     }
 
@@ -101,7 +104,7 @@ public class MarketplaceLabelService(
             .OrderBy(s => s, StringComparer.Ordinal));
 
     private async Task BuildForAccountAsync(Guid accountId, IReadOnlyList<Order> orders,
-        Dictionary<Guid, byte[]> documents, LabelFailures failures, Guid? userId, bool forceRegenerate,
+        Dictionary<Guid, LabelPage> labels, LabelFailures failures, Guid? userId, bool forceRegenerate,
         CancellationToken ct)
     {
         var account = await db.MarketplaceAccounts.FirstOrDefaultAsync(a => a.Id == accountId, ct)
@@ -114,8 +117,8 @@ public class MarketplaceLabelService(
         foreach (var order in orders)
         {
             // already printed once — never regenerate unless asked to, the label is on a box by now
-            if (!forceRegenerate && order.MarketplaceOrder!.LabelFileId is { } fileId)
-                documents[order.Id] = await ReadCachedAsync(fileId, ct);
+            if (!forceRegenerate && order.MarketplaceOrder! is { LabelFileId: { } fileId } cached)
+                labels[order.Id] = new LabelPage(await ReadCachedAsync(fileId, ct), cached.LabelKind);
             else
                 missing.Add(order);
         }
@@ -139,14 +142,14 @@ public class MarketplaceLabelService(
         // order's articles onto another order's box.
         foreach (var order in missing.Where(o => o.MarketplaceOrder!.MultiBoxQty > 1))
             await FetchChunkAsync(provider, credentials, [order.MarketplaceOrder!.PostingNumber],
-                byPostingNumber, documents, failures, userId, allowSplit: false, ct);
+                byPostingNumber, labels, failures, userId, allowSplit: false, ct);
 
         var single = missing.Where(o => o.MarketplaceOrder!.MultiBoxQty <= 1)
             .Select(o => o.MarketplaceOrder!.PostingNumber)
             .ToList();
 
         foreach (var chunk in single.Chunk(Math.Max(1, _options.Ozon.LabelBatchSize)))
-            await FetchChunkAsync(provider, credentials, chunk, byPostingNumber, documents, failures,
+            await FetchChunkAsync(provider, credentials, chunk, byPostingNumber, labels, failures,
                 userId, allowSplit: true, ct);
     }
 
@@ -156,7 +159,7 @@ public class MarketplaceLabelService(
     /// </summary>
     private async Task FetchChunkAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
         IReadOnlyList<string> chunk, IReadOnlyDictionary<string, Order> byPostingNumber,
-        Dictionary<Guid, byte[]> documents, LabelFailures failures, Guid? userId, bool allowSplit,
+        Dictionary<Guid, LabelPage> labels, LabelFailures failures, Guid? userId, bool allowSplit,
         CancellationToken ct)
     {
         ExternalLabelDocument document;
@@ -171,7 +174,7 @@ public class MarketplaceLabelService(
             {
                 logger.LogWarning(ex, "Ozon label request for {PostingCount} posting(s) failed with status {Status}; splitting",
                     chunk.Count, ex.StatusCode);
-                await RetrySplitAsync(provider, credentials, chunk, byPostingNumber, documents,
+                await RetrySplitAsync(provider, credentials, chunk, byPostingNumber, labels,
                     failures, userId, ct);
                 return;
             }
@@ -188,7 +191,7 @@ public class MarketplaceLabelService(
             // A verdict on the whole batch with no per-posting detail — the marketplace never started the
             // job, or did not finish it in time. Splitting is the only way to tell a stuck posting apart.
             if (allowSplit && chunk.Count > 1)
-                await RetrySplitAsync(provider, credentials, chunk, byPostingNumber, documents,
+                await RetrySplitAsync(provider, credentials, chunk, byPostingNumber, labels,
                     failures, userId, ct);
             else
                 await MarkNotReadyAsync(chunk, byPostingNumber, failures, ct);
@@ -220,7 +223,7 @@ public class MarketplaceLabelService(
                 logger.LogWarning(
                     "Ozon returned {PageCount} label page(s) for {PostingCount} printed posting(s); refetching in smaller chunks",
                     pageCount, printed.Count);
-                await RetrySplitAsync(provider, credentials, printed, byPostingNumber, documents,
+                await RetrySplitAsync(provider, credentials, printed, byPostingNumber, labels,
                     failures, userId, ct);
                 return;
             }
@@ -240,7 +243,7 @@ public class MarketplaceLabelService(
                     return;
 
                 default:
-                    await RetrySplitAsync(provider, credentials, printed, byPostingNumber, documents,
+                    await RetrySplitAsync(provider, credentials, printed, byPostingNumber, labels,
                         failures, userId, ct);
                     return;
             }
@@ -250,19 +253,34 @@ public class MarketplaceLabelService(
             // one posting, so the whole response is its label; the text only decides where the articles go
             var marketplaceOrder = byPostingNumber[printed[0]].MarketplaceOrder!;
             var kind = Identify(LabelTextReader.ReadText(document.Content), marketplaceOrder);
-            if (kind is null)
-                logger.LogWarning(
-                    "Label for {PostingNumber} carries neither its scanit nor its posting number; stamping with the {Kind} layout",
-                    marketplaceOrder.PostingNumber, LabelKind.OzonScanitLabel);
-            perPosting = [new LabelPage(document.Content, kind ?? LabelKind.OzonScanitLabel)];
+            perPosting = [new LabelPage(document.Content, kind)];
         }
 
         for (var i = 0; i < printed.Count; i++)
             await StoreAsync(byPostingNumber[printed[i]], perPosting[i],
-                document.ContentType ?? "application/pdf", documents, userId, ct);
+                document.ContentType ?? "application/pdf", labels, userId, ct);
     }
 
-    private sealed record LabelPage(byte[] Content, LabelKind Kind);
+    /// <summary>A null <see cref="Kind"/> is an unidentified format, resolved again on every print.</summary>
+    private sealed record LabelPage(byte[] Content, LabelKind? Kind);
+
+    /// <summary>
+    /// The layout for an unidentified label is guessed per print and never stored, so a fix to
+    /// <see cref="Identify"/> applies to labels already in the cache.
+    /// </summary>
+    private LabelKind ResolveKind(LabelPage page, MarketplaceOrder marketplaceOrder)
+    {
+        if (page.Kind is { } kind)
+            return kind;
+
+        if (Identify(LabelTextReader.ReadText(page.Content), marketplaceOrder) is { } identified)
+            return identified;
+
+        logger.LogWarning(
+            "Label for {PostingNumber} carries neither its scanit nor its posting number; stamping with the {Kind} layout",
+            marketplaceOrder.PostingNumber, LabelKind.OzonScanitLabel);
+        return LabelKind.OzonScanitLabel;
+    }
 
     /// <summary>
     /// Lays the pages out in <paramref name="chunk"/> order using what each page prints to identify its
@@ -344,7 +362,7 @@ public class MarketplaceLabelService(
 
     private async Task RetrySplitAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
         IReadOnlyList<string> chunk, IReadOnlyDictionary<string, Order> byPostingNumber,
-        Dictionary<Guid, byte[]> documents, LabelFailures failures, Guid? userId, CancellationToken ct)
+        Dictionary<Guid, LabelPage> labels, LabelFailures failures, Guid? userId, CancellationToken ct)
     {
         // Halving pays off when one or two postings sink the batch: a handful of requests instead of one
         // per posting. When the whole batch is stuck every half fails too and it still ends one at a time,
@@ -352,15 +370,15 @@ public class MarketplaceLabelService(
         if (chunk.Count > Math.Max(1, _options.Ozon.LabelSplitThreshold))
         {
             var half = (chunk.Count + 1) / 2;
-            await FetchChunkAsync(provider, credentials, [.. chunk.Take(half)], byPostingNumber, documents,
+            await FetchChunkAsync(provider, credentials, [.. chunk.Take(half)], byPostingNumber, labels,
                 failures, userId, allowSplit: true, ct);
-            await FetchChunkAsync(provider, credentials, [.. chunk.Skip(half)], byPostingNumber, documents,
+            await FetchChunkAsync(provider, credentials, [.. chunk.Skip(half)], byPostingNumber, labels,
                 failures, userId, allowSplit: true, ct);
             return;
         }
 
         foreach (var postingNumber in chunk)
-            await FetchChunkAsync(provider, credentials, [postingNumber], byPostingNumber, documents,
+            await FetchChunkAsync(provider, credentials, [postingNumber], byPostingNumber, labels,
                 failures, userId, allowSplit: false, ct);
     }
 
@@ -401,29 +419,29 @@ public class MarketplaceLabelService(
     }
 
     private async Task StoreAsync(Order order, LabelPage page, string contentType,
-        Dictionary<Guid, byte[]> documents, Guid? userId, CancellationToken ct)
+        Dictionary<Guid, LabelPage> labels, Guid? userId, CancellationToken ct)
     {
         var marketplaceOrder = order.MarketplaceOrder!;
-        var stamped = composer.Overlay(page.Content, BuildArticles(order), page.Kind);
 
         // The DataFile row commits before LabelFileId is set. A crash in between leaves an orphan that
         // the file GC reclaims after OrphanTtlHours — self-healing, so no transaction is needed. The
         // same GC picks up the file a regenerate replaces.
-        using var content = new MemoryStream(stamped);
+        using var content = new MemoryStream(page.Content);
         var file = await dataFiles.CreateAsync(content, contentType,
-            $"label-{marketplaceOrder.PostingNumber}.pdf", stamped.Length, userId, ct: ct);
+            $"label-{marketplaceOrder.PostingNumber}.pdf", page.Content.Length, userId, ct: ct);
 
         marketplaceOrder.LabelFileId = file.Id;
+        marketplaceOrder.LabelKind = page.Kind;
         marketplaceOrder.LabelFetchedAt = DateTime.UtcNow;
         marketplaceOrder.LabelError = null;
         await db.SaveChangesAsync(ct);
 
-        documents[order.Id] = stamped;
+        labels[order.Id] = page;
     }
 
     /// <summary>
-    /// A snapshot: the articles as mapped at print time. Remapping a card later does not regenerate a
-    /// stored label — it is already glued to a box, and a silent rewrite would be worse than the drift.
+    /// The articles as mapped right now. The stored label is clean, so a reprint after a card is remapped
+    /// carries the new mapping, not the one from the first print.
     /// </summary>
     private static IReadOnlyList<LabelArticle> BuildArticles(Order order) =>
     [
