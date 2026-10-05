@@ -127,8 +127,8 @@ its layout: the app bar stays on screen, and — the reason the inner boundary i
 All of them render `RouteFallback`.
 
 The `*Config.tsx` files are the source of truth for the paths and permissions of every page the sidebar links
-to — `catalogConfig`, `storageConfig`, `operationsConfig`, `marketplacesConfig`, `analyticsConfig`,
-`settingsConfig`. `@/navigation/mainNavConfig.tsx` joins them into one tree that yields both the nav
+to — `catalogConfig`, `storageConfig`, `operationsConfig`, `marketplacesConfig`, `organizationsConfig`,
+`analyticsConfig`, `settingsConfig`. `@/navigation/mainNavConfig.tsx` joins them into one tree that yields both the nav
 (the fixed left sidebar of `SidebarLayout` on desktop, `MainNavDrawer` on mobile) and the routes
 (`buildNavRoutes`, see [frontend-components.md → Nav routes](frontend-components.md#nav-routes)). `App.tsx`
 declares by hand only the routes outside the nav: `/`, `/profile`, `/scanner`, `/print/*`, `/login` and the 404.
@@ -1064,7 +1064,9 @@ this polling is the fallback for when no subscription is confirmed (see
 [frontend-realtime.md](frontend-realtime.md)).
 
 Tabs:
-- **Обзор** — connection details, seller details (юрлицо, ИНН, ОГРН, форма собственности), synced-data
+- **Обзор** — connection details, seller details (юрлицо, ИНН, ОГРН, форма собственности), the
+  **Организация** block (linked organization, link mode, a warning when the account's INN differs from the
+  organization's; **Изменить** under `organizations.edit` opens `AccountOrganizationDialog`), synced-data
   counters, `SyncErrorAlert` for `lastSyncError`, and a hard error alert when `credentialsUnreadable` (the Data
   Protection key ring was lost and the key must be re-entered).
 - **Склады** — sortable table with an inline `WarehousesSelect` per row saving on change; unmapped rows carry a

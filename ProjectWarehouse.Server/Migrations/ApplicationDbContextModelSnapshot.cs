@@ -842,6 +842,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsOrganizationLinkedManually")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("LastSyncAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -858,6 +861,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<string>("Ogrn")
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("OrganizationId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("OwnershipForm")
                         .HasColumnType("text");
 
@@ -873,6 +879,8 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedById");
+
+                    b.HasIndex("OrganizationId");
 
                     b.HasIndex("Type");
 
@@ -1599,6 +1607,48 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasIndex("OrderId");
 
                     b.ToTable("OrderMarketplaceItems");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Organization", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Inn")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Kpp")
+                        .HasColumnType("text");
+
+                    b.Property<string>("LegalName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Ogrn")
+                        .HasColumnType("text");
+
+                    b.Property<string>("OwnershipForm")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("Inn")
+                        .IsUnique();
+
+                    b.ToTable("Organizations");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Receipt", b =>
@@ -2833,7 +2883,14 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasForeignKey("CreatedById")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("ProjectWarehouse.Server.Domain.Organization", "Organization")
+                        .WithMany("Accounts")
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("CreatedBy");
+
+                    b.Navigation("Organization");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceAccrual", b =>
@@ -3080,6 +3137,16 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("MarketplaceCard");
 
                     b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Organization", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.ApplicationUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CreatedBy");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Receipt", b =>
@@ -3649,6 +3716,11 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("MarketplaceAccruals");
 
                     b.Navigation("MarketplaceReturns");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.Organization", b =>
+                {
+                    b.Navigation("Accounts");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Receipt", b =>

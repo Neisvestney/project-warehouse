@@ -54,7 +54,7 @@ public class CommonContentController(IMapper mapper, IUserQueryFilterService que
     /// <summary>Global search for entities.</summary>
     /// <remarks>
     /// Query params: <c>searchString</c> (required). Searches warehouses, receipts, catalog items,
-    /// marketplace accounts, users and stocktakes, each already filtered to what the caller may view, then
+    /// marketplace accounts, organizations, users and stocktakes, each already filtered to what the caller may view, then
     /// returns at most 10 results overall (up to 10 per source before the union).
     /// Requires authentication only — no permission opens or closes the endpoint itself.
     /// No error codes; a missing <c>searchString</c> is a model-binding 422 (<c>required</c>).
@@ -70,6 +70,7 @@ public class CommonContentController(IMapper mapper, IUserQueryFilterService que
         var marketplacesAccountsQueryable = await queryFilter.GetMarketplaceAccountsAsync(User, ct);
         var usersQueryable = await queryFilter.GetUsersAsync(User, ct);
         var stocktakesQueryable = await queryFilter.GetStocktakesAsync(User, ct);
+        var organizationsQueryable = await queryFilter.GetOrganizationsAsync(User, ct);
 
         var warehousesResults = await Search(warehousesQueryable, searchString, ct);
         var receiptsResults = await Search(receiptsQueryable, searchString, ct);
@@ -77,8 +78,9 @@ public class CommonContentController(IMapper mapper, IUserQueryFilterService que
         var marketplacesAccountsResults = await Search(marketplacesAccountsQueryable, searchString, ct);
         var usersResults = await Search(usersQueryable, searchString, ct);
         var stocktakesResults = await Search(stocktakesQueryable, searchString, ct);
+        var organizationsResults = await Search(organizationsQueryable, searchString, ct);
 
-        return Ok(warehousesResults.Union(receiptsResults).Union(catalogResults).Union(marketplacesAccountsResults).Union(usersResults).Union(stocktakesResults).Take(10));
+        return Ok(warehousesResults.Union(receiptsResults).Union(catalogResults).Union(marketplacesAccountsResults).Union(organizationsResults).Union(usersResults).Union(stocktakesResults).Take(10));
     }
 
 

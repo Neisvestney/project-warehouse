@@ -405,7 +405,8 @@ export type AppEntityType =
   | "tag"
   | "tags"
   | "orderAssembly"
-  | "analyticsSettings";
+  | "analyticsSettings"
+  | "organization";
 
 export type AppFieldError = {
   code: ErrorCode;
@@ -1481,7 +1482,11 @@ export type ErrorCode =
   | "marketplaceBuyoutsPaused"
   | "catalogItemIsBundleComponent"
   | "catalogItemHasHistory"
-  | "catalogItemHasMarketplaceLinks";
+  | "catalogItemHasMarketplaceLinks"
+  | "organizationNotFound"
+  | "organizationInnInvalid"
+  | "organizationInnDuplicate"
+  | "organizationHasAccounts";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -1597,6 +1602,10 @@ export type MarketplaceAccountDto = {
   inn?: null | string;
   ogrn?: null | string;
   ownershipForm?: null | string;
+  organizationId?: null | string;
+  organizationName?: null | string;
+  organizationInn?: null | string;
+  isOrganizationLinkedManually: boolean;
   /**
    * Key tail only — the client renders the mask.
    */
@@ -2198,6 +2207,53 @@ export type OrderTagDto = {
  */
 export type OrderType = "fbs" | "fboSupply" | "direct" | "fboPosting";
 
+export type OrganizationAccountDto = {
+  id: string;
+  type: MarketplaceType;
+  name: string;
+  isActive: boolean;
+  /**
+   * The account's own INN as the marketplace reports it — may differ from the organization's.
+   */
+  inn?: null | string;
+  isOrganizationLinkedManually: boolean;
+};
+
+export type OrganizationDto = {
+  id: string;
+  name: string;
+  inn: string;
+  kind: OrganizationKind;
+  legalName?: null | string;
+  kpp?: null | string;
+  ogrn?: null | string;
+  ownershipForm?: null | string;
+  createdAt: string;
+  createdById?: null | string;
+  createdByName?: null | string;
+  accounts: Array<OrganizationAccountDto>;
+};
+
+export type OrganizationKind = "legalEntity" | "soleProprietor";
+
+export type OrganizationShortSummaryDto = {
+  id: string;
+  name: string;
+  inn: string;
+};
+
+export type OrganizationSortBy = "name" | "inn" | "createdAt";
+
+export type OrganizationSummaryDto = {
+  id: string;
+  name: string;
+  inn: string;
+  kind: OrganizationKind;
+  legalName?: null | string;
+  ownershipForm?: null | string;
+  accountCount: number;
+};
+
 export type PaginatedOfAbcItemDto = {
   items: Array<AbcItemDto>;
   total: number;
@@ -2270,6 +2326,16 @@ export type PaginatedOfMarketplaceSyncRunDto = {
 
 export type PaginatedOfMarketplaceWarehouseDto = {
   items: Array<MarketplaceWarehouseDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
+export type PaginatedOfOrganizationSummaryDto = {
+  items: Array<OrganizationSummaryDto>;
   total: number;
   page: number;
   pageSize: number;
@@ -2623,6 +2689,8 @@ export type PermissionName =
   | "integrations.edit"
   | "integrations.map"
   | "integrations.sync"
+  | "organizations.view"
+  | "organizations.edit"
   | "analytics.view"
   | "analytics.settings";
 
@@ -3069,6 +3137,15 @@ export type SaveAutoMapRuleRequest = {
   priority: number;
 };
 
+export type SaveOrganizationRequest = {
+  name: string;
+  inn: string;
+  legalName?: null | string;
+  kpp?: null | string;
+  ogrn?: null | string;
+  ownershipForm?: null | string;
+};
+
 export type SaveStockMovementReportPresetRequest = {
   name: string;
   /**
@@ -3081,6 +3158,13 @@ export type SaveStockMovementReportPresetRequest = {
    * the second of two concurrent saves would silently win.
    */
   version?: null | number;
+};
+
+export type SetAccountOrganizationRequest = {
+  /**
+   * Null hands the account back to automatic linking by its INN.
+   */
+  organizationId?: null | string;
 };
 
 /**
@@ -6371,6 +6455,39 @@ export type MarketplacesUpdateAccountResponses = {
 export type MarketplacesUpdateAccountResponse =
   MarketplacesUpdateAccountResponses[keyof MarketplacesUpdateAccountResponses];
 
+export type MarketplacesSetAccountOrganizationData = {
+  body: SetAccountOrganizationRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/integrations/marketplaces/accounts/{id}/organization";
+};
+
+export type MarketplacesSetAccountOrganizationErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type MarketplacesSetAccountOrganizationError =
+  MarketplacesSetAccountOrganizationErrors[keyof MarketplacesSetAccountOrganizationErrors];
+
+export type MarketplacesSetAccountOrganizationResponses = {
+  /**
+   * OK
+   */
+  200: MarketplaceAccountDto;
+};
+
+export type MarketplacesSetAccountOrganizationResponse =
+  MarketplacesSetAccountOrganizationResponses[keyof MarketplacesSetAccountOrganizationResponses];
+
 export type MarketplacesTestConnectionData = {
   body: TestConnectionRequest;
   path: {
@@ -8128,6 +8245,202 @@ export type OrdersBatchFulfillResponses = {
 
 export type OrdersBatchFulfillResponse =
   OrdersBatchFulfillResponses[keyof OrdersBatchFulfillResponses];
+
+export type OrganizationsGetAllData = {
+  body?: never;
+  path?: never;
+  query?: {
+    page?: number;
+    pageSize?: number;
+    searchString?: string;
+    sortBy?: OrganizationSortBy;
+    sortOrder?: SortOrder;
+  };
+  url: "/api/organizations";
+};
+
+export type OrganizationsGetAllErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type OrganizationsGetAllError = OrganizationsGetAllErrors[keyof OrganizationsGetAllErrors];
+
+export type OrganizationsGetAllResponses = {
+  /**
+   * OK
+   */
+  200: PaginatedOfOrganizationSummaryDto;
+};
+
+export type OrganizationsGetAllResponse =
+  OrganizationsGetAllResponses[keyof OrganizationsGetAllResponses];
+
+export type OrganizationsCreateData = {
+  body: SaveOrganizationRequest;
+  path?: never;
+  query?: never;
+  url: "/api/organizations";
+};
+
+export type OrganizationsCreateErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type OrganizationsCreateError = OrganizationsCreateErrors[keyof OrganizationsCreateErrors];
+
+export type OrganizationsCreateResponses = {
+  /**
+   * Created
+   */
+  201: OrganizationDto;
+};
+
+export type OrganizationsCreateResponse =
+  OrganizationsCreateResponses[keyof OrganizationsCreateResponses];
+
+export type OrganizationsGetShortData = {
+  body?: never;
+  path?: never;
+  query?: {
+    searchString?: string;
+  };
+  url: "/api/organizations/short";
+};
+
+export type OrganizationsGetShortErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type OrganizationsGetShortError =
+  OrganizationsGetShortErrors[keyof OrganizationsGetShortErrors];
+
+export type OrganizationsGetShortResponses = {
+  /**
+   * OK
+   */
+  200: Array<OrganizationShortSummaryDto>;
+};
+
+export type OrganizationsGetShortResponse =
+  OrganizationsGetShortResponses[keyof OrganizationsGetShortResponses];
+
+export type OrganizationsDeleteData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/organizations/{id}";
+};
+
+export type OrganizationsDeleteErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type OrganizationsDeleteError = OrganizationsDeleteErrors[keyof OrganizationsDeleteErrors];
+
+export type OrganizationsDeleteResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type OrganizationsDeleteResponse =
+  OrganizationsDeleteResponses[keyof OrganizationsDeleteResponses];
+
+export type OrganizationsGetByIdData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/organizations/{id}";
+};
+
+export type OrganizationsGetByIdErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type OrganizationsGetByIdError =
+  OrganizationsGetByIdErrors[keyof OrganizationsGetByIdErrors];
+
+export type OrganizationsGetByIdResponses = {
+  /**
+   * OK
+   */
+  200: OrganizationDto;
+};
+
+export type OrganizationsGetByIdResponse =
+  OrganizationsGetByIdResponses[keyof OrganizationsGetByIdResponses];
+
+export type OrganizationsUpdateData = {
+  body: SaveOrganizationRequest;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/organizations/{id}";
+};
+
+export type OrganizationsUpdateErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type OrganizationsUpdateError = OrganizationsUpdateErrors[keyof OrganizationsUpdateErrors];
+
+export type OrganizationsUpdateResponses = {
+  /**
+   * OK
+   */
+  200: OrganizationDto;
+};
+
+export type OrganizationsUpdateResponse =
+  OrganizationsUpdateResponses[keyof OrganizationsUpdateResponses];
 
 export type PermissionsGetAllData = {
   body?: never;

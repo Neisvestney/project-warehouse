@@ -1,7 +1,12 @@
-import {Alert, Chip, Paper, Stack, Typography} from "@mui/material";
+import {useState} from "react";
+import {Link as RouterLink} from "react-router";
+import {Alert, Button, Chip, Link, Paper, Stack, Typography} from "@mui/material";
+import EditIcon from "@mui/icons-material/Edit";
 import InfoRow from "@/components/InfoRow";
 import UserChip from "@/components/shared/UserChip";
 import {formatDateOnly} from "@/utils/dateOnly";
+import {useHasPermission} from "@/hooks/usePermission";
+import AccountOrganizationDialog from "./AccountOrganizationDialog";
 import SyncErrorAlert from "../../components/SyncErrorAlert";
 import {
   MARKETPLACE_TYPE_LABELS,
@@ -16,6 +21,11 @@ interface AccountOverviewTabProps {
 }
 
 function AccountOverviewTab({account}: AccountOverviewTabProps) {
+  const canViewOrganizations = useHasPermission("organizations.view");
+  const canEditOrganization = useHasPermission("organizations.edit");
+  const [organizationDialogOpen, setOrganizationDialogOpen] = useState(false);
+  const innMismatch =
+    !!account.inn && !!account.organizationInn && account.inn !== account.organizationInn;
   const showBuyouts = hasCapability(account.capabilities, "buyouts");
   const journalFrom = account.accrualsJournalFrom;
   const loadedFrom = account.buyoutsLoadedFrom;
@@ -98,6 +108,56 @@ function AccountOverviewTab({account}: AccountOverviewTabProps) {
           />
         </Stack>
       </Paper>
+
+      <Paper>
+        <Stack spacing={1.5} sx={{p: 3}}>
+          <Stack direction="row" sx={{alignItems: "center", justifyContent: "space-between"}}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Организация
+            </Typography>
+            {canEditOrganization && (
+              <Button
+                size="small"
+                startIcon={<EditIcon />}
+                onClick={() => setOrganizationDialogOpen(true)}
+              >
+                Изменить
+              </Button>
+            )}
+          </Stack>
+          <InfoRow
+            label="Организация"
+            value={
+              account.organizationId && account.organizationName ? (
+                canViewOrganizations ? (
+                  <Link component={RouterLink} to={`/organizations/${account.organizationId}`}>
+                    {account.organizationName}
+                  </Link>
+                ) : (
+                  account.organizationName
+                )
+              ) : (
+                "—"
+              )
+            }
+          />
+          <InfoRow
+            label="Привязка"
+            value={account.isOrganizationLinkedManually ? "Вручную" : "По ИНН при синхронизации"}
+          />
+          {innMismatch && (
+            <Alert severity="warning">
+              ИНН аккаунта ({account.inn}) не совпадает с ИНН организации ({account.organizationInn}
+              ).
+            </Alert>
+          )}
+        </Stack>
+      </Paper>
+      <AccountOrganizationDialog
+        open={organizationDialogOpen}
+        account={account}
+        onClose={() => setOrganizationDialogOpen(false)}
+      />
 
       <Paper>
         <Stack spacing={1.5} sx={{p: 3}}>

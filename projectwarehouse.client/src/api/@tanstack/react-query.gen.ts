@@ -69,6 +69,7 @@ import {
   marketplacesGetUnmappedCount,
   marketplacesGetWarehouses,
   marketplacesRebindExternalOrders,
+  marketplacesSetAccountOrganization,
   marketplacesSetCardMapping,
   marketplacesSetWarehouseMapping,
   marketplacesStartSync,
@@ -110,6 +111,12 @@ import {
   ordersUpdateComponent,
   ordersUpdateTags,
   ordersUpdateTaskBoxComponent,
+  organizationsCreate,
+  organizationsDelete,
+  organizationsGetAll,
+  organizationsGetById,
+  organizationsGetShort,
+  organizationsUpdate,
   permissionsGetAll,
   realtimeAcquireLock,
   realtimeHeartbeat,
@@ -398,6 +405,9 @@ import type {
   MarketplacesRebindExternalOrdersData,
   MarketplacesRebindExternalOrdersError,
   MarketplacesRebindExternalOrdersResponse,
+  MarketplacesSetAccountOrganizationData,
+  MarketplacesSetAccountOrganizationError,
+  MarketplacesSetAccountOrganizationResponse,
   MarketplacesSetCardMappingData,
   MarketplacesSetCardMappingError,
   MarketplacesSetCardMappingResponse,
@@ -517,6 +527,24 @@ import type {
   OrdersUpdateTaskBoxComponentData,
   OrdersUpdateTaskBoxComponentError,
   OrdersUpdateTaskBoxComponentResponse,
+  OrganizationsCreateData,
+  OrganizationsCreateError,
+  OrganizationsCreateResponse,
+  OrganizationsDeleteData,
+  OrganizationsDeleteError,
+  OrganizationsDeleteResponse,
+  OrganizationsGetAllData,
+  OrganizationsGetAllError,
+  OrganizationsGetAllResponse,
+  OrganizationsGetByIdData,
+  OrganizationsGetByIdError,
+  OrganizationsGetByIdResponse,
+  OrganizationsGetShortData,
+  OrganizationsGetShortError,
+  OrganizationsGetShortResponse,
+  OrganizationsUpdateData,
+  OrganizationsUpdateError,
+  OrganizationsUpdateResponse,
   PermissionsGetAllData,
   PermissionsGetAllError,
   PermissionsGetAllResponse,
@@ -2187,7 +2215,7 @@ export const commonContentGlobalSearchQueryKey = (
  * Global search for entities.
  *
  * Query params: `searchString` (required). Searches warehouses, receipts, catalog items,
- * marketplace accounts, users and stocktakes, each already filtered to what the caller may view, then
+ * marketplace accounts, organizations, users and stocktakes, each already filtered to what the caller may view, then
  * returns at most 10 results overall (up to 10 per source before the union).
  * Requires authentication only — no permission opens or closes the endpoint itself.
  * No error codes; a missing `searchString` is a model-binding 422 (`required`).
@@ -2919,6 +2947,40 @@ export const marketplacesUpdateAccountMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await marketplacesUpdateAccount({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Links the account to an organization by hand, or hands it back to linking by INN.
+ *
+ *     Body: `SetAccountOrganizationRequest` — `organizationId`. A value pins the link: sync no longer
+ * moves it. `null` clears the pin and relinks by the account's INN at once, creating the organization
+ * when none has that INN; an account without an INN is left unlinked. Errors:
+ * * 404 marketplaceAccountNotFound
+ * * 422 organizationNotFound on organizationId
+ * Requires `organizations.edit`.
+ */
+export const marketplacesSetAccountOrganizationMutation = (
+  options?: Partial<Options<MarketplacesSetAccountOrganizationData>>,
+): UseMutationOptions<
+  MarketplacesSetAccountOrganizationResponse,
+  MarketplacesSetAccountOrganizationError,
+  Options<MarketplacesSetAccountOrganizationData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    MarketplacesSetAccountOrganizationResponse,
+    MarketplacesSetAccountOrganizationError,
+    Options<MarketplacesSetAccountOrganizationData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await marketplacesSetAccountOrganization({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -4842,6 +4904,236 @@ export const ordersBatchFulfillMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await ordersBatchFulfill({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const organizationsGetAllQueryKey = (options?: Options<OrganizationsGetAllData>) =>
+  createQueryKey("organizationsGetAll", options);
+
+/**
+ * List organizations (paginated, searchable).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString` (name,
+ * legal name, INN), `sortBy` (default `Name`), `sortOrder` (default `Asc`).
+ * Requires `organizations.view`; 403 `permissionDenied` otherwise.
+ */
+export const organizationsGetAllOptions = (options?: Options<OrganizationsGetAllData>) =>
+  queryOptions<
+    OrganizationsGetAllResponse,
+    OrganizationsGetAllError,
+    OrganizationsGetAllResponse,
+    ReturnType<typeof organizationsGetAllQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await organizationsGetAll({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: organizationsGetAllQueryKey(options),
+  });
+
+export const organizationsGetAllInfiniteQueryKey = (
+  options?: Options<OrganizationsGetAllData>,
+): QueryKey<Options<OrganizationsGetAllData>> =>
+  createQueryKey("organizationsGetAll", options, true);
+
+/**
+ * List organizations (paginated, searchable).
+ *
+ * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString` (name,
+ * legal name, INN), `sortBy` (default `Name`), `sortOrder` (default `Asc`).
+ * Requires `organizations.view`; 403 `permissionDenied` otherwise.
+ */
+export const organizationsGetAllInfiniteOptions = (options?: Options<OrganizationsGetAllData>) => {
+  const opts = infiniteQueryOptions<
+    OrganizationsGetAllResponse,
+    OrganizationsGetAllError,
+    InfiniteData<OrganizationsGetAllResponse>,
+    QueryKey<Options<OrganizationsGetAllData>>,
+    | number
+    | Pick<QueryKey<Options<OrganizationsGetAllData>>[0], "body" | "headers" | "path" | "query">
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({pageParam, queryKey, signal}) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<OrganizationsGetAllData>>[0],
+          "body" | "headers" | "path" | "query"
+        > =
+          typeof pageParam === "object"
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const {data} = await organizationsGetAll({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: organizationsGetAllInfiniteQueryKey(options),
+    },
+  );
+  return opts as Omit<typeof opts, "initialData">;
+};
+
+/**
+ * Creates an organization by hand. Sync links accounts with the same INN to it from then on.
+ *
+ *     Body: `SaveOrganizationRequest`. Errors:
+ * * 422 organizationInnInvalid on inn — not 10 or 12 digits
+ * * 422 organizationInnDuplicate on inn — another organization has this INN
+ * Requires `organizations.edit`.
+ */
+export const organizationsCreateMutation = (
+  options?: Partial<Options<OrganizationsCreateData>>,
+): UseMutationOptions<
+  OrganizationsCreateResponse,
+  OrganizationsCreateError,
+  Options<OrganizationsCreateData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrganizationsCreateResponse,
+    OrganizationsCreateError,
+    Options<OrganizationsCreateData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await organizationsCreate({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const organizationsGetShortQueryKey = (options?: Options<OrganizationsGetShortData>) =>
+  createQueryKey("organizationsGetShort", options);
+
+/**
+ * Id, name and INN of every organization, for pickers.
+ *
+ * Query params: `searchString` (optional). Requires `organizations.view`; 403
+ * `permissionDenied` otherwise.
+ */
+export const organizationsGetShortOptions = (options?: Options<OrganizationsGetShortData>) =>
+  queryOptions<
+    OrganizationsGetShortResponse,
+    OrganizationsGetShortError,
+    OrganizationsGetShortResponse,
+    ReturnType<typeof organizationsGetShortQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await organizationsGetShort({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: organizationsGetShortQueryKey(options),
+  });
+
+/**
+ * Deletes an organization that no account is linked to.
+ *
+ * Returns 404 `organizationNotFound`, or 409 `organizationHasAccounts` while any marketplace
+ * account is linked to it. Requires `organizations.edit`.
+ */
+export const organizationsDeleteMutation = (
+  options?: Partial<Options<OrganizationsDeleteData>>,
+): UseMutationOptions<
+  OrganizationsDeleteResponse,
+  OrganizationsDeleteError,
+  Options<OrganizationsDeleteData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrganizationsDeleteResponse,
+    OrganizationsDeleteError,
+    Options<OrganizationsDeleteData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await organizationsDelete({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const organizationsGetByIdQueryKey = (options: Options<OrganizationsGetByIdData>) =>
+  createQueryKey("organizationsGetById", options);
+
+/**
+ * Organization with its linked marketplace accounts.
+ *
+ * Returns 404 `organizationNotFound`. Requires `organizations.view`.
+ */
+export const organizationsGetByIdOptions = (options: Options<OrganizationsGetByIdData>) =>
+  queryOptions<
+    OrganizationsGetByIdResponse,
+    OrganizationsGetByIdError,
+    OrganizationsGetByIdResponse,
+    ReturnType<typeof organizationsGetByIdQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await organizationsGetById({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: organizationsGetByIdQueryKey(options),
+  });
+
+/**
+ * Updates the organization's own requisites. Linked accounts are not touched.
+ *
+ *     Body: `SaveOrganizationRequest`. Errors:
+ * * 404 organizationNotFound
+ * * 422 organizationInnInvalid on inn — not 10 or 12 digits
+ * * 422 organizationInnDuplicate on inn — another organization has this INN
+ * Requires `organizations.edit`.
+ */
+export const organizationsUpdateMutation = (
+  options?: Partial<Options<OrganizationsUpdateData>>,
+): UseMutationOptions<
+  OrganizationsUpdateResponse,
+  OrganizationsUpdateError,
+  Options<OrganizationsUpdateData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrganizationsUpdateResponse,
+    OrganizationsUpdateError,
+    Options<OrganizationsUpdateData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await organizationsUpdate({
         ...options,
         ...fnOptions,
         throwOnError: true,

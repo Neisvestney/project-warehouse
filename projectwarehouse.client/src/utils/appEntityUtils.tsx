@@ -22,6 +22,7 @@ import HistoryIcon from "@mui/icons-material/History";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import SwapVertIcon from "@mui/icons-material/SwapVert";
 import InsightsIcon from "@mui/icons-material/Insights";
+import BusinessIcon from "@mui/icons-material/Business";
 import React from "react";
 import {Chip, Typography} from "@mui/material";
 import ReceiptStatusChip from "@/components/receipts/ReceiptStatusChip.tsx";
@@ -234,6 +235,17 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
         )}
       </>
     ),
+  },
+  organization: {
+    linkTemplate: "/organizations/{id}",
+    typeName: "Организация",
+    icon: <BusinessIcon />,
+    renderAdditionalSearchContent: (e) =>
+      e.additionalFields?.inn ? (
+        <Typography variant="caption" color="text.secondary">
+          ИНН {String(e.additionalFields.inn)}
+        </Typography>
+      ) : null,
   },
   // Карточка не имеет своей страницы, а AppEntity для неё не несёт id аккаунта — ссылку не построить
   marketplaceCard: {

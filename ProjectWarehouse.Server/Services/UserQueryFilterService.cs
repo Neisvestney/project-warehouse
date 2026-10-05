@@ -31,6 +31,9 @@ public class UserQueryFilterService(EntityAccessRegistry registry) : IUserQueryF
     public Task<IQueryable<MarketplaceAccount>> GetMarketplaceAccountsAsync(ClaimsPrincipal user, CancellationToken ct = default) =>
         View<MarketplaceAccount>(user, ct);
 
+    public Task<IQueryable<Organization>> GetOrganizationsAsync(ClaimsPrincipal user, CancellationToken ct = default) =>
+        View<Organization>(user, ct);
+
     public Task<IQueryable<StockMovement>> GetStockMovementsAsync(ClaimsPrincipal user, CancellationToken ct = default) =>
         View<StockMovement>(user, ct);
 

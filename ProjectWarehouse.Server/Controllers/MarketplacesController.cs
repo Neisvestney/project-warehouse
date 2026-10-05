@@ -15,6 +15,7 @@ using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Integrations.Sync;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Integrations;
+using ProjectWarehouse.Server.Models.Organizations;
 using ProjectWarehouse.Server.Services;
 
 namespace ProjectWarehouse.Server.Controllers;
@@ -266,6 +267,55 @@ public class MarketplacesController(
             new { marketplace = account.Type });
 
         return NoContent();
+    }
+
+    /// <summary>Links the account to an organization by hand, or hands it back to linking by INN.</summary>
+    /// <remarks>
+    /// Body: <c>SetAccountOrganizationRequest</c> — <c>organizationId</c>. A value pins the link: sync no longer
+    /// moves it. <c>null</c> clears the pin and relinks by the account's INN at once, creating the organization
+    /// when none has that INN; an account without an INN is left unlinked. Errors:
+    /// <list type="bullet">
+    ///   <item>404 <c>marketplaceAccountNotFound</c></item>
+    ///   <item>422 <c>organizationNotFound</c> on <c>organizationId</c></item>
+    /// </list>
+    /// Requires <c>organizations.edit</c>.
+    /// </remarks>
+    [HttpPut("accounts/{id:guid}/organization")]
+    [Authorize(Policy = Permissions.Organizations.Edit)]
+    [ProducesResponseType<MarketplaceAccountDto>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> SetAccountOrganization(Guid id, [FromBody] SetAccountOrganizationRequest request,
+        [FromServices] IOrganizationService organizations, CancellationToken ct)
+    {
+        var account = await db.MarketplaceAccounts
+            .Include(a => a.Organization)
+            .FirstOrDefaultAsync(a => a.Id == id, ct);
+
+        if (account is null)
+            return NotFound(ErrorCode.MarketplaceAccountNotFound, "Marketplace account not found.");
+
+        Organization? organization = null;
+        if (request.OrganizationId is { } organizationId)
+        {
+            organization = await db.Organizations.FirstOrDefaultAsync(o => o.Id == organizationId, ct);
+            if (organization is null)
+                return UnprocessableEntity(nameof(request.OrganizationId), ErrorCode.OrganizationNotFound,
+                    "Organization not found.");
+        }
+
+        var before = await ToDetailDtoAsync(account, ct);
+
+        // through the navigation, not the FK: the loaded navigation would otherwise win on DetectChanges
+        account.Organization = organization;
+        account.IsOrganizationLinkedManually = organization is not null;
+        await db.SaveChangesAsync(ct);
+
+        await organizations.LinkByInnAsync(account, ct);
+
+        var after = await ToDetailDtoAsync(account, ct);
+        await accountChangeLog.CompareAndSaveToChangelog(before, after, MarketplaceActions.AccountOrganizationSet,
+            new { marketplace = account.Type });
+
+        return Ok(after);
     }
 
     /// <summary>

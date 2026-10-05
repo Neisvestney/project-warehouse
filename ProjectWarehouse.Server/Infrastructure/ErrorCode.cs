@@ -136,6 +136,12 @@ public enum ErrorCode
     MarketplaceAutoMapRuleNotFound = 133,
     MarketplaceAutoMapRuleInvalidRegex = 134,
 
+    // Organizations
+    OrganizationNotFound = 158,
+    OrganizationInnInvalid = 159,
+    OrganizationInnDuplicate = 160,
+    OrganizationHasAccounts = 161,
+
     // Routing
     RouteNotFound = 89,
 

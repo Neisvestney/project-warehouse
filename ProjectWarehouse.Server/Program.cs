@@ -38,6 +38,7 @@ using ProjectWarehouse.Server.Models.Analytics;
 using ProjectWarehouse.Server.Models.Catalog;
 using ProjectWarehouse.Server.Models.Integrations;
 using ProjectWarehouse.Server.Models.Orders;
+using ProjectWarehouse.Server.Models.Organizations;
 using ProjectWarehouse.Server.Models.Roles;
 using ProjectWarehouse.Server.Models.Statistics;
 using ProjectWarehouse.Server.Models.Users;
@@ -657,6 +658,7 @@ try
     builder.Services.AddScoped<IChangeLogService<ReceiptDto>, ReceiptDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<WriteoffDto>, WriteoffDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<StocktakeDto>, StocktakeDtoChangelogService>();
+    builder.Services.AddScoped<IChangeLogService<OrganizationDto>, OrganizationDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<MarketplaceAccountDto>, MarketplaceAccountDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<MarketplaceCardDto>, MarketplaceCardDtoChangelogService>();
     builder.Services.AddScoped<IChangeLogService<MarketplaceAutoMapRuleDto>, MarketplaceAutoMapRuleDtoChangelogService>();
@@ -668,6 +670,7 @@ try
     builder.Services.AddScoped<IInventoryService, InventoryService>();
     builder.Services.AddScoped<ICatalogService, CatalogService>();
     builder.Services.AddScoped<ITagsService, TagsService>();
+    builder.Services.AddScoped<IOrganizationService, OrganizationService>();
     builder.Services.AddScoped<AccessScope>();
     builder.Services.AddScoped<EntityAccessRegistry>();
     builder.Services.AddScoped<IEntityAccessService, EntityAccessService>();

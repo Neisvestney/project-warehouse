@@ -26,6 +26,7 @@ public class MarketplaceSyncService(
     IMarketplaceOrderSyncService orderSync,
     IMarketplaceAccrualSyncService accrualSync,
     IExternalOrderRebindService rebind,
+    IOrganizationService organizations,
     IRealtimeNotifier realtime,
     IMapper mapper,
     ILogger<MarketplaceSyncService> logger) : IMarketplaceSyncService
@@ -46,7 +47,10 @@ public class MarketplaceSyncService(
         // from the row rather than from the request: the branching below reads run.Scope, not request.Scope
         Activity.Current?.SetTag("marketplace.sync.scope", run.Scope.ToString());
 
-        var account = await db.MarketplaceAccounts.FirstOrDefaultAsync(a => a.Id == request.AccountId, ct);
+        // Organization is loaded so the changelog snapshots carry its name on both sides of a relink
+        var account = await db.MarketplaceAccounts
+            .Include(a => a.Organization)
+            .FirstOrDefaultAsync(a => a.Id == request.AccountId, ct);
         if (account is null)
         {
             await FailAsync(run, null, ErrorCode.MarketplaceAccountNotFound, "Marketplace account not found.", ct,
@@ -212,6 +216,8 @@ public class MarketplaceSyncService(
         account.OwnershipForm = info.OwnershipForm;
 
         await db.SaveChangesAsync(ct);
+
+        await organizations.LinkByInnAsync(account, ct);
     }
 
     private async Task SyncWarehousesAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
