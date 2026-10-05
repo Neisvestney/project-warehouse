@@ -73,6 +73,7 @@ public class LabelLayout
     public double MarginY { get; set; } = 6;
 }
 
+// stored in MarketplaceOrder.LabelKind — never renumber
 public enum LabelKind
 {
     OzonScanitLabel = 0,

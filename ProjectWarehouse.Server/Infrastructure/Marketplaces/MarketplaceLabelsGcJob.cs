@@ -31,6 +31,7 @@ public class MarketplaceLabelsGcJob(
                          && mo.Status != MarketplaceOrderStatus.AwaitingDeliver)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(mo => mo.LabelFileId, (Guid?)null)
+                .SetProperty(mo => mo.LabelKind, (LabelKind?)null)
                 .SetProperty(mo => mo.LabelFetchedAt, (DateTime?)null), ct);
 
         if (released > 0)

@@ -502,8 +502,9 @@ MarketplaceOrder
 ├── TrackingNumber        — string?
 ├── DeliveryMethodName    — string?
 ├── MultiBoxQty           — int
-├── LabelFileId           — Guid? → DataFile (Restrict)
+├── LabelFileId           — Guid? → DataFile (Restrict), этикетка без нанесённых артикулов
 ├── LabelFetchedAt        — DateTime?
+├── LabelKind             — LabelKind?, формат этикетки (угол для артикулов); null — не опознан, определяется при печати
 ├── LabelError            — AppFieldError? (jsonb)
 ├── StatusSyncedAt        — DateTime, когда последний раз сверялся статус
 └── SyncedAt              — DateTime

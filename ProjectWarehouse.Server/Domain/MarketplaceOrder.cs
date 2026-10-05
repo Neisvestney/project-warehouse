@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using EntityFrameworkCore.Projectables;
+using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using ProjectWarehouse.Server.Models;
 
 namespace ProjectWarehouse.Server.Domain;
@@ -72,9 +73,16 @@ public class MarketplaceOrder
     /// </summary>
     public string? ScanitBarcode { get; set; }
 
+    /// <summary>The marketplace label as fetched, with nothing stamped on it — articles go on at print time.</summary>
     public Guid? LabelFileId { get; set; }
     public DataFile? LabelFile { get; set; }
     public DateTime? LabelFetchedAt { get; set; }
+
+    /// <summary>
+    /// Format of <see cref="LabelFile"/>, which picks the corner the articles are printed into. Null when the
+    /// format could not be identified on fetch — it is then identified again on every print.
+    /// </summary>
+    public LabelKind? LabelKind { get; set; }
 
     [Column(TypeName = "jsonb")] public AppFieldError? LabelError { get; set; }
 

@@ -1102,6 +1102,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<Guid?>("LabelFileId")
                         .HasColumnType("uuid");
 
+                    b.Property<int?>("LabelKind")
+                        .HasColumnType("integer");
+
                     b.Property<Guid>("MarketplaceAccountId")
                         .HasColumnType("uuid");
 
