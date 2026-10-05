@@ -9,6 +9,7 @@ using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Concurrency;
 using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Catalog;
@@ -28,7 +29,8 @@ public class StocktakesController(
     IChangeLogService<StocktakeDto> changeLog,
     IDataFileBindingService fileBinding,
     IStocktakeService stocktakes,
-    IDocumentBatchService batch) : AppControllerBase
+    IDocumentBatchService batch,
+    IEntityLockService locks) : AppControllerBase
 {
     private EntityAccessRule<Stocktake> Rule => access.For<Stocktake>();
 
@@ -313,13 +315,16 @@ public class StocktakesController(
     ///   <item>422 <c>validationError</c> — <c>plannedDate</c> sent without <c>type</c>, or <c>type</c> is
     ///     <c>Scheduled</c> with no <c>plannedDate</c></item>
     ///   <item>403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c> (edit access)</item>
+    ///   <item>409 <c>entityLocked</c> — another request is changing the stocktake; nothing was written</item>
     /// </list>
     /// </remarks>
+    [LocksEntity<Stocktake>]
     [HttpPatch("{id:guid}")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateStocktakeRequest request,
         CancellationToken ct = default)
     {
@@ -374,13 +379,15 @@ public class StocktakesController(
     /// <remarks>
     /// Errors: 404 <c>stocktakeNotFound</c>; 422 <c>dataFileNotFound</c> (field <c>attachments</c>) for
     /// an unknown attachment id; 403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c>
-    /// (edit access).
+    /// (edit access); 409 <c>entityLocked</c> when another request is changing the stocktake — nothing was written.
     /// </remarks>
+    [LocksEntity<Stocktake>]
     [HttpPatch("{id:guid}/attachments")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateAttachments(Guid id, [FromBody] UpdateAttachmentsRequest request,
         CancellationToken ct = default)
     {
@@ -406,12 +413,15 @@ public class StocktakesController(
     /// <summary>Replace the stocktake's tags. Allowed in any status.</summary>
     /// <remarks>
     /// Body: <c>UpdateTagsRequest</c> — the full tag id set; unknown ids are ignored. Errors: 404
-    /// <c>stocktakeNotFound</c>; 403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c> (edit access).
+    /// <c>stocktakeNotFound</c>; 403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c> (edit access);
+    /// 409 <c>entityLocked</c> when another request is changing the stocktake — nothing was written.
     /// </remarks>
+    [LocksEntity<Stocktake>]
     [HttpPatch("{id:guid}/tags")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateTags(Guid id, [FromBody] UpdateTagsRequest request,
         CancellationToken ct = default)
     {
@@ -438,13 +448,16 @@ public class StocktakesController(
     /// <summary>Delete a stocktake. Only allowed in Planned or Draft status.</summary>
     /// <remarks>
     /// Errors: 404 <c>stocktakeNotFound</c>; 422 <c>stocktakeInvalidStatusTransition</c> outside Planned or
-    /// Draft; 403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c> (edit access).
+    /// Draft; 403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c> (edit access);
+    /// 409 <c>entityLocked</c> when another request is changing the stocktake — nothing was written.
     /// </remarks>
+    [LocksEntity<Stocktake>(ForDelete = true)]
     [HttpDelete("{id:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct = default)
     {
         var (stocktake, error) = await LoadStocktakeWithEditAccessAsync(id, ct, includeItems: true);
@@ -482,13 +495,16 @@ public class StocktakesController(
     ///     already being counted in another InProgress stocktake; <c>args: { nodeId }</c>. A cell may sit in
     ///     any number of Draft or Planned scopes</item>
     ///   <item>403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c> (edit access)</item>
+    ///   <item>409 <c>entityLocked</c> — another request is changing the stocktake; nothing was written</item>
     /// </list>
     /// </remarks>
+    [LocksEntity<Stocktake>]
     [HttpPut("{id:guid}/nodes")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> SyncNodes(Guid id, [FromBody] SyncStocktakeNodesRequest request,
         CancellationToken ct = default)
     {
@@ -640,13 +656,16 @@ public class StocktakesController(
     ///     stocktake (<c>args: { inventoryNumber, stocktakeId, stocktakeNumber }</c>) or in another cell of
     ///     this document (<c>args: { inventoryNumber }</c>). Surpluses count too</item>
     ///   <item>403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c> (edit access)</item>
+    ///   <item>409 <c>entityLocked</c> — another request is changing the stocktake; nothing was written</item>
     /// </list>
     /// </remarks>
+    [LocksEntity<Stocktake>]
     [HttpPut("{id:guid}/nodes/{nodeId:guid}/items")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> SyncNodeItems(Guid id, Guid nodeId,
         [FromBody] IReadOnlyList<StocktakeItemRequest> items, CancellationToken ct = default)
     {
@@ -660,6 +679,14 @@ public class StocktakesController(
         var scopeNode = stocktake.Nodes.FirstOrDefault(n => n.StoragePlaceNodeId == nodeId);
         if (scopeNode is null)
             return NotFound(ErrorCode.StocktakeNodeNotFound, "Storage node is not part of this stocktake.");
+
+        // The counted-twice check reads other stocktakes, so two documents claiming one serial wait for each
+        // other; keyed by number, since a surplus serial may have no inventory row to lock.
+        await locks.LockKeysAsync("stocktake-unit", items
+            .Where(i => i.Kind == StocktakeItemKind.Unit)
+            .Select(i => i.InventoryNumber?.Trim())
+            .OfType<string>()
+            .Where(n => n.Length > 0), ct);
 
         var validation = await ValidateNodeItemsAsync(stocktake, nodeId, items, ct);
         if (validation is not null) return validation;
@@ -864,13 +891,16 @@ public class StocktakesController(
     /// <c>stocktakeInvalidStatusTransition</c> from any other status; 422 <c>validationError</c> on
     /// <c>plannedDate</c> when the document is not <c>Scheduled</c> or has no planned date; 422
     /// <c>stocktakeHasNoNodes</c> when the scope is empty; 403 <c>permissionDenied</c> /
-    /// <c>stocktakeNotAssignedToWarehouse</c> (edit access).
+    /// <c>stocktakeNotAssignedToWarehouse</c> (edit access);
+    /// 409 <c>entityLocked</c> when another request is changing the stocktake — nothing was written.
     /// </remarks>
+    [LocksEntity<Stocktake>]
     [HttpPost("{id:guid}/schedule")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> Schedule(Guid id, CancellationToken ct = default) =>
         TransitionAsync(id, StocktakeTransition.Schedule, ct);
 
@@ -878,13 +908,16 @@ public class StocktakesController(
     /// <remarks>
     /// Planned status only. Errors: 404 <c>stocktakeNotFound</c>; 422
     /// <c>stocktakeInvalidStatusTransition</c> from any other status; 403 <c>permissionDenied</c> /
-    /// <c>stocktakeNotAssignedToWarehouse</c> (edit access).
+    /// <c>stocktakeNotAssignedToWarehouse</c> (edit access);
+    /// 409 <c>entityLocked</c> when another request is changing the stocktake — nothing was written.
     /// </remarks>
+    [LocksEntity<Stocktake>]
     [HttpPost("{id:guid}/to-draft")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> ToDraft(Guid id, CancellationToken ct = default) =>
         TransitionAsync(id, StocktakeTransition.ToDraft, ct);
 
@@ -894,13 +927,16 @@ public class StocktakesController(
     /// <c>stocktakeInvalidStatusTransition</c> from any other status; 422 <c>stocktakeHasNoNodes</c> when the
     /// scope is empty; 422 <c>stocktakeNodeAlreadyInProgress</c> when a cell in scope is already being counted
     /// in another InProgress stocktake, <c>args: { nodeId }</c>; 403 <c>permissionDenied</c> /
-    /// <c>stocktakeNotAssignedToWarehouse</c> (edit access).
+    /// <c>stocktakeNotAssignedToWarehouse</c> (edit access);
+    /// 409 <c>entityLocked</c> when another request is changing the stocktake — nothing was written.
     /// </remarks>
+    [LocksEntity<Stocktake>]
     [HttpPost("{id:guid}/start")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> Start(Guid id, CancellationToken ct = default) =>
         TransitionAsync(id, StocktakeTransition.Start, ct);
 
@@ -908,13 +944,16 @@ public class StocktakesController(
     /// <remarks>
     /// InProgress status only. Errors: 404 <c>stocktakeNotFound</c>; 422
     /// <c>stocktakeInvalidStatusTransition</c> from any other status; 403 <c>permissionDenied</c> /
-    /// <c>stocktakeNotAssignedToWarehouse</c> (edit access).
+    /// <c>stocktakeNotAssignedToWarehouse</c> (edit access);
+    /// 409 <c>entityLocked</c> when another request is changing the stocktake — nothing was written.
     /// </remarks>
+    [LocksEntity<Stocktake>]
     [HttpPost("{id:guid}/revert")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> Revert(Guid id, CancellationToken ct = default) =>
         TransitionAsync(id, StocktakeTransition.Revert, ct);
 
@@ -922,13 +961,15 @@ public class StocktakesController(
     /// <remarks>
     /// Errors: 404 <c>stocktakeNotFound</c>; 422 <c>stocktakeInvalidStatusTransition</c> from a terminal
     /// status (Finished or Canceled); 403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c>
-    /// (edit access).
+    /// (edit access); 409 <c>entityLocked</c> when another request is changing the stocktake — nothing was written.
     /// </remarks>
+    [LocksEntity<Stocktake>]
     [HttpPost("{id:guid}/cancel")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> Cancel(Guid id, CancellationToken ct = default) =>
         TransitionAsync(id, StocktakeTransition.Cancel, ct);
 
@@ -945,12 +986,15 @@ public class StocktakesController(
     /// always 200 with <c>DocumentBatchTransitionResponse</c> — successful ids in <c>transitionedIds</c>, the rest
     /// in <c>failedItems</c> as <c>{ id, number, error }</c>. A stocktake that does not exist or lies outside the
     /// caller's edit access fails as <c>stocktakeNotFound</c> with a null <c>number</c>.
+    /// 409 <c>entityLocked</c> when another request is changing one of the stocktakes — nothing was written.
     /// Requires <c>stocktakes.edit</c> or <c>stocktakes.edit_assigned</c>.
     /// </remarks>
+    [Transactional]
     [HttpPost("batch-transition")]
     [Authorize]
     [ProducesResponseType<DocumentBatchTransitionResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> BatchTransition(
         [FromBody] BatchStocktakeTransitionRequest request, CancellationToken ct = default)
     {
@@ -960,6 +1004,16 @@ public class StocktakesController(
         if (request.Transition == StocktakeTransition.Finish)
             return UnprocessableEntity("transition", ErrorCode.ValidationError,
                 "Stocktakes cannot be finished in a batch.");
+
+        await locks.LockManyAsync<Stocktake>(request.Ids, ct);
+
+        // Each Start locks its own cells; taking every cell of the batch up front in one sorted pass keeps two
+        // batches over crossing cells from locking them in opposite orders.
+        if (request.Transition == StocktakeTransition.Start)
+            await locks.LockManyAsync<StoragePlaceNode>(await db.StocktakeNodes
+                .Where(n => request.Ids.Contains(n.StocktakeId))
+                .Select(n => n.StoragePlaceNodeId)
+                .ToListAsync(ct), ct);
 
         var editable = stocktakes.WithDetails(await Rule.QueryAsync(User, AccessLevel.Edit, ct), includeItems: true);
 
@@ -982,18 +1036,23 @@ public class StocktakesController(
     /// stocktake does not exist or lies outside the caller's edit access — args <c>count</c> (every rejected id)
     /// and <c>stocktakeNumbers</c> (only those the caller can view, ascending). Stocktakes that already have (or
     /// already lack) the tag are left untouched and get no changelog entry. Answers 204.
+    /// 409 <c>entityLocked</c> when another request is changing one of the stocktakes — nothing was written.
     /// Requires <c>stocktakes.edit</c> or <c>stocktakes.edit_assigned</c>.
     /// </remarks>
+    [Transactional]
     [HttpPost("batch-update-tags")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> BatchUpdateTags(
         [FromBody] BatchUpdateTagsRequest request, CancellationToken ct = default)
     {
         if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
             return error;
+
+        await locks.LockManyAsync<Stocktake>(request.Ids, ct);
 
         var problem = await batch.UpdateTagsAsync(
             stocktakes.WithDetails(await Rule.QueryAsync(User, AccessLevel.Edit, ct), includeItems: true),
@@ -1088,13 +1147,16 @@ public class StocktakesController(
     ///   <item>422 <c>unitInventoryItemNumberDuplicate</c> — a surplus serial lost the race against the unique
     ///     index (field <c>inventoryNumber</c>)</item>
     ///   <item>403 <c>permissionDenied</c> / <c>stocktakeNotAssignedToWarehouse</c> (edit access)</item>
+    ///   <item>409 <c>entityLocked</c> — another request is changing the stocktake; nothing was written</item>
     /// </list>
     /// </remarks>
+    [LocksEntity<Stocktake>]
     [HttpPost("{id:guid}/finish")]
     [Authorize]
     [ProducesResponseType<StocktakeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> Finish(Guid id, CancellationToken ct = default) =>
         TransitionAsync(id, StocktakeTransition.Finish, ct);
 }

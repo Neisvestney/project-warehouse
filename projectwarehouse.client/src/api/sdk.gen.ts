@@ -1690,7 +1690,8 @@ export const marketplaceAutoMapRulesCreateRule = <ThrowOnError extends boolean =
 /**
  * Delete an auto-mapping rule. Cards it already mapped keep their mapping.
  *
- * 404 `marketplaceAutoMapRuleNotFound` when the rule is gone. Requires `integrations.map`.
+ * 404 `marketplaceAutoMapRuleNotFound` when the rule is gone, 409 `entityLocked` while another
+ * request is changing it. Requires `integrations.map`.
  */
 export const marketplaceAutoMapRulesDeleteRule = <ThrowOnError extends boolean = false>(
   options: Options<MarketplaceAutoMapRulesDeleteRuleData, ThrowOnError>,
@@ -1708,8 +1709,8 @@ export const marketplaceAutoMapRulesDeleteRule = <ThrowOnError extends boolean =
 /**
  * Update an auto-mapping rule.
  *
- * 404 `marketplaceAutoMapRuleNotFound` when the rule is gone, plus the same 422 codes as creation.
- * Requires `integrations.map`.
+ * 404 `marketplaceAutoMapRuleNotFound` when the rule is gone, plus the same 422 codes as creation;
+ * 409 `entityLocked` while another request is changing the rule. Requires `integrations.map`.
  */
 export const marketplaceAutoMapRulesUpdateRule = <ThrowOnError extends boolean = false>(
   options: Options<MarketplaceAutoMapRulesUpdateRuleData, ThrowOnError>,
@@ -1804,6 +1805,7 @@ export const marketplacesGetAccountsShort = <ThrowOnError extends boolean = fals
  *
  * Returns 404 `marketplaceAccountNotFound`, or 409 `marketplaceAccountHasOrders` when any
  * posting was imported through it — those orders are warehouse history and outlive the connection.
+ * 409 `entityLocked` when another request is changing the account; nothing was written.
  * Requires `integrations.edit`.
  */
 export const marketplacesDeleteAccount = <ThrowOnError extends boolean = false>(
@@ -1841,6 +1843,7 @@ export const marketplacesGetAccount = <ThrowOnError extends boolean = false>(
  *     The account type is fixed at creation and is not part of the request. Errors:
  * * 404 marketplaceAccountNotFound
  * * 422 marketplaceClientIdRequired on clientId — the provider declares requiresClientId and none was supplied
+ * * 409 entityLocked — another request is changing the account; nothing was written
  * The new key is not verified here — use `POST accounts/{id}/test-connection` for that.
  * Requires `integrations.edit`.
  */
@@ -1872,6 +1875,7 @@ export const marketplacesUpdateAccount = <ThrowOnError extends boolean = false>(
  * when none has that INN; an account without an INN is left unlinked. Errors:
  * * 404 marketplaceAccountNotFound
  * * 422 organizationNotFound on organizationId
+ * * 409 entityLocked — another request is changing the account or the organization; nothing was written
  * Requires `organizations.edit`.
  */
 export const marketplacesSetAccountOrganization = <ThrowOnError extends boolean = false>(
@@ -2120,6 +2124,7 @@ export const marketplacesGetWarehouses = <ThrowOnError extends boolean = false>(
  *     Body: `SetWarehouseMappingRequest` — `warehouseId` (null clears). Errors:
  * * 404 marketplaceWarehouseNotFound
  * * 422 warehouseNotFound on warehouseId — no WMS warehouse with that id
+ * * 409 entityLocked — another request is changing the marketplace warehouse; nothing was written
  * Requires `integrations.map`.
  */
 export const marketplacesSetWarehouseMapping = <ThrowOnError extends boolean = false>(
@@ -2169,6 +2174,7 @@ export const marketplacesGetCards = <ThrowOnError extends boolean = false>(
  * * 422 catalogItemNotFound on catalogItemId
  * * 422 marketplaceCardMappingTypeNotAllowed on catalogItemId — the target is a ProductGroup
  * * 422 marketplaceCardMappingArchivedItem on catalogItemId — the target is archived
+ * * 409 entityLocked — another request is changing the card or one of the orders it rebinds; nothing was written
  * The archive check only applies when setting a mapping: an item archived afterwards keeps it.
  * Clearing (`catalogItemId: null`) skips all three target checks. Requires `integrations.map`.
  */
@@ -2202,7 +2208,8 @@ export const marketplacesSetCardMapping = <ThrowOnError extends boolean = false>
  * linked to the line. Lines of unmapped cards and non-external orders are never touched. The response
  * groups the moved lines by card and the catalog item they leave. Errors: 422 `tooShort` /
  * `tooLong` on `accountIds`, 404 `marketplaceAccountNotFound` when any id matches no account
- * (nothing is applied). Requires `integrations.map`.
+ * (nothing is applied), 409 `entityLocked` when another request is changing one of the accounts, their
+ * cards or the affected orders (nothing is applied). Requires `integrations.map`.
  */
 export const marketplacesRebindExternalOrders = <ThrowOnError extends boolean = false>(
   options: Options<MarketplacesRebindExternalOrdersData, ThrowOnError>,
@@ -2233,8 +2240,9 @@ export const marketplacesRebindExternalOrders = <ThrowOnError extends boolean = 
  * (compute without saving). Unmapped active cards are always in scope; archived cards never are.
  * The response lists only cards whose mapping changes, ordered by account and offer id.
  * Errors: 422 `tooShort` / `tooLong` on `accountIds`, 404 `marketplaceAccountNotFound`
- * when any id matches no account (nothing is applied), 403 `permissionDenied`.
- * Requires `integrations.map`.
+ * when any id matches no account (nothing is applied), 409 `entityLocked` when another request is
+ * changing one of the accounts, their cards or the affected orders (nothing is applied),
+ * 403 `permissionDenied`. Requires `integrations.map`.
  */
 export const marketplacesAutoMapCards = <ThrowOnError extends boolean = false>(
   options: Options<MarketplacesAutoMapCardsData, ThrowOnError>,
@@ -2379,7 +2387,8 @@ export const ordersGetAssemblyById = <ThrowOnError extends boolean = false>(
 /**
  * Delete an order. Only allowed in Draft status.
  *
- * Returns 422 `orderNotDraft` for any other status, 404 `orderNotFound` if it does not exist.
+ * Returns 422 `orderNotDraft` for any other status, 404 `orderNotFound` if it does not exist,
+ * 409 `entityLocked` when another request is changing the order — nothing was written.
  * Requires `orders.edit` or `orders.edit_assigned`.
  */
 export const ordersDelete = <ThrowOnError extends boolean = false>(
@@ -2410,7 +2419,8 @@ export const ordersGetById = <ThrowOnError extends boolean = false>(
  *
  * Body: `UpdateOrderRequest` — only `notes` and `plannedShipmentAt` are writable here;
  * composition and status are changed through their own endpoints. Allowed in any status.
- * Returns 404 `orderNotFound`. Requires `orders.edit` or `orders.edit_assigned`.
+ * Returns 404 `orderNotFound`, 409 `entityLocked` when another request is changing the order —
+ * nothing was written. Requires `orders.edit` or `orders.edit_assigned`.
  */
 export const ordersUpdate = <ThrowOnError extends boolean = false>(
   options: Options<OrdersUpdateData, ThrowOnError>,
@@ -2472,7 +2482,8 @@ export const ordersCreateDirect = <ThrowOnError extends boolean = false>(
  * Update the order's attachments. Allowed in any status.
  *
  * Returns 404 `orderNotFound`; 422 `dataFileNotFound` (field `attachments`) for an
- * unknown attachment id. Requires `orders.edit` or `orders.edit_assigned`.
+ * unknown attachment id; 409 `entityLocked` when another request is changing the order — nothing
+ * was written. Requires `orders.edit` or `orders.edit_assigned`.
  */
 export const ordersUpdateAttachments = <ThrowOnError extends boolean = false>(
   options: Options<OrdersUpdateAttachmentsData, ThrowOnError>,
@@ -2494,7 +2505,8 @@ export const ordersUpdateAttachments = <ThrowOnError extends boolean = false>(
  * Replace the order's tags. Allowed in any status.
  *
  * Body: `UpdateTagsRequest` — the full tag id set; unknown ids are ignored. Returns 404
- * `orderNotFound`. Requires `orders.edit` or `orders.edit_assigned`.
+ * `orderNotFound`, 409 `entityLocked` when another request is changing the order — nothing
+ * was written. Requires `orders.edit` or `orders.edit_assigned`.
  */
 export const ordersUpdateTags = <ThrowOnError extends boolean = false>(
   options: Options<OrdersUpdateTagsData, ThrowOnError>,
@@ -2533,7 +2545,8 @@ export const ordersUpdateTags = <ThrowOnError extends boolean = false>(
  * while any fulfillment still exists. Leaving Canceled deletes the assembly tasks the order kept from
  * before it was canceled. Returns 404 `orderNotFound`, 409 `inventoryWriteConflict`
  * when the inventory restored by Assembly → Confirmed loses to concurrent stock writes — nothing was
- * written and the request can be repeated.
+ * written and the request can be repeated; 409 `entityLocked` when another request is changing the
+ * order — nothing was written.
  * Requires `orders.edit` or `orders.edit_assigned`.
  */
 export const ordersTransitionStatus = <ThrowOnError extends boolean = false>(
@@ -2559,7 +2572,8 @@ export const ordersTransitionStatus = <ThrowOnError extends boolean = false>(
  * `orderNotAssignedToWarehouse` in the latter case. The warehouse check is skipped for holders of the
  * unscoped `orders.view`, who see every order anyway. Returns 422 `orderNotConfirmed` if the order
  * is in any other status, 422 `orderHasAssemblyTasks` if it already has assembly tasks,
- * 404 `orderNotFound` if it does not exist.
+ * 404 `orderNotFound` if it does not exist, 409 `entityLocked` when another request is changing
+ * the order — nothing was written.
  */
 export const ordersSelfAssign = <ThrowOnError extends boolean = false>(
   options: Options<OrdersSelfAssignData, ThrowOnError>,
@@ -2616,7 +2630,9 @@ export const ordersGetLabels = <ThrowOnError extends boolean = false>(
  * independently and always answers 200 with `BatchSelfAssignResponse`: successful ids in
  * `assignedOrderIds`, the rest in `failedItems` as `{ orderId, orderNumber, error }` with the
  * real error code (`orderNotFound`, `orderNotAssignedToWarehouse`, `orderNotConfirmed`, `orderHasAssemblyTasks`, …).
- * There is no transaction: already-assigned orders stay assigned when later ones fail.
+ * A business failure of one order does not undo the others: already-assigned orders stay assigned when
+ * later ones fail. 409 `entityLocked` when another request is changing one of the orders — nothing
+ * was written.
  * 403 is returned only for the request as a whole, when `orders.self_assign` is missing.
  * Holders of the unscoped `orders.view` are not narrowed to their assigned warehouses.
  * The route carries no id, so realtime change events are published explicitly for each assigned order.
@@ -2646,8 +2662,9 @@ export const ordersBatchSelfAssign = <ThrowOnError extends boolean = false>(
  * single-order `PUT /{id}/status` — and the endpoint always answers 200 with
  * `BatchTransitionStatusResponse`: successful ids in `transitionedOrderIds`, the rest in
  * `failedItems` as `{ orderId, orderNumber, error }` with the real error code (`orderNotFound`,
- * `orderInvalidStatusTransition`, …). There is no transaction: orders already transitioned stay
- * transitioned when later ones fail.
+ * `orderInvalidStatusTransition`, …). A business failure of one order does not undo the others:
+ * orders already transitioned stay transitioned when later ones fail. 409 `entityLocked` when
+ * another request is changing one of the orders — nothing was written.
  * 403 is returned only for the request as a whole, when edit access is missing entirely. An order the
  * caller cannot edit (outside their assigned warehouses) is reported as `orderNotFound` in
  * `failedItems` rather than a distinct forbidden error, matching Task&lt;(Order? order, IActionResult? error)&gt; OrdersController.LoadOrderWithEditAccessAsync(Guid id, CancellationToken ct, bool fullDetails = false)'s
@@ -2682,7 +2699,8 @@ export const ordersBatchTransitionStatus = <ThrowOnError extends boolean = false
  * `tagNotFound` (field `tagId`) for an unknown tag, 404 `orderNotFound` when any order does not
  * exist or lies outside the caller's edit access — args `count` (every rejected id) and
  * `orderNumbers` (only those the caller can view, ascending). Orders that already have (or already lack) the tag are left
- * untouched and get no changelog entry. Answers 204.
+ * untouched and get no changelog entry. Answers 204; 409 `entityLocked` when another request is
+ * changing one of the orders — nothing was written.
  * Requires `orders.edit` or `orders.edit_assigned`.
  */
 export const ordersBatchUpdateTags = <ThrowOnError extends boolean = false>(
@@ -2710,7 +2728,8 @@ export const ordersBatchUpdateTags = <ThrowOnError extends boolean = false>(
  * `orders.assemble_assigned` is enough, but in Assembly only `orders.assemble_assigned` is
  * accepted — during assembly boxes are managed by the assembler, not the admin page.
  * Callers without the unscoped `orders.edit` must be assigned to the order's warehouse
- * (403 `orderNotAssignedToWarehouse`). Returns 404 `orderNotFound`.
+ * (403 `orderNotAssignedToWarehouse`). Returns 404 `orderNotFound`, 409 `entityLocked` when
+ * another request is changing the order — nothing was written.
  */
 export const ordersAddBox = <ThrowOnError extends boolean = false>(
   options: Options<OrdersAddBoxData, ThrowOnError>,
@@ -2728,7 +2747,8 @@ export const ordersAddBox = <ThrowOnError extends boolean = false>(
  * Delete a box. Only an empty box can be deleted.
  *
  * Returns 422 `validationError` if the box still has components, 404 `orderNotFound` or
- * `orderBoxNotFound`.
+ * `orderBoxNotFound`, 409 `entityLocked` when another request is changing the order — nothing
+ * was written.
  * Requires `orders.edit` / `orders.edit_assigned` or `orders.assemble_assigned`; while the
  * order is in Assembly only `orders.assemble_assigned` is accepted.
  */
@@ -2745,7 +2765,8 @@ export const ordersRemoveBox = <ThrowOnError extends boolean = false>(
  *
  * Body: `UpdateOrderBoxRequest` — `label`; the box contents are not touched, and no status
  * restriction applies (the label stays editable even during Assembly).
- * Returns 404 `orderNotFound` or `orderBoxNotFound`.
+ * Returns 404 `orderNotFound` or `orderBoxNotFound`, 409 `entityLocked` when another
+ * request is changing the order — nothing was written.
  * Requires `orders.edit` or `orders.edit_assigned`.
  */
 export const ordersUpdateBox = <ThrowOnError extends boolean = false>(
@@ -2766,7 +2787,8 @@ export const ordersUpdateBox = <ThrowOnError extends boolean = false>(
  * Body: `UpsertOrderBoxComponentRequest` — `catalogItemId`, `quantity`. Upsert: an existing
  * component for the same catalog item has its quantity replaced rather than summed.
  * Allowed only in Draft or Confirmed — otherwise 422 `orderInvalidStatusTransition`.
- * Returns 422 `catalogItemNotFound`, 404 `orderNotFound` or `orderBoxNotFound`.
+ * Returns 422 `catalogItemNotFound`, 404 `orderNotFound` or `orderBoxNotFound`, 409
+ * `entityLocked` when another request is changing the order — nothing was written.
  * Requires `orders.edit` or `orders.edit_assigned`.
  */
 export const ordersAddComponent = <ThrowOnError extends boolean = false>(
@@ -2789,7 +2811,8 @@ export const ordersAddComponent = <ThrowOnError extends boolean = false>(
  * Remove a component from a box.
  *
  * Allowed only in Draft or Confirmed — otherwise 422 `orderInvalidStatusTransition`.
- * Returns 404 `orderNotFound` or `orderBoxComponentNotFound`.
+ * Returns 404 `orderNotFound` or `orderBoxComponentNotFound`, 409 `entityLocked` when
+ * another request is changing the order — nothing was written.
  * Requires `orders.edit` or `orders.edit_assigned`.
  */
 export const ordersRemoveComponent = <ThrowOnError extends boolean = false>(
@@ -2806,7 +2829,8 @@ export const ordersRemoveComponent = <ThrowOnError extends boolean = false>(
  *
  * Body: `UpsertOrderBoxComponentRequest`. Allowed only in Draft or Confirmed — otherwise 422
  * `orderInvalidStatusTransition`. Returns 422 `catalogItemNotFound` when switching to an unknown
- * item, 404 `orderNotFound`, `orderBoxNotFound` or `orderBoxComponentNotFound`.
+ * item, 404 `orderNotFound`, `orderBoxNotFound` or `orderBoxComponentNotFound`, 409
+ * `entityLocked` when another request is changing the order — nothing was written.
  * Requires `orders.edit` or `orders.edit_assigned`.
  */
 export const ordersUpdateComponent = <ThrowOnError extends boolean = false>(
@@ -2835,7 +2859,8 @@ export const ordersUpdateComponent = <ThrowOnError extends boolean = false>(
  * Errors: 422 `orderNotAssembly` if the order is not in Assembly, 422 `orderBoxNotFound` for a box
  * outside this order, 422 `orderBoxComponentNotFound` for an item absent from the box, 422
  * `assemblyTaskQuantityExceedsAvailable` when the requested quantity exceeds what other tasks left
- * free. Returns 404 `orderNotFound`.
+ * free. Returns 404 `orderNotFound`, 409 `entityLocked` when another request is changing the
+ * order — nothing was written.
  * Requires `orders.edit` or `orders.edit_assigned`.
  */
 export const ordersCreateAssemblyTask = <ThrowOnError extends boolean = false>(
@@ -2861,7 +2886,8 @@ export const ordersCreateAssemblyTask = <ThrowOnError extends boolean = false>(
  * Deletion cascades to the task's boxes, components and fulfillments; picked stock is returned to its source
  * nodes first. Returns 404 `orderNotFound` or `assemblyTaskNotFound`, 409
  * `inventoryWriteConflict` when returning that stock loses to concurrent writes — nothing was
- * written and the request can be repeated.
+ * written and the request can be repeated; 409 `entityLocked` when another request is changing the
+ * order — nothing was written.
  * Requires `orders.edit` or `orders.edit_assigned`.
  */
 export const ordersDeleteAssemblyTask = <ThrowOnError extends boolean = false>(
@@ -2878,7 +2904,8 @@ export const ordersDeleteAssemblyTask = <ThrowOnError extends boolean = false>(
  *
  * Body: `UpdateAssemblyTaskRequest` — `assignedToId`; the task's boxes and components are not
  * changed here. Returns 422 `assemblyTaskAlreadyDone` once the task is `Done`, 404
- * `orderNotFound` or `assemblyTaskNotFound`.
+ * `orderNotFound` or `assemblyTaskNotFound`, 409 `entityLocked` when another request is
+ * changing the order — nothing was written.
  * Requires `orders.edit` or `orders.edit_assigned`.
  */
 export const ordersUpdateAssemblyTask = <ThrowOnError extends boolean = false>(
@@ -2912,7 +2939,8 @@ export const ordersUpdateAssemblyTask = <ThrowOnError extends boolean = false>(
  * left unfulfilled, but the order then stays in `Assembly` until the shortfall is fulfilled and the
  * check re-runs on a later task transition. Rolling a task back out of Done while the order is
  * `Assembled` moves the order back to `Assembly`.
- * Returns 404 `orderNotFound` or `assemblyTaskNotFound`.
+ * Returns 404 `orderNotFound` or `assemblyTaskNotFound`, 409 `entityLocked` when another
+ * request is changing the order — nothing was written.
  * Requires `orders.assemble_assigned`, `orders.edit` or `orders.edit_assigned`, plus an
  * assignment to the order's warehouse in every case (403 `orderNotAssignedToWarehouse`).
  */
@@ -2943,7 +2971,8 @@ export const ordersTransitionTaskStatus = <ThrowOnError extends boolean = false>
  * while assembly is running: allowed only in Assembly status, otherwise 422 `orderNotAssembly`.
  * The new quantity may not exceed what the order box has left after the other tasks' allocations (this
  * task's own current value is excluded from that sum) — 422 `assemblyTaskQuantityExceedsAvailable`.
- * Returns 404 `orderNotFound` or `assemblyTaskBoxComponentNotFound`.
+ * Returns 404 `orderNotFound` or `assemblyTaskBoxComponentNotFound`, 409 `entityLocked`
+ * when another request is changing the order — nothing was written.
  * Requires `orders.edit` or `orders.edit_assigned`.
  */
 export const ordersUpdateTaskBoxComponent = <ThrowOnError extends boolean = false>(
@@ -2996,7 +3025,8 @@ export const ordersGetTaskMoveTargets = <ThrowOnError extends boolean = false>(
  * `outOfRange` otherwise. A task box left empty by the move is deleted.
  * Further errors: 422 `orderBoxNotFound` for a target box that does not exist or belongs to another
  * order, 422 `validationError` if the target equals the source box, 422 `orderNotAssembly`
- * outside Assembly status, 404 `orderNotFound` or `assemblyTaskBoxComponentNotFound`.
+ * outside Assembly status, 404 `orderNotFound` or `assemblyTaskBoxComponentNotFound`, 409
+ * `entityLocked` when another request is changing the order — nothing was written.
  * Requires `orders.assemble_assigned` and an assignment to the order's warehouse; `orders.edit`
  * alone gets 403.
  */
@@ -3034,7 +3064,8 @@ export const ordersMoveTaskComponent = <ThrowOnError extends boolean = false>(
  * `unitInventoryItemNotFound`, `inventoryItemNodeMismatch`, `catalogItemNotFound`,
  * 422 `orderNotAssembly` outside Assembly status, 404 `orderNotFound` or
  * `assemblyTaskBoxComponentNotFound`, 409 `inventoryWriteConflict` when concurrent stock writes
- * outlast the retry budget — nothing was written and the request can be repeated.
+ * outlast the retry budget — nothing was written and the request can be repeated; 409
+ * `entityLocked` when another request is changing the order — nothing was written.
  * Requires `orders.assemble_assigned`, `orders.edit` or `orders.edit_assigned`, plus an
  * assignment to the order's warehouse in every case.
  */
@@ -3061,7 +3092,8 @@ export const ordersAddFulfillment = <ThrowOnError extends boolean = false>(
  * leaf. No status guard: this works whatever status the order is in.
  * Returns 404 `orderNotFound` or `assemblyFulfillmentNotFound` (the fulfillment must belong to the
  * component, task box and task named in the route), 409 `inventoryWriteConflict` when concurrent stock
- * writes outlast the retry budget — nothing was returned and the request can be repeated.
+ * writes outlast the retry budget — nothing was returned and the request can be repeated; 409
+ * `entityLocked` when another request is changing the order — nothing was written.
  * Requires `orders.assemble_assigned`, `orders.edit` or `orders.edit_assigned`, plus an
  * assignment to the order's warehouse in every case.
  */
@@ -3092,10 +3124,11 @@ export const ordersRemoveFulfillment = <ThrowOnError extends boolean = false>(
  * …). Alongside it `insufficientInventoryErrors` folds just the `insufficientInventory` failures
  * per catalog item and storage node into one `AppFieldError` each, summing the demand. Both lists
  * report what went wrong, not what survived, so a rollback leaves them untouched.
- * With `allowPartialSuccess: true` successful items are committed and stay committed; there is no
- * overall transaction. With `false` the whole batch runs in one transaction: every item is still
- * attempted so `failedItems` comes back complete, but a single failure rolls back every fulfillment
- * and task transition of the request, empties `completedTaskIds` and publishes no change events.
+ * With `allowPartialSuccess: true` successful items are committed and a failed item undoes only
+ * itself. With `false` every item is still attempted so `failedItems` comes back complete, but
+ * a single failure rolls back every fulfillment and task transition of the request, empties
+ * `completedTaskIds` and publishes no change events.
+ * 409 `entityLocked` when another request is changing one of the orders — nothing was written.
  * With `autoCompleteTasks: false` task statuses are never touched and `completedTaskIds` comes back
  * empty. With `true`, every touched task is advanced Pending → InProgress, and InProgress → Done only
  * when all of its components are fully fulfilled; only genuinely completed tasks are listed in
@@ -3181,7 +3214,8 @@ export const organizationsGetShort = <ThrowOnError extends boolean = false>(
  * Deletes an organization that no account is linked to.
  *
  * Returns 404 `organizationNotFound`, or 409 `organizationHasAccounts` while any marketplace
- * account is linked to it. Requires `organizations.edit`.
+ * account is linked to it, or 409 `entityLocked` while another request is changing it.
+ * Requires `organizations.edit`.
  */
 export const organizationsDelete = <ThrowOnError extends boolean = false>(
   options: Options<OrganizationsDeleteData, ThrowOnError>,
@@ -3213,6 +3247,7 @@ export const organizationsGetById = <ThrowOnError extends boolean = false>(
  * * 404 organizationNotFound
  * * 422 organizationInnInvalid on inn — not 10 or 12 digits
  * * 422 organizationInnDuplicate on inn — another organization has this INN
+ * * 409 entityLocked — another request is changing the organization; nothing was written
  * Requires `organizations.edit`.
  */
 export const organizationsUpdate = <ThrowOnError extends boolean = false>(
@@ -3440,7 +3475,8 @@ export const receiptsCreate = <ThrowOnError extends boolean = false>(
  * Delete a receipt. Only allowed in Draft status.
  *
  * Requires the full `receipts.edit` permission — `receipts.edit_assigned` does not delete.
- * Errors: 404 `receiptNotFound`; 422 `receiptInvalidStatusTransition` outside Draft status.
+ * Errors: 404 `receiptNotFound`; 422 `receiptInvalidStatusTransition` outside Draft status;
+ * 409 `entityLocked` when another request is changing the receipt — nothing was written.
  */
 export const receiptsDelete = <ThrowOnError extends boolean = false>(
   options: Options<ReceiptsDeleteData, ThrowOnError>,
@@ -3470,7 +3506,8 @@ export const receiptsGetById = <ThrowOnError extends boolean = false>(
  * Update receipt name, reason, notes. Only allowed in Draft status.
  *
  * Errors: 404 `receiptNotFound`; 422 `receiptInvalidStatusTransition` outside Draft status;
- * 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit access).
+ * 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit access);
+ * 409 `entityLocked` when another request is changing the receipt — nothing was written.
  */
 export const receiptsUpdate = <ThrowOnError extends boolean = false>(
   options: Options<ReceiptsUpdateData, ThrowOnError>,
@@ -3488,7 +3525,8 @@ export const receiptsUpdate = <ThrowOnError extends boolean = false>(
  * Replace the receipt's tags. Allowed in any status.
  *
  * Body: `UpdateTagsRequest` — the full tag id set; unknown ids are ignored. Errors: 404
- * `receiptNotFound`; 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit access).
+ * `receiptNotFound`; 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit access);
+ * 409 `entityLocked` when another request is changing the receipt — nothing was written.
  */
 export const receiptsUpdateTags = <ThrowOnError extends boolean = false>(
   options: Options<ReceiptsUpdateTagsData, ThrowOnError>,
@@ -3511,7 +3549,7 @@ export const receiptsUpdateTags = <ThrowOnError extends boolean = false>(
  *
  * Errors: 404 `receiptNotFound`; 422 `dataFileNotFound` (field `attachments`) for an
  * unknown attachment id; 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit
- * access).
+ * access); 409 `entityLocked` when another request is changing the receipt — nothing was written.
  */
 export const receiptsUpdateAttachments = <ThrowOnError extends boolean = false>(
   options: Options<ReceiptsUpdateAttachmentsData, ThrowOnError>,
@@ -3547,6 +3585,7 @@ export const receiptsUpdateAttachments = <ThrowOnError extends boolean = false>(
  * in the receipt
  * * 403 permissionDenied (neither permission), 403 receiptNotAssignedToWarehouse
  * (operator, other warehouse), 401 tokenInvalid
+ * * 409 entityLocked — another request is changing the receipt; nothing was written
  */
 export const receiptsQuickAddItem = <ThrowOnError extends boolean = false>(
   options: Options<ReceiptsQuickAddItemData, ThrowOnError>,
@@ -3570,7 +3609,8 @@ export const receiptsQuickAddItem = <ThrowOnError extends boolean = false>(
  * Errors: 404 `receiptNotFound`; 422 `receiptInvalidStatusTransition` outside Draft or Planned;
  * 422 `validationError` for a `catalogItemId` repeated in the request; 422
  * `catalogItemNotFound` for an unknown catalog item; 403 `permissionDenied` /
- * `receiptNotAssignedToWarehouse` (edit access).
+ * `receiptNotAssignedToWarehouse` (edit access);
+ * 409 `entityLocked` when another request is changing the receipt — nothing was written.
  */
 export const receiptsSyncItems = <ThrowOnError extends boolean = false>(
   options: Options<ReceiptsSyncItemsData, ThrowOnError>,
@@ -3592,7 +3632,8 @@ export const receiptsSyncItems = <ThrowOnError extends boolean = false>(
  * Requires `receipts.edit` or `receipts.process_assigned`. Errors: 404
  * `receiptNotFound`; 404 `receiptItemNotFound` when the item does not belong to this receipt;
  * 422 `receiptInvalidStatusTransition` outside Processing; 403 `permissionDenied` /
- * `receiptNotAssignedToWarehouse`; 401 `tokenInvalid`.
+ * `receiptNotAssignedToWarehouse`; 401 `tokenInvalid`;
+ * 409 `entityLocked` when another request is changing the receipt — nothing was written.
  */
 export const receiptsUpdateReceivedCount = <ThrowOnError extends boolean = false>(
   options: Options<ReceiptsUpdateReceivedCountData, ThrowOnError>,
@@ -3621,7 +3662,8 @@ export const receiptsUpdateReceivedCount = <ThrowOnError extends boolean = false
  * placement row are written in one transaction. Errors: 404 `receiptNotFound`; 404
  * `receiptItemNotFound`; 422 `receiptInvalidStatusTransition` outside Processing; 422
  * `storagePlaceNodeNotFound` for an unknown `storagePlaceNodeId`; 403
- * `permissionDenied` / `receiptNotAssignedToWarehouse`; 401 `tokenInvalid`.
+ * `permissionDenied` / `receiptNotAssignedToWarehouse`; 401 `tokenInvalid`;
+ * 409 `entityLocked` when another request is changing the receipt — nothing was written.
  */
 export const receiptsAddStandardPlacement = <ThrowOnError extends boolean = false>(
   options: Options<ReceiptsAddStandardPlacementData, ThrowOnError>,
@@ -3654,6 +3696,7 @@ export const receiptsAddStandardPlacement = <ThrowOnError extends boolean = fals
  * * 422 validationError — an itemId repeated in the request, or an item whose catalog
  * type is not Standard
  * * 403 permissionDenied / receiptNotAssignedToWarehouse; 401 tokenInvalid
+ * * 409 entityLocked — another request is changing the receipt; nothing was written
  */
 export const receiptsAddStandardPlacementBatch = <ThrowOnError extends boolean = false>(
   options: Options<ReceiptsAddStandardPlacementBatchData, ThrowOnError>,
@@ -3689,6 +3732,7 @@ export const receiptsAddStandardPlacementBatch = <ThrowOnError extends boolean =
  * the warehouse
  * * 422 receiptNothingToAutoAccept — no Standard item needs a count or a placement
  * * 403 permissionDenied / receiptNotAssignedToWarehouse; 401 tokenInvalid
+ * * 409 entityLocked — another request is changing the receipt; nothing was written
  */
 export const receiptsAutoAccept = <ThrowOnError extends boolean = false>(
   options: Options<ReceiptsAutoAcceptData, ThrowOnError>,
@@ -3707,7 +3751,8 @@ export const receiptsAutoAccept = <ThrowOnError extends boolean = false>(
  * `receiptInvalidStatusTransition` outside Processing; 422 `storagePlaceNodeNotFound`; 422
  * `unitInventoryItemNumberDuplicate` on field `inventoryNumber` when the number is already used
  * for this catalog item — raised by the soft check, and again by the unique index when two requests race;
- * 403 `permissionDenied` / `receiptNotAssignedToWarehouse`; 401 `tokenInvalid`.
+ * 403 `permissionDenied` / `receiptNotAssignedToWarehouse`; 401 `tokenInvalid`;
+ * 409 `entityLocked` when another request is changing the receipt — nothing was written.
  */
 export const receiptsAddUnitPlacement = <ThrowOnError extends boolean = false>(
   options: Options<ReceiptsAddUnitPlacementData, ThrowOnError>,
@@ -3740,6 +3785,7 @@ export const receiptsAddUnitPlacement = <ThrowOnError extends boolean = false>(
  * * 409 inventoryWriteConflict — concurrent stock writes outlasted the retry budget;
  * nothing was written and the request can be repeated
  * * 403 permissionDenied / receiptNotAssignedToWarehouse; 401 tokenInvalid
+ * * 409 entityLocked — another request is changing the receipt; nothing was written
  */
 export const receiptsDeletePlacement = <ThrowOnError extends boolean = false>(
   options: Options<ReceiptsDeletePlacementData, ThrowOnError>,
@@ -3754,7 +3800,8 @@ export const receiptsDeletePlacement = <ThrowOnError extends boolean = false>(
  * Transition: Draft → Planned.
  *
  * Draft status only. Errors: 404 `receiptNotFound`; 422 `receiptInvalidStatusTransition` from
- * any other status; 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit access).
+ * any other status; 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit access);
+ * 409 `entityLocked` when another request is changing the receipt — nothing was written.
  */
 export const receiptsPlan = <ThrowOnError extends boolean = false>(
   options: Options<ReceiptsPlanData, ThrowOnError>,
@@ -3768,7 +3815,8 @@ export const receiptsPlan = <ThrowOnError extends boolean = false>(
  * Transition: Planned → Processing.
  *
  * Planned status only. Errors: 404 `receiptNotFound`; 422 `receiptInvalidStatusTransition` from
- * any other status; 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit access).
+ * any other status; 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit access);
+ * 409 `entityLocked` when another request is changing the receipt — nothing was written.
  */
 export const receiptsStartProcessing = <ThrowOnError extends boolean = false>(
   options: Options<ReceiptsStartProcessingData, ThrowOnError>,
@@ -3786,7 +3834,8 @@ export const receiptsStartProcessing = <ThrowOnError extends boolean = false>(
  * `receiptNotFound`; 422 `receiptInvalidStatusTransition` from any other status; 422
  * `receiptItemsUnderplaced` when an item has fewer placed units than received; 422
  * `receiptItemsOverplaced` when it has more; 403 `permissionDenied` /
- * `receiptNotAssignedToWarehouse` (edit access).
+ * `receiptNotAssignedToWarehouse` (edit access);
+ * 409 `entityLocked` when another request is changing the receipt — nothing was written.
  */
 export const receiptsFinish = <ThrowOnError extends boolean = false>(
   options: Options<ReceiptsFinishData, ThrowOnError>,
@@ -3802,7 +3851,8 @@ export const receiptsFinish = <ThrowOnError extends boolean = false>(
  * Finished reverts to Processing. Errors: 404 `receiptNotFound`; 422 `receiptHasPlacements`
  * when reverting from Processing while items still have placements; 422
  * `receiptInvalidStatusTransition` from Draft or Canceled; 403 `permissionDenied` /
- * `receiptNotAssignedToWarehouse` (edit access).
+ * `receiptNotAssignedToWarehouse` (edit access);
+ * 409 `entityLocked` when another request is changing the receipt — nothing was written.
  */
 export const receiptsRevert = <ThrowOnError extends boolean = false>(
   options: Options<ReceiptsRevertData, ThrowOnError>,
@@ -3817,7 +3867,8 @@ export const receiptsRevert = <ThrowOnError extends boolean = false>(
  *
  * Errors: 404 `receiptNotFound`; 422 `receiptInvalidStatusTransition` from Finished or
  * Canceled; 422 `receiptHasPlacements` when cancelling from Processing while items still have
- * placements; 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit access).
+ * placements; 403 `permissionDenied` / `receiptNotAssignedToWarehouse` (edit access);
+ * 409 `entityLocked` when another request is changing the receipt — nothing was written.
  */
 export const receiptsCancel = <ThrowOnError extends boolean = false>(
   options: Options<ReceiptsCancelData, ThrowOnError>,
@@ -3837,6 +3888,7 @@ export const receiptsCancel = <ThrowOnError extends boolean = false>(
  * is always 200 with `DocumentBatchTransitionResponse` — successful ids in `transitionedIds`,
  * the rest in `failedItems` as `{ id, number, error }`. A receipt that does not exist or lies
  * outside the caller's edit access fails as `receiptNotFound` with a null `number`.
+ * 409 `entityLocked` when another request is changing one of the receipts — nothing was written.
  * Requires `receipts.edit` or `receipts.edit_assigned`.
  */
 export const receiptsBatchTransition = <ThrowOnError extends boolean = false>(
@@ -3864,6 +3916,7 @@ export const receiptsBatchTransition = <ThrowOnError extends boolean = false>(
  * does not exist or lies outside the caller's edit access — args `count` (every rejected id) and
  * `receiptNumbers` (only those the caller can view, ascending). Receipts that already have (or already lack)
  * the tag are left untouched and get no changelog entry. Answers 204.
+ * 409 `entityLocked` when another request is changing one of the receipts — nothing was written.
  * Requires `receipts.edit` or `receipts.edit_assigned`.
  */
 export const receiptsBatchUpdateTags = <ThrowOnError extends boolean = false>(
@@ -4389,7 +4442,8 @@ export const stocktakesCreate = <ThrowOnError extends boolean = false>(
  * Delete a stocktake. Only allowed in Planned or Draft status.
  *
  * Errors: 404 `stocktakeNotFound`; 422 `stocktakeInvalidStatusTransition` outside Planned or
- * Draft; 403 `permissionDenied` / `stocktakeNotAssignedToWarehouse` (edit access).
+ * Draft; 403 `permissionDenied` / `stocktakeNotAssignedToWarehouse` (edit access);
+ * 409 `entityLocked` when another request is changing the stocktake — nothing was written.
  */
 export const stocktakesDelete = <ThrowOnError extends boolean = false>(
   options: Options<StocktakesDeleteData, ThrowOnError>,
@@ -4425,6 +4479,7 @@ export const stocktakesGetById = <ThrowOnError extends boolean = false>(
  * * 422 validationError — plannedDate sent without type, or type is
  * Scheduled with no plannedDate
  * * 403 permissionDenied / stocktakeNotAssignedToWarehouse (edit access)
+ * * 409 entityLocked — another request is changing the stocktake; nothing was written
  */
 export const stocktakesUpdate = <ThrowOnError extends boolean = false>(
   options: Options<StocktakesUpdateData, ThrowOnError>,
@@ -4445,7 +4500,7 @@ export const stocktakesUpdate = <ThrowOnError extends boolean = false>(
  *
  * Errors: 404 `stocktakeNotFound`; 422 `dataFileNotFound` (field `attachments`) for
  * an unknown attachment id; 403 `permissionDenied` / `stocktakeNotAssignedToWarehouse`
- * (edit access).
+ * (edit access); 409 `entityLocked` when another request is changing the stocktake — nothing was written.
  */
 export const stocktakesUpdateAttachments = <ThrowOnError extends boolean = false>(
   options: Options<StocktakesUpdateAttachmentsData, ThrowOnError>,
@@ -4471,7 +4526,8 @@ export const stocktakesUpdateAttachments = <ThrowOnError extends boolean = false
  * Replace the stocktake's tags. Allowed in any status.
  *
  * Body: `UpdateTagsRequest` — the full tag id set; unknown ids are ignored. Errors: 404
- * `stocktakeNotFound`; 403 `permissionDenied` / `stocktakeNotAssignedToWarehouse` (edit access).
+ * `stocktakeNotFound`; 403 `permissionDenied` / `stocktakeNotAssignedToWarehouse` (edit access);
+ * 409 `entityLocked` when another request is changing the stocktake — nothing was written.
  */
 export const stocktakesUpdateTags = <ThrowOnError extends boolean = false>(
   options: Options<StocktakesUpdateTagsData, ThrowOnError>,
@@ -4503,6 +4559,7 @@ export const stocktakesUpdateTags = <ThrowOnError extends boolean = false>(
  * already being counted in another InProgress stocktake; args: { nodeId }. A cell may sit in
  * any number of Draft or Planned scopes
  * * 403 permissionDenied / stocktakeNotAssignedToWarehouse (edit access)
+ * * 409 entityLocked — another request is changing the stocktake; nothing was written
  */
 export const stocktakesSyncNodes = <ThrowOnError extends boolean = false>(
   options: Options<StocktakesSyncNodesData, ThrowOnError>,
@@ -4554,6 +4611,7 @@ export const stocktakesGetNodeStock = <ThrowOnError extends boolean = false>(
  * stocktake (args: { inventoryNumber, stocktakeId, stocktakeNumber }) or in another cell of
  * this document (args: { inventoryNumber }). Surpluses count too
  * * 403 permissionDenied / stocktakeNotAssignedToWarehouse (edit access)
+ * * 409 entityLocked — another request is changing the stocktake; nothing was written
  */
 export const stocktakesSyncNodeItems = <ThrowOnError extends boolean = false>(
   options: Options<StocktakesSyncNodeItemsData, ThrowOnError>,
@@ -4578,7 +4636,8 @@ export const stocktakesSyncNodeItems = <ThrowOnError extends boolean = false>(
  * `stocktakeInvalidStatusTransition` from any other status; 422 `validationError` on
  * `plannedDate` when the document is not `Scheduled` or has no planned date; 422
  * `stocktakeHasNoNodes` when the scope is empty; 403 `permissionDenied` /
- * `stocktakeNotAssignedToWarehouse` (edit access).
+ * `stocktakeNotAssignedToWarehouse` (edit access);
+ * 409 `entityLocked` when another request is changing the stocktake — nothing was written.
  */
 export const stocktakesSchedule = <ThrowOnError extends boolean = false>(
   options: Options<StocktakesScheduleData, ThrowOnError>,
@@ -4594,7 +4653,8 @@ export const stocktakesSchedule = <ThrowOnError extends boolean = false>(
  *
  * Planned status only. Errors: 404 `stocktakeNotFound`; 422
  * `stocktakeInvalidStatusTransition` from any other status; 403 `permissionDenied` /
- * `stocktakeNotAssignedToWarehouse` (edit access).
+ * `stocktakeNotAssignedToWarehouse` (edit access);
+ * 409 `entityLocked` when another request is changing the stocktake — nothing was written.
  */
 export const stocktakesToDraft = <ThrowOnError extends boolean = false>(
   options: Options<StocktakesToDraftData, ThrowOnError>,
@@ -4612,7 +4672,8 @@ export const stocktakesToDraft = <ThrowOnError extends boolean = false>(
  * `stocktakeInvalidStatusTransition` from any other status; 422 `stocktakeHasNoNodes` when the
  * scope is empty; 422 `stocktakeNodeAlreadyInProgress` when a cell in scope is already being counted
  * in another InProgress stocktake, `args: { nodeId }`; 403 `permissionDenied` /
- * `stocktakeNotAssignedToWarehouse` (edit access).
+ * `stocktakeNotAssignedToWarehouse` (edit access);
+ * 409 `entityLocked` when another request is changing the stocktake — nothing was written.
  */
 export const stocktakesStart = <ThrowOnError extends boolean = false>(
   options: Options<StocktakesStartData, ThrowOnError>,
@@ -4627,7 +4688,8 @@ export const stocktakesStart = <ThrowOnError extends boolean = false>(
  *
  * InProgress status only. Errors: 404 `stocktakeNotFound`; 422
  * `stocktakeInvalidStatusTransition` from any other status; 403 `permissionDenied` /
- * `stocktakeNotAssignedToWarehouse` (edit access).
+ * `stocktakeNotAssignedToWarehouse` (edit access);
+ * 409 `entityLocked` when another request is changing the stocktake — nothing was written.
  */
 export const stocktakesRevert = <ThrowOnError extends boolean = false>(
   options: Options<StocktakesRevertData, ThrowOnError>,
@@ -4642,7 +4704,7 @@ export const stocktakesRevert = <ThrowOnError extends boolean = false>(
  *
  * Errors: 404 `stocktakeNotFound`; 422 `stocktakeInvalidStatusTransition` from a terminal
  * status (Finished or Canceled); 403 `permissionDenied` / `stocktakeNotAssignedToWarehouse`
- * (edit access).
+ * (edit access); 409 `entityLocked` when another request is changing the stocktake — nothing was written.
  */
 export const stocktakesCancel = <ThrowOnError extends boolean = false>(
   options: Options<StocktakesCancelData, ThrowOnError>,
@@ -4664,6 +4726,7 @@ export const stocktakesCancel = <ThrowOnError extends boolean = false>(
  * always 200 with `DocumentBatchTransitionResponse` — successful ids in `transitionedIds`, the rest
  * in `failedItems` as `{ id, number, error }`. A stocktake that does not exist or lies outside the
  * caller's edit access fails as `stocktakeNotFound` with a null `number`.
+ * 409 `entityLocked` when another request is changing one of the stocktakes — nothing was written.
  * Requires `stocktakes.edit` or `stocktakes.edit_assigned`.
  */
 export const stocktakesBatchTransition = <ThrowOnError extends boolean = false>(
@@ -4695,6 +4758,7 @@ export const stocktakesBatchTransition = <ThrowOnError extends boolean = false>(
  * stocktake does not exist or lies outside the caller's edit access — args `count` (every rejected id)
  * and `stocktakeNumbers` (only those the caller can view, ascending). Stocktakes that already have (or
  * already lack) the tag are left untouched and get no changelog entry. Answers 204.
+ * 409 `entityLocked` when another request is changing one of the stocktakes — nothing was written.
  * Requires `stocktakes.edit` or `stocktakes.edit_assigned`.
  */
 export const stocktakesBatchUpdateTags = <ThrowOnError extends boolean = false>(
@@ -4758,6 +4822,7 @@ export const stocktakesGetDifferences = <ThrowOnError extends boolean = false>(
  * * 422 unitInventoryItemNumberDuplicate — a surplus serial lost the race against the unique
  * index (field inventoryNumber)
  * * 403 permissionDenied / stocktakeNotAssignedToWarehouse (edit access)
+ * * 409 entityLocked — another request is changing the stocktake; nothing was written
  */
 export const stocktakesFinish = <ThrowOnError extends boolean = false>(
   options: Options<StocktakesFinishData, ThrowOnError>,
@@ -5469,7 +5534,8 @@ export const writeoffsCreate = <ThrowOnError extends boolean = false>(
  * Delete a write-off. Only allowed in Draft status.
  *
  * Errors: 404 `writeoffNotFound`; 422 `writeoffNotDraft` outside Draft status; 403
- * `permissionDenied` or `writeoffNotAssignedToWarehouse` (edit access).
+ * `permissionDenied` or `writeoffNotAssignedToWarehouse` (edit access);
+ * 409 `entityLocked` when another request is changing the write-off — nothing was written.
  */
 export const writeoffsDelete = <ThrowOnError extends boolean = false>(
   options: Options<WriteoffsDeleteData, ThrowOnError>,
@@ -5498,7 +5564,8 @@ export const writeoffsGetById = <ThrowOnError extends boolean = false>(
  * Update write-off name, reason, notes. Only allowed in Draft status.
  *
  * Errors: 404 `writeoffNotFound`; 422 `writeoffNotDraft` outside Draft status; 403
- * `permissionDenied` or `writeoffNotAssignedToWarehouse` (edit access).
+ * `permissionDenied` or `writeoffNotAssignedToWarehouse` (edit access);
+ * 409 `entityLocked` when another request is changing the write-off — nothing was written.
  */
 export const writeoffsUpdate = <ThrowOnError extends boolean = false>(
   options: Options<WriteoffsUpdateData, ThrowOnError>,
@@ -5517,7 +5584,7 @@ export const writeoffsUpdate = <ThrowOnError extends boolean = false>(
  *
  * Errors: 404 `writeoffNotFound`; 422 `dataFileNotFound` (field `attachments`) for
  * an unknown attachment id; 403 `permissionDenied` or `writeoffNotAssignedToWarehouse`
- * (edit access).
+ * (edit access); 409 `entityLocked` when another request is changing the write-off — nothing was written.
  */
 export const writeoffsUpdateAttachments = <ThrowOnError extends boolean = false>(
   options: Options<WriteoffsUpdateAttachmentsData, ThrowOnError>,
@@ -5543,7 +5610,8 @@ export const writeoffsUpdateAttachments = <ThrowOnError extends boolean = false>
  * Replace the write-off's tags. Allowed in any status.
  *
  * Body: `UpdateTagsRequest` — the full tag id set; unknown ids are ignored. Errors: 404
- * `writeoffNotFound`; 403 `permissionDenied` or `writeoffNotAssignedToWarehouse` (edit access).
+ * `writeoffNotFound`; 403 `permissionDenied` or `writeoffNotAssignedToWarehouse` (edit access);
+ * 409 `entityLocked` when another request is changing the write-off — nothing was written.
  */
 export const writeoffsUpdateTags = <ThrowOnError extends boolean = false>(
   options: Options<WriteoffsUpdateTagsData, ThrowOnError>,
@@ -5576,6 +5644,7 @@ export const writeoffsUpdateTags = <ThrowOnError extends boolean = false>(
  * * 422 unitInventoryItemNotFound — the unit item does not sit at the given source node
  * * 422 catalogItemNotFound — unknown catalog item
  * * 403 permissionDenied / writeoffNotAssignedToWarehouse (edit access)
+ * * 409 entityLocked — another request is changing the write-off; nothing was written
  */
 export const writeoffsSyncItems = <ThrowOnError extends boolean = false>(
   options: Options<WriteoffsSyncItemsData, ThrowOnError>,
@@ -5609,6 +5678,7 @@ export const writeoffsSyncItems = <ThrowOnError extends boolean = false>(
  * * 409 inventoryWriteConflict — concurrent stock writes outlasted the retry budget;
  * nothing was written and the request can be repeated
  * * 403 permissionDenied / writeoffNotAssignedToWarehouse (edit access)
+ * * 409 entityLocked — another request is changing the write-off; nothing was written
  */
 export const writeoffsFinish = <ThrowOnError extends boolean = false>(
   options: Options<WriteoffsFinishData, ThrowOnError>,
@@ -5622,7 +5692,8 @@ export const writeoffsFinish = <ThrowOnError extends boolean = false>(
  * Cancel the write-off. Only allowed in Draft status.
  *
  * Errors: 404 `writeoffNotFound`; 422 `writeoffNotDraft` — reused for a document already
- * Finished or Canceled; 403 `permissionDenied` / `writeoffNotAssignedToWarehouse` (edit access).
+ * Finished or Canceled; 403 `permissionDenied` / `writeoffNotAssignedToWarehouse` (edit access);
+ * 409 `entityLocked` when another request is changing the write-off — nothing was written.
  */
 export const writeoffsCancel = <ThrowOnError extends boolean = false>(
   options: Options<WriteoffsCancelData, ThrowOnError>,
@@ -5642,6 +5713,7 @@ export const writeoffsCancel = <ThrowOnError extends boolean = false>(
  * with `DocumentBatchTransitionResponse` — successful ids in `transitionedIds`, the rest in
  * `failedItems` as `{ id, number, error }`. A write-off that does not exist or lies outside the
  * caller's edit access fails as `writeoffNotFound` with a null `number`.
+ * 409 `entityLocked` when another request is changing one of the write-offs — nothing was written.
  * Requires `writeoffs.edit` or `writeoffs.edit_assigned`.
  */
 export const writeoffsBatchTransition = <ThrowOnError extends boolean = false>(
@@ -5669,6 +5741,7 @@ export const writeoffsBatchTransition = <ThrowOnError extends boolean = false>(
  * does not exist or lies outside the caller's edit access — args `count` (every rejected id) and
  * `writeoffNumbers` (only those the caller can view, ascending). Write-offs that already have (or
  * already lack) the tag are left untouched and get no changelog entry. Answers 204.
+ * 409 `entityLocked` when another request is changing one of the write-offs — nothing was written.
  * Requires `writeoffs.edit` or `writeoffs.edit_assigned`.
  */
 export const writeoffsBatchUpdateTags = <ThrowOnError extends boolean = false>(

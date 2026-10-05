@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
+using ProjectWarehouse.Server.Data;
+using ProjectWarehouse.Server.Infrastructure.Concurrency;
+using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Services;
 
 namespace ProjectWarehouse.Server.Infrastructure.Realtime;
@@ -8,10 +11,16 @@ namespace ProjectWarehouse.Server.Infrastructure.Realtime;
 /// Publishes <see cref="AssemblyChangedPayload"/> after a successful mutating action on one order. The order's
 /// worklist state is captured before the action runs, so a status change or a reassignment is reported as
 /// <see cref="AssemblyChangeScope.List"/> to the old assignees as well as the new ones.
+/// <para>
+/// Runs inside <see cref="TransactionalAttribute" />: the snapshot is taken under the entity lock, so no commit
+/// can slip between it and the action, and the event waits in the request's outbox until the commit.
+/// </para>
 /// </summary>
 [AttributeUsage(AttributeTargets.Method)]
-public class PublishesAssemblyChangedAttribute(AssemblyChangeScope scope) : Attribute, IAsyncActionFilter
+public class PublishesAssemblyChangedAttribute(AssemblyChangeScope scope) : Attribute, IAsyncActionFilter, IOrderedFilter
 {
+    public int Order => TransactionalAttribute.FilterOrder + 1;
+
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
         if (HttpMethods.IsGet(context.HttpContext.Request.Method)
@@ -24,13 +33,19 @@ public class PublishesAssemblyChangedAttribute(AssemblyChangeScope scope) : Attr
         var services = context.HttpContext.RequestServices;
         var notifier = services.GetRequiredService<IAssemblyChangeNotifier>();
         var logger = services.GetRequiredService<ILogger<PublishesAssemblyChangedAttribute>>();
+        var database = services.GetRequiredService<ApplicationDbContext>().Database;
         var ct = context.HttpContext.RequestAborted;
+
+        // Inside the request transaction a failed read would abort it; a savepoint keeps the failure to the hint.
+        Task Guarded(Func<Task> read) => database.CurrentTransaction is null
+            ? read()
+            : database.ExecuteInTransactionAsync("orders.assembly_changed", read, ct);
 
         // The event is only a hint: failing to announce a change must neither block nor fail the mutation itself.
         IReadOnlyDictionary<Guid, AssemblyOrderState>? before = null;
         try
         {
-            before = await notifier.CaptureAsync([orderId], ct);
+            await Guarded(async () => before = await notifier.CaptureAsync([orderId], ct));
         }
         catch (Exception ex)
         {
@@ -47,7 +62,8 @@ public class PublishesAssemblyChangedAttribute(AssemblyChangeScope scope) : Attr
         Guid? taskId = TryGetRouteGuid(context, "taskId", out var parsed) ? parsed : null;
         try
         {
-            await notifier.PublishAsync(before, scope, taskId, context.HttpContext, ct);
+            var snapshot = before;
+            await Guarded(() => notifier.PublishAsync(snapshot, scope, taskId, context.HttpContext, ct));
         }
         catch (Exception ex)
         {

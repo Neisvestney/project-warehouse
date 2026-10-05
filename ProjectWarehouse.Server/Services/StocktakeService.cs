@@ -10,6 +10,7 @@ namespace ProjectWarehouse.Server.Services;
 
 public class StocktakeService(
     ApplicationDbContext db,
+    IEntityLockService locks,
     IInventoryService inventory,
     IStocktakeDiffCalculator diffCalculator) : IStocktakeService
 {
@@ -40,6 +41,10 @@ public class StocktakeService(
         Guid stocktakeId, IReadOnlyCollection<Guid> nodeIds, CancellationToken ct = default)
     {
         if (nodeIds.Count == 0) return null;
+
+        // Two stocktakes starting over the same cell would both read the other as not yet InProgress; the cells'
+        // row locks make the second one wait for the first commit and then see it.
+        await locks.LockManyAsync<StoragePlaceNode>(nodeIds, ct);
 
         var busy = await db.StocktakeNodes
             .Where(n => nodeIds.Contains(n.StoragePlaceNodeId)

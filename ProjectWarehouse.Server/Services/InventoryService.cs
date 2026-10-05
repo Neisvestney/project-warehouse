@@ -156,12 +156,19 @@ public class InventoryService(
     private const string GroupUniqueIndexName = "IX_ItemsGroup_StoragePlaceNodeId_CatalogItemId";
 
     /// A unique violation is only ours if it names the group's index — anything else queued into the same
-    /// save is a genuine failure and must not be swallowed by a replay.
-    private static bool IsGroupWriteConflict(Exception e) =>
+    /// save is a genuine failure and must not be swallowed by a replay. A deadlock is replayed only when the
+    /// save is its own transaction: the replay then starts with no locks held.
+    private bool IsGroupWriteConflict(Exception e) =>
         e is DbUpdateConcurrencyException
         || (e is DbUpdateException { InnerException: PostgresException pg }
-            && pg.SqlState == PostgresErrorCodes.UniqueViolation
-            && pg.ConstraintName == GroupUniqueIndexName);
+            && ((pg.SqlState == PostgresErrorCodes.UniqueViolation && pg.ConstraintName == GroupUniqueIndexName)
+                || (pg.SqlState == PostgresErrorCodes.DeadlockDetected && db.Database.CurrentTransaction is null)));
+
+    /// Inside a request transaction EF's savepoint undoes only this save, while the rows the transaction wrote
+    /// earlier stay locked — a replay would ask for the same row and close the same cycle again.
+    private bool IsUnrecoverableDeadlock(Exception e) =>
+        e is DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.DeadlockDetected } }
+        && db.Database.CurrentTransaction is not null;
 
     /// <summary>
     /// Resolves the group for the node/item pair, lets <paramref name="apply"/> mutate it and saves.
@@ -203,6 +210,11 @@ public class InventoryService(
                     activity?.SetTag("inventory.group_write.attempts", attempt + 1);
                     InventoryMetrics.RecordCommit(attempt + 1);
                     return movement.Id;
+                }
+                catch (Exception e) when (IsUnrecoverableDeadlock(e))
+                {
+                    InventoryMetrics.RecordExhausted(attempt + 1);
+                    throw new InventoryWriteConflictException(nodeId, catalogItemId, attempt + 1, e);
                 }
                 catch (Exception e) when (IsGroupWriteConflict(e))
                 {

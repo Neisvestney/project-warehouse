@@ -10,7 +10,7 @@ public interface IExternalOrderRebindService
     /// Binds the lines that were imported while their card had no mapping. Runs on every mapping change:
     /// filling a blank rewrites no history. Returns the number of lines bound.
     /// </summary>
-    Task<int> BindUnmappedAsync(IReadOnlyCollection<Guid> cardIds, CancellationToken ct);
+    Task<int> BindUnmappedAsync(IReadOnlyCollection<Guid> cardIds, CancellationToken ct, TimeSpan? lockTimeout = null);
 
     /// <summary>
     /// The lines of the accounts' external orders dated from <paramref name="since"/> whose catalog item
@@ -24,7 +24,7 @@ public interface IExternalOrderRebindService
     /// and returns them; a line a concurrent rebind already moved is skipped.
     /// </summary>
     Task<IReadOnlyList<ExternalOrderRebindChange>> ApplyAsync(
-        IReadOnlyList<ExternalOrderRebindChange> changes, CancellationToken ct);
+        IReadOnlyList<ExternalOrderRebindChange> changes, CancellationToken ct, TimeSpan? lockTimeout = null);
 }
 
 public record ExternalOrderRebindChange(

@@ -7,8 +7,10 @@ using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Concurrency;
 using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using ProjectWarehouse.Server.Infrastructure.Realtime;
+using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Integrations;
 
 namespace ProjectWarehouse.Server.Controllers;
@@ -93,12 +95,14 @@ public class MarketplaceAutoMapRulesController(
 
     /// <summary>Update an auto-mapping rule.</summary>
     /// <remarks>
-    /// 404 <c>marketplaceAutoMapRuleNotFound</c> when the rule is gone, plus the same 422 codes as creation.
-    /// Requires <c>integrations.map</c>.
+    /// 404 <c>marketplaceAutoMapRuleNotFound</c> when the rule is gone, plus the same 422 codes as creation;
+    /// 409 <c>entityLocked</c> while another request is changing the rule. Requires <c>integrations.map</c>.
     /// </remarks>
+    [LocksEntity<MarketplaceAutoMapRule>]
     [HttpPut("{id:guid}")]
     [Authorize(Policy = Permissions.Integrations.Map)]
     [ProducesResponseType<MarketplaceAutoMapRuleDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateRule(Guid id, [FromBody] SaveAutoMapRuleRequest request, CancellationToken ct)
     {
         var rule = await db.MarketplaceAutoMapRules.FirstOrDefaultAsync(r => r.Id == id, ct);
@@ -128,11 +132,14 @@ public class MarketplaceAutoMapRulesController(
 
     /// <summary>Delete an auto-mapping rule. Cards it already mapped keep their mapping.</summary>
     /// <remarks>
-    /// 404 <c>marketplaceAutoMapRuleNotFound</c> when the rule is gone. Requires <c>integrations.map</c>.
+    /// 404 <c>marketplaceAutoMapRuleNotFound</c> when the rule is gone, 409 <c>entityLocked</c> while another
+    /// request is changing it. Requires <c>integrations.map</c>.
     /// </remarks>
+    [LocksEntity<MarketplaceAutoMapRule>(ForDelete = true)]
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = Permissions.Integrations.Map)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> DeleteRule(Guid id, CancellationToken ct)
     {
         var rule = await db.MarketplaceAutoMapRules.FirstOrDefaultAsync(r => r.Id == id, ct);

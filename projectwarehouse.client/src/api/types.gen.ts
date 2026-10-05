@@ -1486,7 +1486,8 @@ export type ErrorCode =
   | "organizationNotFound"
   | "organizationInnInvalid"
   | "organizationInnDuplicate"
-  | "organizationHasAccounts";
+  | "organizationHasAccounts"
+  | "entityLocked";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -6205,6 +6206,10 @@ export type MarketplaceAutoMapRulesDeleteRuleErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type MarketplaceAutoMapRulesDeleteRuleError =
@@ -6238,6 +6243,10 @@ export type MarketplaceAutoMapRulesUpdateRuleErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type MarketplaceAutoMapRulesUpdateRuleError =
@@ -6374,6 +6383,10 @@ export type MarketplacesDeleteAccountErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type MarketplacesDeleteAccountError =
@@ -6440,6 +6453,10 @@ export type MarketplacesUpdateAccountErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type MarketplacesUpdateAccountError =
@@ -6473,6 +6490,10 @@ export type MarketplacesSetAccountOrganizationErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type MarketplacesSetAccountOrganizationError =
@@ -6781,6 +6802,10 @@ export type MarketplacesSetWarehouseMappingErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type MarketplacesSetWarehouseMappingError =
@@ -6856,6 +6881,10 @@ export type MarketplacesSetCardMappingErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type MarketplacesSetCardMappingError =
@@ -6887,6 +6916,10 @@ export type MarketplacesRebindExternalOrdersErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type MarketplacesRebindExternalOrdersError =
@@ -6918,6 +6951,10 @@ export type MarketplacesAutoMapCardsErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type MarketplacesAutoMapCardsError =
@@ -7169,6 +7206,10 @@ export type OrdersDeleteErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -7242,6 +7283,10 @@ export type OrdersUpdateErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type OrdersUpdateError = OrdersUpdateErrors[keyof OrdersUpdateErrors];
@@ -7349,6 +7394,10 @@ export type OrdersUpdateAttachmentsErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -7389,6 +7438,10 @@ export type OrdersUpdateTagsErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type OrdersUpdateTagsError = OrdersUpdateTagsErrors[keyof OrdersUpdateTagsErrors];
@@ -7466,6 +7519,10 @@ export type OrdersSelfAssignErrors = {
    */
   403: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -7533,6 +7590,10 @@ export type OrdersBatchSelfAssignErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type OrdersBatchSelfAssignError =
@@ -7564,6 +7625,10 @@ export type OrdersBatchTransitionStatusErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type OrdersBatchTransitionStatusError =
@@ -7599,6 +7664,10 @@ export type OrdersBatchUpdateTagsErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -7636,6 +7705,10 @@ export type OrdersAddBoxErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -7677,6 +7750,10 @@ export type OrdersRemoveBoxErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -7716,6 +7793,10 @@ export type OrdersUpdateBoxErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type OrdersUpdateBoxError = OrdersUpdateBoxErrors[keyof OrdersUpdateBoxErrors];
@@ -7748,6 +7829,10 @@ export type OrdersAddComponentErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -7790,6 +7875,10 @@ export type OrdersRemoveComponentErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -7834,6 +7923,10 @@ export type OrdersUpdateComponentErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -7870,6 +7963,10 @@ export type OrdersCreateAssemblyTaskErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -7951,6 +8048,10 @@ export type OrdersUpdateAssemblyTaskErrors = {
    */
   403: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -7988,6 +8089,10 @@ export type OrdersTransitionTaskStatusErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -8032,6 +8137,10 @@ export type OrdersUpdateTaskBoxComponentErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -8113,6 +8222,10 @@ export type OrdersMoveTaskComponentErrors = {
    */
   403: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -8152,6 +8265,10 @@ export type OrdersAddFulfillmentErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -8232,6 +8349,10 @@ export type OrdersBatchFulfillErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type OrdersBatchFulfillError = OrdersBatchFulfillErrors[keyof OrdersBatchFulfillErrors];
@@ -8363,6 +8484,10 @@ export type OrganizationsDeleteErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type OrganizationsDeleteError = OrganizationsDeleteErrors[keyof OrganizationsDeleteErrors];
@@ -8428,6 +8553,10 @@ export type OrganizationsUpdateErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type OrganizationsUpdateError = OrganizationsUpdateErrors[keyof OrganizationsUpdateErrors];
@@ -8830,6 +8959,10 @@ export type ReceiptsDeleteErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -8904,6 +9037,10 @@ export type ReceiptsUpdateErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -8942,6 +9079,10 @@ export type ReceiptsUpdateTagsErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type ReceiptsUpdateTagsError = ReceiptsUpdateTagsErrors[keyof ReceiptsUpdateTagsErrors];
@@ -8978,6 +9119,10 @@ export type ReceiptsUpdateAttachmentsErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -9020,6 +9165,10 @@ export type ReceiptsQuickAddItemErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -9061,6 +9210,10 @@ export type ReceiptsSyncItemsErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -9101,6 +9254,10 @@ export type ReceiptsUpdateReceivedCountErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -9144,6 +9301,10 @@ export type ReceiptsAddStandardPlacementErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -9184,6 +9345,10 @@ export type ReceiptsAddStandardPlacementBatchErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -9226,6 +9391,10 @@ export type ReceiptsAutoAcceptErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -9266,6 +9435,10 @@ export type ReceiptsAddUnitPlacementErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -9310,6 +9483,10 @@ export type ReceiptsDeletePlacementErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -9351,6 +9528,10 @@ export type ReceiptsPlanErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -9389,6 +9570,10 @@ export type ReceiptsStartProcessingErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -9431,6 +9616,10 @@ export type ReceiptsFinishErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -9469,6 +9658,10 @@ export type ReceiptsRevertErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -9509,6 +9702,10 @@ export type ReceiptsCancelErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -9541,6 +9738,10 @@ export type ReceiptsBatchTransitionErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -9580,6 +9781,10 @@ export type ReceiptsBatchUpdateTagsErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -10519,6 +10724,10 @@ export type StocktakesDeleteErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -10594,6 +10803,10 @@ export type StocktakesUpdateErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -10632,6 +10845,10 @@ export type StocktakesUpdateAttachmentsErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -10673,6 +10890,10 @@ export type StocktakesUpdateTagsErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type StocktakesUpdateTagsError =
@@ -10710,6 +10931,10 @@ export type StocktakesSyncNodesErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -10790,6 +11015,10 @@ export type StocktakesSyncNodeItemsErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -10831,6 +11060,10 @@ export type StocktakesScheduleErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -10870,6 +11103,10 @@ export type StocktakesToDraftErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -10911,6 +11148,10 @@ export type StocktakesStartErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -10949,6 +11190,10 @@ export type StocktakesRevertErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -10989,6 +11234,10 @@ export type StocktakesCancelErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -11021,6 +11270,10 @@ export type StocktakesBatchTransitionErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -11060,6 +11313,10 @@ export type StocktakesBatchUpdateTagsErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -11138,6 +11395,10 @@ export type StocktakesFinishErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -12384,6 +12645,10 @@ export type WriteoffsDeleteErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -12458,6 +12723,10 @@ export type WriteoffsUpdateErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -12496,6 +12765,10 @@ export type WriteoffsUpdateAttachmentsErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -12537,6 +12810,10 @@ export type WriteoffsUpdateTagsErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
 };
 
 export type WriteoffsUpdateTagsError = WriteoffsUpdateTagsErrors[keyof WriteoffsUpdateTagsErrors];
@@ -12573,6 +12850,10 @@ export type WriteoffsSyncItemsErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -12614,6 +12895,10 @@ export type WriteoffsFinishErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -12653,6 +12938,10 @@ export type WriteoffsCancelErrors = {
    */
   404: AppProblemDetails;
   /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
    * Unprocessable Entity
    */
   422: AppProblemDetails;
@@ -12685,6 +12974,10 @@ export type WriteoffsBatchTransitionErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */
@@ -12724,6 +13017,10 @@ export type WriteoffsBatchUpdateTagsErrors = {
    * Not Found
    */
   404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
   /**
    * Unprocessable Entity
    */

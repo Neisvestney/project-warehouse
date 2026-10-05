@@ -9,6 +9,7 @@ using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Concurrency;
 using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Files;
@@ -26,7 +27,8 @@ public class WriteoffsController(
     IChangeLogService<WriteoffDto> changeLog,
     IDataFileBindingService fileBinding,
     IWriteoffService writeoffs,
-    IDocumentBatchService batch) : AppControllerBase
+    IDocumentBatchService batch,
+    IEntityLockService locks) : AppControllerBase
 {
     private EntityAccessRule<Writeoff> Rule => access.For<Writeoff>();
 
@@ -277,13 +279,16 @@ public class WriteoffsController(
     /// <summary>Update write-off name, reason, notes. Only allowed in Draft status.</summary>
     /// <remarks>
     /// Errors: 404 <c>writeoffNotFound</c>; 422 <c>writeoffNotDraft</c> outside Draft status; 403
-    /// <c>permissionDenied</c> or <c>writeoffNotAssignedToWarehouse</c> (edit access).
+    /// <c>permissionDenied</c> or <c>writeoffNotAssignedToWarehouse</c> (edit access);
+    /// 409 <c>entityLocked</c> when another request is changing the write-off — nothing was written.
     /// </remarks>
+    [LocksEntity<Writeoff>]
     [HttpPatch("{id:guid}")]
     [Authorize]
     [ProducesResponseType<WriteoffDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateWriteoffRequest request,
         CancellationToken ct = default)
     {
@@ -314,13 +319,15 @@ public class WriteoffsController(
     /// <remarks>
     /// Errors: 404 <c>writeoffNotFound</c>; 422 <c>dataFileNotFound</c> (field <c>attachments</c>) for
     /// an unknown attachment id; 403 <c>permissionDenied</c> or <c>writeoffNotAssignedToWarehouse</c>
-    /// (edit access).
+    /// (edit access); 409 <c>entityLocked</c> when another request is changing the write-off — nothing was written.
     /// </remarks>
+    [LocksEntity<Writeoff>]
     [HttpPatch("{id:guid}/attachments")]
     [Authorize]
     [ProducesResponseType<WriteoffDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateAttachments(Guid id, [FromBody] UpdateAttachmentsRequest request,
         CancellationToken ct = default)
     {
@@ -346,12 +353,15 @@ public class WriteoffsController(
     /// <summary>Replace the write-off's tags. Allowed in any status.</summary>
     /// <remarks>
     /// Body: <c>UpdateTagsRequest</c> — the full tag id set; unknown ids are ignored. Errors: 404
-    /// <c>writeoffNotFound</c>; 403 <c>permissionDenied</c> or <c>writeoffNotAssignedToWarehouse</c> (edit access).
+    /// <c>writeoffNotFound</c>; 403 <c>permissionDenied</c> or <c>writeoffNotAssignedToWarehouse</c> (edit access);
+    /// 409 <c>entityLocked</c> when another request is changing the write-off — nothing was written.
     /// </remarks>
+    [LocksEntity<Writeoff>]
     [HttpPatch("{id:guid}/tags")]
     [Authorize]
     [ProducesResponseType<WriteoffDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateTags(Guid id, [FromBody] UpdateTagsRequest request,
         CancellationToken ct = default)
     {
@@ -378,13 +388,16 @@ public class WriteoffsController(
     /// <summary>Delete a write-off. Only allowed in Draft status.</summary>
     /// <remarks>
     /// Errors: 404 <c>writeoffNotFound</c>; 422 <c>writeoffNotDraft</c> outside Draft status; 403
-    /// <c>permissionDenied</c> or <c>writeoffNotAssignedToWarehouse</c> (edit access).
+    /// <c>permissionDenied</c> or <c>writeoffNotAssignedToWarehouse</c> (edit access);
+    /// 409 <c>entityLocked</c> when another request is changing the write-off — nothing was written.
     /// </remarks>
+    [LocksEntity<Writeoff>(ForDelete = true)]
     [HttpDelete("{id:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct = default)
     {
         var (writeoff, error) = await LoadWriteoffWithEditAccessAsync(id, ct);
@@ -421,13 +434,16 @@ public class WriteoffsController(
     ///   <item>422 <c>unitInventoryItemNotFound</c> — the unit item does not sit at the given source node</item>
     ///   <item>422 <c>catalogItemNotFound</c> — unknown catalog item</item>
     ///   <item>403 <c>permissionDenied</c> / <c>writeoffNotAssignedToWarehouse</c> (edit access)</item>
+    ///   <item>409 <c>entityLocked</c> — another request is changing the write-off; nothing was written</item>
     /// </list>
     /// </remarks>
+    [LocksEntity<Writeoff>]
     [HttpPut("{id:guid}/items")]
     [Authorize]
     [ProducesResponseType<WriteoffDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> SyncItems(Guid id, [FromBody] IReadOnlyList<WriteoffItemRequest> items,
         CancellationToken ct = default)
     {
@@ -547,13 +563,16 @@ public class WriteoffsController(
     ///   <item>409 <c>inventoryWriteConflict</c> — concurrent stock writes outlasted the retry budget;
     ///     nothing was written and the request can be repeated</item>
     ///   <item>403 <c>permissionDenied</c> / <c>writeoffNotAssignedToWarehouse</c> (edit access)</item>
+    ///   <item>409 <c>entityLocked</c> — another request is changing the write-off; nothing was written</item>
     /// </list>
     /// </remarks>
+    [LocksEntity<Writeoff>]
     [HttpPost("{id:guid}/finish")]
     [Authorize]
     [ProducesResponseType<WriteoffDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> Finish(Guid id, CancellationToken ct = default) =>
         TransitionAsync(id, WriteoffTransition.Finish, ct);
 
@@ -562,13 +581,16 @@ public class WriteoffsController(
     /// <summary>Cancel the write-off. Only allowed in Draft status.</summary>
     /// <remarks>
     /// Errors: 404 <c>writeoffNotFound</c>; 422 <c>writeoffNotDraft</c> — reused for a document already
-    /// Finished or Canceled; 403 <c>permissionDenied</c> / <c>writeoffNotAssignedToWarehouse</c> (edit access).
+    /// Finished or Canceled; 403 <c>permissionDenied</c> / <c>writeoffNotAssignedToWarehouse</c> (edit access);
+    /// 409 <c>entityLocked</c> when another request is changing the write-off — nothing was written.
     /// </remarks>
+    [LocksEntity<Writeoff>]
     [HttpPost("{id:guid}/cancel")]
     [Authorize]
     [ProducesResponseType<WriteoffDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> Cancel(Guid id, CancellationToken ct = default) =>
         TransitionAsync(id, WriteoffTransition.Cancel, ct);
 
@@ -583,12 +605,15 @@ public class WriteoffsController(
     /// with <c>DocumentBatchTransitionResponse</c> — successful ids in <c>transitionedIds</c>, the rest in
     /// <c>failedItems</c> as <c>{ id, number, error }</c>. A write-off that does not exist or lies outside the
     /// caller's edit access fails as <c>writeoffNotFound</c> with a null <c>number</c>.
+    /// 409 <c>entityLocked</c> when another request is changing one of the write-offs — nothing was written.
     /// Requires <c>writeoffs.edit</c> or <c>writeoffs.edit_assigned</c>.
     /// </remarks>
+    [Transactional]
     [HttpPost("batch-transition")]
     [Authorize]
     [ProducesResponseType<DocumentBatchTransitionResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> BatchTransition(
         [FromBody] BatchWriteoffTransitionRequest request, CancellationToken ct = default)
     {
@@ -598,6 +623,8 @@ public class WriteoffsController(
         if (request.Transition == WriteoffTransition.Finish)
             return UnprocessableEntity("transition", ErrorCode.ValidationError,
                 "Write-offs cannot be finished in a batch.");
+
+        await locks.LockManyAsync<Writeoff>(request.Ids, ct);
 
         var editable = writeoffs.WithDetails(await Rule.QueryAsync(User, AccessLevel.Edit, ct), includeItems: true);
 
@@ -620,18 +647,23 @@ public class WriteoffsController(
     /// does not exist or lies outside the caller's edit access — args <c>count</c> (every rejected id) and
     /// <c>writeoffNumbers</c> (only those the caller can view, ascending). Write-offs that already have (or
     /// already lack) the tag are left untouched and get no changelog entry. Answers 204.
+    /// 409 <c>entityLocked</c> when another request is changing one of the write-offs — nothing was written.
     /// Requires <c>writeoffs.edit</c> or <c>writeoffs.edit_assigned</c>.
     /// </remarks>
+    [Transactional]
     [HttpPost("batch-update-tags")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> BatchUpdateTags(
         [FromBody] BatchUpdateTagsRequest request, CancellationToken ct = default)
     {
         if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
             return error;
+
+        await locks.LockManyAsync<Writeoff>(request.Ids, ct);
 
         var problem = await batch.UpdateTagsAsync(
             writeoffs.WithDetails(await Rule.QueryAsync(User, AccessLevel.Edit, ct), includeItems: true),

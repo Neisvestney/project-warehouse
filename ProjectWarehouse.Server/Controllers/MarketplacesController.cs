@@ -9,6 +9,7 @@ using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Concurrency;
 using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Integrations.Abstractions;
@@ -29,6 +30,7 @@ public class MarketplacesController(
     IMarketplaceSyncQueue syncQueue,
     IMarketplaceSyncService syncService,
     IExternalOrderRebindService rebind,
+    IEntityLockService locks,
     IOptions<MarketplacesOptions> options,
     IChangeLogService changeLog,
     IChangeLogService<MarketplaceAccountDto> accountChangeLog,
@@ -189,13 +191,16 @@ public class MarketplacesController(
     /// <list type="bullet">
     ///   <item>404 <c>marketplaceAccountNotFound</c></item>
     ///   <item>422 <c>marketplaceClientIdRequired</c> on <c>clientId</c> — the provider declares <c>requiresClientId</c> and none was supplied</item>
+    ///   <item>409 <c>entityLocked</c> — another request is changing the account; nothing was written</item>
     /// </list>
     /// The new key is not verified here — use <c>POST accounts/{id}/test-connection</c> for that.
     /// Requires <c>integrations.edit</c>.
     /// </remarks>
+    [LocksEntity<MarketplaceAccount>]
     [HttpPut("accounts/{id:guid}")]
     [Authorize(Policy = Permissions.Integrations.Edit)]
     [ProducesResponseType<MarketplaceAccountDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateAccount(Guid id, [FromBody] UpdateMarketplaceAccountRequest request,
         CancellationToken ct)
     {
@@ -239,11 +244,14 @@ public class MarketplacesController(
     /// <remarks>
     /// Returns 404 <c>marketplaceAccountNotFound</c>, or 409 <c>marketplaceAccountHasOrders</c> when any
     /// posting was imported through it — those orders are warehouse history and outlive the connection.
+    /// 409 <c>entityLocked</c> when another request is changing the account; nothing was written.
     /// Requires <c>integrations.edit</c>.
     /// </remarks>
+    [LocksEntity<MarketplaceAccount>(ForDelete = true)]
     [HttpDelete("accounts/{id:guid}")]
     [Authorize(Policy = Permissions.Integrations.Edit)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> DeleteAccount(Guid id, CancellationToken ct)
     {
         var account = await db.MarketplaceAccounts
@@ -277,15 +285,22 @@ public class MarketplacesController(
     /// <list type="bullet">
     ///   <item>404 <c>marketplaceAccountNotFound</c></item>
     ///   <item>422 <c>organizationNotFound</c> on <c>organizationId</c></item>
+    ///   <item>409 <c>entityLocked</c> — another request is changing the account or the organization; nothing was written</item>
     /// </list>
     /// Requires <c>organizations.edit</c>.
     /// </remarks>
+    [LocksEntity<MarketplaceAccount>]
     [HttpPut("accounts/{id:guid}/organization")]
     [Authorize(Policy = Permissions.Organizations.Edit)]
     [ProducesResponseType<MarketplaceAccountDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> SetAccountOrganization(Guid id, [FromBody] SetAccountOrganizationRequest request,
         [FromServices] IOrganizationService organizations, CancellationToken ct)
     {
+        // a concurrent DELETE organizations/{id} checks for linked accounts under this same lock
+        if (request.OrganizationId is { } lockedOrganizationId)
+            await locks.LockAsync<Organization>(lockedOrganizationId, ct);
+
         var account = await db.MarketplaceAccounts
             .Include(a => a.Organization)
             .FirstOrDefaultAsync(a => a.Id == id, ct);
@@ -776,12 +791,15 @@ public class MarketplacesController(
     /// <list type="bullet">
     ///   <item>404 <c>marketplaceWarehouseNotFound</c></item>
     ///   <item>422 <c>warehouseNotFound</c> on <c>warehouseId</c> — no WMS warehouse with that id</item>
+    ///   <item>409 <c>entityLocked</c> — another request is changing the marketplace warehouse; nothing was written</item>
     /// </list>
     /// Requires <c>integrations.map</c>.
     /// </remarks>
+    [LocksEntity<MarketplaceWarehouse>]
     [HttpPut("warehouses/{id:guid}/mapping")]
     [Authorize(Policy = Permissions.Integrations.Map)]
     [ProducesResponseType<MarketplaceWarehouseDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> SetWarehouseMapping(Guid id, [FromBody] SetWarehouseMappingRequest request,
         CancellationToken ct)
     {
@@ -876,13 +894,16 @@ public class MarketplacesController(
     ///   <item>422 <c>catalogItemNotFound</c> on <c>catalogItemId</c></item>
     ///   <item>422 <c>marketplaceCardMappingTypeNotAllowed</c> on <c>catalogItemId</c> — the target is a <c>ProductGroup</c></item>
     ///   <item>422 <c>marketplaceCardMappingArchivedItem</c> on <c>catalogItemId</c> — the target is archived</item>
+    ///   <item>409 <c>entityLocked</c> — another request is changing the card or one of the orders it rebinds; nothing was written</item>
     /// </list>
     /// The archive check only applies when setting a mapping: an item archived afterwards keeps it.
     /// Clearing (<c>catalogItemId: null</c>) skips all three target checks. Requires <c>integrations.map</c>.
     /// </remarks>
+    [LocksEntity<MarketplaceCard>]
     [HttpPut("cards/{id:guid}/mapping")]
     [Authorize(Policy = Permissions.Integrations.Map)]
     [ProducesResponseType<MarketplaceCardDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> SetCardMapping(Guid id, [FromBody] SetCardMappingRequest request, CancellationToken ct)
     {
         var card = await db.MarketplaceCards
@@ -942,15 +963,20 @@ public class MarketplacesController(
     /// linked to the line. Lines of unmapped cards and non-external orders are never touched. The response
     /// groups the moved lines by card and the catalog item they leave. Errors: 422 <c>tooShort</c> /
     /// <c>tooLong</c> on <c>accountIds</c>, 404 <c>marketplaceAccountNotFound</c> when any id matches no account
-    /// (nothing is applied). Requires <c>integrations.map</c>.
+    /// (nothing is applied), 409 <c>entityLocked</c> when another request is changing one of the accounts, their
+    /// cards or the affected orders (nothing is applied). Requires <c>integrations.map</c>.
     /// </remarks>
+    [Transactional]
     [HttpPost("accounts/external-orders/rebind")]
     [Authorize(Policy = Permissions.Integrations.Map)]
     [ProducesResponseType<RebindExternalOrdersResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> RebindExternalOrders([FromBody] RebindExternalOrdersRequest request,
         CancellationToken ct)
     {
         var accountIds = request.AccountIds.Distinct().ToList();
+        await LockAccountsWithCardsAsync(accountIds, ct);
+
         var accountNames = await db.MarketplaceAccounts
             .Where(a => accountIds.Contains(a.Id))
             .ToDictionaryAsync(a => a.Id, a => a.Name, ct);
@@ -1067,15 +1093,20 @@ public class MarketplacesController(
     /// (compute without saving). Unmapped active cards are always in scope; archived cards never are.
     /// The response lists only cards whose mapping changes, ordered by account and offer id.
     /// Errors: 422 <c>tooShort</c> / <c>tooLong</c> on <c>accountIds</c>, 404 <c>marketplaceAccountNotFound</c>
-    /// when any id matches no account (nothing is applied), 403 <c>permissionDenied</c>.
-    /// Requires <c>integrations.map</c>.
+    /// when any id matches no account (nothing is applied), 409 <c>entityLocked</c> when another request is
+    /// changing one of the accounts, their cards or the affected orders (nothing is applied),
+    /// 403 <c>permissionDenied</c>. Requires <c>integrations.map</c>.
     /// </remarks>
+    [Transactional]
     [HttpPost("accounts/cards/auto-map")]
     [Authorize(Policy = Permissions.Integrations.Map)]
     [ProducesResponseType<AutoMapCardsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> AutoMapCards([FromBody] AutoMapCardsRequest request, CancellationToken ct)
     {
         var accountIds = request.AccountIds.Distinct().ToList();
+        await LockAccountsWithCardsAsync(accountIds, ct);
+
         var accounts = await db.MarketplaceAccounts
             .Include(a => a.CreatedBy)
             .Where(a => accountIds.Contains(a.Id))
@@ -1230,6 +1261,21 @@ public class MarketplacesController(
 
         await syncQueue.EnqueueAsync(new MarketplaceSyncRequest(account.Id, run.Id, scope), ct);
         return run.Id;
+    }
+
+    /// <summary>
+    /// Accounts first, then their cards — the plan reads card mappings, and <c>PUT cards/{id}/mapping</c>
+    /// holds the card lock while it rebinds.
+    /// </summary>
+    private async Task LockAccountsWithCardsAsync(List<Guid> accountIds, CancellationToken ct)
+    {
+        await locks.LockManyAsync<MarketplaceAccount>(accountIds, ct);
+
+        var cardIds = await db.MarketplaceCards
+            .Where(c => accountIds.Contains(c.MarketplaceAccountId))
+            .Select(c => c.Id)
+            .ToListAsync(ct);
+        await locks.LockManyAsync<MarketplaceCard>(cardIds, ct);
     }
 
     private async Task<MarketplaceAccountDto> ToDetailDtoAsync(MarketplaceAccount account, CancellationToken ct)

@@ -5,11 +5,12 @@ using ProjectWarehouse.Server.Infrastructure.Observability;
 
 namespace ProjectWarehouse.Server.Services;
 
-public class ExternalOrderRebindService(ApplicationDbContext db) : IExternalOrderRebindService
+public class ExternalOrderRebindService(ApplicationDbContext db, IEntityLockService locks) : IExternalOrderRebindService
 {
     private const int OrdersPerBatch = 500;
 
-    public async Task<int> BindUnmappedAsync(IReadOnlyCollection<Guid> cardIds, CancellationToken ct)
+    public async Task<int> BindUnmappedAsync(IReadOnlyCollection<Guid> cardIds, CancellationToken ct,
+        TimeSpan? lockTimeout = null)
     {
         if (cardIds.Count == 0)
             return 0;
@@ -18,7 +19,7 @@ public class ExternalOrderRebindService(ApplicationDbContext db) : IExternalOrde
                 .Where(i => i.CatalogItemId == null && cardIds.Contains(i.MarketplaceCardId!.Value)))
             .ToListAsync(ct);
 
-        return (await ApplyAsync(changes, ct)).Count;
+        return (await ApplyAsync(changes, ct, lockTimeout)).Count;
     }
 
     public async Task<IReadOnlyList<ExternalOrderRebindChange>> PlanRebindAsync(
@@ -29,7 +30,7 @@ public class ExternalOrderRebindService(ApplicationDbContext db) : IExternalOrde
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<ExternalOrderRebindChange>> ApplyAsync(
-        IReadOnlyList<ExternalOrderRebindChange> changes, CancellationToken ct)
+        IReadOnlyList<ExternalOrderRebindChange> changes, CancellationToken ct, TimeSpan? lockTimeout = null)
     {
         if (changes.Count == 0)
             return [];
@@ -37,6 +38,9 @@ public class ExternalOrderRebindService(ApplicationDbContext db) : IExternalOrde
         var applied = new List<ExternalOrderRebindChange>();
         await db.Database.ExecuteInTransactionAsync("marketplaces.external_orders.rebind", async () =>
         {
+            // boxes are edited under the order lock elsewhere, so take it before the line locks below
+            await locks.LockManyAsync<Order>(changes.Select(c => c.OrderId), ct, lockTimeout);
+
             foreach (var batch in changes.GroupBy(c => c.OrderId).Chunk(OrdersPerBatch))
                 applied.AddRange(await ApplyBatchAsync(batch, ct));
         }, ct);

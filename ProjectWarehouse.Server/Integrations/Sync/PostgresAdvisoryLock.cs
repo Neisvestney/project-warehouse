@@ -71,6 +71,6 @@ public sealed class PostgresAdvisoryLock : IAsyncDisposable
     }
 
     // The advisory key space is per-database, and the scope prefix keeps unrelated users apart.
-    private static long ToKey(string resource) =>
+    internal static long ToKey(string resource) =>
         BitConverter.ToInt64(SHA256.HashData(Encoding.UTF8.GetBytes(resource)), 0);
 }

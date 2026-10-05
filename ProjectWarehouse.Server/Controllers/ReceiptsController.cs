@@ -10,6 +10,7 @@ using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
 using ProjectWarehouse.Server.Infrastructure.Access;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
+using ProjectWarehouse.Server.Infrastructure.Concurrency;
 using ProjectWarehouse.Server.Infrastructure.Observability;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Files;
@@ -29,7 +30,8 @@ public class ReceiptsController(
     IChangeLogService<ReceiptDto> changeLog,
     IDataFileBindingService fileBinding,
     IReceiptService receipts,
-    IDocumentBatchService batch) : AppControllerBase
+    IDocumentBatchService batch,
+    IEntityLockService locks) : AppControllerBase
 {
     private EntityAccessRule<Receipt> Rule => access.For<Receipt>();
 
@@ -271,13 +273,16 @@ public class ReceiptsController(
     /// <summary>Update receipt name, reason, notes. Only allowed in Draft status.</summary>
     /// <remarks>
     /// Errors: 404 <c>receiptNotFound</c>; 422 <c>receiptInvalidStatusTransition</c> outside Draft status;
-    /// 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c> (edit access).
+    /// 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c> (edit access);
+    /// 409 <c>entityLocked</c> when another request is changing the receipt — nothing was written.
     /// </remarks>
+    [LocksEntity<Receipt>]
     [HttpPatch("{id:guid}")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateReceiptRequest request,
         CancellationToken ct = default)
     {
@@ -309,12 +314,15 @@ public class ReceiptsController(
     /// <summary>Replace the receipt's tags. Allowed in any status.</summary>
     /// <remarks>
     /// Body: <c>UpdateTagsRequest</c> — the full tag id set; unknown ids are ignored. Errors: 404
-    /// <c>receiptNotFound</c>; 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c> (edit access).
+    /// <c>receiptNotFound</c>; 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c> (edit access);
+    /// 409 <c>entityLocked</c> when another request is changing the receipt — nothing was written.
     /// </remarks>
+    [LocksEntity<Receipt>]
     [HttpPatch("{id:guid}/tags")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateTags(Guid id, [FromBody] UpdateTagsRequest request,
         CancellationToken ct = default)
     {
@@ -343,13 +351,15 @@ public class ReceiptsController(
     /// <remarks>
     /// Errors: 404 <c>receiptNotFound</c>; 422 <c>dataFileNotFound</c> (field <c>attachments</c>) for an
     /// unknown attachment id; 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c> (edit
-    /// access).
+    /// access); 409 <c>entityLocked</c> when another request is changing the receipt — nothing was written.
     /// </remarks>
+    [LocksEntity<Receipt>]
     [HttpPatch("{id:guid}/attachments")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateAttachments(Guid id, [FromBody] UpdateAttachmentsRequest request,
         CancellationToken ct = default)
     {
@@ -376,13 +386,16 @@ public class ReceiptsController(
     /// <summary>Delete a receipt. Only allowed in Draft status.</summary>
     /// <remarks>
     /// Requires the full <c>receipts.edit</c> permission — <c>receipts.edit_assigned</c> does not delete.
-    /// Errors: 404 <c>receiptNotFound</c>; 422 <c>receiptInvalidStatusTransition</c> outside Draft status.
+    /// Errors: 404 <c>receiptNotFound</c>; 422 <c>receiptInvalidStatusTransition</c> outside Draft status;
+    /// 409 <c>entityLocked</c> when another request is changing the receipt — nothing was written.
     /// </remarks>
+    [LocksEntity<Receipt>(ForDelete = true)]
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = Permissions.Receipts.Edit)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct = default)
     {
         var receipt = await db.Receipts.FindAsync([id], ct);
@@ -424,13 +437,16 @@ public class ReceiptsController(
     ///     in the receipt</item>
     ///   <item>403 <c>permissionDenied</c> (neither permission), 403 <c>receiptNotAssignedToWarehouse</c>
     ///     (operator, other warehouse), 401 <c>tokenInvalid</c></item>
+    ///   <item>409 <c>entityLocked</c> — another request is changing the receipt; nothing was written</item>
     /// </list>
     /// </remarks>
+    [LocksEntity<Receipt>]
     [HttpPost("{id:guid}/items/quick-add")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> QuickAddItem(Guid id,
         [FromBody] QuickAddReceiptItemRequest request, CancellationToken ct = default)
     {
@@ -487,13 +503,16 @@ public class ReceiptsController(
     /// Errors: 404 <c>receiptNotFound</c>; 422 <c>receiptInvalidStatusTransition</c> outside Draft or Planned;
     /// 422 <c>validationError</c> for a <c>catalogItemId</c> repeated in the request; 422
     /// <c>catalogItemNotFound</c> for an unknown catalog item; 403 <c>permissionDenied</c> /
-    /// <c>receiptNotAssignedToWarehouse</c> (edit access).
+    /// <c>receiptNotAssignedToWarehouse</c> (edit access);
+    /// 409 <c>entityLocked</c> when another request is changing the receipt — nothing was written.
     /// </remarks>
+    [LocksEntity<Receipt>]
     [HttpPut("{id:guid}/items")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> SyncItems(Guid id, [FromBody] IReadOnlyList<ReceiptItemRequest> items,
         CancellationToken ct = default)
     {
@@ -569,13 +588,16 @@ public class ReceiptsController(
     /// Requires <c>receipts.edit</c> or <c>receipts.process_assigned</c>. Errors: 404
     /// <c>receiptNotFound</c>; 404 <c>receiptItemNotFound</c> when the item does not belong to this receipt;
     /// 422 <c>receiptInvalidStatusTransition</c> outside Processing; 403 <c>permissionDenied</c> /
-    /// <c>receiptNotAssignedToWarehouse</c>; 401 <c>tokenInvalid</c>.
+    /// <c>receiptNotAssignedToWarehouse</c>; 401 <c>tokenInvalid</c>;
+    /// 409 <c>entityLocked</c> when another request is changing the receipt — nothing was written.
     /// </remarks>
+    [LocksEntity<Receipt>]
     [HttpPatch("{id:guid}/items/{itemId:guid}/received-count")]
     [Authorize]
     [ProducesResponseType<ReceiptItemDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateReceivedCount(Guid id, Guid itemId,
         [FromBody] UpdateReceivedCountRequest request, CancellationToken ct = default)
     {
@@ -618,13 +640,16 @@ public class ReceiptsController(
     /// placement row are written in one transaction. Errors: 404 <c>receiptNotFound</c>; 404
     /// <c>receiptItemNotFound</c>; 422 <c>receiptInvalidStatusTransition</c> outside Processing; 422
     /// <c>storagePlaceNodeNotFound</c> for an unknown <c>storagePlaceNodeId</c>; 403
-    /// <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c>; 401 <c>tokenInvalid</c>.
+    /// <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c>; 401 <c>tokenInvalid</c>;
+    /// 409 <c>entityLocked</c> when another request is changing the receipt — nothing was written.
     /// </remarks>
+    [LocksEntity<Receipt>]
     [HttpPost("{id:guid}/items/{itemId:guid}/placements/standard")]
     [Authorize]
     [ProducesResponseType<ReceiptItemDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> AddStandardPlacement(Guid id, Guid itemId,
         [FromBody] CreateStandardPlacementRequest request, CancellationToken ct = default)
     {
@@ -686,13 +711,16 @@ public class ReceiptsController(
     ///   <item>422 <c>validationError</c> — an <c>itemId</c> repeated in the request, or an item whose catalog
     ///     type is not Standard</item>
     ///   <item>403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c>; 401 <c>tokenInvalid</c></item>
+    ///   <item>409 <c>entityLocked</c> — another request is changing the receipt; nothing was written</item>
     /// </list>
     /// </remarks>
+    [LocksEntity<Receipt>]
     [HttpPost("{id:guid}/placements/standard/batch")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> AddStandardPlacementBatch(Guid id,
         [FromBody] BatchStandardPlacementRequest request, CancellationToken ct = default)
     {
@@ -796,13 +824,16 @@ public class ReceiptsController(
     ///     the warehouse</item>
     ///   <item>422 <c>receiptNothingToAutoAccept</c> — no Standard item needs a count or a placement</item>
     ///   <item>403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c>; 401 <c>tokenInvalid</c></item>
+    ///   <item>409 <c>entityLocked</c> — another request is changing the receipt; nothing was written</item>
     /// </list>
     /// </remarks>
+    [LocksEntity<Receipt>]
     [HttpPost("{id:guid}/auto-accept")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> AutoAccept(Guid id, CancellationToken ct = default)
     {
         var (receipt, error) = await LoadReceiptWithProcessAccessAsync(id, ct);
@@ -896,13 +927,16 @@ public class ReceiptsController(
     /// <c>receiptInvalidStatusTransition</c> outside Processing; 422 <c>storagePlaceNodeNotFound</c>; 422
     /// <c>unitInventoryItemNumberDuplicate</c> on field <c>inventoryNumber</c> when the number is already used
     /// for this catalog item — raised by the soft check, and again by the unique index when two requests race;
-    /// 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c>; 401 <c>tokenInvalid</c>.
+    /// 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c>; 401 <c>tokenInvalid</c>;
+    /// 409 <c>entityLocked</c> when another request is changing the receipt — nothing was written.
     /// </remarks>
+    [LocksEntity<Receipt>]
     [HttpPost("{id:guid}/items/{itemId:guid}/placements/unit")]
     [Authorize]
     [ProducesResponseType<ReceiptItemDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> AddUnitPlacement(Guid id, Guid itemId,
         [FromBody] CreateUnitPlacementRequest request, CancellationToken ct = default)
     {
@@ -993,13 +1027,16 @@ public class ReceiptsController(
     ///   <item>409 <c>inventoryWriteConflict</c> — concurrent stock writes outlasted the retry budget;
     ///     nothing was written and the request can be repeated</item>
     ///   <item>403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c>; 401 <c>tokenInvalid</c></item>
+    ///   <item>409 <c>entityLocked</c> — another request is changing the receipt; nothing was written</item>
     /// </list>
     /// </remarks>
+    [LocksEntity<Receipt>]
     [HttpDelete("{id:guid}/items/{itemId:guid}/placements/{placementId:guid}")]
     [Authorize]
     [ProducesResponseType<ReceiptItemDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> DeletePlacement(Guid id, Guid itemId, Guid placementId,
         CancellationToken ct = default)
     {
@@ -1084,26 +1121,32 @@ public class ReceiptsController(
     /// <summary>Transition: Draft → Planned.</summary>
     /// <remarks>
     /// Draft status only. Errors: 404 <c>receiptNotFound</c>; 422 <c>receiptInvalidStatusTransition</c> from
-    /// any other status; 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c> (edit access).
+    /// any other status; 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c> (edit access);
+    /// 409 <c>entityLocked</c> when another request is changing the receipt — nothing was written.
     /// </remarks>
+    [LocksEntity<Receipt>]
     [HttpPost("{id:guid}/plan")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> Plan(Guid id, CancellationToken ct = default) =>
         TransitionAsync(id, ReceiptTransition.Plan, ct);
 
     /// <summary>Transition: Planned → Processing.</summary>
     /// <remarks>
     /// Planned status only. Errors: 404 <c>receiptNotFound</c>; 422 <c>receiptInvalidStatusTransition</c> from
-    /// any other status; 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c> (edit access).
+    /// any other status; 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c> (edit access);
+    /// 409 <c>entityLocked</c> when another request is changing the receipt — nothing was written.
     /// </remarks>
+    [LocksEntity<Receipt>]
     [HttpPost("{id:guid}/start-processing")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> StartProcessing(Guid id, CancellationToken ct = default) =>
         TransitionAsync(id, ReceiptTransition.StartProcessing, ct);
 
@@ -1113,13 +1156,16 @@ public class ReceiptsController(
     /// <c>receiptNotFound</c>; 422 <c>receiptInvalidStatusTransition</c> from any other status; 422
     /// <c>receiptItemsUnderplaced</c> when an item has fewer placed units than received; 422
     /// <c>receiptItemsOverplaced</c> when it has more; 403 <c>permissionDenied</c> /
-    /// <c>receiptNotAssignedToWarehouse</c> (edit access).
+    /// <c>receiptNotAssignedToWarehouse</c> (edit access);
+    /// 409 <c>entityLocked</c> when another request is changing the receipt — nothing was written.
     /// </remarks>
+    [LocksEntity<Receipt>]
     [HttpPost("{id:guid}/finish")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> Finish(Guid id, CancellationToken ct = default) =>
         TransitionAsync(id, ReceiptTransition.Finish, ct);
 
@@ -1128,13 +1174,16 @@ public class ReceiptsController(
     /// Finished reverts to Processing. Errors: 404 <c>receiptNotFound</c>; 422 <c>receiptHasPlacements</c>
     /// when reverting from Processing while items still have placements; 422
     /// <c>receiptInvalidStatusTransition</c> from Draft or Canceled; 403 <c>permissionDenied</c> /
-    /// <c>receiptNotAssignedToWarehouse</c> (edit access).
+    /// <c>receiptNotAssignedToWarehouse</c> (edit access);
+    /// 409 <c>entityLocked</c> when another request is changing the receipt — nothing was written.
     /// </remarks>
+    [LocksEntity<Receipt>]
     [HttpPost("{id:guid}/revert")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> Revert(Guid id, CancellationToken ct = default) =>
         TransitionAsync(id, ReceiptTransition.Revert, ct);
 
@@ -1142,13 +1191,16 @@ public class ReceiptsController(
     /// <remarks>
     /// Errors: 404 <c>receiptNotFound</c>; 422 <c>receiptInvalidStatusTransition</c> from Finished or
     /// Canceled; 422 <c>receiptHasPlacements</c> when cancelling from Processing while items still have
-    /// placements; 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c> (edit access).
+    /// placements; 403 <c>permissionDenied</c> / <c>receiptNotAssignedToWarehouse</c> (edit access);
+    /// 409 <c>entityLocked</c> when another request is changing the receipt — nothing was written.
     /// </remarks>
+    [LocksEntity<Receipt>]
     [HttpPost("{id:guid}/cancel")]
     [Authorize]
     [ProducesResponseType<ReceiptDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public Task<IActionResult> Cancel(Guid id, CancellationToken ct = default) =>
         TransitionAsync(id, ReceiptTransition.Cancel, ct);
 
@@ -1163,12 +1215,15 @@ public class ReceiptsController(
     /// is always 200 with <c>DocumentBatchTransitionResponse</c> — successful ids in <c>transitionedIds</c>,
     /// the rest in <c>failedItems</c> as <c>{ id, number, error }</c>. A receipt that does not exist or lies
     /// outside the caller's edit access fails as <c>receiptNotFound</c> with a null <c>number</c>.
+    /// 409 <c>entityLocked</c> when another request is changing one of the receipts — nothing was written.
     /// Requires <c>receipts.edit</c> or <c>receipts.edit_assigned</c>.
     /// </remarks>
+    [Transactional]
     [HttpPost("batch-transition")]
     [Authorize]
     [ProducesResponseType<DocumentBatchTransitionResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> BatchTransition(
         [FromBody] BatchReceiptTransitionRequest request, CancellationToken ct = default)
     {
@@ -1178,6 +1233,8 @@ public class ReceiptsController(
         if (request.Transition == ReceiptTransition.Finish)
             return UnprocessableEntity("transition", ErrorCode.ValidationError,
                 "Receipts cannot be finished in a batch.");
+
+        await locks.LockManyAsync<Receipt>(request.Ids, ct);
 
         var editable = receipts.WithDetails(await Rule.QueryAsync(User, AccessLevel.Edit, ct), includeItems: true);
 
@@ -1200,18 +1257,23 @@ public class ReceiptsController(
     /// does not exist or lies outside the caller's edit access — args <c>count</c> (every rejected id) and
     /// <c>receiptNumbers</c> (only those the caller can view, ascending). Receipts that already have (or already lack)
     /// the tag are left untouched and get no changelog entry. Answers 204.
+    /// 409 <c>entityLocked</c> when another request is changing one of the receipts — nothing was written.
     /// Requires <c>receipts.edit</c> or <c>receipts.edit_assigned</c>.
     /// </remarks>
+    [Transactional]
     [HttpPost("batch-update-tags")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> BatchUpdateTags(
         [FromBody] BatchUpdateTagsRequest request, CancellationToken ct = default)
     {
         if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
             return error;
+
+        await locks.LockManyAsync<Receipt>(request.Ids, ct);
 
         var problem = await batch.UpdateTagsAsync(
             receipts.WithDetails(await Rule.QueryAsync(User, AccessLevel.Edit, ct), includeItems: true),

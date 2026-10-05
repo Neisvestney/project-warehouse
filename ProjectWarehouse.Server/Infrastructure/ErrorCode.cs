@@ -188,6 +188,7 @@ public enum ErrorCode
 
     // Concurrency
     InventoryWriteConflict = 139,
+    EntityLocked = 162,
 
     // Tags
     TagNameDuplicate = 136,

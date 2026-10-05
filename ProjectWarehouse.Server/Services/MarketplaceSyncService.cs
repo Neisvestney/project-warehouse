@@ -19,6 +19,7 @@ namespace ProjectWarehouse.Server.Services;
 
 public class MarketplaceSyncService(
     ApplicationDbContext db,
+    IEntityLockService locks,
     NpgsqlDataSource dataSource,
     IMarketplaceProviderRegistry providers,
     IMarketplaceCredentialProtector protector,
@@ -149,6 +150,12 @@ public class MarketplaceSyncService(
             await FailAsync(run, account, ex.ErrorCode, ex.Message, ct);
             await LogFinishedAsync(before, account, run);
         }
+        catch (EntityLockedException ex)
+        {
+            // a user request held the rows past the background timeout; the next run catches up
+            await FailAsync(run, account, ErrorCode.EntityLocked, ex.Message, ct);
+            await LogFinishedAsync(before, account, run);
+        }
         catch (MarketplaceApiException ex)
         {
             var code = ex.IsCredentialsRejected
@@ -207,17 +214,25 @@ public class MarketplaceSyncService(
 
         var info = await provider.FetchSellerInfoAsync(credentials, ct);
 
-        if (!string.IsNullOrWhiteSpace(info.Name))
-            account.Name = info.Name;
+        // The organization link is check-then-act on the account's INN, so it runs under the account's row lock
+        // against a fresh copy: the one loaded at the start of the run may predate a user's edit.
+        await db.Database.ExecuteInTransactionAsync("marketplace.sync.seller_info", async () =>
+        {
+            await locks.LockAsync<MarketplaceAccount>(account.Id, ct, IEntityLockService.BackgroundTimeout);
+            await db.Entry(account).ReloadAsync(ct);
 
-        account.CompanyLegalName = info.LegalName;
-        account.Inn = info.Inn;
-        account.Ogrn = info.Ogrn;
-        account.OwnershipForm = info.OwnershipForm;
+            if (!string.IsNullOrWhiteSpace(info.Name))
+                account.Name = info.Name;
 
-        await db.SaveChangesAsync(ct);
+            account.CompanyLegalName = info.LegalName;
+            account.Inn = info.Inn;
+            account.Ogrn = info.Ogrn;
+            account.OwnershipForm = info.OwnershipForm;
 
-        await organizations.LinkByInnAsync(account, ct);
+            await db.SaveChangesAsync(ct);
+
+            await organizations.LinkByInnAsync(account, ct, IEntityLockService.BackgroundTimeout);
+        }, ct);
     }
 
     private async Task SyncWarehousesAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
@@ -284,60 +299,29 @@ public class MarketplaceSyncService(
                 .OfType<string>()
                 .ToList();
 
-            var existing = await db.MarketplaceCards
-                .Where(c => c.MarketplaceAccountId == account.Id
-                            && (externalIds.Contains(c.ExternalId) || placeholderIds.Contains(c.ExternalId)))
-                .ToDictionaryAsync(c => c.ExternalId, ct);
-
-            var now = DateTime.UtcNow;
-            var fresh = new List<MarketplaceCard>();
-
-            foreach (var item in page)
+            // One transaction per page under the cards' row locks: auto-map writes only cards it reads as
+            // unmapped, and a mapping an operator saves meanwhile must not be overwritten by a stale read.
+            await db.Database.ExecuteInTransactionAsync("marketplaces.cards.page", async () =>
             {
-                if (existing.TryGetValue(item.ExternalId, out var card))
-                {
-                    run.CardsUpdated++;
-                }
-                else if (TryAdoptPlaceholder(existing, item, out card))
-                {
-                    card.ExternalId = item.ExternalId;
-                    fresh.Add(card);
-                    run.CardsUpdated++;
-                }
-                else
-                {
-                    card = new MarketplaceCard
-                    {
-                        Id = Guid.NewGuid(),
-                        MarketplaceAccountId = account.Id,
-                        ExternalId = item.ExternalId,
-                    };
-                    db.MarketplaceCards.Add(card);
-                    fresh.Add(card);
-                    run.CardsCreated++;
-                }
+                var cardIds = await db.MarketplaceCards
+                    .Where(c => c.MarketplaceAccountId == account.Id
+                                && (externalIds.Contains(c.ExternalId) || placeholderIds.Contains(c.ExternalId)))
+                    .Select(c => c.Id)
+                    .ToListAsync(ct);
+                await locks.LockManyAsync<MarketplaceCard>(cardIds, ct, IEntityLockService.BackgroundTimeout);
 
-                card.Sku = item.Sku;
-                card.OfferId = item.OfferId;
-                card.Name = item.Name;
-                card.Barcodes = [.. item.Barcodes];
-                card.PrimaryImageUrl = item.ImageUrl;
-                card.Price = item.Price;
-                card.CurrencyCode = item.Currency;
-                card.IsArchived = item.IsArchived;
-                card.SyncedAt = now;
-                // CatalogItemId / MappingSource survive updates — the mapping is independent of card data
-            }
+                var existing = await db.MarketplaceCards
+                    .Where(c => cardIds.Contains(c.Id))
+                    .ToDictionaryAsync(c => c.ExternalId, ct);
 
-            run.CardsProcessed += page.Count;
-            await db.SaveChangesAsync(ct);
+                ApplyCardsPage(page, existing, account, run, out var fresh);
+                await db.SaveChangesAsync(ct);
 
-            await db.Database.ExecuteInTransactionAsync("marketplaces.cards.auto_map", async () =>
-            {
                 run.AutoMapped += await AutoMapAsync(fresh, ct);
                 await db.SaveChangesAsync(ct);
                 // an adopted placeholder brings along the external orders imported through it
-                await rebind.BindUnmappedAsync([.. fresh.Where(c => c.CatalogItemId is not null).Select(c => c.Id)], ct);
+                await rebind.BindUnmappedAsync([.. fresh.Where(c => c.CatalogItemId is not null).Select(c => c.Id)], ct,
+                    IEntityLockService.BackgroundTimeout);
             }, ct);
 
             await realtime.PublishProgressAsync(run, ct);
@@ -351,6 +335,52 @@ public class MarketplaceSyncService(
         activity?.SetTag("marketplace.cards.processed", run.CardsProcessed);
         activity?.SetTag("marketplace.cards.created", run.CardsCreated);
         activity?.SetTag("marketplace.cards.archived", run.CardsArchived);
+    }
+
+    private void ApplyCardsPage(IReadOnlyList<ExternalCard> page, Dictionary<string, MarketplaceCard> existing,
+        MarketplaceAccount account, MarketplaceSyncRun run, out List<MarketplaceCard> fresh)
+    {
+        var now = DateTime.UtcNow;
+        fresh = [];
+
+        foreach (var item in page)
+        {
+            if (existing.TryGetValue(item.ExternalId, out var card))
+            {
+                run.CardsUpdated++;
+            }
+            else if (TryAdoptPlaceholder(existing, item, out card))
+            {
+                card.ExternalId = item.ExternalId;
+                fresh.Add(card);
+                run.CardsUpdated++;
+            }
+            else
+            {
+                card = new MarketplaceCard
+                {
+                    Id = Guid.NewGuid(),
+                    MarketplaceAccountId = account.Id,
+                    ExternalId = item.ExternalId,
+                };
+                db.MarketplaceCards.Add(card);
+                fresh.Add(card);
+                run.CardsCreated++;
+            }
+
+            card.Sku = item.Sku;
+            card.OfferId = item.OfferId;
+            card.Name = item.Name;
+            card.Barcodes = [.. item.Barcodes];
+            card.PrimaryImageUrl = item.ImageUrl;
+            card.Price = item.Price;
+            card.CurrencyCode = item.Currency;
+            card.IsArchived = item.IsArchived;
+            card.SyncedAt = now;
+            // CatalogItemId / MappingSource survive updates — the mapping is independent of card data
+        }
+
+        run.CardsProcessed += page.Count;
     }
 
     /// <summary>
