@@ -27,6 +27,7 @@ import type {MarketplaceAccountDto} from "@/api/types.gen";
 
 type EditFormValues = {
   clientId: string;
+  shortName: string;
   apiKey: string;
   syncIntervalMinutes: number;
   isActive: boolean;
@@ -44,6 +45,7 @@ function EditAccountDialog({open, account, onClose}: EditAccountDialogProps) {
   const form = useForm<EditFormValues>({
     defaultValues: {
       clientId: account.externalClientId ?? "",
+      shortName: account.shortName ?? "",
       apiKey: "",
       syncIntervalMinutes: account.syncIntervalMinutes,
       isActive: account.isActive,
@@ -59,6 +61,7 @@ function EditAccountDialog({open, account, onClose}: EditAccountDialogProps) {
     if (open && !wasOpenRef.current) {
       reset({
         clientId: account.externalClientId ?? "",
+        shortName: account.shortName ?? "",
         apiKey: "",
         syncIntervalMinutes: account.syncIntervalMinutes,
         isActive: account.isActive,
@@ -84,6 +87,7 @@ function EditAccountDialog({open, account, onClose}: EditAccountDialogProps) {
       path: {id: account.id},
       body: {
         clientId: values.clientId || null,
+        shortName: values.shortName.trim() || null,
         // пустое значение означает «оставить текущий ключ»
         apiKey: values.apiKey || null,
         syncIntervalMinutes: Number(values.syncIntervalMinutes),
@@ -99,6 +103,15 @@ function EditAccountDialog({open, account, onClose}: EditAccountDialogProps) {
       <DialogTitle>Настройки подключения</DialogTitle>
       <DialogContent>
         <Stack spacing={2.5} sx={{pt: 1}}>
+          <FormTextField
+            control={form.control}
+            name="shortName"
+            label="Короткое название"
+            rules={{maxLength: {value: 32, message: "Максимум 32 символа"}}}
+            helperText="Печатается на этикетках. Если пусто — печатается полное название"
+            disabled={mutation.isPending}
+            fullWidth
+          />
           <FormTextField
             control={form.control}
             name="clientId"

@@ -893,6 +893,8 @@ public class ApplicationDbContext : IdentityDbContext<
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            e.Property(x => x.ShortName).HasMaxLength(32);
+
             e.HasIndex(x => x.Type);
         });
 

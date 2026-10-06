@@ -27,5 +27,5 @@ public interface IMarketplaceLabelService
     /// so a stored label whose posting has moved on fails the job instead of falling back to the cache.
     /// </summary>
     Task<LabelBundle> BuildAsync(IReadOnlyList<Guid> orderIds, OrderLabelsGrouping grouping, Guid? userId,
-        bool forceRegenerate, CancellationToken ct);
+        bool forceRegenerate, bool printAccountName, CancellationToken ct);
 }

@@ -21,4 +21,7 @@ public class OrderLabelsRequest
 
     /// <summary>Refetch every label from the marketplace, ignoring and replacing the stored one.</summary>
     public bool ForceRegenerate { get; init; }
+
+    /// <summary>Stamp the account's short name (its full name when unset) above the articles.</summary>
+    public bool PrintAccountName { get; init; }
 }

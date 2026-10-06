@@ -14,6 +14,9 @@ public class MarketplaceAccount : IHasIdentity
     /// until the first one lands it holds a placeholder built from the marketplace and the key mask.</summary>
     public string Name { get; set; } = null!;
 
+    /// <summary>Entered by an operator, sync never touches it. Printed on labels instead of <see cref="Name"/>.</summary>
+    public string? ShortName { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     // Seller identity, filled by sync alongside Name. All nullable: a self-employed seller has no OGRN.
@@ -111,5 +114,5 @@ public class MarketplaceAccount : IHasIdentity
 
     [Projectable]
     public string SearchString =>
-        Name + " " + (ExternalClientId ?? "") + " " + (CompanyLegalName ?? "") + " " + (Inn ?? "");
+        Name + " " + (ShortName ?? "") + " " + (ExternalClientId ?? "") + " " + (CompanyLegalName ?? "") + " " + (Inn ?? "");
 }

@@ -29,7 +29,7 @@ public class MarketplaceLabelService(
         + "be matched to its posting. Printing is held back until the reader is updated.";
 
     public async Task<LabelBundle> BuildAsync(IReadOnlyList<Guid> orderIds, OrderLabelsGrouping grouping,
-        Guid? userId, bool forceRegenerate, CancellationToken ct)
+        Guid? userId, bool forceRegenerate, bool printAccountName, CancellationToken ct)
     {
         var orders = await db.Orders
             .Where(o => orderIds.Contains(o.Id))
@@ -70,7 +70,8 @@ public class MarketplaceLabelService(
         var order = OrderPages(orderIds, orders, grouping);
         var merged = LabelPdfComposer.Merge([
             .. order.Select(id => composer.Overlay(labels[id].Content, BuildArticles(orders[id]),
-                ResolveKind(labels[id], orders[id].MarketplaceOrder!))),
+                ResolveKind(labels[id], orders[id].MarketplaceOrder!),
+                printAccountName ? AccountLabelName(orders[id].MarketplaceOrder!.MarketplaceAccount) : null)),
         ]);
         return new LabelBundle(merged, [], [], [], []);
     }
@@ -108,6 +109,8 @@ public class MarketplaceLabelService(
             _ => orderIds,
         };
     }
+
+    private static string AccountLabelName(MarketplaceAccount account) => account.ShortName ?? account.Name;
 
     private static string ArticleKey(Order order) =>
         string.Join('\n', BuildArticles(order)

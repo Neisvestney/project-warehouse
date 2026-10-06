@@ -60,9 +60,10 @@ public class LabelPdfComposer(IOptions<MarketplacesOptions> options)
     /// No rotation: Ozon already hands the label over rotated, so the page arrives in the orientation it
     /// is printed in and the text only has to follow it.
     /// </remarks>
-    public byte[] Overlay(byte[] pdf, IReadOnlyList<LabelArticle> articles, LabelKind kind)
+    public byte[] Overlay(byte[] pdf, IReadOnlyList<LabelArticle> articles, LabelKind kind,
+        string? accountName = null)
     {
-        var lines = BuildLines(articles);
+        var lines = BuildLines(articles, accountName);
         if (lines.Count == 0)
             return pdf;
 
@@ -100,8 +101,11 @@ public class LabelPdfComposer(IOptions<MarketplacesOptions> options)
         return Save(document);
     }
 
-    /// <summary>Articles in posting order, quantities appended, the tail collapsed into "+N".</summary>
-    public IReadOnlyList<string> BuildLines(IReadOnlyList<LabelArticle> articles)
+    /// <summary>
+    /// Articles in posting order, quantities appended, the tail collapsed into "+N". The account name heads
+    /// the block, sharing the line with a lone article.
+    /// </summary>
+    public IReadOnlyList<string> BuildLines(IReadOnlyList<LabelArticle> articles, string? accountName = null)
     {
         var lines = articles
             .Take(_options.MaxArticlesOnLabel)
@@ -113,6 +117,14 @@ public class LabelPdfComposer(IOptions<MarketplacesOptions> options)
         var remaining = articles.Count - lines.Count;
         if (remaining > 0)
             lines.Add($"+{remaining.ToString(CultureInfo.InvariantCulture)}");
+
+        if (string.IsNullOrWhiteSpace(accountName))
+            return lines;
+
+        if (lines.Count == 1)
+            lines[0] = $"{accountName} · {lines[0]}";
+        else
+            lines.Insert(0, accountName);
 
         return lines;
     }

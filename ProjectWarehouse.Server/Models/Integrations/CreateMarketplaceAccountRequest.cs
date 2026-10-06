@@ -10,6 +10,9 @@ public class CreateMarketplaceAccountRequest
     /// <summary>Required when the provider declares RequiresClientId.</summary>
     public string? ClientId { get; init; }
 
+    [MaxLength(32)]
+    public string? ShortName { get; init; }
+
     [Required, MinLength(1)]
     public string ApiKey { get; init; } = null!;
 
