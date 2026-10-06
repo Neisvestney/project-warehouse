@@ -2408,8 +2408,9 @@ export const inventoryItemsGetAllQueryKey = (options?: Options<InventoryItemsGet
  * (Standard, Unit). Supports filtering by warehouse, storage place, node,
  * catalog item types, tags (OR semantics), and archive state.
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
- * `warehouseId`, `storagePlaceId`, `nodeId`, `catalogItemTypes`, `tagIds`,
- * `isArchived`, `sortBy` (default `Name`), `sortOrder` (default `Asc`).
+ * `warehouseId`, `storagePlaceId`, `nodeId`, `catalogItemIds`, `catalogItemTypes`,
+ * `tagIds`, `isArchived`, `sortBy` (default `Name`), `sortOrder` (default `Asc`).
+ * `catalogItemIds` keeps only the rows of those catalog items (OR semantics).
  * Inventory has no permission of its own: it is gated by `warehouses.view` or
  * `warehouses.view_assigned`, and rows are then narrowed to the assigned warehouses.
  * Errors: 403 `permissionDenied` when neither permission is held, 401 `tokenInvalid` when the
@@ -2447,8 +2448,9 @@ export const inventoryItemsGetAllInfiniteQueryKey = (
  * (Standard, Unit). Supports filtering by warehouse, storage place, node,
  * catalog item types, tags (OR semantics), and archive state.
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
- * `warehouseId`, `storagePlaceId`, `nodeId`, `catalogItemTypes`, `tagIds`,
- * `isArchived`, `sortBy` (default `Name`), `sortOrder` (default `Asc`).
+ * `warehouseId`, `storagePlaceId`, `nodeId`, `catalogItemIds`, `catalogItemTypes`,
+ * `tagIds`, `isArchived`, `sortBy` (default `Name`), `sortOrder` (default `Asc`).
+ * `catalogItemIds` keeps only the rows of those catalog items (OR semantics).
  * Inventory has no permission of its own: it is gated by `warehouses.view` or
  * `warehouses.view_assigned`, and rows are then narrowed to the assigned warehouses.
  * Errors: 403 `permissionDenied` when neither permission is held, 401 `tokenInvalid` when the

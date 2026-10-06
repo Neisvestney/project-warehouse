@@ -27,8 +27,9 @@ public class InventoryItemsController(
     /// (Standard, Unit). Supports filtering by warehouse, storage place, node,
     /// catalog item types, tags (OR semantics), and archive state.
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
-    /// <c>warehouseId</c>, <c>storagePlaceId</c>, <c>nodeId</c>, <c>catalogItemTypes</c>, <c>tagIds</c>,
-    /// <c>isArchived</c>, <c>sortBy</c> (default <c>Name</c>), <c>sortOrder</c> (default <c>Asc</c>).
+    /// <c>warehouseId</c>, <c>storagePlaceId</c>, <c>nodeId</c>, <c>catalogItemIds</c>, <c>catalogItemTypes</c>,
+    /// <c>tagIds</c>, <c>isArchived</c>, <c>sortBy</c> (default <c>Name</c>), <c>sortOrder</c> (default <c>Asc</c>).
+    /// <c>catalogItemIds</c> keeps only the rows of those catalog items (OR semantics).
     /// Inventory has no permission of its own: it is gated by <c>warehouses.view</c> or
     /// <c>warehouses.view_assigned</c>, and rows are then narrowed to the assigned warehouses.
     /// Errors: 403 <c>permissionDenied</c> when neither permission is held, 401 <c>tokenInvalid</c> when the
@@ -45,6 +46,7 @@ public class InventoryItemsController(
         [FromQuery] Guid? warehouseId = null,
         [FromQuery] Guid? storagePlaceId = null,
         [FromQuery] Guid? nodeId = null,
+        [FromQuery] IReadOnlyList<Guid>? catalogItemIds = null,
         [FromQuery] IReadOnlyList<CatalogItemType>? catalogItemTypes = null,
         [FromQuery] IReadOnlyList<Guid>? tagIds = null,
         [FromQuery] bool? isArchived = null,
@@ -66,6 +68,9 @@ public class InventoryItemsController(
             .Include(ci => ci.Group)
             .Where(ci => isArchived == null || ci.IsArchived == isArchived)
             .WhereMatchesSearch(ci => ci.SearchString, searchString);
+
+        if (catalogItemIds != null && catalogItemIds.Count > 0)
+            catalogQuery = catalogQuery.Where(ci => catalogItemIds.Contains(ci.Id));
 
         if (catalogItemTypes != null && catalogItemTypes.Count > 0)
             catalogQuery = catalogQuery.Where(ci => catalogItemTypes.Contains(ci.Type));

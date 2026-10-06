@@ -37,6 +37,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import InventoryIcon from "@mui/icons-material/Inventory";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import PrintIcon from "@mui/icons-material/Print";
 import {
@@ -83,7 +84,8 @@ import {useRetainedValue} from "@/hooks/useRetainedValue";
 import CatalogItemLink from "@/components/catalog/CatalogItemLink.tsx";
 import BundleComponentsEditor from "@/components/catalog/BundleComponentsEditor";
 import type {CatalogItemFormValues, ImageValue} from "@/components/catalog/catalogItemFormValues";
-import {CATALOG_ITEM_TYPE_CONFIG} from "@/features/catalog";
+import {CATALOG_ITEM_TYPE_CONFIG, PHYSICAL_CATALOG_ITEMS} from "@/features/catalog";
+import {Link as RouterLink} from "react-router";
 
 const DRAWER_WIDTH = 1000;
 
@@ -1063,6 +1065,7 @@ export function CatalogItemDrawer({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
   const canEdit = useHasPermission("catalog.edit");
+  const canViewInventory = useHasPermission(["warehouses.view", "warehouses.view_assigned"]);
   const queryClient = useQueryClient();
   const {enqueueSnackbar} = useSnackbar();
 
@@ -1180,6 +1183,17 @@ export function CatalogItemDrawer({
               </IconButton>
             </span>
           </Tooltip>
+          {canViewInventory && data && PHYSICAL_CATALOG_ITEMS.includes(data.type) && (
+            <Tooltip title="Остатки">
+              <IconButton
+                size="small"
+                component={RouterLink}
+                to={`/storage/inventory?item=${data.id}`}
+              >
+                <InventoryIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title="Печать этикетки">
             <span>
               <IconButton size="small" disabled={!data} onClick={() => setPrintOpen(true)}>

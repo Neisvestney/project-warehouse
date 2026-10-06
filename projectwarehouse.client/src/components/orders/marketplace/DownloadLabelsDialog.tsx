@@ -17,9 +17,11 @@ import {useBackClosable} from "@/hooks/useBackClosable";
 import type {OrderLabelsGrouping} from "@/api/types.gen";
 
 const GROUPING_KEY = "orders-labels-grouping";
+const GROUPINGS: OrderLabelsGrouping[] = ["none", "article", "accountArticle"];
 
 function loadGrouping(): OrderLabelsGrouping {
-  return localStorage.getItem(GROUPING_KEY) === "article" ? "article" : "none";
+  const stored = localStorage.getItem(GROUPING_KEY);
+  return GROUPINGS.find((g) => g === stored) ?? "none";
 }
 
 interface DownloadLabelsDialogProps {
@@ -61,6 +63,11 @@ function DownloadLabelsDialog({open, isPending, onClose, onConfirm}: DownloadLab
           >
             <FormControlLabel value="none" control={<Radio />} label="Не группировать" />
             <FormControlLabel value="article" control={<Radio />} label="По артикулам" />
+            <FormControlLabel
+              value="accountArticle"
+              control={<Radio />}
+              label="По магазинам, затем по артикулам"
+            />
           </RadioGroup>
         </FormControl>
         <FormControl sx={{mt: 2}}>

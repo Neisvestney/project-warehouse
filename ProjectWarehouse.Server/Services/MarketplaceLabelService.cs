@@ -33,7 +33,7 @@ public class MarketplaceLabelService(
     {
         var orders = await db.Orders
             .Where(o => orderIds.Contains(o.Id))
-            .Include(o => o.MarketplaceOrder)
+            .Include(o => o.MarketplaceOrder).ThenInclude(mo => mo!.MarketplaceAccount)
             .Include(o => o.MarketplaceItems).ThenInclude(i => i.MarketplaceCard).ThenInclude(c => c!.CatalogItem)
             .ToDictionaryAsync(o => o.Id, ct);
 
@@ -86,16 +86,27 @@ public class MarketplaceLabelService(
     /// <summary>
     /// Default is the caller's order, so the printed stack matches the list on screen. Grouped by article,
     /// orders with an identical set of articles print back to back — the packer takes one pile of identical
-    /// goods and works through it instead of walking the shelves per label.
+    /// goods and works through it instead of walking the shelves per label. Grouped by account first, each
+    /// store's labels form their own stack, grouped by article inside.
     /// </summary>
     private static IReadOnlyList<Guid> OrderPages(IReadOnlyList<Guid> orderIds,
         IReadOnlyDictionary<Guid, Order> orders, OrderLabelsGrouping grouping)
     {
-        if (grouping != OrderLabelsGrouping.Article)
-            return orderIds;
-
         // OrderBy is stable, so inside a group the caller's order survives
-        return [.. orderIds.OrderBy(id => ArticleKey(orders[id]), StringComparer.Ordinal)];
+        return grouping switch
+        {
+            OrderLabelsGrouping.Article =>
+                [.. orderIds.OrderBy(id => ArticleKey(orders[id]), StringComparer.Ordinal)],
+            OrderLabelsGrouping.AccountArticle =>
+            [
+                .. orderIds
+                    .OrderBy(id => orders[id].MarketplaceOrder!.MarketplaceAccount.Name, StringComparer.Ordinal)
+                    // same-named accounts must not interleave
+                    .ThenBy(id => orders[id].MarketplaceOrder!.MarketplaceAccountId)
+                    .ThenBy(id => ArticleKey(orders[id]), StringComparer.Ordinal),
+            ],
+            _ => orderIds,
+        };
     }
 
     private static string ArticleKey(Order order) =>
