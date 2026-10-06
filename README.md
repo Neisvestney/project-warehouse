@@ -1,6 +1,11 @@
-# ProjectWarehouse
-
-ASP.NET Core 10 Web API + React (Vite) SPA. PostgreSQL через Docker Compose.
+<div align="center">
+    <img width="150" height="150" src="projectwarehouse.client/public/readme-logo.png" alt="Logo">
+    <h1 align="center"><b>ProjectWarehouse</b></h1>
+    <p align="center">
+        Система управления складом: <b>приёмки, остатки, заказы и маркетплейсы</b> — ASP.NET Core 10 Web API + React (Vite) SPA, PostgreSQL через Docker Compose.
+    </p>
+</div>
+<br/>
 
 ## Стек
 
