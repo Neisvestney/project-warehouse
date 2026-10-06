@@ -1238,7 +1238,10 @@ manual refresh.
   a «Группировать по» choice (`Не группировать` / `По артикулам` / `По магазинам, затем по артикулам`; the choice survives a reload in
   `localStorage` under `orders-labels-grouping`) and a «Перегенерировать этикетки» checkbox that maps to
   `forceRegenerate` — unlike the grouping it is **not** remembered and resets whenever the dialog closes, since
-  a stuck flag would refetch every label from the marketplace on each print. It sends **all** selected orders:
+  a stuck flag would refetch every label from the marketplace on each print. A «Печатать название аккаунта»
+  checkbox maps to `printAccountName`; it is not remembered either and follows the grouping — switching to
+  `По магазинам, затем по артикулам` ticks it, any other grouping clears it, and the user can override it either
+  way. On close it resets to that grouping default. It sends **all** selected orders:
   the action _could_ know in advance whether an order has a stored label, but filtering the user's selection for
   them is not its job — the server's refusal comes back with a clear message.
 - `DownloadOrderLabelButton` — the button in the FBS order page header. A single order has nothing to group and

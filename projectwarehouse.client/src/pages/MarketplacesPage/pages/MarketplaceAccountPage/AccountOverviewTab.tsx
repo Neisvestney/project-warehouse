@@ -66,6 +66,7 @@ function AccountOverviewTab({account}: AccountOverviewTabProps) {
               />
             }
           />
+          <InfoRow label="Короткое название" value={account.shortName ?? "—"} />
           <InfoRow label="Client-Id" value={account.externalClientId ?? "—"} />
           <InfoRow label="Ключ обновлён" value={formatDateTime(account.apiKeyUpdatedAt)} />
           <InfoRow label="Интервал, мин" value={String(account.syncIntervalMinutes)} />

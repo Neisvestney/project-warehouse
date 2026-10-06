@@ -28,6 +28,7 @@ import type {MarketplaceType} from "@/api/types.gen";
 type CreateFormValues = {
   type: MarketplaceType;
   clientId: string;
+  shortName: string;
   apiKey: string;
   syncIntervalMinutes: number;
   isActive: boolean;
@@ -43,6 +44,7 @@ function MarketplaceAccountCreatePage() {
     defaultValues: {
       type: "ozon",
       clientId: "",
+      shortName: "",
       apiKey: "",
       syncIntervalMinutes: 30,
       isActive: true,
@@ -67,6 +69,7 @@ function MarketplaceAccountCreatePage() {
       body: {
         type: values.type,
         clientId: values.clientId || null,
+        shortName: values.shortName.trim() || null,
         apiKey: values.apiKey,
         // input[type=number] отдаёт строку — сервер ждёт int и строку не примет
         syncIntervalMinutes: Number(values.syncIntervalMinutes),
@@ -118,6 +121,15 @@ function MarketplaceAccountCreatePage() {
               label="Api-Key"
               type="password"
               rules={{required: "Обязательное поле"}}
+              disabled={mutation.isPending}
+              fullWidth
+            />
+            <FormTextField
+              control={form.control}
+              name="shortName"
+              label="Короткое название"
+              rules={{maxLength: {value: 32, message: "Максимум 32 символа"}}}
+              helperText="Печатается на этикетках. Если пусто — печатается полное название"
               disabled={mutation.isPending}
               fullWidth
             />

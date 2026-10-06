@@ -14,6 +14,9 @@ public class MarketplaceAccountDto : IHasIdentity
     /// <summary>Reported by the marketplace, not editable. A placeholder until the first sync.</summary>
     public string Name { get; init; } = null!;
 
+    /// <summary>Entered by an operator; null means labels fall back to <see cref="Name"/>.</summary>
+    public string? ShortName { get; init; }
+
     public bool IsActive { get; init; }
     public string? ExternalClientId { get; init; }
 

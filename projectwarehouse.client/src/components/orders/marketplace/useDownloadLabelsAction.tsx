@@ -1,8 +1,7 @@
 import {useState} from "react";
 import LocalPrintshopIcon from "@mui/icons-material/LocalPrintshop";
-import type {OrderLabelsGrouping} from "@/api/types.gen";
 import type {BulkAction} from "@/components/BulkBar";
-import DownloadLabelsDialog from "./DownloadLabelsDialog";
+import DownloadLabelsDialog, {type LabelsPrintOptions} from "./DownloadLabelsDialog";
 import LabelsErrorDialog from "./LabelsErrorDialog";
 import {useDownloadLabels} from "./useDownloadLabels";
 
@@ -12,10 +11,10 @@ export function useDownloadLabelsAction() {
   const [dialogOrderIds, setDialogOrderIds] = useState<string[] | null>(null);
   const {download, isPending, error, clearError} = useDownloadLabels();
 
-  async function handleConfirm(grouping: OrderLabelsGrouping, forceRegenerate: boolean) {
+  async function handleConfirm(options: LabelsPrintOptions) {
     if (!dialogOrderIds) return;
     // closed either way: on failure the error dialog takes over, and the choice is remembered
-    await download({orderIds: dialogOrderIds, grouping, forceRegenerate});
+    await download({orderIds: dialogOrderIds, ...options});
     setDialogOrderIds(null);
   }
 

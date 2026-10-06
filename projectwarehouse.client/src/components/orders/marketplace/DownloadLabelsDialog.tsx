@@ -24,21 +24,35 @@ function loadGrouping(): OrderLabelsGrouping {
   return GROUPINGS.find((g) => g === stored) ?? "none";
 }
 
+export interface LabelsPrintOptions {
+  grouping: OrderLabelsGrouping;
+  forceRegenerate: boolean;
+  printAccountName: boolean;
+}
+
 interface DownloadLabelsDialogProps {
   open: boolean;
   isPending: boolean;
   onClose: () => void;
-  onConfirm: (grouping: OrderLabelsGrouping, forceRegenerate: boolean) => void;
+  onConfirm: (options: LabelsPrintOptions) => void;
 }
 
 function DownloadLabelsDialog({open, isPending, onClose, onConfirm}: DownloadLabelsDialogProps) {
   const [grouping, setGrouping] = useState<OrderLabelsGrouping>(loadGrouping);
   // deliberately not remembered: a stuck flag would refetch from the marketplace on every print
   const [forceRegenerate, setForceRegenerate] = useState(false);
+  // follows the grouping rather than being remembered: account stacks are where the name matters
+  const [printAccountName, setPrintAccountName] = useState(grouping === "accountArticle");
 
   function changeGrouping(value: OrderLabelsGrouping) {
     setGrouping(value);
+    setPrintAccountName(value === "accountArticle");
     localStorage.setItem(GROUPING_KEY, value);
+  }
+
+  function resetFlags() {
+    setForceRegenerate(false);
+    setPrintAccountName(grouping === "accountArticle");
   }
 
   useBackClosable(open && !isPending, onClose);
@@ -50,7 +64,7 @@ function DownloadLabelsDialog({open, isPending, onClose, onConfirm}: DownloadLab
       fullWidth
       maxWidth="xs"
       // resetting on close rather than on confirm keeps the checkbox intact while the request runs
-      slotProps={{transition: {onExited: () => setForceRegenerate(false)}}}
+      slotProps={{transition: {onExited: resetFlags}}}
     >
       <DialogTitle>Скачать этикетки</DialogTitle>
       <DialogContent dividers>
@@ -69,6 +83,20 @@ function DownloadLabelsDialog({open, isPending, onClose, onConfirm}: DownloadLab
               label="По магазинам, затем по артикулам"
             />
           </RadioGroup>
+        </FormControl>
+        <FormControl sx={{mt: 2}}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={printAccountName}
+                onChange={(e) => setPrintAccountName(e.target.checked)}
+              />
+            }
+            label="Печатать название аккаунта"
+          />
+          <FormHelperText>
+            Короткое название магазина, а если оно не задано — полное.
+          </FormHelperText>
         </FormControl>
         <FormControl sx={{mt: 2}}>
           <FormControlLabel
@@ -93,7 +121,7 @@ function DownloadLabelsDialog({open, isPending, onClose, onConfirm}: DownloadLab
         <Button
           variant="contained"
           loading={isPending}
-          onClick={() => onConfirm(grouping, forceRegenerate)}
+          onClick={() => onConfirm({grouping, forceRegenerate, printAccountName})}
         >
           Скачать
         </Button>

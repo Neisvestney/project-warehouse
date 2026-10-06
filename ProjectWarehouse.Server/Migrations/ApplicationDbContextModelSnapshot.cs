@@ -870,6 +870,10 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<DateTime?>("ReturnsSyncedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("ShortName")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<int>("SyncIntervalMinutes")
                         .HasColumnType("integer");
 

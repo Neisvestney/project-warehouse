@@ -1126,6 +1126,7 @@ export type CreateMarketplaceAccountRequest = {
    * Required when the provider declares RequiresClientId.
    */
   clientId?: null | string;
+  shortName?: null | string;
   apiKey: string;
   syncIntervalMinutes?: null | number;
   isActive: boolean;
@@ -1597,6 +1598,10 @@ export type MarketplaceAccountDto = {
    * Reported by the marketplace, not editable. A placeholder until the first sync.
    */
   name: string;
+  /**
+   * Entered by an operator; null means labels fall back to Name.
+   */
+  shortName?: null | string;
   isActive: boolean;
   externalClientId?: null | string;
   companyLegalName?: null | string;
@@ -2112,6 +2117,10 @@ export type OrderLabelsRequest = {
    * Refetch every label from the marketplace, ignoring and replacing the stored one.
    */
   forceRegenerate: boolean;
+  /**
+   * Stamp the account's short name (its full name when unset) above the articles.
+   */
+  printAccountName: boolean;
 };
 
 /**
@@ -4246,6 +4255,10 @@ export type UpdateCatalogItemRequest = {
 
 export type UpdateMarketplaceAccountRequest = {
   clientId?: null | string;
+  /**
+   * Blank clears it — labels then print the full name.
+   */
+  shortName?: null | string;
   /**
    * Write-only. Empty or absent means "keep the current key".
    */

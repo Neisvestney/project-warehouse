@@ -391,6 +391,7 @@ MarketplaceAccount : IHasIdentity
 ├── Id                    — Guid
 ├── Type                  — MarketplaceType (Ozon | Wildberries)
 ├── Name                  — string, название магазина по данным маркетплейса (заполняется синхронизацией)
+├── ShortName             — string? (≤ 32), короткое название для этикеток, вводит оператор
 ├── IsActive              — bool, выключенный аккаунт не синхронизируется
 ├── ExternalClientId      — string?, Client-Id Ozon (для WB не заполняется)
 ├── CompanyLegalName      — string?, наименование юрлица  ─┐
@@ -417,10 +418,12 @@ MarketplaceAccount : IHasIdentity
 ├── Cards                 — MarketplaceCard[]
 └── SyncRuns              — MarketplaceSyncRun[]
 
-[Projectable] SearchString => Name + " " + ExternalClientId + " " + CompanyLegalName + " " + Inn
+[Projectable] SearchString => Name + " " + ShortName + " " + ExternalClientId + " " + CompanyLegalName + " " + Inn
 ```
 
 **Название аккаунта руками не вводится.** Ни `POST /accounts`, ни `PUT /accounts/{id}` поля `name` не принимают: его источник — `company.name` из `/v1/seller/info`, и каждая синхронизация его перезаписывает. Между созданием аккаунта и первым успешным запуском в поле лежит заглушка вида `Ozon ••••1234` (тип маркетплейса + маска ключа) — аккаунт обязан быть отображаемым в списке сразу. Пустое имя от маркетплейса заглушку не затирает.
+
+**Короткое название — наоборот, только ручное.** `ShortName` принимают `POST` и `PUT /accounts`, синхронизация его не трогает. Пустая строка или пробелы сохраняются как `null`. Нужно оно для этикеток: полное `Name` из `/v1/seller/info` — это часто юрлицо целиком, и в угол этикетки оно не помещается. Когда `ShortName` не задан, на этикетку идёт `Name`.
 
 ### Склад маркетплейса (`MarketplaceWarehouse`)
 

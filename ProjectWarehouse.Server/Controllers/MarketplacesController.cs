@@ -162,6 +162,7 @@ public class MarketplacesController(
             Type = request.Type,
             // stands in until the first sync reports the real shop name — the account still has to be listable
             Name = $"{request.Type} ••••{protector.Last4(request.ApiKey)}",
+            ShortName = NormalizeShortName(request.ShortName),
             IsActive = request.IsActive,
             ExternalClientId = request.ClientId,
             ApiKeyProtected = protector.Protect(request.ApiKey),
@@ -219,6 +220,7 @@ public class MarketplacesController(
         var before = await ToDetailDtoAsync(account, ct);
 
         account.ExternalClientId = request.ClientId;
+        account.ShortName = NormalizeShortName(request.ShortName);
         account.IsActive = request.IsActive;
         account.SyncIntervalMinutes = request.SyncIntervalMinutes;
 
@@ -488,6 +490,9 @@ public class MarketplacesController(
 
     private static DateTime? ToUtc(DateTime? value) =>
         value is { } v ? DateTime.SpecifyKind(v.ToUniversalTime(), DateTimeKind.Utc) : null;
+
+    private static string? NormalizeShortName(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     /// <summary>Where a history import could start, for the period fields of the sync dialog.</summary>
     /// <remarks>
