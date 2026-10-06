@@ -4,6 +4,7 @@
 //   - public/icon-512x512.png      (logo on a brand-color background square with maskable safe-zone padding, for the PWA manifest)
 //   - public/icon-192x192.png      (same composition, for the PWA manifest)
 //   - public/apple-touch-icon.png  (180x180, same composition — iOS ignores manifest.icons)
+//   - public/readme-logo.png       (256x256 rounded brand-color tile with a larger logo, for the repo README header)
 //   - src/components/icons/LogoIcon.tsx (MUI createSvgIcon component, fill left as currentColor)
 // Usage: node scripts/generate-brand-assets.mjs
 import {mkdir, readFile, writeFile} from "node:fs/promises";
@@ -18,6 +19,9 @@ const ACCENT_COLOR = "#90caf9";
 // Fraction of the canvas the logo occupies, centered — the rest is safe-zone padding so Android's
 // adaptive-icon mask (a circle/squircle crop) never clips the mark.
 const PWA_SAFE_ZONE_SCALE = 0.6;
+const README_LOGO_SCALE = 0.7;
+const README_CORNER_RADIUS_RATIO = 0.22;
+const README_LOGO_SIZE = 256;
 
 const clientRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const sourcePath = path.join(clientRoot, "src/assets/logo.svg");
@@ -25,6 +29,7 @@ const faviconPath = path.join(clientRoot, "public/favicon.svg");
 const faviconIcoPath = path.join(clientRoot, "public/favicon.ico");
 const FAVICON_ICO_SIZES = [16, 32, 48];
 const iconComponentPath = path.join(clientRoot, "src/components/icons/LogoIcon.tsx");
+const readmeLogoPath = path.join(clientRoot, "public/readme-logo.png");
 
 const pwaIconTargets = [
   {path: path.join(clientRoot, "public/icon-512x512.png"), size: 512},
@@ -80,6 +85,23 @@ for (const {path: targetPath, size} of pwaIconTargets) {
   await sharp(Buffer.from(pwaSvg)).resize(size, size).png().toFile(targetPath);
 }
 
+const readmeOffset = ((1 - README_LOGO_SCALE) / 2) * Number(width);
+const readmeCornerRadius = README_CORNER_RADIUS_RATIO * Number(width);
+const readmeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${viewBox}">
+  <rect width="${width}" height="${height}" rx="${readmeCornerRadius}" fill="${BACKGROUND_COLOR}"/>
+  <g transform="translate(${readmeOffset} ${readmeOffset}) scale(${README_LOGO_SCALE})">
+    <g fill="#fff" fill-rule="evenodd" clip-rule="evenodd">
+      ${shapeElements.join("\n      ")}
+    </g>
+  </g>
+</svg>
+`;
+
+await sharp(Buffer.from(readmeSvg))
+  .resize(README_LOGO_SIZE, README_LOGO_SIZE)
+  .png()
+  .toFile(readmeLogoPath);
+
 const iconJsx = shapeElements
   .map((el) => el.replace(/\bpoints="/, 'points="').replace(/\/>$/, " />"))
   .join("\n    ");
@@ -107,4 +129,5 @@ console.log(`Wrote ${path.relative(clientRoot, faviconIcoPath)}`);
 for (const {path: targetPath} of pwaIconTargets) {
   console.log(`Wrote ${path.relative(clientRoot, targetPath)}`);
 }
+console.log(`Wrote ${path.relative(clientRoot, readmeLogoPath)}`);
 console.log(`Wrote ${path.relative(clientRoot, iconComponentPath)}`);
