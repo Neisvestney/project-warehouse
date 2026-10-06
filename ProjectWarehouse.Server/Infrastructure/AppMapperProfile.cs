@@ -409,7 +409,7 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.Accounts, opt => opt.MapFrom(s => s.Accounts.OrderBy(a => a.Name).ThenBy(a => a.Id)));
         CreateMap<MarketplaceAccount, OrganizationAccountDto>();
         CreateMap<Organization, OrganizationSummaryDto>()
-            .ForMember(d => d.AccountCount, opt => opt.MapFrom(s => s.Accounts.Count));
+            .ForMember(d => d.Accounts, opt => opt.MapFrom(s => s.Accounts.OrderBy(a => a.Name).ThenBy(a => a.Id)));
         CreateMap<Organization, OrganizationShortSummaryDto>();
 
         // Marketplaces. MarketplaceAccountDto deliberately has no ApiKey member — only a mask.

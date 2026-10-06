@@ -3,6 +3,7 @@ const BARCODE_NAMESPACE = "pw";
 const ENTITY_CODES = {
   storagePlaceNode: "spn",
   catalogItem: "ci",
+  organization: "org",
 } as const;
 
 export type BarcodeEntity = keyof typeof ENTITY_CODES;

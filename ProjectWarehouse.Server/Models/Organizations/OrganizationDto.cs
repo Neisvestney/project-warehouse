@@ -1,5 +1,6 @@
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
+using ProjectWarehouse.Server.Models.Integrations;
 
 namespace ProjectWarehouse.Server.Models.Organizations;
 
@@ -42,7 +43,7 @@ public class OrganizationSummaryDto : IHasIdentity
     public OrganizationKind Kind { get; init; }
     public string? LegalName { get; init; }
     public string? OwnershipForm { get; init; }
-    public int AccountCount { get; init; }
+    public List<MarketplaceAccountShortSummaryDto> Accounts { get; init; } = [];
 }
 
 public class OrganizationShortSummaryDto : IHasIdentity
