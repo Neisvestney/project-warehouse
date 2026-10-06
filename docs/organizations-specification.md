@@ -112,7 +112,11 @@ Organization : IHasIdentity
 списке и на странице организации.
 
 - `/organizations` — `OrganizationsPage`: таблица с поиском (`?search=`) и сортировкой, кнопка **Добавить**
-  под `organizations.edit` открывает `OrganizationFormDialog`.
+  под `organizations.edit` открывает `OrganizationFormDialog`. Колонка **Аккаунты** — `MarketplaceAccountChip`
+  каждого привязанного аккаунта, включая неактивные (`OrganizationSummaryDto.accounts`, по имени).
+- Массовое действие **Этикетки** списка (`useOrganizationLabelsPrintAction` → `OrganizationLabelsPrintDialog`,
+  только число копий) печатает `text`-раскладку `PrintPage`: заголовок — имена аккаунтов через запятую, ниже —
+  название организации (без аккаунтов — только оно), маленький `DataMatrix` с `pw:org:<guid>`.
 - `/organizations/:id` — `OrganizationPage`: реквизиты, таблица аккаунтов (ИНН, расходящийся с ИНН организации,
   помечен предупреждением; строки ведут на аккаунт только при `integrations.view`), **Изменить** /
   **Удалить** под `organizations.edit`. `DeleteOrganizationDialog` блокирует подтверждение, пока аккаунты

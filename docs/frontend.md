@@ -519,7 +519,7 @@ Barcodes printed for app entities carry an entity tag so a scanner can tell what
 `formatEntityBarcode(entity, id)` from `@/utils/barcodeUtils` and read back with `parseEntityBarcode(raw)` →
 `{entity, id} | null`.
 
-Format: `pw:<entityCode>:<guid>` — `storagePlaceNode` → `spn`, `catalogItem` → `ci`.
+Format: `pw:<entityCode>:<guid>` — `storagePlaceNode` → `spn`, `catalogItem` → `ci`, `organization` → `org`.
 
 Parsing is strict: an untagged bare GUID is **not** accepted.
 

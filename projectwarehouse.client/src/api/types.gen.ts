@@ -2252,7 +2252,7 @@ export type OrganizationSummaryDto = {
   kind: OrganizationKind;
   legalName?: null | string;
   ownershipForm?: null | string;
-  accountCount: number;
+  accounts: Array<MarketplaceAccountShortSummaryDto>;
 };
 
 export type PaginatedOfAbcItemDto = {
