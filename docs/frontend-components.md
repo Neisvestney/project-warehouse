@@ -723,7 +723,8 @@ raising an error.
 
 One field for free-text search and a set of catalog items, used in the page header where a list is searched by
 text and filtered by «содержит позицию» at the same time (the lists of orders, receipts, write-offs and
-stocktakes, the assembly page, the stock pages built on `ItemsBasePage`). It is a
+stocktakes, the assembly page, the stock pages built on `ItemsBasePage`, the «Карточки» tab of a marketplace
+account, where it sits in the `FiltersBar`). It is a
 `multiple` + `freeSolo` `Autocomplete` whose value is the chosen items and whose input is the search text; the
 caller keeps both in the URL as usual (`search` through plain `useSyncedWithQueryState`, `item` as a
 comma-separated id list) and the endpoint gets `catalogItemIds` with OR semantics.
@@ -1336,7 +1337,7 @@ wrapper.
 The marketplace account chip: account name, colored by `MARKETPLACE_TYPE_COLORS`, linking to
 `/marketplaces/{accountId}`. Takes `accountId` / `name` / `type` — the sources differ (an account
 object, a flattened `MarketplaceOrderDto`) — plus an optional `search` for the link's query string
-(`?tab=warehouses`, `?tab=cards&catalogItemId=…`), and passes the remaining `ChipProps` through. The click
+(`?tab=warehouses`, `?tab=cards&item=…`), and passes the remaining `ChipProps` through. The click
 `stopPropagation()`s, so it stays safe inside accordion summaries and clickable rows.
 
 Call sites: `OrderMetaSection` («Магазин»), the `OrdersAssemblyPage` order row, `CatalogItemDrawer`

@@ -871,7 +871,7 @@ Quartz регистрируется с in-memory хранилищем задач
 | `GET` | `/accounts/{id}/sync-runs` | `integrations.view` | История запусков, новые по `QueuedAt` сверху |
 | `GET` | `/accounts/{id}/warehouses` | `integrations.view` | Склады маркетплейса |
 | `PUT` | `/warehouses/{id}/mapping` | `integrations.map` | Привязка склада, `{ warehouseId }`, `null` — снять |
-| `GET` | `/accounts/{id}/cards` | `integrations.view` | Карточки (поиск, `mappingState` = `all`/`unmapped`/`mapped`/`archivedItem`, `includeArchived`) |
+| `GET` | `/accounts/{id}/cards` | `integrations.view` | Карточки (поиск, `catalogItemIds` — привязанные к любой из позиций, `mappingState` = `all`/`unmapped`/`mapped`/`archivedItem`, `includeArchived`) |
 | `PUT` | `/cards/{id}/mapping` | `integrations.map` | Привязка карточки, `{ catalogItemId, isMarkedArchived }`, `catalogItemId: null` — снять привязку |
 | `POST` | `/accounts/cards/auto-map` | `integrations.map` | Автосопоставление по нескольким аккаунтам с режимами перезаписи и пробным прогоном (см. «Ручной запуск») |
 | `GET` | `/auto-map-rules` | `integrations.view` | Правила автосопоставления в порядке применения (`priority` по убыванию), без пагинации; `searchString` ищет по значению правила, имени и артикулу товара |

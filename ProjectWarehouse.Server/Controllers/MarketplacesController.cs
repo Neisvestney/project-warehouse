@@ -831,8 +831,9 @@ public class MarketplacesController(
     /// <remarks>
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 50, max 200), <c>searchString</c>,
     /// <c>mappingState</c> (default <c>All</c>; <c>Unmapped</c>, <c>Mapped</c>, <c>ArchivedItem</c>),
-    /// <c>includeArchived</c> (default false), <c>catalogItemId</c>, <c>sortBy</c> (default <c>Name</c>),
-    /// <c>sortOrder</c> (default <c>Asc</c>). An unknown account id yields an empty page rather than a 404.
+    /// <c>includeArchived</c> (default false), <c>catalogItemIds</c>, <c>sortBy</c> (default <c>Name</c>),
+    /// <c>sortOrder</c> (default <c>Asc</c>). <c>catalogItemIds</c> keeps cards mapped to any of those catalog items.
+    /// An unknown account id yields an empty page rather than a 404.
     /// Requires <c>integrations.view</c>; 403 <c>permissionDenied</c> otherwise.
     /// </remarks>
     [HttpGet("accounts/{id:guid}/cards")]
@@ -846,7 +847,7 @@ public class MarketplacesController(
         [FromQuery] bool includeArchived = false,
         [FromQuery] MarketplaceCardSortBy sortBy = MarketplaceCardSortBy.Name,
         [FromQuery] SortOrder sortOrder = SortOrder.Asc,
-        [FromQuery] Guid? catalogItemId = null,
+        [FromQuery] IReadOnlyList<Guid>? catalogItemIds = null,
         CancellationToken ct = default)
     {
         var query = db.MarketplaceCards
@@ -856,10 +857,8 @@ public class MarketplacesController(
         if (!includeArchived)
             query = query.Where(c => !c.EffectiveIsArchived);
 
-        if (catalogItemId is not null)
-        {
-            query = query.Where(c => c.CatalogItemId == catalogItemId);
-        }
+        if (catalogItemIds is {Count: > 0})
+            query = query.Where(c => c.CatalogItemId != null && catalogItemIds.Contains(c.CatalogItemId.Value));
 
         query = mappingState switch
         {
