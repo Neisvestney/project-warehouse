@@ -3451,8 +3451,9 @@ export const marketplacesGetCardsQueryKey = (options: Options<MarketplacesGetCar
  *
  * Query params: `page` (default 1), `pageSize` (default 50, max 200), `searchString`,
  * `mappingState` (default `All`; `Unmapped`, `Mapped`, `ArchivedItem`),
- * `includeArchived` (default false), `catalogItemId`, `sortBy` (default `Name`),
- * `sortOrder` (default `Asc`). An unknown account id yields an empty page rather than a 404.
+ * `includeArchived` (default false), `catalogItemIds`, `sortBy` (default `Name`),
+ * `sortOrder` (default `Asc`). `catalogItemIds` keeps cards mapped to any of those catalog items.
+ * An unknown account id yields an empty page rather than a 404.
  * Requires `integrations.view`; 403 `permissionDenied` otherwise.
  */
 export const marketplacesGetCardsOptions = (options: Options<MarketplacesGetCardsData>) =>
@@ -3484,8 +3485,9 @@ export const marketplacesGetCardsInfiniteQueryKey = (
  *
  * Query params: `page` (default 1), `pageSize` (default 50, max 200), `searchString`,
  * `mappingState` (default `All`; `Unmapped`, `Mapped`, `ArchivedItem`),
- * `includeArchived` (default false), `catalogItemId`, `sortBy` (default `Name`),
- * `sortOrder` (default `Asc`). An unknown account id yields an empty page rather than a 404.
+ * `includeArchived` (default false), `catalogItemIds`, `sortBy` (default `Name`),
+ * `sortOrder` (default `Asc`). `catalogItemIds` keeps cards mapped to any of those catalog items.
+ * An unknown account id yields an empty page rather than a 404.
  * Requires `integrations.view`; 403 `permissionDenied` otherwise.
  */
 export const marketplacesGetCardsInfiniteOptions = (options: Options<MarketplacesGetCardsData>) => {

@@ -22,18 +22,17 @@ import {
   marketplacesGetAccountQueryKey,
   marketplacesGetCardsOptions,
 } from "@/api/@tanstack/react-query.gen";
-import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {useTableSort} from "@/hooks/useTableSort";
 import {useHasPermission} from "@/hooks/usePermission";
 import FiltersBar from "@/components/FiltersBar";
-import SearchInput from "@/components/SearchInput";
 import CopyableText from "@/components/CopyableText";
 import DataTableContainer from "@/components/DataTableContainer";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
 import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
+import SearchWithItemsInput from "@/components/catalog/SearchWithItemsInput";
 import {useOpenCatalogItem} from "@/components/catalog/CatalogItemDrawerContext";
 import CardImage from "@/components/marketplace/CardImage.tsx";
 import CardMappingChip from "../../components/CardMappingChip";
@@ -71,7 +70,7 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
   const [isAutoMapOpen, setAutoMapOpen] = useState(false);
   const [isRebindOpen, setRebindOpen] = useState(false);
 
-  const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
+  const [searchString, setSearchString] = useSyncedWithQueryState(
     "search",
     (q) => (typeof q === "string" ? q : ""),
     (v) => v || null,
@@ -92,19 +91,27 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
     (v) => (v ? "true" : null),
   );
 
-  const [catalogItemIdFilter, setCatalogItemIdFilter] = useSyncedWithQueryState(
-    "catalogItemId",
-    (q) => (typeof q === "string" ? q : null),
-    (v) => v || null,
+  const [catalogItemIds, setCatalogItemIds] = useSyncedWithQueryState<string[]>(
+    "item",
+    (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
+    (v) => v.join(",") || null,
   );
 
   const {sortBy, sortOrder, handleSortClick} = useTableSort(SORT_COLUMNS, "name");
 
+  // searchString is already debounced by the search field, so it goes with the immediate params
   const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams(
-    {searchString: searchString || undefined, catalogItemId: catalogItemIdFilter || undefined},
-    [searchString, catalogItemIdFilter],
-    {mappingState, includeArchived, sortBy, sortOrder},
-    [mappingState, includeArchived, sortBy, sortOrder],
+    {},
+    [],
+    {
+      searchString: searchString || undefined,
+      catalogItemIds: catalogItemIds.length > 0 ? catalogItemIds : undefined,
+      mappingState,
+      includeArchived,
+      sortBy,
+      sortOrder,
+    },
+    [searchString, catalogItemIds, mappingState, includeArchived, sortBy, sortOrder],
     {defaultPageSize: 50},
   );
 
@@ -124,7 +131,11 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
   return (
     <Stack spacing={2}>
       <FiltersBar
-        activeCount={[searchString, mappingState !== "all", includeArchived].filter(Boolean).length}
+        activeCount={
+          [searchString, catalogItemIds.length > 0, mappingState !== "all", includeArchived].filter(
+            Boolean,
+          ).length
+        }
         actions={
           canMap ? (
             <>
@@ -148,7 +159,13 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
           ) : null
         }
       >
-        <SearchInput value={inputValue} onChange={setInputValue} size="small" />
+        <SearchWithItemsInput
+          text={searchString}
+          onTextChange={setSearchString}
+          itemIds={catalogItemIds}
+          onItemIdsChange={setCatalogItemIds}
+          sx={{minWidth: 280, flexGrow: 1}}
+        />
         <Select
           value={mappingState}
           onChange={(e) => setMappingState(e.target.value as MarketplaceCardMappingState)}
@@ -171,15 +188,6 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
           label="Показывать архивные"
         />
       </FiltersBar>
-      {catalogItemIdFilter && (
-        <Stack spacing={1} direction={"row"}>
-          <Chip
-            color={"info"}
-            label={"Применен фильтр по позиции каталога"}
-            onDelete={() => setCatalogItemIdFilter(null)}
-          />
-        </Stack>
-      )}
       <DataTableContainer
         isFetching={isFetching}
         count={data?.total ?? 0}

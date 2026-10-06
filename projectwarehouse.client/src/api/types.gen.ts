@@ -6835,7 +6835,7 @@ export type MarketplacesGetCardsData = {
     includeArchived?: boolean;
     sortBy?: MarketplaceCardSortBy;
     sortOrder?: SortOrder;
-    catalogItemId?: string;
+    catalogItemIds?: Array<string>;
   };
   url: "/api/integrations/marketplaces/accounts/{id}/cards";
 };

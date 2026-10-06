@@ -485,7 +485,7 @@ function ViewMode({
                       accountId={account.id}
                       name={account.name}
                       type={account.type}
-                      search={`?tab=cards&catalogItemId=${data.id}&mappingState=all`}
+                      search={`?tab=cards&item=${data.id}`}
                     />
                   ))}
                 </Box>
