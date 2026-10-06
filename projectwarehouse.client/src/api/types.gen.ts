@@ -2103,7 +2103,7 @@ export type OrderDetailsDto = {
 /**
  * How the merged label stack is ordered.
  */
-export type OrderLabelsGrouping = "none" | "article";
+export type OrderLabelsGrouping = "none" | "article" | "accountArticle";
 
 export type OrderLabelsRequest = {
   orderIds: Array<string>;
@@ -6050,6 +6050,7 @@ export type InventoryItemsGetAllData = {
     warehouseId?: string;
     storagePlaceId?: string;
     nodeId?: string;
+    catalogItemIds?: Array<string>;
     catalogItemTypes?: Array<CatalogItemType>;
     tagIds?: Array<string>;
     isArchived?: boolean;

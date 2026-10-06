@@ -600,6 +600,9 @@ own dialogs above it.
 - **Скопировать GUID** — copies the raw id via `copyToClipboard` (`utils/clipboardUtils.ts`:
   `navigator.clipboard` with a hidden-textarea + `execCommand` fallback for insecure origins and the Capacitor
   shell), then reports the result via snackbar.
+- **Остатки** — a link to `/storage/inventory?item=<id>`, the stock page filtered to this one item. Shown only
+  for physical types (`PHYSICAL_CATALOG_ITEMS`, the only ones that hold stock) and to holders of
+  `warehouses.view` / `warehouses.view_assigned`, the gate of the inventory endpoint.
 - **Печать этикетки** — opens [`CatalogLabelsPrintDialog`](#cataloglabelsprintdialog) with this one item.
 
 ### `CatalogLabelsPrintDialog`
@@ -720,7 +723,7 @@ raising an error.
 
 One field for free-text search and a set of catalog items, used in the page header where a list is searched by
 text and filtered by «содержит позицию» at the same time (the lists of orders, receipts, write-offs and
-stocktakes, the assembly page). It is a
+stocktakes, the assembly page, the stock pages built on `ItemsBasePage`). It is a
 `multiple` + `freeSolo` `Autocomplete` whose value is the chosen items and whose input is the search text; the
 caller keeps both in the URL as usual (`search` through plain `useSyncedWithQueryState`, `item` as a
 comma-separated id list) and the endpoint gets `catalogItemIds` with OR semantics.
@@ -1231,7 +1234,7 @@ manual refresh.
 - `useDownloadLabelsAction` — the bulk action in the FBS list's selection toolbar. `getAction(orderIds)` returns
   the `BulkAction`; its click captures those ids and opens `DownloadLabelsDialog`, which `OrdersFbsPage` renders
   from the hook's `dialogs`. The dialog offers
-  a «Группировать по» choice (`Не группировать` / `По артикулам`; the choice survives a reload in
+  a «Группировать по» choice (`Не группировать` / `По артикулам` / `По магазинам, затем по артикулам`; the choice survives a reload in
   `localStorage` under `orders-labels-grouping`) and a «Перегенерировать этикетки» checkbox that maps to
   `forceRegenerate` — unlike the grouping it is **not** remembered and resets whenever the dialog closes, since
   a stuck flag would refetch every label from the marketplace on each print. It sends **all** selected orders:

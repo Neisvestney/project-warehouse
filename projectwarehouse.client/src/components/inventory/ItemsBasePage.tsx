@@ -26,13 +26,12 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import {type InventoryItemSortBy, type InventoryItemSummaryDto} from "@/api/types.gen";
 import {PHYSICAL_CATALOG_ITEMS, useCatalogTypesFilter} from "@/features/catalog";
-import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useDrawerSearchParamsState} from "@/hooks/useDrawerSearchParamsState";
 import {useTableSort} from "@/hooks/useTableSort";
 import DataTableContainer from "@/components/DataTableContainer";
-import SearchInput from "@/components/SearchInput";
+import SearchWithItemsInput from "@/components/catalog/SearchWithItemsInput";
 import FiltersBar from "@/components/FiltersBar";
 import TableRowLoader from "@/components/TableRowLoader";
 import TableRowEmpty from "@/components/TableRowEmpty";
@@ -60,10 +59,16 @@ interface ItemsBasePageProps {
 function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePageProps) {
   const showWarehouseFilter = !warehouseId;
 
-  const [inputValue, setInputValue, searchString] = useDebouncedSyncedWithQueryState(
+  const [searchString, setSearchString] = useSyncedWithQueryState(
     "search",
     (q) => (typeof q === "string" ? q : ""),
     (v) => v || null,
+  );
+
+  const [catalogItemIds, setCatalogItemIds] = useSyncedWithQueryState<string[]>(
+    "item",
+    (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
+    (v) => v.join(",") || null,
   );
 
   const {sortBy, sortOrder, handleSortClick} = useTableSort(SORTABLE_COLUMNS, "name");
@@ -94,10 +99,11 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
     {},
     [],
     {
-      searchString,
+      searchString: searchString || undefined,
       warehouseId: effectiveWarehouseId,
       storagePlaceId,
       nodeId,
+      catalogItemIds: catalogItemIds.length > 0 ? catalogItemIds : undefined,
       catalogItemTypes: itemTypes.length < PHYSICAL_CATALOG_ITEMS.length ? itemTypes : undefined,
       tagIds: tagIds.length > 0 ? tagIds : undefined,
       isArchived: isArchived ?? undefined,
@@ -109,6 +115,7 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
       effectiveWarehouseId,
       storagePlaceId,
       nodeId,
+      catalogItemIds,
       itemTypes,
       tagIds,
       isArchived,
@@ -157,7 +164,13 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
             </IconButton>
           }
         >
-          <SearchInput value={inputValue} onChange={setInputValue} />
+          <SearchWithItemsInput
+            text={searchString}
+            onTextChange={setSearchString}
+            itemIds={catalogItemIds}
+            onItemIdsChange={setCatalogItemIds}
+            sx={{flexGrow: 1}}
+          />
         </PageGenericHeader>
 
         <FiltersBar

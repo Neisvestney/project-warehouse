@@ -8,6 +8,9 @@ public enum OrderLabelsGrouping
 
     /// <summary>Orders with the same set of articles print back to back.</summary>
     Article = 1,
+
+    /// <summary>Orders split by marketplace account (by name), then grouped by articles within each.</summary>
+    AccountArticle = 2,
 }
 
 public class OrderLabelsRequest
