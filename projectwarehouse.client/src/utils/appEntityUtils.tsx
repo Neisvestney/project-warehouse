@@ -6,6 +6,7 @@ import type {
   OrderStatus,
   ReceiptStatus,
   StocktakeStatus,
+  WriteoffStatus,
 } from "@/api";
 import type {SchedulerEventColor} from "@mui/x-scheduler/models";
 import {interpolateArgs} from "@/utils/interpolateArgs.ts";
@@ -35,6 +36,8 @@ import {
   MARKETPLACE_TYPE_LABELS,
 } from "@/components/marketplace/marketplaceUtils.ts";
 import {formatOrderNumber} from "@/components/orders/orderUtils.ts";
+import OrderStatusChip from "@/components/orders/OrderStatusChip.tsx";
+import WriteoffStatusChip from "@/components/writeoffs/WriteoffStatusChip.tsx";
 
 type EntityTypeConfig = {
   linkTemplate: string;
@@ -123,6 +126,9 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
             СПС-{String(e.additionalFields.number as number).padStart(5, "0")}
           </Typography>
         )}
+        {e.additionalFields?.status && (
+          <WriteoffStatusChip status={e.additionalFields.status as WriteoffStatus} />
+        )}
       </>
     ),
   },
@@ -169,6 +175,9 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
           <Typography sx={{fontFamily: "monospace"}}>
             ЗКЗ-{String(e.additionalFields.number as number).padStart(5, "0")}
           </Typography>
+        )}
+        {e.additionalFields?.status && (
+          <OrderStatusChip status={e.additionalFields.status as OrderStatus} />
         )}
       </>
     ),

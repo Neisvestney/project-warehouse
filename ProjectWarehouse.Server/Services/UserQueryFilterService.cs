@@ -22,6 +22,9 @@ public class UserQueryFilterService(EntityAccessRegistry registry) : IUserQueryF
     public Task<IQueryable<Stocktake>> GetStocktakesAsync(ClaimsPrincipal user, CancellationToken ct = default) =>
         View<Stocktake>(user, ct);
 
+    public Task<IQueryable<Writeoff>> GetWriteoffsAsync(ClaimsPrincipal user, CancellationToken ct = default) =>
+        View<Writeoff>(user, ct);
+
     public Task<IQueryable<ApplicationUser>> GetUsersAsync(ClaimsPrincipal user, CancellationToken ct = default) =>
         View<ApplicationUser>(user, ct);
 
