@@ -4,6 +4,7 @@ import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {useNavigate} from "react-router";
 import {warehousesDeleteMutation, warehousesGetAllQueryKey} from "@/api/@tanstack/react-query.gen";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import {byOperation} from "@/utils/queryKeys";
 
 interface DeleteWarehouseDialogProps {
   open: boolean;
@@ -24,7 +25,10 @@ function DeleteWarehouseDialog({
   const mutation = useMutation({
     ...warehousesDeleteMutation(),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({queryKey: warehousesGetAllQueryKey()});
+      await Promise.all([
+        queryClient.invalidateQueries({queryKey: warehousesGetAllQueryKey()}),
+        queryClient.invalidateQueries({queryKey: byOperation("warehousesGetForSelect")}),
+      ]);
       navigate("/storage/warehouses");
     },
   });

@@ -260,7 +260,7 @@ public class OrdersController(
 
     /// <summary>List all order tags, optionally filtered by name.</summary>
     /// <remarks>
-    /// Query params: <c>search</c> (optional). Not paginated — ordered by name.
+    /// Query params: <c>search</c> (optional, fuzzy). Not paginated — ordered by search relevance, then by name.
     /// Requires view access to orders (<c>orders.view</c>, <c>orders.view_assigned</c> or
     /// <c>orders.assemble_assigned</c> — the assembly worklist filters by tag too). No error codes beyond 403
     /// <c>permissionDenied</c>.
@@ -274,8 +274,8 @@ public class OrdersController(
             return error;
 
         var tags = await db.OrderTags
-            .WhereMatchesSearch(t => t.SearchString, search)
-            .OrderBy(t => t.Name)
+            .WhereMatchesSearch(t => t.SearchString, search, fuzzy: true)
+            .OrderBySearchRelevance(t => t.SearchString, search, t => t.Name)
             .Select(t => new OrderTagDto { Id = t.Id, Name = t.Name })
             .ToListAsync(ct);
 

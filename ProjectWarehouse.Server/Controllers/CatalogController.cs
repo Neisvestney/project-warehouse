@@ -27,7 +27,7 @@ public class CatalogController(
 
     /// <summary>List all catalog item tags, optionally filtered by name.</summary>
     /// <remarks>
-    /// Query params: <c>search</c> (optional). Not paginated — ordered by name.
+    /// Query params: <c>search</c> (optional, fuzzy). Not paginated — ordered by search relevance, then by name.
     /// Requires <c>catalog.view</c>. No error codes beyond 403 <c>permissionDenied</c>.
     /// </remarks>
     [HttpGet("tags")]
@@ -36,8 +36,8 @@ public class CatalogController(
     public async Task<IActionResult> GetTags([FromQuery] string? search = null, CancellationToken ct = default)
     {
         var tags = await db.CatalogItemTags
-            .WhereMatchesSearch(t => t.SearchString, search)
-            .OrderBy(t => t.Name)
+            .WhereMatchesSearch(t => t.SearchString, search, fuzzy: true)
+            .OrderBySearchRelevance(t => t.SearchString, search, t => t.Name)
             .Select(t => new CatalogItemTagDto { Id = t.Id, Name = t.Name })
             .ToListAsync(ct);
 
@@ -106,7 +106,7 @@ public class CatalogController(
     {
         var baseQuery = db.CatalogItems
             .Where(c => c.GroupId == null)
-            .WhereMatchesSearch(c => c.SearchString, searchString);
+            .WhereMatchesSearch(c => c.SearchString, searchString, fuzzy: true);
 
         if (itemTypes != null && itemTypes.Count > 0)
         {
@@ -145,7 +145,8 @@ public class CatalogController(
     /// <remarks>
     /// Query params: <c>searchString</c>, <c>types</c>, <c>tagIds</c>, <c>take</c> (default 10, max 200).
     /// Unlike <see cref="GetAll"/>, product-group children are included — a picker must be able to reach them.
-    /// Archived items are returned too, sorted last.
+    /// <c>searchString</c> is fuzzy. Archived items are returned too, always after active ones; within each group
+    /// results are ordered by search relevance, then by name.
     /// Requires <c>catalog.view</c>. No error codes beyond 403 <c>permissionDenied</c>.
     /// </remarks>
     [HttpGet("for-select")]
@@ -159,7 +160,7 @@ public class CatalogController(
         CancellationToken ct = default)
     {
         var query = db.CatalogItems
-            .WhereMatchesSearch(c => c.SearchString, searchString);
+            .WhereMatchesSearch(c => c.SearchString, searchString, fuzzy: true);
 
         if (types != null && types.Count > 0)
             query = query.Where(c => types.Contains(c.Type));
@@ -168,7 +169,10 @@ public class CatalogController(
             query = query.Where(c => c.Tags.Any(t => tagIds.Contains(t.Id)));
 
         var items = await query
-            .OrderByCatalog()
+            .OrderBy(c => c.IsArchived)
+            .ThenBySearchRelevance(c => c.SearchString, searchString)
+            .ThenBy(c => c.FullName)
+            .ThenBy(c => c.Id)
             .Take(take)
             .ProjectTo<CatalogItemSelectDto>(mapper.ConfigurationProvider)
             .ToListAsync(ct);

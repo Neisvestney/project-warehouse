@@ -4,6 +4,7 @@ import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {useNavigate} from "react-router";
 import {usersDeleteMutation, usersGetAllQueryKey} from "@/api/@tanstack/react-query.gen";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import {byOperation} from "@/utils/queryKeys";
 
 interface DeleteUserDialogProps {
   open: boolean;
@@ -19,7 +20,10 @@ function DeleteUserDialog({open, userId, username, onClose}: DeleteUserDialogPro
   const mutation = useMutation({
     ...usersDeleteMutation(),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({queryKey: usersGetAllQueryKey()});
+      await Promise.all([
+        queryClient.invalidateQueries({queryKey: usersGetAllQueryKey()}),
+        queryClient.invalidateQueries({queryKey: byOperation("usersGetForSelect")}),
+      ]);
       navigate("/settings/employees");
     },
   });

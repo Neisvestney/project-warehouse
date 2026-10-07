@@ -28,7 +28,7 @@ public class TagsController(
     /// <summary>All tags with the number of objects bound to each.</summary>
     /// <remarks>
     /// Query params: <c>kind</c> (optional — every kind when omitted), <c>search</c> (optional). Not
-    /// paginated; ordered by kind, then by name. Requires <c>tags.manage</c>; 403 <c>permissionDenied</c>
+    /// paginated; ordered by kind, then by search relevance and name. Requires <c>tags.manage</c>; 403 <c>permissionDenied</c>
     /// otherwise.
     /// </remarks>
     [HttpGet]

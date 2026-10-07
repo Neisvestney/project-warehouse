@@ -208,6 +208,7 @@ import {
   usersGetAll,
   usersGetAvatar,
   usersGetById,
+  usersGetForSelect,
   usersUpdate,
   warehousesCreate,
   warehousesDelete,
@@ -215,6 +216,7 @@ import {
   warehousesGetById,
   warehousesGetByIdForPrint,
   warehousesGetDefaultNode,
+  warehousesGetForSelect,
   warehousesUpdate,
   writeoffsBatchTransition,
   writeoffsBatchUpdateTags,
@@ -815,6 +817,9 @@ import type {
   UsersGetByIdData,
   UsersGetByIdError,
   UsersGetByIdResponse,
+  UsersGetForSelectData,
+  UsersGetForSelectError,
+  UsersGetForSelectResponse,
   UsersUpdateData,
   UsersUpdateError,
   UsersUpdateResponse,
@@ -836,6 +841,9 @@ import type {
   WarehousesGetDefaultNodeData,
   WarehousesGetDefaultNodeError,
   WarehousesGetDefaultNodeResponse,
+  WarehousesGetForSelectData,
+  WarehousesGetForSelectError,
+  WarehousesGetForSelectResponse,
   WarehousesUpdateData,
   WarehousesUpdateError,
   WarehousesUpdateResponse,
@@ -1669,7 +1677,7 @@ export const catalogGetTagsQueryKey = (options?: Options<CatalogGetTagsData>) =>
 /**
  * List all catalog item tags, optionally filtered by name.
  *
- * Query params: `search` (optional). Not paginated — ordered by name.
+ * Query params: `search` (optional, fuzzy). Not paginated — ordered by search relevance, then by name.
  * Requires `catalog.view`. No error codes beyond 403 `permissionDenied`.
  */
 export const catalogGetTagsOptions = (options?: Options<CatalogGetTagsData>) =>
@@ -1881,7 +1889,8 @@ export const catalogGetForSelectQueryKey = (options?: Options<CatalogGetForSelec
  *
  * Query params: `searchString`, `types`, `tagIds`, `take` (default 10, max 200).
  * Unlike Task&lt;IActionResult&gt; CatalogController.GetAll(int page = 1, int pageSize = 20, string? searchString = null, CatalogSortBy sortBy = CatalogSortBy.Name, SortOrder sortOrder = SortOrder.Asc, IReadOnlyList&lt;CatalogItemType&gt;? itemTypes = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, bool? isArchived = null, CancellationToken ct = default(CancellationToken)), product-group children are included — a picker must be able to reach them.
- * Archived items are returned too, sorted last.
+ * `searchString` is fuzzy. Archived items are returned too, always after active ones; within each group
+ * results are ordered by search relevance, then by name.
  * Requires `catalog.view`. No error codes beyond 403 `permissionDenied`.
  */
 export const catalogGetForSelectOptions = (options?: Options<CatalogGetForSelectData>) =>
@@ -2214,9 +2223,11 @@ export const commonContentGlobalSearchQueryKey = (
 /**
  * Global search for entities.
  *
- * Query params: `searchString` (required). Searches warehouses, receipts, catalog items,
- * marketplace accounts, organizations, users and stocktakes, each already filtered to what the caller may view, then
- * returns at most 10 results overall (up to 10 per source before the union).
+ * Query params: `searchString` (required). Searches orders, warehouses, receipts, catalog items,
+ * marketplace accounts, organizations, users, stocktakes and write-offs, each already filtered to what the caller
+ * may view, and returns at most 10 results ranked by relevance: substring matches of every token first, then
+ * `pg_trgm` fuzzy matches, each by word similarity. Every type with a match gets at least one slot.
+ * Fuzzy matching needs at least 3 characters and covers only the 1000 most recent orders.
  * Requires authentication only — no permission opens or closes the endpoint itself.
  * No error codes; a missing `searchString` is a model-binding 422 (`required`).
  */
@@ -3677,7 +3688,7 @@ export const ordersGetTagsQueryKey = (options?: Options<OrdersGetTagsData>) =>
 /**
  * List all order tags, optionally filtered by name.
  *
- * Query params: `search` (optional). Not paginated — ordered by name.
+ * Query params: `search` (optional, fuzzy). Not paginated — ordered by search relevance, then by name.
  * Requires view access to orders (`orders.view`, `orders.view_assigned` or
  * `orders.assemble_assigned` — the assembly worklist filters by tag too). No error codes beyond 403
  * `permissionDenied`.
@@ -5069,7 +5080,8 @@ export const organizationsGetShortQueryKey = (options?: Options<OrganizationsGet
 /**
  * Id, name and INN of every organization, for pickers.
  *
- * Query params: `searchString` (optional). Requires `organizations.view`; 403
+ * Query params: `searchString` (optional, fuzzy; ordered by search relevance, then by name).
+ * Requires `organizations.view`; 403
  * `permissionDenied` otherwise.
  */
 export const organizationsGetShortOptions = (options?: Options<OrganizationsGetShortData>) =>
@@ -5357,7 +5369,7 @@ export const receiptsGetTagsQueryKey = (options?: Options<ReceiptsGetTagsData>) 
 /**
  * List all receipt tags, optionally filtered by name.
  *
- * Query params: `search` (optional). Not paginated — ordered by name.
+ * Query params: `search` (optional, fuzzy). Not paginated — ordered by search relevance, then by name.
  * Requires `receipts.view` or `receipts.view_assigned`. No error codes beyond 403
  * `permissionDenied`.
  */
@@ -6262,7 +6274,7 @@ export const rolesSearchQueryKey = (options?: Options<RolesSearchData>) =>
 /**
  * Search roles by name (id + name only, max 10 results).
  *
- * Query params: `searchString` (optional — omitted returns the first 10 by name).
+ * Query params: `searchString` (optional, fuzzy — ordered by search relevance; omitted returns the first 10 by name).
  * Requires `roles.view`. No error codes beyond 403 `permissionDenied`.
  */
 export const rolesSearchOptions = (options?: Options<RolesSearchData>) =>
@@ -6921,7 +6933,7 @@ export const stocktakesGetTagsQueryKey = (options?: Options<StocktakesGetTagsDat
 /**
  * List all stocktake tags, optionally filtered by name.
  *
- * Query params: `search` (optional). Not paginated — ordered by name.
+ * Query params: `search` (optional, fuzzy). Not paginated — ordered by search relevance, then by name.
  * Requires `stocktakes.view` or `stocktakes.view_assigned`. No error codes beyond 403
  * `permissionDenied`.
  */
@@ -8008,7 +8020,7 @@ export const tagsGetAllQueryKey = (options?: Options<TagsGetAllData>) =>
  * All tags with the number of objects bound to each.
  *
  * Query params: `kind` (optional — every kind when omitted), `search` (optional). Not
- * paginated; ordered by kind, then by name. Requires `tags.manage`; 403 `permissionDenied`
+ * paginated; ordered by kind, then by search relevance and name. Requires `tags.manage`; 403 `permissionDenied`
  * otherwise.
  */
 export const tagsGetAllOptions = (options?: Options<TagsGetAllData>) =>
@@ -8329,6 +8341,35 @@ export const usersCreateMutation = (
   return mutationOptions;
 };
 
+export const usersGetForSelectQueryKey = (options?: Options<UsersGetForSelectData>) =>
+  createQueryKey("usersGetForSelect", options);
+
+/**
+ * Users for select/autocomplete controls.
+ *
+ * Query params: `searchString` (optional, fuzzy), `warehouse` (assigned warehouse id),
+ * `take` (default 20, max 200). Not paginated — ordered by search relevance, then by username.
+ * Requires `users.view`; without it the request is refused with 403 `permissionDenied`.
+ */
+export const usersGetForSelectOptions = (options?: Options<UsersGetForSelectData>) =>
+  queryOptions<
+    UsersGetForSelectResponse,
+    UsersGetForSelectError,
+    UsersGetForSelectResponse,
+    ReturnType<typeof usersGetForSelectQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await usersGetForSelect({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: usersGetForSelectQueryKey(options),
+  });
+
 /**
  * Delete a user.
  *
@@ -8602,6 +8643,34 @@ export const warehousesCreateMutation = (
   return mutationOptions;
 };
 
+export const warehousesGetForSelectQueryKey = (options?: Options<WarehousesGetForSelectData>) =>
+  createQueryKey("warehousesGetForSelect", options);
+
+/**
+ * Warehouses for select/autocomplete controls.
+ *
+ * Query params: `searchString` (optional, fuzzy), `take` (default 20, max 200). Not paginated —
+ * ordered by search relevance, then by name. Access is the same as Task&lt;IActionResult&gt; WarehousesController.GetAll(int page = 1, int pageSize = 20, string? searchString = null, CancellationToken ct = default(CancellationToken)).
+ */
+export const warehousesGetForSelectOptions = (options?: Options<WarehousesGetForSelectData>) =>
+  queryOptions<
+    WarehousesGetForSelectResponse,
+    WarehousesGetForSelectError,
+    WarehousesGetForSelectResponse,
+    ReturnType<typeof warehousesGetForSelectQueryKey>
+  >({
+    queryFn: async ({queryKey, signal}) => {
+      const {data} = await warehousesGetForSelect({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: warehousesGetForSelectQueryKey(options),
+  });
+
 /**
  * Delete a warehouse and all its storage places.
  *
@@ -8755,7 +8824,7 @@ export const writeoffsGetTagsQueryKey = (options?: Options<WriteoffsGetTagsData>
 /**
  * List all write-off tags, optionally filtered by name.
  *
- * Query params: `search` (optional). Not paginated — ordered by name.
+ * Query params: `search` (optional, fuzzy). Not paginated — ordered by search relevance, then by name.
  * Requires `writeoffs.view` or `writeoffs.view_assigned`. No error codes beyond 403
  * `permissionDenied`.
  */

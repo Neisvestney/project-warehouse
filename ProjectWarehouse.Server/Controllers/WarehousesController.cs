@@ -44,7 +44,7 @@ public class WarehousesController(
             return error;
 
         var accessible = await Rule.QueryAsync(User, AccessLevel.View, ct);
-        var query = accessible.WhereMatchesSearch(w => w.SearchString, searchString);
+        var query = accessible.WhereMatchesSearch(w => w.SearchString, searchString, fuzzy: true);
 
         var paginated = await query
             .OrderBy(w => w.Name)
@@ -53,6 +53,33 @@ public class WarehousesController(
             .ToPaginatedAsync(page, pageSize, ct);
 
         return Ok(paginated);
+    }
+
+    /// <summary>Warehouses for select/autocomplete controls.</summary>
+    /// <remarks>
+    /// Query params: <c>searchString</c> (optional, fuzzy), <c>take</c> (default 20, max 200). Not paginated —
+    /// ordered by search relevance, then by name. Access is the same as <see cref="GetAll"/>.
+    /// </remarks>
+    [HttpGet("for-select")]
+    [Authorize]
+    [ProducesResponseType<IReadOnlyList<WarehouseSummaryDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetForSelect(
+        [FromQuery] string? searchString = null,
+        [FromQuery][Range(1, 200)] int take = 20,
+        CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
+
+        var list = await (await Rule.QueryAsync(User, AccessLevel.View, ct))
+            .WhereMatchesSearch(w => w.SearchString, searchString, fuzzy: true)
+            .OrderBySearchRelevance(w => w.SearchString, searchString, w => w.Name)
+            .ThenBy(w => w.Id)
+            .Take(take)
+            .ProjectTo<WarehouseSummaryDto>(mapper.ConfigurationProvider)
+            .ToListAsync(ct);
+
+        return Ok(list);
     }
 
     /// <summary>Get a warehouse by ID including its storage places.</summary>

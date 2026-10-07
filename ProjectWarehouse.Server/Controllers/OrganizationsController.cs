@@ -39,7 +39,7 @@ public class OrganizationsController(
         [FromQuery] SortOrder sortOrder = SortOrder.Asc,
         CancellationToken ct = default)
     {
-        var query = db.Organizations.WhereMatchesSearch(o => o.SearchString, searchString);
+        var query = db.Organizations.WhereMatchesSearch(o => o.SearchString, searchString, fuzzy: true);
 
         var sorted = sortBy switch
         {
@@ -58,7 +58,8 @@ public class OrganizationsController(
 
     /// <summary>Id, name and INN of every organization, for pickers.</summary>
     /// <remarks>
-    /// Query params: <c>searchString</c> (optional). Requires <c>organizations.view</c>; 403
+    /// Query params: <c>searchString</c> (optional, fuzzy; ordered by search relevance, then by name).
+    /// Requires <c>organizations.view</c>; 403
     /// <c>permissionDenied</c> otherwise.
     /// </remarks>
     [HttpGet("short")]
@@ -67,8 +68,8 @@ public class OrganizationsController(
     public async Task<IActionResult> GetShort([FromQuery] string? searchString = null, CancellationToken ct = default)
     {
         var list = await db.Organizations
-            .WhereMatchesSearch(o => o.SearchString, searchString)
-            .OrderBy(o => o.Name)
+            .WhereMatchesSearch(o => o.SearchString, searchString, fuzzy: true)
+            .OrderBySearchRelevance(o => o.SearchString, searchString, o => o.Name)
             .ThenBy(o => o.Id)
             .ProjectTo<OrganizationShortSummaryDto>(mapper.ConfigurationProvider)
             .ToListAsync(ct);

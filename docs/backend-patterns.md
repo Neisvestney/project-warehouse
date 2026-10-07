@@ -151,6 +151,29 @@ twin (`в`, `м`, `н`, `т`, `к`) are folded too, so `ILIKE` keeps matching re
 Cost: one correlated `EXISTS` per collection per token, with no index behind `ILIKE`. Fine for small or paginated
 sets; reach for `pg_trgm` or a materialized column before pointing it at a large table.
 
+### Fuzzy search and relevance order
+
+`WhereMatchesSearch(field, searchString, fuzzy: true)` also lets a row through when the whole normalized query is
+trigram-word-similar to the normalized field (`pg_trgm` `<%`, default `word_similarity_threshold` 0.6), so
+"PETG чорный" finds "PETG Черный 1 кг". Queries shorter than `SearchExtensions.FuzzyMinLength` (3) stay exact —
+shorter ones match almost anything. There is no trigram index, so every row is scored: `fuzzy: true` is for small
+tables only.
+
+`OrderBySearchRelevance(field, searchString, thenBy)` puts rows where every token is a substring first, then sorts
+by `word_similarity`, then by `thenBy`; without a search it is plain `OrderBy(thenBy)`, and further `ThenBy` calls
+chain onto it. `ThenBySearchRelevance(field, searchString)` appends the same two keys to an existing order and is
+a no-op without a search — catalog `for-select` uses it to keep archived items last whatever their relevance:
+`OrderBy(c => c.IsArchived).ThenBySearchRelevance(...)`.
+
+A selector needs its own non-paginated `for-select` endpoint (`take` instead of `page`/`pageSize`) rather than
+reusing the paginated list: the list keeps its table sort, the selector sorts by relevance.
+
+| Where | Filter | Order |
+|---|---|---|
+| Selectors and autocompletes — `catalog/for-select`, `users/for-select`, `warehouses/for-select`, every `…/tags` endpoint and the tags page (`TagsService`), `organizations/short`, `roles/search` | `fuzzy: true` | `OrderBySearchRelevance` / `ThenBySearchRelevance` |
+| Lists of small entities — catalog, stock (`InventoryItemsController` catalog filter), stock forecast (catalog filter), warehouses, users, organizations, marketplace accounts and cards, auto-map rules | `fuzzy: true` | the list's own sort; relevance does not override the user's column sort |
+| Document lists (`WhereMatchesExtendedSearch`), inventory numbers, analytics filters | exact | — |
+
 ### Rules
 
 - Always use `?? ""` on nullable string fields inside `SearchString` to avoid null propagation in SQL.
@@ -161,6 +184,29 @@ sets; reach for `pg_trgm` or a materialized column before pointing it at a large
   `MatchesXxxSearch(pattern)` + `WhereMatchesExtendedSearch`. Never `string.Join` over a navigation.
 - Both live in `SearchExtensions`; escaping is `SearchExtensions.EscapeChar`, never a bare `"\\"` literal.
 - Every column inside a `MatchesXxxSearch` predicate goes through `SearchExtensions.Normalize`.
+
+### Global search — `GlobalSearchService`
+
+`GET /api/commoncontent/search` runs one `UNION ALL` over every searchable type and returns at most 10
+`AppEntity`. Each type is a `SearchSource<T>`: the queryable from `IUserQueryFilterService` (so access is part of
+the query), an `Id` selector and its `SearchString`. Every source contributes two branches, each projected to a
+flat `(Type, Id, Exact, Score)` row and cut to its best 10:
+
+- **exact** — `WhereMatchesSearch` over all visible rows;
+- **fuzzy** — `pg_trgm` `<%` (`EF.Functions.TrigramsAreWordSimilar`) of the normalized query against the
+  normalized `SearchString`, skipped for queries shorter than `SearchExtensions.FuzzyMinLength`. A source may narrow the rows this
+  branch scans: orders pass only the 1000 most recent by `Number`, read backwards off `IX_Orders_Number`.
+
+`Score` is `word_similarity` in both branches. In memory, a row found by both keeps its exact hit, exact hits
+rank above fuzzy ones, then by `Score`. The best hit of every type takes a slot first, the remaining slots go by
+rank, and the result keeps rank order. Only the picked ids are then loaded with `ProjectTo<AppEntity>`, one query
+per type present.
+
+The union cannot carry `AppEntity` itself: its `AdditionalFields` dictionary is a client projection, and EF
+translates a set operation only over identical flat columns — hence the `(Type, Id)` round trip.
+
+Adding a type: a `[Projectable] SearchString` on the entity, an `AppEntity` map, a `GetXxxAsync` in
+`IUserQueryFilterService`, and one `SearchSource<T>` line in `GlobalSearchService`.
 
 ---
 

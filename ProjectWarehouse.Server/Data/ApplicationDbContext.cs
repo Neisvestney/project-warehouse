@@ -96,6 +96,8 @@ public class ApplicationDbContext : IdentityDbContext<
     {
         base.OnModelCreating(builder);
 
+        builder.HasPostgresExtension("pg_trgm");
+
         var textMapping = new StringTypeMapping("text", DbType.String);
         builder.HasDbFunction(SearchExtensions.NormalizeMethod)
             .HasTranslation(args => new SqlFunctionExpression(

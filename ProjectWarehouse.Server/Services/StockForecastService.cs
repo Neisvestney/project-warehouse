@@ -682,7 +682,7 @@ public class StockForecastService(
 
     private static IQueryable<CatalogItem> ApplyCommonFilter(IQueryable<CatalogItem> query, CatalogFilter filter)
     {
-        query = query.WhereMatchesSearch(c => c.SearchString, filter.SearchString);
+        query = query.WhereMatchesSearch(c => c.SearchString, filter.SearchString, fuzzy: true);
 
         if (filter.TagIds is { Count: > 0 } tagIds)
             query = query.Where(c => c.Tags.Any(t => tagIds.Contains(t.Id)));

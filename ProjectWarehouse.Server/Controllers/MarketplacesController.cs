@@ -57,7 +57,7 @@ public class MarketplacesController(
         [FromQuery] SortOrder sortOrder = SortOrder.Asc,
         CancellationToken ct = default)
     {
-        var query = db.MarketplaceAccounts.WhereMatchesSearch(a => a.SearchString, searchString);
+        var query = db.MarketplaceAccounts.WhereMatchesSearch(a => a.SearchString, searchString, fuzzy: true);
 
         if (type is not null)
             query = query.Where(a => a.Type == type);
@@ -857,7 +857,7 @@ public class MarketplacesController(
     {
         var query = db.MarketplaceCards
             .Where(c => c.MarketplaceAccountId == id)
-            .WhereMatchesSearch(c => c.SearchString, searchString);
+            .WhereMatchesSearch(c => c.SearchString, searchString, fuzzy: true);
 
         if (!includeArchived)
             query = query.Where(c => !c.EffectiveIsArchived);

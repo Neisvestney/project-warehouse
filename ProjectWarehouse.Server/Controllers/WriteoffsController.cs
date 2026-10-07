@@ -71,7 +71,7 @@ public class WriteoffsController(
 
     /// <summary>List all write-off tags, optionally filtered by name.</summary>
     /// <remarks>
-    /// Query params: <c>search</c> (optional). Not paginated — ordered by name.
+    /// Query params: <c>search</c> (optional, fuzzy). Not paginated — ordered by search relevance, then by name.
     /// Requires <c>writeoffs.view</c> or <c>writeoffs.view_assigned</c>. No error codes beyond 403
     /// <c>permissionDenied</c>.
     /// </remarks>
@@ -84,8 +84,8 @@ public class WriteoffsController(
             return error;
 
         var tags = await db.WriteoffTags
-            .WhereMatchesSearch(t => t.SearchString, search)
-            .OrderBy(t => t.Name)
+            .WhereMatchesSearch(t => t.SearchString, search, fuzzy: true)
+            .OrderBySearchRelevance(t => t.SearchString, search, t => t.Name)
             .Select(t => new WriteoffTagDto { Id = t.Id, Name = t.Name })
             .ToListAsync(ct);
 
