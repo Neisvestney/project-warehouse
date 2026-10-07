@@ -96,16 +96,17 @@ export const PREDEFINED_SERVERS: ServerConfig[] = [
 
 ### Использование в JS
 
-```ts
-import AtolScanner from "@/plugins/atolScanner";
-import {Capacitor} from "@capacitor/core";
+Компоненты подписываются через `useHardwareScanner(onScan)` (`@/hooks/useHardwareScanner.ts`), а не напрямую
+через плагин. Там, где `Capacitor.isPluginAvailable("AtolScanner")` ложно, хук ничего не делает: в обычном
+браузере у плагина нет web-реализации, и любой его вызов отклонился бы. `startListening` / `stopListening`
+глобальны для плагина, поэтому хук считает подписчиков на уровне модуля: первый запускает сканер, последний
+останавливает, и оба вызова идут через одну цепочку промисов. Так несколько компонентов могут быть подписаны
+одновременно, а уходящая страница не остановит сканер, который уже запустила следующая. Снятие listener'а идёт
+через нативный мост асинхронно, поэтому колбэк после cleanup отключается локальным флагом — скан, пришедший в
+это окно, до размонтированного компонента не доходит.
 
-if (Capacitor.isNativePlatform()) {
-  await AtolScanner.startListening();
-  await AtolScanner.addListener("scanResult", ({barcode}) => {
-    console.log("Scanned:", barcode);
-  });
-}
+```ts
+useHardwareScanner(({barcode}) => handleBarcode(barcode));
 ```
 
 ### Адаптация под другой ТСД

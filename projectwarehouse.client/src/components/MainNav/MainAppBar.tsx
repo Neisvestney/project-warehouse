@@ -19,7 +19,7 @@ import DarkModeIcon from "@mui/icons-material/DarkMode";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import PersonIcon from "@mui/icons-material/Person";
 import LogoutIcon from "@mui/icons-material/Logout";
-import GlobalSearchModal from "@/components/GlobalSearch/GlobalSearchModal";
+import {useGlobalSearch} from "@/contexts/GlobalSearch/GlobalSearchContext";
 import {useNavigate} from "react-router";
 import {useAuth} from "@/hooks/useAuth";
 import {useResolvedColorScheme} from "@/hooks/useResolvedColorScheme.ts";
@@ -38,7 +38,7 @@ export interface AppBarProps {
 function MainAppBar({navEntries}: AppBarProps) {
   const [navDrawerOpen, setNavDrawerOpen] = React.useState(false);
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
-  const [searchOpen, setSearchOpen] = React.useState(false);
+  const {openSearch} = useGlobalSearch();
   const {user, logout, profileIsLoadError, profileLoadError} = useAuth();
   const {scheme, setMode} = useResolvedColorScheme();
   const navigate = useNavigate();
@@ -98,7 +98,7 @@ function MainAppBar({navEntries}: AppBarProps) {
       }
       const now = Date.now();
       if (now - lastShiftTime < 500) {
-        setSearchOpen(true);
+        openSearch();
         lastShiftTime = 0;
       } else {
         lastShiftTime = now;
@@ -113,7 +113,7 @@ function MainAppBar({navEntries}: AppBarProps) {
       document.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", reset);
     };
-  }, []);
+  }, [openSearch]);
 
   return (
     <>
@@ -141,7 +141,7 @@ function MainAppBar({navEntries}: AppBarProps) {
             <Box sx={{flexGrow: 1, display: {xs: "none", md: "flex"}}} />
             <Box sx={{display: {xs: "none", md: "flex"}, mx: 2, flexShrink: 0}}>
               <ButtonBase
-                onClick={() => setSearchOpen(true)}
+                onClick={() => openSearch()}
                 aria-label="Открыть поиск (двойной Shift)"
                 sx={{
                   display: "flex",
@@ -191,7 +191,7 @@ function MainAppBar({navEntries}: AppBarProps) {
             >
               <IconButton
                 color="inherit"
-                onClick={() => setSearchOpen(true)}
+                onClick={() => openSearch()}
                 aria-label="Поиск"
                 sx={{display: {xs: "flex", md: "none"}}}
               >
@@ -267,7 +267,6 @@ function MainAppBar({navEntries}: AppBarProps) {
         onClose={() => setNavDrawerOpen(false)}
         entries={navEntries}
       />
-      <GlobalSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
     </>
   );
 }

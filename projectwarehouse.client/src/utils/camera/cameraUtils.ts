@@ -37,6 +37,8 @@ export const checkCameraAvailability = async (): Promise<{
   }
 };
 
+export const isCameraApiSupported = (): boolean => !!navigator.mediaDevices?.getUserMedia;
+
 /**
  * Определяет, является ли устройство мобильным
  */

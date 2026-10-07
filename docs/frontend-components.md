@@ -32,6 +32,27 @@ a group with no visible children and a block with no visible rows. `MainAppBarLa
 hands it both to `SidebarLayout` and to `MainAppBar` for the drawer. Routes come from the same blocks — see
 [Nav routes](#nav-routes).
 
+### `GlobalSearchModal`
+
+Text search over `/api/commoncontent/search`, plus a camera mode toggled by the icon at the end of the field (shown only where
+`getUserMedia` exists). The camera mode renders a lazily loaded `ScannerBlock` in place of the result list. A
+scan goes through `getScannedEntityLink`: an app-printed barcode (`parseEntityBarcode`) whose entity type has a
+page navigates straight to it and closes the modal; any other code — a foreign barcode, or a storage place node,
+which has no page — is put into the field as the query and the camera turns off. `ScannerBlock` reports the
+same code on every frame until it unmounts, so the content accepts only the first scan per camera session.
+
+There is a single instance, rendered by `GlobalSearchProvider` in `MainAppBarLayout`. Anything under the layout
+opens it through `useGlobalSearch()`: `openSearch(request?)`, `closeSearch()` and `isOpen`. A `request`
+(`{camera?, query?}`) sets how the content starts and gets a fresh `seq` that keys the content, so every request
+restarts it — even one repeating the previous query. A bare `openSearch()` (double Shift, the app bar button)
+leaves an already open search and its typed text alone. In camera mode the input is not focused on open, so the
+phone keyboard does not cover the viewfinder.
+
+`HomePage` is the scan entry point: a camera FAB, shown only on narrow screens where `getUserMedia` exists, opens the search in camera mode,
+and it binds `useHardwareScanner`. A hardware scan of an app barcode navigates directly — with `replace` while the
+search is open, since the modal holds a history entry — and closes the search; any other code opens the search
+with that code as the query.
+
 ### `MainNavDrawer`
 
 Left-anchored mobile navigation `Drawer` rendering the same `SidebarNavTree` as the desktop sidebar. Any

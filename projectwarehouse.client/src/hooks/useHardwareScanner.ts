@@ -1,9 +1,17 @@
 import {useEffect, useRef} from "react";
+import {Capacitor} from "@capacitor/core";
 import AtolScanner, {type ScanResultEvent} from "@/plugins/atolScanner.ts";
-import type {PluginListenerHandle} from "@capacitor/core";
+
+// startListening/stopListening are global to the plugin: only the first subscriber starts and the last one
+// stops, and the calls are chained so a page leaving cannot stop the scanner after the next page started it.
+let subscribers = 0;
+let queue: Promise<void> = Promise.resolve();
+
+function enqueue(action: () => Promise<void>) {
+  queue = queue.then(action).catch((e) => console.warn("Hardware scanner call failed", e));
+}
 
 export function useHardwareScanner(onScanResult: (e: ScanResultEvent) => void) {
-  const listener = useRef<PluginListenerHandle>(null);
   const onScanResultRef = useRef(onScanResult);
 
   useEffect(() => {
@@ -11,21 +19,22 @@ export function useHardwareScanner(onScanResult: (e: ScanResultEvent) => void) {
   }, [onScanResult]);
 
   useEffect(() => {
-    (async () => {
-      await listener.current?.remove();
-      listener.current = await AtolScanner.addListener("scanResult", (e) => {
-        onScanResultRef.current(e);
-      });
-      await AtolScanner.startListening();
-    })();
-  }, []);
+    if (!Capacitor.isPluginAvailable("AtolScanner")) return;
 
-  useEffect(() => {
+    // Removal goes through the native bridge, so a scan can still arrive after unmount
+    let active = true;
+    const handle = AtolScanner.addListener("scanResult", (e) => {
+      if (active) onScanResultRef.current(e);
+    });
+    handle.catch((e) => console.warn("Hardware scanner listener registration failed", e));
+    if (subscribers++ === 0) enqueue(() => AtolScanner.startListening());
+
     return () => {
-      (async () => {
-        await listener.current?.remove();
-        await AtolScanner.stopListening();
-      })();
+      active = false;
+      handle
+        .then((h) => h.remove())
+        .catch((e) => console.warn("Hardware scanner listener removal failed", e));
+      if (--subscribers === 0) enqueue(() => AtolScanner.stopListening());
     };
   }, []);
 }
