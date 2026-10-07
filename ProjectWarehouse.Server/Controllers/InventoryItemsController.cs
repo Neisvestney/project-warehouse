@@ -67,7 +67,7 @@ public class InventoryItemsController(
         var catalogQuery = db.CatalogItems
             .Include(ci => ci.Group)
             .Where(ci => isArchived == null || ci.IsArchived == isArchived)
-            .WhereMatchesSearch(ci => ci.SearchString, searchString);
+            .WhereMatchesSearch(ci => ci.SearchString, searchString, fuzzy: true);
 
         if (catalogItemIds != null && catalogItemIds.Count > 0)
             catalogQuery = catalogQuery.Where(ci => catalogItemIds.Contains(ci.Id));

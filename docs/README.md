@@ -112,6 +112,7 @@ that layer (the Docs Index above) before writing code.
 | An error returned from a controller | [errors.md → Controller Helpers](errors.md#controller-helpers) |
 | A new error code | [errors.md → Where the codes are documented](errors.md#where-the-codes-are-documented) |
 | Text search over a list | [backend-patterns.md → Search](backend-patterns.md#search-with-wherematchessearch--projectable) |
+| An entity type in the global search | [backend-patterns.md → Global search](backend-patterns.md#global-search--globalsearchservice) |
 | A field inherited from a parent entity | [backend-patterns.md → Inheritable fields](backend-patterns.md#inheritable-fields-with-projectable) |
 | Saving a nested list from a request | [backend-patterns.md → `IListUpdater`](backend-patterns.md#updating-related-entity-lists-with-ilistupdater) |
 | A query loading several collections | [backend-patterns.md → Splitting mode](backend-patterns.md#a-query-loading-more-than-one-collection-picks-its-splitting-mode) |

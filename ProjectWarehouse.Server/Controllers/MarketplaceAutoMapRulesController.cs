@@ -41,7 +41,7 @@ public class MarketplaceAutoMapRulesController(
     public async Task<IActionResult> GetRules([FromQuery] string? searchString, CancellationToken ct)
     {
         var rules = await db.MarketplaceAutoMapRules
-            .WhereMatchesSearch(r => r.SearchString, searchString)
+            .WhereMatchesSearch(r => r.SearchString, searchString, fuzzy: true)
             .OrderByDescending(r => r.Priority)
             .ThenBy(r => r.Id)
             .ProjectTo<MarketplaceAutoMapRuleDto>(mapper.ConfigurationProvider)

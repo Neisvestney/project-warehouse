@@ -2,7 +2,11 @@ import React, {useEffect, useMemo, useRef, useState} from "react";
 import type {AutocompleteProps, TextFieldProps} from "@mui/material";
 import {Autocomplete, Chip, TextField} from "@mui/material";
 import {useQuery} from "@tanstack/react-query";
-import {warehousesGetAllOptions, warehousesGetByIdOptions} from "@/api/@tanstack/react-query.gen";
+import {
+  warehousesGetAllOptions,
+  warehousesGetByIdOptions,
+  warehousesGetForSelectOptions,
+} from "@/api/@tanstack/react-query.gen";
 import type {WarehouseDto, WarehouseSummaryDto} from "@/api/types.gen";
 import {useDebounce} from "@/hooks/useDebounce";
 
@@ -79,11 +83,11 @@ function MultiSelect({
   const debouncedInput = useDebounce(inputValue, 300);
 
   const searchQuery = useQuery(
-    warehousesGetAllOptions({query: {searchString: debouncedInput || undefined}}),
+    warehousesGetForSelectOptions({query: {searchString: debouncedInput || undefined}}),
   );
 
   const options = useMemo(() => {
-    const results = searchQuery.data?.items ?? [];
+    const results = searchQuery.data ?? [];
     const seen = new Set(results.map((w) => w.id));
     return [...results, ...value.filter((w) => !seen.has(w.id))];
   }, [searchQuery.data, value]);
@@ -126,7 +130,7 @@ function SingleSelect({
   const debouncedInput = useDebounce(inputValue, 300);
 
   const searchQuery = useQuery(
-    warehousesGetAllOptions({query: {searchString: debouncedInput || undefined}}),
+    warehousesGetForSelectOptions({query: {searchString: debouncedInput || undefined}}),
   );
 
   const getByIdQuery = useQuery({
@@ -179,7 +183,7 @@ function SingleSelect({
   }, [value, fetchedSummary]);
 
   const options = useMemo(() => {
-    const results = searchQuery.data?.items ?? [];
+    const results = searchQuery.data ?? [];
     const seen = new Set(results.map((w) => w.id));
     const extra = fetchedSummary && !seen.has(fetchedSummary.id) ? [fetchedSummary] : [];
     return [...results, ...extra];

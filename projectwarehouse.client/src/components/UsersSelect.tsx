@@ -2,8 +2,8 @@ import {useMemo, useState} from "react";
 import type {AutocompleteProps} from "@mui/material";
 import {Autocomplete, Chip, TextField} from "@mui/material";
 import {useQuery} from "@tanstack/react-query";
-import {usersGetAllOptions} from "@/api/@tanstack/react-query.gen";
-import type {UserDetailDto} from "@/api/types.gen";
+import {usersGetForSelectOptions} from "@/api/@tanstack/react-query.gen";
+import type {UserDto} from "@/api/types.gen";
 import {useDebounce} from "@/hooks/useDebounce";
 
 type OmitControlled<T> = Omit<
@@ -23,16 +23,14 @@ type OmitControlled<T> = Omit<
   | "onInputChange"
 >;
 
-interface UsersSelectProps extends OmitControlled<
-  AutocompleteProps<UserDetailDto, true, false, false>
-> {
+interface UsersSelectProps extends OmitControlled<AutocompleteProps<UserDto, true, false, false>> {
   label?: string;
   value: string[];
   onChange: (ids: string[]) => void;
   warehouseId?: string | null;
 }
 
-function getUserLabel(user: UserDetailDto): string {
+function getUserLabel(user: UserDto): string {
   const name = [user.firstName, user.lastName].filter(Boolean).join(" ");
   return name ? `${user.username} (${name})` : user.username;
 }
@@ -48,7 +46,7 @@ function UsersSelect({
   const debouncedInput = useDebounce(inputValue, 300);
 
   const searchQuery = useQuery(
-    usersGetAllOptions({
+    usersGetForSelectOptions({
       query: {
         searchString: debouncedInput || undefined,
         warehouse: warehouseId ?? undefined,
@@ -56,11 +54,11 @@ function UsersSelect({
     }),
   );
 
-  const allUsers = useMemo(() => searchQuery.data?.items ?? [], [searchQuery.data]);
+  const allUsers = useMemo(() => searchQuery.data ?? [], [searchQuery.data]);
 
   // Keep a growing map of every user we've seen so selected chips survive search changes
-  const [knownUsersSnapshot, setKnownUsersSnapshot] = useState<UserDetailDto[]>([]);
-  const [prevAllUsers, setPrevAllUsers] = useState<UserDetailDto[]>([]);
+  const [knownUsersSnapshot, setKnownUsersSnapshot] = useState<UserDto[]>([]);
+  const [prevAllUsers, setPrevAllUsers] = useState<UserDto[]>([]);
   if (allUsers !== prevAllUsers) {
     setPrevAllUsers(allUsers);
     setKnownUsersSnapshot((prev) => {
@@ -76,8 +74,7 @@ function UsersSelect({
   );
 
   const selectedUsers = useMemo(
-    () =>
-      value.map((id) => knownUsersMap.get(id)).filter((u): u is UserDetailDto => u !== undefined),
+    () => value.map((id) => knownUsersMap.get(id)).filter((u): u is UserDto => u !== undefined),
     [value, knownUsersMap],
   );
 

@@ -9,7 +9,7 @@ namespace ProjectWarehouse.Server.Services;
 /// </summary>
 public interface ITagsService
 {
-    /// <summary>All tags of the given kind (or of every kind when it is null), ordered by name.</summary>
+    /// <summary>All tags of the given kind (or of every kind when it is null), ordered by search relevance, then by name.</summary>
     Task<IReadOnlyList<TagDto>> GetAllAsync(TagKind? kind = null, string? search = null, CancellationToken ct = default);
 
     /// <summary>Null when the tag is gone.</summary>

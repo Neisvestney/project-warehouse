@@ -42,7 +42,7 @@ public class RolesController(
 
     /// <summary>Search roles by name (id + name only, max 10 results).</summary>
     /// <remarks>
-    /// Query params: <c>searchString</c> (optional — omitted returns the first 10 by name).
+    /// Query params: <c>searchString</c> (optional, fuzzy — ordered by search relevance; omitted returns the first 10 by name).
     /// Requires <c>roles.view</c>. No error codes beyond 403 <c>permissionDenied</c>.
     /// </remarks>
     [HttpGet("search")]
@@ -51,8 +51,8 @@ public class RolesController(
     public async Task<IActionResult> Search([FromQuery] string? searchString = null, CancellationToken ct = default)
     {
         var roles = await roleManager.Roles
-            .WhereMatchesSearch(r => r.Name!, searchString)
-            .OrderBy(r => r.Name)
+            .WhereMatchesSearch(r => r.Name!, searchString, fuzzy: true)
+            .OrderBySearchRelevance(r => r.Name!, searchString, r => r.Name)
             .Take(10)
             .ProjectTo<RoleDto>(mapper.ConfigurationProvider)
             .ToListAsync(ct);

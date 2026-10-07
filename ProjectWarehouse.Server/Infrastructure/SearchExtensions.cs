@@ -19,26 +19,71 @@ public static class SearchExtensions
 
     private static readonly Expression EfFunctionsExpr = Expression.Constant(EF.Functions);
 
+    // Shorter queries make pg_trgm word similarity match almost anything.
+    public const int FuzzyMinLength = 3;
+
+    /// <summary>
+    /// Every token must be a substring of the field. With <paramref name="fuzzy"/> a row also passes when the whole
+    /// query is trigram-word-similar to it (pg_trgm <c>&lt;%</c>), for queries of at least <see cref="FuzzyMinLength"/> chars.
+    /// </summary>
     public static IQueryable<T> WhereMatchesSearch<T>(
         this IQueryable<T> query,
+        Expression<Func<T, string>> searchField,
+        string? searchString,
+        bool fuzzy = false)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return query;
+
+        var body = AllTokensMatch(searchField, searchString);
+        var normalizedQuery = Normalize(searchString.Trim());
+        if (fuzzy && normalizedQuery.Length >= FuzzyMinLength)
+            body = Expression.OrElse(body,
+                OverField(searchField, s => EF.Functions.TrigramsAreWordSimilar(normalizedQuery, Normalize(s))));
+
+        return query.Where(Expression.Lambda<Func<T, bool>>(body, searchField.Parameters[0]));
+    }
+
+    /// <summary>
+    /// Substring matches first, then by trigram word similarity to the query, then by <paramref name="thenBy"/>.
+    /// Without a search it is plain <paramref name="thenBy"/>.
+    /// </summary>
+    public static IOrderedQueryable<T> OrderBySearchRelevance<T, TKey>(
+        this IQueryable<T> query,
+        Expression<Func<T, string>> searchField,
+        string? searchString,
+        Expression<Func<T, TKey>> thenBy)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return query.OrderBy(thenBy);
+
+        var (exact, score) = RelevanceKeys(searchField, searchString);
+        return query.OrderByDescending(exact).ThenByDescending(score).ThenBy(thenBy);
+    }
+
+    /// <summary>Same keys as <see cref="OrderBySearchRelevance{T,TKey}"/>, appended to an existing order; no-op without a search.</summary>
+    public static IOrderedQueryable<T> ThenBySearchRelevance<T>(
+        this IOrderedQueryable<T> query,
         Expression<Func<T, string>> searchField,
         string? searchString)
     {
         if (string.IsNullOrWhiteSpace(searchString))
             return query;
 
+        var (exact, score) = RelevanceKeys(searchField, searchString);
+        return query.ThenByDescending(exact).ThenByDescending(score);
+    }
+
+    private static (Expression<Func<T, bool>> Exact, Expression<Func<T, double>> Score) RelevanceKeys<T>(
+        Expression<Func<T, string>> searchField,
+        string searchString)
+    {
         var param = searchField.Parameters[0];
-        var escapeChar = Expression.Constant(EscapeChar);
-        var normalizedField = Expression.Call(NormalizeMethod, searchField.Body);
-
-        foreach (var token in Tokenize(searchString))
-        {
-            var pattern = Expression.Constant(ToPattern(token));
-            var call = Expression.Call(ILikeMethod, EfFunctionsExpr, normalizedField, pattern, escapeChar);
-            query = query.Where(Expression.Lambda<Func<T, bool>>(call, param));
-        }
-
-        return query;
+        var normalizedQuery = Normalize(searchString.Trim());
+        return (
+            Expression.Lambda<Func<T, bool>>(AllTokensMatch(searchField, searchString), param),
+            Expression.Lambda<Func<T, double>>(
+                OverField(searchField, s => EF.Functions.TrigramsWordSimilarity(normalizedQuery, Normalize(s))), param));
     }
 
     /// <summary>
@@ -82,6 +127,20 @@ public static class SearchExtensions
 
         return new string(chars);
     }
+
+    private static Expression AllTokensMatch<T>(Expression<Func<T, string>> searchField, string searchString)
+    {
+        var normalizedField = Expression.Call(NormalizeMethod, searchField.Body);
+        return Tokenize(searchString)
+            .Select(token => (Expression)Expression.Call(ILikeMethod, EfFunctionsExpr, normalizedField,
+                Expression.Constant(ToPattern(token)), Expression.Constant(EscapeChar)))
+            .Aggregate(Expression.AndAlso);
+    }
+
+    private static Expression OverField<T, TResult>(
+        Expression<Func<T, string>> searchField,
+        Expression<Func<string, TResult>> template) =>
+        new ParameterReplacer(template.Parameters[0], searchField.Body).Visit(template.Body);
 
     private static IEnumerable<string> Tokenize(string searchString) =>
         searchString.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);

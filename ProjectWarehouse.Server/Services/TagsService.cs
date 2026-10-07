@@ -19,8 +19,8 @@ public class TagsService(ApplicationDbContext db) : ITagsService
         foreach (var k in kinds)
         {
             result.AddRange(await Project(k)
-                .WhereMatchesSearch(t => t.Name, search)
-                .OrderBy(t => t.Name)
+                .WhereMatchesSearch(t => t.Name, search, fuzzy: true)
+                .OrderBySearchRelevance(t => t.Name, search, t => t.Name)
                 .ToListAsync(ct));
         }
 

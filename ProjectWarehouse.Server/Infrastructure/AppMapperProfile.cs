@@ -205,24 +205,6 @@ public class AppMapperProfile : Profile
                 { "email", r.Email ?? "" },
             }));
 
-        CreateMap<Warehouse, AppEntityWithSearchString>()
-            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
-        
-        CreateMap<Receipt, AppEntityWithSearchString>()
-            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
-        
-        CreateMap<CatalogItem, AppEntityWithSearchString>()
-            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
-        
-        CreateMap<MarketplaceAccount, AppEntityWithSearchString>()
-            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
-
-        CreateMap<Organization, AppEntityWithSearchString>()
-            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
-        
-        CreateMap<ApplicationUser, AppEntityWithSearchString>()
-            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
-        
         CreateMap<Receipt, EventDto>()
             .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x))
             .ForMember(x => x.StartDate, opt => opt.MapFrom(x => x.PlannedDeliveryDate))
@@ -281,9 +263,6 @@ public class AppMapperProfile : Profile
                 { "status", r.Status },
             }));
 
-        CreateMap<Writeoff, AppEntityWithSearchString>()
-            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
-
         CreateMap<Stocktake, StocktakeSummaryDto>()
             .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse.Name))
             .ForMember(d => d.NodesCount, opt => opt.MapFrom(s => s.Nodes.Count))
@@ -326,9 +305,6 @@ public class AppMapperProfile : Profile
                 { "number", r.Number },
                 { "status", r.Status },
             }));
-
-        CreateMap<Stocktake, AppEntityWithSearchString>()
-            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
 
         CreateMap<Order, OrderSummaryDto>()
             .ForMember(d => d.WarehouseName, opt => opt.MapFrom(s => s.Warehouse != null ? s.Warehouse.Name : null))
@@ -400,9 +376,6 @@ public class AppMapperProfile : Profile
                 { "type", r.Type },
                 { "status", r.Status },
             }));
-
-        CreateMap<Order, AppEntityWithSearchString>()
-            .ForMember(x => x.AppEntity, opt => opt.MapFrom(x => x));
 
         CreateMap<Organization, OrganizationDto>()
             .ForMember(d => d.CreatedByName, opt => opt.MapFrom(s => s.CreatedBy != null ? s.CreatedBy.UserName : null))

@@ -1599,7 +1599,7 @@ export type MarketplaceAccountDto = {
    */
   name: string;
   /**
-   * Entered by an operator; null means labels fall back to Name.
+   * Entered by an operator; null means labels fall back to string MarketplaceAccountDto.Name.
    */
   shortName?: null | string;
   isActive: boolean;
@@ -4377,6 +4377,14 @@ export type UserDetailDto = {
   roles: Array<RoleDto>;
   directPermissions: Array<string>;
   assignedWarehouses: Array<WarehouseSummaryDto>;
+};
+
+export type UserDto = {
+  id: string;
+  username: string;
+  email?: null | string;
+  firstName?: null | string;
+  lastName?: null | string;
 };
 
 export type WarehouseDto = {
@@ -12060,6 +12068,40 @@ export type UsersCreateResponses = {
 
 export type UsersCreateResponse = UsersCreateResponses[keyof UsersCreateResponses];
 
+export type UsersGetForSelectData = {
+  body?: never;
+  path?: never;
+  query?: {
+    searchString?: string;
+    warehouse?: string;
+    take?: number;
+  };
+  url: "/api/users/for-select";
+};
+
+export type UsersGetForSelectErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type UsersGetForSelectError = UsersGetForSelectErrors[keyof UsersGetForSelectErrors];
+
+export type UsersGetForSelectResponses = {
+  /**
+   * OK
+   */
+  200: Array<UserDto>;
+};
+
+export type UsersGetForSelectResponse =
+  UsersGetForSelectResponses[keyof UsersGetForSelectResponses];
+
 export type UsersDeleteData = {
   body?: never;
   path: {
@@ -12305,6 +12347,40 @@ export type WarehousesCreateResponses = {
 };
 
 export type WarehousesCreateResponse = WarehousesCreateResponses[keyof WarehousesCreateResponses];
+
+export type WarehousesGetForSelectData = {
+  body?: never;
+  path?: never;
+  query?: {
+    searchString?: string;
+    take?: number;
+  };
+  url: "/api/warehouses/for-select";
+};
+
+export type WarehousesGetForSelectErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type WarehousesGetForSelectError =
+  WarehousesGetForSelectErrors[keyof WarehousesGetForSelectErrors];
+
+export type WarehousesGetForSelectResponses = {
+  /**
+   * OK
+   */
+  200: Array<WarehouseSummaryDto>;
+};
+
+export type WarehousesGetForSelectResponse =
+  WarehousesGetForSelectResponses[keyof WarehousesGetForSelectResponses];
 
 export type WarehousesDeleteData = {
   body?: never;

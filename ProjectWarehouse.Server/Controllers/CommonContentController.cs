@@ -11,7 +11,8 @@ using ProjectWarehouse.Server.Services;
 namespace ProjectWarehouse.Server.Controllers;
 
 [Route("api/commoncontent")]
-public class CommonContentController(IMapper mapper, IUserQueryFilterService queryFilter) : AppControllerBase
+public class CommonContentController(
+    IMapper mapper, IUserQueryFilterService queryFilter, IGlobalSearchService globalSearch) : AppControllerBase
 {
     /// <summary>Get list of AppEntities for home page.</summary>
     /// <remarks>
@@ -55,8 +56,9 @@ public class CommonContentController(IMapper mapper, IUserQueryFilterService que
     /// <remarks>
     /// Query params: <c>searchString</c> (required). Searches orders, warehouses, receipts, catalog items,
     /// marketplace accounts, organizations, users, stocktakes and write-offs, each already filtered to what the caller
-    /// may view, and returns at most 10 results grouped by source in that order. Every source with a match gets at
-    /// least one slot; the rest are filled in source order.
+    /// may view, and returns at most 10 results ranked by relevance: substring matches of every token first, then
+    /// <c>pg_trgm</c> fuzzy matches, each by word similarity. Every type with a match gets at least one slot.
+    /// Fuzzy matching needs at least 3 characters and covers only the 1000 most recent orders.
     /// Requires authentication only — no permission opens or closes the endpoint itself.
     /// No error codes; a missing <c>searchString</c> is a model-binding 422 (<c>required</c>).
     /// </remarks>
@@ -65,68 +67,6 @@ public class CommonContentController(IMapper mapper, IUserQueryFilterService que
     [ProducesResponseType<IReadOnlyList<AppEntity>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GlobalSearch([FromQuery] string searchString, CancellationToken ct = default)
     {
-        var warehousesQueryable = await queryFilter.GetWarehousesAsync(User, ct);
-        var receiptsQueryable = await queryFilter.GetReceiptsAsync(User, ct);
-        var catalogQueryable = await queryFilter.GetCatalogItemsAsync(User, ct);
-        var marketplacesAccountsQueryable = await queryFilter.GetMarketplaceAccountsAsync(User, ct);
-        var usersQueryable = await queryFilter.GetUsersAsync(User, ct);
-        var stocktakesQueryable = await queryFilter.GetStocktakesAsync(User, ct);
-        var organizationsQueryable = await queryFilter.GetOrganizationsAsync(User, ct);
-        var ordersQueryable = await queryFilter.GetOrdersAsync(User, ct);
-        var writeoffsQueryable = await queryFilter.GetWriteoffsAsync(User, ct);
-
-        // Priority order: earlier sources come first in the response and get leftover slots first.
-        List<List<AppEntity>> sources =
-        [
-            await Search(ordersQueryable, searchString, ct),
-            await Search(warehousesQueryable, searchString, ct),
-            await Search(receiptsQueryable, searchString, ct),
-            await Search(catalogQueryable, searchString, ct),
-            await Search(marketplacesAccountsQueryable, searchString, ct),
-            await Search(organizationsQueryable, searchString, ct),
-            await Search(usersQueryable, searchString, ct),
-            await Search(stocktakesQueryable, searchString, ct),
-            await Search(writeoffsQueryable, searchString, ct),
-        ];
-
-        return Ok(TakeWithPerSourceMinimum(sources, GlobalSearchLimit));
-    }
-
-    private const int GlobalSearchLimit = 10;
-
-    /// <summary>
-    /// Every non-empty source gets one slot, the remaining slots go to sources in list order;
-    /// the result keeps the sources grouped in that order.
-    /// </summary>
-    private static List<AppEntity> TakeWithPerSourceMinimum(IReadOnlyList<List<AppEntity>> sources, int limit)
-    {
-        var quotas = new int[sources.Count];
-        var left = limit;
-        for (var i = 0; i < sources.Count && left > 0; i++)
-        {
-            if (sources[i].Count == 0) continue;
-            quotas[i] = 1;
-            left--;
-        }
-        for (var i = 0; i < sources.Count && left > 0; i++)
-        {
-            var extra = Math.Min(sources[i].Count - quotas[i], left);
-            quotas[i] += extra;
-            left -= extra;
-        }
-
-        return sources.SelectMany((source, i) => source.Take(quotas[i])).ToList();
-    }
-
-
-    private Task<List<AppEntity>> Search<T>(IQueryable<T> queryable, [FromQuery] string searchString, CancellationToken ct = default)
-    {
-        return queryable.ProjectTo<AppEntityWithSearchString>(mapper.ConfigurationProvider)
-            .WhereMatchesSearch(x => x.SearchString, searchString)
-            .Select(x => x.AppEntity)
-            .OrderBy(x => x.Name)
-            .ThenBy(x => x.Id)
-            .Take(10)
-            .ToListAsync(ct);
+        return Ok(await globalSearch.SearchAsync(User, searchString, ct));
     }
 }

@@ -605,6 +605,9 @@ import type {
   UsersGetByIdData,
   UsersGetByIdErrors,
   UsersGetByIdResponses,
+  UsersGetForSelectData,
+  UsersGetForSelectErrors,
+  UsersGetForSelectResponses,
   UsersUpdateData,
   UsersUpdateErrors,
   UsersUpdateResponses,
@@ -626,6 +629,9 @@ import type {
   WarehousesGetDefaultNodeData,
   WarehousesGetDefaultNodeErrors,
   WarehousesGetDefaultNodeResponses,
+  WarehousesGetForSelectData,
+  WarehousesGetForSelectErrors,
+  WarehousesGetForSelectResponses,
   WarehousesUpdateData,
   WarehousesUpdateErrors,
   WarehousesUpdateResponses,
@@ -1205,7 +1211,7 @@ export const authMe = <ThrowOnError extends boolean = false>(
 /**
  * List all catalog item tags, optionally filtered by name.
  *
- * Query params: `search` (optional). Not paginated — ordered by name.
+ * Query params: `search` (optional, fuzzy). Not paginated — ordered by search relevance, then by name.
  * Requires `catalog.view`. No error codes beyond 403 `permissionDenied`.
  */
 export const catalogGetTags = <ThrowOnError extends boolean = false>(
@@ -1283,7 +1289,8 @@ export const catalogCreate = <ThrowOnError extends boolean = false>(
  *
  * Query params: `searchString`, `types`, `tagIds`, `take` (default 10, max 200).
  * Unlike Task&lt;IActionResult&gt; CatalogController.GetAll(int page = 1, int pageSize = 20, string? searchString = null, CatalogSortBy sortBy = CatalogSortBy.Name, SortOrder sortOrder = SortOrder.Asc, IReadOnlyList&lt;CatalogItemType&gt;? itemTypes = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, bool? isArchived = null, CancellationToken ct = default(CancellationToken)), product-group children are included — a picker must be able to reach them.
- * Archived items are returned too, sorted last.
+ * `searchString` is fuzzy. Archived items are returned too, always after active ones; within each group
+ * results are ordered by search relevance, then by name.
  * Requires `catalog.view`. No error codes beyond 403 `permissionDenied`.
  */
 export const catalogGetForSelect = <ThrowOnError extends boolean = false>(
@@ -1473,9 +1480,11 @@ export const commonContentGetHomePageContent = <ThrowOnError extends boolean = f
 /**
  * Global search for entities.
  *
- * Query params: `searchString` (required). Searches warehouses, receipts, catalog items,
- * marketplace accounts, organizations, users and stocktakes, each already filtered to what the caller may view, then
- * returns at most 10 results overall (up to 10 per source before the union).
+ * Query params: `searchString` (required). Searches orders, warehouses, receipts, catalog items,
+ * marketplace accounts, organizations, users, stocktakes and write-offs, each already filtered to what the caller
+ * may view, and returns at most 10 results ranked by relevance: substring matches of every token first, then
+ * `pg_trgm` fuzzy matches, each by word similarity. Every type with a match gets at least one slot.
+ * Fuzzy matching needs at least 3 characters and covers only the 1000 most recent orders.
  * Requires authentication only — no permission opens or closes the endpoint itself.
  * No error codes; a missing `searchString` is a model-binding 422 (`required`).
  */
@@ -2284,7 +2293,7 @@ export const marketplacesGetUnmappedCount = <ThrowOnError extends boolean = fals
 /**
  * List all order tags, optionally filtered by name.
  *
- * Query params: `search` (optional). Not paginated — ordered by name.
+ * Query params: `search` (optional, fuzzy). Not paginated — ordered by search relevance, then by name.
  * Requires view access to orders (`orders.view`, `orders.view_assigned` or
  * `orders.assemble_assigned` — the assembly worklist filters by tag too). No error codes beyond 403
  * `permissionDenied`.
@@ -3200,7 +3209,8 @@ export const organizationsCreate = <ThrowOnError extends boolean = false>(
 /**
  * Id, name and INN of every organization, for pickers.
  *
- * Query params: `searchString` (optional). Requires `organizations.view`; 403
+ * Query params: `searchString` (optional, fuzzy; ordered by search relevance, then by name).
+ * Requires `organizations.view`; 403
  * `permissionDenied` otherwise.
  */
 export const organizationsGetShort = <ThrowOnError extends boolean = false>(
@@ -3394,7 +3404,7 @@ export const realtimeReleaseLock = <ThrowOnError extends boolean = false>(
 /**
  * List all receipt tags, optionally filtered by name.
  *
- * Query params: `search` (optional). Not paginated — ordered by name.
+ * Query params: `search` (optional, fuzzy). Not paginated — ordered by search relevance, then by name.
  * Requires `receipts.view` or `receipts.view_assigned`. No error codes beyond 403
  * `permissionDenied`.
  */
@@ -3983,7 +3993,7 @@ export const rolesUpdateAll = <ThrowOnError extends boolean = false>(
 /**
  * Search roles by name (id + name only, max 10 results).
  *
- * Query params: `searchString` (optional — omitted returns the first 10 by name).
+ * Query params: `searchString` (optional, fuzzy — ordered by search relevance; omitted returns the first 10 by name).
  * Requires `roles.view`. No error codes beyond 403 `permissionDenied`.
  */
 export const rolesSearch = <ThrowOnError extends boolean = false>(
@@ -4358,7 +4368,7 @@ export const stockMovementPresetsUpdatePreset = <ThrowOnError extends boolean = 
 /**
  * List all stocktake tags, optionally filtered by name.
  *
- * Query params: `search` (optional). Not paginated — ordered by name.
+ * Query params: `search` (optional, fuzzy). Not paginated — ordered by search relevance, then by name.
  * Requires `stocktakes.view` or `stocktakes.view_assigned`. No error codes beyond 403
  * `permissionDenied`.
  */
@@ -5047,7 +5057,7 @@ export const systemGetDatabaseStats = <ThrowOnError extends boolean = false>(
  * All tags with the number of objects bound to each.
  *
  * Query params: `kind` (optional — every kind when omitted), `search` (optional). Not
- * paginated; ordered by kind, then by name. Requires `tags.manage`; 403 `permissionDenied`
+ * paginated; ordered by kind, then by search relevance and name. Requires `tags.manage`; 403 `permissionDenied`
  * otherwise.
  */
 export const tagsGetAll = <ThrowOnError extends boolean = false>(
@@ -5223,6 +5233,22 @@ export const usersCreate = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Users for select/autocomplete controls.
+ *
+ * Query params: `searchString` (optional, fuzzy), `warehouse` (assigned warehouse id),
+ * `take` (default 20, max 200). Not paginated — ordered by search relevance, then by username.
+ * Requires `users.view`; without it the request is refused with 403 `permissionDenied`.
+ */
+export const usersGetForSelect = <ThrowOnError extends boolean = false>(
+  options?: Options<UsersGetForSelectData, ThrowOnError>,
+): RequestResult<UsersGetForSelectResponses, UsersGetForSelectErrors, ThrowOnError> =>
+  (options?.client ?? client).get<
+    UsersGetForSelectResponses,
+    UsersGetForSelectErrors,
+    ThrowOnError
+  >({url: "/api/users/for-select", ...options});
+
+/**
  * Delete a user.
  *
  * Requires `users.delete`. Evicts the user's cached security version; a token whose subject no
@@ -5370,6 +5396,21 @@ export const warehousesCreate = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Warehouses for select/autocomplete controls.
+ *
+ * Query params: `searchString` (optional, fuzzy), `take` (default 20, max 200). Not paginated —
+ * ordered by search relevance, then by name. Access is the same as Task&lt;IActionResult&gt; WarehousesController.GetAll(int page = 1, int pageSize = 20, string? searchString = null, CancellationToken ct = default(CancellationToken)).
+ */
+export const warehousesGetForSelect = <ThrowOnError extends boolean = false>(
+  options?: Options<WarehousesGetForSelectData, ThrowOnError>,
+): RequestResult<WarehousesGetForSelectResponses, WarehousesGetForSelectErrors, ThrowOnError> =>
+  (options?.client ?? client).get<
+    WarehousesGetForSelectResponses,
+    WarehousesGetForSelectErrors,
+    ThrowOnError
+  >({url: "/api/warehouses/for-select", ...options});
+
+/**
  * Delete a warehouse and all its storage places.
  *
  * Returns 409 `warehouseHasItems` if the warehouse contains any stored items.
@@ -5454,7 +5495,7 @@ export const warehousesGetDefaultNode = <ThrowOnError extends boolean = false>(
 /**
  * List all write-off tags, optionally filtered by name.
  *
- * Query params: `search` (optional). Not paginated — ordered by name.
+ * Query params: `search` (optional, fuzzy). Not paginated — ordered by search relevance, then by name.
  * Requires `writeoffs.view` or `writeoffs.view_assigned`. No error codes beyond 403
  * `permissionDenied`.
  */

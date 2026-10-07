@@ -59,7 +59,7 @@ public class UsersController(
         CancellationToken ct = default)
     {
         var users = db.Users
-            .WhereMatchesSearch(u => u.SearchString, searchString);
+            .WhereMatchesSearch(u => u.SearchString, searchString, fuzzy: true);
 
         if (role is { } r)
         {
@@ -79,6 +79,36 @@ public class UsersController(
             .ToPaginatedAsync(page, pageSize, ct);
 
         return Ok(paginated);
+    }
+
+    /// <summary>Users for select/autocomplete controls.</summary>
+    /// <remarks>
+    /// Query params: <c>searchString</c> (optional, fuzzy), <c>warehouse</c> (assigned warehouse id),
+    /// <c>take</c> (default 20, max 200). Not paginated — ordered by search relevance, then by username.
+    /// Requires <c>users.view</c>; without it the request is refused with 403 <c>permissionDenied</c>.
+    /// </remarks>
+    [HttpGet("for-select")]
+    [Authorize(Policy = Permissions.Users.View)]
+    [ProducesResponseType<IReadOnlyList<UserDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetForSelect(
+        [FromQuery] string? searchString = null,
+        [FromQuery] Guid? warehouse = null,
+        [FromQuery] [Range(1, 200)] int take = 20,
+        CancellationToken ct = default)
+    {
+        var users = db.Users.WhereMatchesSearch(u => u.SearchString, searchString, fuzzy: true);
+
+        if (warehouse is { } w)
+            users = users.Where(x => x.AssignedWarehouses.Any(aw => aw.Id == w));
+
+        var list = await users
+            .OrderBySearchRelevance(u => u.SearchString, searchString, u => u.UserName)
+            .ThenBy(u => u.Id)
+            .Take(take)
+            .ProjectTo<UserDto>(mapper.ConfigurationProvider)
+            .ToListAsync(ct);
+
+        return Ok(list);
     }
 
     /// <summary>Get a user by ID.</summary>
