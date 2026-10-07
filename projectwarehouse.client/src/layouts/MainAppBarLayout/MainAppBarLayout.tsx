@@ -8,6 +8,7 @@ import {resolveMainNav} from "@/navigation/mainNavConfig.tsx";
 import SidebarLayout, {SIDEBAR_WIDTH} from "@/layouts/SidebarLayout/SidebarLayout.tsx";
 import {useAuth} from "@/hooks/useAuth";
 import type {PermissionName} from "@/api/types.gen";
+import {GlobalSearchProvider} from "@/contexts/GlobalSearch/GlobalSearchProvider";
 
 // Content fills the whole width beside the sidebar up to a 1920px screen, and stops growing past it.
 const CONTENT_MAX_WIDTH = 1920 - SIDEBAR_WIDTH;
@@ -29,7 +30,7 @@ function MainAppBarLayout({}: MainAppBarLayoutProps) {
   const navEntries = resolveMainNav((user?.permissions ?? []) as PermissionName[]);
 
   return (
-    <>
+    <GlobalSearchProvider>
       <MainAppBar navEntries={navEntries} />
       <SidebarLayout entries={navEntries}>
         <Container
@@ -41,7 +42,7 @@ function MainAppBarLayout({}: MainAppBarLayoutProps) {
           </Suspense>
         </Container>
       </SidebarLayout>
-    </>
+    </GlobalSearchProvider>
   );
 }
 

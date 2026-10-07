@@ -419,7 +419,9 @@ refresh never overwrites unsaved edits, and both password dialogs (`ChangePasswo
 `MyProfilePage`, admin reset in `UserViewPage`) disable backdrop-click dismissal while the mutation is pending.
 
 `HomePage` renders its navigation cards from `AppEntity[]` returned by `/api/home`, resolved through
-`resolveEntity` from `appEntityUtils` — adding a card is a backend change, not a frontend one.
+`resolveEntity` from `appEntityUtils` — adding a card is a backend change, not a frontend one. It is also the
+scan entry point: a camera FAB on narrow screens and the hardware scanner both open the
+[`GlobalSearchModal`](frontend-components.md#globalsearchmodal) through `useGlobalSearch()`.
 
 ### `PrintPage`
 
@@ -1121,7 +1123,8 @@ ServiceWorkerContext.Provider
                                                         └── SearchParamsProvider
                                                               └── Suspense
                                                                     ├── MainAppBarLayout
-                                                                    │     └── app bar + SidebarLayout + Container + Suspense
+                                                                    │     └── GlobalSearchProvider (renders GlobalSearchModal)
+                                                                    │           └── app bar + SidebarLayout + Container + Suspense
                                                                     ├── /scanner
                                                                     └── /print
 ```

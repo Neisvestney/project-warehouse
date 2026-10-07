@@ -8,12 +8,14 @@ import {
   Typography,
   Box,
   CircularProgress,
+  Fab,
   useMediaQuery,
 } from "@mui/material";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import OfflinePinIcon from "@mui/icons-material/OfflinePin";
+import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import React, {useContext} from "react";
-import {Link} from "react-router";
+import {Link, useNavigate} from "react-router";
 import ServiceWorkerContext from "@/contexts/ServiceWorker/ServiceWorkerContext.ts";
 import InstallPrompt from "@/components/InstallPrompt.tsx";
 import {useQuery} from "@tanstack/react-query";
@@ -21,20 +23,40 @@ import {commonContentGetHomePageContentOptions} from "@/api/@tanstack/react-quer
 import {resolveEntity} from "@/utils/appEntityUtils.tsx";
 import AppEvents from "@/components/AppEvents.tsx";
 import theme from "@/theme.ts";
+import {useGlobalSearch} from "@/contexts/GlobalSearch/GlobalSearchContext.ts";
+import {getScannedEntityLink} from "@/components/GlobalSearch/scannedEntityLink.ts";
+import {useHardwareScanner} from "@/hooks/useHardwareScanner.ts";
+import {isCameraApiSupported} from "@/utils/camera/cameraUtils.ts";
 
 export interface HomePageProps {}
 
 function HomePage({}: HomePageProps) {
   const swContext = useContext(ServiceWorkerContext);
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const navigate = useNavigate();
+  const {isOpen: searchOpen, openSearch, closeSearch} = useGlobalSearch();
 
   const {data, isError} = useQuery({
     ...commonContentGetHomePageContentOptions(),
     meta: {suppressGlobalError: true},
   });
 
+  useHardwareScanner(({barcode}) => {
+    const link = getScannedEntityLink(barcode);
+    if (link) {
+      // The open search modal holds a history entry of its own — take its place instead of stacking above it
+      navigate(link, {replace: searchOpen});
+      closeSearch();
+      return;
+    }
+    openSearch({query: barcode.trim()});
+  });
+
+  const showCameraFab = isMobile && isCameraApiSupported();
+
   return (
-    <Stack spacing={2}>
+    // Bottom room so the fixed FAB does not cover the last card
+    <Stack spacing={2} sx={{pb: showCameraFab ? 10 : 0}}>
       {!isMobile && <AppEvents />}
       <Box
         sx={{
@@ -74,6 +96,16 @@ function HomePage({}: HomePageProps) {
           </HomeCard>
         ))}
       </Box>
+      {showCameraFab && (
+        <Fab
+          color="primary"
+          aria-label="Сканировать камерой"
+          onClick={() => openSearch({camera: true})}
+          sx={{position: "fixed", bottom: 24, right: 24}}
+        >
+          <CameraAltIcon />
+        </Fab>
+      )}
     </Stack>
   );
 }
