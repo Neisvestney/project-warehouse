@@ -608,8 +608,8 @@ own dialogs above it.
 ### `CatalogLabelsPrintDialog`
 
 Label printing for one or many catalog items (`components/catalog/CatalogLabelsPrintDialog.tsx`), used by the
-drawer's **Печать этикетки** and by the «Этикетки» bulk action of the catalog list and the receipt items through
-`useCatalogLabelsPrintAction` (`{getAction(items), dialogs}`, the items captured on click). It takes
+drawer's **Печать этикетки**, the catalog list's «Этикетки» bulk action and the receipt items' **Этикетки** button
+through `useCatalogLabelsPrintAction` (`{getAction(items), open(items), dialogs}`, the items captured on click). It takes
 `CatalogLabelItem` — `id`, `fullName`, `article`, `barcode`, optional `count` — so both `CatalogItemDto` and the
 list's summary rows fit. The user picks a kind and a copy count (1–200, «копий на позицию» for several items);
 `openPrintPage` gets every item repeated that many times, in selection order.

@@ -4,7 +4,7 @@ import type {BulkAction} from "@/components/BulkBar";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
 import {CatalogLabelsPrintDialog, type CatalogLabelItem} from "./CatalogLabelsPrintDialog";
 
-/** Bulk «Этикетки» action over selected catalog items; `dialogs` must be rendered by the caller. */
+/** «Этикетки» over catalog items, as a bulk action or a plain `open(items)`; `dialogs` must be rendered by the caller. */
 export function useCatalogLabelsPrintAction({countModeLabel}: {countModeLabel?: string} = {}) {
   // captured on click, so the dialog prints what was selected when it opened
   const [dialogItems, setDialogItems] = useState<CatalogLabelItem[] | null>(null);
@@ -32,5 +32,5 @@ export function useCatalogLabelsPrintAction({countModeLabel}: {countModeLabel?: 
     />
   );
 
-  return {getAction, dialogs};
+  return {getAction, open: setDialogItems, dialogs};
 }
