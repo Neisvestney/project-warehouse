@@ -608,11 +608,15 @@ own dialogs above it.
 ### `CatalogLabelsPrintDialog`
 
 Label printing for one or many catalog items (`components/catalog/CatalogLabelsPrintDialog.tsx`), used by the
-drawer's **Печать этикетки** and by the catalog list's «Этикетки» bulk action through
+drawer's **Печать этикетки** and by the «Этикетки» bulk action of the catalog list and the receipt items through
 `useCatalogLabelsPrintAction` (`{getAction(items), dialogs}`, the items captured on click). It takes
-`CatalogLabelItem` — `id`, `fullName`, `article`, `barcode` — so both `CatalogItemDto` and the list's summary rows
-fit. The user picks a kind and a copy count (1–200, «копий на позицию» for several items); `openPrintPage` gets
-every item repeated that many times, in selection order.
+`CatalogLabelItem` — `id`, `fullName`, `article`, `barcode`, optional `count` — so both `CatalogItemDto` and the
+list's summary rows fit. The user picks a kind and a copy count (1–200, «копий на позицию» for several items);
+`openPrintPage` gets every item repeated that many times, in selection order.
+
+Passing `countModeLabel` (to the dialog or the hook) adds a choice between that fixed count, the default, and
+`item.count` copies per item under the given label; items with a zero count are skipped, and the dialog says how
+many. **Печать** is disabled while the chosen options leave no label to print.
 
 - _Внутренний код_ — `DataMatrix` with `pw:ci:<guid>` (see
   [barcode payload format](frontend.md#barcode-payload-format)), caption `fullName · article`.

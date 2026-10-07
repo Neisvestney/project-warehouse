@@ -552,6 +552,14 @@ is lifted to the page so the status buttons cannot fire while the receipt is bei
 `item.receivedCount`. That is what lets an outside write — auto-accept — reach an already-mounted input; keying
 the component by the count would do the same but yanks focus out of the field on Enter-to-save.
 
+Items are selectable in every status through `useSelectedItems` (over the search-filtered list in `processing`),
+with a `BulkBar` above the list. Bulk actions read the selected rows from the current `receipt.items` by id, since
+the hook refreshes only the rows the search leaves visible. «Этикетки» opens
+[`CatalogLabelsPrintDialog`](frontend-components.md#cataloglabelsprintdialog) for the selected catalog items with
+the per-item count mode — the planned count in `draft`/`planned`, the received count otherwise. «Разместить»
+appears only in `processing` with `receipts.process_assigned` and takes the Standard items of the selection into
+`BatchStandardPlacementDialog`; on phones the same action also sits in a floating button.
+
 ### `StocktakePage`
 
 Detail page (`/operations/stocktakes/:id`) whose **body swaps with the status**, because the three phases are
