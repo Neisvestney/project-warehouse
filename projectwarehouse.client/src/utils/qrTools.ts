@@ -30,14 +30,14 @@ prepareZXingModule({
  * Эквивалент hints из BrowserQRCodeReader
  */
 export const DEFAULT_READER_OPTIONS: ReaderOptions = {
-  formats: ["DataMatrix", "EAN13"], // MicroQRCode для мелких кодов с одним квадратом!
+  formats: ["DataMatrix", "EAN13", "Code128", "QRCode"],
   tryHarder: true,
   maxNumberOfSymbols: 1,
 };
 
 /** Настройки для живого сканера — допускает несколько символов за кадр */
 export const DEFAULT_SCANNER_OPTIONS: ReaderOptions = {
-  formats: ["DataMatrix", "EAN13"],
+  formats: ["DataMatrix", "EAN13", "Code128", "QRCode"],
   tryHarder: true,
   maxNumberOfSymbols: 10,
 };
@@ -62,7 +62,12 @@ function isBarcodeInViewfinder(
   );
 }
 
-const BARCODE_DETECTOR_API_FORMATS: BarcodeFormat[] = ["data_matrix", "ean_13"];
+const BARCODE_DETECTOR_API_FORMATS: BarcodeFormat[] = [
+  "data_matrix",
+  "ean_13",
+  "code_128",
+  "qr_code",
+];
 
 /**
  * Валидирует QR-код по заданным критериям
@@ -221,27 +226,6 @@ export const preprocessForQr = (
   ctx.putImageData(imageData, 0, 0);
 };
 
-/**
- * Инвертирует цвета на canvas (для распознавания белых QR на чёрном фоне)
- */
-export const invertCanvas = (
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-): void => {
-  const imageData = ctx.getImageData(0, 0, width, height);
-  const {data} = imageData;
-
-  for (let i = 0; i < data.length; i += 4) {
-    data[i] = 255 - data[i]; // R
-    data[i + 1] = 255 - data[i + 1]; // G
-    data[i + 2] = 255 - data[i + 2]; // B
-    // Alpha остаётся
-  }
-
-  ctx.putImageData(imageData, 0, 0);
-};
-
 // === QR Scan Loop ===
 
 interface QrScanLoopParams {
@@ -264,7 +248,7 @@ interface QrScanLoopParams {
 /**
  * Создаёт и запускает цикл сканирования QR-кодов из видеопотока
  *
- * - Использует BarcodeDetector (если доступен) → zxing-wasm fallback → инвертированное изображение
+ * - Использует BarcodeDetector (если доступен) → zxing-wasm fallback (инверсию zxing пробует сам, tryInvert)
  * - Обрабатывает кадры с заданным интервалом
  * - Обрезает видео до квадрата 1:1 (центральная часть)
  * - Применяет preprocessing (бинаризация Otsu)
@@ -456,67 +440,6 @@ export const createQrScanLoop = ({
         } catch (e) {
           if (frameCount % 30 === 0) {
             if (IS_DEV) console.warn("[ZXing] zxing-wasm error:", e);
-          }
-        } finally {
-          if (bitmap) bitmap.close();
-        }
-      }
-
-      // 3. Инвертированное изображение (аналогично п.2, но с invertCanvas)
-      const shouldRunInverted = !detector || frameCount % 3 === 0;
-      if (shouldRunInverted) {
-        let bitmap: ImageBitmap | null = null;
-        const tempCanvas = document.createElement("canvas");
-        const tempCtx = tempCanvas.getContext("2d");
-
-        if (!tempCtx) {
-          timeoutId = window.setTimeout(loop, scanIntervalRef.current ?? 100);
-          return;
-        }
-
-        try {
-          bitmap = await createImageBitmap(video);
-          tempCanvas.width = width;
-          tempCanvas.height = height;
-          tempCtx.drawImage(bitmap, 0, 0);
-          bitmap.close();
-          bitmap = null;
-
-          preprocessForQr(tempCtx, width, height);
-          invertCanvas(tempCtx, width, height);
-
-          const imageData = tempCtx.getImageData(0, 0, width, height);
-          const results = await readBarcodes(imageData, readerOptions);
-
-          if (results.length > 0) {
-            const validResults = results.filter((r) => r.text);
-            const positions: NormalizedBarcodePosition[] = validResults.map((r) => {
-              const pos = {
-                topLeft: {x: r.position.topLeft.x, y: r.position.topLeft.y},
-                topRight: {x: r.position.topRight.x, y: r.position.topRight.y},
-                bottomLeft: {x: r.position.bottomLeft.x, y: r.position.bottomLeft.y},
-                bottomRight: {x: r.position.bottomRight.x, y: r.position.bottomRight.y},
-              };
-              return {...pos, inViewfinder: region ? isBarcodeInViewfinder(pos, region) : true};
-            });
-            onBarcodePosition?.current?.(positions);
-
-            for (let i = 0; i < validResults.length; i++) {
-              if (positions[i].inViewfinder) {
-                if (IS_DEV)
-                  console.log("[ZXing] zxing-wasm (inverted) found QR:", validResults[i].text);
-                const shouldStop = await onBarcodeDetected.current?.(
-                  validResults[i].text,
-                  validResults[i],
-                );
-                if (shouldStop) return;
-              }
-            }
-            return continueLoop();
-          }
-        } catch (e) {
-          if (frameCount % 30 === 0) {
-            if (IS_DEV) console.warn("[ZXing] zxing-wasm (inverted) error:", e);
           }
         } finally {
           if (bitmap) bitmap.close();

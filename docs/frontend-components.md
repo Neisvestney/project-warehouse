@@ -1424,9 +1424,12 @@ actions and the drag cursor while API mutations are in flight.
 
 Orchestrates the full camera scan loop: acquires a stream via `useCameraStream` (the preferred device id
 persists in `localStorage`), renders `ScanArea` / `ScanFrameOverlay` / `ZoomControls` / `CameraSelectDialog`,
-and per frame captures to canvas → Otsu binarization + optional inversion → decodes with zxing-wasm (primary) or
-the native `BarcodeDetector` (fallback). Decoded values arrive via `onScan`. Scan interval is configurable
-(4–25 FPS equivalent).
+and per frame tries the native `BarcodeDetector` first, where the browser has one, on the raw video frame. When
+there is no detector or it finds nothing, the frame is captured to canvas, Otsu-binarized and decoded with
+zxing-wasm — on every frame without a detector, on every second frame with one. Inverted (light-on-dark) codes
+are covered by zxing-wasm's own `tryInvert`, on by default in its reader options. Both read DataMatrix, EAN13,
+Code128 and QR — every type `PrintPage` prints (`utils/qrTools.ts`). Decoded values arrive via `onScanned`.
+A frame is taken every 100 ms.
 
 ### `StorageNodePickerContent`
 
