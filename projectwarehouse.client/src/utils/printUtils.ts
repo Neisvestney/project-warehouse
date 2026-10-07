@@ -52,6 +52,36 @@ export function openStocktakeNodePrintPage(stocktakeId: string, nodeId: string):
   window.open(`/print/stocktakes/${stocktakeId}/nodes/${nodeId}`, "_blank");
 }
 
-export function openReceiptPrintPage(receiptId: string): void {
-  window.open(`/print/receipts/${receiptId}`, "_blank");
+const PRINT_RECEIPT_ITEMS_STORAGE_KEY = "print-receipt-items";
+
+/** `itemIds` limits the sheet to those items; handed over like `openPrintPage`, `?item=` params as the fallback. */
+export function openReceiptPrintPage(receiptId: string, itemIds?: string[]): void {
+  const params = new URLSearchParams();
+  if (itemIds) {
+    try {
+      sessionStorage.setItem(PRINT_RECEIPT_ITEMS_STORAGE_KEY, JSON.stringify(itemIds));
+      params.set("from", PRINT_FROM_STORAGE);
+    } catch {
+      for (const id of itemIds) params.append("item", id);
+    }
+  }
+  const query = params.size > 0 ? `?${params.toString()}` : "";
+  window.open(`/print/receipts/${receiptId}${query}`, "_blank");
+}
+
+/** Item ids handed over by `openReceiptPrintPage`, or null when the whole receipt is printed. */
+export function readReceiptPrintItemIds(params: URLSearchParams): Set<string> | null {
+  if (params.get("from") === PRINT_FROM_STORAGE) {
+    try {
+      const parsed: unknown = JSON.parse(
+        sessionStorage.getItem(PRINT_RECEIPT_ITEMS_STORAGE_KEY) ?? "null",
+      );
+      if (Array.isArray(parsed)) return new Set(parsed.filter((id) => typeof id === "string"));
+    } catch {
+      // unreadable storage prints the whole receipt
+    }
+    return null;
+  }
+  const ids = params.getAll("item");
+  return ids.length > 0 ? new Set(ids) : null;
 }

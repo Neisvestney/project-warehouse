@@ -511,7 +511,9 @@ positions in the same order as the counting accordion, then five blank rows.
 Acceptance sheet for one receipt at `/print/receipts/:id`, opened by **Печать** in the header of
 `ReceiptItemsSection` whenever the receipt has items. Data comes from `GET /api/receipts/{id}`. Title is the
 receipt number, its name when set, and the warehouse; columns are **Наименование / План / Факт**, one row per
-receipt item in receipt order with `plannedCount` as «План», then five blank rows.
+receipt item in receipt order with `plannedCount` as «План», then five blank rows. `openReceiptPrintPage(id,
+itemIds)` limits the sheet to the selected items: the ids travel through sessionStorage (`?from=storage`) like
+`openPrintPage`'s labels, with `?item=` params as the fallback, and `readReceiptPrintItemIds` reads them back.
 
 #### Barcode payload format
 
@@ -552,13 +554,15 @@ is lifted to the page so the status buttons cannot fire while the receipt is bei
 `item.receivedCount`. That is what lets an outside write — auto-accept — reach an already-mounted input; keying
 the component by the count would do the same but yanks focus out of the field on Enter-to-save.
 
-Items are selectable in every status through `useSelectedItems` (over the search-filtered list in `processing`),
-with a `BulkBar` above the list. Bulk actions read the selected rows from the current `receipt.items` by id, since
-the hook refreshes only the rows the search leaves visible. «Этикетки» opens
-[`CatalogLabelsPrintDialog`](frontend-components.md#cataloglabelsprintdialog) for the selected catalog items with
-the per-item count mode — the planned count in `draft`/`planned`, the received count otherwise. «Разместить»
-appears only in `processing` with `receipts.process_assigned` and takes the Standard items of the selection into
-`BatchStandardPlacementDialog`; on phones the same action also sits in a floating button.
+Items are selectable in every status through `useSelectedItems` (over the search-filtered list in `processing`).
+The header's **Печать** and **Этикетки** act on the selection, or on every item while nothing is selected, and show
+the selected count, next to a clear button — the header checkbox reaches only the rows the search leaves visible.
+Both read the selected rows from the current `receipt.items` by id, since the hook refreshes
+only the rows the search leaves visible. **Этикетки** opens
+[`CatalogLabelsPrintDialog`](frontend-components.md#cataloglabelsprintdialog) with the per-item count mode — the
+planned count in `draft`/`planned`, the received count otherwise. **Разместить (N)** appears in the header (a
+floating button on phones) only in `processing` with `receipts.process_assigned` and takes the Standard items of
+the selection into `BatchStandardPlacementDialog`.
 
 ### `StocktakePage`
 

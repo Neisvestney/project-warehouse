@@ -55,7 +55,8 @@ import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {calcTotalPlaced} from "@/components/receipts/receiptUtils";
 import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 import {openReceiptPrintPage} from "@/utils/printUtils";
-import BulkBar, {type BulkAction} from "@/components/BulkBar";
+import QrCode2Icon from "@mui/icons-material/QrCode2";
+import CloseIcon from "@mui/icons-material/Close";
 import SelectionTableCell from "@/components/SelectionTableCell";
 import {useCatalogLabelsPrintAction} from "@/components/catalog/useCatalogLabelsPrintAction";
 import {useSelectedItems} from "@/hooks/useSelectedItems";
@@ -548,44 +549,63 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
     countModeLabel: isDraftOrPlanned ? "По запланированному количеству" : "По принятому количеству",
   });
 
-  const selectionActions: BulkAction[] =
-    selectedItems.length > 0
-      ? [
-          ...(canPlaceSelected
-            ? [
-                {
-                  key: "place",
-                  label: "Разместить",
-                  icon: <AddIcon />,
-                  count: selectedStandardItems.length,
-                  primary: true,
-                  onClick: () => setBatchDialogOpen(true),
-                },
-              ]
-            : []),
-          labelsAction.getAction(
-            selectedItems.map((i) => ({
-              ...i.catalogItem,
-              count: isDraftOrPlanned ? i.plannedCount : (i.receivedCount ?? 0),
-            })),
-          ),
-        ]
-      : [];
+  // with nothing selected the print buttons act on the whole receipt
+  const printedItems = selectedItems.length > 0 ? selectedItems : items;
+  const selectedSuffix = selectedItems.length > 0 ? ` (${selectedItems.length})` : "";
 
   return (
     <Box>
-      <Stack direction="row" sx={{alignItems: "center", mb: 1, gap: 1}}>
+      <Stack direction="row" sx={{alignItems: "center", mb: 1, gap: 1, flexWrap: "wrap"}}>
         <Typography variant="h6" sx={{flexGrow: 1}}>
           Позиции
         </Typography>
-        {items.length > 0 && (
+        {canPlaceSelected && !isMobile && (
           <Button
-            startIcon={<PrintIcon />}
+            variant="contained"
             size="small"
-            onClick={() => openReceiptPrintPage(receipt.id)}
+            startIcon={<AddIcon />}
+            onClick={() => setBatchDialogOpen(true)}
           >
-            Печать
+            Разместить ({selectedStandardItems.length})
           </Button>
+        )}
+        {items.length > 0 && (
+          <>
+            <Button
+              startIcon={<PrintIcon />}
+              size="small"
+              onClick={() =>
+                openReceiptPrintPage(
+                  receipt.id,
+                  selectedItems.length > 0 ? selectedItems.map((i) => i.id) : undefined,
+                )
+              }
+            >
+              Печать{selectedSuffix}
+            </Button>
+            <Button
+              startIcon={<QrCode2Icon />}
+              size="small"
+              onClick={() =>
+                labelsAction.open(
+                  printedItems.map((i) => ({
+                    ...i.catalogItem,
+                    count: isDraftOrPlanned ? i.plannedCount : (i.receivedCount ?? 0),
+                  })),
+                )
+              }
+            >
+              Этикетки{selectedSuffix}
+            </Button>
+            {selectedItems.length > 0 && (
+              // the header checkbox reaches only rows the search leaves visible
+              <Tooltip title="Снять выделение">
+                <IconButton size="small" onClick={clear}>
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </>
         )}
         {isDraftOrPlanned && canEdit && (
           <Button startIcon={<EditIcon />} size="small" onClick={() => setEditorOpen(true)}>
@@ -617,12 +637,6 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
           />
         </Stack>
       )}
-      <BulkBar
-        count={selectedItems.length}
-        countLabel={{one: "позиция выбрана", few: "позиции выбрано", many: "позиций выбрано"}}
-        onClear={clear}
-        actions={selectionActions}
-      />
       {isMobile && visibleItems.length > 0 && (
         <FormControlLabel
           sx={{mb: 1}}
@@ -630,13 +644,17 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
             <Checkbox
               size="small"
               checked={allPageSelected}
-              indeterminate={somePageSelected && !allPageSelected}
+              indeterminate={selectedItems.length > 0 && !allPageSelected}
               onChange={() => toggleAll()}
             />
           }
           label={
             <Typography variant="body2" color="text.secondary">
-              {allPageSelected ? "Снять выделение" : "Выбрать все"}
+              {allPageSelected
+                ? "Снять выделение"
+                : selectedItems.length > 0
+                  ? `Выбрано: ${selectedItems.length}`
+                  : "Выбрать все"}
             </Typography>
           }
         />
