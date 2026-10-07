@@ -34,7 +34,10 @@ hands it both to `SidebarLayout` and to `MainAppBar` for the drawer. Routes come
 
 ### `GlobalSearchModal`
 
-Text search over `/api/commoncontent/search`, plus a camera mode toggled by the icon at the end of the field (shown only where
+Text search over `/api/commoncontent/search` — orders, warehouses, receipts, catalog items, marketplace accounts,
+organizations, users, stocktakes and write-offs, each narrowed by `IUserQueryFilterService`. The response holds at
+most 10 rows grouped by type in that order; every type with a match gets at least one row, the remaining slots go
+to types in that order. Plus a camera mode toggled by the icon at the end of the field (shown only where
 `getUserMedia` exists). The camera mode renders a lazily loaded `ScannerBlock` in place of the result list. A
 scan goes through `getScannedEntityLink`: an app-printed barcode (`parseEntityBarcode`) whose entity type has a
 page navigates straight to it and closes the modal; any other code — a foreign barcode, or a storage place node,

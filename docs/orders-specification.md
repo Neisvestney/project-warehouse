@@ -507,8 +507,9 @@ Draft → Confirmed → Assembly ⇄ Assembled ⇄ Shipped
 - `CatalogItem.SearchString` позиций коробок — название, артикул, штрихкод, описание + поля группы;
 - `MarketplaceCard.SearchString` позиций маркетплейса — `Name`, `OfferId`, `ExternalId`, `Sku`.
 
-**Глобальный поиск расширенный режим не использует** — там остаётся `Order.SearchString` через маппинг
-`Order → AppEntityWithSearchString`.
+Заказы участвуют в глобальном поиске (`GET /api/commoncontent/search`, в пределах `GetOrdersAsync`), но
+**расширенный режим там не используется** — только `Order.SearchString` через маппинг
+`Order → AppEntityWithSearchString`. В выдаче карточка показывает номер и `OrderStatusChip`.
 
 Реализовано предикатом `[Projectable] bool MatchesExtendedSearch(string pattern)`, а не строковым
 `ExtendedSearchString`: дополнительные поля лежат в коллекциях, а EF Core 10 не переводит `string.Join` над

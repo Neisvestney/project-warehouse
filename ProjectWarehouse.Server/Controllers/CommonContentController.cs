@@ -53,9 +53,10 @@ public class CommonContentController(IMapper mapper, IUserQueryFilterService que
 
     /// <summary>Global search for entities.</summary>
     /// <remarks>
-    /// Query params: <c>searchString</c> (required). Searches warehouses, receipts, catalog items,
-    /// marketplace accounts, organizations, users and stocktakes, each already filtered to what the caller may view, then
-    /// returns at most 10 results overall (up to 10 per source before the union).
+    /// Query params: <c>searchString</c> (required). Searches orders, warehouses, receipts, catalog items,
+    /// marketplace accounts, organizations, users, stocktakes and write-offs, each already filtered to what the caller
+    /// may view, and returns at most 10 results grouped by source in that order. Every source with a match gets at
+    /// least one slot; the rest are filled in source order.
     /// Requires authentication only — no permission opens or closes the endpoint itself.
     /// No error codes; a missing <c>searchString</c> is a model-binding 422 (<c>required</c>).
     /// </remarks>
@@ -71,16 +72,50 @@ public class CommonContentController(IMapper mapper, IUserQueryFilterService que
         var usersQueryable = await queryFilter.GetUsersAsync(User, ct);
         var stocktakesQueryable = await queryFilter.GetStocktakesAsync(User, ct);
         var organizationsQueryable = await queryFilter.GetOrganizationsAsync(User, ct);
+        var ordersQueryable = await queryFilter.GetOrdersAsync(User, ct);
+        var writeoffsQueryable = await queryFilter.GetWriteoffsAsync(User, ct);
 
-        var warehousesResults = await Search(warehousesQueryable, searchString, ct);
-        var receiptsResults = await Search(receiptsQueryable, searchString, ct);
-        var catalogResults = await Search(catalogQueryable, searchString, ct);
-        var marketplacesAccountsResults = await Search(marketplacesAccountsQueryable, searchString, ct);
-        var usersResults = await Search(usersQueryable, searchString, ct);
-        var stocktakesResults = await Search(stocktakesQueryable, searchString, ct);
-        var organizationsResults = await Search(organizationsQueryable, searchString, ct);
+        // Priority order: earlier sources come first in the response and get leftover slots first.
+        List<List<AppEntity>> sources =
+        [
+            await Search(ordersQueryable, searchString, ct),
+            await Search(warehousesQueryable, searchString, ct),
+            await Search(receiptsQueryable, searchString, ct),
+            await Search(catalogQueryable, searchString, ct),
+            await Search(marketplacesAccountsQueryable, searchString, ct),
+            await Search(organizationsQueryable, searchString, ct),
+            await Search(usersQueryable, searchString, ct),
+            await Search(stocktakesQueryable, searchString, ct),
+            await Search(writeoffsQueryable, searchString, ct),
+        ];
 
-        return Ok(warehousesResults.Union(receiptsResults).Union(catalogResults).Union(marketplacesAccountsResults).Union(organizationsResults).Union(usersResults).Union(stocktakesResults).Take(10));
+        return Ok(TakeWithPerSourceMinimum(sources, GlobalSearchLimit));
+    }
+
+    private const int GlobalSearchLimit = 10;
+
+    /// <summary>
+    /// Every non-empty source gets one slot, the remaining slots go to sources in list order;
+    /// the result keeps the sources grouped in that order.
+    /// </summary>
+    private static List<AppEntity> TakeWithPerSourceMinimum(IReadOnlyList<List<AppEntity>> sources, int limit)
+    {
+        var quotas = new int[sources.Count];
+        var left = limit;
+        for (var i = 0; i < sources.Count && left > 0; i++)
+        {
+            if (sources[i].Count == 0) continue;
+            quotas[i] = 1;
+            left--;
+        }
+        for (var i = 0; i < sources.Count && left > 0; i++)
+        {
+            var extra = Math.Min(sources[i].Count - quotas[i], left);
+            quotas[i] += extra;
+            left -= extra;
+        }
+
+        return sources.SelectMany((source, i) => source.Take(quotas[i])).ToList();
     }
 
 
