@@ -55,8 +55,26 @@ import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {calcTotalPlaced} from "@/components/receipts/receiptUtils";
 import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 import {openReceiptPrintPage} from "@/utils/printUtils";
+import BulkBar, {type BulkAction} from "@/components/BulkBar";
+import SelectionTableCell from "@/components/SelectionTableCell";
+import {useCatalogLabelsPrintAction} from "@/components/catalog/useCatalogLabelsPrintAction";
+import {useSelectedItems} from "@/hooks/useSelectedItems";
 
 const VIRTUAL_TYPES = new Set(["productGroup", "variation", "bundle"]);
+
+const getReceiptItemId = (item: ReceiptItemDto) => item.id;
+
+function selectedCardSx(selected: boolean) {
+  return {
+    p: 1.5,
+    outline: selected ? "2px solid" : undefined,
+    outlineColor: selected ? "primary.main" : undefined,
+  };
+}
+
+function CardCheckbox({checked, onCheck}: {checked: boolean; onCheck: () => void}) {
+  return <Checkbox size="small" checked={checked} onChange={onCheck} sx={{p: 0}} />;
+}
 
 function CatalogItemCell({item, onOpen}: {item: ReceiptItemDto; onOpen: (id: string) => void}) {
   return (
@@ -191,7 +209,7 @@ function ProcessingItemRow({
   onUpdate: (data: ReceiptDto) => void;
   onOpenCatalog: (id: string) => void;
   selected: boolean;
-  onToggleSelect: (id: string) => void;
+  onToggleSelect: (item: ReceiptItemDto, extendRange?: boolean) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [placementDialogOpen, setPlacementDialogOpen] = useState(false);
@@ -209,16 +227,14 @@ function ProcessingItemRow({
 
   const totalPlaced = useMemo(() => calcTotalPlaced(item), [item]);
   const isVirtual = VIRTUAL_TYPES.has(item.catalogItem.type);
-  const isStandard = item.catalogItem.type === "standard";
 
   return (
     <>
       <TableRow hover selected={selected}>
-        <TableCell padding="checkbox">
-          {isStandard && canProcess ? (
-            <Checkbox size="small" checked={selected} onChange={() => onToggleSelect(item.id)} />
-          ) : null}
-        </TableCell>
+        <SelectionTableCell
+          checked={selected}
+          onCheck={(extendRange) => onToggleSelect(item, extendRange)}
+        />
         <TableCell padding="checkbox">
           <IconButton size="small" onClick={() => setExpanded((v) => !v)}>
             {expanded ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
@@ -322,7 +338,7 @@ function ProcessingItemCard({
   onUpdate: (data: ReceiptDto) => void;
   onOpenCatalog: (id: string) => void;
   selected: boolean;
-  onToggleSelect: (id: string) => void;
+  onToggleSelect: (item: ReceiptItemDto, extendRange?: boolean) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [placementDialogOpen, setPlacementDialogOpen] = useState(false);
@@ -344,28 +360,13 @@ function ProcessingItemCard({
 
   const totalPlaced = useMemo(() => calcTotalPlaced(item), [item]);
   const isVirtual = VIRTUAL_TYPES.has(item.catalogItem.type);
-  const isStandard = item.catalogItem.type === "standard";
 
   return (
     <>
-      <Paper
-        variant="outlined"
-        sx={{
-          p: 1.5,
-          outline: selected ? "2px solid" : undefined,
-          outlineColor: selected ? "primary.main" : undefined,
-        }}
-      >
+      <Paper variant="outlined" sx={selectedCardSx(selected)}>
         <Stack spacing={1}>
           <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
-            {isStandard && canProcess && (
-              <Checkbox
-                size="small"
-                checked={selected}
-                onChange={() => onToggleSelect(item.id)}
-                sx={{p: 0}}
-              />
-            )}
+            <CardCheckbox checked={selected} onCheck={() => onToggleSelect(item)} />
             <CatalogItemCell item={item} onOpen={onOpenCatalog} />
           </Stack>
           <Typography variant="body2" color="text.secondary">
@@ -475,7 +476,6 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
     [onEditingChange],
   );
   const [catalogItemId, setCatalogItemId] = useState<string | null>(null);
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const canEdit = useHasPermission(["receipts.edit", "receipts.edit_assigned"]);
@@ -537,43 +537,40 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
     onSuccess: onUpdate,
   });
 
-  const visibleStandardItems = useMemo(
-    () => visibleItems.filter((i) => i.catalogItem.type === "standard"),
-    [visibleItems],
-  );
+  const {isSelected, allPageSelected, somePageSelected, toggle, toggleAll, clear} =
+    useSelectedItems(getReceiptItemId, visibleItems);
+  // the hook refreshes only rows on the visible list; search-hidden ones would keep a stale snapshot
+  const selectedItems = items.filter((i) => isSelected(i.id));
+  const selectedStandardItems = selectedItems.filter((i) => i.catalogItem.type === "standard");
+  const canPlaceSelected = isProcessing && canProcess && selectedStandardItems.length > 0;
 
-  const toggleSelect = useCallback((id: string) => {
-    setSelectedItemIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }, []);
+  const labelsAction = useCatalogLabelsPrintAction({
+    countModeLabel: isDraftOrPlanned ? "По запланированному количеству" : "По принятому количеству",
+  });
 
-  const allStandardSelected =
-    visibleStandardItems.length > 0 && visibleStandardItems.every((i) => selectedItemIds.has(i.id));
-  const someStandardSelected = visibleStandardItems.some((i) => selectedItemIds.has(i.id));
-
-  const toggleSelectAll = useCallback(() => {
-    setSelectedItemIds((prev) => {
-      const next = new Set(prev);
-      if (allStandardSelected) {
-        visibleStandardItems.forEach((i) => next.delete(i.id));
-      } else {
-        visibleStandardItems.forEach((i) => next.add(i.id));
-      }
-      return next;
-    });
-  }, [allStandardSelected, visibleStandardItems]);
-
-  const selectedItems = useMemo(
-    () => items.filter((i) => selectedItemIds.has(i.id)),
-    [items, selectedItemIds],
-  );
+  const selectionActions: BulkAction[] =
+    selectedItems.length > 0
+      ? [
+          ...(canPlaceSelected
+            ? [
+                {
+                  key: "place",
+                  label: "Разместить",
+                  icon: <AddIcon />,
+                  count: selectedStandardItems.length,
+                  primary: true,
+                  onClick: () => setBatchDialogOpen(true),
+                },
+              ]
+            : []),
+          labelsAction.getAction(
+            selectedItems.map((i) => ({
+              ...i.catalogItem,
+              count: isDraftOrPlanned ? i.plannedCount : (i.receivedCount ?? 0),
+            })),
+          ),
+        ]
+      : [];
 
   return (
     <Box>
@@ -581,16 +578,6 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
         <Typography variant="h6" sx={{flexGrow: 1}}>
           Позиции
         </Typography>
-        {isProcessing && !isMobile && canProcess && selectedItemIds.size > 0 && (
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={() => setBatchDialogOpen(true)}
-          >
-            Разместить ({selectedItemIds.size})
-          </Button>
-        )}
         {items.length > 0 && (
           <Button
             startIcon={<PrintIcon />}
@@ -628,28 +615,31 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
               },
             }}
           />
-          {isMobile && canProcess && visibleStandardItems.length > 0 && (
-            <FormControlLabel
-              control={
-                <Checkbox
-                  size="small"
-                  checked={allStandardSelected}
-                  indeterminate={someStandardSelected && !allStandardSelected}
-                  onChange={toggleSelectAll}
-                />
-              }
-              label={
-                <Typography variant="body2" color="text.secondary">
-                  {allStandardSelected
-                    ? "Снять выделение"
-                    : someStandardSelected
-                      ? `Выбрано: ${selectedItemIds.size}`
-                      : "Выбрать все"}
-                </Typography>
-              }
-            />
-          )}
         </Stack>
+      )}
+      <BulkBar
+        count={selectedItems.length}
+        countLabel={{one: "позиция выбрана", few: "позиции выбрано", many: "позиций выбрано"}}
+        onClear={clear}
+        actions={selectionActions}
+      />
+      {isMobile && visibleItems.length > 0 && (
+        <FormControlLabel
+          sx={{mb: 1}}
+          control={
+            <Checkbox
+              size="small"
+              checked={allPageSelected}
+              indeterminate={somePageSelected && !allPageSelected}
+              onChange={() => toggleAll()}
+            />
+          }
+          label={
+            <Typography variant="body2" color="text.secondary">
+              {allPageSelected ? "Снять выделение" : "Выбрать все"}
+            </Typography>
+          }
+        />
       )}
 
       {items.length === 0 ? (
@@ -660,9 +650,12 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
         isMobile ? (
           <Stack spacing={1}>
             {items.map((item) => (
-              <Paper key={item.id} variant="outlined" sx={{p: 1.5}}>
+              <Paper key={item.id} variant="outlined" sx={selectedCardSx(isSelected(item.id))}>
                 <Stack spacing={0.5}>
-                  <CatalogItemCell item={item} onOpen={setCatalogItemId} />
+                  <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+                    <CardCheckbox checked={isSelected(item.id)} onCheck={() => toggle(item)} />
+                    <CatalogItemCell item={item} onOpen={setCatalogItemId} />
+                  </Stack>
                   <Typography variant="body2" color="text.secondary">
                     Запланировано: {item.plannedCount}
                   </Typography>
@@ -679,6 +672,11 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
           <Table size="small">
             <TableHead>
               <TableRow>
+                <SelectionTableCell
+                  checked={allPageSelected}
+                  indeterminate={!allPageSelected && somePageSelected}
+                  onCheck={() => toggleAll()}
+                />
                 <TableCell>Товар</TableCell>
                 <TableCell align="right">Запланировано</TableCell>
                 <TableCell>Примечание</TableCell>
@@ -686,7 +684,11 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
             </TableHead>
             <TableBody>
               {items.map((item) => (
-                <TableRow key={item.id}>
+                <TableRow key={item.id} hover selected={isSelected(item.id)}>
+                  <SelectionTableCell
+                    checked={isSelected(item.id)}
+                    onCheck={(extendRange) => toggle(item, extendRange)}
+                  />
                   <TableCell>
                     <CatalogItemCell item={item} onOpen={setCatalogItemId} />
                   </TableCell>
@@ -708,8 +710,8 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
                   receipt={receipt}
                   onUpdate={onUpdate}
                   onOpenCatalog={setCatalogItemId}
-                  selected={selectedItemIds.has(item.id)}
-                  onToggleSelect={toggleSelect}
+                  selected={isSelected(item.id)}
+                  onToggleSelect={toggle}
                 />
               ))}
               {isSearchActive && visibleItems.length === 0 && !catalogSearchQuery.isFetching && (
@@ -722,16 +724,11 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell padding="checkbox">
-                    {canProcess && visibleStandardItems.length > 0 && (
-                      <Checkbox
-                        size="small"
-                        checked={allStandardSelected}
-                        indeterminate={someStandardSelected && !allStandardSelected}
-                        onChange={toggleSelectAll}
-                      />
-                    )}
-                  </TableCell>
+                  <SelectionTableCell
+                    checked={allPageSelected}
+                    indeterminate={!allPageSelected && somePageSelected}
+                    onCheck={() => toggleAll()}
+                  />
                   <TableCell padding="checkbox" />
                   <TableCell>Товар</TableCell>
                   <TableCell align="right">Запланировано</TableCell>
@@ -749,8 +746,8 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
                     receipt={receipt}
                     onUpdate={onUpdate}
                     onOpenCatalog={setCatalogItemId}
-                    selected={selectedItemIds.has(item.id)}
-                    onToggleSelect={toggleSelect}
+                    selected={isSelected(item.id)}
+                    onToggleSelect={toggle}
                   />
                 ))}
                 {isSearchActive && visibleItems.length === 0 && !catalogSearchQuery.isFetching && (
@@ -843,9 +840,12 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
             {items.map((item) => {
               const totalPlaced = calcTotalPlaced(item);
               return (
-                <Paper key={item.id} variant="outlined" sx={{p: 1.5}}>
+                <Paper key={item.id} variant="outlined" sx={selectedCardSx(isSelected(item.id))}>
                   <Stack spacing={0.75}>
-                    <CatalogItemCell item={item} onOpen={setCatalogItemId} />
+                    <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+                      <CardCheckbox checked={isSelected(item.id)} onCheck={() => toggle(item)} />
+                      <CatalogItemCell item={item} onOpen={setCatalogItemId} />
+                    </Stack>
                     <Stack direction="row" spacing={2}>
                       <Typography variant="body2" color="text.secondary">
                         Запланировано: {item.plannedCount}
@@ -884,6 +884,11 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
           <Table size="small">
             <TableHead>
               <TableRow>
+                <SelectionTableCell
+                  checked={allPageSelected}
+                  indeterminate={!allPageSelected && somePageSelected}
+                  onCheck={() => toggleAll()}
+                />
                 <TableCell>Товар</TableCell>
                 <TableCell align="right">Запланировано</TableCell>
                 <TableCell align="right">Принято</TableCell>
@@ -896,7 +901,11 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
               {items.map((item) => {
                 const totalPlaced = calcTotalPlaced(item);
                 return (
-                  <TableRow key={item.id}>
+                  <TableRow key={item.id} hover selected={isSelected(item.id)}>
+                    <SelectionTableCell
+                      checked={isSelected(item.id)}
+                      onCheck={(extendRange) => toggle(item, extendRange)}
+                    />
                     <TableCell>
                       <CatalogItemCell item={item} onOpen={setCatalogItemId} />
                     </TableCell>
@@ -933,11 +942,12 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
           onUpdate={(updated) => {
             onUpdate(updated);
             setEditorOpen(false);
+            clear();
           }}
         />
       )}
 
-      {isMobile && isProcessing && canProcess && selectedItemIds.size > 0 && (
+      {isMobile && canPlaceSelected && (
         <Box
           sx={{
             position: "fixed",
@@ -953,7 +963,7 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
             sx={{gap: 1, whiteSpace: "nowrap"}}
           >
             <AddIcon />
-            Разместить ({selectedItemIds.size})
+            Разместить ({selectedStandardItems.length})
           </Fab>
         </Box>
       )}
@@ -963,13 +973,15 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
         onClose={() => setBatchDialogOpen(false)}
         receiptId={receipt.id}
         warehouseId={receipt.warehouseId}
-        items={selectedItems}
+        items={selectedStandardItems}
         onUpdate={(updated) => {
           onUpdate(updated);
           setBatchDialogOpen(false);
-          setSelectedItemIds(new Set());
+          clear();
         }}
       />
+
+      {labelsAction.dialogs}
 
       <CatalogItemDrawer
         itemId={catalogItemId}
