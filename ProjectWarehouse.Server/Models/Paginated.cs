@@ -21,10 +21,21 @@ public static class PaginatedExtensions
         int pageSize,
         CancellationToken cancellationToken = default)
     {
+        var total = await query.CountAsync(cancellationToken);
+        return await query.ToPaginatedAsync(page, pageSize, total, cancellationToken);
+    }
+
+    /// <summary>Same, for a caller that already knows <paramref name="total"/> from its own aggregate.</summary>
+    public static async Task<Paginated<T>> ToPaginatedAsync<T>(
+        this IQueryable<T> query,
+        int page,
+        int pageSize,
+        int total,
+        CancellationToken cancellationToken = default)
+    {
         ArgumentOutOfRangeException.ThrowIfLessThan(page, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(pageSize, 1);
 
-        var total = await query.CountAsync(cancellationToken);
         var items = await query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
