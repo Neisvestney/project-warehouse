@@ -65,9 +65,13 @@ function OrderComponentsTable({
   const [fulfillmentsDrawerOpen, setFulfillmentsDrawerOpen] = useState(false);
   const hasAssembly = order.assemblyTasks.length > 0;
 
-  const canAdd = canEdit && (orderStatus === "draft" || orderStatus === "confirmed");
-  const canDelete = canEdit && (orderStatus === "draft" || orderStatus === "confirmed");
-  const canEditQuantity = canEdit && (orderStatus === "draft" || orderStatus === "confirmed");
+  // a working FBS order mirrors its posting; the server answers orderCompositionLocked
+  const compositionLocked = order.type === "fbs" && !order.isExternal;
+  const canEditComposition =
+    canEdit && !compositionLocked && (orderStatus === "draft" || orderStatus === "confirmed");
+  const canAdd = canEditComposition;
+  const canDelete = canEditComposition;
+  const canEditQuantity = canEditComposition;
 
   const [addCatalogItemId, setAddCatalogItemId] = useState<string | null>(null);
   const [addQuantity, setAddQuantity] = useState(1);

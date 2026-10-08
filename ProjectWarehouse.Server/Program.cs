@@ -438,7 +438,7 @@ try
     builder.Services.AddHostedService<MarketplaceSyncWorker>();
     builder.Services.AddScoped<IMarketplaceSyncService, MarketplaceSyncService>();
     builder.Services.AddScoped<IMarketplaceOrderSyncService, MarketplaceOrderSyncService>();
-    builder.Services.AddScoped<IExternalOrderRebindService, ExternalOrderRebindService>();
+    builder.Services.AddScoped<IOrderRebindService, OrderRebindService>();
     builder.Services.AddScoped<IMarketplaceReturnSyncService, MarketplaceReturnSyncService>();
     builder.Services.AddScoped<IMarketplaceAccrualSyncService, MarketplaceAccrualSyncService>();
     builder.Services.AddScoped<IMarketplaceLabelService, MarketplaceLabelService>();

@@ -1,6 +1,7 @@
 import OrdersListPage from "@/components/orders/OrdersListPage";
 import type {OrdersListExtraColumn} from "@/components/orders/OrdersListPage";
 import {useDownloadLabelsAction} from "@/components/orders/marketplace/useDownloadLabelsAction";
+import {useRebindOrdersAction} from "@/components/orders/marketplace/useRebindOrdersAction";
 import MarketplaceOrderStatusChip from "@/components/orders/marketplace/MarketplaceOrderStatusChip";
 import SyncOrdersButton from "@/components/orders/marketplace/SyncOrdersButton";
 import {useHasPermission} from "@/hooks/usePermission";
@@ -35,7 +36,9 @@ const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
 
 function OrdersFbsPage() {
   const canSync = useHasPermission("integrations.sync");
+  const canEdit = useHasPermission(["orders.edit", "orders.edit_assigned"]);
   const downloadLabels = useDownloadLabelsAction();
+  const rebind = useRebindOrdersAction();
 
   return (
     <>
@@ -45,13 +48,20 @@ function OrdersFbsPage() {
         breadcrumbName="FBS"
         breadcrumbLink="/operations/orders/fbs"
         headerActions={canSync ? <SyncOrdersButton /> : null}
-        bulkActions={(orders) => [downloadLabels.getAction(orders.map((o) => o.id))]}
+        bulkActions={(orders) => {
+          const rebindAction = canEdit ? rebind.getAction(orders) : null;
+          return [
+            downloadLabels.getAction(orders.map((o) => o.id)),
+            ...(rebindAction ? [rebindAction] : []),
+          ];
+        }}
         marketplaceFilters
         extraColumns={EXTRA_COLUMNS}
         showNotes={false}
         defaultPageSize={200}
       />
       {downloadLabels.dialogs}
+      {rebind.dialogs}
     </>
   );
 }

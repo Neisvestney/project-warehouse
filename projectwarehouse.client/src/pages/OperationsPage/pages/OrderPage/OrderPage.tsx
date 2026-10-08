@@ -7,6 +7,7 @@ import {
   ordersGetAllQueryKey,
   ordersGetByIdOptions,
   ordersGetByIdQueryKey,
+  ordersRebindMutation,
   ordersSelfAssignMutation,
   ordersTransitionStatusMutation,
   ordersUpdateAttachmentsMutation,
@@ -33,6 +34,7 @@ import {CatalogItemDrawerHost} from "@/components/catalog/CatalogItemDrawerHost"
 import OrderStatusChip from "@/components/orders/OrderStatusChip";
 import OrderTypeChip from "@/components/orders/OrderTypeChip";
 import DownloadOrderLabelButton from "@/components/orders/marketplace/DownloadOrderLabelButton";
+import {isRebindable} from "@/components/orders/marketplace/useRebindOrdersAction";
 import {ORDER_TYPE_LABELS, formatBoxLabel, formatOrderNumber} from "@/components/orders/orderUtils";
 import {isOrderFullyFulfilled} from "@/components/orders/orderAssemblyUtils";
 import AttachmentsSection from "@/components/files/controls/AttachmentsSection";
@@ -46,6 +48,7 @@ import UndoIcon from "@mui/icons-material/Undo";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import BlockIcon from "@mui/icons-material/Block";
 import DeleteIcon from "@mui/icons-material/Delete";
+import LinkIcon from "@mui/icons-material/Link";
 import OrderMarketplaceItemsSection from "@/pages/OperationsPage/pages/OrderPage/OrderMarketplaceItemsSection.tsx";
 
 function OrderPage() {
@@ -63,6 +66,7 @@ function OrderPage() {
   const [isEditingMeta, setIsEditingMeta] = useState(false);
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [rebindConfirm, setRebindConfirm] = useState(false);
   const [emptyBoxesConfirm, setEmptyBoxesConfirm] = useState<OrderStatus | null>(null);
 
   const query = useQuery({
@@ -126,6 +130,15 @@ function OrderPage() {
     },
   });
 
+  const rebindMutation = useMutation({
+    ...ordersRebindMutation(),
+    onSuccess: (data) => {
+      queryClient.setQueryData(ordersGetByIdQueryKey({path: {id: id!}}), data);
+      void queryClient.invalidateQueries({queryKey: ordersGetAllQueryKey()});
+    },
+    onSettled: () => setRebindConfirm(false),
+  });
+
   const attachmentsMutation = useMutation({
     ...ordersUpdateAttachmentsMutation(),
     meta: {suppressGlobalError: true},
@@ -175,7 +188,16 @@ function OrderPage() {
   }
 
   const actionPending =
-    transitionMutation.isPending || selfAssignMutation.isPending || deleteMutation.isPending;
+    transitionMutation.isPending ||
+    selfAssignMutation.isPending ||
+    deleteMutation.isPending ||
+    rebindMutation.isPending;
+  // lines whose card now points at another catalog item than the one imported
+  const staleItemCount = order.marketplaceItems.filter(
+    (i) =>
+      i.marketplaceCard?.catalogItemId != null &&
+      i.marketplaceCard.catalogItemId !== i.catalogItemId,
+  ).length;
   const marketplaceOrder = order.type === "fbs" ? order.marketplaceOrder : null;
   const hasActions =
     (canSelfAssign && order.status === "confirmed") || canWork || marketplaceOrder != null;
@@ -280,14 +302,38 @@ function OrderPage() {
                       >
                         На сборку
                       </Button>
-                      <Button
-                        variant="outlined"
-                        disabled={actionPending}
-                        onClick={() => transition("draft")}
-                        startIcon={<UndoIcon />}
-                      >
-                        Вернуть в черновик
-                      </Button>
+                      {isRebindable(order) && (
+                        <Tooltip
+                          title={
+                            staleItemCount > 0
+                              ? `Позиций с перепривязанной карточкой: ${staleItemCount}`
+                              : "Состав совпадает с привязкой карточек"
+                          }
+                        >
+                          <span>
+                            <Button
+                              variant="outlined"
+                              color={staleItemCount > 0 ? "warning" : "primary"}
+                              disabled={actionPending}
+                              onClick={() => setRebindConfirm(true)}
+                              startIcon={<LinkIcon />}
+                              loading={rebindMutation.isPending}
+                            >
+                              Обновить привязку
+                            </Button>
+                          </span>
+                        </Tooltip>
+                      )}
+                      {order.type !== "fbs" && (
+                        <Button
+                          variant="outlined"
+                          disabled={actionPending}
+                          onClick={() => transition("draft")}
+                          startIcon={<UndoIcon />}
+                        >
+                          Вернуть в черновик
+                        </Button>
+                      )}
                       <Button
                         color="error"
                         variant="outlined"
@@ -443,6 +489,20 @@ function OrderPage() {
             }
             isPending={transitionMutation.isPending}
           />
+
+          <ConfirmDialog
+            open={rebindConfirm}
+            onClose={() => setRebindConfirm(false)}
+            title="Обновить привязку?"
+            confirmText="Обновить"
+            onConfirm={() => rebindMutation.mutate({path: {id: order.id}})}
+            isPending={rebindMutation.isPending}
+          >
+            <Typography variant="body2">
+              Позиции, чья карточка теперь привязана к другому товару каталога, будут заменены в
+              коробках на новый товар. Раскладка по коробкам сохранится.
+            </Typography>
+          </ConfirmDialog>
 
           <ConfirmDialog
             open={deleteConfirm}

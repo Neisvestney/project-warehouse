@@ -41,6 +41,7 @@ public class OrdersController(
     IDataFileBindingService fileBinding,
     IAssemblyChangeNotifier assemblyChanges,
     IEntityLockService locks,
+    IOrderRebindService rebind,
     IOptions<MarketplacesOptions> marketplacesOptions) : AppControllerBase
 {
     private EntityAccessRule<Order> Rule => access.For<Order>();
@@ -122,6 +123,16 @@ public class OrdersController(
         order.IsExternal
             ? UnprocessableEntity("root", ErrorCode.OrderIsExternal,
                 "This order was imported from the marketplace and is not handled by WMS.")
+            : null;
+
+    /// <summary>
+    /// A working FBS order ships exactly what its posting holds: boxes may be rearranged, the items may not.
+    /// A wrong item is fixed by remapping the card and rebinding the order.
+    /// </summary>
+    private IActionResult? CompositionLockedError(Order order) =>
+        order is { Type: OrderType.FBS, IsExternal: false }
+            ? UnprocessableEntity("root", ErrorCode.OrderCompositionLocked,
+                "The items of an FBS order follow its posting and cannot be edited.")
             : null;
 
     private static bool IsAssignedTo(IReadOnlySet<Guid> assignedIds, Order order) =>
@@ -1399,6 +1410,114 @@ public class OrdersController(
         return NoContent();
     }
 
+    // ── POST /api/orders/{id}/rebind ──────────────────────────────────────────
+
+    /// <summary>Carry the cards' current mapping onto a Confirmed FBS order's lines and box components.</summary>
+    /// <remarks>
+    /// Each line whose catalog item differs from its card's mapping takes the mapped item, and its quantity
+    /// moves from the old box component to the new one within the same box; the rest of the layout is kept.
+    /// An order already in agreement answers 200 unchanged. Errors: 422 <c>orderIsExternal</c>,
+    /// <c>orderNotFbs</c>, <c>orderNotConfirmed</c>, <c>marketplaceOrderCardNotMapped</c> (args <c>offerIds</c>)
+    /// when a card of the order has no mapping — nothing was written. Returns 404 <c>orderNotFound</c>, 409
+    /// <c>entityLocked</c> when another request is changing the order — nothing was written.
+    /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
+    [PublishesAssemblyChanged(AssemblyChangeScope.Order)]
+    [LocksEntity<Order>]
+    [HttpPost("{id:guid}/rebind")]
+    [Authorize]
+    [ProducesResponseType<OrderDetailsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> Rebind(Guid id, CancellationToken ct = default)
+    {
+        var (order, error) = await LoadOrderWithEditAccessAsync(id, ct, fullDetails: true);
+        if (error is not null) return error;
+
+        var beforeDto = await MapDetailsAsync(order!, ct);
+
+        var result = await rebind.RebindWorkingOrdersAsync([order!], ct);
+        if (result.Failures.TryGetValue(id, out var failure))
+            return Problem(AppProblems.Root(StatusCodes.Status422UnprocessableEntity, failure));
+
+        var full = await LoadOrderDetailsAsync(id, ct);
+        var afterDto = await MapDetailsAsync(full!, ct);
+        if (result.ReboundOrderIds.Count > 0)
+            await changeLog.CompareAndSaveToChangelog(beforeDto, afterDto, OrderActions.Rebound);
+
+        return Ok(afterDto);
+    }
+
+    // ── POST /api/orders/batch-rebind ─────────────────────────────────────────
+
+    /// <summary>Rebind several FBS orders in one request, with partial-success semantics.</summary>
+    /// <remarks>
+    /// Body: <c>BatchRebindRequest</c> — <c>orderIds</c> (duplicates are collapsed). Each order is rebound as by
+    /// <c>POST /{id}/rebind</c>, and the endpoint always answers 200 with <c>BatchRebindResponse</c>: orders with
+    /// a line moved in <c>reboundOrderIds</c>, orders already in agreement in <c>unchangedOrderIds</c>, the rest
+    /// in <c>failedItems</c> as <c>{ orderId, orderNumber, error }</c> (<c>orderNotFound</c>,
+    /// <c>orderIsExternal</c>, <c>orderNotFbs</c>, <c>orderNotConfirmed</c>,
+    /// <c>marketplaceOrderCardNotMapped</c>). A failed order does not undo the others. An order outside the
+    /// caller's edit access is reported as <c>orderNotFound</c>. 409 <c>entityLocked</c> when another request
+    /// is changing one of the orders — nothing was written.
+    /// 403 is returned only for the request as a whole, when edit access is missing entirely.
+    /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
+    [Transactional]
+    [HttpPost("batch-rebind")]
+    [Authorize]
+    [ProducesResponseType<BatchRebindResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> BatchRebind([FromBody] BatchRebindRequest request, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
+
+        var orderIds = request.OrderIds.Distinct().ToList();
+        await locks.LockManyAsync<Order>(orderIds, ct);
+
+        var accessible         = await Rule.QueryAsync(User, AccessLevel.Edit, ct);
+        var (loaded, nodeById) = await LoadBatchDetailsAsync(accessible, orderIds, ct);
+        var assemblyBefore     = await assemblyChanges.CaptureAsync(loaded.Keys, ct);
+        var beforeDtos         = loaded.Values.ToDictionary(o => o.Id, o => MapDetails(o, nodeById));
+
+        var result = await rebind.RebindWorkingOrdersAsync([.. loaded.Values], ct);
+
+        var failedItems = new List<BatchRebindFailedItem>();
+        var unchanged   = new List<Guid>();
+        foreach (var orderId in orderIds)
+        {
+            if (!loaded.TryGetValue(orderId, out var order))
+                failedItems.Add(new BatchRebindFailedItem
+                {
+                    OrderId = orderId,
+                    Error   = AppProblems.MakeError(ErrorCode.OrderNotFound, "Order not found."),
+                });
+            else if (result.Failures.TryGetValue(orderId, out var failure))
+                failedItems.Add(new BatchRebindFailedItem
+                {
+                    OrderId     = orderId,
+                    OrderNumber = order.Number,
+                    Error       = failure,
+                });
+            else if (!result.ReboundOrderIds.Contains(orderId))
+                unchanged.Add(orderId);
+        }
+
+        await SaveBatchChangelogsAsync(
+            [.. result.ReboundOrderIds.Select(id => (beforeDtos[id], OrderActions.Rebound))], nodeById, ct);
+        await PublishBatchAssemblyChangedAsync(assemblyBefore, result.ReboundOrderIds, ct);
+
+        return Ok(new BatchRebindResponse
+        {
+            ReboundOrderIds   = result.ReboundOrderIds,
+            UnchangedOrderIds = unchanged,
+            FailedItems       = failedItems,
+        });
+    }
+
     // ── POST /api/orders/{id}/boxes ───────────────────────────────────────────
 
     /// <summary>Add an empty box to the order.</summary>
@@ -1572,6 +1691,9 @@ public class OrdersController(
         if (ExternalOrderError(order!) is { } external)
             return external;
 
+        if (CompositionLockedError(order!) is { } locked)
+            return locked;
+
         if (order!.Status is not (OrderStatus.Draft or OrderStatus.Confirmed))
             return UnprocessableEntity("root", ErrorCode.OrderInvalidStatusTransition,
                 "Components can only be added in Draft or Confirmed status.");
@@ -1620,6 +1742,9 @@ public class OrdersController(
 
         if (ExternalOrderError(order!) is { } external)
             return external;
+
+        if (CompositionLockedError(order!) is { } locked)
+            return locked;
 
         if (order!.Status is not (OrderStatus.Draft or OrderStatus.Confirmed))
             return UnprocessableEntity("root", ErrorCode.OrderInvalidStatusTransition,
@@ -1677,6 +1802,9 @@ public class OrdersController(
 
         if (ExternalOrderError(order!) is { } external)
             return external;
+
+        if (CompositionLockedError(order!) is { } locked)
+            return locked;
 
         if (order!.Status is not (OrderStatus.Draft or OrderStatus.Confirmed))
             return UnprocessableEntity("root", ErrorCode.OrderInvalidStatusTransition,

@@ -81,6 +81,7 @@ import {
   ordersAddComponent,
   ordersAddFulfillment,
   ordersBatchFulfill,
+  ordersBatchRebind,
   ordersBatchSelfAssign,
   ordersBatchTransitionStatus,
   ordersBatchUpdateTags,
@@ -98,6 +99,7 @@ import {
   ordersGetTags,
   ordersGetTaskMoveTargets,
   ordersMoveTaskComponent,
+  ordersRebind,
   ordersRemoveBox,
   ordersRemoveComponent,
   ordersRemoveFulfillment,
@@ -440,6 +442,9 @@ import type {
   OrdersBatchFulfillData,
   OrdersBatchFulfillError,
   OrdersBatchFulfillResponse,
+  OrdersBatchRebindData,
+  OrdersBatchRebindError,
+  OrdersBatchRebindResponse,
   OrdersBatchSelfAssignData,
   OrdersBatchSelfAssignError,
   OrdersBatchSelfAssignResponse,
@@ -490,6 +495,9 @@ import type {
   OrdersMoveTaskComponentData,
   OrdersMoveTaskComponentError,
   OrdersMoveTaskComponentResponse,
+  OrdersRebindData,
+  OrdersRebindError,
+  OrdersRebindResponse,
   OrdersRemoveBoxData,
   OrdersRemoveBoxError,
   OrdersRemoveBoxResponse,
@@ -4368,6 +4376,75 @@ export const ordersBatchUpdateTagsMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await ordersBatchUpdateTags({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Carry the cards' current mapping onto a Confirmed FBS order's lines and box components.
+ *
+ * Each line whose catalog item differs from its card's mapping takes the mapped item, and its quantity
+ * moves from the old box component to the new one within the same box; the rest of the layout is kept.
+ * An order already in agreement answers 200 unchanged. Errors: 422 `orderIsExternal`,
+ * `orderNotFbs`, `orderNotConfirmed`, `marketplaceOrderCardNotMapped` (args `offerIds`)
+ * when a card of the order has no mapping — nothing was written. Returns 404 `orderNotFound`, 409
+ * `entityLocked` when another request is changing the order — nothing was written.
+ * Requires `orders.edit` or `orders.edit_assigned`.
+ */
+export const ordersRebindMutation = (
+  options?: Partial<Options<OrdersRebindData>>,
+): UseMutationOptions<OrdersRebindResponse, OrdersRebindError, Options<OrdersRebindData>> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersRebindResponse,
+    OrdersRebindError,
+    Options<OrdersRebindData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersRebind({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Rebind several FBS orders in one request, with partial-success semantics.
+ *
+ * Body: `BatchRebindRequest` — `orderIds` (duplicates are collapsed). Each order is rebound as by
+ * `POST /{id}/rebind`, and the endpoint always answers 200 with `BatchRebindResponse`: orders with
+ * a line moved in `reboundOrderIds`, orders already in agreement in `unchangedOrderIds`, the rest
+ * in `failedItems` as `{ orderId, orderNumber, error }` (`orderNotFound`,
+ * `orderIsExternal`, `orderNotFbs`, `orderNotConfirmed`,
+ * `marketplaceOrderCardNotMapped`). A failed order does not undo the others. An order outside the
+ * caller's edit access is reported as `orderNotFound`. 409 `entityLocked` when another request
+ * is changing one of the orders — nothing was written.
+ * 403 is returned only for the request as a whole, when edit access is missing entirely.
+ * Requires `orders.edit` or `orders.edit_assigned`.
+ */
+export const ordersBatchRebindMutation = (
+  options?: Partial<Options<OrdersBatchRebindData>>,
+): UseMutationOptions<
+  OrdersBatchRebindResponse,
+  OrdersBatchRebindError,
+  Options<OrdersBatchRebindData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersBatchRebindResponse,
+    OrdersBatchRebindError,
+    Options<OrdersBatchRebindData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersBatchRebind({
         ...options,
         ...fnOptions,
         throwOnError: true,

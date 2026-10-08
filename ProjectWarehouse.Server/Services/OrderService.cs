@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure;
@@ -973,7 +973,8 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
         {
             (OrderStatus.Draft,     OrderStatus.Confirmed)  => true,
             (OrderStatus.Draft,     OrderStatus.Canceled)   => true,
-            (OrderStatus.Confirmed, OrderStatus.Draft)      => true,
+            // an FBS order arrives Confirmed and never needs drafting: its items mirror the posting
+            (OrderStatus.Confirmed, OrderStatus.Draft)      => order.Type != OrderType.FBS,
             (OrderStatus.Confirmed, OrderStatus.Assembly)   => true,
             (OrderStatus.Confirmed, OrderStatus.Canceled)   => true,
             (OrderStatus.Assembly,  OrderStatus.Confirmed)  => true,
