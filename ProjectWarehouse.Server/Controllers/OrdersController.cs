@@ -404,15 +404,20 @@ public class OrdersController(
             _                            => baseQuery.Sort(o => o.Number, sortOrder).ThenBy(o => o.Id),
         };
 
-        var paginated = await query
-            .ProjectTo<OrderSummaryDto>(mapper.ConfigurationProvider)
-            .ToPaginatedAsync(page, pageSize, ct);
-
         // one grouping feeds both facets: each drops its own filter and keeps the other one
         var facets = await facetQuery
             .GroupBy(o => new { o.Status, Overdue = o.OverdueKindAt(now) })
             .Select(g => new { g.Key.Status, g.Key.Overdue, Count = g.Count() })
             .ToListAsync(ct);
+
+        // the total is the facet cell under both filters, which spares a COUNT that re-runs the search
+        var total = facets
+            .Where(f => (status == null || f.Status == status) && (overdue == null || f.Overdue == overdue))
+            .Sum(f => f.Count);
+
+        var paginated = await query
+            .ProjectTo<OrderSummaryDto>(mapper.ConfigurationProvider)
+            .ToPaginatedAsync(page, pageSize, total, ct);
 
         var meta = new OrderListMetaDto
         {

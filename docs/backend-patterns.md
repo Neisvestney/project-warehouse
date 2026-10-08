@@ -470,10 +470,10 @@ round trips — which matters in hot loops such as `OrderService.IsTaskFullyFulf
 `paginated.WithMeta(meta)` wraps a page that has already been materialised:
 
 ```csharp
-var paginated = await query.ProjectTo<OrderSummaryDto>(mapper.ConfigurationProvider)
+var paginated = await query.ProjectTo<ReceiptSummaryDto>(mapper.ConfigurationProvider)
     .ToPaginatedAsync(page, pageSize, ct);
 
-var meta = new OrderListMetaDto {ComponentCount = await baseQuery.SelectMany(…).SumAsync(…, ct) ?? 0};
+var meta = new StatusListMetaDto<ReceiptStatus> {StatusCounts = await facetQuery.CountByStatusAsync(r => r.Status, ct)};
 
 return Ok(paginated.WithMeta(meta));
 ```
@@ -484,7 +484,14 @@ meta DTO stays small; a handful of counters over the same filter belongs in one 
 `OrdersController.GetAll` groups by `(Status, OverdueKindAt(now))` once over the query without the status and
 overdue filters, then derives both the per-status counts and the two overdue counts from those few rows in
 memory. The `overdue` filter calls the same `[Projectable]` `Order.OverdueKindAt`, so the counter and the list it
-opens cannot disagree.
+opens cannot disagree. The page total is the sum of the cells matching both filters, passed to the
+`ToPaginatedAsync(page, pageSize, total, ct)` overload, which skips its own `COUNT` — on a search the filter is
+the expensive part, and every extra query over the filtered set pays for it again.
+
+The component sum is a separate `SumAsync`. Folding it into the grouping — as a correlated subquery, a
+pre-aggregated join or a join with `count(DISTINCT)` — is two to fourteen times slower than the plain grouping
+plus the plain sum on the FBS list, because each variant aggregates every box component of every order in the
+set.
 
 A list whose only facet is its status tabs uses the generic `StatusListMetaDto<TStatus>` (receipts, write-offs,
 stocktakes). The controller builds the filtered query **without** the status filter first, applies status on top
