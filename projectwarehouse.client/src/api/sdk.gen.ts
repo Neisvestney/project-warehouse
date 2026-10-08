@@ -220,6 +220,9 @@ import type {
   OrdersBatchFulfillData,
   OrdersBatchFulfillErrors,
   OrdersBatchFulfillResponses,
+  OrdersBatchRebindData,
+  OrdersBatchRebindErrors,
+  OrdersBatchRebindResponses,
   OrdersBatchSelfAssignData,
   OrdersBatchSelfAssignErrors,
   OrdersBatchSelfAssignResponses,
@@ -271,6 +274,9 @@ import type {
   OrdersMoveTaskComponentData,
   OrdersMoveTaskComponentErrors,
   OrdersMoveTaskComponentResponses,
+  OrdersRebindData,
+  OrdersRebindErrors,
+  OrdersRebindResponses,
   OrdersRemoveBoxData,
   OrdersRemoveBoxErrors,
   OrdersRemoveBoxResponses,
@@ -2727,6 +2733,55 @@ export const ordersBatchUpdateTags = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/api/orders/batch-update-tags",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Carry the cards' current mapping onto a Confirmed FBS order's lines and box components.
+ *
+ * Each line whose catalog item differs from its card's mapping takes the mapped item, and its quantity
+ * moves from the old box component to the new one within the same box; the rest of the layout is kept.
+ * An order already in agreement answers 200 unchanged. Errors: 422 `orderIsExternal`,
+ * `orderNotFbs`, `orderNotConfirmed`, `marketplaceOrderCardNotMapped` (args `offerIds`)
+ * when a card of the order has no mapping — nothing was written. Returns 404 `orderNotFound`, 409
+ * `entityLocked` when another request is changing the order — nothing was written.
+ * Requires `orders.edit` or `orders.edit_assigned`.
+ */
+export const ordersRebind = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersRebindData, ThrowOnError>,
+): RequestResult<OrdersRebindResponses, OrdersRebindErrors, ThrowOnError> =>
+  (options.client ?? client).post<OrdersRebindResponses, OrdersRebindErrors, ThrowOnError>({
+    url: "/api/orders/{id}/rebind",
+    ...options,
+  });
+
+/**
+ * Rebind several FBS orders in one request, with partial-success semantics.
+ *
+ * Body: `BatchRebindRequest` — `orderIds` (duplicates are collapsed). Each order is rebound as by
+ * `POST /{id}/rebind`, and the endpoint always answers 200 with `BatchRebindResponse`: orders with
+ * a line moved in `reboundOrderIds`, orders already in agreement in `unchangedOrderIds`, the rest
+ * in `failedItems` as `{ orderId, orderNumber, error }` (`orderNotFound`,
+ * `orderIsExternal`, `orderNotFbs`, `orderNotConfirmed`,
+ * `marketplaceOrderCardNotMapped`). A failed order does not undo the others. An order outside the
+ * caller's edit access is reported as `orderNotFound`. 409 `entityLocked` when another request
+ * is changing one of the orders — nothing was written.
+ * 403 is returned only for the request as a whole, when edit access is missing entirely.
+ * Requires `orders.edit` or `orders.edit_assigned`.
+ */
+export const ordersBatchRebind = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersBatchRebindData, ThrowOnError>,
+): RequestResult<OrdersBatchRebindResponses, OrdersBatchRebindErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    OrdersBatchRebindResponses,
+    OrdersBatchRebindErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/batch-rebind",
     ...options,
     headers: {
       "Content-Type": "application/json",

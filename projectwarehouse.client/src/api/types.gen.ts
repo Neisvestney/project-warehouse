@@ -598,6 +598,25 @@ export type BatchFulfillResponse = {
   insufficientInventoryErrors: Array<AppFieldError>;
 };
 
+export type BatchRebindFailedItem = {
+  orderId: string;
+  /**
+   * Null when the order itself could not be loaded.
+   */
+  orderNumber?: null | number;
+  error: AppFieldError;
+};
+
+export type BatchRebindRequest = {
+  orderIds: Array<string>;
+};
+
+export type BatchRebindResponse = {
+  reboundOrderIds: Array<string>;
+  unchangedOrderIds: Array<string>;
+  failedItems: Array<BatchRebindFailedItem>;
+};
+
 export type BatchReceiptTransitionRequest = {
   ids: Array<string>;
   transition: ReceiptTransition;
@@ -1495,7 +1514,9 @@ export type ErrorCode =
   | "organizationHasAccounts"
   | "entityLocked"
   | "catalogItemGtinInvalid"
-  | "catalogItemGtinDuplicate";
+  | "catalogItemGtinDuplicate"
+  | "orderNotFbs"
+  | "orderCompositionLocked";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -7723,6 +7744,83 @@ export type OrdersBatchUpdateTagsResponses = {
 
 export type OrdersBatchUpdateTagsResponse =
   OrdersBatchUpdateTagsResponses[keyof OrdersBatchUpdateTagsResponses];
+
+export type OrdersRebindData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/api/orders/{id}/rebind";
+};
+
+export type OrdersRebindErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type OrdersRebindError = OrdersRebindErrors[keyof OrdersRebindErrors];
+
+export type OrdersRebindResponses = {
+  /**
+   * OK
+   */
+  200: OrderDetailsDto;
+};
+
+export type OrdersRebindResponse = OrdersRebindResponses[keyof OrdersRebindResponses];
+
+export type OrdersBatchRebindData = {
+  body: BatchRebindRequest;
+  path?: never;
+  query?: never;
+  url: "/api/orders/batch-rebind";
+};
+
+export type OrdersBatchRebindErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+};
+
+export type OrdersBatchRebindError = OrdersBatchRebindErrors[keyof OrdersBatchRebindErrors];
+
+export type OrdersBatchRebindResponses = {
+  /**
+   * OK
+   */
+  200: BatchRebindResponse;
+};
+
+export type OrdersBatchRebindResponse =
+  OrdersBatchRebindResponses[keyof OrdersBatchRebindResponses];
 
 export type OrdersAddBoxData = {
   body: CreateOrderBoxRequest;

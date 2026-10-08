@@ -29,7 +29,7 @@ public class MarketplacesController(
     IMarketplaceCredentialProtector protector,
     IMarketplaceSyncQueue syncQueue,
     IMarketplaceSyncService syncService,
-    IExternalOrderRebindService rebind,
+    IOrderRebindService rebind,
     IEntityLockService locks,
     IOptions<MarketplacesOptions> options,
     IChangeLogService changeLog,

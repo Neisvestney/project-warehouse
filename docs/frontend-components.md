@@ -1272,6 +1272,12 @@ manual refresh.
   way. On close it resets to that grouping default. It sends **all** selected orders:
   the action _could_ know in advance whether an order has a stored label, but filtering the user's selection for
   them is not its job — the server's refusal comes back with a clear message.
+- `useRebindOrdersAction` — the bulk «Обновить привязку» action in the FBS list's selection toolbar.
+  `getAction(selectedOrders)` returns `null` when no selected order passes `isRebindable` (FBS, not external,
+  `confirmed`), otherwise a `BulkAction` counting only those; the click opens a confirmation and the outcome —
+  rebound, unchanged and refused orders — comes up in `RebindResultDialog`. The order page uses `isRebindable`
+  for its own «Обновить привязку» button, painted `warning` while a line's snapshot differs from its card's
+  mapping.
 - `DownloadOrderLabelButton` — the button in the FBS order page header. A single order has nothing to group and
   nothing to regenerate on demand, so there is no dialog. The button is always visible but greys out when
   `labelFileId` is empty and the status is not `awaitingDeliver`, with a tooltip explaining why.

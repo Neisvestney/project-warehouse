@@ -14,6 +14,13 @@ public static class AppProblems
         Errors = { ["root"] = [MakeError(code, message, args)] }
     };
 
+    public static AppProblemDetails Root(int status, AppFieldError error) => new()
+    {
+        Status = status,
+        Title = ReasonPhrases.GetReasonPhrase(status),
+        Errors = { ["root"] = [error] }
+    };
+
     public static AppProblemDetails Field(int status, string field, ErrorCode code, string message, IReadOnlyDictionary<string, object>? args = null) => new()
     {
         Status = status,

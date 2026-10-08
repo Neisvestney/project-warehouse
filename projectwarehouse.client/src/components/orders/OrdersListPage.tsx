@@ -105,6 +105,9 @@ const ALL_STATUSES: OrderStatus[] = [
   "canceled",
 ];
 
+// an FBS order arrives Confirmed and never goes back to Draft
+const FBS_STATUSES = ALL_STATUSES.filter((s) => s !== "draft");
+
 const ALL_OVERDUE_KINDS: OrderOverdueKind[] = ["assembly", "shipment"];
 
 export interface OrdersListExtraColumn {
@@ -174,6 +177,7 @@ function OrdersListPage({
   const queryClient = useQueryClient();
   const canCreate = useHasPermission(["orders.edit", "orders.edit_assigned"]);
   const canSelfAssign = useHasPermission("orders.self_assign");
+  const statuses = type === "fbs" ? FBS_STATUSES : ALL_STATUSES;
 
   const [failedItems, setFailedItems] = useState<BatchSelfAssignFailedItem[]>([]);
   const [selfAssignError, setSelfAssignError] = useState<string | null>(null);
@@ -206,7 +210,7 @@ function OrdersListPage({
 
   const [status, setStatus] = useSyncedWithQueryState<OrderStatus | "">(
     "status",
-    (q) => (ALL_STATUSES.includes(q as OrderStatus) ? (q as OrderStatus) : ""),
+    (q) => (statuses.includes(q as OrderStatus) ? (q as OrderStatus) : ""),
     (v) => v || null,
   );
 
@@ -522,7 +526,7 @@ function OrdersListPage({
         <StatusTabs
           value={status}
           onChange={setStatus}
-          statuses={ALL_STATUSES}
+          statuses={statuses}
           labels={ORDER_STATUS_LABELS}
           counts={statusCounts ?? undefined}
         />

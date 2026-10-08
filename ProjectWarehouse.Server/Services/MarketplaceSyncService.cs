@@ -26,7 +26,7 @@ public class MarketplaceSyncService(
     IChangeLogService<MarketplaceAccountDto> changeLog,
     IMarketplaceOrderSyncService orderSync,
     IMarketplaceAccrualSyncService accrualSync,
-    IExternalOrderRebindService rebind,
+    IOrderRebindService rebind,
     IOrganizationService organizations,
     IRealtimeNotifier realtime,
     IMapper mapper,

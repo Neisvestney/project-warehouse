@@ -61,7 +61,8 @@ export function getOrderBulkTransitions(type: OrderType): OrderBulkTransition[] 
     },
     {
       key: "backToDraft",
-      from: ["confirmed"],
+      // an FBS order has no draft stage; the server refuses Confirmed → Draft for it
+      from: type === "fbs" ? [] : ["confirmed"],
       to: "draft",
       label: "Вернуть в черновик",
       failedVerb: "вернуть в черновик",
