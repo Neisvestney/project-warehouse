@@ -34,7 +34,7 @@ public class MarketplaceLabelService(
         var orders = await db.Orders
             .Where(o => orderIds.Contains(o.Id))
             .Include(o => o.MarketplaceOrder).ThenInclude(mo => mo!.MarketplaceAccount)
-            .Include(o => o.MarketplaceItems).ThenInclude(i => i.MarketplaceCard).ThenInclude(c => c!.CatalogItem)
+            .Include(o => o.MarketplaceItems).ThenInclude(i => i.CatalogItem)
             .ToDictionaryAsync(o => o.Id, ct);
 
         var nonMarketplace = orderIds.Where(id => !orders.TryGetValue(id, out var o) || o.MarketplaceOrder is null)
@@ -454,14 +454,14 @@ public class MarketplaceLabelService(
     }
 
     /// <summary>
-    /// The articles as mapped right now. The stored label is clean, so a reprint after a card is remapped
-    /// carries the new mapping, not the one from the first print.
+    /// The articles from the order's snapshot, so the label names what the boxes hold: a remapped card
+    /// reaches the label only once the order itself is rebound.
     /// </summary>
     private static IReadOnlyList<LabelArticle> BuildArticles(Order order) =>
     [
         .. order.MarketplaceItems
-            .Where(i => i.MarketplaceCard?.CatalogItem is not null)
-            .Select(i => new LabelArticle(i.MarketplaceCard!.CatalogItem!.EffectiveLabelText, i.Quantity)),
+            .Where(i => i.CatalogItem is not null)
+            .Select(i => new LabelArticle(i.CatalogItem!.EffectiveLabelText, i.Quantity)),
     ];
 
     private async Task<byte[]> ReadCachedAsync(Guid fileId, CancellationToken ct)
