@@ -13,6 +13,7 @@ public class CatalogItemDto : IHasIdentity
     public string FullName { get; init; } = null!;
     public string Article { get; init; } = null!;
     public string? Barcode { get; init; }
+    public string? Gtin { get; init; }
     public string? Description { get; init; }
     public string? Notes { get; init; }
     public string? LabelText { get; init; }

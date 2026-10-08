@@ -27,6 +27,7 @@ import {useGlobalSearch} from "@/contexts/GlobalSearch/GlobalSearchContext.ts";
 import {getScannedEntityLink} from "@/components/GlobalSearch/scannedEntityLink.ts";
 import {useHardwareScanner} from "@/hooks/useHardwareScanner.ts";
 import {isCameraApiSupported} from "@/utils/camera/cameraUtils.ts";
+import {extractMarkGtin} from "@/utils/gtinUtils";
 
 export interface HomePageProps {}
 
@@ -49,7 +50,7 @@ function HomePage({}: HomePageProps) {
       closeSearch();
       return;
     }
-    openSearch({query: barcode.trim()});
+    openSearch({query: extractMarkGtin(barcode) ?? barcode.trim()});
   });
 
   const showCameraFab = isMobile && isCameraApiSupported();

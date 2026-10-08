@@ -548,6 +548,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<Guid?>("GroupId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Gtin")
+                        .HasColumnType("text");
+
                     b.Property<bool>("IsArchived")
                         .HasColumnType("boolean");
 

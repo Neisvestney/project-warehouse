@@ -703,6 +703,7 @@ export type CatalogItemDto = {
   fullName: string;
   article: string;
   barcode?: null | string;
+  gtin?: null | string;
   description?: null | string;
   notes?: null | string;
   labelText?: null | string;
@@ -1105,6 +1106,10 @@ export type CreateCatalogItemRequest = {
   article: string;
   barcode?: null | string;
   /**
+   * GTIN-8/12/13/14; stored padded to 14 digits.
+   */
+  gtin?: null | string;
+  /**
    * Additional images are edited afterwards in the item drawer.
    */
   mainImageFileId?: null | string;
@@ -1488,7 +1493,9 @@ export type ErrorCode =
   | "organizationInnInvalid"
   | "organizationInnDuplicate"
   | "organizationHasAccounts"
-  | "entityLocked";
+  | "entityLocked"
+  | "catalogItemGtinInvalid"
+  | "catalogItemGtinDuplicate";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -2710,6 +2717,10 @@ export type ProductGroupChildRequest = {
   name: string;
   article: string;
   barcode?: null | string;
+  /**
+   * GTIN-8/12/13/14; stored padded to 14 digits.
+   */
+  gtin?: null | string;
   description?: null | string;
   notes?: null | string;
   labelText?: null | string;
@@ -4240,6 +4251,10 @@ export type UpdateCatalogItemRequest = {
   name: string;
   article: string;
   barcode?: null | string;
+  /**
+   * GTIN-8/12/13/14; stored padded to 14 digits.
+   */
+  gtin?: null | string;
   description?: null | string;
   notes?: null | string;
   labelText?: null | string;

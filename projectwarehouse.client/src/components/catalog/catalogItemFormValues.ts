@@ -1,4 +1,5 @@
 import type {CatalogItemSelectDto, CatalogItemTagDto, DataFileDto} from "@/api/types.gen";
+import {normalizeGtin} from "@/utils/gtinUtils";
 
 export type ComponentValue = {
   entityId?: string;
@@ -18,6 +19,7 @@ export type ChildValue = {
   name: string;
   article: string;
   barcode: string;
+  gtin: string;
   description: string;
   notes: string;
   labelText: string;
@@ -26,10 +28,18 @@ export type ChildValue = {
   images: ImageValue[];
 };
 
+// unknown: the field components type `rules` over every path of the form
+export const validateGtinField = (value: unknown) =>
+  typeof value !== "string" ||
+  !value.trim() ||
+  normalizeGtin(value) !== null ||
+  "Некорректный GTIN";
+
 export type CatalogItemFormValues = {
   name: string;
   article: string;
   barcode: string;
+  gtin: string;
   description: string;
   notes: string;
   labelText: string;

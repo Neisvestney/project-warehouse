@@ -40,7 +40,8 @@ modal renders them in the order received. Plus a camera mode toggled by the icon
 `getUserMedia` exists). The camera mode renders a lazily loaded `ScannerBlock` in place of the result list. A
 scan goes through `getScannedEntityLink`: an app-printed barcode (`parseEntityBarcode`) whose entity type has a
 page navigates straight to it and closes the modal; any other code — a foreign barcode, or a storage place node,
-which has no page — is put into the field as the query and the camera turns off. `ScannerBlock` reports the
+which has no page — is put into the field as the query and the camera turns off. A «Честный знак» mark goes in as
+the GTIN it carries (`extractMarkGtin`), since the mark itself is in no `SearchString`. `ScannerBlock` reports the
 same code on every frame until it unmounts, so the content accepts only the first scan per camera session.
 
 There is a single instance, rendered by `GlobalSearchProvider` in `MainAppBarLayout`. Anything under the layout
@@ -53,7 +54,7 @@ phone keyboard does not cover the viewfinder.
 `HomePage` is the scan entry point: a camera FAB, shown only on narrow screens where `getUserMedia` exists, opens the search in camera mode,
 and it binds `useHardwareScanner`. A hardware scan of an app barcode navigates directly — with `replace` while the
 search is open, since the modal holds a history entry — and closes the search; any other code opens the search
-with that code as the query.
+with that code as the query (a mark — as its GTIN).
 
 ### `MainNavDrawer`
 
@@ -1502,6 +1503,30 @@ Thin RHF + MUI `TextField` integration wrapping `Controller` and wiring `error`/
   label="Логин"
   rules={{ required: "Обязательное поле" }}
   fullWidth
+/>
+```
+
+### `TextFieldWithScanner`
+
+`FormTextField` with a scan source: a camera button at the end of the field (shown only where `getUserMedia`
+exists) opens a dialog with a lazily loaded `ScannerBlock`, and while the field is focused a hardware scan
+(`useHardwareScanner`, Capacitor build only) goes into it as well. The listener is mounted only while focused,
+so a scan lands in the field the user is on. `parseScan(raw)` turns the scanned text into the value; it defaults
+to the trimmed scan. The camera dialog closes on Back (`useBackClosable`) and takes only the first code per
+opening.
+
+The catalog forms pair it with `utils/gtinUtils.ts`: the GTIN field uses `gtinFromScan` — the GTIN of a
+«Честный знак» mark (AI `01`, with an AIM prefix or leading GS stripped) or a plain EAN/UPC padded to 14 digits —
+and the barcode field uses `barcodeFromScan`, which turns a mark into the EAN-13 it carries and leaves any other
+code as scanned.
+
+```tsx
+<TextFieldWithScanner
+  control={control}
+  name="gtin"
+  label="GTIN"
+  parseScan={gtinFromScan}
+  rules={{validate: validateGtinField}}
 />
 ```
 

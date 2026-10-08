@@ -48,6 +48,8 @@ public enum ErrorCode
     CatalogItemArticleDuplicate = 29,
     CatalogItemBarcodeDuplicate = 30,
     CatalogItemCharacteristicBarcodeDuplicate = 31,
+    CatalogItemGtinInvalid = 163,
+    CatalogItemGtinDuplicate = 164,
     CatalogItemGroupInvalid = 32,
     CatalogItemManagedByGroup = 33,
     CatalogItemVariationInvalid = 34,

@@ -30,6 +30,8 @@ import {
 import {byOperation} from "@/utils/queryKeys";
 import {useEditLock} from "@/hooks/useEditLock";
 import EditLockBanner from "@/components/EditLockBanner";
+import {TextFieldWithScanner} from "@/components/form/TextFieldWithScanner";
+import {barcodeFromScan, gtinFromScan} from "@/utils/gtinUtils";
 import EntityViewers from "@/components/EntityViewers";
 import StaleDataBanner from "@/components/StaleDataBanner";
 import AddIcon from "@mui/icons-material/Add";
@@ -84,6 +86,7 @@ import {useRetainedValue} from "@/hooks/useRetainedValue";
 import CatalogItemLink from "@/components/catalog/CatalogItemLink.tsx";
 import BundleComponentsEditor from "@/components/catalog/BundleComponentsEditor";
 import type {CatalogItemFormValues, ImageValue} from "@/components/catalog/catalogItemFormValues";
+import {validateGtinField} from "@/components/catalog/catalogItemFormValues";
 import {CATALOG_ITEM_TYPE_CONFIG, PHYSICAL_CATALOG_ITEMS} from "@/features/catalog";
 import {Link as RouterLink} from "react-router";
 
@@ -124,6 +127,7 @@ function mapFormToRequest(values: CatalogItemFormValues): UpdateCatalogItemReque
     name: values.name,
     article: values.article,
     barcode: values.barcode || null,
+    gtin: values.gtin.trim() || null,
     description: values.description || null,
     notes: values.notes || null,
     labelText: values.labelText || null,
@@ -140,6 +144,7 @@ function mapFormToRequest(values: CatalogItemFormValues): UpdateCatalogItemReque
       name: c.name,
       article: c.article,
       barcode: c.barcode || null,
+      gtin: c.gtin.trim() || null,
       description: c.description || null,
       notes: c.notes || null,
       labelText: c.labelText || null,
@@ -425,6 +430,9 @@ function ViewMode({
             <LabeledRow label="Штрихкод">
               <Typography variant="body2">{data.barcode ?? "—"}</Typography>
             </LabeledRow>
+            <LabeledRow label="GTIN">
+              <Typography variant="body2">{data.gtin ?? "—"}</Typography>
+            </LabeledRow>
             <LabeledRow label="Описание">
               <Typography variant="body2" sx={{whiteSpace: "pre-wrap"}}>
                 {data.description ?? "—"}
@@ -705,13 +713,24 @@ function ChildRow({
           disabled={isPending}
           rules={{required: "Обязательное поле"}}
         />
-        <FormTextField
+        <TextFieldWithScanner
           control={control}
           name={`children.${index}.barcode`}
           label="Штрихкод"
           size="small"
           fullWidth
           disabled={isPending}
+          parseScan={barcodeFromScan}
+        />
+        <TextFieldWithScanner
+          control={control}
+          name={`children.${index}.gtin`}
+          label="GTIN"
+          size="small"
+          fullWidth
+          disabled={isPending}
+          parseScan={gtinFromScan}
+          rules={{validate: validateGtinField}}
         />
         <FormTextField
           control={control}
@@ -778,6 +797,7 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
       name: "",
       article: "",
       barcode: "",
+      gtin: "",
       description: "",
       notes: "",
       labelText: "",
@@ -800,6 +820,7 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
       name: data.name,
       article: data.article,
       barcode: data.barcode ?? "",
+      gtin: data.gtin ?? "",
       description: data.description ?? "",
       notes: data.notes ?? "",
       labelText: data.labelText ?? "",
@@ -817,6 +838,7 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
         name: c.name,
         article: c.article,
         barcode: c.barcode ?? "",
+        gtin: c.gtin ?? "",
         description: c.description ?? "",
         notes: c.notes ?? "",
         labelText: c.labelText ?? "",
@@ -899,13 +921,24 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
           disabled={isPending}
           rules={{required: "Обязательное поле"}}
         />
-        <FormTextField
+        <TextFieldWithScanner
           control={control}
           name="barcode"
           label="Штрихкод"
           size="small"
           fullWidth
           disabled={isPending}
+          parseScan={barcodeFromScan}
+        />
+        <TextFieldWithScanner
+          control={control}
+          name="gtin"
+          label="GTIN"
+          size="small"
+          fullWidth
+          disabled={isPending}
+          parseScan={gtinFromScan}
+          rules={{validate: validateGtinField}}
         />
         <FormTextField
           control={control}
@@ -1002,6 +1035,7 @@ function EditMode({itemId, onClose}: {itemId: string; onClose: () => void}) {
                     name: "",
                     article: "",
                     barcode: "",
+                    gtin: "",
                     description: "",
                     notes: "",
                     labelText: "",
