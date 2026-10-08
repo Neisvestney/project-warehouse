@@ -11,6 +11,9 @@ public class UpdateCatalogItemRequest
     public string Article { get; init; } = null!;
 
     public string? Barcode { get; init; }
+
+    /// <summary>GTIN-8/12/13/14; stored padded to 14 digits.</summary>
+    public string? Gtin { get; init; }
     public string? Description { get; init; }
     public string? Notes { get; init; }
     public string? LabelText { get; init; }

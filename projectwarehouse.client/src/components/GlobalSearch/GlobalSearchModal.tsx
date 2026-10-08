@@ -31,6 +31,7 @@ import {useRetainedValue} from "@/hooks/useRetainedValue";
 import type {AppEntity} from "@/api";
 import type {GlobalSearchRequest} from "@/contexts/GlobalSearch/GlobalSearchContext";
 import {getScannedEntityLink} from "./scannedEntityLink";
+import {extractMarkGtin} from "@/utils/gtinUtils";
 
 const ScannerBlock = lazy(() => import("@/components/ScannerBlock/ScannerBlock"));
 
@@ -91,7 +92,7 @@ function GlobalSearchContent({
       onClose();
       return;
     }
-    setInputValue(raw.trim());
+    setInputValue(extractMarkGtin(raw) ?? raw.trim());
     setActiveIndex(-1);
     setCameraOpen(false);
   };

@@ -1263,13 +1263,15 @@ export const catalogGetAll = <ThrowOnError extends boolean = false>(
 /**
  * Create a new catalog item.
  *
- *     Requires `catalog.edit`. Body: `CreateCatalogItemRequest` — type, name, article, barcode and
- * an optional `mainImageFileId`. `type` is fixed at creation: it can never be changed later
+ *     Requires `catalog.edit`. Body: `CreateCatalogItemRequest` — type, name, article, barcode, gtin and
+ * an optional `mainImageFileId`. `gtin` accepts GTIN-8/12/13/14 and is stored padded to 14 digits. `type` is fixed at creation: it can never be changed later
  * (`catalogItemIsImmutable`). Type-specific structure — group, variations, components, children —
  * is set through `PUT /api/catalog/{id}`.
  * Error codes:
  * * 422 catalogItemArticleDuplicate (field article) — another item already has this article
  * * 422 catalogItemBarcodeDuplicate (field barcode) — another item already has this barcode
+ * * 422 catalogItemGtinInvalid (field gtin) — wrong length, non-digits or a bad check digit
+ * * 422 catalogItemGtinDuplicate (field gtin) — another item already has this GTIN
  * * 422 dataFileNotFound (field mainImageFileId) — the uploaded file was collected before the form was saved
  */
 export const catalogCreate = <ThrowOnError extends boolean = false>(
@@ -1382,6 +1384,8 @@ export const catalogGetById = <ThrowOnError extends boolean = false>(
  * * 422 catalogItemManagedByGroup (field root) — the item is a product-group child; edit it through its group
  * * 422 catalogItemArticleDuplicate / catalogItemBarcodeDuplicate (fields article, barcode,
  * or children[i].article / children[i].barcode) — collides with another item, or with another entry of the same request
+ * * 422 catalogItemGtinInvalid / catalogItemGtinDuplicate (fields gtin, children[i].gtin) —
+ * not a valid GTIN-8/12/13/14, or the normalized GTIN collides like a barcode does
  * * 422 catalogItemGroupInvalid — groupId is not an existing ProductGroup, or a
  * children[i].type is neither Standard nor Unit
  * * 422 catalogItemVariationInvalid (field memberIds[i]) — the member does not exist or is not Standard/Unit/Bundle

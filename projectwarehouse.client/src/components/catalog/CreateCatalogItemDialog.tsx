@@ -23,6 +23,9 @@ import AddFileInput from "@/components/files/inputs/AddFileInput";
 import ImageCardFileView from "@/components/files/views/ImageCardFileView";
 import {CATALOG_ITEM_TYPE_CONFIG} from "@/features/catalog";
 import {FormTextField} from "@/components/form/FormTextField";
+import {TextFieldWithScanner} from "@/components/form/TextFieldWithScanner";
+import {barcodeFromScan, gtinFromScan} from "@/utils/gtinUtils";
+import {validateGtinField} from "./catalogItemFormValues";
 import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 
 type CreateFormValues = {
@@ -30,6 +33,7 @@ type CreateFormValues = {
   name: string;
   article: string;
   barcode: string;
+  gtin: string;
   mainImage: DataFileDto | null;
 };
 
@@ -51,7 +55,7 @@ export function CreateCatalogItemDialog({open, onClose, onCreated}: CreateCatalo
   const queryClient = useQueryClient();
 
   const form = useForm<CreateFormValues>({
-    defaultValues: {type: undefined, name: "", article: "", barcode: "", mainImage: null},
+    defaultValues: {type: undefined, name: "", article: "", barcode: "", gtin: "", mainImage: null},
   });
   const {setApiError} = useRhfApiErrors(form);
   const {control, formState, reset} = form;
@@ -82,6 +86,7 @@ export function CreateCatalogItemDialog({open, onClose, onCreated}: CreateCatalo
         name: values.name,
         article: values.article,
         barcode: values.barcode || null,
+        gtin: values.gtin.trim() || null,
         mainImageFileId: values.mainImage?.id ?? null,
       },
     });
@@ -132,13 +137,24 @@ export function CreateCatalogItemDialog({open, onClose, onCreated}: CreateCatalo
             rules={{required: "Обязательное поле"}}
             required
           />
-          <FormTextField
+          <TextFieldWithScanner
             control={control}
             name="barcode"
             label="Штрихкод"
             size="small"
             fullWidth
             disabled={isPending}
+            parseScan={barcodeFromScan}
+          />
+          <TextFieldWithScanner
+            control={control}
+            name="gtin"
+            label="GTIN"
+            size="small"
+            fullWidth
+            disabled={isPending}
+            parseScan={gtinFromScan}
+            rules={{validate: validateGtinField}}
           />
           <Controller
             control={control}

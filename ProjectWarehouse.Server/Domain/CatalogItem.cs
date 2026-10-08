@@ -10,6 +10,9 @@ public class CatalogItem : IHasIdentity
     public string Name { get; set; } = null!;
     public string Article { get; set; } = null!;
     public string? Barcode { get; set; }
+
+    /// <summary>GTIN-14 as registered in Честный знак; may differ from <see cref="Barcode"/>.</summary>
+    public string? Gtin { get; set; }
     public string? Description { get; set; }
     public string? Notes { get; set; }
     public string? LabelText { get; set; }
@@ -43,6 +46,6 @@ public class CatalogItem : IHasIdentity
     [Projectable] public string EffectiveLabelText => LabelText ?? Article;
 
     [Projectable]
-    public string SearchString => (Name ?? "") + " " + (Article ?? "") + " " + (Barcode ?? "") + " " + (Description ?? "") +
+    public string SearchString => (Name ?? "") + " " + (Article ?? "") + " " + (Barcode ?? "") + " " + (Gtin ?? "") + " " + (Description ?? "") +
                                   (Group != null ? (Group.Name + " " + Group.Article + " " + Group.Barcode ?? "") : "");
 }

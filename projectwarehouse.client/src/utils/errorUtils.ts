@@ -52,6 +52,8 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   catalogItemIsImmutable: "Позиция неизменяема",
   catalogItemArticleDuplicate: "Товар с таким артикулом уже существует",
   catalogItemBarcodeDuplicate: "Товар с таким штрихкодом уже существует",
+  catalogItemGtinInvalid: "Некорректный GTIN",
+  catalogItemGtinDuplicate: "Товар с таким GTIN уже существует",
   catalogItemCharacteristicBarcodeDuplicate: "Штрихкод характеристики уже используется",
   catalogItemGroupInvalid: "Указанная группа не существует или не является группой товаров",
   catalogItemManagedByGroup: "Позиция управляется группой товаров",

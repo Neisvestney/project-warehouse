@@ -109,6 +109,7 @@ Using `Name` alone omits the group prefix and produces incomplete, ambiguous lab
 | `FullName` (computed) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `Article` | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `Barcode` | opt | opt | opt | — | — |
+| `Gtin` ² | opt | opt | opt | — | — |
 | `Description` ¹ | opt | opt | opt | opt | opt |
 | `Notes` ¹ | opt | opt | opt | opt | opt |
 | `IsArchived` | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -120,6 +121,11 @@ Using `Name` alone omits the group prefix and produces incomplete, ambiguous lab
 | `GroupChildren` | — | — | ✓ | — | — |
 
 ¹ Inheritable — see [Inheritable Fields](#inheritable-fields) below.
+
+² GTIN under which the item is registered in «Честный знак». It is a separate field because it can differ
+from the barcode printed on the item. The server accepts GTIN-8/12/13/14, checks the check digit and stores it
+padded to 14 digits (the form a mark carries after AI `01`); like `Barcode`, it is unique across the catalog and
+is part of `SearchString`.
 
 ---
 

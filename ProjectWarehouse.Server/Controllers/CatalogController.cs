@@ -238,14 +238,16 @@ public class CatalogController(
 
     /// <summary>Create a new catalog item.</summary>
     /// <remarks>
-    /// Requires <c>catalog.edit</c>. Body: <c>CreateCatalogItemRequest</c> — type, name, article, barcode and
-    /// an optional <c>mainImageFileId</c>. <c>type</c> is fixed at creation: it can never be changed later
+    /// Requires <c>catalog.edit</c>. Body: <c>CreateCatalogItemRequest</c> — type, name, article, barcode, gtin and
+    /// an optional <c>mainImageFileId</c>. <c>gtin</c> accepts GTIN-8/12/13/14 and is stored padded to 14 digits. <c>type</c> is fixed at creation: it can never be changed later
     /// (<c>catalogItemIsImmutable</c>). Type-specific structure — group, variations, components, children —
     /// is set through <c>PUT /api/catalog/{id}</c>.
     /// Error codes:
     /// <list type="bullet">
     ///   <item>422 <c>catalogItemArticleDuplicate</c> (field <c>article</c>) — another item already has this article</item>
     ///   <item>422 <c>catalogItemBarcodeDuplicate</c> (field <c>barcode</c>) — another item already has this barcode</item>
+    ///   <item>422 <c>catalogItemGtinInvalid</c> (field <c>gtin</c>) — wrong length, non-digits or a bad check digit</item>
+    ///   <item>422 <c>catalogItemGtinDuplicate</c> (field <c>gtin</c>) — another item already has this GTIN</item>
     ///   <item>422 <c>dataFileNotFound</c> (field <c>mainImageFileId</c>) — the uploaded file was collected before the form was saved</item>
     /// </list>
     /// </remarks>
@@ -255,7 +257,9 @@ public class CatalogController(
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Create([FromBody] CreateCatalogItemRequest request, CancellationToken ct = default)
     {
-        var duplicateErrors = await ValidateDuplicates(request.Article, request.Barcode, excludeItemId: null, ct);
+        var gtin = NormalizeGtin(request.Gtin);
+        var duplicateErrors = await ValidateDuplicates(request.Article, request.Barcode, request.Gtin, gtin,
+            excludeItemId: null, ct);
         if (duplicateErrors.Count > 0)
             return Problem(AppProblems.UnprocessableEntities(duplicateErrors));
 
@@ -266,6 +270,7 @@ public class CatalogController(
             Name = request.Name,
             Article = request.Article,
             Barcode = request.Barcode,
+            Gtin = gtin,
         };
 
         var imageProblem = await fileBinding.BindSingleAsync(
@@ -301,6 +306,8 @@ public class CatalogController(
     ///   <item>422 <c>catalogItemManagedByGroup</c> (field <c>root</c>) — the item is a product-group child; edit it through its group</item>
     ///   <item>422 <c>catalogItemArticleDuplicate</c> / <c>catalogItemBarcodeDuplicate</c> (fields <c>article</c>, <c>barcode</c>,
     ///         or <c>children[i].article</c> / <c>children[i].barcode</c>) — collides with another item, or with another entry of the same request</item>
+    ///   <item>422 <c>catalogItemGtinInvalid</c> / <c>catalogItemGtinDuplicate</c> (fields <c>gtin</c>, <c>children[i].gtin</c>) —
+    ///         not a valid GTIN-8/12/13/14, or the normalized GTIN collides like a barcode does</item>
     ///   <item>422 <c>catalogItemGroupInvalid</c> — <c>groupId</c> is not an existing ProductGroup, or a
     ///         <c>children[i].type</c> is neither Standard nor Unit</item>
     ///   <item>422 <c>catalogItemVariationInvalid</c> (field <c>memberIds[i]</c>) — the member does not exist or is not Standard/Unit/Bundle</item>
@@ -340,7 +347,9 @@ public class CatalogController(
             return UnprocessableEntity("root", ErrorCode.CatalogItemManagedByGroup,
                 "Items belonging to a product group must be edited via the product group page.");
 
-        var duplicateErrors = await ValidateDuplicates(request.Article, request.Barcode, excludeItemId: id, ct);
+        var gtin = NormalizeGtin(request.Gtin);
+        var duplicateErrors = await ValidateDuplicates(request.Article, request.Barcode, request.Gtin, gtin,
+            excludeItemId: id, ct);
         if (duplicateErrors.Count > 0)
             return Problem(AppProblems.UnprocessableEntities(duplicateErrors));
 
@@ -349,6 +358,7 @@ public class CatalogController(
         item.Name = request.Name;
         item.Article = request.Article;
         item.Barcode = request.Barcode;
+        item.Gtin = gtin;
         item.Description = request.Description;
         item.Notes = request.Notes;
         item.LabelText = request.LabelText;
@@ -758,8 +768,14 @@ public class CatalogController(
                     "One or more children cannot be removed because they are stored in a warehouse.");
         }
 
-        // Validate article/barcode uniqueness
+        // Validate article/barcode/GTIN uniqueness
         var duplicateErrors = new List<(string, ErrorCode, string, IReadOnlyDictionary<string, object>?)>();
+
+        var gtins = children.Select(c => NormalizeGtin(c.Gtin)).ToList();
+        foreach (var (c, i) in children.Select((c, i) => (c, i)))
+            if (c.Gtin is not null && gtins[i] is null)
+                duplicateErrors.Add(($"children[{i}].gtin", ErrorCode.CatalogItemGtinInvalid,
+                    $"'{c.Gtin}' is not a valid GTIN.", null));
 
         var articleGroups = children.Select((c, i) => (c.Article, i)).GroupBy(x => x.Article);
         foreach (var g in articleGroups.Where(x => x.Count() > 1))
@@ -775,6 +791,15 @@ public class CatalogController(
             foreach (var (_, idx) in g)
                 duplicateErrors.Add(($"children[{idx}].barcode", ErrorCode.CatalogItemBarcodeDuplicate,
                     $"Duplicate barcode '{g.Key}' within children list.", null));
+
+        var gtinGroups = gtins
+            .Select((g, i) => (Gtin: g, i))
+            .Where(x => x.Gtin != null)
+            .GroupBy(x => x.Gtin!);
+        foreach (var g in gtinGroups.Where(x => x.Count() > 1))
+            foreach (var (_, idx) in g)
+                duplicateErrors.Add(($"children[{idx}].gtin", ErrorCode.CatalogItemGtinDuplicate,
+                    $"Duplicate GTIN '{g.Key}' within children list.", null));
 
         // Batch DB check — exclude updated children (old values) and deleted children (being removed in same request)
         var excludeFromDuplicateCheck = requestIdSet.Concat(toDelete.Select(c => c.Id)).ToHashSet();
@@ -802,6 +827,19 @@ public class CatalogController(
                         $"A catalog item with barcode '{c.Barcode}' already exists.", null));
         }
 
+        var requestGtins = gtins.OfType<string>().Distinct().ToList();
+        if (requestGtins.Count > 0)
+        {
+            var conflictingGtins = (await db.CatalogItems
+                .Where(c => c.Gtin != null && requestGtins.Contains(c.Gtin) && !excludeFromDuplicateCheck.Contains(c.Id))
+                .Select(c => c.Gtin!)
+                .ToListAsync(ct)).ToHashSet();
+            foreach (var (g, i) in gtins.Select((g, i) => (g, i)))
+                if (g != null && conflictingGtins.Contains(g))
+                    duplicateErrors.Add(($"children[{i}].gtin", ErrorCode.CatalogItemGtinDuplicate,
+                        $"A catalog item with GTIN '{g}' already exists.", null));
+        }
+
         if (duplicateErrors.Count > 0) return Problem(AppProblems.UnprocessableEntities(duplicateErrors));
 
         // Apply: delete removed children
@@ -809,7 +847,7 @@ public class CatalogController(
             db.CatalogItems.Remove(child);
 
         // Apply: update or create children
-        foreach (var (req, _) in children.Select((c, i) => (c, i)))
+        foreach (var (req, i) in children.Select((c, i) => (c, i)))
         {
             if (req.Id.HasValue)
             {
@@ -817,6 +855,7 @@ public class CatalogController(
                 existing.Name = req.Name;
                 existing.Article = req.Article;
                 existing.Barcode = req.Barcode;
+                existing.Gtin = gtins[i];
                 existing.Description = req.Description;
                 existing.Notes = req.Notes;
                 existing.LabelText = req.LabelText;
@@ -842,6 +881,7 @@ public class CatalogController(
                     Name = req.Name,
                     Article = req.Article,
                     Barcode = req.Barcode,
+                    Gtin = gtins[i],
                     Description = req.Description,
                     Notes = req.Notes,
                     LabelText = req.LabelText,
@@ -859,6 +899,8 @@ public class CatalogController(
 
         return null;
     }
+
+    private static string? NormalizeGtin(string? raw) => raw is null ? null : Gtin.Normalize(raw);
 
     private void SyncVariationMembers(CatalogItem item, IReadOnlyList<Guid> memberIds, Guid variationId)
     {
@@ -903,7 +945,8 @@ public class CatalogController(
     }
 
     private async Task<List<(string Field, ErrorCode Code, string Message, IReadOnlyDictionary<string, object>? Args)>>
-        ValidateDuplicates(string article, string? barcode, Guid? excludeItemId, CancellationToken ct)
+        ValidateDuplicates(string article, string? barcode, string? rawGtin, string? gtin, Guid? excludeItemId,
+            CancellationToken ct)
     {
         var errors = new List<(string, ErrorCode, string, IReadOnlyDictionary<string, object>?)>();
 
@@ -920,6 +963,18 @@ public class CatalogController(
             if (barcodeExists)
                 errors.Add(("barcode", ErrorCode.CatalogItemBarcodeDuplicate,
                     $"A catalog item with barcode '{barcode}' already exists.", null));
+        }
+
+        if (rawGtin is not null && gtin is null)
+            errors.Add(("gtin", ErrorCode.CatalogItemGtinInvalid, $"'{rawGtin}' is not a valid GTIN.", null));
+
+        if (gtin is not null)
+        {
+            var gtinExists = await db.CatalogItems
+                .AnyAsync(c => c.Gtin == gtin && (excludeItemId == null || c.Id != excludeItemId), ct);
+            if (gtinExists)
+                errors.Add(("gtin", ErrorCode.CatalogItemGtinDuplicate,
+                    $"A catalog item with GTIN '{gtin}' already exists.", null));
         }
 
         return errors;
