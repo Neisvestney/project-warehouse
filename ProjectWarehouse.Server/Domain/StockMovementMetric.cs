@@ -14,4 +14,8 @@ public class StockMovementMetric
     public Guid[]? OrderTagIds { get; set; }
     public Guid[]? WriteoffTagIds { get; set; }
     public Guid[]? StocktakeTagIds { get; set; }
+    public Guid[]? ExcludedReceiptTagIds { get; set; }
+    public Guid[]? ExcludedOrderTagIds { get; set; }
+    public Guid[]? ExcludedWriteoffTagIds { get; set; }
+    public Guid[]? ExcludedStocktakeTagIds { get; set; }
 }

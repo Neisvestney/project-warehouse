@@ -48,8 +48,15 @@ import {
   parseAssemblyGrouping,
 } from "./assemblyGrouping";
 import {AssemblyOrderRefreshProvider, useAssemblyOrderRefreshState} from "./assemblyOrderRefresh";
+import {
+  isTagFilterActive,
+  parseTagFilter,
+  serializeTagFilter,
+  type TagFilter,
+} from "@/features/tags";
 
 const ASSEMBLY_ENTITY_ID = "00000000-0000-0000-0000-000000000000";
+const ASSEMBLY_TAGS_STORAGE_KEY = "ordersAssembly.tags";
 
 function OrdersAssemblyPage() {
   const canFulfill = useHasPermission(
@@ -75,10 +82,12 @@ function OrdersAssemblyPage() {
     (v) => v.join(",") || null,
   );
 
-  const [tagIds, setTagIds] = useSyncedWithQueryState<string[]>(
+  // An empty filter is stored as "" rather than dropped, so a cleared filter is not restored from storage
+  const [tagFilter, setTagFilter] = useSyncedWithQueryAndStorageState<TagFilter>(
     "tags",
-    (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
-    (v) => v.join(",") || null,
+    ASSEMBLY_TAGS_STORAGE_KEY,
+    parseTagFilter,
+    (v) => serializeTagFilter(v) ?? "",
   );
 
   const [grouping, setGrouping] = useSyncedWithQueryAndStorageState<AssemblyGrouping>(
@@ -94,7 +103,8 @@ function OrdersAssemblyPage() {
         warehouseId: warehouseId ?? undefined,
         searchString: searchString || undefined,
         catalogItemIds: catalogItemIds.length > 0 ? catalogItemIds : undefined,
-        tagIds: tagIds.length > 0 ? tagIds : undefined,
+        tagIds: tagFilter.include.length > 0 ? tagFilter.include : undefined,
+        excludedTagIds: tagFilter.exclude.length > 0 ? tagFilter.exclude : undefined,
       },
     }),
     gcTime: 0,
@@ -279,7 +289,9 @@ function OrdersAssemblyPage() {
               sx={{flexGrow: 1}}
             />
           </PageGenericHeader>
-          <FiltersBar activeCount={[warehouseId, tagIds.length > 0].filter(Boolean).length}>
+          <FiltersBar
+            activeCount={[warehouseId, isTagFilterActive(tagFilter)].filter(Boolean).length}
+          >
             <WarehousesSelect
               value={warehouseId}
               onChange={setWarehouseId}
@@ -289,8 +301,8 @@ function OrdersAssemblyPage() {
             />
             <DocumentTagsFilter
               kind="order"
-              value={tagIds}
-              onChange={setTagIds}
+              value={tagFilter}
+              onChange={setTagFilter}
               sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
             />
             <TextField

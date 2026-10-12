@@ -54,6 +54,7 @@ import {useBulkTagsAction} from "@/components/tags/useBulkTagsAction";
 import {useSelectedItems} from "@/hooks/useSelectedItems";
 import {byOperation} from "@/utils/queryKeys";
 import {NOUNS} from "@/utils/pluralUtils";
+import {isTagFilterActive, useTagFilterState} from "@/features/tags";
 
 const SORTABLE_COLUMNS: {key: CatalogSortBy; label: string}[] = [
   {key: "type", label: "Тип"},
@@ -81,11 +82,7 @@ function CatalogPage() {
 
   const [itemTypes, setItemTypes] = useCatalogTypesFilter();
 
-  const [tagIds, setTagIds] = useSyncedWithQueryState<string[]>(
-    "tags",
-    (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
-    (v) => v.join(",") || null,
-  );
+  const [tagFilter, setTagFilter] = useTagFilterState();
 
   const [isArchived, setIsArchived] = useSyncedWithQueryState<boolean | null>(
     "archived",
@@ -101,10 +98,11 @@ function CatalogPage() {
       sortBy,
       sortOrder,
       itemTypes: itemTypes.length < CATALOG_ITEM_TYPES.length ? itemTypes : undefined,
-      tagIds: tagIds.length > 0 ? tagIds : undefined,
+      tagIds: tagFilter.include.length > 0 ? tagFilter.include : undefined,
+      excludedTagIds: tagFilter.exclude.length > 0 ? tagFilter.exclude : undefined,
       isArchived: isArchived ?? undefined,
     },
-    [searchString, sortBy, sortOrder, itemTypes, tagIds, isArchived],
+    [searchString, sortBy, sortOrder, itemTypes, tagFilter, isArchived],
   );
 
   // Empty type selection can't be expressed server-side (no types == no filter), so match nothing here
@@ -183,7 +181,7 @@ function CatalogPage() {
           activeCount={
             [
               itemTypes.length < CATALOG_ITEM_TYPES.length,
-              tagIds.length > 0,
+              isTagFilterActive(tagFilter),
               isArchived !== false,
             ].filter(Boolean).length
           }
@@ -191,8 +189,8 @@ function CatalogPage() {
           <CatalogTypesFilter value={itemTypes} onChange={setItemTypes} />
 
           <CatalogTagsFilter
-            value={tagIds}
-            onChange={setTagIds}
+            value={tagFilter}
+            onChange={setTagFilter}
             sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
           />
 

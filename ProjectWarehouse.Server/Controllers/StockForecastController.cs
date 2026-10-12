@@ -22,7 +22,7 @@ public class StockForecastController(IStockForecastService forecast, EntityAcces
     /// <summary>How long the stock on one warehouse lasts, one page at a time.</summary>
     /// <remarks>
     /// Query params come from <c>StockForecastListRequest</c>: <c>warehouseId</c> (required),
-    /// <c>searchString</c>, <c>catalogItemTypes</c>, <c>tagIds</c>, <c>isArchived</c>, <c>isVariation</c>,
+    /// <c>searchString</c>, <c>catalogItemTypes</c>, <c>tagIds</c>, <c>excludedTagIds</c>, <c>isArchived</c>, <c>isVariation</c>,
     /// <c>onlyWarnings</c>, <c>sortBy</c> (default <c>default</c>), <c>sortOrder</c>, plus <c>page</c>
     /// (default 1) and <c>pageSize</c> (default 20, max 200). Window, averaging mode and time zone are
     /// warehouse settings and are not accepted here; the applied values come back on the response so the

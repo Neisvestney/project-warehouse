@@ -455,7 +455,7 @@ Override пишется под `AppEntityType.CatalogItem` с `action` `forecast
 | `PUT` | `/api/stock-forecast/overrides` | Upsert / удаление override товара |
 
 `GET /api/stock-forecast` — параметры: обязательный `warehouseId`, пагинация (`page`, `pageSize` до 200),
-`searchString`, `catalogItemTypes`, `tagIds`, `isArchived`, `onlyWarnings`, `accountForAssembly`, `sortBy`,
+`searchString`, `catalogItemTypes`, `tagIds`, `excludedTagIds`, `isArchived`, `onlyWarnings`, `accountForAssembly`, `sortBy`,
 `sortOrder`. `onlyWarnings` оставляет `OutOfStock` и `Warning`. Окна, режима усреднения и часового пояса в
 параметрах **нет** — все три читаются из настроек склада; применённые значения возвращаются в ответе, чтобы UI
 мог их подписать. Отсутствующий `warehouseId` — `422 required`, несуществующий — `422 warehouseNotFound`, оба на

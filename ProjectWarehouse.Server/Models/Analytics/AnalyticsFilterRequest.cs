@@ -26,4 +26,7 @@ public class AnalyticsFilterRequest
 
     /// <summary>Narrows the Direct channel to orders carrying any of these tags. Empty means all.</summary>
     public Guid[]? DirectTagIds { get; init; }
+
+    /// <summary>Drops Direct orders carrying any of these tags.</summary>
+    public Guid[]? DirectExcludedTagIds { get; init; }
 }

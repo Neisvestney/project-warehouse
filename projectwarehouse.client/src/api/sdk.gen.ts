@@ -717,7 +717,8 @@ export const getHealth = <ThrowOnError extends boolean = false>(
  * Query params come from `ChannelsSummaryRequest`: `from` and `to` (required, inclusive
  * days), `includeMarketplaces` (default true; false leaves every shop out),
  * `marketplaceAccountIds` (empty — every shop), `includeDirect` (default true),
- * `directTagIds` (Direct orders carrying any of them), `catalogItemIds` (only the lines of these
+ * `directTagIds` (Direct orders carrying any of them), `directExcludedTagIds` (Direct orders
+ * carrying none of them), `catalogItemIds` (only the lines of these
  * items, as ordered — a bundle is matched by itself, not by its components; an order counts when it holds any
  * of them), `moneyMode` (`price` or `payout`, default `price`).
  * An order belongs to the day of its `EffectiveDate`, cut in the zone sent as `X-Time-Zone`
@@ -775,8 +776,8 @@ export const analyticsGetChannelsTimeseries = <ThrowOnError extends boolean = fa
 /**
  * The returns card: shares by sale cohort, volume by return date, reasons and compensations.
  *
- * Query params: the shared filter of `channels/summary` (`includeDirect` and `directTagIds`
- * are ignored — Direct has no returns), `moneyMode` and `step` as in `channels/timeseries`.
+ * Query params: the shared filter of `channels/summary` (`includeDirect` and the
+ * `directTagIds` / `directExcludedTagIds` pair are ignored — Direct has no returns), `moneyMode` and `step` as in `channels/timeseries`.
  * Only returns counted as such (`customerReturn` / `partialRefusal`, not cancelled) of a sale
  * order take part. `accounts`, `topReasons` and `compensations` are tied to the sales dated in
  * the period, whenever the item came back; `series` is tied to `ReturnedAt` — a return with no
@@ -800,8 +801,8 @@ export const analyticsGetChannelsReturns = <ThrowOnError extends boolean = false
 /**
  * Cancelled and all counted orders of each shop per interval, for the cancellation chart.
  *
- * Query params: the shared filter of `channels/summary` (`includeDirect` and `directTagIds`
- * are ignored — the cancellation card covers shops only) and `step` as in `channels/timeseries`.
+ * Query params: the shared filter of `channels/summary` (`includeDirect` and the
+ * `directTagIds` / `directExcludedTagIds` pair are ignored — the cancellation card covers shops only) and `step` as in `channels/timeseries`.
  * An order falls into the interval of its `EffectiveDate`, as in the summary, so the series add up to its
  * cancellation counts. `series` holds the cancelled orders, `orders` the sales plus cancellations of
  * the same shop in the same order — the share is `series / orders`. Values of a future interval are null.
@@ -1253,9 +1254,10 @@ export const catalogCreateTag = <ThrowOnError extends boolean = false>(
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
  * `sortBy` (default `Name`), `sortOrder` (default `Asc`), `itemTypes`,
- * `tagIds`, `isArchived`. Archived items always sort last, whatever `sortBy` says.
+ * `tagIds` (any of them), `excludedTagIds` (none of them), `isArchived`. Archived items always
+ * sort last, whatever `sortBy` says.
  * Product-group children (`groupId != null`) are excluded — this is the catalog tree, and a child is
- * reached through its group. Use Task&lt;IActionResult&gt; CatalogController.GetForSelect(string? searchString = null, IReadOnlyList&lt;CatalogItemType&gt;? types = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, int take = 10, CancellationToken ct = default(CancellationToken)) when children must be pickable.
+ * reached through its group. Use Task&lt;IActionResult&gt; CatalogController.GetForSelect(string? searchString = null, IReadOnlyList&lt;CatalogItemType&gt;? types = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, IReadOnlyList&lt;Guid&gt;? excludedTagIds = null, int take = 10, CancellationToken ct = default(CancellationToken)) when children must be pickable.
  * Requires `catalog.view`. No error codes beyond 403 `permissionDenied`.
  */
 export const catalogGetAll = <ThrowOnError extends boolean = false>(
@@ -1295,8 +1297,8 @@ export const catalogCreate = <ThrowOnError extends boolean = false>(
 /**
  * Get a flat list of catalog items for use in select/autocomplete controls.
  *
- * Query params: `searchString`, `types`, `tagIds`, `take` (default 10, max 200).
- * Unlike Task&lt;IActionResult&gt; CatalogController.GetAll(int page = 1, int pageSize = 20, string? searchString = null, CatalogSortBy sortBy = CatalogSortBy.Name, SortOrder sortOrder = SortOrder.Asc, IReadOnlyList&lt;CatalogItemType&gt;? itemTypes = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, bool? isArchived = null, CancellationToken ct = default(CancellationToken)), product-group children are included — a picker must be able to reach them.
+ * Query params: `searchString`, `types`, `tagIds`, `excludedTagIds`, `take` (default 10, max 200).
+ * Unlike Task&lt;IActionResult&gt; CatalogController.GetAll(int page = 1, int pageSize = 20, string? searchString = null, CatalogSortBy sortBy = CatalogSortBy.Name, SortOrder sortOrder = SortOrder.Asc, IReadOnlyList&lt;CatalogItemType&gt;? itemTypes = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, IReadOnlyList&lt;Guid&gt;? excludedTagIds = null, bool? isArchived = null, CancellationToken ct = default(CancellationToken)), product-group children are included — a picker must be able to reach them.
  * `searchString` is fuzzy. Archived items are returned too, always after active ones; within each group
  * results are ordered by search relevance, then by name.
  * Requires `catalog.view`. No error codes beyond 403 `permissionDenied`.
@@ -1311,14 +1313,14 @@ export const catalogGetForSelect = <ThrowOnError extends boolean = false>(
   >({url: "/api/catalog/for-select", ...options});
 
 /**
- * Resolve a set of ids into the same flat rows Task&lt;IActionResult&gt; CatalogController.GetForSelect(string? searchString = null, IReadOnlyList&lt;CatalogItemType&gt;? types = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, int take = 10, CancellationToken ct = default(CancellationToken)) returns.
+ * Resolve a set of ids into the same flat rows Task&lt;IActionResult&gt; CatalogController.GetForSelect(string? searchString = null, IReadOnlyList&lt;CatalogItemType&gt;? types = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, IReadOnlyList&lt;Guid&gt;? excludedTagIds = null, int take = 10, CancellationToken ct = default(CancellationToken)) returns.
  *
  * A POST because the id list is unbounded in practice — a selection restored from a URL can hold
  * hundreds of items, which no query string survives. Body: `CatalogItemsByIdsRequest` —
  * `ids` (at most 500; an empty list answers 200 with an empty array).
  * Unknown ids are simply absent from the response, and the order is not the order asked for —
  * the caller knows what it requested and indexes the result by id.
- * Archived items and product-group children are returned, same as Task&lt;IActionResult&gt; CatalogController.GetForSelect(string? searchString = null, IReadOnlyList&lt;CatalogItemType&gt;? types = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, int take = 10, CancellationToken ct = default(CancellationToken)).
+ * Archived items and product-group children are returned, same as Task&lt;IActionResult&gt; CatalogController.GetForSelect(string? searchString = null, IReadOnlyList&lt;CatalogItemType&gt;? types = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, IReadOnlyList&lt;Guid&gt;? excludedTagIds = null, int take = 10, CancellationToken ct = default(CancellationToken)).
  * Requires `catalog.view`. Returns 422 `outOfRange` on `ids` above the limit,
  * `args`: `max`.
  */
@@ -1614,10 +1616,10 @@ export const filesGetThumbnail = <ThrowOnError extends boolean = false>(
  *
  * Returns one row per distinct CatalogItem with a total Count summed across both item kinds
  * (Standard, Unit). Supports filtering by warehouse, storage place, node,
- * catalog item types, tags (OR semantics), and archive state.
+ * catalog item types, tags (OR semantics, plus excluded tags), and archive state.
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
  * `warehouseId`, `storagePlaceId`, `nodeId`, `catalogItemIds`, `catalogItemTypes`,
- * `tagIds`, `isArchived`, `sortBy` (default `Name`), `sortOrder` (default `Asc`).
+ * `tagIds`, `excludedTagIds`, `isArchived`, `sortBy` (default `Name`), `sortOrder` (default `Asc`).
  * `catalogItemIds` keeps only the rows of those catalog items (OR semantics).
  * Inventory has no permission of its own: it is gated by `warehouses.view` or
  * `warehouses.view_assigned`, and rows are then narrowed to the assigned warehouses.
@@ -2342,14 +2344,14 @@ export const ordersCreateTag = <ThrowOnError extends boolean = false>(
  * Query params: `page` (default 1), `pageSize` (default 20, max 500), `searchString`,
  * `warehouseId`, `type`, `status`, `marketplaceType`, `marketplaceAccountId`,
  * `marketplaceStatus`, `includeExternal` (default false), `catalogItemIds`, `tagIds`,
- * `overdue`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * `excludedTagIds`, `overdue`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
  * `overdue` keeps orders past their planned shipment date: `Assembly` — not assembled yet (draft,
  * confirmed, assembly), `Shipment` — assembled but not shipped. In `meta` the status counts ignore
  * the `status` filter and the overdue counts ignore the `overdue` filter; every other filter applies.
  * External orders — imported from the marketplace, never assembled here — are left out unless
  * `includeExternal` asks for them.
  * `catalogItemIds` keeps orders that have a box component with any of those catalog items; `tagIds` keeps
- * orders carrying any of the tags.
+ * orders carrying any of the tags, `excludedTagIds` drops those carrying any of them.
  * Any of the three marketplace filters also excludes orders without a `MarketplaceOrder`, so they
  * never match Direct orders. `searchString` is the extended search — it also matches box labels and
  * the catalog items and marketplace cards of the order contents, see bool Order.MatchesExtendedSearch(string pattern).
@@ -2367,9 +2369,9 @@ export const ordersGetAll = <ThrowOnError extends boolean = false>(
 /**
  * The current user's personal assembly worklist: full details of Assembly-status orders that have a task assigned to them.
  *
- * Query params: `warehouseId`, `searchString`, `catalogItemIds`, `tagIds` (all optional). Not paginated — returns a plain list.
+ * Query params: `warehouseId`, `searchString`, `catalogItemIds`, `tagIds`, `excludedTagIds` (all optional). Not paginated — returns a plain list.
  * `catalogItemIds` keeps orders that have a box component with any of those catalog items; `tagIds` keeps
- * orders carrying any of the tags.
+ * orders carrying any of the tags, `excludedTagIds` drops those carrying any of them.
  * `searchString` is the extended search — see bool Order.MatchesExtendedSearch(string pattern).
  * Only orders in `Assembly` status with at least one `AssemblyTask` assigned to the caller are
  * returned, and each order carries only that caller's own tasks; other assemblers' tasks are filtered out.
@@ -3503,11 +3505,12 @@ export const receiptsCreateTag = <ThrowOnError extends boolean = false>(
  * List receipts with pagination, filtering, and search.
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
- * `warehouseId`, `status`, `reason`, `catalogItemIds`, `tagIds`, `sortBy`
+ * `warehouseId`, `status`, `reason`, `catalogItemIds`, `tagIds`, `excludedTagIds`,
+ * `sortBy`
  * (default `Number`), `sortOrder` (default `Desc`).
  * In `meta` the status counts ignore the `status` filter; every other filter applies.
  * `catalogItemIds` keeps receipts with a line of any of those catalog items; `tagIds` keeps receipts
- * carrying any of the tags. `searchString` is the extended search — it also matches the catalog items of
+ * carrying any of the tags, `excludedTagIds` drops those carrying any of them. `searchString` is the extended search — it also matches the catalog items of
  * the lines, see bool Receipt.MatchesExtendedSearch(string pattern).
  * Requires `receipts.view` or `receipts.view_assigned`; `receipts.process_assigned` alone
  * also opens the list but narrows it to receipts in `Processing` status. Without any of them, 403
@@ -4195,7 +4198,7 @@ export const statisticsGetMovements = <ThrowOnError extends boolean = false>(
  * How long the stock on one warehouse lasts, one page at a time.
  *
  * Query params come from `StockForecastListRequest`: `warehouseId` (required),
- * `searchString`, `catalogItemTypes`, `tagIds`, `isArchived`, `isVariation`,
+ * `searchString`, `catalogItemTypes`, `tagIds`, `excludedTagIds`, `isArchived`, `isVariation`,
  * `onlyWarnings`, `sortBy` (default `default`), `sortOrder`, plus `page`
  * (default 1) and `pageSize` (default 20, max 200). Window, averaging mode and time zone are
  * warehouse settings and are not accepted here; the applied values come back on the response so the
@@ -4468,11 +4471,13 @@ export const stocktakesCreateTag = <ThrowOnError extends boolean = false>(
  * List stocktakes with pagination, filtering, and search.
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
- * `warehouseId`, `status`, `catalogItemIds`, `tagIds`, `sortBy` (default
+ * `warehouseId`, `status`, `catalogItemIds`, `tagIds`, `excludedTagIds`,
+ * `sortBy` (default
  * `Number`), `sortOrder` (default `Desc`).
  * In `meta` the status counts ignore the `status` filter; every other filter applies.
  * `catalogItemIds` keeps stocktakes with a counted line of any of those catalog items — a stocktake with
- * nothing counted yet never matches; `tagIds` keeps stocktakes carrying any of the tags.
+ * nothing counted yet never matches; `tagIds` keeps stocktakes carrying any of the tags,
+ * `excludedTagIds` drops those carrying any of them.
  * `searchString` is the extended search — it also matches the counted lines, see
  * bool Stocktake.MatchesExtendedSearch(string pattern).
  * Requires `stocktakes.view` or `stocktakes.view_assigned`; without either, 403
@@ -5594,12 +5599,13 @@ export const writeoffsCreateTag = <ThrowOnError extends boolean = false>(
  * List write-offs with pagination, filtering, and search.
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
- * `warehouseId`, `status`, `reason`, `catalogItemIds`, `tagIds`, `sortBy`
+ * `warehouseId`, `status`, `reason`, `catalogItemIds`, `tagIds`, `excludedTagIds`,
+ * `sortBy`
  * (default `Number`), `sortOrder` (default `Desc`).
  * In `meta` the status counts ignore the `status` filter; every other filter applies.
  * `catalogItemIds` keeps write-offs with a line of any of those catalog items — a unit line counts by
- * its unit's catalog item; `tagIds` keeps write-offs carrying any of the tags. `searchString` is the
- * extended search — it also matches the lines, see bool Writeoff.MatchesExtendedSearch(string pattern).
+ * its unit's catalog item; `tagIds` keeps write-offs carrying any of the tags,
+ * `excludedTagIds` drops those carrying any of them. `searchString` is the extended search — it also matches the lines, see bool Writeoff.MatchesExtendedSearch(string pattern).
  * Requires `writeoffs.view` or `writeoffs.view_assigned`; without either, 403
  * `permissionDenied`. 401 `tokenInvalid` when an `_assigned` permission is used but the
  * token carries no resolvable user.

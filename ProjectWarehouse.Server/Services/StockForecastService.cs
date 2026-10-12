@@ -37,6 +37,7 @@ public class StockForecastService(
         string? SearchString = null,
         IReadOnlyList<CatalogItemType>? Types = null,
         IReadOnlyList<Guid>? TagIds = null,
+        IReadOnlyList<Guid>? ExcludedTagIds = null,
         bool? IsArchived = null,
         bool OnlyWarnings = false,
         bool? IsVariation = null,
@@ -67,8 +68,8 @@ public class StockForecastService(
         var warehouseId = request.WarehouseId!.Value;
 
         var filter = new CatalogFilter(
-            request.SearchString, request.CatalogItemTypes, request.TagIds, request.IsArchived, request.OnlyWarnings,
-            request.IsVariation, HideVariationMembers: request.IsVariation is null);
+            request.SearchString, request.CatalogItemTypes, request.TagIds, request.ExcludedTagIds, request.IsArchived,
+            request.OnlyWarnings, request.IsVariation, HideVariationMembers: request.IsVariation is null);
 
         var source = await SourceForAsync(user, warehouseId, ct);
         var computed = await ComputeAsync(
@@ -686,6 +687,9 @@ public class StockForecastService(
 
         if (filter.TagIds is { Count: > 0 } tagIds)
             query = query.Where(c => c.Tags.Any(t => tagIds.Contains(t.Id)));
+
+        if (filter.ExcludedTagIds is { Count: > 0 } excludedTagIds)
+            query = query.Where(c => !c.Tags.Any(t => excludedTagIds.Contains(t.Id)));
 
         if (filter.IsArchived is { } isArchived)
             query = query.Where(c => c.IsArchived == isArchived);

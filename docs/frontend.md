@@ -841,9 +841,11 @@ groups, variations and bundles never hold stock). The selected items are what th
 the clear icon is disabled.
 
 **«По тегу» button** — opens `AddItemsByTagDialog`: pick one or more tags (`CatalogTagsFilter`), the dialog
-queries `GET /api/catalog/for-select` with `tagIds` + `types` + `take=200`, previews the match count and appends
+queries `GET /api/catalog/for-select` with `tagIds` + `excludedTagIds` + `types` + `take=200`, previews the match
+count and appends
 the found ids to the current selection (duplicates skipped). It's a one-shot action — the tag itself is not
-persisted in the URL. A warning is shown when the result hits the 200-item cap.
+persisted in the URL. Excluded tags only narrow the picked ones: with no included tag the query does not run,
+since exclusion alone would match most of the catalog. A warning is shown when the result hits the 200-item cap.
 
 **Document tags are per metric, not global.** Each metric row of `MetricsEditorDrawer` holds one
 `DocumentTagsFilter` per document type (`DOCUMENT_TAG_FILTERS`: приёмка, заказ, списание, инвентаризация): a

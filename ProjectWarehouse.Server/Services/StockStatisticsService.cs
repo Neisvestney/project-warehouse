@@ -551,7 +551,9 @@ public class StockStatisticsService(
         IReadOnlyCollection<Guid> documentIds,
         CancellationToken ct)
     {
-        if (!metrics.Any(m => OwnTagIds(m, document) is { Length: > 0 })) return [];
+        if (!metrics.Any(m => OwnTagIds(m, document) is { Length: > 0 } ||
+                              OwnExcludedTagIds(m, document) is { Length: > 0 }))
+            return [];
 
         var tagged = document switch
         {
@@ -569,10 +571,13 @@ public class StockStatisticsService(
     private static Guid[]? OwnTagIds(StockMovementMetricDto metric, NettedDocument document) =>
         document == NettedDocument.Receipt ? metric.ReceiptTagIds : metric.OrderTagIds;
 
+    private static Guid[]? OwnExcludedTagIds(StockMovementMetricDto metric, NettedDocument document) =>
+        document == NettedDocument.Receipt ? metric.ExcludedReceiptTagIds : metric.ExcludedOrderTagIds;
+
     /// <summary>
     /// Whether a metric's predicate keeps a movement of <paramref name="document"/> with these attributes.
     /// Mirrors <see cref="ApplyMetric"/>; a filter on any other document's tags never matches, because a
-    /// movement carries at most one document.
+    /// movement carries at most one document, while an exclusion on another document's tags never drops it.
     /// </summary>
     private static bool MetricCovers(
         StockMovementMetricDto metric,
@@ -589,6 +594,10 @@ public class StockStatisticsService(
             ? NettedDocument.Order
             : NettedDocument.Receipt);
         if (foreignTagIds is { Length: > 0 }) return false;
+
+        if (OwnExcludedTagIds(metric, document) is { Length: > 0 } excludedTagIds &&
+            excludedTagIds.Any(documentTagIds.Contains))
+            return false;
 
         return OwnTagIds(metric, document) is not { Length: > 0 } tagIds || tagIds.Any(documentTagIds.Contains);
     }
@@ -618,6 +627,18 @@ public class StockStatisticsService(
 
         if (metric.StocktakeTagIds is { Length: > 0 } stocktakeTagIds)
             query = query.Where(m => m.Stocktake != null && m.Stocktake.Tags.Any(t => stocktakeTagIds.Contains(t.Id)));
+
+        if (metric.ExcludedReceiptTagIds is { Length: > 0 } excludedReceiptTagIds)
+            query = query.Where(m => m.Receipt == null || !m.Receipt.Tags.Any(t => excludedReceiptTagIds.Contains(t.Id)));
+
+        if (metric.ExcludedOrderTagIds is { Length: > 0 } excludedOrderTagIds)
+            query = query.Where(m => m.Order == null || !m.Order.Tags.Any(t => excludedOrderTagIds.Contains(t.Id)));
+
+        if (metric.ExcludedWriteoffTagIds is { Length: > 0 } excludedWriteoffTagIds)
+            query = query.Where(m => m.Writeoff == null || !m.Writeoff.Tags.Any(t => excludedWriteoffTagIds.Contains(t.Id)));
+
+        if (metric.ExcludedStocktakeTagIds is { Length: > 0 } excludedStocktakeTagIds)
+            query = query.Where(m => m.Stocktake == null || !m.Stocktake.Tags.Any(t => excludedStocktakeTagIds.Contains(t.Id)));
 
         return query;
     }

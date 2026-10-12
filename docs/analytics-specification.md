@@ -726,7 +726,7 @@ Heatmap «канал × день недели» (Пн–Вс) со строко�
 
 **Общие параметры:** `from`, `to` (обязательны, `DateOnly`); `includeMarketplaces` (по умолчанию `true`,
 `false` — ни одного магазина); `marketplaceAccountIds` (пусто — все магазины); `includeDirect` (по умолчанию
-`true`); `directTagIds`. У эндпоинтов `/channels/*` (`ChannelsFilterRequest`) ещё `catalogItemIds` — см.
+`true`); `directTagIds` (прямые заказы с любым из тегов) и `directExcludedTagIds` (без единого из них). У эндпоинтов `/channels/*` (`ChannelsFilterRequest`) ещё `catalogItemIds` — см.
 [Фильтр по товарам](#фильтр-по-товарам); ABC и выплаты его не принимают. Ответ каждого эндпоинта несёт `timeZoneId`.
 
 `includeMarketplaces` нужен, потому что пустой `marketplaceAccountIds` значит «все магазины» и сказать «ни

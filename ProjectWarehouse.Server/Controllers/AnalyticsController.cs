@@ -21,7 +21,8 @@ public class AnalyticsController(
     /// Query params come from <c>ChannelsSummaryRequest</c>: <c>from</c> and <c>to</c> (required, inclusive
     /// days), <c>includeMarketplaces</c> (default true; false leaves every shop out),
     /// <c>marketplaceAccountIds</c> (empty — every shop), <c>includeDirect</c> (default true),
-    /// <c>directTagIds</c> (Direct orders carrying any of them), <c>catalogItemIds</c> (only the lines of these
+    /// <c>directTagIds</c> (Direct orders carrying any of them), <c>directExcludedTagIds</c> (Direct orders
+    /// carrying none of them), <c>catalogItemIds</c> (only the lines of these
     /// items, as ordered — a bundle is matched by itself, not by its components; an order counts when it holds any
     /// of them), <c>moneyMode</c> (<c>price</c> or <c>payout</c>, default <c>price</c>).
     /// An order belongs to the day of its <c>EffectiveDate</c>, cut in the zone sent as <c>X-Time-Zone</c>
@@ -87,8 +88,8 @@ public class AnalyticsController(
 
     /// <summary>The returns card: shares by sale cohort, volume by return date, reasons and compensations.</summary>
     /// <remarks>
-    /// Query params: the shared filter of <c>channels/summary</c> (<c>includeDirect</c> and <c>directTagIds</c>
-    /// are ignored — Direct has no returns), <c>moneyMode</c> and <c>step</c> as in <c>channels/timeseries</c>.
+    /// Query params: the shared filter of <c>channels/summary</c> (<c>includeDirect</c> and the
+    /// <c>directTagIds</c> / <c>directExcludedTagIds</c> pair are ignored — Direct has no returns), <c>moneyMode</c> and <c>step</c> as in <c>channels/timeseries</c>.
     /// Only returns counted as such (<c>customerReturn</c> / <c>partialRefusal</c>, not cancelled) of a sale
     /// order take part. <c>accounts</c>, <c>topReasons</c> and <c>compensations</c> are tied to the sales dated in
     /// the period, whenever the item came back; <c>series</c> is tied to <c>ReturnedAt</c> — a return with no
@@ -116,8 +117,8 @@ public class AnalyticsController(
 
     /// <summary>Cancelled and all counted orders of each shop per interval, for the cancellation chart.</summary>
     /// <remarks>
-    /// Query params: the shared filter of <c>channels/summary</c> (<c>includeDirect</c> and <c>directTagIds</c>
-    /// are ignored — the cancellation card covers shops only) and <c>step</c> as in <c>channels/timeseries</c>.
+    /// Query params: the shared filter of <c>channels/summary</c> (<c>includeDirect</c> and the
+    /// <c>directTagIds</c> / <c>directExcludedTagIds</c> pair are ignored — the cancellation card covers shops only) and <c>step</c> as in <c>channels/timeseries</c>.
     /// An order falls into the interval of its <c>EffectiveDate</c>, as in the summary, so the series add up to its
     /// cancellation counts. <c>series</c> holds the cancelled orders, <c>orders</c> the sales plus cancellations of
     /// the same shop in the same order — the share is <c>series / orders</c>. Values of a future interval are null.

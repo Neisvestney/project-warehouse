@@ -1,5 +1,6 @@
 import type {AnalyticsMoneyMode} from "@/api/types.gen";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
+import {useTagFilterState} from "@/features/tags";
 import {todayDateOnly} from "@/utils/dateOnly";
 import {
   channelSelectionQuery,
@@ -17,7 +18,7 @@ export function useChannelsSummaryFilters() {
   const [selection, setSelection] = usePeriodParam("period", DEFAULT_PAGE_PERIOD);
   // Empty means every channel — a selection that removes all of them would show nothing at all
   const [channels, setChannels] = useSyncedWithQueryState("channels", parseList, serializeList);
-  const [directTagIds, setDirectTagIds] = useSyncedWithQueryState("tags", parseList, serializeList);
+  const [directTags, setDirectTags] = useTagFilterState();
   const [catalogItemIds, setCatalogItemIds] = useSyncedWithQueryState(
     "items",
     parseList,
@@ -46,7 +47,8 @@ export function useChannelsSummaryFilters() {
   // The channel part alone, for the reports that count no money
   const channelQuery = {
     ...channelSelectionQuery(channels),
-    DirectTagIds: directTagIds,
+    DirectTagIds: directTags.include,
+    DirectExcludedTagIds: directTags.exclude,
     CatalogItemIds: catalogItemIds,
   };
   const query = {From: from, To: to, MoneyMode: moneyMode, ...channelQuery};
@@ -58,7 +60,7 @@ export function useChannelsSummaryFilters() {
     from,
     to,
     channels,
-    directTagIds,
+    directTags,
     catalogItemIds,
     moneyMode,
     step,
@@ -70,7 +72,7 @@ export function useChannelsSummaryFilters() {
       setSelection(value);
     },
     setChannels,
-    setDirectTagIds,
+    setDirectTags,
     setCatalogItemIds,
     setMoneyMode,
     setStep,

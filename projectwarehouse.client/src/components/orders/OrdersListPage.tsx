@@ -76,6 +76,7 @@ import type {
   OrderType,
 } from "@/api/types.gen";
 import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
+import {isTagFilterActive, useTagFilterState} from "@/features/tags";
 
 const SORT_COLUMNS: {key: OrderSortBy; label: string}[] = [
   {key: "number", label: "#"},
@@ -250,11 +251,7 @@ function OrdersListPage({
     (v) => v || null,
   );
 
-  const [tagIds, setTagIds] = useSyncedWithQueryState<string[]>(
-    "tags",
-    (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
-    (v) => v.join(",") || null,
-  );
+  const [tagFilter, setTagFilter] = useTagFilterState();
 
   const isHidden = (key: OrderSortBy) => hiddenColumns.includes(key);
   const showStatusFilter = !isHidden("status");
@@ -288,7 +285,8 @@ function OrdersListPage({
       warehouseId: (showWarehouseFilter ? warehouseId : null) ?? undefined,
       status: statusFilter || undefined,
       catalogItemIds: catalogItemIds.length > 0 ? catalogItemIds : undefined,
-      tagIds: tagIds.length > 0 ? tagIds : undefined,
+      tagIds: tagFilter.include.length > 0 ? tagFilter.include : undefined,
+      excludedTagIds: tagFilter.exclude.length > 0 ? tagFilter.exclude : undefined,
       overdue: overdue || undefined,
       includeExternal: includeExternal || undefined,
       marketplaceType: marketplaceFilters
@@ -306,7 +304,7 @@ function OrdersListPage({
       warehouseId,
       status,
       catalogItemIds,
-      tagIds,
+      tagFilter,
       overdue,
       includeExternal,
       marketplaceType,
@@ -535,7 +533,7 @@ function OrdersListPage({
         activeCount={
           [
             showWarehouseFilter && warehouseId,
-            tagIds.length > 0,
+            isTagFilterActive(tagFilter),
             marketplaceFilters && (marketplaceType || marketplaceAccountId),
             marketplaceFilters && marketplaceStatus,
             marketplaceFilters && showExternalFilter && includeExternal !== defaultIncludeExternal,
@@ -575,8 +573,8 @@ function OrdersListPage({
         )}
         <DocumentTagsFilter
           kind="order"
-          value={tagIds}
-          onChange={setTagIds}
+          value={tagFilter}
+          onChange={setTagFilter}
           sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
         />
         {marketplaceFilters && (

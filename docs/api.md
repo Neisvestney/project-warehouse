@@ -32,7 +32,9 @@ Errors always use `AppProblemDetails` — see [errors.md](errors.md) for the env
   a tab or toggle shows what it would hold if picked.
 - **Search**: `searchString` matches against the entity's precomputed `SearchString` column.
 - **Sorting**: `sortBy` (per-endpoint enum) plus `sortOrder` (`asc` | `desc`).
-- **Multi-value filters**: repeatable params (`itemTypes`, `tagIds`, `catalogItemTypes`) use OR semantics.
+- **Multi-value filters**: repeatable params (`itemTypes`, `tagIds`, `catalogItemTypes`) use OR semantics. A tag
+  filter comes as a pair: `tagIds` keeps entities carrying any of the tags, `excludedTagIds` (`directExcludedTagIds`
+  in analytics) drops entities carrying any of its tags; the pair combines with AND.
 - **Read endpoints that POST**: three reads take a body. `POST /api/statistics/stock-movements/pivot` — its
   `metrics` are objects, each an action set plus a direction set plus a tag set per document type, and a list of those
   does not survive a query string in any form worth parsing; the rest of the movement filter travels in the same

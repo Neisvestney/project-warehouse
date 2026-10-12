@@ -49,6 +49,7 @@ import StockForecastSettingsDialog from "./StockForecastSettingsDialog";
 import StockWarningOverrideDialog, {
   type StockWarningOverrideTarget,
 } from "./StockWarningOverrideDialog";
+import {isTagFilterActive, useTagFilterState} from "@/features/tags";
 
 const COLUMN_COUNT = 10;
 
@@ -86,11 +87,7 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
 
   const [itemTypes, setItemTypes] = useCatalogTypesFilter("types", PHYSICAL_CATALOG_ITEMS);
 
-  const [tagIds, setTagIds] = useSyncedWithQueryState<string[]>(
-    "tags",
-    (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
-    (v) => v.join(",") || null,
-  );
+  const [tagFilter, setTagFilter] = useTagFilterState();
 
   const [isArchived, setIsArchived] = useSyncedWithQueryState<boolean | null>(
     "archived",
@@ -134,7 +131,8 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
       WarehouseId: effectiveWarehouseId ?? undefined,
       SearchString: searchString || undefined,
       CatalogItemTypes: itemTypes.length < PHYSICAL_CATALOG_ITEMS.length ? itemTypes : undefined,
-      TagIds: tagIds.length > 0 ? tagIds : undefined,
+      TagIds: tagFilter.include.length > 0 ? tagFilter.include : undefined,
+      ExcludedTagIds: tagFilter.exclude.length > 0 ? tagFilter.exclude : undefined,
       IsArchived: isArchived ?? undefined,
       IsVariation: effectiveIsVariation ?? undefined,
       OnlyWarnings: onlyWarnings || undefined,
@@ -146,7 +144,7 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
       effectiveWarehouseId,
       searchString,
       itemTypes,
-      tagIds,
+      tagFilter,
       isArchived,
       effectiveIsVariation,
       onlyWarnings,
@@ -279,7 +277,7 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
           activeCount={
             [
               itemTypes.length < PHYSICAL_CATALOG_ITEMS.length,
-              tagIds.length > 0,
+              isTagFilterActive(tagFilter),
               isArchived !== false,
               isVariation !== null,
               onlyWarnings,
@@ -303,8 +301,8 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
           />
 
           <CatalogTagsFilter
-            value={tagIds}
-            onChange={setTagIds}
+            value={tagFilter}
+            onChange={setTagFilter}
             sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
           />
 

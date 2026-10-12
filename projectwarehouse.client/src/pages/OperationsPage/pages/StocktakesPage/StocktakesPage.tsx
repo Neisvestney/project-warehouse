@@ -54,6 +54,7 @@ import {
 } from "@/components/stocktakes/stocktakeUtils";
 import type {StocktakeSortBy, StocktakeStatus, StocktakeSummaryDto} from "@/api/types.gen";
 import {parseDateOnly} from "@/utils/dateOnly";
+import {isTagFilterActive, useTagFilterState} from "@/features/tags";
 
 const SORT_COLUMNS: {key: StocktakeSortBy; label: string}[] = [
   {key: "number", label: "#"},
@@ -95,11 +96,7 @@ function StocktakesPage() {
     (v) => v.join(",") || null,
   );
 
-  const [tagIds, setTagIds] = useSyncedWithQueryState<string[]>(
-    "tags",
-    (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
-    (v) => v.join(",") || null,
-  );
+  const [tagFilter, setTagFilter] = useTagFilterState();
 
   const {sortBy, sortOrder, handleSortClick} = useTableSort(SORT_COLUMNS, "number", {
     defaultSortOrder: "desc",
@@ -114,11 +111,12 @@ function StocktakesPage() {
       warehouseId: warehouseId ?? undefined,
       status: (status as StocktakeStatus) || undefined,
       catalogItemIds: catalogItemIds.length > 0 ? catalogItemIds : undefined,
-      tagIds: tagIds.length > 0 ? tagIds : undefined,
+      tagIds: tagFilter.include.length > 0 ? tagFilter.include : undefined,
+      excludedTagIds: tagFilter.exclude.length > 0 ? tagFilter.exclude : undefined,
       sortBy,
       sortOrder,
     },
-    [searchString, warehouseId, status, catalogItemIds, tagIds, sortBy, sortOrder],
+    [searchString, warehouseId, status, catalogItemIds, tagFilter, sortBy, sortOrder],
   );
 
   // sortable columns, the fixed ones after them and the checkbox for editors
@@ -223,7 +221,7 @@ function StocktakesPage() {
         labels={STOCKTAKE_STATUS_LABELS}
         counts={statusCounts ?? undefined}
       />
-      <FiltersBar activeCount={[warehouseId, tagIds.length > 0].filter(Boolean).length}>
+      <FiltersBar activeCount={[warehouseId, isTagFilterActive(tagFilter)].filter(Boolean).length}>
         <WarehousesSelect
           value={warehouseId}
           onChange={setWarehouseId}
@@ -233,8 +231,8 @@ function StocktakesPage() {
         />
         <DocumentTagsFilter
           kind="stocktake"
-          value={tagIds}
-          onChange={setTagIds}
+          value={tagFilter}
+          onChange={setTagFilter}
           sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
         />
       </FiltersBar>

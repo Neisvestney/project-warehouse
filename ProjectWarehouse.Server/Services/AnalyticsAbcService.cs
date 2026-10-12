@@ -336,7 +336,7 @@ public class AnalyticsAbcService(
         // Money exists on shop lines only, so a money basis analyses the shops alone, XYZ included
         var directDays = request.IncludeDirect && request.Basis == AnalyticsAbcBasis.Units && !byCard
             ? (await queries
-                    .DirectOrders(request.DirectTagIds, AnalyticsQueries.DirectSaleStatuses, fromUtc, toUtc)
+                    .DirectOrders(AnalyticsQueries.DirectTags(request), AnalyticsQueries.DirectSaleStatuses, fromUtc, toUtc)
                     .SelectMany(o => o.Boxes)
                     .SelectMany(b => b.Components)
                     .GroupBy(c => new { c.CatalogItemId, Day = c.OrderBox.Order.EffectiveDate.AddMinutes(offset).Date })
@@ -487,7 +487,7 @@ public class AnalyticsAbcService(
         if (request.IncludeDirect && request.Basis == AnalyticsAbcBasis.Units
                                   && request.Subject == AnalyticsAbcSubject.CatalogItem)
             result.UnionWith((await queries
-                    .DirectOrders(request.DirectTagIds, AnalyticsQueries.DirectSaleStatuses, DateTime.UnixEpoch,
+                    .DirectOrders(AnalyticsQueries.DirectTags(request), AnalyticsQueries.DirectSaleStatuses, DateTime.UnixEpoch,
                         beforeUtc)
                     .SelectMany(o => o.Boxes)
                     .SelectMany(b => b.Components)

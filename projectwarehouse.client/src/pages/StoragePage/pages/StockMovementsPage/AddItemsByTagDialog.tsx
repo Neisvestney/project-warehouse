@@ -14,6 +14,7 @@ import {useQuery} from "@tanstack/react-query";
 import {catalogGetForSelectOptions} from "@/api/@tanstack/react-query.gen";
 import type {CatalogItemSelectDto, CatalogItemType} from "@/api/types.gen";
 import CatalogTagsFilter from "@/components/catalog/CatalogTagsFilter";
+import {EMPTY_TAG_FILTER, type TagFilter} from "@/features/tags";
 
 /** Matches the `take` cap of `GET /api/catalog/for-select`. */
 const MAX_ITEMS = 200;
@@ -26,17 +27,26 @@ type AddItemsByTagDialogProps = {
 };
 
 function AddItemsByTagDialog({open, onClose, onAdd, types}: AddItemsByTagDialogProps) {
-  const [tagIds, setTagIds] = useState<string[]>([]);
+  const [tagFilter, setTagFilter] = useState<TagFilter>(EMPTY_TAG_FILTER);
+  // Exclusions only narrow the picked tags: on their own they would pour in the whole catalog
+  const hasIncluded = tagFilter.include.length > 0;
 
   const itemsQuery = useQuery({
-    ...catalogGetForSelectOptions({query: {tagIds, types, take: MAX_ITEMS}}),
-    enabled: open && tagIds.length > 0,
+    ...catalogGetForSelectOptions({
+      query: {
+        tagIds: tagFilter.include,
+        excludedTagIds: tagFilter.exclude,
+        types,
+        take: MAX_ITEMS,
+      },
+    }),
+    enabled: open && hasIncluded,
   });
 
-  const foundItems = tagIds.length > 0 ? (itemsQuery.data ?? []) : [];
+  const foundItems = hasIncluded ? (itemsQuery.data ?? []) : [];
 
   const handleClose = () => {
-    setTagIds([]);
+    setTagFilter(EMPTY_TAG_FILTER);
     onClose();
   };
 
@@ -52,11 +62,11 @@ function AddItemsByTagDialog({open, onClose, onAdd, types}: AddItemsByTagDialogP
       <DialogTitle>Добавить позиции по тегу</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{pt: 1}}>
-          <CatalogTagsFilter value={tagIds} onChange={setTagIds} autoFocus />
+          <CatalogTagsFilter value={tagFilter} onChange={setTagFilter} autoFocus />
 
           <Typography variant="body2" color="text.secondary">
-            {tagIds.length === 0
-              ? "Выберите один или несколько тегов — будут добавлены все позиции с любым из них."
+            {!hasIncluded
+              ? "Выберите один или несколько тегов — будут добавлены все позиции с любым из них, кроме позиций с исключёнными тегами."
               : itemsQuery.isFetching
                 ? "Поиск позиций…"
                 : `Найдено позиций: ${foundItems.length}`}

@@ -56,12 +56,32 @@ const DRAWER_WIDTH = 520;
 const DOCUMENT_TAG_FILTERS: {
   kind: DocumentTagKind;
   field: "receiptTagIds" | "orderTagIds" | "writeoffTagIds" | "stocktakeTagIds";
+  excludedField:
+    | "excludedReceiptTagIds"
+    | "excludedOrderTagIds"
+    | "excludedWriteoffTagIds"
+    | "excludedStocktakeTagIds";
   label: string;
 }[] = [
-  {kind: "receipt", field: "receiptTagIds", label: "Теги приёмки"},
-  {kind: "order", field: "orderTagIds", label: "Теги заказа"},
-  {kind: "writeoff", field: "writeoffTagIds", label: "Теги списания"},
-  {kind: "stocktake", field: "stocktakeTagIds", label: "Теги инвентаризации"},
+  {
+    kind: "receipt",
+    field: "receiptTagIds",
+    excludedField: "excludedReceiptTagIds",
+    label: "Теги приёмки",
+  },
+  {kind: "order", field: "orderTagIds", excludedField: "excludedOrderTagIds", label: "Теги заказа"},
+  {
+    kind: "writeoff",
+    field: "writeoffTagIds",
+    excludedField: "excludedWriteoffTagIds",
+    label: "Теги списания",
+  },
+  {
+    kind: "stocktake",
+    field: "stocktakeTagIds",
+    excludedField: "excludedStocktakeTagIds",
+    label: "Теги инвентаризации",
+  },
 ];
 
 interface MetricRowProps {
@@ -159,12 +179,12 @@ function MetricRow({id, metric, visibleTagKinds, onChange, onRemove}: MetricRowP
       </Stack>
 
       {DOCUMENT_TAG_FILTERS.filter(({kind}) => visibleTagKinds.has(kind)).map(
-        ({kind, field, label}) => (
+        ({kind, field, excludedField, label}) => (
           <DocumentTagsFilter
             key={kind}
             kind={kind}
-            value={metric[field] ?? []}
-            onChange={(ids) => onChange({...metric, [field]: ids})}
+            value={{include: metric[field] ?? [], exclude: metric[excludedField] ?? []}}
+            onChange={(v) => onChange({...metric, [field]: v.include, [excludedField]: v.exclude})}
             label={label}
           />
         ),

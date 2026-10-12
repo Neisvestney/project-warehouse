@@ -137,12 +137,13 @@ public class WriteoffsController(
     /// <summary>List write-offs with pagination, filtering, and search.</summary>
     /// <remarks>
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
-    /// <c>warehouseId</c>, <c>status</c>, <c>reason</c>, <c>catalogItemIds</c>, <c>tagIds</c>, <c>sortBy</c>
+    /// <c>warehouseId</c>, <c>status</c>, <c>reason</c>, <c>catalogItemIds</c>, <c>tagIds</c>, <c>excludedTagIds</c>,
+    /// <c>sortBy</c>
     /// (default <c>Number</c>), <c>sortOrder</c> (default <c>Desc</c>).
     /// In <c>meta</c> the status counts ignore the <c>status</c> filter; every other filter applies.
     /// <c>catalogItemIds</c> keeps write-offs with a line of any of those catalog items — a unit line counts by
-    /// its unit's catalog item; <c>tagIds</c> keeps write-offs carrying any of the tags. <c>searchString</c> is the
-    /// extended search — it also matches the lines, see <see cref="Writeoff.MatchesExtendedSearch"/>.
+    /// its unit's catalog item; <c>tagIds</c> keeps write-offs carrying any of the tags,
+    /// <c>excludedTagIds</c> drops those carrying any of them. <c>searchString</c> is the extended search — it also matches the lines, see <see cref="Writeoff.MatchesExtendedSearch"/>.
     /// Requires <c>writeoffs.view</c> or <c>writeoffs.view_assigned</c>; without either, 403
     /// <c>permissionDenied</c>. 401 <c>tokenInvalid</c> when an <c>_assigned</c> permission is used but the
     /// token carries no resolvable user.
@@ -159,6 +160,7 @@ public class WriteoffsController(
         [FromQuery] WriteoffReason? reason = null,
         [FromQuery] IReadOnlyList<Guid>? catalogItemIds = null,
         [FromQuery] IReadOnlyList<Guid>? tagIds = null,
+        [FromQuery] IReadOnlyList<Guid>? excludedTagIds = null,
         [FromQuery] WriteoffSortBy sortBy = WriteoffSortBy.Number,
         [FromQuery] SortOrder sortOrder = SortOrder.Desc,
         CancellationToken ct = default)
@@ -176,6 +178,8 @@ public class WriteoffsController(
                                          (i.UnitInventoryItem != null &&
                                           catalogItemIds.Contains(i.UnitInventoryItem.CatalogItemId))))
             .Where(w => tagIds == null || tagIds.Count == 0 || w.Tags.Any(t => tagIds.Contains(t.Id)))
+            .Where(w => excludedTagIds == null || excludedTagIds.Count == 0 ||
+                        !w.Tags.Any(t => excludedTagIds.Contains(t.Id)))
             .WhereMatchesExtendedSearch((w, pattern) => w.MatchesExtendedSearch(pattern), searchString);
 
         var baseQuery = facetQuery

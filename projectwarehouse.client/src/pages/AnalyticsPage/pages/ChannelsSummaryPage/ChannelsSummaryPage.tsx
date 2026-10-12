@@ -157,7 +157,7 @@ function ChannelsSummaryPage() {
         <TopItemsDialog open={!!topList} onClose={closeTopList} filters={filters} />
         <DynamicsFullscreen
           state={fullscreen}
-          directTagIds={filters.directTagIds}
+          directTags={filters.directTags}
           catalogItemIds={filters.catalogItemIds}
         />
         <ReturnsFullscreen

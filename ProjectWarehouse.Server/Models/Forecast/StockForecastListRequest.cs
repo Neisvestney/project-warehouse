@@ -20,7 +20,11 @@ public class StockForecastListRequest
     /// <summary>Physical types to keep. Empty means both <c>Standard</c> and <c>Unit</c>.</summary>
     public CatalogItemType[]? CatalogItemTypes { get; init; }
 
+    /// <summary>Keeps items carrying any of these tags.</summary>
     public Guid[]? TagIds { get; init; }
+
+    /// <summary>Drops items carrying any of these tags.</summary>
+    public Guid[]? ExcludedTagIds { get; init; }
 
     public bool? IsArchived { get; init; }
 

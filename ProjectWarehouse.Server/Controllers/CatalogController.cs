@@ -85,7 +85,8 @@ public class CatalogController(
     /// <remarks>
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
     /// <c>sortBy</c> (default <c>Name</c>), <c>sortOrder</c> (default <c>Asc</c>), <c>itemTypes</c>,
-    /// <c>tagIds</c>, <c>isArchived</c>. Archived items always sort last, whatever <c>sortBy</c> says.
+    /// <c>tagIds</c> (any of them), <c>excludedTagIds</c> (none of them), <c>isArchived</c>. Archived items always
+    /// sort last, whatever <c>sortBy</c> says.
     /// Product-group children (<c>groupId != null</c>) are excluded — this is the catalog tree, and a child is
     /// reached through its group. Use <see cref="GetForSelect"/> when children must be pickable.
     /// Requires <c>catalog.view</c>. No error codes beyond 403 <c>permissionDenied</c>.
@@ -101,6 +102,7 @@ public class CatalogController(
         [FromQuery] SortOrder sortOrder = SortOrder.Asc,
         [FromQuery] IReadOnlyList<CatalogItemType>? itemTypes = null,
         [FromQuery] IReadOnlyList<Guid>? tagIds = null,
+        [FromQuery] IReadOnlyList<Guid>? excludedTagIds = null,
         [FromQuery] bool? isArchived = null,
         CancellationToken ct = default)
     {
@@ -116,6 +118,11 @@ public class CatalogController(
         if (tagIds != null && tagIds.Count > 0)
         {
             baseQuery = baseQuery.Where(c => c.Tags.Any(t => tagIds.Contains(t.Id)));
+        }
+
+        if (excludedTagIds != null && excludedTagIds.Count > 0)
+        {
+            baseQuery = baseQuery.Where(c => !c.Tags.Any(t => excludedTagIds.Contains(t.Id)));
         }
 
         if (isArchived != null)
@@ -143,7 +150,7 @@ public class CatalogController(
 
     /// <summary>Get a flat list of catalog items for use in select/autocomplete controls.</summary>
     /// <remarks>
-    /// Query params: <c>searchString</c>, <c>types</c>, <c>tagIds</c>, <c>take</c> (default 10, max 200).
+    /// Query params: <c>searchString</c>, <c>types</c>, <c>tagIds</c>, <c>excludedTagIds</c>, <c>take</c> (default 10, max 200).
     /// Unlike <see cref="GetAll"/>, product-group children are included — a picker must be able to reach them.
     /// <c>searchString</c> is fuzzy. Archived items are returned too, always after active ones; within each group
     /// results are ordered by search relevance, then by name.
@@ -156,6 +163,7 @@ public class CatalogController(
         [FromQuery] string? searchString = null,
         [FromQuery] IReadOnlyList<CatalogItemType>? types = null,
         [FromQuery] IReadOnlyList<Guid>? tagIds = null,
+        [FromQuery] IReadOnlyList<Guid>? excludedTagIds = null,
         [FromQuery][Range(1, 200)] int take = 10,
         CancellationToken ct = default)
     {
@@ -167,6 +175,9 @@ public class CatalogController(
 
         if (tagIds != null && tagIds.Count > 0)
             query = query.Where(c => c.Tags.Any(t => tagIds.Contains(t.Id)));
+
+        if (excludedTagIds != null && excludedTagIds.Count > 0)
+            query = query.Where(c => !c.Tags.Any(t => excludedTagIds.Contains(t.Id)));
 
         var items = await query
             .OrderBy(c => c.IsArchived)

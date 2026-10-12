@@ -25,10 +25,10 @@ public class InventoryItemsController(
     /// <remarks>
     /// Returns one row per distinct CatalogItem with a total Count summed across both item kinds
     /// (Standard, Unit). Supports filtering by warehouse, storage place, node,
-    /// catalog item types, tags (OR semantics), and archive state.
+    /// catalog item types, tags (OR semantics, plus excluded tags), and archive state.
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
     /// <c>warehouseId</c>, <c>storagePlaceId</c>, <c>nodeId</c>, <c>catalogItemIds</c>, <c>catalogItemTypes</c>,
-    /// <c>tagIds</c>, <c>isArchived</c>, <c>sortBy</c> (default <c>Name</c>), <c>sortOrder</c> (default <c>Asc</c>).
+    /// <c>tagIds</c>, <c>excludedTagIds</c>, <c>isArchived</c>, <c>sortBy</c> (default <c>Name</c>), <c>sortOrder</c> (default <c>Asc</c>).
     /// <c>catalogItemIds</c> keeps only the rows of those catalog items (OR semantics).
     /// Inventory has no permission of its own: it is gated by <c>warehouses.view</c> or
     /// <c>warehouses.view_assigned</c>, and rows are then narrowed to the assigned warehouses.
@@ -49,6 +49,7 @@ public class InventoryItemsController(
         [FromQuery] IReadOnlyList<Guid>? catalogItemIds = null,
         [FromQuery] IReadOnlyList<CatalogItemType>? catalogItemTypes = null,
         [FromQuery] IReadOnlyList<Guid>? tagIds = null,
+        [FromQuery] IReadOnlyList<Guid>? excludedTagIds = null,
         [FromQuery] bool? isArchived = null,
         [FromQuery] InventoryItemSortBy sortBy = InventoryItemSortBy.Name,
         [FromQuery] SortOrder sortOrder = SortOrder.Asc,
@@ -77,6 +78,9 @@ public class InventoryItemsController(
 
         if (tagIds != null && tagIds.Count > 0)
             catalogQuery = catalogQuery.Where(ci => ci.Tags.Any(t => tagIds.Contains(t.Id)));
+
+        if (excludedTagIds != null && excludedTagIds.Count > 0)
+            catalogQuery = catalogQuery.Where(ci => !ci.Tags.Any(t => excludedTagIds.Contains(t.Id)));
 
         var baseQuery = catalogQuery
             .Select(ci => new

@@ -340,14 +340,14 @@ public class OrdersController(
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 500), <c>searchString</c>,
     /// <c>warehouseId</c>, <c>type</c>, <c>status</c>, <c>marketplaceType</c>, <c>marketplaceAccountId</c>,
     /// <c>marketplaceStatus</c>, <c>includeExternal</c> (default false), <c>catalogItemIds</c>, <c>tagIds</c>,
-    /// <c>overdue</c>, <c>sortBy</c> (default <c>Number</c>), <c>sortOrder</c> (default <c>Desc</c>).
+    /// <c>excludedTagIds</c>, <c>overdue</c>, <c>sortBy</c> (default <c>Number</c>), <c>sortOrder</c> (default <c>Desc</c>).
     /// <c>overdue</c> keeps orders past their planned shipment date: <c>Assembly</c> — not assembled yet (draft,
     /// confirmed, assembly), <c>Shipment</c> — assembled but not shipped. In <c>meta</c> the status counts ignore
     /// the <c>status</c> filter and the overdue counts ignore the <c>overdue</c> filter; every other filter applies.
     /// External orders — imported from the marketplace, never assembled here — are left out unless
     /// <c>includeExternal</c> asks for them.
     /// <c>catalogItemIds</c> keeps orders that have a box component with any of those catalog items; <c>tagIds</c> keeps
-    /// orders carrying any of the tags.
+    /// orders carrying any of the tags, <c>excludedTagIds</c> drops those carrying any of them.
     /// Any of the three marketplace filters also excludes orders without a <c>MarketplaceOrder</c>, so they
     /// never match Direct orders. <c>searchString</c> is the extended search — it also matches box labels and
     /// the catalog items and marketplace cards of the order contents, see <see cref="Order.MatchesExtendedSearch"/>.
@@ -370,6 +370,7 @@ public class OrdersController(
         [FromQuery] bool includeExternal = false,
         [FromQuery] IReadOnlyList<Guid>? catalogItemIds = null,
         [FromQuery] IReadOnlyList<Guid>? tagIds = null,
+        [FromQuery] IReadOnlyList<Guid>? excludedTagIds = null,
         [FromQuery] OrderOverdueKind? overdue = null,
         [FromQuery] OrderSortBy sortBy = OrderSortBy.Number,
         [FromQuery] SortOrder sortOrder = SortOrder.Desc,
@@ -398,6 +399,8 @@ public class OrdersController(
             .Where(o => catalogItemIds == null || catalogItemIds.Count == 0 ||
                         o.Boxes.Any(b => b.Components.Any(c => catalogItemIds.Contains(c.CatalogItemId))))
             .Where(o => tagIds == null || tagIds.Count == 0 || o.Tags.Any(t => tagIds.Contains(t.Id)))
+            .Where(o => excludedTagIds == null || excludedTagIds.Count == 0 ||
+                        !o.Tags.Any(t => excludedTagIds.Contains(t.Id)))
             .WhereMatchesExtendedSearch((o, pattern) => o.MatchesExtendedSearch(pattern), searchString);
 
         var baseQuery = facetQuery
@@ -460,9 +463,9 @@ public class OrdersController(
 
     /// <summary>The current user's personal assembly worklist: full details of Assembly-status orders that have a task assigned to them.</summary>
     /// <remarks>
-    /// Query params: <c>warehouseId</c>, <c>searchString</c>, <c>catalogItemIds</c>, <c>tagIds</c> (all optional). Not paginated — returns a plain list.
+    /// Query params: <c>warehouseId</c>, <c>searchString</c>, <c>catalogItemIds</c>, <c>tagIds</c>, <c>excludedTagIds</c> (all optional). Not paginated — returns a plain list.
     /// <c>catalogItemIds</c> keeps orders that have a box component with any of those catalog items; <c>tagIds</c> keeps
-    /// orders carrying any of the tags.
+    /// orders carrying any of the tags, <c>excludedTagIds</c> drops those carrying any of them.
     /// <c>searchString</c> is the extended search — see <see cref="Order.MatchesExtendedSearch"/>.
     /// Only orders in <c>Assembly</c> status with at least one <c>AssemblyTask</c> assigned to the caller are
     /// returned, and each order carries only that caller's own tasks; other assemblers' tasks are filtered out.
@@ -479,6 +482,7 @@ public class OrdersController(
         [FromQuery] string? searchString = null,
         [FromQuery] IReadOnlyList<Guid>? catalogItemIds = null,
         [FromQuery] IReadOnlyList<Guid>? tagIds = null,
+        [FromQuery] IReadOnlyList<Guid>? excludedTagIds = null,
         CancellationToken ct = default)
     {
         if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
@@ -498,6 +502,9 @@ public class OrdersController(
 
         if (tagIds is { Count: > 0 })
             query = query.Where(o => o.Tags.Any(t => tagIds.Contains(t.Id)));
+
+        if (excludedTagIds is { Count: > 0 })
+            query = query.Where(o => !o.Tags.Any(t => excludedTagIds.Contains(t.Id)));
 
         query = query.WhereMatchesExtendedSearch((o, pattern) => o.MatchesExtendedSearch(pattern), searchString);
 

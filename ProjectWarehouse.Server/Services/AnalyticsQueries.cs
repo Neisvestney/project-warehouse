@@ -23,6 +23,9 @@ public sealed record AnalyticsClock(DateOnly Today, int OffsetMinutes, string Ti
 
 public sealed record AnalyticsAccount(Guid Id, string Name, MarketplaceType Type);
 
+/// <summary>Direct orders carrying any of <c>Include</c> and none of <c>Exclude</c>; an empty list does not narrow.</summary>
+public sealed record DirectTagFilter(Guid[]? Include, Guid[]? Exclude);
+
 /// <summary>
 /// The building blocks every analytics report shares: the period, the selected shops and what counts as a
 /// sale or a return. One definition here keeps the summary, the chart and the returns card agreeing on
@@ -170,20 +173,22 @@ public class AnalyticsQueries(ApplicationDbContext db, IWarehouseTimeZoneResolve
         List<Guid> accountIds, DateTime fromUtc, DateTime toUtc, Guid[]? itemIds = null) =>
         SaleReturns(accountIds, itemIds).Where(r => r.ReturnedAt >= fromUtc && r.ReturnedAt < toUtc);
 
-    /// <param name="tagIds">Keeps orders carrying any of them; empty keeps every Direct order.</param>
+    /// <param name="tags">Narrows by order tags; empty lists keep every Direct order.</param>
     /// <param name="statuses">WMS statuses to keep.</param>
     /// <param name="fromUtc">Inclusive lower bound of <c>EffectiveDate</c>.</param>
     /// <param name="toUtc">Exclusive upper bound of <c>EffectiveDate</c>.</param>
     /// <param name="itemIds">Keeps orders holding a box component of any of them; null keeps every order.</param>
     public IQueryable<Order> DirectOrders(
-        Guid[]? tagIds, OrderStatus[] statuses, DateTime fromUtc, DateTime toUtc, Guid[]? itemIds = null)
+        DirectTagFilter tags, OrderStatus[] statuses, DateTime fromUtc, DateTime toUtc, Guid[]? itemIds = null)
     {
         var query = db.Orders.Where(o => o.Type == OrderType.Direct
             && statuses.Contains(o.Status)
             && o.EffectiveDate >= fromUtc && o.EffectiveDate < toUtc);
 
-        if (tagIds is { Length: > 0 })
-            query = query.Where(o => o.Tags.Any(t => tagIds.Contains(t.Id)));
+        if (tags.Include is { Length: > 0 } includeIds)
+            query = query.Where(o => o.Tags.Any(t => includeIds.Contains(t.Id)));
+        if (tags.Exclude is { Length: > 0 } excludeIds)
+            query = query.Where(o => !o.Tags.Any(t => excludeIds.Contains(t.Id)));
         if (itemIds != null)
             query = query.Where(o => o.Boxes.Any(b => b.Components.Any(c => itemIds.Contains(c.CatalogItemId))));
 
@@ -192,14 +197,17 @@ public class AnalyticsQueries(ApplicationDbContext db, IWarehouseTimeZoneResolve
 
     /// <summary>Box components of <see cref="DirectOrders"/>, only those of the items when any are given.</summary>
     public IQueryable<OrderBoxComponent> DirectComponents(
-        Guid[]? tagIds, OrderStatus[] statuses, DateTime fromUtc, DateTime toUtc, Guid[]? itemIds)
+        DirectTagFilter tags, OrderStatus[] statuses, DateTime fromUtc, DateTime toUtc, Guid[]? itemIds)
     {
-        var query = DirectOrders(tagIds, statuses, fromUtc, toUtc, itemIds)
+        var query = DirectOrders(tags, statuses, fromUtc, toUtc, itemIds)
             .SelectMany(o => o.Boxes)
             .SelectMany(b => b.Components);
 
         return itemIds == null ? query : query.Where(c => itemIds.Contains(c.CatalogItemId));
     }
+
+    public static DirectTagFilter DirectTags(AnalyticsFilterRequest request) =>
+        new(request.DirectTagIds, request.DirectExcludedTagIds);
 
     /// <summary>Null for an empty selection, so every query reads null as all items.</summary>
     public static Guid[]? ItemIds(ChannelsFilterRequest request) =>

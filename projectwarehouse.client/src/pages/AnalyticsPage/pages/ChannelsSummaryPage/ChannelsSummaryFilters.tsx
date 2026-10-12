@@ -3,6 +3,7 @@ import type {AnalyticsMoneyMode} from "@/api/types.gen";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
 import FiltersBar from "@/components/FiltersBar";
 import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
+import {isTagFilterActive} from "@/features/tags";
 import {useCatalogItemsByIds} from "@/hooks/useCatalogItemsByIds";
 import {useHasPermission} from "@/hooks/usePermission";
 import ChannelsSelect from "@/components/analytics/ChannelsSelect";
@@ -21,12 +22,12 @@ function ChannelsSummaryFilters({
   from,
   to,
   channels,
-  directTagIds,
+  directTags,
   catalogItemIds,
   moneyMode,
   setSelection,
   setChannels,
-  setDirectTagIds,
+  setDirectTags,
   setCatalogItemIds,
   setMoneyMode,
 }: ChannelsSummaryFiltersProps) {
@@ -86,8 +87,9 @@ function ChannelsSummaryFilters({
 
       <FiltersBar
         activeCount={
-          [channels.length > 0, directTagIds.length > 0, catalogItemIds.length > 0].filter(Boolean)
-            .length
+          [channels.length > 0, isTagFilterActive(directTags), catalogItemIds.length > 0].filter(
+            Boolean,
+          ).length
         }
       >
         <ChannelsSelect value={channels} onChange={setChannels} />
@@ -105,8 +107,8 @@ function ChannelsSummaryFilters({
           <DocumentTagsFilter
             kind="order"
             label="Теги прямых заказов"
-            value={directTagIds}
-            onChange={setDirectTagIds}
+            value={directTags}
+            onChange={setDirectTags}
             sx={{width: 240}}
           />
         )}

@@ -231,7 +231,8 @@ Receipts, orders, write-offs and stocktakes carry tags of their own kind (`Recei
 - `GET /api/{module}/tags?search=` — the list, under the module's view access (for orders that includes
   `orders.assemble_assigned`, since the assembly worklist filters by tag);
 - `POST /api/{module}/tags` — inline creation under the module's edit access, `tagNameDuplicate` on a clash;
-- `tagIds` on the module's list endpoint (and on `GET /api/orders/assembly`) — OR semantics.
+- `tagIds` on the module's list endpoint (and on `GET /api/orders/assembly`) — OR semantics; `excludedTagIds`
+  next to it drops documents carrying any of those tags, and the two combine with AND.
 
 Tags are replaced through a dedicated `PATCH /api/{module}/{id}/tags` (`UpdateTagsRequest`, unknown ids ignored)
 that is allowed in any status and is not part of the module's own update request: a tag is an analytic label that
@@ -259,6 +260,12 @@ In the stock movement report a metric has one tag list per document type (`recei
 `writeoffTagIds`, `stocktakeTagIds`). A non-empty list keeps only movements whose document of that type carries any
 of the tags, which also drops movements made by other documents or none; lists of different types combine with AND.
 Movements journalled before a document type was linked have no FK and never match its tag filter.
+
+Each list has an excluded twin (`excludedReceiptTagIds`, `excludedOrderTagIds`, `excludedWriteoffTagIds`,
+`excludedStocktakeTagIds`). It drops a movement only when its document of that type carries one of the tags; a
+movement made by another document or by none stays, because «не несёт тег X» holds for it, and narrowing to a
+document type is the job of the metric's actions. The same-day netting of receipt and order movements
+(`MetricCovers`) applies the excluded lists of its own document the same way.
 
 **ProductGroup tag copying:** whenever a child item is created or updated via a ProductGroup's `children` list, the group's current tags are automatically merged into the child's tag set (union of the child's own `tags` from the request and the group's `tags`). This means changes to the group's tags propagate to all children on the next group update. Tags added to a child individually are preserved; however, tags removed from the group are not automatically removed from children.
 
@@ -321,7 +328,9 @@ Two read endpoints with a deliberate difference:
 - `GET /api/catalog/for-select` — the flat feed behind select/autocomplete controls. It **does** include group
   children, because a picker has to offer the concrete item that goes into a receipt or an order.
 
-`tagIds` filters with OR semantics — an item matches if it carries any of the listed tags. Only the item's own
+`tagIds` filters with OR semantics — an item matches if it carries any of the listed tags; `excludedTagIds` drops
+items carrying any of its tags. The same pair is accepted by `GET /api/inventory-items` and the stock forecast
+list (`tagIds` / `excludedTagIds`). Only the item's own
 tags are considered; a group's tags are not walked down at query time, because the [tag copying](#tags) rule has
 already merged them into each child's own set.
 

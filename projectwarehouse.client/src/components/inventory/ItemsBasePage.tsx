@@ -41,6 +41,7 @@ import CatalogTagsFilter from "@/components/catalog/CatalogTagsFilter";
 import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
 import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
 import {UnitItemsDrawer} from "@/components/inventory/UnitItemsDrawer";
+import {isTagFilterActive, useTagFilterState} from "@/features/tags";
 
 const SORTABLE_COLUMNS: {key: InventoryItemSortBy; label: string}[] = [
   {key: "type", label: "Тип"},
@@ -75,11 +76,7 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
 
   const [itemTypes, setItemTypes] = useCatalogTypesFilter("types", PHYSICAL_CATALOG_ITEMS);
 
-  const [tagIds, setTagIds] = useSyncedWithQueryState<string[]>(
-    "tags",
-    (q) => (typeof q === "string" && q ? q.split(",").filter(Boolean) : []),
-    (v) => v.join(",") || null,
-  );
+  const [tagFilter, setTagFilter] = useTagFilterState();
 
   const [isArchived, setIsArchived] = useSyncedWithQueryState<boolean | null>(
     "archived",
@@ -105,7 +102,8 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
       nodeId,
       catalogItemIds: catalogItemIds.length > 0 ? catalogItemIds : undefined,
       catalogItemTypes: itemTypes.length < PHYSICAL_CATALOG_ITEMS.length ? itemTypes : undefined,
-      tagIds: tagIds.length > 0 ? tagIds : undefined,
+      tagIds: tagFilter.include.length > 0 ? tagFilter.include : undefined,
+      excludedTagIds: tagFilter.exclude.length > 0 ? tagFilter.exclude : undefined,
       isArchived: isArchived ?? undefined,
       sortBy,
       sortOrder,
@@ -117,7 +115,7 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
       nodeId,
       catalogItemIds,
       itemTypes,
-      tagIds,
+      tagFilter,
       isArchived,
       sortBy,
       sortOrder,
@@ -178,7 +176,7 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
             [
               showWarehouseFilter && filterWarehouseId,
               itemTypes.length < PHYSICAL_CATALOG_ITEMS.length,
-              tagIds.length > 0,
+              isTagFilterActive(tagFilter),
               isArchived !== null,
             ].filter(Boolean).length
           }
@@ -208,8 +206,8 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
           />
 
           <CatalogTagsFilter
-            value={tagIds}
-            onChange={setTagIds}
+            value={tagFilter}
+            onChange={setTagFilter}
             sx={{minWidth: 220, maxWidth: 420, flexGrow: 1}}
           />
 

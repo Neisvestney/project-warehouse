@@ -5,6 +5,7 @@ import PeriodPicker from "@/components/analytics/period/PeriodPicker";
 import {PERIOD_PRESETS} from "@/components/analytics/period/periodSelection";
 import FiltersBar from "@/components/FiltersBar";
 import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
+import {isTagFilterActive} from "@/features/tags";
 import {useHasPermission} from "@/hooks/usePermission";
 import {BASIS_LABELS} from "@/components/analytics/abc/abcClasses";
 import {SUBJECT_LABELS, SUBJECT_TOOLTIPS, SUBJECTS} from "@/components/analytics/subjects/subjects";
@@ -27,7 +28,7 @@ function AbcFilters({
   from,
   to,
   channels,
-  directTagIds,
+  directTags,
   basis,
   subject,
   xyzFromFirstSale,
@@ -35,7 +36,7 @@ function AbcFilters({
   currencyCode,
   setSelection,
   setChannels,
-  setDirectTagIds,
+  setDirectTags,
   setBasis,
   setSubject,
   setCurrencyCode,
@@ -114,7 +115,8 @@ function AbcFilters({
 
       <FiltersBar
         activeCount={
-          [channels.length > 0, showDirectTags && directTagIds.length > 0].filter(Boolean).length
+          [channels.length > 0, showDirectTags && isTagFilterActive(directTags)].filter(Boolean)
+            .length
         }
       >
         <ChannelsSelect value={channels} onChange={setChannels} />
@@ -122,8 +124,8 @@ function AbcFilters({
           <DocumentTagsFilter
             kind="order"
             label="Теги прямых заказов"
-            value={directTagIds}
-            onChange={setDirectTagIds}
+            value={directTags}
+            onChange={setDirectTags}
             sx={{width: 240}}
           />
         )}

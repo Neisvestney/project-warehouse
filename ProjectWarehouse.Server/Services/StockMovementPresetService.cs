@@ -231,6 +231,10 @@ public class StockMovementPresetService(ApplicationDbContext db) : IStockMovemen
                     OrderTagIds = m.OrderTagIds,
                     WriteoffTagIds = m.WriteoffTagIds,
                     StocktakeTagIds = m.StocktakeTagIds,
+                    ExcludedReceiptTagIds = m.ExcludedReceiptTagIds,
+                    ExcludedOrderTagIds = m.ExcludedOrderTagIds,
+                    ExcludedWriteoffTagIds = m.ExcludedWriteoffTagIds,
+                    ExcludedStocktakeTagIds = m.ExcludedStocktakeTagIds,
                 })
                 .ToList(),
             CreatedAt = row.Preset.CreatedAt,
@@ -250,6 +254,10 @@ public class StockMovementPresetService(ApplicationDbContext db) : IStockMovemen
             OrderTagIds = Empty(m.OrderTagIds),
             WriteoffTagIds = Empty(m.WriteoffTagIds),
             StocktakeTagIds = Empty(m.StocktakeTagIds),
+            ExcludedReceiptTagIds = Empty(m.ExcludedReceiptTagIds),
+            ExcludedOrderTagIds = Empty(m.ExcludedOrderTagIds),
+            ExcludedWriteoffTagIds = Empty(m.ExcludedWriteoffTagIds),
+            ExcludedStocktakeTagIds = Empty(m.ExcludedStocktakeTagIds),
         }).ToList();
 
     /// <summary>An empty array and «no predicate» mean the same thing; store one of them, not both.</summary>

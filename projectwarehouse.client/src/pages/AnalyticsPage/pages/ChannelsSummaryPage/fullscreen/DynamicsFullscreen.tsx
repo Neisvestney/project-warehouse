@@ -4,15 +4,16 @@ import {channelSelectionQuery} from "@/components/analytics/channelsQuery";
 import StepMeasureToggles from "@/components/analytics/charts/StepMeasureToggles";
 import TotalToggle from "@/components/analytics/charts/TotalToggle";
 import ChartFullscreenDialog from "@/components/analytics/charts/ChartFullscreenDialog";
+import type {TagFilter} from "@/features/tags";
 import type {useChartFullscreen} from "./useChartFullscreen";
 
 interface DynamicsFullscreenProps {
   state: ReturnType<typeof useChartFullscreen>;
-  directTagIds: string[];
+  directTags: TagFilter;
   catalogItemIds: string[];
 }
 
-function DynamicsFullscreen({state, directTagIds, catalogItemIds}: DynamicsFullscreenProps) {
+function DynamicsFullscreen({state, directTags, catalogItemIds}: DynamicsFullscreenProps) {
   const open = state.view === "dynamics";
   const {data, error, isFetching} = useQuery({
     ...analyticsGetChannelsTimeseriesOptions({
@@ -20,7 +21,8 @@ function DynamicsFullscreen({state, directTagIds, catalogItemIds}: DynamicsFulls
         From: state.period.from,
         To: state.period.to,
         ...channelSelectionQuery(state.channels),
-        DirectTagIds: directTagIds,
+        DirectTagIds: directTags.include,
+        DirectExcludedTagIds: directTags.exclude,
         CatalogItemIds: catalogItemIds,
         Step: state.step ?? undefined,
         Measure: state.measure,

@@ -14,6 +14,7 @@ import {usePeriodParam} from "@/components/analytics/period/usePeriodParam";
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
+import {useTagFilterState} from "@/features/tags";
 import {todayDateOnly} from "@/utils/dateOnly";
 import {SUBJECTS} from "@/components/analytics/subjects/subjects";
 
@@ -34,7 +35,7 @@ function parseOneOf<T extends string>(values: T[]) {
 export function useAbcFilters() {
   const [selection, setSelection] = usePeriodParam("period", previousQuarter());
   const [channels, setChannels] = useSyncedWithQueryState("channels", parseList, serializeList);
-  const [directTagIds, setDirectTagIds] = useSyncedWithQueryState("tags", parseList, serializeList);
+  const [directTags, setDirectTags] = useTagFilterState();
   const [basis, setBasis] = useSyncedWithQueryState<AnalyticsAbcBasis>(
     "basis",
     (q) => parseOneOf(BASES)(q) ?? "units",
@@ -78,7 +79,8 @@ export function useAbcFilters() {
     XyzClass: xyzClass ?? undefined,
     SearchString: searchString || undefined,
     ...channelSelectionQuery(channels),
-    DirectTagIds: directTagIds,
+    DirectTagIds: directTags.include,
+    DirectExcludedTagIds: directTags.exclude,
   };
 
   // Any filter change sends the table back to its first page
@@ -97,7 +99,7 @@ export function useAbcFilters() {
     from,
     to,
     channels,
-    directTagIds,
+    directTags,
     basis,
     subject,
     xyzFromFirstSale,
@@ -108,7 +110,7 @@ export function useAbcFilters() {
     pageSize,
     setSelection,
     setChannels,
-    setDirectTagIds,
+    setDirectTags,
     setBasis,
     setSubject,
     setXyzFromFirstSale,

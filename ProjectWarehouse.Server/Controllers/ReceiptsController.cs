@@ -120,11 +120,12 @@ public class ReceiptsController(
     /// <summary>List receipts with pagination, filtering, and search.</summary>
     /// <remarks>
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
-    /// <c>warehouseId</c>, <c>status</c>, <c>reason</c>, <c>catalogItemIds</c>, <c>tagIds</c>, <c>sortBy</c>
+    /// <c>warehouseId</c>, <c>status</c>, <c>reason</c>, <c>catalogItemIds</c>, <c>tagIds</c>, <c>excludedTagIds</c>,
+    /// <c>sortBy</c>
     /// (default <c>Number</c>), <c>sortOrder</c> (default <c>Desc</c>).
     /// In <c>meta</c> the status counts ignore the <c>status</c> filter; every other filter applies.
     /// <c>catalogItemIds</c> keeps receipts with a line of any of those catalog items; <c>tagIds</c> keeps receipts
-    /// carrying any of the tags. <c>searchString</c> is the extended search — it also matches the catalog items of
+    /// carrying any of the tags, <c>excludedTagIds</c> drops those carrying any of them. <c>searchString</c> is the extended search — it also matches the catalog items of
     /// the lines, see <see cref="Receipt.MatchesExtendedSearch"/>.
     /// Requires <c>receipts.view</c> or <c>receipts.view_assigned</c>; <c>receipts.process_assigned</c> alone
     /// also opens the list but narrows it to receipts in <c>Processing</c> status. Without any of them, 403
@@ -143,6 +144,7 @@ public class ReceiptsController(
         [FromQuery] ReceiptReason? reason = null,
         [FromQuery] IReadOnlyList<Guid>? catalogItemIds = null,
         [FromQuery] IReadOnlyList<Guid>? tagIds = null,
+        [FromQuery] IReadOnlyList<Guid>? excludedTagIds = null,
         [FromQuery] ReceiptSortBy sortBy = ReceiptSortBy.Number,
         [FromQuery] SortOrder sortOrder = SortOrder.Desc,
         CancellationToken ct = default)
@@ -158,6 +160,8 @@ public class ReceiptsController(
             .Where(r => catalogItemIds == null || catalogItemIds.Count == 0 ||
                         r.Items.Any(i => catalogItemIds.Contains(i.CatalogItemId)))
             .Where(r => tagIds == null || tagIds.Count == 0 || r.Tags.Any(t => tagIds.Contains(t.Id)))
+            .Where(r => excludedTagIds == null || excludedTagIds.Count == 0 ||
+                        !r.Tags.Any(t => excludedTagIds.Contains(t.Id)))
             .WhereMatchesExtendedSearch((r, pattern) => r.MatchesExtendedSearch(pattern), searchString);
 
         var baseQuery = facetQuery

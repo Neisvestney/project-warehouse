@@ -721,16 +721,16 @@ Shared filter controls used by `CatalogPage`, `ItemsBasePage` and `AddItemsByTag
 `CATALOG_ITEM_TYPES`, inventory pages pass `PHYSICAL_CATALOG_ITEMS`. `renderValue` shows «Все» for the full set,
 «Нет» for none, `"N типов"` for 2+, or the single label.
 
-`CatalogTagsFilter` is a multiselect `Autocomplete` over the full tag list (`GET /api/catalog/tags`, filtered
-client-side). Value and `onChange` are tag **id** arrays; chips resolve their names from the loaded list.
+`CatalogTagsFilter` is `TagFilterAutocomplete` over the full catalog tag list (`GET /api/catalog/tags`, filtered
+client-side); value and `onChange` are a `TagFilter`, see [Tag filters](#tag-filters-tagfilterautocomplete).
 
 Both pin a `SelectAllHeader` above the options — injected as the `Select` menu's first child and via the
-`Autocomplete` `paper` slot.
+`Autocomplete` `paper` slot of `TagFilterAutocomplete`.
 
 **URL state** — `useCatalogTypesFilter(key?, options?)` keeps the type selection in a query param. The full
 `options` set is the default and is omitted from the URL; an empty selection is stored as `none`
-(`NO_ITEM_TYPES`), because serializing it to `null` would drop the param and read back as "all types". Tag ids
-are plain comma-separated values via `useSyncedWithQueryState`.
+(`NO_ITEM_TYPES`), because serializing it to `null` would drop the param and read back as "all types". The tag
+condition lives in `?tags=` through `useTagFilterState`.
 
 ### `CatalogItemsSelect`
 
@@ -1096,8 +1096,10 @@ the catalog list reuses them for its own tag pool; the filter and `DocumentTagsR
 `{id, name}`, so the options are cast to one type there and nowhere else. A new tagged document adds one arm to
 each switch and one id to `DOCUMENT_TAGS_QUERY_IDS`.
 
-- **`DocumentTagsFilter`** — list-page and metric filter over ids: loads the whole list once and filters
-  client-side, with the `SelectAllHeader` paper. The list page keeps the ids in `?tags=` as a comma-joined value.
+- **`DocumentTagsFilter`** — list-page and metric filter: `TagFilterAutocomplete` over the whole tag list of one
+  kind, loaded once and filtered client-side. List pages keep the condition in `?tags=` via `useTagFilterState`;
+  the assembly worklist also remembers it, see [`OrdersAssemblyPage` grouping](#ordersassemblypage-grouping). A
+  metric stores the two halves in `{kind}TagIds` and `excluded{Kind}TagIds`.
 - **`DocumentTagsAutocomplete`** — free-solo picker over tag objects that creates a typed name on selection
   (the synthetic «Создать «…»» option).
 - **`DocumentTagsRow`** — the «Теги» `InfoRow` of every tagged document page. Tags are editable in any status, so
@@ -1115,6 +1117,21 @@ each switch and one id to `DOCUMENT_TAGS_QUERY_IDS`.
   the hook turns into «Не найдены или недоступны для редактирования: …». Without `numbersArg` (catalog items have
   no numbers) the message is just the `count`: «Не найдено: N позиций». Orders wrap it in
   `useOrderTagsBulkAction`; the receipt, write-off and stocktake lists and `CatalogPage` call it directly.
+
+### Tag filters (`TagFilterAutocomplete`)
+
+Every tag filter edits a `TagFilter` (`features/tags`): `{include, exclude}` — any of `include` and none of
+`exclude`, a tag id in one list at most. The API takes the halves as `tagIds` and `excludedTagIds`
+(`DirectTagIds` / `DirectExcludedTagIds` in analytics); `isTagFilterActive` feeds `FiltersBar`'s `activeCount`.
+
+`TagFilterAutocomplete` is the shared control under `CatalogTagsFilter` and `DocumentTagsFilter`; the wrappers
+only load the tag list. Clicking an option row toggles it as included, as in any multiselect, and the ⊘ button at
+the row's end excludes the tag or lifts its exclusion without closing the popup. In the field an excluded tag is an
+`error` chip with the ⊘ icon; clicking a chip switches it between included and excluded. «Выбрать все» includes
+every tag that is not excluded; «Снять выбор» clears both halves.
+
+`useTagFilterState(key = "tags")` keeps the condition in one URL param: ids comma-joined, an excluded id prefixed
+with `-` (`?tags=a,b,-c`); a plain id list is the include-only case.
 
 ## Orders
 
@@ -1352,7 +1369,9 @@ two at the end of it. Below `md` the summary becomes a column of the two groups,
 The «Группировка» select in the filters bar splits the order accordions into groups; the value lives in the
 `group` query param and is mirrored into `localStorage` under `ASSEMBLY_GROUPING_STORAGE_KEY` via
 `useSyncedWithQueryAndStorageState`, so opening the page without the param restores the last chosen mode while a
-shared link still wins. `groupAssemblyOrders(orders, grouping)` in `assemblyGrouping.ts` is
+shared link still wins. The tag filter is kept the same way under `ordersAssembly.tags`: the worklist is opened
+many times a day with the same tag set. An empty filter is written as `tags=` instead of being dropped, so a
+cleared filter stays cleared on the next visit. `groupAssemblyOrders(orders, grouping)` in `assemblyGrouping.ts` is
 a pure client-side split of the already loaded list, so a new mode is one more `AssemblyGrouping` member plus a
 `case` in `getGroupKey` returning `{key, label, rank}`. Groups sort by `rank`, then by label — `rank` pins fixed
 orders (task status, order type) and pushes catch-all groups («Без магазина», «Пустой состав») to the end.

@@ -3655,7 +3655,8 @@ export type StockMovementGroupBy =
 /**
  * One sub-column of the pivot. Every predicate is optional and they combine with AND; leaving all of
  * them empty is legal and means «every movement». A non-empty document tag list keeps only movements
- * made by a document of that type carrying any of the tags.
+ * made by a document of that type carrying any of the tags. A non-empty excluded list drops movements whose
+ * document of that type carries any of the tags; movements made by no such document stay.
  */
 export type StockMovementMetricDto = {
   name: string;
@@ -3665,6 +3666,10 @@ export type StockMovementMetricDto = {
   orderTagIds?: null | Array<string>;
   writeoffTagIds?: null | Array<string>;
   stocktakeTagIds?: null | Array<string>;
+  excludedReceiptTagIds?: null | Array<string>;
+  excludedOrderTagIds?: null | Array<string>;
+  excludedWriteoffTagIds?: null | Array<string>;
+  excludedStocktakeTagIds?: null | Array<string>;
 };
 
 export type StockMovementPivotCellDto = {
@@ -4591,6 +4596,7 @@ export type AnalyticsGetChannelsSummaryData = {
     MarketplaceAccountIds?: Array<string>;
     IncludeDirect?: boolean;
     DirectTagIds?: Array<string>;
+    DirectExcludedTagIds?: Array<string>;
   };
   url: "/api/analytics/channels/summary";
 };
@@ -4641,6 +4647,7 @@ export type AnalyticsGetChannelsTimeseriesData = {
     MarketplaceAccountIds?: Array<string>;
     IncludeDirect?: boolean;
     DirectTagIds?: Array<string>;
+    DirectExcludedTagIds?: Array<string>;
   };
   url: "/api/analytics/channels/timeseries";
 };
@@ -4694,6 +4701,7 @@ export type AnalyticsGetChannelsReturnsData = {
     MarketplaceAccountIds?: Array<string>;
     IncludeDirect?: boolean;
     DirectTagIds?: Array<string>;
+    DirectExcludedTagIds?: Array<string>;
   };
   url: "/api/analytics/channels/returns";
 };
@@ -4743,6 +4751,7 @@ export type AnalyticsGetChannelsCancellationsData = {
     MarketplaceAccountIds?: Array<string>;
     IncludeDirect?: boolean;
     DirectTagIds?: Array<string>;
+    DirectExcludedTagIds?: Array<string>;
   };
   url: "/api/analytics/channels/cancellations";
 };
@@ -4796,6 +4805,7 @@ export type AnalyticsGetChannelsLossesData = {
     MarketplaceAccountIds?: Array<string>;
     IncludeDirect?: boolean;
     DirectTagIds?: Array<string>;
+    DirectExcludedTagIds?: Array<string>;
   };
   url: "/api/analytics/channels/losses";
 };
@@ -4852,6 +4862,7 @@ export type AnalyticsGetChannelsLossReasonsData = {
     MarketplaceAccountIds?: Array<string>;
     IncludeDirect?: boolean;
     DirectTagIds?: Array<string>;
+    DirectExcludedTagIds?: Array<string>;
   };
   url: "/api/analytics/channels/loss-reasons";
 };
@@ -4907,6 +4918,7 @@ export type AnalyticsGetChannelsTopItemsData = {
     MarketplaceAccountIds?: Array<string>;
     IncludeDirect?: boolean;
     DirectTagIds?: Array<string>;
+    DirectExcludedTagIds?: Array<string>;
   };
   url: "/api/analytics/channels/top-items";
 };
@@ -4954,6 +4966,7 @@ export type AnalyticsGetChannelsWeekdaysData = {
     MarketplaceAccountIds?: Array<string>;
     IncludeDirect?: boolean;
     DirectTagIds?: Array<string>;
+    DirectExcludedTagIds?: Array<string>;
   };
   url: "/api/analytics/channels/weekdays";
 };
@@ -5007,6 +5020,7 @@ export type AnalyticsGetAbcData = {
     MarketplaceAccountIds?: Array<string>;
     IncludeDirect?: boolean;
     DirectTagIds?: Array<string>;
+    DirectExcludedTagIds?: Array<string>;
   };
   url: "/api/analytics/abc";
 };
@@ -5066,6 +5080,7 @@ export type AnalyticsGetAbcTimelineData = {
     MarketplaceAccountIds?: Array<string>;
     IncludeDirect?: boolean;
     DirectTagIds?: Array<string>;
+    DirectExcludedTagIds?: Array<string>;
   };
   url: "/api/analytics/abc/timeline";
 };
@@ -5537,6 +5552,7 @@ export type CatalogGetAllData = {
     sortOrder?: SortOrder;
     itemTypes?: Array<CatalogItemType>;
     tagIds?: Array<string>;
+    excludedTagIds?: Array<string>;
     isArchived?: boolean;
   };
   url: "/api/catalog";
@@ -5604,6 +5620,7 @@ export type CatalogGetForSelectData = {
     searchString?: string;
     types?: Array<CatalogItemType>;
     tagIds?: Array<string>;
+    excludedTagIds?: Array<string>;
     take?: number;
   };
   url: "/api/catalog/for-select";
@@ -6110,6 +6127,7 @@ export type InventoryItemsGetAllData = {
     catalogItemIds?: Array<string>;
     catalogItemTypes?: Array<CatalogItemType>;
     tagIds?: Array<string>;
+    excludedTagIds?: Array<string>;
     isArchived?: boolean;
     sortBy?: InventoryItemSortBy;
     sortOrder?: SortOrder;
@@ -7139,6 +7157,7 @@ export type OrdersGetAllData = {
     includeExternal?: boolean;
     catalogItemIds?: Array<string>;
     tagIds?: Array<string>;
+    excludedTagIds?: Array<string>;
     overdue?: OrderOverdueKind;
     sortBy?: OrderSortBy;
     sortOrder?: SortOrder;
@@ -7176,6 +7195,7 @@ export type OrdersGetAllAssemblyData = {
     searchString?: string;
     catalogItemIds?: Array<string>;
     tagIds?: Array<string>;
+    excludedTagIds?: Array<string>;
   };
   url: "/api/orders/assembly";
 };
@@ -9010,6 +9030,7 @@ export type ReceiptsGetAllData = {
     reason?: ReceiptReason;
     catalogItemIds?: Array<string>;
     tagIds?: Array<string>;
+    excludedTagIds?: Array<string>;
     sortBy?: ReceiptSortBy;
     sortOrder?: SortOrder;
   };
@@ -10362,7 +10383,14 @@ export type StockForecastGetListData = {
      * Physical types to keep. Empty means both `Standard` and `Unit`.
      */
     CatalogItemTypes?: Array<CatalogItemType>;
+    /**
+     * Keeps items carrying any of these tags.
+     */
     TagIds?: Array<string>;
+    /**
+     * Drops items carrying any of these tags.
+     */
+    ExcludedTagIds?: Array<string>;
     IsArchived?: boolean;
     /**
      * `true` keeps only variation rows, `false` only physical items, `null` both — minus the
@@ -10775,6 +10803,7 @@ export type StocktakesGetAllData = {
     status?: StocktakeStatus;
     catalogItemIds?: Array<string>;
     tagIds?: Array<string>;
+    excludedTagIds?: Array<string>;
     sortBy?: StocktakeSortBy;
     sortOrder?: SortOrder;
   };
@@ -12764,6 +12793,7 @@ export type WriteoffsGetAllData = {
     reason?: WriteoffReason;
     catalogItemIds?: Array<string>;
     tagIds?: Array<string>;
+    excludedTagIds?: Array<string>;
     sortBy?: WriteoffSortBy;
     sortOrder?: SortOrder;
   };
