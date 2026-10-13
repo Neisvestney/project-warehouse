@@ -18,6 +18,9 @@ public class DataFilesOptions
         "text/plain", "text/csv",
     ];
 
+    /// <summary>Width × height cap for uploaded images: a small file can declare a huge canvas and blow up the preview decode.</summary>
+    public long MaxImagePixels { get; set; } = 50_000_000;
+
     /// <summary>Accepted ?width= values for thumbnails. Arbitrary widths are rejected so the cache cannot be flooded.</summary>
     public int[] ThumbnailWidths { get; set; } = [64, 128, 256, 512, 1024];
 

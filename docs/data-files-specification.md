@@ -55,6 +55,9 @@ public class DataFilesOptions
         "text/plain", "text/csv",
     ];
 
+    /// <summary>Лимит ширина × высота для изображений: маленький файл может объявить огромный холст.</summary>
+    public long MaxImagePixels { get; set; } = 50_000_000;
+
     /// <summary>Допустимые значения ?width= для превью. Произвольные значения запрещены.</summary>
     public int[] ThumbnailWidths { get; set; } = [64, 128, 256, 512, 1024];
 
@@ -330,7 +333,7 @@ public async Task<IActionResult> Upload(IFormFile file, CancellationToken ct)
 2. `file.Length > MaxFileSizeBytes` → `422`, `ErrorCode.DataFileTooLarge`, `args: {maxBytes}`.
 3. Определение реального типа **по сигнатуре первых байтов**, а не по заголовку `Content-Type` от клиента. Несовпадение или тип вне `AllowedContentTypes` → `422`, `ErrorCode.DataFileTypeNotAllowed`, `args: {allowed}`.
 4. Санитизация имени: `Path.GetFileName`, обрезка до 256 символов, вырезание управляющих символов.
-5. Для изображений — чтение размеров в `ImageWidth`/`ImageHeight`.
+5. Для изображений — чтение размеров в `ImageWidth`/`ImageHeight` с учётом EXIF-ориентации: хранится отображаемый размер, как у превью. Нечитаемое изображение или холст больше `MaxImagePixels` → `422`, `ErrorCode.DataFileTypeNotAllowed`.
 6. Запись в хранилище, затем строка в БД. При падении записи в БД сохранённые байты удаляются.
 
 `RequestSizeLimit` ставится с запасом над `MaxFileSizeBytes`: лимит Kestrel обрывает соединение без внятного тела ответа, а прикладная проверка возвращает нормальный `AppProblemDetails`.
@@ -371,7 +374,14 @@ return File(stream, contentTypeForResponse, downloadFileName, enableRangeProcess
 - Пропорции сохраняются, увеличение не выполняется: если оригинал уже уже запрошенной ширины, отдаётся он сам.
 - Превью всегда отдаётся как `image/webp`, независимо от формата оригинала.
 
-**Библиотека ресайза** — **SixLabors.ImageSharp 3.x**: полностью управляемый код, никаких нативных зависимостей в образе (альтернатива SkiaSharp тянет `SkiaSharp.NativeAssets.Linux` и системные библиотеки). Лицензионная оговорка — см. [README.md](README.md).
+**Библиотека ресайза** — **NetVips** (MIT) поверх libvips. Нативная libvips приходит из пакета `NetVips.Native` под все RID, поэтому в Docker-образ ничего доустанавливать не нужно.
+
+- Размеры при загрузке читаются только из заголовка (`Image.NewFromSource`), без декодирования пикселей. Источник передаётся через `SourceCustom`: `NewFromStream` закрыл бы поток, а тот ещё нужен для сохранения.
+- Превью строится через `Image.ThumbnailStream` с подгонкой только по ширине. По умолчанию libvips вписывает картинку в квадрат `width × width`, поэтому высота задаётся заведомо огромной. Увеличение запрещено (`Enums.Size.Down`).
+- Ориентация берётся из EXIF: превью уже повёрнуто. Метаданные (EXIF, GPS, ICC, XMP) в превью не копируются (`keep: ForeignKeep.None`).
+- Версия `NetVips.Native` зафиксирована точно: пакет несёт нативные бинарники libvips. При переходе на musl-образ (Alpine) их поддержку нужно проверить отдельно.
+- У анимированного GIF в превью попадает первый кадр.
+- Кэш операций libvips выключен на старте (`NetVips.Cache.Max = 0` в `Program.cs`): превью рендерится один раз и дальше берётся с диска, так что кэш в памяти только занимал бы место.
 
 ---
 

@@ -17,7 +17,7 @@ ProjectWarehouse.Server/   ASP.NET Core 10 REST API
 ProjectWarehouse.Server.Tests/   xUnit tests of the pure calculators (`dotnet test`)
 ```
 
-**Backend:** ASP.NET Core 10, Entity Framework Core, PostgreSQL, ASP.NET Core Identity, JWT Bearer auth, Quartz, SixLabors.ImageSharp  
+**Backend:** ASP.NET Core 10, Entity Framework Core, PostgreSQL, ASP.NET Core Identity, JWT Bearer auth, Quartz, NetVips  
 **Frontend:** React 19, TypeScript 6, Vite 8, MUI v9, React Router v7, PWA (vite-plugin-pwa), zxing-wasm
 
 ## Docs Index
@@ -192,6 +192,4 @@ Use the credentials set in `Seed:AdminPassword`. The admin user is seeded on sta
 
 ## Licence note
 
-Image resizing uses **SixLabors.ImageSharp 3.x**, under the Six Labors Split License: free for organizations
-under $1M annual revenue, commercial licence required above it. If that threshold is crossed, the alternative is
-SkiaSharp (MIT), which needs native Linux assets in the image.
+Image resizing uses **NetVips** (MIT) over libvips (LGPL-2.1, dynamically linked via `NetVips.Native`).

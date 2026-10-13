@@ -1,7 +1,6 @@
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure.Files;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
+using NetVips;
 
 namespace ProjectWarehouse.Server.Services;
 
@@ -11,6 +10,9 @@ public class DataFileContentService(IFileStorage storage, ILogger<DataFileConten
     /// <summary>Previews are always WebP regardless of the source format — one output format keeps
     /// the cache layout and the response content type trivial.</summary>
     private const string ThumbnailContentType = "image/webp";
+
+    /// <summary>libvips defaults the thumbnail height to the width (a square box); a huge height makes the fit width-only.</summary>
+    private const int UnboundedHeight = 10_000_000;
 
     public async Task<DataFileContent?> OpenOriginalAsync(DataFile file, CancellationToken ct)
     {
@@ -46,19 +48,17 @@ public class DataFileContentService(IFileStorage storage, ILogger<DataFileConten
             return null;
         }
 
-        var rendered = new MemoryStream();
+        MemoryStream rendered;
         await using (source)
         {
             try
             {
-                using var image = await Image.LoadAsync(source, ct);
-                image.Mutate(x => x.Resize(new ResizeOptions { Size = new Size(width, 0), Mode = ResizeMode.Max }));
-                await image.SaveAsWebpAsync(rendered, ct);
+                using var image = Image.ThumbnailStream(source, width, height: UnboundedHeight, size: Enums.Size.Down);
+                rendered = new MemoryStream(image.WebpsaveBuffer(keep: Enums.ForeignKeep.None));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 logger.LogError(ex, "Failed to render a {Width}px preview of {Id}", width, file.Id);
-                await rendered.DisposeAsync();
                 throw new DataFileNotAnImageException("Image could not be read.");
             }
         }

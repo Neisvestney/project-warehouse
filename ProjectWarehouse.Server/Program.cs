@@ -369,6 +369,9 @@ try
     var dataFilesOptions = builder.Configuration.GetSection(DataFilesOptions.SectionName)
         .Get<DataFilesOptions>() ?? new DataFilesOptions();
 
+    // Thumbnails are rendered once and cached on disk; libvips' operation cache would only hold memory
+    NetVips.Cache.Max = 0;
+
     builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 
     // Read here as well as injected: the signing key and the GC cron are both needed while the container is

@@ -11,7 +11,7 @@ using ProjectWarehouse.Server.Infrastructure.Files;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Files;
 using ProjectWarehouse.Server.Services;
-using SixLabors.ImageSharp;
+using NetVips;
 
 namespace ProjectWarehouse.Server.Controllers;
 
@@ -40,7 +40,7 @@ public class FilesController(
     /// <list type="bullet">
     ///   <item><c>dataFileEmpty</c> — no file part, or zero bytes</item>
     ///   <item><c>dataFileTooLarge</c> — over <c>DataFiles:MaxFileSizeBytes</c>; <c>args</c>: <c>maxBytes</c></item>
-    ///   <item><c>dataFileTypeNotAllowed</c> — the declared content type is not in <c>DataFiles:AllowedContentTypes</c>, does not match the leading bytes, or the declared image could not be decoded; <c>args</c>: <c>allowed</c> (comma-separated list)</item>
+    ///   <item><c>dataFileTypeNotAllowed</c> — the declared content type is not in <c>DataFiles:AllowedContentTypes</c>, does not match the leading bytes, the declared image could not be decoded, or it exceeds <c>DataFiles:MaxImagePixels</c>; <c>args</c>: <c>allowed</c> (comma-separated list)</item>
     ///   <item><c>dataFileStorageError</c> — the bytes were written but the metadata row was not; the bytes are removed again</item>
     /// </list>
     /// Requires authentication only.
@@ -77,13 +77,26 @@ public class FilesController(
         {
             try
             {
-                var info = await Image.IdentifyAsync(content, ct);
-                imageWidth = info.Width;
-                imageHeight = info.Height;
+                // SourceCustom rather than NewFromStream: the latter disposes the stream, which is still saved below
+                using var source = new SourceCustom();
+                source.OnRead += (buffer, length) => content.Read(buffer, 0, length);
+                source.OnSeek += (offset, origin) => content.Seek(offset, origin);
+                using var info = Image.NewFromSource(source, access: Enums.Access.Sequential);
+
+                // EXIF orientations 5-8 are rotated by 90°; previews are auto-rotated, so store the displayed size
+                var rotated = info.GetTypeOf("orientation") != IntPtr.Zero && (int)info.Get("orientation") >= 5;
+                imageWidth = rotated ? info.Height : info.Width;
+                imageHeight = rotated ? info.Width : info.Height;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 logger.LogInformation(ex, "Rejected an unreadable image upload of declared type {ContentType}", declaredType);
+                return TypeNotAllowed();
+            }
+
+            if ((long)imageWidth * imageHeight > Options.MaxImagePixels)
+            {
+                logger.LogInformation("Rejected a {Width}x{Height} image upload over the pixel limit", imageWidth, imageHeight);
                 return TypeNotAllowed();
             }
 
