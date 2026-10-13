@@ -122,7 +122,7 @@ public class TokenService(
     private static string HashToken(string token) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
-    private async Task<List<Claim>> BuildClaimsAsync(ApplicationUser user)
+    public async Task<List<Claim>> BuildClaimsAsync(ApplicationUser user)
     {
         // Same set /api/auth/me reports, from the same place — the two must not be able to disagree.
         var permissions = await permissionService.GetEffectivePermissionsAsync(user.Id);

@@ -508,10 +508,15 @@ try
         .AddEntityFrameworkStores<ApplicationDbContext>()
         .AddDefaultTokenProviders();
 
-    builder.Services.AddAuthentication(options =>
+    var devApiToken = builder.Environment.IsDevelopment() ? builder.Configuration["Dev:ApiToken"] : null;
+    var defaultAuthScheme = string.IsNullOrEmpty(devApiToken)
+        ? JwtBearerDefaults.AuthenticationScheme
+        : DevApiTokenOptions.SelectorSchemeName;
+
+    var authBuilder = builder.Services.AddAuthentication(options =>
         {
-            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultAuthenticateScheme = defaultAuthScheme;
+            options.DefaultChallengeScheme = defaultAuthScheme;
         })
         .AddJwtBearer(options =>
         {
@@ -556,6 +561,20 @@ try
                 }
             };
         });
+
+    if (!string.IsNullOrEmpty(devApiToken))
+    {
+        authBuilder
+            .AddScheme<DevApiTokenOptions, DevApiTokenAuthenticationHandler>(DevApiTokenOptions.SchemeName, o =>
+            {
+                o.Token = devApiToken;
+                o.Username = builder.Configuration["Seed:AdminUsername"] ?? "admin";
+            })
+            .AddPolicyScheme(DevApiTokenOptions.SelectorSchemeName, null, o =>
+                o.ForwardDefaultSelector = ctx => DevApiTokenOptions.Matches(ctx.Request, devApiToken)
+                    ? DevApiTokenOptions.SchemeName
+                    : JwtBearerDefaults.AuthenticationScheme);
+    }
 
     builder.Services.AddAuthorization(options =>
     {
@@ -720,9 +739,14 @@ try
     if (app.Environment.IsDevelopment())
     {
         app.MapOpenApi();
-        app.MapScalarApiReference(options => options
-            .AddPreferredSecuritySchemes(JwtBearerDefaults.AuthenticationScheme)
-            .EnablePersistentAuthentication());
+        app.MapScalarApiReference(options =>
+        {
+            options
+                .AddPreferredSecuritySchemes(JwtBearerDefaults.AuthenticationScheme)
+                .EnablePersistentAuthentication();
+            if (!string.IsNullOrEmpty(devApiToken))
+                options.AddHttpAuthentication(JwtBearerDefaults.AuthenticationScheme, auth => auth.Token = devApiToken);
+        });
     }
 
     app.UseHttpsRedirection();

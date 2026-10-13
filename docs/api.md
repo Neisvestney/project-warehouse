@@ -152,6 +152,27 @@ default). Expiry alone decides — a revoked row is unusable either way — and 
 sessions readable, since these rows are the only trace a session leaves. Like the data-files GC it takes a
 Postgres advisory lock, so two instances cannot collide.
 
+### Dev API token
+
+In Development, `Dev:ApiToken` (`appsettings.Development.json`, `dev-api-token` by default) is a fixed bearer
+string for scripts and Scalar — no login, no refresh:
+
+```
+curl -H "Authorization: Bearer dev-api-token" https://localhost:7095/api/auth/me
+```
+
+The `BearerOrDevApiToken` policy scheme sends a request to `DevApiTokenAuthenticationHandler` when it comes from
+a loopback address, carries no `X-Forwarded-For` (nor the `X-Original-For` that `UseForwardedHeaders` leaves in
+its place), and its `Authorization` header equals that string (compared in constant time); every other request
+goes to JWT bearer, so the token sent from another machine or through a proxy is a plain 401. The handler authenticates as
+the seed admin (`Seed:AdminUsername`) and builds its principal with `ITokenService.BuildClaimsAsync` on every
+request, so it follows permission changes immediately. The principal carries every claim an access token does
+except `exp`: it never expires, and its `security_version` claim is present but not checked. Scalar
+has the token prefilled on the `Bearer` scheme.
+
+Outside Development the key is ignored and nothing but JWT bearer is registered. An empty `Dev:ApiToken`
+switches the token off in Development too.
+
 ### Configuration
 
 ```json

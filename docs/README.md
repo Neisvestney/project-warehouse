@@ -159,7 +159,8 @@ dotnet run
 ```
 
 API: `https://localhost:7095`  
-Scalar UI (dev only): `https://localhost:7095/scalar`
+Scalar UI (dev only): `https://localhost:7095/scalar` — authenticated out of the box with the
+[dev API token](api.md#dev-api-token), which scripts can use too
 
 ### Run Frontend
 
