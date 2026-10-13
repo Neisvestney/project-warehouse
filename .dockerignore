@@ -18,3 +18,4 @@ publish
 .env.*
 tools
 src/Marketplaces/*/generator
+src/Marketplaces/Generator

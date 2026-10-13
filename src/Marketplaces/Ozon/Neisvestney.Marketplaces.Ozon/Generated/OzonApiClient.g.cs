@@ -29,56 +29,95 @@ namespace Neisvestney.Marketplaces.Ozon
     [System.CodeDom.Compiler.GeneratedCode("NSwag", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial interface IOzonApiClient
     {
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<V2WarehouseListV2Response> WarehouseListV2Async(V2WarehouseListV2Request? body);
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<V2WarehouseListV2Response> WarehouseListV2Async(V2WarehouseListV2Request? body, System.Threading.CancellationToken cancellationToken);
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<Productv3GetProductListResponse> ProductAPI_GetProductListAsync(Productv3GetProductListRequest body);
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<Productv3GetProductListResponse> ProductAPI_GetProductListAsync(Productv3GetProductListRequest body, System.Threading.CancellationToken cancellationToken);
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<V3GetProductInfoListResponse> ProductAPI_GetProductInfoListAsync(V3GetProductInfoListRequest body);
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<V3GetProductInfoListResponse> ProductAPI_GetProductInfoListAsync(V3GetProductInfoListRequest body, System.Threading.CancellationToken cancellationToken);
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<V1SellerInfoResponse> SellerAPI_SellerInfoAsync();
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<V1SellerInfoResponse> SellerAPI_SellerInfoAsync(System.Threading.CancellationToken cancellationToken);
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<PostingFbsUnfulfilledListResponse> PostingFbsUnfulfilledListAsync(PostingFbsUnfulfilledListRequest body);
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<PostingFbsUnfulfilledListResponse> PostingFbsUnfulfilledListAsync(PostingFbsUnfulfilledListRequest body, System.Threading.CancellationToken cancellationToken);
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<PostingFbsListResponse> PostingFbsListAsync(PostingFbsListRequest body);
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<PostingFbsListResponse> PostingFbsListAsync(PostingFbsListRequest body, System.Threading.CancellationToken cancellationToken);
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<V3GetFbsPostingResponseV3> PostingAPI_GetFbsPostingV3Async(Postingv3GetFbsPostingRequest body);
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<V3GetFbsPostingResponseV3> PostingAPI_GetFbsPostingV3Async(Postingv3GetFbsPostingRequest body, System.Threading.CancellationToken cancellationToken);
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<PostingFbsPackageLabelCreateResponse> PostingFbsPackageLabelCreateAsync(PostingFbsPackageLabelCreateRequest body);
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<PostingFbsPackageLabelCreateResponse> PostingFbsPackageLabelCreateAsync(PostingFbsPackageLabelCreateRequest body, System.Threading.CancellationToken cancellationToken);
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<PostingFbsPackageLabelGetResponse> PostingFbsPackageLabelGetAsync(PostingFbsPackageLabelGetRequest body);
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<PostingFbsPackageLabelGetResponse> PostingFbsPackageLabelGetAsync(PostingFbsPackageLabelGetRequest body, System.Threading.CancellationToken cancellationToken);
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<PostingFboListResponse> PostingFboListAsync(PostingFboListRequest body);
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<PostingFboListResponse> PostingFboListAsync(PostingFboListRequest body, System.Threading.CancellationToken cancellationToken);
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<V1GetReturnsListResponse> ReturnsListAsync(V1GetReturnsListRequest? body);
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<V1GetReturnsListResponse> ReturnsListAsync(V1GetReturnsListRequest? body, System.Threading.CancellationToken cancellationToken);
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<GetFinanceAccrualByDayResponse> GetFinanceAccrualByDayAsync(GetFinanceAccrualByDayRequest body);
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<GetFinanceAccrualByDayResponse> GetFinanceAccrualByDayAsync(GetFinanceAccrualByDayRequest body, System.Threading.CancellationToken cancellationToken);
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<V1GetFinanceProductsBuyoutResponse> GetFinanceProductsBuyoutAsync(V1GetFinanceProductsBuyoutRequest? body);
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<V1GetFinanceProductsBuyoutResponse> GetFinanceProductsBuyoutAsync(V1GetFinanceProductsBuyoutRequest? body, System.Threading.CancellationToken cancellationToken);
 
     }
@@ -115,11 +154,14 @@ namespace Neisvestney.Marketplaces.Ozon
         partial void PrepareRequest(System.Net.Http.HttpClient client, System.Net.Http.HttpRequestMessage request, System.Text.StringBuilder urlBuilder);
         partial void ProcessResponse(System.Net.Http.HttpClient client, System.Net.Http.HttpResponseMessage response);
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual System.Threading.Tasks.Task<V2WarehouseListV2Response> WarehouseListV2Async(V2WarehouseListV2Request? body)
         {
             return WarehouseListV2Async(body, System.Threading.CancellationToken.None);
         }
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<V2WarehouseListV2Response> WarehouseListV2Async(V2WarehouseListV2Request? body, System.Threading.CancellationToken cancellationToken)
         {
             var client_ = _httpClient;
@@ -179,7 +221,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041e\u0448\u0438\u0431\u043a\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                     }
                     finally
@@ -196,11 +238,14 @@ namespace Neisvestney.Marketplaces.Ozon
             }
         }
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual System.Threading.Tasks.Task<Productv3GetProductListResponse> ProductAPI_GetProductListAsync(Productv3GetProductListRequest body)
         {
             return ProductAPI_GetProductListAsync(body, System.Threading.CancellationToken.None);
         }
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<Productv3GetProductListResponse> ProductAPI_GetProductListAsync(Productv3GetProductListRequest body, System.Threading.CancellationToken cancellationToken)
         {
             if (body == null)
@@ -264,7 +309,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 403)
@@ -274,7 +319,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u0414\u043e\u0441\u0442\u0443\u043f \u0437\u0430\u043f\u0440\u0435\u0449\u0451\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 404)
@@ -284,7 +329,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041e\u0442\u0432\u0435\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 409)
@@ -294,7 +339,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041a\u043e\u043d\u0444\u043b\u0438\u043a\u0442 \u0437\u0430\u043f\u0440\u043e\u0441\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 500)
@@ -304,7 +349,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u0412\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u044f\u044f \u043e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         {
@@ -326,11 +371,14 @@ namespace Neisvestney.Marketplaces.Ozon
             }
         }
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual System.Threading.Tasks.Task<V3GetProductInfoListResponse> ProductAPI_GetProductInfoListAsync(V3GetProductInfoListRequest body)
         {
             return ProductAPI_GetProductInfoListAsync(body, System.Threading.CancellationToken.None);
         }
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<V3GetProductInfoListResponse> ProductAPI_GetProductInfoListAsync(V3GetProductInfoListRequest body, System.Threading.CancellationToken cancellationToken)
         {
             if (body == null)
@@ -394,7 +442,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 403)
@@ -404,7 +452,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u0414\u043e\u0441\u0442\u0443\u043f \u0437\u0430\u043f\u0440\u0435\u0449\u0451\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 404)
@@ -414,7 +462,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041e\u0442\u0432\u0435\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 409)
@@ -424,7 +472,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041a\u043e\u043d\u0444\u043b\u0438\u043a\u0442 \u0437\u0430\u043f\u0440\u043e\u0441\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 500)
@@ -434,7 +482,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u0412\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u044f\u044f \u043e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         {
@@ -456,11 +504,14 @@ namespace Neisvestney.Marketplaces.Ozon
             }
         }
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual System.Threading.Tasks.Task<V1SellerInfoResponse> SellerAPI_SellerInfoAsync()
         {
             return SellerAPI_SellerInfoAsync(System.Threading.CancellationToken.None);
         }
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<V1SellerInfoResponse> SellerAPI_SellerInfoAsync(System.Threading.CancellationToken cancellationToken)
         {
             var client_ = _httpClient;
@@ -517,7 +568,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<GooglerpcStatus>("\u041e\u0448\u0438\u0431\u043a\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<GooglerpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                     }
                     finally
@@ -534,11 +585,14 @@ namespace Neisvestney.Marketplaces.Ozon
             }
         }
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual System.Threading.Tasks.Task<PostingFbsUnfulfilledListResponse> PostingFbsUnfulfilledListAsync(PostingFbsUnfulfilledListRequest body)
         {
             return PostingFbsUnfulfilledListAsync(body, System.Threading.CancellationToken.None);
         }
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<PostingFbsUnfulfilledListResponse> PostingFbsUnfulfilledListAsync(PostingFbsUnfulfilledListRequest body, System.Threading.CancellationToken cancellationToken)
         {
             if (body == null)
@@ -602,7 +656,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 403)
@@ -612,7 +666,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u0414\u043e\u0441\u0442\u0443\u043f \u0437\u0430\u043f\u0440\u0435\u0449\u0451\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 404)
@@ -622,7 +676,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041e\u0442\u0432\u0435\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 409)
@@ -632,7 +686,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041a\u043e\u043d\u0444\u043b\u0438\u043a\u0442 \u0437\u0430\u043f\u0440\u043e\u0441\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 500)
@@ -642,7 +696,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u0412\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u044f\u044f \u043e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         {
@@ -664,11 +718,14 @@ namespace Neisvestney.Marketplaces.Ozon
             }
         }
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual System.Threading.Tasks.Task<PostingFbsListResponse> PostingFbsListAsync(PostingFbsListRequest body)
         {
             return PostingFbsListAsync(body, System.Threading.CancellationToken.None);
         }
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<PostingFbsListResponse> PostingFbsListAsync(PostingFbsListRequest body, System.Threading.CancellationToken cancellationToken)
         {
             if (body == null)
@@ -732,7 +789,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 403)
@@ -742,7 +799,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u0414\u043e\u0441\u0442\u0443\u043f \u0437\u0430\u043f\u0440\u0435\u0449\u0451\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 404)
@@ -752,7 +809,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041e\u0442\u0432\u0435\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 409)
@@ -762,7 +819,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041a\u043e\u043d\u0444\u043b\u0438\u043a\u0442 \u0437\u0430\u043f\u0440\u043e\u0441\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 500)
@@ -772,7 +829,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u0412\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u044f\u044f \u043e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         {
@@ -794,11 +851,14 @@ namespace Neisvestney.Marketplaces.Ozon
             }
         }
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual System.Threading.Tasks.Task<V3GetFbsPostingResponseV3> PostingAPI_GetFbsPostingV3Async(Postingv3GetFbsPostingRequest body)
         {
             return PostingAPI_GetFbsPostingV3Async(body, System.Threading.CancellationToken.None);
         }
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<V3GetFbsPostingResponseV3> PostingAPI_GetFbsPostingV3Async(Postingv3GetFbsPostingRequest body, System.Threading.CancellationToken cancellationToken)
         {
             if (body == null)
@@ -862,7 +922,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 403)
@@ -872,7 +932,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u0414\u043e\u0441\u0442\u0443\u043f \u0437\u0430\u043f\u0440\u0435\u0449\u0451\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 404)
@@ -882,7 +942,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041e\u0442\u0432\u0435\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 409)
@@ -892,7 +952,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041a\u043e\u043d\u0444\u043b\u0438\u043a\u0442 \u0437\u0430\u043f\u0440\u043e\u0441\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 500)
@@ -902,7 +962,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u0412\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u044f\u044f \u043e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         {
@@ -924,11 +984,14 @@ namespace Neisvestney.Marketplaces.Ozon
             }
         }
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual System.Threading.Tasks.Task<PostingFbsPackageLabelCreateResponse> PostingFbsPackageLabelCreateAsync(PostingFbsPackageLabelCreateRequest body)
         {
             return PostingFbsPackageLabelCreateAsync(body, System.Threading.CancellationToken.None);
         }
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<PostingFbsPackageLabelCreateResponse> PostingFbsPackageLabelCreateAsync(PostingFbsPackageLabelCreateRequest body, System.Threading.CancellationToken cancellationToken)
         {
             if (body == null)
@@ -992,7 +1055,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 403)
@@ -1002,7 +1065,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u0414\u043e\u0441\u0442\u0443\u043f \u0437\u0430\u043f\u0440\u0435\u0449\u0451\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 404)
@@ -1012,7 +1075,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041e\u0442\u0432\u0435\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 409)
@@ -1022,7 +1085,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041a\u043e\u043d\u0444\u043b\u0438\u043a\u0442 \u0437\u0430\u043f\u0440\u043e\u0441\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 500)
@@ -1032,7 +1095,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u0412\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u044f\u044f \u043e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         {
@@ -1054,11 +1117,14 @@ namespace Neisvestney.Marketplaces.Ozon
             }
         }
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual System.Threading.Tasks.Task<PostingFbsPackageLabelGetResponse> PostingFbsPackageLabelGetAsync(PostingFbsPackageLabelGetRequest body)
         {
             return PostingFbsPackageLabelGetAsync(body, System.Threading.CancellationToken.None);
         }
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<PostingFbsPackageLabelGetResponse> PostingFbsPackageLabelGetAsync(PostingFbsPackageLabelGetRequest body, System.Threading.CancellationToken cancellationToken)
         {
             if (body == null)
@@ -1122,7 +1188,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 403)
@@ -1132,7 +1198,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u0414\u043e\u0441\u0442\u0443\u043f \u0437\u0430\u043f\u0440\u0435\u0449\u0451\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 404)
@@ -1142,7 +1208,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041e\u0442\u0432\u0435\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 409)
@@ -1152,7 +1218,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041a\u043e\u043d\u0444\u043b\u0438\u043a\u0442 \u0437\u0430\u043f\u0440\u043e\u0441\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 500)
@@ -1162,7 +1228,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u0412\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u044f\u044f \u043e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         {
@@ -1184,11 +1250,14 @@ namespace Neisvestney.Marketplaces.Ozon
             }
         }
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual System.Threading.Tasks.Task<PostingFboListResponse> PostingFboListAsync(PostingFboListRequest body)
         {
             return PostingFboListAsync(body, System.Threading.CancellationToken.None);
         }
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<PostingFboListResponse> PostingFboListAsync(PostingFboListRequest body, System.Threading.CancellationToken cancellationToken)
         {
             if (body == null)
@@ -1252,7 +1321,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 \u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 403)
@@ -1262,7 +1331,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u0414\u043e\u0441\u0442\u0443\u043f \u0437\u0430\u043f\u0440\u0435\u0449\u0451\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 404)
@@ -1272,7 +1341,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041e\u0442\u0432\u0435\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 409)
@@ -1282,7 +1351,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041a\u043e\u043d\u0444\u043b\u0438\u043a\u0442 \u0437\u0430\u043f\u0440\u043e\u0441\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 500)
@@ -1292,7 +1361,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u0412\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u044f\u044f \u043e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         {
@@ -1314,11 +1383,14 @@ namespace Neisvestney.Marketplaces.Ozon
             }
         }
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual System.Threading.Tasks.Task<V1GetReturnsListResponse> ReturnsListAsync(V1GetReturnsListRequest? body)
         {
             return ReturnsListAsync(body, System.Threading.CancellationToken.None);
         }
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<V1GetReturnsListResponse> ReturnsListAsync(V1GetReturnsListRequest? body, System.Threading.CancellationToken cancellationToken)
         {
             var client_ = _httpClient;
@@ -1378,7 +1450,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041e\u0448\u0438\u0431\u043a\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                     }
                     finally
@@ -1395,11 +1467,14 @@ namespace Neisvestney.Marketplaces.Ozon
             }
         }
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual System.Threading.Tasks.Task<GetFinanceAccrualByDayResponse> GetFinanceAccrualByDayAsync(GetFinanceAccrualByDayRequest body)
         {
             return GetFinanceAccrualByDayAsync(body, System.Threading.CancellationToken.None);
         }
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<GetFinanceAccrualByDayResponse> GetFinanceAccrualByDayAsync(GetFinanceAccrualByDayRequest body, System.Threading.CancellationToken cancellationToken)
         {
             if (body == null)
@@ -1462,7 +1537,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<GooglerpcStatus>("\u041e\u0448\u0438\u0431\u043a\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<GooglerpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                     }
                     finally
@@ -1479,11 +1554,14 @@ namespace Neisvestney.Marketplaces.Ozon
             }
         }
 
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual System.Threading.Tasks.Task<V1GetFinanceProductsBuyoutResponse> GetFinanceProductsBuyoutAsync(V1GetFinanceProductsBuyoutRequest? body)
         {
             return GetFinanceProductsBuyoutAsync(body, System.Threading.CancellationToken.None);
         }
 
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="OzonApiException">A server side error occurred.</exception>
         public virtual async System.Threading.Tasks.Task<V1GetFinanceProductsBuyoutResponse> GetFinanceProductsBuyoutAsync(V1GetFinanceProductsBuyoutRequest? body, System.Threading.CancellationToken cancellationToken)
         {
             var client_ = _httpClient;
@@ -1543,7 +1621,7 @@ namespace Neisvestney.Marketplaces.Ozon
                             {
                                 throw new OzonApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new OzonApiException<RpcStatus>("\u041e\u0448\u0438\u0431\u043a\u0430", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new OzonApiException<RpcStatus>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                     }
                     finally
@@ -1862,13 +1940,13 @@ namespace Neisvestney.Marketplaces.Ozon
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("amount")]
-        public double? Amount { get; set; } = default!;
+        public decimal? Amount { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("buyout_price")]
-        public double? Buyout_price { get; set; } = default!;
+        public decimal? Buyout_price { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("deduction_by_category_percent")]
-        public double? Deduction_by_category_percent { get; set; } = default!;
+        public decimal? Deduction_by_category_percent { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string? Name { get; set; } = default!;
@@ -1883,7 +1961,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public int? Quantity { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("seller_price_per_instance")]
-        public double? Seller_price_per_instance { get; set; } = default!;
+        public decimal? Seller_price_per_instance { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("sku")]
         public long? Sku { get; set; } = default!;
@@ -1907,7 +1985,7 @@ namespace Neisvestney.Marketplaces.Ozon
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("availability")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<GetProductInfoListResponseAvailabilityAvailability>))]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<GetProductInfoListResponseAvailabilityAvailability>))]
         public GetProductInfoListResponseAvailabilityAvailability? Availability { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("reasons")]
@@ -1935,19 +2013,19 @@ namespace Neisvestney.Marketplaces.Ozon
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("delivery_amount")]
-        public double? Delivery_amount { get; set; } = default!;
+        public decimal? Delivery_amount { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("percent")]
-        public double? Percent { get; set; } = default!;
+        public decimal? Percent { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("return_amount")]
-        public double? Return_amount { get; set; } = default!;
+        public decimal? Return_amount { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("sale_schema")]
         public string? Sale_schema { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("value")]
-        public double? Value { get; set; } = default!;
+        public decimal? Value { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -1974,7 +2052,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Field { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("level")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ErrorErrorLevel>))]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<ErrorErrorLevel>))]
         public ErrorErrorLevel? Level { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("state")]
@@ -2020,7 +2098,7 @@ namespace Neisvestney.Marketplaces.Ozon
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("color_index")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<PriceIndexesColorIndex>))]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<PriceIndexesColorIndex>))]
         public PriceIndexesColorIndex? Color_index { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("external_index_data")]
@@ -2054,7 +2132,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Quant_code { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("shipment_type")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<SourceShipmentType>))]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<SourceShipmentType>))]
         public SourceShipmentType? Shipment_type { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("sku")]
@@ -2418,7 +2496,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public Seller_returnsv1Money_without_commission? Price_without_commission { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("commission_percent")]
-        public double? Commission_percent { get; set; } = default!;
+        public decimal? Commission_percent { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("commission")]
         public Seller_returnsv1Money_commission? Commission { get; set; } = default!;
@@ -2628,7 +2706,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Customer_currency_code { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("commission_amount")]
-        public double? Commission_amount { get; set; } = default!;
+        public decimal? Commission_amount { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("commission_percent")]
         public long? Commission_percent { get; set; } = default!;
@@ -2637,16 +2715,16 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Commissions_currency_code { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("old_price")]
-        public double? Old_price { get; set; } = default!;
+        public decimal? Old_price { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("payout")]
-        public double? Payout { get; set; } = default!;
+        public decimal? Payout { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("price")]
-        public double? Price { get; set; } = default!;
+        public decimal? Price { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("customer_price")]
-        public double? Customer_price { get; set; } = default!;
+        public decimal? Customer_price { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("product_id")]
         public long? Product_id { get; set; } = default!;
@@ -2655,10 +2733,10 @@ namespace Neisvestney.Marketplaces.Ozon
         public long? Quantity { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("total_discount_percent")]
-        public double? Total_discount_percent { get; set; } = default!;
+        public decimal? Total_discount_percent { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("total_discount_value")]
-        public double? Total_discount_value { get; set; } = default!;
+        public decimal? Total_discount_value { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -2706,7 +2784,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Minimal_price_currency { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("price_index_value")]
-        public double? Price_index_value { get; set; } = default!;
+        public decimal? Price_index_value { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -2730,7 +2808,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Minimal_price_currency { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("price_index_value")]
-        public double? Price_index_value { get; set; } = default!;
+        public decimal? Price_index_value { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -2754,7 +2832,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Minimal_price_currency { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("price_index_value")]
-        public double? Price_index_value { get; set; } = default!;
+        public decimal? Price_index_value { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -2802,7 +2880,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public V1RatingStatus? Status { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("value")]
-        public double? Value { get; set; } = default!;
+        public decimal? Value { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -2832,7 +2910,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public V1RatingStatus? Status { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("value")]
-        public double? Value { get; set; } = default!;
+        public decimal? Value { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -2889,7 +2967,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Ownership_form { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("tax_system")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<CompanyTaxSystemEnum>))]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<CompanyTaxSystemEnum>))]
         public CompanyTaxSystemEnum? Tax_system { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
@@ -2920,11 +2998,11 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Rating { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("status")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<RatingStatusEnum>))]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<RatingStatusEnum>))]
         public RatingStatusEnum? Status { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("value_type")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<SellerInfoResponseRatingTypeEnum>))]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<SellerInfoResponseRatingTypeEnum>))]
         public SellerInfoResponseRatingTypeEnum? Value_type { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
@@ -2973,7 +3051,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public bool? Is_premium { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("type")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<SellerInfoResponseSubscriptionTypeEnum>))]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<SellerInfoResponseSubscriptionTypeEnum>))]
         public SellerInfoResponseSubscriptionTypeEnum? Type { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
@@ -3058,10 +3136,10 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Address { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("latitude")]
-        public double? Latitude { get; set; } = default!;
+        public decimal? Latitude { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("longitude")]
-        public double? Longitude { get; set; } = default!;
+        public decimal? Longitude { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("utc")]
         public string? Utc { get; set; } = default!;
@@ -3112,7 +3190,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Timeslot_to { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("type")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<FirstMileTypeEnum>))]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<FirstMileTypeEnum>))]
         public FirstMileTypeEnum? Type { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
@@ -3134,7 +3212,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public WarehouseAddressInfo? Address_info { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("carriage_label_type")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<WarehouseCarriageLabelTypeEnum>))]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<WarehouseCarriageLabelTypeEnum>))]
         public WarehouseCarriageLabelTypeEnum? Carriage_label_type { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("courier_comment")]
@@ -3328,7 +3406,7 @@ namespace Neisvestney.Marketplaces.Ozon
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("accrued_category")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<GetFinanceAccrualByDayResponseAccrualAccruedCategoryEnum>))]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<GetFinanceAccrualByDayResponseAccrualAccruedCategoryEnum>))]
         public GetFinanceAccrualByDayResponseAccrualAccruedCategoryEnum? Accrued_category { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("container_fees")]
@@ -4154,7 +4232,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public long? Limit { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("sort_dir")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<PostingFboListRequestSortDirEnum>))]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<PostingFboListRequestSortDirEnum>))]
         public PostingFboListRequestSortDirEnum? Sort_dir { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("translit")]
@@ -4467,22 +4545,22 @@ namespace Neisvestney.Marketplaces.Ozon
         public PostingFboListResponsePostingsFinancialDataProductsCommission? Commission { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("old_price")]
-        public double? Old_price { get; set; } = default!;
+        public decimal? Old_price { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("payout")]
-        public double? Payout { get; set; } = default!;
+        public decimal? Payout { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("price")]
-        public double? Price { get; set; } = default!;
+        public decimal? Price { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("product_id")]
         public long? Product_id { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("total_discount_percent")]
-        public double? Total_discount_percent { get; set; } = default!;
+        public decimal? Total_discount_percent { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("total_discount_value")]
-        public double? Total_discount_value { get; set; } = default!;
+        public decimal? Total_discount_value { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -4500,7 +4578,7 @@ namespace Neisvestney.Marketplaces.Ozon
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("amount")]
-        public double? Amount { get; set; } = default!;
+        public decimal? Amount { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("currency")]
         public string? Currency { get; set; } = default!;
@@ -4650,7 +4728,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public long Limit { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("sort_dir")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<PostingFbsListRequestSortDirEnum>))]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<PostingFbsListRequestSortDirEnum>))]
         public PostingFbsListRequestSortDirEnum? Sort_dir { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("translit")]
@@ -4939,7 +5017,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Tracking_number { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("volume_weight")]
-        public double? Volume_weight { get; set; } = default!;
+        public decimal? Volume_weight { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -5086,7 +5164,7 @@ namespace Neisvestney.Marketplaces.Ozon
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("cargo_type")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<FbsPostingContainerCargoTypeEnum>))]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<FbsPostingContainerCargoTypeEnum>))]
         public FbsPostingContainerCargoTypeEnum? Cargo_type { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("container_date")]
@@ -5159,10 +5237,10 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? District { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("latitude")]
-        public double? Latitude { get; set; } = default!;
+        public decimal? Latitude { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("longitude")]
-        public double? Longitude { get; set; } = default!;
+        public decimal? Longitude { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("provider_pvz_code")]
         public string? Provider_pvz_code { get; set; } = default!;
@@ -5279,13 +5357,13 @@ namespace Neisvestney.Marketplaces.Ozon
         public PostingMoney? Customer_price { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("old_price")]
-        public double? Old_price { get; set; } = default!;
+        public decimal? Old_price { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("payout")]
-        public double? Payout { get; set; } = default!;
+        public decimal? Payout { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("price")]
-        public double? Price { get; set; } = default!;
+        public decimal? Price { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("product_id")]
         public long? Product_id { get; set; } = default!;
@@ -5294,10 +5372,10 @@ namespace Neisvestney.Marketplaces.Ozon
         public long? Quantity { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("total_discount_percent")]
-        public double? Total_discount_percent { get; set; } = default!;
+        public decimal? Total_discount_percent { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("total_discount_value")]
-        public double? Total_discount_value { get; set; } = default!;
+        public decimal? Total_discount_value { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -5315,7 +5393,7 @@ namespace Neisvestney.Marketplaces.Ozon
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("amount")]
-        public double? Amount { get; set; } = default!;
+        public decimal? Amount { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("currency")]
         public string? Currency { get; set; } = default!;
@@ -5408,7 +5486,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public long? Sku { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("weight")]
-        public double? Weight { get; set; } = default!;
+        public decimal? Weight { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -5492,7 +5570,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public MoneyCurrent_tariff_min_charge? Current_tariff_min_charge { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("current_tariff_rate")]
-        public double? Current_tariff_rate { get; set; } = default!;
+        public decimal? Current_tariff_rate { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("current_tariff_type")]
         public string? Current_tariff_type { get; set; } = default!;
@@ -5504,7 +5582,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public MoneyNext_tariff_min_charge? Next_tariff_min_charge { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("next_tariff_rate")]
-        public double? Next_tariff_rate { get; set; } = default!;
+        public decimal? Next_tariff_rate { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("next_tariff_starts_at")]
         public System.DateTimeOffset? Next_tariff_starts_at { get; set; } = default!;
@@ -5537,7 +5615,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public System.DateTimeOffset? Tariff_deadline_at { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("tariff_rate")]
-        public double? Tariff_rate { get; set; } = default!;
+        public decimal? Tariff_rate { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("tariff_type")]
         public string? Tariff_type { get; set; } = default!;
@@ -5567,7 +5645,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public long? Limit { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("sort_dir")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<PostingFbsUnfulfilledListRequestSortDirEnum>))]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<PostingFbsUnfulfilledListRequestSortDirEnum>))]
         public PostingFbsUnfulfilledListRequestSortDirEnum? Sort_dir { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("translit")]
@@ -5853,7 +5931,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Tracking_number { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("volume_weight")]
-        public double? Volume_weight { get; set; } = default!;
+        public decimal? Volume_weight { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -6000,7 +6078,7 @@ namespace Neisvestney.Marketplaces.Ozon
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("cargo_type")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<PostingFbsUnfulfilledListResponsePostingsContainerCargoTypeEnum>))]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<PostingFbsUnfulfilledListResponsePostingsContainerCargoTypeEnum>))]
         public PostingFbsUnfulfilledListResponsePostingsContainerCargoTypeEnum? Cargo_type { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("container_date")]
@@ -6085,10 +6163,10 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? District { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("latitude")]
-        public double? Latitude { get; set; } = default!;
+        public decimal? Latitude { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("longitude")]
-        public double? Longitude { get; set; } = default!;
+        public decimal? Longitude { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("provider_pvz_code")]
         public string? Provider_pvz_code { get; set; } = default!;
@@ -6205,13 +6283,13 @@ namespace Neisvestney.Marketplaces.Ozon
         public PostingMoney? Customer_price { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("old_price")]
-        public double? Old_price { get; set; } = default!;
+        public decimal? Old_price { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("payout")]
-        public double? Payout { get; set; } = default!;
+        public decimal? Payout { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("price")]
-        public double? Price { get; set; } = default!;
+        public decimal? Price { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("product_id")]
         public long? Product_id { get; set; } = default!;
@@ -6220,10 +6298,10 @@ namespace Neisvestney.Marketplaces.Ozon
         public long? Quantity { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("total_discount_percent")]
-        public double? Total_discount_percent { get; set; } = default!;
+        public decimal? Total_discount_percent { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("total_discount_value")]
-        public double? Total_discount_value { get; set; } = default!;
+        public decimal? Total_discount_value { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -6241,7 +6319,7 @@ namespace Neisvestney.Marketplaces.Ozon
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("amount")]
-        public double? Amount { get; set; } = default!;
+        public decimal? Amount { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("currency")]
         public string? Currency { get; set; } = default!;
@@ -6334,7 +6412,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public long? Sku { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("weight")]
-        public double? Weight { get; set; } = default!;
+        public decimal? Weight { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -6418,7 +6496,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public MoneyCurrent_tariff_min_charge? Current_tariff_min_charge { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("current_tariff_rate")]
-        public double? Current_tariff_rate { get; set; } = default!;
+        public decimal? Current_tariff_rate { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("current_tariff_type")]
         public string? Current_tariff_type { get; set; } = default!;
@@ -6430,7 +6508,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public MoneyNext_tariff_min_charge? Next_tariff_min_charge { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("next_tariff_rate")]
-        public double? Next_tariff_rate { get; set; } = default!;
+        public decimal? Next_tariff_rate { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("next_tariff_starts_at")]
         public System.DateTimeOffset? Next_tariff_starts_at { get; set; } = default!;
@@ -6463,7 +6541,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public System.DateTimeOffset? Tariff_deadline_at { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("tariff_rate")]
-        public double? Tariff_rate { get; set; } = default!;
+        public decimal? Tariff_rate { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("tariff_type")]
         public string? Tariff_type { get; set; } = default!;
@@ -6574,7 +6652,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public System.Collections.Generic.IReadOnlyList<string>? Skus { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("visibility")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<Productv3GetProductListRequestFilterFilterVisibility>))]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<Productv3GetProductListRequestFilterFilterVisibility>))]
         public Productv3GetProductListRequestFilterFilterVisibility? Visibility { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
@@ -6830,7 +6908,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Currency_code { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("price")]
-        public double? Price { get; set; } = default!;
+        public decimal? Price { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -6851,7 +6929,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Currency_code { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("price")]
-        public double? Price { get; set; } = default!;
+        public decimal? Price { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -6872,7 +6950,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Currency_code { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("price")]
-        public double? Price { get; set; } = default!;
+        public decimal? Price { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -6893,7 +6971,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Currency_code { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("price")]
-        public double? Price { get; set; } = default!;
+        public decimal? Price { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -6914,7 +6992,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Currency_code { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("price")]
-        public double? Price { get; set; } = default!;
+        public decimal? Price { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -7235,10 +7313,10 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? District { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("latitude")]
-        public double? Latitude { get; set; } = default!;
+        public decimal? Latitude { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("longitude")]
-        public double? Longitude { get; set; } = default!;
+        public decimal? Longitude { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("provider_pvz_code")]
         public string? Provider_pvz_code { get; set; } = default!;
@@ -7721,7 +7799,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public bool? Is_rnpt_absent { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("weight")]
-        public double? Weight { get; set; } = default!;
+        public decimal? Weight { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("imei")]
         public System.Collections.Generic.IReadOnlyList<string>? Imei { get; set; } = default!;
@@ -7799,7 +7877,7 @@ namespace Neisvestney.Marketplaces.Ozon
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("current_tariff_rate")]
-        public double? Current_tariff_rate { get; set; } = default!;
+        public decimal? Current_tariff_rate { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("current_tariff_type")]
         public string? Current_tariff_type { get; set; } = default!;
@@ -7811,7 +7889,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public string? Current_tariff_charge_currency_code { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("next_tariff_rate")]
-        public double? Next_tariff_rate { get; set; } = default!;
+        public decimal? Next_tariff_rate { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("next_tariff_type")]
         public string? Next_tariff_type { get; set; } = default!;
@@ -8007,7 +8085,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public GetProductInfoListResponseVisibilityDetails? Visibility_details { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("volume_weight")]
-        public double? Volume_weight { get; set; } = default!;
+        public decimal? Volume_weight { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -8028,7 +8106,7 @@ namespace Neisvestney.Marketplaces.Ozon
         public bool? Is_enabled { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("type")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<V3GetProductInfoListResponsePromotionType>))]
+        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<V3GetProductInfoListResponsePromotionType>))]
         public V3GetProductInfoListResponsePromotionType? Type { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
@@ -8120,10 +8198,10 @@ namespace Neisvestney.Marketplaces.Ozon
         public bool? Is_weight_needed { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("weight_max")]
-        public double? Weight_max { get; set; } = default!;
+        public decimal? Weight_max { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("weight_min")]
-        public double? Weight_min { get; set; } = default!;
+        public decimal? Weight_min { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("has_imei")]
         public bool? Has_imei { get; set; } = default!;

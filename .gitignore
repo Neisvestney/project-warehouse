@@ -103,3 +103,6 @@ keys/
 backups/
 # ops tool: ops.json is committed; ops.local.json (machine-specific, points at the private repo) is not
 
+
+# marketplace API specs: Ozon/WB/Avito terms forbid redistributing their documentation
+tools/marketplaces/

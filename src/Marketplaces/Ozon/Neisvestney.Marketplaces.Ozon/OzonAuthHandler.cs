@@ -10,6 +10,9 @@ public class OzonAuthHandler(IOzonCredentialsProvider credentialsProvider) : Del
     {
         var credentials = credentialsProvider.GetCredentials();
 
+        // Remove first: a request re-sent through this handler would otherwise carry the value twice
+        request.Headers.Remove("Client-Id");
+        request.Headers.Remove("Api-Key");
         if (!string.IsNullOrEmpty(credentials.ClientId))
             request.Headers.TryAddWithoutValidation("Client-Id", credentials.ClientId);
         request.Headers.TryAddWithoutValidation("Api-Key", credentials.ApiKey);

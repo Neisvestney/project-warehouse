@@ -174,12 +174,23 @@ products[]          — { sku, offer_id, name, quantity, price, product_color }
 ### Конвейер
 
 ```
+src/Marketplaces/Generator/
+  └── Neisvestney.Marketplaces.Generator/ — общее ядро генераторов (не пакуется)
+      ├── SpecLoader.cs                — чтение JSON/YAML-спеки в JsonNode
+      ├── SpecTrimmer.cs               — whitelist, вырезание параметров, замыкание $ref, слияние источников
+      ├── SpecSanitizer.cs             — санитайзинг, вырезание описаний, именование inline-схем, сплющивание имён
+      └── ClientGenerator.cs           — общие настройки NSwag и запись .g.cs
+
+src/Marketplaces/Shared/               — исходники, общие для библиотек клиентов (терпимые конвертеры)
+
+src/Marketplaces/Wildberries/          — устройство в разделе «Клиент Wildberries»
+
 src/Marketplaces/Ozon/
   ├── generator/
   │   ├── ozon-swagger.raw.json        — выгруженная спецификация Ozon (не коммитится)
   │   ├── paths.whitelist.json         — список используемых путей + зарезервированные
   │   ├── generate-client.cs           — выгрузка, обрезка, санитайзинг, генерация
-  │   └── ozon-openapi.trimmed.json    — результат обрезки (коммитится)
+  │   └── ozon-openapi.trimmed.json    — результат обрезки (не коммитится)
   └── Neisvestney.Marketplaces.Ozon/   — библиотека клиента, без ссылок на сервер
       ├── Generated/OzonApiClient.g.cs — вывод NSwag (коммитится)
       ├── OzonApiClientSerialization.cs — partial-хуки сгенерированного клиента
@@ -207,30 +218,30 @@ Services/MarketplaceSyncService.cs      — склады, карточки, ав
 - **в библиотеке** — то, что нужно любому потребителю Ozon Seller API: сгенерированный клиент, его partial-хуки сериализации, `OzonAuthHandler` и контракт учётки `IOzonCredentialsProvider`. Namespace — `Neisvestney.Marketplaces.Ozon`, совпадает с именем проекта;
 - **в сервере** — всё, что знает про домен WMS: `OzonClient` с маппингом в `External*`, провайдер, ambient-контекст аккаунта, логирование ответов, категории начислений.
 
-`generator/` — соседняя с проектом папка: SDK-проект компилирует все `*.cs` внутри своей папки, поэтому file-based-скрипт с top-level statements и директивами `#:package` должен лежать вне её. Папка `generator/` исключена из Docker-контекста (`.dockerignore`), а `Dockerfile` копирует csproj библиотеки перед `dotnet restore` вместе с серверным.
+`generator/` — соседняя с проектом папка: SDK-проект компилирует все `*.cs` внутри своей папки, поэтому file-based-скрипт с top-level statements и директивами `#:project` должен лежать вне её. Папки `generator/` и `src/Marketplaces/Generator` исключены из Docker-контекста (`.dockerignore`), а `Dockerfile` копирует csproj библиотеки перед `dotnet restore` вместе с серверным.
 
-Весь конвейер — один **file-based-скрипт C#** (`dotnet run generate-client.cs`), возможность .NET 10 запускать одиночный `.cs`-файл без проекта и без `.csproj`. Зависимости объявляются директивами прямо в файле:
+Конвейер каждой площадки — **file-based-скрипт C#** (`dotnet run generate-client.cs`), возможность .NET 10 запускать одиночный `.cs`-файл без своего `.csproj`. Общая часть — чтение спеки, обрезка, санитайзинг, вызов NSwag — живёт в проекте `Neisvestney.Marketplaces.Generator`, и скрипт подключает его директивой:
 
 ```csharp
 #!/usr/bin/env dotnet
-#:package NSwag.CodeGeneration.CSharp@14.*
+#:project ../../Generator/Neisvestney.Marketplaces.Generator/Neisvestney.Marketplaces.Generator.csproj
 
-using System.Text.Json.Nodes;
+using Neisvestney.Marketplaces.Generator;
 // ...
 ```
 
-Подключается библиотека `NSwag.CodeGeneration.CSharp`, а не консольный `NSwag.ConsoleCore`: последний — это CLI-пакет, вызвать его из скрипта можно только запуском отдельного процесса. Генерация выполняется в процессе через `OpenApiDocument.FromFileAsync` + `CSharpClientGenerator`, поэтому отдельного `ozon.nswag` нет — настройки живут прямо в скрипте, в том же файле, что и логика обрезки.
+В скрипте остаётся только то, что специфично для площадки: откуда выгружать спеку, какие параметры вырезать, что чинить сверх общего санитайзинга, как назвать клиент. Новая площадка собирает свой конвейер из `SpecLoader`, `SpecTrimmer`, `SpecSanitizer` и `ClientGenerator`; правка, нужная всем площадкам, идёт в ядро. Каталог скрипта скрипт берёт через `[CallerFilePath]`, поэтому запускается из любой рабочей папки.
+
+Ядро подключает библиотеку `NSwag.CodeGeneration.CSharp`, а не консольный `NSwag.ConsoleCore`: последний — это CLI-пакет, вызвать его можно только запуском отдельного процесса. Генерация выполняется в процессе через `OpenApiDocument.FromFileAsync` + `CSharpClientGenerator`, поэтому `.nswag`-файлов нет — настройки собраны в `ClientGenerator.DefaultSettings`, а скрипт площадки дописывает свои.
 
 Почему не PowerShell:
 
 - Обрезка спецификации — это обход графа `$ref` с транзитивным замыканием. `System.Text.Json.Nodes` даёт для этого нормальную мутабельную модель документа; в PowerShell то же самое пишется через `ConvertFrom-Json -AsHashtable` и рекурсию по хеш-таблицам, что заметно многословнее и хуже читается.
 - Скрипт живёт в одном языке с остальным репозиторием — правит его тот же человек, что и сервер.
 - Дополнительный инструментарий не нужен: .NET 10 SDK и так обязателен, проект собирается под `net10.0`.
-- NSwag подключается директивой `#:package`, а не заранее установленным глобальным инструментом, — версия генератора зафиксирована в том же файле, что и логика.
+- NSwag подключается `PackageReference` ядра, а не заранее установленным глобальным инструментом, — версия генератора зафиксирована в репозитории.
 
-Если скрипт со временем разрастётся, `dotnet project convert` превращает его в обычный проект без переписывания.
-
-**Шаг 1 — выгрузка** (`--fetch`). `docs.ozon.ru` отдаёт `swagger.json` только браузероподобным клиентам: `curl` без корректных заголовков получает петлю редиректов (`?__rr=N`) либо `403`. Скрипт задаёт `User-Agent`, `Accept` и `Referer` на `HttpClient`; при неудаче спецификация выгружается вручную из браузера в `ozon-swagger.raw.json`. Именно поэтому **обрезанная спецификация коммитится в репозиторий** — сборка не должна зависеть ни от доступности `docs.ozon.ru`, ни от того, пропустит ли он запрос.
+**Шаг 1 — выгрузка** (`--fetch`). `docs.ozon.ru` отдаёт `swagger.json` только браузероподобным клиентам: `curl` без корректных заголовков получает петлю редиректов (`?__rr=N`) либо `403`. Скрипт задаёт `User-Agent`, `Accept` и `Referer` на `HttpClient`; при неудаче спецификация выгружается вручную из браузера в `ozon-swagger.raw.json`. Именно поэтому **сгенерированный клиент коммитится в репозиторий** — сборка не должна зависеть ни от доступности `docs.ozon.ru`, ни от того, пропустит ли он запрос.
 
 > **Проверено на практике:** заголовков недостаточно — защита завязана не только на них. `HttpClient` получает `403`, `curl` с полным набором браузерных заголовков — петлю редиректов до исчерпания лимита. Рабочий путь один: открыть URL в браузере и сохранить ответ. `--fetch` оставлен на случай, если Ozon ослабит защиту; при неудаче скрипт печатает инструкцию и выходит с кодом 1, не затирая существующий raw-файл.
 
@@ -243,7 +254,6 @@ using System.Text.Json.Nodes;
 5. **Санитайзинг.** Спека объявляет себя как OpenAPI 3.0.0, но содержит наследие Swagger 2.0, которое NJsonSchema не переваривает:
    - `required: true` булевым внутри схемы свойства (в 3.0 это массив имён на объекте-владельце) — падение при разборе;
    - схемы массивов с `items`, но **без** `"type": "array"` — молча генерируются как `object?` вместо типизированной коллекции (задевает `productv3GetProductListResponseResult.items` и фильтры запроса);
-   - `format: float` расширяется до `double`: так в спеке объявлены и деньги (сумма выкупа), а `float` с его 7 значащими цифрами теряет копейки на суммах от ~131 тыс.
 
    Санитайзер обходит документ **по позициям схем** (`schema`, `schemas`, затем `properties`/`items`/`allOf`/…), а не рекурсией по всем узлам: слепой обход принял бы `properties`-словарь за схему всякий раз, когда у объекта есть свойство с именем `items` или `type` — в спеке Ozon есть и то, и другое.
 
@@ -258,7 +268,7 @@ dotnet run src/Marketplaces/Ozon/generator/generate-client.cs              # о�
 
 Разделитель `--` обязателен: без него `dotnet` разберёт `--fetch` как собственный аргумент.
 
-**Шаг 3 — генерация** (`CSharpClientGeneratorSettings` внутри скрипта):
+**Шаг 3 — генерация** (`ClientGenerator.DefaultSettings`, общие для всех площадок, кроме имён):
 
 | Настройка | Значение | Причина |
 |-----------|----------|---------|
@@ -272,16 +282,24 @@ dotnet run src/Marketplaces/Ozon/generator/generate-client.cs              # о�
 | `generateNullableReferenceTypes` | `true` | `<Nullable>enable</Nullable>` в csproj |
 | `generateOptionalParameters` | `false` | Явные параметры читаются однозначно |
 | `arrayType` / `arrayInstanceType` | `IReadOnlyList` / `List` | |
+| `responseArrayType` / `parameterArrayType` | `IReadOnlyList` / `IEnumerable` | Ответ-массив не превращается в `ICollection` |
+| `numberType` / `numberFloatType` / `numberDoubleType` | `decimal` | Деньги приходят как `number` с любым форматом или без него; двоичная плавающая точка теряет копейки. STJ читает JSON-число в `decimal` без потерь, а число вне диапазона `decimal` (~7.9·10²⁸) роняет весь ответ — мусор от API должен падать, а не превращаться в значение |
 | `dateTimeType` | `System.DateTimeOffset` | Ozon отдаёт смещения; в домене они конвертируются в UTC |
 | `exceptionClass` | `OzonApiException` | Единая точка перехвата |
 | `classStyle` | `Poco` | Никакого `INotifyPropertyChanged` |
 
 `generateUpdateJsonSerializerSettingsMethod` оставлен включённым: с `false` NSwag убирает объявление partial-метода, но оставляет его вызов в конструкторе — сгенерированный файл не компилируется. Заодно это единственная точка, куда можно дошить недостающее поведение — рукописный `Neisvestney.Marketplaces.Ozon/OzonApiClientSerialization.cs` реализует два partial-хука:
 
-- `UpdateJsonSerializerSettings` — добавляет конвертер строковых enum'ов. NSwag для enum'а **внутри коллекции** конвертер не вешает (оставляет в коде `TODO(system.text.json): Add ItemConverterType...`), поэтому `working_days: ["MONDAY"]` падал с «The JSON value could not be converted». Конвертер терпимый: неизвестное значение схлопывается в значение по умолчанию, а не роняет страницу — Ozon расширяет свои enum'ы без предупреждения, а обрезанная спека в репозитории это снимок.
+- `UpdateJsonSerializerSettings` — регистрирует `TolerantEnumConverter` и `TolerantStringConverter`. NSwag для enum'а **внутри коллекции** конвертер не вешает (оставляет в коде `TODO(system.text.json): Add ItemConverterType...`), поэтому без конвертера на options `working_days: ["MONDAY"]` падал бы с «The JSON value could not be converted».
 - `Initialize` — включает `ReadResponseAsString`. По умолчанию NSwag читает тело потоком и кладёт в `OzonApiException.Response` **пустую строку**; в результате отказ Ozon доезжал до `MarketplaceSyncRun.Error` голым кодом статуса, без причины. Буферизовать только ошибки нельзя: `ReadObjectResponseAsync` объявлен в сгенерированной половине класса, переопределить его из своей partial-половины невозможно.
 
+**Enum-свойства.** На каждое enum-свойство NSwag вешает `[JsonConverter(typeof(JsonStringEnumConverter<T>))]`. Этот атрибут важнее конвертеров из options и не читает `[EnumMember]`, так что значение вроде `"Склад WB"` падает, хотя оно есть в спеке. Генератор заменяет атрибут на `TolerantEnumConverter<T>` (параметр `enumConverter` у `ClientGenerator.GenerateAsync`). Конвертер сопоставляет значение по `[EnumMember]`, затем по имени члена. Неизвестное значение он сводит к значению по умолчанию, а не роняет страницу: площадки расширяют enum'ы без предупреждения, а сгенерированный клиент — снимок спеки. Целочисленные enum'ы (`cargoType: 1`, члены `_1`) пишутся числом.
+
+**Общие исходники.** Терпимые конвертеры лежат в `src/Marketplaces/Shared/` и подключаются в каждую библиотеку ссылкой (`<Compile Include="..\..\Shared\*.cs" LinkBase="Shared" />`), компилируясь в неё как `internal`. Так у пакетов площадок нет общей зависимости, а код — в одном месте. В `Shared` попадает только транспортный и сериализационный код, идентично нужный минимум двум библиотекам; маппинг в домен WMS остаётся на сервере.
+
 Генерация запускается **вручную** через `generate-client.cs`, вывод коммитится. Это зеркалит подход фронтенда (`npm run generate-api` + закоммиченный `src/api`) и сохраняет детерминированность и офлайн-собираемость. Сгенерированный файл исключается из анализаторов через `.editorconfig` в папке `Generated/`.
+
+**Без текста документации.** Условия Ozon, Wildberries и Avito запрещают копировать их документацию. Поэтому в репозитории нет ни выгруженных, ни обрезанных спецификаций: они в `.gitignore`, как и `tools/marketplaces/`. Скрипт площадки вызывает `SpecSanitizer.StripDocumentation`, и тот до генерации вырезает строковые `description` и `summary`. Иначе NSwag перенёс бы их в XML-доки и тексты исключений. В клиент попадают только имена операций, типов, полей и значения enum'ов. Шаг вызывается из скрипта, а не из ядра: площадка, чью спецификацию можно распространять, его пропускает.
 
 **Шаг 4 — обёртка.** Сгенерированный клиент наружу модуля не выходит. `OzonClient : IOzonClient` предоставляет доменно-осмысленные операции и берёт на себя то, чего в сгенерированном коде нет:
 
@@ -297,7 +315,7 @@ IOzonClient
 
 Размеры страниц ограничены сверху самой спекой, а сгенерированный клиент их не валидирует: `/v2/warehouse/list` отвергает `limit > 200` (`maximum: 200` в схеме запроса), `/v3/product/list` допускает до 1000. Превышение возвращается как `400` от Ozon, а не как ошибка компиляции.
 
-**Две ловушки, всплывшие при расширении whitelist'а на пути заказов, обе решены в `generate-client.cs`.**
+**Две ловушки, всплывшие при расширении whitelist'а на пути заказов, обе решены в `SpecSanitizer`.**
 
 - NJsonSchema типизирует схему по **последнему сегменту** имени после точки, поэтому `posting.v4.…SortDir.Enum`
   и `posting.v3.FbsPosting.Container.CargoType.Enum` обе становились `Enum`, а NSwag разводил их суффиксами
@@ -313,6 +331,45 @@ IOzonClient
 > В результате `MarketplaceSyncStatus` и `MarketplaceMappingSource` уезжали в OpenAPI как `integer`, а
 > сгенерированный клиент объявлял их `= number`, хотя рантайм отдавал camelCase-строки. Исправлено разворотом
 > `Nullable.GetUnderlyingType` перед проверкой; правка общая и чинит любой будущий nullable enum.
+
+### Клиент Wildberries
+
+```
+src/Marketplaces/Wildberries/
+  ├── generator/
+  │   ├── raw/*.yaml                         — выгруженные разделы спеки (не коммитятся)
+  │   ├── paths.whitelist.json               — операции по разделам + зарезервированные
+  │   ├── generate-client.cs                 — выгрузка, обрезка, слияние, генерация
+  │   └── wildberries-openapi.trimmed.json   — результат обрезки (не коммитится)
+  └── Neisvestney.Marketplaces.Wildberries/
+      ├── Generated/WildberriesClients.g.cs      — вывод NSwag: по клиенту на хост
+      ├── Generated/WildberriesHosts.g.cs        — базовые адреса клиентов, prod и sandbox
+      ├── Generated/WildberriesClientHooks.g.cs  — partial-хуки каждого клиента → WildberriesClientSetup
+      ├── WildberriesSerialization.cs            — WildberriesClientSetup: конвертеры и ReadResponseAsString
+      ├── WildberriesAuthHandler.cs              — DelegatingHandler, заголовок Authorization
+      └── WildberriesCredentials.cs              — WildberriesCredentials + IWildberriesCredentialsProvider
+```
+
+Граница библиотеки та же, что у Ozon: ни одной ссылки на сервер, namespace `Neisvestney.Marketplaces.Wildberries`.
+
+**Источник.** Спека WB разбита на разделы — отдельные YAML-файлы OpenAPI 3.0 по адресу `https://dev.wildberries.ru/api/swagger/yaml/ru/<раздел>.yaml` (`01-general`, `02-items`, `03-orders-fbs`, …). Эти URL отдаются без антибота, поэтому `--fetch` работает штатно и выгружает в `raw/` только разделы, упомянутые в whitelist'е.
+
+```
+dotnet run src/Marketplaces/Wildberries/generator/generate-client.cs -- --fetch   # выгрузить, обрезать, сгенерировать
+dotnet run src/Marketplaces/Wildberries/generator/generate-client.cs              # обрезать и сгенерировать из raw/
+```
+
+**Whitelist по операциям.** `sources` группирует записи по разделу, запись — `"МЕТОД /путь"`. Голый путь (как у Ozon) взял бы все операции под ним, а у WB чтение и запись делят путь: `POST /api/v3/stocks/{warehouseId}` читает остатки, `PUT` того же пути их перезаписывает. Операции WB помечены `x-readonly-method`: на `false` генератор падает, так что запись в клиенте появляется только осознанной правкой скрипта; операция без флага проходит с предупреждением в консоли — её надо проверить глазами. `reserved` — операции следующих этапов, не генерируются.
+
+**Клиент на хост.** У WB около двадцати хостов (`marketplace-api`, `content-api`, `statistics-api`, …), и каждый путь объявляет свои `servers`. Генератор берёт production-хост пути, помечает его операции тегом группы (`marketplace-api.wildberries.ru` → `Marketplace`) и генерирует `Wildberries{Group}Client` через `MultipleClientsFromFirstTagAndOperationId`. DTO общие для всех клиентов, а `BaseAddress` каждого клиента берётся из `WildberriesHosts` (`Marketplace`, `MarketplaceSandbox`, …). Один `HttpClient` на все хосты не используется: песочница переключается по хостам, лимиты запросов WB тоже считаются по категориям API.
+
+**Слияние разделов.** Каждый раздел обрезается отдельно, затем `SpecTrimmer.Merge` сводит их в один документ. Компоненты с одинаковым именем и одинаковым телом схлопываются. При разных телах компонент переименовывается в `{Раздел}{Имя}` во всех разделах, где встречается (`responses/401` → `OrdersFbs401`), а ссылки переписываются. Каждое переименование печатается в консоль.
+
+**Имена inline-схем.** Тела запросов и ответов WB описаны inline, и NSwag назвал бы их по порядку: `Response2…Response23`, `Body2`. Такие номера сдвигаются от любой правки whitelist'а. `SpecSanitizer.NameInlineSchemas` выносит их в компоненты с именами от `operationId`: `GetV3OrdersResponse`, `PostV3OrdersStickersRequest`, enum-параметры — `PostV3OrdersStickersType`, элемент массива — `…Item`. Схемы с одинаковым телом делят один компонент.
+
+**Хуки.** NSwag объявляет `UpdateJsonSerializerSettings` и `Initialize` отдельно в каждом классе клиента, поэтому генератор пишет `WildberriesClientHooks.g.cs`, где хуки всех клиентов передают управление в `WildberriesClientSetup`. Там терпимые конвертеры и `ReadResponseAsString` — по тем же причинам, что у Ozon.
+
+**Аутентификация.** Токен идёт в заголовок `Authorization` как есть, без схемы `Bearer`. Параметр вырезается из спеки, а подставляет его `WildberriesAuthHandler`, который берёт учётку у `IWildberriesCredentialsProvider`. Это тот же контракт, что у Ozon: один `HttpClient` обслуживает много аккаунтов.
 
 ### Аутентификация и устойчивость
 
@@ -350,9 +407,10 @@ services.AddHttpClient<IOzonApiClient, OzonApiClient>(c =>
 |-------|------|------------|
 | `Microsoft.Extensions.Http.Resilience` | `ProjectWarehouse.Server.csproj` | Ретраи, таймауты, circuit breaker |
 | `Quartz.Extensions.Hosting` | `ProjectWarehouse.Server.csproj` | Планировщик синхронизации |
-| `NSwag.CodeGeneration.CSharp` | директива `#:package` в `generate-client.cs` | Генерация клиента |
+| `NSwag.CodeGeneration.CSharp` | `Neisvestney.Marketplaces.Generator.csproj` | Генерация клиентов |
+| `YamlDotNet` | `Neisvestney.Marketplaces.Generator.csproj` | Чтение YAML-спек (Wildberries) |
 
-`NSwag.CodeGeneration.CSharp` в зависимости сервера **не попадает** — он нужен только скрипту генерации и объявлен внутри него. Серверный проект собирается без него.
+Пакеты ядра в зависимости сервера и библиотек клиентов **не попадают**: на ядро ссылаются только скрипты генерации. Серверный проект собирается без них.
 
 `IHttpClientFactory`, фоновых воркеров и Data Protection в проекте до этого не было — модуль вводит всё три.
 

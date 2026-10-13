@@ -1,0 +1,36 @@
+{
+  "sources": {
+    "01-general": [
+      "GET /api/v1/seller-info"
+    ],
+    "02-items": [
+      "POST /content/v2/get/cards/list",
+      "GET /api/v3/warehouses",
+      "GET /api/v3/offices",
+      "POST /api/v3/stocks/{warehouseId}"
+    ],
+    "03-orders-fbs": [
+      "GET /api/v3/orders/new",
+      "GET /api/v3/orders",
+      "POST /api/v3/orders/status",
+      "POST /api/v3/orders/stickers",
+      "GET /api/marketplace/v3/fbs/orders/archive",
+      "GET /api/v3/supplies",
+      "GET /api/v3/supplies/{supplyId}",
+      "GET /api/marketplace/v3/supplies/{supplyId}/order-ids"
+    ],
+    "12-reports": [
+      "GET /api/v1/supplier/orders",
+      "GET /api/v1/supplier/sales",
+      "GET /api/analytics/v1/item-returns"
+    ],
+    "13-finances": [
+      "POST /api/finance/v1/sales-reports/detailed"
+    ]
+  },
+  "reserved": {
+    "02-items": [
+      "PUT /api/v3/stocks/{warehouseId}"
+    ]
+  }
+}

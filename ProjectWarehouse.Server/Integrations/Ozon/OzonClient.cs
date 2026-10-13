@@ -327,7 +327,7 @@ public class OzonClient(
                 var lines = posting
                     .Where(p => p.Amount is not null)
                     .Select(p => new ExternalAccrualLine(MarketplaceAccrualCategory.Sale, null, ToSku(p.Sku),
-                        Math.Round((decimal)p.Amount!.Value, 2), "RUB"))
+                        Math.Round(p.Amount!.Value, 2), "RUB"))
                     .ToList();
 
                 // nothing to store would read as a new accrual on every run
@@ -1010,8 +1010,8 @@ public class OzonClient(
     }
 
     private static ExternalPostingItem ToExternalPostingItem(long? sku, string? offerId, string? name,
-        int? quantity, string? priceCurrency, PostingMoney? customerPrice, double? price, double? oldPrice,
-        double? discountValue, double? payout, double? commissionAmount, string? commissionCurrency) =>
+        int? quantity, string? priceCurrency, PostingMoney? customerPrice, decimal? price, decimal? oldPrice,
+        decimal? discountValue, decimal? payout, decimal? commissionAmount, string? commissionCurrency) =>
         new(
             sku?.ToString(CultureInfo.InvariantCulture),
             offerId ?? "",
@@ -1028,9 +1028,9 @@ public class OzonClient(
             ToMoney(commissionAmount),
             Trim(commissionCurrency));
 
-    /// <summary>Ozon types most financial amounts as <c>double</c>; money is kept as decimal in WMS.</summary>
-    private static decimal? ToMoney(double? value) =>
-        value is { } amount && double.IsFinite(amount) ? Math.Round((decimal)amount, 2) : null;
+    /// <summary>Money is stored to kopecks.</summary>
+    private static decimal? ToMoney(decimal? value) =>
+        value is { } amount ? Math.Round(amount, 2) : null;
 
     /// <summary>Ozon posting states collapsed to the WMS vocabulary. Unknown values are logged, not guessed.</summary>
     private MarketplaceOrderStatus ToOrderStatus(string? status)

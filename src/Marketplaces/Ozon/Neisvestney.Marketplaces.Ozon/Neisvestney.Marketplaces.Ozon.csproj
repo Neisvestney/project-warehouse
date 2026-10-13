@@ -7,4 +7,9 @@
     <Description>Typed Ozon Seller API client generated from a sanitized OpenAPI spec.</Description>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- compiled into each library as internal: every package stays dependency-free -->
+    <Compile Include="..\..\Shared\*.cs" LinkBase="Shared" />
+  </ItemGroup>
+
 </Project>
