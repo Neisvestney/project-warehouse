@@ -59,14 +59,14 @@ function AddItemsByTagDialog({open, onClose, onAdd, types}: AddItemsByTagDialogP
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
-      <DialogTitle>Добавить позиции по тегу</DialogTitle>
+      <DialogTitle>Добавить позиции по метке</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{pt: 1}}>
           <CatalogTagsFilter value={tagFilter} onChange={setTagFilter} autoFocus />
 
           <Typography variant="body2" color="text.secondary">
             {!hasIncluded
-              ? "Выберите один или несколько тегов — будут добавлены все позиции с любым из них, кроме позиций с исключёнными тегами."
+              ? "Выберите одну или несколько меток — будут добавлены все позиции с любой из них, кроме позиций с исключёнными метками."
               : itemsQuery.isFetching
                 ? "Поиск позиций…"
                 : `Найдено позиций: ${foundItems.length}`}
@@ -74,7 +74,7 @@ function AddItemsByTagDialog({open, onClose, onAdd, types}: AddItemsByTagDialogP
 
           {foundItems.length === MAX_ITEMS && (
             <Alert severity="warning">
-              Показаны первые {MAX_ITEMS} позиций — сузьте набор тегов, часть может не попасть в
+              Показаны первые {MAX_ITEMS} позиций — сузьте набор меток, часть может не попасть в
               выборку.
             </Alert>
           )}

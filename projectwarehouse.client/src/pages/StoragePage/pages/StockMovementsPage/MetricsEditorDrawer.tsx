@@ -67,20 +67,25 @@ const DOCUMENT_TAG_FILTERS: {
     kind: "receipt",
     field: "receiptTagIds",
     excludedField: "excludedReceiptTagIds",
-    label: "Теги приёмки",
+    label: "Метки приёмки",
   },
-  {kind: "order", field: "orderTagIds", excludedField: "excludedOrderTagIds", label: "Теги заказа"},
+  {
+    kind: "order",
+    field: "orderTagIds",
+    excludedField: "excludedOrderTagIds",
+    label: "Метки заказа",
+  },
   {
     kind: "writeoff",
     field: "writeoffTagIds",
     excludedField: "excludedWriteoffTagIds",
-    label: "Теги списания",
+    label: "Метки списания",
   },
   {
     kind: "stocktake",
     field: "stocktakeTagIds",
     excludedField: "excludedStocktakeTagIds",
-    label: "Теги инвентаризации",
+    label: "Метки инвентаризации",
   },
 ];
 

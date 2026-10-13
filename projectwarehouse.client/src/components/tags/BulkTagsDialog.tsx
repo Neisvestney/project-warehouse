@@ -55,7 +55,7 @@ function BulkTagsDialog({
       maxWidth="xs"
       slotProps={{transition: {onExited: reset}}}
     >
-      <DialogTitle>Теги</DialogTitle>
+      <DialogTitle>Метки</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2}>
           {summary && <Typography variant="body2">{summary}</Typography>}

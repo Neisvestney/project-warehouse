@@ -123,7 +123,7 @@ function AbcFilters({
         {showDirectTags && (
           <DocumentTagsFilter
             kind="order"
-            label="Теги прямых заказов"
+            label="Метки прямых заказов"
             value={directTags}
             onChange={setDirectTags}
             sx={{width: 240}}

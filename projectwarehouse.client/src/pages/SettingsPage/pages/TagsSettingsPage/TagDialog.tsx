@@ -71,7 +71,7 @@ function TagDialog({open, tag, kind, onClose, onSaved}: TagDialogProps) {
   return (
     <Dialog open={open} onClose={isPending ? undefined : onClose} maxWidth="xs" fullWidth>
       <DialogTitle>
-        {tag ? "Переименовать тег" : `Новый тег · ${TAG_KIND_LABELS[kind]}`}
+        {tag ? "Переименовать метку" : `Новая метка · ${TAG_KIND_LABELS[kind]}`}
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{mt: 1}}>

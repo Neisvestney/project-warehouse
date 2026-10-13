@@ -303,7 +303,7 @@ function ReceiptsPage() {
               <TableCell>Причина</TableCell>
               <TableCell>Позиций</TableCell>
               <TableCell>Запланировано / Принято</TableCell>
-              <TableCell>Теги</TableCell>
+              <TableCell>Метки</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

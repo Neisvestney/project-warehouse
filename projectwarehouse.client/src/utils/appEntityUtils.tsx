@@ -303,12 +303,12 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
   },
   tag: {
     linkTemplate: "/settings/tags",
-    typeName: "Тег",
+    typeName: "Метка",
     icon: <LocalOfferIcon />,
   },
   tags: {
     linkTemplate: "/settings/tags",
-    typeName: "Теги",
+    typeName: "Метки",
     icon: <LocalOfferIcon />,
   },
   // Only a subscription key of the assembly screen — nothing is journalled under it

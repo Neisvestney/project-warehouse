@@ -15,7 +15,7 @@ type DocumentTagsRowProps = {
 };
 
 /**
- * «Теги» info row of a document page. Tags are editable in any document status, so the row edits
+ * «Метки» info row of a document page. Tags are editable in any document status, so the row edits
  * itself instead of joining the status-gated info form, and every change is saved right away.
  */
 function DocumentTagsRow({kind, value, canEdit, save}: DocumentTagsRowProps) {
@@ -35,7 +35,7 @@ function DocumentTagsRow({kind, value, canEdit, save}: DocumentTagsRowProps) {
 
   return (
     <InfoRow
-      label="Теги"
+      label="Метки"
       value={
         isEditing ? (
           // InfoRow's value cell is sized by its content, so the picker needs a width of its own
@@ -60,7 +60,7 @@ function DocumentTagsRow({kind, value, canEdit, save}: DocumentTagsRowProps) {
           <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
             <TagChips tags={value} />
             {canEdit && (
-              <IconButton size="small" title="Изменить теги" onClick={() => setIsEditing(true)}>
+              <IconButton size="small" title="Изменить метки" onClick={() => setIsEditing(true)}>
                 <EditIcon fontSize="small" />
               </IconButton>
             )}

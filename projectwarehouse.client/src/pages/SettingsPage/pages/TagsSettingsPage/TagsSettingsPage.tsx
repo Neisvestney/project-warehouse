@@ -82,7 +82,7 @@ export default function TagsSettingsPage() {
     onSuccess: async () => {
       await invalidate();
       setDeleting(null);
-      enqueueSnackbar("Тег удалён", {variant: "success"});
+      enqueueSnackbar("Метка удалена", {variant: "success"});
     },
     onError: (err) => enqueueSnackbar(extractErrorMessage(err), {variant: "error"}),
   });
@@ -95,7 +95,7 @@ export default function TagsSettingsPage() {
   return (
     <Stack spacing={2} sx={{p: 2}}>
       <PageGenericHeader
-        title="Теги"
+        title="Метки"
         actions={
           canManage && (
             <Button
@@ -104,15 +104,15 @@ export default function TagsSettingsPage() {
               size="small"
               onClick={() => openDialog(null)}
             >
-              Создать тег
+              Создать метку
             </Button>
           )
         }
       />
 
       <Typography variant="body2" color="text.secondary">
-        Теги общие для всех сотрудников. Переименование сохраняет все привязки, удаление снимает тег
-        со всех объектов, но сами объекты остаются на месте.
+        Метки общие для всех сотрудников. Переименование сохраняет все привязки, удаление снимает
+        метку со всех объектов, но сами объекты остаются на месте.
       </Typography>
 
       <Paper>
@@ -136,7 +136,7 @@ export default function TagsSettingsPage() {
             {isLoading ? (
               <TableRowLoader colSpan={3} />
             ) : data?.length === 0 ? (
-              <TableRowEmpty colSpan={3} message="Тегов пока нет" />
+              <TableRowEmpty colSpan={3} message="Меток пока нет" />
             ) : (
               data?.map((tag) => (
                 <TableRow
@@ -176,7 +176,7 @@ export default function TagsSettingsPage() {
       <ConfirmDialog
         open={!!deleting}
         onClose={() => setDeleting(null)}
-        title={`Удалить тег «${deleting?.name ?? ""}»?`}
+        title={`Удалить метку «${deleting?.name ?? ""}»?`}
         confirmText="Удалить"
         confirmColor="error"
         isPending={remove.isPending}
@@ -184,8 +184,8 @@ export default function TagsSettingsPage() {
       >
         <Typography variant="body2">
           {deleting && deleting.usageCount > 0
-            ? `Тег привязан к ${deleting.usageCount} ${TAG_KIND_OBJECT_LABELS[deleting.kind]} — привязка будет снята со всех. Сами объекты останутся без изменений.`
-            : "К тегу ничего не привязано."}
+            ? `Метка привязана к ${deleting.usageCount} ${TAG_KIND_OBJECT_LABELS[deleting.kind]} — привязка будет снята со всех. Сами объекты останутся без изменений.`
+            : "К метке ничего не привязано."}
         </Typography>
       </ConfirmDialog>
     </Stack>

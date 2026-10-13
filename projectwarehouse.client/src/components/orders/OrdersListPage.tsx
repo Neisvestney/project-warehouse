@@ -448,7 +448,7 @@ function OrdersListPage({
           ...(canCreate ? [tagsAction.getAction(selectedItems.map((o) => o.id))] : []),
         ]
       : [];
-  // чекбокс + сортируемые колонки + «Штук» + «Теги»
+  // чекбокс + сортируемые колонки + «Штук» + «Метки»
   const columnCount = sortColumns.length + 3 + (showNotes ? 1 : 0) + (extraColumns?.length ?? 0);
 
   function handleSelfAssignSelected() {
@@ -694,7 +694,7 @@ function OrdersListPage({
               ))}
               {showNotes && <TableCell>Заметки</TableCell>}
               <TableCell>Штук</TableCell>
-              <TableCell>Теги</TableCell>
+              <TableCell>Метки</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

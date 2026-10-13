@@ -100,7 +100,7 @@ function StockMovementsFilters({
         onClick={() => setTagDialogOpen(true)}
         sx={{flexShrink: 0}}
       >
-        По тегу
+        По метке
       </Button>
 
       <AddItemsByTagDialog

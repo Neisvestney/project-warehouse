@@ -79,7 +79,7 @@ function DocumentTagsAutocomplete({
       loading={tagsQuery.isLoading || createMutation.isPending}
       disabled={disabled || createMutation.isPending}
       size="small"
-      renderInput={(params) => <TextField {...params} label="Теги" />}
+      renderInput={(params) => <TextField {...params} label="Метки" />}
       renderValue={(tagValue, getItemProps) =>
         tagValue.map((option, index) => {
           const tag = option as DocumentTag;

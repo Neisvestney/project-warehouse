@@ -56,7 +56,7 @@ function TagFilterAutocomplete({
   loading,
   value,
   onChange,
-  label = "Теги",
+  label = "Метки",
   autoFocus,
   sx,
 }: TagFilterAutocompleteProps) {
@@ -113,7 +113,7 @@ function TagFilterAutocomplete({
         }}
         getOptionLabel={(t) => t.name}
         isOptionEqualToValue={(a, b) => a.id === b.id}
-        noOptionsText="Тегов нет"
+        noOptionsText="Меток нет"
         renderInput={(params) => <TextField {...params} label={label} autoFocus={autoFocus} />}
         renderOption={({key, ...props}, tag, {selected}) => {
           const excluded = isExcluded(tag.id);

@@ -248,7 +248,7 @@ function CatalogPage() {
                     </TableSortLabel>
                   </TableCell>
                 ))}
-                <TableCell>Теги</TableCell>
+                <TableCell>Метки</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

@@ -41,7 +41,7 @@ export function channelLabel(row: ChannelRef): string {
     case "direct":
       return "Прямые · все";
     case "directUntagged":
-      return "Без тегов";
+      return "Без меток";
     default:
       return row.name ?? "";
   }

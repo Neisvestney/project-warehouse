@@ -283,7 +283,7 @@ function StocktakesPage() {
               <TableCell>Тип</TableCell>
               <TableCell>Ячеек</TableCell>
               <TableCell>Позиций</TableCell>
-              <TableCell>Теги</TableCell>
+              <TableCell>Метки</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

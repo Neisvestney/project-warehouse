@@ -93,7 +93,7 @@ function ChannelsSummaryPage() {
               <ChannelsSummaryTable summary={data} />
               {data.rows.some((r) => r.kind === "directTag") && (
                 <Typography variant="caption" color="text.secondary">
-                  Заказ с несколькими тегами входит в строку каждого из них, поэтому строки тегов не
+                  Заказ с несколькими метками входит в строку каждой из них, поэтому строки меток не
                   складываются в «Прямые · все» — она считается по самим заказам.
                 </Typography>
               )}

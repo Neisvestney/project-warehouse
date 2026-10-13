@@ -306,7 +306,7 @@ function WriteoffsPage() {
               ))}
               <TableCell>Причина</TableCell>
               <TableCell>Позиций</TableCell>
-              <TableCell>Теги</TableCell>
+              <TableCell>Метки</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

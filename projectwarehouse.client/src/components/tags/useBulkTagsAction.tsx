@@ -25,7 +25,7 @@ interface BulkTagsActionOptions<TData, TError, TVariables extends BatchTagsVaria
   notFound: {code: ErrorCode; numbersArg?: string; formatNumber?: (n: number) => string};
 }
 
-/** Bulk «Теги» action for one module; `dialogs` must be rendered by the caller. */
+/** Bulk «Метки» action for one module; `dialogs` must be rendered by the caller. */
 export function useBulkTagsAction<TData, TError, TVariables extends BatchTagsVariables>({
   kind,
   entity,
@@ -46,7 +46,7 @@ export function useBulkTagsAction<TData, TError, TVariables extends BatchTagsVar
       const args = e.errors.root?.find((x) => x.code === notFound.code)?.args;
       const count = Number(args?.count);
       if (Number.isFinite(count) && !notFound.numbersArg) {
-        return `Не найдено: ${pluralCount(count, noun)}. Теги не изменены.`;
+        return `Не найдено: ${pluralCount(count, noun)}. Метки не изменены.`;
       }
       const numbers = notFound.numbersArg && args?.[notFound.numbersArg];
       if (Number.isFinite(count) && Array.isArray(numbers)) {
@@ -54,7 +54,7 @@ export function useBulkTagsAction<TData, TError, TVariables extends BatchTagsVar
         const parts = numbers.map((n) => format(Number(n)));
         const hidden = count - numbers.length;
         if (hidden > 0) parts.push(`ещё ${pluralCount(hidden, noun)}`);
-        return `Не найдены или недоступны для редактирования: ${parts.join(", ")}. Теги не изменены.`;
+        return `Не найдены или недоступны для редактирования: ${parts.join(", ")}. Метки не изменены.`;
       }
     }
     return extractErrorMessage(e);
@@ -92,7 +92,7 @@ export function useBulkTagsAction<TData, TError, TVariables extends BatchTagsVar
   function getAction(ids: string[]): BulkAction {
     return {
       key: "updateTags",
-      label: "Теги",
+      label: "Метки",
       icon: <LocalOfferIcon />,
       count: ids.length,
       pending: mutation.isPending,

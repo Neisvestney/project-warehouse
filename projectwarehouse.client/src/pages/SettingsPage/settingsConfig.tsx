@@ -41,7 +41,7 @@ export const settingsSections: SectionConfig[] = [
     ],
   },
   {
-    label: "Теги",
+    label: "Метки",
     path: "tags",
     icon: <LocalOfferIcon fontSize="small" />,
     component: React.lazy(() => import("./pages/TagsSettingsPage/TagsSettingsPage.tsx")),

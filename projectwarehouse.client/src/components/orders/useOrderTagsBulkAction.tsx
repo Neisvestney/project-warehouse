@@ -5,7 +5,7 @@ import {NOUNS} from "@/utils/pluralUtils";
 import {byOperation} from "@/utils/queryKeys";
 import {formatOrderNumber} from "./orderUtils";
 
-/** Bulk «Теги» action for orders; `dialogs` must be rendered by the caller. */
+/** Bulk «Метки» action for orders; `dialogs` must be rendered by the caller. */
 export function useOrderTagsBulkAction() {
   const queryClient = useQueryClient();
 

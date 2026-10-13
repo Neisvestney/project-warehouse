@@ -179,8 +179,8 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   editLockNotHeld: "Блокировка редактирования уже снята",
   inventoryWriteConflict: "Остатки изменились в этот момент. Повторите попытку",
   entityLocked: "Объект сейчас изменяется другим запросом. Повторите попытку",
-  tagNameDuplicate: "Тег с таким названием уже существует",
-  tagNotFound: "Тег не найден",
+  tagNameDuplicate: "Метка с таким названием уже существует",
+  tagNotFound: "Метка не найдена",
   stockMovementPresetNotFound: "Пресет не найден",
   stockMovementPresetNameDuplicate: "Пресет с таким названием уже существует",
   stockMovementPresetModified:
