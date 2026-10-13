@@ -1,0 +1,23 @@
+{
+  "sources": {
+    "user": [
+      "GET /core/v1/accounts/self"
+    ],
+    "item": [
+      "GET /core/v1/items"
+    ],
+    "stock-management": [
+      "POST /stock-management/1/info"
+    ],
+    "order-management": [
+      "GET /order-management/1/orders",
+      "POST /order-management/1/orders/labels",
+      "GET /order-management/1/orders/labels/{taskID}/download"
+    ]
+  },
+  "reserved": {
+    "stock-management": [
+      "PUT /stock-management/1/stocks"
+    ]
+  }
+}

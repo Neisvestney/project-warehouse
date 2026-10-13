@@ -183,11 +183,18 @@ src/Marketplaces/Generator/
 
 src/Marketplaces/Shared/               — исходники, общие для библиотек клиентов (терпимые конвертеры)
 
+src/Marketplaces/specs/                — сырые спецификации всех площадок (не коммитится)
+  ├── ozon/swagger.json
+  ├── wildberries/<раздел>.yaml
+  ├── avito/<раздел>.json
+  └── yandex-market/                   — распакованный репозиторий спеки (openapi/, LICENSE)
+
 src/Marketplaces/Wildberries/          — устройство в разделе «Клиент Wildberries»
+src/Marketplaces/YandexMarket/         — устройство в разделе «Клиент Yandex Market»
+src/Marketplaces/Avito/                — устройство в разделе «Клиент Avito»
 
 src/Marketplaces/Ozon/
   ├── generator/
-  │   ├── ozon-swagger.raw.json        — выгруженная спецификация Ozon (не коммитится)
   │   ├── paths.whitelist.json         — список используемых путей + зарезервированные
   │   ├── generate-client.cs           — выгрузка, обрезка, санитайзинг, генерация
   │   └── ozon-openapi.trimmed.json    — результат обрезки (не коммитится)
@@ -218,7 +225,7 @@ Services/MarketplaceSyncService.cs      — склады, карточки, ав
 - **в библиотеке** — то, что нужно любому потребителю Ozon Seller API: сгенерированный клиент, его partial-хуки сериализации, `OzonAuthHandler` и контракт учётки `IOzonCredentialsProvider`. Namespace — `Neisvestney.Marketplaces.Ozon`, совпадает с именем проекта;
 - **в сервере** — всё, что знает про домен WMS: `OzonClient` с маппингом в `External*`, провайдер, ambient-контекст аккаунта, логирование ответов, категории начислений.
 
-`generator/` — соседняя с проектом папка: SDK-проект компилирует все `*.cs` внутри своей папки, поэтому file-based-скрипт с top-level statements и директивами `#:project` должен лежать вне её. Папки `generator/` и `src/Marketplaces/Generator` исключены из Docker-контекста (`.dockerignore`), а `Dockerfile` копирует csproj библиотеки перед `dotnet restore` вместе с серверным.
+`generator/` — соседняя с проектом папка: SDK-проект компилирует все `*.cs` внутри своей папки, поэтому file-based-скрипт с top-level statements и директивами `#:project` должен лежать вне её. Папки `generator/`, `src/Marketplaces/Generator` и `src/Marketplaces/specs` исключены из Docker-контекста (`.dockerignore`), а `Dockerfile` копирует csproj библиотеки перед `dotnet restore` вместе с серверным.
 
 Конвейер каждой площадки — **file-based-скрипт C#** (`dotnet run generate-client.cs`), возможность .NET 10 запускать одиночный `.cs`-файл без своего `.csproj`. Общая часть — чтение спеки, обрезка, санитайзинг, вызов NSwag — живёт в проекте `Neisvestney.Marketplaces.Generator`, и скрипт подключает его директивой:
 
@@ -241,7 +248,7 @@ using Neisvestney.Marketplaces.Generator;
 - Дополнительный инструментарий не нужен: .NET 10 SDK и так обязателен, проект собирается под `net10.0`.
 - NSwag подключается `PackageReference` ядра, а не заранее установленным глобальным инструментом, — версия генератора зафиксирована в репозитории.
 
-**Шаг 1 — выгрузка** (`--fetch`). `docs.ozon.ru` отдаёт `swagger.json` только браузероподобным клиентам: `curl` без корректных заголовков получает петлю редиректов (`?__rr=N`) либо `403`. Скрипт задаёт `User-Agent`, `Accept` и `Referer` на `HttpClient`; при неудаче спецификация выгружается вручную из браузера в `ozon-swagger.raw.json`. Именно поэтому **сгенерированный клиент коммитится в репозиторий** — сборка не должна зависеть ни от доступности `docs.ozon.ru`, ни от того, пропустит ли он запрос.
+**Шаг 1 — выгрузка** (`--fetch`). `docs.ozon.ru` отдаёт `swagger.json` только браузероподобным клиентам: `curl` без корректных заголовков получает петлю редиректов (`?__rr=N`) либо `403`. Скрипт задаёт `User-Agent`, `Accept` и `Referer` на `HttpClient`; при неудаче спецификация выгружается вручную из браузера в `src/Marketplaces/specs/ozon/swagger.json`. Именно поэтому **сгенерированный клиент коммитится в репозиторий** — сборка не должна зависеть ни от доступности `docs.ozon.ru`, ни от того, пропустит ли он запрос.
 
 > **Проверено на практике:** заголовков недостаточно — защита завязана не только на них. `HttpClient` получает `403`, `curl` с полным набором браузерных заголовков — петлю редиректов до исчерпания лимита. Рабочий путь один: открыть URL в браузере и сохранить ответ. `--fetch` оставлен на случай, если Ozon ослабит защиту; при неудаче скрипт печатает инструкцию и выходит с кодом 1, не затирая существующий raw-файл.
 
@@ -263,7 +270,7 @@ using Neisvestney.Marketplaces.Generator;
 
 ```
 dotnet run src/Marketplaces/Ozon/generator/generate-client.cs -- --fetch   # выгрузить, обрезать, сгенерировать
-dotnet run src/Marketplaces/Ozon/generator/generate-client.cs              # обрезать и сгенерировать из raw-файла
+dotnet run src/Marketplaces/Ozon/generator/generate-client.cs              # обрезать и сгенерировать из specs/ozon/
 ```
 
 Разделитель `--` обязателен: без него `dotnet` разберёт `--fetch` как собственный аргумент.
@@ -299,7 +306,9 @@ dotnet run src/Marketplaces/Ozon/generator/generate-client.cs              # о�
 
 Генерация запускается **вручную** через `generate-client.cs`, вывод коммитится. Это зеркалит подход фронтенда (`npm run generate-api` + закоммиченный `src/api`) и сохраняет детерминированность и офлайн-собираемость. Сгенерированный файл исключается из анализаторов через `.editorconfig` в папке `Generated/`.
 
-**Без текста документации.** Условия Ozon, Wildberries и Avito запрещают копировать их документацию. Поэтому в репозитории нет ни выгруженных, ни обрезанных спецификаций: они в `.gitignore`, как и `tools/marketplaces/`. Скрипт площадки вызывает `SpecSanitizer.StripDocumentation`, и тот до генерации вырезает строковые `description` и `summary`. Иначе NSwag перенёс бы их в XML-доки и тексты исключений. В клиент попадают только имена операций, типов, полей и значения enum'ов. Шаг вызывается из скрипта, а не из ядра: площадка, чью спецификацию можно распространять, его пропускает.
+**Сырые спецификации.** Все выгруженные спеки лежат в одной папке `src/Marketplaces/specs/<площадка>/`, и она целиком в `.gitignore`. Скрипты читают raw только оттуда, `--fetch` пишет туда же. Спеки Ozon и Avito скриптом не выгрузить (антибот), поэтому эту папку переносят между машинами как есть. Wildberries и Yandex Market восстанавливаются через `--fetch` на любой машине. Обрезанная спека пересобирается из raw и лежит рядом со своим скриптом. Описания операций и полей Ozon, Wildberries и Avito читают здесь же, в raw: в сгенерированном клиенте их нет.
+
+**Без текста документации.** Условия Ozon, Wildberries и Avito запрещают копировать их документацию. Поэтому их обрезанные спецификации тоже в `.gitignore`, как и `tools/marketplaces/`. Скрипт площадки вызывает `SpecSanitizer.StripDocumentation`, и тот до генерации вырезает строковые `description` и `summary`. Иначе NSwag перенёс бы их в XML-доки и тексты исключений. В клиент попадают только имена операций, типов, полей и значения enum'ов. Шаг вызывается из скрипта, а не из ядра: площадка, чью спецификацию можно распространять, его пропускает.
 
 **Шаг 4 — обёртка.** Сгенерированный клиент наружу модуля не выходит. `OzonClient : IOzonClient` предоставляет доменно-осмысленные операции и берёт на себя то, чего в сгенерированном коде нет:
 
@@ -337,7 +346,6 @@ IOzonClient
 ```
 src/Marketplaces/Wildberries/
   ├── generator/
-  │   ├── raw/*.yaml                         — выгруженные разделы спеки (не коммитятся)
   │   ├── paths.whitelist.json               — операции по разделам + зарезервированные
   │   ├── generate-client.cs                 — выгрузка, обрезка, слияние, генерация
   │   └── wildberries-openapi.trimmed.json   — результат обрезки (не коммитится)
@@ -352,11 +360,11 @@ src/Marketplaces/Wildberries/
 
 Граница библиотеки та же, что у Ozon: ни одной ссылки на сервер, namespace `Neisvestney.Marketplaces.Wildberries`.
 
-**Источник.** Спека WB разбита на разделы — отдельные YAML-файлы OpenAPI 3.0 по адресу `https://dev.wildberries.ru/api/swagger/yaml/ru/<раздел>.yaml` (`01-general`, `02-items`, `03-orders-fbs`, …). Эти URL отдаются без антибота, поэтому `--fetch` работает штатно и выгружает в `raw/` только разделы, упомянутые в whitelist'е.
+**Источник.** Спека WB разбита на разделы — отдельные YAML-файлы OpenAPI 3.0 по адресу `https://dev.wildberries.ru/api/swagger/yaml/ru/<раздел>.yaml` (`01-general`, `02-items`, `03-orders-fbs`, …). Эти URL отдаются без антибота, поэтому `--fetch` работает штатно и выгружает в `specs/wildberries/` только разделы, упомянутые в whitelist'е.
 
 ```
 dotnet run src/Marketplaces/Wildberries/generator/generate-client.cs -- --fetch   # выгрузить, обрезать, сгенерировать
-dotnet run src/Marketplaces/Wildberries/generator/generate-client.cs              # обрезать и сгенерировать из raw/
+dotnet run src/Marketplaces/Wildberries/generator/generate-client.cs              # обрезать и сгенерировать из specs/wildberries/
 ```
 
 **Whitelist по операциям.** `sources` группирует записи по разделу, запись — `"МЕТОД /путь"`. Голый путь (как у Ozon) взял бы все операции под ним, а у WB чтение и запись делят путь: `POST /api/v3/stocks/{warehouseId}` читает остатки, `PUT` того же пути их перезаписывает. Операции WB помечены `x-readonly-method`: на `false` генератор падает, так что запись в клиенте появляется только осознанной правкой скрипта; операция без флага проходит с предупреждением в консоли — её надо проверить глазами. `reserved` — операции следующих этапов, не генерируются.
@@ -370,6 +378,78 @@ dotnet run src/Marketplaces/Wildberries/generator/generate-client.cs            
 **Хуки.** NSwag объявляет `UpdateJsonSerializerSettings` и `Initialize` отдельно в каждом классе клиента, поэтому генератор пишет `WildberriesClientHooks.g.cs`, где хуки всех клиентов передают управление в `WildberriesClientSetup`. Там терпимые конвертеры и `ReadResponseAsString` — по тем же причинам, что у Ozon.
 
 **Аутентификация.** Токен идёт в заголовок `Authorization` как есть, без схемы `Bearer`. Параметр вырезается из спеки, а подставляет его `WildberriesAuthHandler`, который берёт учётку у `IWildberriesCredentialsProvider`. Это тот же контракт, что у Ozon: один `HttpClient` обслуживает много аккаунтов.
+
+### Клиент Yandex Market
+
+```
+src/Marketplaces/YandexMarket/
+  ├── generator/
+  │   ├── paths.whitelist.json                — операции + бинарные ответы + зарезервированные
+  │   ├── generate-client.cs                  — выгрузка, сборка $ref, обрезка, генерация
+  │   ├── yandex-market-openapi.trimmed.json  — результат обрезки (коммитится)
+  │   └── LICENSE                             — BSD-3 спеки, копируется из specs/ при каждом запуске
+  └── Neisvestney.Marketplaces.YandexMarket/
+      ├── Generated/YandexMarketApiClient.g.cs  — вывод NSwag, один клиент
+      ├── YandexMarketSerialization.cs          — partial-хуки: конвертеры (включая TimeOnly) и ReadResponseAsString
+      ├── YandexMarketAuthHandler.cs            — DelegatingHandler, заголовок Api-Key
+      ├── TimeOnlyConverter.cs                  — время суток "HH:mm" для полей format: time
+      └── YandexMarketCredentials.cs            — YandexMarketCredentials + IYandexMarketCredentialsProvider
+```
+
+**Лицензия.** Спека Яндекс Маркета распространяется под BSD-3-Clause, поэтому это единственная площадка, у которой описания остаются: `StripDocumentation` не вызывается, XML-доки и обрезанная спека коммитятся, а рядом лежит `LICENSE` — условие BSD-3 на распространение. Скрипт кладёт полный текст лицензии с копирайтом в шапку `YandexMarketApiClient.g.cs`, а в обрезанную спеку — в стандартное поле `info.license`, потому что комментариев в JSON нет. Обрезанная спека сохраняется с читаемой кириллицей, а не `\uXXXX`.
+
+**Источник.** Спека — репозиторий `yandex-market/yandex-market-partner-api` на GitHub: `openapi/openapi.yaml`, пути в `paths/*.yaml`, схемы по одной на файл в `components/{schemas,parameters,responses}/<Имя>.yaml`. `--fetch` качает архив ветки `main` и распаковывает его без корневой папки во временную `specs/yandex-market.staging/`. Только после полной распаковки она целиком заменяет `specs/yandex-market/`: так не остаются схемы, удалённые в апстриме, а упавшая распаковка не портит прежнее дерево. Без `LICENSE` в дереве скрипт выходит с кодом 1. Распакованный вид оставлен ради поиска по спеке.
+
+```
+dotnet run src/Marketplaces/YandexMarket/generator/generate-client.cs -- --fetch   # выгрузить, обрезать, сгенерировать
+dotnet run src/Marketplaces/YandexMarket/generator/generate-client.cs              # обрезать и сгенерировать из specs/yandex-market/
+```
+
+**Сборка `$ref`.** Скрипт собирает многофайловую спеку в один документ: `$ref` путей встраиваются, а ссылка на `components/<раздел>/<Имя>.yaml` превращается в `#/components/<раздел>/<Имя>`. Ссылка другого вида роняет генерацию. Дальше конвейер тот же, что у Ozon: whitelist, обрезка, санитайзинг. Схемы в спеке уже именованные, поэтому позиционных имён NSwag не появляется.
+
+**Whitelist** — `"МЕТОД /путь"`, как у WB. Флага `x-readonly-method` у Яндекса нет, поэтому скрипт падает, если в `include` попала операция не GET и не `get*` по `operationId`. `binaryResponses` — операции, приводимые к `FileResponse` (`generateOrderLabels`). `reserved` не генерируется.
+
+**Разметка описаний.** Описания содержат теги сайта документации: `{% note %}`, `{% cut %}`, `{% include … %}`, `{% if … %}`. Скрипт вычищает их до генерации. У `note` и `cut` заголовок в кавычках остаётся обычным текстом, остальные теги удаляются, а их содержимое сохраняется.
+
+**Устаревшие параметры.** Параметр с `deprecated: true`, у которого `x-deprecation-config.replacement-field` указывает на объявленный рядом параметр (`from_date` → `fromDate`), вырезается. Иначе у метода было бы два аргумента на один фильтр. Устаревший параметр без замены остаётся.
+
+**`format: time`.** Поля вроде `fromTime` — время суток строкой `"HH:MM"`. Скрипт генерирует их как `TimeOnly` (`TimeType = "System.TimeOnly"`). Встроенный конвертер System.Text.Json требует секунды, поэтому `YandexMarketApiClient` регистрирует свой `TimeOnlyConverter`: он читает `HH:mm` и `HH:mm:ss`, а пишет `HH:mm`, если секунд нет. Другое значение роняет ответ. Конвертер лежит в библиотеке YM, а не в `Shared`: такие поля есть только у Яндекса.
+
+**Аутентификация.** Ключ идёт в заголовок `Api-Key`. В спеке он объявлен только как security scheme, не параметром операций; `YandexMarketAuthHandler` берёт его у `IYandexMarketCredentialsProvider`. `businessId` и `campaignId` остаются параметрами методов.
+
+### Клиент Avito
+
+```
+src/Marketplaces/Avito/
+  ├── generator/
+  │   ├── paths.whitelist.json          — операции по разделам + зарезервированные
+  │   ├── generate-client.cs            — обрезка, починка спеки, слияние, генерация
+  │   └── avito-openapi.trimmed.json    — результат обрезки (не коммитится)
+  └── Neisvestney.Marketplaces.Avito/
+      ├── Generated/AvitoApiClient.g.cs  — вывод NSwag, один клиент
+      ├── Generated/AvitoHosts.g.cs      — базовый адрес API
+      ├── AvitoSerialization.cs          — partial-хуки: конвертеры и ReadResponseAsString
+      ├── AvitoAuthHandler.cs            — DelegatingHandler: OAuth-токен, повтор на 401
+      ├── AvitoTokenCache.cs             — кэш токенов по ClientId (синглтон)
+      └── AvitoCredentials.cs            — AvitoCredentials + IAvitoCredentialsProvider
+```
+
+**Источник.** Портал `www.avito.ru/developers/api-catalog` отвечает скриптам `403`/`429`, поэтому `--fetch` нет. Спека каждого раздела берётся из уже открытой вкладки портала: `fetch('/web/1/openapi/info/<slug>')`, поле `swagger` сохраняется как `specs/avito/<slug>.json`. Перезагружать вкладку нельзя: с нероссийского IP портал показывает баннер вместо каталога. В `specs/avito/` лежат все разделы, а не только нужные: расширение whitelist'а не требует снова открывать портал. Без нужного файла скрипт печатает эту инструкцию и выходит с кодом 1.
+
+**Whitelist** — `sources` по разделам, как у WB. Все разделы обслуживает `https://api.avito.ru/`, а одного OAuth-токена хватает на все разделы. Поэтому клиент один, `AvitoApiClient`, и скрипт падает, если какой-то раздел объявит другой сервер. Флагов чтения у Avito нет, поэтому запись в клиент попадает только через ревью whitelist'а. `reserved` не генерируется.
+
+**Починка спеки** (каждый шаг печатает, что поменял):
+
+- описания вырезаются в каждом разделе **до** слияния: иначе разная формулировка одной и той же ошибки давала бы ложные коллизии;
+- параметр `Authorization`, объявленный в каждой операции, и `security` операций вырезаются;
+- операциям без `operationId` (stock-management) он синтезируется из метода и пути без сегментов версии: `POST /stock-management/1/info` → `postStockManagementInfo`. Дубль `operationId` после слияния роняет генерацию;
+- из ключей путей вычищаются невидимые символы форматирования (U+200E в разделе auth);
+- enum'ы Avito неполные, поэтому схемы enum'ов переписываются в обычные строки и числа;
+- целые числа расширяются до `int64`: спека объявляет id объявлений как `int32`;
+- кириллические буквы-двойники латиницы в именах свойств исправляются (`deliveryDateMaх` с кириллической `х` → `deliveryDateMax`). Если имя не сводится к ASCII такой заменой, генерация падает;
+- вложенные inline-объекты выносятся в компоненты с именем «владелец + свойство» (`StocksInfoResultStocksItem`) вместо позиционных `Error2…Error5`.
+
+**Аутентификация.** OAuth2 client credentials: `POST /token` с `client_id` и `client_secret` выдаёт `access_token` и `expires_in`. `AvitoAuthHandler` берёт учётку у `IAvitoCredentialsProvider`, токен — у `AvitoTokenCache`, и ставит `Authorization: Bearer`. Кэш регистрируется синглтоном: `IHttpClientFactory` пересоздаёт хендлеры каждые несколько минут, и кэш внутри хендлера запрашивал бы токен заново. На каждый `ClientId` один запрос токена за раз, параллельные запросы ждут его результат. Токен обновляется заранее, за меньшее из 5 минут и 10 % срока жизни. На любой `401` хендлер сбрасывает токен, если его ещё не заменил другой запрос, и повторяет запрос один раз. Повтор делается только для запроса без тела или с буферизованным телом (`ByteArrayContent` и наследники): поток второй раз не отправить. Без повтора токен всё равно сбрасывается, и следующий запрос получит новый. Срок жизни токена ограничен сутками. Запрос токена идёт через `base.SendAsync`, то есть через те же нижележащие хендлеры устойчивости. Ответ без `access_token`, даже со статусом 200, бросает `AvitoApiException` с телом ответа.
 
 ### Аутентификация и устойчивость
 
@@ -408,7 +488,7 @@ services.AddHttpClient<IOzonApiClient, OzonApiClient>(c =>
 | `Microsoft.Extensions.Http.Resilience` | `ProjectWarehouse.Server.csproj` | Ретраи, таймауты, circuit breaker |
 | `Quartz.Extensions.Hosting` | `ProjectWarehouse.Server.csproj` | Планировщик синхронизации |
 | `NSwag.CodeGeneration.CSharp` | `Neisvestney.Marketplaces.Generator.csproj` | Генерация клиентов |
-| `YamlDotNet` | `Neisvestney.Marketplaces.Generator.csproj` | Чтение YAML-спек (Wildberries) |
+| `YamlDotNet` | `Neisvestney.Marketplaces.Generator.csproj` | Чтение YAML-спек (Wildberries, Yandex Market) |
 
 Пакеты ядра в зависимости сервера и библиотек клиентов **не попадают**: на ядро ссылаются только скрипты генерации. Серверный проект собирается без них.
 

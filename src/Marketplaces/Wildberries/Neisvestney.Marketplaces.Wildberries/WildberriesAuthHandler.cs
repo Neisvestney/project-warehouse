@@ -8,9 +8,13 @@ public class WildberriesAuthHandler(IWildberriesCredentialsProvider credentialsP
 {
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        var apiToken = credentialsProvider.GetCredentials()?.ApiToken;
+        if (string.IsNullOrWhiteSpace(apiToken))
+            throw new InvalidOperationException("The credentials provider returned no Wildberries API token.");
+
         // Remove first: a request re-sent through this handler would otherwise carry the token twice
         request.Headers.Remove("Authorization");
-        request.Headers.TryAddWithoutValidation("Authorization", credentialsProvider.GetCredentials().ApiToken);
+        request.Headers.TryAddWithoutValidation("Authorization", apiToken);
         return base.SendAsync(request, cancellationToken);
     }
 }

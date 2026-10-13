@@ -4,7 +4,7 @@
 // Trims the Ozon Seller API spec down to the paths we actually use and generates a C# client.
 //
 //   dotnet run src/Marketplaces/Ozon/generator/generate-client.cs -- --fetch   fetch, trim, generate
-//   dotnet run src/Marketplaces/Ozon/generator/generate-client.cs              trim and generate from the raw file
+//   dotnet run src/Marketplaces/Ozon/generator/generate-client.cs              trim and generate from specs/ozon/
 //
 // The `--` separator is required, otherwise dotnet swallows --fetch as its own argument.
 
@@ -16,7 +16,7 @@ const string SpecUrl = "https://docs.ozon.ru/api/seller/swagger.json";
 const string BaseUrl = "https://api-seller.ozon.ru";
 
 var here = ScriptDirectory();
-var rawPath = Path.Combine(here, "ozon-swagger.raw.json");
+var rawPath = Path.GetFullPath(Path.Combine(here, "..", "..", "specs", "ozon", "swagger.json"));
 var trimmedPath = Path.Combine(here, "ozon-openapi.trimmed.json");
 var whitelistPath = Path.Combine(here, "paths.whitelist.json");
 var outputPath = Path.GetFullPath(Path.Combine(here, "..",
@@ -75,6 +75,7 @@ static async Task FetchAsync(string rawPath)
         return;
     }
 
+    Directory.CreateDirectory(Path.GetDirectoryName(rawPath)!);
     await File.WriteAllTextAsync(rawPath, body);
     Console.WriteLine($"Saved {body.Length / 1024} KB to {rawPath}");
 }

@@ -1,0 +1,20 @@
+{
+  "include": [
+    "POST /v2/auth/token",
+    "GET /v2/campaigns",
+    "GET /v2/campaigns/{campaignId}",
+    "POST /v1/businesses/{businessId}/orders",
+    "POST /v2/businesses/{businessId}/offer-mappings",
+    "POST /v2/businesses/{businessId}/warehouses",
+    "POST /v3/businesses/{businessId}/offers/stocks",
+    "GET /v2/campaigns/{campaignId}/orders/{orderId}/delivery/labels",
+    "GET /v2/campaigns/{campaignId}/orders/{orderId}/delivery/labels/data",
+    "GET /v2/campaigns/{campaignId}/returns"
+  ],
+  "binaryResponses": [
+    "GET /v2/campaigns/{campaignId}/orders/{orderId}/delivery/labels"
+  ],
+  "reserved": [
+    "POST /v3/businesses/{businessId}/offers/stocks/update"
+  ]
+}

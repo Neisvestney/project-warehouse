@@ -19,3 +19,4 @@ publish
 tools
 src/Marketplaces/*/generator
 src/Marketplaces/Generator
+src/Marketplaces/specs

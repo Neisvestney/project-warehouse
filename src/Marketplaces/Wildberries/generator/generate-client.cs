@@ -5,7 +5,7 @@
 // one per API host.
 //
 //   dotnet run src/Marketplaces/Wildberries/generator/generate-client.cs -- --fetch   fetch, trim, generate
-//   dotnet run src/Marketplaces/Wildberries/generator/generate-client.cs              trim and generate from raw/
+//   dotnet run src/Marketplaces/Wildberries/generator/generate-client.cs              trim and generate from specs/wildberries/
 //
 // The `--` separator is required, otherwise dotnet swallows --fetch as its own argument.
 
@@ -19,7 +19,7 @@ const string SpecUrl = "https://dev.wildberries.ru/api/swagger/yaml/ru/{0}.yaml"
 const string Namespace = "Neisvestney.Marketplaces.Wildberries";
 
 var here = ScriptDirectory();
-var rawDirectory = Path.Combine(here, "raw");
+var rawDirectory = Path.GetFullPath(Path.Combine(here, "..", "..", "specs", "wildberries"));
 var trimmedPath = Path.Combine(here, "wildberries-openapi.trimmed.json");
 var whitelistPath = Path.Combine(here, "paths.whitelist.json");
 var generatedDirectory = Path.GetFullPath(Path.Combine(here, "..", "Neisvestney.Marketplaces.Wildberries", "Generated"));

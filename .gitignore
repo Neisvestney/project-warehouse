@@ -106,3 +106,4 @@ backups/
 
 # marketplace API specs: Ozon/WB/Avito terms forbid redistributing their documentation
 tools/marketplaces/
+src/Marketplaces/specs/
