@@ -2,7 +2,7 @@ using System.Buffers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace ProjectWarehouse.Server.Integrations.Ozon.Generated;
+namespace Neisvestney.Marketplaces.Ozon;
 
 public partial class OzonApiClient
 {

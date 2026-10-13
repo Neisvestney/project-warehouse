@@ -19,6 +19,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Neisvestney.Marketplaces.Ozon;
 using PdfSharp.Fonts;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
@@ -31,7 +32,6 @@ using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using ProjectWarehouse.Server.Infrastructure.Realtime;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Integrations.Ozon;
-using ProjectWarehouse.Server.Integrations.Ozon.Generated;
 using ProjectWarehouse.Server.Integrations.Sync;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Analytics;
@@ -395,6 +395,7 @@ try
 
     // singleton: the state is ambient (AsyncLocal), and the auth handler lives in IHttpClientFactory's own scope
     builder.Services.AddSingleton<MarketplaceRequestContext>();
+    builder.Services.AddSingleton<IOzonCredentialsProvider, OzonRequestCredentials>();
     builder.Services.AddTransient<OzonAuthHandler>();
     builder.Services.AddScoped<IOzonClient, OzonClient>();
     builder.Services.AddScoped<IMarketplaceProvider, OzonMarketplaceProvider>();

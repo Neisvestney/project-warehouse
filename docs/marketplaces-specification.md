@@ -174,18 +174,23 @@ products[]          — { sku, offer_id, name, quantity, price, product_color }
 ### Конвейер
 
 ```
-tools/marketplaces/ozon/
-  ├── ozon-swagger.raw.json        — выгруженная спецификация Ozon (не коммитится)
-  ├── paths.whitelist.json         — список используемых путей + зарезервированные
-  ├── generate-client.cs           — выгрузка, обрезка, санитайзинг, генерация
-  └── ozon-openapi.trimmed.json    — результат обрезки (коммитится)
+src/Marketplaces/Ozon/
+  ├── generator/
+  │   ├── ozon-swagger.raw.json        — выгруженная спецификация Ozon (не коммитится)
+  │   ├── paths.whitelist.json         — список используемых путей + зарезервированные
+  │   ├── generate-client.cs           — выгрузка, обрезка, санитайзинг, генерация
+  │   └── ozon-openapi.trimmed.json    — результат обрезки (коммитится)
+  └── Neisvestney.Marketplaces.Ozon/   — библиотека клиента, без ссылок на сервер
+      ├── Generated/OzonApiClient.g.cs — вывод NSwag (коммитится)
+      ├── OzonApiClientSerialization.cs — partial-хуки сгенерированного клиента
+      ├── OzonAuthHandler.cs           — DelegatingHandler, подстановка заголовков
+      └── OzonCredentials.cs           — OzonCredentials + IOzonCredentialsProvider
 
 ProjectWarehouse.Server/Integrations/
   ├── Abstractions/                — провайдер-нейтральные контракты и модели
   ├── Ozon/
-  │   ├── Generated/OzonApiClient.g.cs   — вывод NSwag (коммитится)
   │   ├── OzonClient.cs                  — обёртка: пагинация, ошибки, маппинг
-  │   ├── OzonAuthHandler.cs             — DelegatingHandler, подстановка заголовков
+  │   ├── OzonRequestCredentials.cs      — IOzonCredentialsProvider поверх MarketplaceRequestContext
   │   ├── MarketplaceRequestContext.cs   — ambient-учётка для хендлера
   │   └── OzonMarketplaceProvider.cs     — реализация IMarketplaceProvider
   └── Sync/
@@ -196,6 +201,13 @@ ProjectWarehouse.Server/Integrations/
 
 Services/MarketplaceSyncService.cs      — склады, карточки, автосопоставление
 ```
+
+**Клиент — отдельная библиотека под будущий NuGet-пакет.** `src/Marketplaces/Ozon/` самодостаточна: генератор, спека и проект `Neisvestney.Marketplaces.Ozon` не ссылаются ни на что в `ProjectWarehouse.Server`, и папку можно вынести в отдельный репозиторий как есть. Граница проходит так:
+
+- **в библиотеке** — то, что нужно любому потребителю Ozon Seller API: сгенерированный клиент, его partial-хуки сериализации, `OzonAuthHandler` и контракт учётки `IOzonCredentialsProvider`. Namespace — `Neisvestney.Marketplaces.Ozon`, совпадает с именем проекта;
+- **в сервере** — всё, что знает про домен WMS: `OzonClient` с маппингом в `External*`, провайдер, ambient-контекст аккаунта, логирование ответов, категории начислений.
+
+`generator/` — соседняя с проектом папка: SDK-проект компилирует все `*.cs` внутри своей папки, поэтому file-based-скрипт с top-level statements и директивами `#:package` должен лежать вне её. Папка `generator/` исключена из Docker-контекста (`.dockerignore`), а `Dockerfile` копирует csproj библиотеки перед `dotnet restore` вместе с серверным.
 
 Весь конвейер — один **file-based-скрипт C#** (`dotnet run generate-client.cs`), возможность .NET 10 запускать одиночный `.cs`-файл без проекта и без `.csproj`. Зависимости объявляются директивами прямо в файле:
 
@@ -240,8 +252,8 @@ using System.Text.Json.Nodes;
 Запуск:
 
 ```
-dotnet run tools/marketplaces/ozon/generate-client.cs -- --fetch   # выгрузить, обрезать, сгенерировать
-dotnet run tools/marketplaces/ozon/generate-client.cs              # обрезать и сгенерировать из raw-файла
+dotnet run src/Marketplaces/Ozon/generator/generate-client.cs -- --fetch   # выгрузить, обрезать, сгенерировать
+dotnet run src/Marketplaces/Ozon/generator/generate-client.cs              # обрезать и сгенерировать из raw-файла
 ```
 
 Разделитель `--` обязателен: без него `dotnet` разберёт `--fetch` как собственный аргумент.
@@ -250,7 +262,7 @@ dotnet run tools/marketplaces/ozon/generate-client.cs              # обрез�
 
 | Настройка | Значение | Причина |
 |-----------|----------|---------|
-| `namespace` | `ProjectWarehouse.Server.Integrations.Ozon.Generated` | |
+| `namespace` | `Neisvestney.Marketplaces.Ozon` | Совпадает с именем проекта библиотеки |
 | `className` | `OzonApiClient` | |
 | `operationGenerationMode` | `SingleClientFromOperationId` | После обрезки методов немного — дробить на клиенты по тегам незачем |
 | `injectHttpClient` | `true` | Конструктор принимает `HttpClient` → работает с `IHttpClientFactory` |
@@ -264,7 +276,7 @@ dotnet run tools/marketplaces/ozon/generate-client.cs              # обрез�
 | `exceptionClass` | `OzonApiException` | Единая точка перехвата |
 | `classStyle` | `Poco` | Никакого `INotifyPropertyChanged` |
 
-`generateUpdateJsonSerializerSettingsMethod` оставлен включённым: с `false` NSwag убирает объявление partial-метода, но оставляет его вызов в конструкторе — сгенерированный файл не компилируется. Заодно это единственная точка, куда можно дошить недостающее поведение — рукописный `Integrations/Ozon/OzonApiClientSerialization.cs` реализует два partial-хука:
+`generateUpdateJsonSerializerSettingsMethod` оставлен включённым: с `false` NSwag убирает объявление partial-метода, но оставляет его вызов в конструкторе — сгенерированный файл не компилируется. Заодно это единственная точка, куда можно дошить недостающее поведение — рукописный `Neisvestney.Marketplaces.Ozon/OzonApiClientSerialization.cs` реализует два partial-хука:
 
 - `UpdateJsonSerializerSettings` — добавляет конвертер строковых enum'ов. NSwag для enum'а **внутри коллекции** конвертер не вешает (оставляет в коде `TODO(system.text.json): Add ItemConverterType...`), поэтому `working_days: ["MONDAY"]` падал с «The JSON value could not be converted». Конвертер терпимый: неизвестное значение схлопывается в значение по умолчанию, а не роняет страницу — Ozon расширяет свои enum'ы без предупреждения, а обрезанная спека в репозитории это снимок.
 - `Initialize` — включает `ReadResponseAsString`. По умолчанию NSwag читает тело потоком и кладёт в `OzonApiException.Response` **пустую строку**; в результате отказ Ozon доезжал до `MarketplaceSyncRun.Error` голым кодом статуса, без причины. Буферизовать только ошибки нельзя: `ReadObjectResponseAsync` объявлен в сгенерированной половине класса, переопределить его из своей partial-половины невозможно.
@@ -324,7 +336,7 @@ services.AddHttpClient<IOzonApiClient, OzonApiClient>(c =>
 
 `HttpClient.Timeout` **выключен**: он оборачивает весь пайплайн вместе с ретраями, и дефолтные 100 с обрывали бы серию ретраев раньше `TotalRequestTimeout` — срабатывает меньший из двух. Все таймауты — у хендлера. Настраивать их приходится явно, иначе действуют дефолты (10 с на попытку, 30 с суммарно), которые режут медленные ответы Ozon. Ограничение хендлера: `AttemptTimeout ≤ SamplingDuration / 2`, иначе валидация роняет приложение на старте.
 
-`OzonAuthHandler` читает учётные данные из `MarketplaceRequestContext`. Контекст — **синглтон поверх `AsyncLocal`**, а не scoped-сервис: `IHttpClientFactory` собирает и кеширует цепочки хендлеров в собственном DI-скоупе, поэтому scoped-контекст, внедрённый в хендлер, — **другой экземпляр**, не тот, в который писал провайдер. Ambient-значение долетает независимо от скоупов. Одна оговорка: **через `yield return` скоуп не живёт**. Запись в `AsyncLocal` протекает вниз по `await`'ам, но не наверх к вызывающему, а асинхронный итератор на каждом yield возвращает управление потребителю — следующий `MoveNextAsync` продолжает тело уже в его контексте, не выполняя присваивание повторно. Поэтому в `FetchCardsAsync` скоуп открывается не в начале метода, а вокруг каждого шага энумератора, иначе учётные данные видит только первая страница. Обычные `async`-методы с постраничным циклом (например `FetchWarehousesAsync`) этим не затронуты. Один `HttpClient` обслуживает несколько аккаунтов, значит фиксировать заголовки в `DefaultRequestHeaders` в любом случае нельзя.
+`OzonAuthHandler` живёт в библиотеке клиента и про аккаунты WMS не знает: на каждый запрос он спрашивает учётку у `IOzonCredentialsProvider`. Серверная реализация `OzonRequestCredentials` (синглтон) берёт её из `MarketplaceRequestContext` и бросает `InvalidOperationException`, если вызов сделан вне `MarketplaceRequestContext.Use(...)`. Контекст — **синглтон поверх `AsyncLocal`**, а не scoped-сервис: `IHttpClientFactory` собирает и кеширует цепочки хендлеров в собственном DI-скоупе, поэтому scoped-контекст, внедрённый в хендлер, — **другой экземпляр**, не тот, в который писал провайдер. Ambient-значение долетает независимо от скоупов. Одна оговорка: **через `yield return` скоуп не живёт**. Запись в `AsyncLocal` протекает вниз по `await`'ам, но не наверх к вызывающему, а асинхронный итератор на каждом yield возвращает управление потребителю — следующий `MoveNextAsync` продолжает тело уже в его контексте, не выполняя присваивание повторно. Поэтому в `FetchCardsAsync` скоуп открывается не в начале метода, а вокруг каждого шага энумератора, иначе учётные данные видит только первая страница. Обычные `async`-методы с постраничным циклом (например `FetchWarehousesAsync`) этим не затронуты. Один `HttpClient` обслуживает несколько аккаунтов, значит фиксировать заголовки в `DefaultRequestHeaders` в любом случае нельзя.
 
 `AddStandardResilienceHandler` (`Microsoft.Extensions.Http.Resilience`) даёт таймауты, ретраи с экспоненциальной задержкой и circuit breaker. Ozon отвечает `429` при превышении лимитов метода, и финансовые методы после этого отказывают ещё несколько секунд. Поэтому `429` ретраится отдельно от прочих транзиентных ошибок: `RateLimitRetryAttempts` (6) попыток с паузой `RateLimitRetryDelayMs` (2 с), удваивающейся на каждой следующей, — около двух минут в сумме, на столько же растёт `TotalRequestTimeout`. `Retry-After` длиннее очередной паузы побеждает её. Остальные ошибки ретраятся по умолчаниям хендлера (3 попытки, `Retry-After`, его же предикат транзиентности). Исключение — `/v1/finance/products/buyout` (`OzonClient.BuyoutReportPath`): его `429` держится десятки минут, поэтому не ретраится вовсе, а вызывающий код откладывает чтение до следующего прогона. Circuit breaker `429` не считает — это троттлинг, а не отказ площадки. Сверх этого сервис синхронизации выдерживает настраиваемую паузу между страницами.
 

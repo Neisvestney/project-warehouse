@@ -30,6 +30,7 @@ ARG APP_VERSION=
 ENV VITE_APP_VERSION=${APP_VERSION}
 WORKDIR /src
 COPY ["ProjectWarehouse.Server/ProjectWarehouse.Server.csproj", "ProjectWarehouse.Server/"]
+COPY ["src/Marketplaces/Ozon/Neisvestney.Marketplaces.Ozon/Neisvestney.Marketplaces.Ozon.csproj", "src/Marketplaces/Ozon/Neisvestney.Marketplaces.Ozon/"]
 COPY ["projectwarehouse.client/projectwarehouse.client.esproj", "projectwarehouse.client/"]
 RUN --mount=type=cache,target=/root/.nuget/packages \
     dotnet restore "ProjectWarehouse.Server/ProjectWarehouse.Server.csproj"

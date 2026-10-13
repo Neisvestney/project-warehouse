@@ -1,4 +1,4 @@
-using ProjectWarehouse.Server.Integrations.Ozon.Generated;
+using Neisvestney.Marketplaces.Ozon;
 
 namespace ProjectWarehouse.Server.Integrations.Ozon;
 

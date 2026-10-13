@@ -56,6 +56,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\src\Marketplaces\Ozon\Neisvestney.Marketplaces.Ozon\Neisvestney.Marketplaces.Ozon.csproj" />
     <ProjectReference Include="..\projectwarehouse.client\projectwarehouse.client.esproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>

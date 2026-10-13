@@ -721,6 +721,11 @@ await client.PingAsync(ct);
 The ambient value flows into the handler regardless of DI scoping. `Use` returns an `IDisposable` that restores the
 previous value rather than clearing it, so nested calls behave.
 
+A marketplace client library under `src/Marketplaces/` never reads the context itself: its auth handler asks a
+provider interface it declares (`IOzonCredentialsProvider`), and the server registers a singleton adapter over
+`MarketplaceRequestContext` (`Integrations/Ozon/OzonRequestCredentials.cs`). That keeps the library free of server
+references.
+
 **The scope does not survive a `yield return`.** An `AsyncLocal` write propagates *down* through awaits but never
 back *up* to the caller, and an async iterator hands control back at every yield: the consumer's execution context
 is restored, and the next `MoveNextAsync` resumes the body without re-running the assignment. Opening the scope at

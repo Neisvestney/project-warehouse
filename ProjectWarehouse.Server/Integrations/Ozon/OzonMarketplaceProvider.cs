@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
+using Neisvestney.Marketplaces.Ozon;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Integrations.Abstractions;
-using ProjectWarehouse.Server.Integrations.Ozon.Generated;
 
 namespace ProjectWarehouse.Server.Integrations.Ozon;
 

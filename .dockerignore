@@ -17,3 +17,4 @@ publish
 .env
 .env.*
 tools
+src/Marketplaces/*/generator

@@ -3,8 +3,8 @@
 
 // Trims the Ozon Seller API spec down to the paths we actually use and generates a C# client.
 //
-//   dotnet run tools/marketplaces/ozon/generate-client.cs -- --fetch   fetch, trim, generate
-//   dotnet run tools/marketplaces/ozon/generate-client.cs              trim and generate from the raw file
+//   dotnet run src/Marketplaces/Ozon/generator/generate-client.cs -- --fetch   fetch, trim, generate
+//   dotnet run src/Marketplaces/Ozon/generator/generate-client.cs              trim and generate from the raw file
 //
 // The `--` separator is required, otherwise dotnet swallows --fetch as its own argument.
 
@@ -20,13 +20,13 @@ var here = Path.GetDirectoryName(Environment.GetCommandLineArgs()[0]) is { Lengt
     ? d
     : AppContext.BaseDirectory;
 if (!File.Exists(Path.Combine(here, "paths.whitelist.json")))
-    here = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "tools", "marketplaces", "ozon"));
+    here = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "src", "Marketplaces", "Ozon", "generator"));
 
 var rawPath = Path.Combine(here, "ozon-swagger.raw.json");
 var trimmedPath = Path.Combine(here, "ozon-openapi.trimmed.json");
 var whitelistPath = Path.Combine(here, "paths.whitelist.json");
-var outputPath = Path.GetFullPath(Path.Combine(here, "..", "..", "..",
-    "ProjectWarehouse.Server", "Integrations", "Ozon", "Generated", "OzonApiClient.g.cs"));
+var outputPath = Path.GetFullPath(Path.Combine(here, "..",
+    "Neisvestney.Marketplaces.Ozon", "Generated", "OzonApiClient.g.cs"));
 
 if (args.Contains("--fetch"))
     await FetchAsync(rawPath);
@@ -402,7 +402,7 @@ static async Task GenerateAsync(string trimmedPath, string outputPath)
         GenerateOptionalParameters = false,
         CSharpGeneratorSettings =
         {
-            Namespace = "ProjectWarehouse.Server.Integrations.Ozon.Generated",
+            Namespace = "Neisvestney.Marketplaces.Ozon",
             GenerateNullableReferenceTypes = true,
             GenerateOptionalPropertiesAsNullable = true,
             RequiredPropertiesMustBeDefined = false,

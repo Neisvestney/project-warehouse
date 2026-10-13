@@ -3,10 +3,10 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
+using Neisvestney.Marketplaces.Ozon;
 using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using ProjectWarehouse.Server.Integrations.Abstractions;
-using ProjectWarehouse.Server.Integrations.Ozon.Generated;
 
 namespace ProjectWarehouse.Server.Integrations.Ozon;
 

@@ -1,16 +1,14 @@
-namespace ProjectWarehouse.Server.Integrations.Ozon;
+namespace Neisvestney.Marketplaces.Ozon;
 
 /// <summary>
 /// Supplies Client-Id / Api-Key. The generated client cannot: both headers are stripped from the spec
 /// during generation so they never leak into every method signature.
 /// </summary>
-public class OzonAuthHandler(MarketplaceRequestContext context) : DelegatingHandler
+public class OzonAuthHandler(IOzonCredentialsProvider credentialsProvider) : DelegatingHandler
 {
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        var credentials = context.Credentials
-            ?? throw new InvalidOperationException(
-                "No marketplace credentials in scope. Call IOzonClient inside MarketplaceRequestContext.Use(...).");
+        var credentials = credentialsProvider.GetCredentials();
 
         if (!string.IsNullOrEmpty(credentials.ClientId))
             request.Headers.TryAddWithoutValidation("Client-Id", credentials.ClientId);
