@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using EntityFrameworkCore.Projectables;
 using ProjectWarehouse.Server.Infrastructure;
 
@@ -44,6 +45,26 @@ public class CatalogItem : IHasIdentity
     [Projectable] public string? EffectiveNotes => Notes ?? (Group != null ? Group.Notes : null);
 
     [Projectable] public string EffectiveLabelText => LabelText ?? Article;
+
+    // PostgreSQL ARE syntax, kept ASCII-only so the SQL log stays readable; any non-space whitespace or invisible char
+    internal const string IrregularWhitespacePattern =
+        @"[\t\n\r\v\f\u0085\u00A0\u00AD\u1680\u2000-\u200F\u2028\u2029\u202F\u205F\u2060\u3000\uFEFF]";
+
+    internal const string TextWhitespaceIssuePattern = @"^[ ]|[ ]$|[ ]{2}|" + IrregularWhitespacePattern;
+
+    internal const string CodeWhitespaceIssuePattern = @"[ ]|" + IrregularWhitespacePattern;
+
+    [Projectable]
+    public bool HasOwnWhitespaceIssues =>
+        Regex.IsMatch(Name, TextWhitespaceIssuePattern) ||
+        Regex.IsMatch(Article, TextWhitespaceIssuePattern) ||
+        (LabelText != null && Regex.IsMatch(LabelText, TextWhitespaceIssuePattern)) ||
+        (Barcode != null && Regex.IsMatch(Barcode, CodeWhitespaceIssuePattern)) ||
+        (Gtin != null && Regex.IsMatch(Gtin, CodeWhitespaceIssuePattern));
+
+    /// <summary>A product group counts its children too, since the catalog list shows only the group.</summary>
+    [Projectable]
+    public bool HasWhitespaceIssues => HasOwnWhitespaceIssues || GroupChildren.Any(c => c.HasOwnWhitespaceIssues);
 
     [Projectable]
     public string SearchString => (Name ?? "") + " " + (Article ?? "") + " " + (Barcode ?? "") + " " + (Gtin ?? "") + " " + (Description ?? "") +

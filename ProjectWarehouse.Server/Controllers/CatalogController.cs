@@ -85,15 +85,16 @@ public class CatalogController(
     /// <remarks>
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 200), <c>searchString</c>,
     /// <c>sortBy</c> (default <c>Name</c>), <c>sortOrder</c> (default <c>Asc</c>), <c>itemTypes</c>,
-    /// <c>tagIds</c> (any of them), <c>excludedTagIds</c> (none of them), <c>isArchived</c>. Archived items always
-    /// sort last, whatever <c>sortBy</c> says.
+    /// <c>tagIds</c> (any of them), <c>excludedTagIds</c> (none of them), <c>isArchived</c>, <c>whitespaceIssues</c>
+    /// (only items counted by <see cref="CatalogListMetaDto.WhitespaceIssueCount"/>). Archived items always sort
+    /// last, whatever <c>sortBy</c> says.
     /// Product-group children (<c>groupId != null</c>) are excluded — this is the catalog tree, and a child is
     /// reached through its group. Use <see cref="GetForSelect"/> when children must be pickable.
     /// Requires <c>catalog.view</c>. No error codes beyond 403 <c>permissionDenied</c>.
     /// </remarks>
     [HttpGet]
     [Authorize(Policy = Permissions.Catalog.View)]
-    [ProducesResponseType<Paginated<CatalogItemSummaryDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PaginatedWithMeta<CatalogItemSummaryDto, CatalogListMetaDto>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(
         [FromQuery][Range(1, int.MaxValue)] int page = 1,
         [FromQuery][Range(1, 200)] int pageSize = 20,
@@ -104,32 +105,35 @@ public class CatalogController(
         [FromQuery] IReadOnlyList<Guid>? tagIds = null,
         [FromQuery] IReadOnlyList<Guid>? excludedTagIds = null,
         [FromQuery] bool? isArchived = null,
+        [FromQuery] bool whitespaceIssues = false,
         CancellationToken ct = default)
     {
-        var baseQuery = db.CatalogItems
+        var facetQuery = db.CatalogItems
             .Where(c => c.GroupId == null)
             .WhereMatchesSearch(c => c.SearchString, searchString, fuzzy: true);
 
         if (itemTypes != null && itemTypes.Count > 0)
         {
-            baseQuery = baseQuery.Where(c => itemTypes.Contains(c.Type));
+            facetQuery = facetQuery.Where(c => itemTypes.Contains(c.Type));
         }
 
         if (tagIds != null && tagIds.Count > 0)
         {
-            baseQuery = baseQuery.Where(c => c.Tags.Any(t => tagIds.Contains(t.Id)));
+            facetQuery = facetQuery.Where(c => c.Tags.Any(t => tagIds.Contains(t.Id)));
         }
 
         if (excludedTagIds != null && excludedTagIds.Count > 0)
         {
-            baseQuery = baseQuery.Where(c => !c.Tags.Any(t => excludedTagIds.Contains(t.Id)));
+            facetQuery = facetQuery.Where(c => !c.Tags.Any(t => excludedTagIds.Contains(t.Id)));
         }
 
         if (isArchived != null)
         {
-            baseQuery = baseQuery.Where(c => c.IsArchived == isArchived.Value);
+            facetQuery = facetQuery.Where(c => c.IsArchived == isArchived.Value);
         }
-            
+
+        var baseQuery = whitespaceIssues ? facetQuery.Where(c => c.HasWhitespaceIssues) : facetQuery;
+
         var orderedQuery = baseQuery
             .OrderBy(c => c.IsArchived);
 
@@ -141,11 +145,20 @@ public class CatalogController(
             _                     => orderedQuery.ThenSort(c => c.FullName, sortOrder).ThenBy(c => c.Id),
         };
 
+        // one grouping gives both the total and the counter, sparing a COUNT that re-runs the search
+        var facets = await facetQuery
+            .GroupBy(c => c.HasWhitespaceIssues)
+            .Select(g => new { HasIssues = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+
+        var issueCount = facets.Where(f => f.HasIssues).Sum(f => f.Count);
+        var total = whitespaceIssues ? issueCount : facets.Sum(f => f.Count);
+
         var paginated = await query
             .ProjectTo<CatalogItemSummaryDto>(mapper.ConfigurationProvider)
-            .ToPaginatedAsync(page, pageSize, ct);
+            .ToPaginatedAsync(page, pageSize, total, ct);
 
-        return Ok(paginated);
+        return Ok(paginated.WithMeta(new CatalogListMetaDto { WhitespaceIssueCount = issueCount }));
     }
 
     /// <summary>Get a flat list of catalog items for use in select/autocomplete controls.</summary>

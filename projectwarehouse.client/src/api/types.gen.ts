@@ -728,6 +728,10 @@ export type CatalogItemDto = {
   labelText?: null | string;
   effectiveLabelText: string;
   isArchived: boolean;
+  /**
+   * Same rule as the catalog list's `whitespaceIssues` filter; a group counts its children too.
+   */
+  hasWhitespaceIssues: boolean;
   groupId?: null | string;
   groupName?: null | string;
   tags: Array<CatalogItemTagDto>;
@@ -797,6 +801,18 @@ export type CatalogItemTagDto = {
 };
 
 export type CatalogItemType = "standard" | "unit" | "productGroup" | "variation" | "bundle";
+
+/**
+ * Aggregates of the whole filtered catalog list.
+ */
+export type CatalogListMetaDto = {
+  /**
+   * Items whose name, article or label text has leading, trailing, doubled or irregular whitespace, or whose
+   * barcode or GTIN contains any whitespace; a product group counts its children too. Ignores the
+   * `whitespaceIssues` filter so the counter stays visible while it is applied.
+   */
+  whitespaceIssueCount: number;
+};
 
 export type CatalogSortBy = "name" | "article" | "barcode" | "type";
 
@@ -2302,16 +2318,6 @@ export type PaginatedOfAbcItemDto = {
   hasPreviousPage: boolean;
 };
 
-export type PaginatedOfCatalogItemSummaryDto = {
-  items: Array<CatalogItemSummaryDto>;
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-};
-
 export type PaginatedOfChangeLogEntryDto = {
   items: Array<ChangeLogEntryDto>;
   total: number;
@@ -2434,6 +2440,20 @@ export type PaginatedOfUserDetailDto = {
 
 export type PaginatedOfWarehouseSummaryDto = {
   items: Array<WarehouseSummaryDto>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
+/**
+ * A page plus aggregates computed over the whole filtered set, not just the page.
+ */
+export type PaginatedWithMetaOfCatalogItemSummaryDtoAndCatalogListMetaDto = {
+  meta: CatalogListMetaDto;
+  items: Array<CatalogItemSummaryDto>;
   total: number;
   page: number;
   pageSize: number;
@@ -5554,6 +5574,7 @@ export type CatalogGetAllData = {
     tagIds?: Array<string>;
     excludedTagIds?: Array<string>;
     isArchived?: boolean;
+    whitespaceIssues?: boolean;
   };
   url: "/api/catalog";
 };
@@ -5575,7 +5596,7 @@ export type CatalogGetAllResponses = {
   /**
    * OK
    */
-  200: PaginatedOfCatalogItemSummaryDto;
+  200: PaginatedWithMetaOfCatalogItemSummaryDtoAndCatalogListMetaDto;
 };
 
 export type CatalogGetAllResponse = CatalogGetAllResponses[keyof CatalogGetAllResponses];

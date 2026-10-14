@@ -90,6 +90,12 @@ function CatalogPage() {
     (v) => (v === false ? null : String(v)),
   );
 
+  const [whitespaceIssues, setWhitespaceIssues] = useSyncedWithQueryState<boolean>(
+    "whitespaceIssues",
+    (q) => q === "1",
+    (v) => (v ? "1" : null),
+  );
+
   const {fetchParams, page, setPage, pageSize, setPageSize} = usePaginatedParams(
     {},
     [],
@@ -101,8 +107,9 @@ function CatalogPage() {
       tagIds: tagFilter.include.length > 0 ? tagFilter.include : undefined,
       excludedTagIds: tagFilter.exclude.length > 0 ? tagFilter.exclude : undefined,
       isArchived: isArchived ?? undefined,
+      whitespaceIssues: whitespaceIssues || undefined,
     },
-    [searchString, sortBy, sortOrder, itemTypes, tagFilter, isArchived],
+    [searchString, sortBy, sortOrder, itemTypes, tagFilter, isArchived, whitespaceIssues],
   );
 
   // Empty type selection can't be expressed server-side (no types == no filter), so match nothing here
@@ -217,6 +224,15 @@ function CatalogPage() {
           actions={selectionActions}
           info={[
             {key: "total", label: "Всего:", value: (data?.total ?? 0).toLocaleString("ru-RU")},
+            {
+              key: "whitespaceIssues",
+              label: "Лишние пробелы:",
+              value: (data?.meta.whitespaceIssueCount ?? 0).toLocaleString("ru-RU"),
+              color: "error.main",
+              hidden: !isLoading && !data?.meta.whitespaceIssueCount && !whitespaceIssues,
+              onClick: () => setWhitespaceIssues(!whitespaceIssues),
+              active: whitespaceIssues,
+            },
           ]}
           infoLoading={isLoading}
         />

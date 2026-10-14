@@ -16,6 +16,8 @@ public class CatalogItemDtoChangelogService(IChangeLogService changeLogService) 
         // MainImage is the *effective* value: without this, changing the group's photo would log a
         // phantom edit on every child. The item's own MainImageFileId still diffs.
         logic.Config.MembersToIgnore.Add($"{nameof(CatalogItemDto)}.{nameof(CatalogItemDto.MainImage)}");
+        // derived from the text fields, whose own diffs already record the edit
+        logic.Config.MembersToIgnore.Add($"{nameof(CatalogItemDto)}.{nameof(CatalogItemDto.HasWhitespaceIssues)}");
 
         // In the images list keep which file is attached and drop the rest of its metadata — file
         // names and upload timestamps are not edits to the catalog item.

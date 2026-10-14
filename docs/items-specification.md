@@ -336,6 +336,20 @@ already merged them into each child's own set.
 
 Archived items are always sorted last regardless of `sortBy`.
 
+### Whitespace issues
+
+Text pasted from marketplaces and spreadsheets brings stray whitespace that breaks exact matching against
+marketplace cards and makes two items look identical. `CatalogItem.HasWhitespaceIssues` flags an item whose
+`Name`, `Article` or `LabelText` has a leading or trailing space, two spaces in a row, or any whitespace other
+than a plain space (tab, line break, NBSP, soft hyphen, zero-width and direction marks), and one whose
+`Barcode` or `Gtin` contains whitespace at all. Because the management list hides group children, a ProductGroup
+is flagged when any of its children is. The patterns are written with `\uXXXX` escapes so the source and the
+logged SQL stay ASCII, and use only syntax PostgreSQL ARE and .NET `Regex` read the same way: the list query runs
+them in the database, while `CatalogItemDto.HasWhitespaceIssues` evaluates the same `[Projectable]` in memory on
+an entity loaded with its `GroupChildren`. `GET /api/catalog` returns the count in `meta.whitespaceIssueCount`,
+computed without its own `whitespaceIssues` filter; the catalog page shows it as a clickable counter that applies
+the filter, and the item drawer shows a warning above the edit buttons.
+
 ---
 
 ## Type Immutability

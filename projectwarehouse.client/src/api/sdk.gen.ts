@@ -1254,8 +1254,9 @@ export const catalogCreateTag = <ThrowOnError extends boolean = false>(
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 200), `searchString`,
  * `sortBy` (default `Name`), `sortOrder` (default `Asc`), `itemTypes`,
- * `tagIds` (any of them), `excludedTagIds` (none of them), `isArchived`. Archived items always
- * sort last, whatever `sortBy` says.
+ * `tagIds` (any of them), `excludedTagIds` (none of them), `isArchived`, `whitespaceIssues`
+ * (only items counted by int CatalogListMetaDto.WhitespaceIssueCount). Archived items always sort
+ * last, whatever `sortBy` says.
  * Product-group children (`groupId != null`) are excluded — this is the catalog tree, and a child is
  * reached through its group. Use Task&lt;IActionResult&gt; CatalogController.GetForSelect(string? searchString = null, IReadOnlyList&lt;CatalogItemType&gt;? types = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, IReadOnlyList&lt;Guid&gt;? excludedTagIds = null, int take = 10, CancellationToken ct = default(CancellationToken)) when children must be pickable.
  * Requires `catalog.view`. No error codes beyond 403 `permissionDenied`.
@@ -1298,7 +1299,7 @@ export const catalogCreate = <ThrowOnError extends boolean = false>(
  * Get a flat list of catalog items for use in select/autocomplete controls.
  *
  * Query params: `searchString`, `types`, `tagIds`, `excludedTagIds`, `take` (default 10, max 200).
- * Unlike Task&lt;IActionResult&gt; CatalogController.GetAll(int page = 1, int pageSize = 20, string? searchString = null, CatalogSortBy sortBy = CatalogSortBy.Name, SortOrder sortOrder = SortOrder.Asc, IReadOnlyList&lt;CatalogItemType&gt;? itemTypes = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, IReadOnlyList&lt;Guid&gt;? excludedTagIds = null, bool? isArchived = null, CancellationToken ct = default(CancellationToken)), product-group children are included — a picker must be able to reach them.
+ * Unlike Task&lt;IActionResult&gt; CatalogController.GetAll(int page = 1, int pageSize = 20, string? searchString = null, CatalogSortBy sortBy = CatalogSortBy.Name, SortOrder sortOrder = SortOrder.Asc, IReadOnlyList&lt;CatalogItemType&gt;? itemTypes = null, IReadOnlyList&lt;Guid&gt;? tagIds = null, IReadOnlyList&lt;Guid&gt;? excludedTagIds = null, bool? isArchived = null, bool whitespaceIssues = false, CancellationToken ct = default(CancellationToken)), product-group children are included — a picker must be able to reach them.
  * `searchString` is fuzzy. Archived items are returned too, always after active ones; within each group
  * results are ordered by search relevance, then by name.
  * Requires `catalog.view`. No error codes beyond 403 `permissionDenied`.
@@ -1542,7 +1543,7 @@ export const eventsGetEvents = <ThrowOnError extends boolean = false>(
  * Every error is a 422 bound to the `file` field:
  * * dataFileEmpty — no file part, or zero bytes
  * * dataFileTooLarge — over DataFiles:MaxFileSizeBytes; args: maxBytes
- * * dataFileTypeNotAllowed — the declared content type is not in DataFiles:AllowedContentTypes, does not match the leading bytes, or the declared image could not be decoded; args: allowed (comma-separated list)
+ * * dataFileTypeNotAllowed — the declared content type is not in DataFiles:AllowedContentTypes, does not match the leading bytes, the declared image could not be decoded, or it exceeds DataFiles:MaxImagePixels; args: allowed (comma-separated list)
  * * dataFileStorageError — the bytes were written but the metadata row was not; the bytes are removed again
  * Requires authentication only.
  */

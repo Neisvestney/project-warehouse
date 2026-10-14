@@ -19,6 +19,10 @@ public class CatalogItemDto : IHasIdentity
     public string? LabelText { get; init; }
     public string EffectiveLabelText { get; init; } = null!;
     public bool IsArchived { get; init; }
+
+    /// <summary>Same rule as the catalog list's <c>whitespaceIssues</c> filter; a group counts its children too.</summary>
+    public bool HasWhitespaceIssues { get; init; }
+
     public Guid? GroupId { get; init; }
     public string? GroupName { get; init; }
     public IReadOnlyList<CatalogItemTagDto> Tags { get; init; } = [];

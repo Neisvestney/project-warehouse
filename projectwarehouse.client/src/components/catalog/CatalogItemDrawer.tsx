@@ -643,6 +643,14 @@ function ViewMode({
             </>
           )}
 
+          {data.hasWhitespaceIssues && (
+            <Alert severity="warning">
+              Лишние пробелы или невидимые символы в названии, артикуле, тексте этикетки, штрихкоде
+              или GTIN{data.children.length > 0 ? " группы или её позиций" : ""}. Исправьте их
+              {data.groupId ? " при редактировании группы" : " через «Редактировать»"}.
+            </Alert>
+          )}
+
           {/* Actions */}
           {canEdit && !data.groupId && (
             <Stack direction="row" spacing={1} sx={{pt: 1}}>
