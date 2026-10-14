@@ -41,7 +41,7 @@ function DownloadOrderLabelButton({orderId, marketplaceOrder}: DownloadOrderLabe
       {canDownload ? (
         button
       ) : (
-        <Tooltip title="Этикетка ещё не скачана, а отправление уже не ожидает отгрузки">
+        <Tooltip title="Этикетка ещё не скачана, а отправление не в статусе «ожидает отгрузки»">
           <span>{button}</span>
         </Tooltip>
       )}

@@ -173,7 +173,7 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
     "Маркетплейс изменил формат этикетки — печать остановлена, повторять бесполезно. Сообщите разработчикам",
   marketplaceOrderNotFromMarketplace: "Среди выбранных есть заказ не с маркетплейса",
   marketplaceOrderNotAwaitingDeliver:
-    "Этикетка ещё не скачана, а отправление уже не ожидает отгрузки",
+    "Этикетка ещё не скачана, а отправление не в статусе «ожидает отгрузки»",
   marketplaceOrderCardNotMapped: "Товар заказа не привязан к позиции каталога",
   marketplaceOrderWarehouseNotMapped: "Склад отправления не привязан к складу WMS",
   marketplaceOrderDraftNotRefreshed:
