@@ -125,7 +125,7 @@ function StocktakesPage() {
   const {data, isLoading, isFetching, refetch} = useQuery(
     stocktakesGetAllOptions({query: fetchParams}),
   );
-  // the tabs keep their last numbers through a refetch instead of collapsing and shifting
+  // the badges keep their last width under the skeleton through a refetch instead of collapsing
   const [statusCounts] = useRetainedValue(data?.meta.statusCounts);
 
   const {
@@ -220,6 +220,7 @@ function StocktakesPage() {
         statuses={ALL_STATUSES}
         labels={STOCKTAKE_STATUS_LABELS}
         counts={statusCounts ?? undefined}
+        loading={isFetching}
       />
       <FiltersBar activeCount={[warehouseId, isTagFilterActive(tagFilter)].filter(Boolean).length}>
         <WarehousesSelect

@@ -13,13 +13,15 @@ interface StatusTabsProps<T extends string> {
   labels: Record<T, string>;
   /** From the list endpoint's `meta.statusCounts`; omitted while nothing has loaded yet. */
   counts?: StatusCount<T>[];
+  /** Covers every badge with a skeleton while the list is fetching, even over retained counts. */
+  loading?: boolean;
 }
 
-function CountBadge({count}: {count: number | undefined}) {
+function CountBadge({count, loading}: {count: number | undefined; loading: boolean}) {
   // same box as the badge, so the tabs keep their width when the numbers arrive
   if (count === undefined)
     return <Skeleton variant="rounded" width={24} height={20} sx={{borderRadius: 1}} />;
-  return (
+  const badge = (
     <Box
       component="span"
       sx={{
@@ -35,6 +37,14 @@ function CountBadge({count}: {count: number | undefined}) {
       {count.toLocaleString("ru-RU")}
     </Box>
   );
+  // a skeleton with children takes their size, so the tab keeps the retained number's width
+  return loading ? (
+    <Skeleton variant="rounded" sx={{borderRadius: 1}}>
+      {badge}
+    </Skeleton>
+  ) : (
+    badge
+  );
 }
 
 function StatusTabs<T extends string>({
@@ -43,6 +53,7 @@ function StatusTabs<T extends string>({
   statuses,
   labels,
   counts,
+  loading = false,
 }: StatusTabsProps<T>) {
   const countOf = (status: T) => counts?.find((c) => c.status === status)?.count;
   const total = counts?.reduce((sum, c) => sum + c.count, 0);
@@ -50,7 +61,7 @@ function StatusTabs<T extends string>({
   const label = (text: string, count: number | undefined) => (
     <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
       <span>{text}</span>
-      <CountBadge count={count} />
+      <CountBadge count={count} loading={loading} />
     </Stack>
   );
 

@@ -414,10 +414,12 @@ The status filter of a document list (orders, receipts, write-offs, stocktakes) 
 and honours every other one, so a tab shows how many documents the list would hold if picked; «Все» is their
 sum, and a zero badge is greyed out. The value lives in the `status` URL param, `""` standing for «Все».
 
-Wire `counts` through `useRetainedValue(data?.meta.statusCounts)`: the list query has no placeholder data, so
-without it every filter change would drop the badges for the length of the request and the tabs would jump in
-width. Before the first response there is nothing to retain, so each badge is a skeleton of the badge's own
-size. The tabs are `scrollable`, which keeps five or six statuses usable on a phone.
+Pass the list query's `isFetching` as `loading`: while any request is in flight — a tab switch, a filter change,
+a background refetch — every badge is covered by a skeleton, even when the counts come from cache. Wire `counts`
+through `useRetainedValue(data?.meta.statusCounts)`: the list query has no placeholder data, and the skeleton
+wraps the retained badge and takes its size, so the tabs keep their width through the request. Before the first
+response there is nothing to retain, so each badge is a skeleton of the badge's own size. The tabs are
+`scrollable`, which keeps five or six statuses usable on a phone.
 
 ### `BulkBar`
 
