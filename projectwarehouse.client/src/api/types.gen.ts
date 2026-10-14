@@ -1532,7 +1532,9 @@ export type ErrorCode =
   | "catalogItemGtinInvalid"
   | "catalogItemGtinDuplicate"
   | "orderNotFbs"
-  | "orderCompositionLocked";
+  | "orderCompositionLocked"
+  | "orderIsMarketplaceDraft"
+  | "marketplaceOrderDraftNotRefreshed";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -1814,6 +1816,53 @@ export type MarketplaceCardSortBy = "name" | "offerId" | "price" | "syncedAt";
 export type MarketplaceMappingSource = "manual" | "autoOfferId" | "autoBarcode" | "rule";
 
 /**
+ * Marketplace side of an order on its own page — the list has no use for the parcels.
+ */
+export type MarketplaceOrderDetailsDto = {
+  /**
+   * By place number; every marketplace order has at least one.
+   */
+  parcels: Array<MarketplaceParcelDto>;
+  marketplaceAccountId: string;
+  marketplaceAccountName: string;
+  marketplaceType: MarketplaceType;
+  postingNumber: string;
+  externalOrderNumber?: null | string;
+  status: MarketplaceOrderStatus;
+  /**
+   * When a sync first saw the posting delivered, to within the sync interval; null if imported delivered.
+   */
+  deliveredAt?: null | string;
+  /**
+   * Same as DateTime? MarketplaceOrderDto.DeliveredAt, for cancelled.
+   */
+  cancelledAt?: null | string;
+  rawStatus?: null | string;
+  rawSubstatus?: null | string;
+  /**
+   * Null while the posting is alive; `true` when it was cancelled after being shipped.
+   */
+  cancelledAfterShip?: null | boolean;
+  cancellationType?: null | MarketplaceCancellationType;
+  rawCancellationType?: null | string;
+  cancelReason?: null | string;
+  /**
+   * Whether the buyer sent the order back, fully or in part.
+   */
+  returnState: MarketplaceOrderReturnState;
+  shipmentDate?: null | string;
+  inProcessAt?: null | string;
+  trackingNumber?: null | string;
+  deliveryMethodName?: null | string;
+  multiBoxQty: number;
+  /**
+   * Barcode printed on the marketplace label. Null until the posting has been packed.
+   */
+  ozonScanitBarcode?: null | string;
+  statusSyncedAt: string;
+};
+
+/**
  * Marketplace side of an order, inlined into the order DTOs — the entity has no page of its own.
  */
 export type MarketplaceOrderDto = {
@@ -1852,13 +1901,7 @@ export type MarketplaceOrderDto = {
   /**
    * Barcode printed on the marketplace label. Null until the posting has been packed.
    */
-  scanitBarcode?: null | string;
-  /**
-   * Set once the label has been printed; downloadable through /api/files/{id}/content.
-   */
-  labelFileId?: null | string;
-  labelFetchedAt?: null | string;
-  labelError?: null | AppFieldError;
+  ozonScanitBarcode?: null | string;
   statusSyncedAt: string;
 };
 
@@ -1873,7 +1916,14 @@ export type MarketplaceOrderReturnState = "none" | "partial" | "full";
  * must not look like a working one.
  */
 export type MarketplaceOrderStatus =
-  "unknown" | "awaitingDeliver" | "delivering" | "delivered" | "cancelled" | "arbitration";
+  | "unknown"
+  | "awaitingDeliver"
+  | "delivering"
+  | "delivered"
+  | "cancelled"
+  | "arbitration"
+  | "awaitingPackaging"
+  | "split";
 
 /**
  * An account offered in the "sync orders" dialog.
@@ -1888,6 +1938,23 @@ export type MarketplaceOrderSyncTargetDto = {
   mappedWarehouseCount: number;
   unmappedWarehouseCount: number;
   unmappedCardCount: number;
+};
+
+/**
+ * A place of the posting that leaves with a label of its own.
+ */
+export type MarketplaceParcelDto = {
+  id: string;
+  index: number;
+  externalId?: null | string;
+  barcode?: null | string;
+  orderBoxId?: null | string;
+  /**
+   * Set once the label has been printed; downloadable through /api/files/{id}/content.
+   */
+  labelFileId?: null | string;
+  labelFetchedAt?: null | string;
+  labelError?: null | AppFieldError;
 };
 
 /**
@@ -1963,6 +2030,10 @@ export type MarketplaceSyncRunDto = {
   ordersProcessed: number;
   ordersCreated: number;
   ordersUpdated: number;
+  /**
+   * FBS drafts the working import put to work.
+   */
+  ordersConfirmed: number;
   ordersSkipped: number;
   /**
    * Capped at 100; int MarketplaceSyncRunDto.OrdersSkipped is the true total. Empty, never null.
@@ -2137,7 +2208,7 @@ export type OrderDetailsDto = {
   warehouseName?: null | string;
   createdById?: null | string;
   createdByName?: null | string;
-  marketplaceOrder?: null | MarketplaceOrderDto;
+  marketplaceOrder?: null | MarketplaceOrderDetailsDto;
   marketplaceItems: Array<OrderMarketplaceItemDto>;
   /**
    * Every return reported for the posting, cancelled requests included, by return date.
@@ -2175,6 +2246,11 @@ export type OrderListMetaDto = {
    * Total quantity of box components across the filtered orders.
    */
   componentCount: number;
+  /**
+   * Orders with a marketplace line not mapped to the catalog — what keeps an FBS draft from going to work.
+   * Counted only for the FBS drafts list (`type=fbs`, `status=draft`), 0 for any other.
+   */
+  unmappedOrderCount: number;
   /**
    * Orders past their planned shipment date that are not assembled yet. Ignores the `overdue` filter so
    * both counters stay visible while one of them is applied.
@@ -3255,7 +3331,7 @@ export type SetWarehouseMappingRequest = {
 };
 
 /**
- * Why a posting did not become an order. Lives in Models for the same reason as
+ * Why an FBS draft did not become a working order. Lives in Models for the same reason as
  * AppFieldError: the entity stores it as jsonb and the DTO hands it out unchanged.
  */
 export type SkippedOrderInfo = {
@@ -3265,7 +3341,7 @@ export type SkippedOrderInfo = {
    */
   reason: ErrorCode;
   /**
-   * Seller articles that caused the skip; empty when the warehouse was the problem.
+   * Seller articles that caused the skip; empty for any other reason.
    */
   offerIds: Array<string>;
 };
@@ -7180,6 +7256,7 @@ export type OrdersGetAllData = {
     tagIds?: Array<string>;
     excludedTagIds?: Array<string>;
     overdue?: OrderOverdueKind;
+    unmapped?: boolean;
     sortBy?: OrderSortBy;
     sortOrder?: SortOrder;
   };
@@ -7973,6 +8050,10 @@ export type OrdersUpdateBoxErrors = {
    * Conflict
    */
   409: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
 };
 
 export type OrdersUpdateBoxError = OrdersUpdateBoxErrors[keyof OrdersUpdateBoxErrors];

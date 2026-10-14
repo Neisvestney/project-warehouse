@@ -122,6 +122,8 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   orderBoxNotFound: "Коробка заказа не найдена",
   orderBoxComponentNotFound: "Компонент коробки не найден",
   orderIsExternal: "Заказ пришёл с площадки и в складе не обрабатывается",
+  orderIsMarketplaceDraft:
+    "Черновик FBS ведёт синхронизация: в работу он перейдёт сам, когда площадка оформит сборку",
   orderHasAssemblyTasks: "У заказа уже есть задания на сборку",
   orderNotFbs: "Привязку обновляют только у заказов FBS",
   orderCompositionLocked:
@@ -174,6 +176,8 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
     "Этикетка ещё не скачана, а отправление уже не ожидает отгрузки",
   marketplaceOrderCardNotMapped: "Товар заказа не привязан к позиции каталога",
   marketplaceOrderWarehouseNotMapped: "Склад отправления не привязан к складу WMS",
+  marketplaceOrderDraftNotRefreshed:
+    "Площадка не вернула отправление в списке на сборку — состав не обновлён, черновик ждёт следующей синхронизации",
   realtimeConnectionUnknown: "Соединение обновлений разорвано — переподключаемся",
   editLockHeld: "Объект сейчас редактирует другой пользователь",
   editLockNotHeld: "Блокировка редактирования уже снята",

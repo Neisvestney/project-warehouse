@@ -74,8 +74,9 @@ public class EventsController(
                     Type = AppEntityType.FbsOrdersGrouped,
                     AdditionalFields = new Dictionary<string, object>
                     {
-                        { "totalOrders", x.Count(o => o.Status != OrderStatus.Draft) },
-                        { "completedOrders", x.Where(x => x.TerminalStatus).Count(o => o.Status != OrderStatus.Draft) },
+                        // FBS drafts count too: the calendar shows the flow of postings to the warehouse
+                        { "totalOrders", x.Count() },
+                        { "completedOrders", x.Count(o => o.TerminalStatus) },
                     },
                 },
                 StartDate = x.Key,

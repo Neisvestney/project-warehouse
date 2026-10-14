@@ -86,7 +86,10 @@ function OrderPage() {
   const canAssemble = hasAssemblePermission && isAssignedToWarehouse;
   // Внешний заказ — только запись о продаже на площадке: собирать и двигать по статусам нечего,
   // заметки и вложения остаются. Те же запреты держит сервер (orderIsExternal).
-  const canWork = canEdit && !query.data?.isExternal;
+  // Черновик FBS ведёт синхронизация: в работу его переводит импорт, состав пересобирается из отправления
+  // (orderIsMarketplaceDraft).
+  const isMarketplaceDraft = query.data?.type === "fbs" && query.data.status === "draft";
+  const canWork = canEdit && !query.data?.isExternal && !isMarketplaceDraft;
 
   const refreshOrder = useCallback(() => {
     void queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: id!}})});

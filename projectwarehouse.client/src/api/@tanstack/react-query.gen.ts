@@ -3770,7 +3770,10 @@ export const ordersGetAllQueryKey = (options?: Options<OrdersGetAllData>) =>
  * Query params: `page` (default 1), `pageSize` (default 20, max 500), `searchString`,
  * `warehouseId`, `type`, `status`, `marketplaceType`, `marketplaceAccountId`,
  * `marketplaceStatus`, `includeExternal` (default false), `catalogItemIds`, `tagIds`,
- * `excludedTagIds`, `overdue`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * `excludedTagIds`, `overdue`, `unmapped` (default false), `sortBy` (default `Number`),
+ * `sortOrder` (default `Desc`).
+ * `unmapped` keeps orders with a marketplace line not bound to a catalog item; it applies to every count in
+ * `meta`, so `unmappedOrderCount` then equals the total.
  * `overdue` keeps orders past their planned shipment date: `Assembly` — not assembled yet (draft,
  * confirmed, assembly), `Shipment` — assembled but not shipped. In `meta` the status counts ignore
  * the `status` filter and the overdue counts ignore the `overdue` filter; every other filter applies.
@@ -3813,7 +3816,10 @@ export const ordersGetAllInfiniteQueryKey = (
  * Query params: `page` (default 1), `pageSize` (default 20, max 500), `searchString`,
  * `warehouseId`, `type`, `status`, `marketplaceType`, `marketplaceAccountId`,
  * `marketplaceStatus`, `includeExternal` (default false), `catalogItemIds`, `tagIds`,
- * `excludedTagIds`, `overdue`, `sortBy` (default `Number`), `sortOrder` (default `Desc`).
+ * `excludedTagIds`, `overdue`, `unmapped` (default false), `sortBy` (default `Number`),
+ * `sortOrder` (default `Desc`).
+ * `unmapped` keeps orders with a marketplace line not bound to a catalog item; it applies to every count in
+ * `meta`, so `unmappedOrderCount` then equals the total.
  * `overdue` keeps orders past their planned shipment date: `Assembly` — not assembled yet (draft,
  * confirmed, assembly), `Shipment` — assembled but not shipped. In `meta` the status counts ignore
  * the `status` filter and the overdue counts ignore the `overdue` filter; every other filter applies.
@@ -3935,7 +3941,8 @@ export const ordersGetAssemblyByIdOptions = (options: Options<OrdersGetAssemblyB
 /**
  * Delete an order. Only allowed in Draft status.
  *
- * Returns 422 `orderNotDraft` for any other status, 404 `orderNotFound` if it does not exist,
+ * Returns 422 `orderNotDraft` for any other status, 422 `orderIsMarketplaceDraft` for an FBS draft —
+ * the sync deletes it once its posting is split — 404 `orderNotFound` if it does not exist,
  * 409 `entityLocked` when another request is changing the order — nothing was written.
  * Requires `orders.edit` or `orders.edit_assigned`.
  */
@@ -4147,12 +4154,13 @@ export const ordersUpdateTagsMutation = (
  *
  *     Body: `TransitionOrderStatusRequest` — `targetStatus`. Allowed transitions:
  * * Draft → Confirmed | Canceled
- * * Confirmed → Draft | Assembly | Canceled
+ * * Confirmed → Draft (not FBS) | Assembly | Canceled
  * * Assembly → Confirmed | Assembled | Canceled
  * * Assembled → Shipped
  * * Shipped → Assembled
  * * Canceled → Draft (Direct orders) | Confirmed (FBO, FBS orders)
- * Anything else is 422 `orderInvalidStatusTransition`. Assembly → Confirmed is additionally refused
+ * Anything else is 422 `orderInvalidStatusTransition`. An FBS draft moves only with the marketplace sync,
+ * so any transition of one is 422 `orderIsMarketplaceDraft`. Assembly → Confirmed is additionally refused
  * when any assembly task is already `Done`; otherwise it deletes every assembly task of the order and
  * restores the inventory of their fulfillments. Assembled is normally reached automatically when the last
  * task turns Done with every component fully fulfilled (see the assembly-task status endpoint); Assembly →
@@ -4464,7 +4472,8 @@ export const ordersBatchRebindMutation = (
  * Add an empty box to the order.
  *
  * Body: `CreateOrderBoxRequest` — `label`.
- * Allowed in Draft, Confirmed and Assembly; any other status is 422 `orderInvalidStatusTransition`.
+ * Allowed in Draft, Confirmed and Assembly; any other status is 422 `orderInvalidStatusTransition`, and an
+ * FBS draft is 422 `orderIsMarketplaceDraft` — its box follows the posting.
  * Permission depends on status: in Draft/Confirmed `orders.edit` / `orders.edit_assigned` or
  * `orders.assemble_assigned` is enough, but in Assembly only `orders.assemble_assigned` is
  * accepted — during assembly boxes are managed by the assembler, not the admin page.
@@ -4495,7 +4504,8 @@ export const ordersAddBoxMutation = (
 /**
  * Delete a box. Only an empty box can be deleted.
  *
- * Returns 422 `validationError` if the box still has components, 404 `orderNotFound` or
+ * Returns 422 `validationError` if the box still has components, 422 `orderIsMarketplaceDraft` for an
+ * FBS draft, 404 `orderNotFound` or
  * `orderBoxNotFound`, 409 `entityLocked` when another request is changing the order — nothing
  * was written.
  * Requires `orders.edit` / `orders.edit_assigned` or `orders.assemble_assigned`; while the
@@ -4529,7 +4539,8 @@ export const ordersRemoveBoxMutation = (
  * Rename a box.
  *
  * Body: `UpdateOrderBoxRequest` — `label`; the box contents are not touched, and no status
- * restriction applies (the label stays editable even during Assembly).
+ * restriction applies (the label stays editable even during Assembly). An FBS draft is the exception:
+ * 422 `orderIsMarketplaceDraft`, its box follows the posting.
  * Returns 404 `orderNotFound` or `orderBoxNotFound`, 409 `entityLocked` when another
  * request is changing the order — nothing was written.
  * Requires `orders.edit` or `orders.edit_assigned`.

@@ -34,7 +34,10 @@ public class MarketplaceLabelService(
         var orders = await db.Orders
             .Where(o => orderIds.Contains(o.Id))
             .Include(o => o.MarketplaceOrder).ThenInclude(mo => mo!.MarketplaceAccount)
+            .Include(o => o.MarketplaceOrder).ThenInclude(mo => mo!.Parcels.OrderBy(p => p.Index))
+            .ThenInclude(p => p.Items)
             .Include(o => o.MarketplaceItems).ThenInclude(i => i.CatalogItem)
+            .AsSplitQuery()
             .ToDictionaryAsync(o => o.Id, ct);
 
         var nonMarketplace = orderIds.Where(id => !orders.TryGetValue(id, out var o) || o.MarketplaceOrder is null)
@@ -47,7 +50,7 @@ public class MarketplaceLabelService(
         // A forced regenerate cannot lean on that cache, so the status has to hold for every posting.
         var notAwaitingDeliver = orderIds
             .Select(id => orders[id].MarketplaceOrder!)
-            .Where(mo => (forceRegenerate || mo.LabelFileId is null)
+            .Where(mo => (forceRegenerate || !IsCached(mo))
                          && mo.Status != MarketplaceOrderStatus.AwaitingDeliver)
             .Select(mo => mo.PostingNumber)
             .ToList();
@@ -55,6 +58,7 @@ public class MarketplaceLabelService(
             return new LabelBundle(null, [], [], notAwaitingDeliver, []);
 
         var failures = new LabelFailures();
+        // by parcel id
         var labels = new Dictionary<Guid, LabelPage>();
 
         foreach (var group in orders.Values.GroupBy(o => o.MarketplaceOrder!.MarketplaceAccountId))
@@ -67,14 +71,33 @@ public class MarketplaceLabelService(
         if (failures.NotReady.Count > 0)
             return new LabelBundle(null, failures.NotReady, [], [], []);
 
-        var order = OrderPages(orderIds, orders, grouping);
+        // an order's parcels print back to back, in place order
+        var pages = OrderPages(orderIds, orders, grouping)
+            .Select(id => orders[id])
+            .SelectMany(o => o.MarketplaceOrder!.Parcels.Select(parcel => (Order: o, Parcel: parcel)));
+
         var merged = LabelPdfComposer.Merge([
-            .. order.Select(id => composer.Overlay(labels[id].Content, BuildArticles(orders[id]),
-                ResolveKind(labels[id], orders[id].MarketplaceOrder!),
-                printAccountName ? AccountLabelName(orders[id].MarketplaceOrder!.MarketplaceAccount) : null)),
+            .. pages.Select(p => composer.Overlay(labels[p.Parcel.Id].Content, BuildArticles(p.Order, p.Parcel),
+                ResolveKind(labels[p.Parcel.Id], p.Order.MarketplaceOrder!),
+                printAccountName ? AccountLabelName(p.Order.MarketplaceOrder!.MarketplaceAccount) : null)),
         ]);
         return new LabelBundle(merged, [], [], [], []);
     }
+
+    /// <summary>An order counts as printed only once every one of its parcels is.</summary>
+    private static bool IsCached(MarketplaceOrder marketplaceOrder) =>
+        marketplaceOrder.Parcels.Count > 0 && marketplaceOrder.Parcels.TrueForAll(p => p.LabelFileId is not null);
+
+    /// <summary>
+    /// The parcel a posting-wide label belongs to. Ozon prints per posting, and an Ozon posting is always one
+    /// parcel; a posting of several parcels needs a provider that prints per parcel.
+    /// </summary>
+    private static MarketplaceParcel PostingParcel(Order order) =>
+        order.MarketplaceOrder!.Parcels is [var parcel]
+            ? parcel
+            : throw new InvalidOperationException(
+                $"Posting {order.MarketplaceOrder.PostingNumber} has {order.MarketplaceOrder.Parcels.Count} parcels; "
+                + "a posting-wide label fits exactly one.");
 
     private sealed class LabelFailures
     {
@@ -113,7 +136,7 @@ public class MarketplaceLabelService(
     private static string AccountLabelName(MarketplaceAccount account) => account.ShortName ?? account.Name;
 
     private static string ArticleKey(Order order) =>
-        string.Join('\n', BuildArticles(order)
+        string.Join('\n', BuildArticles(order, null)
             .Select(a => $"{a.Article} {a.Quantity}")
             .OrderBy(s => s, StringComparer.Ordinal));
 
@@ -131,10 +154,16 @@ public class MarketplaceLabelService(
         foreach (var order in orders)
         {
             // already printed once — never regenerate unless asked to, the label is on a box by now
-            if (!forceRegenerate && order.MarketplaceOrder! is { LabelFileId: { } fileId } cached)
-                labels[order.Id] = new LabelPage(await ReadCachedAsync(fileId, ct), cached.LabelKind);
+            if (!forceRegenerate && IsCached(order.MarketplaceOrder!))
+            {
+                foreach (var parcel in order.MarketplaceOrder!.Parcels)
+                    labels[parcel.Id] = new LabelPage(await ReadCachedAsync(parcel.LabelFileId!.Value, ct),
+                        parcel.LabelKind);
+            }
             else
+            {
                 missing.Add(order);
+            }
         }
 
         if (missing.Count == 0)
@@ -354,7 +383,7 @@ public class MarketplaceLabelService(
     /// </summary>
     private static LabelKind? Identify(string? text, MarketplaceOrder marketplaceOrder)
     {
-        if (LabelTextReader.ContainsBarcode(text, marketplaceOrder.ScanitBarcode))
+        if (LabelTextReader.ContainsBarcode(text, marketplaceOrder.OzonScanitBarcode))
             return LabelKind.OzonScanitLabel;
 
         if (LabelTextReader.ContainsBarcode(text, marketplaceOrder.PostingNumber))
@@ -412,7 +441,7 @@ public class MarketplaceLabelService(
 
     /// <summary>
     /// Records why a label is missing. The marketplace's own wording, when it gave one, goes into
-    /// <see cref="MarketplaceOrder.LabelError"/> — it is the only clue the packer gets about a posting
+    /// <see cref="MarketplaceParcel.LabelError"/> — it is the only clue the packer gets about a posting
     /// the marketplace refuses to print.
     /// </summary>
     private async Task MarkAsync(IReadOnlyList<ExternalLabelFailure> reasons, ErrorCode code,
@@ -423,7 +452,7 @@ public class MarketplaceLabelService(
         foreach (var reason in reasons)
         {
             bucket.Add(reason.PostingNumber);
-            byPostingNumber[reason.PostingNumber].MarketplaceOrder!.LabelError = AppProblems.MakeError(code,
+            PostingParcel(byPostingNumber[reason.PostingNumber]).LabelError = AppProblems.MakeError(code,
                 string.IsNullOrWhiteSpace(reason.Message)
                     ? "The marketplace has not produced this label yet."
                     : reason.Message);
@@ -435,34 +464,47 @@ public class MarketplaceLabelService(
     private async Task StoreAsync(Order order, LabelPage page, string contentType,
         Dictionary<Guid, LabelPage> labels, Guid? userId, CancellationToken ct)
     {
-        var marketplaceOrder = order.MarketplaceOrder!;
+        var parcel = PostingParcel(order);
 
         // The DataFile row commits before LabelFileId is set. A crash in between leaves an orphan that
         // the file GC reclaims after OrphanTtlHours — self-healing, so no transaction is needed. The
         // same GC picks up the file a regenerate replaces.
         using var content = new MemoryStream(page.Content);
         var file = await dataFiles.CreateAsync(content, contentType,
-            $"label-{marketplaceOrder.PostingNumber}.pdf", page.Content.Length, userId, ct: ct);
+            $"label-{order.MarketplaceOrder!.PostingNumber}.pdf", page.Content.Length, userId, ct: ct);
 
-        marketplaceOrder.LabelFileId = file.Id;
-        marketplaceOrder.LabelKind = page.Kind;
-        marketplaceOrder.LabelFetchedAt = DateTime.UtcNow;
-        marketplaceOrder.LabelError = null;
+        parcel.LabelFileId = file.Id;
+        parcel.LabelKind = page.Kind;
+        parcel.LabelFetchedAt = DateTime.UtcNow;
+        parcel.LabelError = null;
         await db.SaveChangesAsync(ct);
 
-        labels[order.Id] = page;
+        labels[parcel.Id] = page;
     }
 
     /// <summary>
     /// The articles from the order's snapshot, so the label names what the boxes hold: a remapped card
-    /// reaches the label only once the order itself is rebound.
+    /// reaches the label only once the order itself is rebound. A parcel that states its contents prints
+    /// those; one that does not — or no parcel at all — prints the whole order. A part of a unit prints as one.
     /// </summary>
-    private static IReadOnlyList<LabelArticle> BuildArticles(Order order) =>
-    [
-        .. order.MarketplaceItems
-            .Where(i => i.CatalogItem is not null)
-            .Select(i => new LabelArticle(i.CatalogItem!.EffectiveLabelText, i.Quantity)),
-    ];
+    private static IReadOnlyList<LabelArticle> BuildArticles(Order order, MarketplaceParcel? parcel)
+    {
+        if (parcel is not { Items.Count: > 0 })
+            return
+            [
+                .. order.MarketplaceItems
+                    .Where(i => i.CatalogItem is not null)
+                    .Select(i => new LabelArticle(i.CatalogItem!.EffectiveLabelText, i.Quantity)),
+            ];
+
+        var contents = parcel.Items.ToDictionary(i => i.OrderMarketplaceItemId, i => i.Quantity ?? 1);
+        return
+        [
+            .. order.MarketplaceItems
+                .Where(i => i.CatalogItem is not null && contents.ContainsKey(i.Id))
+                .Select(i => new LabelArticle(i.CatalogItem!.EffectiveLabelText, contents[i.Id])),
+        ];
+    }
 
     private async Task<byte[]> ReadCachedAsync(Guid fileId, CancellationToken ct)
     {

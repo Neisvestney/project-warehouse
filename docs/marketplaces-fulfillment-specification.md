@@ -1,0 +1,163 @@
+# Спецификация сборки заказов маркетплейсов
+
+Справочник того, как площадки устроены вокруг сборки: что у каждой считается единицей заказа, кто двигает её статус, как она делится на грузоместа, какие данные об экземплярах товара площадка требует и когда печатается этикетка. Здесь же — общая модель WMS, на которую всё это ложится, и план сборки силами WMS (второй этап).
+
+Текущий импорт заказов Ozon и печать этикеток — в [marketplaces-orders-specification.md](marketplaces-orders-specification.md), модель данных — в [marketplaces-specification.md](marketplaces-specification.md#модель-данных).
+
+Источники — спецификации площадок в репозитории:
+
+| Площадка | Файл | Схема поставок |
+|---|---|---|
+| Ozon | `src/Marketplaces/specs/ozon/swagger.json` | FBS |
+| Wildberries | `src/Marketplaces/specs/wildberries/03-orders-fbs.yaml` | FBS |
+| Yandex Market | `src/Marketplaces/specs/yandex-market/openapi/` (`paths/`, `components/schemas/`) | FBS (Express — тот же контракт) |
+| Avito | `src/Marketplaces/specs/avito/order-management.json` | доставка Avito через ПВЗ (`delivery.serviceType = pvz`) |
+
+Всё, что ниже сказано о Wildberries, Yandex Market и Avito, взято из спецификаций и **на живом магазине не проверялось**.
+
+**Avito — не маркетплейс, но заказы с доставкой Avito ведутся как FBS:** продавец подтверждает заказ, собирает его, клеит этикетку площадки и сдаёт в ПВЗ. Управление заказами в API доступно только продавцам B2C. Схемы `dbs` (доставка партнёрами продавца с треком от продавца) и `rdbs` (свой курьер) — это доставка силами продавца, аналог rFBS, и в модель FBS не входят. Описания самовывоза (CNC), курьерского забора и постаматов в спецификации есть, но в перечислении `serviceType` таких значений нет.
+
+---
+
+## Единица заказа
+
+| | Ozon | Yandex Market | Wildberries | Avito |
+|---|---|---|---|---|
+| Единица импорта (`MarketplaceOrder.PostingNumber`) | отправление, `posting_number` | заказ, `orderId` | сборочное задание, `id` | заказ, `id` |
+| `ExternalOrderNumber` | `order_number` — заказ, из которого родилось отправление | — | `orderUid` — корзина покупателя | `marketplaceId` — «номер заказа в новой системе», может отсутствовать |
+| Позиции | `products[]`, несколько позиций с количеством | `items[]` (`id`, `offerId`, `count`) | **ровно одна штука**: в задании скаляры `nmId`, `chrtId`, `article`, количества нет | `items[]` (`avitoId` — объявление, `count`; `id` — товар в базе продавца, необязателен) |
+| Метод списка | `/v4/posting/fbs/unfulfilled/list` (фильтр `statuses`, без обязательного окна) | `POST /v1/businesses/{businessId}/orders` (окно дат не шире 30 дней, `page_token`, `limit` ≤ 50) | `GET /api/v3/orders/new` — только новые; `GET /api/v3/orders` — без статусов, `POST /api/v3/orders/status` — статусы по списку `id` | `GET /order-management/1/orders`: `statuses`, `ids`, `dateFrom` (по времени **создания**), `page`, `limit` ≤ 20, конец — `hasMore = false`; фильтра по `updatedAt` нет, отдельного метода на один заказ нет — `ids` |
+
+**Корзина Wildberries — это несколько заданий с общим `orderUid`.** Две штуки одного товара — тоже два задания. У каждого свой `id`, своя этикетка и свои метаданные, поэтому в WMS они приезжают отдельными заказами, как у Ozon — отправления одного `order_number`. Группировка по `ExternalOrderNumber` нужна только для показа.
+
+Метод `GET /v2/campaigns/{campaignId}/orders` у Yandex Market объявлен устаревшим (деградация с 2027-01-18, отключение 2027-04-12) и не отдаёт заказы, доставленные или отменённые больше 30 дней назад. Провайдер YM строится на `getBusinessOrders`.
+
+Позиция Avito надёжно указывает только на объявление (`avitoId`); собственный идентификатор продавца (`item.id`) заполняется не всегда, поэтому сопоставление с каталогом идёт по объявлению. Изменения статусов без фильтра по `updatedAt` догоняются запросом по `ids` известных заказов. Ловушки спецификации: `order.status` объявлен строкой без перечисления, а ключ `schedules.deliveryDateMaх` содержит кириллическую «х».
+
+## Статусы
+
+### Нормализация
+
+`MarketplaceOrderStatus` — общий язык статусов, схлопывать в него словарь площадки обязан провайдер. Значения, которые касаются сборки, определены через то, **что продавец может делать с заказом**, а не через слова конкретной площадки:
+
+| Значение | Смысл | Ozon | Yandex Market | Wildberries | Avito |
+|---|---|---|---|---|---|
+| `AwaitingPackaging` | Площадка ждёт, что продавец соберёт заказ. Состав ещё может меняться, этикетка не печатается | `awaiting_packaging` | `PROCESSING` / `STARTED` | `supplierStatus = new` | `on_confirmation` |
+| `AwaitingDeliver` | Сборка оформлена на площадке, этикетка печатается, заказ ждёт передачи в доставку | `awaiting_deliver` | `PROCESSING` / `READY_TO_SHIP` | `supplierStatus = confirm` | `ready_to_ship` |
+| `Delivering` | Передан площадке или перевозчику | `delivering`, `driver_pickup`, `sent_by_seller` | `PROCESSING` / `SHIPPED`, `DELIVERY`, `PICKUP` | `supplierStatus = complete` | `in_transit` |
+| `Delivered` | Вручён | `delivered` | `DELIVERED`, `PARTIALLY_RETURNED`, `RETURNED` | `wbStatus = sold` | `delivered` |
+| `Cancelled` | Отменён | `cancelled`, `not_accepted` | `CANCELLED` | `supplierStatus = cancel`, `wbStatus ∈ {canceled, canceled_by_client, declined_by_client, canceled_by_carrier}` | `canceled` |
+| `Arbitration` | Спор | `arbitration`, `client_arbitration` | — | — | `in_dispute` |
+| `Split` | Отправление разделено на другие и само больше не существует | `cancelled_from_split_pending` | — | — | — |
+
+У Avito `on_confirmation` — это ожидание подтверждения, а не сборки: подтверждает продавец, и только после этого заказ уходит в `ready_to_ship`, где печатается этикетка. Для WMS разницы нет — в обоих случаях заказ ещё не оформлен. `on_return` и `closed` спецификация описывает одним словом («на возврате», «закрыт»), не уточняя, бывают ли они после отмены или только после вручения; до проверки на живом магазине их нормализация — открытый вопрос (см. [«Открытые вопросы Avito»](#открытые-вопросы-avito)).
+
+Возвраты YM (`PARTIALLY_RETURNED`, `RETURNED`) ложатся в `Delivered`: продажа состоялась, а сам возврат живёт в [журнале возвратов](marketplaces-returns-specification.md).
+
+У Wildberries статус собирается из двух полей: `supplierStatus` двигает продавец, `wbStatus` — площадка. Отмена по любому из них — `Cancelled`, `wbStatus = sold` перебивает `complete`.
+
+Состояния **до** того, как площадка отдала заказ продавцу, не импортируются: у Ozon — `awaiting_registration`, `acceptance_in_progress`, `awaiting_approve`, `awaiting_verification`; у YM — `PLACING`, `RESERVED`, `UNPAID`, `PENDING`; у Avito таких статусов в спецификации нет. Заказ в них может так и не состояться, а собирать его продавцу ещё нельзя. Подстатусы YM сверх `STARTED` / `READY_TO_SHIP` / `SHIPPED` спецификация перечисляет без описания и велит не обрабатывать — они сохраняются в `RawSubstatus`, на нормализацию не влияют.
+
+### Кто двигает статус
+
+На этом площадки различаются принципиально:
+
+- **Ozon** переводит `awaiting_packaging → awaiting_deliver` по действию продавца — через `/v4/posting/fbs/ship` или в личном кабинете. На первом этапе WMS этого не делает, отправления собирают в ЛК.
+- **Yandex Market** переводит `STARTED → READY_TO_SHIP` только по запросу продавца: `PUT /v2/campaigns/{campaignId}/orders/{orderId}/status` или пакетный `POST .../orders/status-update`. Самостоятельно заказ не двигается.
+- **Wildberries** ставит `confirm` только тогда, когда продавец добавил задание в поставку (`PATCH /api/marketplace/v3/supplies/{supplyId}/orders`), и `complete` — когда передал поставку в доставку (`PATCH /api/v3/supplies/{supplyId}/deliver`). Без продавца задание стоит в `new`. Покупатель может отменить задание в течение часа, пока его не взяли в сборку (`declined_by_client`).
+- **Avito** переводит `on_confirmation → ready_to_ship` по подтверждению продавца — `POST /order-management/1/order/applyTransition` с `transition = confirm` (`reject` — отказ от заказа целиком) — до `schedules.confirmTill`. Что можно сделать с заказом сейчас, площадка перечисляет в `availableActions[] {name, required}`: `required = true` значит, что без этого действия заказ дальше не пойдёт. Перехода «собран» или «сдан» для заказов ПВЗ в API нет: в `in_transit` заказ, по всей видимости, переводит приёмка в пункте, но спецификация этого не описывает.
+
+Поэтому [черновики](marketplaces-orders-specification.md#черновики-fbs) на любой площадке означают одно и то же: «заказ пришёл, продавец его ещё не оформил». Кто и где его оформит — в ЛК или, на втором этапе, сама WMS, — на модель не влияет.
+
+## Грузоместа
+
+**Грузоместо** (`MarketplaceParcel`, модель — в [marketplaces-specification.md](marketplaces-specification.md#грузоместо-marketplaceparcel)) — физическое место, которое уедет с отдельной этикеткой площадки. Это не коробка WMS: `OrderBox` описывает, что сборщик положил вместе, а грузоместо — что площадка примет как отдельную единицу. Слово «коробка» у площадок означает три разные вещи:
+
+| Явление | Площадка | Что это | Как в WMS |
+|---|---|---|---|
+| Места заказа | Yandex Market | Один заказ, один номер, N мест. В месте либо целые товары в любом количестве, либо **часть одного** товара (`partialCount {current, total}`); смешивать нельзя | N грузомест с содержимым |
+| Многокоробочный товар | Ozon (`is_multibox`, `multi_box_qty`) | Одно отправление, один крупный товар, физически едущий в N коробках | N грузомест, каждое — часть `i из N` той же позиции |
+| Разделение отправления | Ozon (`/v4/posting/fbs/ship` с несколькими `packages`, `/v1/posting/fbs/split`, `/v4/posting/fbs/ship/package`) | Одно отправление распадается на несколько **новых** отправлений, у каждого свой `posting_number`, статус и этикетка; связь — `parent_posting_number` | Не грузоместа: отдельные `MarketplaceOrder` |
+| Грузоместа поставки (`trbx`) | Wildberries | Короба **поставки**, только для отгрузки на ПВЗ; привязки «задание → короб» нет | Вне модели заказа |
+
+Многокоробочный товар Ozon и часть товара YM — одно и то же явление: товар занимает несколько мест. Поэтому содержимое грузоместа описывается одной формой на обе площадки — позиция заказа и либо полное количество, либо доля `current / total`.
+
+Сколько мест у заказа на каждой площадке:
+
+- **Ozon** — одно. Многокоробочные отправления пока тоже получают одно место, см. [«Многокоробочные отправления Ozon»](#многокоробочные-отправления-ozon).
+- **Yandex Market** — по `delivery.boxesLayout[]` (`BusinessOrderBoxLayoutDTO {items, boxId, barcode}`). Раскладку задаёт продавец (`PUT /v2/campaigns/{campaignId}/orders/{orderId}/boxes`), и до `READY_TO_SHIP` её можно менять сколько угодно раз, поэтому места пересобираются, пока заказ в `AwaitingPackaging`.
+- **Wildberries** — одно: задание — это одна штука.
+- **Avito** — одно: у заказа одна доставка с одним `dispatchNumber` / `trackingNumber`, понятия мест в API продавца нет. Посылки и грузоместа (`parcelID`, `AnnouncementPackage`) живут в API служб доставки (`delivery-sandbox.json`), продавцу оно не нужно.
+
+Если место содержит только целые товары, оно совпадает с коробкой WMS 1:1 и ссылается на неё (`OrderBoxId`). Части одного товара — N мест на одну коробку: делить компонент `Quantity = 1` на три коробки сборщику незачем.
+
+### Многокоробочные отправления Ozon
+
+Не реализовано: многокоробочный товар бывает только в схеме rFBS Агрегатор, вместе с которой это и появится. Как это ляжет на модель:
+
+- отправление с `multi_box_qty = N` получает N мест, содержимое каждого — единственная позиция с долей `i / N`; `MarketplaceOrder.MultiBoxQty` при этом равен числу мест;
+- в WMS одна `OrderBox` с этой позицией, все N мест ссылаются на неё;
+- этикетка запрашивается поштучно, как и сейчас. Если Ozon печатает по странице на коробку — страницы раскладываются по местам; если страница одна — файл ложится на первое место, а печать выдаёт его N раз. Какой из вариантов верен, неизвестно до проверки на живом магазине;
+- `is_multibox = true` означает, что число коробок ещё не передано площадке (`/v3/posting/multiboxqty/set`). Пока WMS не пишет в площадку, такое отправление получает одно место;
+- экземпляры к местам не привязаны: в `/v6/fbs/posting/product/exemplar/set` `multi_box_qty` стоит на уровне отправления, а экземпляры — на уровне единицы товара.
+
+## Этикетки
+
+| | Ozon | Yandex Market | Wildberries | Avito |
+|---|---|---|---|---|
+| Гранулярность | отправление (= его единственное место) | место | задание | заказ (= его единственное место) |
+| Метод | `/v3/posting/fbs/package-label/create` + `/v2/posting/fbs/package-label/get`, пачкой | `GET .../orders/{orderId}/delivery/shipments/{shipmentId}/boxes/{boxId}/label` на место; `GET .../orders/{orderId}/delivery/labels` — все места заказа одним PDF | `POST /api/v3/orders/stickers`, до 100 заданий | асинхронно: `POST /order-management/1/orders/labels` (`orderIDs[]`, по схеме до 50) → `taskID` → `GET .../orders/labels/{taskID}/download`; метода статуса задачи нет, готовность — download перестаёт отвечать 404. `.../orders/labels/extended` — то же с лимитом 1 запрос в минуту |
+| Формат | PDF | PDF, `format`: `A9_HORIZONTALLY`, `A9`, `A7`, `A4` | `svg`, `png`, `zplv`, `zplh`; 58×40 или 40×30 | PDF, несколько заказов в одном файле |
+| Когда доступна | только `awaiting_deliver` | после раскладки по местам; раскладка застывает в `READY_TO_SHIP` | `confirm` и `complete`; без обязательного номера ДТ — никогда | только заказы ПВЗ; статус спецификация не называет — по смыслу `ready_to_ship` |
+| Что сверять | страницу с отправлением по `scanit` или номеру (`LabelTextReader`) | ничего: одно место — один запрос | ничего: ответ несёт файл по каждому `id` | страницу с заказом, как у Ozon: что напечатано на этикетке, спецификация не говорит |
+
+Данные для своей печати у YM — `GET .../orders/{orderId}/delivery/labels/data` (`ParcelBoxLabelDTO`: `boxId`, `fulfilmentId` в виде `номер-заказа-номер-места`, `place` в виде `2/3`, `url` этикетки места). Этим методом провайдер YM строит грузоместа заказа и узнаёт, куда идти за каждой этикеткой.
+
+Общее правило выдачи — **этикетка печатается, когда нормализованный статус `AwaitingDeliver`**: на всех площадках это и есть момент, когда площадка готова её отдать, а у YM — ещё и момент, после которого раскладка мест не меняется и кеш этикеток не протухает.
+
+## Экземпляры товара
+
+Данные об отдельных единицах товара — маркировка «Честный знак», ГТД, РНПТ, УИН ювелирки, IMEI, вес, срок годности. Требование площадка сообщает на позиции заказа, а передаётся оно до того, как заказ можно оформить собранным.
+
+| | Ozon | Yandex Market | Wildberries | Avito |
+|---|---|---|---|---|
+| Где видно требование | `requirements.products_requiring_{gtd, rnpt, mandatory_mark, jw_uin, imei, weight, country, change_country}` — массивы SKU; `optional.products_with_possible_mandatory_mark`; подробно — `/v6/fbs/posting/product/exemplar/create-or-get` (`is_gtd_needed`, `is_rnpt_needed`, `is_mandatory_mark_needed`, `is_mandatory_mark_possible`, `is_jw_uin_needed`, `has_imei`, `is_weight_needed`, `weight_min`/`weight_max`) | `items[].requiredInstanceTypes[]`: `CIS`, `CIS_OPTIONAL`, `UIN`, `RNPT`, `GTD` | `requiredMeta[]` / `optionalMeta[]` — только в ответе `/api/v3/orders/new`; ключ, которого нет ни в одном списке, записать нельзя | `availableActions` содержит `setMarkings`; на уровне позиции требования нет |
+| Поля единицы | `exemplar_id`, `gtd` / `is_gtd_absent`, `rnpt` / `is_rnpt_absent`, `weight`, `marks[] {mark, mark_type: mandatory_mark \| jw_uin \| imei}` | `cis` \| `uin` \| `rnpt` \| `gtd` (одно на запись), `countryCode` | `sgtin[]` (до 100 кодов), `uin`, `imei`, `gtin`, `expiration`, `customsDeclaration` — по одному значению на задание | только коды «Честного знака» (29–129 символов); ГТД, РНПТ, IMEI, УИН нет |
+| Запись | `/v6/fbs/posting/product/exemplar/set` — асинхронно, **каждый раз полный набор**; в `awaiting_deliver` — `/v1/fbs/posting/product/exemplar/update` | в раскладке мест: `boxes[].items[].instances[]`, по одному коду на единицу; товар в нескольких местах — код в каждом | `PUT /api/v3/orders/{orderId}/meta/{sgtin,uin,imei,gtin,expiration}`, `PUT /api/marketplace/v3/orders/{orderId}/meta/customs-declaration`; только в `confirm` | `POST /order-management/1/markings`: `markings[] {orderId, itemId = avitoId, markings[] ≤ 10}`, до 50 элементов в запросе; как передать больше 10 кодов на позицию, спецификация не говорит |
+| Проверка | `/v5/fbs/posting/product/exemplar/status`: `check_status` у марок, `gtd_check_status`, `rnpt_check_status`, `weight_check_status` + `*_error_codes`; формат — `/v5/.../exemplar/validate` | `GET .../orders/{orderId}/identifiers/status` | `POST /api/marketplace/v3/orders/meta` → `metaDetails[{key, value, decision}]` | синхронно в ответе: `results[] {orderId, itemId, success, error}` |
+| Что блокирует | `ship` без прошедших проверку экземпляров | `READY_TO_SHIP` без прошедших проверку CIS/UIN | `deliver` поставки; без ДТ — ещё и стикер | движение заказа, если `setMarkings` пришло с `required = true` |
+
+IMEI у Yandex Market в заказах нет — только в возвратах. «Честный знак» YM обязателен лишь в заказах от бизнеса.
+
+Общая модель WMS — **экземпляр позиции**: запись на одну единицу `OrderMarketplaceItem` с типизированными идентификаторами (марка с типом, ГТД, РНПТ, страна, вес, срок годности), ссылкой на грузоместо, если площадка требует код в месте (YM), и статусом проверки площадки. Требования лежат флагами на позиции. Обе сущности — второй этап.
+
+---
+
+## Второй этап: сборка силами WMS
+
+Не реализовано. Сейчас WMS не пишет в площадку ничего: заказ оформляют в личном кабинете, а WMS его только видит. На втором этапе рабочим становится уже [черновик](marketplaces-orders-specification.md#черновики-fbs) — заказ в `AwaitingPackaging`, — и WMS оформляет сборку сама:
+
+| Шаг | Ozon | Yandex Market | Wildberries | Avito |
+|---|---|---|---|---|
+| Уточнить состав | `/v2/posting/fbs/product/cancel` (`available_actions` содержит `product_cancel`) | `PUT .../boxes` с `allowRemove: true` и уменьшенным `fullCount`; нельзя трогать товар по акции, на 99% стоимости и единственный в заказе | — | — (отказаться можно только от заказа целиком, `reject`) |
+| Разделить | `/v1/posting/fbs/split` — без сборки; `/v4/posting/fbs/ship/package` — частичная сборка, остаток остаётся в исходном отправлении в `awaiting_packaging` | раскладка по местам: `PUT .../boxes` | — | — |
+| Экземпляры | `exemplar/create-or-get` → `exemplar/set` → опрос `exemplar/status` | `instances[]` в `PUT .../boxes` → `identifiers/status` | добавить в поставку → `meta/*` → `orders/meta` | `POST .../markings` |
+| Оформить собранным | `/v4/posting/fbs/ship`: `packages[].products[] {product_id, quantity}`; 200 не гарантирует сборку — проверять `substatus` (`ship_failed` → повтор) | `PUT .../status` → `PROCESSING` / `READY_TO_SHIP` | `PATCH .../supplies/{supplyId}/orders` (до 100), `PATCH .../supplies/shipping-method` | `applyTransition` с `confirm` — до сборки: подтверждение и есть оформление |
+| Сдвинуть дедлайн | `/v1/posting/cutoff/set` (`set_cutoff`) | — | — | — |
+| Передать в доставку | — | — | `PATCH /api/v3/supplies/{supplyId}/deliver` | — (сдача в ПВЗ) |
+
+Раскладку мест и пакетов WMS берёт из своих `OrderBox`: коробка с целыми товарами — место YM или пакет Ozon. Состав рабочего заказа при этом перестаёт быть неизменным до оформления — его уточняют именно здесь.
+
+### Открытые вопросы второго этапа
+
+- **Куда ложатся отправления Ozon после `ship` с несколькими пакетами.** Ответ `result[]` — номера получившихся отправлений, но остаётся ли исходный номер за первым пакетом, спецификация не говорит. От ответа зависит модель: либо один `Order` получает несколько `MarketplaceOrder` (по одному на пакет, пакет = коробка WMS), либо заказ WMS делится вслед за площадкой. Проверяется на живом магазине.
+- **Поставки Wildberries.** Поставка объединяет задания одного склада и передаётся целиком; в модели заказа WMS для неё места нет. Нужна ли поставка как сущность WMS или её достаточно вести на площадке, решается при подключении WB.
+- **Отказ площадки на полпути.** Экземпляры записаны, а `ship` или `READY_TO_SHIP` отклонён. Нужна политика повтора и видимость такого состояния в интерфейсе.
+
+## Открытые вопросы Avito
+
+- **`on_return` и `closed`.** Бывают ли они после отмены или только после вручения — от этого зависит, `Delivered` это или `Cancelled`. Решается при подключении Avito.
+- **Какой идентификатор ждут этикетки.** `orderIDs` описаны как «ID заказов в сервисе сделок (marketplace)» — это `order.id` или `marketplaceId`, не сказано.
+- **Лимит пачки этикеток.** Описание метода говорит о 100 заказах, схема — `maxItems: 50`. Провайдер шлёт по 50.
+- **Что напечатано на этикетке.** От этого зависит, как раскладывать многостраничный PDF по заказам.
+- **Методы записи не в клиенте.** Клиент Avito генерирует из заказов только список и этикетки; `applyTransition` и `markings` добавляются в whitelist вместе со вторым этапом.

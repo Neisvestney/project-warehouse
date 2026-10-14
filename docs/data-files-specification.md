@@ -165,7 +165,7 @@ builder.Entity<DataFile>(e =>
 ### Привязка 1:1
 
 Поле `Guid? XFileId` + навигация `DataFile? X` на сущности-владельце, FK с `OnDelete(DeleteBehavior.Restrict)`.
-Действующие точки — `CatalogItem.MainImageFileId`, `MarketplaceOrder.LabelFileId` (этикетка отправления без нанесённых
+Действующие точки — `CatalogItem.MainImageFileId`, `MarketplaceParcel.LabelFileId` (этикетка грузоместа без нанесённых
 артикулов) и `ApplicationUser.AvatarFileId` (фото сотрудника). Регистрировать новую точку в сборщике мусора не нужно: `DataFileReferences` выводит предикат
 осиротевших файлов из модели EF по односоставным внешним ключам на `DataFile`.
 

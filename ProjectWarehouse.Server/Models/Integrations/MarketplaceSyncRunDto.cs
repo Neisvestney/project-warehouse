@@ -27,6 +27,9 @@ public class MarketplaceSyncRunDto : IHasIdentity
     public int OrdersProcessed { get; init; }
     public int OrdersCreated { get; init; }
     public int OrdersUpdated { get; init; }
+
+    /// <summary>FBS drafts the working import put to work.</summary>
+    public int OrdersConfirmed { get; init; }
     public int OrdersSkipped { get; init; }
 
     /// <summary>Capped at 100; <see cref="OrdersSkipped"/> is the true total. Empty, never null.</summary>

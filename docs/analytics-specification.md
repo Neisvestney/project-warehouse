@@ -43,7 +43,7 @@
 стороне площадки. Это же правило делает внешние заказы (`IsExternal`, см.
 [orders-specification.md](orders-specification.md#внешние-заказы)) полноценным материалом аналитики: их
 `Order.Status` — лишь грубое `Shipped` / `Canceled`, а продажа это была или отмена — видно по
-`MarketplaceOrder.Status`. Отдельного исключения для них не нужно. Заказы в прочих статусах (`AwaitingDeliver`, `Arbitration`, `Unknown`; у прямых — `Draft`,
+`MarketplaceOrder.Status`. Отдельного исключения для них не нужно. Заказы в прочих статусах (`AwaitingPackaging`, `AwaitingDeliver`, `Arbitration`, `Split`, `Unknown`; у прямых — `Draft`,
 `Confirmed`, `Assembly`) в аналитику не попадают ни как продажа, ни как отмена.
 
 **Возврат** — `MarketplaceReturn` с `Kind ∈ {CustomerReturn, PartialRefusal}` и `IsCancelled = false`

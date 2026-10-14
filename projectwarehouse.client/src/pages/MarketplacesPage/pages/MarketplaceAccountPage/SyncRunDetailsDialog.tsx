@@ -48,6 +48,7 @@ function sectionCounters(run: MarketplaceSyncRunDto, section: SyncRunSection): [
         ["Обработано", run.ordersProcessed],
         ["Создано", run.ordersCreated],
         ["Обновлено", run.ordersUpdated],
+        ["В работу", run.ordersConfirmed],
         ["Пропущено", run.ordersSkipped],
       ];
     case "returns":

@@ -1,7 +1,4 @@
-using System.ComponentModel.DataAnnotations.Schema;
 using EntityFrameworkCore.Projectables;
-using ProjectWarehouse.Server.Infrastructure.Marketplaces;
-using ProjectWarehouse.Server.Models;
 
 namespace ProjectWarehouse.Server.Domain;
 
@@ -71,20 +68,10 @@ public class MarketplaceOrder
     /// Ozon states it only while the posting is <c>awaiting_deliver</c> and blanks it afterwards, so once
     /// stored it is never cleared — a label reprinted later still has to be matched.
     /// </summary>
-    public string? ScanitBarcode { get; set; }
+    public string? OzonScanitBarcode { get; set; }
 
-    /// <summary>The marketplace label as fetched, with nothing stamped on it — articles go on at print time.</summary>
-    public Guid? LabelFileId { get; set; }
-    public DataFile? LabelFile { get; set; }
-    public DateTime? LabelFetchedAt { get; set; }
-
-    /// <summary>
-    /// Format of <see cref="LabelFile"/>, which picks the corner the articles are printed into. Null when the
-    /// format could not be identified on fetch — it is then identified again on every print.
-    /// </summary>
-    public LabelKind? LabelKind { get; set; }
-
-    [Column(TypeName = "jsonb")] public AppFieldError? LabelError { get; set; }
+    /// <summary>At least one; the labels live on them.</summary>
+    public List<MarketplaceParcel> Parcels { get; set; } = [];
 
     public DateTime StatusSyncedAt { get; set; }
     public DateTime SyncedAt { get; set; }

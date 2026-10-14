@@ -24,9 +24,9 @@ const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
         <Typography variant="body2" sx={{fontFamily: "monospace"}}>
           {formatPostingNumber(order.marketplaceOrder?.postingNumber) ?? "—"}
         </Typography>
-        {order.marketplaceOrder?.scanitBarcode && (
+        {order.marketplaceOrder?.ozonScanitBarcode && (
           <Typography variant="caption" component="div" sx={{fontFamily: "monospace"}}>
-            {formatScanitBarcode(order.marketplaceOrder.scanitBarcode)}
+            {formatScanitBarcode(order.marketplaceOrder.ozonScanitBarcode)}
           </Typography>
         )}
       </>

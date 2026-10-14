@@ -46,23 +46,29 @@ public class MarketplaceOrderSyncService(
 
         var skipped = new List<SkippedOrderInfo>();
 
-        await DiscoverPostingsAsync(provider, credentials, account, run, skipped, ct);
-        await SyncOrdersBackgroundAsync(provider, credentials, account, run, ct);
+        // Confirmation needs only the FBS postings refreshed — the rest of the background follows it, so a
+        // failure in, say, the returns import does not cost the button its working orders
+        await RefreshFbsAsync(provider, credentials, account, run, ct);
+        await ConfirmDraftsAsync(account, run, skipped, ct);
 
+        // Saved before the remaining steps, so a failure in them keeps the reasons along with the count.
         // A fresh instance, not an in-place mutation: a jsonb scalar has no value comparer, so change
         // tracking cannot see the list grow — the same reason cards do `Barcodes = [.. …]`.
         run.SkippedOrders = skipped.Count > 0 ? [.. skipped] : null;
         await db.SaveChangesAsync(ct);
 
+        await RefreshRestAsync(provider, credentials, account, run, ct);
+
         activity?.SetTag("marketplace.orders.created", run.OrdersCreated);
         activity?.SetTag("marketplace.orders.updated", run.OrdersUpdated);
+        activity?.SetTag("marketplace.orders.confirmed", run.OrdersConfirmed);
         activity?.SetTag("marketplace.orders.skipped", skipped.Count);
     }
 
-    // ── Phase 1: discovery ────────────────────────────────────────────────────
+    // ── Discovery: postings handed to the seller arrive as drafts ─────────────
 
     private async Task DiscoverPostingsAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
-        MarketplaceAccount account, MarketplaceSyncRun run, List<SkippedOrderInfo> skipped, CancellationToken ct)
+        MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
     {
         var warehouses = await LoadWarehousesAsync(account.Id, ct);
 
@@ -79,22 +85,23 @@ public class MarketplaceOrderSyncService(
                 {
                     if (known.TryGetValue(posting.PostingNumber, out var existing))
                     {
-                        if (ApplyPosting(existing, posting))
+                        var changed = ApplyPosting(existing, posting);
+                        // a split draft has just been deleted, and there is nothing left to rebuild
+                        if (IsDraft(existing.Order) && db.Entry(existing.Order).State != EntityState.Deleted)
+                            changed |= RebuildDraft(existing, posting, account.Id, warehouses, cards);
+                        if (changed)
                             run.OrdersUpdated++;
                         continue;
                     }
 
-                    if (TryBuildOrder(posting, account, warehouses, cards, out var order, out var skip))
-                    {
-                        db.Orders.Add(order!);
-                        run.OrdersCreated++;
-                    }
-                    else
-                    {
-                        run.OrdersSkipped++;
-                        if (skipped.Count < SkippedCap)
-                            skipped.Add(skip!);
-                    }
+                    // a split posting is gone, and its heirs arrive under their own numbers
+                    if (posting.Status == MarketplaceOrderStatus.Split)
+                        continue;
+
+                    var lines = ResolveLines(posting, account.Id, cards);
+                    db.Orders.Add(BuildOrder(posting, account, ResolveWarehouse(posting, warehouses), lines,
+                        isExternal: false));
+                    run.OrdersCreated++;
                 }
 
                 // per page, so the sync modal's counters advance while the run is still going
@@ -103,6 +110,16 @@ public class MarketplaceOrderSyncService(
             await realtime.PublishProgressAsync(run, ct);
         }
     }
+
+    private static Guid? ResolveWarehouse(ExternalPosting posting, IReadOnlyDictionary<string, Guid> warehouses) =>
+        posting.Scheme == ExternalPostingScheme.Fbs
+        && posting.WarehouseExternalId is { } externalId
+        && warehouses.TryGetValue(externalId, out var mapped)
+            ? mapped
+            : null;
+
+    private static bool IsDraft(Order? order) =>
+        order is { Type: OrderType.FBS, IsExternal: false, Status: OrderStatus.Draft };
 
     // warehouses are a handful per seller, so they are loaded once; cards are not, and go per page
     private async Task<Dictionary<string, Guid>> LoadWarehousesAsync(Guid accountId, CancellationToken ct) =>
@@ -138,6 +155,9 @@ public class MarketplaceOrderSyncService(
             .Include(o => o.Order)
             .ThenInclude(o => o!.MarketplaceItems)
             .ThenInclude(i => i.MarketplaceCard)
+            // a draft's composition is rebuilt from the posting
+            .Include(o => o.Order).ThenInclude(o => o!.Boxes).ThenInclude(b => b.Components)
+            .Include(o => o.Parcels).ThenInclude(p => p.Items)
             .AsSplitQuery()
             .ToDictionaryAsync(o => o.PostingNumber, ct);
     }
@@ -175,53 +195,9 @@ public class MarketplaceOrderSyncService(
         return lookup;
     }
 
-    private bool TryBuildOrder(ExternalPosting posting, MarketplaceAccount account,
-        IReadOnlyDictionary<string, Guid> warehouses, CardLookup cards,
-        out Order? order, out SkippedOrderInfo? skip)
-    {
-        order = null;
-
-        if (posting.WarehouseExternalId is null || !warehouses.TryGetValue(posting.WarehouseExternalId, out var warehouseId))
-        {
-            skip = new SkippedOrderInfo
-            {
-                PostingNumber = posting.PostingNumber,
-                Reason = ErrorCode.MarketplaceOrderWarehouseNotMapped,
-            };
-            return false;
-        }
-
-        var lines = new List<OrderLine>(posting.Items.Count);
-        var unmapped = new List<string>();
-
-        foreach (var item in posting.Items)
-        {
-            var card = cards.Find(item);
-            if (card is null || card.CatalogItemId is null)
-                unmapped.Add(item.OfferId);
-            else
-                lines.Add(new OrderLine(card.Id, card.CatalogItemId, item));
-        }
-
-        if (unmapped.Count > 0)
-        {
-            skip = new SkippedOrderInfo
-            {
-                PostingNumber = posting.PostingNumber,
-                Reason = ErrorCode.MarketplaceOrderCardNotMapped,
-                OfferIds = [.. unmapped.Distinct()],
-            };
-            return false;
-        }
-
-        order = BuildOrder(posting, account, warehouseId, lines, isExternal: false);
-        skip = null;
-        return true;
-    }
-
     /// <summary>
-    /// The shared shape of an imported posting. An external one differs only in where it starts: already
-    /// shipped, with box components for whatever positions the catalog recognized and nothing for the rest.
+    /// The shared shape of an imported posting: an FBS draft, or an external order already past the warehouse.
+    /// Both carry every position, with box components for whatever the catalog recognized and nothing for the rest.
     /// </summary>
     private static Order BuildOrder(ExternalPosting posting, MarketplaceAccount account,
         Guid? warehouseId, IReadOnlyList<OrderLine> lines, bool isExternal)
@@ -229,10 +205,10 @@ public class MarketplaceOrderSyncService(
         var now = DateTime.UtcNow;
         var orderId = Guid.NewGuid();
         var boxId = Guid.NewGuid();
-        // the posting arrives already packed on the marketplace side, so it is ready to assemble
         var status = isExternal
             ? ExternalOrderStatus(posting.Status, posting.Cancellation?.CancelledAfterShip)
-            : OrderStatus.Confirmed;
+            : OrderStatus.Draft;
+        var items = lines.Select(l => BuildItem(orderId, l)).ToList();
 
         return new Order
         {
@@ -243,26 +219,10 @@ public class MarketplaceOrderSyncService(
             WarehouseId = warehouseId,
             PlannedShipmentAt = posting.ShipmentDate,
             CreatedAt = now,
-            ConfirmedAt = status == OrderStatus.Confirmed ? now : null,
-            ShippedAt = status == OrderStatus.Shipped ? posting.InProcessAt ?? posting.CreatedAt ?? now : null,            // created by the integration; who started the run is recorded on MarketplaceSyncRun
+            ShippedAt = status == OrderStatus.Shipped ? posting.InProcessAt ?? posting.CreatedAt ?? now : null,
+            // created by the integration; who started the run is recorded on MarketplaceSyncRun
             CreatedById = null,
-            MarketplaceItems = [.. lines.Select(l => new OrderMarketplaceItem
-            {
-                Id = Guid.NewGuid(),
-                OrderId = orderId,
-                MarketplaceCardId = l.CardId,
-                CatalogItemId = l.CatalogItemId,
-                Quantity = l.Item.Quantity,
-                CustomerPrice = l.Item.CustomerPrice,
-                CustomerCurrencyCode = l.Item.CustomerCurrencyCode,
-                Price = l.Item.Price,
-                OldPrice = l.Item.OldPrice,
-                DiscountValue = l.Item.DiscountValue,
-                Payout = l.Item.Payout,
-                CurrencyCode = l.Item.CurrencyCode,
-                CommissionAmount = l.Item.CommissionAmount,
-                CommissionCurrencyCode = l.Item.CommissionCurrencyCode,
-            })],
+            MarketplaceItems = items,
             Boxes =
             [
                 new OrderBox
@@ -271,16 +231,7 @@ public class MarketplaceOrderSyncService(
                     OrderId = orderId,
                     // Always one box, even when MultiBoxQty > 1: the marketplace says how many packages
                     // but not what goes in which, so the packer splits them during assembly.
-                    Components = [.. lines
-                        .Where(l => l.CatalogItemId is not null)
-                        .GroupBy(l => l.CatalogItemId!.Value)
-                        .Select(g => new OrderBoxComponent
-                        {
-                            Id = Guid.NewGuid(),
-                            OrderBoxId = boxId,
-                            CatalogItemId = g.Key,
-                            Quantity = g.Sum(l => l.Item.Quantity),
-                        })],
+                    Components = BuildComponents(boxId, lines),
                 },
             ],
             MarketplaceOrder = new MarketplaceOrder
@@ -301,18 +252,225 @@ public class MarketplaceOrderSyncService(
                 TrackingNumber = posting.TrackingNumber,
                 DeliveryMethodName = posting.DeliveryMethodName,
                 MultiBoxQty = posting.MultiBoxQty,
-                ScanitBarcode = posting.Scanit,
+                OzonScanitBarcode = posting.Scanit,
+                Parcels = BuildParcels(orderId, posting, items, boxId),
                 StatusSyncedAt = now,
                 SyncedAt = now,
             },
         };
     }
 
+    private static OrderMarketplaceItem BuildItem(Guid orderId, OrderLine line) => new()
+    {
+        Id = Guid.NewGuid(),
+        OrderId = orderId,
+        MarketplaceCardId = line.CardId,
+        CatalogItemId = line.CatalogItemId,
+        Quantity = line.Item.Quantity,
+        CustomerPrice = line.Item.CustomerPrice,
+        CustomerCurrencyCode = line.Item.CustomerCurrencyCode,
+        Price = line.Item.Price,
+        OldPrice = line.Item.OldPrice,
+        DiscountValue = line.Item.DiscountValue,
+        Payout = line.Item.Payout,
+        CurrencyCode = line.Item.CurrencyCode,
+        CommissionAmount = line.Item.CommissionAmount,
+        CommissionCurrencyCode = line.Item.CommissionCurrencyCode,
+    };
+
+    /// <summary>
+    /// Collapsed by catalog item, not by card: two cards may point at the same item. Unrecognized positions
+    /// put nothing in the box.
+    /// </summary>
+    private static List<OrderBoxComponent> BuildComponents(Guid boxId, IReadOnlyList<OrderLine> lines) =>
+    [
+        .. lines
+            .Where(l => l.CatalogItemId is not null)
+            .GroupBy(l => l.CatalogItemId!.Value)
+            .Select(g => new OrderBoxComponent
+            {
+                Id = Guid.NewGuid(),
+                OrderBoxId = boxId,
+                CatalogItemId = g.Key,
+                Quantity = g.Sum(l => l.Item.Quantity),
+            }),
+    ];
+
+    /// <summary>
+    /// A posting the marketplace states no layout for is one parcel, the whole posting, coinciding with the one
+    /// box. A stated layout maps its contents onto <paramref name="items"/>, which are in posting order.
+    /// </summary>
+    private static List<MarketplaceParcel> BuildParcels(Guid orderId, ExternalPosting posting,
+        IReadOnlyList<OrderMarketplaceItem> items, Guid? boxId)
+    {
+        if (posting.Parcels is not { Count: > 0 } layout)
+            return [new MarketplaceParcel { Id = Guid.NewGuid(), MarketplaceOrderId = orderId, Index = 1, OrderBoxId = boxId }];
+
+        return
+        [
+            .. layout.Select((parcel, i) =>
+            {
+                var parcelId = Guid.NewGuid();
+                return new MarketplaceParcel
+                {
+                    Id = parcelId,
+                    MarketplaceOrderId = orderId,
+                    Index = i + 1,
+                    ExternalId = parcel.ExternalId,
+                    Barcode = parcel.Barcode,
+                    OrderBoxId = layout.Count == 1 ? boxId : null,
+                    Items =
+                    [
+                        .. parcel.Items
+                            .Where(item => item.ItemIndex >= 0 && item.ItemIndex < items.Count)
+                            .Select(item => new MarketplaceParcelItem
+                            {
+                                MarketplaceParcelId = parcelId,
+                                OrderMarketplaceItemId = items[item.ItemIndex].Id,
+                                Quantity = item.Quantity,
+                                PartIndex = item.PartIndex,
+                                PartCount = item.PartCount,
+                            }),
+                    ],
+                };
+            }),
+        ];
+    }
+
+    /// <summary>
+    /// A draft has no work behind it, so it follows the posting whole: lines, box and parcels are brought to
+    /// what the posting holds now, the catalog snapshot to what the cards are mapped to now. Lines that already
+    /// match keep their rows — and with them their links to returns and accruals; an Ozon parcel keeps its label.
+    /// </summary>
+    private bool RebuildDraft(MarketplaceOrder known, ExternalPosting posting, Guid accountId,
+        IReadOnlyDictionary<string, Guid> warehouses, CardLookup cards)
+    {
+        var order = known.Order;
+        var lines = ResolveLines(posting, accountId, cards);
+        var changed = false;
+
+        var warehouseId = ResolveWarehouse(posting, warehouses);
+        if (order.WarehouseId != warehouseId)
+        {
+            order.WarehouseId = warehouseId;
+            changed = true;
+        }
+
+        // in posting order, which parcel contents index into
+        var items = MatchLines(order.MarketplaceItems, lines);
+        var sameLines = items is not null;
+        if (items is not null)
+        {
+            foreach (var (item, line) in items.Zip(lines).Where(p => p.First.CatalogItemId != p.Second.CatalogItemId))
+            {
+                item.CatalogItemId = line.CatalogItemId;
+                changed = true;
+            }
+        }
+        else
+        {
+            db.OrderMarketplaceItems.RemoveRange(order.MarketplaceItems);
+            items = [.. lines.Select(l => BuildItem(order.Id, l))];
+            db.OrderMarketplaceItems.AddRange(items);
+            changed = true;
+        }
+
+        var box = order.Boxes.OrderBy(b => b.Id).FirstOrDefault();
+        if (box is null)
+        {
+            box = new OrderBox { Id = Guid.NewGuid(), OrderId = order.Id };
+            db.OrderBoxes.Add(box);
+            changed = true;
+        }
+
+        foreach (var extra in order.Boxes.Where(b => b.Id != box.Id).ToList())
+        {
+            db.OrderBoxes.Remove(extra);
+            changed = true;
+        }
+
+        var components = BuildComponents(box.Id, lines);
+        var sameComponents = box.Components.Count == components.Count
+                             && components.TrueForAll(c => box.Components.Any(e =>
+                                 e.CatalogItemId == c.CatalogItemId && e.Quantity == c.Quantity));
+        if (!sameComponents)
+        {
+            db.OrderBoxComponents.RemoveRange(box.Components);
+            db.OrderBoxComponents.AddRange(components);
+            changed = true;
+        }
+
+        changed |= RebuildParcels(known, posting, items, box.Id, linesReplaced: !sameLines);
+        return changed;
+    }
+
+    /// <summary>
+    /// Pairs every line with a stored row of the same card and quantity, in line order; null when the
+    /// composition differs. Rows load in no particular order, so the pairing goes by content, not position.
+    /// </summary>
+    private static List<OrderMarketplaceItem>? MatchLines(ICollection<OrderMarketplaceItem> stored,
+        IReadOnlyList<OrderLine> lines)
+    {
+        if (stored.Count != lines.Count)
+            return null;
+
+        var free = stored.ToList();
+        var matched = new List<OrderMarketplaceItem>(lines.Count);
+        foreach (var line in lines)
+        {
+            var index = free.FindIndex(i => i.MarketplaceCardId == line.CardId && i.Quantity == line.Item.Quantity);
+            if (index < 0)
+                return null;
+
+            matched.Add(free[index]);
+            free.RemoveAt(index);
+        }
+
+        return matched;
+    }
+
+    /// <summary>
+    /// A layout-less posting keeps its one parcel and the label on it. A stated layout is replaced whenever it
+    /// differs — the marketplace allows changing it until packing is done, and a label of an old place is void.
+    /// </summary>
+    private bool RebuildParcels(MarketplaceOrder known, ExternalPosting posting,
+        IReadOnlyList<OrderMarketplaceItem> items, Guid boxId, bool linesReplaced)
+    {
+        var desired = BuildParcels(known.OrderId, posting, items, boxId);
+
+        if (posting.Parcels is not { Count: > 0 } && known.Parcels is [{ Index: 1, Items.Count: 0 } single])
+        {
+            if (single.OrderBoxId == boxId)
+                return false;
+            single.OrderBoxId = boxId;
+            return true;
+        }
+
+        if (!linesReplaced && SameLayout(known.Parcels, desired))
+            return false;
+
+        db.MarketplaceParcels.RemoveRange(known.Parcels);
+        db.MarketplaceParcels.AddRange(desired);
+        known.Parcels = desired;
+        return true;
+    }
+
+    private static bool SameLayout(IReadOnlyList<MarketplaceParcel> current, IReadOnlyList<MarketplaceParcel> desired) =>
+        current.Count == desired.Count
+        && current.OrderBy(p => p.Index).Zip(desired).All(p =>
+            p.First.ExternalId == p.Second.ExternalId
+            && p.First.Barcode == p.Second.Barcode
+            && p.First.Items.Count == p.Second.Items.Count
+            && p.Second.Items.TrueForAll(d => p.First.Items.Any(c =>
+                c.OrderMarketplaceItemId == d.OrderMarketplaceItemId
+                && c.Quantity == d.Quantity && c.PartIndex == d.PartIndex && c.PartCount == d.PartCount)));
+
     /// <summary>
     /// The idempotency contract: marketplace-owned fields only. Boxes, components, assembly tasks and
-    /// fulfillments are never touched — by the time a posting is re-seen they may be half assembled.
+    /// fulfillments are never touched — by the time a posting is re-seen they may be half assembled. A draft's
+    /// composition is the exception, rebuilt separately by <see cref="RebuildDraft"/>.
     /// </summary>
-    private static bool ApplyPosting(MarketplaceOrder known, ExternalPosting posting)
+    private bool ApplyPosting(MarketplaceOrder known, ExternalPosting posting)
     {
         var changed =
             known.Status != posting.Status
@@ -323,7 +481,7 @@ public class MarketplaceOrderSyncService(
             || known.TrackingNumber != posting.TrackingNumber
             || known.DeliveryMethodName != posting.DeliveryMethodName
             || known.MultiBoxQty != posting.MultiBoxQty
-            || (posting.Scanit is not null && known.ScanitBarcode != posting.Scanit)
+            || (posting.Scanit is not null && known.OzonScanitBarcode != posting.Scanit)
             || known.ExternalOrderNumber != posting.ExternalOrderNumber;
 
         changed |= ApplyCancellation(known, posting.Cancellation);
@@ -344,9 +502,9 @@ public class MarketplaceOrderSyncService(
         known.DeliveryMethodName = posting.DeliveryMethodName;
         known.MultiBoxQty = posting.MultiBoxQty;
         // Ozon blanks the barcode once the posting leaves awaiting_deliver; the stored one outlives that
-        known.ScanitBarcode = posting.Scanit ?? known.ScanitBarcode;
+        known.OzonScanitBarcode = posting.Scanit ?? known.OzonScanitBarcode;
         known.ExternalOrderNumber = posting.ExternalOrderNumber;
-        ApplyExternalOrderStatus(known);
+        changed |= FollowMarketplace(known);
 
         known.StatusSyncedAt = now;
         known.SyncedAt = now;
@@ -377,18 +535,170 @@ public class MarketplaceOrderSyncService(
             return;
 
         order.Status = status;
-        order.ShippedAt = status == OrderStatus.Shipped ? known.InProcessAt ?? order.CreatedAt : null;    }
+        order.ShippedAt = status == OrderStatus.Shipped ? known.InProcessAt ?? order.CreatedAt : null;
+    }
 
-    // ── Phase 2: unattended refresh ───────────────────────────────────────────
+    /// <summary>
+    /// The order statuses the sync owns follow the marketplace: an external order's, and a draft's until it
+    /// closes. A draft whose posting went past assembly without WMS becomes external; a split one is deleted,
+    /// its heirs arriving as drafts of their own. Must run after the marketplace fields are overwritten.
+    /// Returns whether a draft closed.
+    /// </summary>
+    private bool FollowMarketplace(MarketplaceOrder known)
+    {
+        var closed = false;
+
+        if (IsDraft(known.Order))
+        {
+            switch (known.Status)
+            {
+                case MarketplaceOrderStatus.Split:
+                    db.Orders.Remove(known.Order);
+                    return true;
+
+                case MarketplaceOrderStatus.Delivering or MarketplaceOrderStatus.Delivered
+                    or MarketplaceOrderStatus.Cancelled or MarketplaceOrderStatus.Arbitration:
+                    known.Order.IsExternal = true;
+                    closed = true;
+                    break;
+            }
+        }
+
+        ApplyExternalOrderStatus(known);
+        return closed;
+    }
+
+    // ── Working import: drafts the marketplace has packed go to work ──────────
+
+    /// <summary>
+    /// The only crossing from the sync's side to the warehouse's: a draft in awaiting_deliver becomes a working
+    /// order once its warehouse and every position map. One that does not stays a draft and lands in the
+    /// skipped list — that is what someone has to be looking at when it happens. The marketplace is not asked:
+    /// only drafts discovery has rebuilt in this same run qualify. One the status catch-up alone refreshed was
+    /// not in the unfulfilled list, so its composition is stale: it is skipped too, and waits for a run that sees it.
+    /// </summary>
+    private async Task ConfirmDraftsAsync(MarketplaceAccount account, MarketplaceSyncRun run,
+        List<SkippedOrderInfo> skipped, CancellationToken ct)
+    {
+        var candidates = await DraftsAwaitingDeliver(account.Id)
+            .Select(o => new { o.OrderId, o.PostingNumber, Rebuilt = o.SyncedAt >= run.StartedAt })
+            .ToListAsync(ct);
+
+        foreach (var stale in candidates.Where(c => !c.Rebuilt))
+            Skip(new SkippedOrderInfo
+            {
+                PostingNumber = stale.PostingNumber,
+                Reason = ErrorCode.MarketplaceOrderDraftNotRefreshed,
+            });
+
+        var draftIds = candidates.Where(c => c.Rebuilt).Select(c => c.OrderId).ToList();
+
+        foreach (var chunk in draftIds.Chunk(CatchUpChunkSize))
+        {
+            await db.Database.ExecuteInTransactionAsync("marketplace.sync.orders.confirm", async () =>
+            {
+                var orderIds = chunk.ToList();
+                await locks.LockManyAsync<Order>(orderIds, ct, IEntityLockService.BackgroundTimeout);
+
+                // the filter again: a draft closed since it was listed is no longer one to confirm
+                var drafts = await DraftsAwaitingDeliver(account.Id)
+                    .Where(o => orderIds.Contains(o.OrderId) && o.SyncedAt >= run.StartedAt)
+                    .Include(o => o.Order)
+                    .ThenInclude(o => o!.MarketplaceItems)
+                    .ThenInclude(i => i.MarketplaceCard)
+                    .ToListAsync(ct);
+
+                var now = DateTime.UtcNow;
+                foreach (var draft in drafts)
+                {
+                    if (ConfirmGate(draft) is { } skip)
+                    {
+                        Skip(skip);
+                        continue;
+                    }
+
+                    draft.Order.Status = OrderStatus.Confirmed;
+                    draft.Order.ConfirmedAt = now;
+                    run.OrdersConfirmed++;
+                }
+
+                await db.SaveChangesAsync(ct);
+            }, ct);
+            await realtime.PublishProgressAsync(run, ct);
+        }
+
+        void Skip(SkippedOrderInfo skip)
+        {
+            run.OrdersSkipped++;
+            if (skipped.Count < SkippedCap)
+                skipped.Add(skip);
+        }
+    }
+
+    // ApplyPosting stamps SyncedAt, the status catch-up only StatusSyncedAt — so SyncedAt tells a rebuilt draft apart
+    private IQueryable<MarketplaceOrder> DraftsAwaitingDeliver(Guid accountId) =>
+        db.MarketplaceOrders.Where(o => o.MarketplaceAccountId == accountId
+                                        && o.Status == MarketplaceOrderStatus.AwaitingDeliver
+                                        && o.Order.Type == OrderType.FBS
+                                        && !o.Order.IsExternal
+                                        && o.Order.Status == OrderStatus.Draft);
+
+    /// <summary>
+    /// The warehouse first, then the catalog. The draft was rebuilt against the current mappings on discovery,
+    /// so a null warehouse or catalog snapshot means the mapping is missing now.
+    /// </summary>
+    private static SkippedOrderInfo? ConfirmGate(MarketplaceOrder draft)
+    {
+        if (draft.Order.WarehouseId is null)
+            return new SkippedOrderInfo
+            {
+                PostingNumber = draft.PostingNumber,
+                Reason = ErrorCode.MarketplaceOrderWarehouseNotMapped,
+            };
+
+        var unmapped = draft.Order.MarketplaceItems
+            .Where(i => i.CatalogItemId is null)
+            .Select(i => i.MarketplaceCard?.OfferId ?? "")
+            .Distinct()
+            .ToList();
+
+        return unmapped.Count > 0
+            ? new SkippedOrderInfo
+            {
+                PostingNumber = draft.PostingNumber,
+                Reason = ErrorCode.MarketplaceOrderCardNotMapped,
+                OfferIds = unmapped,
+            }
+            : null;
+    }
+
+    // ── Unattended refresh ────────────────────────────────────────────────────
 
     public async Task SyncOrdersBackgroundAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
         MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
     {
         using var activity = AppTelemetry.Source.StartActivity("marketplace.sync.orders_background");
 
-        await ImportFboPostingsAsync(provider, credentials, account, run, ct);
-        await ImportFbsPostingsAsync(provider, credentials, account, run, ct);
+        await RefreshFbsAsync(provider, credentials, account, run, ct);
+        await RefreshRestAsync(provider, credentials, account, run, ct);
+    }
+
+    /// <summary>
+    /// Drafts discovered and rebuilt, then every open FBS posting asked about — after it a draft still awaiting
+    /// delivery is one the marketplace really has in that state.
+    /// </summary>
+    private async Task RefreshFbsAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
+        MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
+    {
+        await DiscoverPostingsAsync(provider, credentials, account, run, ct);
         await CatchUpStatusesAsync(provider, credentials, account, run, ExternalPostingScheme.Fbs, ct);
+    }
+
+    private async Task RefreshRestAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
+        MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
+    {
+        await ImportFbsPostingsAsync(provider, credentials, account, run, ct);
+        await ImportFboPostingsAsync(provider, credentials, account, run, ct);
         await CatchUpStatusesAsync(provider, credentials, account, run, ExternalPostingScheme.Fbo, ct);
         // last, so the postings its returns belong to are already in
         await returnSync.SyncReturnsAsync(provider, credentials, account, run, ct);
@@ -452,6 +762,7 @@ public class MarketplaceOrderSyncService(
             .Where(o => o.MarketplaceAccountId == account.Id
                         && o.Status != MarketplaceOrderStatus.Delivered
                         && o.Status != MarketplaceOrderStatus.Cancelled
+                        && o.Status != MarketplaceOrderStatus.Split
                         // the two schemes are asked about through different endpoints
                         && (o.Order!.Type == OrderType.FboPosting) == isFbo
                         // phase 1 just refreshed everything the unfulfilled list returned; re-asking would
@@ -481,6 +792,7 @@ public class MarketplaceOrderSyncService(
                     .Where(o => orderIds.Contains(o.OrderId)
                                 && o.Status != MarketplaceOrderStatus.Delivered
                                 && o.Status != MarketplaceOrderStatus.Cancelled
+                                && o.Status != MarketplaceOrderStatus.Split
                                 && o.StatusSyncedAt < run.StartedAt)
                     .Include(o => o.Order)
                     .ThenInclude(o => o!.MarketplaceItems)
@@ -512,12 +824,13 @@ public class MarketplaceOrderSyncService(
             var cancellationChanged = ApplyCancellation(order, status.Cancellation);
             var financialsChanged = ApplyItemFinancials(order.Order, status.Items);
 
-            if (cancellationChanged
-                || financialsChanged
-                || order.Status != status.Status
-                || order.RawStatus != status.RawStatus
-                || order.RawSubstatus != status.RawSubstatus
-                || order.TrackingNumber != status.TrackingNumber)
+            var counted = cancellationChanged
+                          || financialsChanged
+                          || order.Status != status.Status
+                          || order.RawStatus != status.RawStatus
+                          || order.RawSubstatus != status.RawSubstatus
+                          || order.TrackingNumber != status.TrackingNumber;
+            if (counted)
                 run.OrdersUpdated++;
 
             StampFinalStatus(order, status.Status, now);
@@ -525,12 +838,14 @@ public class MarketplaceOrderSyncService(
             order.RawStatus = status.RawStatus;
             order.RawSubstatus = status.RawSubstatus;
             order.TrackingNumber = status.TrackingNumber ?? order.TrackingNumber;
-            ApplyExternalOrderStatus(order);
+            // a draft that closes counts as updated even when nothing else moved
+            if (FollowMarketplace(order) && !counted)
+                run.OrdersUpdated++;
             order.StatusSyncedAt = now;
         }
     }
 
-    // ── Phase 3: history backfill ─────────────────────────────────────────────
+    // ── History backfill ──────────────────────────────────────────────────────
 
     public async Task SyncOrdersBackfillAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
         MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
@@ -586,13 +901,8 @@ public class MarketplaceOrderSyncService(
                     }
 
                     var lines = ResolveLines(posting, account.Id, cards);
-                    var warehouseId = posting.Scheme == ExternalPostingScheme.Fbs
-                                      && posting.WarehouseExternalId is { } externalId
-                                      && warehouses.TryGetValue(externalId, out var mapped)
-                        ? mapped
-                        : (Guid?)null;
-
-                    db.Orders.Add(BuildOrder(posting, account, warehouseId, lines, isExternal: true));
+                    db.Orders.Add(BuildOrder(posting, account, ResolveWarehouse(posting, warehouses), lines,
+                        isExternal: true));
                     run.OrdersCreated++;
                 }
 

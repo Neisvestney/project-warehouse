@@ -330,6 +330,12 @@ public class AppMapperProfile : Profile
         CreateMap<MarketplaceOrder, MarketplaceOrderDto>()
             .ForMember(d => d.MarketplaceAccountName, opt => opt.MapFrom(s => s.MarketplaceAccount.Name))
             .ForMember(d => d.MarketplaceType, opt => opt.MapFrom(s => s.MarketplaceAccount.Type));
+
+        CreateMap<MarketplaceOrder, MarketplaceOrderDetailsDto>()
+            .IncludeBase<MarketplaceOrder, MarketplaceOrderDto>()
+            .ForMember(d => d.Parcels, opt => opt.MapFrom(s => s.Parcels.OrderBy(p => p.Index)));
+
+        CreateMap<MarketplaceParcel, MarketplaceParcelDto>();
         
         CreateMap<OrderMarketplaceItem, OrderMarketplaceItemDto>();
 

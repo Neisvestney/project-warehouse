@@ -14,7 +14,7 @@ function SkippedOrdersList({items, total}: SkippedOrdersListProps) {
 
   return (
     <Stack spacing={0.5}>
-      <Typography variant="subtitle2">Не импортированы</Typography>
+      <Typography variant="subtitle2">Не переведены в работу</Typography>
       {items.map((item) => (
         <Typography key={item.postingNumber} variant="caption" sx={{display: "block"}}>
           • <b>{formatPostingNumber(item.postingNumber)}</b>:{" "}

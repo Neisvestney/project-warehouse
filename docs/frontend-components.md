@@ -1182,6 +1182,12 @@ as does dropping the notes column with `showNotes={false}` (the marketplace page
 собран (черновик, подтверждён, на сборке), и «Просрочена отгрузка» (`warning.main`) — собран, но не отгружен.
 Обе кликабельны и включают фильтр `overdue=assembly|shipment` в URL, повторный клик его снимает. Числа
 учитывают выбранный таб, но не сам `overdue`, поэтому вторая просрочка не обнуляется, пока включена первая.
+На вкладке «Черновик» списка FBS рядом стоит «С непривязанными товарами» (`warning.main`, `meta.unmappedOrderCount`) —
+сколько черновиков не перейдёт в работу, пока их товары не привяжут к каталогу; при нуле счётчик скрыт. Сервер
+считает его только для `type=fbs&status=draft`, в остальных списках отдаёт 0. Клик включает фильтр `unmapped=1` в
+URL, повторный клик снимает. Фильтр уходит в запрос только на этой вкладке: на другом табе он не действует, а
+вернувшись на «Черновик», пользователь видит его снова включённым. В отличие от просрочек, `unmapped` сужает и
+счётчики табов.
 
 Даты в таблице (`Плановая отгрузка`, `Создан` и статусная колонка) рисует `DateTimeTableCell`: дата первой
 строкой, время под ней капшеном; вертикальные отступы ячейки поджаты, чтобы строка таблицы почти не подросла.
@@ -1239,7 +1245,7 @@ FBS-only pieces: `SyncOrdersButton` / `SyncOrdersDialog` / `SyncOrdersAccountAcc
 `integrations.view` still gets the account picker), and `marketplaceOrderUtils` for the label and colour maps.
 
 `PostingNumberLabel` is the compact posting label for places with room for a single number, currently the
-`OrdersAssemblyPage` summary. Once the posting has a `scanitBarcode` it shows the barcode — what the assembler
+`OrdersAssemblyPage` summary. Once the posting has an `ozonScanitBarcode` it shows the barcode — what the assembler
 scans off the label — as a `CopyableText`, and puts the posting number into an interactive tooltip as a second
 `CopyableText`, so both stay copyable. Before packing there is no barcode yet, and the posting number itself is
 shown and copied.
@@ -1298,8 +1304,9 @@ manual refresh.
   for its own «Обновить привязку» button, painted `warning` while a line's snapshot differs from its card's
   mapping.
 - `DownloadOrderLabelButton` — the button in the FBS order page header. A single order has nothing to group and
-  nothing to regenerate on demand, so there is no dialog. The button is always visible but greys out when
-  `labelFileId` is empty and the status is not `awaitingDeliver`, with a tooltip explaining why.
+  nothing to regenerate on demand, so there is no dialog. It takes `MarketplaceOrderDetailsDto`, whose `parcels`
+  carry the labels: the button is always visible but greys out when some parcel has no `labelFileId` and the
+  status is not `awaitingDeliver`, with a tooltip explaining why.
 - `LabelsErrorDialog` — the refusal is shown as a modal rather than a snackbar: both `marketplaceLabelNotReady`
   and `marketplaceOrderNotAwaitingDeliver` carry a list of postings in `args.postingNumbers`, and a list of
   thirty numbers does not fit a snackbar and times out before it can be read. The last error is held in state

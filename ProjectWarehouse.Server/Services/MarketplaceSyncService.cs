@@ -196,6 +196,7 @@ public class MarketplaceSyncService(
                 autoMapped = run.AutoMapped,
                 ordersCreated = run.OrdersCreated,
                 ordersUpdated = run.OrdersUpdated,
+                ordersConfirmed = run.OrdersConfirmed,
                 ordersSkipped = run.OrdersSkipped,
                 returnsCreated = run.ReturnsCreated,
                 returnsUpdated = run.ReturnsUpdated,

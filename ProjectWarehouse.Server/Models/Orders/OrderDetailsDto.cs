@@ -25,7 +25,7 @@ public class OrderDetailsDto
     public string? WarehouseName { get; init; }
     public Guid? CreatedById { get; init; }
     public string? CreatedByName { get; init; }
-    public MarketplaceOrderDto? MarketplaceOrder { get; init; }
+    public MarketplaceOrderDetailsDto? MarketplaceOrder { get; init; }
     public IReadOnlyList<OrderMarketplaceItemDto> MarketplaceItems { get; init; } = [];
 
     /// <summary>Every return reported for the posting, cancelled requests included, by return date.</summary>

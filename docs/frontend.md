@@ -225,7 +225,7 @@ Used everywhere a posting number is rendered: the `postingNumber` extra column i
 **Отправление** row in `OrderMetaSection`, and the failure list in `SkippedOrdersList` (there it sits inside the
 existing `<b>`, so the whole number stays bold and the 4 digits keep the plate).
 
-`formatScanitBarcode(scanitBarcode)` from the same module formats the Ozon shipment barcode (`scanitBarcode`,
+`formatScanitBarcode(ozonScanitBarcode)` from the same module formats the Ozon shipment barcode (`ozonScanitBarcode`,
 `ii` + 11 digits) with the same highlight plate, applied to the last 4 digits of the whole string:
 `ii50082087036` → `ii5008208**7036**`. Strings that don't end with 4 digits are returned unchanged;
 `null`/`undefined`/`""` give `null`. The barcode is filled only once a posting reaches `awaiting_deliver`, so

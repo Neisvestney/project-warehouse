@@ -5,14 +5,14 @@ import CopyableText from "@/components/CopyableText";
 import {formatPostingNumber, formatScanitBarcode} from "@/utils/postingNumberUtils";
 
 interface PostingNumberLabelProps {
-  marketplaceOrder: Pick<MarketplaceOrderDto, "postingNumber" | "scanitBarcode">;
+  marketplaceOrder: Pick<MarketplaceOrderDto, "postingNumber" | "ozonScanitBarcode">;
   sx?: SxProps<Theme>;
 }
 
 function PostingNumberLabel({marketplaceOrder, sx}: PostingNumberLabelProps) {
-  const {postingNumber, scanitBarcode} = marketplaceOrder;
+  const {postingNumber, ozonScanitBarcode} = marketplaceOrder;
 
-  if (!scanitBarcode) {
+  if (!ozonScanitBarcode) {
     return (
       <CopyableText value={postingNumber} successMessage="Номер отправления скопирован" sx={sx}>
         {formatPostingNumber(postingNumber)}
@@ -35,8 +35,8 @@ function PostingNumberLabel({marketplaceOrder, sx}: PostingNumberLabelProps) {
     >
       {/* Tooltip needs a DOM child to attach its listeners to */}
       <Box component="span" sx={[{display: "inline-flex"}, ...(Array.isArray(sx) ? sx : [sx])]}>
-        <CopyableText value={scanitBarcode} successMessage="Штрихкод отправления скопирован">
-          {formatScanitBarcode(scanitBarcode)}
+        <CopyableText value={ozonScanitBarcode} successMessage="Штрихкод отправления скопирован">
+          {formatScanitBarcode(ozonScanitBarcode)}
         </CopyableText>
       </Box>
     </Tooltip>

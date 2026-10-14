@@ -38,11 +38,11 @@ export function formatPostingNumber(postingNumber: string | null | undefined): R
   return highlight(postingNumber, match);
 }
 
-export function formatScanitBarcode(scanitBarcode: string | null | undefined): ReactNode {
-  if (!scanitBarcode) return null;
+export function formatScanitBarcode(ozonScanitBarcode: string | null | undefined): ReactNode {
+  if (!ozonScanitBarcode) return null;
 
-  const match = SCANIT_HIGHLIGHTED_PART_REGEX.exec(scanitBarcode);
-  if (!match) return scanitBarcode;
+  const match = SCANIT_HIGHLIGHTED_PART_REGEX.exec(ozonScanitBarcode);
+  if (!match) return ozonScanitBarcode;
 
-  return highlight(scanitBarcode, match);
+  return highlight(ozonScanitBarcode, match);
 }

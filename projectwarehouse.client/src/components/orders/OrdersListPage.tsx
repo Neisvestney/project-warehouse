@@ -106,9 +106,6 @@ const ALL_STATUSES: OrderStatus[] = [
   "canceled",
 ];
 
-// an FBS order arrives Confirmed and never goes back to Draft
-const FBS_STATUSES = ALL_STATUSES.filter((s) => s !== "draft");
-
 const ALL_OVERDUE_KINDS: OrderOverdueKind[] = ["assembly", "shipment"];
 
 export interface OrdersListExtraColumn {
@@ -178,7 +175,7 @@ function OrdersListPage({
   const queryClient = useQueryClient();
   const canCreate = useHasPermission(["orders.edit", "orders.edit_assigned"]);
   const canSelfAssign = useHasPermission("orders.self_assign");
-  const statuses = type === "fbs" ? FBS_STATUSES : ALL_STATUSES;
+  const statuses = ALL_STATUSES;
 
   const [failedItems, setFailedItems] = useState<BatchSelfAssignFailedItem[]>([]);
   const [selfAssignError, setSelfAssignError] = useState<string | null>(null);
@@ -251,12 +248,21 @@ function OrdersListPage({
     (v) => v || null,
   );
 
+  const [unmapped, setUnmapped] = useSyncedWithQueryState<boolean>(
+    "unmapped",
+    (q) => q === "1",
+    (v) => (v ? "1" : null),
+  );
+
   const [tagFilter, setTagFilter] = useTagFilterState();
 
   const isHidden = (key: OrderSortBy) => hiddenColumns.includes(key);
   const showStatusFilter = !isHidden("status");
   const showWarehouseFilter = !isHidden("warehouseName");
   const statusFilter = showStatusFilter ? status : "";
+  // only a draft is held back by an unmapped line, so the counter and its filter belong to the FBS drafts tab
+  const showUnmapped = type === "fbs" && statusFilter === "draft";
+  const unmappedFilter = showUnmapped && unmapped;
 
   const statusDateStatuses = [
     ...alwaysShownStatusDates,
@@ -288,6 +294,7 @@ function OrdersListPage({
       tagIds: tagFilter.include.length > 0 ? tagFilter.include : undefined,
       excludedTagIds: tagFilter.exclude.length > 0 ? tagFilter.exclude : undefined,
       overdue: overdue || undefined,
+      unmapped: unmappedFilter || undefined,
       includeExternal: includeExternal || undefined,
       marketplaceType: marketplaceFilters
         ? (marketplaceType as MarketplaceType) || undefined
@@ -306,6 +313,7 @@ function OrdersListPage({
       catalogItemIds,
       tagFilter,
       overdue,
+      unmappedFilter,
       includeExternal,
       marketplaceType,
       marketplaceAccountId,
@@ -382,6 +390,15 @@ function OrdersListPage({
       key: "components",
       label: "Штук:",
       value: (data?.meta.componentCount ?? 0).toLocaleString("ru-RU"),
+    },
+    {
+      key: "unmapped",
+      label: "С непривязанными товарами:",
+      value: (data?.meta.unmappedOrderCount ?? 0).toLocaleString("ru-RU"),
+      color: "warning.main",
+      hidden: !showUnmapped || (!isLoading && !data?.meta.unmappedOrderCount && !unmapped),
+      onClick: () => setUnmapped(!unmapped),
+      active: unmappedFilter,
     },
     {
       key: "overdueAssembly",

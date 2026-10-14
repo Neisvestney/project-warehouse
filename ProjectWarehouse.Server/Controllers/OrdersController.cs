@@ -80,6 +80,7 @@ public class OrdersController(
             .Include(o => o.Warehouse)
             .Include(o => o.CreatedBy)
             .Include(o => o.MarketplaceOrder).ThenInclude(m => m!.MarketplaceAccount)
+            .Include(o => o.MarketplaceOrder).ThenInclude(m => m!.Parcels)
             .Include(o => o.Tags)
             .Include(o => o.Images).ThenInclude(i => i.DataFile)
             // unlabeled boxes are named by their position in this list, so the order is pinned rather than
@@ -123,6 +124,15 @@ public class OrdersController(
         order.IsExternal
             ? UnprocessableEntity("root", ErrorCode.OrderIsExternal,
                 "This order was imported from the marketplace and is not handled by WMS.")
+            : null;
+
+    /// <summary>
+    /// An FBS draft's box is rebuilt from the posting on every sync, so a hand edit would not survive it.
+    /// </summary>
+    private IActionResult? MarketplaceDraftError(Order order) =>
+        order is { Type: OrderType.FBS, IsExternal: false, Status: OrderStatus.Draft }
+            ? UnprocessableEntity("root", ErrorCode.OrderIsMarketplaceDraft,
+                "This FBS order is a draft driven by the marketplace sync.")
             : null;
 
     /// <summary>
@@ -340,7 +350,10 @@ public class OrdersController(
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 500), <c>searchString</c>,
     /// <c>warehouseId</c>, <c>type</c>, <c>status</c>, <c>marketplaceType</c>, <c>marketplaceAccountId</c>,
     /// <c>marketplaceStatus</c>, <c>includeExternal</c> (default false), <c>catalogItemIds</c>, <c>tagIds</c>,
-    /// <c>excludedTagIds</c>, <c>overdue</c>, <c>sortBy</c> (default <c>Number</c>), <c>sortOrder</c> (default <c>Desc</c>).
+    /// <c>excludedTagIds</c>, <c>overdue</c>, <c>unmapped</c> (default false), <c>sortBy</c> (default <c>Number</c>),
+    /// <c>sortOrder</c> (default <c>Desc</c>).
+    /// <c>unmapped</c> keeps orders with a marketplace line not bound to a catalog item; it applies to every count in
+    /// <c>meta</c>, so <c>unmappedOrderCount</c> then equals the total.
     /// <c>overdue</c> keeps orders past their planned shipment date: <c>Assembly</c> — not assembled yet (draft,
     /// confirmed, assembly), <c>Shipment</c> — assembled but not shipped. In <c>meta</c> the status counts ignore
     /// the <c>status</c> filter and the overdue counts ignore the <c>overdue</c> filter; every other filter applies.
@@ -372,6 +385,7 @@ public class OrdersController(
         [FromQuery] IReadOnlyList<Guid>? tagIds = null,
         [FromQuery] IReadOnlyList<Guid>? excludedTagIds = null,
         [FromQuery] OrderOverdueKind? overdue = null,
+        [FromQuery] bool unmapped = false,
         [FromQuery] OrderSortBy sortBy = OrderSortBy.Number,
         [FromQuery] SortOrder sortOrder = SortOrder.Desc,
         CancellationToken ct = default)
@@ -401,6 +415,7 @@ public class OrdersController(
             .Where(o => tagIds == null || tagIds.Count == 0 || o.Tags.Any(t => tagIds.Contains(t.Id)))
             .Where(o => excludedTagIds == null || excludedTagIds.Count == 0 ||
                         !o.Tags.Any(t => excludedTagIds.Contains(t.Id)))
+            .Where(o => !unmapped || o.MarketplaceItems.Any(i => i.CatalogItemId == null))
             .WhereMatchesExtendedSearch((o, pattern) => o.MatchesExtendedSearch(pattern), searchString);
 
         var baseQuery = facetQuery
@@ -439,6 +454,10 @@ public class OrdersController(
                 .SelectMany(o => o.Boxes)
                 .SelectMany(b => b.Components)
                 .SumAsync(c => (int?)c.Quantity, ct) ?? 0,
+            // only an FBS draft is held back by an unmapped line, so nothing else pays for the query
+            UnmappedOrderCount = type == OrderType.FBS && status == OrderStatus.Draft
+                ? await baseQuery.CountAsync(o => o.MarketplaceItems.Any(i => i.CatalogItemId == null), ct)
+                : 0,
             OverdueAssemblyCount = facets
                 .Where(f => f.Overdue == OrderOverdueKind.Assembly && (status == null || f.Status == status))
                 .Sum(f => f.Count),
@@ -854,7 +873,8 @@ public class OrdersController(
 
     /// <summary>Delete an order. Only allowed in Draft status.</summary>
     /// <remarks>
-    /// Returns 422 <c>orderNotDraft</c> for any other status, 404 <c>orderNotFound</c> if it does not exist,
+    /// Returns 422 <c>orderNotDraft</c> for any other status, 422 <c>orderIsMarketplaceDraft</c> for an FBS draft —
+    /// the sync deletes it once its posting is split — 404 <c>orderNotFound</c> if it does not exist,
     /// 409 <c>entityLocked</c> when another request is changing the order — nothing was written.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
@@ -894,13 +914,14 @@ public class OrdersController(
     /// Body: <c>TransitionOrderStatusRequest</c> — <c>targetStatus</c>. Allowed transitions:
     /// <list type="bullet">
     ///   <item>Draft → Confirmed | Canceled</item>
-    ///   <item>Confirmed → Draft | Assembly | Canceled</item>
+    ///   <item>Confirmed → Draft (not FBS) | Assembly | Canceled</item>
     ///   <item>Assembly → Confirmed | Assembled | Canceled</item>
     ///   <item>Assembled → Shipped</item>
     ///   <item>Shipped → Assembled</item>
     ///   <item>Canceled → Draft (Direct orders) | Confirmed (FBO, FBS orders)</item>
     /// </list>
-    /// Anything else is 422 <c>orderInvalidStatusTransition</c>. Assembly → Confirmed is additionally refused
+    /// Anything else is 422 <c>orderInvalidStatusTransition</c>. An FBS draft moves only with the marketplace sync,
+    /// so any transition of one is 422 <c>orderIsMarketplaceDraft</c>. Assembly → Confirmed is additionally refused
     /// when any assembly task is already <c>Done</c>; otherwise it deletes every assembly task of the order and
     /// restores the inventory of their fulfillments. Assembled is normally reached automatically when the last
     /// task turns Done with every component fully fulfilled (see the assembly-task status endpoint); Assembly →
@@ -1530,7 +1551,8 @@ public class OrdersController(
     /// <summary>Add an empty box to the order.</summary>
     /// <remarks>
     /// Body: <c>CreateOrderBoxRequest</c> — <c>label</c>.
-    /// Allowed in Draft, Confirmed and Assembly; any other status is 422 <c>orderInvalidStatusTransition</c>.
+    /// Allowed in Draft, Confirmed and Assembly; any other status is 422 <c>orderInvalidStatusTransition</c>, and an
+    /// FBS draft is 422 <c>orderIsMarketplaceDraft</c> — its box follows the posting.
     /// Permission depends on status: in Draft/Confirmed <c>orders.edit</c> / <c>orders.edit_assigned</c> or
     /// <c>orders.assemble_assigned</c> is enough, but in Assembly only <c>orders.assemble_assigned</c> is
     /// accepted — during assembly boxes are managed by the assembler, not the admin page.
@@ -1566,6 +1588,9 @@ public class OrdersController(
         if (ExternalOrderError(order) is { } external)
             return external;
 
+        if (MarketplaceDraftError(order) is { } draft)
+            return draft;
+
         if (order.Status is not (OrderStatus.Draft or OrderStatus.Confirmed or OrderStatus.Assembly))
             return UnprocessableEntity("root", ErrorCode.OrderInvalidStatusTransition,
                 "Boxes can only be added in Draft, Confirmed, or Assembly status.");
@@ -1586,7 +1611,8 @@ public class OrdersController(
     /// <summary>Rename a box.</summary>
     /// <remarks>
     /// Body: <c>UpdateOrderBoxRequest</c> — <c>label</c>; the box contents are not touched, and no status
-    /// restriction applies (the label stays editable even during Assembly).
+    /// restriction applies (the label stays editable even during Assembly). An FBS draft is the exception:
+    /// 422 <c>orderIsMarketplaceDraft</c>, its box follows the posting.
     /// Returns 404 <c>orderNotFound</c> or <c>orderBoxNotFound</c>, 409 <c>entityLocked</c> when another
     /// request is changing the order — nothing was written.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
@@ -1599,6 +1625,7 @@ public class OrdersController(
     [ProducesResponseType<OrderBoxDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> UpdateBox(Guid id, Guid boxId, [FromBody] UpdateOrderBoxRequest request, CancellationToken ct = default)
     {
         var (order, error) = await LoadOrderWithEditAccessAsync(id, ct);
@@ -1606,6 +1633,9 @@ public class OrdersController(
 
         if (ExternalOrderError(order!) is { } external)
             return external;
+
+        if (MarketplaceDraftError(order!) is { } draft)
+            return draft;
 
         var box = await db.OrderBoxes.FirstOrDefaultAsync(b => b.Id == boxId && b.OrderId == id, ct);
         if (box is null)
@@ -1619,7 +1649,8 @@ public class OrdersController(
 
     /// <summary>Delete a box. Only an empty box can be deleted.</summary>
     /// <remarks>
-    /// Returns 422 <c>validationError</c> if the box still has components, 404 <c>orderNotFound</c> or
+    /// Returns 422 <c>validationError</c> if the box still has components, 422 <c>orderIsMarketplaceDraft</c> for an
+    /// FBS draft, 404 <c>orderNotFound</c> or
     /// <c>orderBoxNotFound</c>, 409 <c>entityLocked</c> when another request is changing the order — nothing
     /// was written.
     /// Requires <c>orders.edit</c> / <c>orders.edit_assigned</c> or <c>orders.assemble_assigned</c>; while the
@@ -1652,6 +1683,9 @@ public class OrdersController(
 
         if (ExternalOrderError(order) is { } external)
             return external;
+
+        if (MarketplaceDraftError(order) is { } draft)
+            return draft;
 
         var box = await db.OrderBoxes.Include(b => b.Components)
             .FirstOrDefaultAsync(b => b.Id == boxId && b.OrderId == id, ct);

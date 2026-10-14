@@ -63,6 +63,7 @@ is rationale, invariants, cross-cutting conventions and decisions.
 | [organizations-specification.md](organizations-specification.md) | Организации — компания продавца над аккаунтами маркетплейсов, привязка по ИНН, основа для «Честного знака» |
 | [marketplaces-accruals-specification.md](marketplaces-accruals-specification.md) | Accruals sync — Ozon finance accruals by day and the buyout report, rows and categories, link to postings, daily full pass |
 | [marketplaces-orders-specification.md](marketplaces-orders-specification.md) | Order sync — FBS & FBO posting discovery, status catch-up, history backfill, order creation, label retrieval |
+| [marketplaces-fulfillment-specification.md](marketplaces-fulfillment-specification.md) | Marketplaces around assembly — Ozon, Yandex Market, Wildberries and Avito: unit of order, status normalization, parcels, labels, item exemplars, assembly by WMS (stage 2) |
 | [marketplaces-returns-specification.md](marketplaces-returns-specification.md) | Returns sync — Ozon returns list, return kinds vs cancellations, compensation pass, link to orders |
 | [realtime-specification.md](realtime-specification.md) | Real-time transport — SSE, event schema, watch registry, advisory edit locks |
 | [data-files-specification.md](data-files-specification.md) | File storage — upload, storage abstraction, FK attachments, orphan GC, serving rules |

@@ -9,6 +9,11 @@ namespace ProjectWarehouse.Server.Services;
 /// </summary>
 public interface IMarketplaceOrderSyncService
 {
+    /// <summary>
+    /// The steps of <see cref="SyncOrdersBackgroundAsync"/> with the working import between them, right after FBS
+    /// discovery and catch-up: FBS drafts the marketplace has packed become working orders, or land in the skipped
+    /// list when their catalog or warehouse is not mapped or discovery did not see them this run.
+    /// </summary>
     Task SyncOrdersAsync(
         IMarketplaceProvider provider,
         MarketplaceCredentials credentials,
@@ -17,9 +22,10 @@ public interface IMarketplaceOrderSyncService
         CancellationToken ct);
 
     /// <summary>
-    /// The unattended half: it refreshes what is already imported, imports marketplace-fulfilled
-    /// postings, which are external and so cannot pile up skips, and imports returns. Safe on a background interval, and also
-    /// the second phase of <see cref="SyncOrdersAsync"/>.
+    /// The unattended half: it imports FBS postings handed to the seller as drafts, refreshes what is already
+    /// imported, imports marketplace-fulfilled and past-the-warehouse postings as external orders, and imports
+    /// returns — none of which can pile up skips. Safe on a background interval; <see cref="SyncOrdersAsync"/>
+    /// runs the same steps.
     /// </summary>
     Task SyncOrdersBackgroundAsync(
         IMarketplaceProvider provider,

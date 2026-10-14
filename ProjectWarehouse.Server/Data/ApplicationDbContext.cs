@@ -76,6 +76,8 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<MarketplaceCard> MarketplaceCards => Set<MarketplaceCard>();
     public DbSet<MarketplaceSyncRun> MarketplaceSyncRuns => Set<MarketplaceSyncRun>();
     public DbSet<MarketplaceOrder> MarketplaceOrders => Set<MarketplaceOrder>();
+    public DbSet<MarketplaceParcel> MarketplaceParcels => Set<MarketplaceParcel>();
+    public DbSet<MarketplaceParcelItem> MarketplaceParcelItems => Set<MarketplaceParcelItem>();
     public DbSet<MarketplaceReturn> MarketplaceReturns => Set<MarketplaceReturn>();
     public DbSet<MarketplaceAccrual> MarketplaceAccruals => Set<MarketplaceAccrual>();
     public DbSet<MarketplaceAutoMapRule> MarketplaceAutoMapRules => Set<MarketplaceAutoMapRule>();
@@ -999,14 +1001,50 @@ public class ApplicationDbContext : IdentityDbContext<
                 .HasForeignKey(x => x.MarketplaceAccountId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.PostingNumber }).IsUnique();
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.Status });
+        });
+
+        builder.Entity<MarketplaceParcel>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.MarketplaceOrder)
+                .WithMany(x => x.Parcels)
+                .HasForeignKey(x => x.MarketplaceOrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // SetNull: the packer may delete the box, the marketplace's place does not go with it
+            e.HasOne(x => x.OrderBox)
+                .WithMany()
+                .HasForeignKey(x => x.OrderBoxId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
             e.HasOne(x => x.LabelFile)
                 .WithMany()
                 .HasForeignKey(x => x.LabelFileId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            e.HasIndex(x => new { x.MarketplaceAccountId, x.PostingNumber }).IsUnique();
-            e.HasIndex(x => new { x.MarketplaceAccountId, x.Status });
+            e.HasIndex(x => new { x.MarketplaceOrderId, x.Index }).IsUnique();
+            // the label cache GC sweeps by fetch time
+            e.HasIndex(x => x.LabelFetchedAt);
+        });
+
+        builder.Entity<MarketplaceParcelItem>(e =>
+        {
+            e.HasKey(x => new { x.MarketplaceParcelId, x.OrderMarketplaceItemId });
+
+            e.HasOne(x => x.MarketplaceParcel)
+                .WithMany(x => x.Items)
+                .HasForeignKey(x => x.MarketplaceParcelId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.OrderMarketplaceItem)
+                .WithMany()
+                .HasForeignKey(x => x.OrderMarketplaceItemId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<MarketplaceReturn>(e =>

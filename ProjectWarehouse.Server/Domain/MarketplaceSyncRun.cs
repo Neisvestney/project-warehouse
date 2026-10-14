@@ -38,10 +38,12 @@ public class MarketplaceSyncRun : IHasIdentity
     public int CardsArchived { get; set; }
     public int AutoMapped { get; set; }
 
-    // Orders fills all four; a run that only refreshes statuses moves OrdersUpdated alone
+    // Orders fills all five; a run that only refreshes statuses moves OrdersUpdated alone. Created counts new
+    // drafts and external orders, Confirmed the drafts the working import put to work, Skipped the ones it held back
     public int OrdersProcessed { get; set; }
     public int OrdersCreated { get; set; }
     public int OrdersUpdated { get; set; }
+    public int OrdersConfirmed { get; set; }
     public int OrdersSkipped { get; set; }
 
     // a return unchanged in every field is not counted as updated, or the overlap would inflate it each run

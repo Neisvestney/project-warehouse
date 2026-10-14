@@ -198,16 +198,16 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
               </CopyableText>
             }
           />
-          {order.marketplaceOrder.scanitBarcode && (
+          {order.marketplaceOrder.ozonScanitBarcode && (
             <InfoRow
               label="Штрихкод отправления"
               value={
                 <CopyableText
-                  value={order.marketplaceOrder.scanitBarcode}
+                  value={order.marketplaceOrder.ozonScanitBarcode}
                   successMessage="Штрихкод отправления скопирован"
                   textStyle={{fontFamily: "monospace"}}
                 >
-                  {formatScanitBarcode(order.marketplaceOrder.scanitBarcode)}
+                  {formatScanitBarcode(order.marketplaceOrder.ozonScanitBarcode)}
                 </CopyableText>
               }
             />

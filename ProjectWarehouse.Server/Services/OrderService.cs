@@ -46,6 +46,17 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
                 "This order was imported from the marketplace and is not handled by WMS.");
     }
 
+    /// <summary>
+    /// An FBS draft belongs to the sync: it follows the posting until the working import confirms it, and its
+    /// composition and box are rebuilt on every encounter. Notes, tags and attachments stay editable.
+    /// </summary>
+    public static void EnsureNotMarketplaceDraft(Order order)
+    {
+        if (order is { Type: OrderType.FBS, IsExternal: false, Status: OrderStatus.Draft })
+            throw new ValidationException("root", ErrorCode.OrderIsMarketplaceDraft,
+                "This FBS order is a draft driven by the marketplace sync.");
+    }
+
     public async Task UpdateOrderAsync(Order order, UpdateOrderRequest request, CancellationToken ct = default)
     {
         order.Notes            = request.Notes;
@@ -55,6 +66,8 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
 
     public async Task DeleteOrderAsync(Order order, CancellationToken ct = default)
     {
+        EnsureNotMarketplaceDraft(order);
+
         if (order.Status != OrderStatus.Draft)
             throw new ValidationException("root", ErrorCode.OrderNotDraft, "Only Draft orders can be deleted.");
 
@@ -65,6 +78,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
     public async Task TransitionOrderStatusAsync(Order order, OrderStatus targetStatus, CancellationToken ct = default)
     {
         EnsureNotExternal(order);
+        EnsureNotMarketplaceDraft(order);
         ValidateOrderTransition(order, targetStatus);
 
         if (order.Status == OrderStatus.Assembly && targetStatus == OrderStatus.Confirmed)
@@ -217,6 +231,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
     public async Task<OrderBox> AddBoxAsync(Order order, CreateOrderBoxRequest request, CancellationToken ct = default)
     {
         EnsureNotExternal(order);
+        EnsureNotMarketplaceDraft(order);
 
         if (order.Status is not (OrderStatus.Draft or OrderStatus.Confirmed or OrderStatus.Assembly))
             throw new ValidationException("root", ErrorCode.OrderInvalidStatusTransition,
@@ -238,6 +253,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
     public async Task UpdateBoxAsync(Order order, OrderBox box, UpdateOrderBoxRequest request, CancellationToken ct = default)
     {
         EnsureNotExternal(order);
+        EnsureNotMarketplaceDraft(order);
 
         box.Label = request.Label;
         await db.SaveChangesAsync(ct);
@@ -246,6 +262,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
     public async Task RemoveBoxAsync(Order order, OrderBox box, CancellationToken ct = default)
     {
         EnsureNotExternal(order);
+        EnsureNotMarketplaceDraft(order);
 
         if (box.Components.Any())
             throw new ValidationException("root", ErrorCode.ValidationError, "Cannot remove a non-empty box.");
@@ -973,7 +990,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
         {
             (OrderStatus.Draft,     OrderStatus.Confirmed)  => true,
             (OrderStatus.Draft,     OrderStatus.Canceled)   => true,
-            // an FBS order arrives Confirmed and never needs drafting: its items mirror the posting
+            // an FBS draft belongs to the sync, so a working order never goes back to one
             (OrderStatus.Confirmed, OrderStatus.Draft)      => order.Type != OrderType.FBS,
             (OrderStatus.Confirmed, OrderStatus.Assembly)   => true,
             (OrderStatus.Confirmed, OrderStatus.Canceled)   => true,

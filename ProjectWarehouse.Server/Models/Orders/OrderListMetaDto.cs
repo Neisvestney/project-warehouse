@@ -9,6 +9,12 @@ public class OrderListMetaDto
     public int ComponentCount { get; init; }
 
     /// <summary>
+    /// Orders with a marketplace line not mapped to the catalog — what keeps an FBS draft from going to work.
+    /// Counted only for the FBS drafts list (<c>type=fbs</c>, <c>status=draft</c>), 0 for any other.
+    /// </summary>
+    public int UnmappedOrderCount { get; init; }
+
+    /// <summary>
     /// Orders past their planned shipment date that are not assembled yet. Ignores the <c>overdue</c> filter so
     /// both counters stay visible while one of them is applied.
     /// </summary>

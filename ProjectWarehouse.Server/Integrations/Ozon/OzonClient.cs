@@ -40,6 +40,7 @@ public class OzonClient(
     /// <summary>The only posting state WMS assembles — see the FBS section of the marketplaces spec.</summary>
     private const string AwaitingDeliver = "awaiting_deliver";
 
+    /// <summary>Handed to the seller but not packed yet — imported as a draft, never assembled.</summary>
     private const string AwaitingPackaging = "awaiting_packaging";
 
     /// <summary>Ozon's accounting days are Moscow days; a later day is not asked for.</summary>
@@ -167,7 +168,7 @@ public class OzonClient(
                     Sort_dir = PostingFbsUnfulfilledListRequestSortDirEnum.ASC,
                     Filter = new PostingFbsUnfulfilledListRequestFilter
                     {
-                        Statuses = [AwaitingDeliver],
+                        Statuses = [AwaitingPackaging, AwaitingDeliver],
                         Cutoff_from = cutoffFrom,
                         Cutoff_to = cutoffTo,
                     },
@@ -597,7 +598,10 @@ public class OzonClient(
     private static string[] RawStatusesOf(ExternalPostingScheme scheme, MarketplaceOrderStatus status) =>
         (scheme, status) switch
         {
-            (_, MarketplaceOrderStatus.AwaitingDeliver) => [AwaitingPackaging, AwaitingDeliver],
+            (ExternalPostingScheme.Fbo, MarketplaceOrderStatus.AwaitingDeliver) => [AwaitingPackaging, AwaitingDeliver],
+            (ExternalPostingScheme.Fbo, MarketplaceOrderStatus.AwaitingPackaging) => [],
+            (_, MarketplaceOrderStatus.AwaitingPackaging) => [AwaitingPackaging],
+            (_, MarketplaceOrderStatus.AwaitingDeliver) => [AwaitingDeliver],
             (ExternalPostingScheme.Fbo, MarketplaceOrderStatus.Delivering) => ["delivering"],
             // sent_by_seller is documented as a filter value and rejected as one by the live API, which
             // answers 400 listing what it really takes. It stays in ToOrderStatus: an answer may carry it.
@@ -707,7 +711,7 @@ public class OzonClient(
 
                     statuses.Add(new ExternalPostingStatus(
                         number,
-                        ToOrderStatus(posting.Status),
+                        ToOrderStatus(posting.Status, ExternalPostingScheme.Fbs),
                         posting.Status,
                         posting.Substatus,
                         posting.Tracking_number,
@@ -856,7 +860,7 @@ public class OzonClient(
         return new ExternalPosting(
             posting.Posting_number,
             posting.Order_number,
-            ToOrderStatus(posting.Status),
+            ToOrderStatus(posting.Status, ExternalPostingScheme.Fbs),
             posting.Status,
             posting.Substatus,
             posting.Delivery_method?.Warehouse_id?.ToString(CultureInfo.InvariantCulture),
@@ -890,7 +894,7 @@ public class OzonClient(
         return new ExternalPosting(
             posting.Posting_number,
             posting.Order_number,
-            ToOrderStatus(posting.Status),
+            ToOrderStatus(posting.Status, ExternalPostingScheme.Fbo),
             posting.Status,
             posting.Substatus,
             WarehouseExternalId: null,
@@ -921,7 +925,7 @@ public class OzonClient(
         return new ExternalPosting(
             posting.Posting_number,
             posting.Order_number,
-            ToOrderStatus(posting.Status),
+            ToOrderStatus(posting.Status, ExternalPostingScheme.Fbs),
             posting.Status,
             posting.Substatus,
             posting.Delivery_method?.Warehouse_id?.ToString(CultureInfo.InvariantCulture),
@@ -1033,12 +1037,16 @@ public class OzonClient(
         value is { } amount ? Math.Round(amount, 2) : null;
 
     /// <summary>Ozon posting states collapsed to the WMS vocabulary. Unknown values are logged, not guessed.</summary>
-    private MarketplaceOrderStatus ToOrderStatus(string? status)
+    private MarketplaceOrderStatus ToOrderStatus(string? status, ExternalPostingScheme scheme)
     {
         switch (status)
         {
             // FBO packs at Ozon's own warehouse, so awaiting_packaging is the same "not moving yet" state
-            case AwaitingDeliver or AwaitingPackaging:
+            case AwaitingPackaging when scheme == ExternalPostingScheme.Fbo:
+                return MarketplaceOrderStatus.AwaitingDeliver;
+            case AwaitingPackaging:
+                return MarketplaceOrderStatus.AwaitingPackaging;
+            case AwaitingDeliver:
                 return MarketplaceOrderStatus.AwaitingDeliver;
             case "delivering" or "driver_pickup" or "sent_by_seller":
                 return MarketplaceOrderStatus.Delivering;
@@ -1048,6 +1056,8 @@ public class OzonClient(
                 return MarketplaceOrderStatus.Cancelled;
             case "arbitration" or "client_arbitration":
                 return MarketplaceOrderStatus.Arbitration;
+            case "cancelled_from_split_pending":
+                return MarketplaceOrderStatus.Split;
             default:
                 logger.LogWarning(
                     "Ozon returned an unknown posting status {OzonPostingStatus}", status ?? "<null>");

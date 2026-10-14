@@ -657,12 +657,10 @@ MarketplaceOrder
 ├── TrackingNumber        — string?
 ├── DeliveryMethodName    — string?
 ├── MultiBoxQty           — int
-├── LabelFileId           — Guid? → DataFile (Restrict), этикетка без нанесённых артикулов
-├── LabelFetchedAt        — DateTime?
-├── LabelKind             — LabelKind?, формат этикетки (угол для артикулов); null — не опознан, определяется при печати
-├── LabelError            — AppFieldError? (jsonb)
+├── OzonScanitBarcode         — string?, штрихкод отправления Ozon с этикетки
 ├── StatusSyncedAt        — DateTime, когда последний раз сверялся статус
-└── SyncedAt              — DateTime
+├── SyncedAt              — DateTime
+└── Parcels[]             — грузоместа, не меньше одного; этикетка живёт на них
 
 Уникальный индекс: (MarketplaceAccountId, PostingNumber)
 Индексы: (MarketplaceAccountId, Status)
@@ -679,6 +677,43 @@ MarketplaceOrder
 - **FBO, когда до него дойдут руки, обязан ездить через ту же сущность** — другого места под номер отправления в домене не осталось. Это плюс: одна точка на обе схемы.
 
 **`OrderMarketplaceItem.MarketplaceCardId` — настоящий FK** `Guid? → MarketplaceCard (Restrict)`, а не строковая внешняя ссылка. Довод в пользу строки — «заказ может приехать с карточкой, которой ещё нет в WMS» — снимается правилом [«заказ с непривязанным товаром не синхронизируется»](marketplaces-orders-specification.md#непривязанные-товары-и-склады): к моменту создания заказа карточка гарантированно существует и привязана к каталогу. Строка вдобавок неоднозначна — `ExternalId` уникален только в рамках аккаунта.
+
+### Грузоместо (`MarketplaceParcel`)
+
+Физическое место отправления, которое уедет с отдельной этикеткой площадки. Что «место» означает у каждой площадки и чем оно отличается от коробки WMS — в [marketplaces-fulfillment-specification.md](marketplaces-fulfillment-specification.md#грузоместа).
+
+```
+MarketplaceParcel
+├── Id                    — Guid
+├── MarketplaceOrderId    — Guid → MarketplaceOrder (Cascade)
+├── Index                 — int, номер места в отправлении с 1; всего мест — их число у отправления
+├── ExternalId            — string?, идентификатор места на площадке (YM boxId); у Ozon null
+├── Barcode               — string?, штрихкод места с этикетки (YM fulfilmentId); у Ozon null
+├── OrderBoxId            — Guid? → OrderBox (SetNull), коробка WMS, с которой место совпадает
+├── LabelFileId           — Guid? → DataFile (Restrict), этикетка без нанесённых артикулов
+├── LabelFetchedAt        — DateTime?
+├── LabelKind             — LabelKind?, формат этикетки (угол для артикулов); null — не опознан, определяется при печати
+├── LabelError            — AppFieldError? (jsonb)
+└── Items[]               — MarketplaceParcelItem, содержимое места; пусто — место совпадает с отправлением целиком
+
+MarketplaceParcelItem
+├── MarketplaceParcelId     — Guid → MarketplaceParcel (Cascade)
+├── OrderMarketplaceItemId  — Guid → OrderMarketplaceItem (Cascade)
+├── Quantity                — int?, сколько штук позиции в месте
+└── PartIndex / PartCount   — int?, место — часть PartIndex из PartCount одной штуки
+
+Уникальный индекс: (MarketplaceOrderId, Index)
+Индекс: (LabelFetchedAt) — для сборщика кеша этикеток
+Ключ MarketplaceParcelItem: (MarketplaceParcelId, OrderMarketplaceItemId) — позиция лежит в месте одной строкой
+```
+
+В строке содержимого заполнено либо `Quantity`, либо пара `PartIndex` / `PartCount`: целые штуки и часть одной штуки в одном месте не смешиваются — так устроен Yandex Market, и так же ляжет многокоробочный товар Ozon.
+
+**Место заводится у каждого `MarketplaceOrder`**, включая внешние и FBO: печать спрашивает про места, не разбирая, чей заказ и бывает ли у него этикетка. Отправление Ozon — всегда одно место без содержимого.
+
+**`Id` свой, а не общий ключ, как у `MarketplaceOrder`.** Мест у отправления несколько, и номер места ключом не годится: у YM раскладку можно перестроить до `READY_TO_SHIP`, и места пересоздаются.
+
+**`OrderBoxId` — `SetNull`.** Коробку WMS сборщик может удалить, а место площадки от этого не исчезает — пропадает только совпадение.
 
 ### Запуск синхронизации (`MarketplaceSyncRun`)
 
@@ -703,6 +738,7 @@ MarketplaceSyncRun : IHasIdentity
 ├── OrdersProcessed       — int  ─┐
 ├── OrdersCreated         — int   │ заполняются при Scope = Orders,
 ├── OrdersUpdated         — int   │ OrdersBackground и OrdersBackfill
+├── OrdersConfirmed       — int   │ черновики FBS, переведённые в работу; только Scope = Orders
 ├── OrdersSkipped         — int  ─┘
 ├── ReturnsProcessed      — int  ─┐ заполняются там же, где заказы, если провайдер
 ├── ReturnsCreated        — int   │ объявил Returns; см. marketplaces-returns-specification.md
@@ -716,7 +752,7 @@ MarketplaceSyncRun : IHasIdentity
 Индекс: (MarketplaceAccountId, QueuedAt DESC)
 ```
 
-`SkippedOrderInfo` — `{ PostingNumber, Reason, OfferIds[] }`, где `Reason` — тот же `ErrorCode`, что и в `AppFieldError` (`marketplaceOrderCardNotMapped` или `marketplaceOrderWarehouseNotMapped`). Список **ограничен первыми 100 записями**; сколько заказов пропущено всего, говорит `OrdersSkipped`. Без потолка прогон по магазину с неразобранным каталогом раздул бы одну строку таблицы на мегабайты, а UI всё равно не показывает больше сотни.
+`SkippedOrderInfo` — `{ PostingNumber, Reason, OfferIds[] }`, где `Reason` — тот же `ErrorCode`, что и в `AppFieldError` (`marketplaceOrderCardNotMapped`, `marketplaceOrderWarehouseNotMapped` или `marketplaceOrderDraftNotRefreshed` — черновик, который обнаружение этого прогона не встретило, см. [«Планировщик и запуск»](marketplaces-orders-specification.md#планировщик-и-запуск)). Список **ограничен первыми 100 записями**; сколько заказов пропущено всего, говорит `OrdersSkipped`. Без потолка прогон по магазину с неразобранным каталогом раздул бы одну строку таблицы на мегабайты, а UI всё равно не показывает больше сотни.
 
 Пропуск заказа обязан быть виден. Молча не создать заказ — худший вариант отказа: на складе о нём узнают в момент, когда отгружать уже поздно. Поэтому причина пропуска сохраняется структурно и показывается в модалке синхронизации сразу по завершении прогона.
 
@@ -739,7 +775,7 @@ MarketplaceSyncRun : IHasIdentity
 | `MarketplaceMappingSource` | `Manual = 0`, `AutoOfferId = 1`, `AutoBarcode = 2` |
 | `MarketplaceSyncScope` | `Warehouses = 0`, `Cards = 1`, `Orders = 3`, `OrdersBackground = 4`, `OrdersBackfill = 5`, `Accruals = 6`, `All = 2` |
 | `MarketplaceSyncStatus` | `Running = 0`, `Success = 1`, `Failed = 2`, `Canceled = 3` |
-| `MarketplaceOrderStatus` | `Unknown = 0`, `AwaitingDeliver = 1`, `Delivering = 2`, `Delivered = 3`, `Cancelled = 4`, `Arbitration = 5` |
+| `MarketplaceOrderStatus` | `Unknown = 0`, `AwaitingPackaging = 6`, `AwaitingDeliver = 1`, `Delivering = 2`, `Delivered = 3`, `Cancelled = 4`, `Arbitration = 5`, `Split = 7` |
 | `MarketplaceReturnKind` | `Unknown = 0`, `Cancellation = 1`, `FullRefusal = 2`, `PartialRefusal = 3`, `CustomerReturn = 4` |
 | `MarketplaceReturnScheme` | `Unknown = 0`, `Fbs = 1`, `Fbo = 2` |
 | `MarketplaceReturnCompensationStatus` | `Sent = 1`, `Received = 2`, `Canceled = 3`, `DecompensationSent = 4` |
@@ -748,9 +784,11 @@ MarketplaceSyncRun : IHasIdentity
 
 Номера идут не подряд: значение персистится числом в `MarketplaceSyncRun.Scope` и не перенумеровывается, поэтому новый scope занимает следующее свободное число, а не место по смыслу.
 
-Внутри `All` ездит только то, за чем не нужно следить человеку. `Orders` — импорт отправлений FBS, ручной и намеренно вне `All`, потому что при неразобранном каталоге он копит пропуски. `OrdersBackground` — догон статусов, импорт FBO и импорт возвратов: пропусков не даёт, входит в `All` и выполняется вторым шагом `Orders`. `Accruals` — [начисления](marketplaces-accruals-specification.md): входит в `All` последним шагом, отдельно от `OrdersBackground`, чтобы лимитированный финансовый метод не валил догон заказов. `OrdersBackfill` — разовый импорт истории за заданный период, вручную и вне `All`; начисления периода он читает тоже (см. [«Планировщик и запуск»](marketplaces-orders-specification.md#планировщик-и-запуск)).
+Внутри `All` ездит только то, за чем не нужно следить человеку. `Orders` — рабочий импорт FBS (перевод черновиков в работу), ручной и намеренно вне `All`, потому что при неразобранном каталоге он копит пропуски. `OrdersBackground` — обнаружение черновиков, догон статусов, импорт FBS мимо склада, импорт FBO и импорт возвратов: пропусков не даёт, входит в `All`, а `Orders` выполняет те же шаги, вставляя рабочий импорт после обнаружения и догона FBS. `Accruals` — [начисления](marketplaces-accruals-specification.md): входит в `All` последним шагом, отдельно от `OrdersBackground`, чтобы лимитированный финансовый метод не валил догон заказов. `OrdersBackfill` — разовый импорт истории за заданный период, вручную и вне `All`; начисления периода он читает тоже (см. [«Планировщик и запуск»](marketplaces-orders-specification.md#планировщик-и-запуск)).
 
-`MarketplaceOrderStatus` — нормализованный набор состояний, схлопывать словарь площадки обязан **провайдер**, как это уже сделано для `MarketplaceWarehouseStatus`. Для Ozon: `awaiting_deliver` и `awaiting_packaging` → `AwaitingDeliver`; `delivering`, `driver_pickup`, `sent_by_seller` → `Delivering`; `delivered` → `Delivered`; `cancelled`, `not_accepted` → `Cancelled`; `arbitration`, `client_arbitration` → `Arbitration`; всё незнакомое → `Unknown` с `LogWarning`. Словарь FBO — подмножество этого: ни передачи перевозчику, ни арбитража, ни отказа при приёмке у него нет. `Unknown = 0` по той же причине, что `MarketplaceWarehouseStatus.Unavailable = 0`: неизвестное состояние не должно выглядеть рабочим.
+`MarketplaceOrderStatus` — нормализованный набор состояний, схлопывать словарь площадки обязан **провайдер**, как это уже сделано для `MarketplaceWarehouseStatus`. Для Ozon FBS: `awaiting_packaging` → `AwaitingPackaging`; `awaiting_deliver` → `AwaitingDeliver`; `delivering`, `driver_pickup`, `sent_by_seller` → `Delivering`; `delivered` → `Delivered`; `cancelled`, `not_accepted` → `Cancelled`; `cancelled_from_split_pending` → `Split`; `arbitration`, `client_arbitration` → `Arbitration`; всё незнакомое → `Unknown` с `LogWarning`. Словарь FBO — подмножество этого: ни передачи перевозчику, ни арбитража, ни отказа при приёмке, ни разделения у него нет, а `awaiting_packaging` у FBO ложится в `AwaitingDeliver` — собирает площадка, и продавцу различать эти два состояния незачем. Смысл каждого значения и словари Yandex Market и Wildberries — в [marketplaces-fulfillment-specification.md](marketplaces-fulfillment-specification.md#нормализация).
+
+Финальные значения — `Delivered`, `Cancelled` и `Split`: отправление в них догон статусов больше не опрашивает. `Unknown = 0` по той же причине, что `MarketplaceWarehouseStatus.Unavailable = 0`: неизвестное состояние не должно выглядеть рабочим.
 
 ### Связь с существующим доменом
 
@@ -759,7 +797,9 @@ MarketplaceWarehouse.WarehouseId       ──> Warehouse.Id       (Restrict)
 MarketplaceCard.CatalogItemId          ──> CatalogItem.Id     (Restrict)
 MarketplaceOrder.OrderId               ──> Order.Id           (Cascade, он же PK)
 MarketplaceOrder.MarketplaceAccountId  ──> MarketplaceAccount (Restrict)
-MarketplaceOrder.LabelFileId           ──> DataFile.Id        (Restrict)
+MarketplaceParcel.MarketplaceOrderId  ──> MarketplaceOrder   (Cascade)
+MarketplaceParcel.LabelFileId          ──> DataFile.Id        (Restrict)
+MarketplaceParcel.OrderBoxId           ──> OrderBox.Id        (SetNull)
 OrderMarketplaceItem.MarketplaceCardId ──> MarketplaceCard.Id (Restrict)
 MarketplaceReturn.MarketplaceAccountId ──> MarketplaceAccount (Cascade)
 MarketplaceReturn.OrderId              ──> Order.Id           (SetNull)
@@ -771,7 +811,7 @@ MarketplaceReturn.CatalogItemId        ──> CatalogItem.Id     (SetNull)
 
 `Restrict` на `MarketplaceOrder.MarketplaceAccountId` меняет поведение удаления аккаунта: раньше `DELETE /accounts/{id}` каскадно сносил склады и карточки, теперь аккаунт с импортированными заказами удалить нельзя — `409 marketplaceAccountHasOrders`. Каскад здесь означал бы удаление заказов вместе с историей сборки и движениями остатков.
 
-`Restrict` на `LabelFileId` — общее правило подсистемы файлов ([data-files-specification.md](data-files-specification.md#правила-ondelete)): ссылка на `DataFile` всегда через настоящий FK и всегда `Restrict`, иначе сборщик мусора посчитает файл осиротевшим.
+`Restrict` на `MarketplaceParcel.LabelFileId` — общее правило подсистемы файлов ([data-files-specification.md](data-files-specification.md#правила-ondelete)): ссылка на `DataFile` всегда через настоящий FK и всегда `Restrict`, иначе сборщик мусора посчитает файл осиротевшим.
 
 ---
 
@@ -809,9 +849,15 @@ ExternalPosting         — record (string PostingNumber, string? ExternalOrderN
                                   DateTime? ShipmentDate, DateTime? InProcessAt,
                                   string? TrackingNumber, int MultiBoxQty,
                                   ExternalCancellation? Cancellation,
-                                  IReadOnlyList<ExternalPostingItem> Items)
+                                  IReadOnlyList<ExternalPostingItem> Items,
+                                  IReadOnlyList<ExternalParcel>? Parcels)
 
 ExternalPostingItem     — record (string? Sku, string OfferId, string Name, int Quantity)
+
+ExternalParcel          — record (string? ExternalId, string? Barcode,
+                                  IReadOnlyList<ExternalParcelItem> Items)
+ExternalParcelItem      — record (int ItemIndex, int? Quantity, int? PartIndex, int? PartCount)
+                          ItemIndex — позиция в ExternalPosting.Items
 
 ExternalPostingStatus   — record (string PostingNumber, MarketplaceOrderStatus Status,
                                   string? RawStatus, string? RawSubstatus, string? TrackingNumber,
@@ -834,6 +880,8 @@ MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, Labels, Stock
 ```
 
 **`ExternalPostingItem` не несёт ссылки на карточку** — в отправлении нет `product_id` (см. раздел исходных данных). Разрешение позиции в `MarketplaceCard` по `Sku`, затем по `OfferId`, делает сервис синхронизации.
+
+**`Parcels = null` — «площадка мест не сообщает»**, и сервис заводит одно место без содержимого. Так отвечает Ozon. Пустой список не допускается: отправления без мест не бывает. Содержимое места ссылается на позицию по индексу в `Items`, а не по `Sku`: место содержит строку отправления, а не товар, и ссылка по индексу не зависит от того, как площадка идентифицирует товар.
 
 #### Неготовность этикетки — не ошибка
 

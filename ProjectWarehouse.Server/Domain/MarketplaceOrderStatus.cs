@@ -8,9 +8,16 @@ namespace ProjectWarehouse.Server.Domain;
 public enum MarketplaceOrderStatus
 {
     Unknown = 0,
+
+    /// <summary>Handed to the seller, not packed on the marketplace yet: composition may change, no label.</summary>
+    AwaitingPackaging = 6,
+
     AwaitingDeliver = 1,
     Delivering = 2,
     Delivered = 3,
     Cancelled = 4,
     Arbitration = 5,
+
+    /// <summary>Split into other postings and gone itself. Final, and never a cancellation.</summary>
+    Split = 7,
 }

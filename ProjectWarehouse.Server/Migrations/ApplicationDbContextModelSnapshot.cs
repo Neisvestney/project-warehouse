@@ -20,7 +20,7 @@ namespace ProjectWarehouse.Server.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.11")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pg_trgm");
@@ -1109,23 +1109,14 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<DateTime?>("InProcessAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<AppFieldError>("LabelError")
-                        .HasColumnType("jsonb");
-
-                    b.Property<DateTime?>("LabelFetchedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("LabelFileId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int?>("LabelKind")
-                        .HasColumnType("integer");
-
                     b.Property<Guid>("MarketplaceAccountId")
                         .HasColumnType("uuid");
 
                     b.Property<int>("MultiBoxQty")
                         .HasColumnType("integer");
+
+                    b.Property<string>("OzonScanitBarcode")
+                        .HasColumnType("text");
 
                     b.Property<string>("PostingNumber")
                         .IsRequired()
@@ -1138,9 +1129,6 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("RawSubstatus")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ScanitBarcode")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("ShipmentDate")
@@ -1160,14 +1148,83 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasKey("OrderId");
 
-                    b.HasIndex("LabelFileId");
-
                     b.HasIndex("MarketplaceAccountId", "PostingNumber")
                         .IsUnique();
 
                     b.HasIndex("MarketplaceAccountId", "Status");
 
                     b.ToTable("MarketplaceOrders");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceParcel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Barcode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ExternalId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Index")
+                        .HasColumnType("integer");
+
+                    b.Property<AppFieldError>("LabelError")
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime?>("LabelFetchedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("LabelFileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("LabelKind")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("MarketplaceOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OrderBoxId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LabelFetchedAt");
+
+                    b.HasIndex("LabelFileId");
+
+                    b.HasIndex("OrderBoxId");
+
+                    b.HasIndex("MarketplaceOrderId", "Index")
+                        .IsUnique();
+
+                    b.ToTable("MarketplaceParcels");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceParcelItem", b =>
+                {
+                    b.Property<Guid>("MarketplaceParcelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrderMarketplaceItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("PartCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PartIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.HasKey("MarketplaceParcelId", "OrderMarketplaceItemId");
+
+                    b.HasIndex("OrderMarketplaceItemId");
+
+                    b.ToTable("MarketplaceParcelItems");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceReturn", b =>
@@ -1321,6 +1378,9 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.Property<Guid>("MarketplaceAccountId")
                         .HasColumnType("uuid");
+
+                    b.Property<int>("OrdersConfirmed")
+                        .HasColumnType("integer");
 
                     b.Property<int>("OrdersCreated")
                         .HasColumnType("integer");
@@ -2964,11 +3024,6 @@ namespace ProjectWarehouse.Server.Migrations
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceOrder", b =>
                 {
-                    b.HasOne("ProjectWarehouse.Server.Domain.DataFile", "LabelFile")
-                        .WithMany()
-                        .HasForeignKey("LabelFileId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("ProjectWarehouse.Server.Domain.MarketplaceAccount", "MarketplaceAccount")
                         .WithMany("Orders")
                         .HasForeignKey("MarketplaceAccountId")
@@ -2981,11 +3036,53 @@ namespace ProjectWarehouse.Server.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("LabelFile");
-
                     b.Navigation("MarketplaceAccount");
 
                     b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceParcel", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.DataFile", "LabelFile")
+                        .WithMany()
+                        .HasForeignKey("LabelFileId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.MarketplaceOrder", "MarketplaceOrder")
+                        .WithMany("Parcels")
+                        .HasForeignKey("MarketplaceOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.OrderBox", "OrderBox")
+                        .WithMany()
+                        .HasForeignKey("OrderBoxId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("LabelFile");
+
+                    b.Navigation("MarketplaceOrder");
+
+                    b.Navigation("OrderBox");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceParcelItem", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.MarketplaceParcel", "MarketplaceParcel")
+                        .WithMany("Items")
+                        .HasForeignKey("MarketplaceParcelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectWarehouse.Server.Domain.OrderMarketplaceItem", "OrderMarketplaceItem")
+                        .WithMany()
+                        .HasForeignKey("OrderMarketplaceItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MarketplaceParcel");
+
+                    b.Navigation("OrderMarketplaceItem");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceReturn", b =>
@@ -3695,6 +3792,16 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("SyncRuns");
 
                     b.Navigation("Warehouses");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceOrder", b =>
+                {
+                    b.Navigation("Parcels");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceParcel", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Order", b =>

@@ -12,29 +12,35 @@ import type {
 // Живёт здесь, а не в дереве настроек: раздел операций не должен импортировать из настроек.
 export const MARKETPLACE_ORDER_STATUS_LABELS: Record<MarketplaceOrderStatus, string> = {
   unknown: "Неизвестен",
+  awaitingPackaging: "Ожидает сборки",
   awaitingDeliver: "Ожидает отгрузки",
   delivering: "В доставке",
   delivered: "Доставлен",
   cancelled: "Отменён",
   arbitration: "Арбитраж",
+  split: "Разделён",
 };
 
 export const ALL_MARKETPLACE_ORDER_STATUSES: MarketplaceOrderStatus[] = [
+  "awaitingPackaging",
   "awaitingDeliver",
   "delivering",
   "delivered",
   "cancelled",
   "arbitration",
+  "split",
   "unknown",
 ];
 
 export const MARKETPLACE_ORDER_STATUS_COLORS: Record<MarketplaceOrderStatus, ChipProps["color"]> = {
   unknown: "default",
+  awaitingPackaging: "default",
   awaitingDeliver: "info",
   delivering: "primary",
   delivered: "success",
   cancelled: "error",
   arbitration: "warning",
+  split: "default",
 };
 
 export const MARKETPLACE_ORDER_RETURN_STATE_LABELS: Record<MarketplaceOrderReturnState, string> = {
