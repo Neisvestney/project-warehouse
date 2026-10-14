@@ -33,7 +33,7 @@ import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {useTableSort} from "@/hooks/useTableSort";
 import {useSelectedItems} from "@/hooks/useSelectedItems";
 import {useHasPermission} from "@/hooks/usePermission";
-import {useRetainedValue} from "@/hooks/useRetainedValue";
+import {useSettledValue} from "@/hooks/useSettledValue";
 import {useOperationMutation} from "@/hooks/useOperationMutation";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
@@ -334,8 +334,8 @@ function OrdersListPage({
   const {data, isLoading, isFetching, refetch} = useQuery(
     ordersGetAllOptions({query: fetchParams}),
   );
-  // the badges keep their last width under the skeleton through a refetch instead of collapsing
-  const [meta] = useRetainedValue(data?.meta);
+  const settled = useSettledValue(data, isFetching);
+  const meta = settled?.meta;
   const warehouseCounts = meta
     ? Object.fromEntries(meta.warehouseCounts.map((c) => [c.warehouseId, c.count]))
     : undefined;
@@ -388,36 +388,36 @@ function OrdersListPage({
   const tagsAction = useOrderTagsBulkAction();
 
   const listStats: TableInfoStat[] = [
-    {key: "total", label: "Всего заказов:", value: (data?.total ?? 0).toLocaleString("ru-RU")},
+    {key: "total", label: "Всего заказов:", value: (settled?.total ?? 0).toLocaleString("ru-RU")},
     {
       key: "components",
       label: "Штук:",
-      value: (data?.meta.componentCount ?? 0).toLocaleString("ru-RU"),
+      value: (meta?.componentCount ?? 0).toLocaleString("ru-RU"),
     },
     {
       key: "unmapped",
       label: "С непривязанными товарами:",
-      value: (data?.meta.unmappedOrderCount ?? 0).toLocaleString("ru-RU"),
+      value: (meta?.unmappedOrderCount ?? 0).toLocaleString("ru-RU"),
       color: "warning.main",
-      hidden: !showUnmapped || (!isLoading && !data?.meta.unmappedOrderCount && !unmapped),
+      hidden: !showUnmapped || ((!!meta || !isFetching) && !meta?.unmappedOrderCount && !unmapped),
       onClick: () => setUnmapped(!unmapped),
       active: unmappedFilter,
     },
     {
       key: "overdueAssembly",
       label: "Просрочена сборка:",
-      value: (data?.meta.overdueAssemblyCount ?? 0).toLocaleString("ru-RU"),
+      value: (meta?.overdueAssemblyCount ?? 0).toLocaleString("ru-RU"),
       color: "error.main",
-      hidden: !isLoading && !data?.meta.overdueAssemblyCount && overdue !== "assembly",
+      hidden: (!!meta || !isFetching) && !meta?.overdueAssemblyCount && overdue !== "assembly",
       onClick: () => setOverdue(overdue === "assembly" ? "" : "assembly"),
       active: overdue === "assembly",
     },
     {
       key: "overdueShipment",
       label: "Просрочена отгрузка:",
-      value: (data?.meta.overdueShipmentCount ?? 0).toLocaleString("ru-RU"),
+      value: (meta?.overdueShipmentCount ?? 0).toLocaleString("ru-RU"),
       color: "warning.main",
-      hidden: !isLoading && !data?.meta.overdueShipmentCount && overdue !== "shipment",
+      hidden: (!!meta || !isFetching) && !meta?.overdueShipmentCount && overdue !== "shipment",
       onClick: () => setOverdue(overdue === "shipment" ? "" : "shipment"),
       active: overdue === "shipment",
     },
@@ -631,7 +631,7 @@ function OrdersListPage({
         onClear={clear}
         actions={selectionActions}
         info={listStats}
-        infoLoading={isLoading}
+        infoLoading={isFetching}
       />
       {tagsAction.dialogs}
 

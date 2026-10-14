@@ -33,7 +33,7 @@ import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {useTableSort} from "@/hooks/useTableSort";
 import {useHasPermission} from "@/hooks/usePermission";
-import {useRetainedValue} from "@/hooks/useRetainedValue";
+import {useSettledValue} from "@/hooks/useSettledValue";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import SearchWithItemsInput from "@/components/catalog/SearchWithItemsInput";
@@ -125,8 +125,7 @@ function StocktakesPage() {
   const {data, isLoading, isFetching, refetch} = useQuery(
     stocktakesGetAllOptions({query: fetchParams}),
   );
-  // the badges keep their last width under the skeleton through a refetch instead of collapsing
-  const [statusCounts] = useRetainedValue(data?.meta.statusCounts);
+  const settled = useSettledValue(data, isFetching);
 
   const {
     selectedItems,
@@ -219,7 +218,7 @@ function StocktakesPage() {
         onChange={setStatus}
         statuses={ALL_STATUSES}
         labels={STOCKTAKE_STATUS_LABELS}
-        counts={statusCounts ?? undefined}
+        counts={settled?.meta.statusCounts}
         loading={isFetching}
       />
       <FiltersBar activeCount={[warehouseId, isTagFilterActive(tagFilter)].filter(Boolean).length}>
@@ -246,8 +245,10 @@ function StocktakesPage() {
         }}
         onClear={clear}
         actions={selectionActions}
-        info={[{key: "total", label: "Всего:", value: (data?.total ?? 0).toLocaleString("ru-RU")}]}
-        infoLoading={isLoading}
+        info={[
+          {key: "total", label: "Всего:", value: (settled?.total ?? 0).toLocaleString("ru-RU")},
+        ]}
+        infoLoading={isFetching}
       />
       {transitions.dialogs}
       {tagsAction.dialogs}

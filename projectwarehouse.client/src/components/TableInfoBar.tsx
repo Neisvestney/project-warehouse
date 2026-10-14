@@ -1,5 +1,6 @@
 import type {ReactNode} from "react";
-import {ButtonBase, Skeleton, Stack, Toolbar, Typography} from "@mui/material";
+import {Box, ButtonBase, Stack, Toolbar, Typography} from "@mui/material";
+import SkeletonFade from "@/components/SkeletonFade";
 
 export interface TableInfoStat {
   key: string;
@@ -17,7 +18,7 @@ export interface TableInfoStat {
 
 interface TableInfoBarProps {
   stats: TableInfoStat[];
-  /** Replaces the values with placeholders while the list is loading. */
+  /** Covers the values with a skeleton while the list is fetching, even over settled values. */
   loading?: boolean;
   /** Pushed to the right end of the bar. */
   children?: ReactNode;
@@ -27,7 +28,7 @@ interface TableInfoBarProps {
  * Summary of the whole list shown above a table. Matches the dense height of BulkBar, which replaces it
  * while rows are selected.
  */
-function TableInfoBar({stats, loading, children}: TableInfoBarProps) {
+function TableInfoBar({stats, loading = false, children}: TableInfoBarProps) {
   const visible = stats.filter((s) => !s.hidden);
 
   return (
@@ -51,11 +52,12 @@ function TableInfoBar({stats, loading, children}: TableInfoBarProps) {
           <>
             <Typography variant="body2">{stat.label}</Typography>
             {/* the skeleton sits inside the Typography so both states share one line box and baseline */}
-            <Typography
-              variant="body2"
-              sx={{fontWeight: 600, color: stat.color ?? "text.primary", minWidth: 32}}
-            >
-              {loading ? <Skeleton variant="text" sx={{transform: "none"}} /> : stat.value}
+            <Typography variant="body2" sx={{fontWeight: 600, color: stat.color ?? "text.primary"}}>
+              <SkeletonFade loading={loading} sx={{borderRadius: 0.5}}>
+                <Box component="span" sx={{minWidth: 32}}>
+                  {stat.value}
+                </Box>
+              </SkeletonFade>
             </Typography>
           </>
         );

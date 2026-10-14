@@ -416,8 +416,9 @@ sum, and a zero badge is greyed out. The value lives in the `status` URL param, 
 
 Pass the list query's `isFetching` as `loading`: while any request is in flight — a tab switch, a filter change,
 a background refetch — every badge is covered by a skeleton, even when the counts come from cache. Wire `counts`
-through `useRetainedValue(data?.meta.statusCounts)`: the list query has no placeholder data, and the badge goes
-through [`SkeletonFade`](#skeletonfade), which keeps the retained badge laid out under the skeleton, so the tabs
+from [`useSettledValue(data, isFetching)`](./frontend-state.md#usesettledvaluetvalue-fetching): only a settled
+response reaches the badge, while the cached entry a key change serves at once stays out of it. The badge goes
+through [`SkeletonFade`](#skeletonfade), which keeps the settled badge laid out under the skeleton, so the tabs
 keep their width through the request. Before the first response there is nothing to retain, so each badge is a
 skeleton of the badge's own size. The tabs are `scrollable`, which keeps five or six statuses usable on a phone.
 
@@ -438,7 +439,7 @@ single action with no button beside it is dropped and that action becomes a butt
 label as `(N)`, `pending` swaps the icon for a spinner (the dropdown button spins while any of its items is
 pending and is disabled only when all of them are), `danger` paints the menu item red. With nothing selected
 the bar falls back to the list summary — `info: TableInfoStat[]` rendered as a [`TableInfoBar`](#tableinfobar),
-`infoLoading` while the page is loading — and renders nothing if `info` is omitted too. The fallback keys off
+`infoLoading` while the list is fetching — and renders nothing if `info` is omitted too. The fallback keys off
 `count`, not `actions`: a selection that happens to offer no action keeps the selection band with its clear
 button rather than silently turning into the list summary. So a caller builds the action list only while
 something is selected and never needs a separate visibility flag.
@@ -470,7 +471,7 @@ every other one. A `Select` whose items carry a count needs a `renderValue`, oth
 the number too.
 
 Wire the counts the way [`StatusTabs`](#statustabs) wires its badges: the meta through one
-`useRetainedValue(data?.meta)`, and the list query's `isFetching` as `loading`. While any request is in flight
+`useSettledValue(data, isFetching)`, and the list query's `isFetching` as `loading`. While any request is in flight
 the retained number sits under a [`SkeletonFade`](#skeletonfade), so a menu opened mid-refetch neither jumps nor
 passes the previous filters' numbers off as current. `WarehousesSelect` and `MarketplaceOrderFilters` take it as
 `countsLoading`.
@@ -480,7 +481,7 @@ passes the previous filters' numbers off as current. `WarehousesSelect` and `Mar
 Crossfades a skeleton over a value that is being refetched: `loading` fades the content out and a skeleton of the
 content's exact box in, and back when the request settles. Mounted while already loading, it shows the skeleton
 at once — a menu opened mid-refetch gets no blank gap. The content stays laid out the whole time, so the
-surrounding row never changes width, and is `aria-hidden` while covered, so a screen reader skips the stale value. Use it for a small retained value — a count badge, an option count — that is
+surrounding row never changes width, and is `aria-hidden` while covered, so a screen reader skips the stale value. Use it for a small retained value — a count badge, an option count, a list stat — that is
 replaced in place; a first load with nothing to retain renders a sized `Skeleton` of its own instead. The fade
 sits on a wrapper around the `Skeleton`, because the pulse animation drives the skeleton's own `opacity`.
 
@@ -496,13 +497,20 @@ the table and the `primary.main` selection band that replaces it.
 `hidden` drops a stat that carries no meaning, such as a zero counter. On a phone the stats wrap onto new lines
 as whole «label value» pairs — a label never breaks in two — and the bar grows taller instead of overflowing. A stat with `onClick` becomes a toggle
 that narrows the list to what it counts: `active` outlines it in its own `color` and sets `aria-pressed`. Keep an
-active stat visible even when its count drops to zero, or the user loses the way to switch it off. `loading` replaces every value with a skeleton, and
-`children` are pushed to the right edge.
+active stat visible even when its count drops to zero, or the user loses the way to switch it off. `loading` covers every value with a
+[`SkeletonFade`](#skeletonfade), and `children` are pushed to the right edge.
 
 The numbers describe the whole filtered set, not the current page, so they come from the endpoint's
 `PaginatedWithMeta` envelope (see [backend-patterns.md](./backend-patterns.md#paginatedwithmetat-tmeta)) rather
 than from `items`. A page normally passes the list through `BulkBar`'s `info` prop instead of mounting this
 component itself.
+
+Wire it the way [`StatusTabs`](#statustabs) wires its badges: build `stats` from
+[`useSettledValue(data, isFetching)`](./frontend-state.md#usesettledvaluetvalue-fetching) and pass the list query's
+`isFetching` as `loading` (`infoLoading` on `BulkBar`). A `hidden` condition reads the same settled data and
+keeps the stat visible only while the first request is still in flight
+(`hidden: (!!meta || !isFetching) && !meta?.overdueAssemblyCount && …`): on the first load every stat waits under
+a skeleton and only then drops out instead of popping in, while a disabled or failed query with no data hides it.
 
 ### `SearchInput`, `SelectAllHeader`, `InfoRow`, `TableRowLoader`, `TableRowEmpty`, `PageGenericHeader`
 

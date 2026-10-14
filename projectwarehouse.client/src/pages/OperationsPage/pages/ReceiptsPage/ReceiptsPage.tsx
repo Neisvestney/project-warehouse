@@ -34,7 +34,7 @@ import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {useTableSort} from "@/hooks/useTableSort";
 import {useHasPermission} from "@/hooks/usePermission";
-import {useRetainedValue} from "@/hooks/useRetainedValue";
+import {useSettledValue} from "@/hooks/useSettledValue";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import SearchWithItemsInput from "@/components/catalog/SearchWithItemsInput";
@@ -135,8 +135,7 @@ function ReceiptsPage() {
   const {data, isLoading, isFetching, refetch} = useQuery(
     receiptsGetAllOptions({query: fetchParams}),
   );
-  // the badges keep their last width under the skeleton through a refetch instead of collapsing
-  const [statusCounts] = useRetainedValue(data?.meta.statusCounts);
+  const settled = useSettledValue(data, isFetching);
 
   const {
     selectedItems,
@@ -227,7 +226,7 @@ function ReceiptsPage() {
         onChange={setStatus}
         statuses={ALL_STATUSES}
         labels={RECEIPT_STATUS_LABELS}
-        counts={statusCounts ?? undefined}
+        counts={settled?.meta.statusCounts}
         loading={isFetching}
       />
       <FiltersBar
@@ -266,8 +265,10 @@ function ReceiptsPage() {
         countLabel={{one: "приемка выбрана", few: "приемки выбрано", many: "приемок выбрано"}}
         onClear={clear}
         actions={selectionActions}
-        info={[{key: "total", label: "Всего:", value: (data?.total ?? 0).toLocaleString("ru-RU")}]}
-        infoLoading={isLoading}
+        info={[
+          {key: "total", label: "Всего:", value: (settled?.total ?? 0).toLocaleString("ru-RU")},
+        ]}
+        infoLoading={isFetching}
       />
       {transitions.dialogs}
       {tagsAction.dialogs}

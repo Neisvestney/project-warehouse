@@ -31,6 +31,7 @@ import {
 import {useDebouncedSyncedWithQueryState} from "@/hooks/useDebouncedSyncedWithQueryState";
 import {useEditLock} from "@/hooks/useEditLock";
 import {useHasPermission} from "@/hooks/usePermission";
+import {useSettledValue} from "@/hooks/useSettledValue";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import PageTitle from "@/components/PageTitle.tsx";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -77,6 +78,7 @@ function AutoMapRulesPage() {
   const {data, isLoading, isFetching, dataUpdatedAt} = useQuery(
     marketplaceAutoMapRulesGetRulesOptions({query: {searchString: searchString || undefined}}),
   );
+  const settled = useSettledValue(data, isFetching);
 
   const invalidate = useCallback(
     () => queryClient.invalidateQueries({queryKey: marketplaceAutoMapRulesGetRulesQueryKey()}),
@@ -192,12 +194,12 @@ function AutoMapRulesPage() {
         по артикулу и штрихкоду. Побеждает первое подошедшее правило.
       </Typography>
       <TableInfoBar
-        loading={isLoading}
+        loading={isFetching}
         stats={[
           {
             key: "count",
             label: searchString ? "Найдено:" : "Всего правил:",
-            value: data?.length ?? 0,
+            value: settled?.length ?? 0,
           },
         ]}
       />

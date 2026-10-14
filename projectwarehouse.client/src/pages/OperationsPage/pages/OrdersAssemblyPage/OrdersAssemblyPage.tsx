@@ -24,6 +24,7 @@ import {useHasPermission} from "@/hooks/usePermission";
 import {useEntityWatch} from "@/hooks/useEntityWatch";
 import {useRealtimeEvent} from "@/hooks/useRealtimeEvent";
 import {useSilentRefresh} from "@/hooks/useSilentRefresh";
+import {useSettledValue} from "@/hooks/useSettledValue";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import {byOperation} from "@/utils/queryKeys";
 import {CatalogItemDrawerHost} from "@/components/catalog/CatalogItemDrawerHost";
@@ -205,8 +206,11 @@ function OrdersAssemblyPage() {
     return result;
   }, [selectedTaskIds, orders, eligibilityMap]);
 
+  // silent refreshes skip the gate, so a realtime patch lands in the stats at once
+  const statsLoading = showLoading || showLoadingOverlay;
+  const settledOrders = useSettledValue(ordersQuery.data, statsLoading) ?? [];
   const listStats: TableInfoStat[] = (() => {
-    const progress = orders
+    const progress = settledOrders
       .flatMap((o) => o.assemblyTasks)
       .reduce(
         (acc, task) => {
@@ -217,7 +221,11 @@ function OrdersAssemblyPage() {
       );
 
     return [
-      {key: "orders", label: "Заказов на сборке:", value: orders.length.toLocaleString("ru-RU")},
+      {
+        key: "orders",
+        label: "Заказов на сборке:",
+        value: settledOrders.length.toLocaleString("ru-RU"),
+      },
       {
         key: "positions",
         label: "Позиций:",
@@ -327,7 +335,7 @@ function OrdersAssemblyPage() {
             onClear={() => setSelectedTaskIds(new Set())}
             actions={selectionActions}
             info={listStats}
-            infoLoading={showLoading}
+            infoLoading={statsLoading}
           />
 
           {ordersQuery.isError && (

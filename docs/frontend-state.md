@@ -54,6 +54,25 @@ That split leaves the retained body outliving whatever the raw `value` guarded, 
 `pointerEvents: "none"` while it slides out: an edit form still on screen after its lock was released must
 not accept input, let alone a save.
 
+### `useSettledValue<T>(value, fetching)`
+
+Returns `value` while `fetching` is false and the last such value while a request is in flight; `undefined` until
+the first request settles. Outside a request the raw `value` wins even when it is empty, so a disabled or failed
+query shows no numbers rather than the previous ones. Use it for numbers that sit under a [`SkeletonFade`](./frontend-components.md#skeletonfade)
+during a refetch — status-tab badges, option counts, `TableInfoBar` stats. A query key change serves the cached
+entry of the new key at once, with `isFetching` still true; reading `data` directly would swap those stale numbers
+in while the skeleton is fading over them. The table rows keep reading `data`.
+
+```tsx
+const settled = useSettledValue(data, isFetching);
+
+<StatusTabs counts={settled?.meta.statusCounts} loading={isFetching} />;
+```
+
+A page whose refetches are silent (`useSilentRefresh`) passes the flag that drives its skeleton as `fetching` —
+`isLoading || showLoadingOverlay` — rather than `isFetching`, so a silent refetch or a single order patched into
+the cache reaches the numbers at once, without a skeleton.
+
 ### `useBackClosable(open, onClose)`
 
 Makes a fullscreen overlay dismissable with Back. While `open`, the hook holds one history entry of its own

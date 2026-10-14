@@ -21,6 +21,7 @@ import {usePaginatedParams} from "@/hooks/usePaginatedParams";
 import {useTableSort} from "@/hooks/useTableSort";
 import {useHasPermission} from "@/hooks/usePermission";
 import {useSelectedItems} from "@/hooks/useSelectedItems";
+import {useSettledValue} from "@/hooks/useSettledValue";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import SearchInput from "@/components/SearchInput";
@@ -68,6 +69,7 @@ function OrganizationsPage() {
   const {data, isLoading, isFetching, refetch} = useQuery(
     organizationsGetAllOptions({query: fetchParams}),
   );
+  const settled = useSettledValue(data, isFetching);
 
   const {selectedItems, isSelected, allPageSelected, somePageSelected, toggle, toggleAll, clear} =
     useSelectedItems(getOrganizationId, data?.items);
@@ -122,8 +124,10 @@ function OrganizationsPage() {
         }}
         onClear={clear}
         actions={selectionActions}
-        info={[{key: "total", label: "Всего:", value: (data?.total ?? 0).toLocaleString("ru-RU")}]}
-        infoLoading={isLoading}
+        info={[
+          {key: "total", label: "Всего:", value: (settled?.total ?? 0).toLocaleString("ru-RU")},
+        ]}
+        infoLoading={isFetching}
       />
       {labelsAction.dialogs}
       <DataTableContainer

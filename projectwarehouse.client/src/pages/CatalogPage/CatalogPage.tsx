@@ -52,6 +52,7 @@ import BulkBar from "@/components/BulkBar";
 import SelectionTableCell from "@/components/SelectionTableCell";
 import {useBulkTagsAction} from "@/components/tags/useBulkTagsAction";
 import {useSelectedItems} from "@/hooks/useSelectedItems";
+import {useSettledValue} from "@/hooks/useSettledValue";
 import {byOperation} from "@/utils/queryKeys";
 import {NOUNS} from "@/utils/pluralUtils";
 import {isTagFilterActive, useTagFilterState} from "@/features/tags";
@@ -123,6 +124,7 @@ function CatalogPage() {
   } = useQuery({...catalogGetAllOptions({query: fetchParams}), enabled: !noItemTypes});
 
   const data = noItemTypes ? undefined : queryData;
+  const settled = useSettledValue(data, isFetching);
 
   const queryClient = useQueryClient();
   const {
@@ -223,18 +225,21 @@ function CatalogPage() {
           onClear={clear}
           actions={selectionActions}
           info={[
-            {key: "total", label: "Всего:", value: (data?.total ?? 0).toLocaleString("ru-RU")},
+            {key: "total", label: "Всего:", value: (settled?.total ?? 0).toLocaleString("ru-RU")},
             {
               key: "whitespaceIssues",
               label: "Лишние пробелы:",
-              value: (data?.meta.whitespaceIssueCount ?? 0).toLocaleString("ru-RU"),
+              value: (settled?.meta.whitespaceIssueCount ?? 0).toLocaleString("ru-RU"),
               color: "error.main",
-              hidden: !isLoading && !data?.meta.whitespaceIssueCount && !whitespaceIssues,
+              hidden:
+                (!!settled || !isFetching) &&
+                !settled?.meta.whitespaceIssueCount &&
+                !whitespaceIssues,
               onClick: () => setWhitespaceIssues(!whitespaceIssues),
               active: whitespaceIssues,
             },
           ]}
-          infoLoading={isLoading}
+          infoLoading={isFetching}
         />
         <DataTableContainer
           isFetching={isFetching}
