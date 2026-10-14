@@ -355,8 +355,9 @@ public class OrdersController(
     /// <c>unmapped</c> keeps orders with a marketplace line not bound to a catalog item; it applies to every count in
     /// <c>meta</c>, so <c>unmappedOrderCount</c> then equals the total.
     /// <c>overdue</c> keeps orders past their planned shipment date: <c>Assembly</c> — not assembled yet (draft,
-    /// confirmed, assembly), <c>Shipment</c> — assembled but not shipped. In <c>meta</c> the status counts ignore
-    /// the <c>status</c> filter and the overdue counts ignore the <c>overdue</c> filter; every other filter applies.
+    /// confirmed, assembly), <c>Shipment</c> — assembled but not shipped. Every facet count in <c>meta</c> —
+    /// status, overdue, warehouse, marketplace/account, marketplace status — ignores its own filter and applies
+    /// every other one.
     /// External orders — imported from the marketplace, never assembled here — are left out unless
     /// <c>includeExternal</c> asks for them.
     /// <c>catalogItemIds</c> keeps orders that have a box component with any of those catalog items; <c>tagIds</c> keeps
@@ -402,14 +403,7 @@ public class OrdersController(
 
         var facetQuery = accessible
             .Where(o => includeExternal || !o.IsExternal)
-            .Where(o => warehouseId == null || o.WarehouseId == warehouseId)
             .Where(o => type == null || o.Type == type)
-            .Where(o => marketplaceType == null ||
-                        (o.MarketplaceOrder != null && o.MarketplaceOrder.MarketplaceAccount.Type == marketplaceType))
-            .Where(o => marketplaceAccountId == null ||
-                        (o.MarketplaceOrder != null && o.MarketplaceOrder.MarketplaceAccountId == marketplaceAccountId))
-            .Where(o => marketplaceStatus == null ||
-                        (o.MarketplaceOrder != null && o.MarketplaceOrder.Status == marketplaceStatus))
             .Where(o => catalogItemIds == null || catalogItemIds.Count == 0 ||
                         o.Boxes.Any(b => b.Components.Any(c => catalogItemIds.Contains(c.CatalogItemId))))
             .Where(o => tagIds == null || tagIds.Count == 0 || o.Tags.Any(t => tagIds.Contains(t.Id)))
@@ -419,6 +413,13 @@ public class OrdersController(
             .WhereMatchesExtendedSearch((o, pattern) => o.MatchesExtendedSearch(pattern), searchString);
 
         var baseQuery = facetQuery
+            .Where(o => warehouseId == null || o.WarehouseId == warehouseId)
+            .Where(o => marketplaceType == null ||
+                        (o.MarketplaceOrder != null && o.MarketplaceOrder.MarketplaceAccount.Type == marketplaceType))
+            .Where(o => marketplaceAccountId == null ||
+                        (o.MarketplaceOrder != null && o.MarketplaceOrder.MarketplaceAccountId == marketplaceAccountId))
+            .Where(o => marketplaceStatus == null ||
+                        (o.MarketplaceOrder != null && o.MarketplaceOrder.Status == marketplaceStatus))
             .Where(o => status == null || o.Status == status)
             .Where(o => overdue == null || o.OverdueKindAt(now) == overdue);
 
@@ -433,20 +434,45 @@ public class OrdersController(
             _                            => baseQuery.Sort(o => o.Number, sortOrder).ThenBy(o => o.Id),
         };
 
-        // one grouping feeds both facets: each drops its own filter and keeps the other one
-        var facets = await facetQuery
-            .GroupBy(o => new { o.Status, Overdue = o.OverdueKindAt(now) })
-            .Select(g => new { g.Key.Status, g.Key.Overdue, Count = g.Count() })
+        // one grouping feeds every facet: each drops its own filter and keeps the others
+        var cells = await facetQuery
+            .GroupBy(o => new
+            {
+                o.Status,
+                Overdue = o.OverdueKindAt(now),
+                o.WarehouseId,
+                AccountId = o.MarketplaceOrder != null ? (Guid?)o.MarketplaceOrder.MarketplaceAccountId : null,
+                MarketplaceType = o.MarketplaceOrder != null
+                    ? (MarketplaceType?)o.MarketplaceOrder.MarketplaceAccount.Type
+                    : null,
+                MarketplaceStatus = o.MarketplaceOrder != null ? (MarketplaceOrderStatus?)o.MarketplaceOrder.Status : null,
+            })
+            .Select(g => new OrderFacetCell(g.Key.Status, g.Key.Overdue, g.Key.WarehouseId, g.Key.AccountId,
+                g.Key.MarketplaceType, g.Key.MarketplaceStatus, g.Count()))
             .ToListAsync(ct);
 
-        // the total is the facet cell under both filters, which spares a COUNT that re-runs the search
-        var total = facets
-            .Where(f => (status == null || f.Status == status) && (overdue == null || f.Overdue == overdue))
-            .Sum(f => f.Count);
+        List<OrderFacetCell> CellsExcept(OrderFacet? skip) => cells
+            .Where(c => skip == OrderFacet.Status || status == null || c.Status == status)
+            .Where(c => skip == OrderFacet.Overdue || overdue == null || c.Overdue == overdue)
+            .Where(c => skip == OrderFacet.Warehouse || warehouseId == null || c.WarehouseId == warehouseId)
+            .Where(c => skip == OrderFacet.Source ||
+                        ((marketplaceType == null || c.MarketplaceType == marketplaceType) &&
+                         (marketplaceAccountId == null || c.AccountId == marketplaceAccountId)))
+            .Where(c => skip == OrderFacet.MarketplaceStatus || marketplaceStatus == null ||
+                        c.MarketplaceStatus == marketplaceStatus)
+            .ToList();
+
+        // the total is the facet cell under every filter, which spares a COUNT that re-runs the search
+        var total = CellsExcept(null).Sum(c => c.Count);
 
         var paginated = await query
             .ProjectTo<OrderSummaryDto>(mapper.ConfigurationProvider)
             .ToPaginatedAsync(page, pageSize, total, ct);
+
+        var overdueCells = CellsExcept(OrderFacet.Overdue);
+        var statusCells = CellsExcept(OrderFacet.Status);
+        var sourceCells = CellsExcept(OrderFacet.Source);
+        var marketplaceStatusCells = CellsExcept(OrderFacet.MarketplaceStatus);
 
         var meta = new OrderListMetaDto
         {
@@ -458,19 +484,37 @@ public class OrdersController(
             UnmappedOrderCount = type == OrderType.FBS && status == OrderStatus.Draft
                 ? await baseQuery.CountAsync(o => o.MarketplaceItems.Any(i => i.CatalogItemId == null), ct)
                 : 0,
-            OverdueAssemblyCount = facets
-                .Where(f => f.Overdue == OrderOverdueKind.Assembly && (status == null || f.Status == status))
-                .Sum(f => f.Count),
-            OverdueShipmentCount = facets
-                .Where(f => f.Overdue == OrderOverdueKind.Shipment && (status == null || f.Status == status))
-                .Sum(f => f.Count),
+            OverdueAssemblyCount = overdueCells.Where(c => c.Overdue == OrderOverdueKind.Assembly).Sum(c => c.Count),
+            OverdueShipmentCount = overdueCells.Where(c => c.Overdue == OrderOverdueKind.Shipment).Sum(c => c.Count),
             StatusCounts = Enum.GetValues<OrderStatus>()
                 .Select(s => new StatusCountDto<OrderStatus>
                 {
                     Status = s,
-                    Count = facets
-                        .Where(f => f.Status == s && (overdue == null || f.Overdue == overdue))
-                        .Sum(f => f.Count),
+                    Count = statusCells.Where(c => c.Status == s).Sum(c => c.Count),
+                })
+                .ToList(),
+            WarehouseCounts = CellsExcept(OrderFacet.Warehouse)
+                .Where(c => c.WarehouseId != null)
+                .GroupBy(c => c.WarehouseId!.Value)
+                .Select(g => new WarehouseCountDto { WarehouseId = g.Key, Count = g.Sum(c => c.Count) })
+                .ToList(),
+            MarketplaceTypeCounts = Enum.GetValues<MarketplaceType>()
+                .Select(t => new MarketplaceTypeCountDto
+                {
+                    Type = t,
+                    Count = sourceCells.Where(c => c.MarketplaceType == t).Sum(c => c.Count),
+                })
+                .ToList(),
+            MarketplaceAccountCounts = sourceCells
+                .Where(c => c.AccountId != null)
+                .GroupBy(c => c.AccountId!.Value)
+                .Select(g => new MarketplaceAccountCountDto { MarketplaceAccountId = g.Key, Count = g.Sum(c => c.Count) })
+                .ToList(),
+            MarketplaceStatusCounts = Enum.GetValues<MarketplaceOrderStatus>()
+                .Select(s => new StatusCountDto<MarketplaceOrderStatus>
+                {
+                    Status = s,
+                    Count = marketplaceStatusCells.Where(c => c.MarketplaceStatus == s).Sum(c => c.Count),
                 })
                 .ToList(),
         };
@@ -2693,4 +2737,15 @@ public class OrdersController(
             .Where(g => pairs.Contains((g.StoragePlaceNodeId, g.CatalogItemId)))
             .ToDictionary(g => (g.StoragePlaceNodeId, g.CatalogItemId), g => g.Count);
     }
+
+    private enum OrderFacet { Status, Overdue, Warehouse, Source, MarketplaceStatus }
+
+    private sealed record OrderFacetCell(
+        OrderStatus Status,
+        OrderOverdueKind? Overdue,
+        Guid? WarehouseId,
+        Guid? AccountId,
+        MarketplaceType? MarketplaceType,
+        MarketplaceOrderStatus? MarketplaceStatus,
+        int Count);
 }

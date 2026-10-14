@@ -1,7 +1,14 @@
 import {MenuItem, Select} from "@mui/material";
 import {useQuery} from "@tanstack/react-query";
 import {marketplacesGetAccountsShortOptions} from "@/api/@tanstack/react-query.gen";
-import type {MarketplaceOrderStatus, MarketplaceType} from "@/api/types.gen";
+import type {
+  MarketplaceAccountCountDto,
+  MarketplaceOrderStatus,
+  MarketplaceType,
+  MarketplaceTypeCountDto,
+  StatusCountDtoOfMarketplaceOrderStatus,
+} from "@/api/types.gen";
+import OptionCount from "@/components/OptionCount";
 import {
   ALL_MARKETPLACE_ORDER_STATUSES,
   ALL_MARKETPLACE_TYPES,
@@ -16,6 +23,14 @@ interface MarketplaceOrderFiltersProps {
   onSourceChange: (type: MarketplaceType | "", accountId: string | null) => void;
   status: MarketplaceOrderStatus | "";
   onStatusChange: (value: MarketplaceOrderStatus | "") => void;
+  /** Per-option order counts from the list meta; an account missing from the list counts as zero. */
+  counts?: {
+    types: MarketplaceTypeCountDto[];
+    accounts: MarketplaceAccountCountDto[];
+    statuses: StatusCountDtoOfMarketplaceOrderStatus[];
+  };
+  /** Covers the counts with skeletons while they are being refetched. */
+  countsLoading?: boolean;
 }
 
 const TYPE_PREFIX = "type:";
@@ -26,6 +41,8 @@ function MarketplaceOrderFilters({
   onSourceChange,
   status,
   onStatusChange,
+  counts,
+  countsLoading,
 }: MarketplaceOrderFiltersProps) {
   const {data: accounts, isPending} = useQuery(marketplacesGetAccountsShortOptions());
 
@@ -34,6 +51,13 @@ function MarketplaceOrderFilters({
   const isUnresolvedAccount = accountId != null && !account && isPending;
   const sourceValue =
     account || isUnresolvedAccount ? accountId! : type ? `${TYPE_PREFIX}${type}` : "";
+
+  const typeCount = (t: MarketplaceType) =>
+    counts && (counts.types.find((c) => c.type === t)?.count ?? 0);
+  const accountCount = (id: string) =>
+    counts && (counts.accounts.find((c) => c.marketplaceAccountId === id)?.count ?? 0);
+  const statusCount = (s: MarketplaceOrderStatus) =>
+    counts && (counts.statuses.find((c) => c.status === s)?.count ?? 0);
 
   function handleSourceChange(value: string) {
     if (!value) onSourceChange("", null);
@@ -64,12 +88,14 @@ function MarketplaceOrderFilters({
         {ALL_MARKETPLACE_TYPES.flatMap((t) => [
           <MenuItem key={t} value={`${TYPE_PREFIX}${t}`} sx={{fontWeight: 600}}>
             {MARKETPLACE_LABELS[t]}
+            <OptionCount count={typeCount(t)} loading={countsLoading} />
           </MenuItem>,
           ...(accounts ?? [])
             .filter((a) => a.type === t)
             .map((a) => (
               <MenuItem key={a.id} value={a.id} sx={{pl: 4}}>
                 {a.name}
+                <OptionCount count={accountCount(a.id)} loading={countsLoading} />
               </MenuItem>
             )),
         ])}
@@ -77,6 +103,7 @@ function MarketplaceOrderFilters({
       <Select
         value={status}
         onChange={(e) => onStatusChange(e.target.value as MarketplaceOrderStatus | "")}
+        renderValue={(s) => (s ? MARKETPLACE_ORDER_STATUS_LABELS[s] : "Все статусы на площадке")}
         size="small"
         displayEmpty
         sx={{minWidth: 200}}
@@ -85,6 +112,7 @@ function MarketplaceOrderFilters({
         {ALL_MARKETPLACE_ORDER_STATUSES.map((s) => (
           <MenuItem key={s} value={s}>
             {MARKETPLACE_ORDER_STATUS_LABELS[s]}
+            <OptionCount count={statusCount(s)} loading={countsLoading} />
           </MenuItem>
         ))}
       </Select>

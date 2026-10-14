@@ -9,6 +9,7 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import type {WarehouseDto, WarehouseSummaryDto} from "@/api/types.gen";
 import {useDebounce} from "@/hooks/useDebounce";
+import OptionCount from "@/components/OptionCount";
 
 function toSummary(dto: WarehouseDto): WarehouseSummaryDto {
   return {
@@ -60,6 +61,10 @@ interface WarehousesSelectSingleProps extends OmitControlled<
   /** Picks the only existing warehouse once, while value is empty and nothing is typed. */
   canAutoSelect?: boolean;
   textFieldProps?: Partial<TextFieldProps>;
+  /** Count shown next to each option, by warehouse id; a warehouse missing from the map counts as zero. */
+  counts?: Record<string, number>;
+  /** Covers the counts with skeletons while they are being refetched. */
+  countsLoading?: boolean;
 }
 
 export type WarehousesSelectProps = WarehousesSelectMultiProps | WarehousesSelectSingleProps;
@@ -124,6 +129,8 @@ function SingleSelect({
   disableClearable,
   label = "Склад",
   textFieldProps,
+  counts,
+  countsLoading,
   ...autocompleteProps
 }: WarehousesSelectSingleProps) {
   const [inputValue, setInputValue] = useState("");
@@ -204,6 +211,16 @@ function SingleSelect({
       getOptionLabel={(w) => w.name}
       isOptionEqualToValue={(o, v) => o.id === v.id}
       filterOptions={(x) => x}
+      renderOption={
+        counts
+          ? ({key, ...props}, w) => (
+              <li key={key} {...props}>
+                {w.name}
+                <OptionCount count={counts[w.id] ?? 0} loading={countsLoading} />
+              </li>
+            )
+          : autocompleteProps.renderOption
+      }
       loading={searchQuery.isLoading || getByIdQuery.isLoading}
       renderInput={(params) => (
         <TextField

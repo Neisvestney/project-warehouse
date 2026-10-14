@@ -31,4 +31,46 @@ public class OrderListMetaDto
     /// show what each of them would hold.
     /// </summary>
     public IReadOnlyList<StatusCountDto<OrderStatus>> StatusCounts { get; init; } = [];
+
+    /// <summary>
+    /// Order count per warehouse; warehouses without orders are left out. Ignores the <c>warehouseId</c> filter,
+    /// so the warehouse picker shows what each option would hold.
+    /// </summary>
+    public IReadOnlyList<WarehouseCountDto> WarehouseCounts { get; init; } = [];
+
+    /// <summary>
+    /// Order count per marketplace, one entry for every marketplace. Ignores the <c>marketplaceType</c> and
+    /// <c>marketplaceAccountId</c> filters — both are one picker.
+    /// </summary>
+    public IReadOnlyList<MarketplaceTypeCountDto> MarketplaceTypeCounts { get; init; } = [];
+
+    /// <summary>
+    /// Order count per marketplace account; accounts without orders are left out. Ignores the
+    /// <c>marketplaceType</c> and <c>marketplaceAccountId</c> filters — both are one picker.
+    /// </summary>
+    public IReadOnlyList<MarketplaceAccountCountDto> MarketplaceAccountCounts { get; init; } = [];
+
+    /// <summary>
+    /// Order count per marketplace posting status, one entry for every status. Ignores the
+    /// <c>marketplaceStatus</c> filter.
+    /// </summary>
+    public IReadOnlyList<StatusCountDto<MarketplaceOrderStatus>> MarketplaceStatusCounts { get; init; } = [];
+}
+
+public class WarehouseCountDto
+{
+    public Guid WarehouseId { get; init; }
+    public int Count { get; init; }
+}
+
+public class MarketplaceTypeCountDto
+{
+    public MarketplaceType Type { get; init; }
+    public int Count { get; init; }
+}
+
+public class MarketplaceAccountCountDto
+{
+    public Guid MarketplaceAccountId { get; init; }
+    public int Count { get; init; }
 }

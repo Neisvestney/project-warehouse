@@ -335,7 +335,10 @@ function OrdersListPage({
     ordersGetAllOptions({query: fetchParams}),
   );
   // the badges keep their last width under the skeleton through a refetch instead of collapsing
-  const [statusCounts] = useRetainedValue(data?.meta.statusCounts);
+  const [meta] = useRetainedValue(data?.meta);
+  const warehouseCounts = meta
+    ? Object.fromEntries(meta.warehouseCounts.map((c) => [c.warehouseId, c.count]))
+    : undefined;
 
   const {
     selectedItems,
@@ -543,7 +546,7 @@ function OrdersListPage({
           onChange={setStatus}
           statuses={statuses}
           labels={ORDER_STATUS_LABELS}
-          counts={statusCounts ?? undefined}
+          counts={meta?.statusCounts}
           loading={isFetching}
         />
       )}
@@ -587,6 +590,8 @@ function OrdersListPage({
             sx={{flexBasis: 200}}
             size="small"
             textFieldProps={{label: "Склад"}}
+            counts={warehouseCounts}
+            countsLoading={isFetching}
           />
         )}
         <DocumentTagsFilter
@@ -602,6 +607,16 @@ function OrdersListPage({
             onSourceChange={handleMarketplaceSourceChange}
             status={marketplaceStatus}
             onStatusChange={setMarketplaceStatus}
+            counts={
+              meta
+                ? {
+                    types: meta.marketplaceTypeCounts,
+                    accounts: meta.marketplaceAccountCounts,
+                    statuses: meta.marketplaceStatusCounts,
+                  }
+                : undefined
+            }
+            countsLoading={isFetching}
           />
         )}
       </FiltersBar>

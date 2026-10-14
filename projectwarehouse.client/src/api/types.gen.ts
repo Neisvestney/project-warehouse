@@ -1634,6 +1634,11 @@ export type LossReasonRowDto = {
   values: Array<null | number>;
 };
 
+export type MarketplaceAccountCountDto = {
+  marketplaceAccountId: string;
+  count: number;
+};
+
 /**
  * Has no API key field at all — there is physically nothing to leak. The UI gets a mask instead.
  */
@@ -2056,6 +2061,11 @@ export type MarketplaceSyncStatus = "running" | "success" | "failed" | "canceled
 
 export type MarketplaceType = "ozon" | "wildberries";
 
+export type MarketplaceTypeCountDto = {
+  type: MarketplaceType;
+  count: number;
+};
+
 export type MarketplaceWarehouseDto = {
   id: string;
   marketplaceAccountId: string;
@@ -2266,6 +2276,26 @@ export type OrderListMetaDto = {
    * show what each of them would hold.
    */
   statusCounts: Array<StatusCountDtoOfOrderStatus>;
+  /**
+   * Order count per warehouse; warehouses without orders are left out. Ignores the `warehouseId` filter,
+   * so the warehouse picker shows what each option would hold.
+   */
+  warehouseCounts: Array<WarehouseCountDto>;
+  /**
+   * Order count per marketplace, one entry for every marketplace. Ignores the `marketplaceType` and
+   * `marketplaceAccountId` filters — both are one picker.
+   */
+  marketplaceTypeCounts: Array<MarketplaceTypeCountDto>;
+  /**
+   * Order count per marketplace account; accounts without orders are left out. Ignores the
+   * `marketplaceType` and `marketplaceAccountId` filters — both are one picker.
+   */
+  marketplaceAccountCounts: Array<MarketplaceAccountCountDto>;
+  /**
+   * Order count per marketplace posting status, one entry for every status. Ignores the
+   * `marketplaceStatus` filter.
+   */
+  marketplaceStatusCounts: Array<StatusCountDtoOfMarketplaceOrderStatus>;
 };
 
 export type OrderMarketplaceItemDto = {
@@ -3360,6 +3390,14 @@ export type StartSyncRequest = {
 
 export type StartSyncResponse = {
   syncRunId: string;
+};
+
+/**
+ * How many documents of a filtered list sit in one status.
+ */
+export type StatusCountDtoOfMarketplaceOrderStatus = {
+  status: MarketplaceOrderStatus;
+  count: number;
 };
 
 /**
@@ -4522,6 +4560,11 @@ export type UserDto = {
   email?: null | string;
   firstName?: null | string;
   lastName?: null | string;
+};
+
+export type WarehouseCountDto = {
+  warehouseId: string;
+  count: number;
 };
 
 export type WarehouseDto = {

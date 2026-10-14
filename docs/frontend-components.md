@@ -416,10 +416,10 @@ sum, and a zero badge is greyed out. The value lives in the `status` URL param, 
 
 Pass the list query's `isFetching` as `loading`: while any request is in flight — a tab switch, a filter change,
 a background refetch — every badge is covered by a skeleton, even when the counts come from cache. Wire `counts`
-through `useRetainedValue(data?.meta.statusCounts)`: the list query has no placeholder data, and the skeleton
-wraps the retained badge and takes its size, so the tabs keep their width through the request. Before the first
-response there is nothing to retain, so each badge is a skeleton of the badge's own size. The tabs are
-`scrollable`, which keeps five or six statuses usable on a phone.
+through `useRetainedValue(data?.meta.statusCounts)`: the list query has no placeholder data, and the badge goes
+through [`SkeletonFade`](#skeletonfade), which keeps the retained badge laid out under the skeleton, so the tabs
+keep their width through the request. Before the first response there is nothing to retain, so each badge is a
+skeleton of the badge's own size. The tabs are `scrollable`, which keeps five or six statuses usable on a phone.
 
 ### `BulkBar`
 
@@ -459,6 +459,30 @@ danger?, confirm?}`. An action appears only while the selection holds a document
 sends only those; `confirm` asks first. `enabled` is the page's edit permission; `onTransitioned` gets the ids
 that went through — pass `useSelectedItems`' `removeIds`. The orders list keeps its own transitions
 (`orderBulkTransitions.tsx`), since its endpoint takes a target status rather than a transition name.
+
+### `OptionCount`
+
+The count of a filter option, pushed to the trailing edge of a `MenuItem` or an Autocomplete option by
+`ml: "auto"` — both are flex rows. A zero is `text.disabled`, like a zero [`StatusTabs`](#statustabs) badge, and
+`undefined` renders nothing, so a select shows bare options until the first response. The counts come from the
+list's `meta`, computed the same way as `statusCounts`: each picker's counts ignore its own filter and honour
+every other one. A `Select` whose items carry a count needs a `renderValue`, otherwise the closed field shows
+the number too.
+
+Wire the counts the way [`StatusTabs`](#statustabs) wires its badges: the meta through one
+`useRetainedValue(data?.meta)`, and the list query's `isFetching` as `loading`. While any request is in flight
+the retained number sits under a [`SkeletonFade`](#skeletonfade), so a menu opened mid-refetch neither jumps nor
+passes the previous filters' numbers off as current. `WarehousesSelect` and `MarketplaceOrderFilters` take it as
+`countsLoading`.
+
+### `SkeletonFade`
+
+Crossfades a skeleton over a value that is being refetched: `loading` fades the content out and a skeleton of the
+content's exact box in, and back when the request settles. Mounted while already loading, it shows the skeleton
+at once — a menu opened mid-refetch gets no blank gap. The content stays laid out the whole time, so the
+surrounding row never changes width, and is `aria-hidden` while covered, so a screen reader skips the stale value. Use it for a small retained value — a count badge, an option count — that is
+replaced in place; a first load with nothing to retain renders a sized `Skeleton` of its own instead. The fade
+sits on a wrapper around the `Skeleton`, because the pulse animation drives the skeleton's own `opacity`.
 
 ### `TableInfoBar`
 
@@ -1242,7 +1266,10 @@ FBS-only pieces: `SyncOrdersButton` / `SyncOrdersDialog` / `SyncOrdersAccountAcc
 (the import dialog and its per-account results), `useDownloadLabelsAction` / `DownloadLabelsDialog` /
 `DownloadOrderLabelButton` / `LabelsErrorDialog` / `useDownloadLabels`, `MarketplaceOrderStatusChip`,
 `MarketplaceOrderFilters` (shared by FBS and FBO, reads `/accounts/short` so a warehouse role without
-`integrations.view` still gets the account picker), and `marketplaceOrderUtils` for the label and colour maps.
+`integrations.view` still gets the account picker; its optional `counts` takes the list meta's
+`marketplaceTypeCounts`, `marketplaceAccountCounts` and `marketplaceStatusCounts` and puts an
+[`OptionCount`](#optioncount) on each marketplace, account and posting status — «Все» options stay without one),
+and `marketplaceOrderUtils` for the label and colour maps.
 
 `PostingNumberLabel` is the compact posting label for places with room for a single number, currently the
 `OrdersAssemblyPage` summary. Once the posting has an `ozonScanitBarcode` it shows the barcode — what the assembler
@@ -1435,6 +1462,9 @@ warehouse exists, so the caller does not have to count them itself; passing `dis
 still wins. Both behaviours are gated on the flag itself, not just on the query's `enabled`: a disabled
 query still serves data another select put in the cache, so a select without `canAutoSelect` never
 auto-selects or locks the clear button.
+
+`counts` (single mode) puts an [`OptionCount`](#optioncount) next to every option, keyed by warehouse id; a
+warehouse missing from the map shows zero. Without it a caller's own `renderOption` passes through.
 
 ### `features/warehouse/`
 

@@ -2350,8 +2350,9 @@ export const ordersCreateTag = <ThrowOnError extends boolean = false>(
  * `unmapped` keeps orders with a marketplace line not bound to a catalog item; it applies to every count in
  * `meta`, so `unmappedOrderCount` then equals the total.
  * `overdue` keeps orders past their planned shipment date: `Assembly` — not assembled yet (draft,
- * confirmed, assembly), `Shipment` — assembled but not shipped. In `meta` the status counts ignore
- * the `status` filter and the overdue counts ignore the `overdue` filter; every other filter applies.
+ * confirmed, assembly), `Shipment` — assembled but not shipped. Every facet count in `meta` —
+ * status, overdue, warehouse, marketplace/account, marketplace status — ignores its own filter and applies
+ * every other one.
  * External orders — imported from the marketplace, never assembled here — are left out unless
  * `includeExternal` asks for them.
  * `catalogItemIds` keeps orders that have a box component with any of those catalog items; `tagIds` keeps

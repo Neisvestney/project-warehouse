@@ -481,12 +481,16 @@ return Ok(paginated.WithMeta(meta));
 The aggregates are computed over the **filtered, unpaged, unsorted** query — the one before `Skip`/`Take` —
 so they stay stable while the user walks the pages. Each of them is its own round trip, which is why the
 meta DTO stays small; a handful of counters over the same filter belongs in one `GroupBy` instead.
-`OrdersController.GetAll` groups by `(Status, OverdueKindAt(now))` once over the query without the status and
-overdue filters, then derives both the per-status counts and the two overdue counts from those few rows in
-memory. The `overdue` filter calls the same `[Projectable]` `Order.OverdueKindAt`, so the counter and the list it
-opens cannot disagree. The page total is the sum of the cells matching both filters, passed to the
-`ToPaginatedAsync(page, pageSize, total, ct)` overload, which skips its own `COUNT` — on a search the filter is
-the expensive part, and every extra query over the filtered set pays for it again.
+`OrdersController.GetAll` groups once by `(Status, OverdueKindAt(now), WarehouseId, account, marketplace type,
+marketplace status)` over the query without any of those filters, then derives every facet in memory from the
+few dozen cells: a facet's counts take the cells matching every filter except its own. A key column of the
+order itself costs only a wider hash key; a column from another table costs its join — the marketplace columns
+bring a left join to `MarketplaceOrders`, still cheaper than a second pass over a search. A many-to-many facet
+such as tags cannot join the grouping, because it would multiply the cells. The `overdue` filter calls the same
+`[Projectable]` `Order.OverdueKindAt`, so the counter and the list it opens cannot disagree. The page total is the
+sum of the cells matching every filter, passed to the `ToPaginatedAsync(page, pageSize, total, ct)` overload,
+which skips its own `COUNT` — on a search the filter is the expensive part, and every extra query over the
+filtered set pays for it again.
 
 The component sum is a separate `SumAsync`. Folding it into the grouping — as a correlated subquery, a
 pre-aggregated join or a join with `count(DISTINCT)` — is two to fourteen times slower than the plain grouping

@@ -1,4 +1,5 @@
 import {Box, Skeleton, Stack, Tab, Tabs} from "@mui/material";
+import SkeletonFade from "@/components/SkeletonFade";
 
 interface StatusCount<T extends string> {
   status: T;
@@ -37,13 +38,10 @@ function CountBadge({count, loading}: {count: number | undefined; loading: boole
       {count.toLocaleString("ru-RU")}
     </Box>
   );
-  // a skeleton with children takes their size, so the tab keeps the retained number's width
-  return loading ? (
-    <Skeleton variant="rounded" sx={{borderRadius: 1}}>
+  return (
+    <SkeletonFade loading={loading} sx={{borderRadius: 1}}>
       {badge}
-    </Skeleton>
-  ) : (
-    badge
+    </SkeletonFade>
   );
 }
 
