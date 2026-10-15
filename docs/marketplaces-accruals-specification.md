@@ -106,7 +106,7 @@ MarketplaceAccrual : IHasIdentity
 ├── CurrencyCode          — string?
 ├── OrderId               — Guid? → Order (SetNull)
 ├── OrderMarketplaceItemId — Guid? → OrderMarketplaceItem (SetNull)
-├── CatalogItemId         — Guid? → CatalogItem (SetNull), снимок с позиции; следует за ней при перепривязке внешних заказов
+├── CatalogItemId         — Guid? → CatalogItem (SetNull), снимок с позиции; следует за ней при перепривязке внешних заказов и пересборке черновиков
 └── SyncedAt
 
 Индексы: (MarketplaceAccountId, ExternalId, LineNo) unique, (MarketplaceAccountId, Date),
@@ -166,6 +166,13 @@ MarketplaceAccrual : IHasIdentity
 
 Начисление, пришедшее раньше своего отправления, сохраняется без связи и привязывается задним числом: каждый
 прогон после импорта перебирает несвязанные строки, чей номер уже известен как отправление или заказ.
+
+Тем же путём начисления следуют за [черновиком FBS](marketplaces-orders-specification.md#черновики-fbs). Когда
+синхронизация заказов пересобирает строки черновика или переносит снимок `CatalogItemId` на новую привязку
+карточки, она снимает с начислений этого заказа `OrderId`, позицию и `CatalogItemId`. Удалённый при разделении
+черновик теряет начисления сам (`SetNull`). Ближайший прогон начислений привязывает такие строки заново: к новым
+позициям черновика, а строку по номеру заказа — к отправлению-наследнику с тем же SKU. До этого прогона строки
+числятся за магазином.
 
 ## Синхронизация
 

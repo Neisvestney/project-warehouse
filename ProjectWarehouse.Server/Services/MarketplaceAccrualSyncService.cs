@@ -454,7 +454,8 @@ public class MarketplaceAccrualSyncService(
 
     /// <summary>
     /// Accruals saved before their posting was imported, which the order sync catches up with on its own
-    /// interval. Only rows whose unit is known as a posting or an order now are loaded.
+    /// interval, and those of a draft whose lines the order sync rebuilt, or whose draft it deleted. Only rows whose
+    /// unit is known as a posting or an order now are loaded.
     /// </summary>
     private async Task RelinkAsync(Guid accountId, MarketplaceSyncRun run, CancellationToken ct)
     {

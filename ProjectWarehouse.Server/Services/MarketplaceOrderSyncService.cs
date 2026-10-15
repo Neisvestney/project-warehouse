@@ -80,6 +80,7 @@ public class MarketplaceOrderSyncService(
 
                 var known = await LockAndLoadKnownAsync(account.Id, page, ct);
                 var cards = await LoadCardsAsync(account.Id, page, ct);
+                var relinkOrderIds = new List<Guid>();
 
                 foreach (var posting in page)
                 {
@@ -88,7 +89,12 @@ public class MarketplaceOrderSyncService(
                         var changed = ApplyPosting(existing, posting);
                         // a split draft has just been deleted, and there is nothing left to rebuild
                         if (IsDraft(existing.Order) && db.Entry(existing.Order).State != EntityState.Deleted)
-                            changed |= RebuildDraft(existing, posting, account.Id, warehouses, cards);
+                        {
+                            changed |= RebuildDraft(existing, posting, account.Id, warehouses, cards,
+                                out var linesChanged);
+                            if (linesChanged)
+                                relinkOrderIds.Add(existing.OrderId);
+                        }
                         if (changed)
                             run.OrdersUpdated++;
                         continue;
@@ -106,6 +112,15 @@ public class MarketplaceOrderSyncService(
 
                 // per page, so the sync modal's counters advance while the run is still going
                 await db.SaveChangesAsync(ct);
+
+                // the accrual sync links them again to the rebuilt lines and their current catalog items
+                if (relinkOrderIds.Count > 0)
+                    await db.MarketplaceAccruals
+                        .Where(a => a.OrderId != null && relinkOrderIds.Contains(a.OrderId.Value))
+                        .ExecuteUpdateAsync(s => s
+                            .SetProperty(a => a.OrderId, (Guid?)null)
+                            .SetProperty(a => a.OrderMarketplaceItemId, (Guid?)null)
+                            .SetProperty(a => a.CatalogItemId, (Guid?)null), ct);
             }, ct);
             await realtime.PublishProgressAsync(run, ct);
         }
@@ -345,14 +360,16 @@ public class MarketplaceOrderSyncService(
     /// <summary>
     /// A draft has no work behind it, so it follows the posting whole: lines, box and parcels are brought to
     /// what the posting holds now, the catalog snapshot to what the cards are mapped to now. Lines that already
-    /// match keep their rows — and with them their links to returns and accruals; an Ozon parcel keeps its label.
+    /// match keep their rows; an Ozon parcel keeps its label. <paramref name="linesChanged"/> reports replaced
+    /// rows or a moved catalog snapshot, after which the accruals' links to the lines are stale.
     /// </summary>
     private bool RebuildDraft(MarketplaceOrder known, ExternalPosting posting, Guid accountId,
-        IReadOnlyDictionary<string, Guid> warehouses, CardLookup cards)
+        IReadOnlyDictionary<string, Guid> warehouses, CardLookup cards, out bool linesChanged)
     {
         var order = known.Order;
         var lines = ResolveLines(posting, accountId, cards);
         var changed = false;
+        linesChanged = false;
 
         var warehouseId = ResolveWarehouse(posting, warehouses);
         if (order.WarehouseId != warehouseId)
@@ -370,6 +387,7 @@ public class MarketplaceOrderSyncService(
             {
                 item.CatalogItemId = line.CatalogItemId;
                 changed = true;
+                linesChanged = true;
             }
         }
         else
@@ -378,6 +396,7 @@ public class MarketplaceOrderSyncService(
             items = [.. lines.Select(l => BuildItem(order.Id, l))];
             db.OrderMarketplaceItems.AddRange(items);
             changed = true;
+            linesChanged = true;
         }
 
         var box = order.Boxes.OrderBy(b => b.Id).FirstOrDefault();
