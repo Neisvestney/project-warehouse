@@ -1681,6 +1681,7 @@ export type MarketplaceAccountDto = {
    * See DateOnly? MarketplaceAccount.BuyoutsLoadedFrom.
    */
   buyoutsLoadedFrom?: null | string;
+  buyoutsSyncEnabled: boolean;
   /**
    * First day of the accrual journal, the day the buyout history is read back to; detail only.
    */
@@ -4454,6 +4455,10 @@ export type UpdateMarketplaceAccountRequest = {
   apiKey?: null | string;
   syncIntervalMinutes: number;
   isActive: boolean;
+  /**
+   * Absent keeps the current value.
+   */
+  buyoutsSyncEnabled?: null | boolean;
 };
 
 export type UpdateOrderBoxRequest = {

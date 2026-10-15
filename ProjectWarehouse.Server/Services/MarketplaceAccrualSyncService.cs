@@ -68,7 +68,7 @@ public class MarketplaceAccrualSyncService(
             account.AccrualsFullPassAt = now;
         await db.SaveChangesAsync(ct);
 
-        if (provider.Capabilities.HasFlag(MarketplaceCapabilities.Buyouts))
+        if (provider.Capabilities.HasFlag(MarketplaceCapabilities.Buyouts) && account.BuyoutsSyncEnabled)
             await SyncBuyoutsAsync(provider, credentials, account, run, from, today.AddDays(1), now, ct);
 
         await RelinkAsync(account.Id, run, ct);
@@ -90,7 +90,7 @@ public class MarketplaceAccrualSyncService(
         var from = DateOnly.FromDateTime(since);
         var till = DateOnly.FromDateTime(to);
         await ImportAsync(provider.FetchAccrualsAsync(credentials, from, till, ct), account, run, ct);
-        if (provider.Capabilities.HasFlag(MarketplaceCapabilities.Buyouts)
+        if (provider.Capabilities.HasFlag(MarketplaceCapabilities.Buyouts) && account.BuyoutsSyncEnabled
             && await ImportBuyoutsAsync(provider, credentials, account, run, from, till, int.MaxValue, ct)
                 is { } refused)
             WarnBuyoutsRefused(run, refused);
@@ -101,9 +101,9 @@ public class MarketplaceAccrualSyncService(
     }
 
     /// <summary>
-    /// The latest buyouts, from the journal's first day of this run or from where the last full read stopped,
-    /// then one window of history below <see cref="MarketplaceAccount.BuyoutsLoadedFrom"/>. The report's quota
-    /// is tiny and lasts hours, so a refusal ends the step instead of the run.
+    /// The latest buyouts, from the journal's first day of this run or from where the last read stopped, oldest
+    /// window first, then one window of history below <see cref="MarketplaceAccount.BuyoutsLoadedFrom"/>. The
+    /// report's quota is tiny and lasts hours, so a refusal ends the step instead of the run.
     /// </summary>
     private async Task SyncBuyoutsAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
         MarketplaceAccount account, MarketplaceSyncRun run, DateOnly from, DateOnly to, DateTime now,
@@ -112,16 +112,19 @@ public class MarketplaceAccrualSyncService(
         if (account.BuyoutsSyncedAt is { } syncedAt && DateOnly.FromDateTime(syncedAt).AddDays(-1) < from)
             from = DateOnly.FromDateTime(syncedAt).AddDays(-1);
 
-        if (await ImportBuyoutsAsync(provider, credentials, account, run, from, to, int.MaxValue, ct) is { } refused)
+        if (await ImportBuyoutsAsync(provider, credentials, account, run, from, to, int.MaxValue, ct,
+                oldestFirst: true) is { } refused)
         {
             WarnBuyoutsRefused(run, refused);
             return;
         }
 
-        // a span starts only here: a read cut short leaves no proof the days above it are in
-        account.BuyoutsLoadedFrom ??= from;
-        account.BuyoutsSyncedAt = now;
-        await db.SaveChangesAsync(ct);
+        // the last window already moved the mark to about now; this only covers a read with no window, on a span
+        if (account.BuyoutsLoadedFrom is not null && (account.BuyoutsSyncedAt is not { } read || read < now))
+        {
+            account.BuyoutsSyncedAt = now;
+            await db.SaveChangesAsync(ct);
+        }
 
         var journalStart = await db.MarketplaceAccruals
             .Where(a => a.MarketplaceAccountId == account.Id && a.Source == MarketplaceAccrualSource.AccrualJournal)
@@ -135,14 +138,15 @@ public class MarketplaceAccrualSyncService(
     }
 
     /// <summary>
-    /// Reads at most <paramref name="maxWindows"/> report windows from the newest back, moving
-    /// <see cref="MarketplaceAccount.BuyoutsLoadedFrom"/> down while they join the loaded span. Null when all were
-    /// read, else why not: a 429 now, or <see cref="MarketplaceAccount.BuyoutsPausedUntil"/> from an earlier one;
-    /// what was read by then is saved.
+    /// Reads at most <paramref name="maxWindows"/> report windows, newest back unless <paramref name="oldestFirst"/>.
+    /// Newest back, a window joining the loaded span moves <see cref="MarketplaceAccount.BuyoutsLoadedFrom"/> down;
+    /// oldest first, it widens the span on both ends, and one apart from it replaces the span. Null when
+    /// all were read, else why not: a 429 now, or <see cref="MarketplaceAccount.BuyoutsPausedUntil"/> from an
+    /// earlier one; what was read by then is saved.
     /// </summary>
     private async Task<ErrorCode?> ImportBuyoutsAsync(IMarketplaceProvider provider,
         MarketplaceCredentials credentials, MarketplaceAccount account, MarketplaceSyncRun run, DateOnly from,
-        DateOnly to, int maxWindows, CancellationToken ct, bool followsBuyoutCall = false)
+        DateOnly to, int maxWindows, CancellationToken ct, bool followsBuyoutCall = false, bool oldestFirst = false)
     {
         if (account.BuyoutsPausedUntil > DateTime.UtcNow)
             return ErrorCode.MarketplaceBuyoutsPaused;
@@ -150,13 +154,40 @@ public class MarketplaceAccrualSyncService(
         try
         {
             var read = 0;
-            await foreach (var window in provider.FetchBuyoutsAsync(credentials, from, to, followsBuyoutCall, ct))
+            await foreach (var window in provider.FetchBuyoutsAsync(credentials, from, to, followsBuyoutCall,
+                               oldestFirst, ct))
             {
                 await ImportPageAsync(window.Accruals, account, run, ct);
 
                 // after the rows are in, or a failed page would leave the mark past a window never stored
-                if (account.BuyoutsLoadedFrom is { } loaded && window.From < loaded
-                    && window.To >= loaded.AddDays(-1))
+                if (oldestFirst)
+                {
+                    var past = window.To.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+                    var utcNow = DateTime.UtcNow;
+                    if (past > utcNow)
+                        past = utcNow;
+
+                    // a window joining the span widens it; one apart from it starts the span anew. The mark is
+                    // compared as a Moscow day, the windows' own, or a mark capped at now would part adjacent days
+                    if (account is { BuyoutsLoadedFrom: { } start, BuyoutsSyncedAt: { } synced }
+                        && window.From <= DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(synced, JournalZone))
+                        && window.To >= start.AddDays(-1))
+                    {
+                        if (window.From < start)
+                            account.BuyoutsLoadedFrom = window.From;
+                        if (past > synced)
+                            account.BuyoutsSyncedAt = past;
+                    }
+                    else
+                    {
+                        account.BuyoutsLoadedFrom = window.From;
+                        account.BuyoutsSyncedAt = past;
+                    }
+
+                    await db.SaveChangesAsync(ct);
+                }
+                else if (account.BuyoutsLoadedFrom is { } loaded && window.From < loaded
+                         && window.To >= loaded.AddDays(-1))
                 {
                     account.BuyoutsLoadedFrom = window.From;
                     await db.SaveChangesAsync(ct);

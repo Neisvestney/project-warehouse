@@ -293,21 +293,35 @@ public class OzonClient(
     }
 
     public async IAsyncEnumerable<ExternalBuyoutWindow> GetBuyoutsAsync(
-        DateOnly from, DateOnly to, bool followsBuyoutCall, [EnumeratorCancellation] CancellationToken ct)
+        DateOnly from, DateOnly to, bool followsBuyoutCall, bool oldestFirst,
+        [EnumeratorCancellation] CancellationToken ct)
     {
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, MoscowZoneId));
         var last = to > today ? today : to;
 
-        for (var end = last; end >= from; end = end.AddDays(-BuyoutWindowDays))
-        {
-            var start = end.AddDays(-(BuyoutWindowDays - 1));
-            if (start < from)
-                start = from;
+        // cut from the end read first, so only the last window may come out short
+        var windows = new List<(DateOnly Start, DateOnly End)>();
+        if (oldestFirst)
+            for (var start = from; start <= last; start = start.AddDays(BuyoutWindowDays))
+            {
+                var end = start.AddDays(BuyoutWindowDays - 1);
+                windows.Add((start, end > last ? last : end));
+            }
+        else
+            for (var end = last; end >= from; end = end.AddDays(-BuyoutWindowDays))
+            {
+                var start = end.AddDays(-(BuyoutWindowDays - 1));
+                windows.Add((start < from ? from : start, end));
+            }
 
+        var first = true;
+        foreach (var (start, end) in windows)
+        {
             // otherwise the first window follows the accrual journal's last call, which shares the finance rate limit
-            await Task.Delay(end == last && !followsBuyoutCall
+            await Task.Delay(first && !followsBuyoutCall
                 ? _options.BuyoutAfterAccrualDelayMs
                 : _options.BuyoutRequestDelayMs, ct);
+            first = false;
 
             var response = await api.GetFinanceProductsBuyoutAsync(new V1GetFinanceProductsBuyoutRequest
             {

@@ -22,7 +22,7 @@ import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
 import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 import TestConnectionButton from "../../components/TestConnectionButton";
-import {formatApiKeyMask} from "@/components/marketplace/marketplaceUtils.ts";
+import {formatApiKeyMask, hasCapability} from "@/components/marketplace/marketplaceUtils.ts";
 import type {MarketplaceAccountDto} from "@/api/types.gen";
 
 type EditFormValues = {
@@ -31,6 +31,7 @@ type EditFormValues = {
   apiKey: string;
   syncIntervalMinutes: number;
   isActive: boolean;
+  buyoutsSyncEnabled: boolean;
 };
 
 interface EditAccountDialogProps {
@@ -49,6 +50,7 @@ function EditAccountDialog({open, account, onClose}: EditAccountDialogProps) {
       apiKey: "",
       syncIntervalMinutes: account.syncIntervalMinutes,
       isActive: account.isActive,
+      buyoutsSyncEnabled: account.buyoutsSyncEnabled,
     },
   });
   const {setApiError} = useRhfApiErrors(form);
@@ -65,6 +67,7 @@ function EditAccountDialog({open, account, onClose}: EditAccountDialogProps) {
         apiKey: "",
         syncIntervalMinutes: account.syncIntervalMinutes,
         isActive: account.isActive,
+        buyoutsSyncEnabled: account.buyoutsSyncEnabled,
       });
     }
     wasOpenRef.current = open;
@@ -92,6 +95,7 @@ function EditAccountDialog({open, account, onClose}: EditAccountDialogProps) {
         apiKey: values.apiKey || null,
         syncIntervalMinutes: Number(values.syncIntervalMinutes),
         isActive: values.isActive,
+        buyoutsSyncEnabled: values.buyoutsSyncEnabled,
       },
     }),
   );
@@ -168,6 +172,24 @@ function EditAccountDialog({open, account, onClose}: EditAccountDialogProps) {
               />
             )}
           />
+          {hasCapability(account.capabilities, "buyouts") && (
+            <Controller
+              control={form.control}
+              name="buyoutsSyncEnabled"
+              render={({field}) => (
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={field.value}
+                      onChange={(e) => field.onChange(e.target.checked)}
+                      disabled={mutation.isPending}
+                    />
+                  }
+                  label="Загружать выкупы маркетплейсом"
+                />
+              )}
+            />
+          )}
           {apiKey && (
             <TestConnectionButton
               accountId={account.id}

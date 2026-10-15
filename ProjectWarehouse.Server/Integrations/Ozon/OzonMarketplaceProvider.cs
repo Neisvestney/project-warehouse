@@ -239,10 +239,10 @@ public class OzonMarketplaceProvider(
     }
 
     public async IAsyncEnumerable<ExternalBuyoutWindow> FetchBuyoutsAsync(
-        MarketplaceCredentials credentials, DateOnly from, DateOnly to, bool followsBuyoutCall,
+        MarketplaceCredentials credentials, DateOnly from, DateOnly to, bool followsBuyoutCall, bool oldestFirst,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        var pages = client.GetBuyoutsAsync(from, to, followsBuyoutCall, ct).GetAsyncEnumerator(ct);
+        var pages = client.GetBuyoutsAsync(from, to, followsBuyoutCall, oldestFirst, ct).GetAsyncEnumerator(ct);
         try
         {
             while (true)

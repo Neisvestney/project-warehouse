@@ -819,6 +819,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<DateTime?>("BuyoutsPausedUntil")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("BuyoutsSyncEnabled")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("BuyoutsSyncedAt")
                         .HasColumnType("timestamp with time zone");
 

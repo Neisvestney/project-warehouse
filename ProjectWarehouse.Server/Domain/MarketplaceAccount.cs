@@ -78,8 +78,9 @@ public class MarketplaceAccount : IHasIdentity
     public DateTime? AccrualsFullPassAt { get; set; }
 
     /// <summary>
-    /// When the latest buyouts were last read in full. Kept apart from <see cref="AccrualsSyncedAt"/>: the buyout
-    /// report runs out of quota for hours, and a refused run must not let the journal's mark carry its days away.
+    /// Up to when the latest buyouts are read: the run that read them all, or the start of the day after the last
+    /// window read. Kept apart from <see cref="AccrualsSyncedAt"/>: the buyout report runs out of quota for hours,
+    /// and a refused run must not let the journal's mark carry its days away.
     /// </summary>
     public DateTime? BuyoutsSyncedAt { get; set; }
 
@@ -94,6 +95,12 @@ public class MarketplaceAccount : IHasIdentity
     /// through the refusal only keeps it going.
     /// </summary>
     public DateTime? BuyoutsPausedUntil { get; set; }
+
+    /// <summary>
+    /// Set off by an operator when the buyout report keeps refusing; sync then never asks it. The marks above stay
+    /// as they are, so turning it back on resumes from where the reads stopped.
+    /// </summary>
+    public bool BuyoutsSyncEnabled { get; set; } = true;
 
     // ErrorCode lands in jsonb as a number — Npgsql serializes it, not the MVC options that stringify enums
     [Column(TypeName = "jsonb")] public AppFieldError? LastSyncError { get; set; }

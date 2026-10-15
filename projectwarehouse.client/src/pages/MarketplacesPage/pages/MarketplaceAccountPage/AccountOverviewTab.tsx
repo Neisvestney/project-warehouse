@@ -31,6 +31,7 @@ function AccountOverviewTab({account}: AccountOverviewTabProps) {
   const loadedFrom = account.buyoutsLoadedFrom;
   // ISO dates compare as strings
   const buyoutsPending = showBuyouts && !!journalFrom && (!loadedFrom || loadedFrom > journalFrom);
+  const buyoutsDisabled = showBuyouts && !account.buyoutsSyncEnabled;
 
   return (
     <Stack spacing={2}>
@@ -41,14 +42,22 @@ function AccountOverviewTab({account}: AccountOverviewTabProps) {
         </Alert>
       )}
       <SyncErrorAlert error={account.lastSyncError} />
-      {buyoutsPending && journalFrom && (
-        <Alert severity="info">
-          Выкупы маркетплейсом загружены{" "}
-          {loadedFrom ? `с ${formatDateOnly(loadedFrom)}` : "ещё не были"}, а журнал начислений
-          начинается {formatDateOnly(journalFrom)}. У отчёта о выкупах жёсткий лимит запросов,
-          поэтому история догружается фоновой синхронизацией по месяцу за запуск. До этого
-          выкупленные площадкой отправления в аналитике выплат числятся неначисленными.
+      {buyoutsDisabled ? (
+        <Alert severity="warning">
+          Загрузка выкупов маркетплейсом отключена. Выкупленные площадкой отправления в аналитике
+          выплат числятся неначисленными. Включить можно через «Изменить».
         </Alert>
+      ) : (
+        buyoutsPending &&
+        journalFrom && (
+          <Alert severity="info">
+            Выкупы маркетплейсом загружены{" "}
+            {loadedFrom ? `с ${formatDateOnly(loadedFrom)}` : "ещё не были"}, а журнал начислений
+            начинается {formatDateOnly(journalFrom)}. У отчёта о выкупах жёсткий лимит запросов,
+            поэтому история догружается фоновой синхронизацией по месяцу за запуск. До этого
+            выкупленные площадкой отправления в аналитике выплат числятся неначисленными.
+          </Alert>
+        )
       )}
 
       <Paper>
@@ -169,6 +178,18 @@ function AccountOverviewTab({account}: AccountOverviewTabProps) {
           <InfoRow label="Складов без привязки" value={String(account.unmappedWarehouseCount)} />
           <InfoRow label="Карточек" value={String(account.cardCount)} />
           <InfoRow label="Не сопоставлено" value={String(account.unmappedCardCount)} />
+          {showBuyouts && (
+            <InfoRow
+              label="Загрузка выкупов"
+              value={
+                <Chip
+                  label={account.buyoutsSyncEnabled ? "Включена" : "Отключена"}
+                  color={account.buyoutsSyncEnabled ? "success" : "default"}
+                  size="small"
+                />
+              }
+            />
+          )}
           {showBuyouts && (
             <InfoRow
               label="Выкупы загружены с"

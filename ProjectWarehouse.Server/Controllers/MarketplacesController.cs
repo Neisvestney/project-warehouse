@@ -223,6 +223,8 @@ public class MarketplacesController(
         account.ShortName = NormalizeShortName(request.ShortName);
         account.IsActive = request.IsActive;
         account.SyncIntervalMinutes = request.SyncIntervalMinutes;
+        if (request.BuyoutsSyncEnabled is { } buyoutsSyncEnabled)
+            account.BuyoutsSyncEnabled = buyoutsSyncEnabled;
 
         var keyRotated = !string.IsNullOrWhiteSpace(request.ApiKey);
         if (keyRotated)

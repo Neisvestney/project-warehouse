@@ -17,4 +17,7 @@ public class UpdateMarketplaceAccountRequest
     public int SyncIntervalMinutes { get; init; }
 
     public bool IsActive { get; init; }
+
+    /// <summary>Absent keeps the current value.</summary>
+    public bool? BuyoutsSyncEnabled { get; init; }
 }

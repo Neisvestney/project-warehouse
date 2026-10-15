@@ -35,12 +35,13 @@ public interface IOzonClient
     IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> GetAccrualsAsync(DateOnly from, DateOnly to, CancellationToken ct);
 
     /// <summary>
-    /// Buyout report in windows of at most 31 days, newest first, every window yielded even when empty; days after
-    /// today in Moscow are skipped. <paramref name="followsBuyoutCall"/> keeps the report's own pause before the first
-    /// window instead of the journal's.
+    /// Buyout report in windows of at most 31 days, newest first unless <paramref name="oldestFirst"/>; only the
+    /// window read last may be shorter. Every window is yielded even when empty; days after today in Moscow are
+    /// skipped. <paramref name="followsBuyoutCall"/> keeps the report's own pause before the first window instead of
+    /// the journal's.
     /// </summary>
     IAsyncEnumerable<ExternalBuyoutWindow> GetBuyoutsAsync(DateOnly from, DateOnly to, bool followsBuyoutCall,
-        CancellationToken ct);
+        bool oldestFirst, CancellationToken ct);
 
     /// <summary>Creation date of the oldest posting of either scheme, or null when the account has none.</summary>
     Task<DateTime?> GetEarliestPostingDateAsync(CancellationToken ct);
