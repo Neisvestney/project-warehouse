@@ -206,8 +206,9 @@ public class MarketplaceOrderSyncService(
         var orderId = Guid.NewGuid();
         var boxId = Guid.NewGuid();
         var status = isExternal
-            ? ExternalOrderStatus(posting.Status, posting.Cancellation?.CancelledAfterShip)
+            ? ExternalOrderStatus(posting.Status, posting.Dates?.DeliveringAt)
             : OrderStatus.Draft;
+        var dates = posting.Dates ?? ExternalPostingDates.None;
         var items = lines.Select(l => BuildItem(orderId, l)).ToList();
 
         return new Order
@@ -243,12 +244,16 @@ public class MarketplaceOrderSyncService(
                 Status = posting.Status,
                 RawStatus = posting.RawStatus,
                 RawSubstatus = posting.RawSubstatus,
-                CancelledAfterShip = posting.Cancellation?.CancelledAfterShip,
+                CancelledAfterAssembly = posting.Cancellation?.CancelledAfterAssembly,
                 CancellationType = posting.Cancellation?.Type,
                 RawCancellationType = posting.Cancellation?.RawType,
                 CancelReason = posting.Cancellation?.Reason,
                 ShipmentDate = posting.ShipmentDate,
                 InProcessAt = posting.InProcessAt,
+                DeliveringAt = dates.DeliveringAt,
+                ShipmentDateWithoutDelay = dates.ShipmentDateWithoutDelay,
+                DeliveryDateBegin = dates.DeliveryDateBegin,
+                DeliveryDateEnd = dates.DeliveryDateEnd,
                 TrackingNumber = posting.TrackingNumber,
                 DeliveryMethodName = posting.DeliveryMethodName,
                 MultiBoxQty = posting.MultiBoxQty,
@@ -485,6 +490,7 @@ public class MarketplaceOrderSyncService(
             || known.ExternalOrderNumber != posting.ExternalOrderNumber;
 
         changed |= ApplyCancellation(known, posting.Cancellation);
+        changed |= ApplyDates(known, posting.Dates);
         changed |= ApplyItemFinancials(known.Order, posting.Items);
 
         if (known.ShipmentDate != posting.ShipmentDate && known.Order is not null)
@@ -513,11 +519,12 @@ public class MarketplaceOrderSyncService(
     }
 
     /// <summary>
-    /// An external order whose goods never left the seller — cancelled before shipment, or an FBO sale that
-    /// fell through — did not happen, so it is Canceled; every other one is Shipped.
+    /// An external order whose goods never left the seller — cancelled before the handover to delivery, even
+    /// if already packed, or an FBO sale that fell through — did not happen, so it is Canceled; every other
+    /// one is Shipped.
     /// </summary>
-    private static OrderStatus ExternalOrderStatus(MarketplaceOrderStatus status, bool? cancelledAfterShip) =>
-        status == MarketplaceOrderStatus.Cancelled && cancelledAfterShip != true
+    private static OrderStatus ExternalOrderStatus(MarketplaceOrderStatus status, DateTime? deliveringAt) =>
+        status == MarketplaceOrderStatus.Cancelled && deliveringAt is null
             ? OrderStatus.Canceled
             : OrderStatus.Shipped;
 
@@ -530,7 +537,7 @@ public class MarketplaceOrderSyncService(
         if (known.Order is not { IsExternal: true } order)
             return;
 
-        var status = ExternalOrderStatus(known.Status, known.CancelledAfterShip);
+        var status = ExternalOrderStatus(known.Status, known.DeliveringAt);
         if (order.Status == status)
             return;
 
@@ -822,9 +829,11 @@ public class MarketplaceOrderSyncService(
             }
 
             var cancellationChanged = ApplyCancellation(order, status.Cancellation);
+            var datesChanged = ApplyDates(order, status.Dates);
             var financialsChanged = ApplyItemFinancials(order.Order, status.Items);
 
             var counted = cancellationChanged
+                          || datesChanged
                           || financialsChanged
                           || order.Status != status.Status
                           || order.RawStatus != status.RawStatus
@@ -991,15 +1000,33 @@ public class MarketplaceOrderSyncService(
     private static bool ApplyCancellation(MarketplaceOrder known, ExternalCancellation? cancellation)
     {
         var changed =
-            known.CancelledAfterShip != cancellation?.CancelledAfterShip
+            known.CancelledAfterAssembly != cancellation?.CancelledAfterAssembly
             || known.CancellationType != cancellation?.Type
             || known.RawCancellationType != cancellation?.RawType
             || known.CancelReason != cancellation?.Reason;
 
-        known.CancelledAfterShip = cancellation?.CancelledAfterShip;
+        known.CancelledAfterAssembly = cancellation?.CancelledAfterAssembly;
         known.CancellationType = cancellation?.Type;
         known.RawCancellationType = cancellation?.RawType;
         known.CancelReason = cancellation?.Reason;
+
+        return changed;
+    }
+
+    private static bool ApplyDates(MarketplaceOrder known, ExternalPostingDates? dates)
+    {
+        dates ??= ExternalPostingDates.None;
+        var changed =
+            (dates.DeliveringAt is not null && known.DeliveringAt != dates.DeliveringAt)
+            || known.ShipmentDateWithoutDelay != dates.ShipmentDateWithoutDelay
+            || known.DeliveryDateBegin != dates.DeliveryDateBegin
+            || known.DeliveryDateEnd != dates.DeliveryDateEnd;
+
+        // a handover never un-happens, and losing it would flip an external order from Shipped to Canceled
+        known.DeliveringAt = dates.DeliveringAt ?? known.DeliveringAt;
+        known.ShipmentDateWithoutDelay = dates.ShipmentDateWithoutDelay;
+        known.DeliveryDateBegin = dates.DeliveryDateBegin;
+        known.DeliveryDateEnd = dates.DeliveryDateEnd;
 
         return changed;
     }

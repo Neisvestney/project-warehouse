@@ -851,9 +851,9 @@ export type ChannelCancellationsDto = {
   marketplaceAccountId: string;
   byType: Array<CancellationTypeCountDto>;
   /**
-   * Cancelled after the marketplace had already taken the shipment.
+   * Cancelled after the posting had been packed, handed over to delivery or not.
    */
-  afterShip: number;
+  afterAssembly: number;
 };
 
 export type ChannelMoneyDto = {
@@ -1845,9 +1845,9 @@ export type MarketplaceOrderDetailsDto = {
   rawStatus?: null | string;
   rawSubstatus?: null | string;
   /**
-   * Null while the posting is alive; `true` when it was cancelled after being shipped.
+   * Null while the posting is alive; `true` when it was cancelled after being packed.
    */
-  cancelledAfterShip?: null | boolean;
+  cancelledAfterAssembly?: null | boolean;
   cancellationType?: null | MarketplaceCancellationType;
   rawCancellationType?: null | string;
   cancelReason?: null | string;
@@ -1857,6 +1857,13 @@ export type MarketplaceOrderDetailsDto = {
   returnState: MarketplaceOrderReturnState;
   shipmentDate?: null | string;
   inProcessAt?: null | string;
+  /**
+   * When the posting was handed over to delivery; set on a cancelled one that had left the warehouse.
+   */
+  deliveringAt?: null | string;
+  shipmentDateWithoutDelay?: null | string;
+  deliveryDateBegin?: null | string;
+  deliveryDateEnd?: null | string;
   trackingNumber?: null | string;
   deliveryMethodName?: null | string;
   multiBoxQty: number;
@@ -1888,9 +1895,9 @@ export type MarketplaceOrderDto = {
   rawStatus?: null | string;
   rawSubstatus?: null | string;
   /**
-   * Null while the posting is alive; `true` when it was cancelled after being shipped.
+   * Null while the posting is alive; `true` when it was cancelled after being packed.
    */
-  cancelledAfterShip?: null | boolean;
+  cancelledAfterAssembly?: null | boolean;
   cancellationType?: null | MarketplaceCancellationType;
   rawCancellationType?: null | string;
   cancelReason?: null | string;
@@ -1900,6 +1907,13 @@ export type MarketplaceOrderDto = {
   returnState: MarketplaceOrderReturnState;
   shipmentDate?: null | string;
   inProcessAt?: null | string;
+  /**
+   * When the posting was handed over to delivery; set on a cancelled one that had left the warehouse.
+   */
+  deliveringAt?: null | string;
+  shipmentDateWithoutDelay?: null | string;
+  deliveryDateBegin?: null | string;
+  deliveryDateEnd?: null | string;
   trackingNumber?: null | string;
   deliveryMethodName?: null | string;
   multiBoxQty: number;

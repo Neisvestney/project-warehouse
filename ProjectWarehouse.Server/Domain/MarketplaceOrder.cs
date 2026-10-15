@@ -40,10 +40,11 @@ public class MarketplaceOrder
     public string? RawSubstatus { get; set; }
 
     /// <summary>
-    /// Null while the posting is alive. Set once it is cancelled: <c>true</c> when the marketplace had
-    /// already taken the shipment, which <see cref="Status"/> alone cannot tell apart.
+    /// Null while the posting is alive. Set once it is cancelled: <c>true</c> when the posting had already
+    /// been packed (Ozon's <c>cancelled_after_ship</c>, despite the name), whether or not it was handed over —
+    /// <see cref="DeliveringAt"/> tells those apart.
     /// </summary>
-    public bool? CancelledAfterShip { get; set; }
+    public bool? CancelledAfterAssembly { get; set; }
 
     public MarketplaceCancellationType? CancellationType { get; set; }
 
@@ -57,6 +58,21 @@ public class MarketplaceOrder
     public DateTime? ShipmentDate { get; set; }
 
     public DateTime? InProcessAt { get; set; }
+
+    /// <summary>
+    /// When the seller handed the posting over to delivery, as the marketplace states it; kept after a
+    /// cancellation. Always null for FBO.
+    /// </summary>
+    public DateTime? DeliveringAt { get; set; }
+
+    /// <summary>Recommended ship-by time, past which the marketplace applies a late tariff.</summary>
+    public DateTime? ShipmentDateWithoutDelay { get; set; }
+
+    /// <summary>Planned delivery window to the buyer.</summary>
+    public DateTime? DeliveryDateBegin { get; set; }
+
+    public DateTime? DeliveryDateEnd { get; set; }
+
     public string? TrackingNumber { get; set; }
     public string? DeliveryMethodName { get; set; }
 

@@ -7,7 +7,7 @@ namespace ProjectWarehouse.Server.Integrations.Abstractions;
 /// with an empty object rather than omitting it, and an empty one carries nothing.
 /// </summary>
 public record ExternalCancellation(
-    bool? CancelledAfterShip,
+    bool? CancelledAfterAssembly,
     MarketplaceCancellationType Type,
     string? RawType,
     string? Reason);

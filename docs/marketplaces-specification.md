@@ -648,12 +648,15 @@ MarketplaceOrder
 ├── CancelledAt           — DateTime?, когда синхронизация впервые увидела Cancelled
 ├── RawStatus             — string?, статус площадки как есть  ─┐ только диагностика
 ├── RawSubstatus          — string?, подстатус как есть         ─┘
-├── CancelledAfterShip    — bool?, null пока отправление живо; true — отменено после отгрузки
+├── CancelledAfterAssembly — bool?, null пока отправление живо; true — отменено после сборки
 ├── CancellationType      — MarketplaceCancellationType?, нормализованный инициатор отмены
 ├── RawCancellationType   — string?, тип отмены как есть — только диагностика
 ├── CancelReason          — string?, причина словами площадки
 ├── ShipmentDate          — DateTime?, до какого времени собрать
 ├── InProcessAt           — DateTime?, начало обработки на площадке
+├── DeliveringAt          — DateTime?, передача в доставку; сохраняется после отмены
+├── ShipmentDateWithoutDelay — DateTime?, рекомендованное время отгрузки
+├── DeliveryDateBegin/End — DateTime?, плановый слот доставки покупателю
 ├── TrackingNumber        — string?
 ├── DeliveryMethodName    — string?
 ├── MultiBoxQty           — int
@@ -850,7 +853,12 @@ ExternalPosting         — record (string PostingNumber, string? ExternalOrderN
                                   string? TrackingNumber, int MultiBoxQty,
                                   ExternalCancellation? Cancellation,
                                   IReadOnlyList<ExternalPostingItem> Items,
-                                  IReadOnlyList<ExternalParcel>? Parcels)
+                                  IReadOnlyList<ExternalParcel>? Parcels,
+                                  ExternalPostingDates? Dates)
+
+ExternalPostingDates    — record (DateTime? DeliveringAt, DateTime? ShipmentDateWithoutDelay,
+                                  DateTime? DeliveryDateBegin, DateTime? DeliveryDateEnd)
+                          все null у FBO
 
 ExternalPostingItem     — record (string? Sku, string OfferId, string Name, int Quantity)
 
@@ -861,9 +869,11 @@ ExternalParcelItem      — record (int ItemIndex, int? Quantity, int? PartIndex
 
 ExternalPostingStatus   — record (string PostingNumber, MarketplaceOrderStatus Status,
                                   string? RawStatus, string? RawSubstatus, string? TrackingNumber,
-                                  ExternalCancellation? Cancellation)
+                                  ExternalCancellation? Cancellation,
+                                  IReadOnlyList<ExternalPostingItem> Items,
+                                  ExternalPostingDates? Dates)
 
-ExternalCancellation    — record (bool? CancelledAfterShip, MarketplaceCancellationType Type,
+ExternalCancellation    — record (bool? CancelledAfterAssembly, MarketplaceCancellationType Type,
                                   string? RawType, string? Reason)
                           null у неотменённого отправления
 

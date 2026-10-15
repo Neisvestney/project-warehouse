@@ -19,8 +19,10 @@ function MarketplaceOrderStatusChip({value, ignoreReturn}: MarketplaceOrderStatu
   const showReturn = !ignoreReturn && !isCancelled && value.returnState !== "none";
 
   let label = MARKETPLACE_ORDER_STATUS_LABELS[value.status];
-  if (isCancelled && !!value.cancelledAfterShip) {
-    label = `${label} ${value.cancelledAfterShip ? "после огрузки" : "до огрузки"}`;
+  if (isCancelled && value.deliveringAt) {
+    label = `${label} после отгрузки`;
+  } else if (isCancelled && value.cancelledAfterAssembly) {
+    label = `${label} после сборки`;
   }
 
   const chip = showReturn ? (

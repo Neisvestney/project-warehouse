@@ -1091,13 +1091,22 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<int?>("CancellationType")
                         .HasColumnType("integer");
 
-                    b.Property<bool?>("CancelledAfterShip")
+                    b.Property<bool?>("CancelledAfterAssembly")
                         .HasColumnType("boolean");
 
                     b.Property<DateTime?>("CancelledAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("DeliveredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeliveringAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeliveryDateBegin")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeliveryDateEnd")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("DeliveryMethodName")
@@ -1132,6 +1141,9 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("ShipmentDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ShipmentDateWithoutDelay")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Status")

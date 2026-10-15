@@ -86,7 +86,7 @@ function CancellationsCard({filters, onExpand}: CancellationsCardProps) {
 
   const total = shops.reduce((sum, s) => sum + s.cancellations, 0);
   const sales = shops.reduce((sum, s) => sum + s.orders, 0);
-  const afterShip = summary?.cancellations.reduce((sum, c) => sum + c.afterShip, 0) ?? 0;
+  const afterAssembly = summary?.cancellations.reduce((sum, c) => sum + c.afterAssembly, 0) ?? 0;
 
   return (
     <SummaryCard
@@ -130,7 +130,7 @@ function CancellationsCard({filters, onExpand}: CancellationsCardProps) {
               <Typography color="text.secondary">Отмен за период нет</Typography>
             )}
             <Typography variant="body2" color="text.secondary">
-              После отгрузки: {formatNumber(afterShip)}
+              После сборки: {formatNumber(afterAssembly)}
             </Typography>
             {chart.data && (
               <Box>

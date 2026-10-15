@@ -24,8 +24,8 @@ public class MarketplaceOrderDto
     public string? RawStatus { get; init; }
     public string? RawSubstatus { get; init; }
 
-    /// <summary>Null while the posting is alive; <c>true</c> when it was cancelled after being shipped.</summary>
-    public bool? CancelledAfterShip { get; init; }
+    /// <summary>Null while the posting is alive; <c>true</c> when it was cancelled after being packed.</summary>
+    public bool? CancelledAfterAssembly { get; init; }
 
     public MarketplaceCancellationType? CancellationType { get; init; }
     public string? RawCancellationType { get; init; }
@@ -36,6 +36,14 @@ public class MarketplaceOrderDto
 
     public DateTime? ShipmentDate { get; init; }
     public DateTime? InProcessAt { get; init; }
+
+    /// <summary>When the posting was handed over to delivery; set on a cancelled one that had left the warehouse.</summary>
+    public DateTime? DeliveringAt { get; init; }
+
+    public DateTime? ShipmentDateWithoutDelay { get; init; }
+    public DateTime? DeliveryDateBegin { get; init; }
+    public DateTime? DeliveryDateEnd { get; init; }
+
     public string? TrackingNumber { get; init; }
     public string? DeliveryMethodName { get; init; }
     public int MultiBoxQty { get; init; }

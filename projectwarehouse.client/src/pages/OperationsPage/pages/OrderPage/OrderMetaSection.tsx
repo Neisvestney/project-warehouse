@@ -233,6 +233,24 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
               </Stack>
             }
           />
+          {order.marketplaceOrder.shipmentDateWithoutDelay && (
+            <InfoRow
+              label="Рекомендуемая отгрузка"
+              value={formatDate(order.marketplaceOrder.shipmentDateWithoutDelay)}
+            />
+          )}
+          {order.marketplaceOrder.deliveringAt && (
+            <InfoRow
+              label="Передан в доставку"
+              value={formatDate(order.marketplaceOrder.deliveringAt)}
+            />
+          )}
+          {order.marketplaceOrder.deliveryDateBegin && (
+            <InfoRow
+              label="Доставка покупателю"
+              value={`${formatDate(order.marketplaceOrder.deliveryDateBegin)} — ${formatDate(order.marketplaceOrder.deliveryDateEnd)}`}
+            />
+          )}
           {order.marketplaceOrder.deliveredAt && (
             <InfoRow label="Доставлен" value={formatDate(order.marketplaceOrder.deliveredAt)} />
           )}
@@ -273,10 +291,10 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
           />
 
           {order.marketplaceOrder.status === "cancelled" &&
-            !order.marketplaceOrder.cancelledAfterShip && (
+            !order.marketplaceOrder.deliveringAt && (
               <Alert severity="warning">
-                Заказ отменён на маркетплейсе до огрузки на маркетплейс. Сборка в WMS не
-                откатывается автоматически — решение принимает человек.
+                Заказ отменён на маркетплейсе до передачи в доставку. Сборка в WMS не откатывается
+                автоматически — решение принимает человек.
               </Alert>
             )}
         </>

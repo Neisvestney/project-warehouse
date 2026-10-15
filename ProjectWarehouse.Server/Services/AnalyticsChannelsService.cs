@@ -1114,7 +1114,7 @@ public class AnalyticsChannelsService(
                 g.Key.MarketplaceAccountId,
                 g.Key.Type,
                 Count = g.Count(),
-                AfterShip = g.Count(m => m.CancelledAfterShip == true),
+                AfterAssembly = g.Count(m => m.CancelledAfterAssembly == true),
             })
             .ToListAsync(ct);
 
@@ -1135,7 +1135,7 @@ public class AnalyticsChannelsService(
                 ByType = g.OrderBy(r => r.Type)
                     .Select(r => new CancellationTypeCountDto { Type = r.Type, Count = r.Count })
                     .ToList(),
-                AfterShip = g.Sum(r => r.AfterShip),
+                AfterAssembly = g.Sum(r => r.AfterAssembly),
             })
             .ToList();
 

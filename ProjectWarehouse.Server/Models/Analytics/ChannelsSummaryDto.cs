@@ -82,8 +82,8 @@ public class ChannelCancellationsDto
     public Guid MarketplaceAccountId { get; init; }
     public List<CancellationTypeCountDto> ByType { get; init; } = [];
 
-    /// <summary>Cancelled after the marketplace had already taken the shipment.</summary>
-    public int AfterShip { get; init; }
+    /// <summary>Cancelled after the posting had been packed, handed over to delivery or not.</summary>
+    public int AfterAssembly { get; init; }
 }
 
 public class CancellationTypeCountDto

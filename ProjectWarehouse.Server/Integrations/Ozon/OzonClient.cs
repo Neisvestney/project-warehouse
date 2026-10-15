@@ -173,7 +173,7 @@ public class OzonClient(
                         Cutoff_to = cutoffTo,
                     },
                     // rides along on a call already being made — no extra request, no extra rate limit
-                    With = new PostingFbsUnfulfilledListRequestWith { Financial_data = true },
+                    With = new PostingFbsUnfulfilledListRequestWith { Financial_data = true, Analytics_data = true },
                 }, ct);
 
             var postings = (response.Postings ?? [])
@@ -551,7 +551,7 @@ public class OzonClient(
                         ? new PostingFbsListRequestFilterLastChangedStatusDate { From = changed.From, To = changed.To }
                         : null,
                 },
-                With = new PostingFbsListRequestWith { Financial_data = true },
+                With = new PostingFbsListRequestWith { Financial_data = true, Analytics_data = true },
             }, ct);
 
         return ((fbs.Postings ?? []).Select(ToExternalPosting).OfType<ExternalPosting>().ToList(),
@@ -661,7 +661,7 @@ public class OzonClient(
 
     private static ExternalPostingStatus ToPostingStatus(ExternalPosting posting) =>
         new(posting.PostingNumber, posting.Status, posting.RawStatus, posting.RawSubstatus,
-            posting.TrackingNumber, posting.Cancellation, posting.Items);
+            posting.TrackingNumber, posting.Cancellation, posting.Items, posting.Dates);
 
     private async Task<IReadOnlyList<ExternalPostingStatus>> GetFbsPostingStatusesAsync(
         IReadOnlyList<string> postingNumbers, CancellationToken ct)
@@ -698,7 +698,7 @@ public class OzonClient(
                             Since = since,
                             To = to,
                         },
-                        With = new PostingFbsListRequestWith { Financial_data = true },
+                        With = new PostingFbsListRequestWith { Financial_data = true, Analytics_data = true },
                     }, ct);
 
                 foreach (var posting in response.Postings ?? [])
@@ -718,7 +718,8 @@ public class OzonClient(
                         ToCancellation(posting.Cancellation),
                         (posting.Products ?? [])
                             .Select(p => ToExternalPostingItem(p, financials))
-                            .ToList()));
+                            .ToList(),
+                        ToDates(posting)));
                     matched++;
                 }
 
@@ -874,8 +875,20 @@ public class OzonClient(
             (posting.Products ?? [])
                 .Select(p => ToExternalPostingItem(p, financials))
                 .ToList(),
-            Scanit: NullIfBlank(posting.Scanit));
+            Scanit: NullIfBlank(posting.Scanit),
+            Dates: new ExternalPostingDates(
+                posting.Delivering_date?.UtcDateTime,
+                posting.Shipment_date_without_delay?.UtcDateTime,
+                posting.Analytics_data?.Delivery_date_begin?.UtcDateTime,
+                posting.Analytics_data?.Delivery_date_end?.UtcDateTime));
     }
+
+    // the history list and the unfulfilled one state the same dates under unrelated generated types
+    private static ExternalPostingDates ToDates(PostingFbsListResponsePostings posting) => new(
+        posting.Delivering_date?.UtcDateTime,
+        posting.Shipment_date_without_delay?.UtcDateTime,
+        posting.Analytics_data?.Delivery_date_begin?.UtcDateTime,
+        posting.Analytics_data?.Delivery_date_end?.UtcDateTime);
 
     /// <summary>Ozon writes an absent scanit as an empty string, which is a value the domain has no use for.</summary>
     private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
@@ -938,7 +951,8 @@ public class OzonClient(
             (posting.Products ?? [])
                 .Select(p => ToExternalPostingItem(p, financials))
                 .ToList(),
-            Scanit: NullIfBlank(posting.Scanit));
+            Scanit: NullIfBlank(posting.Scanit),
+            Dates: ToDates(posting));
     }
 
     // financial_data indexes products by product_id, which is the same number products[] calls sku
