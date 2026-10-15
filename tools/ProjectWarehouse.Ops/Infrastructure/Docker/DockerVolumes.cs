@@ -99,7 +99,8 @@ public sealed class DockerVolumes(TargetContext target)
     }
 
     /// Streams the selection out uncompressed, so nothing is staged on the target's disk. The size
-    /// only becomes known once the last byte has arrived.
+    /// only becomes known once the last byte has arrived; the SHA-256 comes on stderr, see
+    /// <see cref="StreamChecksum"/>.
     public Task<CommandResult> ArchiveAsync(
         string volume,
         VolumeFilter filter,
@@ -107,13 +108,9 @@ public sealed class DockerVolumes(TargetContext target)
         IProgress<long>? progress,
         CancellationToken cancellationToken) =>
         target.Host.RunStreamingAsync(
-            filter.CoversEverything
-                ? ShellCommand.Of(
-                    "docker", "run", "--rm", "-v", $"{volume}:/src:ro", ToolImage,
-                    "tar", "-C", "/src", "-cf", "-", ".")
-                : ShellCommand.Of(
-                    "docker", "run", "--rm", "-v", $"{volume}:/src:ro", ToolImage,
-                    "sh", "-c", $"set -o pipefail; cd /src && {Tar(filter)}"),
+            ShellCommand.Of(
+                "docker", "run", "--rm", "-v", $"{volume}:/src:ro", ToolImage,
+                "sh", "-c", $"set -o pipefail; cd /src && {StreamChecksum.Wrap(Tar(filter))}"),
             destination,
             progress,
             cancellationToken);
