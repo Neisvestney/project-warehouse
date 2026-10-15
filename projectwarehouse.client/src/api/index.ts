@@ -604,6 +604,7 @@ export type {
   MarketplaceCardField,
   MarketplaceCardMappingState,
   MarketplaceCardSortBy,
+  MarketplaceLossReason,
   MarketplaceMappingSource,
   MarketplaceOrderDetailsDto,
   MarketplaceOrderDto,

@@ -652,6 +652,8 @@ MarketplaceOrder
 ├── CancellationType      — MarketplaceCancellationType?, нормализованный инициатор отмены
 ├── RawCancellationType   — string?, тип отмены как есть — только диагностика
 ├── CancelReason          — string?, причина словами площадки
+├── CancelReasonCategory  — MarketplaceLossReason?, нормализованная причина
+├── RawCancelReasonCode   — string?, код причины площадки — только диагностика
 ├── ShipmentDate          — DateTime?, до какого времени собрать
 ├── InProcessAt           — DateTime?, начало обработки на площадке
 ├── DeliveringAt          — DateTime?, передача в доставку; сохраняется после отмены

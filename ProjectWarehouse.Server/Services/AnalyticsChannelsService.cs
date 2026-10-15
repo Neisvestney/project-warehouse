@@ -77,7 +77,7 @@ public class AnalyticsChannelsService(
     private sealed class LostDay
     {
         public Guid? Id { get; init; }
-        public string? Reason { get; init; }
+        public MarketplaceLossReason? Reason { get; init; }
         public DateTime Day { get; init; }
         public int Units { get; init; }
     }
@@ -246,7 +246,7 @@ public class AnalyticsChannelsService(
                 AccountId = r.Order!.MarketplaceOrder!.MarketplaceAccountId,
                 r.Kind,
                 r.CurrencyCode,
-                r.Reason,
+                Reason = r.ReasonCategory,
                 r.CompensationStatus,
             })
             .Select(g => new
@@ -277,11 +277,11 @@ public class AnalyticsChannelsService(
             : [];
 
         var topReasons = cohortGroups
-            .Where(r => !string.IsNullOrEmpty(r.Reason))
-            .GroupBy(r => r.Reason!)
+            .Where(r => r.Reason != null)
+            .GroupBy(r => r.Reason!.Value)
             .Select(g => new ReturnReasonUnitsDto { Reason = g.Key, Units = g.Sum(r => r.Units) })
             .OrderByDescending(r => r.Units)
-            .ThenBy(r => r.Reason, StringComparer.Ordinal)
+            .ThenBy(r => r.Reason)
             .Take(TopReasons)
             .ToList();
 
@@ -631,7 +631,7 @@ public class AnalyticsChannelsService(
                     .GroupBy(r => new
                     {
                         Id = byCard ? r.OrderMarketplaceItem!.MarketplaceCardId : r.CatalogItemId,
-                        r.Reason,
+                        Reason = r.ReasonCategory,
                         Day = r.Order!.EffectiveDate.AddMinutes(offset).Date,
                     })
                     .Select(g => new LostDay
@@ -645,7 +645,7 @@ public class AnalyticsChannelsService(
                     .GroupBy(i => new
                     {
                         Id = byCard ? i.MarketplaceCardId : i.CatalogItemId,
-                        Reason = i.Order.MarketplaceOrder!.CancelReason,
+                        Reason = i.Order.MarketplaceOrder!.CancelReasonCategory,
                         Day = i.Order.EffectiveDate.AddMinutes(offset).Date,
                     })
                     .Select(g => new LostDay
@@ -681,7 +681,7 @@ public class AnalyticsChannelsService(
                 baseBySubject[key] = baseBySubject.GetValueOrDefault(key) + units;
 
         var rows = linked
-            .GroupBy(l => (Key: KeyOf(l.Id!.Value), Reason: string.IsNullOrWhiteSpace(l.Reason) ? null : l.Reason.Trim()))
+            .GroupBy(l => (Key: KeyOf(l.Id!.Value), l.Reason))
             .Select(g =>
             {
                 var units = g.Sum(l => l.Units);
@@ -706,7 +706,7 @@ public class AnalyticsChannelsService(
                 : rows.OrderByDescending(r => r.Units)
                     .ThenByDescending(r => r.Share))
             .ThenBy(r => r.Key)
-            .ThenBy(r => r.Reason, StringComparer.Ordinal)
+            .ThenBy(r => r.Reason)
             .ToList();
         var shown = request.Take is { } take ? ranked.Take(take).ToList() : ranked;
 
@@ -1119,8 +1119,8 @@ public class AnalyticsChannelsService(
             .ToListAsync(ct);
 
         var topReasons = await cancelled
-            .Where(m => m.CancelReason != null && m.CancelReason != "")
-            .GroupBy(m => m.CancelReason!)
+            .Where(m => m.CancelReasonCategory != null)
+            .GroupBy(m => m.CancelReasonCategory!.Value)
             .Select(g => new CancelReasonCountDto { Reason = g.Key, Count = g.Count() })
             .OrderByDescending(r => r.Count)
             .ThenBy(r => r.Reason)

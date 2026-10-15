@@ -938,7 +938,7 @@ public class OzonClient(
             posting.In_process_at?.UtcDateTime,
             TrackingNumber: null,
             MultiBoxQty: 1,
-            ToCancellation(posting.Cancellation),
+            ToCancellation(posting.Cancellation, posting.Cancel_reason_id),
             (posting.Products ?? [])
                 .Select(p => ToExternalPostingItem(p, financials))
                 .ToList(),
@@ -1104,22 +1104,26 @@ public class OzonClient(
     // the two posting endpoints carry the same cancellation payload under two unrelated generated types
     private ExternalCancellation? ToCancellation(PostingFbsListResponsePostingsCancellation? cancellation) =>
         ToCancellation(cancellation?.Cancelled_after_ship, cancellation?.Cancellation_type,
-            cancellation?.Cancel_reason);
+            cancellation?.Cancel_reason, cancellation?.Cancel_reason_id);
 
-    /// <summary>FBO states no <c>cancelled_after_ship</c> — there is no seller shipment to be after.</summary>
-    private ExternalCancellation? ToCancellation(PostingFboListResponsePostingsCancellation? cancellation) =>
-        ToCancellation(null, cancellation?.Cancellation_type, cancellation?.Cancel_reason);
+    /// <summary>
+    /// FBO states no <c>cancelled_after_ship</c> — there is no seller shipment to be after — and keeps the reason
+    /// id on the posting rather than in the cancellation.
+    /// </summary>
+    private ExternalCancellation? ToCancellation(
+        PostingFboListResponsePostingsCancellation? cancellation, long? reasonId) =>
+        ToCancellation(null, cancellation?.Cancellation_type, cancellation?.Cancel_reason, reasonId);
 
     private ExternalCancellation? ToCancellation(
         PostingFbsUnfulfilledListResponsePostingsCancellation? cancellation) =>
         ToCancellation(cancellation?.Cancelled_after_ship, cancellation?.Cancellation_type,
-            cancellation?.Cancel_reason);
+            cancellation?.Cancel_reason, cancellation?.Cancel_reason_id);
 
     /// <summary>
     /// Ozon answers a live posting with an empty cancellation object rather than none — FBS with
     /// <c>cancelled_after_ship: false</c> in it, so that flag alone does not make a cancellation.
     /// </summary>
-    private ExternalCancellation? ToCancellation(bool? afterShip, string? type, string? reason)
+    private ExternalCancellation? ToCancellation(bool? afterShip, string? type, string? reason, long? reasonId)
     {
         var rawType = Trim(type);
         var trimmedReason = Trim(reason);
@@ -1127,7 +1131,17 @@ public class OzonClient(
         if (afterShip is null or false && rawType is null && trimmedReason is null)
             return null;
 
-        return new ExternalCancellation(afterShip, ToCancellationType(rawType), rawType, trimmedReason);
+        return new ExternalCancellation(afterShip, ToCancellationType(rawType), rawType, trimmedReason,
+            ToLossReason(trimmedReason),
+            reasonId is > 0 ? reasonId.Value.ToString(CultureInfo.InvariantCulture) : null);
+    }
+
+    private MarketplaceLossReason? ToLossReason(string? reason)
+    {
+        var category = OzonLossReasons.CategoryOf(reason);
+        if (category == MarketplaceLossReason.Unknown)
+            logger.LogWarning("Ozon returned an unknown cancellation or return reason {OzonLossReason}", reason);
+        return category;
     }
 
     /// <summary>
@@ -1168,6 +1182,7 @@ public class OzonClient(
         var rawKind = Trim(item.Type);
         var compensationId = item.Compensation_status?.Status?.Id;
         var rawStatus = Trim(item.Visual?.Status?.Sys_name);
+        var reason = Trim(item.Return_reason_name);
 
         return new ExternalReturn(
             id.ToString(CultureInfo.InvariantCulture),
@@ -1182,7 +1197,9 @@ public class OzonClient(
             item.Product?.Quantity ?? 1,
             ToMoney(item.Product?.Price?.Price),
             Trim(item.Product?.Price?.Currency_code),
-            Trim(item.Return_reason_name),
+            reason,
+            ToLossReason(reason),
+            RawReasonCode: null,
             rawStatus,
             Trim(item.Visual?.Status?.Display_name),
             rawStatus is not null && CancelledReturnStatuses.Contains(rawStatus),

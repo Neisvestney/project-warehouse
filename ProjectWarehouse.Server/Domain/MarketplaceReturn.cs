@@ -56,6 +56,12 @@ public class MarketplaceReturn : IHasIdentity
     /// <summary>Return reason as worded by the marketplace.</summary>
     public string? Reason { get; set; }
 
+    /// <summary><see cref="Reason"/> in the cross-marketplace vocabulary. Null when the marketplace gave no reason.</summary>
+    public MarketplaceLossReason? ReasonCategory { get; set; }
+
+    // diagnostics only — the marketplace's own reason code, where it has one
+    public string? RawReasonCode { get; set; }
+
     // The raw vocabulary is long and keeps growing, so it is not mapped; only IsCancelled is derived from it
     public string? RawStatus { get; set; }
     public string? StatusName { get; set; }

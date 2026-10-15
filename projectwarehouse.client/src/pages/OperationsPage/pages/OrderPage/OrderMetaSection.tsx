@@ -16,6 +16,7 @@ import type {OrderDetailsDto} from "@/api/types.gen";
 import MarketplaceOrderStatusChip from "@/components/orders/marketplace/MarketplaceOrderStatusChip";
 import MarketplaceOrderReturnChip from "@/components/orders/marketplace/MarketplaceOrderReturnChip";
 import {MARKETPLACE_CANCELLATION_TYPE_LABELS} from "@/components/orders/marketplace/marketplaceOrderUtils";
+import LossReasonText from "@/components/orders/marketplace/LossReasonText";
 import {format} from "date-fns";
 import {ru} from "date-fns/locale";
 import MarketplaceAccountChip from "@/components/marketplace/MarketplaceAccountChip";
@@ -267,7 +268,15 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
                     : null
                 }
               />
-              <InfoRow label="Причина отмены" value={order.marketplaceOrder.cancelReason} />
+              <InfoRow
+                label="Причина отмены"
+                value={
+                  <LossReasonText
+                    category={order.marketplaceOrder.cancelReasonCategory}
+                    wording={order.marketplaceOrder.cancelReason}
+                  />
+                }
+              />
             </>
           )}
           <OrderMarketplaceReturnsDetails order={order} />

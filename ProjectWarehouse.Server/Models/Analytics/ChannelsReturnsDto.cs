@@ -53,7 +53,7 @@ public class ReturnKindUnitsDto
 
 public class ReturnReasonUnitsDto
 {
-    public string Reason { get; init; } = null!;
+    public MarketplaceLossReason Reason { get; init; }
     public int Units { get; init; }
 }
 

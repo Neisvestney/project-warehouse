@@ -21,6 +21,7 @@ import type {ChannelsLossReasonsDto, LossReasonRowDto} from "@/api/types.gen";
 import {formatNumber, formatPercent} from "@/components/analytics/analyticsFormat";
 import {intervalLabel} from "@/components/analytics/charts/intervalLabels";
 import SubjectName from "@/components/analytics/subjects/SubjectName";
+import {formatLossReason} from "@/components/orders/marketplace/marketplaceOrderUtils";
 import {SUBJECT_LABELS} from "@/components/analytics/subjects/subjects";
 import IntervalSparkline from "../charts/IntervalSparkline";
 
@@ -109,7 +110,7 @@ function LossReasonsTable({data}: LossReasonsTableProps) {
                 <SubjectName subject={row.subject} prefix={i + 1} showAccounts />
               </Box>
               <Typography variant="body2" sx={{mt: 0.5}}>
-                {row.reason ?? NO_REASON}
+                {row.reason ? formatLossReason(row.reason) : NO_REASON}
               </Typography>
               <Stack direction="row" spacing={2} sx={{mt: 1, alignItems: "center"}}>
                 <Box>
@@ -167,7 +168,9 @@ function LossReasonsTable({data}: LossReasonsTableProps) {
                   <SubjectName subject={row.subject} showAccounts />
                 </TableCell>
                 <TableCell sx={{wordBreak: "break-word"}}>
-                  {row.reason ?? (
+                  {row.reason ? (
+                    formatLossReason(row.reason)
+                  ) : (
                     <Box component="span" sx={{color: "text.secondary"}}>
                       {NO_REASON}
                     </Box>

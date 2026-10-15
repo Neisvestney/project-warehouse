@@ -189,6 +189,8 @@ public class MarketplaceReturnSyncService(
             || target.Price != source.Price
             || target.CurrencyCode != source.CurrencyCode
             || target.Reason != source.Reason
+            || target.ReasonCategory != source.ReasonCategory
+            || target.RawReasonCode != source.RawReasonCode
             || target.RawStatus != source.RawStatus
             || target.StatusName != source.StatusName
             || target.IsCancelled != source.IsCancelled
@@ -211,6 +213,8 @@ public class MarketplaceReturnSyncService(
         target.Price = source.Price;
         target.CurrencyCode = source.CurrencyCode;
         target.Reason = source.Reason;
+        target.ReasonCategory = source.ReasonCategory;
+        target.RawReasonCode = source.RawReasonCode;
         target.RawStatus = source.RawStatus;
         target.StatusName = source.StatusName;
         target.IsCancelled = source.IsCancelled;

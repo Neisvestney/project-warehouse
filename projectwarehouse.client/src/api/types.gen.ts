@@ -711,7 +711,7 @@ export type CancellationTypeCountDto = {
 };
 
 export type CancelReasonCountDto = {
-  reason: string;
+  reason: MarketplaceLossReason;
   count: number;
 };
 
@@ -1615,10 +1615,7 @@ export type LossesPointDto = {
  */
 export type LossReasonRowDto = {
   subject: AbcSubjectDto;
-  /**
-   * Null when the marketplace gave none.
-   */
-  reason?: null | string;
+  reason?: null | MarketplaceLossReason;
   units: number;
   /**
    * Units the share is taken of: the subject's sold units for returns, sold plus cancelled for cancellations.
@@ -1819,6 +1816,35 @@ export type MarketplaceCardMappingState = "all" | "unmapped" | "mapped" | "archi
 
 export type MarketplaceCardSortBy = "name" | "offerId" | "price" | "syncedAt";
 
+/**
+ * Why units were lost to a cancellation or a return, collapsed from each marketplace's own vocabulary into one
+ * list shared by both. Unknown = 0: the marketplace gave a reason the provider could not recognize; its wording
+ * stays alongside. Values come in blocks of twenty by whose side the reason falls on — buyer, seller,
+ * marketplace and its delivery.
+ */
+export type MarketplaceLossReason =
+  | "unknown"
+  | "buyerChangedMind"
+  | "buyerFoundCheaper"
+  | "buyerDeliveryTerms"
+  | "buyerDidNotFit"
+  | "buyerNotPickedUp"
+  | "buyerOther"
+  | "outOfStock"
+  | "notShippedInTime"
+  | "sellerCancelled"
+  | "defect"
+  | "poorQuality"
+  | "wrongItem"
+  | "incomplete"
+  | "cardMismatch"
+  | "counterfeit"
+  | "deliveryFailed"
+  | "deliveryDelayed"
+  | "damagedInDelivery"
+  | "marketplaceFailure"
+  | "marketplaceOther";
+
 export type MarketplaceMappingSource = "manual" | "autoOfferId" | "autoBarcode" | "rule";
 
 /**
@@ -1852,6 +1878,7 @@ export type MarketplaceOrderDetailsDto = {
   cancellationType?: null | MarketplaceCancellationType;
   rawCancellationType?: null | string;
   cancelReason?: null | string;
+  cancelReasonCategory?: null | MarketplaceLossReason;
   /**
    * Whether the buyer sent the order back, fully or in part.
    */
@@ -1902,6 +1929,7 @@ export type MarketplaceOrderDto = {
   cancellationType?: null | MarketplaceCancellationType;
   rawCancellationType?: null | string;
   cancelReason?: null | string;
+  cancelReasonCategory?: null | MarketplaceLossReason;
   /**
    * Whether the buyer sent the order back, fully or in part.
    */
@@ -2003,6 +2031,7 @@ export type MarketplaceReturnDto = {
   price?: null | number;
   currencyCode?: null | string;
   reason?: null | string;
+  reasonCategory?: null | MarketplaceLossReason;
   rawStatus?: null | string;
   statusName?: null | string;
   statusChangedAt?: null | string;
@@ -3299,7 +3328,7 @@ export type ReturnKindUnitsDto = {
 };
 
 export type ReturnReasonUnitsDto = {
-  reason: string;
+  reason: MarketplaceLossReason;
   units: number;
 };
 

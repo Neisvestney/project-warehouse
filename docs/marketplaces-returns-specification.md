@@ -75,6 +75,8 @@ MarketplaceReturn
 ├── Quantity
 ├── Price?, CurrencyCode?   — product.price: цена единицы для покупателя
 ├── Reason?                 — return_reason_name словами площадки
+├── ReasonCategory?         — MarketplaceLossReason, см. «Причины потерь» в marketplaces-orders-specification.md
+├── RawReasonCode?          — код причины площадки, только диагностика; у Ozon пуст
 ├── RawStatus               — visual.status.sys_name
 ├── StatusName              — visual.status.display_name
 ├── StatusChangedAt         — visual.change_moment
@@ -276,7 +278,9 @@ WMS не знает вовсе, прогон не перечитывает.
 | `Scheme` | `Fbs` — схема кампании аккаунта |
 | `RawKind` | `type` |
 | `Price`, `CurrencyCode` | цена единицы из найденной строки заказа; `amount` — сумма всего возврата, а не единицы |
-| `Reason` | `decisions[].reasonType`; у невыкупа решений нет |
+| `Reason` | `decisions[].comment` покупателя; у невыкупа решений нет |
+| `ReasonCategory` | из `reasonType` и `subreasonType` — см. [таблицу кодов YM](marketplaces-orders-specification.md#причины-потерь) |
+| `RawReasonCode` | `{reasonType}/{subreasonType}` |
 | `RawStatus`, `StatusName` | `shipmentStatus` и его описание из спецификации |
 | `StatusChangedAt` | `updateDate` |
 | `ReturnedAt` | `creationDate` |

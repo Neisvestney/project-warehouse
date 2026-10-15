@@ -30,6 +30,7 @@ public class MarketplaceOrderDto
     public MarketplaceCancellationType? CancellationType { get; init; }
     public string? RawCancellationType { get; init; }
     public string? CancelReason { get; init; }
+    public MarketplaceLossReason? CancelReasonCategory { get; init; }
 
     /// <summary>Whether the buyer sent the order back, fully or in part.</summary>
     public MarketplaceOrderReturnState ReturnState { get; init; }

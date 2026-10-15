@@ -1091,6 +1091,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<string>("CancelReason")
                         .HasColumnType("text");
 
+                    b.Property<int?>("CancelReasonCategory")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("CancellationType")
                         .HasColumnType("integer");
 
@@ -1132,6 +1135,9 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.Property<string>("PostingNumber")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RawCancelReasonCode")
                         .HasColumnType("text");
 
                     b.Property<string>("RawCancellationType")
@@ -1303,6 +1309,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<string>("RawKind")
                         .HasColumnType("text");
 
+                    b.Property<string>("RawReasonCode")
+                        .HasColumnType("text");
+
                     b.Property<string>("RawScheme")
                         .HasColumnType("text");
 
@@ -1311,6 +1320,9 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.Property<string>("Reason")
                         .HasColumnType("text");
+
+                    b.Property<int?>("ReasonCategory")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("ReturnedAt")
                         .HasColumnType("timestamp with time zone");

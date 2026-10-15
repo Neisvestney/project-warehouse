@@ -1,6 +1,7 @@
 import type {ChipProps} from "@mui/material";
 import type {
   MarketplaceCancellationType,
+  MarketplaceLossReason,
   MarketplaceOrderReturnState,
   MarketplaceOrderStatus,
   MarketplaceReturnCompensationStatus,
@@ -84,6 +85,73 @@ export const MARKETPLACE_CANCELLATION_TYPE_LABELS: Record<MarketplaceCancellatio
   system: "Система",
   delivery: "Служба доставки",
 };
+
+export type MarketplaceLossReasonGroup = "buyer" | "seller" | "marketplace" | "unknown";
+
+export const MARKETPLACE_LOSS_REASON_GROUP_LABELS: Record<MarketplaceLossReasonGroup, string> = {
+  buyer: "Покупатель",
+  seller: "Продавец",
+  marketplace: "Площадка и доставка",
+  unknown: "Не распознана",
+};
+
+export const MARKETPLACE_LOSS_REASON_GROUPS: Record<
+  MarketplaceLossReason,
+  MarketplaceLossReasonGroup
+> = {
+  unknown: "unknown",
+  buyerChangedMind: "buyer",
+  buyerFoundCheaper: "buyer",
+  buyerDeliveryTerms: "buyer",
+  buyerDidNotFit: "buyer",
+  buyerNotPickedUp: "buyer",
+  buyerOther: "buyer",
+  outOfStock: "seller",
+  notShippedInTime: "seller",
+  sellerCancelled: "seller",
+  defect: "seller",
+  poorQuality: "seller",
+  wrongItem: "seller",
+  incomplete: "seller",
+  cardMismatch: "seller",
+  counterfeit: "seller",
+  deliveryFailed: "marketplace",
+  deliveryDelayed: "marketplace",
+  damagedInDelivery: "marketplace",
+  marketplaceFailure: "marketplace",
+  marketplaceOther: "marketplace",
+};
+
+export const MARKETPLACE_LOSS_REASON_LABELS: Record<MarketplaceLossReason, string> = {
+  unknown: "Причина не распознана",
+  buyerChangedMind: "Передумал",
+  buyerFoundCheaper: "Нашёл дешевле",
+  buyerDeliveryTerms: "Не устроил срок доставки",
+  buyerDidNotFit: "Не подошёл",
+  buyerNotPickedUp: "Не забрал заказ",
+  buyerOther: "Другое",
+  outOfStock: "Нет в наличии",
+  notShippedInTime: "Не отгружен вовремя",
+  sellerCancelled: "Отменён продавцом",
+  defect: "Брак",
+  poorQuality: "Недоволен качеством",
+  wrongItem: "Не тот товар",
+  incomplete: "Неполная комплектация",
+  cardMismatch: "Не соответствует карточке",
+  counterfeit: "Подделка",
+  deliveryFailed: "Не удалось доставить",
+  deliveryDelayed: "Перенос сроков доставки",
+  damagedInDelivery: "Повреждён при доставке",
+  marketplaceFailure: "Сбой площадки",
+  marketplaceOther: "Другое",
+};
+
+/** «Группа · причина» — the reason alone is ambiguous («Другое» exists in two groups). */
+export function formatLossReason(reason: MarketplaceLossReason): string {
+  if (reason === "unknown") return MARKETPLACE_LOSS_REASON_LABELS.unknown;
+  const group = MARKETPLACE_LOSS_REASON_GROUP_LABELS[MARKETPLACE_LOSS_REASON_GROUPS[reason]];
+  return `${group} · ${MARKETPLACE_LOSS_REASON_LABELS[reason]}`;
+}
 
 export const MARKETPLACE_LABELS: Record<MarketplaceType, string> = {
   ozon: "Ozon",

@@ -10,4 +10,6 @@ public record ExternalCancellation(
     bool? CancelledAfterAssembly,
     MarketplaceCancellationType Type,
     string? RawType,
-    string? Reason);
+    string? Reason,
+    MarketplaceLossReason? ReasonCategory,
+    string? RawReasonCode);

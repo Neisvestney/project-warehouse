@@ -6,6 +6,7 @@ import {format} from "date-fns";
 import {ru} from "date-fns/locale";
 import type {MarketplaceReturnDto, OrderDetailsDto} from "@/api/types.gen";
 import InfoRow from "@/components/InfoRow";
+import LossReasonText from "@/components/orders/marketplace/LossReasonText";
 import {
   MARKETPLACE_RETURN_COMPENSATION_LABELS,
   MARKETPLACE_RETURN_KIND_LABELS,
@@ -61,7 +62,12 @@ function ReturnCard({value, productName}: ReturnCardProps) {
         <InfoRow label="Товар" value={productName} />
         <InfoRow label="Количество" value={`${value.quantity} шт.`} />
         {price && <InfoRow label="Цена" value={price} />}
-        {value.reason && <InfoRow label="Причина" value={value.reason} />}
+        {(value.reasonCategory || value.reason) && (
+          <InfoRow
+            label="Причина"
+            value={<LossReasonText category={value.reasonCategory} wording={value.reason} />}
+          />
+        )}
         <InfoRow label="Статус" value={value.statusName ?? value.rawStatus ?? "—"} />
         {value.returnedAt && <InfoRow label="Дата возврата" value={formatDate(value.returnedAt)} />}
         {value.finalAt && <InfoRow label="Прибыл на склад" value={formatDate(value.finalAt)} />}

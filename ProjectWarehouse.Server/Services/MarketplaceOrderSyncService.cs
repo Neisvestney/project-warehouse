@@ -263,6 +263,8 @@ public class MarketplaceOrderSyncService(
                 CancellationType = posting.Cancellation?.Type,
                 RawCancellationType = posting.Cancellation?.RawType,
                 CancelReason = posting.Cancellation?.Reason,
+                CancelReasonCategory = posting.Cancellation?.ReasonCategory,
+                RawCancelReasonCode = posting.Cancellation?.RawReasonCode,
                 ShipmentDate = posting.ShipmentDate,
                 InProcessAt = posting.InProcessAt,
                 DeliveringAt = dates.DeliveringAt,
@@ -1022,12 +1024,16 @@ public class MarketplaceOrderSyncService(
             known.CancelledAfterAssembly != cancellation?.CancelledAfterAssembly
             || known.CancellationType != cancellation?.Type
             || known.RawCancellationType != cancellation?.RawType
-            || known.CancelReason != cancellation?.Reason;
+            || known.CancelReason != cancellation?.Reason
+            || known.CancelReasonCategory != cancellation?.ReasonCategory
+            || known.RawCancelReasonCode != cancellation?.RawReasonCode;
 
         known.CancelledAfterAssembly = cancellation?.CancelledAfterAssembly;
         known.CancellationType = cancellation?.Type;
         known.RawCancellationType = cancellation?.RawType;
         known.CancelReason = cancellation?.Reason;
+        known.CancelReasonCategory = cancellation?.ReasonCategory;
+        known.RawCancelReasonCode = cancellation?.RawReasonCode;
 
         return changed;
     }

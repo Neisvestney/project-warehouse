@@ -16,6 +16,8 @@ public record ExternalReturn(
     decimal? Price,
     string? CurrencyCode,
     string? Reason,
+    MarketplaceLossReason? ReasonCategory,
+    string? RawReasonCode,
     string? RawStatus,
     string? StatusName,
     bool IsCancelled,

@@ -1,3 +1,5 @@
+using ProjectWarehouse.Server.Domain;
+
 namespace ProjectWarehouse.Server.Models.Analytics;
 
 public class ChannelsLossReasonsDto
@@ -37,7 +39,7 @@ public class LossReasonRowDto
     public AbcSubjectDto Subject { get; init; } = null!;
 
     /// <summary>Null when the marketplace gave none.</summary>
-    public string? Reason { get; init; }
+    public MarketplaceLossReason? Reason { get; init; }
 
     public int Units { get; init; }
 

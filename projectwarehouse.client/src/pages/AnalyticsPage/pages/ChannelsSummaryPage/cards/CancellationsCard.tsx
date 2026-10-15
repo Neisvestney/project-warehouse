@@ -4,6 +4,7 @@ import {keepPreviousData, useQuery} from "@tanstack/react-query";
 import {analyticsGetChannelsCancellationsOptions} from "@/api/@tanstack/react-query.gen";
 import type {AnalyticsStep, MarketplaceCancellationType} from "@/api/types.gen";
 import {MARKETPLACE_CANCELLATION_TYPE_LABELS} from "@/components/orders/marketplace/marketplaceOrderUtils";
+import {formatLossReason} from "@/components/orders/marketplace/marketplaceOrderUtils";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import {formatNumber, formatPercent} from "@/components/analytics/analyticsFormat";
@@ -156,7 +157,10 @@ function CancellationsCard({filters, onExpand}: CancellationsCardProps) {
             <CountsTable
               label="Причина"
               valueLabel="Отмен"
-              rows={summary.topCancelReasons.map((r) => ({key: r.reason, count: r.count}))}
+              rows={summary.topCancelReasons.map((r) => ({
+                key: formatLossReason(r.reason),
+                count: r.count,
+              }))}
             />
           </Stack>
         ))}

@@ -54,6 +54,14 @@ public class MarketplaceOrder
     /// <summary>Cancellation reason as worded by the marketplace.</summary>
     public string? CancelReason { get; set; }
 
+    /// <summary>
+    /// <see cref="CancelReason"/> in the cross-marketplace vocabulary. Null when the marketplace gave no reason.
+    /// </summary>
+    public MarketplaceLossReason? CancelReasonCategory { get; set; }
+
+    // diagnostics only — the marketplace's own reason code, where it has one
+    public string? RawCancelReasonCode { get; set; }
+
     /// <summary>Deadline the marketplace expects the posting to be packed by.</summary>
     public DateTime? ShipmentDate { get; set; }
 

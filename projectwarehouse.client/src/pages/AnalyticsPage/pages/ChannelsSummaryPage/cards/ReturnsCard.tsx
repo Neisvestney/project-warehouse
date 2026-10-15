@@ -1,4 +1,5 @@
 import {Alert, Box, Chip, IconButton, Stack, Tooltip, Typography, useTheme} from "@mui/material";
+import {formatLossReason} from "@/components/orders/marketplace/marketplaceOrderUtils";
 import OpenInFullIcon from "@mui/icons-material/OpenInFull";
 import {keepPreviousData, useQuery} from "@tanstack/react-query";
 import {analyticsGetChannelsReturnsOptions} from "@/api/@tanstack/react-query.gen";
@@ -145,7 +146,7 @@ function ReturnsCard({filters, onExpand}: ReturnsCardProps) {
             <CountsTable
               label="Причина"
               valueLabel="Штук"
-              rows={data.topReasons.map((r) => ({key: r.reason, count: r.units}))}
+              rows={data.topReasons.map((r) => ({key: formatLossReason(r.reason), count: r.units}))}
             />
 
             {data.compensations.length > 0 && (

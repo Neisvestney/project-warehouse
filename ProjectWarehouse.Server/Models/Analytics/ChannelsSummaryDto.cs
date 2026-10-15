@@ -96,6 +96,6 @@ public class CancellationTypeCountDto
 
 public class CancelReasonCountDto
 {
-    public string Reason { get; init; } = null!;
+    public MarketplaceLossReason Reason { get; init; }
     public int Count { get; init; }
 }

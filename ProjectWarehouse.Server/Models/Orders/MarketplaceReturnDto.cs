@@ -22,6 +22,7 @@ public class MarketplaceReturnDto : IHasIdentity
     public decimal? Price { get; init; }
     public string? CurrencyCode { get; init; }
     public string? Reason { get; init; }
+    public MarketplaceLossReason? ReasonCategory { get; init; }
 
     public string? RawStatus { get; init; }
     public string? StatusName { get; init; }
