@@ -106,4 +106,17 @@ public class Order : IHasIdentity
             EF.Functions.ILike(SearchExtensions.Normalize(c.CatalogItem.SearchString), pattern, SearchExtensions.EscapeChar)))
         || MarketplaceItems.Any(i => i.MarketplaceCard != null
             && EF.Functions.ILike(SearchExtensions.Normalize(i.MarketplaceCard.SearchString), pattern, SearchExtensions.EscapeChar));
+
+    /// <summary>
+    /// The sources of <see cref="MatchesExtendedSearch"/> joined in memory, homoglyph-folded and lowercased, for
+    /// lists the client filters itself. Needs boxes with component catalog items and their groups, and marketplace
+    /// item cards, loaded. Sources are newline-separated so a token never matches across two of them.
+    /// </summary>
+    public string BuildExtendedSearchString() =>
+        SearchExtensions.Normalize(string.Join('\n',
+            new[] { SearchString }
+                .Concat(Boxes.Select(b => b.Label ?? ""))
+                .Concat(Boxes.SelectMany(b => b.Components).Select(c => c.CatalogItem.SearchString))
+                .Concat(MarketplaceItems.Where(i => i.MarketplaceCard != null).Select(i => i.MarketplaceCard!.SearchString)))
+            .ToLowerInvariant());
 }

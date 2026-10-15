@@ -1,4 +1,4 @@
-import {useMemo, useState} from "react";
+import {useState} from "react";
 import {
   Alert,
   Box,
@@ -49,6 +49,7 @@ import {
   parseAssemblyGrouping,
 } from "./assemblyGrouping";
 import {AssemblyOrderRefreshProvider, useAssemblyOrderRefreshState} from "./assemblyOrderRefresh";
+import {filterAssemblyOrders} from "./assemblyFilters";
 import {
   isTagFilterActive,
   parseTagFilter,
@@ -98,20 +99,11 @@ function OrdersAssemblyPage() {
     (v) => v,
   );
 
-  const ordersQuery = useQuery({
-    ...ordersGetAllAssemblyOptions({
-      query: {
-        warehouseId: warehouseId ?? undefined,
-        searchString: searchString || undefined,
-        catalogItemIds: catalogItemIds.length > 0 ? catalogItemIds : undefined,
-        tagIds: tagFilter.include.length > 0 ? tagFilter.include : undefined,
-        excludedTagIds: tagFilter.exclude.length > 0 ? tagFilter.exclude : undefined,
-      },
-    }),
-    gcTime: 0,
-  });
+  const ordersQuery = useQuery({...ordersGetAllAssemblyOptions(), gcTime: 0});
 
-  const orders = useMemo<OrderDetailsDto[]>(() => ordersQuery.data ?? [], [ordersQuery.data]);
+  const allOrders = ordersQuery.data ?? [];
+  const filters = {searchString, warehouseId, catalogItemIds, tagFilter};
+  const orders = filterAssemblyOrders(allOrders, filters);
 
   // No edit lock here on purpose: several assemblers on one order is the normal case, and they need
   // to see each other's fulfillments instead of a "being edited" banner.
@@ -134,21 +126,18 @@ function OrdersAssemblyPage() {
 
   useRealtimeEvent("assemblyChanged", (_event, payload) => {
     if (payload.scope === "list") refreshList();
-    else if (orders.some((o) => o.id === payload.orderId))
+    else if (allOrders.some((o) => o.id === payload.orderId))
       void orderRefresh.refreshOrder(payload.orderId, payload.taskId);
   });
 
   const showLoading = ordersQuery.isLoading;
 
-  const eligibilityMap = useMemo(() => {
-    const m = new Map<string, boolean>();
-    for (const order of orders) {
-      for (const task of order.assemblyTasks) {
-        m.set(task.id, checkBatchEligibility(task));
-      }
+  const eligibilityMap = new Map<string, boolean>();
+  for (const order of allOrders) {
+    for (const task of order.assemblyTasks) {
+      eligibilityMap.set(task.id, checkBatchEligibility(task));
     }
-    return m;
-  }, [orders]);
+  }
 
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
@@ -178,37 +167,37 @@ function OrdersAssemblyPage() {
     });
   }
 
-  // Counts come from here, not from selectedTaskIds: ids of tasks hidden by the search/warehouse
-  // filter stay in the set, and actions only ever get the visible ones.
-  const selectedOrders = orders.filter((o) =>
+  // Selection survives the filters, so actions take hidden orders too. Counts still come from the
+  // loaded list, not from selectedTaskIds, which can hold tasks that have since left the worklist.
+  const selectedOrders = allOrders.filter((o) =>
     o.assemblyTasks.some((t) => selectedTaskIds.has(t.id)),
   );
   const labelOrderIds = selectedOrders.filter((o) => o.marketplaceOrder).map((o) => o.id);
+  const visibleOrderIds = new Set(orders.map((o) => o.id));
+  const hiddenSelectedCount = selectedOrders.filter((o) => !visibleOrderIds.has(o.id)).length;
 
-  const batchTaskInfos = useMemo<SelectedTaskInfo[]>(() => {
-    const result: SelectedTaskInfo[] = [];
-    for (const order of orders) {
-      for (const task of order.assemblyTasks) {
-        const eligible = eligibilityMap.get(task.id) ?? checkBatchEligibility(task);
-        if (selectedTaskIds.has(task.id) && getBatchDisabledReason(task, eligible) === "") {
-          result.push({
-            orderId: order.id,
-            taskId: task.id,
-            task,
-            // список сборки отдаёт только заказы в статусе Assembly, до которого внешние не доходят
-            warehouseId: order.warehouseId!,
-            orderNumber: `#${order.number}`,
-            postingNumber: order.marketplaceOrder?.postingNumber,
-          });
-        }
+  const batchTaskInfos: SelectedTaskInfo[] = [];
+  for (const order of allOrders) {
+    for (const task of order.assemblyTasks) {
+      const eligible = eligibilityMap.get(task.id) ?? checkBatchEligibility(task);
+      if (selectedTaskIds.has(task.id) && getBatchDisabledReason(task, eligible) === "") {
+        batchTaskInfos.push({
+          orderId: order.id,
+          taskId: task.id,
+          task,
+          // список сборки отдаёт только заказы в статусе Assembly, до которого внешние не доходят
+          warehouseId: order.warehouseId!,
+          orderNumber: `#${order.number}`,
+          postingNumber: order.marketplaceOrder?.postingNumber,
+        });
       }
     }
-    return result;
-  }, [selectedTaskIds, orders, eligibilityMap]);
+  }
 
   // silent refreshes skip the gate, so a realtime patch lands in the stats at once
   const statsLoading = showLoading || showLoadingOverlay;
-  const settledOrders = useSettledValue(ordersQuery.data, statsLoading) ?? [];
+  const settledAllOrders = useSettledValue(ordersQuery.data, statsLoading) ?? [];
+  const settledOrders = filterAssemblyOrders(settledAllOrders, filters);
   const listStats: TableInfoStat[] = (() => {
     const progress = settledOrders
       .flatMap((o) => o.assemblyTasks)
@@ -333,6 +322,7 @@ function OrdersAssemblyPage() {
             count={selectedOrders.length}
             countLabel={{one: "заказ выбран", few: "заказа выбрано", many: "заказов выбрано"}}
             onClear={() => setSelectedTaskIds(new Set())}
+            hiddenCount={hiddenSelectedCount}
             actions={selectionActions}
             info={listStats}
             infoLoading={statsLoading}
@@ -351,9 +341,7 @@ function OrdersAssemblyPage() {
           {orders.length === 0 && !showLoading && (
             <Box sx={{p: 4, textAlign: "center"}}>
               <Typography color="text.secondary">
-                {searchString || warehouseId || catalogItemIds.length > 0
-                  ? "Ничего не найдено"
-                  : "Нет заказов на сборке"}
+                {allOrders.length > 0 ? "Ничего не найдено" : "Нет заказов на сборке"}
               </Typography>
             </Box>
           )}

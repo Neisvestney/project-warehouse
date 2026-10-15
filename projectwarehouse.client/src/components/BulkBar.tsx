@@ -42,6 +42,8 @@ interface BulkBarProps {
   /** Forms of the "N выбран/выбрано" phrase, e.g. `{one: "заказ выбран", ...}`. */
   countLabel: PluralForms;
   onClear: () => void;
+  /** Part of `count` the current filters hide; shown next to it when non-zero. */
+  hiddenCount?: number;
   actions: BulkAction[];
   /** Shown instead of the selection toolbar while no action applies, at the same height. */
   info?: TableInfoStat[];
@@ -59,7 +61,15 @@ function actionText(action: BulkAction) {
  * Toolbar shown above a table while rows are selected. With nothing selected it falls back to the
  * list summary in `info`, or renders nothing.
  */
-function BulkBar({count, countLabel, onClear, actions, info, infoLoading}: BulkBarProps) {
+function BulkBar({
+  count,
+  countLabel,
+  onClear,
+  hiddenCount,
+  actions,
+  info,
+  infoLoading,
+}: BulkBarProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
@@ -90,6 +100,13 @@ function BulkBar({count, countLabel, onClear, actions, info, infoLoading}: BulkB
       }}
     >
       <Typography variant="body2">{pluralCount(count, countLabel)}</Typography>
+      {!!hiddenCount && (
+        <Tooltip title="Выбраны, но скрыты текущими фильтрами — действия их тоже затронут">
+          <Typography variant="body2" sx={{opacity: 0.8, whiteSpace: "nowrap"}}>
+            (скрыто: {hiddenCount.toLocaleString("ru-RU")})
+          </Typography>
+        </Tooltip>
+      )}
       <Tooltip title="Очистить выбранное">
         <IconButton size="small" color="inherit" onClick={onClear} sx={{mr: "auto"}}>
           <ClearIcon fontSize="small" />

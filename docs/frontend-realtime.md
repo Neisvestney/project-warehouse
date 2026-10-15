@@ -240,11 +240,12 @@ all: roles are versioned as one object, so it subscribes under the all-zero guid
 
 - `list` invalidates the list query; its `isFetching` drives the page's `LoadingOverlay`, the same one a focus
   refetch or «Обновить» shows.
-- `task` and `order` for an order already on screen go through `refreshOrder(orderId, taskId)`; an order the
-  current filters hide is ignored — whether it now matches is a `list` question.
+- `task` and `order` for an order already in the loaded list go through `refreshOrder(orderId, taskId)`. The
+  list holds the whole worklist — filters are applied on the client — so an order hidden by a filter is
+  patched too and shows up as soon as it matches.
 
 **`refreshOrder` patches, it does not invalidate.** It reads `GET /orders/{id}/assembly` and writes the result into
-every cached `ordersGetAllAssembly` list with `setQueriesData`, or drops the order there on `404`. Invalidating
+the cached `ordersGetAllAssembly` list with `setQueriesData`, or drops the order there on `404`. Invalidating
 the list instead would dim the whole screen for a change to one card. A per-order sequence number discards a
 response that lands after a newer request for the same order; any other error falls back to invalidating the list.
 

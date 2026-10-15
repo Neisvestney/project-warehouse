@@ -231,8 +231,8 @@ Receipts, orders, write-offs and stocktakes carry tags of their own kind (`Recei
 - `GET /api/{module}/tags?search=` — the list, under the module's view access (for orders that includes
   `orders.assemble_assigned`, since the assembly worklist filters by tag);
 - `POST /api/{module}/tags` — inline creation under the module's edit access, `tagNameDuplicate` on a clash;
-- `tagIds` on the module's list endpoint (and on `GET /api/orders/assembly`) — OR semantics; `excludedTagIds`
-  next to it drops documents carrying any of those tags, and the two combine with AND.
+- `tagIds` on the module's list endpoint — OR semantics; `excludedTagIds` next to it drops documents carrying
+  any of those tags, and the two combine with AND. The assembly worklist applies the same rule on the client.
 
 Tags are replaced through a dedicated `PATCH /api/{module}/{id}/tags` (`UpdateTagsRequest`, unknown ids ignored)
 that is allowed in any status and is not part of the module's own update request: a tag is an analytic label that

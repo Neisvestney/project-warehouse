@@ -429,7 +429,9 @@ left, a clear button pinned next to it, and the bulk actions pushed to the right
 `mr: "auto"`.
 
 `count` is rendered through `pluralCount`, so `countLabel` takes the three Russian forms of the phrase
-(`{one: "заказ выбран", few: "заказа выбрано", many: "заказов выбрано"}`). `onClear` drops the whole selection —
+(`{one: "заказ выбран", few: "заказа выбрано", many: "заказов выбрано"}`). `hiddenCount` — the part of `count`
+the current filters hide — adds «(скрыто: N)» after it, with a tooltip saying the actions reach those rows too;
+zero or omitted shows nothing. `onClear` drops the whole selection —
 pair it with [`useSelectedItems`](./frontend-state.md#useselecteditemsgetid-freshitems)'s `clear`.
 
 Actions arrive as data, `actions: BulkAction[]` — `{key, label, icon?, count?, onClick, pending?, disabled?,
@@ -1399,8 +1401,11 @@ Any task can be selected. The selection feeds a [`BulkBar`](#bulkbar) that count
 «Собрать задания» and «Скачать этикетки». «Собрать задания» takes only the selected tasks for which
 `getBatchDisabledReason(task, eligible)` in `batchEligibility.ts` returns an empty string, and needs
 `canFulfill`. «Скачать этикетки» takes the marketplace orders among the selected ones. That reason is also the
-tooltip of the per-task checkboxes. Selected ids hidden by filters stay in the set, but the counters and actions
-work only with visible orders.
+tooltip of the per-task checkboxes. The selection outlives the filters, as on the other lists: a task hidden by
+the warehouse/search/tag filter stays selected, and the selection counter and both actions include it; the bar
+shows how many of the selected orders are hidden through its `hiddenCount`. They are
+built from the whole loaded worklist, so a selected task that has since left the worklist drops out of them.
+«Выбрать все» covers only the visible orders and leaves hidden selections untouched.
 
 The order summary is split into two groups: a head (checkbox, order number link, progress caption pushed right
 with `margin-left: auto`) and a chip row (order type, warehouse, marketplace account, the sole task's status,

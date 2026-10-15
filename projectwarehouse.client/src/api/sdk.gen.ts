@@ -2374,10 +2374,8 @@ export const ordersGetAll = <ThrowOnError extends boolean = false>(
 /**
  * The current user's personal assembly worklist: full details of Assembly-status orders that have a task assigned to them.
  *
- * Query params: `warehouseId`, `searchString`, `catalogItemIds`, `tagIds`, `excludedTagIds` (all optional). Not paginated — returns a plain list.
- * `catalogItemIds` keeps orders that have a box component with any of those catalog items; `tagIds` keeps
- * orders carrying any of the tags, `excludedTagIds` drops those carrying any of them.
- * `searchString` is the extended search — see bool Order.MatchesExtendedSearch(string pattern).
+ * Not paginated and not filtered — the client filters the whole list itself; every order carries
+ * `extendedSearchString` for that (see string Order.BuildExtendedSearchString()).
  * Only orders in `Assembly` status with at least one `AssemblyTask` assigned to the caller are
  * returned, and each order carries only that caller's own tasks; other assemblers' tasks are filtered out.
  * Every task box component is annotated with `containsUnit`, computed by walking the Bundle/Variation
@@ -2398,7 +2396,7 @@ export const ordersGetAllAssembly = <ThrowOnError extends boolean = false>(
  * One order of the caller's assembly worklist, in exactly the shape `GET /assembly` returns it.
  *
  * Lets the assembly screen reread a single order after an `assemblyChanged` event or its own mutation
- * instead of the whole list. The list filters (`warehouseId`, `searchString`, …) are not applied.
+ * instead of the whole list.
  * Returns 404 `orderNotFound` when the order does not exist, is not in `Assembly`, carries no task
  * assigned to the caller or lies outside the caller's warehouses — every case in which it is not on the list.
  * Requires the same view access as `GET /assembly`.

@@ -2243,6 +2243,10 @@ export type OrderDetailsDto = {
   assemblyTasks: Array<AssemblyTaskDto>;
   attachments: Array<DataFileLinkDto>;
   tags: Array<OrderTagDto>;
+  /**
+   * Filled only by the assembly worklist endpoints, which leave filtering to the client.
+   */
+  extendedSearchString?: null | string;
 };
 
 /**
@@ -7350,13 +7354,7 @@ export type OrdersGetAllResponse = OrdersGetAllResponses[keyof OrdersGetAllRespo
 export type OrdersGetAllAssemblyData = {
   body?: never;
   path?: never;
-  query?: {
-    warehouseId?: string;
-    searchString?: string;
-    catalogItemIds?: Array<string>;
-    tagIds?: Array<string>;
-    excludedTagIds?: Array<string>;
-  };
+  query?: never;
   url: "/api/orders/assembly";
 };
 

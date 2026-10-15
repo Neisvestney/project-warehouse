@@ -35,4 +35,7 @@ public class OrderDetailsDto
     public IReadOnlyList<AssemblyTaskDto> AssemblyTasks { get; init; } = [];
     public IReadOnlyList<DataFileLinkDto> Attachments { get; init; } = [];
     public IReadOnlyList<OrderTagDto> Tags { get; init; } = [];
+
+    /// <summary>Filled only by the assembly worklist endpoints, which leave filtering to the client.</summary>
+    public string? ExtendedSearchString { get; set; }
 }

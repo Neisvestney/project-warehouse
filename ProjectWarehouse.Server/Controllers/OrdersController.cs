@@ -526,10 +526,8 @@ public class OrdersController(
 
     /// <summary>The current user's personal assembly worklist: full details of Assembly-status orders that have a task assigned to them.</summary>
     /// <remarks>
-    /// Query params: <c>warehouseId</c>, <c>searchString</c>, <c>catalogItemIds</c>, <c>tagIds</c>, <c>excludedTagIds</c> (all optional). Not paginated — returns a plain list.
-    /// <c>catalogItemIds</c> keeps orders that have a box component with any of those catalog items; <c>tagIds</c> keeps
-    /// orders carrying any of the tags, <c>excludedTagIds</c> drops those carrying any of them.
-    /// <c>searchString</c> is the extended search — see <see cref="Order.MatchesExtendedSearch"/>.
+    /// Not paginated and not filtered — the client filters the whole list itself; every order carries
+    /// <c>extendedSearchString</c> for that (see <see cref="Order.BuildExtendedSearchString"/>).
     /// Only orders in <c>Assembly</c> status with at least one <c>AssemblyTask</c> assigned to the caller are
     /// returned, and each order carries only that caller's own tasks; other assemblers' tasks are filtered out.
     /// Every task box component is annotated with <c>containsUnit</c>, computed by walking the Bundle/Variation
@@ -540,13 +538,7 @@ public class OrdersController(
     [HttpGet("assembly")]
     [Authorize]
     [ProducesResponseType<List<OrderDetailsDto>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAllAssembly(
-        [FromQuery] Guid? warehouseId = null,
-        [FromQuery] string? searchString = null,
-        [FromQuery] IReadOnlyList<Guid>? catalogItemIds = null,
-        [FromQuery] IReadOnlyList<Guid>? tagIds = null,
-        [FromQuery] IReadOnlyList<Guid>? excludedTagIds = null,
-        CancellationToken ct = default)
+    public async Task<IActionResult> GetAllAssembly(CancellationToken ct = default)
     {
         if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
             return error;
@@ -555,23 +547,10 @@ public class OrdersController(
         if (userId is null)
             return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
 
-        var query = AssemblyQuery(await Rule.QueryAsync(User, AccessLevel.View, ct), userId.Value);
-        
-        if (warehouseId is not null)
-            query = query.Where(o => o.WarehouseId == warehouseId);
+        var orders = await AssemblyQuery(await Rule.QueryAsync(User, AccessLevel.View, ct), userId.Value)
+            .ToListAsync(ct);
 
-        if (catalogItemIds is { Count: > 0 })
-            query = query.Where(o => o.Boxes.Any(b => b.Components.Any(c => catalogItemIds.Contains(c.CatalogItemId))));
-
-        if (tagIds is { Count: > 0 })
-            query = query.Where(o => o.Tags.Any(t => tagIds.Contains(t.Id)));
-
-        if (excludedTagIds is { Count: > 0 })
-            query = query.Where(o => !o.Tags.Any(t => excludedTagIds.Contains(t.Id)));
-
-        query = query.WhereMatchesExtendedSearch((o, pattern) => o.MatchesExtendedSearch(pattern), searchString);
-
-        return Ok(await MapAssemblyAsync(await query.ToListAsync(ct), ct));
+        return Ok(await MapAssemblyAsync(orders, ct));
     }
 
     // ── GET /api/orders/{id}/assembly ─────────────────────────────────────────
@@ -579,7 +558,7 @@ public class OrdersController(
     /// <summary>One order of the caller's assembly worklist, in exactly the shape <c>GET /assembly</c> returns it.</summary>
     /// <remarks>
     /// Lets the assembly screen reread a single order after an <c>assemblyChanged</c> event or its own mutation
-    /// instead of the whole list. The list filters (<c>warehouseId</c>, <c>searchString</c>, …) are not applied.
+    /// instead of the whole list.
     /// Returns 404 <c>orderNotFound</c> when the order does not exist, is not in <c>Assembly</c>, carries no task
     /// assigned to the caller or lies outside the caller's warehouses — every case in which it is not on the list.
     /// Requires the same view access as <c>GET /assembly</c>.
@@ -640,14 +619,17 @@ public class OrdersController(
             .Include(o => o.MarketplaceReturns)
             .Where(o => o.Status == OrderStatus.Assembly)
             .Where(o => o.AssemblyTasks.Any(t => t.AssignedToId == userId))
-            .AsSplitQuery();
+            .AsSplitQuery()
+            .AsNoTracking();
 
-    /// <summary>Maps worklist orders and annotates every task box component with <c>containsUnit</c>.</summary>
+    /// <summary>Maps worklist orders, fills <c>extendedSearchString</c> and annotates every task box component with <c>containsUnit</c>.</summary>
     private async Task<List<OrderDetailsDto>> MapAssemblyAsync(List<Order> result, CancellationToken ct)
     {
         var nodeById = await LoadWarehouseNodesAsync(
             result.Select(o => o.WarehouseId).Distinct().ToList(), ct);
         var dtos = mapper.Map<List<OrderDetailsDto>>(result, opts => opts.Items["nodeById"] = nodeById);
+        for (var i = 0; i < dtos.Count; i++)
+            dtos[i].ExtendedSearchString = result[i].BuildExtendedSearchString();
 
         var componentDtos = dtos
             .SelectMany(o => o.AssemblyTasks)
