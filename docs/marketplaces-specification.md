@@ -415,7 +415,7 @@ dotnet run src/Marketplaces/YandexMarket/generator/generate-client.cs           
 
 **`format: time`.** Поля вроде `fromTime` — время суток строкой `"HH:MM"`. Скрипт генерирует их как `TimeOnly` (`TimeType = "System.TimeOnly"`). Встроенный конвертер System.Text.Json требует секунды, поэтому `YandexMarketApiClient` регистрирует свой `TimeOnlyConverter`: он читает `HH:mm` и `HH:mm:ss`, а пишет `HH:mm`, если секунд нет. Другое значение роняет ответ. Конвертер лежит в библиотеке YM, а не в `Shared`: такие поля есть только у Яндекса.
 
-**Аутентификация.** Ключ идёт в заголовок `Api-Key`. В спеке он объявлен только как security scheme, не параметром операций; `YandexMarketAuthHandler` берёт его у `IYandexMarketCredentialsProvider`. `businessId` и `campaignId` остаются параметрами методов.
+**Аутентификация.** Ключ идёт в заголовок `Api-Key`. В спеке он объявлен только как security scheme, не параметром операций; `YandexMarketAuthHandler` берёт его у `IYandexMarketCredentialsProvider`. `businessId` и `campaignId` остаются параметрами методов. Аккаунт WMS соответствует одной кампании YM, несколько кампаний одного бизнеса подключаются отдельными аккаунтами с общим ключом — см. [marketplaces-fulfillment-specification.md](marketplaces-fulfillment-specification.md#аккаунт-yandex-market).
 
 ### Клиент Avito
 
@@ -963,6 +963,52 @@ MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, Labels, Stock
 5. Для новых карточек с `CatalogItemId == null` выполняется автосопоставление.
 
 Обновление карточки **никогда не сбрасывает `CatalogItemId` и `MappingSource`** — маппинг живёт независимо от данных карточки.
+
+### Склады, остатки и карточки Yandex Market
+
+Не реализовано. Ниже — как данные YM ложатся на модель; методы сверены с боевым кабинетом. Аккаунт YM — одна
+кампания (см. [«Аккаунт Yandex Market»](marketplaces-fulfillment-specification.md#аккаунт-yandex-market)).
+
+**Склады.** `POST /v2/businesses/{businessId}/warehouses` отдаёт склады всего бизнеса; у кампании ровно один
+склад, и каждый склад несёт свой `campaignId`. Аккаунт берёт склады своей кампании. Полей у склада четыре —
+`id`, `name`, `campaignId`, `express`:
+
+| Поле `MarketplaceWarehouse` | Значение |
+|---|---|
+| `ExternalId` | `id` |
+| `Kind` | `express` → `Express`, иначе `Fbs` |
+| `Status` | `Active`: статуса площадка не сообщает, а склад в выдаче работает; пропавший склад архивируется общим правилом |
+| `ExternalStatus`, `Address` | `null` |
+
+**Остатки.** `POST /v3/businesses/{businessId}/offers/stocks` требует `partnerWarehouseId` и без него отвечает
+`400`, поэтому остатки читаются по складу аккаунта. Страница до 100 позиций, курсор `page_token`, лимит — 500
+запросов в минуту. Остаток позиции — `stocks[] {type, count}` с типами `FIT` (доступен) и `FREEZE`
+(зарезервирован); позиция без остатков приходит с пустым `stocks`. Метод работает, только если в кабинете нет
+групп складов; иначе остатки читаются `POST /v2/campaigns/{campaignId}/offers/stocks`.
+
+**Карточки.** `POST /v2/businesses/{businessId}/offer-mappings` отдаёт карточки **бизнеса**, а не кампании:
+одна и та же карточка общая для всех кампаний, её состояние в каждой — `offer.campaigns[] {campaignId, status}`.
+Каждый аккаунт YM хранит все карточки бизнеса, поэтому две подключённые кампании одного бизнеса держат по
+одинаковому набору `MarketplaceCard`, и каждый сопоставляется отдельно. Страница до 100 карточек (больший
+`limit` молча урезается), курсор `page_token`.
+
+| Поле `MarketplaceCard` | Значение |
+|---|---|
+| `ExternalId`, `OfferId` | `offer.offerId` — отдельного id товара у YM нет |
+| `Sku` | `mapping.marketSku` |
+| `Name` | `offer.name` |
+| `Barcodes` | `offer.barcodes`; бывает пустым |
+| `PrimaryImageUrl` | `offer.pictures[0]` |
+| `Price`, `CurrencyCode` | `offer.basicPrice` |
+| `IsArchived` | `offer.archived`, или статус своей кампании `ARCHIVED`, или своей кампании нет в `campaigns[]` |
+
+Прочие статусы кампании (`PUBLISHED`, `CHECKING`, `NO_STOCKS`, `DISABLED_AUTOMATICALLY`,
+`DISABLED_BY_PARTNER`, `REJECTED_BY_MARKET`, `NO_CARD`, `CREATING_CARD`, `READY_FOR_PUBLICATION`) карточку не
+архивируют: это исправимое состояние, и заказы по такой карточке приходят. Поле `offer.archived` площадка присылает
+не у всех карточек; отсутствие значит `false`.
+
+Штрихкоды карточек, перенесённых с Ozon, — штрихкоды Ozon (`OZN…`): автосопоставление по штрихкоду находит те же
+позиции каталога, что у аккаунта Ozon.
 
 ### Правило автосопоставления (`MarketplaceAutoMapRule`)
 

@@ -65,6 +65,7 @@ is rationale, invariants, cross-cutting conventions and decisions.
 | [marketplaces-orders-specification.md](marketplaces-orders-specification.md) | Order sync — FBS & FBO posting discovery, status catch-up, history backfill, order creation, label retrieval |
 | [marketplaces-fulfillment-specification.md](marketplaces-fulfillment-specification.md) | Marketplaces around assembly — Ozon, Yandex Market, Wildberries and Avito: unit of order, status normalization, parcels, labels, item exemplars, assembly by WMS (stage 2) |
 | [marketplaces-returns-specification.md](marketplaces-returns-specification.md) | Returns sync — Ozon returns list, return kinds vs cancellations, compensation pass, link to orders |
+| [marketplaces-live-verification.md](marketplaces-live-verification.md) | Сверка спек маркетплейса с боевым кабинетом — правила, маршрут, что проверить у Wildberries и Avito |
 | [realtime-specification.md](realtime-specification.md) | Real-time transport — SSE, event schema, watch registry, advisory edit locks |
 | [data-files-specification.md](data-files-specification.md) | File storage — upload, storage abstraction, FK attachments, orphan GC, serving rules |
 | [assembler-daily-routine.md](assembler-daily-routine.md) | Инструкция сборщика — рабочий день целиком: Ozon, волны отсечек, листик, вечерняя сборка и отгрузка |
