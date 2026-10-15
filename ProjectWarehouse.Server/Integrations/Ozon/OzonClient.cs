@@ -325,11 +325,10 @@ public class OzonClient(
                 }
 
                 // the report names no currency; Ozon settles with its sellers in roubles
-                var lines = posting
+                var lines = InStableOrder(posting
                     .Where(p => p.Amount is not null)
                     .Select(p => new ExternalAccrualLine(MarketplaceAccrualCategory.Sale, null, ToSku(p.Sku),
-                        Math.Round(p.Amount!.Value, 2), "RUB"))
-                    .ToList();
+                        Math.Round(p.Amount!.Value, 2), "RUB")));
 
                 // nothing to store would read as a new accrual on every run
                 if (lines.Count == 0)
@@ -413,8 +412,17 @@ public class OzonClient(
                 id, lines.Sum(l => l.Amount), expected);
 
         return new ExternalAccrual(id.ToString(CultureInfo.InvariantCulture), date, scope,
-            Trim(accrual.Unit_number), lines);
+            Trim(accrual.Unit_number), InStableOrder(lines));
     }
+
+    // Ozon lists an accrual's lines in no stable order; a fixed one keeps each line on its stored LineNo
+    private static List<ExternalAccrualLine> InStableOrder(IEnumerable<ExternalAccrualLine> lines) => lines
+        .OrderBy(l => l.RawTypeId, StringComparer.Ordinal)
+        .ThenBy(l => l.Sku, StringComparer.Ordinal)
+        .ThenBy(l => l.Category)
+        .ThenBy(l => l.CurrencyCode, StringComparer.Ordinal)
+        .ThenBy(l => l.Amount)
+        .ToList();
 
     private void AddTyped(List<ExternalAccrualLine> lines, int? typeId, string? sku, string? amount,
         string? currency)
