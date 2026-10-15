@@ -6,7 +6,8 @@ using ProjectWarehouse.Ops.Infrastructure.Docker;
 
 namespace ProjectWarehouse.Ops.Services;
 
-public sealed record BackupPart(string Name, string File, long Bytes);
+/// <param name="Sha256">Null in a backup taken before parts were hashed.</param>
+public sealed record BackupPart(string Name, string File, long Bytes, string? Sha256 = null);
 
 public sealed record BackupManifest(
     string Target,
@@ -126,52 +127,83 @@ public sealed class BackupService(TargetContext target)
         var path = Path.Combine(directory, fileName);
 
         // Custom format rather than plain SQL: pg_restore can then drop and recreate objects
-        // itself, and the dump stays a single opaque file.
+        // itself, and the dump stays a single opaque file. Bash because the image's sh is dash,
+        // which has no pipefail.
         var command = _compose.Command(
             "exec", "-T", postgres.Service,
-            "pg_dump", "-U", postgres.User, "-F", "c", "-d", postgres.Database);
+            "bash", "-c", "set -o pipefail; " + StreamChecksum.Wrap("pg_dump \"$@\""), "pg_dump",
+            "-U", postgres.User, "-F", "c", "-d", postgres.Database);
 
         // No size to ask for: the dump is compressed as it is produced, so how large it will be is
         // only known once it is done.
         using var step = reporter.Begin("pg_dump");
 
-        await StreamAsync(
+        var sha256 = await StreamAsync(
             path,
-            file => target.Host.RunStreamingAsync(command, file, step, cancellationToken),
+            async file =>
+            {
+                var result = await target.Host.RunStreamingAsync(command, file, step, cancellationToken);
+                if (result.Succeeded)
+                    step.Complete();
+
+                return result;
+            },
             failure => $"pg_dump failed: {failure}",
+            reporter,
             cancellationToken);
 
-        step.Complete();
-
-        return new BackupPart(BackupManifest.DatabasePart, fileName, new FileInfo(path).Length);
+        return new BackupPart(BackupManifest.DatabasePart, fileName, new FileInfo(path).Length, sha256);
     }
 
-    private static async Task StreamAsync(
+    /// <returns>The SHA-256 the target reported, already matched against the file on disk.</returns>
+    private static async Task<string> StreamAsync(
         string path,
         Func<Stream, Task<CommandResult>> run,
         Func<string, string> describeFailure,
+        IStepReporter reporter,
         CancellationToken cancellationToken)
     {
-        var succeeded = false;
+        string? sha256 = null;
         string? failure = null;
+        var verified = false;
 
         try
         {
-            await using var file = File.Create(path);
-            var result = await run(file);
+            await using (var file = File.Create(path))
+            {
+                var result = await run(file);
+                var (reported, stdErr) = StreamChecksum.Split(result.StdErr);
 
-            succeeded = result.Succeeded;
-            if (!succeeded)
-                failure = result.FailureMessage;
+                if (!result.Succeeded)
+                    failure = (result with { StdErr = stdErr }).FailureMessage;
+                else if (reported is null)
+                    failure = "the target reported no SHA-256 for the stream";
+                else
+                    sha256 = reported;
+            }
+
+            // A zero exit does not prove every byte reached this file.
+            if (sha256 is not null)
+            {
+                var length = new FileInfo(path).Length;
+                using var verifying = reporter.Begin($"verifying {Path.GetFileName(path)}", length);
+
+                verified = StreamChecksum.Matches(
+                    await StreamChecksum.OfFileAsync(path, verifying, cancellationToken), sha256);
+
+                if (verified)
+                    verifying.Complete();
+                else
+                    failure = $"the {length} bytes received do not match the SHA-256 the target computed";
+            }
         }
         finally
         {
-            if (!succeeded)
+            if (!verified)
                 TryDelete(path);
         }
 
-        if (failure is not null)
-            throw new BackupException(describeFailure(failure));
+        return failure is null ? sha256! : throw new BackupException(describeFailure(failure));
     }
 
     private static void TryDelete(string path)
@@ -203,15 +235,21 @@ public sealed class BackupService(TargetContext target)
         var contents = await _volumes.MeasureAsync(volume, VolumeFilter.All, cancellationToken);
         using var step = reporter.Begin($"volume {part}", contents?.BarTotal);
 
-        await StreamAsync(
+        var sha256 = await StreamAsync(
             path,
-            file => _volumes.ArchiveAsync(
-                volume, VolumeFilter.All, file, step, cancellationToken),
+            async file =>
+            {
+                var result = await _volumes.ArchiveAsync(
+                    volume, VolumeFilter.All, file, step, cancellationToken);
+                if (result.Succeeded)
+                    step.Complete();
+
+                return result;
+            },
             failure => $"Archiving {volume} failed: {failure}",
+            reporter,
             cancellationToken);
 
-        step.Complete();
-
-        return new BackupPart(part, fileName, new FileInfo(path).Length);
+        return new BackupPart(part, fileName, new FileInfo(path).Length, sha256);
     }
 }

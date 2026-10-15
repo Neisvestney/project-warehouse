@@ -25,7 +25,7 @@ public sealed class RestoreService(TargetContext target)
 
         // Everything that can be checked without touching the target is checked here: past the
         // stop, a refusal costs an outage rather than an error message.
-        var planned = Plan(backupDirectory, manifest, parts);
+        var planned = await PlanAsync(backupDirectory, manifest, parts, reporter, cancellationToken);
         var volumes = await ResolveVolumesAsync(planned, cancellationToken);
         var toStop = await ServicesToStopAsync(appServices, volumes, cancellationToken);
 
@@ -95,8 +95,12 @@ public sealed class RestoreService(TargetContext target)
     private static string Remote(string staging, string fileName) =>
         $"{staging.TrimEnd('/')}/{fileName}";
 
-    private static List<(BackupPart Part, string LocalPath)> Plan(
-        string backupDirectory, BackupManifest manifest, IReadOnlyList<string> parts)
+    private static async Task<List<(BackupPart Part, string LocalPath)>> PlanAsync(
+        string backupDirectory,
+        BackupManifest manifest,
+        IReadOnlyList<string> parts,
+        IStepReporter reporter,
+        CancellationToken cancellationToken)
     {
         var planned = new List<(BackupPart, string)>();
 
@@ -116,6 +120,20 @@ public sealed class RestoreService(TargetContext target)
             {
                 throw new BackupException(
                     $"{local} is {actual} bytes, the manifest says {part.Bytes}. The backup is incomplete.");
+            }
+
+            if (part.Sha256 is { } expected)
+            {
+                using var verifying = reporter.Begin($"verifying {part.File}", actual);
+
+                if (!StreamChecksum.Matches(
+                        await StreamChecksum.OfFileAsync(local, verifying, cancellationToken), expected))
+                {
+                    throw new BackupException(
+                        $"{local} does not match the SHA-256 the manifest recorded. The backup is damaged.");
+                }
+
+                verifying.Complete();
             }
 
             planned.Add((part, local));

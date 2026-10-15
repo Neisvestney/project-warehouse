@@ -298,7 +298,12 @@ pwops backup prod --parts db,keys
 Each part is streamed straight into a local file, so nothing is staged on the target's disk: the
 database through `pg_dump -F c`, a volume through a throwaway `busybox` container running
 `tar -cf -`. Output lands in `local.backupsDir/<target>-<timestamp>/` next to a `manifest.json`
-naming the parts, their sizes and the versions that were deployed.
+naming the parts, their sizes and SHA-256 hashes, and the versions that were deployed.
+
+On the target each stream passes through `tee` into `sha256sum`, and the hash comes back as the
+last line of stderr. The local file is hashed once written, and a mismatch or a missing hash fails
+the backup and deletes the part, whatever the exit code said: a zero exit only speaks for the
+producer, not for the hops between it and the file.
 
 The telemetry volume is not part of a backup, even when the target declares it: `pwops telemetry`
 fetches it with an age filter and unpacks it for the replay stack, and a rotated archive of that
@@ -320,7 +325,8 @@ pwops restore prod --from ./backups/prod-2026-09-03T14-40 --parts db,keys
 ```
 
 Everything checkable without touching the target is checked first: the parts exist in the
-manifest, the files are there, and each one still has the size the manifest recorded. Past the
+manifest, the files are there, and each one still has the size and the SHA-256 the manifest
+recorded (a manifest without a hash is checked by size alone). Past the
 stop a refusal would cost an outage rather than an error message.
 
 Then it takes a backup of the current state — `--no-safety-backup` opts out — uploads every
