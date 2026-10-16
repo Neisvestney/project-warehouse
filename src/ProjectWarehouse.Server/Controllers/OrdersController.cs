@@ -1281,14 +1281,15 @@ public class OrdersController(
     /// <summary>Assign several Confirmed orders to one employee in one request, with partial-success semantics.</summary>
     /// <remarks>
     /// The admin counterpart of <c>batch-self-assign</c>: each order moves to Assembly and gets one task with all
-    /// of its boxes, assigned to <c>assigneeId</c>. Any existing user can be the assignee — neither their
-    /// warehouses nor their permissions are checked, the same as for a task created by hand.
+    /// of its boxes, assigned to <c>assigneeId</c>. The assignee must hold <c>orders.assemble_assigned</c> and be
+    /// assigned to the warehouse of each order.
     /// Body: <c>BatchAssignRequest</c> — <c>orderIds</c> (duplicates are collapsed) and <c>assigneeId</c>.
     /// Always answers 200 with <c>BatchAssignResponse</c>: successful ids in <c>assignedOrderIds</c>, the rest in
     /// <c>failedItems</c> as <c>{ orderId, orderNumber, error }</c> with the real error code (<c>orderNotFound</c>,
-    /// <c>orderNotConfirmed</c>, <c>orderHasAssemblyTasks</c>, …). An order outside the caller's edit access is
-    /// reported as <c>orderNotFound</c>. A business failure of one order does not undo the others.
-    /// 422 <c>userNotFound</c> (field <c>assigneeId</c>) for an unknown assignee, 409 <c>entityLocked</c> when
+    /// <c>orderNotConfirmed</c>, <c>orderHasAssemblyTasks</c>, <c>assigneeNotAssignedToWarehouse</c>, …). An order
+    /// outside the caller's edit access is reported as <c>orderNotFound</c>. A business failure of one order does
+    /// not undo the others. 422 <c>userNotFound</c> or <c>assigneeCannotAssemble</c> (field <c>assigneeId</c>) for an
+    /// unknown assignee or one without the assemble permission, 409 <c>entityLocked</c> when
     /// another request is changing one of the orders — nothing was written in either case.
     /// 403 is returned only for the request as a whole, when edit access is missing entirely.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
@@ -1306,8 +1307,15 @@ public class OrdersController(
         if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
             return error;
 
-        if (!await db.Users.AnyAsync(u => u.Id == request.AssigneeId, ct))
-            return UnprocessableEntity("assigneeId", ErrorCode.UserNotFound, "Assignee not found.");
+        IReadOnlySet<Guid> assigneeWarehouseIds;
+        try
+        {
+            assigneeWarehouseIds = await orders.GetAssemblerWarehousesAsync(request.AssigneeId, "assigneeId", ct);
+        }
+        catch (ValidationException ex)
+        {
+            return UnprocessableEntity(ex);
+        }
 
         var orderIds = request.OrderIds.Distinct().ToList();
         await locks.LockManyAsync<Order>(orderIds, ct);
@@ -1333,6 +1341,13 @@ public class OrdersController(
             if (!loaded.TryGetValue(orderId, out var order))
             {
                 Fail(orderId, ErrorCode.OrderNotFound, "Order not found.");
+                continue;
+            }
+
+            if (order.WarehouseId is { } warehouseId && !assigneeWarehouseIds.Contains(warehouseId))
+            {
+                Fail(orderId, ErrorCode.AssigneeNotAssignedToWarehouse,
+                    "Assignee is not assigned to the warehouse of this order.", order.Number);
                 continue;
             }
 
@@ -1981,7 +1996,9 @@ public class OrdersController(
     /// Errors: 422 <c>orderNotAssembly</c> if the order is not in Assembly, 422 <c>orderBoxNotFound</c> for a box
     /// outside this order, 422 <c>orderBoxComponentNotFound</c> for an item absent from the box, 422
     /// <c>assemblyTaskQuantityExceedsAvailable</c> when the requested quantity exceeds what other tasks left
-    /// free. Returns 404 <c>orderNotFound</c>, 409 <c>entityLocked</c> when another request is changing the
+    /// free, 422 <c>userNotFound</c>, <c>assigneeCannotAssemble</c> or <c>assigneeNotAssignedToWarehouse</c> (field
+    /// <c>assignedToId</c>) when the assignee is missing, lacks <c>orders.assemble_assigned</c> or is not assigned
+    /// to the order's warehouse. Returns 404 <c>orderNotFound</c>, 409 <c>entityLocked</c> when another request is changing the
     /// order — nothing was written.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
     /// </remarks>
@@ -2023,7 +2040,10 @@ public class OrdersController(
     /// <summary>Reassign an assembly task to another employee.</summary>
     /// <remarks>
     /// Body: <c>UpdateAssemblyTaskRequest</c> — <c>assignedToId</c>; the task's boxes and components are not
-    /// changed here. Returns 422 <c>assemblyTaskAlreadyDone</c> once the task is <c>Done</c>, 404
+    /// changed here. A new assignee is checked like in <c>POST assembly-tasks</c>: 422 <c>userNotFound</c>,
+    /// <c>assigneeCannotAssemble</c> or <c>assigneeNotAssignedToWarehouse</c> (field <c>assignedToId</c>); keeping
+    /// the current assignee or clearing it is not checked. Returns 422 <c>assemblyTaskAlreadyDone</c> once the
+    /// task is <c>Done</c>, 404
     /// <c>orderNotFound</c> or <c>assemblyTaskNotFound</c>, 409 <c>entityLocked</c> when another request is
     /// changing the order — nothing was written.
     /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
@@ -2053,7 +2073,7 @@ public class OrdersController(
 
         try
         {
-            await orders.UpdateAssemblyTaskAsync(task, request, ct);
+            await orders.UpdateAssemblyTaskAsync(order!, task, request, ct);
             return Ok(mapper.Map<AssemblyTaskDto>(task));
         }
         catch (ValidationException ex)

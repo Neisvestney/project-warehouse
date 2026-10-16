@@ -1,4 +1,4 @@
-using ProjectWarehouse.Server.Domain;
+﻿using ProjectWarehouse.Server.Domain;
 using ProjectWarehouse.Server.Models.Orders;
 
 namespace ProjectWarehouse.Server.Services;
@@ -31,8 +31,14 @@ public interface IOrderService
 
     // ── Assembly task management ──────────────────────────────────────────────
 
+    /// <summary>
+    /// Warehouses of an assignee who may assemble: throws <c>userNotFound</c> or <c>assigneeCannotAssemble</c>
+    /// (at <paramref name="field"/>) when the user is missing or lacks <c>orders.assemble_assigned</c>.
+    /// </summary>
+    Task<IReadOnlySet<Guid>> GetAssemblerWarehousesAsync(Guid assigneeId, string field, CancellationToken ct = default);
+
     Task<AssemblyTask> CreateAssemblyTaskAsync(Order order, CreateAssemblyTaskRequest request, CancellationToken ct = default);
-    Task UpdateAssemblyTaskAsync(AssemblyTask task, UpdateAssemblyTaskRequest request, CancellationToken ct = default);
+    Task UpdateAssemblyTaskAsync(Order order, AssemblyTask task, UpdateAssemblyTaskRequest request, CancellationToken ct = default);
     Task DeleteAssemblyTaskAsync(AssemblyTask task, CancellationToken ct = default);
     Task TransitionTaskStatusAsync(AssemblyTask task, AssemblyTaskStatus targetStatus, Order order, CancellationToken ct = default);
 

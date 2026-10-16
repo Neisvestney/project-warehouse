@@ -102,6 +102,8 @@ public enum ErrorCode
     OrderHasAssemblyTasks = 150,
     OrderNotFbs = 165,
     OrderCompositionLocked = 166,
+    AssigneeCannotAssemble = 169,
+    AssigneeNotAssignedToWarehouse = 170,
     AssemblyTaskNotFound = 67,
     AssemblyTaskNotDeletable = 68,
     AssemblyTaskBoxNotFound = 69,

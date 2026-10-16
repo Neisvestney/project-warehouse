@@ -425,9 +425,8 @@ function OrdersListPage({
     },
   ];
 
-  const selectedConfirmedIds = selectedItems
-    .filter((o) => o.status === "confirmed")
-    .map((o) => o.id);
+  const selectedConfirmed = selectedItems.filter((o) => o.status === "confirmed");
+  const selectedConfirmedIds = selectedConfirmed.map((o) => o.id);
 
   const idsFor = (transition: OrderBulkTransition) =>
     selectedItems.filter((o) => transition.from.includes(o.status)).map((o) => o.id);
@@ -457,7 +456,7 @@ function OrdersListPage({
               ]
             : []),
           ...(canCreate && selectedConfirmedIds.length > 0
-            ? [assignAction.getAction(selectedConfirmedIds)]
+            ? [assignAction.getAction(selectedConfirmed)]
             : []),
           ...availableTransitions.map(({transition, count}) => ({
             key: transition.key,

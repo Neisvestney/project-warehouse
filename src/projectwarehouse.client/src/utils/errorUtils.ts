@@ -125,6 +125,8 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   orderIsMarketplaceDraft:
     "Черновик FBS ведёт синхронизация: в работу он перейдёт сам, когда площадка оформит сборку",
   orderHasAssemblyTasks: "У заказа уже есть задания на сборку",
+  assigneeCannotAssemble: "У сотрудника нет права собирать заказы",
+  assigneeNotAssignedToWarehouse: "Сотрудник не назначен на склад заказа",
   orderNotFbs: "Привязку обновляют только у заказов FBS",
   orderCompositionLocked:
     "Состав заказа FBS повторяет отправление — исправьте привязку карточки и обновите её в заказе",

@@ -29,6 +29,7 @@ import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 import {formatBoxLabel} from "@/components/orders/orderUtils";
 import UsersSelect from "@/components/UsersSelect";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
+import {extractErrorMessage} from "@/utils/errorUtils";
 
 interface TaskBox {
   orderBoxId: string;
@@ -94,7 +95,7 @@ function CreateAssemblyTaskContent({onClose, order}: Omit<CreateAssemblyTaskDial
       queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: order.id}})});
       onClose();
     },
-    onError: () => setError("Не удалось создать задание"),
+    onError: (e) => setError(extractErrorMessage(e)),
   });
 
   function toggleBox(boxId: string) {
@@ -153,6 +154,8 @@ function CreateAssemblyTaskContent({onClose, order}: Omit<CreateAssemblyTaskDial
             onChange={(ids) => setAssignedToIds(ids.slice(0, 1))}
             label="Назначить сотрудника"
             size="small"
+            warehouseIds={order.warehouseId ? [order.warehouseId] : undefined}
+            permission="orders.assemble_assigned"
           />
           <Divider />
           <Typography variant="subtitle2">Состав задания</Typography>

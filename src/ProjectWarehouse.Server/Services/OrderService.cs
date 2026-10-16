@@ -317,6 +317,9 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
             throw new ValidationException("root", ErrorCode.OrderNotAssembly,
                 "Assembly tasks can only be created when the order is in Assembly status.");
 
+        if (request.AssignedToId is { } assigneeId)
+            await EnsureCanAssembleAsync(assigneeId, order.WarehouseId, "assignedToId", ct);
+
         var task = new AssemblyTask
         {
             Id           = Guid.NewGuid(),
@@ -371,11 +374,45 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
         return task;
     }
 
-    public async Task UpdateAssemblyTaskAsync(AssemblyTask task, UpdateAssemblyTaskRequest request, CancellationToken ct = default)
+    public async Task<IReadOnlySet<Guid>> GetAssemblerWarehousesAsync(
+        Guid assigneeId, string field, CancellationToken ct = default)
+    {
+        var canAssemble = UserQueryExtensions.HasPermission(Permissions.Orders.AssembleAssigned);
+        var assignee = await db.Users
+            .Where(u => u.Id == assigneeId)
+            .Select(u => new
+            {
+                CanAssemble  = db.Users.Where(x => x.Id == u.Id).Any(canAssemble),
+                WarehouseIds = u.AssignedWarehouses.Select(w => w.Id).ToList(),
+            })
+            .FirstOrDefaultAsync(ct)
+            ?? throw new ValidationException(field, ErrorCode.UserNotFound, "Assignee not found.");
+
+        if (!assignee.CanAssemble)
+            throw new ValidationException(field, ErrorCode.AssigneeCannotAssemble,
+                "Assignee lacks the permission to assemble orders.");
+
+        return assignee.WarehouseIds.ToHashSet();
+    }
+
+    private async Task EnsureCanAssembleAsync(Guid assigneeId, Guid? warehouseId, string field, CancellationToken ct)
+    {
+        var warehouseIds = await GetAssemblerWarehousesAsync(assigneeId, field, ct);
+
+        if (warehouseId is { } w && !warehouseIds.Contains(w))
+            throw new ValidationException(field, ErrorCode.AssigneeNotAssignedToWarehouse,
+                "Assignee is not assigned to the warehouse of this order.");
+    }
+
+    public async Task UpdateAssemblyTaskAsync(
+        Order order, AssemblyTask task, UpdateAssemblyTaskRequest request, CancellationToken ct = default)
     {
         if (task.Status == AssemblyTaskStatus.Done)
             throw new ValidationException("root", ErrorCode.AssemblyTaskAlreadyDone,
                 "Cannot update a completed assembly task.");
+
+        if (request.AssignedToId is { } assigneeId && assigneeId != task.AssignedToId)
+            await EnsureCanAssembleAsync(assigneeId, order.WarehouseId, "assignedToId", ct);
 
         task.AssignedToId = request.AssignedToId;
         await db.SaveChangesAsync(ct);

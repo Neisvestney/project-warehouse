@@ -401,6 +401,7 @@ function AssemblyTaskAccordionItem({
         open={editOpen}
         onClose={() => setEditOpen(false)}
         orderId={order.id}
+        warehouseId={order.warehouseId}
         task={task}
       />
     </Accordion>

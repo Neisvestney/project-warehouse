@@ -3,7 +3,7 @@ import {Alert, Typography} from "@mui/material";
 import PersonAddAlt1Icon from "@mui/icons-material/PersonAddAlt1";
 import {useQueryClient} from "@tanstack/react-query";
 import {ordersBatchAssignMutation, ordersGetAllQueryKey} from "@/api/@tanstack/react-query.gen";
-import type {BatchAssignFailedItem} from "@/api/types.gen";
+import type {BatchAssignFailedItem, OrderSummaryDto} from "@/api/types.gen";
 import type {BulkAction} from "@/components/BulkBar";
 import {useOperationMutation} from "@/hooks/useOperationMutation";
 import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
@@ -14,7 +14,7 @@ import {formatOrderNumber} from "./orderUtils";
 export function useOrderAssignBulkAction(onAssigned: (orderIds: string[]) => void) {
   const queryClient = useQueryClient();
   // captured on click, so the dialog assigns what was selected when it opened
-  const [dialogOrderIds, setDialogOrderIds] = useState<string[] | null>(null);
+  const [dialogOrders, setDialogOrders] = useState<OrderSummaryDto[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [failedItems, setFailedItems] = useState<BatchAssignFailedItem[]>([]);
 
@@ -27,7 +27,7 @@ export function useOrderAssignBulkAction(onAssigned: (orderIds: string[]) => voi
       onSuccess: async (data) => {
         onAssigned(data.assignedOrderIds);
         setFailedItems(data.failedItems);
-        setDialogOrderIds(null);
+        setDialogOrders(null);
         await queryClient.invalidateQueries({queryKey: ordersGetAllQueryKey()});
       },
       onError: (e) => setError(extractErrorMessage(e)),
@@ -36,34 +36,34 @@ export function useOrderAssignBulkAction(onAssigned: (orderIds: string[]) => voi
   );
 
   function handleConfirm(assigneeId: string) {
-    if (!dialogOrderIds) return;
+    if (!dialogOrders) return;
     setError(null);
     setFailedItems([]);
-    mutation.mutate({body: {orderIds: dialogOrderIds, assigneeId}});
+    mutation.mutate({body: {orderIds: dialogOrders.map((o) => o.id), assigneeId}});
   }
 
-  function getAction(orderIds: string[]): BulkAction {
+  function getAction(orders: OrderSummaryDto[]): BulkAction {
     return {
       key: "assign",
       label: "Назначить на…",
       icon: <PersonAddAlt1Icon />,
-      count: orderIds.length,
+      count: orders.length,
       primary: true,
       pending: mutation.isPending,
-      disabled: orderIds.length === 0 || mutation.isPending,
+      disabled: orders.length === 0 || mutation.isPending,
       onClick: () => {
         setError(null);
-        setDialogOrderIds(orderIds);
+        setDialogOrders(orders);
       },
     };
   }
 
   const dialogs = (
     <AssignOrdersDialog
-      orderIds={dialogOrderIds}
+      orders={dialogOrders}
       isPending={mutation.isPending}
       error={error}
-      onClose={() => setDialogOrderIds(null)}
+      onClose={() => setDialogOrders(null)}
       onConfirm={handleConfirm}
     />
   );

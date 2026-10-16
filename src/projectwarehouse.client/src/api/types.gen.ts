@@ -1553,7 +1553,9 @@ export type ErrorCode =
   | "orderNotFbs"
   | "orderCompositionLocked"
   | "orderIsMarketplaceDraft"
-  | "marketplaceOrderDraftNotRefreshed";
+  | "marketplaceOrderDraftNotRefreshed"
+  | "assigneeCannotAssemble"
+  | "assigneeNotAssignedToWarehouse";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -12463,7 +12465,8 @@ export type UsersGetForSelectData = {
   path?: never;
   query?: {
     searchString?: string;
-    warehouse?: string;
+    warehouse?: Array<string>;
+    permission?: string;
     take?: number;
   };
   url: "/api/users/for-select";
@@ -12478,6 +12481,10 @@ export type UsersGetForSelectErrors = {
    * Forbidden
    */
   403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
 };
 
 export type UsersGetForSelectError = UsersGetForSelectErrors[keyof UsersGetForSelectErrors];

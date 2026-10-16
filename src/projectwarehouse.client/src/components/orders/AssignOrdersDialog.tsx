@@ -10,6 +10,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import type {OrderSummaryDto} from "@/api/types.gen";
 import UsersSelect from "@/components/UsersSelect";
 import {useBackClosable} from "@/hooks/useBackClosable";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
@@ -17,7 +18,7 @@ import {NOUNS, pluralCount} from "@/utils/pluralUtils";
 
 interface AssignOrdersDialogProps {
   /** Orders to assign; null keeps the dialog closed. */
-  orderIds: string[] | null;
+  orders: Pick<OrderSummaryDto, "id" | "warehouseId">[] | null;
   isPending: boolean;
   error: string | null;
   onClose: () => void;
@@ -25,14 +26,14 @@ interface AssignOrdersDialogProps {
 }
 
 function AssignOrdersDialog({
-  orderIds,
+  orders,
   isPending,
   error,
   onClose,
   onConfirm,
 }: AssignOrdersDialogProps) {
-  const open = orderIds != null;
-  const [shownOrderIds, releaseShown] = useRetainedValue(orderIds);
+  const open = orders != null;
+  const [shownOrders, releaseShown] = useRetainedValue(orders);
 
   useBackClosable(open && !isPending, onClose);
 
@@ -47,9 +48,12 @@ function AssignOrdersDialog({
         paper: {sx: {pointerEvents: open ? undefined : "none"}},
       }}
     >
-      {shownOrderIds && (
+      {shownOrders && (
         <AssignOrdersContent
-          count={shownOrderIds.length}
+          count={shownOrders.length}
+          warehouseIds={[
+            ...new Set(shownOrders.flatMap((o) => (o.warehouseId ? [o.warehouseId] : []))),
+          ]}
           isPending={isPending}
           error={error}
           onClose={onClose}
@@ -62,11 +66,12 @@ function AssignOrdersDialog({
 
 function AssignOrdersContent({
   count,
+  warehouseIds,
   isPending,
   error,
   onClose,
   onConfirm,
-}: Omit<AssignOrdersDialogProps, "orderIds"> & {count: number}) {
+}: Omit<AssignOrdersDialogProps, "orders"> & {count: number; warehouseIds: string[]}) {
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const assigneeId = assigneeIds[0];
 
@@ -85,6 +90,8 @@ function AssignOrdersContent({
             label="Сотрудник"
             size="small"
             disabled={isPending}
+            warehouseIds={warehouseIds}
+            permission="orders.assemble_assigned"
           />
           {error && <Alert severity="error">{error}</Alert>}
         </Stack>

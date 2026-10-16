@@ -1,8 +1,8 @@
 import {useMemo, useState} from "react";
 import type {AutocompleteProps} from "@mui/material";
 import {Autocomplete, Chip, TextField} from "@mui/material";
-import {useQuery} from "@tanstack/react-query";
-import {usersGetForSelectOptions} from "@/api/@tanstack/react-query.gen";
+import {useQueries, useQuery} from "@tanstack/react-query";
+import {usersGetByIdOptions, usersGetForSelectOptions} from "@/api/@tanstack/react-query.gen";
 import type {UserDto} from "@/api/types.gen";
 import {useDebounce} from "@/hooks/useDebounce";
 
@@ -27,7 +27,10 @@ interface UsersSelectProps extends OmitControlled<AutocompleteProps<UserDto, tru
   label?: string;
   value: string[];
   onChange: (ids: string[]) => void;
-  warehouseId?: string | null;
+  /** Only users assigned to every one of these warehouses. */
+  warehouseIds?: string[];
+  /** Only users holding this permission through a role or directly. */
+  permission?: string;
 }
 
 function getUserLabel(user: UserDto): string {
@@ -38,7 +41,8 @@ function getUserLabel(user: UserDto): string {
 function UsersSelect({
   value,
   onChange,
-  warehouseId,
+  warehouseIds,
+  permission,
   label = "Назначенные",
   ...autocompleteProps
 }: UsersSelectProps) {
@@ -49,7 +53,8 @@ function UsersSelect({
     usersGetForSelectOptions({
       query: {
         searchString: debouncedInput || undefined,
-        warehouse: warehouseId ?? undefined,
+        warehouse: warehouseIds,
+        permission,
       },
     }),
   );
@@ -68,9 +73,25 @@ function UsersSelect({
     });
   }
 
+  // A selected user the filters exclude never shows up in the search; fetch it so the chip still renders
+  const [fetchedIds, setFetchedIds] = useState<string[]>([]);
+  const unseenIds = searchQuery.isSuccess
+    ? value.filter(
+        (id) =>
+          !fetchedIds.includes(id) &&
+          !allUsers.some((u) => u.id === id) &&
+          !knownUsersSnapshot.some((u) => u.id === id),
+      )
+    : [];
+  if (unseenIds.length > 0) setFetchedIds((prev) => [...prev, ...unseenIds]);
+  const fetchedUsers = useQueries({
+    queries: fetchedIds.map((id) => usersGetByIdOptions({path: {id}})),
+    combine: (results) => results.flatMap((r) => (r.data ? [r.data] : [])),
+  });
+
   const knownUsersMap = useMemo(
-    () => new Map(knownUsersSnapshot.map((u) => [u.id, u])),
-    [knownUsersSnapshot],
+    () => new Map([...fetchedUsers, ...knownUsersSnapshot].map((u) => [u.id, u])),
+    [fetchedUsers, knownUsersSnapshot],
   );
 
   const selectedUsers = useMemo(

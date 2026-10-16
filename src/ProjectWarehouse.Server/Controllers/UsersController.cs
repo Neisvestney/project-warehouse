@@ -83,23 +83,33 @@ public class UsersController(
 
     /// <summary>Users for select/autocomplete controls.</summary>
     /// <remarks>
-    /// Query params: <c>searchString</c> (optional, fuzzy), <c>warehouse</c> (assigned warehouse id),
+    /// Query params: <c>searchString</c> (optional, fuzzy), <c>warehouse</c> (repeatable; the user must be
+    /// assigned to every listed warehouse), <c>permission</c> (the user holds it through a role or directly),
     /// <c>take</c> (default 20, max 200). Not paginated — ordered by search relevance, then by username.
+    /// 422 <c>permissionNotFound</c> (field <c>permission</c>) for a string that is not a known permission.
     /// Requires <c>users.view</c>; without it the request is refused with 403 <c>permissionDenied</c>.
     /// </remarks>
     [HttpGet("for-select")]
     [Authorize(Policy = Permissions.Users.View)]
     [ProducesResponseType<IReadOnlyList<UserDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> GetForSelect(
         [FromQuery] string? searchString = null,
-        [FromQuery] Guid? warehouse = null,
+        [FromQuery] IReadOnlyList<Guid>? warehouse = null,
+        [FromQuery] string? permission = null,
         [FromQuery] [Range(1, 200)] int take = 20,
         CancellationToken ct = default)
     {
+        if (permission is not null && !Permissions.All.Contains(permission))
+            return UnprocessableEntity("permission", ErrorCode.PermissionNotFound, "Unknown permission.");
+
         var users = db.Users.WhereMatchesSearch(u => u.SearchString, searchString, fuzzy: true);
 
-        if (warehouse is { } w)
+        foreach (var w in warehouse?.Distinct() ?? [])
             users = users.Where(x => x.AssignedWarehouses.Any(aw => aw.Id == w));
+
+        if (permission is not null)
+            users = users.WhereHasPermission(permission);
 
         var list = await users
             .OrderBySearchRelevance(u => u.SearchString, searchString, u => u.UserName)

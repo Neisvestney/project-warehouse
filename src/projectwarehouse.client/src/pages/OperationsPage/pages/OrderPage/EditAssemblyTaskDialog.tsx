@@ -18,15 +18,23 @@ import {
 import type {AssemblyTaskDto} from "@/api/types.gen";
 import UsersSelect from "@/components/UsersSelect";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
+import {extractErrorMessage} from "@/utils/errorUtils";
 
 interface EditAssemblyTaskDialogProps {
   open: boolean;
   onClose: () => void;
   orderId: string;
+  warehouseId: string | null | undefined;
   task: AssemblyTaskDto;
 }
 
-function EditAssemblyTaskDialog({open, onClose, orderId, task}: EditAssemblyTaskDialogProps) {
+function EditAssemblyTaskDialog({
+  open,
+  onClose,
+  orderId,
+  warehouseId,
+  task,
+}: EditAssemblyTaskDialogProps) {
   // The content is unmounted only after the exit animation; that is what resets the picked assignee.
   const [shownOpen, releaseShown] = useRetainedValue(open || null);
 
@@ -43,7 +51,14 @@ function EditAssemblyTaskDialog({open, onClose, orderId, task}: EditAssemblyTask
         paper: {sx: {pointerEvents: open ? undefined : "none"}},
       }}
     >
-      {shownOpen && <EditAssemblyTaskContent onClose={onClose} orderId={orderId} task={task} />}
+      {shownOpen && (
+        <EditAssemblyTaskContent
+          onClose={onClose}
+          orderId={orderId}
+          warehouseId={warehouseId}
+          task={task}
+        />
+      )}
     </Dialog>
   );
 }
@@ -51,6 +66,7 @@ function EditAssemblyTaskDialog({open, onClose, orderId, task}: EditAssemblyTask
 function EditAssemblyTaskContent({
   onClose,
   orderId,
+  warehouseId,
   task,
 }: Omit<EditAssemblyTaskDialogProps, "open">) {
   const queryClient = useQueryClient();
@@ -66,7 +82,7 @@ function EditAssemblyTaskContent({
       queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: orderId}})});
       onClose();
     },
-    onError: () => setError("Не удалось обновить задание"),
+    onError: (e) => setError(extractErrorMessage(e)),
   });
 
   function handleSubmit() {
@@ -87,6 +103,8 @@ function EditAssemblyTaskContent({
             onChange={(ids) => setAssignedToIds(ids.slice(0, 1))}
             label="Назначенный сотрудник"
             size="small"
+            warehouseIds={warehouseId ? [warehouseId] : undefined}
+            permission="orders.assemble_assigned"
           />
           {error && <Alert severity="error">{error}</Alert>}
         </Stack>
