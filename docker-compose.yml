@@ -21,7 +21,7 @@ services:
     image: projectwarehouse.server
     build:
       context: .
-      dockerfile: ProjectWarehouse.Server/Dockerfile
+      dockerfile: src/ProjectWarehouse.Server/Dockerfile
     ports:
       - "4587:8080"
     environment:
@@ -30,9 +30,9 @@ services:
       - Seed__AdminPassword=${Seed__AdminPassword}
     volumes:
       # Losing these makes every stored marketplace Api-Key undecryptable — back up alongside the DB.
-      - ./ProjectWarehouse.Server/keys:/keys
+      - ./src/ProjectWarehouse.Server/keys:/keys
       # Not self-contained: without a DB dump the file names on disk map to nothing.
-      - ./ProjectWarehouse.Server/.localdata:/data
+      - ./src/ProjectWarehouse.Server/.localdata:/data
     depends_on:
       postgres:
         condition: service_healthy

@@ -5,16 +5,21 @@ A warehouse management web app with barcode/QR scanning (PWA), user management, 
 ## Architecture
 
 ```
-projectwarehouse.client/   React 19 + TypeScript PWA (Vite)
-ProjectWarehouse.Server/   ASP.NET Core 10 REST API
-  ├── Controllers/         HTTP layer
-  ├── Services/            Business logic
-  ├── Domain/              EF Core entities
-  ├── Infrastructure/      Auth handlers, permissions, error helpers
-  ├── Models/              Request/response DTOs
-  ├── Data/                DbContext, migrations, seeder
-  └── Migrations/          EF Core migrations
-ProjectWarehouse.Server.Tests/   xUnit tests of the pure calculators (`dotnet test`)
+src/
+  ├── projectwarehouse.client/   React 19 + TypeScript PWA (Vite)
+  ├── ProjectWarehouse.Server/   ASP.NET Core 10 REST API
+  │     ├── Controllers/         HTTP layer
+  │     ├── Services/            Business logic
+  │     ├── Domain/              EF Core entities
+  │     ├── Infrastructure/      Auth handlers, permissions, error helpers
+  │     ├── Models/              Request/response DTOs
+  │     ├── Data/                DbContext, migrations, seeder
+  │     └── Migrations/          EF Core migrations
+  └── Marketplaces/              Generated marketplace API clients (Ozon, WB, YM, Avito)
+tests/
+  └── ProjectWarehouse.Server.Tests/   xUnit tests of the pure calculators (`dotnet test`)
+tools/
+  └── ProjectWarehouse.Ops/      Deploy/backup CLI, own solution (`ProjectWarehouse.Ops.slnx`)
 ```
 
 **Backend:** ASP.NET Core 10, Entity Framework Core, PostgreSQL, ASP.NET Core Identity, JWT Bearer auth, Quartz, NetVips  
@@ -23,7 +28,7 @@ ProjectWarehouse.Server.Tests/   xUnit tests of the pure calculators (`dotnet te
 ## Docs Index
 
 **These docs describe only what the code cannot.** Endpoints, DTOs, enums, permission strings and error codes
-are read from the source — the controllers' XML `<remarks>`, `projectwarehouse.client/src/api/types.gen.ts`, and
+are read from the source — the controllers' XML `<remarks>`, `src/projectwarehouse.client/src/api/types.gen.ts`, and
 the Scalar UI at `/scalar`. Nothing derivable is mirrored here, because a mirror rots. What lives in these files
 is rationale, invariants, cross-cutting conventions and decisions.
 
@@ -156,7 +161,7 @@ cp .env.example .env
 ### Run Backend
 
 ```
-cd ProjectWarehouse.Server
+cd src/ProjectWarehouse.Server
 dotnet run
 ```
 
@@ -167,7 +172,7 @@ Scalar UI (dev only): `https://localhost:7095/scalar` — authenticated out of t
 ### Run Frontend
 
 ```
-cd projectwarehouse.client
+cd src/projectwarehouse.client
 npm install
 npm run dev
 ```

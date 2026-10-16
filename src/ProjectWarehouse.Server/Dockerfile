@@ -29,18 +29,18 @@ ARG BUILD_CONFIGURATION=Release
 ARG APP_VERSION=
 ENV VITE_APP_VERSION=${APP_VERSION}
 WORKDIR /src
-COPY ["ProjectWarehouse.Server/ProjectWarehouse.Server.csproj", "ProjectWarehouse.Server/"]
+COPY ["src/ProjectWarehouse.Server/ProjectWarehouse.Server.csproj", "src/ProjectWarehouse.Server/"]
 COPY ["src/Marketplaces/Ozon/Neisvestney.Marketplaces.Ozon/Neisvestney.Marketplaces.Ozon.csproj", "src/Marketplaces/Ozon/Neisvestney.Marketplaces.Ozon/"]
-COPY ["projectwarehouse.client/projectwarehouse.client.esproj", "projectwarehouse.client/"]
+COPY ["src/projectwarehouse.client/projectwarehouse.client.esproj", "src/projectwarehouse.client/"]
 RUN --mount=type=cache,target=/root/.nuget/packages \
-    dotnet restore "ProjectWarehouse.Server/ProjectWarehouse.Server.csproj"
+    dotnet restore "src/ProjectWarehouse.Server/ProjectWarehouse.Server.csproj"
 # npm layers come after the NuGet ones: client dependencies churn more often, so they invalidate less
-COPY ["projectwarehouse.client/package.json", "projectwarehouse.client/package-lock.json", "projectwarehouse.client/"]
-WORKDIR /src/projectwarehouse.client
+COPY ["src/projectwarehouse.client/package.json", "src/projectwarehouse.client/package-lock.json", "src/projectwarehouse.client/"]
+WORKDIR /src/src/projectwarehouse.client
 RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 WORKDIR /src
 COPY . .
-WORKDIR "/src/ProjectWarehouse.Server"
+WORKDIR "/src/src/ProjectWarehouse.Server"
 # vite.config.ts exports a dev certificate while loading, even for a production build,
 # and dotnet dev-certs refuses to create the target directory itself
 RUN mkdir -p ~/.aspnet/https

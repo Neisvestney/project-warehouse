@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ProjectWarehouse.Server\ProjectWarehouse.Server.csproj" />
+    <ProjectReference Include="..\..\src\ProjectWarehouse.Server\ProjectWarehouse.Server.csproj" />
   </ItemGroup>
 
 </Project>

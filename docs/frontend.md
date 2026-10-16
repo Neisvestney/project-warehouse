@@ -1261,7 +1261,7 @@ Item-type chips are the exception: they carry their own colors in both schemes.
 Chunk filenames carry a content hash and the service worker precaches them, so the build config is
 tuned so that an ordinary change invalidates as few chunks as possible.
 
-**Reproducible dependency resolution.** `ProjectWarehouse.Server/Dockerfile` copies
+**Reproducible dependency resolution.** `src/ProjectWarehouse.Server/Dockerfile` copies
 `package-lock.json` alongside `package.json` and installs with `npm ci`. A lock-less `npm install`
 re-resolves every `^` range at image build time; a different rolldown or Vite build changes chunk
 boundaries and with them every hash, which wipes the whole service worker cache. With the lock in

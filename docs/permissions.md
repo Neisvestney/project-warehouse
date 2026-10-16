@@ -6,7 +6,7 @@ Permissions are **static string constants** defined in `Infrastructure/Permissio
 
 ## Adding a New Permission
 
-1. Open `ProjectWarehouse.Server/Infrastructure/Permissions.cs`
+1. Open `src/ProjectWarehouse.Server/Infrastructure/Permissions.cs`
 2. Add a `const string` to an existing module class (or create a new nested class):
 
 ```csharp

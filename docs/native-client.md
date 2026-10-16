@@ -19,7 +19,7 @@ APK (локальный бандл)
 ## Сборка APK
 
 ```bash
-cd projectwarehouse.client
+cd src/projectwarehouse.client
 
 # 1. Сборка фронта
 npm run build

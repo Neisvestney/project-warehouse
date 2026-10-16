@@ -5,9 +5,9 @@ generated from the code and would only rot if mirrored here. Read them from:
 
 | Source | What it gives |
 |--------|---------------|
-| `ProjectWarehouse.Server/Controllers/*.cs` | Routes, `[Authorize]`, required permissions, error codes — in the XML `<summary>` / `<remarks>` above each action |
-| `projectwarehouse.client/src/api/types.gen.ts` | Every DTO and enum, generated from OpenAPI and committed |
-| `projectwarehouse.client/src/api/sdk.gen.ts` | The typed client — one function per endpoint |
+| `src/ProjectWarehouse.Server/Controllers/*.cs` | Routes, `[Authorize]`, required permissions, error codes — in the XML `<summary>` / `<remarks>` above each action |
+| `src/projectwarehouse.client/src/api/types.gen.ts` | Every DTO and enum, generated from OpenAPI and committed |
+| `src/projectwarehouse.client/src/api/sdk.gen.ts` | The typed client — one function per endpoint |
 | `https://localhost:7095/scalar` | Browsable OpenAPI UI (dev only, server must be running) |
 
 Behavioural rules that are *not* readable off a signature live in the domain specs — see the index in

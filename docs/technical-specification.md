@@ -111,7 +111,7 @@ Unit-позиции пропускаются: серийной единице н
 
 ## Флоу 3: Перемещения
 
-`TransfersPage` (`projectwarehouse.client/src/pages/OperationsPage/pages/TransfersPage`): выбор источника и приёмника (`LocationField`), список позиций, выполнение через `transfersExecute`.
+`TransfersPage` (`src/projectwarehouse.client/src/pages/OperationsPage/pages/TransfersPage`): выбор источника и приёмника (`LocationField`), список позиций, выполнение через `transfersExecute`.
 
 ### Модель операции
 

@@ -1,5 +1,5 @@
 <div align="center">
-    <img width="150" height="150" src="projectwarehouse.client/public/readme-logo.png" alt="Logo">
+    <img width="150" height="150" src="src/projectwarehouse.client/public/readme-logo.png" alt="Logo">
     <h1 align="center"><b>ProjectWarehouse</b></h1>
     <p align="center">
         Система управления складом: <b>приёмки, остатки, заказы и маркетплейсы</b> — ASP.NET Core 10 Web API + React (Vite) SPA, PostgreSQL через Docker Compose.
@@ -40,7 +40,7 @@ docker compose up postgres -d
 JWT-ключ и пароль администратора хранятся в user secrets, не в репозитории:
 
 ```bash
-cd ProjectWarehouse.Server
+cd src/ProjectWarehouse.Server
 dotnet user-secrets set "Jwt:SecretKey" "your-secret-min-32-chars-here!!"
 dotnet user-secrets set "Seed:AdminPassword" "YourAdminPassword1!"
 ```
@@ -50,14 +50,14 @@ dotnet user-secrets set "Seed:AdminPassword" "YourAdminPassword1!"
 ### 4. Установить зависимости фронта
 
 ```bash
-cd projectwarehouse.client
+cd src/projectwarehouse.client
 npm install
 ```
 
 ### 5. Запустить бэкенд
 
 ```bash
-cd ProjectWarehouse.Server
+cd src/ProjectWarehouse.Server
 dotnet run
 ```
 
@@ -81,7 +81,7 @@ docker compose --env-file .env.prod up --build
 
 Приложение доступно на http://localhost:4587.
 
-Образ собирается из `ProjectWarehouse.Server/Dockerfile` в две стадии: SDK-стадия
+Образ собирается из `src/ProjectWarehouse.Server/Dockerfile` в две стадии: SDK-стадия
 восстанавливает NuGet-пакеты и `npm ci`, затем `dotnet publish` собирает бэкенд и
 через ProjectReference на `.esproj` прогоняет vite-сборку клиента в `wwwroot`.
 Финальный образ — `aspnet:10.0` с непривилегированным пользователем, каталогами
@@ -93,13 +93,13 @@ docker compose --env-file .env.prod up --build
 ## Создание миграций
 
 ```bash
-dotnet ef migrations add <MigrationName> --project ProjectWarehouse.Server
+dotnet ef migrations add <MigrationName> --project src/ProjectWarehouse.Server
 ```
 
 Применяются автоматически при следующем запуске сервера. Для ручного применения без запуска:
 
 ```bash
-dotnet ef database update --project ProjectWarehouse.Server
+dotnet ef database update --project src/ProjectWarehouse.Server
 ```
 
 ---
@@ -111,7 +111,7 @@ dotnet ef database update --project ProjectWarehouse.Server
 Подробнее: [docs/native-client.md](docs/native-client.md)
 
 ```bash
-cd projectwarehouse.client
+cd src/projectwarehouse.client
 npm run build
 npx cap sync
 npx cap open android
@@ -122,7 +122,7 @@ npx cap open android
 ## Линтинг фронта
 
 ```bash
-cd projectwarehouse.client
+cd src/projectwarehouse.client
 npm run eslint       # проверка
 npm run eslint:fix   # автофикс
 npm run prettier     # проверка форматирования

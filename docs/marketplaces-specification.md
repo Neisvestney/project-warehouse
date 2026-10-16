@@ -204,7 +204,7 @@ src/Marketplaces/Ozon/
       ├── OzonAuthHandler.cs           — DelegatingHandler, подстановка заголовков
       └── OzonCredentials.cs           — OzonCredentials + IOzonCredentialsProvider
 
-ProjectWarehouse.Server/Integrations/
+src/ProjectWarehouse.Server/Integrations/
   ├── Abstractions/                — провайдер-нейтральные контракты и модели
   ├── Ozon/
   │   ├── OzonClient.cs                  — обёртка: пагинация, ошибки, маппинг
@@ -220,7 +220,7 @@ ProjectWarehouse.Server/Integrations/
 Services/MarketplaceSyncService.cs      — склады, карточки, автосопоставление
 ```
 
-**Клиент — отдельная библиотека под будущий NuGet-пакет.** `src/Marketplaces/Ozon/` самодостаточна: генератор, спека и проект `Neisvestney.Marketplaces.Ozon` не ссылаются ни на что в `ProjectWarehouse.Server`, и папку можно вынести в отдельный репозиторий как есть. Граница проходит так:
+**Клиент — отдельная библиотека под будущий NuGet-пакет.** `src/Marketplaces/Ozon/` самодостаточна: генератор, спека и проект `Neisvestney.Marketplaces.Ozon` не ссылаются ни на что в `src/ProjectWarehouse.Server`, и папку можно вынести в отдельный репозиторий как есть. Граница проходит так:
 
 - **в библиотеке** — то, что нужно любому потребителю Ozon Seller API: сгенерированный клиент, его partial-хуки сериализации, `OzonAuthHandler` и контракт учётки `IOzonCredentialsProvider`. Namespace — `Neisvestney.Marketplaces.Ozon`, совпадает с именем проекта;
 - **в сервере** — всё, что знает про домен WMS: `OzonClient` с маппингом в `External*`, провайдер, ambient-контекст аккаунта, логирование ответов, категории начислений.

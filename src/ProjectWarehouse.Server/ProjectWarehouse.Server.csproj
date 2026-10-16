@@ -57,14 +57,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\src\Marketplaces\Ozon\Neisvestney.Marketplaces.Ozon\Neisvestney.Marketplaces.Ozon.csproj" />
+    <ProjectReference Include="..\Marketplaces\Ozon\Neisvestney.Marketplaces.Ozon\Neisvestney.Marketplaces.Ozon.csproj" />
     <ProjectReference Include="..\projectwarehouse.client\projectwarehouse.client.esproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\.dockerignore">
+    <Content Include="..\..\.dockerignore">
       <Link>.dockerignore</Link>
     </Content>
   </ItemGroup>

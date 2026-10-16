@@ -144,7 +144,7 @@ actually sits:
 ```json
 "volumes": {
   "keys": "dataprotection_keys",
-  "datafiles": { "path": "{projectDir}/ProjectWarehouse.Server/.localdata/files" }
+  "datafiles": { "path": "{projectDir}/src/ProjectWarehouse.Server/.localdata/files" }
 }
 ```
 
