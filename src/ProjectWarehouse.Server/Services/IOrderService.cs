@@ -15,10 +15,10 @@ public interface IOrderService
     Task TransitionOrderStatusAsync(Order order, OrderStatus targetStatus, CancellationToken ct = default);
 
     /// <summary>
-    /// Worker self-assigns a Confirmed order: transitions to Assembly and creates a single task covering all boxes.
-    /// Requires the order to be in Confirmed status and in an assigned warehouse.
+    /// Assigns a Confirmed order to one employee: transitions to Assembly and creates a single task covering all
+    /// boxes. Backs both self-assign and assigning to someone else; access checks stay with the caller.
     /// </summary>
-    Task SelfAssignOrderAsync(Order order, Guid userId, CancellationToken ct = default);
+    Task AssignOrderAsync(Order order, Guid assigneeId, CancellationToken ct = default);
 
     // ── Box management ────────────────────────────────────────────────────────
 

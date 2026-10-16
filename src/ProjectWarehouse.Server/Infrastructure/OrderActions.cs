@@ -13,5 +13,6 @@ public static class OrderActions
     public const string Canceled   = "canceled";
     public const string RolledBack = "rolled_back";
     public const string SelfAssigned = "self_assigned";
+    public const string Assigned   = "assigned";
     public const string Rebound    = "rebound";
 }

@@ -557,6 +557,25 @@ export type BackfillBoundsDto = {
   firstPostingAt?: null | string;
 };
 
+export type BatchAssignFailedItem = {
+  orderId: string;
+  /**
+   * Null when the order itself could not be loaded.
+   */
+  orderNumber?: null | number;
+  error: AppFieldError;
+};
+
+export type BatchAssignRequest = {
+  orderIds: Array<string>;
+  assigneeId: string;
+};
+
+export type BatchAssignResponse = {
+  assignedOrderIds: Array<string>;
+  failedItems: Array<BatchAssignFailedItem>;
+};
+
 export type BatchFulfillFailedItem = {
   orderId: string;
   componentId: string;
@@ -7873,6 +7892,44 @@ export type OrdersBatchSelfAssignResponses = {
 
 export type OrdersBatchSelfAssignResponse =
   OrdersBatchSelfAssignResponses[keyof OrdersBatchSelfAssignResponses];
+
+export type OrdersBatchAssignData = {
+  body: BatchAssignRequest;
+  path?: never;
+  query?: never;
+  url: "/api/orders/batch-assign";
+};
+
+export type OrdersBatchAssignErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type OrdersBatchAssignError = OrdersBatchAssignErrors[keyof OrdersBatchAssignErrors];
+
+export type OrdersBatchAssignResponses = {
+  /**
+   * OK
+   */
+  200: BatchAssignResponse;
+};
+
+export type OrdersBatchAssignResponse =
+  OrdersBatchAssignResponses[keyof OrdersBatchAssignResponses];
 
 export type OrdersBatchTransitionStatusData = {
   body: BatchTransitionStatusRequest;

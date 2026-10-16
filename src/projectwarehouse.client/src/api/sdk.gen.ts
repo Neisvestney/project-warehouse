@@ -217,6 +217,9 @@ import type {
   OrdersAddFulfillmentData,
   OrdersAddFulfillmentErrors,
   OrdersAddFulfillmentResponses,
+  OrdersBatchAssignData,
+  OrdersBatchAssignErrors,
+  OrdersBatchAssignResponses,
   OrdersBatchFulfillData,
   OrdersBatchFulfillErrors,
   OrdersBatchFulfillResponses,
@@ -2674,6 +2677,38 @@ export const ordersBatchSelfAssign = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/api/orders/batch-self-assign",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Assign several Confirmed orders to one employee in one request, with partial-success semantics.
+ *
+ * The admin counterpart of `batch-self-assign`: each order moves to Assembly and gets one task with all
+ * of its boxes, assigned to `assigneeId`. Any existing user can be the assignee — neither their
+ * warehouses nor their permissions are checked, the same as for a task created by hand.
+ * Body: `BatchAssignRequest` — `orderIds` (duplicates are collapsed) and `assigneeId`.
+ * Always answers 200 with `BatchAssignResponse`: successful ids in `assignedOrderIds`, the rest in
+ * `failedItems` as `{ orderId, orderNumber, error }` with the real error code (`orderNotFound`,
+ * `orderNotConfirmed`, `orderHasAssemblyTasks`, …). An order outside the caller's edit access is
+ * reported as `orderNotFound`. A business failure of one order does not undo the others.
+ * 422 `userNotFound` (field `assigneeId`) for an unknown assignee, 409 `entityLocked` when
+ * another request is changing one of the orders — nothing was written in either case.
+ * 403 is returned only for the request as a whole, when edit access is missing entirely.
+ * Requires `orders.edit` or `orders.edit_assigned`.
+ */
+export const ordersBatchAssign = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersBatchAssignData, ThrowOnError>,
+): RequestResult<OrdersBatchAssignResponses, OrdersBatchAssignErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    OrdersBatchAssignResponses,
+    OrdersBatchAssignErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/batch-assign",
     ...options,
     headers: {
       "Content-Type": "application/json",

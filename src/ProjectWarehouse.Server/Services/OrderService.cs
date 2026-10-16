@@ -170,13 +170,13 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
         await db.SaveChangesAsync(ct);
     }
 
-    public async Task SelfAssignOrderAsync(Order order, Guid userId, CancellationToken ct = default)
+    public async Task AssignOrderAsync(Order order, Guid assigneeId, CancellationToken ct = default)
     {
         EnsureNotExternal(order);
 
         if (order.Status != OrderStatus.Confirmed)
             throw new ValidationException("root", ErrorCode.OrderNotConfirmed,
-                "Only Confirmed orders can be self-assigned.");
+                "Only Confirmed orders can be assigned.");
 
         if (await db.AssemblyTasks.AnyAsync(t => t.OrderId == order.Id, ct))
             throw new ValidationException("root", ErrorCode.OrderHasAssemblyTasks,
@@ -195,7 +195,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
         {
             Id           = Guid.NewGuid(),
             OrderId      = order.Id,
-            AssignedToId = userId,
+            AssignedToId = assigneeId,
             Status       = AssemblyTaskStatus.Pending,
         };
 

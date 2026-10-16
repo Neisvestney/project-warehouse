@@ -80,6 +80,7 @@ import {
   ordersAddBox,
   ordersAddComponent,
   ordersAddFulfillment,
+  ordersBatchAssign,
   ordersBatchFulfill,
   ordersBatchRebind,
   ordersBatchSelfAssign,
@@ -439,6 +440,9 @@ import type {
   OrdersAddFulfillmentData,
   OrdersAddFulfillmentError,
   OrdersAddFulfillmentResponse,
+  OrdersBatchAssignData,
+  OrdersBatchAssignError,
+  OrdersBatchAssignResponse,
   OrdersBatchFulfillData,
   OrdersBatchFulfillError,
   OrdersBatchFulfillResponse,
@@ -4311,6 +4315,46 @@ export const ordersBatchSelfAssignMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await ordersBatchSelfAssign({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Assign several Confirmed orders to one employee in one request, with partial-success semantics.
+ *
+ * The admin counterpart of `batch-self-assign`: each order moves to Assembly and gets one task with all
+ * of its boxes, assigned to `assigneeId`. Any existing user can be the assignee — neither their
+ * warehouses nor their permissions are checked, the same as for a task created by hand.
+ * Body: `BatchAssignRequest` — `orderIds` (duplicates are collapsed) and `assigneeId`.
+ * Always answers 200 with `BatchAssignResponse`: successful ids in `assignedOrderIds`, the rest in
+ * `failedItems` as `{ orderId, orderNumber, error }` with the real error code (`orderNotFound`,
+ * `orderNotConfirmed`, `orderHasAssemblyTasks`, …). An order outside the caller's edit access is
+ * reported as `orderNotFound`. A business failure of one order does not undo the others.
+ * 422 `userNotFound` (field `assigneeId`) for an unknown assignee, 409 `entityLocked` when
+ * another request is changing one of the orders — nothing was written in either case.
+ * 403 is returned only for the request as a whole, when edit access is missing entirely.
+ * Requires `orders.edit` or `orders.edit_assigned`.
+ */
+export const ordersBatchAssignMutation = (
+  options?: Partial<Options<OrdersBatchAssignData>>,
+): UseMutationOptions<
+  OrdersBatchAssignResponse,
+  OrdersBatchAssignError,
+  Options<OrdersBatchAssignData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersBatchAssignResponse,
+    OrdersBatchAssignError,
+    Options<OrdersBatchAssignData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersBatchAssign({
         ...options,
         ...fnOptions,
         throwOnError: true,

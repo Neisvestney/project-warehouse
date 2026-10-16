@@ -1046,7 +1046,7 @@ public class OrdersController(
 
         try
         {
-            await orders.SelfAssignOrderAsync(order, userId.Value, ct);
+            await orders.AssignOrderAsync(order, userId.Value, ct);
         }
         catch (ValidationException ex)
         {
@@ -1256,7 +1256,7 @@ public class OrdersController(
 
             try
             {
-                await orders.SelfAssignOrderAsync(order, userId.Value, ct);
+                await orders.AssignOrderAsync(order, userId.Value, ct);
                 assignedOrderIds.Add(orderId);
                 changes.Add((beforeDto, OrderActions.SelfAssigned));
             }
@@ -1270,6 +1270,90 @@ public class OrdersController(
         await PublishBatchAssemblyChangedAsync(assemblyBefore, assignedOrderIds, ct);
 
         return Ok(new BatchSelfAssignResponse
+        {
+            AssignedOrderIds = assignedOrderIds,
+            FailedItems      = failedItems,
+        });
+    }
+
+    // ── POST /api/orders/batch-assign ─────────────────────────────────────────
+
+    /// <summary>Assign several Confirmed orders to one employee in one request, with partial-success semantics.</summary>
+    /// <remarks>
+    /// The admin counterpart of <c>batch-self-assign</c>: each order moves to Assembly and gets one task with all
+    /// of its boxes, assigned to <c>assigneeId</c>. Any existing user can be the assignee — neither their
+    /// warehouses nor their permissions are checked, the same as for a task created by hand.
+    /// Body: <c>BatchAssignRequest</c> — <c>orderIds</c> (duplicates are collapsed) and <c>assigneeId</c>.
+    /// Always answers 200 with <c>BatchAssignResponse</c>: successful ids in <c>assignedOrderIds</c>, the rest in
+    /// <c>failedItems</c> as <c>{ orderId, orderNumber, error }</c> with the real error code (<c>orderNotFound</c>,
+    /// <c>orderNotConfirmed</c>, <c>orderHasAssemblyTasks</c>, …). An order outside the caller's edit access is
+    /// reported as <c>orderNotFound</c>. A business failure of one order does not undo the others.
+    /// 422 <c>userNotFound</c> (field <c>assigneeId</c>) for an unknown assignee, 409 <c>entityLocked</c> when
+    /// another request is changing one of the orders — nothing was written in either case.
+    /// 403 is returned only for the request as a whole, when edit access is missing entirely.
+    /// Requires <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
+    [Transactional]
+    [HttpPost("batch-assign")]
+    [Authorize]
+    [ProducesResponseType<BatchAssignResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> BatchAssign(
+        [FromBody] BatchAssignRequest request, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
+
+        if (!await db.Users.AnyAsync(u => u.Id == request.AssigneeId, ct))
+            return UnprocessableEntity("assigneeId", ErrorCode.UserNotFound, "Assignee not found.");
+
+        var orderIds = request.OrderIds.Distinct().ToList();
+        await locks.LockManyAsync<Order>(orderIds, ct);
+
+        var accessible         = await Rule.QueryAsync(User, AccessLevel.Edit, ct);
+        var (loaded, nodeById) = await LoadBatchDetailsAsync(accessible, orderIds, ct);
+        var assemblyBefore     = await assemblyChanges.CaptureAsync(loaded.Keys, ct);
+
+        var assignedOrderIds = new List<Guid>();
+        var failedItems      = new List<BatchAssignFailedItem>();
+        var changes          = new List<(OrderDetailsDto before, string action)>();
+
+        void Fail(Guid orderId, ErrorCode code, string message, int? number = null) =>
+            failedItems.Add(new BatchAssignFailedItem
+            {
+                OrderId     = orderId,
+                OrderNumber = number,
+                Error       = AppProblems.MakeError(code, message),
+            });
+
+        foreach (var orderId in orderIds)
+        {
+            if (!loaded.TryGetValue(orderId, out var order))
+            {
+                Fail(orderId, ErrorCode.OrderNotFound, "Order not found.");
+                continue;
+            }
+
+            var beforeDto = MapDetails(order, nodeById);
+
+            try
+            {
+                await orders.AssignOrderAsync(order, request.AssigneeId, ct);
+                assignedOrderIds.Add(orderId);
+                changes.Add((beforeDto, OrderActions.Assigned));
+            }
+            catch (ValidationException ex)
+            {
+                Fail(orderId, ex.ErrorCode, ex.Message, order.Number);
+            }
+        }
+
+        await SaveBatchChangelogsAsync(changes, nodeById, ct);
+        await PublishBatchAssemblyChangedAsync(assemblyBefore, assignedOrderIds, ct);
+
+        return Ok(new BatchAssignResponse
         {
             AssignedOrderIds = assignedOrderIds,
             FailedItems      = failedItems,

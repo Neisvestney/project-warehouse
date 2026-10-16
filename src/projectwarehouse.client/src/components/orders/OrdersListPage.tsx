@@ -63,6 +63,7 @@ import {
 import {ORDER_STATUS_LABELS, formatOrderNumber} from "./orderUtils";
 import {getOrderBulkTransitions, type OrderBulkTransition} from "./orderBulkTransitions";
 import {useOrderTagsBulkAction} from "./useOrderTagsBulkAction";
+import {useOrderAssignBulkAction} from "./useOrderAssignBulkAction";
 import {NOUNS, pluralCount} from "@/utils/pluralUtils";
 import type {
   BatchSelfAssignFailedItem,
@@ -386,6 +387,7 @@ function OrdersListPage({
   );
 
   const tagsAction = useOrderTagsBulkAction();
+  const assignAction = useOrderAssignBulkAction(removeIds);
 
   const listStats: TableInfoStat[] = [
     {key: "total", label: "Всего заказов:", value: (settled?.total ?? 0).toLocaleString("ru-RU")},
@@ -453,6 +455,9 @@ function OrdersListPage({
                   onClick: handleSelfAssignSelected,
                 },
               ]
+            : []),
+          ...(canCreate && selectedConfirmedIds.length > 0
+            ? [assignAction.getAction(selectedConfirmedIds)]
             : []),
           ...availableTransitions.map(({transition, count}) => ({
             key: transition.key,
@@ -634,6 +639,7 @@ function OrdersListPage({
         infoLoading={isFetching}
       />
       {tagsAction.dialogs}
+      {assignAction.dialogs}
 
       {confirmTransition?.confirm && (
         <ConfirmDialog
@@ -665,6 +671,8 @@ function OrdersListPage({
           ))}
         </Alert>
       )}
+
+      {assignAction.alerts}
 
       {selfAssignError && (
         <Alert severity="error" onClose={() => setSelfAssignError(null)}>
