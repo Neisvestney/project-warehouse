@@ -387,10 +387,11 @@ function OrdersAssemblyPage() {
 
           <BatchAssemblyDialog
             open={batchDialogOpen}
-            onClose={() => {
-              setBatchDialogOpen(false);
-              setSelectedTaskIds(new Set());
-            }}
+            onClose={() => setBatchDialogOpen(false)}
+            onAssembled={() => setSelectedTaskIds(new Set())}
+            onPartlyAssembled={(taskIds) =>
+              setSelectedTaskIds((prev) => new Set([...prev].filter((id) => !taskIds.has(id))))
+            }
             selectedTasks={batchTaskInfos}
           />
           {downloadLabels.dialogs}

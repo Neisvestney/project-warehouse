@@ -148,10 +148,20 @@ function describeOutcome(
 interface BatchAssemblyDialogProps {
   open: boolean;
   onClose: () => void;
+  /** Fires before `onClose` when the whole batch went through; a cancel calls only `onClose`. */
+  onAssembled: () => void;
+  /** After a partial success: the tasks that got every remaining component, the dialog stays open. */
+  onPartlyAssembled: (taskIds: ReadonlySet<string>) => void;
   selectedTasks: SelectedTaskInfo[];
 }
 
-function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialogProps) {
+function BatchAssemblyDialog({
+  open,
+  onClose,
+  onAssembled,
+  onPartlyAssembled,
+  selectedTasks,
+}: BatchAssemblyDialogProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   // The content is unmounted only after the exit animation; that is what resets the per-group picks.
@@ -180,6 +190,8 @@ function BatchAssemblyDialog({open, onClose, selectedTasks}: BatchAssemblyDialog
       {shownTasks && (
         <BatchAssemblyContent
           onClose={onClose}
+          onAssembled={onAssembled}
+          onPartlyAssembled={onPartlyAssembled}
           requestCloseRef={requestCloseRef}
           selectedTasks={shownTasks}
           isMobile={isMobile}
@@ -196,6 +208,8 @@ interface BatchAssemblyContentProps extends Omit<BatchAssemblyDialogProps, "open
 
 function BatchAssemblyContent({
   onClose,
+  onAssembled,
+  onPartlyAssembled,
   requestCloseRef,
   selectedTasks,
   isMobile,
@@ -278,7 +292,10 @@ function BatchAssemblyContent({
         variables.body.allowPartialSuccess,
       );
       enqueueSnackbar(outcome.message, {variant: outcome.variant});
-      if (data.failedItems.length === 0) onClose();
+      if (data.failedItems.length === 0) {
+        onAssembled();
+        onClose();
+      }
     },
     onError: (error) => setSubmitError(extractErrorMessage(error)),
     onSettled: () => {
@@ -362,7 +379,28 @@ function BatchAssemblyContent({
       });
     });
 
-    mutation.mutate({body: {items, autoCompleteTasks: true, allowPartialSuccess}});
+    // Captured now: once the refetch lands, the groups shrink to what is still missing. The per-call
+    // onSuccess below runs only after the hook-level one has awaited that refetch.
+    const sentComponentIds = new Set(items.map((i) => i.componentId));
+    const allTargets = groups.flatMap((g) => g.targets);
+    const coveredTaskIds = new Set(allTargets.map((t) => t.taskId));
+    for (const t of allTargets) {
+      if (!sentComponentIds.has(t.componentId)) coveredTaskIds.delete(t.taskId);
+    }
+    const taskByComponent = new Map(items.map((i) => [i.componentId, i.taskId]));
+
+    mutation.mutate(
+      {body: {items, autoCompleteTasks: true, allowPartialSuccess}},
+      {
+        onSuccess: (data) => {
+          if (data.failedItems.length === 0 || !allowPartialSuccess) return;
+          const failedTaskIds = new Set(
+            data.failedItems.map((f) => taskByComponent.get(f.componentId)),
+          );
+          onPartlyAssembled(new Set([...coveredTaskIds].filter((id) => !failedTaskIds.has(id))));
+        },
+      },
+    );
   }
 
   // Shortages are reported once, folded per item and cell, so the per-group lists leave them out.
