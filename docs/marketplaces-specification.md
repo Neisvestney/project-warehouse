@@ -661,6 +661,7 @@ MarketplaceOrder
 ├── DeliveryDateBegin/End — DateTime?, плановый слот доставки покупателю
 ├── TrackingNumber        — string?
 ├── DeliveryMethodName    — string?
+├── WarehouseExternalId   — string?, warehouse_id площадки, с которого едет отправление; у FBO null
 ├── MultiBoxQty           — int
 ├── OzonScanitBarcode         — string?, штрихкод отправления Ozon с этикетки
 ├── StatusSyncedAt        — DateTime, когда последний раз сверялся статус
@@ -668,7 +669,7 @@ MarketplaceOrder
 └── Parcels[]             — грузоместа, не меньше одного; этикетка живёт на них
 
 Уникальный индекс: (MarketplaceAccountId, PostingNumber)
-Индексы: (MarketplaceAccountId, Status)
+Индексы: (MarketplaceAccountId, Status), (MarketplaceAccountId, WarehouseExternalId)
 ```
 
 **Первичный ключ общий с `Order` (shared primary key).** Связь строго 1:1, отдельный `Guid Id` не нужен ни для чего: сущность не адресуется по HTTP и не появляется ни в одном списке. `IHasIdentity` она **не реализует** — интерфейс подразумевает самостоятельный объект с changelog-историей, а история изменений здесь ведётся на `Order`.

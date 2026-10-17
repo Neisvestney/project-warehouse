@@ -1003,6 +1003,7 @@ public class ApplicationDbContext : IdentityDbContext<
 
             e.HasIndex(x => new { x.MarketplaceAccountId, x.PostingNumber }).IsUnique();
             e.HasIndex(x => new { x.MarketplaceAccountId, x.Status });
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.WarehouseExternalId });
         });
 
         builder.Entity<MarketplaceParcel>(e =>

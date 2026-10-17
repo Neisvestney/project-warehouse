@@ -1167,12 +1167,17 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<string>("TrackingNumber")
                         .HasColumnType("text");
 
+                    b.Property<string>("WarehouseExternalId")
+                        .HasColumnType("text");
+
                     b.HasKey("OrderId");
 
                     b.HasIndex("MarketplaceAccountId", "PostingNumber")
                         .IsUnique();
 
                     b.HasIndex("MarketplaceAccountId", "Status");
+
+                    b.HasIndex("MarketplaceAccountId", "WarehouseExternalId");
 
                     b.ToTable("MarketplaceOrders");
                 });

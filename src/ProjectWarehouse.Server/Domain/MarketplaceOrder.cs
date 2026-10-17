@@ -84,6 +84,13 @@ public class MarketplaceOrder
     public string? TrackingNumber { get; set; }
     public string? DeliveryMethodName { get; set; }
 
+    /// <summary>
+    /// The marketplace's warehouse the posting ships from, as <see cref="MarketplaceWarehouse.ExternalId"/>.
+    /// Kept so an external order imported before its warehouse was mapped gets the WMS warehouse once it is.
+    /// Null for FBO.
+    /// </summary>
+    public string? WarehouseExternalId { get; set; }
+
     /// <summary>How many packages the marketplace expects. A hint for the packer, not a box count in WMS.</summary>
     public int MultiBoxQty { get; set; } = 1;
 

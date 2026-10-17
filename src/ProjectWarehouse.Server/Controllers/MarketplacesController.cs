@@ -12,6 +12,7 @@ using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 using ProjectWarehouse.Server.Infrastructure.Concurrency;
 using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using ProjectWarehouse.Server.Infrastructure.Observability;
+using ProjectWarehouse.Server.Infrastructure.Realtime;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Integrations.Sync;
 using ProjectWarehouse.Server.Models;
@@ -30,6 +31,8 @@ public class MarketplacesController(
     IMarketplaceSyncQueue syncQueue,
     IMarketplaceSyncService syncService,
     IOrderRebindService rebind,
+    IExternalOrderWarehouseService externalOrderWarehouses,
+    IRealtimeNotifier realtime,
     IEntityLockService locks,
     IOptions<MarketplacesOptions> options,
     IChangeLogService changeLog,
@@ -794,7 +797,9 @@ public class MarketplacesController(
 
     /// <summary>Maps a marketplace warehouse to a WMS warehouse. Null clears the mapping.</summary>
     /// <remarks>
-    /// Body: <c>SetWarehouseMappingRequest</c> — <c>warehouseId</c> (null clears). Errors:
+    /// Body: <c>SetWarehouseMappingRequest</c> — <c>warehouseId</c> (null clears). A mapping also fills the
+    /// warehouse of the account's external FBS orders from this marketplace warehouse that have none; orders that
+    /// already have one keep it. Errors:
     /// <list type="bullet">
     ///   <item>404 <c>marketplaceWarehouseNotFound</c></item>
     ///   <item>422 <c>warehouseNotFound</c> on <c>warehouseId</c> — no WMS warehouse with that id</item>
@@ -823,6 +828,14 @@ public class MarketplacesController(
 
         warehouse.WarehouseId = request.WarehouseId;
         await db.SaveChangesAsync(ct);
+
+        if (request.WarehouseId is { } mappedId)
+        {
+            var boundOrderIds = await externalOrderWarehouses.BindUnmappedAsync(warehouse.MarketplaceAccountId,
+                warehouse.ExternalId, mappedId, ct);
+            foreach (var orderId in boundOrderIds)
+                await realtime.PublishEntityChangedAsync(AppEntityType.Order, orderId, HttpContext, ct);
+        }
 
         var dto = await db.MarketplaceWarehouses
             .Where(w => w.Id == id)

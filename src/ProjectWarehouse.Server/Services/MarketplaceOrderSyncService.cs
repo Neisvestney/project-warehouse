@@ -18,6 +18,7 @@ public class MarketplaceOrderSyncService(
     IRealtimeNotifier realtime,
     IMarketplaceReturnSyncService returnSync,
     IMarketplaceAccrualSyncService accrualSync,
+    IExternalOrderWarehouseService externalOrderWarehouses,
     IOptions<MarketplacesOptions> options,
     ILogger<MarketplaceOrderSyncService> logger) : IMarketplaceOrderSyncService
 {
@@ -141,6 +142,21 @@ public class MarketplaceOrderSyncService(
         await db.MarketplaceWarehouses
             .Where(w => w.MarketplaceAccountId == accountId && w.WarehouseId != null && !w.IsArchived)
             .ToDictionaryAsync(w => w.ExternalId, w => w.WarehouseId!.Value, ct);
+
+    /// <summary>
+    /// The mapping as of now, held until the page commits: a mapping changed mid-page would otherwise miss the
+    /// page's new orders, or bind them to a warehouse that is no longer mapped. Runs inside the page's transaction.
+    /// </summary>
+    private async Task<Dictionary<string, Guid>> LockAndLoadWarehousesAsync(Guid accountId, CancellationToken ct)
+    {
+        var ids = await db.MarketplaceWarehouses
+            .Where(w => w.MarketplaceAccountId == accountId)
+            .Select(w => w.Id)
+            .ToListAsync(ct);
+        await locks.LockManyAsync<MarketplaceWarehouse>(ids, ct, IEntityLockService.BackgroundTimeout);
+
+        return await LoadWarehousesAsync(accountId, ct);
+    }
 
     /// <summary>
     /// Locks the orders behind the page's known postings before reading them, so the page is applied to
@@ -273,6 +289,7 @@ public class MarketplaceOrderSyncService(
                 DeliveryDateEnd = dates.DeliveryDateEnd,
                 TrackingNumber = posting.TrackingNumber,
                 DeliveryMethodName = posting.DeliveryMethodName,
+                WarehouseExternalId = posting.WarehouseExternalId,
                 MultiBoxQty = posting.MultiBoxQty,
                 OzonScanitBarcode = posting.Scanit,
                 Parcels = BuildParcels(orderId, posting, items, boxId),
@@ -527,6 +544,7 @@ public class MarketplaceOrderSyncService(
         known.InProcessAt = posting.InProcessAt;
         known.TrackingNumber = posting.TrackingNumber;
         known.DeliveryMethodName = posting.DeliveryMethodName;
+        known.WarehouseExternalId = posting.WarehouseExternalId ?? known.WarehouseExternalId;
         known.MultiBoxQty = posting.MultiBoxQty;
         // Ozon blanks the barcode once the posting leaves awaiting_deliver; the stored one outlives that
         known.OzonScanitBarcode = posting.Scanit ?? known.OzonScanitBarcode;
@@ -900,26 +918,32 @@ public class MarketplaceOrderSyncService(
     /// <summary>
     /// Creates whatever the period holds and WMS does not, as external orders: no warehouse gate, no
     /// catalog gate, and no box components for positions the catalog does not recognize. A posting WMS
-    /// already knows is either refreshed or left alone — history must never overwrite a live order.
+    /// already knows is either refreshed or left alone — history must never overwrite a live order. Left alone
+    /// it still gets its warehouse recorded if it had none, which is a blank filled, not an overwrite.
     /// </summary>
     private async Task ImportExternalPostingsAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
         MarketplaceAccount account, MarketplaceSyncRun run, ExternalPostingQuery query, bool refreshKnown,
         CancellationToken ct)
     {
-        // only consulted for FBS postings; an FBO one is fulfilled from stock that never was in a WMS warehouse
-        var warehouses = await LoadWarehousesAsync(account.Id, ct);
-
         await foreach (var page in provider.FetchPostingsAsync(credentials, query, ct))
         {
             await db.Database.ExecuteInTransactionAsync("marketplace.sync.orders.external_page", async () =>
             {
                 run.OrdersProcessed += page.Count;
 
-                // without a refresh known orders are only looked up, never written, so they need no lock
+                // only consulted for FBS postings; an FBO one is fulfilled from stock that never was in a WMS
+                // warehouse. Taken first, in the same order as SetWarehouseMapping takes its locks.
+                var warehouses = query.Scheme == ExternalPostingScheme.Fbs
+                    ? await LockAndLoadWarehousesAsync(account.Id, ct)
+                    : new Dictionary<string, Guid>();
+
+                // without a refresh known orders are only looked up, never written through the context, so they
+                // need no lock; StampWarehousesAsync fills its blanks with guarded updates
                 var known = refreshKnown
                     ? await LockAndLoadKnownAsync(account.Id, page, ct)
                     : await LoadKnownAsync(account.Id, page, ct);
                 var cards = await LoadCardsAsync(account.Id, page, ct);
+                var unstamped = new List<(Guid OrderId, string WarehouseExternalId)>();
 
                 foreach (var posting in page)
                 {
@@ -927,6 +951,9 @@ public class MarketplaceOrderSyncService(
                     {
                         if (refreshKnown && ApplyPosting(existing, posting))
                             run.OrdersUpdated++;
+                        else if (!refreshKnown && existing.WarehouseExternalId is null
+                                               && posting.WarehouseExternalId is { } externalId)
+                            unstamped.Add((existing.OrderId, externalId));
                         continue;
                     }
 
@@ -937,8 +964,33 @@ public class MarketplaceOrderSyncService(
                 }
 
                 await db.SaveChangesAsync(ct);
+
+                await StampWarehousesAsync(account.Id, unstamped, warehouses, ct);
             }, ct);
             await realtime.PublishProgressAsync(run, ct);
+        }
+    }
+
+    /// <summary>
+    /// Records the posting's warehouse on known orders imported before it was kept, then binds the external
+    /// ones among them to its mapping. A guarded single-column update of a field only the sync writes, so it
+    /// takes no order lock; the binding takes its own.
+    /// </summary>
+    private async Task StampWarehousesAsync(Guid accountId,
+        IReadOnlyList<(Guid OrderId, string WarehouseExternalId)> unstamped,
+        IReadOnlyDictionary<string, Guid> warehouses, CancellationToken ct)
+    {
+        foreach (var group in unstamped.GroupBy(u => u.WarehouseExternalId))
+        {
+            var externalId = group.Key;
+            var orderIds = group.Select(u => u.OrderId).ToList();
+            await db.MarketplaceOrders
+                .Where(o => orderIds.Contains(o.OrderId) && o.WarehouseExternalId == null)
+                .ExecuteUpdateAsync(s => s.SetProperty(o => o.WarehouseExternalId, externalId), ct);
+
+            if (warehouses.TryGetValue(externalId, out var warehouseId))
+                await externalOrderWarehouses.BindUnmappedAsync(accountId, externalId, warehouseId, ct,
+                    IEntityLockService.BackgroundTimeout);
         }
     }
 

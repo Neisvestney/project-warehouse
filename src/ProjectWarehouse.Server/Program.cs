@@ -443,6 +443,7 @@ try
     builder.Services.AddScoped<IMarketplaceSyncService, MarketplaceSyncService>();
     builder.Services.AddScoped<IMarketplaceOrderSyncService, MarketplaceOrderSyncService>();
     builder.Services.AddScoped<IOrderRebindService, OrderRebindService>();
+    builder.Services.AddScoped<IExternalOrderWarehouseService, ExternalOrderWarehouseService>();
     builder.Services.AddScoped<IMarketplaceReturnSyncService, MarketplaceReturnSyncService>();
     builder.Services.AddScoped<IMarketplaceAccrualSyncService, MarketplaceAccrualSyncService>();
     builder.Services.AddScoped<IMarketplaceLabelService, MarketplaceLabelService>();
