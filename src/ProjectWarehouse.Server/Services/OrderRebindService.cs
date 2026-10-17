@@ -131,13 +131,20 @@ public class OrderRebindService(ApplicationDbContext db, IEntityLockService lock
 
         var appliedIds = applied.Select(c => c.ItemId).ToList();
 
-        // returns and accruals copy the line's catalog item when they are linked, so they follow it here
+        // returns and accruals copy the line's catalog item when they are linked, so they follow it here;
+        // a subquery, not the navigation: EF fails to remap a joined setter whose column shares the target's name
         await db.MarketplaceReturns
             .Where(r => r.OrderMarketplaceItemId != null && appliedIds.Contains(r.OrderMarketplaceItemId.Value))
-            .ExecuteUpdateAsync(s => s.SetProperty(r => r.CatalogItemId, r => r.OrderMarketplaceItem!.CatalogItemId), ct);
+            .ExecuteUpdateAsync(s => s.SetProperty(r => r.CatalogItemId, r => db.OrderMarketplaceItems
+                .Where(i => i.Id == r.OrderMarketplaceItemId)
+                .Select(i => i.CatalogItemId)
+                .FirstOrDefault()), ct);
         await db.MarketplaceAccruals
             .Where(a => a.OrderMarketplaceItemId != null && appliedIds.Contains(a.OrderMarketplaceItemId.Value))
-            .ExecuteUpdateAsync(s => s.SetProperty(a => a.CatalogItemId, a => a.OrderMarketplaceItem!.CatalogItemId), ct);
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.CatalogItemId, a => db.OrderMarketplaceItems
+                .Where(i => i.Id == a.OrderMarketplaceItemId)
+                .Select(i => i.CatalogItemId)
+                .FirstOrDefault()), ct);
 
         return applied;
     }
