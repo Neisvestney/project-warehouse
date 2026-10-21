@@ -13,6 +13,9 @@ public class StockForecastDto
 
     public int Stock { get; init; }
 
+    /// <summary>Expected on the warehouse from <c>Planned</c> and <c>Processing</c> receipts.</summary>
+    public int InTransit { get; init; }
+
     /// <summary>Average per day over the window, rounded to two decimals.</summary>
     public decimal DailyConsumption { get; init; }
 

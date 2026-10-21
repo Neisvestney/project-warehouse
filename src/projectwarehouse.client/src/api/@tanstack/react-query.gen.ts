@@ -3445,7 +3445,9 @@ export const marketplacesGetWarehousesInfiniteOptions = (
 /**
  * Maps a marketplace warehouse to a WMS warehouse. Null clears the mapping.
  *
- *     Body: `SetWarehouseMappingRequest` — `warehouseId` (null clears). Errors:
+ *     Body: `SetWarehouseMappingRequest` — `warehouseId` (null clears). A mapping also fills the
+ * warehouse of the account's external FBS orders from this marketplace warehouse that have none; orders that
+ * already have one keep it. Errors:
  * * 404 marketplaceWarehouseNotFound
  * * 422 warehouseNotFound on warehouseId — no WMS warehouse with that id
  * * 409 entityLocked — another request is changing the marketplace warehouse; nothing was written

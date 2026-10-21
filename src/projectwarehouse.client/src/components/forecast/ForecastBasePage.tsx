@@ -53,11 +53,23 @@ import {isTagFilterActive, useTagFilterState} from "@/features/tags";
 
 const COLUMN_COUNT = 10;
 
-const SORTABLE_COLUMNS: {key: StockForecastSortBy; label: string; align?: "right"}[] = [
+const SORTABLE_COLUMNS: {
+  key: StockForecastSortBy;
+  label: string;
+  align?: "right";
+  tooltip?: string;
+}[] = [
   {key: "type", label: "Тип"},
   {key: "name", label: "Название"},
   {key: "article", label: "Артикул"},
   {key: "stock", label: "Остаток", align: "right"},
+  {
+    key: "inTransit",
+    label: "В пути",
+    align: "right",
+    tooltip:
+      "Ожидается по приёмкам склада: запланированные — плановое количество, в работе — ещё не размещённое",
+  },
   {key: "dailyConsumption", label: "Расход/день", align: "right"},
   {key: "daysLeft", label: "Осталось дней", align: "right"},
 ];
@@ -119,6 +131,12 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
     (v) => (v ? "true" : null),
   );
 
+  const [accountForInTransit, setAccountForInTransit] = useSyncedWithQueryState<boolean>(
+    "accountForInTransit",
+    (q) => q === "true",
+    (v) => (v ? "true" : null),
+  );
+
   const effectiveWarehouseId = warehouseId ?? filterWarehouseId;
 
   // The type filter narrows physical rows only, so an empty selection leaves just the variations.
@@ -137,6 +155,7 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
       IsVariation: effectiveIsVariation ?? undefined,
       OnlyWarnings: onlyWarnings || undefined,
       AccountForAssembly: accountForAssembly,
+      AccountForInTransit: accountForInTransit,
       SortBy: sortBy,
       SortOrder: sortOrder,
     },
@@ -149,6 +168,7 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
       effectiveIsVariation,
       onlyWarnings,
       accountForAssembly,
+      accountForInTransit,
       sortBy,
       sortOrder,
     ],
@@ -207,14 +227,25 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
         ? "Типы не выбраны"
         : "Позиции не найдены";
 
-  const renderSortableHeader = ({key, label, align}: (typeof SORTABLE_COLUMNS)[number]) => (
+  const renderSortableHeader = ({
+    key,
+    label,
+    align,
+    tooltip,
+  }: (typeof SORTABLE_COLUMNS)[number]) => (
     <TableCell key={key} align={align ?? "left"}>
       <TableSortLabel
         active={sortBy === key}
         direction={sortBy === key ? sortOrder : "asc"}
         onClick={() => handleSortClick(key)}
       >
-        {label}
+        {tooltip ? (
+          <Tooltip title={tooltip}>
+            <span>{label}</span>
+          </Tooltip>
+        ) : (
+          label
+        )}
       </TableSortLabel>
     </TableCell>
   );
@@ -364,6 +395,19 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
               />
             </span>
           </Tooltip>
+          <Tooltip title="Товар в пути прибавляется к остатку при расчёте дней и статуса">
+            <span>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={accountForInTransit}
+                    onChange={(e) => setAccountForInTransit(e.target.checked)}
+                  />
+                }
+                label="Учитывать в пути"
+              />
+            </span>
+          </Tooltip>
         </Stack>
 
         <DataTableContainer
@@ -387,11 +431,6 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
                 </TableCell>
                 {SORTABLE_COLUMNS.slice(3).map(renderSortableHeader)}
                 <TableCell align="right">
-                  <Tooltip title="Сколько дней назад остаток последний раз был нулевым в пределах окна расчёта">
-                    <span>С последнего 0</span>
-                  </Tooltip>
-                </TableCell>
-                <TableCell align="right">
                   <Tooltip title="Сколько дней окна расчёта товара не было на складе — эти дни не входят в расход/день">
                     <span>Без остатка</span>
                   </Tooltip>
@@ -412,7 +451,6 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
                 data?.items.items.map((row) => {
                   const expanded = expandedIds.has(row.catalogItemId);
                   const rowProps = {
-                    windowDays: data.windowDays,
                     dimmed: isFetching && !isLoading,
                     canEditThreshold: canEditWarehouse,
                     onOpenItem: openCatalogDrawer,

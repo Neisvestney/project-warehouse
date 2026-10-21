@@ -3542,6 +3542,10 @@ export type StockForecastDto = {
   catalogItemId: string;
   stock: number;
   /**
+   * Expected on the warehouse from `Planned` and `Processing` receipts.
+   */
+  inTransit: number;
+  /**
    * Average per day over the window, rounded to two decimals.
    */
   dailyConsumption: number;
@@ -3601,6 +3605,10 @@ export type StockForecastRowDto = {
   catalogItemId: string;
   stock: number;
   /**
+   * Expected on the warehouse from `Planned` and `Processing` receipts.
+   */
+  inTransit: number;
+  /**
    * Average per day over the window, rounded to two decimals.
    */
   dailyConsumption: number;
@@ -3651,7 +3659,7 @@ export type StockForecastSettingsDto = {
  * Any other value replaces that rule entirely; a null `daysLeft` still sorts last either way.
  */
 export type StockForecastSortBy =
-  "default" | "type" | "name" | "article" | "stock" | "dailyConsumption" | "daysLeft";
+  "default" | "type" | "name" | "article" | "stock" | "dailyConsumption" | "daysLeft" | "inTransit";
 
 /**
  * How urgent the position is. StockForecastStatus.OutOfStock does not depend on the threshold at all:
@@ -10659,6 +10667,11 @@ export type StockForecastGetListData = {
      * against that variation's own row only.
      */
     AccountForAssembly?: boolean;
+    /**
+     * Adds int StockForecastDto.InTransit to stock for days left and status. The row's
+     * `Stock` stays what is on the shelf.
+     */
+    AccountForInTransit?: boolean;
     SortBy?: StockForecastSortBy;
     SortOrder?: SortOrder;
     page?: number;

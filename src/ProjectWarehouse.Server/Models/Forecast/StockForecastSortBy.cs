@@ -13,4 +13,5 @@ public enum StockForecastSortBy
     Stock = 4,
     DailyConsumption = 5,
     DaysLeft = 6,
+    InTransit = 7,
 }

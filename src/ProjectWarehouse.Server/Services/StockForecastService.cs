@@ -27,6 +27,10 @@ public class StockForecastService(
     /// <summary>Virtual types hold no stock, so there is nothing to forecast for them.</summary>
     private static readonly CatalogItemType[] PhysicalTypes = [CatalogItemType.Standard, CatalogItemType.Unit];
 
+    /// <summary>Out movements that correct the books rather than ship anything, so they are not consumption.</summary>
+    private static readonly string[] NonConsumptionActions =
+        [InventoryActions.CancelledPlacement, InventoryActions.StocktakeShortage];
+
     /// <summary>Where the rows come from — the only thing the two entry points disagree about.</summary>
     private sealed record ForecastSource(
         Guid WarehouseId,
@@ -73,7 +77,8 @@ public class StockForecastService(
 
         var source = await SourceForAsync(user, warehouseId, ct);
         var computed = await ComputeAsync(
-            source, filter, restrictToIds: null, options: null, request.AccountForAssembly, ct);
+            source, filter, restrictToIds: null, options: null, request.AccountForAssembly,
+            request.AccountForInTransit, ct);
 
         var sorted = Sort(computed.Entries, request.SortBy, request.SortOrder).ToList();
         var pageEntries = sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList();
@@ -109,7 +114,7 @@ public class StockForecastService(
 
         var computed = await ComputeAsync(
             await SourceForAsync(user, warehouseId, ct), new CatalogFilter(), catalogItemIds, options,
-            accountForAssembly: false, ct);
+            accountForAssembly: false, accountForInTransit: false, ct);
 
         return computed.Entries.ToDictionary(e => e.Forecast.CatalogItemId, e => e.Forecast);
     }
@@ -128,7 +133,8 @@ public class StockForecastService(
 
         // No query filter and no warehouse narrowing: this entry checks no permissions by contract.
         var source = new ForecastSource(warehouseId, db.StockMovements, [warehouseId]);
-        var computed = await ComputeAsync(source, filter, restrictToIds: null, options, accountForAssembly: false, ct);
+        var computed = await ComputeAsync(
+            source, filter, restrictToIds: null, options, accountForAssembly: false, accountForInTransit: false, ct);
 
         return await ToRowsAsync(Sort(computed.Entries, StockForecastSortBy.Default, SortOrder.Asc).ToList(), ct);
     }
@@ -236,6 +242,7 @@ public class StockForecastService(
         IReadOnlyCollection<Guid>? restrictToIds,
         StockForecastOptions? options,
         bool accountForAssembly,
+        bool accountForInTransit,
         CancellationToken ct)
     {
         var warehouse = await db.Warehouses
@@ -293,9 +300,13 @@ public class StockForecastService(
         foreach (var (catalogItemId, quantity) in assemblyDemand)
             stock[catalogItemId] = stock.GetValueOrDefault(catalogItemId) - quantity;
 
+        var inTransit = await LoadInTransitAsync(source.WarehouseId, physicalIds, ct);
+
         // A row exists when the item has stock or consumption; an empty catalog is never unfolded into
         // the forecast. Zero stock with consumption is exactly the row a buyer needs to see.
-        var candidateIds = stock.Keys.Concat(movement.DailyOut.Keys).Concat(assemblyDemand.Keys).ToHashSet();
+        var candidateIds = stock.Keys.Concat(movement.DailyOut.Keys).Concat(assemblyDemand.Keys)
+            .Concat(accountForInTransit ? inTransit.Keys : [])
+            .ToHashSet();
 
         var liveVariations = variations
             .Where(v => v.MemberIds.Any(candidateIds.Contains) || assembly.Variations.ContainsKey(v.Row.Id))
@@ -322,7 +333,8 @@ public class StockForecastService(
         var empty = new int[options.WindowDays];
         var entries = new List<ForecastEntry>(items.Count + liveVariations.Count);
 
-        StockForecastDto Forecast(Guid id, int itemStock, int itemPhysicalStock, int[] dailyOut, int[] dailyNet)
+        StockForecastDto Forecast(
+            Guid id, int itemStock, int itemPhysicalStock, int itemInTransit, int[] dailyOut, int[] dailyNet)
         {
             var itemOverride = overrides.TryGetValue(id, out var days) ? days : (int?)null;
             var warningDays = StockForecastCalculator.ResolveWarningDays(itemOverride, warehouse.StockWarningDays);
@@ -330,12 +342,15 @@ public class StockForecastService(
             var zeroStockAge = StockForecastCalculator.FindLastZeroStockAge(itemPhysicalStock, dailyNet);
             var stockedDays = StockForecastCalculator.FindStockedDays(itemPhysicalStock, dailyNet, dailyOut);
 
-            var result = StockForecastCalculator.Calculate(itemStock, dailyOut, options, warningDays, stockedDays);
+            var result = StockForecastCalculator.Calculate(
+                accountForInTransit ? itemStock + itemInTransit : itemStock,
+                dailyOut, options, warningDays, stockedDays);
 
             return new StockForecastDto
             {
                 CatalogItemId = id,
                 Stock = itemStock,
+                InTransit = itemInTransit,
                 DailyConsumption = result.DailyConsumption,
                 ConsumedInWindow = result.ConsumedInWindow,
                 DaysLeft = result.DaysLeft,
@@ -351,6 +366,7 @@ public class StockForecastService(
             Forecast(id,
                 stock.GetValueOrDefault(id),
                 physicalStock.GetValueOrDefault(id),
+                inTransit.GetValueOrDefault(id),
                 movement.DailyOut.GetValueOrDefault(id) ?? empty,
                 movement.DailyNet.GetValueOrDefault(id) ?? empty);
 
@@ -373,11 +389,13 @@ public class StockForecastService(
             var variationStock = memberIds.Sum(id => stock.GetValueOrDefault(id))
                                  - assembly.Variations.GetValueOrDefault(variation.Row.Id);
             var variationPhysicalStock = memberIds.Sum(id => physicalStock.GetValueOrDefault(id));
+            var variationInTransit = memberIds.Sum(id => inTransit.GetValueOrDefault(id));
             var variationDailyOut = SumDays(memberIds, movement.DailyOut, options.WindowDays);
             var variationDailyNet = SumDays(memberIds, movement.DailyNet, options.WindowDays);
 
             AddEntry(variation.Row,
-                Forecast(variation.Row.Id, variationStock, variationPhysicalStock, variationDailyOut, variationDailyNet),
+                Forecast(variation.Row.Id, variationStock, variationPhysicalStock, variationInTransit,
+                    variationDailyOut, variationDailyNet),
                 memberIds.Select(ItemForecast).ToList());
         }
 
@@ -436,6 +454,7 @@ public class StockForecastService(
         var rows = await source.Movements
             .Where(m => m.WarehouseId == source.WarehouseId
                         && m.Direction == StockMovementDirection.Out
+                        && !NonConsumptionActions.Contains(m.Action)
                         && m.CreatedAt >= fromUtc && m.CreatedAt < toUtc)
             .GroupBy(m => new { m.CatalogItemId, Date = m.CreatedAt.AddMinutes(forecastOptions.OffsetMinutes).Date })
             .Select(g => new { g.Key.CatalogItemId, g.Key.Date, Quantity = g.Sum(m => m.Quantity) })
@@ -499,7 +518,7 @@ public class StockForecastService(
     /// <c>DailyOut</c> — Out quantities only, the consumption feeding the average. <c>TransferOut</c> is
     /// left out of it on purpose, same reasoning as everywhere else in the forecast: the goods did not
     /// leave the company, and the matching <c>TransferIn</c> on the receiving warehouse would burn the
-    /// same item a second time when it actually ships.
+    /// same item a second time when it actually ships. <see cref="NonConsumptionActions"/> are left out too.
     /// <c>DailyNet</c> — every direction, signed (in - out), the raw balance change used to walk the
     /// stock backward and find the last day it sat at zero. Transfers count here: they moved physical
     /// units off or onto this warehouse's shelf regardless of what the consumption definition ignores.
@@ -525,9 +544,17 @@ public class StockForecastService(
             {
                 m.CatalogItemId,
                 m.Direction,
+                IsConsumption = m.Direction == StockMovementDirection.Out && !NonConsumptionActions.Contains(m.Action),
                 Date = m.CreatedAt.AddMinutes(options.OffsetMinutes).Date,
             })
-            .Select(g => new { g.Key.CatalogItemId, g.Key.Direction, g.Key.Date, Quantity = g.Sum(m => m.Quantity) })
+            .Select(g => new
+            {
+                g.Key.CatalogItemId,
+                g.Key.Direction,
+                g.Key.IsConsumption,
+                g.Key.Date,
+                Quantity = g.Sum(m => m.Quantity),
+            })
             .ToListAsync(ct);
 
         var dailyOut = new Dictionary<Guid, int[]>();
@@ -541,11 +568,50 @@ public class StockForecastService(
             var sign = row.Direction is StockMovementDirection.In or StockMovementDirection.TransferIn ? 1 : -1;
             AddToDay(dailyNet, row.CatalogItemId, age, sign * row.Quantity, options.WindowDays);
 
-            if (row.Direction == StockMovementDirection.Out)
+            if (row.IsConsumption)
                 AddToDay(dailyOut, row.CatalogItemId, age, row.Quantity, options.WindowDays);
         }
 
         return new MovementData(dailyOut, dailyNet);
+    }
+
+    /// <summary>
+    /// Open receipts of the warehouse per item: a <c>Planned</c> line counts its planned quantity, a
+    /// <c>Processing</c> one only what is still to be placed — placements are already in stock.
+    /// </summary>
+    private async Task<Dictionary<Guid, int>> LoadInTransitAsync(
+        Guid warehouseId, IReadOnlyCollection<Guid>? restrictToIds, CancellationToken ct)
+    {
+        var query = db.ReceiptItems
+            .Where(i => i.Receipt.WarehouseId == warehouseId
+                        && (i.Receipt.Status == ReceiptStatus.Planned || i.Receipt.Status == ReceiptStatus.Processing));
+
+        if (restrictToIds is not null)
+            query = query.Where(i => restrictToIds.Contains(i.CatalogItemId));
+
+        var lines = await query
+            .Select(i => new
+            {
+                i.CatalogItemId,
+                i.Receipt.Status,
+                i.PlannedCount,
+                i.ReceivedCount,
+                // Count == 0 marks a unit placement even after its unit was deleted and the link nulled.
+                Placed = i.Placements.Sum(p => p.Count == 0 ? 1 : p.Count),
+            })
+            .ToListAsync(ct);
+
+        var result = new Dictionary<Guid, int>();
+        foreach (var line in lines)
+        {
+            var expected = line.Status == ReceiptStatus.Planned
+                ? line.PlannedCount
+                : Math.Max((line.ReceivedCount ?? line.PlannedCount) - line.Placed, 0);
+            if (expected > 0)
+                result[line.CatalogItemId] = result.GetValueOrDefault(line.CatalogItemId) + expected;
+        }
+
+        return result;
     }
 
     private static void AddToDay(
@@ -739,6 +805,7 @@ public class StockForecastService(
             {
                 CatalogItemId = f.CatalogItemId,
                 Stock = f.Stock,
+                InTransit = f.InTransit,
                 DailyConsumption = f.DailyConsumption,
                 ConsumedInWindow = f.ConsumedInWindow,
                 DaysLeft = f.DaysLeft,
@@ -790,6 +857,7 @@ public class StockForecastService(
             StockForecastSortBy.Type => By(entries, e => e.Type, desc),
             StockForecastSortBy.Article => By(entries, e => e.Article, desc),
             StockForecastSortBy.Stock => By(entries, e => e.Forecast.Stock, desc),
+            StockForecastSortBy.InTransit => By(entries, e => e.Forecast.InTransit, desc),
             StockForecastSortBy.DailyConsumption => By(entries, e => e.Forecast.DailyConsumption, desc),
             StockForecastSortBy.DaysLeft => ThenBy(
                 entries.OrderBy(e => e.Forecast.DaysLeft is null), e => e.Forecast.DaysLeft ?? 0, desc),

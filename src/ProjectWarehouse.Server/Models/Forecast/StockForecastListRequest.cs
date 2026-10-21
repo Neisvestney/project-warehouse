@@ -46,6 +46,12 @@ public class StockForecastListRequest
     /// </summary>
     public bool AccountForAssembly { get; init; }
 
+    /// <summary>
+    /// Adds <see cref="StockForecastDto.InTransit"/> to stock for days left and status. The row's
+    /// <c>Stock</c> stays what is on the shelf.
+    /// </summary>
+    public bool AccountForInTransit { get; init; }
+
     public StockForecastSortBy SortBy { get; init; } = StockForecastSortBy.Default;
 
     public SortOrder SortOrder { get; init; } = SortOrder.Asc;

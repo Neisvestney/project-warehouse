@@ -847,14 +847,18 @@ and its value lives in `?warehouse=`. Until one is picked the list query is `ena
 shows «Выберите склад». The select carries `canAutoSelect`, so a user with exactly one warehouse gets it
 filled in and loses the clear icon without the page counting warehouses itself.
 
-Columns: Тип · Название · Артикул · ABC / XYZ · Остаток · Расход/день · Осталось дней (`StockForecastChip`) · С последнего 0 · Без остатка · Порог.
-All but «ABC / XYZ» and the last three are sortable. «ABC / XYZ» shows `AbcChip` + `XyzChip`
+Columns: Тип · Название · Артикул · ABC / XYZ · Остаток · В пути · Расход/день · Осталось дней (`StockForecastChip`) · Без остатка · Порог.
+All but «ABC / XYZ» and the last two are sortable. «ABC / XYZ» shows `AbcChip` + `XyzChip`
 (`components/analytics/abc/ClassChips`) or «—» — classes by the warehouse's consumption, not by sales (see
 [stock-forecast-specification.md](stock-forecast-specification.md#классы-abc--xyz)); the header tooltip names
 `classWindowDays`. A row is `ForecastTableRow` (`components/forecast/ForecastTableRow.tsx`); a
 variation row carries a chevron before its type chip that unfolds `row.members` right below it as tinted
 rows of the same component — no extra request, the members come with the page. Which variations are
 unfolded is local `useState`, not URL state, and it survives paging.
+«В пути» shows `inTransit` or «—» when it is zero; the header tooltip spells out which receipts count. Below
+the filter bar two checkboxes change the calculation, each kept in the URL: «Учитывать заказы на сборке»
+(`?accountForAssembly=`) and «Учитывать в пути» (`?accountForInTransit=`), which adds `inTransit` to stock for
+days left and status while «Остаток» keeps showing the shelf.
 Once any variation is on the page, every row reserves the chevron slot so the type chips line up. Every
 nested row keeps its own threshold editor. The table starts on `sortBy: "default"` — the composite rule (warnings first,
 then ascending days left, «∞» last); clicking a column replaces that rule entirely, so `default` is not one

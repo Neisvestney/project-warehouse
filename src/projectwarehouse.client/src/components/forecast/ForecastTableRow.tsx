@@ -10,16 +10,6 @@ import CatalogItemTypeChip from "@/components/catalog/CatalogItemTypeChip";
 import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
 import StockForecastChip from "@/components/forecast/StockForecastChip";
 
-/**
- * `0` — currently at zero. `null` — never hit zero anywhere in the window, so the label carries the
- * window length as a floor rather than an exact count.
- */
-function formatDaysSinceZeroStock(days: number | null, windowDays: number): string {
-  if (days === 0) return "—";
-  if (days === null) return `${windowDays}+ дн.`;
-  return `${days} дн.`;
-}
-
 function ItemClasses({row}: {row: StockForecastRowDto}) {
   if (!row.abcClass) {
     return (
@@ -39,7 +29,6 @@ function ItemClasses({row}: {row: StockForecastRowDto}) {
 
 interface ForecastTableRowProps {
   row: StockForecastRowDto;
-  windowDays: number;
   dimmed: boolean;
   canEditThreshold: boolean;
   onOpenItem: (catalogItemId: string) => void;
@@ -54,7 +43,6 @@ interface ForecastTableRowProps {
 
 function ForecastTableRow({
   row,
-  windowDays,
   dimmed,
   canEditThreshold,
   onOpenItem,
@@ -110,14 +98,14 @@ function ForecastTableRow({
           {row.stock}
         </Typography>
       </TableCell>
+      <TableCell align="right">
+        <Typography variant="body2" color="text.secondary">
+          {row.inTransit > 0 ? row.inTransit : "—"}
+        </Typography>
+      </TableCell>
       <TableCell align="right">{row.dailyConsumption}</TableCell>
       <TableCell align="right">
         <StockForecastChip forecast={row} />
-      </TableCell>
-      <TableCell align="right">
-        <Typography variant="body2" color="text.secondary">
-          {formatDaysSinceZeroStock(row.daysSinceLastZeroStock ?? null, windowDays)}
-        </Typography>
       </TableCell>
       <TableCell align="right">
         <Typography variant="body2" color="text.secondary">
