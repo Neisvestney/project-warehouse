@@ -127,4 +127,8 @@ public interface IInventoryService
         Guid? nodeId,
         IReadOnlyCollection<Guid>? catalogItemIds,
         CancellationToken ct = default);
+
+    /// <summary>A shortage carrying the item name and the node breadcrumb, for figures counted outside a write.</summary>
+    Task<InsufficientInventoryException> DescribeShortageAsync(
+        Guid nodeId, Guid catalogItemId, int available, int requested, CancellationToken ct = default);
 }

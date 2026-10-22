@@ -46,7 +46,7 @@ import {
 } from "@/components/orders/orderAssemblyUtils";
 import {formatBoxLabel} from "@/components/orders/orderUtils";
 import AddFulfillmentDialog from "./AddFulfillmentDialog";
-import {getBatchDisabledReason} from "./batchEligibility";
+import {getBatchDisabledReason} from "@/components/orders/assembly/batchEligibility";
 import MoveTaskComponentDialog from "./MoveTaskComponentDialog";
 import {NOUNS, plural} from "@/utils/pluralUtils";
 import RefreshingAccordionHeading from "./RefreshingAccordionHeading";

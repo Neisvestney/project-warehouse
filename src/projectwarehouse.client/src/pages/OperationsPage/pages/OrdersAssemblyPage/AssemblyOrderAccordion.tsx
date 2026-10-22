@@ -19,7 +19,10 @@ import WarehouseChip from "@/components/shared/WarehouseChip";
 import AssemblyOrderBoxesSection from "./AssemblyOrderBoxesSection";
 import AssemblyTaskAccordion, {AssemblyTaskStatusChip} from "./AssemblyTaskAccordion";
 import {formatOrderNumber} from "@/components/orders/orderUtils";
-import {checkBatchEligibility, getBatchDisabledReason} from "./batchEligibility";
+import {
+  checkBatchEligibility,
+  getBatchDisabledReason,
+} from "@/components/orders/assembly/batchEligibility";
 import {getTaskProgress} from "@/components/orders/orderAssemblyUtils";
 import {NOUNS, plural, pluralCount} from "@/utils/pluralUtils";
 import PostingNumberLabel from "@/components/orders/marketplace/PostingNumberLabel";

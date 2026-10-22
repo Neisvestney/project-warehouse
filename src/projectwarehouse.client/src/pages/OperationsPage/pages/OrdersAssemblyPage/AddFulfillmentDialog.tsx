@@ -34,14 +34,28 @@ import {useDefaultStorageNode} from "@/hooks/useDefaultStorageNode";
 import {useNodeItemCount} from "@/hooks/useNodeItemCount";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
 import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
-import {ComponentRow, TodoRegistryProvider, UnfilledCounter} from "./ComponentRow";
-import {NO_PICKS, type CompositionPicks} from "./compositionPicks";
-import {EMPTY_STATUS, isComplete, isShort, type SlotStatus} from "./fulfillmentStatus";
-import {useTodoRegistry} from "./todoRegistry";
-import {NodeControl, UnitPicker, type NodePick} from "./FulfillmentControls";
-import {BundleTree} from "./FulfillmentTree";
-import {VariationChain} from "./VariationChain";
-import {chainLeaf, type VariantStep} from "./variationOptions";
+import {
+  ComponentRow,
+  TodoRegistryProvider,
+  UnfilledCounter,
+} from "@/components/orders/assembly/ComponentRow";
+import {NO_PICKS, type CompositionPicks} from "@/components/orders/assembly/compositionPicks";
+import {
+  EMPTY_STATUS,
+  isComplete,
+  isShort,
+  type SlotStatus,
+} from "@/components/orders/assembly/fulfillmentStatus";
+import {useTodoRegistry} from "@/components/orders/assembly/todoRegistry";
+import {
+  NodeControl,
+  UnitPicker,
+  type NodePick,
+} from "@/components/orders/assembly/FulfillmentControls";
+import {BundleTree} from "@/components/orders/assembly/FulfillmentTree";
+import {LAST_PICKS_QUERY_KEY} from "@/components/orders/assembly/lastPicks";
+import {VariationChain} from "@/components/orders/assembly/VariationChain";
+import {chainLeaf, type VariantStep} from "@/components/orders/assembly/variationOptions";
 import {useAssemblyOrderRefresh} from "./assemblyOrderRefresh";
 
 interface AddFulfillmentDialogProps {
@@ -136,6 +150,7 @@ function AddFulfillmentContent({
     onSuccess: () => {
       void refreshOrder(orderId, taskId);
       queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: orderId}})});
+      queryClient.invalidateQueries({queryKey: LAST_PICKS_QUERY_KEY});
       onClose();
     },
     onError: (e) => setError(extractErrorMessage(e)),
@@ -150,6 +165,7 @@ function AddFulfillmentContent({
     onSuccess: (data) => {
       void refreshOrder(orderId, taskId);
       queryClient.invalidateQueries({queryKey: ordersGetByIdQueryKey({path: {id: orderId}})});
+      queryClient.invalidateQueries({queryKey: LAST_PICKS_QUERY_KEY});
       if (data.failedItems.length === 0) onClose();
       else setFailedItems(data.failedItems);
     },

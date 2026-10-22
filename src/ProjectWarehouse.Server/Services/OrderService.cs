@@ -995,7 +995,7 @@ public class OrderService(ApplicationDbContext db, IInventoryService inventory, 
     }
 
     /// <summary>Same counting convention as the frontend's countFulfilledQty: a Unit/Bundle fulfillment always counts as 1, Standard counts by Quantity.</summary>
-    private static int CountFulfilledQty(IEnumerable<AssemblyFulfillment> fulfillments)
+    internal static int CountFulfilledQty(IEnumerable<AssemblyFulfillment> fulfillments)
     {
         var sum = 0;
         foreach (var f in fulfillments)

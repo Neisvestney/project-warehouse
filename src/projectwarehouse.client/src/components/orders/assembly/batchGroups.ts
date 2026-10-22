@@ -30,6 +30,10 @@ export interface BatchGroup {
   targets: BatchTarget[];
 }
 
+export function batchGroupKey(catalogItemId: string, warehouseId: string): string {
+  return `${catalogItemId}::${warehouseId}`;
+}
+
 export function buildBatchGroups(selectedTasks: SelectedTaskInfo[]): BatchGroup[] {
   const groupMap = new Map<string, BatchGroup>();
 
@@ -39,7 +43,7 @@ export function buildBatchGroups(selectedTasks: SelectedTaskInfo[]): BatchGroup[
         const remaining = getRemainingQty(comp);
         if (remaining <= 0) continue;
 
-        const key = `${comp.catalogItemId}::${warehouseId}`;
+        const key = batchGroupKey(comp.catalogItemId, warehouseId);
         const target: BatchTarget = {
           orderId,
           taskId,

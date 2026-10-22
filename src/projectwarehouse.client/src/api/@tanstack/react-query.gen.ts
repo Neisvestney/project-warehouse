@@ -86,6 +86,7 @@ import {
   ordersBatchSelfAssign,
   ordersBatchTransitionStatus,
   ordersBatchUpdateTags,
+  ordersCheckAssembly,
   ordersCreateAssemblyTask,
   ordersCreateDirect,
   ordersCreateTag,
@@ -94,10 +95,12 @@ import {
   ordersGetAll,
   ordersGetAllAssembly,
   ordersGetAssemblyById,
+  ordersGetAssemblyCheckPreview,
   ordersGetById,
   ordersGetCompositionPreview,
   ordersGetCompositionSummary,
   ordersGetLabels,
+  ordersGetLastPicks,
   ordersGetTags,
   ordersGetTaskMoveTargets,
   ordersMoveTaskComponent,
@@ -459,6 +462,9 @@ import type {
   OrdersBatchUpdateTagsData,
   OrdersBatchUpdateTagsError,
   OrdersBatchUpdateTagsResponse,
+  OrdersCheckAssemblyData,
+  OrdersCheckAssemblyError,
+  OrdersCheckAssemblyResponse,
   OrdersCreateAssemblyTaskData,
   OrdersCreateAssemblyTaskError,
   OrdersCreateAssemblyTaskResponse,
@@ -483,6 +489,9 @@ import type {
   OrdersGetAssemblyByIdData,
   OrdersGetAssemblyByIdError,
   OrdersGetAssemblyByIdResponse,
+  OrdersGetAssemblyCheckPreviewData,
+  OrdersGetAssemblyCheckPreviewError,
+  OrdersGetAssemblyCheckPreviewResponse,
   OrdersGetByIdData,
   OrdersGetByIdError,
   OrdersGetByIdResponse,
@@ -494,6 +503,9 @@ import type {
   OrdersGetCompositionSummaryResponse,
   OrdersGetLabelsData,
   OrdersGetLabelsError,
+  OrdersGetLastPicksData,
+  OrdersGetLastPicksError,
+  OrdersGetLastPicksResponse,
   OrdersGetTagsData,
   OrdersGetTagsError,
   OrdersGetTagsResponse,
@@ -4087,6 +4099,114 @@ export const ordersGetCompositionSummaryMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await ordersGetCompositionSummary({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * What is left to assemble in several orders, shaped as assembly tasks for the stock check dialog.
+ *
+ * Body: `AssemblyCheckPreviewRequest` — `orderIds` (duplicates are collapsed, unknown ids are
+ * skipped). Returns 422 `required` for an empty list.
+ * An `Assembly` order contributes every task it has, whoever it is assigned to; a `Draft` or
+ * `Confirmed` order contributes the one task assignment would create from its boxes — its id is the
+ * order's, box and component ids are the order's own. Component `quantity` is what is still left to
+ * assemble, `fulfillments` is empty and `containsUnit` is filled as in `GET /assembly`.
+ * Orders in any other status, external ones and ones outside the caller's warehouses are left out.
+ * Requires `orders.view` or `orders.view_assigned`.
+ */
+export const ordersGetAssemblyCheckPreviewMutation = (
+  options?: Partial<Options<OrdersGetAssemblyCheckPreviewData>>,
+): UseMutationOptions<
+  OrdersGetAssemblyCheckPreviewResponse,
+  OrdersGetAssemblyCheckPreviewError,
+  Options<OrdersGetAssemblyCheckPreviewData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersGetAssemblyCheckPreviewResponse,
+    OrdersGetAssemblyCheckPreviewError,
+    Options<OrdersGetAssemblyCheckPreviewData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersGetAssemblyCheckPreview({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Checks whether the shelves hold what a set of fulfillments would take, without recording any.
+ *
+ * Body: `AssemblyCheckRequest` — `items[]` of `{ catalogItemId, fulfillment }`, the fulfillment
+ * in the same shape `batch-fulfill` takes. Demand is summed per catalog item and storage node over the
+ * whole request and compared with the current stock; `insufficientInventoryErrors` carries one error
+ * per pair that falls short, in the same shape as `batch-fulfill`'s. Unit picks and items of unknown
+ * catalog ids ask nothing of stock. Nothing is written and nothing is locked.
+ * Requires `orders.view` or `orders.view_assigned`; with the latter every storage node of the request
+ * must belong to one of the caller's warehouses, otherwise 403 `warehouseNotAssigned`.
+ */
+export const ordersCheckAssemblyMutation = (
+  options?: Partial<Options<OrdersCheckAssemblyData>>,
+): UseMutationOptions<
+  OrdersCheckAssemblyResponse,
+  OrdersCheckAssemblyError,
+  Options<OrdersCheckAssemblyData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersCheckAssemblyResponse,
+    OrdersCheckAssemblyError,
+    Options<OrdersCheckAssemblyData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersCheckAssembly({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * The caller's variant choices from their latest assembly of each item at each warehouse.
+ *
+ * Body: `AssemblyLastPicksRequest` — `items[]` of `{ catalogItemId, warehouseId }`. For each pair
+ * the latest non-unit fulfillment the caller created for a component of that item, in an order of that
+ * warehouse, is turned into a hint: `chain` — the variant picked at every level of a Variation;
+ * `bundlePicks` — the variant picked at every variation slot of a Bundle (or of the Bundle a Variation
+ * resolved to), found by matching the recorded leaves against the current composition. Standard items get no
+ * hint, and neither does a pair with no such fulfillment, a variant that is no longer a member, or a Bundle
+ * some current leaf of which was not picked last time; in the last case a Variation keeps its `chain`.
+ * Cells are never part of a hint. Requires view access to orders (`orders.view`,
+ * `orders.view_assigned` or `orders.assemble_assigned`).
+ */
+export const ordersGetLastPicksMutation = (
+  options?: Partial<Options<OrdersGetLastPicksData>>,
+): UseMutationOptions<
+  OrdersGetLastPicksResponse,
+  OrdersGetLastPicksError,
+  Options<OrdersGetLastPicksData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersGetLastPicksResponse,
+    OrdersGetLastPicksError,
+    Options<OrdersGetLastPicksData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersGetLastPicks({
         ...options,
         ...fnOptions,
         throwOnError: true,

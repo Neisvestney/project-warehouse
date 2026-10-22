@@ -29,9 +29,12 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import {byOperation} from "@/utils/queryKeys";
 import {CatalogItemDrawerHost} from "@/components/catalog/CatalogItemDrawerHost";
 import AssemblyOrderAccordion from "./AssemblyOrderAccordion";
-import {checkBatchEligibility, getBatchDisabledReason} from "./batchEligibility";
-import BatchAssemblyDialog from "./BatchAssemblyDialog";
-import type {SelectedTaskInfo} from "./batchGroups";
+import {
+  checkBatchEligibility,
+  getBatchDisabledReason,
+} from "@/components/orders/assembly/batchEligibility";
+import BatchAssemblyDialog from "@/components/orders/assembly/BatchAssemblyDialog";
+import type {SelectedTaskInfo} from "@/components/orders/assembly/batchGroups";
 import PageGenericHeader from "@/components/PageGenericHeader.tsx";
 import AppBreadcrumbs from "@/components/AppBreadcrumbs.tsx";
 import FiltersBar from "@/components/FiltersBar.tsx";

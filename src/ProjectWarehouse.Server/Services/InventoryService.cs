@@ -44,6 +44,10 @@ public class InventoryService(
         return new InsufficientInventoryException(nodeId, catalogItemId, available, requested, itemName, path);
     }
 
+    public Task<InsufficientInventoryException> DescribeShortageAsync(
+        Guid nodeId, Guid catalogItemId, int available, int requested, CancellationToken ct = default) =>
+        BuildInsufficientInventoryExceptionAsync(nodeId, catalogItemId, available, requested, ct);
+
     private async Task<Dictionary<Guid, StoragePlaceNode>> GetWarehouseNodesAsync(
         Guid warehouseId, CancellationToken ct)
     {

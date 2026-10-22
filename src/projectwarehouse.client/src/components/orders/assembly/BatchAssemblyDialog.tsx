@@ -39,10 +39,18 @@ import CloseIcon from "@mui/icons-material/Close";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import UndoIcon from "@mui/icons-material/Undo";
-import {useMutation, useQueryClient} from "@tanstack/react-query";
+import {
+  type Query,
+  useIsFetching,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {useSnackbar} from "notistack";
+import {ordersGetLastPicks} from "@/api";
 import {
   ordersBatchFulfillMutation,
+  ordersCheckAssemblyMutation,
   ordersGetAllAssemblyQueryKey,
   ordersGetAllQueryKey,
 } from "@/api/@tanstack/react-query.gen";
@@ -50,12 +58,13 @@ import type {
   AddFulfillmentBundleComponentRequest,
   AddFulfillmentRequest,
   AppFieldError,
+  AssemblyLastPickDto,
   BatchFulfillFailedItem,
   CatalogItemType,
 } from "@/api/types.gen";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {useBackClosable} from "@/hooks/useBackClosable";
-import {useDefaultStorageNode} from "@/hooks/useDefaultStorageNode";
+import {useDefaultStorageNode, useDefaultStorageNodeQuery} from "@/hooks/useDefaultStorageNode";
 import {useModal} from "@/hooks/useModal";
 import {useNodeItemCount} from "@/hooks/useNodeItemCount";
 import {useRetainedValue} from "@/hooks/useRetainedValue";
@@ -70,12 +79,14 @@ import {BundleTree} from "./FulfillmentTree";
 import {IgnoreStockContext} from "./stockGuard";
 import GroupTasksDialog from "./GroupTasksDialog";
 import {
+  batchGroupKey,
   buildBatchGroups,
   withoutExcludedTasks,
   NO_EXCLUDED_TASKS,
   type BatchGroup,
   type SelectedTaskInfo,
 } from "./batchGroups";
+import {LAST_PICKS_QUERY_KEY} from "./lastPicks";
 import {VariationChain} from "./VariationChain";
 import {chainLeaf, type VariantStep} from "./variationOptions";
 
@@ -89,6 +100,8 @@ interface GroupState {
   status: SlotStatus;
   /** Composition choices, kept here so folding the group shut does not lose them. */
   picks: CompositionPicks;
+  /** The variants came from the user's previous assembly of the item and are untouched since. */
+  hinted: boolean;
 }
 
 function emptyGroupState(): GroupState {
@@ -99,7 +112,14 @@ function emptyGroupState(): GroupState {
     entries: [],
     status: EMPTY_STATUS,
     picks: NO_PICKS,
+    hinted: false,
   };
+}
+
+function hintedState(hint: AssemblyLastPickDto): Partial<GroupState> {
+  const picks: Record<string, {variant: VariantStep}> = {};
+  for (const {path, variant} of hint.bundlePicks) picks[path] = {variant};
+  return {chain: hint.chain, picks, hinted: true};
 }
 
 /** The item stock actually moves against — the variation's leaf, or the group's own item. */
@@ -145,22 +165,30 @@ function describeOutcome(
   };
 }
 
+type BatchAssemblyMode = "assemble" | "check";
+
 interface BatchAssemblyDialogProps {
   open: boolean;
   onClose: () => void;
+  /** `check` sends the same picks to the stock check instead of recording them. */
+  mode?: BatchAssemblyMode;
   /** Fires before `onClose` when the whole batch went through; a cancel calls only `onClose`. */
-  onAssembled: () => void;
+  onAssembled?: () => void;
   /** After a partial success: the tasks that got every remaining component, the dialog stays open. */
-  onPartlyAssembled: (taskIds: ReadonlySet<string>) => void;
+  onPartlyAssembled?: (taskIds: ReadonlySet<string>) => void;
   selectedTasks: SelectedTaskInfo[];
+  /** Shown above the groups — what the caller left out of the batch and why. */
+  notice?: string;
 }
 
 function BatchAssemblyDialog({
   open,
   onClose,
+  mode = "assemble",
   onAssembled,
   onPartlyAssembled,
   selectedTasks,
+  notice,
 }: BatchAssemblyDialogProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -171,7 +199,8 @@ function BatchAssemblyDialog({
   const requestCloseRef = useRef<(() => void) | null>(null);
 
   // A misclick on the backdrop or Back would throw away every pick, so only Esc and Cancel close.
-  useBackClosable(open, onClose, {blockBack: true});
+  // A check records nothing, so Back may close it like any other dialog.
+  useBackClosable(open, onClose, {blockBack: mode === "assemble"});
 
   return (
     <Dialog
@@ -179,7 +208,7 @@ function BatchAssemblyDialog({
       onClose={(_event, reason) => {
         if (reason === "escapeKeyDown") requestCloseRef.current?.();
       }}
-      maxWidth="md"
+      maxWidth="lg"
       fullWidth
       fullScreen={isMobile}
       slotProps={{
@@ -190,10 +219,12 @@ function BatchAssemblyDialog({
       {shownTasks && (
         <BatchAssemblyContent
           onClose={onClose}
+          mode={mode}
           onAssembled={onAssembled}
           onPartlyAssembled={onPartlyAssembled}
           requestCloseRef={requestCloseRef}
           selectedTasks={shownTasks}
+          notice={notice}
           isMobile={isMobile}
         />
       )}
@@ -201,17 +232,26 @@ function BatchAssemblyDialog({
   );
 }
 
-interface BatchAssemblyContentProps extends Omit<BatchAssemblyDialogProps, "open"> {
+interface BatchAssemblyContentProps extends Omit<BatchAssemblyDialogProps, "open" | "mode"> {
+  mode: BatchAssemblyMode;
   requestCloseRef: Ref<(() => void) | null>;
   isMobile: boolean;
 }
 
+/** A check result belongs to the picks it was made for; any change in them makes it stale. */
+interface CheckResult {
+  signature: string;
+  shortages: AppFieldError[];
+}
+
 function BatchAssemblyContent({
   onClose,
+  mode,
   onAssembled,
   onPartlyAssembled,
   requestCloseRef,
   selectedTasks,
+  notice,
   isMobile,
 }: BatchAssemblyContentProps) {
   const queryClient = useQueryClient();
@@ -219,6 +259,7 @@ function BatchAssemblyContent({
   const {showConfirm} = useModal();
   const groups = useMemo(() => buildBatchGroups(selectedTasks), [selectedTasks]);
   const {registry, scrollToFirst} = useTodoRegistry();
+  const checking = mode === "check";
 
   const [groupStates, setGroupStates] = useState<Map<string, GroupState>>(new Map());
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -232,8 +273,10 @@ function BatchAssemblyContent({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [allowPartialSuccess, setAllowPartialSuccess] = useState(false);
   const [ignoreStock, setIgnoreStock] = useState(false);
+  const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
   const submittingRef = useRef(false);
   const confirmingCloseRef = useRef(false);
+  const [hintsApplied, setHintsApplied] = useState(false);
 
   const getState = useCallback(
     (key: string) => groupStates.get(key) ?? emptyGroupState(),
@@ -245,6 +288,60 @@ function BatchAssemblyContent({
       new Map(prev).set(key, {...(prev.get(key) ?? emptyGroupState()), ...patch}),
     );
   }, []);
+
+  const resetGroup = useCallback((key: string) => {
+    setGroupStates((prev) => new Map(prev).set(key, emptyGroupState()));
+  }, []);
+
+  // Standard groups pick nothing but a cell, and cells always start from the warehouse default.
+  const hintItems = groups
+    .filter((g) => g.catalogItemType !== "standard")
+    .map((g) => ({catalogItemId: g.catalogItemId, warehouseId: g.warehouseId}));
+  const hintsQuery = useQuery({
+    queryKey: [...LAST_PICKS_QUERY_KEY, hintItems],
+    queryFn: async ({signal}) => {
+      const response = await ordersGetLastPicks({
+        body: {items: hintItems},
+        signal,
+        throwOnError: true,
+      });
+      return response.data;
+    },
+    enabled: hintItems.length > 0,
+    staleTime: Infinity,
+    // a missing hint only means picking by hand, so a failure is neither retried nor reported
+    retry: false,
+    meta: {suppressGlobalError: true},
+  });
+  const hints = hintsQuery.data;
+  const fetching = useSettledFetching();
+  const awaitingHints = hintItems.length > 0 && !hintsApplied && !hintsQuery.isError;
+
+  /** Not ready yet, but only because something is still on its way: the hints, or a hinted tree's levels. */
+  const groupLoading = (group: BatchGroup) => {
+    const state = getState(group.key);
+    if (groupBlocker(group, state) === "") return false;
+    if (awaitingHints && group.catalogItemType !== "standard") return true;
+    if (!state.hinted || resolvedItem(group, state)?.type !== "bundle") return false;
+    // a tree that has not reported once has not even started fetching
+    return fetching || state.status.total === 0;
+  };
+
+  // Applied once, and only to groups the user has not started on while the hints were loading.
+  // Done in render, so no frame shows the groups as arrived-but-empty.
+  if (hints && !hintsApplied) {
+    setHintsApplied(true);
+    setGroupStates((prev) => {
+      const next = new Map(prev);
+      for (const hint of hints) {
+        const key = batchGroupKey(hint.catalogItemId, hint.warehouseId);
+        const state = prev.get(key) ?? emptyGroupState();
+        if (state.chain.length > 0 || Object.keys(state.picks).length > 0) continue;
+        next.set(key, {...state, ...hintedState(hint)});
+      }
+      return next;
+    });
+  }
 
   // The state of an excluded group is kept, so bringing it back restores the composition with it.
   const toggleExcluded = useCallback((key: string) => {
@@ -269,9 +366,18 @@ function BatchAssemblyContent({
   const patchPicks = useCallback((key: string, update: PicksUpdate) => {
     setGroupStates((prev) => {
       const state = prev.get(key) ?? emptyGroupState();
-      return new Map(prev).set(key, {...state, picks: update(state.picks)});
+      return new Map(prev).set(key, {...state, picks: update(state.picks), hinted: false});
     });
   }, []);
+
+  const checkMutation = useMutation({
+    ...ordersCheckAssemblyMutation(),
+    meta: {suppressGlobalError: true},
+    onError: (error) => setSubmitError(extractErrorMessage(error)),
+    onSettled: () => {
+      submittingRef.current = false;
+    },
+  });
 
   const mutation = useMutation({
     ...ordersBatchFulfillMutation(),
@@ -283,6 +389,7 @@ function BatchAssemblyContent({
       await Promise.all([
         queryClient.invalidateQueries({queryKey: ordersGetAllQueryKey()}),
         queryClient.invalidateQueries({queryKey: ordersGetAllAssemblyQueryKey()}),
+        queryClient.invalidateQueries({queryKey: LAST_PICKS_QUERY_KEY}),
       ]);
       setFailedItems(data.failedItems);
       setShortageErrors(data.insufficientInventoryErrors);
@@ -293,7 +400,7 @@ function BatchAssemblyContent({
       );
       enqueueSnackbar(outcome.message, {variant: outcome.variant});
       if (data.failedItems.length === 0) {
-        onAssembled();
+        onAssembled?.();
         onClose();
       }
     },
@@ -302,10 +409,15 @@ function BatchAssemblyContent({
       submittingRef.current = false;
     },
   });
+  const isPending = mutation.isPending || checkMutation.isPending;
 
   async function requestClose() {
     // submittingRef flips synchronously, before the re-render that would expose isPending
-    if (submittingRef.current || mutation.isPending || confirmingCloseRef.current) return;
+    if (submittingRef.current || isPending || confirmingCloseRef.current) return;
+    if (checking) {
+      onClose();
+      return;
+    }
     confirmingCloseRef.current = true;
     const ok = await showConfirm({
       title: "Прервать сборку?",
@@ -352,14 +464,8 @@ function BatchAssemblyContent({
     return {sourceNodeId: state.node?.nodeId ?? null, quantity: qty, ...resolved};
   }
 
-  function handleSubmit() {
-    if (submittingRef.current || notReady > 0 || activeGroups.length === 0) return;
-    submittingRef.current = true;
-    setFailedItems([]);
-    setShortageErrors([]);
-    setSubmitError(null);
-
-    const items = activeGroups.flatMap((group) => {
+  function buildPositions() {
+    return activeGroups.flatMap((group) => {
       const state = getState(group.key);
       return group.targets.flatMap((target) => {
         const fulfillment = buildFulfillment(group, state, target.qty);
@@ -369,15 +475,57 @@ function BatchAssemblyContent({
         const countsAsOne =
           (fulfillment.bundleComponents?.length ?? 0) > 0 || !!fulfillment.unitInventoryItemId;
         const repeat = countsAsOne ? target.qty : 1;
-        return Array.from({length: repeat}, () => ({
-          orderId: target.orderId,
-          taskId: target.taskId,
-          taskBoxId: target.taskBoxId,
-          componentId: target.componentId,
-          fulfillment,
-        }));
+        return Array.from({length: repeat}, () => ({group, target, fulfillment}));
       });
     });
+  }
+
+  const checkItems = checking
+    ? buildPositions().map(({group, fulfillment}) => ({
+        catalogItemId: group.catalogItemId,
+        fulfillment,
+      }))
+    : [];
+  const checkSignature = checking ? JSON.stringify(checkItems) : "";
+  const shownCheck = checkResult?.signature === checkSignature ? checkResult : null;
+  const checkResultRef = useRef<HTMLDivElement>(null);
+
+  // The answer lands below the groups, often past the fold — bring it into view.
+  useEffect(() => {
+    if (checkResult) checkResultRef.current?.scrollIntoView({behavior: "smooth", block: "nearest"});
+  }, [checkResult]);
+
+  function handleCheck() {
+    submittingRef.current = true;
+    setSubmitError(null);
+    const signature = checkSignature;
+    checkMutation.mutate(
+      {body: {items: checkItems}},
+      {
+        onSuccess: (data) =>
+          setCheckResult({signature, shortages: data.insufficientInventoryErrors}),
+      },
+    );
+  }
+
+  function handleSubmit() {
+    if (submittingRef.current || notReady > 0 || activeGroups.length === 0) return;
+    if (checking) {
+      handleCheck();
+      return;
+    }
+    submittingRef.current = true;
+    setFailedItems([]);
+    setShortageErrors([]);
+    setSubmitError(null);
+
+    const items = buildPositions().map(({target, fulfillment}) => ({
+      orderId: target.orderId,
+      taskId: target.taskId,
+      taskBoxId: target.taskBoxId,
+      componentId: target.componentId,
+      fulfillment,
+    }));
 
     // Captured now: once the refetch lands, the groups shrink to what is still missing. The per-call
     // onSuccess below runs only after the hook-level one has awaited that refetch.
@@ -397,7 +545,7 @@ function BatchAssemblyContent({
           const failedTaskIds = new Set(
             data.failedItems.map((f) => taskByComponent.get(f.componentId)),
           );
-          onPartlyAssembled(new Set([...coveredTaskIds].filter((id) => !failedTaskIds.has(id))));
+          onPartlyAssembled?.(new Set([...coveredTaskIds].filter((id) => !failedTaskIds.has(id))));
         },
       },
     );
@@ -443,10 +591,24 @@ function BatchAssemblyContent({
     />
   );
 
+  // Kept outside the todo registry: rows nobody can see must not be what the counter jumps to.
+  const headless = (
+    <Box sx={{display: "none"}}>
+      {activeGroups
+        .filter((g) => g.key !== expandedKey && getState(g.key).hinted)
+        .map((g) => (
+          <HeadlessComposition key={g.key} group={g} state={getState(g.key)} onPatch={patchState} />
+        ))}
+    </Box>
+  );
+
+  // A check wants the shelves' answer, not the dialog's guess, so a short cell never holds it back.
+  const stockIgnored = checking || ignoreStock;
+
   // On a phone the composition takes the whole dialog instead of unfolding inside a row.
   if (isMobile && openGroup) {
     return (
-      <IgnoreStockContext value={ignoreStock}>
+      <IgnoreStockContext value={stockIgnored}>
         <DialogTitle sx={{pb: 1}}>
           <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
             <IconButton size="small" onClick={() => setExpandedKey(null)}>
@@ -482,6 +644,7 @@ function BatchAssemblyContent({
               )}
             </Stack>
           </TodoRegistryProvider>
+          {headless}
           {tasksDialog}
         </DialogContent>
         <DialogActions sx={{flexDirection: "column", alignItems: "stretch", gap: 1}}>
@@ -495,12 +658,16 @@ function BatchAssemblyContent({
   }
 
   return (
-    <IgnoreStockContext value={ignoreStock}>
+    <IgnoreStockContext value={stockIgnored}>
       <DialogTitle sx={{pb: 1}}>
         <Stack spacing={0.5}>
-          <Typography variant="h6">Массовая сборка</Typography>
+          <Typography variant="h6">
+            {checking ? "Получится ли собрать?" : "Массовая сборка"}
+          </Typography>
           <Typography variant="caption" color="text.secondary">
-            {pluralCount(selectedTasks.length, NOUNS.task)} · {pluralCount(orderCount, ORDERS)}
+            {checking
+              ? pluralCount(orderCount, ORDERS)
+              : `${pluralCount(selectedTasks.length, NOUNS.task)} · ${pluralCount(orderCount, ORDERS)}`}
           </Typography>
         </Stack>
       </DialogTitle>
@@ -508,9 +675,13 @@ function BatchAssemblyContent({
       <DialogContent>
         <TodoRegistryProvider registry={registry}>
           <Stack spacing={2} sx={{mt: 1}}>
+            {notice && <Alert severity="info">{notice}</Alert>}
+
             {groups.length === 0 && (
               <Typography color="text.secondary">
-                В выбранных заданиях не осталось несобранных позиций
+                {checking
+                  ? "В выбранных заказах нечего проверять"
+                  : "В выбранных заданиях не осталось несобранных позиций"}
               </Typography>
             )}
 
@@ -524,12 +695,14 @@ function BatchAssemblyContent({
                       fullGroup={groups[i]}
                       state={getState(group.key)}
                       blocker={groupBlocker(group, getState(group.key))}
+                      loading={groupLoading(group)}
                       failures={groupFailures(group)}
                       excluded={excludedKeys.has(group.key)}
                       onPatch={patchState}
                       onToggleExcluded={() => toggleExcluded(group.key)}
                       onOpenTasks={() => setTasksDialogKey(group.key)}
                       onOpenComposition={() => setExpandedKey(group.key)}
+                      onReset={() => resetGroup(group.key)}
                     />
                   ))}
                 </Stack>
@@ -540,7 +713,7 @@ function BatchAssemblyContent({
                       <TableCell>Позиция</TableCell>
                       <TableCell align="right">Итого</TableCell>
                       <TableCell>Источник</TableCell>
-                      <TableCell>Статус</TableCell>
+                      <TableCell sx={{width: STATUS_COLUMN_WIDTH}}>Статус</TableCell>
                       <TableCell padding="checkbox" />
                     </TableRow>
                   </TableHead>
@@ -552,6 +725,7 @@ function BatchAssemblyContent({
                         fullGroup={groups[i]}
                         state={getState(group.key)}
                         blocker={groupBlocker(group, getState(group.key))}
+                        loading={groupLoading(group)}
                         failures={groupFailures(group)}
                         excluded={excludedKeys.has(group.key)}
                         expanded={expandedKey === group.key}
@@ -562,6 +736,7 @@ function BatchAssemblyContent({
                         onOpenTasks={() => setTasksDialogKey(group.key)}
                         onPatch={patchState}
                         onPicksPatch={patchPicks}
+                        onReset={() => resetGroup(group.key)}
                       />
                     ))}
                   </TableBody>
@@ -579,46 +754,65 @@ function BatchAssemblyContent({
               </Alert>
             )}
 
+            {shownCheck && shownCheck.shortages.length === 0 && (
+              <Alert ref={checkResultRef} severity="success">
+                Остатков хватит на {pluralCount(activeTaskCount, NOUNS.task)}
+              </Alert>
+            )}
+            {shownCheck && shownCheck.shortages.length > 0 && (
+              <Alert ref={checkResultRef} severity="error">
+                <AlertTitle>Не хватит остатков</AlertTitle>
+                {shownCheck.shortages.map((error, i) => (
+                  <Typography key={i} variant="caption" sx={{display: "block"}}>
+                    • {resolveErrorMessage(error)}
+                  </Typography>
+                ))}
+              </Alert>
+            )}
+
             {submitError && <Alert severity="error">{submitError}</Alert>}
 
-            <Stack>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    size="small"
-                    checked={allowPartialSuccess}
-                    onChange={(e) => setAllowPartialSuccess(e.target.checked)}
-                  />
-                }
-                label={
-                  <Typography variant="body2">Сохранять успешные позиции при ошибках</Typography>
-                }
-              />
-              <Typography variant="caption" color="text.secondary" sx={{ml: 4, mt: -0.5}}>
-                {allowPartialSuccess
-                  ? "Что удалось собрать — останется собранным"
-                  : "Любая ошибка откатит всю партию целиком"}
-              </Typography>
-              {import.meta.env.DEV && (
+            {!checking && (
+              <Stack>
                 <FormControlLabel
-                  sx={{mt: 0.5}}
                   control={
-                    <Switch
+                    <Checkbox
                       size="small"
-                      checked={ignoreStock}
-                      onChange={(e) => setIgnoreStock(e.target.checked)}
+                      checked={allowPartialSuccess}
+                      onChange={(e) => setAllowPartialSuccess(e.target.checked)}
                     />
                   }
                   label={
-                    <Typography variant="body2" color="text.secondary">
-                      dev: не блокировать сборку при нехватке остатков
-                    </Typography>
+                    <Typography variant="body2">Сохранять успешные позиции при ошибках</Typography>
                   }
                 />
-              )}
-            </Stack>
+                <Typography variant="caption" color="text.secondary" sx={{ml: 4, mt: -0.5}}>
+                  {allowPartialSuccess
+                    ? "Что удалось собрать — останется собранным"
+                    : "Любая ошибка откатит всю партию целиком"}
+                </Typography>
+                {import.meta.env.DEV && (
+                  <FormControlLabel
+                    sx={{mt: 0.5}}
+                    control={
+                      <Switch
+                        size="small"
+                        checked={ignoreStock}
+                        onChange={(e) => setIgnoreStock(e.target.checked)}
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" color="text.secondary">
+                        dev: не блокировать сборку при нехватке остатков
+                      </Typography>
+                    }
+                  />
+                )}
+              </Stack>
+            )}
           </Stack>
         </TodoRegistryProvider>
+        {headless}
         {tasksDialog}
       </DialogContent>
 
@@ -638,23 +832,19 @@ function BatchAssemblyContent({
           spacing={1}
           sx={{ml: isMobile ? 0 : "auto", width: isMobile ? "100%" : undefined}}
         >
-          <Button
-            onClick={() => void requestClose()}
-            disabled={mutation.isPending}
-            fullWidth={isMobile}
-          >
-            Отмена
+          <Button onClick={() => void requestClose()} disabled={isPending} fullWidth={isMobile}>
+            {checking ? "Закрыть" : "Отмена"}
           </Button>
           <Button
             variant="contained"
             fullWidth={isMobile}
             onClick={handleSubmit}
-            disabled={mutation.isPending || activeGroups.length === 0 || notReady > 0}
+            disabled={isPending || activeGroups.length === 0 || notReady > 0}
           >
-            {mutation.isPending ? (
+            {isPending ? (
               <CircularProgress size={20} color="inherit" />
             ) : (
-              `Собрать ${pluralCount(activeTaskCount, NOUNS.task)}`
+              `${checking ? "Проверить" : "Собрать"} ${pluralCount(activeTaskCount, NOUNS.task)}`
             )}
           </Button>
         </Stack>
@@ -711,7 +901,53 @@ function EmptiedGroupNote() {
   );
 }
 
-function StatusChip({blocker}: {blocker: string}) {
+const STATUS_COLUMN_WIDTH = 140;
+
+// What a composition tree loads on its own; the page under the dialog fetches plenty of anything else.
+const TREE_QUERY_IDS: ReadonlySet<string> = new Set([
+  "catalogGetById",
+  "storagePlacesGetNodeItemCount",
+  "warehousesGetDefaultNode",
+]);
+
+function isTreeQuery(query: Query): boolean {
+  const head = query.queryKey[0];
+  return (
+    typeof head === "object" &&
+    head !== null &&
+    TREE_QUERY_IDS.has((head as {_id?: string})._id ?? "")
+  );
+}
+
+/**
+ * Whether anything is fetching, held a moment past the last request: a nested tree level only starts
+ * its query after the parent's lands, and the gap between them must not read as «done».
+ */
+function useSettledFetching(): boolean {
+  const fetching = useIsFetching({predicate: isTreeQuery}) > 0;
+  const [settled, setSettled] = useState(!fetching);
+  if (fetching && settled) setSettled(false);
+
+  useEffect(() => {
+    if (fetching) return;
+    const timer = setTimeout(() => setSettled(true), 300);
+    return () => clearTimeout(timer);
+  }, [fetching]);
+
+  return fetching || !settled;
+}
+
+function StatusChip({blocker, loading}: {blocker: string; loading: boolean}) {
+  if (loading) {
+    return (
+      <Chip
+        size="small"
+        variant="outlined"
+        icon={<CircularProgress size={12} color="inherit" />}
+        label="загрузка"
+      />
+    );
+  }
   return blocker ? (
     <Chip size="small" color="warning" label={blocker} />
   ) : (
@@ -776,7 +1012,10 @@ function useGroupDefaultNode(
   onPatch: (key: string, patch: Partial<GroupState>) => void,
 ) {
   const wanted = !!group && !!state && resolvedItem(group, state)?.type === "standard";
-  const defaultNode = useDefaultStorageNode(group?.warehouseId ?? "", wanted);
+  const {node: defaultNode, isPending} = useDefaultStorageNodeQuery(
+    group?.warehouseId ?? "",
+    wanted,
+  );
   const node = state?.node;
   const groupKey = group?.key;
 
@@ -789,6 +1028,9 @@ function useGroupDefaultNode(
       },
     });
   }, [wanted, defaultNode, node, groupKey, onPatch]);
+
+  // true until the default lands in the state, including the render between its arrival and the patch
+  return wanted && !node && !state?.nodePicked && (isPending || !!defaultNode);
 }
 
 /** Cell of a standard group — the need is the whole group, so the stock check is multiplied. */
@@ -811,6 +1053,7 @@ function GroupNodeControl({group, state, onPatch, catalogItemId}: GroupNodeContr
 }
 
 interface GroupRowProps extends GroupViewProps {
+  loading: boolean;
   fullGroup: BatchGroup;
   excluded: boolean;
   expanded: boolean;
@@ -818,6 +1061,7 @@ interface GroupRowProps extends GroupViewProps {
   onToggleExcluded: () => void;
   onOpenTasks: () => void;
   onPicksPatch: (key: string, update: PicksUpdate) => void;
+  onReset: () => void;
 }
 
 function GroupRow({
@@ -825,6 +1069,7 @@ function GroupRow({
   fullGroup,
   state,
   blocker,
+  loading,
   failures,
   excluded,
   expanded,
@@ -833,11 +1078,12 @@ function GroupRow({
   onOpenTasks,
   onPatch,
   onPicksPatch,
+  onReset,
 }: GroupRowProps) {
   const composable = group.catalogItemType !== "standard";
   const emptied = !excluded && group.targets.length === 0;
 
-  useGroupDefaultNode(group, state, onPatch);
+  const settlingCell = useGroupDefaultNode(group, state, onPatch);
 
   return (
     <>
@@ -877,6 +1123,7 @@ function GroupRow({
                 }
               />
             )}
+            {state.hinted && !excluded && <HintChip onReset={onReset} />}
           </Stack>
         </TableCell>
         <TableCell align="right">
@@ -900,7 +1147,9 @@ function GroupRow({
         <TableCell>
           {excluded && <Chip size="small" label="убрана" />}
           {emptied && <Chip size="small" label="нет заданий" />}
-          {!excluded && !emptied && <StatusChip blocker={blocker} />}
+          {!excluded && !emptied && (
+            <StatusChip blocker={blocker} loading={loading || settlingCell} />
+          )}
         </TableCell>
         {/* Taking the group out must not also fold the row shut. */}
         <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
@@ -959,11 +1208,13 @@ function GroupRow({
 }
 
 interface GroupCardProps extends GroupViewProps {
+  loading: boolean;
   fullGroup: BatchGroup;
   excluded: boolean;
   onToggleExcluded: () => void;
   onOpenTasks: () => void;
   onOpenComposition: () => void;
+  onReset: () => void;
 }
 
 function GroupCard({
@@ -971,17 +1222,19 @@ function GroupCard({
   fullGroup,
   state,
   blocker,
+  loading,
   failures,
   excluded,
   onPatch,
   onToggleExcluded,
   onOpenTasks,
   onOpenComposition,
+  onReset,
 }: GroupCardProps) {
   const composable = group.catalogItemType !== "standard";
   const emptied = !excluded && group.targets.length === 0;
 
-  useGroupDefaultNode(group, state, onPatch);
+  const settlingCell = useGroupDefaultNode(group, state, onPatch);
 
   return (
     <Paper variant="outlined" sx={{p: 1.5, opacity: excluded ? 0.5 : undefined}}>
@@ -1000,7 +1253,9 @@ function GroupCard({
           <Stack direction="row" spacing={0.5} sx={{alignItems: "center"}}>
             {excluded && <Chip size="small" label="убрана" />}
             {emptied && <Chip size="small" label="нет заданий" />}
-            {!excluded && !emptied && <StatusChip blocker={blocker} />}
+            {!excluded && !emptied && (
+              <StatusChip blocker={blocker} loading={loading || settlingCell} />
+            )}
             <IconButton
               size="small"
               aria-label={excluded ? "Вернуть в сборку" : "Убрать из сборки"}
@@ -1021,6 +1276,7 @@ function GroupCard({
           {!excluded && !emptied && (
             <SourceCell group={group} state={state} onPatch={onPatch} withPicker />
           )}
+          {state.hinted && !excluded && <HintChip onReset={onReset} />}
         </Stack>
         {!excluded && (
           <GroupTasksSummary group={group} fullGroup={fullGroup} onOpenTasks={onOpenTasks} />
@@ -1079,6 +1335,7 @@ function GroupComposition({group, state, onPatch, onPicksPatch}: GroupCompositio
               entries: [],
               status: EMPTY_STATUS,
               picks: NO_PICKS,
+              hinted: false,
             })
           }
         />
@@ -1105,6 +1362,56 @@ function GroupComposition({group, state, onPatch, onPicksPatch}: GroupCompositio
         />
       )}
     </CompositionFrame>
+  );
+}
+
+/**
+ * A hinted bundle is filled without anyone unfolding it, yet its entries and status only come out of a
+ * mounted tree — so one runs out of sight until the group is opened and the visible tree takes over.
+ */
+function HeadlessComposition({
+  group,
+  state,
+  onPatch,
+}: Pick<GroupViewProps, "group" | "state" | "onPatch">) {
+  // slots report from effects, so a fresh callback every render would loop them
+  const handleTreeChange = useCallback(
+    (entries: AddFulfillmentBundleComponentRequest[], status: SlotStatus) =>
+      onPatch(group.key, {entries, status}),
+    [group.key, onPatch],
+  );
+
+  const resolved = resolvedItem(group, state);
+  if (resolved?.type !== "bundle") return null;
+
+  return (
+    <BundleTree
+      key={resolved.id}
+      catalogItemId={resolved.id}
+      warehouseId={group.warehouseId}
+      needTimes={group.totalNeeded}
+      picks={state.picks}
+      onPicksChange={() => {}}
+      onChange={handleTreeChange}
+    />
+  );
+}
+
+function HintChip({onReset}: {onReset: () => void}) {
+  return (
+    <Tooltip title="Варианты взяты из вашей прошлой сборки этой позиции">
+      <Chip
+        size="small"
+        color="info"
+        variant="outlined"
+        label="как в прошлый раз"
+        // the row folds open on any click, the reset must not
+        onDelete={(e: React.SyntheticEvent) => {
+          e.stopPropagation();
+          onReset();
+        }}
+      />
+    </Tooltip>
   );
 }
 

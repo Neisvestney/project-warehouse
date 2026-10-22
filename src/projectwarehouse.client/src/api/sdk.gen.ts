@@ -235,6 +235,9 @@ import type {
   OrdersBatchUpdateTagsData,
   OrdersBatchUpdateTagsErrors,
   OrdersBatchUpdateTagsResponses,
+  OrdersCheckAssemblyData,
+  OrdersCheckAssemblyErrors,
+  OrdersCheckAssemblyResponses,
   OrdersCreateAssemblyTaskData,
   OrdersCreateAssemblyTaskErrors,
   OrdersCreateAssemblyTaskResponses,
@@ -259,6 +262,9 @@ import type {
   OrdersGetAssemblyByIdData,
   OrdersGetAssemblyByIdErrors,
   OrdersGetAssemblyByIdResponses,
+  OrdersGetAssemblyCheckPreviewData,
+  OrdersGetAssemblyCheckPreviewErrors,
+  OrdersGetAssemblyCheckPreviewResponses,
   OrdersGetByIdData,
   OrdersGetByIdErrors,
   OrdersGetByIdResponses,
@@ -271,6 +277,9 @@ import type {
   OrdersGetLabelsData,
   OrdersGetLabelsErrors,
   OrdersGetLabelsResponses,
+  OrdersGetLastPicksData,
+  OrdersGetLastPicksErrors,
+  OrdersGetLastPicksResponses,
   OrdersGetTagsData,
   OrdersGetTagsErrors,
   OrdersGetTagsResponses,
@@ -2510,6 +2519,94 @@ export const ordersGetCompositionSummary = <ThrowOnError extends boolean = false
     ThrowOnError
   >({
     url: "/api/orders/composition-summary",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * What is left to assemble in several orders, shaped as assembly tasks for the stock check dialog.
+ *
+ * Body: `AssemblyCheckPreviewRequest` — `orderIds` (duplicates are collapsed, unknown ids are
+ * skipped). Returns 422 `required` for an empty list.
+ * An `Assembly` order contributes every task it has, whoever it is assigned to; a `Draft` or
+ * `Confirmed` order contributes the one task assignment would create from its boxes — its id is the
+ * order's, box and component ids are the order's own. Component `quantity` is what is still left to
+ * assemble, `fulfillments` is empty and `containsUnit` is filled as in `GET /assembly`.
+ * Orders in any other status, external ones and ones outside the caller's warehouses are left out.
+ * Requires `orders.view` or `orders.view_assigned`.
+ */
+export const ordersGetAssemblyCheckPreview = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersGetAssemblyCheckPreviewData, ThrowOnError>,
+): RequestResult<
+  OrdersGetAssemblyCheckPreviewResponses,
+  OrdersGetAssemblyCheckPreviewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    OrdersGetAssemblyCheckPreviewResponses,
+    OrdersGetAssemblyCheckPreviewErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/assembly-check/preview",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Checks whether the shelves hold what a set of fulfillments would take, without recording any.
+ *
+ * Body: `AssemblyCheckRequest` — `items[]` of `{ catalogItemId, fulfillment }`, the fulfillment
+ * in the same shape `batch-fulfill` takes. Demand is summed per catalog item and storage node over the
+ * whole request and compared with the current stock; `insufficientInventoryErrors` carries one error
+ * per pair that falls short, in the same shape as `batch-fulfill`'s. Unit picks and items of unknown
+ * catalog ids ask nothing of stock. Nothing is written and nothing is locked.
+ * Requires `orders.view` or `orders.view_assigned`; with the latter every storage node of the request
+ * must belong to one of the caller's warehouses, otherwise 403 `warehouseNotAssigned`.
+ */
+export const ordersCheckAssembly = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersCheckAssemblyData, ThrowOnError>,
+): RequestResult<OrdersCheckAssemblyResponses, OrdersCheckAssemblyErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    OrdersCheckAssemblyResponses,
+    OrdersCheckAssemblyErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/assembly-check",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * The caller's variant choices from their latest assembly of each item at each warehouse.
+ *
+ * Body: `AssemblyLastPicksRequest` — `items[]` of `{ catalogItemId, warehouseId }`. For each pair
+ * the latest non-unit fulfillment the caller created for a component of that item, in an order of that
+ * warehouse, is turned into a hint: `chain` — the variant picked at every level of a Variation;
+ * `bundlePicks` — the variant picked at every variation slot of a Bundle (or of the Bundle a Variation
+ * resolved to), found by matching the recorded leaves against the current composition. Standard items get no
+ * hint, and neither does a pair with no such fulfillment, a variant that is no longer a member, or a Bundle
+ * some current leaf of which was not picked last time; in the last case a Variation keeps its `chain`.
+ * Cells are never part of a hint. Requires view access to orders (`orders.view`,
+ * `orders.view_assigned` or `orders.assemble_assigned`).
+ */
+export const ordersGetLastPicks = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersGetLastPicksData, ThrowOnError>,
+): RequestResult<OrdersGetLastPicksResponses, OrdersGetLastPicksErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    OrdersGetLastPicksResponses,
+    OrdersGetLastPicksErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/assembly-tasks/last-picks",
     ...options,
     headers: {
       "Content-Type": "application/json",

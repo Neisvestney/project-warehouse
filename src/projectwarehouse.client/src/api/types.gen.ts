@@ -427,10 +427,58 @@ export type AppProblemDetails = {
   };
 };
 
+export type AssemblyBundlePickDto = {
+  path: string;
+  variant: AssemblyVariantStepDto;
+};
+
 /**
  * What an AssemblyChangedPayload asks the assembly screen to reread.
  */
 export type AssemblyChangeScope = "task" | "order" | "list";
+
+export type AssemblyCheckItemRequest = {
+  /**
+   * The component's own catalog item; a Variation defers to `fulfillment.resolvedCatalogItemId`.
+   */
+  catalogItemId: string;
+  fulfillment: AddFulfillmentRequest;
+};
+
+/**
+ * What is still left to assemble in the requested orders, shaped as assembly tasks.
+ */
+export type AssemblyCheckPreviewDto = {
+  tasks: Array<AssemblyCheckTaskDto>;
+};
+
+export type AssemblyCheckPreviewRequest = {
+  orderIds: Array<string>;
+};
+
+export type AssemblyCheckRequest = {
+  items: Array<AssemblyCheckItemRequest>;
+};
+
+export type AssemblyCheckResponse = {
+  /**
+   * One `insufficientInventory` error per catalog item and storage node the request asks too much of.
+   */
+  insufficientInventoryErrors: Array<AppFieldError>;
+};
+
+export type AssemblyCheckTaskDto = {
+  orderId: string;
+  orderNumber: number;
+  postingNumber?: null | string;
+  warehouseId: string;
+  /**
+   * A real task of an `Assembly` order, or one built from the order's boxes for `Draft` and
+   * `Confirmed`. Component `quantity` is what is still left to assemble and `fulfillments` is
+   * always empty.
+   */
+  task: AssemblyTaskDto;
+};
 
 export type AssemblyFulfillmentBundleComponentDto = {
   id: string;
@@ -457,6 +505,33 @@ export type AssemblyFulfillmentDto = {
   resolvedCatalogItemType?: null | CatalogItemType;
   createdAt: string;
   createdByName?: null | string;
+};
+
+/**
+ * Variant choices of the caller's latest fulfillment of one catalog item at one warehouse.
+ */
+export type AssemblyLastPickDto = {
+  catalogItemId: string;
+  warehouseId: string;
+  /**
+   * For a Variation: the variant picked at each nesting level, root first. Empty otherwise.
+   */
+  chain: Array<AssemblyVariantStepDto>;
+  /**
+   * For a Bundle, or a Variation resolved to one: the variant picked at every variation slot of the
+   * composition, keyed by the slot's path (catalog item ids joined with `/`, plus the chosen variant id
+   * below each variation).
+   */
+  bundlePicks: Array<AssemblyBundlePickDto>;
+};
+
+export type AssemblyLastPicksItemRequest = {
+  catalogItemId: string;
+  warehouseId: string;
+};
+
+export type AssemblyLastPicksRequest = {
+  items: Array<AssemblyLastPicksItemRequest>;
 };
 
 export type AssemblyTaskBoxComponentDto = {
@@ -491,6 +566,11 @@ export type AssemblyTaskDto = {
 };
 
 export type AssemblyTaskStatus = "pending" | "inProgress" | "done";
+
+export type AssemblyVariantStepDto = {
+  id: string;
+  type: CatalogItemType;
+};
 
 export type AutoMapCardChangeDto = {
   cardId: string;
@@ -7687,6 +7767,101 @@ export type OrdersGetCompositionSummaryResponses = {
 
 export type OrdersGetCompositionSummaryResponse =
   OrdersGetCompositionSummaryResponses[keyof OrdersGetCompositionSummaryResponses];
+
+export type OrdersGetAssemblyCheckPreviewData = {
+  body: AssemblyCheckPreviewRequest;
+  path?: never;
+  query?: never;
+  url: "/api/orders/assembly-check/preview";
+};
+
+export type OrdersGetAssemblyCheckPreviewErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type OrdersGetAssemblyCheckPreviewError =
+  OrdersGetAssemblyCheckPreviewErrors[keyof OrdersGetAssemblyCheckPreviewErrors];
+
+export type OrdersGetAssemblyCheckPreviewResponses = {
+  /**
+   * OK
+   */
+  200: AssemblyCheckPreviewDto;
+};
+
+export type OrdersGetAssemblyCheckPreviewResponse =
+  OrdersGetAssemblyCheckPreviewResponses[keyof OrdersGetAssemblyCheckPreviewResponses];
+
+export type OrdersCheckAssemblyData = {
+  body: AssemblyCheckRequest;
+  path?: never;
+  query?: never;
+  url: "/api/orders/assembly-check";
+};
+
+export type OrdersCheckAssemblyErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type OrdersCheckAssemblyError = OrdersCheckAssemblyErrors[keyof OrdersCheckAssemblyErrors];
+
+export type OrdersCheckAssemblyResponses = {
+  /**
+   * OK
+   */
+  200: AssemblyCheckResponse;
+};
+
+export type OrdersCheckAssemblyResponse =
+  OrdersCheckAssemblyResponses[keyof OrdersCheckAssemblyResponses];
+
+export type OrdersGetLastPicksData = {
+  body: AssemblyLastPicksRequest;
+  path?: never;
+  query?: never;
+  url: "/api/orders/assembly-tasks/last-picks";
+};
+
+export type OrdersGetLastPicksErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type OrdersGetLastPicksError = OrdersGetLastPicksErrors[keyof OrdersGetLastPicksErrors];
+
+export type OrdersGetLastPicksResponses = {
+  /**
+   * OK
+   */
+  200: Array<AssemblyLastPickDto>;
+};
+
+export type OrdersGetLastPicksResponse =
+  OrdersGetLastPicksResponses[keyof OrdersGetLastPicksResponses];
 
 export type OrdersCreateDirectData = {
   body: CreateDirectOrderRequest;

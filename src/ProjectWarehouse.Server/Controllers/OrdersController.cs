@@ -42,6 +42,8 @@ public class OrdersController(
     IAssemblyChangeNotifier assemblyChanges,
     IEntityLockService locks,
     IOrderRebindService rebind,
+    IAssemblyCheckService assemblyCheck,
+    IAssemblyPickHintService pickHints,
     IOptions<MarketplacesOptions> marketplacesOptions) : AppControllerBase
 {
     private EntityAccessRule<Order> Rule => access.For<Order>();
@@ -827,6 +829,119 @@ public class OrdersController(
                 })
                 .ToList(),
         });
+    }
+
+    // ── POST /api/orders/assembly-check/preview ───────────────────────────────
+
+    /// <summary>What is left to assemble in several orders, shaped as assembly tasks for the stock check dialog.</summary>
+    /// <remarks>
+    /// Body: <c>AssemblyCheckPreviewRequest</c> — <c>orderIds</c> (duplicates are collapsed, unknown ids are
+    /// skipped). Returns 422 <c>required</c> for an empty list.
+    /// An <c>Assembly</c> order contributes every task it has, whoever it is assigned to; a <c>Draft</c> or
+    /// <c>Confirmed</c> order contributes the one task assignment would create from its boxes — its id is the
+    /// order's, box and component ids are the order's own. Component <c>quantity</c> is what is still left to
+    /// assemble, <c>fulfillments</c> is empty and <c>containsUnit</c> is filled as in <c>GET /assembly</c>.
+    /// Orders in any other status, external ones and ones outside the caller's warehouses are left out.
+    /// Requires <c>orders.view</c> or <c>orders.view_assigned</c>.
+    /// </remarks>
+    [HttpPost("assembly-check/preview")]
+    [Authorize]
+    [ProducesResponseType<AssemblyCheckPreviewDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> GetAssemblyCheckPreview(
+        [FromBody] AssemblyCheckPreviewRequest request, CancellationToken ct = default)
+    {
+        var orderIds = request.OrderIds.Distinct().ToList();
+        if (orderIds.Count == 0)
+            return UnprocessableEntity(nameof(request.OrderIds), ErrorCode.Required, "No orders were requested.");
+
+        if (!CanBrowseOrders)
+            return Forbidden();
+
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
+
+        var accessible = await Rule.QueryAsync(User, AccessLevel.View, ct);
+        return Ok(await assemblyCheck.PreviewAsync(accessible, orderIds, ct));
+    }
+
+    // ── POST /api/orders/assembly-check ───────────────────────────────────────
+
+    /// <summary>Checks whether the shelves hold what a set of fulfillments would take, without recording any.</summary>
+    /// <remarks>
+    /// Body: <c>AssemblyCheckRequest</c> — <c>items[]</c> of <c>{ catalogItemId, fulfillment }</c>, the fulfillment
+    /// in the same shape <c>batch-fulfill</c> takes. Demand is summed per catalog item and storage node over the
+    /// whole request and compared with the current stock; <c>insufficientInventoryErrors</c> carries one error
+    /// per pair that falls short, in the same shape as <c>batch-fulfill</c>'s. Unit picks and items of unknown
+    /// catalog ids ask nothing of stock. Nothing is written and nothing is locked.
+    /// Requires <c>orders.view</c> or <c>orders.view_assigned</c>; with the latter every storage node of the request
+    /// must belong to one of the caller's warehouses, otherwise 403 <c>warehouseNotAssigned</c>.
+    /// </remarks>
+    [HttpPost("assembly-check")]
+    [Authorize]
+    [ProducesResponseType<AssemblyCheckResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> CheckAssembly(
+        [FromBody] AssemblyCheckRequest request, CancellationToken ct = default)
+    {
+        if (!CanBrowseOrders)
+            return Forbidden();
+
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
+
+        var narrowing = await scope.GetWarehouseNarrowingAsync(User, Permissions.Orders.View, ct);
+        if (AccessError(narrowing.Verdict) is { } tokenError)
+            return tokenError;
+
+        if (narrowing.Ids is { } assignedIds)
+        {
+            var nodeIds = request.Items
+                .SelectMany(i => (i.Fulfillment.BundleComponents ?? []).Select(b => (Guid?)b.SourceNodeId)
+                    .Append(i.Fulfillment.SourceNodeId))
+                .OfType<Guid>()
+                .Distinct()
+                .ToList();
+
+            var outside = await db.StoragePlacesNodes
+                .AnyAsync(n => nodeIds.Contains(n.Id) && !assignedIds.Contains(n.RootStoragePlace.WarehouseId), ct);
+
+            if (outside)
+                return Forbidden(ErrorCode.WarehouseNotAssigned,
+                    "Some of the storage nodes belong to a warehouse you are not assigned to.");
+        }
+
+        return Ok(await assemblyCheck.CheckAsync(request.Items, ct));
+    }
+
+    // ── POST /api/orders/assembly-tasks/last-picks ────────────────────────────
+
+    /// <summary>The caller's variant choices from their latest assembly of each item at each warehouse.</summary>
+    /// <remarks>
+    /// Body: <c>AssemblyLastPicksRequest</c> — <c>items[]</c> of <c>{ catalogItemId, warehouseId }</c>. For each pair
+    /// the latest non-unit fulfillment the caller created for a component of that item, in an order of that
+    /// warehouse, is turned into a hint: <c>chain</c> — the variant picked at every level of a Variation;
+    /// <c>bundlePicks</c> — the variant picked at every variation slot of a Bundle (or of the Bundle a Variation
+    /// resolved to), found by matching the recorded leaves against the current composition. Standard items get no
+    /// hint, and neither does a pair with no such fulfillment, a variant that is no longer a member, or a Bundle
+    /// some current leaf of which was not picked last time; in the last case a Variation keeps its <c>chain</c>.
+    /// Cells are never part of a hint. Requires view access to orders (<c>orders.view</c>,
+    /// <c>orders.view_assigned</c> or <c>orders.assemble_assigned</c>).
+    /// </remarks>
+    [HttpPost("assembly-tasks/last-picks")]
+    [Authorize]
+    [ProducesResponseType<List<AssemblyLastPickDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetLastPicks(
+        [FromBody] AssemblyLastPicksRequest request, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
+
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized(ErrorCode.TokenInvalid, "Invalid token.");
+
+        return Ok(await pickHints.GetLastPicksAsync(userId.Value, request.Items, ct));
     }
 
     // ── POST /api/orders/direct ───────────────────────────────────────────────
@@ -2696,7 +2811,8 @@ public class OrdersController(
 
                     itemName = component.CatalogItem.FullName;
 
-                    stockDemand = EnumerateStockDemand(component, item.Fulfillment).ToList();
+                    stockDemand = assemblyCheck.EnumerateStockDemand(
+                        component.CatalogItemId, component.CatalogItem.Type, item.Fulfillment).ToList();
 
                     await orders.AddFulfillmentAsync(component, item.Fulfillment, GetCurrentUserId(), ct);
                     reachedStock = true;
@@ -2820,7 +2936,7 @@ public class OrdersController(
 
         // Read after the transaction settled: the snapshot each exception carries was taken mid-batch, with
         // the stock already eaten by its neighbours — and under a rollback that stock is back on the shelf.
-        var stockNow = await ReadStockAsync(shortages.Keys, ct);
+        var stockNow = await assemblyCheck.ReadStockAsync(shortages.Keys, ct);
 
         var insufficientInventoryErrors = shortages
             .OrderBy(shortage => shortage.Value[0].CatalogItemName, StringComparer.OrdinalIgnoreCase)
@@ -2848,55 +2964,6 @@ public class OrdersController(
             FailedItems                 = failedItems,
             InsufficientInventoryErrors = insufficientInventoryErrors,
         });
-    }
-
-    /// <summary>
-    /// The stock a single fulfillment takes off the shelves, per node and catalog item. Unit picks are left
-    /// out: they move one named item rather than draw on a count, and never report a shortage.
-    /// </summary>
-    private static IEnumerable<(Guid NodeId, Guid CatalogItemId, int Quantity)> EnumerateStockDemand(
-        AssemblyTaskBoxComponent component, AddFulfillmentRequest fulfillment)
-    {
-        if (fulfillment.BundleComponents is { Count: > 0 } leaves)
-        {
-            foreach (var leaf in leaves.Where(l => !l.UnitInventoryItemId.HasValue))
-                yield return (leaf.SourceNodeId, leaf.CatalogItemId, leaf.Quantity);
-
-            yield break;
-        }
-
-        if (fulfillment.UnitInventoryItemId.HasValue || fulfillment.Quantity <= 0 || !fulfillment.SourceNodeId.HasValue)
-            yield break;
-
-        // Mirrors how the service resolves the item: only a Variation defers to the client's pick.
-        var catalogItemId = component.CatalogItem.Type == CatalogItemType.Variation
-            ? fulfillment.ResolvedCatalogItemId
-            : component.CatalogItemId;
-
-        if (catalogItemId.HasValue)
-            yield return (fulfillment.SourceNodeId.Value, catalogItemId.Value, fulfillment.Quantity);
-    }
-
-    /// <summary>Current count of each node/catalog-item pair, missing pairs meaning an empty shelf.</summary>
-    private async Task<Dictionary<(Guid NodeId, Guid CatalogItemId), int>> ReadStockAsync(
-        IReadOnlyCollection<(Guid NodeId, Guid CatalogItemId)> pairs, CancellationToken ct)
-    {
-        if (pairs.Count == 0)
-            return [];
-
-        var nodeIds = pairs.Select(p => p.NodeId).Distinct().ToList();
-        var itemIds = pairs.Select(p => p.CatalogItemId).Distinct().ToList();
-
-        // Queried as a cross product and filtered in memory — the pair count here is a handful
-        var groups = await db.StoragePlacesNodesItemsGroups
-            .AsNoTracking()
-            .Where(g => nodeIds.Contains(g.StoragePlaceNodeId) && itemIds.Contains(g.CatalogItemId))
-            .Select(g => new { g.StoragePlaceNodeId, g.CatalogItemId, g.Count })
-            .ToListAsync(ct);
-
-        return groups
-            .Where(g => pairs.Contains((g.StoragePlaceNodeId, g.CatalogItemId)))
-            .ToDictionary(g => (g.StoragePlaceNodeId, g.CatalogItemId), g => g.Count);
     }
 
     private enum OrderFacet { Status, Overdue, Warehouse, Source, MarketplaceStatus }

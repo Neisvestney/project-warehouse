@@ -1290,6 +1290,17 @@ empty value would show a filter the URL and the request do not agree with.
 (`useDrawerLocalState` + `backClosable`), а не через search-param: модалка держится на `useBackClosable`, и
 вложенный в неё оверлей хранит открытость у себя ([Overlays](./frontend-state.md#overlays)).
 
+### `useAssemblyCheckAction`
+
+Действие «Получится ли собрать?» в `BulkBar` списка заказов, на всех страницах `OrdersListPage`, рядом с
+«Посчитать…». По клику id выбранных заказов уходят в `POST /api/orders/assembly-check/preview` (кнопка
+показывает ожидание), ответ превращается в `SelectedTaskInfo[]`, и открывается
+[`BatchAssemblyDialog`](./frontend.md#ordersassemblypage--диалоги-фулфилмента) с `mode="check"` (см.
+[orders-specification.md § Проверка сборки](./orders-specification.md#проверка-сборки)). Заказ с `Unit`-заданием
+выпадает целиком, задания без остатка пропускаются. Выпавшее перечисляет `notice` диалога: «Не проверяются: не
+черновик, не подтверждён и не на сборке — N заказов; с единичными товарами — …; уже собраны полностью — …».
+Хук отдаёт `{getAction, dialogs}`, `dialogs` рендерит вызывающий.
+
 ### `src/components/orders/marketplace/`
 
 FBS-only pieces: `SyncOrdersButton` / `SyncOrdersDialog` / `SyncOrdersAccountAccordion` / `SkippedOrdersList`
