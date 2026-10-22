@@ -136,6 +136,12 @@ function AccountCardsTab({accountId}: AccountCardsTabProps) {
             Boolean,
           ).length
         }
+        onReset={() => {
+          setSearchString("");
+          setCatalogItemIds([]);
+          setMappingState("all");
+          setIncludeArchived(false);
+        }}
         actions={
           canMap ? (
             <>

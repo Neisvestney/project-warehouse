@@ -49,7 +49,7 @@ import StockForecastSettingsDialog from "./StockForecastSettingsDialog";
 import StockWarningOverrideDialog, {
   type StockWarningOverrideTarget,
 } from "./StockWarningOverrideDialog";
-import {isTagFilterActive, useTagFilterState} from "@/features/tags";
+import {EMPTY_TAG_FILTER, isTagFilterActive, useTagFilterState} from "@/features/tags";
 
 const COLUMN_COUNT = 10;
 
@@ -322,6 +322,14 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
               onlyWarnings,
             ].filter(Boolean).length
           }
+          // The warehouse stays: the forecast needs one, so it is not counted as a filter
+          onReset={() => {
+            setItemTypes(PHYSICAL_CATALOG_ITEMS);
+            setTagFilter(EMPTY_TAG_FILTER);
+            setIsArchived(false);
+            setIsVariation(null);
+            setOnlyWarnings(false);
+          }}
         >
           {showWarehouseFilter && (
             <WarehousesSelect

@@ -80,6 +80,13 @@ function StockMovementsFilters({
           canViewUsers && filter.userId,
         ].filter(Boolean).length
       }
+      // The items stay: at least one must be selected, and they are not counted as a filter
+      onReset={() => {
+        setFrom(null);
+        setTo(null);
+        setWarehouseId(null);
+        setUserId(null);
+      }}
     >
       <CatalogItemsSelect
         multiple

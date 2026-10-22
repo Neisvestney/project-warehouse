@@ -389,13 +389,28 @@ cover a table that is already covered.
 Filter row rendered as an outlined card — rounded border in `divider`, a faint `primary` tint background and
 `px: 2 / py: 1.5` padding — so the filters read as a block separate from the table below.
 
-The leading label is a `FilterAltIcon` on a tinted rounded square plus a «Фильтры» caption. Controls go in
-`children`; the optional `actions` slot renders at the right edge (`ml: "auto"`) for things like a reset button
-or a rarely used toggle. `activeCount` is the number of filters that differ from their defaults; the page computes
-it, since only the page knows what its defaults are. The desktop row does not show it: the controls are visible
+The leading label is a `FilterAltIcon` on a rounded square plus a «Фильтры» caption. Controls go in
+`children`; the optional `actions` slot renders at the right edge (`ml: "auto"`) for things like a rarely used
+toggle. `activeCount` is the number of filters that differ from their defaults; the page computes it, since only
+the page knows what its defaults are. The desktop row does not show it as a number: the controls are visible
 there, and a count next to the caption would shift them whenever it appears.
 
-Below `sm` the bar collapses into a single row — label, the `activeCount` chip after the caption, a chevron and the
+The icon reflects `activeCount`: grey on a neutral square while it is zero, `primary` on a `primary`-tinted square
+once a filter is on. With `onReset` passed, the icon is a button («Сбросить фильтры»): while filters are active,
+hover or keyboard focus (with a focus ripple) turns it into a cross, and a click calls `onReset`. The two icons
+are stacked and cross-fade with a quarter turn, and the colours fade between the grey and `primary` states; all of
+it is off under `prefers-reduced-motion`. On touch screens
+(`hover: none`) the cross shows for as long as filters are active. With no filters on, the button is
+`aria-disabled`, out of the tab order and without a ripple rather than `disabled` or swapped for a plain icon, so
+keyboard focus stays on it after a reset. A `::before` overlay widens its hit area by 4px on each side for touch
+without affecting the layout. `onReset` puts back the default of every control the bar holds —
+the same set `activeCount` counts — and nothing outside it: the header search, `StatusTabs`, the sort and display
+options such as a grouping stay. A value that is required rather than a filter (the item list of stock movements)
+is not counted and not reset. Every page with a `FiltersBar` passes `onReset`; the setters write through
+`SearchParamsProvider`, so the whole reset lands in one navigation.
+
+Below `sm` the bar collapses into a single row — the icon, the label with the `activeCount` chip after the caption
+and a chevron (one toggle button; the icon stays outside it, as a button cannot nest in another), and the
 `actions` — and the controls open under it on tap, stacked, each at full width. The widths a page sets on its controls for the desktop row
 (`flexBasis`, `minWidth`, `maxWidth`) are overridden there, so a page never needs its own mobile layout for the
 bar. The collapsed row is why `activeCount` matters: without it a phone user cannot tell a filter is on. An

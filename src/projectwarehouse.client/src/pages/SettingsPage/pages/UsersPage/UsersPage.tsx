@@ -105,7 +105,13 @@ function UsersPage() {
       >
         <SearchInput value={inputValue} onChange={setInputValue} />
       </PageGenericHeader>
-      <FiltersBar activeCount={[roleId, warehouseId].filter(Boolean).length}>
+      <FiltersBar
+        activeCount={[roleId, warehouseId].filter(Boolean).length}
+        onReset={() => {
+          setRoleId(null);
+          setWarehouseId(null);
+        }}
+      >
         <RolesSelect value={roleId} onChange={setRoleId} sx={{flexBasis: 150}} size={"small"} />
         <WarehousesSelect
           value={warehouseId}

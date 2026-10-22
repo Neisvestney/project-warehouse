@@ -42,7 +42,7 @@ function PayoutsFilters({
         />
       </Stack>
 
-      <FiltersBar activeCount={channels.length > 0 ? 1 : 0}>
+      <FiltersBar activeCount={channels.length > 0 ? 1 : 0} onReset={() => setChannels([])}>
         <ChannelsSelect value={channels} onChange={setChannels} withDirect={false} />
       </FiltersBar>
     </Stack>

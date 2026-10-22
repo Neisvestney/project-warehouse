@@ -41,7 +41,7 @@ import CatalogTagsFilter from "@/components/catalog/CatalogTagsFilter";
 import {CatalogItemDrawer} from "@/components/catalog/CatalogItemDrawer";
 import {CatalogItemLink} from "@/components/catalog/CatalogItemLink";
 import {UnitItemsDrawer} from "@/components/inventory/UnitItemsDrawer";
-import {isTagFilterActive, useTagFilterState} from "@/features/tags";
+import {EMPTY_TAG_FILTER, isTagFilterActive, useTagFilterState} from "@/features/tags";
 
 const SORTABLE_COLUMNS: {key: InventoryItemSortBy; label: string}[] = [
   {key: "type", label: "Тип"},
@@ -180,6 +180,12 @@ function ItemsBasePage({title, warehouseId, storagePlaceId, nodeId}: ItemsBasePa
               isArchived !== null,
             ].filter(Boolean).length
           }
+          onReset={() => {
+            setFilterWarehouseId(null);
+            setItemTypes(PHYSICAL_CATALOG_ITEMS);
+            setTagFilter(EMPTY_TAG_FILTER);
+            setIsArchived(null);
+          }}
         >
           {showWarehouseFilter && (
             <FormControl size="small" sx={{minWidth: 200}}>

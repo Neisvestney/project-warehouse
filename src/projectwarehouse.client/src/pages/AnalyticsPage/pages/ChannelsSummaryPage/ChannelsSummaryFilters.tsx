@@ -3,7 +3,7 @@ import type {AnalyticsMoneyMode} from "@/api/types.gen";
 import CatalogItemsSelect from "@/components/CatalogItemsSelect";
 import FiltersBar from "@/components/FiltersBar";
 import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
-import {isTagFilterActive} from "@/features/tags";
+import {EMPTY_TAG_FILTER, isTagFilterActive} from "@/features/tags";
 import {useCatalogItemsByIds} from "@/hooks/useCatalogItemsByIds";
 import {useHasPermission} from "@/hooks/usePermission";
 import ChannelsSelect from "@/components/analytics/ChannelsSelect";
@@ -91,6 +91,11 @@ function ChannelsSummaryFilters({
             Boolean,
           ).length
         }
+        onReset={() => {
+          setChannels([]);
+          setCatalogItemIds([]);
+          setDirectTags(EMPTY_TAG_FILTER);
+        }}
       >
         <ChannelsSelect value={channels} onChange={setChannels} />
 

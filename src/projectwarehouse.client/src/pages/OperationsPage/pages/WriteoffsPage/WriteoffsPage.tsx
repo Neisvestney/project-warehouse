@@ -60,7 +60,7 @@ import type {
   WriteoffStatus,
   WriteoffSummaryDto,
 } from "@/api/types.gen";
-import {isTagFilterActive, useTagFilterState} from "@/features/tags";
+import {EMPTY_TAG_FILTER, isTagFilterActive, useTagFilterState} from "@/features/tags";
 
 const SORT_COLUMNS: {key: WriteoffSortBy; label: string}[] = [
   {key: "number", label: "#"},
@@ -235,6 +235,11 @@ function WriteoffsPage() {
       />
       <FiltersBar
         activeCount={[warehouseId, reason, isTagFilterActive(tagFilter)].filter(Boolean).length}
+        onReset={() => {
+          setWarehouseId(null);
+          setReason("");
+          setTagFilter(EMPTY_TAG_FILTER);
+        }}
       >
         <WarehousesSelect
           value={warehouseId}

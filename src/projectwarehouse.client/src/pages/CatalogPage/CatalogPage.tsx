@@ -55,7 +55,7 @@ import {useSelectedItems} from "@/hooks/useSelectedItems";
 import {useSettledValue} from "@/hooks/useSettledValue";
 import {byOperation} from "@/utils/queryKeys";
 import {NOUNS} from "@/utils/pluralUtils";
-import {isTagFilterActive, useTagFilterState} from "@/features/tags";
+import {EMPTY_TAG_FILTER, isTagFilterActive, useTagFilterState} from "@/features/tags";
 
 const SORTABLE_COLUMNS: {key: CatalogSortBy; label: string}[] = [
   {key: "type", label: "Тип"},
@@ -194,6 +194,11 @@ function CatalogPage() {
               isArchived !== false,
             ].filter(Boolean).length
           }
+          onReset={() => {
+            setItemTypes(CATALOG_ITEM_TYPES);
+            setTagFilter(EMPTY_TAG_FILTER);
+            setIsArchived(false);
+          }}
         >
           <CatalogTypesFilter value={itemTypes} onChange={setItemTypes} />
 

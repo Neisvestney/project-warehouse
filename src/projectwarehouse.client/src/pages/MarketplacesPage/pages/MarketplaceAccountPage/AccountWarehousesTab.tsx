@@ -87,7 +87,10 @@ function AccountWarehousesTab({accountId}: AccountWarehousesTabProps) {
 
   return (
     <Stack spacing={2}>
-      <FiltersBar activeCount={[includeArchived].filter(Boolean).length}>
+      <FiltersBar
+        activeCount={[includeArchived].filter(Boolean).length}
+        onReset={() => setIncludeArchived(false)}
+      >
         <FormControlLabel
           control={
             <Switch

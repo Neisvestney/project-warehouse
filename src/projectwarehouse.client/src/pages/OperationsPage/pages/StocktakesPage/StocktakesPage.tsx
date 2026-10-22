@@ -54,7 +54,7 @@ import {
 } from "@/components/stocktakes/stocktakeUtils";
 import type {StocktakeSortBy, StocktakeStatus, StocktakeSummaryDto} from "@/api/types.gen";
 import {parseDateOnly} from "@/utils/dateOnly";
-import {isTagFilterActive, useTagFilterState} from "@/features/tags";
+import {EMPTY_TAG_FILTER, isTagFilterActive, useTagFilterState} from "@/features/tags";
 
 const SORT_COLUMNS: {key: StocktakeSortBy; label: string}[] = [
   {key: "number", label: "#"},
@@ -221,7 +221,13 @@ function StocktakesPage() {
         counts={settled?.meta.statusCounts}
         loading={isFetching}
       />
-      <FiltersBar activeCount={[warehouseId, isTagFilterActive(tagFilter)].filter(Boolean).length}>
+      <FiltersBar
+        activeCount={[warehouseId, isTagFilterActive(tagFilter)].filter(Boolean).length}
+        onReset={() => {
+          setWarehouseId(null);
+          setTagFilter(EMPTY_TAG_FILTER);
+        }}
+      >
         <WarehousesSelect
           value={warehouseId}
           onChange={setWarehouseId}

@@ -5,7 +5,7 @@ import PeriodPicker from "@/components/analytics/period/PeriodPicker";
 import {PERIOD_PRESETS} from "@/components/analytics/period/periodSelection";
 import FiltersBar from "@/components/FiltersBar";
 import DocumentTagsFilter from "@/components/tags/DocumentTagsFilter";
-import {isTagFilterActive} from "@/features/tags";
+import {EMPTY_TAG_FILTER, isTagFilterActive} from "@/features/tags";
 import {useHasPermission} from "@/hooks/usePermission";
 import {BASIS_LABELS} from "@/components/analytics/abc/abcClasses";
 import {SUBJECT_LABELS, SUBJECT_TOOLTIPS, SUBJECTS} from "@/components/analytics/subjects/subjects";
@@ -118,6 +118,10 @@ function AbcFilters({
           [channels.length > 0, showDirectTags && isTagFilterActive(directTags)].filter(Boolean)
             .length
         }
+        onReset={() => {
+          setChannels([]);
+          setDirectTags(EMPTY_TAG_FILTER);
+        }}
       >
         <ChannelsSelect value={channels} onChange={setChannels} />
         {showDirectTags && (

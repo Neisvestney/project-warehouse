@@ -54,7 +54,7 @@ import {
 } from "@/components/receipts/receiptUtils";
 import type {ReceiptReason, ReceiptSortBy, ReceiptStatus, ReceiptSummaryDto} from "@/api/types.gen";
 import {parseDateOnly} from "@/utils/dateOnly";
-import {isTagFilterActive, useTagFilterState} from "@/features/tags";
+import {EMPTY_TAG_FILTER, isTagFilterActive, useTagFilterState} from "@/features/tags";
 
 const SORT_COLUMNS: {key: ReceiptSortBy; label: string}[] = [
   {key: "number", label: "#"},
@@ -231,6 +231,11 @@ function ReceiptsPage() {
       />
       <FiltersBar
         activeCount={[warehouseId, reason, isTagFilterActive(tagFilter)].filter(Boolean).length}
+        onReset={() => {
+          setWarehouseId(null);
+          setReason("");
+          setTagFilter(EMPTY_TAG_FILTER);
+        }}
       >
         <WarehousesSelect
           value={warehouseId}

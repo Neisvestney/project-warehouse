@@ -79,7 +79,7 @@ import type {
   OrderType,
 } from "@/api/types.gen";
 import {extractErrorMessage, resolveErrorMessage} from "@/utils/errorUtils";
-import {isTagFilterActive, useTagFilterState} from "@/features/tags";
+import {EMPTY_TAG_FILTER, isTagFilterActive, useTagFilterState} from "@/features/tags";
 
 const SORT_COLUMNS: {key: OrderSortBy; label: string}[] = [
   {key: "number", label: "#"},
@@ -570,6 +570,14 @@ function OrdersListPage({
             marketplaceFilters && showExternalFilter && includeExternal !== defaultIncludeExternal,
           ].filter(Boolean).length
         }
+        onReset={() => {
+          setWarehouseId(null);
+          setTagFilter(EMPTY_TAG_FILTER);
+          setMarketplaceType("");
+          setMarketplaceAccountId(null);
+          setMarketplaceStatus("");
+          setIncludeExternal(defaultIncludeExternal);
+        }}
         actions={
           marketplaceFilters &&
           showExternalFilter && (

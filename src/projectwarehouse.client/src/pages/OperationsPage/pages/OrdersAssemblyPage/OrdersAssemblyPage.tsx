@@ -54,6 +54,7 @@ import {
 import {AssemblyOrderRefreshProvider, useAssemblyOrderRefreshState} from "./assemblyOrderRefresh";
 import {filterAssemblyOrders} from "./assemblyFilters";
 import {
+  EMPTY_TAG_FILTER,
   isTagFilterActive,
   parseTagFilter,
   serializeTagFilter,
@@ -291,6 +292,10 @@ function OrdersAssemblyPage() {
           </PageGenericHeader>
           <FiltersBar
             activeCount={[warehouseId, isTagFilterActive(tagFilter)].filter(Boolean).length}
+            onReset={() => {
+              setWarehouseId(null);
+              setTagFilter(EMPTY_TAG_FILTER);
+            }}
           >
             <WarehousesSelect
               value={warehouseId}
