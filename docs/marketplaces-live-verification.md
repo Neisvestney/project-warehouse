@@ -5,8 +5,10 @@ Market сверен этим маршрутом — его результаты 
 [marketplaces-specification.md](marketplaces-specification.md#склады-остатки-и-карточки-yandex-market),
 [marketplaces-fulfillment-specification.md](marketplaces-fulfillment-specification.md#аккаунт-yandex-market),
 [marketplaces-returns-specification.md](marketplaces-returns-specification.md#yandex-market) и
-[marketplaces-accruals-specification.md](marketplaces-accruals-specification.md#yandex-market). Wildberries и Avito
-ждут токена.
+[marketplaces-accruals-specification.md](marketplaces-accruals-specification.md#yandex-market). У Avito сверены
+кабинет, объявления и остатки — [«Аккаунт Avito»](marketplaces-fulfillment-specification.md#аккаунт-avito) и
+[«Остатки и карточки Avito»](marketplaces-specification.md#остатки-и-карточки-avito); заказы ждут кабинета с
+Авито Доставкой для бизнеса. Wildberries ждёт токена.
 
 ---
 
@@ -68,4 +70,5 @@ Market сверен этим маршрутом — его результаты 
 - Лимит пачки этикеток — 50 по схеме или 100 по описанию.
 - Что напечатано на этикетке.
 
-И проверить, что управление заказами доступно кабинету: API заказов открыт только продавцам B2C.
+И проверить, что управление заказами доступно кабинету: API заказов открыт только кабинету с Авито Доставкой для
+бизнеса, без неё `order-management` отвечает `403`. Первый запрос сверки — `GET /order-management/1/orders?limit=1`.
