@@ -700,6 +700,9 @@ Draft → Confirmed → Assembly ⇄ Assembled ⇄ Shipped
 вариацию или какой-то лист текущего состава в прошлый раз не выбирался; в последнем случае Variation сохраняет
 `chain`. Доступ — просмотр заказов (`orders.view`, `orders.view_assigned` или `orders.assemble_assigned`).
 
+Тот же `IAssemblyPickHintService` разворачивает вариации в резерве под заказы [прогноза остатков](stock-forecast-specification.md);
+там `userId` не передаётся (`null`), и подсказку даёт последний фулфилмент любого пользователя.
+
 ---
 
 ## UI: сборка заказов

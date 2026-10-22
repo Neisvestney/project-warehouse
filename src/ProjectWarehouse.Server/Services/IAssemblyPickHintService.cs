@@ -6,9 +6,10 @@ namespace ProjectWarehouse.Server.Services;
 public interface IAssemblyPickHintService
 {
     /// <summary>
-    /// One hint per requested item and warehouse that <paramref name="userId"/> has assembled there before and
-    /// whose choices still fit the current catalog. Cells are never hinted — the warehouse default applies.
+    /// One hint per requested item and warehouse that <paramref name="userId"/> (anyone when null) has assembled
+    /// there before and whose choices still fit the current catalog. Cells are never hinted — the warehouse
+    /// default applies.
     /// </summary>
     Task<IReadOnlyList<AssemblyLastPickDto>> GetLastPicksAsync(
-        Guid userId, IReadOnlyList<AssemblyLastPicksItemRequest> items, CancellationToken ct = default);
+        Guid? userId, IReadOnlyList<AssemblyLastPicksItemRequest> items, CancellationToken ct = default);
 }

@@ -2,7 +2,7 @@ using ProjectWarehouse.Server.Domain;
 
 namespace ProjectWarehouse.Server.Models.Orders;
 
-/// <summary>Variant choices of the caller's latest fulfillment of one catalog item at one warehouse.</summary>
+/// <summary>Variant choices of the latest fulfillment of one catalog item at one warehouse.</summary>
 public class AssemblyLastPickDto
 {
     public Guid CatalogItemId { get; init; }

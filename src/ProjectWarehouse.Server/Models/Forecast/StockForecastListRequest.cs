@@ -41,10 +41,16 @@ public class StockForecastListRequest
     /// <summary>
     /// Reserves the not-yet-fulfilled quantity of items on orders currently in <c>Assembly</c> against
     /// stock, as if it were already spoken for. A Bundle component is exploded into its own components
-    /// recursively; a Variation component has no single deterministic underlying item, so it reserves
-    /// against that variation's own row only.
+    /// recursively; a Variation slot follows the latest assembly of the same item on this warehouse, and
+    /// without one reserves against that variation's own row only.
     /// </summary>
     public bool AccountForAssembly { get; init; }
+
+    /// <summary>
+    /// <see cref="AccountForAssembly"/> extended to <c>Draft</c> and <c>Confirmed</c> orders, whose boxes are
+    /// reserved in full. Implies <see cref="AccountForAssembly"/>.
+    /// </summary>
+    public bool AccountForAllOrders { get; init; }
 
     /// <summary>
     /// Adds <see cref="StockForecastDto.InTransit"/> to stock for days left and status. The row's

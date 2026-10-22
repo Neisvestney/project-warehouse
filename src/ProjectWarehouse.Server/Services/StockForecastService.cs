@@ -9,6 +9,7 @@ using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Analytics;
 using ProjectWarehouse.Server.Models.Catalog;
 using ProjectWarehouse.Server.Models.Forecast;
+using ProjectWarehouse.Server.Models.Orders;
 using ProjectWarehouse.Server.Models.Warehouses;
 using ProjectWarehouse.Server.Infrastructure.ChangeLog;
 
@@ -22,7 +23,8 @@ public class StockForecastService(
     IWarehouseTimeZoneResolver timeZones,
     IChangeLogService<WarehouseDto> warehouseChangeLog,
     IChangeLogService changeLog,
-    IAnalyticsSettingsService analyticsSettings) : IStockForecastService
+    IAnalyticsSettingsService analyticsSettings,
+    IAssemblyPickHintService pickHints) : IStockForecastService
 {
     /// <summary>Virtual types hold no stock, so there is nothing to forecast for them.</summary>
     private static readonly CatalogItemType[] PhysicalTypes = [CatalogItemType.Standard, CatalogItemType.Unit];
@@ -77,7 +79,7 @@ public class StockForecastService(
 
         var source = await SourceForAsync(user, warehouseId, ct);
         var computed = await ComputeAsync(
-            source, filter, restrictToIds: null, options: null, request.AccountForAssembly,
+            source, filter, restrictToIds: null, options: null, OrderDemandScopeOf(request),
             request.AccountForInTransit, ct);
 
         var sorted = Sort(computed.Entries, request.SortBy, request.SortOrder).ToList();
@@ -114,7 +116,7 @@ public class StockForecastService(
 
         var computed = await ComputeAsync(
             await SourceForAsync(user, warehouseId, ct), new CatalogFilter(), catalogItemIds, options,
-            accountForAssembly: false, accountForInTransit: false, ct);
+            OrderDemandScope.None, accountForInTransit: false, ct);
 
         return computed.Entries.ToDictionary(e => e.Forecast.CatalogItemId, e => e.Forecast);
     }
@@ -134,7 +136,7 @@ public class StockForecastService(
         // No query filter and no warehouse narrowing: this entry checks no permissions by contract.
         var source = new ForecastSource(warehouseId, db.StockMovements, [warehouseId]);
         var computed = await ComputeAsync(
-            source, filter, restrictToIds: null, options, accountForAssembly: false, accountForInTransit: false, ct);
+            source, filter, restrictToIds: null, options, OrderDemandScope.None, accountForInTransit: false, ct);
 
         return await ToRowsAsync(Sort(computed.Entries, StockForecastSortBy.Default, SortOrder.Asc).ToList(), ct);
     }
@@ -241,7 +243,7 @@ public class StockForecastService(
         CatalogFilter filter,
         IReadOnlyCollection<Guid>? restrictToIds,
         StockForecastOptions? options,
-        bool accountForAssembly,
+        OrderDemandScope orderDemand,
         bool accountForInTransit,
         CancellationToken ct)
     {
@@ -290,9 +292,9 @@ public class StockForecastService(
         var movement = await LoadMovementAsync(
             source, physicalIds, fromUtc, toUtc, options, today, ct);
 
-        var assembly = accountForAssembly
-            ? await LoadAssemblyDemandAsync(source.WarehouseId, ct)
-            : new AssemblyDemand([], []);
+        var assembly = orderDemand == OrderDemandScope.None
+            ? new AssemblyDemand([], [])
+            : await LoadAssemblyDemandAsync(source.WarehouseId, orderDemand, ct);
         var assemblyDemand = assembly.Items;
 
         // Left negative on purpose: more is reserved for assembly than physically sits on the shelf,
@@ -381,8 +383,8 @@ public class StockForecastService(
         foreach (var item in items)
             AddEntry(item, ItemForecast(item.Id));
 
-        // A variation component on an assembly order has no member picked yet, so it reserves against the
-        // variation's total only; each member row keeps just the demand that names it directly.
+        // A variation slot with no previous assembly to follow has no member to credit, so it reserves against
+        // the variation's total only; each member row keeps just the demand that names it.
         foreach (var variation in liveVariations)
         {
             var memberIds = variation.MemberIds;
@@ -623,28 +625,52 @@ public class StockForecastService(
         days[age] += quantity;
     }
 
+    private enum OrderDemandScope { None, Assembly, AllOrders }
+
+    private static OrderDemandScope OrderDemandScopeOf(StockForecastListRequest request) =>
+        request.AccountForAllOrders ? OrderDemandScope.AllOrders
+        : request.AccountForAssembly ? OrderDemandScope.Assembly
+        : OrderDemandScope.None;
+
     /// <summary>
-    /// The not-yet-picked quantity of every box component on orders currently in <c>Assembly</c> on this
-    /// warehouse, exploded down to physical items: a Bundle component recurses into its own components,
-    /// a Variation component is kept apart under the variation's own id — it has no single member to credit,
-    /// and the picker hasn't chosen one yet.
+    /// The not-yet-picked quantity of every box component on this warehouse's orders in <c>Assembly</c> — plus
+    /// the whole boxes of <c>Draft</c> and <c>Confirmed</c> ones under <see cref="OrderDemandScope.AllOrders"/> —
+    /// exploded down to physical items. A Bundle recurses into its components; a Variation slot follows the
+    /// latest assembly of the same item on this warehouse, and without one is kept apart under the variation's
+    /// own id, since it has no single member to credit.
     /// </summary>
     private sealed record AssemblyDemand(Dictionary<Guid, int> Items, Dictionary<Guid, int> Variations);
 
-    private async Task<AssemblyDemand> LoadAssemblyDemandAsync(Guid warehouseId, CancellationToken ct)
+    private sealed record DemandComponent(Guid CatalogItemId, CatalogItemType Type, int Remaining);
+
+    private async Task<AssemblyDemand> LoadAssemblyDemandAsync(
+        Guid warehouseId, OrderDemandScope scope, CancellationToken ct)
     {
-        var components = await db.AssemblyTaskBoxComponents
-            .Where(c => c.AssemblyTaskBox.AssemblyTask.Order.WarehouseId == warehouseId
-                        && c.AssemblyTaskBox.AssemblyTask.Order.Status == OrderStatus.Assembly)
-            .Select(c => new
-            {
-                c.CatalogItemId,
-                c.CatalogItem.Type,
-                c.Quantity,
-                Fulfilled = c.Fulfillments
-                    .Sum(f => f.UnitInventoryItemId != null || f.BundleComponents.Count > 0 ? 1 : f.Quantity),
-            })
-            .ToListAsync(ct);
+        var components = (await db.AssemblyTaskBoxComponents
+                .Where(c => c.AssemblyTaskBox.AssemblyTask.Order.WarehouseId == warehouseId
+                            && c.AssemblyTaskBox.AssemblyTask.Order.Status == OrderStatus.Assembly)
+                .Select(c => new
+                {
+                    c.CatalogItemId,
+                    c.CatalogItem.Type,
+                    c.Quantity,
+                    Fulfilled = c.Fulfillments
+                        .Sum(f => f.UnitInventoryItemId != null || f.BundleComponents.Count > 0 ? 1 : f.Quantity),
+                })
+                .ToListAsync(ct))
+            .Select(c => new DemandComponent(c.CatalogItemId, c.Type, c.Quantity - c.Fulfilled))
+            .ToList();
+
+        // Not assigned yet, so no task exists: the order's own boxes are what assignment would copy into one
+        if (scope == OrderDemandScope.AllOrders)
+            components.AddRange(await db.OrderBoxComponents
+                .Where(c => c.OrderBox.Order.WarehouseId == warehouseId
+                            && (c.OrderBox.Order.Status == OrderStatus.Draft
+                                || c.OrderBox.Order.Status == OrderStatus.Confirmed))
+                .Select(c => new DemandComponent(c.CatalogItemId, c.CatalogItem.Type, c.Quantity))
+                .ToListAsync(ct));
+
+        components.RemoveAll(c => c.Remaining <= 0);
 
         // Loaded once and reused for every component: bundle nesting is shallow in practice, and one
         // query beats a network round trip per node visited while exploding it.
@@ -657,29 +683,73 @@ public class StockForecastService(
                 g => g.Key,
                 g => g.Select(bc => (bc.ComponentId, bc.Quantity, bc.Type)).ToList());
 
+        // Hinting walks the catalog per item, so ask only for those with a variation slot somewhere inside
+        var hintIds = components
+            .Where(c => HasVariationSlot(c.CatalogItemId, c.Type, childrenByBundle, []))
+            .Select(c => c.CatalogItemId)
+            .Distinct()
+            .Select(id => new AssemblyLastPicksItemRequest { CatalogItemId = id, WarehouseId = warehouseId })
+            .ToList();
+        var hints = hintIds.Count == 0
+            ? new Dictionary<Guid, AssemblyLastPickDto>()
+            : (await pickHints.GetLastPicksAsync(null, hintIds, ct)).ToDictionary(h => h.CatalogItemId);
+
         var demand = new AssemblyDemand([], []);
         foreach (var component in components)
         {
-            var remaining = component.Quantity - component.Fulfilled;
-            if (remaining <= 0) continue;
+            var catalogItemId = component.CatalogItemId;
+            var type = component.Type;
+            var picks = new Dictionary<string, AssemblyVariantStepDto>();
 
-            AddExplodedDemand(component.CatalogItemId, component.Type, remaining, childrenByBundle, demand, []);
+            if (hints.TryGetValue(catalogItemId, out var hint))
+            {
+                if (hint.Chain.Count > 0)
+                    (catalogItemId, type) = (hint.Chain[^1].Id, hint.Chain[^1].Type);
+
+                foreach (var pick in hint.BundlePicks)
+                    picks[pick.Path] = pick.Variant;
+            }
+
+            AddExplodedDemand(catalogItemId, type, component.Remaining, "", picks, childrenByBundle, demand, []);
         }
 
         return demand;
     }
 
+    private static bool HasVariationSlot(
+        Guid catalogItemId,
+        CatalogItemType type,
+        IReadOnlyDictionary<Guid, List<(Guid ComponentId, int Quantity, CatalogItemType Type)>> childrenByBundle,
+        HashSet<Guid> visiting)
+    {
+        if (type == CatalogItemType.Variation)
+            return true;
+
+        if (type != CatalogItemType.Bundle || !visiting.Add(catalogItemId)
+            || !childrenByBundle.TryGetValue(catalogItemId, out var children))
+            return false;
+
+        return children.Any(c => HasVariationSlot(c.ComponentId, c.Type, childrenByBundle, visiting));
+    }
+
+    /// <param name="path">The slot's path, keyed the way <see cref="AssemblyLastPickDto.BundlePicks"/> keys it.</param>
     private static void AddExplodedDemand(
         Guid catalogItemId,
         CatalogItemType type,
         int quantity,
+        string path,
+        IReadOnlyDictionary<string, AssemblyVariantStepDto> picks,
         IReadOnlyDictionary<Guid, List<(Guid ComponentId, int Quantity, CatalogItemType Type)>> childrenByBundle,
         AssemblyDemand demand,
         HashSet<Guid> visiting)
     {
         if (type == CatalogItemType.Variation)
         {
-            demand.Variations[catalogItemId] = demand.Variations.GetValueOrDefault(catalogItemId) + quantity;
+            if (picks.TryGetValue(path, out var pick))
+                AddExplodedDemand(pick.Id, pick.Type, quantity, SlotPath(path, pick.Id), picks, childrenByBundle,
+                    demand, visiting);
+            else
+                demand.Variations[catalogItemId] = demand.Variations.GetValueOrDefault(catalogItemId) + quantity;
             return;
         }
 
@@ -693,10 +763,14 @@ public class StockForecastService(
 
         if (childrenByBundle.TryGetValue(catalogItemId, out var children))
             foreach (var child in children)
-                AddExplodedDemand(child.ComponentId, child.Type, quantity * child.Quantity, childrenByBundle, demand, visiting);
+                AddExplodedDemand(child.ComponentId, child.Type, quantity * child.Quantity,
+                    SlotPath(path, child.ComponentId), picks, childrenByBundle, demand, visiting);
 
         visiting.Remove(catalogItemId);
     }
+
+    private static string SlotPath(string parent, Guid segment) =>
+        parent.Length > 0 ? $"{parent}/{segment}" : segment.ToString();
 
     private sealed record CatalogRow(Guid Id, CatalogItemType Type, string Name, string FullName, string Article);
 

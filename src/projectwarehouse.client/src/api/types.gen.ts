@@ -508,7 +508,7 @@ export type AssemblyFulfillmentDto = {
 };
 
 /**
- * Variant choices of the caller's latest fulfillment of one catalog item at one warehouse.
+ * Variant choices of the latest fulfillment of one catalog item at one warehouse.
  */
 export type AssemblyLastPickDto = {
   catalogItemId: string;
@@ -10895,10 +10895,15 @@ export type StockForecastGetListData = {
     /**
      * Reserves the not-yet-fulfilled quantity of items on orders currently in `Assembly` against
      * stock, as if it were already spoken for. A Bundle component is exploded into its own components
-     * recursively; a Variation component has no single deterministic underlying item, so it reserves
-     * against that variation's own row only.
+     * recursively; a Variation slot follows the latest assembly of the same item on this warehouse, and
+     * without one reserves against that variation's own row only.
      */
     AccountForAssembly?: boolean;
+    /**
+     * bool StockForecastListRequest.AccountForAssembly extended to `Draft` and `Confirmed` orders, whose boxes are
+     * reserved in full. Implies bool StockForecastListRequest.AccountForAssembly.
+     */
+    AccountForAllOrders?: boolean;
     /**
      * Adds int StockForecastDto.InTransit to stock for days left and status. The row's
      * `Stock` stays what is on the shelf.

@@ -131,6 +131,12 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
     (v) => (v ? "true" : null),
   );
 
+  const [accountForAllOrders, setAccountForAllOrders] = useSyncedWithQueryState<boolean>(
+    "accountForAllOrders",
+    (q) => q === "true",
+    (v) => (v ? "true" : null),
+  );
+
   const [accountForInTransit, setAccountForInTransit] = useSyncedWithQueryState<boolean>(
     "accountForInTransit",
     (q) => q === "true",
@@ -155,6 +161,7 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
       IsVariation: effectiveIsVariation ?? undefined,
       OnlyWarnings: onlyWarnings || undefined,
       AccountForAssembly: accountForAssembly,
+      AccountForAllOrders: accountForAllOrders,
       AccountForInTransit: accountForInTransit,
       SortBy: sortBy,
       SortOrder: sortOrder,
@@ -168,6 +175,7 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
       effectiveIsVariation,
       onlyWarnings,
       accountForAssembly,
+      accountForAllOrders,
       accountForInTransit,
       sortBy,
       sortOrder,
@@ -382,16 +390,30 @@ function ForecastBasePage({title, warehouseId}: ForecastBasePageProps) {
         </FiltersBar>
 
         <Stack direction="row" sx={{alignItems: "center"}} spacing={1}>
-          <Tooltip title="Вариация в заказе резервируется только в строке самой вариации: какой участник уйдёт, ещё не известно">
+          <Tooltip title="Вариация резервируется под участника, собранного в прошлый раз на этом складе; если такой сборки нет — только в строке самой вариации">
             <span>
               <FormControlLabel
                 control={
                   <Checkbox
-                    checked={accountForAssembly}
+                    checked={accountForAssembly || accountForAllOrders}
+                    disabled={accountForAllOrders}
                     onChange={(e) => setAccountForAssembly(e.target.checked)}
                   />
                 }
                 label="Учитывать заказы на сборке"
+              />
+            </span>
+          </Tooltip>
+          <Tooltip title="Кроме заказов на сборке резервирует черновики и подтверждённые заказы склада целиком">
+            <span>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={accountForAllOrders}
+                    onChange={(e) => setAccountForAllOrders(e.target.checked)}
+                  />
+                }
+                label="Учитывать все заказы"
               />
             </span>
           </Tooltip>
