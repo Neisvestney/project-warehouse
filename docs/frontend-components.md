@@ -647,7 +647,8 @@ never hold inventory of their own.
 ### `CatalogItemDrawer`
 
 Reusable right-side drawer for viewing and editing any catalog item. Mount it on a page with
-`useDrawerSearchParamsState`; `onOpenItem` exists for in-drawer navigation (e.g. "open parent group").
+`useDrawerSearchParamsState`; inside a `useBackClosable` overlay drive it with `useDrawerLocalState` and pass
+`backClosable` (see `FulfillmentsDrawer`). `onOpenItem` exists for in-drawer navigation (e.g. "open parent group").
 
 Edit is hidden for items with a `groupId` — those are managed by the parent group, shown as an info alert.
 
@@ -1273,6 +1274,21 @@ empty value would show a filter the URL and the request do not agree with.
 перехватил бы ховер на остальной таблице. `disableScrollLock` — чтобы открытие поповера не дёргало вёрстку
 страницы. Закрытие отложено на 150 мс, а бумага сама гасит таймер по `onMouseEnter`, так что курсор успевает
 переехать с чипа в поповер.
+
+### `OrderCompositionSummaryDialog`
+
+Действие «Посчитать…» в `BulkBar` списка заказов (`useOrderCompositionSummaryAction`, всегда в «Ещё», на всех
+страницах `OrdersListPage`) открывает модалку со сводкой состава выбранных заказов, включая скрытые фильтрами
+(см. [orders-specification.md](./orders-specification.md#сводка-состава)). Id заказов фиксируются в момент клика.
+
+Таблица — позиция с артикулом, «Кол-во, шт.», «Заказов», в подвале итог по позициям и штукам. Сортировка по клику
+на заголовок живёт в локальном стейте, а не в URL через `useTableSort`: параметры модалки столкнулись бы с
+сортировкой самого списка. По умолчанию — по количеству по убыванию, при равенстве — по названию. «Копировать»
+кладёт в буфер строки `Название (артикул) — N шт.` в текущем порядке и строку «Итого».
+
+Название позиции — `CatalogItemLink`, открывающий `CatalogItemDrawer` из локального стейта
+(`useDrawerLocalState` + `backClosable`), а не через search-param: модалка держится на `useBackClosable`, и
+вложенный в неё оверлей хранит открытость у себя ([Overlays](./frontend-state.md#overlays)).
 
 ### `src/components/orders/marketplace/`
 

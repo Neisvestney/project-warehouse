@@ -265,6 +265,9 @@ import type {
   OrdersGetCompositionPreviewData,
   OrdersGetCompositionPreviewErrors,
   OrdersGetCompositionPreviewResponses,
+  OrdersGetCompositionSummaryData,
+  OrdersGetCompositionSummaryErrors,
+  OrdersGetCompositionSummaryResponses,
   OrdersGetLabelsData,
   OrdersGetLabelsErrors,
   OrdersGetLabelsResponses,
@@ -2485,6 +2488,34 @@ export const ordersGetCompositionPreview = <ThrowOnError extends boolean = false
     OrdersGetCompositionPreviewErrors,
     ThrowOnError
   >({url: "/api/orders/{id}/composition-preview", ...options});
+
+/**
+ * Box components of several orders summed per catalog item.
+ *
+ * Body: `OrderCompositionSummaryRequest` — `orderIds` (duplicates are collapsed, unknown ids are
+ * skipped). Returns 422 `required` for an empty list. Items come in no particular order.
+ * Requires `orders.view`, or `orders.view_assigned` limited to the caller's warehouses —
+ * 403 `orderNotAssignedToWarehouse` when any of the orders lies outside them.
+ */
+export const ordersGetCompositionSummary = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersGetCompositionSummaryData, ThrowOnError>,
+): RequestResult<
+  OrdersGetCompositionSummaryResponses,
+  OrdersGetCompositionSummaryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    OrdersGetCompositionSummaryResponses,
+    OrdersGetCompositionSummaryErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/composition-summary",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
 
 /**
  * Create a Direct (non-marketplace) order in Draft status.

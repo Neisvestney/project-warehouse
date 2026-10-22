@@ -2259,6 +2259,28 @@ export type OrderCompositionPreviewDto = {
   hiddenPositionCount: number;
 };
 
+/**
+ * Box components of several orders summed per catalog item.
+ */
+export type OrderCompositionSummaryDto = {
+  items: Array<OrderCompositionSummaryItemDto>;
+};
+
+export type OrderCompositionSummaryItemDto = {
+  catalogItemId: string;
+  catalogItemName: string;
+  article: string;
+  quantity: number;
+  /**
+   * How many of the requested orders contain the item.
+   */
+  orderCount: number;
+};
+
+export type OrderCompositionSummaryRequest = {
+  orderIds: Array<string>;
+};
+
 export type OrderDetailsDto = {
   id: string;
   number: number;
@@ -7630,6 +7652,41 @@ export type OrdersGetCompositionPreviewResponses = {
 
 export type OrdersGetCompositionPreviewResponse =
   OrdersGetCompositionPreviewResponses[keyof OrdersGetCompositionPreviewResponses];
+
+export type OrdersGetCompositionSummaryData = {
+  body: OrderCompositionSummaryRequest;
+  path?: never;
+  query?: never;
+  url: "/api/orders/composition-summary";
+};
+
+export type OrdersGetCompositionSummaryErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type OrdersGetCompositionSummaryError =
+  OrdersGetCompositionSummaryErrors[keyof OrdersGetCompositionSummaryErrors];
+
+export type OrdersGetCompositionSummaryResponses = {
+  /**
+   * OK
+   */
+  200: OrderCompositionSummaryDto;
+};
+
+export type OrdersGetCompositionSummaryResponse =
+  OrdersGetCompositionSummaryResponses[keyof OrdersGetCompositionSummaryResponses];
 
 export type OrdersCreateDirectData = {
   body: CreateDirectOrderRequest;

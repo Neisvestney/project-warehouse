@@ -96,6 +96,7 @@ import {
   ordersGetAssemblyById,
   ordersGetById,
   ordersGetCompositionPreview,
+  ordersGetCompositionSummary,
   ordersGetLabels,
   ordersGetTags,
   ordersGetTaskMoveTargets,
@@ -488,6 +489,9 @@ import type {
   OrdersGetCompositionPreviewData,
   OrdersGetCompositionPreviewError,
   OrdersGetCompositionPreviewResponse,
+  OrdersGetCompositionSummaryData,
+  OrdersGetCompositionSummaryError,
+  OrdersGetCompositionSummaryResponse,
   OrdersGetLabelsData,
   OrdersGetLabelsError,
   OrdersGetTagsData,
@@ -4060,6 +4064,38 @@ export const ordersGetCompositionPreviewOptions = (
     },
     queryKey: ordersGetCompositionPreviewQueryKey(options),
   });
+
+/**
+ * Box components of several orders summed per catalog item.
+ *
+ * Body: `OrderCompositionSummaryRequest` — `orderIds` (duplicates are collapsed, unknown ids are
+ * skipped). Returns 422 `required` for an empty list. Items come in no particular order.
+ * Requires `orders.view`, or `orders.view_assigned` limited to the caller's warehouses —
+ * 403 `orderNotAssignedToWarehouse` when any of the orders lies outside them.
+ */
+export const ordersGetCompositionSummaryMutation = (
+  options?: Partial<Options<OrdersGetCompositionSummaryData>>,
+): UseMutationOptions<
+  OrdersGetCompositionSummaryResponse,
+  OrdersGetCompositionSummaryError,
+  Options<OrdersGetCompositionSummaryData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersGetCompositionSummaryResponse,
+    OrdersGetCompositionSummaryError,
+    Options<OrdersGetCompositionSummaryData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersGetCompositionSummary({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 /**
  * Create a Direct (non-marketplace) order in Draft status.

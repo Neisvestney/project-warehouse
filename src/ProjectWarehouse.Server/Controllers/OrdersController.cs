@@ -754,6 +754,81 @@ public class OrdersController(
         });
     }
 
+    // ── POST /api/orders/composition-summary ──────────────────────────────────
+
+    /// <summary>Box components of several orders summed per catalog item.</summary>
+    /// <remarks>
+    /// Body: <c>OrderCompositionSummaryRequest</c> — <c>orderIds</c> (duplicates are collapsed, unknown ids are
+    /// skipped). Returns 422 <c>required</c> for an empty list. Items come in no particular order.
+    /// Requires <c>orders.view</c>, or <c>orders.view_assigned</c> limited to the caller's warehouses —
+    /// 403 <c>orderNotAssignedToWarehouse</c> when any of the orders lies outside them.
+    /// </remarks>
+    [HttpPost("composition-summary")]
+    [Authorize]
+    [ProducesResponseType<OrderCompositionSummaryDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> GetCompositionSummary(
+        [FromBody] OrderCompositionSummaryRequest request, CancellationToken ct = default)
+    {
+        var orderIds = request.OrderIds.Distinct().ToList();
+        if (orderIds.Count == 0)
+            return UnprocessableEntity(nameof(request.OrderIds), ErrorCode.Required, "No orders were requested.");
+
+        if (!CanBrowseOrders)
+            return Forbidden();
+
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
+
+        var narrowing = await scope.GetWarehouseNarrowingAsync(User, Permissions.Orders.View, ct);
+        if (AccessError(narrowing.Verdict) is { } tokenError)
+            return tokenError;
+
+        if (narrowing.Ids is { } assignedIds)
+        {
+            var outside = await db.Orders
+                .AnyAsync(o => orderIds.Contains(o.Id)
+                               && (o.WarehouseId == null || !assignedIds.Contains(o.WarehouseId.Value)), ct);
+
+            if (outside)
+                return Forbidden(ErrorCode.OrderNotAssignedToWarehouse,
+                    "Some of the orders belong to a warehouse you are not assigned to.");
+        }
+
+        var totals = await db.OrderBoxComponents
+            .AsNoTracking()
+            .Where(c => orderIds.Contains(c.OrderBox.OrderId))
+            .GroupBy(c => c.CatalogItemId)
+            .Select(g => new
+            {
+                CatalogItemId = g.Key,
+                Quantity = g.Sum(c => c.Quantity),
+                OrderCount = g.Select(c => c.OrderBox.OrderId).Distinct().Count(),
+            })
+            .ToListAsync(ct);
+
+        var itemIds = totals.Select(t => t.CatalogItemId).ToList();
+        var names = await db.CatalogItems
+            .AsNoTracking()
+            .Where(i => itemIds.Contains(i.Id))
+            .Select(i => new { i.Id, i.FullName, i.Article })
+            .ToDictionaryAsync(i => i.Id, ct);
+
+        return Ok(new OrderCompositionSummaryDto
+        {
+            Items = totals
+                .Select(t => new OrderCompositionSummaryItemDto
+                {
+                    CatalogItemId = t.CatalogItemId,
+                    CatalogItemName = names[t.CatalogItemId].FullName,
+                    Article = names[t.CatalogItemId].Article,
+                    Quantity = t.Quantity,
+                    OrderCount = t.OrderCount,
+                })
+                .ToList(),
+        });
+    }
+
     // ── POST /api/orders/direct ───────────────────────────────────────────────
 
     /// <summary>Create a Direct (non-marketplace) order in Draft status.</summary>

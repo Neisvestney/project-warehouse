@@ -63,6 +63,7 @@ import {
 import {ORDER_STATUS_LABELS, formatOrderNumber} from "./orderUtils";
 import {getOrderBulkTransitions, type OrderBulkTransition} from "./orderBulkTransitions";
 import {useOrderTagsBulkAction} from "./useOrderTagsBulkAction";
+import {useOrderCompositionSummaryAction} from "./useOrderCompositionSummaryAction";
 import {useOrderAssignBulkAction} from "./useOrderAssignBulkAction";
 import {NOUNS, pluralCount} from "@/utils/pluralUtils";
 import type {
@@ -388,6 +389,7 @@ function OrdersListPage({
 
   const tagsAction = useOrderTagsBulkAction();
   const assignAction = useOrderAssignBulkAction(removeIds);
+  const summaryAction = useOrderCompositionSummaryAction();
 
   const listStats: TableInfoStat[] = [
     {key: "total", label: "Всего заказов:", value: (settled?.total ?? 0).toLocaleString("ru-RU")},
@@ -470,6 +472,7 @@ function OrdersListPage({
             onClick: () => handleTransitionClick(transition),
           })),
           ...(canCreate ? [tagsAction.getAction(selectedItems.map((o) => o.id))] : []),
+          summaryAction.getAction(selectedItems.map((o) => o.id)),
         ]
       : [];
   // чекбокс + сортируемые колонки + «Штук» + «Метки»
@@ -639,6 +642,7 @@ function OrdersListPage({
       />
       {tagsAction.dialogs}
       {assignAction.dialogs}
+      {summaryAction.dialogs}
 
       {confirmTransition?.confirm && (
         <ConfirmDialog
