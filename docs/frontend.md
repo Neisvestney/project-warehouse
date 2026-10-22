@@ -500,6 +500,12 @@ pages. Colours are fixed black on white so a dark theme does not leak into the p
 
 Each sheet has an `open…PrintPage` helper in `@/utils/printUtils` that opens it in a new tab.
 
+A sheet whose second column is a system quantity (receipt «План», stocktake «Учёт») can be printed without it
+for a blind count. The print button opens `PrintQuantityMenu` from `@/components/print/PrintQuantityMenu` —
+«С колонкой …» / «Без колонки …» — and the helper takes `withQuantity`; `false` adds `?quantity=0`, which the
+page reads with `readPrintWithQuantity(searchParams)` and then drops that column, leaving
+**Наименование / Факт**. The menu stops click propagation, so it is safe inside an `AccordionSummary`.
+
 ### `StocktakeNodePrintPage`
 
 Count sheet for one stocktake cell at `/print/stocktakes/:id/nodes/:nodeId`. Data comes from the same
@@ -514,7 +520,7 @@ Acceptance sheet for one receipt at `/print/receipts/:id`, opened by **Печа�
 `ReceiptItemsSection` whenever the receipt has items. Data comes from `GET /api/receipts/{id}`. Title is the
 receipt number, its name when set, and the warehouse; columns are **Наименование / План / Факт**, one row per
 receipt item in receipt order with `plannedCount` as «План», then five blank rows. `openReceiptPrintPage(id,
-itemIds)` limits the sheet to the selected items: the ids travel through sessionStorage (`?from=storage`) like
+withQuantity, itemIds)` limits the sheet to the selected items: the ids travel through sessionStorage (`?from=storage`) like
 `openPrintPage`'s labels, with `?item=` params as the fallback, and `readReceiptPrintItemIds` reads them back.
 
 #### Barcode payload format

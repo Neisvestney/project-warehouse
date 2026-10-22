@@ -55,6 +55,7 @@ import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import {calcTotalPlaced} from "@/components/receipts/receiptUtils";
 import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 import {openReceiptPrintPage} from "@/utils/printUtils";
+import PrintQuantityMenu from "@/components/print/PrintQuantityMenu";
 import QrCode2Icon from "@mui/icons-material/QrCode2";
 import CloseIcon from "@mui/icons-material/Close";
 import SelectionTableCell from "@/components/SelectionTableCell";
@@ -478,6 +479,7 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
   );
   const [catalogItemId, setCatalogItemId] = useState<string | null>(null);
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
+  const [printAnchor, setPrintAnchor] = useState<HTMLElement | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const canEdit = useHasPermission(["receipts.edit", "receipts.edit_assigned"]);
   const canProcess = useHasPermission("receipts.process_assigned");
@@ -574,15 +576,22 @@ function ReceiptItemsSection({receipt, onUpdate, onEditingChange}: ReceiptItemsS
             <Button
               startIcon={<PrintIcon />}
               size="small"
-              onClick={() =>
-                openReceiptPrintPage(
-                  receipt.id,
-                  selectedItems.length > 0 ? selectedItems.map((i) => i.id) : undefined,
-                )
-              }
+              onClick={(e) => setPrintAnchor(e.currentTarget)}
             >
               Печать{selectedSuffix}
             </Button>
+            <PrintQuantityMenu
+              anchorEl={printAnchor}
+              onClose={() => setPrintAnchor(null)}
+              onPrint={(withQuantity) =>
+                openReceiptPrintPage(
+                  receipt.id,
+                  withQuantity,
+                  selectedItems.length > 0 ? selectedItems.map((i) => i.id) : undefined,
+                )
+              }
+              quantityLabel="План"
+            />
             <Button
               startIcon={<QrCode2Icon />}
               size="small"

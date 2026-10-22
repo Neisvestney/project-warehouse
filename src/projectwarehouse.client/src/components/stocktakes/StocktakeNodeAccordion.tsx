@@ -26,6 +26,7 @@ import {
 } from "@/api/@tanstack/react-query.gen";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import {openStocktakeNodePrintPage} from "@/utils/printUtils";
+import PrintQuantityMenu from "@/components/print/PrintQuantityMenu";
 import {formatStoragePlaceNodeName} from "@/components/shared/nodePathUtils";
 import StocktakeAddItemModal from "@/components/stocktakes/StocktakeAddItemModal";
 import StocktakeCountRows from "@/components/stocktakes/StocktakeCountRows";
@@ -60,6 +61,7 @@ function StocktakeNodeAccordion({
   const {enqueueSnackbar} = useSnackbar();
   const [expanded, setExpanded] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [printAnchor, setPrintAnchor] = useState<HTMLElement | null>(null);
 
   // Unsaved work is kept apart from server data, so a refetch refreshes the baseline
   // without wiping what the operator typed
@@ -161,7 +163,7 @@ function StocktakeNodeAccordion({
                 onClick={(e) => {
                   // The summary toggles the accordion on click
                   e.stopPropagation();
-                  openStocktakeNodePrintPage(stocktake.id, node.storagePlaceNodeId);
+                  setPrintAnchor(e.currentTarget);
                 }}
                 onFocus={(e) => e.stopPropagation()}
               >
@@ -171,6 +173,14 @@ function StocktakeNodeAccordion({
           )}
         </Stack>
       </AccordionSummary>
+      <PrintQuantityMenu
+        anchorEl={printAnchor}
+        onClose={() => setPrintAnchor(null)}
+        onPrint={(withQuantity) =>
+          openStocktakeNodePrintPage(stocktake.id, node.storagePlaceNodeId, withQuantity)
+        }
+        quantityLabel="Учёт"
+      />
       <AccordionDetails sx={{px: {xs: 1, sm: 2}}}>
         {stockQuery.isLoading || !rows ? (
           <Box sx={{display: "flex", justifyContent: "center", py: 3}}>

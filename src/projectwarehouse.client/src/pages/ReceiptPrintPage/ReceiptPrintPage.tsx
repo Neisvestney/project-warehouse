@@ -1,5 +1,5 @@
 import {useParams, useSearchParams} from "react-router";
-import {readReceiptPrintItemIds} from "@/utils/printUtils";
+import {readPrintWithQuantity, readReceiptPrintItemIds} from "@/utils/printUtils";
 import {useQuery} from "@tanstack/react-query";
 import {receiptsGetByIdOptions} from "@/api/@tanstack/react-query.gen";
 import {formatReceiptNumber} from "@/components/receipts/receiptUtils";
@@ -8,16 +8,18 @@ import PrintTablePage, {
   type PrintTableSheet,
 } from "@/components/print/PrintTablePage";
 
-const COLUMNS: PrintTableColumn[] = [
-  {header: "Наименование", align: "left"},
-  {header: "План", width: "20mm"},
-  {header: "Факт", width: "50mm"},
-];
+const NAME_COLUMN: PrintTableColumn = {header: "Наименование", align: "left"};
+const PLAN_COLUMN: PrintTableColumn = {header: "План", width: "20mm"};
+const FACT_COLUMN: PrintTableColumn = {header: "Факт", width: "50mm"};
 
 function ReceiptPrintPage() {
   const {id = ""} = useParams();
   const [searchParams] = useSearchParams();
   const itemIds = readReceiptPrintItemIds(searchParams);
+  const withQuantity = readPrintWithQuantity(searchParams);
+  const columns = withQuantity
+    ? [NAME_COLUMN, PLAN_COLUMN, FACT_COLUMN]
+    : [NAME_COLUMN, FACT_COLUMN];
   const receiptQuery = useQuery({
     ...receiptsGetByIdOptions({path: {id}}),
     meta: {suppressGlobalError: true},
@@ -33,14 +35,16 @@ function ReceiptPrintPage() {
         .filter((item) => !itemIds || itemIds.has(item.id))
         .map((item) => ({
           key: item.id,
-          cells: [item.catalogItem.fullName, item.plannedCount, null],
+          cells: withQuantity
+            ? [item.catalogItem.fullName, item.plannedCount, null]
+            : [item.catalogItem.fullName, null],
         })),
     };
   }
 
   return (
     <PrintTablePage
-      columns={COLUMNS}
+      columns={columns}
       sheet={sheet}
       isLoading={receiptQuery.isLoading}
       error={receiptQuery.error}

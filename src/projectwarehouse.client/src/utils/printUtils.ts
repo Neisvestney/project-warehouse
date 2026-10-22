@@ -48,15 +48,32 @@ export function isPrintPath(pathname: string): boolean {
   return pathname === "/print" || pathname.startsWith("/print/");
 }
 
-export function openStocktakeNodePrintPage(stocktakeId: string, nodeId: string): void {
-  window.open(`/print/stocktakes/${stocktakeId}/nodes/${nodeId}`, "_blank");
+const PRINT_QUANTITY_PARAM = "quantity";
+
+/** False when the sheet was opened without its system quantity column («План» / «Учёт»). */
+export function readPrintWithQuantity(params: URLSearchParams): boolean {
+  return params.get(PRINT_QUANTITY_PARAM) !== "0";
+}
+
+export function openStocktakeNodePrintPage(
+  stocktakeId: string,
+  nodeId: string,
+  withQuantity: boolean,
+): void {
+  const query = withQuantity ? "" : `?${PRINT_QUANTITY_PARAM}=0`;
+  window.open(`/print/stocktakes/${stocktakeId}/nodes/${nodeId}${query}`, "_blank");
 }
 
 const PRINT_RECEIPT_ITEMS_STORAGE_KEY = "print-receipt-items";
 
 /** `itemIds` limits the sheet to those items; handed over like `openPrintPage`, `?item=` params as the fallback. */
-export function openReceiptPrintPage(receiptId: string, itemIds?: string[]): void {
+export function openReceiptPrintPage(
+  receiptId: string,
+  withQuantity: boolean,
+  itemIds?: string[],
+): void {
   const params = new URLSearchParams();
+  if (!withQuantity) params.set(PRINT_QUANTITY_PARAM, "0");
   if (itemIds) {
     try {
       sessionStorage.setItem(PRINT_RECEIPT_ITEMS_STORAGE_KEY, JSON.stringify(itemIds));
