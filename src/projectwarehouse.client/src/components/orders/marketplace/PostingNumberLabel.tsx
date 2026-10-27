@@ -2,17 +2,17 @@ import type {SxProps, Theme} from "@mui/material";
 import {Box, Tooltip} from "@mui/material";
 import type {MarketplaceOrderDto} from "@/api/types.gen";
 import CopyableText from "@/components/CopyableText";
-import {formatPostingNumber, formatScanitBarcode} from "@/utils/postingNumberUtils";
+import {formatPostingNumber, formatLabelBarcode} from "@/utils/postingNumberUtils";
 
 interface PostingNumberLabelProps {
-  marketplaceOrder: Pick<MarketplaceOrderDto, "postingNumber" | "ozonScanitBarcode">;
+  marketplaceOrder: Pick<MarketplaceOrderDto, "postingNumber" | "labelBarcode">;
   sx?: SxProps<Theme>;
 }
 
 function PostingNumberLabel({marketplaceOrder, sx}: PostingNumberLabelProps) {
-  const {postingNumber, ozonScanitBarcode} = marketplaceOrder;
+  const {postingNumber, labelBarcode} = marketplaceOrder;
 
-  if (!ozonScanitBarcode) {
+  if (!labelBarcode) {
     return (
       <CopyableText value={postingNumber} successMessage="Номер отправления скопирован" sx={sx}>
         {formatPostingNumber(postingNumber)}
@@ -35,8 +35,8 @@ function PostingNumberLabel({marketplaceOrder, sx}: PostingNumberLabelProps) {
     >
       {/* Tooltip needs a DOM child to attach its listeners to */}
       <Box component="span" sx={[{display: "inline-flex"}, ...(Array.isArray(sx) ? sx : [sx])]}>
-        <CopyableText value={ozonScanitBarcode} successMessage="Штрихкод отправления скопирован">
-          {formatScanitBarcode(ozonScanitBarcode)}
+        <CopyableText value={labelBarcode} successMessage="Номер с этикетки скопирован">
+          {formatLabelBarcode(labelBarcode)}
         </CopyableText>
       </Box>
     </Tooltip>

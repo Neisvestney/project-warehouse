@@ -897,7 +897,7 @@ public class OzonClient(
             (posting.Products ?? [])
                 .Select(p => ToExternalPostingItem(p, financials))
                 .ToList(),
-            Scanit: NullIfBlank(posting.Scanit),
+            LabelBarcode: NullIfBlank(posting.Scanit),
             Dates: new ExternalPostingDates(
                 posting.Delivering_date?.UtcDateTime,
                 posting.Shipment_date_without_delay?.UtcDateTime,
@@ -973,7 +973,7 @@ public class OzonClient(
             (posting.Products ?? [])
                 .Select(p => ToExternalPostingItem(p, financials))
                 .ToList(),
-            Scanit: NullIfBlank(posting.Scanit),
+            LabelBarcode: NullIfBlank(posting.Scanit),
             Dates: ToDates(posting));
     }
 

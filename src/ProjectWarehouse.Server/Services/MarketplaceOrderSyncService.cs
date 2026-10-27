@@ -291,7 +291,7 @@ public class MarketplaceOrderSyncService(
                 DeliveryMethodName = posting.DeliveryMethodName,
                 WarehouseExternalId = posting.WarehouseExternalId,
                 MultiBoxQty = posting.MultiBoxQty,
-                OzonScanitBarcode = posting.Scanit,
+                LabelBarcode = posting.LabelBarcode,
                 Parcels = BuildParcels(orderId, posting, items, boxId),
                 StatusSyncedAt = now,
                 SyncedAt = now,
@@ -524,7 +524,7 @@ public class MarketplaceOrderSyncService(
             || known.TrackingNumber != posting.TrackingNumber
             || known.DeliveryMethodName != posting.DeliveryMethodName
             || known.MultiBoxQty != posting.MultiBoxQty
-            || (posting.Scanit is not null && known.OzonScanitBarcode != posting.Scanit)
+            || (posting.LabelBarcode is not null && known.LabelBarcode != posting.LabelBarcode)
             || known.ExternalOrderNumber != posting.ExternalOrderNumber;
 
         changed |= ApplyCancellation(known, posting.Cancellation);
@@ -546,8 +546,8 @@ public class MarketplaceOrderSyncService(
         known.DeliveryMethodName = posting.DeliveryMethodName;
         known.WarehouseExternalId = posting.WarehouseExternalId ?? known.WarehouseExternalId;
         known.MultiBoxQty = posting.MultiBoxQty;
-        // Ozon blanks the barcode once the posting leaves awaiting_deliver; the stored one outlives that
-        known.OzonScanitBarcode = posting.Scanit ?? known.OzonScanitBarcode;
+        // Ozon blanks the barcode once the posting leaves awaiting_deliver, WB states it only in the archive
+        known.LabelBarcode = posting.LabelBarcode ?? known.LabelBarcode;
         known.ExternalOrderNumber = posting.ExternalOrderNumber;
         changed |= FollowMarketplace(known);
 

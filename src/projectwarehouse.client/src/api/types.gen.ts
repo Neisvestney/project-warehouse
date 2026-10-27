@@ -1998,9 +1998,9 @@ export type MarketplaceOrderDetailsDto = {
   deliveryMethodName?: null | string;
   multiBoxQty: number;
   /**
-   * Barcode printed on the marketplace label. Null until the posting has been packed.
+   * Number printed on the marketplace label: Ozon scanit or Wildberries sticker number. Null until the label exists.
    */
-  ozonScanitBarcode?: null | string;
+  labelBarcode?: null | string;
   statusSyncedAt: string;
 };
 
@@ -2049,9 +2049,9 @@ export type MarketplaceOrderDto = {
   deliveryMethodName?: null | string;
   multiBoxQty: number;
   /**
-   * Barcode printed on the marketplace label. Null until the posting has been packed.
+   * Number printed on the marketplace label: Ozon scanit or Wildberries sticker number. Null until the label exists.
    */
-  ozonScanitBarcode?: null | string;
+  labelBarcode?: null | string;
   statusSyncedAt: string;
 };
 

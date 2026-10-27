@@ -5,7 +5,7 @@ import {useRebindOrdersAction} from "@/components/orders/marketplace/useRebindOr
 import MarketplaceOrderStatusChip from "@/components/orders/marketplace/MarketplaceOrderStatusChip";
 import SyncOrdersButton from "@/components/orders/marketplace/SyncOrdersButton";
 import {useHasPermission} from "@/hooks/usePermission";
-import {formatPostingNumber, formatScanitBarcode} from "@/utils/postingNumberUtils";
+import {formatPostingNumber, formatLabelBarcode} from "@/utils/postingNumberUtils";
 import {Typography} from "@mui/material";
 
 const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
@@ -24,9 +24,9 @@ const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
         <Typography variant="body2" sx={{fontFamily: "monospace"}}>
           {formatPostingNumber(order.marketplaceOrder?.postingNumber) ?? "—"}
         </Typography>
-        {order.marketplaceOrder?.ozonScanitBarcode && (
+        {order.marketplaceOrder?.labelBarcode && (
           <Typography variant="caption" component="div" sx={{fontFamily: "monospace"}}>
-            {formatScanitBarcode(order.marketplaceOrder.ozonScanitBarcode)}
+            {formatLabelBarcode(order.marketplaceOrder.labelBarcode)}
           </Typography>
         )}
       </>

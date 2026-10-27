@@ -225,11 +225,12 @@ Used everywhere a posting number is rendered: the `postingNumber` extra column i
 **Отправление** row in `OrderMetaSection`, and the failure list in `SkippedOrdersList` (there it sits inside the
 existing `<b>`, so the whole number stays bold and the 4 digits keep the plate).
 
-`formatScanitBarcode(ozonScanitBarcode)` from the same module formats the Ozon shipment barcode (`ozonScanitBarcode`,
-`ii` + 11 digits) with the same highlight plate, applied to the last 4 digits of the whole string:
-`ii50082087036` → `ii5008208**7036**`. Strings that don't end with 4 digits are returned unchanged;
-`null`/`undefined`/`""` give `null`. The barcode is filled only once a posting reaches `awaiting_deliver`, so
-every call site skips it when empty: the **Штрихкод отправления** row in `OrderMetaSection` (right after
+`formatLabelBarcode(labelBarcode)` from the same module formats the number printed on the label (`labelBarcode`:
+the Ozon scanit, `ii` + 11 digits, or the Wildberries sticker number, `partA` + `partB`) with the same highlight
+plate, applied to the last 4 digits of the whole string: `ii50082087036` → `ii5008208**7036**`,
+`2316489753` → `231648**9753**`. Strings that don't end with 4 digits are returned unchanged;
+`null`/`undefined`/`""` give `null`. The barcode is filled only once the label exists (Ozon states it from
+`awaiting_deliver`, Wildberries with the sticker or in the archive), so every call site skips it when empty: the **Номер с этикетки** row in `OrderMetaSection` (right after
 **Отправление**, monospace), a second `caption`-sized monospace line under the posting number in the
 `postingNumber` column of `OrdersFbsPage`, and `PostingNumberLabel` in the `OrdersAssemblyPage` summary, which
 shows the barcode in place of the posting number. Both rows of `OrderMetaSection` are `CopyableText`, which copies

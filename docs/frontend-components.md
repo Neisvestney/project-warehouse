@@ -1328,7 +1328,7 @@ FBS-only pieces: `SyncOrdersButton` / `SyncOrdersDialog` / `SyncOrdersAccountAcc
 and `marketplaceOrderUtils` for the label and colour maps.
 
 `PostingNumberLabel` is the compact posting label for places with room for a single number, currently the
-`OrdersAssemblyPage` summary. Once the posting has an `ozonScanitBarcode` it shows the barcode — what the assembler
+`OrdersAssemblyPage` summary. Once the posting has a `labelBarcode` it shows the barcode — what the assembler
 scans off the label — as a `CopyableText`, and puts the posting number into an interactive tooltip as a second
 `CopyableText`, so both stay copyable. Before packing there is no barcode yet, and the posting number itself is
 shown and copied.

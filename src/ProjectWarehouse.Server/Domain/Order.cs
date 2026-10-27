@@ -91,7 +91,7 @@ public class Order : IHasIdentity
     public string SearchString =>
         Number + " " + Notes + " "
         + (MarketplaceOrder != null
-            ? MarketplaceOrder.PostingNumber + " " + (MarketplaceOrder.OzonScanitBarcode ?? "")
+            ? MarketplaceOrder.PostingNumber + " " + (MarketplaceOrder.LabelBarcode ?? "")
             : "");
 
     /// <summary>

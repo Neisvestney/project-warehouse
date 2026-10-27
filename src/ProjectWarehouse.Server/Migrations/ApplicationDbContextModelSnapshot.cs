@@ -20,7 +20,7 @@ namespace ProjectWarehouse.Server.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.13")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pg_trgm");
@@ -1124,14 +1124,14 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<DateTime?>("InProcessAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("LabelBarcode")
+                        .HasColumnType("text");
+
                     b.Property<Guid>("MarketplaceAccountId")
                         .HasColumnType("uuid");
 
                     b.Property<int>("MultiBoxQty")
                         .HasColumnType("integer");
-
-                    b.Property<string>("OzonScanitBarcode")
-                        .HasColumnType("text");
 
                     b.Property<string>("PostingNumber")
                         .IsRequired()

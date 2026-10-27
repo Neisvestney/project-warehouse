@@ -673,7 +673,7 @@ MarketplaceOrder
 ├── DeliveryMethodName    — string?
 ├── WarehouseExternalId   — string?, warehouse_id площадки, с которого едет отправление; у FBO null
 ├── MultiBoxQty           — int
-├── OzonScanitBarcode         — string?, штрихкод отправления Ozon с этикетки
+├── LabelBarcode          — string?, номер с этикетки: scanit Ozon или номер стикера WB (partA + partB); раз записанный, не стирается
 ├── StatusSyncedAt        — DateTime, когда последний раз сверялся статус
 ├── SyncedAt              — DateTime
 └── Parcels[]             — грузоместа, не меньше одного; этикетка живёт на них
@@ -895,8 +895,8 @@ ExternalLabelDocument   — record (bool IsReady, IReadOnlyList<string> PostingN
                                   IReadOnlyList<ExternalLabelFailure> Unprinted,
                                   IReadOnlyList<ExternalLabelPage>? Pages)
 ExternalLabelFailure    — record (string PostingNumber, string? Message)
-ExternalLabelPage       — record (string PostingNumber, byte[] Content, LabelKind Kind)
-                          одностраничный PDF одного отправления
+ExternalLabelPage       — record (string PostingNumber, byte[] Content, LabelKind Kind, string? Barcode)
+                          одностраничный PDF одного отправления; Barcode — номер с этикетки, если площадка его называет
 
 ExternalReturn          — record: один вернувшийся экземпляр, поля MarketplaceReturn без связей
 ExternalReturnQuery     — либо период по дате (StatusChanged | Returned), либо статус компенсации

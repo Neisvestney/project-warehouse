@@ -343,6 +343,8 @@ public class MarketplaceLabelService(
         foreach (var postingNumber in chunk.Where(byPosting.ContainsKey))
         {
             var page = byPosting[postingNumber];
+            var marketplaceOrder = byPostingNumber[postingNumber].MarketplaceOrder!;
+            marketplaceOrder.LabelBarcode = page.Barcode ?? marketplaceOrder.LabelBarcode;
             await StoreAsync(byPostingNumber[postingNumber], new LabelPage(page.Content, page.Kind),
                 "application/pdf", labels, userId, ct);
         }
@@ -423,11 +425,14 @@ public class MarketplaceLabelService(
     /// <summary>
     /// Which label format <paramref name="text"/> is, provided it belongs to the posting at all. Ozon prints
     /// the scanit on its beta labels, and the posting number where the beta is off or the posting holds more
-    /// than one unit.
+    /// than one unit. Only Ozon labels are read: another marketplace's page arrives with its kind already set.
     /// </summary>
     private static LabelKind? Identify(string? text, MarketplaceOrder marketplaceOrder)
     {
-        if (LabelTextReader.ContainsBarcode(text, marketplaceOrder.OzonScanitBarcode))
+        if (marketplaceOrder.MarketplaceAccount.Type != MarketplaceType.Ozon)
+            return null;
+
+        if (LabelTextReader.ContainsBarcode(text, marketplaceOrder.LabelBarcode))
             return LabelKind.OzonScanitLabel;
 
         if (LabelTextReader.ContainsBarcode(text, marketplaceOrder.PostingNumber))

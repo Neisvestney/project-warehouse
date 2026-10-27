@@ -89,7 +89,7 @@ Order
 └── AssemblyTasks[]         — задания на сборку
 ```
 
-> **`MarketplaceOrder`** — расширение заказа 1:1 с общим первичным ключом, которое хранит номер отправления, аккаунт маркетплейса, статус на площадке и грузоместа с этикетками. `SearchString` ищет по `MarketplaceOrder.PostingNumber` и `MarketplaceOrder.OzonScanitBarcode` — штрихкоду с этикетки. Модель и обоснование — в [marketplaces-specification.md](marketplaces-specification.md#заказ-маркетплейса-marketplaceorder).
+> **`MarketplaceOrder`** — расширение заказа 1:1 с общим первичным ключом, которое хранит номер отправления, аккаунт маркетплейса, статус на площадке и грузоместа с этикетками. `SearchString` ищет по `MarketplaceOrder.PostingNumber` и `MarketplaceOrder.LabelBarcode` — номеру с этикетки (scanit Ozon, номер стикера WB). Модель и обоснование — в [marketplaces-specification.md](marketplaces-specification.md#заказ-маркетплейса-marketplaceorder).
 >
 > **Пока склад над заказом не работает, его статус ведёт синхронизация; с момента `Confirmed` — только склад.** Черновик FBS и внешний заказ получают `Order.Status` вслед за площадкой. У рабочего заказа статус на площадке и статус WMS независимы: `Order.Status` живёт по статусной машине этого документа, `MarketplaceOrder.Status` обновляется синхронизацией, и автоматических переходов между ними нет ни в одну сторону.
 
@@ -508,7 +508,7 @@ Draft → Confirmed → Assembly ⇄ Assembled ⇄ Shipped
 `searchString` в списке заказов и на странице сборки ищет не только по самому заказу, но и по его составу.
 Токены (слова через пробел) объединяются по **И**, а внутри токена источники — по **ИЛИ**:
 
-- `Order.SearchString` — номер заказа, заметки, `MarketplaceOrder.PostingNumber`, `MarketplaceOrder.OzonScanitBarcode`;
+- `Order.SearchString` — номер заказа, заметки, `MarketplaceOrder.PostingNumber`, `MarketplaceOrder.LabelBarcode`;
 - `OrderBox.Label` — метки коробок;
 - `CatalogItem.SearchString` позиций коробок — название, артикул, штрихкод, описание + поля группы;
 - `MarketplaceCard.SearchString` позиций маркетплейса — `Name`, `OfferId`, `ExternalId`, `Sku`.

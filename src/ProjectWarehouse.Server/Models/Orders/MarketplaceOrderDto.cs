@@ -49,8 +49,8 @@ public class MarketplaceOrderDto
     public string? DeliveryMethodName { get; init; }
     public int MultiBoxQty { get; init; }
 
-    /// <summary>Barcode printed on the marketplace label. Null until the posting has been packed.</summary>
-    public string? OzonScanitBarcode { get; init; }
+    /// <summary>Number printed on the marketplace label: Ozon scanit or Wildberries sticker number. Null until the label exists.</summary>
+    public string? LabelBarcode { get; init; }
 
     public DateTime StatusSyncedAt { get; init; }
 }

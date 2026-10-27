@@ -3,7 +3,7 @@ import {Box} from "@mui/material";
 
 // Highlights the last 4 digits of the first segment: 0132298262-0184-1 -> 8262
 const HIGHLIGHTED_PART_REGEX = /^(\d*)(\d{4})(?=-|$)/;
-const SCANIT_HIGHLIGHTED_PART_REGEX = /^(.*?)(\d{4})$/;
+const LABEL_BARCODE_HIGHLIGHTED_PART_REGEX = /^(.*?)(\d{4})$/;
 
 // Expects a match with exactly two groups: [1] prefix, [2] highlighted digits
 function highlight(value: string, match: RegExpExecArray): ReactNode {
@@ -38,11 +38,11 @@ export function formatPostingNumber(postingNumber: string | null | undefined): R
   return highlight(postingNumber, match);
 }
 
-export function formatScanitBarcode(ozonScanitBarcode: string | null | undefined): ReactNode {
-  if (!ozonScanitBarcode) return null;
+export function formatLabelBarcode(labelBarcode: string | null | undefined): ReactNode {
+  if (!labelBarcode) return null;
 
-  const match = SCANIT_HIGHLIGHTED_PART_REGEX.exec(ozonScanitBarcode);
-  if (!match) return ozonScanitBarcode;
+  const match = LABEL_BARCODE_HIGHLIGHTED_PART_REGEX.exec(labelBarcode);
+  if (!match) return labelBarcode;
 
-  return highlight(ozonScanitBarcode, match);
+  return highlight(labelBarcode, match);
 }

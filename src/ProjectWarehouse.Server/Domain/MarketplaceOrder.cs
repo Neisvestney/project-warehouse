@@ -95,11 +95,12 @@ public class MarketplaceOrder
     public int MultiBoxQty { get; set; } = 1;
 
     /// <summary>
-    /// Barcode printed on the marketplace label, which is what ties a label page back to this posting.
-    /// Ozon states it only while the posting is <c>awaiting_deliver</c> and blanks it afterwards, so once
-    /// stored it is never cleared — a label reprinted later still has to be matched.
+    /// Number printed on the marketplace label: Ozon's scanit, which ties a label page back to this posting,
+    /// or the Wildberries sticker number (<c>partA</c> + <c>partB</c>). Ozon states the scanit only while the
+    /// posting is <c>awaiting_deliver</c> and Wildberries the sticker only with the label or in the archive,
+    /// so once stored it is never cleared.
     /// </summary>
-    public string? OzonScanitBarcode { get; set; }
+    public string? LabelBarcode { get; set; }
 
     /// <summary>At least one; the labels live on them.</summary>
     public List<MarketplaceParcel> Parcels { get; set; } = [];

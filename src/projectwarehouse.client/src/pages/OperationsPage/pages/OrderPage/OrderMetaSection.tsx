@@ -24,7 +24,7 @@ import InfoRow from "@/components/InfoRow";
 import CopyableText from "@/components/CopyableText";
 import UserChip from "@/components/shared/UserChip";
 import WarehouseChip from "@/components/shared/WarehouseChip";
-import {formatPostingNumber, formatScanitBarcode} from "@/utils/postingNumberUtils";
+import {formatPostingNumber, formatLabelBarcode} from "@/utils/postingNumberUtils";
 import OrderMarketplaceReturnsDetails from "./OrderMarketplaceReturnsDetails";
 
 function formatDate(iso: string | null | undefined): string {
@@ -199,16 +199,16 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
               </CopyableText>
             }
           />
-          {order.marketplaceOrder.ozonScanitBarcode && (
+          {order.marketplaceOrder.labelBarcode && (
             <InfoRow
-              label="Штрихкод отправления"
+              label="Номер с этикетки"
               value={
                 <CopyableText
-                  value={order.marketplaceOrder.ozonScanitBarcode}
-                  successMessage="Штрихкод отправления скопирован"
+                  value={order.marketplaceOrder.labelBarcode}
+                  successMessage="Номер с этикетки скопирован"
                   textStyle={{fontFamily: "monospace"}}
                 >
-                  {formatScanitBarcode(order.marketplaceOrder.ozonScanitBarcode)}
+                  {formatLabelBarcode(order.marketplaceOrder.labelBarcode)}
                 </CopyableText>
               }
             />

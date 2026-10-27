@@ -181,18 +181,8 @@ public class WildberriesClient(
         var supplies = NewSupplyDates();
         var seen = new HashSet<long>();
 
-        // live tasks first, the archive takes over where they end; StatusChangedSince is not narrowed, a superset is fine
-        await foreach (var tasks in ListLiveTasksAsync(since, to, ct))
-        {
-            var fresh = tasks.Where(t => seen.Add(t.Id)).ToList();
-            var statuses = await GetRawStatusesAsync(fresh.Select(t => t.Id).ToList(), ct);
-            var postings = await MapMatchingAsync(fresh
-                .Where(t => statuses.ContainsKey(t.Id))
-                .Select(t => t with { Supplier = statuses[t.Id].Supplier, Wb = statuses[t.Id].Wb }), query, supplies, ct);
-            if (postings.Count > 0)
-                yield return postings;
-        }
-
+        // the archive first: the live list still holds finished tasks for months, but only the archive states
+        // their sticker number; StatusChangedSince is not narrowed, a superset is fine
         foreach (var month in Months(since, to))
         {
             await foreach (var tasks in ListArchiveAsync(month, ct))
@@ -203,6 +193,19 @@ public class WildberriesClient(
                 if (postings.Count > 0)
                     yield return postings;
             }
+        }
+
+        await foreach (var tasks in ListLiveTasksAsync(since, to, ct))
+        {
+            var fresh = tasks.Where(t => seen.Add(t.Id)).ToList();
+            if (fresh.Count == 0)
+                continue;
+            var statuses = await GetRawStatusesAsync(fresh.Select(t => t.Id).ToList(), ct);
+            var postings = await MapMatchingAsync(fresh
+                .Where(t => statuses.ContainsKey(t.Id))
+                .Select(t => t with { Supplier = statuses[t.Id].Supplier, Wb = statuses[t.Id].Wb }), query, supplies, ct);
+            if (postings.Count > 0)
+                yield return postings;
         }
     }
 
@@ -558,7 +561,10 @@ public class WildberriesClient(
                 pages.Add(new ExternalLabelPage(postingNumber,
                     LabelPdfComposer.FromImage(Convert.FromBase64String(sticker.File!), StickerWidthMm,
                         StickerHeightMm, _options.StickerScale),
-                    LabelKind.WildberriesSticker));
+                    LabelKind.WildberriesSticker,
+                    NullIfEmpty(sticker.PartA) is { } partA && NullIfEmpty(sticker.PartB) is { } partB
+                        ? partA + partB
+                        : null));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -660,6 +666,8 @@ public class WildberriesClient(
             [item],
             ExternalPostingScheme.Fbs,
             task.CreatedAt,
+            // the archive's sticker id is the label's partA + partB
+            LabelBarcode: task.StickerId?.ToString(CultureInfo.InvariantCulture),
             Dates: Dates(deliveringAt));
     }
 
