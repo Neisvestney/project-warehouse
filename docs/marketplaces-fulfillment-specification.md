@@ -13,7 +13,7 @@
 | Yandex Market | `src/Marketplaces/specs/yandex-market/openapi/` (`paths/`, `components/schemas/`) | FBS (Express — тот же контракт) |
 | Avito | `src/Marketplaces/specs/avito/order-management.json` | доставка Avito через ПВЗ (`delivery.serviceType = pvz`) |
 
-Всё, что ниже сказано о Wildberries, Yandex Market и Avito, взято из спецификаций и **на живом магазине не проверялось**. Исключение — Yandex Market: устройство кабинета (раздел [Аккаунт Yandex Market](#аккаунт-yandex-market)), заказы FBS, раскладка мест и этикетки сверены с боевым ключом. У Avito с боевым ключом сверено только устройство кабинета (раздел [Аккаунт Avito](#аккаунт-avito)): API заказов сверенному кабинету закрыт.
+Всё, что ниже сказано о Wildberries, Yandex Market и Avito, взято из спецификаций и **на живом магазине не проверялось**. Исключения — Yandex Market: устройство кабинета (раздел [Аккаунт Yandex Market](#аккаунт-yandex-market)), заказы FBS, раскладка мест и этикетки сверены с боевым ключом; Wildberries: кабинет (раздел [Аккаунт Wildberries](#аккаунт-wildberries)), сборочные задания, их статусы, стикеры и маркировка сверены с боевым ключом, поставки — только чтением. У Avito с боевым ключом сверено только устройство кабинета (раздел [Аккаунт Avito](#аккаунт-avito)): API заказов сверенному кабинету закрыт.
 
 **Avito — не маркетплейс, но заказы с доставкой Avito ведутся как FBS:** продавец подтверждает заказ, собирает его, клеит этикетку площадки и сдаёт в ПВЗ. Управление заказами в API доступно только продавцам B2C. Схемы `dbs` (доставка партнёрами продавца с треком от продавца) и `rdbs` (свой курьер) — это доставка силами продавца, аналог rFBS, и в модель FBS не входят. Описания самовывоза (CNC), курьерского забора и постаматов в спецификации есть, но в перечислении `serviceType` таких значений нет.
 
@@ -53,6 +53,15 @@
 - **Реквизиты продавца** синхронным методом не отдаются: в `accounts/self` нет ни ИНН, ни юрлица. `GET /api/1/partner/tariff/info` без платного тарифа отвечает `403` («требуется платный тариф»), `GET /tariff/info/1` — только для категории «Транспорт».
 - **API заказов открыт только кабинету с Авито Доставкой для бизнеса.** Без неё любой метод `order-management` отвечает `403` с текстом «API работает только с Авито Доставкой для бизнеса. Чтобы её включить, нужно указать реквизиты компании и настроить тариф». Профиля компании для этого мало. `accounts/self` и методы объявлений и остатков отвечают `200` и без доставки, поэтому доступ к заказам видно только по ответу `order-management`.
 
+## Аккаунт Wildberries
+
+Сверено с боевым кабинетом.
+
+- **Ключ** — JWT в заголовке `Authorization` без префикса, один на все хосты API (`marketplace-api`, `content-api`, `statistics-api`, `seller-analytics-api`, `finance-api`, …). Отдельного метода «скоупы ключа» нет: доступ виден по ответу каждого хоста, проверка — `GET /ping` хоста. Срок жизни ключа зашит в токен (`exp`), у сверенного — полгода.
+- **Кабинет** — один продавец на ключ: магазинов и кампаний под ним нет, аккаунт WMS — весь кабинет. `GET /api/v1/seller-info` (`common-api`) отдаёт `name` (юрлицо словами, например «ИП …»), `tin` (ИНН), `tradeMark` и `sid` — идентификатор продавца, тот же, что в токене. ОГРН и формы собственности отдельным полем нет; лимит метода — 10 запросов (`x-ratelimit-limit`).
+- **Склады продавца** — `GET /api/v3/warehouses`, у каждого `deliveryType` (`1` FBS, `2` DBS, `3` DBW, `5` C&C, `6` EDBS), `officeId` — склад WB, к которому он привязан, и `cargoType`. В сверенном кабинете два склада: FBS и DBS. Все сборочные задания FBS ссылаются на склад FBS (`warehouseId`), DBS-заказы методом `/api/v3/orders` не отдаются.
+- **Реквизиты продавца** доступны синхронно — все три поля `seller-info` в одном запросе. Название юрлица то же в `sellerFinanceName` списка отчётов реализации; в строках детализации ИНН продавца нет (`ppvzSupplierInn` пуст).
+
 ## Единица заказа
 
 | | Ozon | Yandex Market | Wildberries | Avito |
@@ -60,9 +69,19 @@
 | Единица импорта (`MarketplaceOrder.PostingNumber`) | отправление, `posting_number` | заказ, `orderId` | сборочное задание, `id` | заказ, `id` |
 | `ExternalOrderNumber` | `order_number` — заказ, из которого родилось отправление | — | `orderUid` — корзина покупателя | `marketplaceId` — «номер заказа в новой системе», может отсутствовать |
 | Позиции | `products[]`, несколько позиций с количеством | `items[]` (`id`, `offerId`, `count`) | **ровно одна штука**: в задании скаляры `nmId`, `chrtId`, `article`, количества нет | `items[]` (`avitoId` — объявление, `count`; `id` — товар в базе продавца, необязателен) |
-| Метод списка | `/v4/posting/fbs/unfulfilled/list` (фильтр `statuses`, без обязательного окна) | `POST /v1/businesses/{businessId}/orders` (окно дат не шире 30 дней, `page_token`, `limit` ≤ 50) | `GET /api/v3/orders/new` — только новые; `GET /api/v3/orders` — без статусов, `POST /api/v3/orders/status` — статусы по списку `id` | `GET /order-management/1/orders`: `statuses`, `ids`, `dateFrom` (по времени **создания**), `page`, `limit` ≤ 20, конец — `hasMore = false`; фильтра по `updatedAt` нет, отдельного метода на один заказ нет — `ids` |
+| Метод списка | `/v4/posting/fbs/unfulfilled/list` (фильтр `statuses`, без обязательного окна) | `POST /v1/businesses/{businessId}/orders` (окно дат не шире 30 дней, `page_token`, `limit` ≤ 50) | `GET /api/v3/orders/new` — только новые; `GET /api/v3/orders` — без статусов, окно `dateFrom` / `dateTo` по дате **создания** не шире 30 дней, `limit` ≤ 1000, `next`, конец — пустая страница с `next = 0`; `POST /api/v3/orders/status` — статусы по списку `id`, до 1000; старые — `GET /api/marketplace/v3/fbs/orders/archive` по месяцу | `GET /order-management/1/orders`: `statuses`, `ids`, `dateFrom` (по времени **создания**), `page`, `limit` ≤ 20, конец — `hasMore = false`; фильтра по `updatedAt` нет, отдельного метода на один заказ нет — `ids` |
 
 **Корзина Wildberries — это несколько заданий с общим `orderUid`.** Две штуки одного товара — тоже два задания. У каждого свой `id`, своя этикетка и свои метаданные, поэтому в WMS они приезжают отдельными заказами, как у Ozon — отправления одного `order_number`. Группировка по `ExternalOrderNumber` нужна только для показа.
+
+Сверено с боевым кабинетом: две штуки одного товара в корзине — два задания с общим `orderUid`, одинаковыми `nmId` / `chrtId` и `rid`, различающимися последним сегментом (`….0.0`, `….0.1`); статусы у них расходятся (в одной корзине — `defect` и `canceled_by_client`). Корзины из нескольких заданий редки: три на 1380 заданий.
+
+**Заказы Wildberries — сверено с боевым кабинетом:**
+
+- `GET /api/v3/orders` без дат отдаёт последние 30 дней. Окно шире 30 дней — `400` `IncorrectParameter` без указания предела. Метод отдаёт задания, ещё не ушедшие в архив, — на живом кабинете примерно за 3,5 месяца назад.
+- **Архив** (`/api/marketplace/v3/fbs/orders/archive`, `year` + `month`, `limit` 100…1000) начинается там, где кончается `/api/v3/orders`, без пересечения по `id`: задание переходит в архив вместе с поставкой, поэтому граница плавает (живые задания встречаются с начала июля, архивные — до конца июля). Месяц считается по московскому времени: задание с `createdAt` `2026-05-31T21:36Z` лежит в июне. Архив сверенного кабинета — с января 2026, раньше пусто.
+- **Архивное задание устроено иначе**, чем живое: статус прямо в записи (`status {supplierStatus, wbStatus}`), товар вложен (`product {article, skus, nmId, chrtId}`), цена — `priceInfo {…}`, `cargoType` и `crossBorderType` строками (`mgt`, `local`), есть `stickerId` и `metaDetails`. Нужен отдельный маппинг.
+- В ответах есть поля, которых нет в схеме: `trackNumber` и `isPickupPointShipmentAllowed` в `/orders`, `userId` в `/orders/new`; у задания в `/orders/status` — `isCancellable` и `isTransferable`.
+- **`/api/v3/orders/new`** отдаёт ровно задания в `new` / `waiting` — все они есть и в `/api/v3/orders`. Задание, прошедшее мимо WMS, находится обычным окном `/api/v3/orders` по дате создания, а статусы догоняются `/orders/status` по `id` пачками по 1000. Фильтра по дате изменения нет, поэтому опрашивать приходится все незавершённые задания: в `complete` / `sorted` на живом кабинете висят задания трёхмесячной давности.
 
 Метод `GET /v2/campaigns/{campaignId}/orders` у Yandex Market объявлен устаревшим (деградация с 2027-01-18, отключение 2027-04-12) и не отдаёт заказы, доставленные или отменённые больше 30 дней назад. Провайдер YM строится на `getBusinessOrders`.
 
@@ -80,7 +99,7 @@
 | `AwaitingDeliver` | Сборка оформлена на площадке, этикетка печатается, заказ ждёт передачи в доставку | `awaiting_deliver` | `PROCESSING` / `READY_TO_SHIP` | `supplierStatus = confirm` | `ready_to_ship` |
 | `Delivering` | Передан площадке или перевозчику | `delivering`, `driver_pickup`, `sent_by_seller` | `PROCESSING` / `SHIPPED`, `DELIVERY`, `PICKUP` | `supplierStatus = complete` | `in_transit` |
 | `Delivered` | Вручён | `delivered` | `DELIVERED`, `PARTIALLY_RETURNED`, `RETURNED` | `wbStatus = sold` | `delivered` |
-| `Cancelled` | Отменён | `cancelled`, `not_accepted` | `CANCELLED` | `supplierStatus = cancel`, `wbStatus ∈ {canceled, canceled_by_client, declined_by_client, canceled_by_carrier}` | `canceled` |
+| `Cancelled` | Отменён | `cancelled`, `not_accepted` | `CANCELLED` | `supplierStatus = cancel`, `wbStatus ∈ {canceled, canceled_by_client, declined_by_client, defect, canceled_by_carrier}` | `canceled` |
 | `Arbitration` | Спор | `arbitration`, `client_arbitration` | — | — | `in_dispute` |
 | `Split` | Отправление разделено на другие и само больше не существует | `cancelled_from_split_pending` | — | — | — |
 
@@ -89,6 +108,26 @@
 Возвраты YM (`PARTIALLY_RETURNED`, `RETURNED`) ложатся в `Delivered`: продажа состоялась, а сам возврат живёт в [журнале возвратов](marketplaces-returns-specification.md).
 
 У Wildberries статус собирается из двух полей: `supplierStatus` двигает продавец, `wbStatus` — площадка. Отмена по любому из них — `Cancelled`, `wbStatus = sold` перебивает `complete`.
+
+Пары, встреченные на боевом кабинете (1380 живых и 1169 архивных заданий):
+
+| `supplierStatus` | `wbStatus` | Что это | Нормализация |
+|---|---|---|---|
+| `new` | `waiting` | новое, ждёт сборки | `AwaitingPackaging` |
+| `new` | `declined_by_client` | покупатель отменил в первый час | `Cancelled` |
+| `new` | `canceled_by_client` | отменено покупателем до сборки, хотя по описанию значение означает отказ при получении | `Cancelled` |
+| `confirm` | `waiting` | в поставке, поставка не передана | `AwaitingDeliver` |
+| `confirm` | `canceled_by_client` | отменено на сборке; стикер при этом ещё отдаётся | `Cancelled` |
+| `complete` | `sorted` | передано, в пути | `Delivering` |
+| `complete` | `ready_for_pickup` | в ПВЗ | `Delivering` |
+| `complete` | `sold` | получено покупателем | `Delivered` |
+| `complete` | `canceled_by_client` | отказ при получении, либо выкуп и возврат | `Cancelled` |
+| `complete` | `defect` | отмена по браку после отгрузки | `Cancelled` |
+| `cancel` | `canceled` | отменено продавцом | `Cancelled` |
+
+`sold` встречается только с `complete`, так что «перебивает» на деле не срабатывает. `postponed_delivery`, `accepted_by_carrier`, `sent_to_carrier`, `cancel_carrier` и `canceled_by_carrier` на кабинете без трансграничных поставок не встречались. Схема и описание `/orders/status` расходятся: `cancel_carrier` и `canceled_by_carrier` есть только в описании, `postponed_delivery` — только в перечислении.
+
+`complete` + `canceled_by_client` — не всегда невыкуп: у 29 из 263 таких заданий в `GET /api/v1/supplier/sales` есть и продажа (`S…`), и возврат (`R…`), то есть покупатель выкупил и вернул. У `complete` + `defect` так же — 6 из 59. Для статуса заказа это `Cancelled` в обоих случаях; разница видна в продажах и начислениях.
 
 Состояния **до** того, как площадка отдала заказ продавцу, не импортируются: у Ozon — `awaiting_registration`, `acceptance_in_progress`, `awaiting_approve`, `awaiting_verification`; у YM — `PLACING`, `RESERVED`, `UNPAID`, `PENDING`; у Avito таких статусов в спецификации нет. Заказ в них может так и не состояться, а собирать его продавцу ещё нельзя. Подстатусы YM сверх `STARTED` / `READY_TO_SHIP` / `SHIPPED` спецификация перечисляет без описания и велит не обрабатывать — они сохраняются в `RawSubstatus`, на нормализацию не влияют.
 
@@ -141,9 +180,9 @@
 |---|---|---|---|---|
 | Гранулярность | отправление (= его единственное место) | место | задание | заказ (= его единственное место) |
 | Метод | `/v3/posting/fbs/package-label/create` + `/v2/posting/fbs/package-label/get`, пачкой | `GET .../orders/{orderId}/delivery/shipments/{shipmentId}/boxes/{boxId}/label` на место; `GET .../orders/{orderId}/delivery/labels` — все места заказа одним PDF | `POST /api/v3/orders/stickers`, до 100 заданий | асинхронно: `POST /order-management/1/orders/labels` (`orderIDs[]`, по схеме до 50) → `taskID` → `GET .../orders/labels/{taskID}/download`; метода статуса задачи нет, готовность — download перестаёт отвечать 404. `.../orders/labels/extended` — то же с лимитом 1 запрос в минуту |
-| Формат | PDF | PDF, `format`: `A9_HORIZONTALLY`, `A9`, `A7`, `A4` | `svg`, `png`, `zplv`, `zplh`; 58×40 или 40×30 | PDF, несколько заказов в одном файле |
-| Когда доступна | только `awaiting_deliver` | уже в `STARTED` — по раскладке по умолчанию; смена раскладки меняет места и их этикетки, раскладка застывает в `READY_TO_SHIP` | `confirm` и `complete`; без обязательного номера ДТ — никогда | только заказы ПВЗ; статус спецификация не называет — по смыслу `ready_to_ship` |
-| Что сверять | страницу с отправлением по `scanit` или номеру (`LabelTextReader`) | ничего: одно место — один запрос | ничего: ответ несёт файл по каждому `id` | страницу с заказом, как у Ozon: что напечатано на этикетке, спецификация не говорит |
+| Формат | PDF | PDF, `format`: `A9_HORIZONTALLY`, `A9`, `A7`, `A4` | `svg`, `png`, `zplv`, `zplh`; 58×40 (580×400 px) или 40×30 (400×300 px); `file` у SVG и PNG — base64, у ZPL — текст как есть | PDF, несколько заказов в одном файле |
+| Когда доступна | только `awaiting_deliver` | уже в `STARTED` — по раскладке по умолчанию; смена раскладки меняет места и их этикетки, раскладка застывает в `READY_TO_SHIP` | `supplierStatus` `confirm` и `complete` — решает только он: стикер отдаётся и заданию `confirm` / `canceled_by_client`, и `complete` трёхмесячной давности; без обязательного номера ДТ — никогда. Задание в другом статусе молча выпадает из ответа (`200`, пустой `stickers`) | только заказы ПВЗ; статус спецификация не называет — по смыслу `ready_to_ship` |
+| Что сверять | страницу с отправлением по `scanit` или номеру (`LabelTextReader`) | ничего: одно место — один запрос | сопоставить ответ с запросом по `orderId`: задания без стикера в ответе просто нет. `partA` + `partB` — номер стикера, тот же, что `stickerId` архива и `sticker` в продажах | страницу с заказом, как у Ozon: что напечатано на этикетке, спецификация не говорит |
 
 Данные для своей печати у YM — `GET .../orders/{orderId}/delivery/labels/data` (`ParcelBoxLabelDTO`: `boxId`, `fulfilmentId` в виде `номер-заказа-номер-места`, `place` в виде `2/3`, `url` этикетки места). Этим методом провайдер YM строит грузоместа заказа и узнаёт, куда идти за каждой этикеткой.
 
@@ -157,7 +196,7 @@
 
 | | Ozon | Yandex Market | Wildberries | Avito |
 |---|---|---|---|---|
-| Где видно требование | `requirements.products_requiring_{gtd, rnpt, mandatory_mark, jw_uin, imei, weight, country, change_country}` — массивы SKU; `optional.products_with_possible_mandatory_mark`; подробно — `/v6/fbs/posting/product/exemplar/create-or-get` (`is_gtd_needed`, `is_rnpt_needed`, `is_mandatory_mark_needed`, `is_mandatory_mark_possible`, `is_jw_uin_needed`, `has_imei`, `is_weight_needed`, `weight_min`/`weight_max`) | `items[].requiredInstanceTypes[]`: `CIS`, `CIS_OPTIONAL`, `UIN`, `RNPT`, `GTD` | `requiredMeta[]` / `optionalMeta[]` — только в ответе `/api/v3/orders/new`; ключ, которого нет ни в одном списке, записать нельзя | `availableActions` содержит `setMarkings`; на уровне позиции требования нет |
+| Где видно требование | `requirements.products_requiring_{gtd, rnpt, mandatory_mark, jw_uin, imei, weight, country, change_country}` — массивы SKU; `optional.products_with_possible_mandatory_mark`; подробно — `/v6/fbs/posting/product/exemplar/create-or-get` (`is_gtd_needed`, `is_rnpt_needed`, `is_mandatory_mark_needed`, `is_mandatory_mark_possible`, `is_jw_uin_needed`, `has_imei`, `is_weight_needed`, `weight_min`/`weight_max`) | `items[].requiredInstanceTypes[]`: `CIS`, `CIS_OPTIONAL`, `UIN`, `RNPT`, `GTD` | `requiredMeta[]` / `optionalMeta[]` — только в ответе `/api/v3/orders/new`; ключ, которого нет ни в одном списке, записать нельзя. У задания, прочитанного позже, то же видно в `POST /api/marketplace/v3/orders/meta` (до 100 `id`, любой статус): `metaDetails[] {key, value, decision}`, где `decision = required` / `optional`. В сверенном кабинете у всех заданий только `customsDeclaration` с `optional` | `availableActions` содержит `setMarkings`; на уровне позиции требования нет |
 | Поля единицы | `exemplar_id`, `gtd` / `is_gtd_absent`, `rnpt` / `is_rnpt_absent`, `weight`, `marks[] {mark, mark_type: mandatory_mark \| jw_uin \| imei}` | `cis` \| `uin` \| `rnpt` \| `gtd` (одно на запись), `countryCode` | `sgtin[]` (до 100 кодов), `uin`, `imei`, `gtin`, `expiration`, `customsDeclaration` — по одному значению на задание | только коды «Честного знака» (29–129 символов); ГТД, РНПТ, IMEI, УИН нет |
 | Запись | `/v6/fbs/posting/product/exemplar/set` — асинхронно, **каждый раз полный набор**; в `awaiting_deliver` — `/v1/fbs/posting/product/exemplar/update` | в раскладке мест: `boxes[].items[].instances[]`, по одному коду на единицу; товар в нескольких местах — код в каждом | `PUT /api/v3/orders/{orderId}/meta/{sgtin,uin,imei,gtin,expiration}`, `PUT /api/marketplace/v3/orders/{orderId}/meta/customs-declaration`; только в `confirm` | `POST /order-management/1/markings`: `markings[] {orderId, itemId = avitoId, markings[] ≤ 10}`, до 50 элементов в запросе; как передать больше 10 кодов на позицию, спецификация не говорит |
 | Проверка | `/v5/fbs/posting/product/exemplar/status`: `check_status` у марок, `gtd_check_status`, `rnpt_check_status`, `weight_check_status` + `*_error_codes`; формат — `/v5/.../exemplar/validate` | `GET .../orders/{orderId}/identifiers/status` | `POST /api/marketplace/v3/orders/meta` → `metaDetails[{key, value, decision}]` | синхронно в ответе: `results[] {orderId, itemId, success, error}` |
@@ -187,7 +226,7 @@ IMEI у Yandex Market в заказах нет — только в возвра�
 ### Открытые вопросы второго этапа
 
 - **Куда ложатся отправления Ozon после `ship` с несколькими пакетами.** Ответ `result[]` — номера получившихся отправлений, но остаётся ли исходный номер за первым пакетом, спецификация не говорит. От ответа зависит модель: либо один `Order` получает несколько `MarketplaceOrder` (по одному на пакет, пакет = коробка WMS), либо заказ WMS делится вслед за площадкой. Проверяется на живом магазине.
-- **Поставки Wildberries.** Поставка объединяет задания одного склада и передаётся целиком; в модели заказа WMS для неё места нет. Нужна ли поставка как сущность WMS или её достаточно вести на площадке, решается при подключении WB.
+- **Поставки Wildberries.** Поставка объединяет задания одного склада и передаётся целиком; в модели заказа WMS для неё места нет. На боевом кабинете продавец собирает поставку в день отгрузки (`createdAt` и `closedAt` — с разницей в часы, `shippingType = selfShipping`), `GET /api/v3/supplies` отдал 112 поставок одной страницей (конец — пустая страница с `next = 0`), и все — за последние полгода, хотя архив заданий начинается раньше. Задание, отменённое продавцом, бывает с `supplyId`. Нужна ли поставка как сущность WMS или её достаточно вести на площадке, решается при подключении WB.
 - **Отказ площадки на полпути.** Экземпляры записаны, а `ship` или `READY_TO_SHIP` отклонён. Нужна политика повтора и видимость такого состояния в интерфейсе.
 
 ## Открытые вопросы Avito

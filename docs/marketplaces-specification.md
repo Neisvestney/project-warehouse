@@ -1038,6 +1038,29 @@ MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, Labels, Stock
 is_unlimited, is_out_of_stock}`; `quantity` — доступное количество за вычетом брони. Закрытые объявления
 (`old`) тоже отдают остаток.
 
+### Склады, остатки и карточки Wildberries
+
+Не реализовано. Методы сверены с боевым кабинетом. Аккаунт WB — весь кабинет продавца (см.
+[«Аккаунт Wildberries»](marketplaces-fulfillment-specification.md#аккаунт-wildberries)).
+
+**Склады** — склады продавца, `GET /api/v3/warehouses`, без пагинации: `id`, `name`, `officeId`, `cargoType`,
+`deliveryType`, `isDeleting`, `isProcessing`. Остатки и задания FBS живут на складе с `deliveryType = 1`.
+
+**Карточки** — `POST /content/v2/get/cards/list` (`content-api`), курсор `{limit ≤ 100, updatedAt, nmID}` из
+ответа, конец — `cursor.total` меньше `limit`; фильтр `withPhoto = -1` отдаёт все. Карточка — `nmID` (артикул WB),
+`imtID` (склейка карточек), `vendorCode` (артикул продавца), `title`, `brand`, `subjectName`, `dimensions`,
+`needKiz`, `photos`, `sizes[] {chrtID, techSize, wbSize, skus[]}`. Единица остатка и задания — размер
+(`chrtID`), штрихкоды — `skus`. В сверенном кабинете у каждой из 381 карточки один размер с одним штрихкодом, а
+10 склеек объединяют несколько карточек.
+
+**Архивность** — корзина: `POST /content/v2/get/cards/trash` с тем же курсором отдаёт удалённые карточки с
+`trashedAt`; в основной выдаче их нет.
+
+**Остатки** — `POST /api/v3/stocks/{warehouseId}` с `chrtIds` до 1000, ответ `stocks[] {chrtId, sku, amount}`.
+Ответ отдаёт не все запрошенные размеры: на 381 `chrtID` — 293 строки, из них 5 с `amount = 0`, на складе DBS —
+5 строк с нулём. Отсутствие строки читается как «остатка нет», а не как ошибка; отличается ли оно от нуля для
+площадки, не проверено. Остатки — по складу продавца, отдельно на каждый склад.
+
 ### Правило автосопоставления (`MarketplaceAutoMapRule`)
 
 ```

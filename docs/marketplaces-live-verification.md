@@ -8,7 +8,11 @@ Market сверен этим маршрутом — его результаты 
 [marketplaces-accruals-specification.md](marketplaces-accruals-specification.md#yandex-market). У Avito сверены
 кабинет, объявления и остатки — [«Аккаунт Avito»](marketplaces-fulfillment-specification.md#аккаунт-avito) и
 [«Остатки и карточки Avito»](marketplaces-specification.md#остатки-и-карточки-avito); заказы ждут кабинета с
-Авито Доставкой для бизнеса. Wildberries ждёт токена.
+Авито Доставкой для бизнеса. Wildberries сверен маршрутом целиком, кроме записи; результаты — в
+[«Аккаунт Wildberries»](marketplaces-fulfillment-specification.md#аккаунт-wildberries) и WB-строках того же файла,
+[«Склады, остатки и карточки Wildberries»](marketplaces-specification.md#склады-остатки-и-карточки-wildberries),
+[marketplaces-returns-specification.md](marketplaces-returns-specification.md#wildberries) и
+[marketplaces-accruals-specification.md](marketplaces-accruals-specification.md#wildberries).
 
 ---
 
