@@ -108,9 +108,12 @@ static SortedDictionary<string, (string Production, string? Sandbox)> Trim(
 
     // WB terms forbid copying the documentation; stripped before hoisting so prose does not split identical schemas
     SpecSanitizer.StripDocumentation(document);
+    StripBodyStringEnums(document);
+    StripBodyDateFormats(document);
     SpecSanitizer.NameInlineSchemas(document);
     SpecSanitizer.Sanitize(document);
     SpecSanitizer.FlattenDottedSchemaNames(document);
+    WidenIntegers(document);
 
     SpecLoader.Save(document, trimmedPath);
     Console.WriteLine($"Trimmed {sources.Count} sources -> {merged.Paths.Count} paths, {new FileInfo(trimmedPath).Length / 1024} KB");
@@ -142,6 +145,103 @@ static void TagByHost(string path, JsonObject item, SortedDictionary<string, (st
 
     foreach (var operation in item.Select(o => o.Value).OfType<JsonObject>())
         operation["tags"] = new JsonArray(group);
+}
+
+// WB answers with statuses its enums do not list (wbStatus canceled_by_carrier, cancel_carrier), and a tolerant
+// enum would read them as its first member; body strings stay strings. Query parameters keep their enums.
+static void StripBodyStringEnums(JsonNode node)
+{
+    var count = 0;
+    Walk(node, null);
+    Console.WriteLine($"  enums: {count} string schema(s) in bodies rewritten to plain strings");
+
+    void Walk(JsonNode? current, string? key)
+    {
+        if (key == "parameters")
+            return;
+
+        switch (current)
+        {
+            case JsonObject o:
+                // an array value tells the keyword apart from a property named "enum", whose value is a schema
+                if (o["enum"] is JsonArray && o["type"] is JsonValue type
+                    && type.TryGetValue<string>(out var name) && name == "string")
+                {
+                    o.Remove("enum");
+                    count++;
+                }
+                foreach (var (childKey, value) in o.ToArray())
+                    Walk(value, childKey);
+                break;
+            case JsonArray a:
+                foreach (var item in a)
+                    Walk(item, null);
+                break;
+        }
+    }
+}
+
+// The realization report sends "" for dates it has no value for (fixTariffDateFrom), and NSwag pins its own
+// DateFormatConverter on every date property, out of reach of the serializer options. Query parameters keep the format.
+static void StripBodyDateFormats(JsonNode node)
+{
+    var count = 0;
+    Walk(node, null);
+    Console.WriteLine($"  dates: {count} date schema(s) in bodies rewritten to plain strings");
+
+    void Walk(JsonNode? current, string? key)
+    {
+        if (key == "parameters")
+            return;
+
+        switch (current)
+        {
+            case JsonObject o:
+                if (o["type"] is JsonValue type && type.TryGetValue<string>(out var name) && name == "string"
+                    && o["format"] is JsonValue format && format.TryGetValue<string>(out var f) && f == "date")
+                {
+                    o.Remove("format");
+                    count++;
+                }
+                foreach (var (childKey, value) in o.ToArray())
+                    Walk(value, childKey);
+                break;
+            case JsonArray a:
+                foreach (var item in a)
+                    Walk(item, null);
+                break;
+        }
+    }
+}
+
+// Assembly task, sticker, shk and report row ids pass int.MaxValue while the spec declares many of them int32
+static void WidenIntegers(JsonNode node)
+{
+    var count = 0;
+    Walk(node);
+    Console.WriteLine($"  integers: {count} schema(s) widened to int64");
+
+    void Walk(JsonNode? current)
+    {
+        switch (current)
+        {
+            case JsonObject o:
+                if (o["type"] is JsonValue type && type.TryGetValue<string>(out var name) && name == "integer"
+                    && o["enum"] is null
+                    && o["format"]?.GetValue<string>() is not ("int64" or "uint64"))
+                {
+                    o["format"] = "int64";
+                    count++;
+                }
+                foreach (var (_, value) in o.ToArray())
+                    Walk(value);
+                break;
+            case JsonArray a:
+                foreach (var item in a)
+                    Walk(item);
+                break;
+        }
+    }
 }
 
 // "03-orders-fbs" -> "OrdersFbs"; prefixes component names that collide across sections

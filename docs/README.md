@@ -64,12 +64,12 @@ is rationale, invariants, cross-cutting conventions and decisions.
 | [items-specification.md](items-specification.md) | Catalog items — types, `FullName`, inheritance, tags, images, listing rules |
 | [stock-forecast-specification.md](stock-forecast-specification.md) | Прогноз остатков — расчёт «на сколько дней хватит», окно расхода, пороги предупреждения |
 | [analytics-specification.md](analytics-specification.md) | Аналитика — сводка по каналам, выплаты маркетплейсов, ABC/XYZ-анализ |
-| [marketplaces-specification.md](marketplaces-specification.md) | Integration platform — Ozon Seller API, client codegen (shared generator core, Ozon, Wildberries, Yandex Market and Avito libraries), credential storage, warehouse/card sync & mapping |
+| [marketplaces-specification.md](marketplaces-specification.md) | Integration platform — Ozon and Wildberries providers, client codegen (shared generator core, Ozon, Wildberries, Yandex Market and Avito libraries), credential storage, warehouse/card sync & mapping |
 | [organizations-specification.md](organizations-specification.md) | Организации — компания продавца над аккаунтами маркетплейсов, привязка по ИНН, основа для «Честного знака» |
-| [marketplaces-accruals-specification.md](marketplaces-accruals-specification.md) | Accruals sync — Ozon finance accruals by day and the buyout report, rows and categories, link to postings, daily full pass |
-| [marketplaces-orders-specification.md](marketplaces-orders-specification.md) | Order sync — FBS & FBO posting discovery, status catch-up, history backfill, order creation, label retrieval |
+| [marketplaces-accruals-specification.md](marketplaces-accruals-specification.md) | Accruals sync — Ozon finance accruals by day and the buyout report, Wildberries realization report, rows and categories, link to postings, daily full pass |
+| [marketplaces-orders-specification.md](marketplaces-orders-specification.md) | Order sync — FBS & FBO posting discovery, status catch-up, history backfill, order creation, label retrieval, Wildberries assembly tasks |
 | [marketplaces-fulfillment-specification.md](marketplaces-fulfillment-specification.md) | Marketplaces around assembly — Ozon, Yandex Market, Wildberries and Avito: unit of order, status normalization, parcels, labels, item exemplars, assembly by WMS (stage 2) |
-| [marketplaces-returns-specification.md](marketplaces-returns-specification.md) | Returns sync — Ozon returns list, return kinds vs cancellations, compensation pass, link to orders |
+| [marketplaces-returns-specification.md](marketplaces-returns-specification.md) | Returns sync — Ozon returns list, Wildberries item-returns report, return kinds vs cancellations, compensation pass, link to orders |
 | [marketplaces-live-verification.md](marketplaces-live-verification.md) | Сверка спек маркетплейса с боевым кабинетом — правила, маршрут, что проверить у Wildberries и Avito |
 | [realtime-specification.md](realtime-specification.md) | Real-time transport — SSE, event schema, watch registry, advisory edit locks |
 | [data-files-specification.md](data-files-specification.md) | File storage — upload, storage abstraction, FK attachments, orphan GC, serving rules |

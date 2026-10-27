@@ -12,5 +12,4 @@ public static class WildberriesHosts
     public static readonly Uri MarketplaceSandbox = new("https://marketplace-api-sandbox.wildberries.ru");
     public static readonly Uri SellerAnalytics = new("https://seller-analytics-api.wildberries.ru");
     public static readonly Uri Statistics = new("https://statistics-api.wildberries.ru");
-    public static readonly Uri StatisticsSandbox = new("https://statistics-api-sandbox.wildberries.ru");
 }

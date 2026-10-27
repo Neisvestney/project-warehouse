@@ -15,6 +15,8 @@ internal static class WildberriesClientSetup
     {
         settings.Converters.Add(new TolerantEnumConverter());
         settings.Converters.Add(new TolerantStringConverter());
+        // optional body fields left unset are omitted, not sent as null the spec does not allow
+        settings.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
     }
 
     // Streaming (the NSwag default) leaves WildberriesApiException.Response empty exactly when the payload

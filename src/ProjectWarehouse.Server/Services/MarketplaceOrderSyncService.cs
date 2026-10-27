@@ -744,8 +744,11 @@ public class MarketplaceOrderSyncService(
         MarketplaceAccount account, MarketplaceSyncRun run, CancellationToken ct)
     {
         await ImportFbsPostingsAsync(provider, credentials, account, run, ct);
-        await ImportFboPostingsAsync(provider, credentials, account, run, ct);
-        await CatchUpStatusesAsync(provider, credentials, account, run, ExternalPostingScheme.Fbo, ct);
+        if (provider.Capabilities.HasFlag(MarketplaceCapabilities.Fbo))
+        {
+            await ImportFboPostingsAsync(provider, credentials, account, run, ct);
+            await CatchUpStatusesAsync(provider, credentials, account, run, ExternalPostingScheme.Fbo, ct);
+        }
         // last, so the postings its returns belong to are already in
         await returnSync.SyncReturnsAsync(provider, credentials, account, run, ct);
     }
@@ -904,7 +907,10 @@ public class MarketplaceOrderSyncService(
             throw new ValidationException("since", ErrorCode.Required,
                 "A backfill run needs both ends of its period.");
 
-        foreach (var scheme in (ExternalPostingScheme[])[ExternalPostingScheme.Fbs, ExternalPostingScheme.Fbo])
+        ExternalPostingScheme[] schemes = provider.Capabilities.HasFlag(MarketplaceCapabilities.Fbo)
+            ? [ExternalPostingScheme.Fbs, ExternalPostingScheme.Fbo]
+            : [ExternalPostingScheme.Fbs];
+        foreach (var scheme in schemes)
             await ImportExternalPostingsAsync(provider, credentials, account, run,
                 new ExternalPostingQuery(scheme, since, to, ExternalStatuses), refreshKnown: false, ct);
 

@@ -12,7 +12,9 @@ Market сверен этим маршрутом — его результаты 
 [«Аккаунт Wildberries»](marketplaces-fulfillment-specification.md#аккаунт-wildberries) и WB-строках того же файла,
 [«Склады, остатки и карточки Wildberries»](marketplaces-specification.md#склады-остатки-и-карточки-wildberries),
 [marketplaces-returns-specification.md](marketplaces-returns-specification.md#wildberries) и
-[marketplaces-accruals-specification.md](marketplaces-accruals-specification.md#wildberries).
+[marketplaces-accruals-specification.md](marketplaces-accruals-specification.md#wildberries). На том же кабинете
+прогнана синхронизация провайдера WB — склады, карточки, задания, стикеры, возвраты; её итоги — в тех же разделах
+и в [«Wildberries»](marketplaces-orders-specification.md#wildberries) спеки заказов.
 
 ---
 

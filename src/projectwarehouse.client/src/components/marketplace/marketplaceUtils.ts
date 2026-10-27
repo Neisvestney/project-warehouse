@@ -23,6 +23,16 @@ export const MARKETPLACE_TYPE_COLORS: Record<MarketplaceType, "ozon" | "wb"> = {
   wildberries: "wb",
 };
 
+export const MARKETPLACE_REQUIRES_CLIENT_ID: Record<MarketplaceType, boolean> = {
+  ozon: true,
+  wildberries: false,
+};
+
+export const MARKETPLACE_API_KEY_LABELS: Record<MarketplaceType, string> = {
+  ozon: "Api-Key",
+  wildberries: "Токен",
+};
+
 export const SYNC_STATUS_LABELS: Record<MarketplaceSyncStatus, string> = {
   running: "Синхронизация",
   success: "Синхронизировано",

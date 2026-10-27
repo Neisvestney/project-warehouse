@@ -15,7 +15,7 @@ public class OzonMarketplaceProvider(
     public MarketplaceCapabilities Capabilities =>
         MarketplaceCapabilities.Warehouses | MarketplaceCapabilities.Cards | MarketplaceCapabilities.SellerInfo
         | MarketplaceCapabilities.Orders | MarketplaceCapabilities.Labels | MarketplaceCapabilities.Returns
-        | MarketplaceCapabilities.Accruals | MarketplaceCapabilities.Buyouts;
+        | MarketplaceCapabilities.Accruals | MarketplaceCapabilities.Buyouts | MarketplaceCapabilities.Fbo;
 
     public bool RequiresClientId => true;
 

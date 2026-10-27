@@ -17,6 +17,8 @@ public class MarketplacesOptions
 
     public OzonOptions Ozon { get; set; } = new();
 
+    public WildberriesOptions Wildberries { get; set; } = new();
+
     public LabelsOptions Labels { get; set; } = new();
 }
 
@@ -53,10 +55,17 @@ public class LabelLayoutsOptions
     /// </summary>
     public LabelLayout OzonPostingLabel { get; set; } = new() { TextCorner = LabelTextCorner.TopRight };
 
+    /// <summary>
+    /// Wildberries sticker, scaled down to the right of its page by <see cref="WildberriesOptions.StickerScale"/>:
+    /// the sticker itself has no free corner, so the article runs up the strip left of it, beside the WB logo.
+    /// </summary>
+    public LabelLayout WildberriesSticker { get; set; } = new() { TextCorner = LabelTextCorner.LeftEdge, MarginX = 4 };
+
     public LabelLayout For(LabelKind kind) => kind switch
     {
         LabelKind.OzonScanitLabel => OzonScanitLabel,
         LabelKind.OzonPostingLabel => OzonPostingLabel,
+        LabelKind.WildberriesSticker => WildberriesSticker,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
 }
@@ -78,6 +87,7 @@ public enum LabelKind
 {
     OzonScanitLabel = 0,
     OzonPostingLabel = 1,
+    WildberriesSticker = 2,
 }
 
 public enum LabelTextCorner
@@ -86,6 +96,9 @@ public enum LabelTextCorner
     TopRight,
     BottomLeft,
     BottomRight,
+
+    /// <summary>Along the left edge, reading bottom to top and centred on the page height.</summary>
+    LeftEdge,
 }
 
 public class OzonOptions
@@ -237,4 +250,63 @@ public class OzonOptions
 
     /// <summary>How often the full pass over <see cref="AccrualsOverlapDays"/> runs; runs in between read two days.</summary>
     public int AccrualsFullPassIntervalHours { get; set; } = 24;
+}
+
+public class WildberriesOptions
+{
+    public int TimeoutSeconds { get; set; } = 60;
+
+    /// <summary>Pause between pages, on top of the resilience handler's 429 handling.</summary>
+    public int PageDelayMs { get; set; } = 300;
+
+    public int RateLimitRetryAttempts { get; set; } = 5;
+
+    /// <summary>First pause after a 429; each next retry waits twice as long.</summary>
+    public int RateLimitRetryDelayMs { get; set; } = 2000;
+
+    /// <summary>
+    /// How far back, by creation date, assembly tasks are listed to find the ones still in <c>new</c> or
+    /// <c>confirm</c>. /api/v3/orders takes at most 30 days per call and has no status filter.
+    /// </summary>
+    public int ActiveTasksWindowDays { get; set; } = 30;
+
+    /// <summary>
+    /// Pause between pages of the realization report detail. WB allows one call a minute per seller, and its
+    /// 429 is not worth spending the retry budget on.
+    /// </summary>
+    public int ReportRequestDelayMs { get; set; } = 61000;
+
+    /// <summary>
+    /// Cap on one realization report page, body included: the body is read outside the resilience handler,
+    /// and WB can stall it without closing the connection.
+    /// </summary>
+    public int ReportTimeoutSeconds { get; set; } = 300;
+
+    /// <summary>
+    /// Rows per realization report page, at most 100 000. A row is about 2 KB of uncompressed JSON and WB sends
+    /// well under 100 KB/s, so a page must fit <see cref="ReportTimeoutSeconds"/> with room to spare.
+    /// </summary>
+    public int ReportPageSize { get; set; } = 5_000;
+
+    /// <summary>
+    /// How far back from the end of the asked period the realization report is read. The weekly report comes out
+    /// on Monday for the week before, so a run asking for the last couple of days would otherwise never see it.
+    /// </summary>
+    public int AccrualsLookbackDays { get; set; } = 14;
+
+    /// <summary>
+    /// How far back the item-returns report is read on every pass, whatever the period asked for. The report has
+    /// no change date, so a return's later status and a task archived after the first read only show up by
+    /// reading it again.
+    /// </summary>
+    public int ReturnsLookbackDays { get; set; } = 90;
+
+    /// <summary>Tasks per sticker request; WB's ceiling is 100.</summary>
+    public int LabelBatchSize { get; set; } = 100;
+
+    /// <summary>
+    /// Share of the 58×40 mm page the sticker keeps, anchored to the right edge. The sticker has no free corner,
+    /// so the strip left on the left carries one line of article.
+    /// </summary>
+    public double StickerScale { get; set; } = 0.92;
 }

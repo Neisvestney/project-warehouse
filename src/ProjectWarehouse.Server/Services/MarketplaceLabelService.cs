@@ -191,7 +191,10 @@ public class MarketplaceLabelService(
             .Select(o => o.MarketplaceOrder!.PostingNumber)
             .ToList();
 
-        foreach (var chunk in single.Chunk(Math.Max(1, _options.Ozon.LabelBatchSize)))
+        var batchSize = account.Type == MarketplaceType.Wildberries
+            ? _options.Wildberries.LabelBatchSize
+            : _options.Ozon.LabelBatchSize;
+        foreach (var chunk in single.Chunk(Math.Max(1, batchSize)))
             await FetchChunkAsync(provider, credentials, chunk, byPostingNumber, labels, failures,
                 userId, allowSplit: true, ct);
     }
@@ -215,17 +218,24 @@ public class MarketplaceLabelService(
         {
             if (allowSplit && chunk.Count > 1)
             {
-                logger.LogWarning(ex, "Ozon label request for {PostingCount} posting(s) failed with status {Status}; splitting",
+                logger.LogWarning(ex, "Label request for {PostingCount} posting(s) failed with status {Status}; splitting",
                     chunk.Count, ex.StatusCode);
                 await RetrySplitAsync(provider, credentials, chunk, byPostingNumber, labels,
                     failures, userId, ct);
                 return;
             }
 
-            logger.LogError(ex, "Ozon label request for {PostingNumbers} failed with status {Status}",
+            logger.LogError(ex, "Label request for {PostingNumbers} failed with status {Status}",
                 string.Join(", ", chunk), ex.StatusCode);
             await MarkNotReadyAsync([.. chunk.Select(p => new ExternalLabelFailure(p, ex.Message))],
                 byPostingNumber, failures, ct);
+            return;
+        }
+
+        if (document is { IsReady: true, Pages: { } postingPages })
+        {
+            await StorePagesAsync(chunk, postingPages, document.Unreadable, byPostingNumber, labels, failures,
+                userId, ct);
             return;
         }
 
@@ -302,6 +312,40 @@ public class MarketplaceLabelService(
         for (var i = 0; i < printed.Count; i++)
             await StoreAsync(byPostingNumber[printed[i]], perPosting[i],
                 document.ContentType ?? "application/pdf", labels, userId, ct);
+    }
+
+    /// <summary>
+    /// Pages the marketplace already tied to their postings. A posting of the chunk without one is not printed —
+    /// Wildberries silently leaves out a task it will not print — and there is no batch verdict to split on.
+    /// A posting in <paramref name="unreadable"/> came back with a page the provider could not read.
+    /// </summary>
+    private async Task StorePagesAsync(IReadOnlyList<string> chunk, IReadOnlyList<ExternalLabelPage> pages,
+        IReadOnlyList<ExternalLabelFailure> unreadable, IReadOnlyDictionary<string, Order> byPostingNumber,
+        Dictionary<Guid, LabelPage> labels, LabelFailures failures, Guid? userId, CancellationToken ct)
+    {
+        var byPosting = pages
+            .GroupBy(p => p.PostingNumber, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+
+        var broken = unreadable
+            .Where(u => chunk.Contains(u.PostingNumber, StringComparer.Ordinal) && !byPosting.ContainsKey(u.PostingNumber))
+            .DistinctBy(u => u.PostingNumber, StringComparer.Ordinal)
+            .ToList();
+        if (broken.Count > 0)
+            await MarkAsync(broken, ErrorCode.MarketplaceLabelFormatChanged, byPostingNumber, failures, ct);
+
+        var missing = chunk
+            .Where(p => !byPosting.ContainsKey(p) && broken.All(u => u.PostingNumber != p))
+            .ToList();
+        if (missing.Count > 0)
+            await MarkNotReadyAsync(missing, byPostingNumber, failures, ct);
+
+        foreach (var postingNumber in chunk.Where(byPosting.ContainsKey))
+        {
+            var page = byPosting[postingNumber];
+            await StoreAsync(byPostingNumber[postingNumber], new LabelPage(page.Content, page.Kind),
+                "application/pdf", labels, userId, ct);
+        }
     }
 
     /// <summary>A null <see cref="Kind"/> is an unidentified format, resolved again on every print.</summary>

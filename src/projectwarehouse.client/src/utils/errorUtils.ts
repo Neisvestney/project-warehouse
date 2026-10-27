@@ -142,9 +142,8 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   assemblyComponentAlreadyFulfilled: "Компонент уже полностью укомплектован",
   catalogItemNotVariationMember: "Выбранный вариант не входит в эту вариацию",
   marketplaceAccountNotFound: "Аккаунт маркетплейса не найден",
-  marketplaceCredentialsInvalid: "Маркетплейс отклонил Client-Id или Api-Key",
-  marketplaceCredentialsUnreadable:
-    "Не удалось расшифровать сохранённый Api-Key — введите ключ заново",
+  marketplaceCredentialsInvalid: "Маркетплейс отклонил ключ доступа",
+  marketplaceCredentialsUnreadable: "Не удалось расшифровать сохранённый ключ — введите его заново",
   marketplaceClientIdRequired: "Для этой площадки требуется Client-Id",
   marketplaceApiError: "Маркетплейс вернул ошибку или недоступен",
   marketplaceSyncAlreadyRunning: "По этому аккаунту уже идёт синхронизация",
@@ -208,8 +207,7 @@ const errorCodeArgMessages: Partial<Record<ErrorCode, string>> = {
   writeoffInsufficientInventory:
     "Недостаточно «{itemName}» в {path}: требуется {requested}, доступно {available} (не хватает {missing})",
   marketplaceApiError: "Маркетплейс вернул ошибку {marketplaceStatus}",
-  marketplaceCredentialsInvalid:
-    "Маркетплейс отклонил Client-Id или Api-Key (код {marketplaceStatus})",
+  marketplaceCredentialsInvalid: "Маркетплейс отклонил ключ доступа (код {marketplaceStatus})",
   dataFileTooLarge: "Файл слишком большой — максимум {maxBytes:байт|байта|байт}",
   dataFileTypeNotAllowed: "Этот тип файла загружать нельзя. Допустимые: {allowed}",
   dataFileWidthNotAllowed: "Недопустимый размер превью. Допустимые: {allowed}",

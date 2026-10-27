@@ -13,6 +13,8 @@ import {
   formatDateTime,
   MARKETPLACE_TYPE_COLORS,
   hasCapability,
+  MARKETPLACE_API_KEY_LABELS,
+  MARKETPLACE_REQUIRES_CLIENT_ID,
 } from "@/components/marketplace/marketplaceUtils.ts";
 import type {MarketplaceAccountDto} from "@/api/types.gen";
 
@@ -37,8 +39,8 @@ function AccountOverviewTab({account}: AccountOverviewTabProps) {
     <Stack spacing={2}>
       {account.credentialsUnreadable && (
         <Alert severity="error">
-          Сохранённый Api-Key не расшифровывается — кольцо ключей Data Protection потеряно. Введите
-          ключ заново через «Изменить».
+          Сохранённый {MARKETPLACE_API_KEY_LABELS[account.type]} не расшифровывается — кольцо ключей
+          Data Protection потеряно. Введите ключ заново через «Изменить».
         </Alert>
       )}
       <SyncErrorAlert error={account.lastSyncError} />
@@ -76,7 +78,9 @@ function AccountOverviewTab({account}: AccountOverviewTabProps) {
             }
           />
           <InfoRow label="Короткое название" value={account.shortName ?? "—"} />
-          <InfoRow label="Client-Id" value={account.externalClientId ?? "—"} />
+          {MARKETPLACE_REQUIRES_CLIENT_ID[account.type] && (
+            <InfoRow label="Client-Id" value={account.externalClientId ?? "—"} />
+          )}
           <InfoRow label="Ключ обновлён" value={formatDateTime(account.apiKeyUpdatedAt)} />
           <InfoRow label="Интервал, мин" value={String(account.syncIntervalMinutes)} />
           <InfoRow

@@ -315,6 +315,13 @@ namespace Neisvestney.Marketplaces.Wildberries
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<PostV2GetCardsListResponse> PostV2GetCardsListAsync(string? locale, PostV2GetCardsListRequest body, System.Threading.CancellationToken cancellationToken);
 
+        /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<PostV2GetCardsTrashResponse> PostV2GetCardsTrashAsync(PostV2GetCardsTrashLocale? locale, PostV2GetCardsTrashRequest body);
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<PostV2GetCardsTrashResponse> PostV2GetCardsTrashAsync(PostV2GetCardsTrashLocale? locale, PostV2GetCardsTrashRequest body, System.Threading.CancellationToken cancellationToken);
+
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NSwag", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
@@ -412,6 +419,145 @@ namespace Neisvestney.Marketplaces.Wildberries
                         if (status_ == 200)
                         {
                             var objectResponse_ = await ReadObjectResponseAsync<PostV2GetCardsListResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        if (status_ == 400)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ResponseBodyContentError400>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new WildberriesApiException<ResponseBodyContentError400>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 401)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<Response4XX>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new WildberriesApiException<Response4XX>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 402)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<Response402>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new WildberriesApiException<Response402>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 403)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ResponseBodyContentError403>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new WildberriesApiException<ResponseBodyContentError403>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 429)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<Response4XX>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new WildberriesApiException<Response4XX>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new WildberriesApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
+        public virtual System.Threading.Tasks.Task<PostV2GetCardsTrashResponse> PostV2GetCardsTrashAsync(PostV2GetCardsTrashLocale? locale, PostV2GetCardsTrashRequest body)
+        {
+            return PostV2GetCardsTrashAsync(locale, body, System.Threading.CancellationToken.None);
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<PostV2GetCardsTrashResponse> PostV2GetCardsTrashAsync(PostV2GetCardsTrashLocale? locale, PostV2GetCardsTrashRequest body, System.Threading.CancellationToken cancellationToken)
+        {
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("POST");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                
+                    // Operation Path: "content/v2/get/cards/trash"
+                    urlBuilder_.Append("content/v2/get/cards/trash");
+                    urlBuilder_.Append('?');
+                    if (locale != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("locale")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(locale, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<PostV2GetCardsTrashResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -649,11 +795,11 @@ namespace Neisvestney.Marketplaces.Wildberries
         System.Threading.Tasks.Task<GetV3OrdersNewResponse> GetV3OrdersNewAsync(System.Threading.CancellationToken cancellationToken);
 
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<GetV3OrdersResponse> GetV3OrdersAsync(int limit, long next, int? dateFrom, int? dateTo);
+        System.Threading.Tasks.Task<GetV3OrdersResponse> GetV3OrdersAsync(long limit, long next, long? dateFrom, long? dateTo);
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<GetV3OrdersResponse> GetV3OrdersAsync(int limit, long next, int? dateFrom, int? dateTo, System.Threading.CancellationToken cancellationToken);
+        System.Threading.Tasks.Task<GetV3OrdersResponse> GetV3OrdersAsync(long limit, long next, long? dateFrom, long? dateTo, System.Threading.CancellationToken cancellationToken);
 
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<PostV3OrdersStatusResponse> PostV3OrdersStatusAsync(PostV3OrdersStatusRequest? body);
@@ -670,18 +816,18 @@ namespace Neisvestney.Marketplaces.Wildberries
         System.Threading.Tasks.Task<PostV3OrdersStickersResponse> PostV3OrdersStickersAsync(PostV3OrdersStickersType type, PostV3OrdersStickersWidth width, PostV3OrdersStickersHeight height, PostV3OrdersStickersRequest? body, System.Threading.CancellationToken cancellationToken);
 
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ArchiveOrders> GetV3FbsOrdersArchiveAsync(int year, int month, long next, int limit);
+        System.Threading.Tasks.Task<ArchiveOrders> GetV3FbsOrdersArchiveAsync(long year, long month, long next, long limit);
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ArchiveOrders> GetV3FbsOrdersArchiveAsync(int year, int month, long next, int limit, System.Threading.CancellationToken cancellationToken);
+        System.Threading.Tasks.Task<ArchiveOrders> GetV3FbsOrdersArchiveAsync(long year, long month, long next, long limit, System.Threading.CancellationToken cancellationToken);
 
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<GetV3SuppliesResponse> GetV3SuppliesAsync(int limit, long next);
+        System.Threading.Tasks.Task<GetV3SuppliesResponse> GetV3SuppliesAsync(long limit, long next);
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<GetV3SuppliesResponse> GetV3SuppliesAsync(int limit, long next, System.Threading.CancellationToken cancellationToken);
+        System.Threading.Tasks.Task<GetV3SuppliesResponse> GetV3SuppliesAsync(long limit, long next, System.Threading.CancellationToken cancellationToken);
 
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
         System.Threading.Tasks.Task<Supply> GetV3SuppliesSupplyIdAsync(string supplyId);
@@ -800,12 +946,12 @@ namespace Neisvestney.Marketplaces.Wildberries
                         else
                         if (status_ == 403)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<ItemsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<ItemsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 429)
@@ -906,12 +1052,12 @@ namespace Neisvestney.Marketplaces.Wildberries
                         else
                         if (status_ == 403)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<ItemsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<ItemsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 429)
@@ -1013,12 +1159,12 @@ namespace Neisvestney.Marketplaces.Wildberries
                         else
                         if (status_ == 400)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<ItemsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<ItemsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 401)
@@ -1043,22 +1189,22 @@ namespace Neisvestney.Marketplaces.Wildberries
                         else
                         if (status_ == 403)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<ItemsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<ItemsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 404)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<ItemsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<ItemsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 429)
@@ -1169,12 +1315,12 @@ namespace Neisvestney.Marketplaces.Wildberries
                         else
                         if (status_ == 403)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<OrdersFbsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<OrdersFbsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 429)
@@ -1207,14 +1353,14 @@ namespace Neisvestney.Marketplaces.Wildberries
         }
 
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        public virtual System.Threading.Tasks.Task<GetV3OrdersResponse> GetV3OrdersAsync(int limit, long next, int? dateFrom, int? dateTo)
+        public virtual System.Threading.Tasks.Task<GetV3OrdersResponse> GetV3OrdersAsync(long limit, long next, long? dateFrom, long? dateTo)
         {
             return GetV3OrdersAsync(limit, next, dateFrom, dateTo, System.Threading.CancellationToken.None);
         }
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<GetV3OrdersResponse> GetV3OrdersAsync(int limit, long next, int? dateFrom, int? dateTo, System.Threading.CancellationToken cancellationToken)
+        public virtual async System.Threading.Tasks.Task<GetV3OrdersResponse> GetV3OrdersAsync(long limit, long next, long? dateFrom, long? dateTo, System.Threading.CancellationToken cancellationToken)
         {
             if (limit == null)
                 throw new System.ArgumentNullException("limit");
@@ -1283,12 +1429,12 @@ namespace Neisvestney.Marketplaces.Wildberries
                         else
                         if (status_ == 400)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<OrdersFbsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<OrdersFbsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 401)
@@ -1313,12 +1459,12 @@ namespace Neisvestney.Marketplaces.Wildberries
                         else
                         if (status_ == 403)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<OrdersFbsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<OrdersFbsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 429)
@@ -1413,12 +1559,12 @@ namespace Neisvestney.Marketplaces.Wildberries
                         else
                         if (status_ == 400)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<OrdersFbsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<OrdersFbsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 401)
@@ -1443,12 +1589,12 @@ namespace Neisvestney.Marketplaces.Wildberries
                         else
                         if (status_ == 403)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<OrdersFbsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<OrdersFbsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 429)
@@ -1557,12 +1703,12 @@ namespace Neisvestney.Marketplaces.Wildberries
                         else
                         if (status_ == 400)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<OrdersFbsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<OrdersFbsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 401)
@@ -1587,22 +1733,22 @@ namespace Neisvestney.Marketplaces.Wildberries
                         else
                         if (status_ == 403)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<OrdersFbsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<OrdersFbsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 409)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<OrdersFbsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<OrdersFbsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 429)
@@ -1635,14 +1781,14 @@ namespace Neisvestney.Marketplaces.Wildberries
         }
 
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        public virtual System.Threading.Tasks.Task<ArchiveOrders> GetV3FbsOrdersArchiveAsync(int year, int month, long next, int limit)
+        public virtual System.Threading.Tasks.Task<ArchiveOrders> GetV3FbsOrdersArchiveAsync(long year, long month, long next, long limit)
         {
             return GetV3FbsOrdersArchiveAsync(year, month, next, limit, System.Threading.CancellationToken.None);
         }
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ArchiveOrders> GetV3FbsOrdersArchiveAsync(int year, int month, long next, int limit, System.Threading.CancellationToken cancellationToken)
+        public virtual async System.Threading.Tasks.Task<ArchiveOrders> GetV3FbsOrdersArchiveAsync(long year, long month, long next, long limit, System.Threading.CancellationToken cancellationToken)
         {
             if (year == null)
                 throw new System.ArgumentNullException("year");
@@ -1779,14 +1925,14 @@ namespace Neisvestney.Marketplaces.Wildberries
         }
 
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        public virtual System.Threading.Tasks.Task<GetV3SuppliesResponse> GetV3SuppliesAsync(int limit, long next)
+        public virtual System.Threading.Tasks.Task<GetV3SuppliesResponse> GetV3SuppliesAsync(long limit, long next)
         {
             return GetV3SuppliesAsync(limit, next, System.Threading.CancellationToken.None);
         }
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<GetV3SuppliesResponse> GetV3SuppliesAsync(int limit, long next, System.Threading.CancellationToken cancellationToken)
+        public virtual async System.Threading.Tasks.Task<GetV3SuppliesResponse> GetV3SuppliesAsync(long limit, long next, System.Threading.CancellationToken cancellationToken)
         {
             if (limit == null)
                 throw new System.ArgumentNullException("limit");
@@ -1847,12 +1993,12 @@ namespace Neisvestney.Marketplaces.Wildberries
                         else
                         if (status_ == 400)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<OrdersFbsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<OrdersFbsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 401)
@@ -1877,12 +2023,12 @@ namespace Neisvestney.Marketplaces.Wildberries
                         else
                         if (status_ == 403)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<OrdersFbsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<OrdersFbsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 429)
@@ -1977,12 +2123,12 @@ namespace Neisvestney.Marketplaces.Wildberries
                         else
                         if (status_ == 400)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<OrdersFbsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<OrdersFbsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 401)
@@ -2007,22 +2153,22 @@ namespace Neisvestney.Marketplaces.Wildberries
                         else
                         if (status_ == 403)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<OrdersFbsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<OrdersFbsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 404)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<OrdersFbsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<OrdersFbsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 429)
@@ -2118,12 +2264,12 @@ namespace Neisvestney.Marketplaces.Wildberries
                         else
                         if (status_ == 400)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<OrdersFbsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<OrdersFbsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 401)
@@ -2148,22 +2294,22 @@ namespace Neisvestney.Marketplaces.Wildberries
                         else
                         if (status_ == 403)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<OrdersFbsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<OrdersFbsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 404)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<Error>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<OrdersFbsError>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new WildberriesApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new WildberriesApiException<Error>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new WildberriesApiException<OrdersFbsError>("A server side error occurred.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 429)
@@ -2328,18 +2474,18 @@ namespace Neisvestney.Marketplaces.Wildberries
     public partial interface IWildberriesStatisticsClient
     {
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<OrdersItem>> GetV1SupplierOrdersAsync(string dateFrom, int? flag);
+        System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<OrdersItem>> GetV1SupplierOrdersAsync(string dateFrom, long? flag);
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<OrdersItem>> GetV1SupplierOrdersAsync(string dateFrom, int? flag, System.Threading.CancellationToken cancellationToken);
+        System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<OrdersItem>> GetV1SupplierOrdersAsync(string dateFrom, long? flag, System.Threading.CancellationToken cancellationToken);
 
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<SalesItem>> GetV1SupplierSalesAsync(string dateFrom, int? flag);
+        System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<SalesItem>> GetV1SupplierSalesAsync(string dateFrom, long? flag);
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<SalesItem>> GetV1SupplierSalesAsync(string dateFrom, int? flag, System.Threading.CancellationToken cancellationToken);
+        System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<SalesItem>> GetV1SupplierSalesAsync(string dateFrom, long? flag, System.Threading.CancellationToken cancellationToken);
 
     }
 
@@ -2376,14 +2522,14 @@ namespace Neisvestney.Marketplaces.Wildberries
         partial void ProcessResponse(System.Net.Http.HttpClient client, System.Net.Http.HttpResponseMessage response);
 
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        public virtual System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<OrdersItem>> GetV1SupplierOrdersAsync(string dateFrom, int? flag)
+        public virtual System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<OrdersItem>> GetV1SupplierOrdersAsync(string dateFrom, long? flag)
         {
             return GetV1SupplierOrdersAsync(dateFrom, flag, System.Threading.CancellationToken.None);
         }
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<OrdersItem>> GetV1SupplierOrdersAsync(string dateFrom, int? flag, System.Threading.CancellationToken cancellationToken)
+        public virtual async System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<OrdersItem>> GetV1SupplierOrdersAsync(string dateFrom, long? flag, System.Threading.CancellationToken cancellationToken)
         {
             if (dateFrom == null)
                 throw new System.ArgumentNullException("dateFrom");
@@ -2512,14 +2658,14 @@ namespace Neisvestney.Marketplaces.Wildberries
         }
 
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        public virtual System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<SalesItem>> GetV1SupplierSalesAsync(string dateFrom, int? flag)
+        public virtual System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<SalesItem>> GetV1SupplierSalesAsync(string dateFrom, long? flag)
         {
             return GetV1SupplierSalesAsync(dateFrom, flag, System.Threading.CancellationToken.None);
         }
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<SalesItem>> GetV1SupplierSalesAsync(string dateFrom, int? flag, System.Threading.CancellationToken cancellationToken)
+        public virtual async System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<SalesItem>> GetV1SupplierSalesAsync(string dateFrom, long? flag, System.Threading.CancellationToken cancellationToken)
         {
             if (dateFrom == null)
                 throw new System.ArgumentNullException("dateFrom");
@@ -2780,11 +2926,11 @@ namespace Neisvestney.Marketplaces.Wildberries
     public partial interface IWildberriesSellerAnalyticsClient
     {
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<GoodsReturn200Response> GetV1GoodsReturnAsync(System.DateTimeOffset dateFrom, System.DateTimeOffset dateTo, GetV1GoodsReturnStatus? status, int? limit, int? offset);
+        System.Threading.Tasks.Task<GoodsReturn200Response> GetV1GoodsReturnAsync(System.DateTimeOffset dateFrom, System.DateTimeOffset dateTo, GetV1GoodsReturnStatus? status, long? limit, long? offset);
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<GoodsReturn200Response> GetV1GoodsReturnAsync(System.DateTimeOffset dateFrom, System.DateTimeOffset dateTo, GetV1GoodsReturnStatus? status, int? limit, int? offset, System.Threading.CancellationToken cancellationToken);
+        System.Threading.Tasks.Task<GoodsReturn200Response> GetV1GoodsReturnAsync(System.DateTimeOffset dateFrom, System.DateTimeOffset dateTo, GetV1GoodsReturnStatus? status, long? limit, long? offset, System.Threading.CancellationToken cancellationToken);
 
     }
 
@@ -2821,14 +2967,14 @@ namespace Neisvestney.Marketplaces.Wildberries
         partial void ProcessResponse(System.Net.Http.HttpClient client, System.Net.Http.HttpResponseMessage response);
 
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        public virtual System.Threading.Tasks.Task<GoodsReturn200Response> GetV1GoodsReturnAsync(System.DateTimeOffset dateFrom, System.DateTimeOffset dateTo, GetV1GoodsReturnStatus? status, int? limit, int? offset)
+        public virtual System.Threading.Tasks.Task<GoodsReturn200Response> GetV1GoodsReturnAsync(System.DateTimeOffset dateFrom, System.DateTimeOffset dateTo, GetV1GoodsReturnStatus? status, long? limit, long? offset)
         {
             return GetV1GoodsReturnAsync(dateFrom, dateTo, status, limit, offset, System.Threading.CancellationToken.None);
         }
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <exception cref="WildberriesApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<GoodsReturn200Response> GetV1GoodsReturnAsync(System.DateTimeOffset dateFrom, System.DateTimeOffset dateTo, GetV1GoodsReturnStatus? status, int? limit, int? offset, System.Threading.CancellationToken cancellationToken)
+        public virtual async System.Threading.Tasks.Task<GoodsReturn200Response> GetV1GoodsReturnAsync(System.DateTimeOffset dateFrom, System.DateTimeOffset dateTo, GetV1GoodsReturnStatus? status, long? limit, long? offset, System.Threading.CancellationToken cancellationToken)
         {
             if (dateFrom == null)
                 throw new System.ArgumentNullException("dateFrom");
@@ -2858,11 +3004,11 @@ namespace Neisvestney.Marketplaces.Wildberries
                     }
                     if (limit != null)
                     {
-                        urlBuilder_.Append(System.Uri.EscapeDataString("limit")).Append('=').Append(System.Uri.EscapeDataString(limit.Value.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                        urlBuilder_.Append(System.Uri.EscapeDataString("limit")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(limit, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     if (offset != null)
                     {
-                        urlBuilder_.Append(System.Uri.EscapeDataString("offset")).Append('=').Append(System.Uri.EscapeDataString(offset.Value.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                        urlBuilder_.Append(System.Uri.EscapeDataString("offset")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(offset, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
                     }
                     urlBuilder_.Length--;
 
@@ -3442,34 +3588,10 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string? RequestId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("status")]
-        public int? Status { get; set; } = default!;
+        public long? Status { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("title")]
         public string Title { get; set; } = default!;
-
-        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
-
-        [System.Text.Json.Serialization.JsonExtensionData]
-        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class Error
-    {
-
-        [System.Text.Json.Serialization.JsonPropertyName("code")]
-        public string? Code { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("message")]
-        public string? Message { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("data")]
-        public object? Data { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -3487,10 +3609,31 @@ namespace Neisvestney.Marketplaces.Wildberries
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("count")]
-        public int Count { get; set; } = default!;
+        public long Count { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("report")]
         public System.Collections.Generic.IReadOnlyList<Report> Report { get; set; } = new System.Collections.Generic.List<Report>();
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ItemsError
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("code")]
+        public string Code { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("message")]
+        public string Message { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -3512,6 +3655,9 @@ namespace Neisvestney.Marketplaces.Wildberries
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Office
     {
+
+        [System.Text.Json.Serialization.JsonPropertyName("federalDistrict")]
+        public string? FederalDistrict { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("address")]
         public string? Address { get; set; } = default!;
@@ -3536,9 +3682,6 @@ namespace Neisvestney.Marketplaces.Wildberries
 
         [System.Text.Json.Serialization.JsonPropertyName("deliveryType")]
         public OfficeDeliveryType? DeliveryType { get; set; } = default!;
-
-        [System.Text.Json.Serialization.JsonPropertyName("federalDistrict")]
-        public string? FederalDistrict { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("selected")]
         public bool? Selected { get; set; } = default!;
@@ -3565,8 +3708,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public decimal? ScanPrice { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("deliveryType")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<OrderDeliveryType>))]
-        public OrderDeliveryType? DeliveryType { get; set; } = default!;
+        public string? DeliveryType { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("supplyId")]
         public string? SupplyId { get; set; } = default!;
@@ -3596,28 +3738,28 @@ namespace Neisvestney.Marketplaces.Wildberries
         public long? Id { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("warehouseId")]
-        public int? WarehouseId { get; set; } = default!;
+        public long? WarehouseId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("officeId")]
         public long? OfficeId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("nmId")]
-        public int? NmId { get; set; } = default!;
+        public long? NmId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("chrtId")]
         public ulong? ChrtId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("price")]
-        public int? Price { get; set; } = default!;
+        public long? Price { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("convertedPrice")]
-        public int? ConvertedPrice { get; set; } = default!;
+        public long? ConvertedPrice { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("currencyCode")]
-        public int? CurrencyCode { get; set; } = default!;
+        public long? CurrencyCode { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("convertedCurrencyCode")]
-        public int? ConvertedCurrencyCode { get; set; } = default!;
+        public long? ConvertedCurrencyCode { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("cargoType")]
         public OrderCargoType? CargoType { get; set; } = default!;
@@ -3630,6 +3772,9 @@ namespace Neisvestney.Marketplaces.Wildberries
 
         [System.Text.Json.Serialization.JsonPropertyName("isZeroOrder")]
         public bool? IsZeroOrder { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("trackNumber")]
+        public string? TrackNumber { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("options")]
         public Options? Options { get; set; } = default!;
@@ -3659,7 +3804,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string? SellerDate { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("salePrice")]
-        public int? SalePrice { get; set; } = default!;
+        public long? SalePrice { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("requiredMeta")]
         public System.Collections.Generic.IReadOnlyList<string>? RequiredMeta { get; set; } = default!;
@@ -3668,8 +3813,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public System.Collections.Generic.IReadOnlyList<string>? OptionalMeta { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("deliveryType")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<OrderNewDeliveryType>))]
-        public OrderNewDeliveryType? DeliveryType { get; set; } = default!;
+        public string? DeliveryType { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("comment")]
         public string? Comment { get; set; } = default!;
@@ -3702,34 +3846,34 @@ namespace Neisvestney.Marketplaces.Wildberries
         public long? Id { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("warehouseId")]
-        public int? WarehouseId { get; set; } = default!;
+        public long? WarehouseId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("officeId")]
         public long? OfficeId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("nmId")]
-        public int? NmId { get; set; } = default!;
+        public long? NmId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("chrtId")]
         public ulong? ChrtId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("price")]
-        public int? Price { get; set; } = default!;
+        public long? Price { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("finalPrice")]
-        public int? FinalPrice { get; set; } = default!;
+        public long? FinalPrice { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("convertedPrice")]
-        public int? ConvertedPrice { get; set; } = default!;
+        public long? ConvertedPrice { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("convertedFinalPrice")]
-        public int? ConvertedFinalPrice { get; set; } = default!;
+        public long? ConvertedFinalPrice { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("currencyCode")]
-        public int? CurrencyCode { get; set; } = default!;
+        public long? CurrencyCode { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("convertedCurrencyCode")]
-        public int? ConvertedCurrencyCode { get; set; } = default!;
+        public long? ConvertedCurrencyCode { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("cargoType")]
         public OrderNewCargoType? CargoType { get; set; } = default!;
@@ -3758,6 +3902,30 @@ namespace Neisvestney.Marketplaces.Wildberries
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class OrdersFbsError
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("code")]
+        public string? Code { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("message")]
+        public string? Message { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public object? Data { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class OrdersItem
     {
 
@@ -3771,8 +3939,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string? WarehouseName { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("warehouseType")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<OrdersItemWarehouseType>))]
-        public OrdersItemWarehouseType? WarehouseType { get; set; } = default!;
+        public string? WarehouseType { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("countryName")]
         public string? CountryName { get; set; } = default!;
@@ -3787,7 +3954,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string? SupplierArticle { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("nmId")]
-        public int? NmId { get; set; } = default!;
+        public long? NmId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("barcode")]
         public string? Barcode { get; set; } = default!;
@@ -3805,7 +3972,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string? TechSize { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("incomeID")]
-        public int? IncomeID { get; set; } = default!;
+        public long? IncomeID { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("isSupply")]
         public bool? IsSupply { get; set; } = default!;
@@ -3817,7 +3984,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public decimal? TotalPrice { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("discountPercent")]
-        public int? DiscountPercent { get; set; } = default!;
+        public long? DiscountPercent { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("spp")]
         public decimal? Spp { get; set; } = default!;
@@ -3907,8 +4074,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string? WarehouseName { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("warehouseType")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<SalesItemWarehouseType>))]
-        public SalesItemWarehouseType? WarehouseType { get; set; } = default!;
+        public string? WarehouseType { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("countryName")]
         public string? CountryName { get; set; } = default!;
@@ -3923,7 +4089,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string? SupplierArticle { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("nmId")]
-        public int? NmId { get; set; } = default!;
+        public long? NmId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("barcode")]
         public string? Barcode { get; set; } = default!;
@@ -3941,7 +4107,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string? TechSize { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("incomeID")]
-        public int? IncomeID { get; set; } = default!;
+        public long? IncomeID { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("isSupply")]
         public bool? IsSupply { get; set; } = default!;
@@ -3953,13 +4119,13 @@ namespace Neisvestney.Marketplaces.Wildberries
         public decimal? TotalPrice { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("discountPercent")]
-        public int? DiscountPercent { get; set; } = default!;
+        public long? DiscountPercent { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("spp")]
         public decimal? Spp { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("paymentSaleAmount")]
-        public int? PaymentSaleAmount { get; set; } = default!;
+        public long? PaymentSaleAmount { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("forPay")]
         public decimal? ForPay { get; set; } = default!;
@@ -4004,14 +4170,13 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string DateTo { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("limit")]
-        public int? Limit { get; set; } = default!;
+        public long? Limit { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("rrdId")]
-        public int? RrdId { get; set; } = default!;
+        public long? RrdId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("period")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<SalesReportsDetailedReqPeriod>))]
-        public SalesReportsDetailedReqPeriod? Period { get; set; } = default!;
+        public string? Period { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("fields")]
         public System.Collections.Generic.IReadOnlyList<string>? Fields { get; set; } = default!;
@@ -4035,16 +4200,13 @@ namespace Neisvestney.Marketplaces.Wildberries
         public long ReportId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("dateFrom")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(DateFormatConverter))]
-        public System.DateTimeOffset DateFrom { get; set; } = default!;
+        public string DateFrom { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("dateTo")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(DateFormatConverter))]
-        public System.DateTimeOffset DateTo { get; set; } = default!;
+        public string DateTo { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("createDate")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(DateFormatConverter))]
-        public System.DateTimeOffset CreateDate { get; set; } = default!;
+        public string CreateDate { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("currency")]
         public string Currency { get; set; } = default!;
@@ -4053,27 +4215,25 @@ namespace Neisvestney.Marketplaces.Wildberries
         public SalesReportsDetailedResReportType ReportType { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("rrdId")]
-        public int RrdId { get; set; } = default!;
+        public long RrdId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("giId")]
-        public int GiId { get; set; } = default!;
+        public long GiId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("dlvPrc")]
         public decimal DlvPrc { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("fixTariffDateFrom")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(DateFormatConverter))]
-        public System.DateTimeOffset FixTariffDateFrom { get; set; } = default!;
+        public string FixTariffDateFrom { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("fixTariffDateTo")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(DateFormatConverter))]
-        public System.DateTimeOffset FixTariffDateTo { get; set; } = default!;
+        public string FixTariffDateTo { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("subjectName")]
         public string SubjectName { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("nmId")]
-        public int NmId { get; set; } = default!;
+        public long NmId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("brandName")]
         public string BrandName { get; set; } = default!;
@@ -4094,7 +4254,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string DocTypeName { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("quantity")]
-        public int Quantity { get; set; } = default!;
+        public long Quantity { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("retailPrice")]
         public string RetailPrice { get; set; } = default!;
@@ -4103,7 +4263,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string RetailAmount { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("salePercent")]
-        public int SalePercent { get; set; } = default!;
+        public long SalePercent { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("commissionPercent")]
         public decimal CommissionPercent { get; set; } = default!;
@@ -4121,20 +4281,19 @@ namespace Neisvestney.Marketplaces.Wildberries
         public System.DateTimeOffset SaleDt { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("rrDate")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(DateFormatConverter))]
-        public System.DateTimeOffset RrDate { get; set; } = default!;
+        public string RrDate { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("shkId")]
-        public int ShkId { get; set; } = default!;
+        public long ShkId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("retailPriceWithDisc")]
         public string RetailPriceWithDisc { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("deliveryAmount")]
-        public int DeliveryAmount { get; set; } = default!;
+        public long DeliveryAmount { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("returnAmount")]
-        public int ReturnAmount { get; set; } = default!;
+        public long ReturnAmount { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("deliveryService")]
         public string DeliveryService { get; set; } = default!;
@@ -4194,7 +4353,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string PpvzOfficeName { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("ppvzOfficeId")]
-        public int PpvzOfficeId { get; set; } = default!;
+        public long PpvzOfficeId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("ppvzSupplierName")]
         public string PpvzSupplierName { get; set; } = default!;
@@ -4239,7 +4398,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string PaidAcceptance { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("orderId")]
-        public int OrderId { get; set; } = default!;
+        public long OrderId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("kiz")]
         public string? Kiz { get; set; } = default!;
@@ -4272,13 +4431,13 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string DeliveryMethod { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("sellerPromoId")]
-        public int SellerPromoId { get; set; } = default!;
+        public long SellerPromoId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("sellerPromoDiscount")]
         public decimal SellerPromoDiscount { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("loyaltyId")]
-        public int LoyaltyId { get; set; } = default!;
+        public long LoyaltyId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("loyaltyDiscount")]
         public decimal LoyaltyDiscount { get; set; } = default!;
@@ -4317,8 +4476,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string UtdUcdNumber { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("utdUcdDate")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(DateFormatConverter))]
-        public System.DateTimeOffset UtdUcdDate { get; set; } = default!;
+        public string UtdUcdDate { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("orderUid")]
         public string OrderUid { get; set; } = default!;
@@ -4381,11 +4539,10 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string? ShippingDt { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("shippingPointId")]
-        public int? ShippingPointId { get; set; } = default!;
+        public long? ShippingPointId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("shippingType")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<SupplyShippingType>))]
-        public SupplyShippingType? ShippingType { get; set; } = default!;
+        public string? ShippingType { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("waybillUuid")]
         public string? WaybillUuid { get; set; } = default!;
@@ -4550,7 +4707,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string CrossBorderType { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("id")]
-        public int Id { get; set; } = default!;
+        public long Id { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("isZeroOrder")]
         public bool IsZeroOrder { get; set; } = default!;
@@ -4574,19 +4731,19 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string Rid { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("scanPrice")]
-        public int? ScanPrice { get; set; } = default!;
+        public long? ScanPrice { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("status")]
         public Status Status { get; set; } = new Status();
 
         [System.Text.Json.Serialization.JsonPropertyName("stickerId")]
-        public int StickerId { get; set; } = default!;
+        public long StickerId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("supplyId")]
         public string? SupplyId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("warehouseId")]
-        public int WarehouseId { get; set; } = default!;
+        public long WarehouseId { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -4625,7 +4782,7 @@ namespace Neisvestney.Marketplaces.Wildberries
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("orderIds")]
-        public System.Collections.Generic.IReadOnlyList<int>? OrderIds { get; set; } = default!;
+        public System.Collections.Generic.IReadOnlyList<long>? OrderIds { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -4688,7 +4845,7 @@ namespace Neisvestney.Marketplaces.Wildberries
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("status")]
-        public int Status { get; set; } = default!;
+        public long Status { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("title")]
         public string Title { get; set; } = default!;
@@ -4728,6 +4885,9 @@ namespace Neisvestney.Marketplaces.Wildberries
 
         [System.Text.Json.Serialization.JsonPropertyName("tradeMark")]
         public string? TradeMark { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("country")]
+        public string? Country { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -4776,6 +4936,60 @@ namespace Neisvestney.Marketplaces.Wildberries
             get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
             set { _additionalProperties = value; }
         }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostV2GetCardsTrashRequest
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("settings")]
+        public Settings2? Settings { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class PostV2GetCardsTrashResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("cards")]
+        public System.Collections.Generic.IReadOnlyList<Cards2>? Cards { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("cursor")]
+        public Cursor2? Cursor { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum PostV2GetCardsTrashLocale
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"ru")]
+        Ru = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"en")]
+        En = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"zh")]
+        Zh = 2,
 
     }
 
@@ -5041,20 +5255,19 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string? Kiz { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("dstOfficeId")]
-        public int DstOfficeId { get; set; } = default!;
+        public long DstOfficeId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("expiredDt")]
         public string? ExpiredDt { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("nmId")]
-        public int NmId { get; set; } = default!;
+        public long NmId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("orderDt")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(DateFormatConverter))]
-        public System.DateTimeOffset OrderDt { get; set; } = default!;
+        public string OrderDt { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("orderId")]
-        public int OrderId { get; set; } = default!;
+        public long OrderId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("readyToReturnDt")]
         public string? ReadyToReturnDt { get; set; } = default!;
@@ -5066,7 +5279,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string ReturnType { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("shkId")]
-        public int ShkId { get; set; } = default!;
+        public long ShkId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("srid")]
         public string Srid { get; set; } = default!;
@@ -5145,15 +5358,6 @@ namespace Neisvestney.Marketplaces.Wildberries
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum OrderDeliveryType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"fbs")]
-        Fbs = 0,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public enum OrderCargoType
     {
 
@@ -5218,15 +5422,6 @@ namespace Neisvestney.Marketplaces.Wildberries
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum OrderNewDeliveryType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"fbs")]
-        Fbs = 0,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public enum OrderNewCargoType
     {
 
@@ -5267,42 +5462,6 @@ namespace Neisvestney.Marketplaces.Wildberries
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum OrdersItemWarehouseType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"Склад WB")]
-        Склад_WB = 0,
-
-        [System.Runtime.Serialization.EnumMember(Value = @"Склад продавца")]
-        Склад_продавца = 1,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum SalesItemWarehouseType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"Склад WB")]
-        Склад_WB = 0,
-
-        [System.Runtime.Serialization.EnumMember(Value = @"Склад продавца")]
-        Склад_продавца = 1,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum SalesReportsDetailedReqPeriod
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"daily")]
-        Daily = 0,
-
-        [System.Runtime.Serialization.EnumMember(Value = @"weekly")]
-        Weekly = 1,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     public enum SalesReportsDetailedResReportType
     {
 
@@ -5331,18 +5490,6 @@ namespace Neisvestney.Marketplaces.Wildberries
         _0 = 0,
 
         _1 = 1,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum SupplyShippingType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"selfShipping")]
-        SelfShipping = 0,
-
-        [System.Runtime.Serialization.EnumMember(Value = @"transportCompany")]
-        TransportCompany = 1,
 
     }
 
@@ -5430,16 +5577,16 @@ namespace Neisvestney.Marketplaces.Wildberries
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("convertedCurrencyCode")]
-        public int ConvertedCurrencyCode { get; set; } = default!;
+        public long ConvertedCurrencyCode { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("convertedPrice")]
-        public int ConvertedPrice { get; set; } = default!;
+        public long ConvertedPrice { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("currencyCode")]
-        public int CurrencyCode { get; set; } = default!;
+        public long CurrencyCode { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("price")]
-        public int Price { get; set; } = default!;
+        public long Price { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -5463,7 +5610,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public ulong ChrtId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("nmId")]
-        public int NmId { get; set; } = default!;
+        public long NmId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("skus")]
         public System.Collections.Generic.IReadOnlyList<string> Skus { get; set; } = new System.Collections.Generic.List<string>();
@@ -5511,7 +5658,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public Filter? Filter { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("cursor")]
-        public Cursor2? Cursor { get; set; } = default!;
+        public Cursor3? Cursor { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -5529,7 +5676,7 @@ namespace Neisvestney.Marketplaces.Wildberries
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("nmID")]
-        public int? NmID { get; set; } = default!;
+        public long? NmID { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("imtID")]
         public long? ImtID { get; set; } = default!;
@@ -5538,7 +5685,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string? NmUUID { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("subjectID")]
-        public int? SubjectID { get; set; } = default!;
+        public long? SubjectID { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("subjectName")]
         public string? SubjectName { get; set; } = default!;
@@ -5613,10 +5760,112 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string? UpdatedAt { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("nmID")]
-        public int? NmID { get; set; } = default!;
+        public long? NmID { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("total")]
-        public int? Total { get; set; } = default!;
+        public long? Total { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Settings2
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("sort")]
+        public Sort2? Sort { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("cursor")]
+        public Cursor4? Cursor { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("filter")]
+        public Filter2? Filter { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Cards2
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("nmID")]
+        public long? NmID { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("vendorCode")]
+        public string? VendorCode { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("kizMarked")]
+        public bool? KizMarked { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("subjectID")]
+        public long? SubjectID { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("subjectName")]
+        public string? SubjectName { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("photos")]
+        public System.Collections.Generic.IReadOnlyList<Photos2>? Photos { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("video")]
+        public string? Video { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("wholesale")]
+        public Wholesale2? Wholesale { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("sizes")]
+        public System.Collections.Generic.IReadOnlyList<Sizes2>? Sizes { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("dimensions")]
+        public Dimensions2? Dimensions { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("characteristics")]
+        public System.Collections.Generic.IReadOnlyList<Characteristics2>? Characteristics { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("createdAt")]
+        public string? CreatedAt { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("trashedAt")]
+        public string? TrashedAt { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Cursor2
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("trashedAt")]
+        public string? TrashedAt { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("nmID")]
+        public long? NmID { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("total")]
+        public long? Total { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -5637,7 +5886,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public ulong? ChrtId { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("amount")]
-        public int? Amount { get; set; } = default!;
+        public long? Amount { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -5664,12 +5913,10 @@ namespace Neisvestney.Marketplaces.Wildberries
         public bool? IsTransferable { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("supplierStatus")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<OrdersSupplierStatus>))]
-        public OrdersSupplierStatus? SupplierStatus { get; set; } = default!;
+        public string? SupplierStatus { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("wbStatus")]
-        [System.Text.Json.Serialization.JsonConverter(typeof(global::Neisvestney.Marketplaces.Shared.TolerantEnumConverter<OrdersWbStatus>))]
-        public OrdersWbStatus? WbStatus { get; set; } = default!;
+        public string? WbStatus { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -5741,13 +5988,13 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string? TextSearch { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("tagIDs")]
-        public System.Collections.Generic.IReadOnlyList<int>? TagIDs { get; set; } = default!;
+        public System.Collections.Generic.IReadOnlyList<long>? TagIDs { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("allowedCategoriesOnly")]
         public bool? AllowedCategoriesOnly { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("objectIDs")]
-        public System.Collections.Generic.IReadOnlyList<int>? ObjectIDs { get; set; } = default!;
+        public System.Collections.Generic.IReadOnlyList<long>? ObjectIDs { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("brands")]
         public System.Collections.Generic.IReadOnlyList<string>? Brands { get; set; } = default!;
@@ -5767,17 +6014,17 @@ namespace Neisvestney.Marketplaces.Wildberries
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class Cursor2
+    public partial class Cursor3
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("limit")]
-        public int? Limit { get; set; } = default!;
+        public long? Limit { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("updatedAt")]
         public string? UpdatedAt { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("nmID")]
-        public int? NmID { get; set; } = default!;
+        public long? NmID { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -5846,13 +6093,13 @@ namespace Neisvestney.Marketplaces.Wildberries
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("length")]
-        public int? Length { get; set; } = default!;
+        public long? Length { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("width")]
-        public int? Width { get; set; } = default!;
+        public long? Width { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("height")]
-        public int? Height { get; set; } = default!;
+        public long? Height { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("weightBrutto")]
         public decimal? WeightBrutto { get; set; } = default!;
@@ -5900,7 +6147,7 @@ namespace Neisvestney.Marketplaces.Wildberries
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("id")]
-        public int? Id { get; set; } = default!;
+        public long? Id { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string? Name { get; set; } = default!;
@@ -5951,7 +6198,7 @@ namespace Neisvestney.Marketplaces.Wildberries
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("id")]
-        public int? Id { get; set; } = default!;
+        public long? Id { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string? Name { get; set; } = default!;
@@ -5971,59 +6218,194 @@ namespace Neisvestney.Marketplaces.Wildberries
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum OrdersSupplierStatus
+    public partial class Sort2
     {
 
-        [System.Runtime.Serialization.EnumMember(Value = @"new")]
-        New = 0,
+        [System.Text.Json.Serialization.JsonPropertyName("ascending")]
+        public bool? Ascending { get; set; } = default!;
 
-        [System.Runtime.Serialization.EnumMember(Value = @"confirm")]
-        Confirm = 1,
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
-        [System.Runtime.Serialization.EnumMember(Value = @"complete")]
-        Complete = 2,
-
-        [System.Runtime.Serialization.EnumMember(Value = @"cancel")]
-        Cancel = 3,
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
 
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum OrdersWbStatus
+    public partial class Cursor4
     {
 
-        [System.Runtime.Serialization.EnumMember(Value = @"waiting")]
-        Waiting = 0,
+        [System.Text.Json.Serialization.JsonPropertyName("limit")]
+        public long? Limit { get; set; } = default!;
 
-        [System.Runtime.Serialization.EnumMember(Value = @"sorted")]
-        Sorted = 1,
+        [System.Text.Json.Serialization.JsonPropertyName("trashedAt")]
+        public string? TrashedAt { get; set; } = default!;
 
-        [System.Runtime.Serialization.EnumMember(Value = @"sold")]
-        Sold = 2,
+        [System.Text.Json.Serialization.JsonPropertyName("nmID")]
+        public long? NmID { get; set; } = default!;
 
-        [System.Runtime.Serialization.EnumMember(Value = @"canceled")]
-        Canceled = 3,
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
-        [System.Runtime.Serialization.EnumMember(Value = @"canceled_by_client")]
-        Canceled_by_client = 4,
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
 
-        [System.Runtime.Serialization.EnumMember(Value = @"declined_by_client")]
-        Declined_by_client = 5,
+    }
 
-        [System.Runtime.Serialization.EnumMember(Value = @"defect")]
-        Defect = 6,
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Filter2
+    {
 
-        [System.Runtime.Serialization.EnumMember(Value = @"ready_for_pickup")]
-        Ready_for_pickup = 7,
+        [System.Text.Json.Serialization.JsonPropertyName("textSearch")]
+        public string? TextSearch { get; set; } = default!;
 
-        [System.Runtime.Serialization.EnumMember(Value = @"postponed_delivery")]
-        Postponed_delivery = 8,
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
-        [System.Runtime.Serialization.EnumMember(Value = @"accepted_by_carrier")]
-        Accepted_by_carrier = 9,
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
 
-        [System.Runtime.Serialization.EnumMember(Value = @"sent_to_carrier")]
-        Sent_to_carrier = 10,
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Photos2
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("big")]
+        public string? Big { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("c246x328")]
+        public string? C246x328 { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("c516x688")]
+        public string? C516x688 { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("square")]
+        public string? Square { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("tm")]
+        public string? Tm { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Wholesale2
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("enabled")]
+        public bool? Enabled { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("quantum")]
+        public decimal? Quantum { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Sizes2
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("chrtID")]
+        public ulong? ChrtID { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("techSize")]
+        public string? TechSize { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("wbSize")]
+        public string? WbSize { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("skus")]
+        public System.Collections.Generic.IReadOnlyList<string>? Skus { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Dimensions2
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("length")]
+        public long? Length { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("width")]
+        public long? Width { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("height")]
+        public long? Height { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("weightBrutto")]
+        public decimal? WeightBrutto { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("isValid")]
+        public bool? IsValid { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Characteristics2
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public long? Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string? Name { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("value")]
+        public object? Value { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
 
     }
 
@@ -6049,7 +6431,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public string? Id { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("type")]
-        public int? Type { get; set; } = default!;
+        public long? Type { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("number")]
         public string? Number { get; set; } = default!;
@@ -6097,7 +6479,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public bool? IsFullyChecked { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("status")]
-        public int? Status { get; set; } = default!;
+        public long? Status { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("reason")]
         public string? Reason { get; set; } = default!;
@@ -6124,7 +6506,7 @@ namespace Neisvestney.Marketplaces.Wildberries
         public bool? Verified { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("status")]
-        public int? Status { get; set; } = default!;
+        public long? Status { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("reason")]
         public string? Reason { get; set; } = default!;
@@ -6144,26 +6526,6 @@ namespace Neisvestney.Marketplaces.Wildberries
             set { _additionalProperties = value; }
         }
 
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
-    internal class DateFormatConverter : System.Text.Json.Serialization.JsonConverter<System.DateTimeOffset>
-    {
-        public override System.DateTimeOffset Read(ref System.Text.Json.Utf8JsonReader reader, System.Type typeToConvert, System.Text.Json.JsonSerializerOptions options)
-        {
-            var dateTime = reader.GetString();
-            if (dateTime == null)
-            {
-                throw new System.Text.Json.JsonException("Unexpected JsonTokenType.Null");
-            }
-
-            return System.DateTimeOffset.Parse(dateTime);
-        }
-
-        public override void Write(System.Text.Json.Utf8JsonWriter writer, System.DateTimeOffset value, System.Text.Json.JsonSerializerOptions options)
-        {
-            writer.WriteStringValue(value.ToString("yyyy-MM-dd"));
-        }
     }
 
 

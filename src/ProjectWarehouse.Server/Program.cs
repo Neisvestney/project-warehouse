@@ -20,6 +20,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Neisvestney.Marketplaces.Ozon;
+using Neisvestney.Marketplaces.Wildberries;
 using PdfSharp.Fonts;
 using ProjectWarehouse.Server.Data;
 using ProjectWarehouse.Server.Domain;
@@ -32,6 +33,7 @@ using ProjectWarehouse.Server.Infrastructure.Marketplaces;
 using ProjectWarehouse.Server.Infrastructure.Realtime;
 using ProjectWarehouse.Server.Integrations.Abstractions;
 using ProjectWarehouse.Server.Integrations.Ozon;
+using ProjectWarehouse.Server.Integrations.Wildberries;
 using ProjectWarehouse.Server.Integrations.Sync;
 using ProjectWarehouse.Server.Models;
 using ProjectWarehouse.Server.Models.Analytics;
@@ -402,6 +404,10 @@ try
     builder.Services.AddTransient<OzonAuthHandler>();
     builder.Services.AddScoped<IOzonClient, OzonClient>();
     builder.Services.AddScoped<IMarketplaceProvider, OzonMarketplaceProvider>();
+    builder.Services.AddSingleton<IWildberriesCredentialsProvider, WildberriesRequestCredentials>();
+    builder.Services.AddTransient<WildberriesAuthHandler>();
+    builder.Services.AddScoped<IWildberriesClient, WildberriesClient>();
+    builder.Services.AddScoped<IMarketplaceProvider, WildberriesMarketplaceProvider>();
     builder.Services.AddScoped<IMarketplaceProviderRegistry, MarketplaceProviderRegistry>();
 
     // in-memory job store, consistent with the project's existing single-node assumption
@@ -486,6 +492,66 @@ try
             r.CircuitBreaker.ShouldHandle = async args => !IsRateLimited(args.Outcome) && await isFailure(args);
             r.TotalRequestTimeout.Timeout += rateLimitDelay * (Math.Pow(2, rateLimitAttempts) - 1);
         });
+
+    var wildberries = marketplacesOptions.Wildberries;
+    AddWildberriesClient<IWildberriesCommonClient, WildberriesCommonClient>(WildberriesHosts.Common);
+    AddWildberriesClient<IWildberriesContentClient, WildberriesContentClient>(WildberriesHosts.Content);
+    AddWildberriesClient<IWildberriesMarketplaceClient, WildberriesMarketplaceClient>(WildberriesHosts.Marketplace);
+    AddWildberriesClient<IWildberriesSellerAnalyticsClient, WildberriesSellerAnalyticsClient>(WildberriesHosts.SellerAnalytics);
+    AddWildberriesClient<IWildberriesFinanceClient, WildberriesFinanceClient>(WildberriesHosts.Finance);
+
+    void AddWildberriesClient<TClient, TImplementation>(Uri baseAddress)
+        where TClient : class where TImplementation : class, TClient
+    {
+        // the report allows one call a minute, so any retry here would only spend the quota: the client
+        // retries its pages itself, after the report pause
+        var isReport = typeof(TClient) == typeof(IWildberriesFinanceClient);
+        var timeout = TimeSpan.FromSeconds(isReport ? wildberries.ReportTimeoutSeconds : wildberries.TimeoutSeconds);
+        builder.Services.AddHttpClient<TClient, TImplementation>(c =>
+            {
+                c.BaseAddress = baseAddress;
+                c.Timeout = Timeout.InfiniteTimeSpan;
+            })
+            // report pages run to megabytes of JSON
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                AutomaticDecompression = System.Net.DecompressionMethods.All,
+            })
+            .AddHttpMessageHandler<WildberriesAuthHandler>()
+            .AddStandardResilienceHandler(r =>
+            {
+                r.AttemptTimeout.Timeout = timeout;
+                r.TotalRequestTimeout.Timeout = timeout * 3;
+                r.CircuitBreaker.SamplingDuration = timeout * 6;
+                if (isReport)
+                {
+                    r.Retry.ShouldHandle = _ => ValueTask.FromResult(false);
+                    return;
+                }
+
+                // same 429 policy as Ozon
+                var rateLimitDelay = TimeSpan.FromMilliseconds(wildberries.RateLimitRetryDelayMs);
+                var rateLimitAttempts = wildberries.RateLimitRetryAttempts;
+                var defaultAttempts = r.Retry.MaxRetryAttempts;
+                r.Retry.MaxRetryAttempts = Math.Max(defaultAttempts, rateLimitAttempts);
+                var isTransient = r.Retry.ShouldHandle;
+                r.Retry.ShouldHandle = async args => IsRateLimited(args.Outcome)
+                    ? args.AttemptNumber < rateLimitAttempts
+                    :args.AttemptNumber < defaultAttempts && await isTransient(args);
+                var retryAfter = r.Retry.DelayGenerator;
+                r.Retry.DelayGenerator = async args =>
+                {
+                    var headerDelay = retryAfter is null ? null : await retryAfter(args);
+                    if (!IsRateLimited(args.Outcome))
+                        return headerDelay;
+                    var backoff = rateLimitDelay * Math.Pow(2, args.AttemptNumber);
+                    return headerDelay > backoff ? headerDelay : backoff;
+                };
+                var isFailure = r.CircuitBreaker.ShouldHandle;
+                r.CircuitBreaker.ShouldHandle = async args => !IsRateLimited(args.Outcome) && await isFailure(args);
+                r.TotalRequestTimeout.Timeout += rateLimitDelay * (Math.Pow(2, rateLimitAttempts) - 1);
+            });
+    }
 
     static bool IsRateLimited(Polly.Outcome<HttpResponseMessage> outcome) =>
         outcome.Result?.StatusCode == System.Net.HttpStatusCode.TooManyRequests;

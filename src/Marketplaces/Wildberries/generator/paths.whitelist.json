@@ -5,6 +5,7 @@
     ],
     "02-items": [
       "POST /content/v2/get/cards/list",
+      "POST /content/v2/get/cards/trash",
       "GET /api/v3/warehouses",
       "GET /api/v3/offices",
       "POST /api/v3/stocks/{warehouseId}"

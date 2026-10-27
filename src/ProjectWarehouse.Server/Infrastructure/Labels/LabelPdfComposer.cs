@@ -39,6 +39,28 @@ public class LabelPdfComposer(IOptions<MarketplacesOptions> options)
         return pages;
     }
 
+    /// <summary>
+    /// A one-page PDF of <paramref name="widthMm"/> × <paramref name="heightMm"/> with the image scaled to
+    /// <paramref name="scale"/> of the page, centred vertically and resting on the right edge.
+    /// </summary>
+    public static byte[] FromImage(byte[] image, double widthMm, double heightMm, double scale)
+    {
+        using var document = new PdfDocument();
+        var page = document.AddPage();
+        page.Width = XUnit.FromMillimeter(widthMm);
+        page.Height = XUnit.FromMillimeter(heightMm);
+
+        using (var gfx = XGraphics.FromPdfPage(page))
+        using (var picture = XImage.FromStream(new MemoryStream(image)))
+        {
+            var width = page.Width.Point * scale;
+            var height = page.Height.Point * scale;
+            gfx.DrawImage(picture, page.Width.Point - width, (page.Height.Point - height) / 2, width, height);
+        }
+
+        return Save(document);
+    }
+
     public static byte[] Merge(IReadOnlyList<byte[]> documents)
     {
         using var merged = new PdfDocument();
@@ -57,8 +79,8 @@ public class LabelPdfComposer(IOptions<MarketplacesOptions> options)
     /// in the document.
     /// </summary>
     /// <remarks>
-    /// No rotation: Ozon already hands the label over rotated, so the page arrives in the orientation it
-    /// is printed in and the text only has to follow it.
+    /// Corners take no rotation: Ozon already hands the label over rotated, so the page arrives in the
+    /// orientation it is printed in and the text only has to follow it.
     /// </remarks>
     public byte[] Overlay(byte[] pdf, IReadOnlyList<LabelArticle> articles, LabelKind kind,
         string? accountName = null)
@@ -73,6 +95,22 @@ public class LabelPdfComposer(IOptions<MarketplacesOptions> options)
         var lineHeight = _options.FontSize * 1.25;
 
         var layout = _options.Layouts.For(kind);
+        if (layout.TextCorner == LabelTextCorner.LeftEdge)
+        {
+            foreach (var page in document.Pages)
+            {
+                using var gfx = XGraphics.FromPdfPage(page, XGraphicsPdfPageOptions.Append);
+                var anchor = new XPoint(layout.MarginX, page.Height.Point / 2);
+                // a quarter turn counter-clockwise: lines read upwards and stack towards the right
+                gfx.RotateAtTransform(-90, anchor);
+                for (var i = 0; i < lines.Count; i++)
+                    gfx.DrawString(lines[i], font, XBrushes.Black, anchor.X, anchor.Y + i * lineHeight,
+                        XStringFormats.TopCenter);
+            }
+
+            return Save(document);
+        }
+
         var corner = layout.TextCorner;
         var atTop = corner is LabelTextCorner.TopLeft or LabelTextCorner.TopRight;
         var atLeft = corner is LabelTextCorner.TopLeft or LabelTextCorner.BottomLeft;

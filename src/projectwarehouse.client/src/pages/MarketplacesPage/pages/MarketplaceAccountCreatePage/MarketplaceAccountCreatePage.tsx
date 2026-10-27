@@ -22,7 +22,11 @@ import AppBreadcrumbs from "@/components/AppBreadcrumbs";
 import PageTitle from "@/components/PageTitle.tsx";
 import PageGenericHeader from "@/components/PageGenericHeader";
 import TestConnectionButton from "../../components/TestConnectionButton";
-import {MARKETPLACE_TYPE_LABELS} from "@/components/marketplace/marketplaceUtils.ts";
+import {
+  MARKETPLACE_API_KEY_LABELS,
+  MARKETPLACE_REQUIRES_CLIENT_ID,
+  MARKETPLACE_TYPE_LABELS,
+} from "@/components/marketplace/marketplaceUtils.ts";
 import type {MarketplaceType} from "@/api/types.gen";
 
 type CreateFormValues = {
@@ -34,8 +38,7 @@ type CreateFormValues = {
   isActive: boolean;
 };
 
-// Wildberries появится, когда будет свой провайдер — схема БД под него уже готова
-const AVAILABLE_TYPES: MarketplaceType[] = ["ozon"];
+const AVAILABLE_TYPES: MarketplaceType[] = ["ozon", "wildberries"];
 
 function MarketplaceAccountCreatePage() {
   const navigate = useNavigate();
@@ -64,11 +67,13 @@ function MarketplaceAccountCreatePage() {
     onError: setApiError,
   });
 
+  const requiresClientId = MARKETPLACE_REQUIRES_CLIENT_ID[type];
+
   const onSubmit = form.handleSubmit((values) =>
     mutation.mutate({
       body: {
         type: values.type,
-        clientId: values.clientId || null,
+        clientId: (MARKETPLACE_REQUIRES_CLIENT_ID[values.type] && values.clientId) || null,
         shortName: values.shortName.trim() || null,
         apiKey: values.apiKey,
         // input[type=number] отдаёт строку — сервер ждёт int и строку не примет
@@ -106,19 +111,21 @@ function MarketplaceAccountCreatePage() {
                 </Stack>
               )}
             />
-            <FormTextField
-              control={form.control}
-              name="clientId"
-              label="Client-Id"
-              rules={{required: "Обязательное поле"}}
-              disabled={mutation.isPending}
-              fullWidth
-              autoFocus
-            />
+            {requiresClientId && (
+              <FormTextField
+                control={form.control}
+                name="clientId"
+                label="Client-Id"
+                rules={{required: "Обязательное поле"}}
+                disabled={mutation.isPending}
+                fullWidth
+                autoFocus
+              />
+            )}
             <FormTextField
               control={form.control}
               name="apiKey"
-              label="Api-Key"
+              label={MARKETPLACE_API_KEY_LABELS[type]}
               type="password"
               rules={{required: "Обязательное поле"}}
               disabled={mutation.isPending}
@@ -179,7 +186,7 @@ function MarketplaceAccountCreatePage() {
             <TestConnectionButton
               accountId="new"
               type={type}
-              clientId={clientId}
+              clientId={requiresClientId ? clientId : ""}
               apiKey={apiKey}
               disabled={mutation.isPending}
             />

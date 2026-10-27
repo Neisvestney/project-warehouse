@@ -13,4 +13,5 @@ public enum MarketplaceCapabilities
     Returns = 64,
     Accruals = 128,
     Buyouts = 256,
+    Fbo = 512,
 }

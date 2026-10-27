@@ -2,11 +2,11 @@
 
 ## Обзор
 
-Модуль интеграций подключает к WMS внешние торговые площадки. Первая реализуемая площадка — **Ozon Seller API**; архитектура изначально рассчитана на подключение **Wildberries** вторым провайдером без переделки схемы БД.
+Модуль интеграций подключает к WMS внешние торговые площадки. Подключены **Ozon Seller API** и **Wildberries**; площадки различаются провайдером, схема БД у них общая. Wildberries — только FBS: склады, карточки, сборочные задания, стикеры, возвраты и начисления, без FBO и отчёта о выкупах.
 
 Первая версия покрывает четыре задачи:
 
-1. Подключение магазина — хранение учётных данных (`Client-Id` + `Api-Key`) в зашифрованном виде.
+1. Подключение магазина — хранение учётных данных (`Client-Id` + `Api-Key` у Ozon, токен у Wildberries) в зашифрованном виде.
 2. Синхронизация складов маркетплейса и их привязка к `Warehouse` проекта.
 3. Синхронизация карточек товаров маркетплейса и их привязка к `CatalogItem`.
 4. Наблюдаемость — история запусков синхронизации, статусы, ошибки.
@@ -377,7 +377,17 @@ dotnet run src/Marketplaces/Wildberries/generator/generate-client.cs            
 
 **Хуки.** NSwag объявляет `UpdateJsonSerializerSettings` и `Initialize` отдельно в каждом классе клиента, поэтому генератор пишет `WildberriesClientHooks.g.cs`, где хуки всех клиентов передают управление в `WildberriesClientSetup`. Там терпимые конвертеры и `ReadResponseAsString` — по тем же причинам, что у Ozon.
 
-**Аутентификация.** Токен идёт в заголовок `Authorization` как есть, без схемы `Bearer`. Параметр вырезается из спеки, а подставляет его `WildberriesAuthHandler`, который берёт учётку у `IWildberriesCredentialsProvider`. Это тот же контракт, что у Ozon: один `HttpClient` обслуживает много аккаунтов.
+**Строковые enum'ы тел.** WB присылает значения, которых нет в enum'ах спеки (`wbStatus` `canceled_by_carrier`, `cancel_carrier`), а терпимый конвертер свёл бы их к первому члену. Поэтому `StripBodyStringEnums` до именования схем снимает `enum` со строковых схем в телах запросов и ответов: такие поля генерируются простыми строками. Enum'ы query-параметров (`PostV3OrdersStickersType`, размеры стикера) остаются.
+
+**Даты тел.** Отчёт о реализации присылает `""` в датах, у которых нет значения (`fixTariffDateFrom`), а NSwag вешает свой `DateFormatConverter` атрибутом на каждое свойство `format: date`, и конвертеры опций до него не достают. `StripBodyDateFormats` снимает `format: date` со строковых схем в телах: такие поля генерируются строками, а провайдер читает из них календарный день сам (`ParseDay`). Строка отчёта без `rrDate` датируется концом периода отчёта (`dateTo`). Query-параметры формат сохраняют.
+
+**Целые — `int64`.** Id сборочных заданий, стикеров, `shk` и строк отчёта переваливают за `int.MaxValue`, а спека объявляет многие из них `int32`. `WidenIntegers` последним шагом переводит каждую целочисленную схему без `enum` в `int64`.
+
+**Сериализация запроса.** `WildberriesClientSetup` ставит `DefaultIgnoreCondition = WhenWritingNull`: незаданное необязательное поле тела не уходит в запрос `null`'ом, которого спека не допускает. Целочисленный enum `TolerantEnumConverter` пишет именем члена, а не числом, поэтому запрос карточек уходит без `filter` (`withPhoto`).
+
+**Аутентификация.** Токен идёт в заголовок `Authorization` как есть, без схемы `Bearer`. Параметр вырезается из спеки, а подставляет его `WildberriesAuthHandler`, который берёт учётку у `IWildberriesCredentialsProvider`; серверная реализация — `WildberriesRequestCredentials` поверх того же `MarketplaceRequestContext`. Это тот же контракт, что у Ozon: один `HttpClient` обслуживает много аккаунтов.
+
+**Регистрация.** `Program.cs` регистрирует пять клиентов (`Common`, `Content`, `Marketplace`, `SellerAnalytics`, `Finance`) через `AddWildberriesClient` с тем же resilience-хендлером, что у Ozon: таймауты от `Marketplaces:Wildberries:TimeoutSeconds`, отдельный ретрай `429` по `RateLimitRetryAttempts` / `RateLimitRetryDelayMs`. Исключение — `WildberriesFinanceClient`: отчёт о реализации разрешает один вызов в минуту, поэтому хендлер его не ретраит вовсе, а таймаут попытки у него — `ReportTimeoutSeconds`; страницы отчёта повторяет сама обёртка, см. [«Wildberries»](marketplaces-accruals-specification.md#wildberries). Все пять клиентов просят ответ сжатым (`AutomaticDecompression`). Обёртка `WildberriesClient : IWildberriesClient` (`Integrations/Wildberries/`) — доменные операции поверх сгенерированных клиентов; `WildberriesMarketplaceProvider` заворачивает `WildberriesApiException` в `MarketplaceApiException`, а полное тело ответа пишет `WildberriesResponseLogging.LogFailedResponse`.
 
 ### Клиент Yandex Market
 
@@ -882,15 +892,21 @@ ExternalCancellation    — record (bool? CancelledAfterAssembly, MarketplaceCan
 
 ExternalLabelDocument   — record (bool IsReady, IReadOnlyList<string> PostingNumbers,
                                   string? ContentType, byte[]? Content,
-                                  IReadOnlyList<ExternalLabelFailure> Unprinted)
+                                  IReadOnlyList<ExternalLabelFailure> Unprinted,
+                                  IReadOnlyList<ExternalLabelPage>? Pages)
 ExternalLabelFailure    — record (string PostingNumber, string? Message)
+ExternalLabelPage       — record (string PostingNumber, byte[] Content, LabelKind Kind)
+                          одностраничный PDF одного отправления
 
 ExternalReturn          — record: один вернувшийся экземпляр, поля MarketplaceReturn без связей
 ExternalReturnQuery     — либо период по дате (StatusChanged | Returned), либо статус компенсации
 ExternalAccrual         — record: начисление, уже разложенное на строки ExternalAccrualLine
 
-MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, Labels, StockPush, SellerInfo, Returns, Accruals
+MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, Labels, StockPush, SellerInfo, Returns, Accruals,
+                          Buyouts, Fbo
 ```
+
+Ozon объявляет все флаги, кроме `StockPush`; Wildberries — `Warehouses`, `Cards`, `SellerInfo`, `Orders`, `Labels`, `Returns`, `Accruals`. `Fbo` — у площадки есть отправления со своего склада: импорт FBO и догон их статусов (фоновый и в импорте истории) идут только у провайдера с этим флагом.
 
 **`ExternalPostingItem` не несёт ссылки на карточку** — в отправлении нет `product_id` (см. раздел исходных данных). Разрешение позиции в `MarketplaceCard` по `Sku`, затем по `OfferId`, делает сервис синхронизации.
 
@@ -906,9 +922,9 @@ MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, Labels, Stock
 
 Опрос задания короткий: `LabelPollAttempts` (6) попыток через `LabelPollDelayMs` (1500 мс). Ozon рекомендует запрашивать этикетку через 45–60 секунд после сборки отправления, но задание по уже собранному отправлению доходит до `completed` за пару секунд, поэтому запрос не держится открытым — не успело, значит вызывающая сторона повторит.
 
-`ExternalLabelDocument` несёт `ContentType`, потому что формат этикетки у площадок разный: Ozon отдаёт PDF, Wildberries — растровый или SVG-стикер. Сборщик итогового файла обязан уметь и то, и другое: PDF-страницы берутся как есть, картинка заворачивается в страницу. *(Формат стикеров WB по их спецификации не проверялся — уточняется при подключении провайдера.)*
+Формат ответа у площадок разный. Ozon отдаёт PDF на всю пачку — он едет в `Content` с `ContentType`, и страницы отправлениям сопоставляет сервис. Wildberries отдаёт по стикеру на задание, PNG 58×40 в base64. Провайдер сам заворачивает каждый в одностраничный PDF (`LabelPdfComposer.FromImage`) и кладёт в `Pages` с номером задания и `LabelKind.WildberriesSticker`. Такая страница уже привязана к отправлению, по тексту ничего не сопоставляется, а задание без страницы — то, которое площадка не напечатала. Стикер, который не раскодировался или не собрался в PDF, провайдер называет в `Unreadable` вместе с причиной, и сервис помечает такое задание `MarketplaceLabelFormatChanged` с этой причиной, остальные страницы пачки сохраняются.
 
-**Документ отдаётся на всю пачку целиком, а не по отправлению.** Первоначально контракт задумывался как `IReadOnlyList<ExternalLabel>` — по записи на отправление, — но это заставило бы провайдера резать PDF, то есть тащить туда PDFsharp, хотя та же спецификация помещает нарезку и пачки в сервис. Провайдер отвечает ровно за то, что вернула площадка; страницы отправлениям сопоставляет сервис — см. [«Получение этикеток»](marketplaces-orders-specification.md#получение-этикеток).
+**PDF пачки отдаётся целиком, а не по отправлению.** Первоначально контракт задумывался как `IReadOnlyList<ExternalLabel>` — по записи на отправление, — но это заставило бы провайдера резать PDF, то есть тащить туда PDFsharp, хотя та же спецификация помещает нарезку и пачки в сервис. Провайдер отвечает ровно за то, что вернула площадка; страницы отправлениям сопоставляет сервис — см. [«Получение этикеток»](marketplaces-orders-specification.md#получение-этикеток).
 
 Все поля `ExternalSellerInfo` необязательные: площадка может отдавать лишь часть реквизитов, а у самозанятого нет ОГРН. `FetchSellerInfoAsync` вызывается только у провайдеров, объявивших флаг `SellerInfo`.
 
@@ -1040,21 +1056,41 @@ is_unlimited, is_out_of_stock}`; `quantity` — доступное количе�
 
 ### Склады, остатки и карточки Wildberries
 
-Не реализовано. Методы сверены с боевым кабинетом. Аккаунт WB — весь кабинет продавца (см.
+Склады и карточки синхронизируются `WildberriesMarketplaceProvider`, остатки не читаются. Методы сверены с
+боевым кабинетом. Аккаунт WB — весь кабинет продавца (см.
 [«Аккаунт Wildberries»](marketplaces-fulfillment-specification.md#аккаунт-wildberries)).
+
+**Реквизиты продавца** — `GET /api/v1/seller-info` (`common-api`): `Name` — `tradeMark`, иначе `name`;
+`LegalName` — `name`, `Inn` — `tin`. ОГРН и форма собственности площадка не отдаёт. Тот же вызов проверяет токен:
+`401`/`403` — `marketplaceCredentialsInvalid`.
 
 **Склады** — склады продавца, `GET /api/v3/warehouses`, без пагинации: `id`, `name`, `officeId`, `cargoType`,
 `deliveryType`, `isDeleting`, `isProcessing`. Остатки и задания FBS живут на складе с `deliveryType = 1`.
+`Kind`: `1` → `Fbs`, `2` (DBS) и `6` (EDBS) → `Rfbs`, прочее → `Unknown`. `isDeleting = true` → `Inactive` с
+`RawStatus = deleting`, иначе `Active`. В сверенном кабинете синхронизация заводит два склада: FBS и DBS.
 
 **Карточки** — `POST /content/v2/get/cards/list` (`content-api`), курсор `{limit ≤ 100, updatedAt, nmID}` из
-ответа, конец — `cursor.total` меньше `limit`; фильтр `withPhoto = -1` отдаёт все. Карточка — `nmID` (артикул WB),
-`imtID` (склейка карточек), `vendorCode` (артикул продавца), `title`, `brand`, `subjectName`, `dimensions`,
-`needKiz`, `photos`, `sizes[] {chrtID, techSize, wbSize, skus[]}`. Единица остатка и задания — размер
-(`chrtID`), штрихкоды — `skus`. В сверенном кабинете у каждой из 381 карточки один размер с одним штрихкодом, а
-10 склеек объединяют несколько карточек.
+ответа, конец — `cursor.total` меньше `limit`. Запрос уходит без `filter`: так отдаются все карточки. Карточка —
+`nmID` (артикул WB), `imtID` (склейка карточек), `vendorCode` (артикул продавца), `title`, `brand`,
+`subjectName`, `dimensions`, `needKiz`, `photos`, `sizes[] {chrtID, techSize, wbSize, skus[]}`. В сверенном
+кабинете у каждой из 381 карточки основной выдачи один размер с одним штрихкодом, а 10 склеек объединяют несколько
+карточек. Единица остатка и задания — размер (`chrtID`), поэтому `MarketplaceCard` заводится на каждый размер:
 
-**Архивность** — корзина: `POST /content/v2/get/cards/trash` с тем же курсором отдаёт удалённые карточки с
-`trashedAt`; в основной выдаче их нет.
+| Поле `MarketplaceCard` | Значение |
+|---|---|
+| `ExternalId`, `Sku` | `sizes[].chrtID` |
+| `OfferId` | `vendorCode` |
+| `Name` | `title` (у пустого — `vendorCode`), плюс ` (techSize)`, если размер не пустой и не `0` — так WB пишет товар без размеров |
+| `Barcodes` | `sizes[].skus` |
+| `PrimaryImageUrl` | `photos[0].big` |
+| `Price`, `CurrencyCode` | не заполняются |
+
+**Архивность** — корзина: `POST /content/v2/get/cards/trash` с тем же курсором (`trashedAt` вместо `updatedAt`)
+читается после основной выдачи, её карточки приезжают с `IsArchived = true`. Названия у карточки в корзине нет,
+её называет `vendorCode`. Между страницами — пауза `PageDelayMs`.
+
+В сверенном кабинете синхронизация заводит 398 карточек-размеров, правила автосопоставления разбирают 330
+из них.
 
 **Остатки** — `POST /api/v3/stocks/{warehouseId}` с `chrtIds` до 1000, ответ `stocks[] {chrtId, sku, amount}`.
 Ответ отдаёт не все запрошенные размеры: на 381 `chrtID` — 293 строки, из них 5 с `amount = 0`, на складе DBS —
@@ -1214,7 +1250,7 @@ Quartz регистрируется с in-memory хранилищем задач
 | Код | HTTP | Когда |
 |-----|------|-------|
 | `marketplaceAccountNotFound` | 404 | Аккаунт не найден |
-| `marketplaceCredentialsInvalid` | 422 | Маркетплейс отверг `Client-Id`/`Api-Key` |
+| `marketplaceCredentialsInvalid` | 422 | Маркетплейс отверг учётные данные (`Client-Id`/`Api-Key` Ozon, токен WB) |
 | `marketplaceCredentialsUnreadable` | 422 | Не удалось расшифровать сохранённый ключ |
 | `marketplaceClientIdRequired` | 422 | Провайдер требует `ClientId`, а он не передан |
 | `marketplaceApiError` | 502 | Маркетплейс вернул ошибку или недоступен |
@@ -1278,6 +1314,10 @@ Quartz регистрируется с in-memory хранилищем задач
 `lastSyncError` и `syncRun.error` приходят как `AppFieldError` (`{ code, detail, args? }`) — тот же тип, что
 внутри `AppProblemDetails`. Текст берётся по `code` + `args`; поле `detail` англоязычное и в UI не показывается.
 
+Форма учётных данных зависит от площадки: `MARKETPLACE_REQUIRES_CLIENT_ID` (`marketplaceUtils.ts`) прячет поле
+`Client-Id` у Wildberries — в форме подключения, в `EditAccountDialog` и на вкладке «Обзор», — и форма шлёт
+`clientId: null`. Подпись ключа берётся из `MARKETPLACE_API_KEY_LABELS`: «Api-Key» у Ozon, «Токен» у Wildberries.
+
 Список scope'ов синхронизации на странице аккаунта — `all`, `warehouses`, `cards`, `ordersBackground`. `orders`
 в нём намеренно **нет**: импорт отправлений запускается со страницы FBS, где видно его итог; в коде рядом стоит
 комментарий, иначе это «починят».
@@ -1289,8 +1329,8 @@ Quartz регистрируется с in-memory хранилищем задач
 ### Шаг 1 — Подключение магазина
 
 1. Администратор открывает «Маркетплейсы» → «Подключить магазин».
-2. Выбирает площадку (Ozon), вводит название магазина, `Client-Id` и `Api-Key`, задаёт интервал синхронизации (по умолчанию 30 минут).
-3. Нажимает «Проверить подключение» — бэкенд дёргает `/v2/warehouse/list` с `limit = 1`. Успех подтверждается зелёной плашкой, ошибка — `marketplaceCredentialsInvalid` с текстом от маркетплейса.
+2. Выбирает площадку (Ozon или Wildberries), вводит название магазина и ключ — `Client-Id` и `Api-Key` у Ozon, «Токен» у Wildberries, — задаёт интервал синхронизации (по умолчанию 30 минут).
+3. Нажимает «Проверить подключение» — бэкенд дёргает у Ozon `/v2/warehouse/list` с `limit = 1`, у Wildberries — `/api/v1/seller-info`. Успех подтверждается зелёной плашкой, ошибка — `marketplaceCredentialsInvalid` с текстом от маркетплейса.
 4. Сохраняет. Ключ шифруется, наружу больше не отдаётся — в интерфейсе видна только маска `••••1234`.
 
 ### Шаг 2 — Первая синхронизация
@@ -1353,13 +1393,28 @@ Quartz регистрируется с in-memory хранилищем задач
     "BuyoutsPauseResetHour": 4,
     "BuyoutsMinPauseMinutes": 60
   },
+  "Wildberries": {
+    "TimeoutSeconds": 60,
+    "PageDelayMs": 300,
+    "RateLimitRetryAttempts": 5,
+    "RateLimitRetryDelayMs": 2000,
+    "ActiveTasksWindowDays": 30,
+    "ReportRequestDelayMs": 61000,
+    "ReportTimeoutSeconds": 300,
+    "ReportPageSize": 5000,
+    "ReturnsLookbackDays": 90,
+    "AccrualsLookbackDays": 14,
+    "LabelBatchSize": 100,
+    "StickerScale": 0.92
+  },
   "Labels": {
     "MaxArticlesOnLabel": 3,
     "FontResourceName": "ProjectWarehouse.Server.Resources.Fonts.LabelFont.ttf",
     "FontSize": 8,
     "Layouts": {
       "OzonScanitLabel": { "TextCorner": "BottomLeft", "MarginX": 6, "MarginY": 6 },
-      "OzonPostingLabel": { "TextCorner": "TopRight", "MarginX": 6, "MarginY": 6 }
+      "OzonPostingLabel": { "TextCorner": "TopRight", "MarginX": 6, "MarginY": 6 },
+      "WildberriesSticker": { "TextCorner": "LeftEdge", "MarginX": 4 }
     },
     "CacheTtlDays": 7,
     "GcCron": "0 15 3 * * ?",
@@ -1372,7 +1427,7 @@ Quartz регистрируется с in-memory хранилищем задач
 
 `MaxOrdersPerJob` — сколько заказов принимает один вызов `POST /api/orders/labels`; больше — `422 outOfRange` с `args.max`.
 
-`Layouts` задаёт место для артикулов отдельно для каждого формата этикетки — `OzonScanitLabel` и `OzonPostingLabel`, см. [«Получение этикеток»](marketplaces-orders-specification.md#получение-этикеток). У старой этикетки с номером отправления содержимое повёрнуто, и её левый нижний угол занят номером. `TextCorner` — угол, в который наносятся артикулы: `TopLeft`, `TopRight`, `BottomLeft` (по умолчанию), `BottomRight`. `MarginX` и `MarginY` — отступы от вертикального и горизонтального края **выбранного угла**. Строки читаются сверху вниз независимо от угла: первый артикул — верхняя строка блока. Новый формат этикетки — это новое свойство в `LabelLayoutsOptions`, член `LabelKind` и ветка его опознания в `MarketplaceLabelService.Identify`.
+`Layouts` задаёт место для артикулов отдельно для каждого формата этикетки — `OzonScanitLabel`, `OzonPostingLabel` и `WildberriesSticker`, см. [«Получение этикеток»](marketplaces-orders-specification.md#получение-этикеток). У старой этикетки с номером отправления содержимое повёрнуто, и её левый нижний угол занят номером. У стикера WB свободного угла нет: он уменьшен до `StickerScale` и прижат к правому краю, а артикул идёт в полосу слева от него. `TextCorner` — угол, в который наносятся артикулы: `TopLeft`, `TopRight`, `BottomLeft` (по умолчанию), `BottomRight`, либо `LeftEdge` — вдоль левого края, снизу вверх, по центру высоты; строки повёрнуты на четверть оборота против часовой и следующая ложится правее, `MarginY` не используется. `MarginX` и `MarginY` — отступы от вертикального и горизонтального края **выбранного угла**. Строки читаются сверху вниз независимо от угла: первый артикул — верхняя строка блока. Новый формат этикетки — это новое свойство в `LabelLayoutsOptions`, член `LabelKind` и ветка его опознания в `MarketplaceLabelService.Identify`.
 
 `LabelPollAttempts` и `LabelPollDelayMs` задают опрос задания на формирование этикеток — см. [«Неготовность этикетки»](#неготовность-этикетки--не-ошибка).
 
@@ -1390,6 +1445,8 @@ Quartz регистрируется с in-memory хранилищем задач
 
 `BuyoutRequestDelayMs` — пауза между окнами отчёта о выкупах, `BuyoutAfterAccrualDelayMs` — перед его первым окном после запросов журнала. `BuyoutsPauseResetHour` и `BuyoutsMinPauseMinutes` задают паузу после его `429`: до ближайшего этого часа по Москве, но не короче минимума. См. [«Выкупленные площадкой товары»](marketplaces-accruals-specification.md#выкупленные-площадкой-товары).
 
+`Wildberries` — настройки провайдера WB. `TimeoutSeconds`, `RateLimitRetryAttempts`, `RateLimitRetryDelayMs` — то же, что у Ozon, кроме финансового клиента (см. [«Клиент Wildberries»](#клиент-wildberries)); `PageDelayMs` — пауза между страницами. `ActiveTasksWindowDays` — сколько дней по дате создания перебирается в поиске заданий `new`/`confirm`: см. [«Wildberries»](marketplaces-orders-specification.md#wildberries). `ReportRequestDelayMs` — пауза между страницами отчёта о реализации (лимит WB — вызов в минуту), `ReportTimeoutSeconds` — потолок одной его страницы вместе с телом, `ReportPageSize` — строк на странице, `AccrualsLookbackDays` — насколько раньше конца периода он читается: см. [«Wildberries»](marketplaces-accruals-specification.md#wildberries). `ReturnsLookbackDays` — глубина отчёта о возвратах на каждом проходе: см. [«Wildberries»](marketplaces-returns-specification.md#wildberries). `LabelBatchSize` — заданий в запросе стикеров, потолок WB — 100. `StickerScale` — доля страницы 58×40 мм, которую занимает стикер; полосы слева хватает на одну строку артикула.
+
 В `docker-compose.yml` и `docker-compose.prod.yml` добавляется том для кольца ключей Data Protection:
 
 ```
@@ -1404,7 +1461,6 @@ volumes:
 ## Отложено
 
 - **Выгрузка остатков в маркетплейс** — `/v2/products/stocks`. Требует однозначной привязки склада: остаток по `CatalogItem` агрегируется в рамках `Warehouse`, привязанного к складу маркетплейса. Для виртуальных целей маппинга остаток вычисляется, а не читается напрямую: `Variation` → сумма остатков по членам вариации, `Bundle` → минимум по компонентам с учётом их количеств. Обход дерева здесь тот же, что уже делает `ICatalogService.ComputeContainsUnitAsync`.
-- **Wildberries** — второй провайдер. Схема БД изменений не требует; нужны `WildberriesMarketplaceProvider`, конвейер генерации его клиента и учёт того, что `ClientId` там не используется.
 - **Обновление цен** — `/v1/product/import/prices`.
 
 ---

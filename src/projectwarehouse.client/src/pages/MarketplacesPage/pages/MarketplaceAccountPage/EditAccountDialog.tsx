@@ -22,7 +22,12 @@ import {useRhfApiErrors} from "@/hooks/useRhfApiErrors";
 import {FormTextField} from "@/components/form/FormTextField";
 import {ClampedIntegerField} from "@/components/form/ClampedIntegerField";
 import TestConnectionButton from "../../components/TestConnectionButton";
-import {formatApiKeyMask, hasCapability} from "@/components/marketplace/marketplaceUtils.ts";
+import {
+  formatApiKeyMask,
+  hasCapability,
+  MARKETPLACE_API_KEY_LABELS,
+  MARKETPLACE_REQUIRES_CLIENT_ID,
+} from "@/components/marketplace/marketplaceUtils.ts";
 import type {MarketplaceAccountDto} from "@/api/types.gen";
 
 type EditFormValues = {
@@ -74,6 +79,7 @@ function EditAccountDialog({open, account, onClose}: EditAccountDialogProps) {
   }, [open, account, reset]);
 
   const [clientId, apiKey] = useWatch({control: form.control, name: ["clientId", "apiKey"]});
+  const requiresClientId = MARKETPLACE_REQUIRES_CLIENT_ID[account.type];
 
   const mutation = useMutation({
     ...marketplacesUpdateAccountMutation(),
@@ -116,18 +122,20 @@ function EditAccountDialog({open, account, onClose}: EditAccountDialogProps) {
             disabled={mutation.isPending}
             fullWidth
           />
-          <FormTextField
-            control={form.control}
-            name="clientId"
-            label="Client-Id"
-            rules={{required: "Обязательное поле"}}
-            disabled={mutation.isPending}
-            fullWidth
-          />
+          {requiresClientId && (
+            <FormTextField
+              control={form.control}
+              name="clientId"
+              label="Client-Id"
+              rules={{required: "Обязательное поле"}}
+              disabled={mutation.isPending}
+              fullWidth
+            />
+          )}
           <FormTextField
             control={form.control}
             name="apiKey"
-            label="Новый Api-Key"
+            label={`Новый ${MARKETPLACE_API_KEY_LABELS[account.type]}`}
             type="password"
             helperText={`Текущий ключ ${formatApiKeyMask(account.apiKeyLast4)}. Оставьте пустым, чтобы не менять`}
             disabled={mutation.isPending}
