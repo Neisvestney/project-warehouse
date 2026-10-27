@@ -14,7 +14,7 @@ public class MarketplaceAutoMapRuleDto : IHasIdentity
     public string CatalogItemFullName { get; init; } = null!;
     public string CatalogItemArticle { get; init; } = null!;
 
-    /// <summary>The target was archived after the rule was created — the rule is skipped until it is fixed.</summary>
+    /// <summary>The target is archived. Informational only — the rule still applies.</summary>
     public bool IsTargetArchived { get; init; }
 
     public bool IsEnabled { get; init; }

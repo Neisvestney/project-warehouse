@@ -248,7 +248,7 @@ function AutoMapRulesPage() {
                         </Typography>
                       </span>
                       {rule.isTargetArchived && (
-                        <Tooltip title="Товар в архиве — правило не применяется">
+                        <Tooltip title="Товар в архиве — правило всё равно применяется">
                           <Chip label="Архив" color="warning" size="small" />
                         </Tooltip>
                       )}

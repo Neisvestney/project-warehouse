@@ -1852,7 +1852,7 @@ export type MarketplaceAutoMapRuleDto = {
   catalogItemFullName: string;
   catalogItemArticle: string;
   /**
-   * The target was archived after the rule was created — the rule is skipped until it is fixed.
+   * The target is archived. Informational only — the rule still applies.
    */
   isTargetArchived: boolean;
   isEnabled: boolean;

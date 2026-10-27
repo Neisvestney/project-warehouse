@@ -1708,7 +1708,6 @@ export const marketplaceAutoMapRulesGetRules = <ThrowOnError extends boolean = f
  * * 422 marketplaceAutoMapRuleInvalidRegex on value — the pattern does not compile
  * * 422 catalogItemNotFound on catalogItemId
  * * 422 marketplaceCardMappingTypeNotAllowed on catalogItemId — a product group cannot back a card
- * * 422 marketplaceCardMappingArchivedItem on catalogItemId — the target is archived
  * Requires `integrations.map`.
  */
 export const marketplaceAutoMapRulesCreateRule = <ThrowOnError extends boolean = false>(

@@ -58,7 +58,6 @@ public class MarketplaceAutoMapRulesController(
     ///   <item>422 <c>marketplaceAutoMapRuleInvalidRegex</c> on <c>value</c> — the pattern does not compile</item>
     ///   <item>422 <c>catalogItemNotFound</c> on <c>catalogItemId</c></item>
     ///   <item>422 <c>marketplaceCardMappingTypeNotAllowed</c> on <c>catalogItemId</c> — a product group cannot back a card</item>
-    ///   <item>422 <c>marketplaceCardMappingArchivedItem</c> on <c>catalogItemId</c> — the target is archived</item>
     /// </list>
     /// Requires <c>integrations.map</c>.
     /// </remarks>
@@ -189,7 +188,7 @@ public class MarketplaceAutoMapRulesController(
 
         var target = await db.CatalogItems
             .Where(i => i.Id == request.CatalogItemId)
-            .Select(i => new { i.Type, i.IsArchived })
+            .Select(i => new { i.Type })
             .FirstOrDefaultAsync(ct);
 
         if (target is null)
@@ -199,10 +198,6 @@ public class MarketplaceAutoMapRulesController(
         if (!MarketplaceMapping.MappableTypes.Contains(target.Type))
             return UnprocessableEntity(nameof(request.CatalogItemId), ErrorCode.MarketplaceCardMappingTypeNotAllowed,
                 "A product group cannot be an order component and cannot back a marketplace card.");
-
-        if (target.IsArchived)
-            return UnprocessableEntity(nameof(request.CatalogItemId), ErrorCode.MarketplaceCardMappingArchivedItem,
-                "The catalog item is archived.");
 
         return null;
     }

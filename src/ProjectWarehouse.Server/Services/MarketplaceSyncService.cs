@@ -524,14 +524,13 @@ public class MarketplaceSyncService(
     }
 
     /// <summary>
-    /// Enabled rules in priority order, with rules whose target is no longer a legal mapping target
-    /// dropped: an archived or retyped item must not silently break the rest of the chain.
+    /// Enabled rules in priority order, with rules whose target got retyped to a non-mappable type dropped:
+    /// such an item must not silently break the rest of the chain. An archived target still applies.
     /// </summary>
     private async Task<IReadOnlyList<CompiledAutoMapRule>> LoadRulesAsync(CancellationToken ct)
     {
         var rules = await db.MarketplaceAutoMapRules
             .Where(r => r.IsEnabled
-                        && !r.CatalogItem.IsArchived
                         && MarketplaceMapping.MappableTypes.Contains(r.CatalogItem.Type))
             .OrderByDescending(r => r.Priority)
             .ThenBy(r => r.Id)
