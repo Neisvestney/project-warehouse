@@ -56,6 +56,8 @@ import TagChips from "@/components/tags/TagChips";
 import OrderStatusChip from "./OrderStatusChip";
 import OrderCompositionPreview from "./OrderCompositionPreview";
 import MarketplaceOrderFilters from "./marketplace/MarketplaceOrderFilters";
+import MarketplaceSupplySelect from "./marketplace/MarketplaceSupplySelect";
+import {useSupplyFilterState} from "./marketplace/useSupplyFilterState";
 import {
   ALL_MARKETPLACE_ORDER_STATUSES,
   ALL_MARKETPLACE_TYPES,
@@ -133,6 +135,8 @@ interface OrdersListPageProps {
   extraColumns?: OrdersListExtraColumn[];
   /** Marketplace / account / posting-status filters. Meaningless on Direct orders. */
   marketplaceFilters?: boolean;
+  /** Marketplace supply picker; a table cell can set the same filter through `useSupplyFilterState`. */
+  supplyFilter?: boolean;
   /**
    * Стартовое положение тумблера «Внешние». Включено там, где внешними являются все заказы раздела —
    * иначе список открывался бы пустым.
@@ -167,6 +171,7 @@ function OrdersListPage({
   bulkActions,
   extraColumns,
   marketplaceFilters,
+  supplyFilter,
   defaultIncludeExternal = false,
   showExternalFilter = true,
   hiddenColumns = EMPTY_HIDDEN_COLUMNS,
@@ -259,6 +264,8 @@ function OrdersListPage({
 
   const [tagFilter, setTagFilter] = useTagFilterState();
 
+  const [supplyId, setSupplyId] = useSupplyFilterState();
+
   const isHidden = (key: OrderSortBy) => hiddenColumns.includes(key);
   const showStatusFilter = !isHidden("status");
   const showWarehouseFilter = !isHidden("warehouseName");
@@ -306,6 +313,7 @@ function OrdersListPage({
       marketplaceStatus: marketplaceFilters
         ? (marketplaceStatus as MarketplaceOrderStatus) || undefined
         : undefined,
+      supplyId: (supplyFilter ? supplyId : null) ?? undefined,
       sortBy,
       sortOrder,
     },
@@ -321,6 +329,7 @@ function OrdersListPage({
       marketplaceType,
       marketplaceAccountId,
       marketplaceStatus,
+      supplyId,
       sortBy,
       sortOrder,
     ],
@@ -567,6 +576,7 @@ function OrdersListPage({
             isTagFilterActive(tagFilter),
             marketplaceFilters && (marketplaceType || marketplaceAccountId),
             marketplaceFilters && marketplaceStatus,
+            supplyFilter && supplyId,
             marketplaceFilters && showExternalFilter && includeExternal !== defaultIncludeExternal,
           ].filter(Boolean).length
         }
@@ -576,6 +586,7 @@ function OrdersListPage({
           setMarketplaceType("");
           setMarketplaceAccountId(null);
           setMarketplaceStatus("");
+          setSupplyId(null);
           setIncludeExternal(defaultIncludeExternal);
         }}
         actions={
@@ -635,6 +646,14 @@ function OrdersListPage({
                 : undefined
             }
             countsLoading={isFetching}
+          />
+        )}
+        {supplyFilter && (
+          <MarketplaceSupplySelect
+            value={supplyId}
+            onChange={setSupplyId}
+            marketplaceAccountId={marketplaceAccountId}
+            sx={{minWidth: 240, maxWidth: 360, flexGrow: 1}}
           />
         )}
       </FiltersBar>

@@ -18,6 +18,7 @@ public class MarketplaceOrderSyncService(
     IRealtimeNotifier realtime,
     IMarketplaceReturnSyncService returnSync,
     IMarketplaceAccrualSyncService accrualSync,
+    IMarketplaceSupplySyncService supplySync,
     IExternalOrderWarehouseService externalOrderWarehouses,
     IOptions<MarketplacesOptions> options,
     ILogger<MarketplaceOrderSyncService> logger) : IMarketplaceOrderSyncService
@@ -113,6 +114,7 @@ public class MarketplaceOrderSyncService(
 
                 // per page, so the sync modal's counters advance while the run is still going
                 await db.SaveChangesAsync(ct);
+                await supplySync.LinkPostingsAsync(account.Id, page, ct);
 
                 // the accrual sync links them again to the rebuilt lines and their current catalog items
                 if (relinkOrderIds.Count > 0)
@@ -751,6 +753,8 @@ public class MarketplaceOrderSyncService(
         }
         // last, so the postings its returns belong to are already in
         await returnSync.SyncReturnsAsync(provider, credentials, account, run, ct);
+        // last of all, so a failing supply list fails the run only after the orders and returns are saved
+        await supplySync.SyncSuppliesAsync(provider, credentials, account, ct);
     }
 
     /// <summary>
@@ -970,6 +974,7 @@ public class MarketplaceOrderSyncService(
                 }
 
                 await db.SaveChangesAsync(ct);
+                await supplySync.LinkPostingsAsync(account.Id, page, ct);
 
                 await StampWarehousesAsync(account.Id, unstamped, warehouses, ct);
             }, ct);

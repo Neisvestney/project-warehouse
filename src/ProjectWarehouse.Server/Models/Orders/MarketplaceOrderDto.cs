@@ -52,5 +52,8 @@ public class MarketplaceOrderDto
     /// <summary>Number printed on the marketplace label: Ozon scanit or Wildberries sticker number. Null until the label exists.</summary>
     public string? LabelBarcode { get; init; }
 
+    /// <summary>The supply the marketplace put the posting in; null where there are no supplies or it is in none yet.</summary>
+    public MarketplaceSupplyDto? Supply { get; init; }
+
     public DateTime StatusSyncedAt { get; init; }
 }

@@ -292,6 +292,14 @@ public class OzonMarketplaceProvider(
         }
     }
 
+    public Task<IReadOnlyList<ExternalSupply>> FetchSuppliesAsync(MarketplaceCredentials credentials,
+        CancellationToken ct) =>
+        throw new NotSupportedException("Ozon groups no FBS postings into supplies.");
+
+    public IAsyncEnumerable<ExternalSupplyPostings> FetchSupplyPostingsAsync(MarketplaceCredentials credentials,
+        IReadOnlyList<string> supplyExternalIds, CancellationToken ct) =>
+        throw new NotSupportedException("Ozon groups no FBS postings into supplies.");
+
     public async Task<DateTime?> FetchEarliestPostingDateAsync(
         MarketplaceCredentials credentials, CancellationToken ct)
     {

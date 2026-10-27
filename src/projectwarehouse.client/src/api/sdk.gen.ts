@@ -280,6 +280,12 @@ import type {
   OrdersGetLastPicksData,
   OrdersGetLastPicksErrors,
   OrdersGetLastPicksResponses,
+  OrdersGetSuppliesData,
+  OrdersGetSuppliesErrors,
+  OrdersGetSuppliesResponses,
+  OrdersGetSupplyData,
+  OrdersGetSupplyErrors,
+  OrdersGetSupplyResponses,
   OrdersGetTagsData,
   OrdersGetTagsErrors,
   OrdersGetTagsResponses,
@@ -2357,11 +2363,42 @@ export const ordersCreateTag = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Marketplace supplies for the supply picker of the orders list.
+ *
+ * Query params: `search` (optional, exact, over the supply id and name), `marketplaceAccountId`
+ * (optional), `take` (default 50, max 200). Not paginated — newest first by creation date, whatever the
+ * search relevance. Requires view access to orders (`orders.view`, `orders.view_assigned` or
+ * `orders.assemble_assigned`). No error codes beyond 403 `permissionDenied`.
+ */
+export const ordersGetSupplies = <ThrowOnError extends boolean = false>(
+  options?: Options<OrdersGetSuppliesData, ThrowOnError>,
+): RequestResult<OrdersGetSuppliesResponses, OrdersGetSuppliesErrors, ThrowOnError> =>
+  (options?.client ?? client).get<
+    OrdersGetSuppliesResponses,
+    OrdersGetSuppliesErrors,
+    ThrowOnError
+  >({url: "/api/orders/supplies", ...options});
+
+/**
+ * One marketplace supply, for a supply filter opened from a link.
+ *
+ * Requires view access to orders (`orders.view`, `orders.view_assigned` or
+ * `orders.assemble_assigned`). Errors: 404 `marketplaceSupplyNotFound`; 403 `permissionDenied`.
+ */
+export const ordersGetSupply = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersGetSupplyData, ThrowOnError>,
+): RequestResult<OrdersGetSupplyResponses, OrdersGetSupplyErrors, ThrowOnError> =>
+  (options.client ?? client).get<OrdersGetSupplyResponses, OrdersGetSupplyErrors, ThrowOnError>({
+    url: "/api/orders/supplies/{supplyId}",
+    ...options,
+  });
+
+/**
  * List orders (paginated, filtered, sorted).
  *
  * Query params: `page` (default 1), `pageSize` (default 20, max 500), `searchString`,
  * `warehouseId`, `type`, `status`, `marketplaceType`, `marketplaceAccountId`,
- * `marketplaceStatus`, `includeExternal` (default false), `catalogItemIds`, `tagIds`,
+ * `marketplaceStatus`, `supplyId`, `includeExternal` (default false), `catalogItemIds`, `tagIds`,
  * `excludedTagIds`, `overdue`, `unmapped` (default false), `sortBy` (default `Number`),
  * `sortOrder` (default `Desc`).
  * `unmapped` keeps orders with a marketplace line not bound to a catalog item; it applies to every count in
@@ -2373,7 +2410,8 @@ export const ordersCreateTag = <ThrowOnError extends boolean = false>(
  * External orders — imported from the marketplace, never assembled here — are left out unless
  * `includeExternal` asks for them.
  * `catalogItemIds` keeps orders that have a box component with any of those catalog items; `tagIds` keeps
- * orders carrying any of the tags, `excludedTagIds` drops those carrying any of them.
+ * orders carrying any of the tags, `excludedTagIds` drops those carrying any of them. `supplyId` keeps
+ * the postings of one marketplace supply and narrows every count in `meta`, like `tagIds`.
  * Any of the three marketplace filters also excludes orders without a `MarketplaceOrder`, so they
  * never match Direct orders. `searchString` is the extended search — it also matches box labels and
  * the catalog items and marketplace cards of the order contents, see bool Order.MatchesExtendedSearch(string pattern).

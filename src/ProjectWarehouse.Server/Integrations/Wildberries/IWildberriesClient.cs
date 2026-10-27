@@ -30,5 +30,11 @@ public interface IWildberriesClient
 
     Task<DateTime?> GetEarliestPostingDateAsync(CancellationToken ct);
 
+    Task<IReadOnlyList<ExternalSupply>> GetSuppliesAsync(CancellationToken ct);
+
+    /// <summary>A supply WB answers 404 for is skipped: it was deleted after the listing was read.</summary>
+    IAsyncEnumerable<ExternalSupplyPostings> GetSupplyPostingsAsync(IReadOnlyList<string> supplyIds,
+        CancellationToken ct);
+
     Task<ExternalLabelDocument> GetStickersAsync(IReadOnlyList<string> postingNumbers, CancellationToken ct);
 }

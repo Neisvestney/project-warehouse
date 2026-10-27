@@ -8,6 +8,7 @@ namespace ProjectWarehouse.Server.Integrations.Abstractions;
 /// <see cref="WarehouseExternalId"/>, <see cref="LabelBarcode"/>, <see cref="Dates"/>) arrive null — see
 /// <see cref="Scheme"/>.
 /// <see cref="Parcels"/> is null when the marketplace states no layout: the posting is then one parcel.
+/// <see cref="SupplyExternalId"/> is set only by a marketplace with supplies, once the posting is in one.
 /// </summary>
 public record ExternalPosting(
     string PostingNumber,
@@ -27,4 +28,5 @@ public record ExternalPosting(
     DateTime? CreatedAt = null,
     string? LabelBarcode = null,
     IReadOnlyList<ExternalParcel>? Parcels = null,
-    ExternalPostingDates? Dates = null);
+    ExternalPostingDates? Dates = null,
+    string? SupplyExternalId = null);

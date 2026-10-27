@@ -132,6 +132,7 @@ public enum ErrorCode
     MarketplaceSyncInterrupted = 84,
     MarketplaceWarehouseNotFound = 87,
     MarketplaceCardNotFound = 88,
+    MarketplaceSupplyNotFound = 171,
     MarketplaceCardMappingTypeNotAllowed = 85,
     MarketplaceCardMappingArchivedItem = 86,
     MarketplaceOrderNotFromMarketplace = 113,

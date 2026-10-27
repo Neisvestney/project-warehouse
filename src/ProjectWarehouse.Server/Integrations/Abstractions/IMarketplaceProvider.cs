@@ -74,6 +74,19 @@ public interface IMarketplaceProvider
         DateOnly to, bool followsBuyoutCall, bool oldestFirst, CancellationToken ct);
 
     /// <summary>
+    /// Every supply the marketplace lists for the account. Only called when the provider declares
+    /// <see cref="MarketplaceCapabilities.Supplies"/>.
+    /// </summary>
+    Task<IReadOnlyList<ExternalSupply>> FetchSuppliesAsync(MarketplaceCredentials credentials, CancellationToken ct);
+
+    /// <summary>
+    /// The postings of each supply asked for, one supply at a time. A supply the marketplace no longer knows is
+    /// omitted rather than thrown. Only called when the provider declares <see cref="MarketplaceCapabilities.Supplies"/>.
+    /// </summary>
+    IAsyncEnumerable<ExternalSupplyPostings> FetchSupplyPostingsAsync(MarketplaceCredentials credentials,
+        IReadOnlyList<string> supplyExternalIds, CancellationToken ct);
+
+    /// <summary>
     /// Creation date of the oldest posting the account has, or null when it has none. Costs several calls,
     /// so it is only ever asked for on an explicit operator action.
     /// </summary>

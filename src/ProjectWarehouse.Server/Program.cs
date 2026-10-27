@@ -452,6 +452,7 @@ try
     builder.Services.AddScoped<IExternalOrderWarehouseService, ExternalOrderWarehouseService>();
     builder.Services.AddScoped<IMarketplaceReturnSyncService, MarketplaceReturnSyncService>();
     builder.Services.AddScoped<IMarketplaceAccrualSyncService, MarketplaceAccrualSyncService>();
+    builder.Services.AddScoped<IMarketplaceSupplySyncService, MarketplaceSupplySyncService>();
     builder.Services.AddScoped<IMarketplaceLabelService, MarketplaceLabelService>();
 
     var ozonTimeout = TimeSpan.FromSeconds(marketplacesOptions.Ozon.TimeoutSeconds);

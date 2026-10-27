@@ -1195,7 +1195,7 @@ with `-` (`?tags=a,b,-c`); a plain id list is the include-only case.
 
 The orders list is shared by every order type, so type-specific behaviour arrives as props rather than an
 internal `type === "fbs"` branch: `headerActions?`, `bulkActions?: (selectedOrders: OrderSummaryDto[]) => BulkAction[]`,
-`extraColumns?: {key, label, render, align?, noWrap?}[]` (`noWrap` keeps a column such as the posting number on one line, header included), `marketplaceFilters?`, `defaultIncludeExternal?`, `showExternalFilter?`,
+`extraColumns?: {key, label, render, align?, noWrap?}[]` (`noWrap` keeps a column such as the posting number on one line, header included), `marketplaceFilters?`, `supplyFilter?`, `defaultIncludeExternal?`, `showExternalFilter?`,
 `hiddenColumns?: OrderSortBy[]`, `alwaysShownStatusDates?: OrderStatus[]`, `statusDateLabels?` and `showNotes?`. That keeps marketplace imports —
 and the `integrations.sync` permission — out of the pages that have nothing to do with marketplaces.
 
@@ -1332,6 +1332,16 @@ and `marketplaceOrderUtils` for the label and colour maps.
 scans off the label — as a `CopyableText`, and puts the posting number into an interactive tooltip as a second
 `CopyableText`, so both stay copyable. Before packing there is no barcode yet, and the posting number itself is
 shown and copied.
+
+Marketplace supplies (`marketplaceOrder.supply`, Wildberries only) have three pieces. `MarketplaceSupplyLabel` is
+the two-line cell — creation date and time on top, the name smaller below (the supply id when the name is empty),
+the supply id in a tooltip; with `onFilter` it is a [`HoverActionLink`](#hoveractionlink) with a filter icon,
+raised above the `LinkTableRow` overlay. `MarketplaceSupplySelect` is the filter picker: an `Autocomplete` over
+`GET /api/orders/supplies`, newest first, searched on the server only by typed text (the label a pick writes into
+the input does not search), narrowed to the account picked in `MarketplaceOrderFilters`, and it resolves an id from the URL through `GET /api/orders/supplies/{id}` — a 404 there clears the filter rather than leave an empty picker over an empty list.
+`useSupplyFilterState` keeps the filter in the `supply` URL param. `OrdersListPage` with `supplyFilter` renders the
+picker in its `FiltersBar` and sends `supplyId`; the FBS page's «Поставка» column calls the same hook, so a click
+on a supply in a row sets the filter without the cell reaching into the list's state.
 
 `MarketplaceOrderStatusChip` shows the posting's `returnState` in place of its status: «Частичный возврат»
 (`warning`) or «Полный возврат» (`error`), with the marketplace status moved into the tooltip. A `cancelled`

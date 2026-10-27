@@ -1635,7 +1635,8 @@ export type ErrorCode =
   | "orderIsMarketplaceDraft"
   | "marketplaceOrderDraftNotRefreshed"
   | "assigneeCannotAssemble"
-  | "assigneeNotAssignedToWarehouse";
+  | "assigneeNotAssignedToWarehouse"
+  | "marketplaceSupplyNotFound";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -1878,7 +1879,8 @@ export type MarketplaceCapabilities =
   | "returns"
   | "accruals"
   | "buyouts"
-  | "fbo";
+  | "fbo"
+  | "supplies";
 
 export type MarketplaceCardDto = {
   id: string;
@@ -2001,6 +2003,7 @@ export type MarketplaceOrderDetailsDto = {
    * Number printed on the marketplace label: Ozon scanit or Wildberries sticker number. Null until the label exists.
    */
   labelBarcode?: null | string;
+  supply?: null | MarketplaceSupplyDto;
   statusSyncedAt: string;
 };
 
@@ -2052,6 +2055,7 @@ export type MarketplaceOrderDto = {
    * Number printed on the marketplace label: Ozon scanit or Wildberries sticker number. Null until the label exists.
    */
   labelBarcode?: null | string;
+  supply?: null | MarketplaceSupplyDto;
   statusSyncedAt: string;
 };
 
@@ -2161,6 +2165,24 @@ export type MarketplaceReturnKind =
 export type MarketplaceReturnScheme = "unknown" | "fbs" | "fbo";
 
 export type MarketplaceRuleOperator = "equals" | "contains" | "startsWith" | "endsWith" | "regex";
+
+export type MarketplaceSupplyDto = {
+  id: string;
+  marketplaceAccountId: string;
+  marketplaceAccountName: string;
+  marketplaceType: MarketplaceType;
+  externalId: string;
+  /**
+   * Seller-given name; null when the seller left it empty.
+   */
+  name?: null | string;
+  createdAt: string;
+  /**
+   * When the supply was handed over to delivery; null while it is open.
+   */
+  closedAt?: null | string;
+  isDone: boolean;
+};
 
 export type MarketplaceSyncRunDto = {
   id: string;
@@ -7465,6 +7487,75 @@ export type OrdersCreateTagResponses = {
 
 export type OrdersCreateTagResponse = OrdersCreateTagResponses[keyof OrdersCreateTagResponses];
 
+export type OrdersGetSuppliesData = {
+  body?: never;
+  path?: never;
+  query?: {
+    search?: string;
+    marketplaceAccountId?: string;
+    take?: number;
+  };
+  url: "/api/orders/supplies";
+};
+
+export type OrdersGetSuppliesErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+};
+
+export type OrdersGetSuppliesError = OrdersGetSuppliesErrors[keyof OrdersGetSuppliesErrors];
+
+export type OrdersGetSuppliesResponses = {
+  /**
+   * OK
+   */
+  200: Array<MarketplaceSupplyDto>;
+};
+
+export type OrdersGetSuppliesResponse =
+  OrdersGetSuppliesResponses[keyof OrdersGetSuppliesResponses];
+
+export type OrdersGetSupplyData = {
+  body?: never;
+  path: {
+    supplyId: string;
+  };
+  query?: never;
+  url: "/api/orders/supplies/{supplyId}";
+};
+
+export type OrdersGetSupplyErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+};
+
+export type OrdersGetSupplyError = OrdersGetSupplyErrors[keyof OrdersGetSupplyErrors];
+
+export type OrdersGetSupplyResponses = {
+  /**
+   * OK
+   */
+  200: MarketplaceSupplyDto;
+};
+
+export type OrdersGetSupplyResponse = OrdersGetSupplyResponses[keyof OrdersGetSupplyResponses];
+
 export type OrdersGetAllData = {
   body?: never;
   path?: never;
@@ -7478,6 +7569,7 @@ export type OrdersGetAllData = {
     marketplaceType?: MarketplaceType;
     marketplaceAccountId?: string;
     marketplaceStatus?: MarketplaceOrderStatus;
+    supplyId?: string;
     includeExternal?: boolean;
     catalogItemIds?: Array<string>;
     tagIds?: Array<string>;

@@ -540,6 +540,61 @@ public class WildberriesClient(
         return live;
     }
 
+    public async Task<IReadOnlyList<ExternalSupply>> GetSuppliesAsync(CancellationToken ct)
+    {
+        var result = new List<ExternalSupply>();
+        long next = 0;
+        while (true)
+        {
+            var page = await marketplace.GetV3SuppliesAsync(SuppliesPageSize, next, ct);
+            var supplies = page.Supplies ?? [];
+            foreach (var supply in supplies)
+            {
+                if (supply.Id is not { Length: > 0 } id || supply.CreatedAt is not { } createdAt)
+                {
+                    logger.LogWarning("Wildberries listed a supply without an id or a creation date: {SupplyId}",
+                        supply.Id);
+                    continue;
+                }
+
+                result.Add(new ExternalSupply(id, NullIfEmpty(supply.Name), createdAt.UtcDateTime,
+                    (supply.ClosedAt ?? supply.ScanDt)?.UtcDateTime, supply.Done == true));
+            }
+
+            if (supplies.Count < SuppliesPageSize || page.Next is not { } cursor || cursor == 0)
+                break;
+            next = cursor;
+            await Task.Delay(_options.PageDelayMs, ct);
+        }
+
+        return result;
+    }
+
+    public async IAsyncEnumerable<ExternalSupplyPostings> GetSupplyPostingsAsync(IReadOnlyList<string> supplyIds,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        for (var i = 0; i < supplyIds.Count; i++)
+        {
+            if (i > 0)
+                await Task.Delay(_options.PageDelayMs, ct);
+
+            SupplyOrderIDsAPI response;
+            try
+            {
+                response = await marketplace.GetV3SuppliesSupplyIdOrderIdsAsync(supplyIds[i], ct);
+            }
+            catch (WildberriesApiException ex) when (ex.StatusCode == StatusCodes.Status404NotFound)
+            {
+                logger.LogWarning("Wildberries no longer knows supply {SupplyId}", supplyIds[i]);
+                continue;
+            }
+
+            yield return new ExternalSupplyPostings(supplyIds[i], (response.OrderIds ?? [])
+                .Select(id => id.ToString(CultureInfo.InvariantCulture))
+                .ToList());
+        }
+    }
+
     public async Task<ExternalLabelDocument> GetStickersAsync(IReadOnlyList<string> postingNumbers, CancellationToken ct)
     {
         var ids = postingNumbers
@@ -668,7 +723,8 @@ public class WildberriesClient(
             task.CreatedAt,
             // the archive's sticker id is the label's partA + partB
             LabelBarcode: task.StickerId?.ToString(CultureInfo.InvariantCulture),
-            Dates: Dates(deliveringAt));
+            Dates: Dates(deliveringAt),
+            SupplyExternalId: NullIfEmpty(task.SupplyId));
     }
 
     private SupplyDates NewSupplyDates() => new(marketplace, _options.PageDelayMs);

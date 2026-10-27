@@ -115,7 +115,9 @@ public class MarketplaceAccount : IHasIdentity
 
     /// <summary>Imported postings. Their presence blocks deleting the account.</summary>
     public ICollection<MarketplaceOrder> Orders { get; set; } = [];
-    
+
+    public ICollection<MarketplaceSupply> Supplies { get; set; } = [];
+
     [Projectable]
     public int UnmappedCardCount => Cards.Count(c => c.CatalogItemId == null && !c.EffectiveIsArchived);
 

@@ -102,6 +102,13 @@ public class MarketplaceOrder
     /// </summary>
     public string? LabelBarcode { get; set; }
 
+    /// <summary>
+    /// The supply the marketplace put the posting in. Sync-owned: it follows the marketplace, including a move to
+    /// another supply. Null where the marketplace has no supplies or the posting is not in one yet.
+    /// </summary>
+    public Guid? SupplyId { get; set; }
+    public MarketplaceSupply? Supply { get; set; }
+
     /// <summary>At least one; the labels live on them.</summary>
     public List<MarketplaceParcel> Parcels { get; set; } = [];
 

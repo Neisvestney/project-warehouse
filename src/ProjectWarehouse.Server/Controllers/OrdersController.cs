@@ -345,13 +345,70 @@ public class OrdersController(
         return Created($"/api/orders/tags/{tag.Id}", dto);
     }
 
+    // ── GET /api/orders/supplies ──────────────────────────────────────────────
+
+    /// <summary>Marketplace supplies for the supply picker of the orders list.</summary>
+    /// <remarks>
+    /// Query params: <c>search</c> (optional, exact, over the supply id and name), <c>marketplaceAccountId</c>
+    /// (optional), <c>take</c> (default 50, max 200). Not paginated — newest first by creation date, whatever the
+    /// search relevance. Requires view access to orders (<c>orders.view</c>, <c>orders.view_assigned</c> or
+    /// <c>orders.assemble_assigned</c>). No error codes beyond 403 <c>permissionDenied</c>.
+    /// </remarks>
+    [HttpGet("supplies")]
+    [Authorize]
+    [ProducesResponseType<IReadOnlyList<MarketplaceSupplyDto>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSupplies(
+        [FromQuery] string? search = null,
+        [FromQuery] Guid? marketplaceAccountId = null,
+        [FromQuery][Range(1, 200)] int take = 50,
+        CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
+
+        var supplies = await db.MarketplaceSupplies
+            .Where(s => marketplaceAccountId == null || s.MarketplaceAccountId == marketplaceAccountId)
+            .WhereMatchesSearch(s => s.SearchString, search)
+            .OrderByDescending(s => s.CreatedAt)
+            .ThenBy(s => s.Id)
+            .Take(take)
+            .ProjectTo<MarketplaceSupplyDto>(mapper.ConfigurationProvider)
+            .ToListAsync(ct);
+
+        return Ok(supplies);
+    }
+
+    /// <summary>One marketplace supply, for a supply filter opened from a link.</summary>
+    /// <remarks>
+    /// Requires view access to orders (<c>orders.view</c>, <c>orders.view_assigned</c> or
+    /// <c>orders.assemble_assigned</c>). Errors: 404 <c>marketplaceSupplyNotFound</c>; 403 <c>permissionDenied</c>.
+    /// </remarks>
+    [HttpGet("supplies/{supplyId:guid}")]
+    [Authorize]
+    [ProducesResponseType<MarketplaceSupplyDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetSupply(Guid supplyId, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.View, ct)) is { } error)
+            return error;
+
+        var supply = await db.MarketplaceSupplies
+            .Where(s => s.Id == supplyId)
+            .ProjectTo<MarketplaceSupplyDto>(mapper.ConfigurationProvider)
+            .FirstOrDefaultAsync(ct);
+
+        return supply is null
+            ? NotFound(ErrorCode.MarketplaceSupplyNotFound, "Marketplace supply not found.")
+            : Ok(supply);
+    }
+
     // ── GET /api/orders ───────────────────────────────────────────────────────
 
     /// <summary>List orders (paginated, filtered, sorted).</summary>
     /// <remarks>
     /// Query params: <c>page</c> (default 1), <c>pageSize</c> (default 20, max 500), <c>searchString</c>,
     /// <c>warehouseId</c>, <c>type</c>, <c>status</c>, <c>marketplaceType</c>, <c>marketplaceAccountId</c>,
-    /// <c>marketplaceStatus</c>, <c>includeExternal</c> (default false), <c>catalogItemIds</c>, <c>tagIds</c>,
+    /// <c>marketplaceStatus</c>, <c>supplyId</c>, <c>includeExternal</c> (default false), <c>catalogItemIds</c>, <c>tagIds</c>,
     /// <c>excludedTagIds</c>, <c>overdue</c>, <c>unmapped</c> (default false), <c>sortBy</c> (default <c>Number</c>),
     /// <c>sortOrder</c> (default <c>Desc</c>).
     /// <c>unmapped</c> keeps orders with a marketplace line not bound to a catalog item; it applies to every count in
@@ -363,7 +420,8 @@ public class OrdersController(
     /// External orders — imported from the marketplace, never assembled here — are left out unless
     /// <c>includeExternal</c> asks for them.
     /// <c>catalogItemIds</c> keeps orders that have a box component with any of those catalog items; <c>tagIds</c> keeps
-    /// orders carrying any of the tags, <c>excludedTagIds</c> drops those carrying any of them.
+    /// orders carrying any of the tags, <c>excludedTagIds</c> drops those carrying any of them. <c>supplyId</c> keeps
+    /// the postings of one marketplace supply and narrows every count in <c>meta</c>, like <c>tagIds</c>.
     /// Any of the three marketplace filters also excludes orders without a <c>MarketplaceOrder</c>, so they
     /// never match Direct orders. <c>searchString</c> is the extended search — it also matches box labels and
     /// the catalog items and marketplace cards of the order contents, see <see cref="Order.MatchesExtendedSearch"/>.
@@ -383,6 +441,7 @@ public class OrdersController(
         [FromQuery] MarketplaceType? marketplaceType = null,
         [FromQuery] Guid? marketplaceAccountId = null,
         [FromQuery] MarketplaceOrderStatus? marketplaceStatus = null,
+        [FromQuery] Guid? supplyId = null,
         [FromQuery] bool includeExternal = false,
         [FromQuery] IReadOnlyList<Guid>? catalogItemIds = null,
         [FromQuery] IReadOnlyList<Guid>? tagIds = null,
@@ -412,6 +471,7 @@ public class OrdersController(
             .Where(o => excludedTagIds == null || excludedTagIds.Count == 0 ||
                         !o.Tags.Any(t => excludedTagIds.Contains(t.Id)))
             .Where(o => !unmapped || o.MarketplaceItems.Any(i => i.CatalogItemId == null))
+            .Where(o => supplyId == null || (o.MarketplaceOrder != null && o.MarketplaceOrder.SupplyId == supplyId))
             .WhereMatchesExtendedSearch((o, pattern) => o.MatchesExtendedSearch(pattern), searchString);
 
         var baseQuery = facetQuery

@@ -331,6 +331,10 @@ public class AppMapperProfile : Profile
             .ForMember(d => d.MarketplaceAccountName, opt => opt.MapFrom(s => s.MarketplaceAccount.Name))
             .ForMember(d => d.MarketplaceType, opt => opt.MapFrom(s => s.MarketplaceAccount.Type));
 
+        CreateMap<MarketplaceSupply, MarketplaceSupplyDto>()
+            .ForMember(d => d.MarketplaceAccountName, opt => opt.MapFrom(s => s.MarketplaceAccount.Name))
+            .ForMember(d => d.MarketplaceType, opt => opt.MapFrom(s => s.MarketplaceAccount.Type));
+
         CreateMap<MarketplaceOrder, MarketplaceOrderDetailsDto>()
             .IncludeBase<MarketplaceOrder, MarketplaceOrderDto>()
             .ForMember(d => d.Parcels, opt => opt.MapFrom(s => s.Parcels.OrderBy(p => p.Index)));

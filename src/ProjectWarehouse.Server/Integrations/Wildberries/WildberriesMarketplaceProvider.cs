@@ -16,7 +16,7 @@ public class WildberriesMarketplaceProvider(
     public MarketplaceCapabilities Capabilities =>
         MarketplaceCapabilities.Warehouses | MarketplaceCapabilities.Cards | MarketplaceCapabilities.SellerInfo
         | MarketplaceCapabilities.Orders | MarketplaceCapabilities.Labels | MarketplaceCapabilities.Returns
-        | MarketplaceCapabilities.Accruals;
+        | MarketplaceCapabilities.Accruals | MarketplaceCapabilities.Supplies;
 
     public bool RequiresClientId => false;
 
@@ -76,6 +76,14 @@ public class WildberriesMarketplaceProvider(
     public IAsyncEnumerable<ExternalBuyoutWindow> FetchBuyoutsAsync(MarketplaceCredentials credentials, DateOnly from,
         DateOnly to, bool followsBuyoutCall, bool oldestFirst, CancellationToken ct) =>
         throw new NotSupportedException("Wildberries has no buyout report.");
+
+    public Task<IReadOnlyList<ExternalSupply>> FetchSuppliesAsync(MarketplaceCredentials credentials,
+        CancellationToken ct) =>
+        CallAsync(credentials, () => client.GetSuppliesAsync(ct));
+
+    public IAsyncEnumerable<ExternalSupplyPostings> FetchSupplyPostingsAsync(MarketplaceCredentials credentials,
+        IReadOnlyList<string> supplyExternalIds, CancellationToken ct) =>
+        PagesAsync(credentials, client.GetSupplyPostingsAsync(supplyExternalIds, ct), ct);
 
     public Task<DateTime?> FetchEarliestPostingDateAsync(MarketplaceCredentials credentials, CancellationToken ct) =>
         CallAsync(credentials, () => client.GetEarliestPostingDateAsync(ct));

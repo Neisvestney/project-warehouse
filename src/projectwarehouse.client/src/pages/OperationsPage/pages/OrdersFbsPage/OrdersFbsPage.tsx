@@ -6,7 +6,16 @@ import MarketplaceOrderStatusChip from "@/components/orders/marketplace/Marketpl
 import SyncOrdersButton from "@/components/orders/marketplace/SyncOrdersButton";
 import {useHasPermission} from "@/hooks/usePermission";
 import {formatPostingNumber, formatLabelBarcode} from "@/utils/postingNumberUtils";
+import MarketplaceSupplyLabel from "@/components/orders/marketplace/MarketplaceSupplyLabel";
+import {useSupplyFilterState} from "@/components/orders/marketplace/useSupplyFilterState";
+import type {OrderSummaryDto} from "@/api/types.gen";
 import {Typography} from "@mui/material";
+
+function SupplyCell({order}: {order: OrderSummaryDto}) {
+  const [, setSupplyId] = useSupplyFilterState();
+  const supply = order.marketplaceOrder?.supply;
+  return supply ? <MarketplaceSupplyLabel supply={supply} onFilter={setSupplyId} /> : "—";
+}
 
 const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
   {
@@ -32,6 +41,11 @@ const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
       </>
     ),
   },
+  {
+    key: "supply",
+    label: "Поставка",
+    render: (order) => <SupplyCell order={order} />,
+  },
 ];
 
 function OrdersFbsPage() {
@@ -56,6 +70,7 @@ function OrdersFbsPage() {
           ];
         }}
         marketplaceFilters
+        supplyFilter
         extraColumns={EXTRA_COLUMNS}
         showNotes={false}
         defaultPageSize={200}

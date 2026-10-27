@@ -151,6 +151,7 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   marketplaceCardMappingTypeNotAllowed: "К карточке нельзя привязать позицию этого типа",
   marketplaceCardMappingArchivedItem: "Нельзя привязать карточку к архивной позиции каталога",
   marketplaceWarehouseNotFound: "Склад маркетплейса не найден",
+  marketplaceSupplyNotFound: "Поставка не найдена",
   marketplaceCardNotFound: "Карточка маркетплейса не найдена",
   marketplaceAutoMapRuleNotFound: "Правило автосопоставления не найдено",
   marketplaceAutoMapRuleInvalidRegex: "Некорректное регулярное выражение",

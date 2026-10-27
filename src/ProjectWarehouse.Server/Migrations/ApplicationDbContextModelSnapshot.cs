@@ -1161,6 +1161,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<DateTime>("StatusSyncedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("SupplyId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("SyncedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -1171,6 +1174,8 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("OrderId");
+
+                    b.HasIndex("SupplyId");
 
                     b.HasIndex("MarketplaceAccountId", "PostingNumber")
                         .IsUnique();
@@ -1364,6 +1369,45 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasIndex("MarketplaceAccountId", "PostingNumber");
 
                     b.ToTable("MarketplaceReturns");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceSupply", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDone")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("MarketplaceAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("OrdersSyncedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt")
+                        .IsDescending();
+
+                    b.HasIndex("MarketplaceAccountId", "ExternalId")
+                        .IsUnique();
+
+                    b.ToTable("MarketplaceSupplies");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceSyncRun", b =>
@@ -3068,9 +3112,16 @@ namespace ProjectWarehouse.Server.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("ProjectWarehouse.Server.Domain.MarketplaceSupply", "Supply")
+                        .WithMany("Orders")
+                        .HasForeignKey("SupplyId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("MarketplaceAccount");
 
                     b.Navigation("Order");
+
+                    b.Navigation("Supply");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceParcel", b =>
@@ -3147,6 +3198,17 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Navigation("Order");
 
                     b.Navigation("OrderMarketplaceItem");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceSupply", b =>
+                {
+                    b.HasOne("ProjectWarehouse.Server.Domain.MarketplaceAccount", "MarketplaceAccount")
+                        .WithMany("Supplies")
+                        .HasForeignKey("MarketplaceAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MarketplaceAccount");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceSyncRun", b =>
@@ -3821,6 +3883,8 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.Navigation("Orders");
 
+                    b.Navigation("Supplies");
+
                     b.Navigation("SyncRuns");
 
                     b.Navigation("Warehouses");
@@ -3834,6 +3898,11 @@ namespace ProjectWarehouse.Server.Migrations
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceParcel", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("ProjectWarehouse.Server.Domain.MarketplaceSupply", b =>
+                {
+                    b.Navigation("Orders");
                 });
 
             modelBuilder.Entity("ProjectWarehouse.Server.Domain.Order", b =>

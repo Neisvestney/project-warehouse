@@ -76,6 +76,7 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<MarketplaceCard> MarketplaceCards => Set<MarketplaceCard>();
     public DbSet<MarketplaceSyncRun> MarketplaceSyncRuns => Set<MarketplaceSyncRun>();
     public DbSet<MarketplaceOrder> MarketplaceOrders => Set<MarketplaceOrder>();
+    public DbSet<MarketplaceSupply> MarketplaceSupplies => Set<MarketplaceSupply>();
     public DbSet<MarketplaceParcel> MarketplaceParcels => Set<MarketplaceParcel>();
     public DbSet<MarketplaceParcelItem> MarketplaceParcelItems => Set<MarketplaceParcelItem>();
     public DbSet<MarketplaceReturn> MarketplaceReturns => Set<MarketplaceReturn>();
@@ -1001,9 +1002,31 @@ public class ApplicationDbContext : IdentityDbContext<
                 .HasForeignKey(x => x.MarketplaceAccountId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // SetNull: an empty supply deleted on the marketplace takes no posting with it
+            e.HasOne(x => x.Supply)
+                .WithMany(x => x.Orders)
+                .HasForeignKey(x => x.SupplyId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
             e.HasIndex(x => new { x.MarketplaceAccountId, x.PostingNumber }).IsUnique();
             e.HasIndex(x => new { x.MarketplaceAccountId, x.Status });
             e.HasIndex(x => new { x.MarketplaceAccountId, x.WarehouseExternalId });
+            e.HasIndex(x => x.SupplyId);
+        });
+
+        builder.Entity<MarketplaceSupply>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasOne(x => x.MarketplaceAccount)
+                .WithMany(x => x.Supplies)
+                .HasForeignKey(x => x.MarketplaceAccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.ExternalId }).IsUnique();
+            // the supply picker lists the newest first
+            e.HasIndex(x => x.CreatedAt).IsDescending();
         });
 
         builder.Entity<MarketplaceParcel>(e =>
