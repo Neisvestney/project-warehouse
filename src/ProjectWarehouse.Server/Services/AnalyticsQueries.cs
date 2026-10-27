@@ -182,6 +182,7 @@ public class AnalyticsQueries(ApplicationDbContext db, IWarehouseTimeZoneResolve
         DirectTagFilter tags, OrderStatus[] statuses, DateTime fromUtc, DateTime toUtc, Guid[]? itemIds = null)
     {
         var query = db.Orders.Where(o => o.Type == OrderType.Direct
+            && !o.ExcludedFromAnalytics
             && statuses.Contains(o.Status)
             && o.EffectiveDate >= fromUtc && o.EffectiveDate < toUtc);
 

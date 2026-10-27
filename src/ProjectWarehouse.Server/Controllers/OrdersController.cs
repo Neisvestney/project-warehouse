@@ -240,6 +240,31 @@ public class OrdersController(
             .Where(o => orderIds.Contains(o.Id))
             .ToDictionaryAsync(o => o.Id, ct);
 
+    /// <summary>404 <c>orderNotFound</c> for an all-or-nothing batch that did not load every id; null when it did.</summary>
+    private async Task<IActionResult?> BatchNotFoundAsync(
+        IReadOnlyList<Guid> orderIds, IReadOnlyDictionary<Guid, Order> loaded, CancellationToken ct)
+    {
+        if (loaded.Count == orderIds.Count)
+            return null;
+
+        var missingIds = orderIds.Where(id => !loaded.ContainsKey(id)).ToList();
+        // only the numbers the caller may see: an id outside view access must not reveal its order
+        var viewable = await Rule.QueryAsync(User, AccessLevel.View, ct);
+        var missingNumbers = await viewable
+            .Where(o => missingIds.Contains(o.Id))
+            .OrderBy(o => o.Number)
+            .Select(o => o.Number)
+            .ToListAsync(ct);
+
+        return Problem(AppProblems.Root(StatusCodes.Status404NotFound, ErrorCode.OrderNotFound,
+            $"{missingIds.Count} of {orderIds.Count} orders were not found or cannot be edited.",
+            new Dictionary<string, object>
+            {
+                ["orderNumbers"] = missingNumbers,
+                ["count"]        = missingIds.Count,
+            }));
+    }
+
     /// <summary>Reloads every changed order of a batch in one query and writes their changelog entries, which
     /// also publishes realtime for each.</summary>
     private async Task SaveBatchChangelogsAsync(
@@ -1766,25 +1791,8 @@ public class OrdersController(
 
         var accessible         = await Rule.QueryAsync(User, AccessLevel.Edit, ct);
         var (loaded, nodeById) = await LoadBatchDetailsAsync(accessible, orderIds, ct);
-        if (loaded.Count != orderIds.Count)
-        {
-            var missingIds = orderIds.Where(id => !loaded.ContainsKey(id)).ToList();
-            // only the numbers the caller may see: an id outside view access must not reveal its order
-            var viewable = await Rule.QueryAsync(User, AccessLevel.View, ct);
-            var missingNumbers = await viewable
-                .Where(o => missingIds.Contains(o.Id))
-                .OrderBy(o => o.Number)
-                .Select(o => o.Number)
-                .ToListAsync(ct);
-
-            return Problem(AppProblems.Root(StatusCodes.Status404NotFound, ErrorCode.OrderNotFound,
-                $"{missingIds.Count} of {orderIds.Count} orders were not found or cannot be edited.",
-                new Dictionary<string, object>
-                {
-                    ["orderNumbers"] = missingNumbers,
-                    ["count"]        = missingIds.Count,
-                }));
-        }
+        if (await BatchNotFoundAsync(orderIds, loaded, ct) is { } notFound)
+            return notFound;
 
         var assemblyBefore  = await assemblyChanges.CaptureAsync(loaded.Keys, ct);
         var changedOrderIds = new List<Guid>();
@@ -1809,6 +1817,64 @@ public class OrdersController(
 
         await SaveBatchChangelogsAsync(changes, nodeById, ct);
         await PublishBatchAssemblyChangedAsync(assemblyBefore, changedOrderIds, ct);
+
+        return NoContent();
+    }
+
+    // ── POST /api/orders/batch-set-analytics-exclusion ────────────────────────
+
+    /// <summary>Exclude several Direct orders from analytics, or bring them back, all or nothing.</summary>
+    /// <remarks>
+    /// Body: <c>BatchSetAnalyticsExclusionRequest</c> — <c>orderIds</c> (duplicates are collapsed) and
+    /// <c>excluded</c>. An excluded order drops out of every analytics figure of the Direct channel; stock,
+    /// assembly and the forecast still count it. Allowed in any status. Nothing is written unless every order
+    /// passes: 404 <c>orderNotFound</c> as in <c>batch-update-tags</c> (args <c>count</c>, <c>orderNumbers</c>),
+    /// 422 <c>orderNotDirect</c> (args <c>orderNumbers</c>, ascending) when any order is not Direct. Orders
+    /// already in the requested state are left untouched and get no changelog entry. Answers 204; 409
+    /// <c>entityLocked</c> when another request is changing one of the orders — nothing was written.
+    /// Requires <c>analytics.settings</c> and <c>orders.edit</c> or <c>orders.edit_assigned</c>.
+    /// </remarks>
+    [Transactional]
+    [HttpPost("batch-set-analytics-exclusion")]
+    [Authorize(Policy = Permissions.Analytics.Settings)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<AppProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> BatchSetAnalyticsExclusion(
+        [FromBody] BatchSetAnalyticsExclusionRequest request, CancellationToken ct = default)
+    {
+        if (AccessError(await Rule.PrecheckAsync(User, AccessLevel.Edit, ct)) is { } error)
+            return error;
+
+        var orderIds = request.OrderIds.Distinct().ToList();
+        await locks.LockManyAsync<Order>(orderIds, ct);
+
+        var accessible         = await Rule.QueryAsync(User, AccessLevel.Edit, ct);
+        var (loaded, nodeById) = await LoadBatchDetailsAsync(accessible, orderIds, ct);
+        if (await BatchNotFoundAsync(orderIds, loaded, ct) is { } notFound)
+            return notFound;
+
+        var notDirect = loaded.Values
+            .Where(o => o.Type != OrderType.Direct)
+            .Select(o => o.Number)
+            .Order()
+            .ToList();
+        if (notDirect.Count > 0)
+            return Problem(AppProblems.Root(StatusCodes.Status422UnprocessableEntity, ErrorCode.OrderNotDirect,
+                $"{notDirect.Count} of {orderIds.Count} orders are not Direct.",
+                new Dictionary<string, object> { ["orderNumbers"] = notDirect }));
+
+        var changes = new List<(OrderDetailsDto before, string action)>();
+        foreach (var order in loaded.Values.Where(o => o.ExcludedFromAnalytics != request.Excluded))
+        {
+            changes.Add((MapDetails(order, nodeById), OrderActions.Updated));
+            order.ExcludedFromAnalytics = request.Excluded;
+        }
+
+        await db.SaveChangesAsync(ct);
+        await SaveBatchChangelogsAsync(changes, nodeById, ct);
 
         return NoContent();
     }

@@ -238,6 +238,11 @@ function OrderPage() {
                 <OrderTypeChip type={order.type} />
                 <OrderStatusChip status={order.status} />
                 {order.isExternal && <Chip size="small" variant="outlined" label="Внешний" />}
+                {order.excludedFromAnalytics && (
+                  <Tooltip title="Заказ не учитывается в аналитике">
+                    <Chip size="small" variant="outlined" label="Без аналитики" />
+                  </Tooltip>
+                )}
               </Stack>
             }
             actions={

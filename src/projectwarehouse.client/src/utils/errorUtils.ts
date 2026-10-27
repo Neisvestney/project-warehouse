@@ -128,6 +128,7 @@ export const errorCodeMessages: Record<ErrorCode, string> = {
   assigneeCannotAssemble: "У сотрудника нет права собирать заказы",
   assigneeNotAssignedToWarehouse: "Сотрудник не назначен на склад заказа",
   orderNotFbs: "Привязку обновляют только у заказов FBS",
+  orderNotDirect: "Исключать из аналитики можно только прямые заказы",
   orderCompositionLocked:
     "Состав заказа FBS повторяет отправление — исправьте привязку карточки и обновите её в заказе",
   assemblyTaskNotFound: "Задание на сборку не найдено",

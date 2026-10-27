@@ -22,6 +22,9 @@ public class Order : IHasIdentity
     /// </summary>
     public bool IsExternal { get; set; }
 
+    /// <summary>A Direct order analytics skips — e.g. a marketplace sale recorded by hand before its integration.</summary>
+    public bool ExcludedFromAnalytics { get; set; }
+
     public string? Notes { get; set; }
     public DateTime? PlannedShipmentAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

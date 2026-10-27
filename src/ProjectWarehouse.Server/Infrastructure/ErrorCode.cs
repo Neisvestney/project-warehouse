@@ -101,6 +101,7 @@ public enum ErrorCode
     OrderIsMarketplaceDraft = 167,
     OrderHasAssemblyTasks = 150,
     OrderNotFbs = 165,
+    OrderNotDirect = 172,
     OrderCompositionLocked = 166,
     AssigneeCannotAssemble = 169,
     AssigneeNotAssignedToWarehouse = 170,

@@ -229,6 +229,9 @@ import type {
   OrdersBatchSelfAssignData,
   OrdersBatchSelfAssignErrors,
   OrdersBatchSelfAssignResponses,
+  OrdersBatchSetAnalyticsExclusionData,
+  OrdersBatchSetAnalyticsExclusionErrors,
+  OrdersBatchSetAnalyticsExclusionResponses,
   OrdersBatchTransitionStatusData,
   OrdersBatchTransitionStatusErrors,
   OrdersBatchTransitionStatusResponses,
@@ -2943,6 +2946,38 @@ export const ordersBatchUpdateTags = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/api/orders/batch-update-tags",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Exclude several Direct orders from analytics, or bring them back, all or nothing.
+ *
+ * Body: `BatchSetAnalyticsExclusionRequest` — `orderIds` (duplicates are collapsed) and
+ * `excluded`. An excluded order drops out of every analytics figure of the Direct channel; stock,
+ * assembly and the forecast still count it. Allowed in any status. Nothing is written unless every order
+ * passes: 404 `orderNotFound` as in `batch-update-tags` (args `count`, `orderNumbers`),
+ * 422 `orderNotDirect` (args `orderNumbers`, ascending) when any order is not Direct. Orders
+ * already in the requested state are left untouched and get no changelog entry. Answers 204; 409
+ * `entityLocked` when another request is changing one of the orders — nothing was written.
+ * Requires `analytics.settings` and `orders.edit` or `orders.edit_assigned`.
+ */
+export const ordersBatchSetAnalyticsExclusion = <ThrowOnError extends boolean = false>(
+  options: Options<OrdersBatchSetAnalyticsExclusionData, ThrowOnError>,
+): RequestResult<
+  OrdersBatchSetAnalyticsExclusionResponses,
+  OrdersBatchSetAnalyticsExclusionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    OrdersBatchSetAnalyticsExclusionResponses,
+    OrdersBatchSetAnalyticsExclusionErrors,
+    ThrowOnError
+  >({
+    url: "/api/orders/batch-set-analytics-exclusion",
     ...options,
     headers: {
       "Content-Type": "application/json",

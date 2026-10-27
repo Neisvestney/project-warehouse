@@ -739,6 +739,11 @@ export type BatchSelfAssignResponse = {
   failedItems: Array<BatchSelfAssignFailedItem>;
 };
 
+export type BatchSetAnalyticsExclusionRequest = {
+  orderIds: Array<string>;
+  excluded: boolean;
+};
+
 export type BatchStandardPlacementItemRequest = {
   itemId: string;
   count: number;
@@ -1636,7 +1641,8 @@ export type ErrorCode =
   | "marketplaceOrderDraftNotRefreshed"
   | "assigneeCannotAssemble"
   | "assigneeNotAssignedToWarehouse"
-  | "marketplaceSupplyNotFound";
+  | "marketplaceSupplyNotFound"
+  | "orderNotDirect";
 
 export type EventDto = {
   appEntity: AppEntity;
@@ -2393,6 +2399,7 @@ export type OrderDetailsDto = {
    * Exists on the marketplace but never passed through WMS — not assembled, deducts no stock.
    */
   isExternal: boolean;
+  excludedFromAnalytics: boolean;
   notes?: null | string;
   plannedShipmentAt?: null | string;
   createdAt: string;
@@ -2534,6 +2541,7 @@ export type OrderSummaryDto = {
    * Exists on the marketplace but never passed through WMS — not assembled, deducts no stock.
    */
   isExternal: boolean;
+  excludedFromAnalytics: boolean;
   notes?: null | string;
   plannedShipmentAt?: null | string;
   createdAt: string;
@@ -8343,6 +8351,49 @@ export type OrdersBatchUpdateTagsResponses = {
 
 export type OrdersBatchUpdateTagsResponse =
   OrdersBatchUpdateTagsResponses[keyof OrdersBatchUpdateTagsResponses];
+
+export type OrdersBatchSetAnalyticsExclusionData = {
+  body: BatchSetAnalyticsExclusionRequest;
+  path?: never;
+  query?: never;
+  url: "/api/orders/batch-set-analytics-exclusion";
+};
+
+export type OrdersBatchSetAnalyticsExclusionErrors = {
+  /**
+   * Unauthorized
+   */
+  401: AppProblemDetails;
+  /**
+   * Forbidden
+   */
+  403: AppProblemDetails;
+  /**
+   * Not Found
+   */
+  404: AppProblemDetails;
+  /**
+   * Conflict
+   */
+  409: AppProblemDetails;
+  /**
+   * Unprocessable Entity
+   */
+  422: AppProblemDetails;
+};
+
+export type OrdersBatchSetAnalyticsExclusionError =
+  OrdersBatchSetAnalyticsExclusionErrors[keyof OrdersBatchSetAnalyticsExclusionErrors];
+
+export type OrdersBatchSetAnalyticsExclusionResponses = {
+  /**
+   * No Content
+   */
+  204: void;
+};
+
+export type OrdersBatchSetAnalyticsExclusionResponse =
+  OrdersBatchSetAnalyticsExclusionResponses[keyof OrdersBatchSetAnalyticsExclusionResponses];
 
 export type OrdersRebindData = {
   body?: never;

@@ -12,6 +12,7 @@ public class OrderDetailsDto
 
     /// <summary>Exists on the marketplace but never passed through WMS — not assembled, deducts no stock.</summary>
     public bool IsExternal { get; init; }
+    public bool ExcludedFromAnalytics { get; init; }
     public string? Notes { get; init; }
     public DateTime? PlannedShipmentAt { get; init; }
     public DateTime CreatedAt { get; init; }

@@ -1585,6 +1585,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<Guid?>("CreatedById")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("ExcludedFromAnalytics")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsExternal")
                         .HasColumnType("boolean");
 

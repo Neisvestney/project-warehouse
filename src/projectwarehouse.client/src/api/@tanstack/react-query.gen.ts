@@ -84,6 +84,7 @@ import {
   ordersBatchFulfill,
   ordersBatchRebind,
   ordersBatchSelfAssign,
+  ordersBatchSetAnalyticsExclusion,
   ordersBatchTransitionStatus,
   ordersBatchUpdateTags,
   ordersCheckAssembly,
@@ -458,6 +459,9 @@ import type {
   OrdersBatchSelfAssignData,
   OrdersBatchSelfAssignError,
   OrdersBatchSelfAssignResponse,
+  OrdersBatchSetAnalyticsExclusionData,
+  OrdersBatchSetAnalyticsExclusionError,
+  OrdersBatchSetAnalyticsExclusionResponse,
   OrdersBatchTransitionStatusData,
   OrdersBatchTransitionStatusError,
   OrdersBatchTransitionStatusResponse,
@@ -4659,6 +4663,42 @@ export const ordersBatchUpdateTagsMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const {data} = await ordersBatchUpdateTags({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Exclude several Direct orders from analytics, or bring them back, all or nothing.
+ *
+ * Body: `BatchSetAnalyticsExclusionRequest` — `orderIds` (duplicates are collapsed) and
+ * `excluded`. An excluded order drops out of every analytics figure of the Direct channel; stock,
+ * assembly and the forecast still count it. Allowed in any status. Nothing is written unless every order
+ * passes: 404 `orderNotFound` as in `batch-update-tags` (args `count`, `orderNumbers`),
+ * 422 `orderNotDirect` (args `orderNumbers`, ascending) when any order is not Direct. Orders
+ * already in the requested state are left untouched and get no changelog entry. Answers 204; 409
+ * `entityLocked` when another request is changing one of the orders — nothing was written.
+ * Requires `analytics.settings` and `orders.edit` or `orders.edit_assigned`.
+ */
+export const ordersBatchSetAnalyticsExclusionMutation = (
+  options?: Partial<Options<OrdersBatchSetAnalyticsExclusionData>>,
+): UseMutationOptions<
+  OrdersBatchSetAnalyticsExclusionResponse,
+  OrdersBatchSetAnalyticsExclusionError,
+  Options<OrdersBatchSetAnalyticsExclusionData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    OrdersBatchSetAnalyticsExclusionResponse,
+    OrdersBatchSetAnalyticsExclusionError,
+    Options<OrdersBatchSetAnalyticsExclusionData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const {data} = await ordersBatchSetAnalyticsExclusion({
         ...options,
         ...fnOptions,
         throwOnError: true,
