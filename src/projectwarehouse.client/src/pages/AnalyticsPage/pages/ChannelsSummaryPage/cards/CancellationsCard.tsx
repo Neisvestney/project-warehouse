@@ -7,7 +7,7 @@ import {MARKETPLACE_CANCELLATION_TYPE_LABELS} from "@/components/orders/marketpl
 import {formatLossReason} from "@/components/orders/marketplace/marketplaceOrderUtils";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {extractErrorMessage} from "@/utils/errorUtils";
-import {formatNumber, formatPercent} from "@/components/analytics/analyticsFormat";
+import {formatNumber, formatPercent, shopLabel} from "@/components/analytics/analyticsFormat";
 import ChannelsLineChart from "@/components/analytics/charts/ChannelsLineChart";
 import {formatCount, formatShare, shareSeries} from "@/components/analytics/charts/chartSeries";
 import StackedAccountsBar, {type StackPart, type StackRow} from "../charts/StackedAccountsBar";
@@ -80,7 +80,7 @@ function CancellationsCard({filters, onExpand}: CancellationsCardProps) {
     );
     return {
       id: shop.marketplaceAccountId!,
-      label: shop.name ?? "",
+      label: shopLabel(shop.name, shop.marketplaceType),
       values: Object.fromEntries((entry?.byType ?? []).map((t) => [t.type, t.count])),
     };
   });

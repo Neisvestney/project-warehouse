@@ -1,4 +1,5 @@
 import type {AnalyticsIntervalDto, AnalyticsStep, ChannelSeriesDto} from "@/api/types.gen";
+import {shopLabel} from "@/components/analytics/analyticsFormat";
 import {parseDateOnly} from "@/utils/dateOnly";
 
 function dayMonth(value: string) {
@@ -34,6 +35,8 @@ export function isIncomplete(interval: AnalyticsIntervalDto): boolean {
   return interval.isPartial || interval.isCurrent;
 }
 
-export function seriesLabel(series: Pick<ChannelSeriesDto, "kind" | "name">): string {
-  return series.kind === "direct" ? "Прямые" : (series.name ?? "");
+export function seriesLabel(
+  series: Pick<ChannelSeriesDto, "kind" | "name" | "marketplaceType">,
+): string {
+  return series.kind === "direct" ? "Прямые" : shopLabel(series.name, series.marketplaceType);
 }

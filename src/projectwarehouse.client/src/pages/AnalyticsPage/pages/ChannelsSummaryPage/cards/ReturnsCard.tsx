@@ -9,7 +9,12 @@ import {
   MARKETPLACE_RETURN_KIND_LABELS,
 } from "@/components/orders/marketplace/marketplaceOrderUtils";
 import {extractErrorMessage} from "@/utils/errorUtils";
-import {formatMoney, formatNumber, formatPercent} from "@/components/analytics/analyticsFormat";
+import {
+  formatMoney,
+  formatNumber,
+  formatPercent,
+  shopLabel,
+} from "@/components/analytics/analyticsFormat";
 import ChannelsLineChart from "@/components/analytics/charts/ChannelsLineChart";
 import StackedAccountsBar, {type StackPart} from "../charts/StackedAccountsBar";
 import CountsTable from "../CountsTable";
@@ -114,7 +119,7 @@ function ReturnsCard({filters, onExpand}: ReturnsCardProps) {
                 parts={parts}
                 rows={data.accounts.map((a) => ({
                   id: a.marketplaceAccountId,
-                  label: a.name,
+                  label: shopLabel(a.name, a.marketplaceType),
                   values: Object.fromEntries(a.byKind.map((k) => [k.kind, k.units])),
                 }))}
               />

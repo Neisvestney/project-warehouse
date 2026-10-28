@@ -1,4 +1,4 @@
-import type {ChannelSummaryRowDto} from "@/api/types.gen";
+import type {ChannelSummaryRowDto, MarketplaceType} from "@/api/types.gen";
 
 /** What it takes to name and paint a channel: a summary row or any row shaped like one. */
 export type ChannelRef = Pick<
@@ -34,6 +34,19 @@ export function formatMoney(amount: number, currencyCode: string): string {
 
 export function formatPercent(value: number | null | undefined): string {
   return value == null ? "—" : percentFormat.format(value);
+}
+
+const MARKETPLACE_SHORT_LABELS: Record<MarketplaceType, string> = {
+  ozon: "OZON",
+  wildberries: "WB",
+};
+
+/** «WB · Магазин» — a chart caption has no chip colour to tell the marketplace by. */
+export function shopLabel(
+  name: string | null | undefined,
+  type: MarketplaceType | null | undefined,
+) {
+  return type ? `${MARKETPLACE_SHORT_LABELS[type]} · ${name ?? ""}` : (name ?? "");
 }
 
 export function channelLabel(row: ChannelRef): string {

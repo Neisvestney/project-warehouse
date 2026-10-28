@@ -13,6 +13,7 @@ import type {AnalyticsMeasure} from "@/api/types.gen";
 import {useSyncedWithQueryState} from "@/hooks/useSyncedWithQueryState";
 import {extractErrorMessage} from "@/utils/errorUtils";
 import {formatPercent} from "@/components/analytics/analyticsFormat";
+import {seriesLabel} from "@/components/analytics/charts/intervalLabels";
 import SharesAreaChart from "../charts/SharesAreaChart";
 import {useChannelColor} from "@/components/analytics/charts/useChannelColor";
 import PeriodPicker from "@/components/analytics/period/PeriodPicker";
@@ -87,7 +88,7 @@ function SharesCard({filters}: {filters: ReturnType<typeof useChannelsSummaryFil
 
   const unitSegments: Segment[] = channels.map((r) => ({
     key: r.marketplaceAccountId ?? r.kind,
-    label: r.kind === "direct" ? "Прямые" : (r.name ?? ""),
+    label: seriesLabel(r),
     share: r.unitsShare ?? 0,
     color: channelColor(r.marketplaceAccountId),
   }));
@@ -121,7 +122,7 @@ function SharesCard({filters}: {filters: ReturnType<typeof useChannelsSummaryFil
               label={currencies.length > 1 ? `Выручка, ${currency}` : "Выручка"}
               segments={channels.map((r) => ({
                 key: r.marketplaceAccountId ?? r.kind,
-                label: r.name ?? "",
+                label: seriesLabel(r),
                 share: r.money.find((m) => m.currencyCode === currency)?.revenueShare ?? 0,
                 color: channelColor(r.marketplaceAccountId),
               }))}
