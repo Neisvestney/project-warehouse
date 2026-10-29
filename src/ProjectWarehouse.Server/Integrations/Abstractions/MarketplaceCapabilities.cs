@@ -15,4 +15,7 @@ public enum MarketplaceCapabilities
     Buyouts = 256,
     Fbo = 512,
     Supplies = 1024,
+
+    /// <summary>A sold-then-returned unit comes as a cancelled posting; only the journal's reversed sale reveals it.</summary>
+    ReversedSaleReturns = 2048,
 }

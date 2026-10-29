@@ -16,7 +16,8 @@ public class WildberriesMarketplaceProvider(
     public MarketplaceCapabilities Capabilities =>
         MarketplaceCapabilities.Warehouses | MarketplaceCapabilities.Cards | MarketplaceCapabilities.SellerInfo
         | MarketplaceCapabilities.Orders | MarketplaceCapabilities.Labels | MarketplaceCapabilities.Returns
-        | MarketplaceCapabilities.Accruals | MarketplaceCapabilities.Supplies;
+        | MarketplaceCapabilities.Accruals | MarketplaceCapabilities.Supplies
+        | MarketplaceCapabilities.ReversedSaleReturns;
 
     public bool RequiresClientId => false;
 

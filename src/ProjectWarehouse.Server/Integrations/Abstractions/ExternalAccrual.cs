@@ -9,7 +9,9 @@ public record ExternalAccrual(
     MarketplaceAccrualScope Scope,
     string? UnitNumber,
     IReadOnlyList<ExternalAccrualLine> Lines,
-    MarketplaceAccrualSource Source = MarketplaceAccrualSource.AccrualJournal);
+    MarketplaceAccrualSource Source = MarketplaceAccrualSource.AccrualJournal,
+    string? Rid = null,
+    string? ExemplarId = null);
 
 public record ExternalAccrualLine(
     MarketplaceAccrualCategory Category,

@@ -23,6 +23,12 @@ public class MarketplaceOrder
     /// <summary>Number of the marketplace order this posting belongs to.</summary>
     public string? ExternalOrderNumber { get; set; }
 
+    /// <summary>
+    /// Wildberries' <c>rid</c> of the assembly task — the <c>srid</c> of its finance report rows, which name no
+    /// posting when their <c>orderId</c> is <c>0</c>. Once stored it is never cleared; null for other marketplaces.
+    /// </summary>
+    public string? Rid { get; set; }
+
     public MarketplaceOrderStatus Status { get; set; }
 
     /// <summary>

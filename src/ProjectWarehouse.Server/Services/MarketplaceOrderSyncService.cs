@@ -274,6 +274,7 @@ public class MarketplaceOrderSyncService(
                 MarketplaceAccountId = account.Id,
                 PostingNumber = posting.PostingNumber,
                 ExternalOrderNumber = posting.ExternalOrderNumber,
+                Rid = posting.Rid,
                 Status = posting.Status,
                 RawStatus = posting.RawStatus,
                 RawSubstatus = posting.RawSubstatus,
@@ -527,6 +528,7 @@ public class MarketplaceOrderSyncService(
             || known.DeliveryMethodName != posting.DeliveryMethodName
             || known.MultiBoxQty != posting.MultiBoxQty
             || (posting.LabelBarcode is not null && known.LabelBarcode != posting.LabelBarcode)
+            || (posting.Rid is not null && known.Rid != posting.Rid)
             || known.ExternalOrderNumber != posting.ExternalOrderNumber;
 
         changed |= ApplyCancellation(known, posting.Cancellation);
@@ -550,6 +552,7 @@ public class MarketplaceOrderSyncService(
         known.MultiBoxQty = posting.MultiBoxQty;
         // Ozon blanks the barcode once the posting leaves awaiting_deliver, WB states it only in the archive
         known.LabelBarcode = posting.LabelBarcode ?? known.LabelBarcode;
+        known.Rid = posting.Rid ?? known.Rid;
         known.ExternalOrderNumber = posting.ExternalOrderNumber;
         changed |= FollowMarketplace(known);
 
@@ -929,7 +932,7 @@ public class MarketplaceOrderSyncService(
     /// Creates whatever the period holds and WMS does not, as external orders: no warehouse gate, no
     /// catalog gate, and no box components for positions the catalog does not recognize. A posting WMS
     /// already knows is either refreshed or left alone — history must never overwrite a live order. Left alone
-    /// it still gets its warehouse recorded if it had none, which is a blank filled, not an overwrite.
+    /// it still gets its warehouse and rid recorded if it had none, which is a blank filled, not an overwrite.
     /// </summary>
     private async Task ImportExternalPostingsAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
         MarketplaceAccount account, MarketplaceSyncRun run, ExternalPostingQuery query, bool refreshKnown,
@@ -954,16 +957,23 @@ public class MarketplaceOrderSyncService(
                     : await LoadKnownAsync(account.Id, page, ct);
                 var cards = await LoadCardsAsync(account.Id, page, ct);
                 var unstamped = new List<(Guid OrderId, string WarehouseExternalId)>();
+                var unridded = new List<(Guid OrderId, string Rid)>();
 
                 foreach (var posting in page)
                 {
                     if (known.TryGetValue(posting.PostingNumber, out var existing))
                     {
-                        if (refreshKnown && ApplyPosting(existing, posting))
-                            run.OrdersUpdated++;
-                        else if (!refreshKnown && existing.WarehouseExternalId is null
-                                               && posting.WarehouseExternalId is { } externalId)
+                        if (refreshKnown)
+                        {
+                            if (ApplyPosting(existing, posting))
+                                run.OrdersUpdated++;
+                            continue;
+                        }
+
+                        if (existing.WarehouseExternalId is null && posting.WarehouseExternalId is { } externalId)
                             unstamped.Add((existing.OrderId, externalId));
+                        if (existing.Rid is null && posting.Rid is { } rid)
+                            unridded.Add((existing.OrderId, rid));
                         continue;
                     }
 
@@ -977,6 +987,10 @@ public class MarketplaceOrderSyncService(
                 await supplySync.LinkPostingsAsync(account.Id, page, ct);
 
                 await StampWarehousesAsync(account.Id, unstamped, warehouses, ct);
+                foreach (var (orderId, rid) in unridded)
+                    await db.MarketplaceOrders
+                        .Where(o => o.OrderId == orderId && o.Rid == null)
+                        .ExecuteUpdateAsync(s => s.SetProperty(o => o.Rid, rid), ct);
             }, ct);
             await realtime.PublishProgressAsync(run, ct);
         }

@@ -653,6 +653,7 @@ MarketplaceOrder
 ├── MarketplaceAccountId  — Guid → MarketplaceAccount (Restrict)
 ├── PostingNumber         — string, номер отправления
 ├── ExternalOrderNumber   — string?, номер заказа площадки, к которому относится отправление
+├── Rid                   — string?, rid задания WB = srid строк финансового отчёта; раз записанный, не стирается
 ├── Status                — MarketplaceOrderStatus, нормализованный статус
 ├── DeliveredAt           — DateTime?, когда синхронизация впервые увидела Delivered; у пришедших доставленными — день продажи из журнала начислений
 ├── CancelledAt           — DateTime?, когда синхронизация впервые увидела Cancelled
@@ -679,7 +680,7 @@ MarketplaceOrder
 └── Parcels[]             — грузоместа, не меньше одного; этикетка живёт на них
 
 Уникальный индекс: (MarketplaceAccountId, PostingNumber)
-Индексы: (MarketplaceAccountId, Status), (MarketplaceAccountId, WarehouseExternalId)
+Индексы: (MarketplaceAccountId, Status), (MarketplaceAccountId, WarehouseExternalId), (MarketplaceAccountId, Rid)
 ```
 
 **Первичный ключ общий с `Order` (shared primary key).** Связь строго 1:1, отдельный `Guid Id` не нужен ни для чего: сущность не адресуется по HTTP и не появляется ни в одном списке. `IHasIdentity` она **не реализует** — интерфейс подразумевает самостоятельный объект с changelog-историей, а история изменений здесь ведётся на `Order`.
@@ -903,10 +904,10 @@ ExternalReturnQuery     — либо период по дате (StatusChanged |
 ExternalAccrual         — record: начисление, уже разложенное на строки ExternalAccrualLine
 
 MarketplaceCapabilities — флаги: Warehouses, Cards, Orders, Labels, StockPush, SellerInfo, Returns, Accruals,
-                          Buyouts, Fbo
+                          Buyouts, Fbo, Supplies, ReversedSaleReturns
 ```
 
-Ozon объявляет все флаги, кроме `StockPush`; Wildberries — `Warehouses`, `Cards`, `SellerInfo`, `Orders`, `Labels`, `Returns`, `Accruals`. `Fbo` — у площадки есть отправления со своего склада: импорт FBO и догон их статусов (фоновый и в импорте истории) идут только у провайдера с этим флагом.
+Ozon объявляет все флаги, кроме `StockPush`; Wildberries — `Warehouses`, `Cards`, `SellerInfo`, `Orders`, `Labels`, `Returns`, `Accruals`, `Supplies`, `ReversedSaleReturns`. `Fbo` — у площадки есть отправления со своего склада: импорт FBO и догон их статусов (фоновый и в импорте истории) идут только у провайдера с этим флагом. `ReversedSaleReturns` — выкупленный и возвращённый товар площадка показывает отменённым отправлением, и отличает его от отказа только сторно продажи в журнале (см. [«Выкуп и возврат по сторно»](marketplaces-accruals-specification.md#выкуп-и-возврат-по-сторно)).
 
 **`ExternalPostingItem` не несёт ссылки на карточку** — в отправлении нет `product_id` (см. раздел исходных данных). Разрешение позиции в `MarketplaceCard` по `Sku`, затем по `OfferId`, делает сервис синхронизации.
 

@@ -35,6 +35,9 @@ public class WildberriesClient(
     /// <summary>How many archive months the earliest-posting probe walks back.</summary>
     private const int EarliestProbeMonths = 36;
 
+    /// <summary>How many archive months before a return's orderDt its task is looked for; up to 108 days were seen.</summary>
+    private const int ReturnTaskLookbackMonths = 6;
+
     private const double StickerWidthMm = 58;
     private const double StickerHeightMm = 40;
 
@@ -278,46 +281,51 @@ public class WildberriesClient(
         if (lookback < from)
             from = lookback;
 
-        CardIndex? cards = null;
-        var tasksBySticker = new Dictionary<long, AssemblyTask>();
-        var monthsRead = new HashSet<DateOnly>();
-
+        var rows = new List<Report>();
         for (var offset = 0L; ; offset += ReturnsPageSize)
         {
             var page = await analytics.GetV1GoodsReturnAsync(
                 new DateTimeOffset(from.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
                 new DateTimeOffset(today.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
                 null, ReturnsPageSize, offset, ct);
-            var rows = page.Report;
-            if (rows.Count == 0)
-                break;
-
-            // a return reaches its task only through the sticker of the archived task, so the task's month is read
-            var months = rows.Select(r => ParseDay(r.OrderDt)).OfType<DateOnly>()
-                .Select(d => new DateOnly(d.Year, d.Month, 1)).Distinct();
-            foreach (var month in months)
-            {
-                if (!monthsRead.Add(month))
-                    continue;
-                await foreach (var tasks in ListArchiveAsync(month, ct))
-                    foreach (var task in tasks.Where(t => t.StickerId is not null))
-                        tasksBySticker[task.StickerId!.Value] = task;
-            }
-
-            cards ??= await CardIndex.LoadAsync(this, ct);
-            yield return rows.Select(r => MapReturn(r, tasksBySticker, cards)).ToList();
-
-            if (rows.Count < ReturnsPageSize)
+            rows.AddRange(page.Report);
+            if (page.Report.Count < ReturnsPageSize)
                 break;
             await Task.Delay(_options.PageDelayMs, ct);
         }
+
+        // each attempt to send a unit back is a row of its own; the unit keeps the latest
+        var latest = rows
+            .Where(r => r.ShkId > 0 || !string.IsNullOrEmpty(r.Srid))
+            .GroupBy(r => r.ShkId > 0 ? r.ShkId.ToString(CultureInfo.InvariantCulture) : r.Srid)
+            .Select(g => g.MaxBy(r => (ParseDate(r.ReadyToReturnDt), ParseDay(r.OrderDt)))!)
+            .ToList();
+        if (latest.Count == 0)
+            yield break;
+
+        // the unit's shkId is the sticker of its task, which only the archive states; orderDt dates the trip back,
+        // months after the task. Only the history import pays for that read: a background pass leaves the posting
+        // to the sync, which finds it by the stored sticker or journal row.
+        var tasksBySticker = new Dictionary<long, AssemblyTask>();
+        var days = latest.Select(r => ParseDay(r.OrderDt)).OfType<DateOnly>().ToList();
+        if (query.DateKind == ExternalReturnDateKind.Returned && days.Count > 0)
+        {
+            var (first, last) = (days.Min(), days.Max());
+            for (var month = new DateOnly(first.Year, first.Month, 1).AddMonths(-ReturnTaskLookbackMonths);
+                 month <= last; month = month.AddMonths(1))
+                await foreach (var tasks in ListArchiveAsync(month, ct))
+                    foreach (var task in tasks.Where(t => t.StickerId is not null))
+                        tasksBySticker[task.StickerId!.Value] = task;
+        }
+
+        var cards = await CardIndex.LoadAsync(this, ct);
+        foreach (var chunk in latest.Chunk(ReturnsPageSize))
+            yield return chunk.Select(r => MapReturn(r, tasksBySticker, cards)).ToList();
     }
 
     private static ExternalReturn MapReturn(Report row, Dictionary<long, AssemblyTask> tasksBySticker, CardIndex cards)
     {
-        var task = long.TryParse(row.StickerId, NumberStyles.None, CultureInfo.InvariantCulture, out var sticker)
-            ? tasksBySticker.GetValueOrDefault(sticker)
-            : null;
+        var task = tasksBySticker.GetValueOrDefault(row.ShkId);
         var card = cards.ByBarcode(row.Sku);
         var sku = task?.ChrtId?.ToString(CultureInfo.InvariantCulture) ?? card?.ChrtId;
         var completedAt = ParseDate(row.CompletedDt);
@@ -330,7 +338,7 @@ public class WildberriesClient(
             OfferId: task?.Article ?? card?.VendorCode ?? "",
             Scheme: task is null ? MarketplaceReturnScheme.Unknown : MarketplaceReturnScheme.Fbs,
             RawScheme: null,
-            // the task is already counted as cancelled, so the return is never subtracted from sales again
+            // the task is already counted as cancelled; a unit the journal shows sold is made a customer return there
             Kind: MarketplaceReturnKind.FullRefusal,
             RawKind: NullIfEmpty(row.ReturnType),
             Quantity: 1,
@@ -493,13 +501,17 @@ public class WildberriesClient(
         Add(MarketplaceAccrualCategory.Compensation, Money(row.CashbackDiscount));
         Add(MarketplaceAccrualCategory.Bonus, -Money(row.CashbackAmount));
 
-        var linked = row.OrderId != 0;
-        return new ExternalAccrual(
-            row.RrdId.ToString(CultureInfo.InvariantCulture),
-            day,
-            linked ? MarketplaceAccrualScope.Posting : MarketplaceAccrualScope.Account,
-            linked ? row.OrderId.ToString(CultureInfo.InvariantCulture) : null,
-            lines);
+        var id = row.RrdId.ToString(CultureInfo.InvariantCulture);
+        var exemplar = row.ShkId > 0 ? row.ShkId.ToString(CultureInfo.InvariantCulture) : null;
+        if (row.OrderId != 0)
+            return new ExternalAccrual(id, day, MarketplaceAccrualScope.Posting,
+                row.OrderId.ToString(CultureInfo.InvariantCulture), lines, ExemplarId: exemplar);
+
+        // an FBS sale, its delivery and handling come with orderId 0 now and then; srid is still the task's rid
+        return NullIfEmpty(row.OrderUid) is { } orderUid
+            ? new ExternalAccrual(id, day, MarketplaceAccrualScope.Item, orderUid, lines, Rid: NullIfEmpty(row.Srid),
+                ExemplarId: exemplar)
+            : new ExternalAccrual(id, day, MarketplaceAccrualScope.Account, null, lines);
     }
 
     public async Task<DateTime?> GetEarliestPostingDateAsync(CancellationToken ct)
@@ -724,7 +736,8 @@ public class WildberriesClient(
             // the archive's sticker id is the label's partA + partB
             LabelBarcode: task.StickerId?.ToString(CultureInfo.InvariantCulture),
             Dates: Dates(deliveringAt),
-            SupplyExternalId: NullIfEmpty(task.SupplyId));
+            SupplyExternalId: NullIfEmpty(task.SupplyId),
+            Rid: NullIfEmpty(task.Rid));
     }
 
     private SupplyDates NewSupplyDates() => new(marketplace, _options.PageDelayMs);
@@ -779,13 +792,13 @@ public class WildberriesClient(
     }
 
     private static AssemblyTask FromLive(Neisvestney.Marketplaces.Wildberries.Order o) => new(
-        o.Id!.Value, o.OrderUid, o.WarehouseId, o.SupplyId, o.CreatedAt?.UtcDateTime, o.ChrtId, o.Article,
+        o.Id!.Value, o.OrderUid, o.Rid, o.WarehouseId, o.SupplyId, o.CreatedAt?.UtcDateTime, o.ChrtId, o.Article,
         o.Price, o.ConvertedPrice, o.CurrencyCode, o.ConvertedCurrencyCode, o.TrackNumber, null, null, null);
 
     private static AssemblyTask FromArchive(ArchiveOrder o) => new(
-        o.Id, o.OrderUid, o.WarehouseId, o.SupplyId, ParseDate(o.CreatedAt), o.Product.ChrtId, o.Product.Article,
-        o.PriceInfo.Price, o.PriceInfo.ConvertedPrice, o.PriceInfo.CurrencyCode, o.PriceInfo.ConvertedCurrencyCode,
-        null, o.StickerId, o.Status.SupplierStatus, o.Status.WbStatus);
+        o.Id, o.OrderUid, o.Rid, o.WarehouseId, o.SupplyId, ParseDate(o.CreatedAt), o.Product.ChrtId,
+        o.Product.Article, o.PriceInfo.Price, o.PriceInfo.ConvertedPrice, o.PriceInfo.CurrencyCode,
+        o.PriceInfo.ConvertedCurrencyCode, null, o.StickerId, o.Status.SupplierStatus, o.Status.WbStatus);
 
     private static IEnumerable<DateOnly> Months(DateTimeOffset since, DateTimeOffset to)
     {
@@ -824,6 +837,7 @@ public class WildberriesClient(
     private sealed record AssemblyTask(
         long Id,
         string? OrderUid,
+        string? Rid,
         long? WarehouseId,
         string? SupplyId,
         DateTime? CreatedAt,

@@ -38,6 +38,15 @@ public class MarketplaceAccrual : IHasIdentity
     /// </summary>
     public string? UnitNumber { get; set; }
 
+    /// <summary>
+    /// The posting's <see cref="MarketplaceOrder.Rid"/> when the row names only the order: it links ahead of
+    /// <see cref="UnitNumber"/>, which then cannot tell two postings of one product apart.
+    /// </summary>
+    public string? Rid { get; set; }
+
+    /// <summary>The unit's own id where the marketplace names it (WB <c>shkId</c>), matching <see cref="MarketplaceReturn.ExemplarId"/>.</summary>
+    public string? ExemplarId { get; set; }
+
     public string? Sku { get; set; }
 
     /// <summary>Signed: what the seller receives is positive, what the marketplace keeps is negative.</summary>

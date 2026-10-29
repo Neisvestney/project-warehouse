@@ -1012,6 +1012,8 @@ public class ApplicationDbContext : IdentityDbContext<
             e.HasIndex(x => new { x.MarketplaceAccountId, x.PostingNumber }).IsUnique();
             e.HasIndex(x => new { x.MarketplaceAccountId, x.Status });
             e.HasIndex(x => new { x.MarketplaceAccountId, x.WarehouseExternalId });
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.Rid });
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.LabelBarcode });
             e.HasIndex(x => x.SupplyId);
         });
 
@@ -1138,6 +1140,7 @@ public class ApplicationDbContext : IdentityDbContext<
             e.HasIndex(x => new { x.MarketplaceAccountId, x.ExternalId, x.LineNo }).IsUnique();
             e.HasIndex(x => new { x.MarketplaceAccountId, x.Date });
             e.HasIndex(x => new { x.MarketplaceAccountId, x.UnitNumber });
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.ExemplarId });
         });
 
         builder.Entity<DataFile>(e =>

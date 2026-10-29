@@ -1886,7 +1886,8 @@ export type MarketplaceCapabilities =
   | "accruals"
   | "buyouts"
   | "fbo"
-  | "supplies";
+  | "supplies"
+  | "reversedSaleReturns";
 
 export type MarketplaceCardDto = {
   id: string;

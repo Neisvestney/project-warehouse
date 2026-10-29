@@ -9,6 +9,7 @@ namespace ProjectWarehouse.Server.Integrations.Abstractions;
 /// <see cref="Scheme"/>.
 /// <see cref="Parcels"/> is null when the marketplace states no layout: the posting is then one parcel.
 /// <see cref="SupplyExternalId"/> is set only by a marketplace with supplies, once the posting is in one.
+/// <see cref="Rid"/> is set only by Wildberries.
 /// </summary>
 public record ExternalPosting(
     string PostingNumber,
@@ -29,4 +30,5 @@ public record ExternalPosting(
     string? LabelBarcode = null,
     IReadOnlyList<ExternalParcel>? Parcels = null,
     ExternalPostingDates? Dates = null,
-    string? SupplyExternalId = null);
+    string? SupplyExternalId = null,
+    string? Rid = null);

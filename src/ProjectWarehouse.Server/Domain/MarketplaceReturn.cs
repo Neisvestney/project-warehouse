@@ -44,6 +44,9 @@ public class MarketplaceReturn : IHasIdentity
 
     public MarketplaceReturnKind Kind { get; set; }
 
+    /// <summary>Journal day the sale was reversed; set by the accrual sync, keeps the return a counted customer return.</summary>
+    public DateOnly? SaleReversedOn { get; set; }
+
     // diagnostics only — the normalized Kind is what queries use
     public string? RawKind { get; set; }
 

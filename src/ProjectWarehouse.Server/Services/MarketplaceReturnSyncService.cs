@@ -67,14 +67,27 @@ public class MarketplaceReturnSyncService(
     private async Task ImportAsync(IMarketplaceProvider provider, MarketplaceCredentials credentials,
         MarketplaceAccount account, MarketplaceSyncRun run, ExternalReturnQuery query, CancellationToken ct)
     {
-        await foreach (var page in provider.FetchReturnsAsync(credentials, query, ct))
+        await foreach (var fetched in provider.FetchReturnsAsync(credentials, query, ct))
         {
-            run.ReturnsProcessed += page.Count;
+            run.ReturnsProcessed += fetched.Count;
 
-            var ids = page.Select(r => r.ExternalId).Distinct().ToList();
+            var ids = fetched.Select(r => r.ExternalId).Distinct().ToList();
             var known = await db.MarketplaceReturns
                 .Where(r => r.MarketplaceAccountId == account.Id && ids.Contains(r.ExternalId))
                 .ToDictionaryAsync(r => r.ExternalId, ct);
+
+            // a linked return keeps its posting, so only the unlinked ones are looked up
+            bool NeedsPosting(ExternalReturn r) =>
+                r.PostingNumber.Length == 0 && r.ExemplarId is not null
+                && !(known.TryGetValue(r.ExternalId, out var existing) && existing.OrderId is not null);
+
+            var postings = await ResolvePostingsAsync(account.Id,
+                fetched.Where(NeedsPosting).Select(r => r.ExemplarId!).ToHashSet(), ct);
+            var page = fetched
+                .Select(r => NeedsPosting(r) && postings.TryGetValue(r.ExemplarId!, out var posting)
+                    ? r with { PostingNumber = posting, Scheme = MarketplaceReturnScheme.Fbs }
+                    : r)
+                .ToList();
 
             var unlinked = page
                 .Where(r => !known.TryGetValue(r.ExternalId, out var existing) || existing.OrderId is null)
@@ -115,19 +128,37 @@ public class MarketplaceReturnSyncService(
 
     /// <summary>
     /// Returns saved before their posting was imported — the FBO import lags by the account interval, and
-    /// history may reach back further than the orders do. Only rows whose posting is known now are loaded.
+    /// history may reach back further than the orders do. Only rows whose posting is known now are loaded, and
+    /// those whose report named no posting, which is looked up by their exemplar.
     /// </summary>
     private async Task RelinkAsync(Guid accountId, MarketplaceSyncRun run, CancellationToken ct)
     {
         var pending = await db.MarketplaceReturns
             .Where(r => r.MarketplaceAccountId == accountId
                         && r.OrderId == null
-                        && db.MarketplaceOrders.Any(o =>
-                            o.MarketplaceAccountId == accountId && o.PostingNumber == r.PostingNumber))
+                        && (db.MarketplaceOrders.Any(o =>
+                                o.MarketplaceAccountId == accountId && o.PostingNumber == r.PostingNumber)
+                            || (r.PostingNumber == "" && r.ExemplarId != null
+                                && (db.MarketplaceOrders.Any(o =>
+                                        o.MarketplaceAccountId == accountId && o.LabelBarcode == r.ExemplarId)
+                                    || db.MarketplaceAccruals.Any(a =>
+                                        a.MarketplaceAccountId == accountId && a.ExemplarId == r.ExemplarId
+                                        && a.Order!.MarketplaceOrder != null)))))
             .ToListAsync(ct);
 
         foreach (var batch in pending.Chunk(RelinkBatchSize))
         {
+            var postings = await ResolvePostingsAsync(accountId,
+                batch.Where(r => r.PostingNumber.Length == 0 && r.ExemplarId is not null)
+                    .Select(r => r.ExemplarId!).ToHashSet(), ct);
+            foreach (var marketplaceReturn in batch)
+                if (marketplaceReturn is { PostingNumber.Length: 0, ExemplarId: { } exemplar }
+                    && postings.TryGetValue(exemplar, out var posting))
+                {
+                    marketplaceReturn.PostingNumber = posting;
+                    marketplaceReturn.Scheme = MarketplaceReturnScheme.Fbs;
+                }
+
             var orders = await LoadOrdersAsync(accountId, batch.Select(r => r.PostingNumber).ToHashSet(), ct);
 
             foreach (var marketplaceReturn in batch)
@@ -157,6 +188,37 @@ public class MarketplaceReturnSyncService(
     }
 
     /// <summary>
+    /// The posting of a returned exemplar the report could not name: the task's own sticker first, then a journal
+    /// row of the same exemplar already linked to its posting. A source naming several postings is not trusted.
+    /// </summary>
+    private async Task<Dictionary<string, string>> ResolvePostingsAsync(
+        Guid accountId, IReadOnlyCollection<string> exemplars, CancellationToken ct)
+    {
+        if (exemplars.Count == 0)
+            return [];
+
+        var byLabel = await db.MarketplaceOrders
+            .Where(o => o.MarketplaceAccountId == accountId && exemplars.Contains(o.LabelBarcode!))
+            .Select(o => new { Exemplar = o.LabelBarcode!, o.PostingNumber })
+            .ToListAsync(ct);
+        var byJournal = await db.MarketplaceAccruals
+            .Where(a => a.MarketplaceAccountId == accountId
+                        && exemplars.Contains(a.ExemplarId!)
+                        && a.Order!.MarketplaceOrder != null)
+            .Select(a => new { Exemplar = a.ExemplarId!, a.Order!.MarketplaceOrder!.PostingNumber })
+            .Distinct()
+            .ToListAsync(ct);
+
+        var result = new Dictionary<string, string>();
+        foreach (var source in new[] { byLabel, byJournal })
+            foreach (var group in source.GroupBy(x => x.Exemplar))
+                if (!result.ContainsKey(group.Key)
+                    && group.Select(x => x.PostingNumber).Distinct().ToList() is [var posting])
+                    result[group.Key] = posting;
+        return result;
+    }
+
+    /// <summary>
     /// Once linked, never reconsidered. The line is found through its card, SKU first and seller article second
     /// — the order import's own precedence — and several returned units of one product share a line.
     /// </summary>
@@ -174,26 +236,49 @@ public class MarketplaceReturnSyncService(
         return true;
     }
 
-    /// <summary>Overwrites every marketplace-owned field; true when any of them actually changed.</summary>
+    /// <summary>
+    /// Overwrites every marketplace-owned field; true when any of them actually changed. A return the journal
+    /// shows as a reversed sale stays a counted customer return and keeps the journal's values the report lacks,
+    /// and a linked one keeps its posting and product when the report cannot name them.
+    /// </summary>
     private static bool Apply(MarketplaceReturn target, ExternalReturn source)
     {
+        var keepPosting = source.PostingNumber.Length == 0 && target.OrderId is not null;
+        var postingNumber = keepPosting ? target.PostingNumber : source.PostingNumber;
+        var scheme = keepPosting ? target.Scheme : source.Scheme;
+        var reversed = target.SaleReversedOn is not null;
+        var kind = reversed ? MarketplaceReturnKind.CustomerReturn : source.Kind;
+        var isCancelled = !reversed && source.IsCancelled;
+        // without the task the report's product is the card's today, not the one sold
+        var keepProduct = reversed || target.OrderId is not null;
+        var sku = keepPosting ? target.Sku ?? source.Sku
+            : keepProduct ? source.Sku ?? target.Sku
+            : source.Sku;
+        var offerId = keepPosting && target.OfferId.Length > 0 ? target.OfferId
+            : keepProduct && source.OfferId.Length == 0 ? target.OfferId
+            : source.OfferId;
+        var rawKind = reversed ? source.RawKind ?? target.RawKind : source.RawKind;
+        var price = reversed ? source.Price ?? target.Price : source.Price;
+        var currencyCode = reversed ? source.CurrencyCode ?? target.CurrencyCode : source.CurrencyCode;
+        var reasonCategory = reversed ? source.ReasonCategory ?? target.ReasonCategory : source.ReasonCategory;
+
         var changed =
-            target.PostingNumber != source.PostingNumber
-            || target.Sku != source.Sku
-            || target.OfferId != source.OfferId
-            || target.Scheme != source.Scheme
+            target.PostingNumber != postingNumber
+            || target.Sku != sku
+            || target.OfferId != offerId
+            || target.Scheme != scheme
             || target.RawScheme != source.RawScheme
-            || target.Kind != source.Kind
-            || target.RawKind != source.RawKind
+            || target.Kind != kind
+            || target.RawKind != rawKind
             || target.Quantity != source.Quantity
-            || target.Price != source.Price
-            || target.CurrencyCode != source.CurrencyCode
+            || target.Price != price
+            || target.CurrencyCode != currencyCode
             || target.Reason != source.Reason
-            || target.ReasonCategory != source.ReasonCategory
+            || target.ReasonCategory != reasonCategory
             || target.RawReasonCode != source.RawReasonCode
             || target.RawStatus != source.RawStatus
             || target.StatusName != source.StatusName
-            || target.IsCancelled != source.IsCancelled
+            || target.IsCancelled != isCancelled
             || target.StatusChangedAt != source.StatusChangedAt
             || target.ReturnedAt != source.ReturnedAt
             || target.FinalAt != source.FinalAt
@@ -202,22 +287,22 @@ public class MarketplaceReturnSyncService(
             || target.SourceExternalId != source.SourceExternalId
             || target.ExemplarId != source.ExemplarId;
 
-        target.PostingNumber = source.PostingNumber;
-        target.Sku = source.Sku;
-        target.OfferId = source.OfferId;
-        target.Scheme = source.Scheme;
+        target.PostingNumber = postingNumber;
+        target.Sku = sku;
+        target.OfferId = offerId;
+        target.Scheme = scheme;
         target.RawScheme = source.RawScheme;
-        target.Kind = source.Kind;
-        target.RawKind = source.RawKind;
+        target.Kind = kind;
+        target.RawKind = rawKind;
         target.Quantity = source.Quantity;
-        target.Price = source.Price;
-        target.CurrencyCode = source.CurrencyCode;
+        target.Price = price;
+        target.CurrencyCode = currencyCode;
         target.Reason = source.Reason;
-        target.ReasonCategory = source.ReasonCategory;
+        target.ReasonCategory = reasonCategory;
         target.RawReasonCode = source.RawReasonCode;
         target.RawStatus = source.RawStatus;
         target.StatusName = source.StatusName;
-        target.IsCancelled = source.IsCancelled;
+        target.IsCancelled = isCancelled;
         target.StatusChangedAt = source.StatusChangedAt;
         target.ReturnedAt = source.ReturnedAt;
         target.FinalAt = source.FinalAt;

@@ -920,6 +920,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
 
+                    b.Property<string>("ExemplarId")
+                        .HasColumnType("text");
+
                     b.Property<string>("ExternalId")
                         .IsRequired()
                         .HasColumnType("text");
@@ -937,6 +940,9 @@ namespace ProjectWarehouse.Server.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("RawTypeId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Rid")
                         .HasColumnType("text");
 
                     b.Property<int>("Scope")
@@ -963,6 +969,8 @@ namespace ProjectWarehouse.Server.Migrations
                     b.HasIndex("OrderMarketplaceItemId");
 
                     b.HasIndex("MarketplaceAccountId", "Date");
+
+                    b.HasIndex("MarketplaceAccountId", "ExemplarId");
 
                     b.HasIndex("MarketplaceAccountId", "UnitNumber");
 
@@ -1149,6 +1157,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<string>("RawSubstatus")
                         .HasColumnType("text");
 
+                    b.Property<string>("Rid")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("ShipmentDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -1177,8 +1188,12 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.HasIndex("SupplyId");
 
+                    b.HasIndex("MarketplaceAccountId", "LabelBarcode");
+
                     b.HasIndex("MarketplaceAccountId", "PostingNumber")
                         .IsUnique();
+
+                    b.HasIndex("MarketplaceAccountId", "Rid");
 
                     b.HasIndex("MarketplaceAccountId", "Status");
 
@@ -1336,6 +1351,9 @@ namespace ProjectWarehouse.Server.Migrations
 
                     b.Property<DateTime?>("ReturnedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly?>("SaleReversedOn")
+                        .HasColumnType("date");
 
                     b.Property<int>("Scheme")
                         .HasColumnType("integer");

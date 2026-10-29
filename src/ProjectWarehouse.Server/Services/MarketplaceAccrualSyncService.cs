@@ -72,6 +72,8 @@ public class MarketplaceAccrualSyncService(
             await SyncBuyoutsAsync(provider, credentials, account, run, from, today.AddDays(1), now, ct);
 
         await RelinkAsync(account.Id, run, ct);
+        if (provider.Capabilities.HasFlag(MarketplaceCapabilities.ReversedSaleReturns))
+            await ApplyReversedSalesAsync(account.Id, run, ct);
         await BackfillDeliveredAtAsync(account.Id, run, ct);
 
         activity?.SetTag("marketplace.accruals.full_pass", fullPass);
@@ -95,6 +97,8 @@ public class MarketplaceAccrualSyncService(
                 is { } refused)
             WarnBuyoutsRefused(run, refused);
         await RelinkAsync(account.Id, run, ct);
+        if (provider.Capabilities.HasFlag(MarketplaceCapabilities.ReversedSaleReturns))
+            await ApplyReversedSalesAsync(account.Id, run, ct);
         await BackfillDeliveredAtAsync(account.Id, run, ct);
 
         activity?.SetTag("marketplace.accruals.created", run.AccrualsCreated);
@@ -251,11 +255,10 @@ public class MarketplaceAccrualSyncService(
 
         var page = await DateBuyoutsAsync(account.Id, fetched, known, ct);
         var changed = page.Where(a => !known.TryGetValue(a.ExternalId, out var rows) || !Matches(rows, a)).ToList();
+        var linkable = changed.Where(a => LinkableScopes.Contains(a.Scope)).ToList();
         var orders = await LoadOrdersAsync(account.Id,
-            changed.Where(a => LinkableScopes.Contains(a.Scope))
-                .Select(a => a.UnitNumber)
-                .OfType<string>()
-                .ToHashSet(),
+            linkable.Select(a => a.UnitNumber).OfType<string>().ToHashSet(),
+            linkable.Select(a => a.Rid).OfType<string>().ToHashSet(),
             ct);
 
         var now = DateTime.UtcNow;
@@ -311,6 +314,8 @@ public class MarketplaceAccrualSyncService(
             row.Scope = source.Scope;
             row.Source = source.Source;
             row.UnitNumber = source.UnitNumber;
+            row.Rid = source.Rid;
+            row.ExemplarId = source.ExemplarId;
             row.Category = line.Category;
             row.RawTypeId = line.RawTypeId;
             row.Sku = line.Sku;
@@ -338,6 +343,8 @@ public class MarketplaceAccrualSyncService(
             && p.First.Scope == source.Scope
             && p.First.Source == source.Source
             && p.First.UnitNumber == source.UnitNumber
+            && p.First.Rid == source.Rid
+            && p.First.ExemplarId == source.ExemplarId
             && p.First.Category == p.Second.Category
             && p.First.RawTypeId == p.Second.RawTypeId
             && p.First.Sku == p.Second.Sku
@@ -375,6 +382,166 @@ public class MarketplaceAccrualSyncService(
                 return a;
             })
             .ToList();
+    }
+
+    /// <summary>
+    /// A posting whose journal sale was reversed in full was bought and given back, however the marketplace closed
+    /// it: the unit becomes a counted customer return, keyed by its exemplar so the returns report lands on the same
+    /// row, and a cancelled posting becomes Delivered with its cancellation cleared. Its delivery day is then the
+    /// sale's, set by <see cref="BackfillDeliveredAtAsync"/>. Postings already carrying such a return are skipped.
+    /// </summary>
+    private async Task ApplyReversedSalesAsync(Guid accountId, MarketplaceSyncRun run, CancellationToken ct)
+    {
+        var reversed = await db.MarketplaceOrders
+            .Where(o => o.MarketplaceAccountId == accountId
+                        && (o.Status == MarketplaceOrderStatus.Cancelled
+                            || o.Status == MarketplaceOrderStatus.Delivered)
+                        && db.MarketplaceAccruals.Any(a => a.OrderId == o.OrderId
+                                                           && a.Source == MarketplaceAccrualSource.AccrualJournal
+                                                           && a.Category == MarketplaceAccrualCategory.Sale
+                                                           && a.Amount < 0)
+                        && !db.MarketplaceReturns.Any(r => r.OrderId == o.OrderId && r.SaleReversedOn != null))
+            .Select(o => new
+            {
+                o.OrderId,
+                o.PostingNumber,
+                o.Status,
+                o.RawSubstatus,
+                o.LabelBarcode,
+                Net = db.MarketplaceAccruals
+                    .Where(a => a.OrderId == o.OrderId
+                                && a.Source == MarketplaceAccrualSource.AccrualJournal
+                                && a.Category == MarketplaceAccrualCategory.Sale)
+                    .Sum(a => a.Amount),
+                Sale = db.MarketplaceAccruals
+                    .Where(a => a.OrderId == o.OrderId
+                                && a.Source == MarketplaceAccrualSource.AccrualJournal
+                                && a.Category == MarketplaceAccrualCategory.Sale
+                                && a.Amount > 0)
+                    .OrderBy(a => a.Date)
+                    .Select(a => new
+                    {
+                        a.Amount,
+                        a.CurrencyCode,
+                        a.Sku,
+                        a.OrderMarketplaceItemId,
+                        a.CatalogItemId,
+                        OfferId = a.OrderMarketplaceItem!.MarketplaceCard!.OfferId,
+                    })
+                    .FirstOrDefault(),
+                Reversal = db.MarketplaceAccruals
+                    .Where(a => a.OrderId == o.OrderId
+                                && a.Source == MarketplaceAccrualSource.AccrualJournal
+                                && a.Category == MarketplaceAccrualCategory.Sale
+                                && a.Amount < 0)
+                    .OrderByDescending(a => a.Date)
+                    .Select(a => new { a.Date, a.ExemplarId })
+                    .FirstOrDefault(),
+            })
+            .Where(x => x.Sale != null && x.Net <= 0)
+            .ToListAsync(ct);
+
+        // the exemplar comes with rows written since it was stored; older ones fall back to the archived sticker
+        var units = reversed
+            .Select(x => (Posting: x, Exemplar: x.Reversal!.ExemplarId ?? x.LabelBarcode))
+            .Where(x => x.Exemplar is not null)
+            .ToList();
+
+        var exemplars = units.Select(x => x.Exemplar!).ToList();
+        var known = await db.MarketplaceReturns
+            .Where(r => r.MarketplaceAccountId == accountId && exemplars.Contains(r.ExternalId))
+            .ToDictionaryAsync(r => r.ExternalId, ct);
+
+        var now = DateTime.UtcNow;
+        foreach (var (posting, exemplar) in units)
+        {
+            var sale = posting.Sale!;
+            var reversedOn = posting.Reversal!.Date;
+            var defect = posting.RawSubstatus == "defect" ? MarketplaceLossReason.Defect : (MarketplaceLossReason?)null;
+
+            if (!known.TryGetValue(exemplar!, out var target))
+            {
+                target = new MarketplaceReturn
+                {
+                    Id = Guid.NewGuid(),
+                    MarketplaceAccountId = accountId,
+                    ExternalId = exemplar!,
+                    PostingNumber = posting.PostingNumber,
+                    OfferId = sale.OfferId ?? "",
+                    Scheme = MarketplaceReturnScheme.Fbs,
+                    // an exemplar is a single unit
+                    Quantity = 1,
+                    Price = sale.Amount,
+                    CurrencyCode = sale.CurrencyCode,
+                    ReasonCategory = defect,
+                    StatusChangedAt = TimeZoneInfo.ConvertTimeToUtc(reversedOn.ToDateTime(TimeOnly.MinValue), JournalZone),
+                    ReturnedAt = TimeZoneInfo.ConvertTimeToUtc(reversedOn.ToDateTime(TimeOnly.MinValue), JournalZone),
+                    ExemplarId = exemplar,
+                    SyncedAt = now,
+                };
+                db.MarketplaceReturns.Add(target);
+                known[exemplar!] = target;
+                run.ReturnsCreated++;
+            }
+            else if (target.OrderId is { } linked && linked != posting.OrderId)
+            {
+                // a sticker reused by another task; the return stays with the posting it was linked to
+                continue;
+            }
+            else
+            {
+                run.ReturnsUpdated++;
+            }
+
+            if (target.OrderId is null)
+            {
+                target.OrderId = posting.OrderId;
+                target.OrderMarketplaceItemId = sale.OrderMarketplaceItemId;
+                target.CatalogItemId = sale.CatalogItemId;
+                target.PostingNumber = posting.PostingNumber;
+                target.Scheme = MarketplaceReturnScheme.Fbs;
+                target.Sku ??= sale.Sku;
+            }
+            target.Kind = MarketplaceReturnKind.CustomerReturn;
+            target.IsCancelled = false;
+            target.SaleReversedOn = reversedOn;
+            target.Price ??= sale.Amount;
+            target.CurrencyCode ??= sale.CurrencyCode;
+            target.ReasonCategory ??= defect;
+        }
+        await db.SaveChangesAsync(ct);
+
+        // by the stored returns rather than this pass's finds, so a pass cut short is finished by the next
+        await db.MarketplaceOrders
+            .Where(o => o.MarketplaceAccountId == accountId
+                        && o.Status == MarketplaceOrderStatus.Cancelled
+                        && db.MarketplaceReturns.Any(r => r.OrderId == o.OrderId && r.SaleReversedOn != null))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(o => o.Status, MarketplaceOrderStatus.Delivered)
+                .SetProperty(o => o.DeliveredAt, (DateTime?)null)
+                .SetProperty(o => o.CancelledAt, (DateTime?)null)
+                .SetProperty(o => o.CancelledAfterAssembly, (bool?)null)
+                .SetProperty(o => o.CancellationType, (MarketplaceCancellationType?)null)
+                .SetProperty(o => o.RawCancellationType, (string?)null)
+                .SetProperty(o => o.CancelReason, (string?)null)
+                .SetProperty(o => o.CancelReasonCategory, (MarketplaceLossReason?)null)
+                .SetProperty(o => o.RawCancelReasonCode, (string?)null), ct);
+
+        // an external order follows its posting: the goods left, so it was shipped
+        var unshipped = await db.Orders
+            .Include(o => o.MarketplaceOrder)
+            .Where(o => o.IsExternal
+                        && o.Status == OrderStatus.Canceled
+                        && o.MarketplaceOrder!.MarketplaceAccountId == accountId
+                        && o.MarketplaceOrder.Status == MarketplaceOrderStatus.Delivered
+                        && db.MarketplaceReturns.Any(r => r.OrderId == o.Id && r.SaleReversedOn != null))
+            .ToListAsync(ct);
+        foreach (var order in unshipped)
+        {
+            order.Status = OrderStatus.Shipped;
+            order.ShippedAt = order.MarketplaceOrder?.InProcessAt ?? order.CreatedAt;
+        }
+        await db.SaveChangesAsync(ct);
     }
 
     /// <summary>
@@ -462,17 +629,21 @@ public class MarketplaceAccrualSyncService(
         var pending = await db.MarketplaceAccruals
             .Where(a => a.MarketplaceAccountId == accountId
                         && a.OrderId == null
-                        && a.UnitNumber != null
+                        && (a.UnitNumber != null || a.Rid != null)
                         && LinkableScopes.Contains(a.Scope)
                         && db.MarketplaceOrders.Any(o => o.MarketplaceAccountId == accountId
                                                          && (o.PostingNumber == a.UnitNumber
+                                                             || (a.Rid != null && o.Rid == a.Rid)
                                                              || (OrderNumberScopes.Contains(a.Scope)
                                                                  && o.ExternalOrderNumber == a.UnitNumber))))
             .ToListAsync(ct);
 
         foreach (var batch in pending.Chunk(RelinkBatchSize))
         {
-            var orders = await LoadOrdersAsync(accountId, batch.Select(a => a.UnitNumber!).ToHashSet(), ct);
+            var orders = await LoadOrdersAsync(accountId,
+                batch.Select(a => a.UnitNumber).OfType<string>().ToHashSet(),
+                batch.Select(a => a.Rid).OfType<string>().ToHashSet(),
+                ct);
 
             var linked = batch.Where(a => TryLink(a, orders)).Select(a => a.ExternalId).Distinct().Count();
             run.AccrualsUpdated += linked;
@@ -481,21 +652,23 @@ public class MarketplaceAccrualSyncService(
         }
     }
 
-    /// <summary>Postings named by a unit number either directly or through the order they belong to.</summary>
+    /// <summary>Postings named by a unit number either directly or through the order they belong to, or by rid.</summary>
     private async Task<UnitIndex> LoadOrdersAsync(Guid accountId, IReadOnlyCollection<string> units,
-        CancellationToken ct)
+        IReadOnlyCollection<string> rids, CancellationToken ct)
     {
-        if (units.Count == 0)
+        if (units.Count == 0 && rids.Count == 0)
             return UnitIndex.Empty;
 
         var postings = await db.MarketplaceOrders
             .Where(o => o.MarketplaceAccountId == accountId
                         && (units.Contains(o.PostingNumber)
-                            || (o.ExternalOrderNumber != null && units.Contains(o.ExternalOrderNumber))))
+                            || (o.ExternalOrderNumber != null && units.Contains(o.ExternalOrderNumber))
+                            || (o.Rid != null && rids.Contains(o.Rid))))
             .OrderBy(o => o.PostingNumber)
             .Select(o => new PostingRow(
                 o.PostingNumber,
                 o.ExternalOrderNumber,
+                o.Rid,
                 o.OrderId,
                 o.Order.MarketplaceItems
                     .Where(i => i.MarketplaceCard != null)
@@ -505,23 +678,29 @@ public class MarketplaceAccrualSyncService(
 
         return new UnitIndex(
             postings.ToDictionary(p => p.PostingNumber),
-            postings.Where(p => p.ExternalOrderNumber != null).ToLookup(p => p.ExternalOrderNumber!));
+            postings.Where(p => p.ExternalOrderNumber != null).ToLookup(p => p.ExternalOrderNumber!),
+            // WB gives each task its own rid; DistinctBy only keeps a duplicate from failing the whole page
+            postings.Where(p => p.Rid != null).DistinctBy(p => p.Rid).ToDictionary(p => p.Rid!));
     }
 
     /// <summary>
-    /// A unit naming a posting links to it. A unit naming an order — Ozon files some item fees that way — links
-    /// to the posting of that order holding the SKU, or to its only posting; a shop-level unit never does. The
-    /// line is found by SKU; a row about no product of the posting stays on the order alone.
+    /// A rid names its posting exactly and wins. A unit naming a posting links to it. A unit naming an order — Ozon
+    /// files some item fees that way, Wildberries a row of a posting it left without its number — links to the
+    /// posting of that order holding the SKU, or to its only posting; a shop-level unit never does. A row with a rid
+    /// takes only a posting whose rid is not known yet: one with another rid is not it. The line is found by SKU;
+    /// a row about no product of the posting stays on the order alone.
     /// </summary>
     private static bool TryLink(MarketplaceAccrual target, UnitIndex index)
     {
-        if (target.OrderId is not null || target.UnitNumber is not { } unit || !LinkableScopes.Contains(target.Scope))
+        if (target.OrderId is not null || !LinkableScopes.Contains(target.Scope))
             return false;
 
-        var posting = index.ByPosting.GetValueOrDefault(unit);
-        if (posting is null && OrderNumberScopes.Contains(target.Scope))
+        var posting = target.Rid is { } rid ? index.ByRid.GetValueOrDefault(rid) : null;
+        if (posting is null && target.UnitNumber is { } number)
+            posting = index.ByPosting.GetValueOrDefault(number);
+        if (posting is null && target.UnitNumber is { } unit && OrderNumberScopes.Contains(target.Scope))
         {
-            var candidates = index.ByOrder[unit].ToList();
+            var candidates = index.ByOrder[unit].Where(p => target.Rid is null || p.Rid is null).ToList();
             posting = candidates.FirstOrDefault(p => target.Sku is not null && p.Items.Any(i => i.Sku == target.Sku))
                       ?? (candidates.Count == 1 ? candidates[0] : null);
         }
@@ -539,15 +718,17 @@ public class MarketplaceAccrualSyncService(
 
     private sealed record UnitIndex(
         Dictionary<string, PostingRow> ByPosting,
-        ILookup<string, PostingRow> ByOrder)
+        ILookup<string, PostingRow> ByOrder,
+        Dictionary<string, PostingRow> ByRid)
     {
         public static readonly UnitIndex Empty =
-            new([], Array.Empty<PostingRow>().ToLookup(p => p.PostingNumber));
+            new([], Array.Empty<PostingRow>().ToLookup(p => p.PostingNumber), []);
     }
 
     private sealed record PostingRow(
         string PostingNumber,
         string? ExternalOrderNumber,
+        string? Rid,
         Guid OrderId,
         List<ItemRow> Items);
 
