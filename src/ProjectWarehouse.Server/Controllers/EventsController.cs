@@ -77,6 +77,7 @@ public class EventsController(
                         // FBS drafts count too: the calendar shows the flow of postings to the warehouse
                         { "totalOrders", x.Count() },
                         { "completedOrders", x.Count(o => o.TerminalStatus) },
+                        { "assemblyOrders", x.Count(o => o.Status == OrderStatus.Assembly) },
                     },
                 },
                 StartDate = x.Key,

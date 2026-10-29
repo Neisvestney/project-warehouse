@@ -291,10 +291,10 @@ export const entitiesTypes: Record<AppEntityType, EntityTypeConfig> = {
   },
   fbsOrdersGrouped: {
     linkTemplate: "/operations/orders/fbs",
-    typeName: "Заказы FBO",
+    typeName: "Заказы FBS",
     icon: <AssignmentIcon />,
     getEventCalendarTitle: (e) =>
-      `Заказы FBS ${e.additionalFields?.completedOrders} из ${e.additionalFields?.totalOrders}`,
+      `FBS ${e.additionalFields?.completedOrders} из ${e.additionalFields?.totalOrders} (${e.additionalFields?.assemblyOrders} на сборке)`,
   },
   stockMovementReportPreset: {
     linkTemplate: "/storage/stock-movements",
