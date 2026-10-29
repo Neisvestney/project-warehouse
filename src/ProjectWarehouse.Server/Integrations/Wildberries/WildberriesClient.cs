@@ -16,10 +16,12 @@ public class WildberriesClient(
     IWildberriesMarketplaceClient marketplace,
     IWildberriesSellerAnalyticsClient analytics,
     IWildberriesFinanceClient finance,
+    IWildberriesStatisticsClient statistics,
     IOptions<MarketplacesOptions> options,
     ILogger<WildberriesClient> logger) : IWildberriesClient
 {
     private const string MoscowZoneId = "Europe/Moscow";
+    private static readonly TimeZoneInfo MoscowZone = TimeZoneInfo.FindSystemTimeZoneById(MoscowZoneId);
 
     private const int CardsPageSize = 100;
     private const int OrdersPageSize = 1000;
@@ -28,6 +30,14 @@ public class WildberriesClient(
     private const int SuppliesPageSize = 1000;
     private const int ReturnsPageSize = 1000;
     private const int ReportTransportRetries = 2;
+
+    /// <summary>WB cuts a statistics page at about 80 000 rows; a page well short of that is the last one.</summary>
+    private const int StatisticsLastPageBelow = 50_000;
+
+    private const string WbWarehouseType = "Склад WB";
+
+    /// <summary>Realization report's <c>deliveryMethod</c> of a unit sold from a WB warehouse, e.g. «FBW, (МГТ, короба)».</summary>
+    private const string FbwDeliveryMethod = "FBW";
 
     /// <summary>/api/v3/orders rejects a creation window longer than 30 days.</summary>
     private static readonly TimeSpan OrdersWindow = TimeSpan.FromDays(30) - TimeSpan.FromSeconds(1);
@@ -51,6 +61,9 @@ public class WildberriesClient(
     };
 
     private readonly WildberriesOptions _options = options.Value.Wildberries;
+
+    // the backfill's FBW reconstruction reads the realization report anyway; its accrual step replays that read
+    private (DateOnly First, DateOnly Last, List<IReadOnlyList<ExternalAccrual>> Pages)? _reportAccruals;
 
     public async Task PingAsync(CancellationToken ct) => await common.GetV1SellerInfoAsync(ct);
 
@@ -175,9 +188,12 @@ public class WildberriesClient(
     public async IAsyncEnumerable<IReadOnlyList<ExternalPosting>> GetPostingsAsync(ExternalPostingQuery query,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        // assembly tasks are FBS only; the marketplace's own fulfilment has no task to import
-        if (query.Scheme != ExternalPostingScheme.Fbs)
+        if (query.Scheme == ExternalPostingScheme.Fbo)
+        {
+            await foreach (var page in GetFboPostingsAsync(query, ct))
+                yield return page;
             yield break;
+        }
 
         var since = new DateTimeOffset(DateTime.SpecifyKind(query.Since, DateTimeKind.Utc));
         var to = new DateTimeOffset(DateTime.SpecifyKind(query.To, DateTimeKind.Utc));
@@ -266,6 +282,296 @@ public class WildberriesClient(
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// FBW orders have no assembly task: the statistics report names each unit by <c>srid</c>, which is also the
+    /// rid the realization report files its rows under. flag=0 lists rows changed since dateFrom, a superset of the
+    /// orders placed in the period and of every sale of them.
+    /// </summary>
+    private async IAsyncEnumerable<IReadOnlyList<ExternalPosting>> GetFboPostingsAsync(ExternalPostingQuery query,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var rows = await ReadOrdersAsync(query.Since, ct);
+        var orders = LatestFbo(rows)
+            .Where(o => ParseMoscowDate(o.Date) is { } placed && placed >= query.Since && placed <= query.To)
+            .ToList();
+
+        CardIndex? cards = null;
+        if (orders.Count > 0)
+        {
+            var sales = await ReadSalesAsync(query.Since, ct);
+            cards = await CardIndex.LoadAsync(this, ct);
+            foreach (var chunk in orders.Chunk(OrdersPageSize))
+            {
+                var postings = chunk
+                    .Select(o => MapFboPosting(o, sales[o.Srid!], cards))
+                    .Where(p => query.Statuses is null || query.Statuses.Contains(p.Status))
+                    .ToList();
+                if (postings.Count > 0)
+                    yield return postings;
+            }
+        }
+
+        if (!query.IncludeHistory)
+            yield break;
+
+        // statistics speaks for every unit it still keeps, FBS ones included
+        var known = rows.Select(o => o.Srid).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        cards ??= await CardIndex.LoadAsync(this, ct);
+        var reconstructed = (await ReadReportUnitsAsync(query, cards, ct))
+            .Where(unit => unit.IsFbw && !known.Contains(unit.Srid))
+            .Select(unit => MapReconstructedFboPosting(unit, cards))
+            .Where(p => p.InProcessAt is { } placed && placed >= query.Since && placed <= query.To)
+            .Where(p => query.Statuses is null || query.Statuses.Contains(p.Status))
+            .ToList();
+        foreach (var chunk in reconstructed.Chunk(OrdersPageSize))
+            yield return chunk;
+    }
+
+    /// <summary>
+    /// Every <c>srid</c> of the realization report, folded row by row. A unit is filed under the report of each of
+    /// its financial events, so reports are read from the backfill's accrual range start to today; the accruals of
+    /// the read within that range are kept for <see cref="GetAccrualsAsync"/> of the same backfill.
+    /// </summary>
+    private async Task<IEnumerable<ReportUnit>> ReadReportUnitsAsync(ExternalPostingQuery query, CardIndex cards,
+        CancellationToken ct)
+    {
+        var (first, last) = AccrualRange(DateOnly.FromDateTime(query.Since), DateOnly.FromDateTime(query.To));
+        var units = new Dictionary<string, ReportUnit>(StringComparer.Ordinal);
+        var accruals = new List<IReadOnlyList<ExternalAccrual>>();
+        await foreach (var rows in ReadReportAsync(first, MoscowToday(), ct))
+        {
+            foreach (var row in rows)
+            {
+                // service rows (storage, penalties) carry a bare number in srid and belong to no unit
+                if (NullIfEmpty(row.Srid) is not { } srid || srid.All(char.IsAsciiDigit))
+                    continue;
+                if (!units.TryGetValue(srid, out var unit))
+                    units[srid] = unit = new ReportUnit(srid);
+                unit.Add(row);
+            }
+            var page = MapAccruals(rows, cards).Where(a => a.Date <= last).ToList();
+            if (page.Count > 0)
+                accruals.Add(page);
+        }
+
+        _reportAccruals = (first, last, accruals);
+        return units.Values;
+    }
+
+    /// <summary>
+    /// The report keeps no order status: more sales than reversals make the unit delivered, otherwise it is taken
+    /// for a refusal. A sale reversed in full is the accrual sync's business, the same as for statistics.
+    /// </summary>
+    private static ExternalPosting MapReconstructedFboPosting(ReportUnit unit, CardIndex cards)
+    {
+        var card = cards.ByBarcode(unit.Barcode);
+        var offerId = card?.VendorCode ?? unit.VendorCode ?? "";
+        var sold = unit.Sales > unit.Reversals;
+        var item = new ExternalPostingItem(
+            card?.ChrtId,
+            offerId,
+            offerId,
+            1,
+            Price: unit.Price,
+            CurrencyCode: unit.Currency ?? "RUB");
+
+        return new ExternalPosting(
+            unit.Srid,
+            unit.OrderUid,
+            sold ? MarketplaceOrderStatus.Delivered : MarketplaceOrderStatus.Cancelled,
+            null,
+            unit.DeliveryMethod,
+            null,
+            null,
+            null,
+            unit.PlacedAt,
+            null,
+            1,
+            sold ? null : new ExternalCancellation(null, MarketplaceCancellationType.Unknown, null, null, null, null),
+            [item],
+            ExternalPostingScheme.Fbo,
+            unit.PlacedAt,
+            Rid: unit.Srid,
+            IsReconstructed: true);
+    }
+
+    /// <summary>One <c>srid</c> of the realization report, reduced to what reconstruction reads.</summary>
+    private sealed class ReportUnit(string srid)
+    {
+        public string Srid { get; } = srid;
+        public string? OrderUid { get; private set; }
+        public string? Barcode { get; private set; }
+        public string? VendorCode { get; private set; }
+        public string? DeliveryMethod { get; private set; }
+        public DateTime? PlacedAt { get; private set; }
+        public int Sales { get; private set; }
+        public int Reversals { get; private set; }
+
+        /// <summary>The sale's price, else the first one any row states.</summary>
+        public decimal? Price => _salePrice ?? _anyPrice;
+        public string? Currency => _salePrice is not null ? _saleCurrency : _anyCurrency;
+
+        // service rows carry a bare number in srid and no order, and FBS rows come without orderId now and then;
+        // a return shipped back to the seller gets an srid of its own and travels to the seller, never a customer
+        public bool IsFbw => !_hasOrderId && OrderUid is not null && _fbw && !_notFbw
+                             && (Sales > 0 || _toCustomer) && !_toSeller;
+
+        private bool _hasOrderId, _fbw, _notFbw, _toCustomer, _toSeller;
+        private decimal? _salePrice, _anyPrice;
+        private string? _saleCurrency, _anyCurrency;
+
+        public void Add(SalesReportsDetailedRes row)
+        {
+            _hasOrderId |= row.OrderId != 0;
+            OrderUid ??= NullIfEmpty(row.OrderUid);
+            Barcode ??= NullIfEmpty(row.Sku);
+            VendorCode ??= NullIfEmpty(row.VendorCode);
+            if (NullIfEmpty(row.DeliveryMethod) is { } method)
+            {
+                DeliveryMethod ??= method;
+                if (method.StartsWith(FbwDeliveryMethod, StringComparison.Ordinal))
+                    _fbw = true;
+                else
+                    _notFbw = true;
+            }
+            _toCustomer |= IsToCustomer(row.BonusTypeName);
+            _toSeller |= IsToSeller(row.BonusTypeName);
+            if (row.OrderDt != default && (PlacedAt is null || row.OrderDt.UtcDateTime < PlacedAt))
+                PlacedAt = row.OrderDt.UtcDateTime;
+
+            var price = Money(row.RetailPriceWithDisc);
+            var currency = NullIfEmpty(row.Currency);
+            if (price > 0 && _anyPrice is null)
+                (_anyPrice, _anyCurrency) = (price, currency);
+            if (Money(row.RetailAmount) <= 0)
+                return;
+            // a sale storno and a customer return both come as «Возврат»
+            if (row.DocTypeName == "Продажа")
+            {
+                Sales++;
+                if (price > 0 && _salePrice is null)
+                    (_salePrice, _saleCurrency) = (price, currency);
+            }
+            else if (row.DocTypeName == "Возврат")
+            {
+                Reversals++;
+            }
+        }
+    }
+
+    public async Task<IReadOnlyList<ExternalPostingStatus>> GetFboPostingStatusesAsync(
+        IReadOnlyList<string> postingNumbers, CancellationToken ct)
+    {
+        // the report has no filter by srid, so the open ones are picked out of everything changed lately
+        var since = DateTime.UtcNow.AddDays(-_options.FboStatusLookbackDays);
+        var wanted = postingNumbers.ToHashSet(StringComparer.Ordinal);
+        var orders = LatestFbo(await ReadOrdersAsync(since, ct)).Where(o => wanted.Contains(o.Srid!)).ToList();
+        if (orders.Count == 0)
+            return [];
+
+        var sales = await ReadSalesAsync(since, ct);
+        return orders
+            .Select(o =>
+            {
+                var (status, cancellation) = MapFboStatus(o, sales[o.Srid!]);
+                return new ExternalPostingStatus(o.Srid!, status, null, null, null, cancellation, []);
+            })
+            .ToList();
+    }
+
+    private Task<List<OrdersItem>> ReadOrdersAsync(DateTime since, CancellationToken ct) =>
+        ReadStatisticsAsync(statistics.GetV1SupplierOrdersAsync, o => o.LastChangeDate, since, ct);
+
+    /// <summary>The latest row of every unit shipped from a WB warehouse.</summary>
+    private static List<OrdersItem> LatestFbo(IEnumerable<OrdersItem> rows) => rows
+        .Where(o => o.WarehouseType == WbWarehouseType && !string.IsNullOrEmpty(o.Srid))
+        .GroupBy(o => o.Srid!)
+        // ISO wall time compares as text
+        .Select(g => g.MaxBy(o => o.LastChangeDate, StringComparer.Ordinal)!)
+        .ToList();
+
+    private async Task<ILookup<string, SalesItem>> ReadSalesAsync(DateTime since, CancellationToken ct) =>
+        (await ReadStatisticsAsync(statistics.GetV1SupplierSalesAsync, s => s.LastChangeDate, since, ct))
+        .Where(s => !string.IsNullOrEmpty(s.Srid))
+        .ToLookup(s => s.Srid!);
+
+    private async Task<List<T>> ReadStatisticsAsync<T>(
+        Func<string, long?, CancellationToken, Task<IReadOnlyList<T>>> call, Func<T, string?> lastChangeDate,
+        DateTime since, CancellationToken ct)
+    {
+        var rows = new List<T>();
+        var dateFrom = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(since, DateTimeKind.Utc), MoscowZone)
+            .ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
+        while (true)
+        {
+            var page = await call(dateFrom, 0, ct);
+            rows.AddRange(page);
+            // the next page starts at the last row's lastChangeDate, passed verbatim
+            if (page.Count < StatisticsLastPageBelow)
+                return rows;
+            if (lastChangeDate(page[^1]) is not { Length: > 0 } next || next == dateFrom)
+            {
+                logger.LogWarning("Wildberries statistics page of {Count} rows ends where it started, at {DateFrom}; "
+                                  + "the rows past it are not read", page.Count, dateFrom);
+                return rows;
+            }
+            dateFrom = next;
+        }
+    }
+
+    private static ExternalPosting MapFboPosting(OrdersItem order, IEnumerable<SalesItem> sales, CardIndex cards)
+    {
+        var card = cards.ByBarcode(order.Barcode);
+        var offerId = card?.VendorCode ?? order.SupplierArticle ?? "";
+        var (status, cancellation) = MapFboStatus(order, sales);
+        var placed = ParseMoscowDate(order.Date);
+        var item = new ExternalPostingItem(
+            card?.ChrtId,
+            offerId,
+            offerId,
+            1,
+            CustomerPrice: order.FinishedPrice,
+            CustomerCurrencyCode: "RUB",
+            Price: order.PriceWithDisc,
+            CurrencyCode: "RUB");
+
+        return new ExternalPosting(
+            order.Srid!,
+            NullIfEmpty(order.GNumber),
+            status,
+            null,
+            null,
+            null,
+            null,
+            null,
+            placed,
+            null,
+            1,
+            cancellation,
+            [item],
+            ExternalPostingScheme.Fbo,
+            placed,
+            Rid: order.Srid);
+    }
+
+    /// <summary>
+    /// The report keeps no status: a sale (<c>S…</c>) not reversed by a sale storno (<c>A…</c>) makes the unit
+    /// delivered, whatever came after it — a return is the returns sync's business; otherwise a cancelled order is
+    /// cancelled, and an open one is on its way.
+    /// </summary>
+    private static (MarketplaceOrderStatus, ExternalCancellation?) MapFboStatus(OrdersItem order,
+        IEnumerable<SalesItem> sales)
+    {
+        var ids = sales.Select(s => s.SaleID).OfType<string>().ToList();
+        if (ids.Count(id => id.StartsWith('S')) > ids.Count(id => id.StartsWith('A')))
+            return (MarketplaceOrderStatus.Delivered, null);
+        if (order.IsCancel == true)
+            // the report does not say who cancelled
+            return (MarketplaceOrderStatus.Cancelled,
+                new ExternalCancellation(null, MarketplaceCancellationType.Unknown, null, null, null, null));
+        return (MarketplaceOrderStatus.Delivering, null);
     }
 
     public async IAsyncEnumerable<IReadOnlyList<ExternalReturn>> GetReturnsAsync(ExternalReturnQuery query,
@@ -367,14 +673,59 @@ public class WildberriesClient(
     public async IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> GetAccrualsAsync(DateOnly from, DateOnly to,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        var today = MoscowToday();
-        var last = to > today ? today : to;
-        var lookback = last.AddDays(-_options.AccrualsLookbackDays);
-        var first = lookback < from ? lookback : from;
+        var (first, last) = AccrualRange(from, to);
         if (first > last)
             yield break;
 
+        var read = _reportAccruals;
+        _reportAccruals = null;
+        if (read is { } cached && cached.First <= first && cached.Last >= last)
+        {
+            foreach (var page in cached.Pages)
+                yield return page;
+            yield break;
+        }
+
         CardIndex? cards = null;
+        await foreach (var rows in ReadReportAsync(first, last, ct))
+        {
+            cards ??= await CardIndex.LoadAsync(this, ct);
+            if (MapAccruals(rows, cards) is { Count: > 0 } accruals)
+                yield return accruals;
+        }
+    }
+
+    /// <summary>Report dates an accrual read of the period covers: the lookback below it, nothing past today.</summary>
+    private (DateOnly First, DateOnly Last) AccrualRange(DateOnly from, DateOnly to)
+    {
+        var today = MoscowToday();
+        var last = to > today ? today : to;
+        var lookback = last.AddDays(-_options.AccrualsLookbackDays);
+        return (lookback < from ? lookback : from, last);
+    }
+
+    private List<ExternalAccrual> MapAccruals(IReadOnlyList<SalesReportsDetailedRes> rows, CardIndex cards)
+    {
+        var accruals = new List<ExternalAccrual>();
+        foreach (var row in rows)
+        {
+            // a row without its own date belongs to the report period it came in
+            if ((ParseDay(row.RrDate) ?? ParseDay(row.DateTo)) is not { } day)
+            {
+                logger.LogWarning("Wildberries report row {RrdId} carries no date, skipped", row.RrdId);
+                continue;
+            }
+            var accrual = MapAccrual(row, day, cards);
+            if (accrual.Lines.Count > 0)
+                accruals.Add(accrual);
+        }
+        return accruals;
+    }
+
+    /// <summary>Realization report rows of the reports dated within the period, page by page.</summary>
+    private async IAsyncEnumerable<IReadOnlyList<SalesReportsDetailedRes>> ReadReportAsync(DateOnly first,
+        DateOnly last, [EnumeratorCancellation] CancellationToken ct)
+    {
         long rrdId = 0;
         var transportFailures = 0;
         while (true)
@@ -420,22 +771,7 @@ public class WildberriesClient(
             if (rows.Count == 0)
                 yield break;
 
-            cards ??= await CardIndex.LoadAsync(this, ct);
-            var accruals = new List<ExternalAccrual>();
-            foreach (var row in rows)
-            {
-                // a row without its own date belongs to the report period it came in
-                if ((ParseDay(row.RrDate) ?? ParseDay(row.DateTo)) is not { } day)
-                {
-                    logger.LogWarning("Wildberries report row {RrdId} carries no date, skipped", row.RrdId);
-                    continue;
-                }
-                var accrual = MapAccrual(row, day, cards);
-                if (accrual.Lines.Count > 0)
-                    accruals.Add(accrual);
-            }
-            if (accruals.Count > 0)
-                yield return accruals;
+            yield return rows;
 
             if (rows.Count < _options.ReportPageSize)
                 yield break;
@@ -457,6 +793,14 @@ public class WildberriesClient(
         OperationCanceledException => !ct.IsCancellationRequested,
         _ => false,
     };
+
+    // «К клиенту при продаже», «К клиенту при отмене»; the way back reads «От клиента…» or «Возврат… (К продавцу)»
+    private static bool IsToCustomer(string? bonusTypeName) =>
+        bonusTypeName?.StartsWith("К клиенту", StringComparison.OrdinalIgnoreCase) == true;
+
+    // «Возврат брака (К продавцу)», «Возврат брака (От продавца при отмене)», «Возврат товара продавцу по отзыву»
+    private static bool IsToSeller(string? bonusTypeName) =>
+        bonusTypeName?.Contains("продавц", StringComparison.OrdinalIgnoreCase) == true;
 
     private static ExternalAccrual MapAccrual(SalesReportsDetailedRes row, DateOnly day, CardIndex cards)
     {
@@ -487,7 +831,7 @@ public class WildberriesClient(
             Add(MarketplaceAccrualCategory.Other, sign * forPay);
         }
 
-        var toClient = row.BonusTypeName?.StartsWith("К клиенту", StringComparison.OrdinalIgnoreCase) != false;
+        var toClient = row.BonusTypeName is null || IsToCustomer(row.BonusTypeName);
         Add(toClient ? MarketplaceAccrualCategory.Logistics : MarketplaceAccrualCategory.ReturnLogistics,
             -Money(row.DeliveryService));
         Add(MarketplaceAccrualCategory.Logistics, -Money(row.RebillLogisticCost));
@@ -819,6 +1163,12 @@ public class WildberriesClient(
     private static DateTime? ParseDate(string? value) =>
         DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)
             ? parsed.UtcDateTime
+            : null;
+
+    // the statistics report states Moscow wall time without an offset
+    private static DateTime? ParseMoscowDate(string? value) =>
+        DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)
+            ? TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(parsed, DateTimeKind.Unspecified), MoscowZone)
             : null;
 
     // the leading calendar day, whether or not a time follows it

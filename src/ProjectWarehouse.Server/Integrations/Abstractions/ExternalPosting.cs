@@ -10,6 +10,8 @@ namespace ProjectWarehouse.Server.Integrations.Abstractions;
 /// <see cref="Parcels"/> is null when the marketplace states no layout: the posting is then one parcel.
 /// <see cref="SupplyExternalId"/> is set only by a marketplace with supplies, once the posting is in one.
 /// <see cref="Rid"/> is set only by Wildberries.
+/// <see cref="IsReconstructed"/> marks a posting rebuilt from finance reports once the posting API no longer keeps
+/// it; only <see cref="ExternalPostingQuery.IncludeHistory"/> asks for those.
 /// </summary>
 public record ExternalPosting(
     string PostingNumber,
@@ -31,4 +33,5 @@ public record ExternalPosting(
     IReadOnlyList<ExternalParcel>? Parcels = null,
     ExternalPostingDates? Dates = null,
     string? SupplyExternalId = null,
-    string? Rid = null);
+    string? Rid = null,
+    bool IsReconstructed = false);

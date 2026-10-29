@@ -301,6 +301,13 @@ public class WildberriesOptions
     /// </summary>
     public int ReturnsLookbackDays { get; set; } = 90;
 
+    /// <summary>
+    /// How far back the statistics report is read to catch up FBW statuses. It has no filter by unit, and an open
+    /// unit unchanged for longer is left out of the answer. WB keeps an order for 90 days, so a shorter depth only
+    /// strands open units the report still knows.
+    /// </summary>
+    public int FboStatusLookbackDays { get; set; } = 90;
+
     /// <summary>Tasks per sticker request; WB's ceiling is 100.</summary>
     public int LabelBatchSize { get; set; } = 100;
 

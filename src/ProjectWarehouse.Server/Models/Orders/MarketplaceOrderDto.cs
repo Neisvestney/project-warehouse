@@ -14,6 +14,9 @@ public class MarketplaceOrderDto
     public string PostingNumber { get; init; } = null!;
     public string? ExternalOrderNumber { get; init; }
 
+    /// <summary>Rebuilt from the finance report: status and price are approximate.</summary>
+    public bool IsReconstructed { get; init; }
+
     public MarketplaceOrderStatus Status { get; init; }
 
     /// <summary>When a sync first saw the posting delivered, to within the sync interval; null if imported delivered.</summary>

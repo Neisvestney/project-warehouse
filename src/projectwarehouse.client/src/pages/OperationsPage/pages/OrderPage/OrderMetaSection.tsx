@@ -15,6 +15,7 @@ import {FormTextField} from "@/components/form/FormTextField";
 import type {OrderDetailsDto} from "@/api/types.gen";
 import MarketplaceOrderStatusChip from "@/components/orders/marketplace/MarketplaceOrderStatusChip";
 import MarketplaceOrderReturnChip from "@/components/orders/marketplace/MarketplaceOrderReturnChip";
+import MarketplaceOrderReconstructedChip from "@/components/orders/marketplace/MarketplaceOrderReconstructedChip";
 import {MARKETPLACE_CANCELLATION_TYPE_LABELS} from "@/components/orders/marketplace/marketplaceOrderUtils";
 import LossReasonText from "@/components/orders/marketplace/LossReasonText";
 import {format} from "date-fns";
@@ -231,6 +232,7 @@ function OrderMetaSection({order, canEdit, onEditingChange}: OrderMetaSectionPro
               <Stack direction="row" spacing={1} sx={{alignItems: "center", flexWrap: "wrap"}}>
                 <MarketplaceOrderStatusChip value={order.marketplaceOrder} ignoreReturn />
                 <MarketplaceOrderReturnChip value={order.marketplaceOrder.returnState} />
+                <MarketplaceOrderReconstructedChip value={order.marketplaceOrder.isReconstructed} />
               </Stack>
             }
           />

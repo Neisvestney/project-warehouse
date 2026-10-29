@@ -1971,6 +1971,10 @@ export type MarketplaceOrderDetailsDto = {
   marketplaceType: MarketplaceType;
   postingNumber: string;
   externalOrderNumber?: null | string;
+  /**
+   * Rebuilt from the finance report: status and price are approximate.
+   */
+  isReconstructed: boolean;
   status: MarketplaceOrderStatus;
   /**
    * When a sync first saw the posting delivered, to within the sync interval; null if imported delivered.
@@ -2023,6 +2027,10 @@ export type MarketplaceOrderDto = {
   marketplaceType: MarketplaceType;
   postingNumber: string;
   externalOrderNumber?: null | string;
+  /**
+   * Rebuilt from the finance report: status and price are approximate.
+   */
+  isReconstructed: boolean;
   status: MarketplaceOrderStatus;
   /**
    * When a sync first saw the posting delivered, to within the sync interval; null if imported delivered.

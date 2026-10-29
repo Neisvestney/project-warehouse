@@ -1105,6 +1105,8 @@ public class ApplicationDbContext : IdentityDbContext<
 
             e.HasIndex(x => new { x.MarketplaceAccountId, x.ExternalId }).IsUnique();
             e.HasIndex(x => new { x.MarketplaceAccountId, x.PostingNumber });
+            // accruals of a return shipped back to the seller find their posting by it
+            e.HasIndex(x => new { x.MarketplaceAccountId, x.SourceExternalId });
         });
 
         builder.Entity<MarketplaceAccrual>(e =>

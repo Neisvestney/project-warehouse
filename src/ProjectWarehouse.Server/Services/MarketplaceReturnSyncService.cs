@@ -85,7 +85,7 @@ public class MarketplaceReturnSyncService(
                 fetched.Where(NeedsPosting).Select(r => r.ExemplarId!).ToHashSet(), ct);
             var page = fetched
                 .Select(r => NeedsPosting(r) && postings.TryGetValue(r.ExemplarId!, out var posting)
-                    ? r with { PostingNumber = posting, Scheme = MarketplaceReturnScheme.Fbs }
+                    ? r with { PostingNumber = posting.PostingNumber, Scheme = posting.Scheme }
                     : r)
                 .ToList();
 
@@ -155,8 +155,8 @@ public class MarketplaceReturnSyncService(
                 if (marketplaceReturn is { PostingNumber.Length: 0, ExemplarId: { } exemplar }
                     && postings.TryGetValue(exemplar, out var posting))
                 {
-                    marketplaceReturn.PostingNumber = posting;
-                    marketplaceReturn.Scheme = MarketplaceReturnScheme.Fbs;
+                    marketplaceReturn.PostingNumber = posting.PostingNumber;
+                    marketplaceReturn.Scheme = posting.Scheme;
                 }
 
             var orders = await LoadOrdersAsync(accountId, batch.Select(r => r.PostingNumber).ToHashSet(), ct);
@@ -191,32 +191,35 @@ public class MarketplaceReturnSyncService(
     /// The posting of a returned exemplar the report could not name: the task's own sticker first, then a journal
     /// row of the same exemplar already linked to its posting. A source naming several postings is not trusted.
     /// </summary>
-    private async Task<Dictionary<string, string>> ResolvePostingsAsync(
-        Guid accountId, IReadOnlyCollection<string> exemplars, CancellationToken ct)
+    private async Task<Dictionary<string, (string PostingNumber, MarketplaceReturnScheme Scheme)>>
+        ResolvePostingsAsync(Guid accountId, IReadOnlyCollection<string> exemplars, CancellationToken ct)
     {
         if (exemplars.Count == 0)
             return [];
 
         var byLabel = await db.MarketplaceOrders
             .Where(o => o.MarketplaceAccountId == accountId && exemplars.Contains(o.LabelBarcode!))
-            .Select(o => new { Exemplar = o.LabelBarcode!, o.PostingNumber })
+            .Select(o => new { Exemplar = o.LabelBarcode!, o.PostingNumber, o.Order!.Type })
             .ToListAsync(ct);
         var byJournal = await db.MarketplaceAccruals
             .Where(a => a.MarketplaceAccountId == accountId
                         && exemplars.Contains(a.ExemplarId!)
                         && a.Order!.MarketplaceOrder != null)
-            .Select(a => new { Exemplar = a.ExemplarId!, a.Order!.MarketplaceOrder!.PostingNumber })
+            .Select(a => new { Exemplar = a.ExemplarId!, a.Order!.MarketplaceOrder!.PostingNumber, a.Order.Type })
             .Distinct()
             .ToListAsync(ct);
 
-        var result = new Dictionary<string, string>();
+        var result = new Dictionary<string, (string, MarketplaceReturnScheme)>();
         foreach (var source in new[] { byLabel, byJournal })
             foreach (var group in source.GroupBy(x => x.Exemplar))
                 if (!result.ContainsKey(group.Key)
-                    && group.Select(x => x.PostingNumber).Distinct().ToList() is [var posting])
-                    result[group.Key] = posting;
+                    && group.DistinctBy(x => x.PostingNumber).ToList() is [var posting])
+                    result[group.Key] = (posting.PostingNumber, SchemeOf(posting.Type));
         return result;
     }
+
+    internal static MarketplaceReturnScheme SchemeOf(OrderType type) =>
+        type == OrderType.FboPosting ? MarketplaceReturnScheme.Fbo : MarketplaceReturnScheme.Fbs;
 
     /// <summary>
     /// Once linked, never reconsidered. The line is found through its card, SKU first and seller article second

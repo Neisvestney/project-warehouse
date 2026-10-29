@@ -1348,6 +1348,9 @@ on a supply in a row sets the filter without the cell reaching into the list's s
 posting always reads «Отменён» — the cancellation outranks any return on it. The return badge itself is
 `MarketplaceOrderReturnChip`, which renders nothing for `none`. The order page passes `ignoreReturn` to the status
 chip and puts `MarketplaceOrderReturnChip` beside it in the «Статус на площадке» row, so both are visible there.
+`MarketplaceOrderReconstructedChip` — outlined «Из отчёта», nothing when `isReconstructed` is false — marks a posting
+the history backfill rebuilt from the finance report; its tooltip warns that status and price are approximate. It
+sits next to the status chip on the order page and in the FBO list's «Статус на площадке» column.
 The order page also shows returns per line and per record: `OrderMarketplaceItemsSection` puts a «Возвращено» chip beside the quantity of every line with
 `returnedQuantity > 0`, and `OrderMarketplaceReturnsDetails` adds a «Возвраты» row to `OrderMetaSection` whose
 button expands every return record of the posting. Records with `isCountedAsReturn = false` stay in that list,

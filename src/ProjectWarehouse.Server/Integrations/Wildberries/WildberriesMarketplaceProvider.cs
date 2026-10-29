@@ -17,7 +17,7 @@ public class WildberriesMarketplaceProvider(
         MarketplaceCapabilities.Warehouses | MarketplaceCapabilities.Cards | MarketplaceCapabilities.SellerInfo
         | MarketplaceCapabilities.Orders | MarketplaceCapabilities.Labels | MarketplaceCapabilities.Returns
         | MarketplaceCapabilities.Accruals | MarketplaceCapabilities.Supplies
-        | MarketplaceCapabilities.ReversedSaleReturns;
+        | MarketplaceCapabilities.ReversedSaleReturns | MarketplaceCapabilities.Fbo;
 
     public bool RequiresClientId => false;
 
@@ -62,9 +62,9 @@ public class WildberriesMarketplaceProvider(
 
     public Task<IReadOnlyList<ExternalPostingStatus>> FetchPostingStatusesAsync(MarketplaceCredentials credentials,
         IReadOnlyList<string> postingNumbers, ExternalPostingScheme scheme, CancellationToken ct) =>
-        scheme == ExternalPostingScheme.Fbs
-            ? CallAsync(credentials, () => client.GetPostingStatusesAsync(postingNumbers, ct))
-            : Task.FromResult<IReadOnlyList<ExternalPostingStatus>>([]);
+        CallAsync(credentials, () => scheme == ExternalPostingScheme.Fbs
+            ? client.GetPostingStatusesAsync(postingNumbers, ct)
+            : client.GetFboPostingStatusesAsync(postingNumbers, ct));
 
     public IAsyncEnumerable<IReadOnlyList<ExternalReturn>> FetchReturnsAsync(MarketplaceCredentials credentials,
         ExternalReturnQuery query, CancellationToken ct) =>

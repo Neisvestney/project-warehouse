@@ -94,8 +94,10 @@ public class MarketplaceReturn : IHasIdentity
     public MarketplaceReturnCompensationStatus? CompensationStatus { get; set; }
     public DateTime? CompensationStatusChangedAt { get; set; }
 
-    // diagnostics only
+    /// <summary>The return's own unit id (WB: srid of the trip back), which its accruals come under.</summary>
     public string? SourceExternalId { get; set; }
+
+    // diagnostics only
     public string? ExemplarId { get; set; }
 
     public DateTime SyncedAt { get; set; }

@@ -29,6 +29,12 @@ public class MarketplaceOrder
     /// </summary>
     public string? Rid { get; set; }
 
+    /// <summary>
+    /// Rebuilt by the history backfill from the finance report after the posting API stopped keeping it: the status
+    /// is inferred from the money and the price is the report's.
+    /// </summary>
+    public bool IsReconstructed { get; set; }
+
     public MarketplaceOrderStatus Status { get; set; }
 
     /// <summary>

@@ -1,7 +1,8 @@
-import {Typography} from "@mui/material";
+import {Stack, Typography} from "@mui/material";
 import OrdersListPage from "@/components/orders/OrdersListPage";
 import type {OrdersListExtraColumn} from "@/components/orders/OrdersListPage";
 import MarketplaceOrderStatusChip from "@/components/orders/marketplace/MarketplaceOrderStatusChip";
+import MarketplaceOrderReconstructedChip from "@/components/orders/marketplace/MarketplaceOrderReconstructedChip";
 import {formatPostingNumber} from "@/utils/postingNumberUtils";
 import type {OrderSortBy, OrderStatus} from "@/api/types.gen";
 
@@ -17,7 +18,12 @@ const EXTRA_COLUMNS: OrdersListExtraColumn[] = [
   {
     key: "marketplaceStatus",
     label: "Статус на площадке",
-    render: (order) => <MarketplaceOrderStatusChip value={order.marketplaceOrder} />,
+    render: (order) => (
+      <Stack direction="row" spacing={1} sx={{alignItems: "center"}}>
+        <MarketplaceOrderStatusChip value={order.marketplaceOrder} />
+        <MarketplaceOrderReconstructedChip value={!!order.marketplaceOrder?.isReconstructed} />
+      </Stack>
+    ),
   },
   {
     key: "postingNumber",

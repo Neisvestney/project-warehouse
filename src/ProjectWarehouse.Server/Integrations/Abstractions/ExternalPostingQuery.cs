@@ -7,10 +7,13 @@ namespace ProjectWarehouse.Server.Integrations.Abstractions;
 /// and expands <see cref="Statuses"/> into the marketplace's own vocabulary; null means every status.
 /// <see cref="StatusChangedSince"/> further narrows the period to postings whose status changed since then;
 /// only FBS can be asked that way, and an FBO query carrying it is rejected.
+/// <see cref="IncludeHistory"/> also lets the provider rebuild postings its posting API no longer keeps; that reads
+/// finance reports far past the period, so only the history backfill asks for it.
 /// </summary>
 public record ExternalPostingQuery(
     ExternalPostingScheme Scheme,
     DateTime Since,
     DateTime To,
     IReadOnlyList<MarketplaceOrderStatus>? Statuses = null,
-    DateTime? StatusChangedSince = null);
+    DateTime? StatusChangedSince = null,
+    bool IncludeHistory = false);

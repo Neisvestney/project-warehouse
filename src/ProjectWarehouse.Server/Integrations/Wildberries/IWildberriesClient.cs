@@ -24,6 +24,10 @@ public interface IWildberriesClient
     Task<IReadOnlyList<ExternalPostingStatus>> GetPostingStatusesAsync(IReadOnlyList<string> postingNumbers,
         CancellationToken ct);
 
+    /// <summary>FBW units by srid; one not changed within the status lookback is omitted.</summary>
+    Task<IReadOnlyList<ExternalPostingStatus>> GetFboPostingStatusesAsync(IReadOnlyList<string> postingNumbers,
+        CancellationToken ct);
+
     IAsyncEnumerable<IReadOnlyList<ExternalReturn>> GetReturnsAsync(ExternalReturnQuery query, CancellationToken ct);
 
     IAsyncEnumerable<IReadOnlyList<ExternalAccrual>> GetAccrualsAsync(DateOnly from, DateOnly to, CancellationToken ct);

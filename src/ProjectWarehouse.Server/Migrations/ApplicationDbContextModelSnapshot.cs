@@ -1132,6 +1132,9 @@ namespace ProjectWarehouse.Server.Migrations
                     b.Property<DateTime?>("InProcessAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("IsReconstructed")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("LabelBarcode")
                         .HasColumnType("text");
 
@@ -1385,6 +1388,8 @@ namespace ProjectWarehouse.Server.Migrations
                         .IsUnique();
 
                     b.HasIndex("MarketplaceAccountId", "PostingNumber");
+
+                    b.HasIndex("MarketplaceAccountId", "SourceExternalId");
 
                     b.ToTable("MarketplaceReturns");
                 });

@@ -195,6 +195,21 @@ public class MarketplaceOrderSyncService(
             .ToDictionaryAsync(o => o.PostingNumber, ct);
     }
 
+    /// <summary>Rids of the page's reconstructed postings some order of the account already holds.</summary>
+    private async Task<HashSet<string>> LoadClaimedRidsAsync(Guid accountId, IReadOnlyList<ExternalPosting> page,
+        CancellationToken ct)
+    {
+        var rids = page.Where(p => p.IsReconstructed).Select(p => p.Rid).OfType<string>().ToList();
+        if (rids.Count == 0)
+            return [];
+
+        return (await db.MarketplaceOrders
+                .Where(o => o.MarketplaceAccountId == accountId && o.Rid != null && rids.Contains(o.Rid))
+                .Select(o => o.Rid!)
+                .ToListAsync(ct))
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
     /// <summary>
     /// Postings carry <c>sku</c> and <c>offer_id</c> but never <c>product_id</c>, so cards are looked up
     /// by SKU first and by seller article second.
@@ -275,6 +290,7 @@ public class MarketplaceOrderSyncService(
                 PostingNumber = posting.PostingNumber,
                 ExternalOrderNumber = posting.ExternalOrderNumber,
                 Rid = posting.Rid,
+                IsReconstructed = posting.IsReconstructed,
                 Status = posting.Status,
                 RawStatus = posting.RawStatus,
                 RawSubstatus = posting.RawSubstatus,
@@ -919,7 +935,8 @@ public class MarketplaceOrderSyncService(
             : [ExternalPostingScheme.Fbs];
         foreach (var scheme in schemes)
             await ImportExternalPostingsAsync(provider, credentials, account, run,
-                new ExternalPostingQuery(scheme, since, to, ExternalStatuses), refreshKnown: false, ct);
+                new ExternalPostingQuery(scheme, since, to, ExternalStatuses, IncludeHistory: true), refreshKnown: false,
+                ct);
 
         await returnSync.SyncReturnsBackfillAsync(provider, credentials, account, run, since, to, ct);
         // last, so the postings its accruals belong to are already in
@@ -958,9 +975,14 @@ public class MarketplaceOrderSyncService(
                 var cards = await LoadCardsAsync(account.Id, page, ct);
                 var unstamped = new List<(Guid OrderId, string WarehouseExternalId)>();
                 var unridded = new List<(Guid OrderId, string Rid)>();
+                var claimedRids = await LoadClaimedRidsAsync(account.Id, page, ct);
 
                 foreach (var posting in page)
                 {
+                    // a rebuilt unit WMS already holds under another number, as an assembly task
+                    if (posting.IsReconstructed && claimedRids.Contains(posting.Rid!))
+                        continue;
+
                     if (known.TryGetValue(posting.PostingNumber, out var existing))
                     {
                         if (refreshKnown)

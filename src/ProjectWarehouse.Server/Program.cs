@@ -500,6 +500,7 @@ try
     AddWildberriesClient<IWildberriesMarketplaceClient, WildberriesMarketplaceClient>(WildberriesHosts.Marketplace);
     AddWildberriesClient<IWildberriesSellerAnalyticsClient, WildberriesSellerAnalyticsClient>(WildberriesHosts.SellerAnalytics);
     AddWildberriesClient<IWildberriesFinanceClient, WildberriesFinanceClient>(WildberriesHosts.Finance);
+    AddWildberriesClient<IWildberriesStatisticsClient, WildberriesStatisticsClient>(WildberriesHosts.Statistics);
 
     void AddWildberriesClient<TClient, TImplementation>(Uri baseAddress)
         where TClient : class where TImplementation : class, TClient
@@ -507,7 +508,9 @@ try
         // the report allows one call a minute, so any retry here would only spend the quota: the client
         // retries its pages itself, after the report pause
         var isReport = typeof(TClient) == typeof(IWildberriesFinanceClient);
-        var timeout = TimeSpan.FromSeconds(isReport ? wildberries.ReportTimeoutSeconds : wildberries.TimeoutSeconds);
+        // statistics pages run to tens of megabytes; its 429 is still retried, the burst refills a call a minute
+        var isLong = isReport || typeof(TClient) == typeof(IWildberriesStatisticsClient);
+        var timeout = TimeSpan.FromSeconds(isLong ? wildberries.ReportTimeoutSeconds : wildberries.TimeoutSeconds);
         builder.Services.AddHttpClient<TClient, TImplementation>(c =>
             {
                 c.BaseAddress = baseAddress;
