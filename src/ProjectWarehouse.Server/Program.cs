@@ -406,6 +406,7 @@ try
     builder.Services.AddScoped<IMarketplaceProvider, OzonMarketplaceProvider>();
     builder.Services.AddSingleton<IWildberriesCredentialsProvider, WildberriesRequestCredentials>();
     builder.Services.AddTransient<WildberriesAuthHandler>();
+    builder.Services.AddTransient<WildberriesRequestLineHandler>();
     builder.Services.AddScoped<IWildberriesClient, WildberriesClient>();
     builder.Services.AddScoped<IMarketplaceProvider, WildberriesMarketplaceProvider>();
     builder.Services.AddScoped<IMarketplaceProviderRegistry, MarketplaceProviderRegistry>();
@@ -521,6 +522,7 @@ try
             {
                 AutomaticDecompression = System.Net.DecompressionMethods.All,
             })
+            .AddHttpMessageHandler<WildberriesRequestLineHandler>()
             .AddHttpMessageHandler<WildberriesAuthHandler>()
             .AddStandardResilienceHandler(r =>
             {

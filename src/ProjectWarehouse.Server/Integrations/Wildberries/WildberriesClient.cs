@@ -590,10 +590,19 @@ public class WildberriesClient(
         var rows = new List<Report>();
         for (var offset = 0L; ; offset += ReturnsPageSize)
         {
-            var page = await analytics.GetV1GoodsReturnAsync(
-                new DateTimeOffset(from.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
-                new DateTimeOffset(today.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
-                null, ReturnsPageSize, offset, ct);
+            GoodsReturn200Response page;
+            try
+            {
+                page = await analytics.GetV1GoodsReturnAsync(
+                    new DateTimeOffset(from.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+                    new DateTimeOffset(today.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+                    null, ReturnsPageSize, offset, ct);
+            }
+            catch (WildberriesApiException ex) when (ex.StatusCode == StatusCodes.Status204NoContent)
+            {
+                // 204 is how the report says there are no more returns in the period
+                break;
+            }
             rows.AddRange(page.Report);
             if (page.Report.Count < ReturnsPageSize)
                 break;

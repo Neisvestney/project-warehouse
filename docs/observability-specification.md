@@ -280,6 +280,8 @@ EF Core не выпускает спан на транзакцию: инстру
 
 Не путать с полем `marketplaceResponse` в `MarketplaceSyncRun.Error`: там лежит **обрезанная** копия (`OzonMarketplaceProvider.BodyLimit`), и живёт она в Postgres ради текста ошибки в UI. Лимит относится только к ней; к логу — нет.
 
+Wildberries устроен так же: `WildberriesResponseLogging.LogFailedResponse` пишет тело в `WildberriesResponseBody`, а вызов — в `WildberriesRequest` (метод и путь, без query). Сгенерированный `WildberriesApiException` про запрос ничего не знает, поэтому `WildberriesRequestLineHandler` — внешний обработчик каждого WB-клиента — кладёт строку запроса в заголовок ответа `X-Wildberries-Request`, а исключение копирует его вместе с остальными заголовками.
+
 ### Приватность
 
 Архив телеметрии — чувствительные данные и хранится с теми же ограничениями, что и volume `datafiles_storage`.

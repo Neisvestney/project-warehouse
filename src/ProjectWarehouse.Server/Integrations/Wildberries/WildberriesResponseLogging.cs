@@ -10,7 +10,9 @@ public static class WildberriesResponseLogging
 {
     public static void LogFailedResponse(this ILogger logger, WildberriesApiException ex, LogLevel level) =>
         logger.Log(level,
-            "Wildberries call failed ({Reason}, HTTP {WildberriesStatus}); response body: {WildberriesResponseBody}",
+            "Wildberries call {WildberriesRequest} failed ({Reason}, HTTP {WildberriesStatus}); "
+            + "response body: {WildberriesResponseBody}",
+            WildberriesRequestLineHandler.Read(ex) ?? "(unknown)",
             ex.StatusCode is >= 200 and < 300 ? "deserialization" : "status",
             ex.StatusCode,
             ex.Response ?? "(empty)");

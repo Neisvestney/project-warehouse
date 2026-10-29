@@ -83,6 +83,7 @@ public class MarketplaceOrderSyncService(
                 var known = await LockAndLoadKnownAsync(account.Id, page, ct);
                 var cards = await LoadCardsAsync(account.Id, page, ct);
                 var relinkOrderIds = new List<Guid>();
+                var created = new List<ExternalPosting>();
 
                 foreach (var posting in page)
                 {
@@ -109,12 +110,14 @@ public class MarketplaceOrderSyncService(
                     var lines = ResolveLines(posting, account.Id, cards);
                     db.Orders.Add(BuildOrder(posting, account, ResolveWarehouse(posting, warehouses), lines,
                         isExternal: false));
+                    created.Add(posting);
                     run.OrdersCreated++;
                 }
 
                 // per page, so the sync modal's counters advance while the run is still going
                 await db.SaveChangesAsync(ct);
                 await supplySync.LinkPostingsAsync(account.Id, page, ct);
+                await WarnFboTwinsAsync(account.Id, created, ct);
 
                 // the accrual sync links them again to the rebuilt lines and their current catalog items
                 if (relinkOrderIds.Count > 0)
@@ -195,11 +198,18 @@ public class MarketplaceOrderSyncService(
             .ToDictionaryAsync(o => o.PostingNumber, ct);
     }
 
-    /// <summary>Rids of the page's reconstructed postings some order of the account already holds.</summary>
+    /// <summary>
+    /// A unit keyed by its rid alone — reconstructed, or an FBO one from WB statistics — may already be in WMS as
+    /// an assembly task under another number: WB reports some tasks as shipped from its own warehouse.
+    /// </summary>
+    private static bool KeyedByRid(ExternalPosting posting) =>
+        posting.IsReconstructed || posting.Scheme == ExternalPostingScheme.Fbo;
+
+    /// <summary>Rids of the page's postings keyed by rid that some order of the account already holds.</summary>
     private async Task<HashSet<string>> LoadClaimedRidsAsync(Guid accountId, IReadOnlyList<ExternalPosting> page,
         CancellationToken ct)
     {
-        var rids = page.Where(p => p.IsReconstructed).Select(p => p.Rid).OfType<string>().ToList();
+        var rids = page.Where(KeyedByRid).Select(p => p.Rid).OfType<string>().ToList();
         if (rids.Count == 0)
             return [];
 
@@ -208,6 +218,28 @@ public class MarketplaceOrderSyncService(
                 .Select(o => o.Rid!)
                 .ToListAsync(ct))
             .ToHashSet(StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// Flags FBS tasks created after WB statistics already brought the same unit in as FBO: the twin is not
+    /// merged, so the unit stays counted twice until someone removes it.
+    /// </summary>
+    private async Task WarnFboTwinsAsync(Guid accountId, IReadOnlyList<ExternalPosting> created,
+        CancellationToken ct)
+    {
+        var rids = created.Where(p => p.Scheme == ExternalPostingScheme.Fbs)
+            .Select(p => p.Rid).OfType<string>().ToList();
+        if (rids.Count == 0)
+            return;
+
+        var twins = await db.MarketplaceOrders
+            .Where(o => o.MarketplaceAccountId == accountId && o.Rid != null && rids.Contains(o.Rid)
+                        && o.Order!.Type == OrderType.FboPosting)
+            .Select(o => new { o.Rid, o.PostingNumber })
+            .ToListAsync(ct);
+        foreach (var twin in twins)
+            logger.LogWarning("FBS task with rid {Rid} of account {AccountId} duplicates FBO posting {PostingNumber}",
+                twin.Rid, accountId, twin.PostingNumber);
     }
 
     /// <summary>
@@ -976,13 +1008,10 @@ public class MarketplaceOrderSyncService(
                 var unstamped = new List<(Guid OrderId, string WarehouseExternalId)>();
                 var unridded = new List<(Guid OrderId, string Rid)>();
                 var claimedRids = await LoadClaimedRidsAsync(account.Id, page, ct);
+                var created = new List<ExternalPosting>();
 
                 foreach (var posting in page)
                 {
-                    // a rebuilt unit WMS already holds under another number, as an assembly task
-                    if (posting.IsReconstructed && claimedRids.Contains(posting.Rid!))
-                        continue;
-
                     if (known.TryGetValue(posting.PostingNumber, out var existing))
                     {
                         if (refreshKnown)
@@ -999,14 +1028,27 @@ public class MarketplaceOrderSyncService(
                         continue;
                     }
 
+                    // a unit WMS already holds under another number, as an assembly task
+                    if (KeyedByRid(posting) && posting.Rid is { } claimed && claimedRids.Contains(claimed))
+                    {
+                        // reconstructed units hit this routinely; a statistics one repeats every run while WB keeps it
+                        if (!posting.IsReconstructed)
+                            logger.LogDebug(
+                                "FBO unit {Rid} of account {AccountId} is already held by another order, skipped",
+                                claimed, account.Id);
+                        continue;
+                    }
+
                     var lines = ResolveLines(posting, account.Id, cards);
                     db.Orders.Add(BuildOrder(posting, account, ResolveWarehouse(posting, warehouses), lines,
                         isExternal: true));
+                    created.Add(posting);
                     run.OrdersCreated++;
                 }
 
                 await db.SaveChangesAsync(ct);
                 await supplySync.LinkPostingsAsync(account.Id, page, ct);
+                await WarnFboTwinsAsync(account.Id, created, ct);
 
                 await StampWarehousesAsync(account.Id, unstamped, warehouses, ct);
                 foreach (var (orderId, rid) in unridded)
